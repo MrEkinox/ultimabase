@@ -67,14 +67,12 @@ const defineRewriterPlugin = (pluginId: string, withPrivilege = true) =>
 					],
 				}
 			: {}),
-		capabilities: {
-			provides: [
-				providePersistencePlanRewriter({
-					contributionId: 'soft-delete',
-					create: () => ({ value: definition }),
-				}),
-			],
-		},
+		capabilities: [
+			providePersistencePlanRewriter({
+				contributionId: 'soft-delete',
+				create: () => ({ value: definition }),
+			}),
+		],
 	})
 
 describe('persistence plan rewriter capability', () => {
@@ -115,14 +113,12 @@ describe('persistence plan rewriter capability', () => {
 			privileges: [
 				{ name: 'persistence:rewrite', reason: 'Exercises exact facades.' },
 			],
-			capabilities: {
-				provides: [
-					provideCapability(persistencePlanRewriterCapability, {
-						contributionId: 'generic',
-						create: () => ({ value: definition }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(persistencePlanRewriterCapability, {
+					contributionId: 'generic',
+					create: () => ({ value: definition }),
+				}),
+			],
 		})
 
 		const facadeFailure = captureFrameworkError(
@@ -195,14 +191,12 @@ describe('persistence plan rewriter capability', () => {
 			privileges: [
 				{ name: 'persistence:rewrite', reason: 'Exercises exact targeting.' },
 			],
-			capabilities: {
-				provides: [
-					providePersistencePlanRewriter({
-						contributionId: 'targeted-delete',
-						create: () => ({ value: collectionDefinition }),
-					}),
-				],
-			},
+			capabilities: [
+				providePersistencePlanRewriter({
+					contributionId: 'targeted-delete',
+					create: () => ({ value: collectionDefinition }),
+				}),
+			],
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
@@ -255,14 +249,12 @@ describe('persistence plan rewriter capability', () => {
 			privileges: [
 				{ name: 'persistence:rewrite', reason: 'Exercises diagnostics.' },
 			],
-			capabilities: {
-				provides: [
-					providePersistencePlanRewriter({
-						contributionId: 'cross-schema',
-						create: () => ({ value: malformed }),
-					}),
-				],
-			},
+			capabilities: [
+				providePersistencePlanRewriter({
+					contributionId: 'cross-schema',
+					create: () => ({ value: malformed }),
+				}),
+			],
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },

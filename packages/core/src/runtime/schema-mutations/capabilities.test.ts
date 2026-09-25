@@ -55,14 +55,12 @@ describe('schema mutation handler capability', () => {
 
 	it('requires the protected facade and persistence privilege', () => {
 		const withoutPrivilege = definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationHandler({
-						contributionId: 'archive',
-						create: () => ({ value: handler }),
-					}),
-				],
-			},
+			capabilities: [
+				provideSchemaMutationHandler({
+					contributionId: 'archive',
+					create: () => ({ value: handler }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-no-privilege',
 			version: '1.0.0',
@@ -76,14 +74,12 @@ describe('schema mutation handler capability', () => {
 		})
 
 		const generic = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(pluginSchemaMutationHandlerCapability, {
-						contributionId: 'generic',
-						create: () => ({ value: handler }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(pluginSchemaMutationHandlerCapability, {
+					contributionId: 'generic',
+					create: () => ({ value: handler }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-generic-provider',
 			privileges: [

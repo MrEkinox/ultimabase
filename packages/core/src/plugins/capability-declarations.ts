@@ -20,17 +20,9 @@ export interface PluginCapabilityDeclarations<
 	readonly optional: TOptional
 }
 
-/** @internal Temporary milestone-33 input retained only while packages migrate. */
-interface GroupedPluginCapabilityDeclarationOptions {
-	readonly provides?: readonly CapabilityProviderDeclaration[]
-	readonly requires?: readonly CapabilityRequirement<CapabilityToken, false>[]
-	readonly optional?: readonly CapabilityRequirement<CapabilityToken, true>[]
-}
-
 /** Accepts one flat ordered list; each nominal declaration carries its own role. */
 export type PluginCapabilityDeclarationOptions =
-	| readonly PluginCapabilityDeclaration[]
-	| GroupedPluginCapabilityDeclarationOptions
+	readonly PluginCapabilityDeclaration[]
 
 type FilterCapabilityDeclarations<
 	TDeclarations extends readonly PluginCapabilityDeclaration[],
@@ -52,14 +44,7 @@ type NormalizedRequirements<TOptions> =
 				TOptions,
 				CapabilityRequirement<CapabilityToken, false>
 			>
-		: TOptions extends GroupedPluginCapabilityDeclarationOptions
-			? TOptions['requires'] extends readonly CapabilityRequirement<
-					CapabilityToken,
-					false
-				>[]
-				? readonly [...TOptions['requires']]
-				: readonly []
-			: readonly []
+		: readonly []
 
 type NormalizedOptionalRequirements<TOptions> =
 	TOptions extends readonly PluginCapabilityDeclaration[]
@@ -67,23 +52,12 @@ type NormalizedOptionalRequirements<TOptions> =
 				TOptions,
 				CapabilityRequirement<CapabilityToken, true>
 			>
-		: TOptions extends GroupedPluginCapabilityDeclarationOptions
-			? TOptions['optional'] extends readonly CapabilityRequirement<
-					CapabilityToken,
-					true
-				>[]
-				? readonly [...TOptions['optional']]
-				: readonly []
-			: readonly []
+		: readonly []
 
 type NormalizedProviders<TOptions> =
 	TOptions extends readonly PluginCapabilityDeclaration[]
 		? FilterCapabilityDeclarations<TOptions, CapabilityProviderDeclaration>
-		: TOptions extends GroupedPluginCapabilityDeclarationOptions
-			? TOptions['provides'] extends readonly CapabilityProviderDeclaration[]
-				? readonly [...TOptions['provides']]
-				: readonly []
-			: readonly []
+		: readonly []
 
 /** Maps omitted declaration groups to exact immutable empty tuples. */
 export type NormalizedPluginCapabilityDeclarations<TOptions> =

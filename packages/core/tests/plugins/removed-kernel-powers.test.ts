@@ -13,7 +13,7 @@ describe('removed kernel powers', () => {
 					core: '^0.0.0',
 					capabilities: { [group]: [] } as never,
 				}),
-			).toThrow(`capabilities contains unknown option: ${group}`)
+			).toThrow('capabilities must be an array')
 		},
 	)
 	it.each([

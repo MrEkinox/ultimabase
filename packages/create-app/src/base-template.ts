@@ -36,10 +36,7 @@ const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
 ]
 
 const applicationSchemaImport = (plan: InitializerPlan): string => {
-	const names = [
-		...applicationSchemaNames(plan),
-		...(includes(plan, 'password-auth-plugin') ? ['AppUser'] : []),
-	]
+	const names = applicationSchemaNames(plan)
 	return names.length === 0
 		? ''
 		: `import { ${names.join(', ')} } from './schema.js'\n`

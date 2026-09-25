@@ -28,26 +28,24 @@ const createFixture = () => {
 		privileges: [
 			{ name: 'transport:expose', reason: 'Exposes the conformance route.' },
 		],
-		capabilities: {
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'conformance-route',
-					create: () =>
-						httpRoute({
-							method: 'GET',
-							path: '/conformance',
-							protocol: { name: 'fixture.conformance', version: '1' },
-							handle: () => new Response('conformant'),
-						}),
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'conformance-route',
+				create: () =>
+					httpRoute({
+						method: 'GET',
+						path: '/conformance',
+						protocol: { name: 'fixture.conformance', version: '1' },
+						handle: () => new Response('conformant'),
+					}),
+			}),
+		],
 	})
 	const server = definePlugin({
 		pluginId: 'fixture.http-conformance-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => ({
 			http: capabilities.get(applicationRequirement),
 		}),

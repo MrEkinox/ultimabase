@@ -133,7 +133,7 @@ describe('adapter capabilities', () => {
 	it('uses a dedicated missing-capability diagnostic before initialization', () => {
 		const requirement = requireCapability(adapterConstraintCapability, '^1.0.0')
 		const consumer = definePlugin({
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			core: '^0.0.0',
 			pluginId: 'fixture.adapter-consumer',
 			privileges: [
@@ -157,20 +157,18 @@ describe('adapter capabilities', () => {
 	it('requires adapter consumption authority and the exact provider factory', () => {
 		const requirement = requireCapability(adapterConstraintCapability, '^1.0.0')
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideAdapterCapability(adapterConstraintCapability, {
-						contributionId: 'constraints',
-						value: constraintSupport,
-					}),
-				],
-			},
+			capabilities: [
+				provideAdapterCapability(adapterConstraintCapability, {
+					contributionId: 'constraints',
+					value: constraintSupport,
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.adapter-provider',
 			version: '1.0.0',
 		})
 		const unauthorized = definePlugin({
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			core: '^0.0.0',
 			pluginId: 'fixture.adapter-unauthorized',
 			version: '1.0.0',
@@ -186,14 +184,12 @@ describe('adapter capabilities', () => {
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
 
 		const forgedProvider = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(adapterConstraintCapability, {
-						contributionId: 'forged',
-						value: constraintSupport,
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(adapterConstraintCapability, {
+					contributionId: 'forged',
+					value: constraintSupport,
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.adapter-forged',
 			version: '1.0.0',
@@ -226,7 +222,7 @@ describe('adapter capabilities', () => {
 			protocolVersion: 3,
 		})
 		const unauthorizedProvider = definePlugin({
-			capabilities: { provides: [contribution] },
+			capabilities: [contribution],
 			core: '^0.0.0',
 			pluginId: 'fixture.database-bridge-unauthorized',
 			version: '2.0.0',
@@ -240,7 +236,7 @@ describe('adapter capabilities', () => {
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_CONFLICT' }))
 		const provider = definePlugin({
-			capabilities: { provides: [contribution] },
+			capabilities: [contribution],
 			core: '^0.0.0',
 			instanceId: 'primary',
 			pluginId: 'fixture.database-bridge',
@@ -253,7 +249,7 @@ describe('adapter capabilities', () => {
 			version: '2.0.0',
 		})
 		const consumer = definePlugin({
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			core: '^0.0.0',
 			pluginId: 'fixture.database-adapter',
 			privileges: [
@@ -303,15 +299,13 @@ describe('adapter capabilities', () => {
 			version: '2.0.0',
 		})
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideAdapterContribution(versionOne, {
-						contributionId: 'column',
-						payload: { column: 'state' },
-						protocolVersion: 1,
-					}),
-				],
-			},
+			capabilities: [
+				provideAdapterContribution(versionOne, {
+					contributionId: 'column',
+					payload: { column: 'state' },
+					protocolVersion: 1,
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.database-physical-v1',
 			privileges: [
@@ -320,9 +314,7 @@ describe('adapter capabilities', () => {
 			version: '1.0.0',
 		})
 		const consumer = definePlugin({
-			capabilities: {
-				requires: [requireCapability(versionTwo, '^2.0.0')],
-			},
+			capabilities: [requireCapability(versionTwo, '^2.0.0')],
 			core: '^0.0.0',
 			pluginId: 'fixture.database-physical-v2-consumer',
 			privileges: [

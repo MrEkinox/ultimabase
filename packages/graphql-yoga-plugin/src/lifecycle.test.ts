@@ -76,7 +76,7 @@ describe('GraphQL Yoga plugin graph', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.graphql-http-endpoint-consumer',
 			version: '1.0.0',
-			capabilities: { requires: [endpointRequirement] },
+			capabilities: [endpointRequirement],
 			setup: ({ capabilities }) => capabilities.get(endpointRequirement),
 		})
 		const application = new UltimaBase({
@@ -108,19 +108,17 @@ describe('GraphQL Yoga plugin graph', () => {
 			privileges: [
 				{ name: 'transport:expose', reason: 'Creates a collision fixture.' },
 			],
-			capabilities: {
-				provides: [
-					provideHttpEndpoints({
-						contributionId: 'collision',
-						create: () =>
-							httpMount({
-								handle: () => new Response('collision'),
-								path: '/graphql',
-								protocol: { name: 'fixture.collision', version: '1' },
-							}),
-					}),
-				],
-			},
+			capabilities: [
+				provideHttpEndpoints({
+					contributionId: 'collision',
+					create: () =>
+						httpMount({
+							handle: () => new Response('collision'),
+							path: '/graphql',
+							protocol: { name: 'fixture.collision', version: '1' },
+						}),
+				}),
+			],
 		})
 		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },

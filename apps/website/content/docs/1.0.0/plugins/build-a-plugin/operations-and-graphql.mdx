@@ -301,14 +301,12 @@ const health = new GraphQLSchema({
 
 export const workflowGraphqlAddon = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideGraphqlSchemas({
-					contributionId: 'workflow-health',
-					create: () => health,
-				}),
-			],
-		},
+		capabilities: [
+			provideGraphqlSchemas({
+				contributionId: 'workflow-health',
+				create: () => health,
+			}),
+		],
 		core: '^1.0.0',
 		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
 		pluginId: 'community.workflow-graphql',
@@ -331,13 +329,14 @@ resolver.
 
 Use `defineSchemaMutation()` when the command acts on one persisted schema
 item and should participate in Core's locked-target, policy, hook, and
-transaction semantics. The owner declares the token through
-`operations.declare()`, attaches it through
-`models.extend({ schemaMutations: { ... } })`, and supplies a
-`provideSchemaMutationHandler()` resolver. Optional GraphQL exposure uses
-`schemaMutationWireCodec()` and `provideSchemaMutationTransportBinding()` for
-the separate canonical `ultimabase.graphql@1.0.0` protocol. It is not an
-application operation and does not enter `graphqlPlugin({ operations })`.
+transaction semantics. The owner adds one `contributeSchemaMutation()` entry
+to the plugin's `operations` list; Core derives the token declaration and
+handler provider. `models.extend({ schemaMutations: { ... } })` selects the
+schema and model surfaces. Optional GraphQL exposure adds a
+`schemaMutationWireCodec()` binding to that same contribution, or uses
+`contributeSchemaMutationBinding()` under the same owner. It uses the separate
+canonical `ultimabase.graphql@1.0.0` protocol, is not an application operation,
+and does not enter `graphqlPlugin({ operations })`.
 
 GraphQL derives the root field from the installed schema and command. The
 owner may describe only the optional payload's closed input types, not choose
@@ -376,21 +375,19 @@ import { httpRoute, provideHttpEndpoints } from '@ultimabase/http-plugin'
 
 export const statusRoutePlugin = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'status-route',
-					create: () => [
-						httpRoute({
-							method: 'GET',
-							path: '/status',
-							protocol: { name: 'community.status', version: '1' },
-							handle: () => Response.json({ ready: true }),
-						}),
-					],
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'status-route',
+				create: () => [
+					httpRoute({
+						method: 'GET',
+						path: '/status',
+						protocol: { name: 'community.status', version: '1' },
+						handle: () => Response.json({ ready: true }),
+					}),
+				],
+			}),
+		],
 		core: '^1.0.0',
 		pluginId: 'community.status-route',
 		privileges: [

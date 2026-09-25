@@ -5,15 +5,13 @@ import {
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	provideCapability,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	stringField,
@@ -105,103 +103,74 @@ const createMutationPlugin = (
 	} = {},
 ) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'archive-handler',
-					create: () => ({
-						value: schemaMutationHandler({
+		operations: [
+			contributeSchemaMutation({
+				bindings: [
+					schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode,
 							mutation: archiveMutation,
-							resolve: ({ context, input }) => {
-								trace.push(`handler:${context.access.mode}:${input.reason}`)
-								if (input.reason === 'conflict') {
-									throw new PluginError(
-										'fixture.graphql-schema-mutation.conflict',
-										'private workflow conflict',
-										{ publicMessage: 'The workflow state conflicted.' },
-									)
-								}
-								return { data: { workflowState: 'archived' } }
-							},
+							transport: compatibleGraphqlProtocol,
 						}),
+						metadata: options.metadata ?? archiveMetadata,
+						mutation: archiveMutation,
 					}),
-				}),
-				provideSchemaMutationHandler({
-					contributionId: 'seal-handler',
-					create: () => ({
-						value: schemaMutationHandler({
-							mutation: sealMutation,
-							resolve: () => ({ data: { workflowState: 'archived' } }),
-						}),
-					}),
-				}),
-				provideSchemaMutationHandler({
-					contributionId: 'purge-handler',
-					create: () => ({
-						value: schemaMutationHandler({
-							mutation: purgeMutation,
-							resolve: () => undefined,
-						}),
-					}),
-				}),
-				provideSchemaMutationTransportBinding({
-					contributionId: 'archive-graphql-binding',
-					create: () => ({
-						value: schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode,
-								mutation: archiveMutation,
-								transport: compatibleGraphqlProtocol,
-							}),
-							metadata: options.metadata ?? archiveMetadata,
-							mutation: archiveMutation,
-						}),
-					}),
-				}),
-				provideSchemaMutationTransportBinding({
-					contributionId: 'seal-graphql-binding',
-					create: () => ({
-						value: schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode: (value: unknown) => {
-									unitInput.snapshot(value, 'seal.wire-input')
-									return undefined
-								},
-								mutation: sealMutation,
-								transport: compatibleGraphqlProtocol,
-							}),
-							metadata: {
-								kind: 'graphql-schema-mutation-binding',
-								types: [],
+				],
+				mutation: archiveMutation,
+				resolve: ({ context, input }) => {
+					trace.push(`handler:${context.access.mode}:${input.reason}`)
+					if (input.reason === 'conflict') {
+						throw new PluginError(
+							'fixture.graphql-schema-mutation.conflict',
+							'private workflow conflict',
+							{ publicMessage: 'The workflow state conflicted.' },
+						)
+					}
+					return { data: { workflowState: 'archived' } }
+				},
+			}),
+			contributeSchemaMutation({
+				bindings: [
+					schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode: (value: unknown) => {
+								unitInput.snapshot(value, 'seal.wire-input')
+								return undefined
 							},
 							mutation: sealMutation,
+							transport: compatibleGraphqlProtocol,
 						}),
+						metadata: {
+							kind: 'graphql-schema-mutation-binding',
+							types: [],
+						},
+						mutation: sealMutation,
 					}),
-				}),
-				provideSchemaMutationTransportBinding({
-					contributionId: 'purge-graphql-binding',
-					create: () => ({
-						value: schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode: (value: unknown) => value,
-								mutation: purgeMutation,
-								transport: compatibleGraphqlProtocol,
-							}),
-							metadata: {
-								kind: 'graphql-schema-mutation-binding',
-								types: [],
-							},
+				],
+				mutation: sealMutation,
+				resolve: () => ({ data: { workflowState: 'archived' } }),
+			}),
+			contributeSchemaMutation({
+				bindings: [
+					schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode: (value: unknown) => value,
 							mutation: purgeMutation,
+							transport: compatibleGraphqlProtocol,
 						}),
+						metadata: {
+							kind: 'graphql-schema-mutation-binding',
+							types: [],
+						},
+						mutation: purgeMutation,
 					}),
-				}),
-			],
-		},
+				],
+				mutation: purgeMutation,
+				resolve: () => undefined,
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
-			operations.declare(archiveMutation)
-			operations.declare(sealMutation)
-			operations.declare(purgeMutation)
+		declare: ({ models, schemas }) => {
 			schemas.patch({
 				operations: [
 					addSchemaField({
@@ -243,14 +212,12 @@ const createMutationPlugin = (
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.graphql-schema-mutation-database',
 		version: '1.0.0',

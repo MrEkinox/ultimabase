@@ -218,19 +218,17 @@ export const postCreatedConsumer = definePlugin({
 			reason: 'Deliver post.created after commit.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideHookEvent(
-				'post-created',
-				onEvent<typeof postCreated.name, { postId: string }>({
-					name: postCreated.name,
-					handler: ({ event }) => {
-						committedPostIds.push(event.payload.postId)
-					},
-				}),
-			),
-		],
-	},
+	capabilities: [
+		provideHookEvent(
+			'post-created',
+			onEvent<typeof postCreated.name, { postId: string }>({
+				name: postCreated.name,
+				handler: ({ event }) => {
+					committedPostIds.push(event.payload.postId)
+				},
+			}),
+		),
+	],
 })
 ```
 
@@ -297,21 +295,19 @@ export const postRulesPlugin = definePlugin({
 			reason: 'Reject deletion of published posts.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideHookContributions('published-post-rule', () =>
-				schemaHooks(Post, {
-					beforeOperation: {
-						delete: ({ originalItem }) => {
-							if (originalItem.published) {
-								throw new Error('Published posts cannot be deleted')
-							}
-						},
+	capabilities: [
+		provideHookContributions('published-post-rule', () =>
+			schemaHooks(Post, {
+				beforeOperation: {
+					delete: ({ originalItem }) => {
+						if (originalItem.published) {
+							throw new Error('Published posts cannot be deleted')
+						}
 					},
-				}),
-			),
-		],
-	},
+				},
+			}),
+		),
+	],
 })
 ```
 

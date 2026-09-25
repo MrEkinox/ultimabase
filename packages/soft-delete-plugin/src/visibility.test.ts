@@ -44,14 +44,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.soft-delete-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const documentSchema = (

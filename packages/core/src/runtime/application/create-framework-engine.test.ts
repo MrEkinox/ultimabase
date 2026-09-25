@@ -70,27 +70,25 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises ordered Runtime pipeline handlers.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.dependency-before',
-						beforeOperation({
-							handler: () => {
-								trace.push('before:dependency')
-							},
-						}),
-					),
-					provideTestRuntimeInterceptor(
-						'fixture.dependency-after',
-						afterOperation({
-							handler: ({ result }) => {
-								trace.push('after:dependency')
-								return { result }
-							},
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.dependency-before',
+					beforeOperation({
+						handler: () => {
+							trace.push('before:dependency')
+						},
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.dependency-after',
+					afterOperation({
+						handler: ({ result }) => {
+							trace.push('after:dependency')
+							return { result }
+						},
+					}),
+				),
+			],
 		})
 		const consumer = definePlugin({
 			version: '0.0.0',
@@ -105,27 +103,25 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises ordered Runtime pipeline handlers.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.consumer-before',
-						beforeOperation({
-							handler: () => {
-								trace.push('before:consumer')
-							},
-						}),
-					),
-					provideTestRuntimeInterceptor(
-						'fixture.consumer-after',
-						afterOperation({
-							handler: ({ result }) => {
-								trace.push('after:consumer')
-								return { result }
-							},
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.consumer-before',
+					beforeOperation({
+						handler: () => {
+							trace.push('before:consumer')
+						},
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.consumer-after',
+					afterOperation({
+						handler: ({ result }) => {
+							trace.push('after:consumer')
+							return { result }
+						},
+					}),
+				),
+			],
 		})
 		const automation = definePlugin({
 			version: '0.0.0',
@@ -137,30 +133,28 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises low-level before-operation hooks.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.trim-title',
-						beforeOperation({
-							schema: articleSchema,
-							operations: ['create-one'],
-							handler: () => {
-								trace.push('hook:before')
-							},
-						}),
-					),
-					provideRuntimeBehavior({
-						contributionId: 'fixture.created-event',
-						create: () => ({
-							value: {
-								postCommit: () => {
-									trace.push('event:post-commit')
-								},
-							},
-						}),
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.trim-title',
+					beforeOperation({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('hook:before')
+						},
 					}),
-				],
-			},
+				),
+				provideRuntimeBehavior({
+					contributionId: 'fixture.created-event',
+					create: () => ({
+						value: {
+							postCommit: () => {
+								trace.push('event:post-commit')
+							},
+						},
+					}),
+				}),
+			],
 		})
 		const enforcement = definePlugin({
 			version: '0.0.0',
@@ -172,34 +166,32 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises monotonic Runtime enforcement.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'fixture.create-guard',
-						guard({
-							schema: articleSchema,
-							operations: ['create-one'],
-							handler: () => {
-								trace.push('enforcement:guard')
-							},
-						}),
-					),
-					provideTestRuntimeConstraint(
-						'fixture.tenant-constraint',
-						constraint({
-							schema: articleSchema,
-							operations: ['create-one'],
-							handler: () => {
-								trace.push('enforcement:constraint')
+			capabilities: [
+				provideTestRuntimeConstraint(
+					'fixture.create-guard',
+					guard({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('enforcement:guard')
+						},
+					}),
+				),
+				provideTestRuntimeConstraint(
+					'fixture.tenant-constraint',
+					constraint({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('enforcement:constraint')
 
-								return databaseConstraint('fixture.tenant', 1, {
-									tenantId: 'tenant-1',
-								})
-							},
-						}),
-					),
-				],
-			},
+							return databaseConstraint('fixture.tenant', 1, {
+								tenantId: 'tenant-1',
+							})
+						},
+					}),
+				),
+			],
 		})
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -308,29 +300,27 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises read constraints and selection narrowing.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'fixture.read-constraint',
-						constraint({
-							handler: () =>
-								databaseConstraint('fixture.read-tenant', 1, {
-									tenantId: 'tenant-1',
-								}),
-							operations: ['find-many'],
-							schema,
-						}),
-					),
-					provideTestRuntimeConstraint(
-						'fixture.read-selection',
-						restrictSelection({
-							handler: () => ['title'],
-							operations: ['find-many'],
-							schema,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeConstraint(
+					'fixture.read-constraint',
+					constraint({
+						handler: () =>
+							databaseConstraint('fixture.read-tenant', 1, {
+								tenantId: 'tenant-1',
+							}),
+						operations: ['find-many'],
+						schema,
+					}),
+				),
+				provideTestRuntimeConstraint(
+					'fixture.read-selection',
+					restrictSelection({
+						handler: () => ['title'],
+						operations: ['find-many'],
+						schema,
+					}),
+				),
+			],
 		})
 		const application = await createApplication({
 			plugins: [policy, databasePlugin(adapter)],
@@ -415,23 +405,21 @@ describe('createFrameworkEngine', () => {
 							]
 						: []),
 				],
-				capabilities: {
-					provides: [
-						provideTestRuntimeInterceptor(
-							'nested-master-query',
-							beforeOperation({
-								handler: async () => {
-									await articleSchema.count(
-										{},
-										requestElevation ? { useMasterKey: true } : undefined,
-									)
-								},
-								operations: ['find-many'],
-								schema: articleSchema,
-							}),
-						),
-					],
-				},
+				capabilities: [
+					provideTestRuntimeInterceptor(
+						'nested-master-query',
+						beforeOperation({
+							handler: async () => {
+								await articleSchema.count(
+									{},
+									requestElevation ? { useMasterKey: true } : undefined,
+								)
+							},
+							operations: ['find-many'],
+							schema: articleSchema,
+						}),
+					),
+				],
 			})
 		const deniedAudits: unknown[] = []
 		const deniedAdapter = new RecordingDatabaseAdapter([], [])
@@ -572,9 +560,7 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-adapter',
-			capabilities: {
-				provides: [provideTestDatabaseAdapter({} as never)],
-			},
+			capabilities: [provideTestDatabaseAdapter({} as never)],
 		})
 		const invalidAdapterApplication = await createApplication({
 			schemas: [articleSchema],
@@ -599,13 +585,11 @@ describe('createFrameworkEngine', () => {
 					reason: 'Exercises forged Runtime pipeline rejection.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor('fixture.forged-stage', {
-						stage: 'unknown',
-					} as never),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor('fixture.forged-stage', {
+					stage: 'unknown',
+				} as never),
+			],
 		})
 
 		await expect(

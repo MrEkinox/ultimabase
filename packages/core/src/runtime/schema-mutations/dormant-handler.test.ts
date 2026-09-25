@@ -25,19 +25,17 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 		version: '1.0.0',
 	})
 	const dormantOwner = definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'dormant-handler',
-					create: () => ({
-						value: schemaMutationHandler({
-							mutation: dormantMutation,
-							resolve: () => ({ data: {} }),
-						}),
+		capabilities: [
+			provideSchemaMutationHandler({
+				contributionId: 'dormant-handler',
+				create: () => ({
+					value: schemaMutationHandler({
+						mutation: dormantMutation,
+						resolve: () => ({ data: {} }),
 					}),
 				}),
-			],
-		},
+			}),
+		],
 		core: '^0.0.0',
 		declare: ({ operations }) => {
 			operations.declare(dormantMutation)
@@ -50,11 +48,9 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 		version: '1.0.0',
 	})
 	const database = definePlugin({
-		capabilities: {
-			provides: [
-				provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-			],
-		},
+		capabilities: [
+			provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.schema-mutation-dormant-database',
 		version: '1.0.0',

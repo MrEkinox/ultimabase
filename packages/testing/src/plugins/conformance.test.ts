@@ -3,18 +3,16 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
+	contributeOperation,
+	contributeSchemaMutation,
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	defineTypegenReference,
-	operationHandler,
 	provideCapability,
-	provideOperationHandler,
-	provideSchemaMutationHandler,
 	Schema,
-	schemaMutationHandler,
 	stringField,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -90,7 +88,7 @@ describe('plugin conformance suite', () => {
 		})
 		const fixturePlugin = (instanceId: string) =>
 			definePlugin({
-				capabilities: { provides: [provider] },
+				capabilities: [provider],
 				core: '^0.0.0',
 				environment: ['environment:network'],
 				hooks: {
@@ -177,29 +175,18 @@ describe('plugin conformance suite', () => {
 			className: 'ConformanceSurfacePost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const operations = [inspect] as const
 		const plugin = definePlugin({
-			capabilities: {
-				provides: operations.map((operation) =>
-					provideOperationHandler({
-						contributionId: operation.name,
-						create: () => ({
-							value: operationHandler({
-								execute: ({ input }) => input,
-								operation,
-							}),
-						}),
-					}),
-				),
-			},
 			core: '^0.0.0',
-			declare: ({ operations: operationDeclarations, typegenReferences }) => {
-				for (const operation of operations) {
-					operationDeclarations.declare(operation)
-				}
+			declare: ({ typegenReferences }) => {
 				typegenReferences.register(publicState)
 			},
 			instanceId: 'main',
+			operations: [
+				contributeOperation({
+					execute: ({ input }) => input,
+					operation: inspect,
+				}),
+			],
 			pluginId: 'fixture.snapshot-surfaces',
 			privileges: [
 				{ name: 'operation:declare', reason: 'Declares public operations.' },
@@ -239,22 +226,9 @@ describe('plugin conformance suite', () => {
 			select: { title: true },
 			version: '1.0.0',
 		})
-		const handler = schemaMutationHandler({
-			mutation: archive,
-			resolve: () => ({ data: { workflowState: 'archived' } }),
-		})
 		const plugin = definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationHandler({
-						contributionId: 'archive-handler',
-						create: () => ({ value: handler }),
-					}),
-				],
-			},
 			core: '^0.0.0',
-			declare: ({ models, operations, schemas }) => {
-				operations.declare(archive)
+			declare: ({ models, schemas }) => {
 				schemas.patch({
 					operations: [
 						addSchemaField({
@@ -275,6 +249,12 @@ describe('plugin conformance suite', () => {
 					},
 				)
 			},
+			operations: [
+				contributeSchemaMutation({
+					mutation: archive,
+					resolve: () => ({ data: { workflowState: 'archived' } }),
+				}),
+			],
 			pluginId: 'fixture.conformance-schema-mutation',
 			privileges: [
 				{ name: 'model:extend', reason: 'Adds a neutral mutation surface.' },
@@ -372,14 +352,12 @@ describe('plugin conformance suite', () => {
 			})
 			latestAdapter = adapter
 			const plugin = definePlugin({
-				capabilities: {
-					provides: [
-						provideCapability(databaseAdapterCapability, {
-							contributionId: 'relation-read-adapter',
-							create: () => ({ value: adapter }),
-						}),
-					],
-				},
+				capabilities: [
+					provideCapability(databaseAdapterCapability, {
+						contributionId: 'relation-read-adapter',
+						create: () => ({ value: adapter }),
+					}),
+				],
 				core: '^0.0.0',
 				pluginId: 'fixture.conformance-relation-read',
 				version: '0.0.0',

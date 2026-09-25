@@ -184,21 +184,19 @@ describe('PluginGraph', () => {
 			pluginId: 'fixture.peer-engine',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [extensions] },
+			capabilities: [extensions],
 		})
 		const extension = definePlugin({
 			pluginId: 'fixture.peer-extension',
 			version: '1.0.0',
 			core: '^0.0.0',
 			peers: [{ pluginId: 'fixture.peer-engine', version: '^1.0.0' }],
-			capabilities: {
-				provides: [
-					provideCapability(extensionToken, {
-						contributionId: 'extension',
-						create: () => ({ value: 'extension' }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(extensionToken, {
+					contributionId: 'extension',
+					create: () => ({ value: 'extension' }),
+				}),
+			],
 		})
 
 		expect(
@@ -216,7 +214,7 @@ describe('PluginGraph', () => {
 			instanceId: 'primary',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [extensions] },
+			capabilities: [extensions],
 		})
 		const error = expectFrameworkError(
 			captureFrameworkError(

@@ -70,14 +70,12 @@ const createNestedBehaviorPlugin = (value: RuntimeBehaviorStages) =>
 				reason: 'Verifies nested request inheritance and pointer binding.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideRuntimeBehavior({
-					contributionId: 'nested-runtime-observation',
-					create: () => ({ value }),
-				}),
-			],
-		},
+		capabilities: [
+			provideRuntimeBehavior({
+				contributionId: 'nested-runtime-observation',
+				create: () => ({ value }),
+			}),
+		],
 	})
 
 describe('Runtime nested create and connect execution', () => {

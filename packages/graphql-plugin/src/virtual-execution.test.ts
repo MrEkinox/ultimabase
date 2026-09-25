@@ -116,14 +116,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.graphql-virtual-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const createFixture = async () => {

@@ -142,14 +142,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.composition.database',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const NativeDocument = Schema.define({
@@ -214,20 +212,18 @@ const createRoleProvider = (allowed: boolean) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'community.composition.roles',
-		capabilities: {
-			provides: [
-				provideCapability(requestRoleResolverCapability, {
-					contributionId: 'role-resolver',
-					create: () => ({
-						value: {
-							hasRole: ({ role }) => allowed && role.value === editor.value,
-							resolveCurrentRoles: () => (allowed ? [editor] : []),
-							resolvePersistentRole: ({ role }) => role,
-						},
-					}),
+		capabilities: [
+			provideCapability(requestRoleResolverCapability, {
+				contributionId: 'role-resolver',
+				create: () => ({
+					value: {
+						hasRole: ({ role }) => allowed && role.value === editor.value,
+						resolveCurrentRoles: () => (allowed ? [editor] : []),
+						resolvePersistentRole: ({ role }) => role,
+					},
 				}),
-			],
-		},
+			}),
+		],
 	})
 
 const communityPolicy = definePlugin({
@@ -241,18 +237,15 @@ const communityPolicy = definePlugin({
 			reason: 'Contributes one monotonic community Access policy.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideAccessContributions('community-scope', () =>
-				schemaAccess(CombinedPost, {
-					read: {
-						where: ({ where }) =>
-							where.eq('communityScope', 'community-allowed'),
-					},
-				}),
-			),
-		],
-	},
+	capabilities: [
+		provideAccessContributions('community-scope', () =>
+			schemaAccess(CombinedPost, {
+				read: {
+					where: ({ where }) => where.eq('communityScope', 'community-allowed'),
+				},
+			}),
+		),
+	],
 })
 
 const combinedRow = {

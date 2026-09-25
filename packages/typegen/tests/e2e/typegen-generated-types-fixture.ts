@@ -226,8 +226,7 @@ const packedHookPlugin = definePlugin({
     name: 'runtime:intercept',
     reason: 'Contributes the packed Hook type fixture.',
   }],
-  capabilities: {
-    provides: [Hooks.provideHookContributions('document-update', () =>
+  capabilities: [Hooks.provideHookContributions('document-update', () =>
       Hooks.${pluginHookRegistryMarker}schemaHooks(
       PackedGeneratedDocument,
       {
@@ -238,7 +237,6 @@ const packedHookPlugin = definePlugin({
         },
       },
     ))],
-  },
 })
 
 // @ts-expect-error -- The intentionally incomplete object drives option completion.

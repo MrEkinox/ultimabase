@@ -53,21 +53,19 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-composition.identity',
-	capabilities: {
-		provides: [
-			provideTestPrincipalResolver({
-				resolveCurrent: ({ context }) => {
-					const id = context.getValue(principalId)
+	capabilities: [
+		provideTestPrincipalResolver({
+			resolveCurrent: ({ context }) => {
+				const id = context.getValue(principalId)
 
-					if (id === undefined) return undefined
+				if (id === undefined) return undefined
 
-					return context.getValue(principalSchema) === 'b'
-						? PrincipalB.pointer(id)
-						: PrincipalA.pointer(id)
-				},
-			}),
-		],
-	},
+				return context.getValue(principalSchema) === 'b'
+					? PrincipalB.pointer(id)
+					: PrincipalA.pointer(id)
+			},
+		}),
+	],
 })
 
 const emptyACL = new ACL()

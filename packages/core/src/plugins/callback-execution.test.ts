@@ -21,17 +21,15 @@ describe('application callback execution attribution', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.callback-host',
 			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(callbackExecutorCapability, {
-						contributionId: 'capture-executor',
-						create: (context) => {
-							callbacks = context.callbacks
-							return { value: true as const }
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(callbackExecutorCapability, {
+					contributionId: 'capture-executor',
+					create: (context) => {
+						callbacks = context.callbacks
+						return { value: true as const }
+					},
+				}),
+			],
 		})
 		const worker = definePlugin({
 			core: '^0.0.0',
@@ -82,17 +80,15 @@ describe('application callback execution attribution', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.callback-owner-validation',
 			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(callbackExecutorCapability, {
-						contributionId: 'capture-executor',
-						create: (context) => {
-							callbacks = context.callbacks
-							return { value: true as const }
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(callbackExecutorCapability, {
+					contributionId: 'capture-executor',
+					create: (context) => {
+						callbacks = context.callbacks
+						return { value: true as const }
+					},
+				}),
+			],
 		})
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },

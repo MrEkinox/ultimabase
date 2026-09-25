@@ -44,14 +44,12 @@ export const databasePlugin = (): PluginDefinition =>
 		core: '^0.0.0',
 		pluginId: 'fixture.explorer-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: new ExplorerFixtureDatabase() }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: new ExplorerFixtureDatabase() }),
+			}),
+		],
 	})
 
 export const graphqlHttpProvider = (): PluginDefinition =>
@@ -59,14 +57,12 @@ export const graphqlHttpProvider = (): PluginDefinition =>
 		core: '^0.0.0',
 		pluginId: 'fixture.graphql-http-provider',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(graphqlHttpEndpointCapability, {
-					contributionId: 'endpoint',
-					create: () => ({ value: { path: '/custom-graphql' } }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(graphqlHttpEndpointCapability, {
+				contributionId: 'endpoint',
+				create: () => ({ value: { path: '/custom-graphql' } }),
+			}),
+		],
 	})
 
 const applicationRequirement = requireCapability(
@@ -80,7 +76,7 @@ export const httpConsumer = () =>
 		core: '^0.0.0',
 		pluginId: 'fixture.explorer-http-consumer',
 		version: '1.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => ({
 			http: capabilities.get(applicationRequirement),
 		}),

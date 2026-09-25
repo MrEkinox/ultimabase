@@ -41,22 +41,20 @@ export const createRestMutationExecutionHarnessPlugin = (
 				reason: 'Verifies the REST mutation PostgreSQL Master fixture.',
 			},
 		],
-		capabilities: {
-			requires: [restMutationRequestExecutionRequirement],
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'capture',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.executor = capabilities.get(
-							restMutationRequestExecutionRequirement,
-						)
-						harness.owner = owner
-						return { value: { ready: true } }
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(harnessCapability, {
+				contributionId: 'capture',
+				create: ({ callbacks, capabilities, owner }) => {
+					harness.callbacks = callbacks
+					harness.executor = capabilities.get(
+						restMutationRequestExecutionRequirement,
+					)
+					harness.owner = owner
+					return { value: { ready: true } }
+				},
+			}),
+			restMutationRequestExecutionRequirement,
+		],
 	})
 
 const readHarness = (harness: RestMutationExecutionHarness) => {

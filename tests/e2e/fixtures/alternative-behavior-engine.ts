@@ -259,11 +259,12 @@ export const createAlternativeBehaviorEngine = (
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
-		capabilities: {
-			optional: [optionalDiagnostics],
-			provides: [stateProvider, behaviorProvider],
-			requires: [runtimeState],
-		},
+		capabilities: [
+			stateProvider,
+			behaviorProvider,
+			runtimeState,
+			optionalDiagnostics,
+		],
 		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'alternative-behavior-option',
@@ -312,15 +313,13 @@ export const createAlternativeBehaviorDiagnosticObserver = (
 		version: '1.0.0',
 	}).plugin({
 		peers: [{ pluginId: alternativeBehaviorPluginId, version: '^1.0.0' }],
-		capabilities: {
-			provides: [
-				providePluginEvent(
-					alternativeBehaviorDiagnosticCapability,
-					'committed-diagnostics',
-					observePluginEvent(alternativeBehaviorDiagnosticEvent, handler),
-				),
-			],
-		},
+		capabilities: [
+			providePluginEvent(
+				alternativeBehaviorDiagnosticCapability,
+				'committed-diagnostics',
+				observePluginEvent(alternativeBehaviorDiagnosticEvent, handler),
+			),
+		],
 		privileges: [
 			{
 				name: 'runtime:observe',
@@ -338,22 +337,20 @@ export const createSharedRuntimeMiddleware = (
 		pluginId: 'fixture.shared-runtime-middleware',
 		version: '1.0.0',
 	}).plugin({
-		capabilities: {
-			provides: [
-				provideRuntimeBehavior({
-					contributionId: 'result-observer',
-					create: () => ({
-						value: {
-							transformResult: (input) => {
-								const identity = readOperationIdentity(input.operation)
-								onResult(identity.schema)
-								return input.result
-							},
+		capabilities: [
+			provideRuntimeBehavior({
+				contributionId: 'result-observer',
+				create: () => ({
+					value: {
+						transformResult: (input) => {
+							const identity = readOperationIdentity(input.operation)
+							onResult(identity.schema)
+							return input.result
 						},
-					}),
+					},
 				}),
-			],
-		},
+			}),
+		],
 		privileges: [
 			{
 				name: 'runtime:intercept',

@@ -213,10 +213,7 @@ export const createAlternativePolicyEngine = (
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
-		capabilities: {
-			provides: [stateProvider, policyProvider],
-			requires: [alternativePolicyEngine],
-		},
+		capabilities: [stateProvider, policyProvider, alternativePolicyEngine],
 		core: '^0.0.0',
 		declare: ({ schemas }) => {
 			schemas.defineOptions({

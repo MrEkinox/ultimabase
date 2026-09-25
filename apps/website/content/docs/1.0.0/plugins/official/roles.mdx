@@ -140,29 +140,27 @@ export const profilePolicy = definePlugin({
 			reason: 'Restricts reads to the intended subjects and schemas.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideAccessContributions('read-policy', ({ schemas }) =>
-				schemas.values().map((schema) =>
-					schema === PasswordUser
-						? schemaAccess(PasswordUser, {
-								read: {
-									where: ({ context, where }) => {
-										const principal = context.getValue(passwordPrincipal)
-										return where.in(
-											'id',
-											principal === undefined ? [] : [principal.user.id],
-										)
-									},
+	capabilities: [
+		provideAccessContributions('read-policy', ({ schemas }) =>
+			schemas.values().map((schema) =>
+				schema === PasswordUser
+					? schemaAccess(PasswordUser, {
+							read: {
+								where: ({ context, where }) => {
+									const principal = context.getValue(passwordPrincipal)
+									return where.in(
+										'id',
+										principal === undefined ? [] : [principal.user.id],
+									)
 								},
-							})
-						: schemaAccess(schema, {
-								read: schema === AppRole || schema === Post,
-							}),
-				),
+							},
+						})
+					: schemaAccess(schema, {
+							read: schema === AppRole || schema === Post,
+						}),
 			),
-		],
-	},
+		),
+	],
 })
 ```
 

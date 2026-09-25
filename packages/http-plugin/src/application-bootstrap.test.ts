@@ -42,27 +42,25 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 							reason: 'Expose fixture bootstrap and ordinary routes.',
 						},
 					],
-					capabilities: {
-						requires: [requirement],
-						provides: [
-							provideHttpEndpoints({
-								contributionId: 'routes',
-								create: () => [
-									httpBrowserBootstrapRoute({
-										path: '/graphiql',
-										protocol: { name: 'fixture.explorer', version: '1' },
-										handle: handler,
-									}),
-									httpRoute({
-										path: '/ordinary',
-										method: 'GET',
-										protocol: { name: 'fixture.ordinary', version: '1' },
-										handle: handler,
-									}),
-								],
-							}),
-						],
-					},
+					capabilities: [
+						provideHttpEndpoints({
+							contributionId: 'routes',
+							create: () => [
+								httpBrowserBootstrapRoute({
+									path: '/graphiql',
+									protocol: { name: 'fixture.explorer', version: '1' },
+									handle: handler,
+								}),
+								httpRoute({
+									path: '/ordinary',
+									method: 'GET',
+									protocol: { name: 'fixture.ordinary', version: '1' },
+									handle: handler,
+								}),
+							],
+						}),
+						requirement,
+					],
 					setup: ({ capabilities }) => {
 						http = capabilities.get(requirement)
 					},

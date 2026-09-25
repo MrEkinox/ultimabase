@@ -2,13 +2,12 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
+	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	provideCapability,
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { expect, it, vi } from 'vitest'
@@ -67,25 +66,17 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 		...(inlineHooks === undefined ? {} : { hooks: inlineHooks as never }),
 	})
 	const owner = definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'purge-handler',
-					create: () => ({
-						value: schemaMutationHandler({
-							mutation: purge,
-							resolve: (): undefined => {
-								trace.push('handler')
-								return undefined
-							},
-						}),
-					}),
-				}),
-			],
-		},
+		operations: [
+			contributeSchemaMutation({
+				mutation: purge,
+				resolve: (): undefined => {
+					trace.push('handler')
+					return undefined
+				},
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ models, operations }) => {
-			operations.declare(purge)
+		declare: ({ models }) => {
 			models.extend(Document, {
 				contributionId: 'purge-surface',
 				schemaMutations: {
@@ -103,14 +94,12 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 	})
 	const adapter = new SchemaMutationHookAdapter(trace)
 	const database = definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.schema-mutation-purge-database',
 		version: '1.0.0',

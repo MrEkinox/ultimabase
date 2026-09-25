@@ -52,7 +52,7 @@ const createTestRuntimeContributions = (
 			)
 		},
 	)
-	return { provides }
+	return provides
 }
 
 const articleSchema = Schema.define({

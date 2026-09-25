@@ -67,7 +67,7 @@ export const assertPluginOperationProtocolEntry = (
 			!isAuthorizedPluginOperationProvider(declaration)
 		) {
 			options.reject(
-				'Plugin operation handlers must use provideOperationHandler.',
+				'Plugin operation handlers must be declared with contributeOperation().',
 				{
 					kind: 'plugin-operation-provider-factory',
 					plugin: formatPluginIdentity(provider.owner),
@@ -80,7 +80,7 @@ export const assertPluginOperationProtocolEntry = (
 			!isAuthorizedPluginSchemaMutationProvider(declaration)
 		) {
 			options.reject(
-				'Schema mutation handlers must use provideSchemaMutationHandler.',
+				'Schema mutation handlers must be declared with contributeSchemaMutation().',
 				{
 					kind: 'schema-mutation-provider-factory',
 					plugin: formatPluginIdentity(provider.owner),
@@ -93,7 +93,7 @@ export const assertPluginOperationProtocolEntry = (
 			!isAuthorizedSchemaMutationTransportBindingProvider(declaration)
 		) {
 			options.reject(
-				'Schema mutation transport bindings must use provideSchemaMutationTransportBinding.',
+				'Schema mutation transport bindings must be declared through a schema mutation contribution.',
 				{
 					kind: 'schema-mutation-transport-provider-factory',
 					plugin: formatPluginIdentity(provider.owner),
@@ -106,7 +106,7 @@ export const assertPluginOperationProtocolEntry = (
 			!isAuthorizedOperationTransportBindingProvider(declaration)
 		) {
 			options.reject(
-				'Operation transport bindings must use provideOperationTransportBinding.',
+				'Operation transport bindings must be declared through an operation contribution.',
 				{
 					kind: 'operation-transport-provider-factory',
 					plugin: formatPluginIdentity(provider.owner),

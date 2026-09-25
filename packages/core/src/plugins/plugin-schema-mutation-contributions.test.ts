@@ -63,19 +63,22 @@ describe('plugin schema-mutation contributions', () => {
 			kind: 'plugin-schema-mutation-contribution',
 			mutation: archive,
 		})
-		expect(plugin.manifest.capabilities.provides).toEqual([
-			expect.objectContaining({
+		expect(
+			plugin.manifest.capabilities.provides.map(
+				({ contributionId, token }) => ({
+					capabilityId: token.capabilityId,
+					contributionId,
+				}),
+			),
+		).toStrictEqual([
+			{
+				capabilityId: 'ultimabase.plugin-schema-mutation-handlers',
 				contributionId: `schema-mutation:${archive.name}`,
-				token: expect.objectContaining({
-					capabilityId: 'ultimabase.plugin-schema-mutation-handlers',
-				}),
-			}),
-			expect.objectContaining({
+			},
+			{
+				capabilityId: 'ultimabase.schema-mutation-transport-bindings',
 				contributionId: `schema-mutation:${archive.name}:transport:${transport.name}`,
-				token: expect.objectContaining({
-					capabilityId: 'ultimabase.schema-mutation-transport-bindings',
-				}),
-			}),
+			},
 		])
 	})
 

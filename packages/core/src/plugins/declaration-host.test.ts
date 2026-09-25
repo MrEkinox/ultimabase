@@ -76,7 +76,7 @@ describe('PluginDeclarationHost', () => {
 				pluginId: 'fixture.conditional-declarer',
 				version: '1.0.0',
 				core: '^0.0.0',
-				capabilities: { optional: [conditionalRequirement] },
+				capabilities: [conditionalRequirement],
 				privileges: [
 					{
 						name: 'schema:declare',
@@ -92,14 +92,12 @@ describe('PluginDeclarationHost', () => {
 			pluginId: 'fixture.static-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(declarationCapability, {
-						contributionId: 'fixture',
-						value: { label: 'available' },
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'available' },
+				}),
+			],
 		})
 
 		const withoutProvider = applicationFixture(
@@ -137,29 +135,26 @@ describe('PluginDeclarationHost', () => {
 		let observed: { readonly label: string } | undefined
 		let optionalObserved: { readonly missing: true } | undefined
 		let captured:
-			| PluginDeclarationCapabilityReader<{
-					requires: readonly [typeof required]
-					optional: readonly [typeof absent]
-			  }>
+			| PluginDeclarationCapabilityReader<
+					readonly [typeof required, typeof absent]
+			  >
 			| undefined
 		const provider = definePlugin({
 			pluginId: 'fixture.reader-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(declarationCapability, {
-						contributionId: 'fixture',
-						value: { label: 'composed' },
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'composed' },
+				}),
+			],
 		})
 		const consumer = definePlugin({
 			pluginId: 'fixture.reader-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { requires: [required], optional: [absent] },
+			capabilities: [required, absent],
 			declare: ({ capabilities }) => {
 				captured = capabilities
 				observed = capabilities.get(required)
@@ -205,7 +200,7 @@ describe('PluginDeclarationHost', () => {
 			pluginId: 'fixture.application-reader',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [applicationRequirement] },
+			capabilities: [applicationRequirement],
 			declare: ({ capabilities }) => {
 				readThroughRuntimeBoundary(capabilities, applicationRequirement)
 			},

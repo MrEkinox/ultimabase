@@ -105,31 +105,29 @@ const createDeadlineRoutePlugin = () =>
 				reason: 'Exposes the REST mutation deadline fixture.',
 			},
 		],
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'rest-mutation-deadline',
-					create: ({ capabilities }) => {
-						const executor = capabilities.get(requestExecutionRequirement)
-						return httpRoute({
-							handle: async (request) => {
-								await executeRestMutationRequest(
-									executor,
-									getCurrentRequest(),
-									MutationPost,
-									{ operation: 'create', request },
-								)
-								return Response.json({ created: true })
-							},
-							method: 'POST',
-							path: '/mutation-deadline',
-							protocol: { name: 'ultimabase.rest', version: '1' },
-						})
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'rest-mutation-deadline',
+				create: ({ capabilities }) => {
+					const executor = capabilities.get(requestExecutionRequirement)
+					return httpRoute({
+						handle: async (request) => {
+							await executeRestMutationRequest(
+								executor,
+								getCurrentRequest(),
+								MutationPost,
+								{ operation: 'create', request },
+							)
+							return Response.json({ created: true })
+						},
+						method: 'POST',
+						path: '/mutation-deadline',
+						protocol: { name: 'ultimabase.rest', version: '1' },
+					})
+				},
+			}),
+			requestExecutionRequirement,
+		],
 	})
 
 const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
@@ -137,7 +135,7 @@ const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-mutation-http-capture',
 		version: '1.0.0',
-		capabilities: { requires: [httpApplicationRequirement] },
+		capabilities: [httpApplicationRequirement],
 		setup: ({ capabilities }) => {
 			capture.current = capabilities.get(httpApplicationRequirement)
 		},

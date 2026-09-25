@@ -44,9 +44,7 @@ const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.relation-filter-database',
 		version: '0.0.0',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation filters', () => {
@@ -308,29 +306,27 @@ describe('Runtime relation filters', () => {
 					reason: 'Proves monotonic relation-filter ordering.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'ordered-relation-policy',
-						protectedPolicy({
-							evaluate: () => {
-								trace.push('target-policy')
-								return {
-									rowFilter: normalizeWhereInput(Target, {
-										visibility: { ne: 'policy-hidden' },
-									}),
-								}
-							},
-							operations: ['find-many'],
-							relation: () => {
-								trace.push('source-relation-policy')
-								return true
-							},
-							schema: Target,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeConstraint(
+					'ordered-relation-policy',
+					protectedPolicy({
+						evaluate: () => {
+							trace.push('target-policy')
+							return {
+								rowFilter: normalizeWhereInput(Target, {
+									visibility: { ne: 'policy-hidden' },
+								}),
+							}
+						},
+						operations: ['find-many'],
+						relation: () => {
+							trace.push('source-relation-policy')
+							return true
+						},
+						schema: Target,
+					}),
+				),
+			],
 		})
 		const application = await createApplication({
 			plugins: [policy, databasePlugin(adapter)],

@@ -104,6 +104,25 @@ test('rejects values and provider phases that do not match the token', () => {
 	})
 })
 
+test('exposes only the flat capability authoring shape', () => {
+	const token = defineCapability<string>()({
+		capabilityId: 'fixture.flat-only',
+		version: '1.0.0',
+		cardinality: 'single',
+		lifetime: 'declaration',
+		compose: ([provider]) => provider,
+	})
+	const provider = provideCapability(token, { value: 'ready' })
+
+	definePlugin({
+		// @ts-expect-error -- Provider, required, and optional groups are inspection output only.
+		capabilities: { provides: [provider] },
+		core: '^0.0.0',
+		pluginId: 'fixture.grouped-capabilities',
+		version: '1.0.0',
+	})
+})
+
 test('rejects declaration values that are not recursively JSON-compatible', () => {
 	interface DeclarationFacts {
 		readonly endpoint: string

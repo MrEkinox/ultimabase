@@ -53,25 +53,23 @@ const createDatabasePlugin = (
 				reason: 'Exercises low-level request context observation.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideTestDatabaseAdapter(adapter),
-				...(options.onContext === undefined
-					? []
-					: [
-							provideTestRuntimeInterceptor(
-								'fixture.ultimabase-context',
-								beforeOperation({
-									schema: articleSchema,
-									operations: ['find-many'],
-									handler: ({ context }) => {
-										options.onContext?.(context)
-									},
-								}),
-							),
-						]),
-			],
-		},
+		capabilities: [
+			provideTestDatabaseAdapter(adapter),
+			...(options.onContext === undefined
+				? []
+				: [
+						provideTestRuntimeInterceptor(
+							'fixture.ultimabase-context',
+							beforeOperation({
+								schema: articleSchema,
+								operations: ['find-many'],
+								handler: ({ context }) => {
+									options.onContext?.(context)
+								},
+							}),
+						),
+					]),
+		],
 		setup: () => {
 			options.trace?.push('setup')
 		},

@@ -28,23 +28,21 @@ describe('application capability resources', () => {
 			pluginId: 'fixture.application-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'primary',
-						create: ({ schemas }) => {
-							events.push(`create:${String(schemas.size)}`)
-							void schemas.schemaTargets
-							return {
-								value: { endpoint: 'local' },
-								dispose: () => {
-									events.push('resource-dispose')
-								},
-							}
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'primary',
+					create: ({ schemas }) => {
+						events.push(`create:${String(schemas.size)}`)
+						void schemas.schemaTargets
+						return {
+							value: { endpoint: 'local' },
+							dispose: () => {
+								events.push('resource-dispose')
+							},
+						}
+					},
+				}),
+			],
 			setup: () => {
 				events.push('provider-setup')
 			},
@@ -58,7 +56,7 @@ describe('application capability resources', () => {
 			pluginId: 'fixture.application-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			setup: ({ capabilities }) => {
 				events.push(`consumer-setup:${capabilities.get(requirement).endpoint}`)
 			},
@@ -105,29 +103,27 @@ describe('application capability resources', () => {
 			pluginId: 'fixture.resource-winner',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'winner',
-						create: () => {
-							providerCreates += 1
-							const sequence = providerCreates
-							return {
-								value: { sequence },
-								dispose: () => {
-									providerDisposes += 1
-								},
-							}
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'winner',
+					create: () => {
+						providerCreates += 1
+						const sequence = providerCreates
+						return {
+							value: { sequence },
+							dispose: () => {
+								providerDisposes += 1
+							},
+						}
+					},
+				}),
+			],
 		})
 		const consumer = definePlugin({
 			pluginId: 'fixture.resource-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			setup: ({ capabilities }) => {
 				observed.push(capabilities.get(requirement).sequence)
 			},
@@ -166,19 +162,17 @@ describe('application capability resources', () => {
 			pluginId: 'fixture.partial-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'resource',
-						create: () => ({
-							value: 'ready',
-							dispose: () => {
-								disposeCalls += 1
-							},
-						}),
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'resource',
+					create: () => ({
+						value: 'ready',
+						dispose: () => {
+							disposeCalls += 1
+						},
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const failing = definePlugin({
 			pluginId: 'fixture.partial-failure',

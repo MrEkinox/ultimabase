@@ -241,37 +241,35 @@ export const externalRoleReferencePlugin = definePlugin({
 			reason: 'Observes committed role events for the E2E fixture.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideCapability(requestSubjectReferenceCleanupCapability, {
-				contributionId: 'external-role-reference-cleanup',
-				create: () => ({
-					value: {
-						cleanup: externalRoleReferenceCleanup,
-						name: 'fixture.external-role-reference-cleanup',
-					},
-				}),
+	capabilities: [
+		provideCapability(requestSubjectReferenceCleanupCapability, {
+			contributionId: 'external-role-reference-cleanup',
+			create: () => ({
+				value: {
+					cleanup: externalRoleReferenceCleanup,
+					name: 'fixture.external-role-reference-cleanup',
+				},
 			}),
-			provideRoleEventObserver(
-				'fixture.observe:deleted',
-				onRoleEvent(roleDeletedEvent, ({ event }) => {
-					committedRoleEvents.push(event.name)
-				}),
-			),
-			provideRoleEventObserver(
-				'fixture.observe:hierarchy',
-				onRoleEvent(roleHierarchyChangedEvent, ({ event }) => {
-					committedRoleEvents.push(event.name)
-				}),
-			),
-			provideRoleEventObserver(
-				'fixture.observe:membership',
-				onRoleEvent(roleMembershipChangedEvent, ({ event }) => {
-					committedRoleEvents.push(event.name)
-				}),
-			),
-		],
-	},
+		}),
+		provideRoleEventObserver(
+			'fixture.observe:deleted',
+			onRoleEvent(roleDeletedEvent, ({ event }) => {
+				committedRoleEvents.push(event.name)
+			}),
+		),
+		provideRoleEventObserver(
+			'fixture.observe:hierarchy',
+			onRoleEvent(roleHierarchyChangedEvent, ({ event }) => {
+				committedRoleEvents.push(event.name)
+			}),
+		),
+		provideRoleEventObserver(
+			'fixture.observe:membership',
+			onRoleEvent(roleMembershipChangedEvent, ({ event }) => {
+				committedRoleEvents.push(event.name)
+			}),
+		),
+	],
 })
 
 const roleResolverRequirement = requireCapability(
@@ -284,7 +282,7 @@ const roleResolverConsumerPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: roleResolverConsumerPluginName,
-	capabilities: { requires: [roleResolverRequirement] },
+	capabilities: [roleResolverRequirement],
 	setup: ({ capabilities }): RequestRoleResolver =>
 		capabilities.get(roleResolverRequirement),
 })
@@ -335,14 +333,12 @@ export const createProviderBoundaryApplication = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.community-role-provider-e2e',
-		capabilities: {
-			provides: [
-				provideCapability(requestRoleResolverCapability, {
-					contributionId: 'community-role-resolver',
-					create: () => ({ value: { hasRole: () => true } }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(requestRoleResolverCapability, {
+				contributionId: 'community-role-resolver',
+				create: () => ({ value: { hasRole: () => true } }),
+			}),
+		],
 	})
 
 	return new UltimaBase({

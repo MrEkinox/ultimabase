@@ -25,36 +25,34 @@ const applicationProvider = (
 		core: '^0.0.0',
 		pluginId,
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(httpApplicationCapability, {
-					contributionId: 'fixture-http-application',
-					create: () => ({
-						value: {
-							appId,
-							authority: { master: { enabled: false } },
-							protocolVersion: httpApplicationProtocolVersion,
-							originalHeaderMode: httpOriginalHeaderMode,
-							requestTimeoutMs: undefined,
-							routeGraph: {
-								browserBootstraps: [],
-								endpoints: [],
-								mounts: [],
-								routes: [],
-							},
-							fetch: ({ request }) =>
-								Promise.resolve(
-									new Response(`${appId}:${new URL(request.url).pathname}`),
-								),
-						} satisfies HttpApplication,
-					}),
+		capabilities: [
+			provideCapability(httpApplicationCapability, {
+				contributionId: 'fixture-http-application',
+				create: () => ({
+					value: {
+						appId,
+						authority: { master: { enabled: false } },
+						protocolVersion: httpApplicationProtocolVersion,
+						originalHeaderMode: httpOriginalHeaderMode,
+						requestTimeoutMs: undefined,
+						routeGraph: {
+							browserBootstraps: [],
+							endpoints: [],
+							mounts: [],
+							routes: [],
+						},
+						fetch: ({ request }) =>
+							Promise.resolve(
+								new Response(`${appId}:${new URL(request.url).pathname}`),
+							),
+					} satisfies HttpApplication,
 				}),
-				provideCapability(httpBrowserPolicyCapability, {
-					contributionId: 'fixture-http-browser-policy',
-					create: () => ({ value: { enabled: false as const } }),
-				}),
-			],
-		},
+			}),
+			provideCapability(httpBrowserPolicyCapability, {
+				contributionId: 'fixture-http-browser-policy',
+				create: () => ({ value: { enabled: false as const } }),
+			}),
+		],
 	})
 
 describe('honoServerPlugin', () => {

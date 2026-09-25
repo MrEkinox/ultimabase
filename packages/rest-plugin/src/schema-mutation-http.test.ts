@@ -5,16 +5,14 @@ import {
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	provideCapability,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
 	requireCapability,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	stringField,
@@ -79,70 +77,50 @@ const createMutationPlugin = (
 	},
 ) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'archive-handler',
-					create: () => ({
-						value: schemaMutationHandler({
+		operations: [
+			contributeSchemaMutation({
+				bindings: [
+					schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode,
 							mutation: archiveMutation,
-							resolve: ({ context, input }) => {
-								trace.push(`handler:${context.access.mode}:${input.reason}`)
-								if (input.reason === 'conflict') {
-									throw new PluginError(
-										'fixture.rest-schema-mutation.conflict',
-										'private workflow conflict',
-										{ publicMessage: 'The workflow state conflicted.' },
-									)
-								}
-								return { data: { workflowState: 'archived' } }
-							},
+							transport: compatibleRestProtocol,
 						}),
+						metadata,
+						mutation: archiveMutation,
 					}),
-				}),
-				provideSchemaMutationHandler({
-					contributionId: 'purge-handler',
-					create: () => ({
-						value: schemaMutationHandler({
+				],
+				mutation: archiveMutation,
+				resolve: ({ context, input }) => {
+					trace.push(`handler:${context.access.mode}:${input.reason}`)
+					if (input.reason === 'conflict') {
+						throw new PluginError(
+							'fixture.rest-schema-mutation.conflict',
+							'private workflow conflict',
+							{ publicMessage: 'The workflow state conflicted.' },
+						)
+					}
+					return { data: { workflowState: 'archived' } }
+				},
+			}),
+			contributeSchemaMutation({
+				bindings: [
+					schemaMutationTransportBinding({
+						codec: schemaMutationWireCodec({
+							decode: (value: unknown) => value,
 							mutation: masterMutation,
-							resolve: () => undefined,
+							transport: compatibleRestProtocol,
 						}),
+						metadata: { errors: {} },
+						mutation: masterMutation,
 					}),
-				}),
-				provideSchemaMutationTransportBinding({
-					contributionId: 'archive-rest-binding',
-					create: () => ({
-						value: schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode,
-								mutation: archiveMutation,
-								transport: compatibleRestProtocol,
-							}),
-							metadata,
-							mutation: archiveMutation,
-						}),
-					}),
-				}),
-				provideSchemaMutationTransportBinding({
-					contributionId: 'purge-rest-binding',
-					create: () => ({
-						value: schemaMutationTransportBinding({
-							codec: schemaMutationWireCodec({
-								decode: (value: unknown) => value,
-								mutation: masterMutation,
-								transport: compatibleRestProtocol,
-							}),
-							metadata: { errors: {} },
-							mutation: masterMutation,
-						}),
-					}),
-				}),
-			],
-		},
+				],
+				mutation: masterMutation,
+				resolve: () => undefined,
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ models, operations, schemas }) => {
-			operations.declare(archiveMutation)
-			operations.declare(masterMutation)
+		declare: ({ models, schemas }) => {
 			schemas.patch({
 				operations: [
 					addSchemaField({
@@ -180,14 +158,12 @@ const createMutationPlugin = (
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-schema-mutation-database',
 		version: '1.0.0',
@@ -198,7 +174,7 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 const capturePlugin = (capture: { current?: HttpApplication }) =>
 	definePlugin({
-		capabilities: { requires: [httpRequirement] },
+		capabilities: [httpRequirement],
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-schema-mutation-http-capture',
 		setup: ({ capabilities }) => {

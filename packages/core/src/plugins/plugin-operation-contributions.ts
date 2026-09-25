@@ -7,7 +7,6 @@ import {
 } from '@ultimabase/shared'
 
 import {
-	normalizeCapabilityDeclarations,
 	type ApplicationCapabilityFactoryContext,
 	type CapabilityProviderDeclaration,
 	type PluginCapabilityDeclaration,
@@ -382,20 +381,14 @@ export const compilePluginOperationContributions = (
 	})
 }
 
-/** @internal Flattens the temporary grouped bridge before adding derived providers. */
+/** @internal Appends Core-derived providers after explicit author declarations. */
 export const mergePluginOperationCapabilities = (
 	capabilities: PluginCapabilityDeclarationOptions | undefined,
 	derived: readonly OperationProtocolCapabilityProvider[],
 ): readonly PluginCapabilityDeclaration[] => {
 	if (capabilities === undefined) return immutableArray(derived)
-	if (isUnknownArray(capabilities)) {
-		return immutableArray([...capabilities, ...derived])
+	if (!isUnknownArray(capabilities)) {
+		throw new TypeError('capabilities must be an array')
 	}
-	const normalized = normalizeCapabilityDeclarations(capabilities)
-	return immutableArray([
-		...normalized.provides,
-		...normalized.requires,
-		...normalized.optional,
-		...derived,
-	])
+	return immutableArray([...capabilities, ...derived])
 }

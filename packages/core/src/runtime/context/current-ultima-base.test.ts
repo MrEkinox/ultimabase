@@ -19,11 +19,9 @@ const createApplication = () =>
 					pluginId: 'fixture.current-facade',
 					version: '1.0.0',
 					core: '^0.0.0',
-					capabilities: {
-						provides: [
-							provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-						],
-					},
+					capabilities: [
+						provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+					],
 				}),
 			],
 		}),

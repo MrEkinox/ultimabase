@@ -196,18 +196,16 @@ describe('application-owned plugin surfaces', () => {
 			] as const,
 			version: '1.0.0',
 
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'forged-interceptor',
-						beforeOperation({
-							handler: () => undefined,
-							operations: ['find-many'],
-							schema: LocalSchema,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'forged-interceptor',
+					beforeOperation({
+						handler: () => undefined,
+						operations: ['find-many'],
+						schema: LocalSchema,
+					}),
+				),
+			],
 		})
 
 		expect(

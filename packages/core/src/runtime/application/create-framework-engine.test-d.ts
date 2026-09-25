@@ -16,9 +16,7 @@ const databasePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.assembled-database',
-	capabilities: {
-		provides: [provideTestDatabaseAdapter(adapter)],
-	},
+	capabilities: [provideTestDatabaseAdapter(adapter)],
 })
 
 declare const application: FrameworkApplication<

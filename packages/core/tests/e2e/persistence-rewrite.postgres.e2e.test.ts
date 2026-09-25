@@ -76,44 +76,40 @@ describe(
 						reason: 'Observes preserved logical delete semantics.',
 					},
 				],
-				capabilities: {
-					provides: [
-						providePersistencePlanRewriter({
-							contributionId: 'soft-delete',
-							create: () => ({ value: rewriter }),
-						}),
-						provideRuntimeInterceptor({
-							contributionId: 'delete-before',
-							create: () => ({
-								value: beforeOperation({
-									operations: ['delete-one'],
-									schema: SoftDeletePost,
-									handler: ({ operation }) => {
-										trace.push(`before:${operation.kind}`)
-										if (failBatch && ++batchBeforeCount === 2) {
-											throw new Error('fixture batch failure')
-										}
-									},
-								}),
+				capabilities: [
+					providePersistencePlanRewriter({
+						contributionId: 'soft-delete',
+						create: () => ({ value: rewriter }),
+					}),
+					provideRuntimeInterceptor({
+						contributionId: 'delete-before',
+						create: () => ({
+							value: beforeOperation({
+								operations: ['delete-one'],
+								schema: SoftDeletePost,
+								handler: ({ operation }) => {
+									trace.push(`before:${operation.kind}`)
+									if (failBatch && ++batchBeforeCount === 2) {
+										throw new Error('fixture batch failure')
+									}
+								},
 							}),
 						}),
-						provideRuntimeInterceptor({
-							contributionId: 'delete-after',
-							create: () => ({
-								value: afterOperation({
-									operations: ['delete-one'],
-									schema: SoftDeletePost,
-									handler: ({ operation, result }) => {
-										trace.push(
-											`after:${operation.kind}:${String(result?.title)}`,
-										)
-										return { result }
-									},
-								}),
+					}),
+					provideRuntimeInterceptor({
+						contributionId: 'delete-after',
+						create: () => ({
+							value: afterOperation({
+								operations: ['delete-one'],
+								schema: SoftDeletePost,
+								handler: ({ operation, result }) => {
+									trace.push(`after:${operation.kind}:${String(result?.title)}`)
+									return { result }
+								},
 							}),
 						}),
-					],
-				},
+					}),
+				],
 			})
 			const ultimabase = new UltimaBase({
 				schemas: [SoftDeletePost],

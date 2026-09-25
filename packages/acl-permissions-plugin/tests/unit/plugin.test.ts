@@ -92,21 +92,17 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-principal-provider',
-			capabilities: {
-				provides: [
-					principalResolverProvider({
-						resolveCurrent,
-					}),
-				],
-			},
+			capabilities: [
+				principalResolverProvider({
+					resolveCurrent,
+				}),
+			],
 		})
 		const databaseProvider = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-read-database',
-			capabilities: {
-				provides: [databaseAdapterProvider(adapter)],
-			},
+			capabilities: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({
@@ -212,15 +208,13 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-static-role-provider',
-			capabilities: {
-				provides: [
-					roleResolverProvider({
-						hasRole: () => false,
-						resolveCurrentRoles: () => [],
-						resolvePersistentRole: ({ role }) => role,
-					}),
-				],
-			},
+			capabilities: [
+				roleResolverProvider({
+					hasRole: () => false,
+					resolveCurrentRoles: () => [],
+					resolvePersistentRole: ({ role }) => role,
+				}),
+			],
 		})
 		const resolved = await createApplication({
 			plugins: [aclPlugin(), roleProvider],
@@ -248,9 +242,7 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-dynamic-role-database',
-			capabilities: {
-				provides: [databaseAdapterProvider(adapter)],
-			},
+			capabilities: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [aclPlugin(), databaseProvider],
@@ -421,9 +413,7 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-limit-write-database',
-			capabilities: {
-				provides: [databaseAdapterProvider(adapter)],
-			},
+			capabilities: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [aclPlugin({ limits: { maxPrincipals: 1 } }), databaseProvider],

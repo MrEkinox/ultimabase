@@ -1,5 +1,7 @@
 # Current plan: simplify Core-native plugin authoring
 
+- Status: completed on 2026-09-25
+
 The user authorized the complete milestone on 2026-09-25. Creating a plugin
 through `@ultimabase/core` must be the shortest canonical path. Plugin Kit may
 retain optional domain helpers, but it must not be required to hide Core
@@ -16,3 +18,9 @@ Each issue receives focused runtime and type tests, a complete diff audit, one
 dedicated local commit, and a documentation-impact classification. Temporary
 bridges may exist only between consecutive milestone commits and must be gone
 before the final audit. Do not push without a separate request.
+
+Milestone 33 is complete. Core now owns the foundational factory, flat
+capability list, operation and schema-mutation contributions, derived operation
+and Typegen registrations, and compact public plugin type. Plugin Kit retains
+only optional higher-level authoring patterns. The final parity measurements and
+validation evidence are recorded in issue 3306.

@@ -64,14 +64,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.access.database',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const SecretDocument = Schema.define({
@@ -365,18 +363,16 @@ describe('accessPlugin', () => {
 					reason: 'Contributes a deny-only official Access policy.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideAccessContributions('monotonic-read-policies', () => [
-						schemaAccess(CountOnlyDocument, {
-							read: { allow: { count: false } },
-						}),
-						schemaAccess(PlainDocument, {
-							read: { allow: { many: true } },
-						}),
-					]),
-				],
-			},
+			capabilities: [
+				provideAccessContributions('monotonic-read-policies', () => [
+					schemaAccess(CountOnlyDocument, {
+						read: { allow: { count: false } },
+					}),
+					schemaAccess(PlainDocument, {
+						read: { allow: { many: true } },
+					}),
+				]),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [
@@ -413,18 +409,16 @@ describe('accessPlugin', () => {
 					reason: 'Observes official Access callback diagnostics.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideCapability(accessDiagnosticsObserverCapability, {
-						contributionId: 'access-diagnostics',
-						create: () => ({
-							value: (event) => {
-								events.push(`${event.status}:${event.identity.phase}`)
-							},
-						}),
+			capabilities: [
+				provideCapability(accessDiagnosticsObserverCapability, {
+					contributionId: 'access-diagnostics',
+					create: () => ({
+						value: (event) => {
+							events.push(`${event.status}:${event.identity.phase}`)
+						},
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [

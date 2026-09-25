@@ -131,7 +131,7 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		version: '1.0.0',
 	})
 	const database = definePlugin({
-		capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 		core: '^0.0.0',
 		pluginId: 'fixture.plugin-operation-database',
 		version: '1.0.0',
@@ -264,19 +264,17 @@ describe('plugin operation Runtime', () => {
 			version: '1.0.0',
 		})
 		const database = definePlugin({
-			capabilities: {
-				provides: [
-					provideTestDatabaseAdapter(adapter),
-					provideAdapterRawCapability(rawCapability, {
-						contributionId: 'raw-adapter',
-						create: () => ({
-							transaction: (transaction) => ({
-								kind: () => transaction.kind,
-							}),
+			capabilities: [
+				provideTestDatabaseAdapter(adapter),
+				provideAdapterRawCapability(rawCapability, {
+					contributionId: 'raw-adapter',
+					create: () => ({
+						transaction: (transaction) => ({
+							kind: () => transaction.kind,
 						}),
 					}),
-				],
-			},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.operation-raw-database',
 			version: '1.0.0',

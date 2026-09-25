@@ -30,9 +30,7 @@ describe('public application Runtime assembly', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.public-assembled-database',
-			capabilities: {
-				provides: [provideTestDatabaseAdapter(adapter)],
-			},
+			capabilities: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			schemas: [publicArticleSchema],

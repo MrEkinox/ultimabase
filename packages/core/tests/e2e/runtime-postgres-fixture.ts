@@ -24,7 +24,7 @@ export const databaseAdapterConsumerPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.runtime-postgres.adapter-consumer',
-	capabilities: { requires: [databaseAdapterRequirement] },
+	capabilities: [databaseAdapterRequirement],
 	setup: ({ capabilities }): DatabaseAdapter =>
 		capabilities.get(databaseAdapterRequirement),
 })

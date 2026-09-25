@@ -67,41 +67,39 @@ export const createBrowserApplication = async (
 						reason: 'Expose browser fixture responses.',
 					},
 				],
-				capabilities: {
-					requires: [requirement],
-					provides: [
-						provideHttpContextResolvers({
-							contributionId: 'credentials',
-							create: () =>
-								httpContextResolver({
-									resolve: ({ context, request }) => {
-										authorization = request.headers.get('Authorization')
-										cookie = request.headers.get('Cookie')
-										return context
-									},
-								}),
-						}),
-						provideHttpEndpoints({
-							contributionId: 'routes',
-							create: () =>
-								httpMount({
-									path: '/',
-									protocol: { name: 'fixture.browser', version: '1' },
-									handle: (request) => {
-										observations.applicationEffects += 1
-										return Response.json({
-											applicationEffects: observations.applicationEffects,
-											authorization,
-											cookie,
-											mode: getCurrentRequest().access.mode,
-											master: request.headers.get('X-UltimaBase-Master-Key'),
-											preflights: observations.preflights,
-										})
-									},
-								}),
-						}),
-					],
-				},
+				capabilities: [
+					provideHttpContextResolvers({
+						contributionId: 'credentials',
+						create: () =>
+							httpContextResolver({
+								resolve: ({ context, request }) => {
+									authorization = request.headers.get('Authorization')
+									cookie = request.headers.get('Cookie')
+									return context
+								},
+							}),
+					}),
+					provideHttpEndpoints({
+						contributionId: 'routes',
+						create: () =>
+							httpMount({
+								path: '/',
+								protocol: { name: 'fixture.browser', version: '1' },
+								handle: (request) => {
+									observations.applicationEffects += 1
+									return Response.json({
+										applicationEffects: observations.applicationEffects,
+										authorization,
+										cookie,
+										mode: getCurrentRequest().access.mode,
+										master: request.headers.get('X-UltimaBase-Master-Key'),
+										preflights: observations.preflights,
+									})
+								},
+							}),
+					}),
+					requirement,
+				],
 				setup: ({ capabilities }) => {
 					http = capabilities.get(requirement)
 				},

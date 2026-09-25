@@ -15,21 +15,19 @@ const unsupported = () => {
 }
 
 const behaviorPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideRuntimeBehavior({
-				contributionId: 'javascript-final-mutation-guard',
-				create: () => ({
-					value: {
-						guardMutationInput: ({ operation, target }) => {
-							trace.push(`guard:${operation.kind}:${String(target)}`)
-							throw new TypeError('JavaScript mutation guard rejected input')
-						},
+	capabilities: [
+		provideRuntimeBehavior({
+			contributionId: 'javascript-final-mutation-guard',
+			create: () => ({
+				value: {
+					guardMutationInput: ({ operation, target }) => {
+						trace.push(`guard:${operation.kind}:${String(target)}`)
+						throw new TypeError('JavaScript mutation guard rejected input')
 					},
-				}),
+				},
 			}),
-		],
-	},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-final-mutation-guard',
 	privileges: [
@@ -42,35 +40,33 @@ const behaviorPlugin = definePlugin({
 })
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'javascript-guard-database',
-				create: () => ({
-					value: {
-						beginTransaction: async () => ({
-							capabilities: {
-								persistencePlans: databasePersistencePlanCapability,
-							},
-							commit: () => Promise.resolve(),
-							execute: unsupported,
-							kind: 'database-transaction-adapter',
-							prepare: unsupported,
-							rollback: () => {
-								trace.push('rollback')
-								return Promise.resolve()
-							},
-						}),
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'javascript-guard-database',
+			create: () => ({
+				value: {
+					beginTransaction: async () => ({
 						capabilities: {
 							persistencePlans: databasePersistencePlanCapability,
 						},
+						commit: () => Promise.resolve(),
 						execute: unsupported,
-						kind: 'database-adapter',
+						kind: 'database-transaction-adapter',
+						prepare: unsupported,
+						rollback: () => {
+							trace.push('rollback')
+							return Promise.resolve()
+						},
+					}),
+					capabilities: {
+						persistencePlans: databasePersistencePlanCapability,
 					},
-				}),
+					execute: unsupported,
+					kind: 'database-adapter',
+				},
 			}),
-		],
-	},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-guard-database',
 	version: '1.0.0',

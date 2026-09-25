@@ -25,7 +25,7 @@ const createFixture = (value: unknown) => {
 				pluginId: 'fixture.draining',
 				version: '0.0.0',
 				core: '^0.0.0',
-				capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+				capabilities: [provideTestDatabaseAdapter(adapter)],
 				hooks: {
 					dispose: () => {
 						trace.push('dispose')

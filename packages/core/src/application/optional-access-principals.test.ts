@@ -26,7 +26,7 @@ const optionalConsumer = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.access.principal-consumer',
-	capabilities: { optional: [optionalPrincipalResolver] },
+	capabilities: [optionalPrincipalResolver],
 	setup: ({ capabilities }) => capabilities.get(optionalPrincipalResolver),
 })
 
@@ -38,14 +38,12 @@ const createProvider = <const TName extends string>(
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: name,
-		capabilities: {
-			provides: [
-				provideCapability(requestPrincipalResolverCapability, {
-					contributionId: 'principal-resolver',
-					create: () => ({ value: resolver }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(requestPrincipalResolverCapability, {
+				contributionId: 'principal-resolver',
+				create: () => ({ value: resolver }),
+			}),
+		],
 	})
 
 describe('optional Access principal providers', () => {

@@ -39,16 +39,14 @@ const createWorkflowInstance = (
 	})
 	const resolve = vi.fn(() => ({ data: { [field]: `handled-${instanceId}` } }))
 	const plugin = definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: `${command}-handler`,
-					create: () => ({
-						value: schemaMutationHandler({ mutation, resolve }),
-					}),
+		capabilities: [
+			provideSchemaMutationHandler({
+				contributionId: `${command}-handler`,
+				create: () => ({
+					value: schemaMutationHandler({ mutation, resolve }),
 				}),
-			],
-		},
+			}),
+		],
 		core: '^0.0.0',
 		declare: ({ models, operations, schemas }) => {
 			operations.declare(mutation)
@@ -127,7 +125,7 @@ describe('schema mutation instance ownership', () => {
 			[],
 		)
 		const database = definePlugin({
-			capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+			capabilities: [provideTestDatabaseAdapter(adapter)],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-instances-database',
 			version: '1.0.0',

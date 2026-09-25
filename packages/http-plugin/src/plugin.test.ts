@@ -19,7 +19,7 @@ const consumerPlugin = () =>
 		pluginId: 'fixture.http-consumer',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => ({
 			application: capabilities.get(applicationRequirement),
 		}),

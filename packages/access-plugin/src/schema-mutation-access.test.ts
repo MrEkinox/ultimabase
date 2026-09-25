@@ -4,13 +4,12 @@ import {
 	Schema,
 	UltimaBase,
 	addSchemaField,
+	contributeSchemaMutation,
 	databaseAdapterCapability,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaMutation,
 	provideCapability,
-	provideSchemaMutationHandler,
-	schemaMutationHandler,
 	stringField,
 	type DatabaseAdapter,
 	type PluginDefinition,
@@ -166,22 +165,11 @@ const createMutationOwner = (schema: SchemaDefinition) => {
 	return {
 		handler,
 		plugin: definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationHandler({
-						contributionId: 'archive-handler',
-						create: () => ({
-							value: schemaMutationHandler({
-								mutation: archive,
-								resolve: handler,
-							}),
-						}),
-					}),
-				],
-			},
+			operations: [
+				contributeSchemaMutation({ mutation: archive, resolve: handler }),
+			],
 			core: '^0.0.0',
-			declare: ({ models, operations, schemas }) => {
-				operations.declare(archive)
+			declare: ({ models, schemas }) => {
 				schemas.patch({
 					operations: [
 						addSchemaField({
@@ -217,22 +205,14 @@ const createMutationOwner = (schema: SchemaDefinition) => {
 const createMasterMutationOwner = (schema: SchemaDefinition) => {
 	pluginIndex += 1
 	return definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'purge-handler',
-					create: () => ({
-						value: schemaMutationHandler({
-							mutation: purge,
-							resolve: () => undefined,
-						}),
-					}),
-				}),
-			],
-		},
+		operations: [
+			contributeSchemaMutation({
+				mutation: purge,
+				resolve: () => undefined,
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ models, operations }) => {
-			operations.declare(purge)
+		declare: ({ models }) => {
 			models.extend(
 				{ className: schema.className },
 				{
@@ -255,14 +235,12 @@ const createMasterMutationOwner = (schema: SchemaDefinition) => {
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: `fixture.access-schema-mutation-database-${String(pluginIndex)}`,
 		version: '1.0.0',
@@ -455,15 +433,13 @@ describe('schema mutation Access', () => {
 				input.reason !== 'provider-deny',
 		)
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideAccessContributions('archive-policy', () =>
-						schemaAccess(ProviderDocument, {
-							archive: providerRule,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideAccessContributions('archive-policy', () =>
+					schemaAccess(ProviderDocument, {
+						archive: providerRule,
+					}),
+				),
+			],
 			core: '^0.0.0',
 			peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
 			pluginId: 'fixture.access-schema-mutation-provider',

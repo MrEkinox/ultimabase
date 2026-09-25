@@ -171,20 +171,18 @@ const createHarnessPlugin = (harness: RequestHarness) =>
 				reason: 'Verifies the REST Master execution fixture.',
 			},
 		],
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'harness',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.executor = capabilities.get(requestExecutionRequirement)
-						harness.owner = owner
-						return { value: { ready: true } }
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(harnessCapability, {
+				contributionId: 'harness',
+				create: ({ callbacks, capabilities, owner }) => {
+					harness.callbacks = callbacks
+					harness.executor = capabilities.get(requestExecutionRequirement)
+					harness.owner = owner
+					return { value: { ready: true } }
+				},
+			}),
+			requestExecutionRequirement,
+		],
 	})
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
@@ -192,14 +190,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-read-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const createDeadlineRoutePlugin = () =>
@@ -213,31 +209,29 @@ const createDeadlineRoutePlugin = () =>
 				reason: 'Exposes the REST read deadline fixture.',
 			},
 		],
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'rest-read-deadline',
-					create: ({ capabilities }) => {
-						const executor = capabilities.get(requestExecutionRequirement)
-						return httpRoute({
-							handle: async (request) => {
-								const results = await executeRestReadRequest(
-									executor,
-									getCurrentRequest(),
-									RecordSchema,
-									{ operation: 'find', request },
-								)
-								return Response.json({ count: results.length })
-							},
-							method: 'GET',
-							path: '/records',
-							protocol: { name: 'ultimabase.rest', version: '1' },
-						})
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'rest-read-deadline',
+				create: ({ capabilities }) => {
+					const executor = capabilities.get(requestExecutionRequirement)
+					return httpRoute({
+						handle: async (request) => {
+							const results = await executeRestReadRequest(
+								executor,
+								getCurrentRequest(),
+								RecordSchema,
+								{ operation: 'find', request },
+							)
+							return Response.json({ count: results.length })
+						},
+						method: 'GET',
+						path: '/records',
+						protocol: { name: 'ultimabase.rest', version: '1' },
+					})
+				},
+			}),
+			requestExecutionRequirement,
+		],
 	})
 
 const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
@@ -245,7 +239,7 @@ const createHttpCapturePlugin = (capture: { current?: HttpApplication }) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-read-http-capture',
 		version: '1.0.0',
-		capabilities: { requires: [httpApplicationRequirement] },
+		capabilities: [httpApplicationRequirement],
 		setup: ({ capabilities }) => {
 			capture.current = capabilities.get(httpApplicationRequirement)
 		},

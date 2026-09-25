@@ -93,7 +93,7 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 const capture: { current?: HttpApplication } = {}
 const capturePlugin = definePlugin({
-	capabilities: { requires: [httpRequirement] },
+	capabilities: [httpRequirement],
 	core: '^0.0.0',
 	pluginId: 'fixture.soft-delete-transport-capture',
 	setup: ({ capabilities }) => {

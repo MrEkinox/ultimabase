@@ -114,25 +114,23 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 					reason: 'Verify authenticated profile reads.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideAccessContributions('profile', () => {
-						const secretField = User.persistedFields.secret
-						if (secretField === undefined)
-							throw new TypeError('Missing fixture secret field')
-						return [
-							schemaAccess(User, {
-								read: ({ context }) =>
-									profileVisible &&
-									context.access.mode === 'anonymous' &&
-									context.getValue(passwordPrincipal) !== undefined &&
-									context.getValue(passwordSession) !== undefined,
-							}),
-							fieldAccess(User, secretField, ['secret'], { read: false }),
-						]
-					}),
-				],
-			},
+			capabilities: [
+				provideAccessContributions('profile', () => {
+					const secretField = User.persistedFields.secret
+					if (secretField === undefined)
+						throw new TypeError('Missing fixture secret field')
+					return [
+						schemaAccess(User, {
+							read: ({ context }) =>
+								profileVisible &&
+								context.access.mode === 'anonymous' &&
+								context.getValue(passwordPrincipal) !== undefined &&
+								context.getValue(passwordSession) !== undefined,
+						}),
+						fieldAccess(User, secretField, ['secret'], { read: false }),
+					]
+				}),
+			],
 		})
 		const passwordPlugin = passwordAuthPlugin({
 			user: User,

@@ -117,17 +117,15 @@ const pluginVisibility = definePlugin({
 			reason: 'Contributes a monotonic visibility policy for the E2E fixture.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideAccessContributions('hide-plugin-rows', () =>
-				schemaAccess(AccessArticle, {
-					read: {
-						where: ({ where }) => where.ne('title', 'plugin-hidden'),
-					},
-				}),
-			),
-		],
-	},
+	capabilities: [
+		provideAccessContributions('hide-plugin-rows', () =>
+			schemaAccess(AccessArticle, {
+				read: {
+					where: ({ where }) => where.ne('title', 'plugin-hidden'),
+				},
+			}),
+		),
+	],
 })
 
 let fixture: PostgresWorkerFixture | undefined

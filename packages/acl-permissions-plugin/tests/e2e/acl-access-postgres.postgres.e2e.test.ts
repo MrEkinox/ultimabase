@@ -54,28 +54,26 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-identity',
-	capabilities: {
-		provides: [
-			provideTestPrincipalResolver({
-				resolveCurrent: ({ context }) => {
-					const principalId = context.getValue(currentPrincipalId)
+	capabilities: [
+		provideTestPrincipalResolver({
+			resolveCurrent: ({ context }) => {
+				const principalId = context.getValue(currentPrincipalId)
 
-					return principalId === undefined
-						? undefined
-						: Principal.pointer(principalId)
-				},
-			}),
-			provideTestRoleResolver({
-				hasRole: ({ context, role }) =>
-					context.getValue(currentRoleIds)?.includes(role.value) ?? false,
-				resolveCurrentRoles: ({ context }) =>
-					(context.getValue(currentRoleIds) ?? []).map(
-						(role) => new RequestSubjectReference('role', role),
-					),
-				resolvePersistentRole: ({ role }) => role,
-			}),
-		],
-	},
+				return principalId === undefined
+					? undefined
+					: Principal.pointer(principalId)
+			},
+		}),
+		provideTestRoleResolver({
+			hasRole: ({ context, role }) =>
+				context.getValue(currentRoleIds)?.includes(role.value) ?? false,
+			resolveCurrentRoles: ({ context }) =>
+				(context.getValue(currentRoleIds) ?? []).map(
+					(role) => new RequestSubjectReference('role', role),
+				),
+			resolvePersistentRole: ({ role }) => role,
+		}),
+	],
 })
 const emptyACL = new ACL()
 const ProtectedPost = Schema.define({

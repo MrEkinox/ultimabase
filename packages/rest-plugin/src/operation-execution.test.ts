@@ -5,17 +5,15 @@ import {
 	RequestContext,
 	RequestContextValue,
 	UltimaBase,
+	contributeOperation,
 	databaseAdapterCapability,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 	type DatabaseAdapter,
 	type JsonValue,
 	type OperationTransportProtocol,
@@ -104,46 +102,28 @@ const createOperationPlugin = (options: {
 		operation: inspectOperation,
 	})
 	return definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'handler',
-					create: () => ({
-						value: operationHandler({
-							execute: ({ context, input }) => {
-								if (input.message === 'reject') {
-									throw new PluginError(
-										'fixture.rest-operation.rejected',
-										'internal operation detail',
-										{ publicMessage: 'Operation rejected.' },
-									)
-								}
-								return immutableRecord({
-									accepted:
-										context.access.mode === 'master' ||
-										context.getValue(sessionValue)?.id === 'session-1' ||
-										input.message === 'anonymous',
-								})
-							},
-							operation: inspectOperation,
-						}),
-					}),
-				}),
-				...(options.omitBinding === true
-					? []
-					: [
-							provideOperationTransportBinding({
-								contributionId: 'rest-binding',
-								create: () => ({ value: binding }),
-							}),
-						]),
-			],
-		},
+		operations: [
+			contributeOperation({
+				bindings: options.omitBinding === true ? [] : [binding],
+				execute: ({ context, input }) => {
+					if (input.message === 'reject') {
+						throw new PluginError(
+							'fixture.rest-operation.rejected',
+							'internal operation detail',
+							{ publicMessage: 'Operation rejected.' },
+						)
+					}
+					return immutableRecord({
+						accepted:
+							context.access.mode === 'master' ||
+							context.getValue(sessionValue)?.id === 'session-1' ||
+							input.message === 'anonymous',
+					})
+				},
+				operation: inspectOperation,
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ operations }) => {
-			operations.declare(inspectOperation)
-			return undefined
-		},
 		pluginId: 'fixture.rest-operation.owner',
 		privileges: [
 			{ name: 'operation:declare', reason: 'Declares the fixture operation.' },
@@ -154,14 +134,12 @@ const createOperationPlugin = (options: {
 }
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: unavailableAdapter }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: unavailableAdapter }),
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.rest-operation.database',
 	version: '1.0.0',

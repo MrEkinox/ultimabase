@@ -46,14 +46,12 @@ test('preserves logical delete correlation across one physical update plan', () 
 		pluginId: 'fixture.persistence-types',
 		version: '0.0.0',
 		privileges: [{ name: 'persistence:rewrite', reason: 'Type fixture.' }],
-		capabilities: {
-			provides: [
-				providePersistencePlanRewriter({
-					contributionId: 'soft-delete',
-					create: () => ({ value: definition }),
-				}),
-			],
-		},
+		capabilities: [
+			providePersistencePlanRewriter({
+				contributionId: 'soft-delete',
+				create: () => ({ value: definition }),
+			}),
+		],
 	})
 
 	expectTypeOf(plugin).not.toBeNever()

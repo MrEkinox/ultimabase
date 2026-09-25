@@ -3,18 +3,16 @@ import {
 	PluginError,
 	Schema,
 	UltimaBase,
+	contributeOperation,
 	databaseAdapterCapability,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	databasePersistencePlanCapability,
 	definePlugin,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 	requireCapability,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
@@ -84,46 +82,32 @@ const operationCodec = operationWireCodec({
 	}),
 })
 const operationPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideOperationHandler({
-				contributionId: 'handler',
-				create: () => ({
-					value: operationHandler({
-						execute: ({ input }) => {
-							if (input.message === 'conflict') {
-								throw new PluginError(
-									'fixture.rest-http.conflict',
-									'internal conflict secret',
-									{ publicMessage: 'The operation conflicted.' },
-								)
-							}
-							return immutableRecord({ accepted: true })
-						},
-						operation: httpOperation,
-					}),
+	operations: [
+		contributeOperation({
+			bindings: [
+				operationTransportBinding({
+					codec: operationCodec,
+					metadata: {
+						errors: { 'fixture.rest-http.conflict': 409 },
+						path: '/actions/execute',
+					},
+					operation: httpOperation,
 				}),
-			}),
-			provideOperationTransportBinding({
-				contributionId: 'rest-binding',
-				create: () => ({
-					value: operationTransportBinding({
-						codec: operationCodec,
-						metadata: {
-							errors: { 'fixture.rest-http.conflict': 409 },
-							path: '/actions/execute',
-						},
-						operation: httpOperation,
-					}),
-				}),
-			}),
-		],
-	},
+			],
+			execute: ({ input }) => {
+				if (input.message === 'conflict') {
+					throw new PluginError(
+						'fixture.rest-http.conflict',
+						'internal conflict secret',
+						{ publicMessage: 'The operation conflicted.' },
+					)
+				}
+				return immutableRecord({ accepted: true })
+			},
+			operation: httpOperation,
+		}),
+	],
 	core: '^0.0.0',
-	declare: ({ operations }) => {
-		operations.declare(httpOperation)
-		return undefined
-	},
 	pluginId: 'fixture.rest-http-operation',
 	privileges: [
 		{ name: 'operation:declare', reason: 'Declares the fixture operation.' },
@@ -174,14 +158,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-http-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
@@ -193,7 +175,7 @@ const capturePlugin = (capture: { current?: HttpApplication }) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-http-capture',
 		version: '1.0.0',
-		capabilities: { requires: [httpRequirement] },
+		capabilities: [httpRequirement],
 		setup: ({ capabilities }) => {
 			capture.current = capabilities.get(httpRequirement)
 		},

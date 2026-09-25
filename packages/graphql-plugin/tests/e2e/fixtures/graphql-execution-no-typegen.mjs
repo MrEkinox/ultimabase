@@ -67,14 +67,12 @@ const adapter = {
 }
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: adapter }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: adapter }),
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-graphql-database',
 	version: '1.0.0',

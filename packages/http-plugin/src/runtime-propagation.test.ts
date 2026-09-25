@@ -113,16 +113,14 @@ describe('HTTP Runtime propagation', () => {
 			pluginId: 'fixture.http-runtime-database',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(databaseAdapterCapability, {
-						contributionId: 'observed-adapter',
-						create: () => ({
-							value: new ObservedDatabaseAdapter(observations),
-						}),
+			capabilities: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'observed-adapter',
+					create: () => ({
+						value: new ObservedDatabaseAdapter(observations),
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const hooks = definePlugin({
 			pluginId: 'fixture.http-runtime-hooks',
@@ -134,35 +132,33 @@ describe('HTTP Runtime propagation', () => {
 					reason: 'Observes safe HTTP Runtime propagation.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideRuntimeInterceptor({
-						contributionId: 'before-read',
-						create: () => ({
-							value: beforeOperation({
-								operations: ['find-many'],
-								schema: RuntimeProbe,
-								handler: (input) => {
-									observations.push({ kind: 'before-hook', input })
-								},
-							}),
+			capabilities: [
+				provideRuntimeInterceptor({
+					contributionId: 'before-read',
+					create: () => ({
+						value: beforeOperation({
+							operations: ['find-many'],
+							schema: RuntimeProbe,
+							handler: (input) => {
+								observations.push({ kind: 'before-hook', input })
+							},
 						}),
 					}),
-					provideRuntimeInterceptor({
-						contributionId: 'after-read',
-						create: () => ({
-							value: afterOperation({
-								operations: ['find-many'],
-								schema: RuntimeProbe,
-								handler: (input) => {
-									observations.push({ kind: 'after-hook', input })
-									return { result: input.result }
-								},
-							}),
+				}),
+				provideRuntimeInterceptor({
+					contributionId: 'after-read',
+					create: () => ({
+						value: afterOperation({
+							operations: ['find-many'],
+							schema: RuntimeProbe,
+							handler: (input) => {
+								observations.push({ kind: 'after-hook', input })
+								return { result: input.result }
+							},
 						}),
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const routeOwner = definePlugin({
 			pluginId: 'fixture.http-runtime-route',
@@ -171,35 +167,33 @@ describe('HTTP Runtime propagation', () => {
 			privileges: [
 				{ name: 'transport:expose', reason: 'Exposes the Runtime probe.' },
 			],
-			capabilities: {
-				provides: [
-					provideHttpEndpoints({
-						contributionId: 'runtime-probe',
-						create: () =>
-							httpRoute({
-								method: 'GET',
-								path: '/runtime',
-								protocol: { name: 'fixture.runtime', version: '1' },
-								handle: async (request) => {
-									const runtime = runtimeState.current
-									if (runtime === undefined) {
-										throw new TypeError('Runtime fixture is unavailable')
-									}
-									observations.push({
-										context: getCurrentRequest(),
-										headers: [...request.headers],
-										kind: 'handler',
-									})
-									const engine = runtime.engine.withContext(getCurrentRequest())
-									const results = await engine.transaction(() =>
-										RuntimeProbe.findMany(),
-									)
-									return Response.json({ count: results.length })
-								},
-							}),
-					}),
-				],
-			},
+			capabilities: [
+				provideHttpEndpoints({
+					contributionId: 'runtime-probe',
+					create: () =>
+						httpRoute({
+							method: 'GET',
+							path: '/runtime',
+							protocol: { name: 'fixture.runtime', version: '1' },
+							handle: async (request) => {
+								const runtime = runtimeState.current
+								if (runtime === undefined) {
+									throw new TypeError('Runtime fixture is unavailable')
+								}
+								observations.push({
+									context: getCurrentRequest(),
+									headers: [...request.headers],
+									kind: 'handler',
+								})
+								const engine = runtime.engine.withContext(getCurrentRequest())
+								const results = await engine.transaction(() =>
+									RuntimeProbe.findMany(),
+								)
+								return Response.json({ count: results.length })
+							},
+						}),
+				}),
+			],
 		})
 		const applicationRequirement = requireCapability(
 			httpApplicationCapability,
@@ -210,7 +204,7 @@ describe('HTTP Runtime propagation', () => {
 			pluginId: 'fixture.http-runtime-server',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { requires: [applicationRequirement] },
+			capabilities: [applicationRequirement],
 			setup: ({ capabilities }) => {
 				http = capabilities.get(applicationRequirement)
 			},

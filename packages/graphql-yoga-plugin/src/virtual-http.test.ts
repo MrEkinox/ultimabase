@@ -113,36 +113,32 @@ const databasePlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-virtual-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new VirtualYogaDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new VirtualYogaDatabase() }),
+		}),
+	],
 })
 
 const contextPlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-virtual-context',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideHttpContextResolvers({
-				contributionId: 'viewer',
-				create: () =>
-					httpContextResolver({
-						resolve: ({ context, request }) => {
-							const authorization = request.headers.get('Authorization')
-							return authorization === null
-								? context
-								: context.withValue(viewer, authorization)
-						},
-					}),
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpContextResolvers({
+			contributionId: 'viewer',
+			create: () =>
+				httpContextResolver({
+					resolve: ({ context, request }) => {
+						const authorization = request.headers.get('Authorization')
+						return authorization === null
+							? context
+							: context.withValue(viewer, authorization)
+					},
+				}),
+		}),
+	],
 })
 
 const createFixture = async (requestTimeoutMs?: number) => {

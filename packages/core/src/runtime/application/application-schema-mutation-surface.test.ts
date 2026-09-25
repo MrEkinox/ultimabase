@@ -64,22 +64,20 @@ const defineFixture = (suffix: string) => {
 		},
 	})
 	const inspector = definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(inspectedSurfaceCapability, {
-					contributionId: 'inspection',
-					create: ({ capabilities, schemas }) => {
-						const schema = schemas.get(Post.className)
-						if (schema === undefined) {
-							throw new TypeError('Fixture schema is unavailable')
-						}
-						inspected = capabilities.get(mutationSurfaceRequirement).get(schema)
-						return { value: inspected }
-					},
-				}),
-			],
-			requires: [mutationSurfaceRequirement],
-		},
+		capabilities: [
+			provideCapability(inspectedSurfaceCapability, {
+				contributionId: 'inspection',
+				create: ({ capabilities, schemas }) => {
+					const schema = schemas.get(Post.className)
+					if (schema === undefined) {
+						throw new TypeError('Fixture schema is unavailable')
+					}
+					inspected = capabilities.get(mutationSurfaceRequirement).get(schema)
+					return { value: inspected }
+				},
+			}),
+			mutationSurfaceRequirement,
+		],
 		core: '^0.0.0',
 		pluginId: `fixture.surface-inspector-${suffix}`,
 		version: '1.0.0',
@@ -128,7 +126,7 @@ describe('application schema mutation surface capability', () => {
 
 		for (const declaration of declarations) {
 			const plugin = definePlugin({
-				capabilities: { provides: [declaration] },
+				capabilities: [declaration],
 				core: '^0.0.0',
 				pluginId: `fixture.surface-forgery-${declaration.kind}`,
 				version: '1.0.0',

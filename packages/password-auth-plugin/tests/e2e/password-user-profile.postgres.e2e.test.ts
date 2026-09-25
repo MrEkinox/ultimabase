@@ -99,46 +99,44 @@ const createApplication = (requiredProfile = false) => {
 				reason: 'Verify User profile authorization and rollback.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideAccessContributions('profile', () => {
-					const secretField = User.persistedFields.secret
-					if (secretField === undefined)
-						throw new TypeError('Missing fixture secret field')
-					return [
-						schemaAccess(User, {
-							read: {
-								allow: ({ context }) => {
-									const userId = context.getValue(passwordPrincipal)?.user.id
-									const version =
-										context.getValue(passwordSession)?.rotationVersion
-									reads.push({
-										userId,
-										version,
-										authority: context.access.mode,
-									})
-									if (mode === 'fail')
-										throw new FrameworkError(
-											'INTERNAL_ERROR',
-											'Profile read failed',
-										)
-									return (
-										mode !== 'deny' &&
-										userId !== undefined &&
-										version !== undefined
+		capabilities: [
+			provideAccessContributions('profile', () => {
+				const secretField = User.persistedFields.secret
+				if (secretField === undefined)
+					throw new TypeError('Missing fixture secret field')
+				return [
+					schemaAccess(User, {
+						read: {
+							allow: ({ context }) => {
+								const userId = context.getValue(passwordPrincipal)?.user.id
+								const version =
+									context.getValue(passwordSession)?.rotationVersion
+								reads.push({
+									userId,
+									version,
+									authority: context.access.mode,
+								})
+								if (mode === 'fail')
+									throw new FrameworkError(
+										'INTERNAL_ERROR',
+										'Profile read failed',
 									)
-								},
-								where: ({ where }) =>
-									mode === 'missing'
-										? where.eq('id', '01991f00-0000-7000-8000-000000000000')
-										: where.ne('id', '01991f00-0000-7000-8000-000000000000'),
+								return (
+									mode !== 'deny' &&
+									userId !== undefined &&
+									version !== undefined
+								)
 							},
-						}),
-						fieldAccess(User, secretField, ['secret'], { read: false }),
-					]
-				}),
-			],
-		},
+							where: ({ where }) =>
+								mode === 'missing'
+									? where.eq('id', '01991f00-0000-7000-8000-000000000000')
+									: where.ne('id', '01991f00-0000-7000-8000-000000000000'),
+						},
+					}),
+					fieldAccess(User, secretField, ['secret'], { read: false }),
+				]
+			}),
+		],
 	})
 	let http: HttpApplication | undefined
 	const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
@@ -148,7 +146,7 @@ const createApplication = (requiredProfile = false) => {
 		pluginId: 'fixture.profile-http',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [requirement] },
+		capabilities: [requirement],
 		setup: ({ capabilities }) => {
 			http = capabilities.get(requirement)
 		},

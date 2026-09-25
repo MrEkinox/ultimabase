@@ -246,17 +246,15 @@ export const editorialPolicyPlugin = definePlugin({
 			reason: 'Contributes official Access policy.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideAccessContributions('published-posts', () =>
-				schemaAccess(Post, {
-					read: {
-						where: ({ where }) => where.eq('published', true),
-					},
-				}),
-			),
-		],
-	},
+	capabilities: [
+		provideAccessContributions('published-posts', () =>
+			schemaAccess(Post, {
+				read: {
+					where: ({ where }) => where.eq('published', true),
+				},
+			}),
+		),
+	],
 })
 ```
 

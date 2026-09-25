@@ -36,14 +36,12 @@ const createDatabaseSupport = () => {
 		executePrivateStorage: unavailable,
 	})
 	return definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'conformance-database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'conformance-database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.password-auth-database',
 		version: '1.0.0',

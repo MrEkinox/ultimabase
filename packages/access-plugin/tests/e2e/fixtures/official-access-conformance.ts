@@ -26,13 +26,11 @@ const createAccessProvider = (
 	mode: AccessCommunityMode,
 ) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideAccessContributions(`document-policy-${instanceId}`, () =>
-					schemaAccess(schema, { read: mode === 'allow' }),
-				),
-			],
-		},
+		capabilities: [
+			provideAccessContributions(`document-policy-${instanceId}`, () =>
+				schemaAccess(schema, { read: mode === 'allow' }),
+			),
+		],
 		core: '^0.0.0',
 		instanceId,
 		peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
@@ -141,13 +139,11 @@ export const createInvalidAccessProviderFixture = () => {
 		throw new TypeError('Invalid Access fixture field is unavailable')
 	}
 	const provider = definePlugin({
-		capabilities: {
-			provides: [
-				provideAccessContributions('outside-field', () =>
-					fieldAccess(Inside, outsideTitle, ['title'], { read: false }),
-				),
-			],
-		},
+		capabilities: [
+			provideAccessContributions('outside-field', () =>
+				fieldAccess(Inside, outsideTitle, ['title'], { read: false }),
+			),
+		],
 		core: '^0.0.0',
 		peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
 		pluginId: 'community.invalid-access-provider',

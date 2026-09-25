@@ -90,10 +90,13 @@ definePlugin({
 		{ name: 'runtime:constrain', reason: 'Exercises the packed facade.' },
 		{ name: 'runtime:intercept', reason: 'Exercises the packed facade.' },
 	],
-	capabilities: {
-		requires: [requestExecution, operationPlanning],
-		provides: [behavior, interceptor, constraint],
-	},
+	capabilities: [
+		behavior,
+		interceptor,
+		constraint,
+		requestExecution,
+		operationPlanning,
+	],
 })
 
 beforeOperation({ handler: () => undefined })

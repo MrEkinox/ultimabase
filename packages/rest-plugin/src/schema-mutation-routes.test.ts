@@ -135,16 +135,14 @@ describe('REST schema mutation route compilation', () => {
 		)
 		expect(fragment.routes[0]?.path).toBe(fragment.routes[1]?.path)
 		const collisionPlugin = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(restRouteGraphCapability, {
-						contributionId: 'colliding-routes',
-						create: () => ({
-							value: createRestRouteFragment(fragment.routes),
-						}),
+			capabilities: [
+				provideCapability(restRouteGraphCapability, {
+					contributionId: 'colliding-routes',
+					create: () => ({
+						value: createRestRouteFragment(fragment.routes),
 					}),
-				],
-			},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.rest-mutation-collision',
 			privileges: [

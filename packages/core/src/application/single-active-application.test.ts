@@ -47,24 +47,22 @@ describe('single active application ownership', () => {
 			pluginId: 'fixture.activation',
 			version: '0.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'resource',
-						create: async () => {
-							resources += 1
-							entered.resolve(undefined)
-							await resume.promise
-							return {
-								value: 'ready',
-								dispose: () => {
-									disposals += 1
-								},
-							}
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'resource',
+					create: async () => {
+						resources += 1
+						entered.resolve(undefined)
+						await resume.promise
+						return {
+							value: 'ready',
+							dispose: () => {
+								disposals += 1
+							},
+						}
+					},
+				}),
+			],
 		})
 		const first = new FrameworkApplication({ schemas: [], plugins: [plugin] })
 		const second = new FrameworkApplication({ schemas: [], plugins: [plugin] })

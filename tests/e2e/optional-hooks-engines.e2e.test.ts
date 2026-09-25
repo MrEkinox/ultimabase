@@ -64,14 +64,12 @@ const createBehaviorSupportPlugin = () =>
 		pluginId: 'fixture.alternative-behavior-support',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'empty-database',
-					create: () => ({ value: new EmptyReadAdapter() }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'empty-database',
+				create: () => ({ value: new EmptyReadAdapter() }),
+			}),
+		],
 	})
 
 const createAlternativeFixture = () => {

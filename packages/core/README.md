@@ -514,8 +514,12 @@ const archive = defineSchemaMutation({
 	version: '1.0.0',
 })
 
-declare({ models, operations }) {
-	operations.declare(archive)
+const archiveContribution = contributeSchemaMutation({
+	mutation: archive,
+	resolve: () => ({ data: { workflowState: 'archived' } }),
+})
+
+declare({ models }) {
 	models.extend(PostSchema, {
 		contributionId: 'workflow-mutations',
 		schemaMutations: {
@@ -523,6 +527,11 @@ declare({ models, operations }) {
 		},
 	})
 }
+
+const workflowPlugin = definePlugin({
+	// ...identity and privileges...
+	operations: [archiveContribution],
+})
 ```
 
 These declarations compile to callback-free descriptors and direct
@@ -540,9 +549,9 @@ The class only dispatches to the selected application's compiled surface; a
 same-class application without that mutation rejects the call. Typegen
 derives mutation payload, schema projection,
 inclusion, and result types; JavaScript sees the same methods from the compiled
-graph without generated files. The owner separately provides one
-application-lifetime resolver with `provideSchemaMutationHandler()` and
-`schemaMutationHandler()`. The resolver sees only immutable `context`, `input`,
+graph without generated files. The owner's `contributeSchemaMutation()` call
+supplies the resolver directly, or creates an application-lifetime resolver
+resource through `create`. The resolver sees only immutable `context`, `input`,
 `originalItem`, and `target` values. Core validates its owner-only replacement,
 keeps the logical `plugin-schema-mutation` identity through policy and behavior,
 and compiles the final `update-one` or Master-only `delete-one` plan inside the
@@ -568,8 +577,8 @@ mutations with no selected schema remain dormant. Disposal revokes private
 binding access while static descriptions remain inert.
 
 Transport exposure is a second explicit boundary. The operation owner requests
-`transport:expose`, provides a nominal wire codec through
-`provideOperationTransportBinding`, and the application selects a non-empty
+`transport:expose`, adds a nominal wire codec to the operation contribution's
+`bindings` list (or uses `contributeOperationBinding()`), and the application selects a non-empty
 allowlist with `ultimabase.exposeOperations({ transport, operations })`.
 Version 1 of this generic protocol binds application-targeted operations; schema
 and model targets remain directly executable through their owned handles. Wire
@@ -599,8 +608,8 @@ decode, execute, or authorize anything.
 
 Plugin-owned schema mutations use a separate binding family under the same
 canonical transport identity. The mutation owner contributes one nominal
-`schemaMutationWireCodec()` and
-`provideSchemaMutationTransportBinding()` value. The planner's
+`schemaMutationWireCodec()` through the mutation contribution's `bindings`
+list (or `contributeSchemaMutationBinding()`). The planner's
 `planSchemaMutations({ transport })` method returns only callback-free,
 schema-local descriptors; after startup,
 `ApplicationRequestExecutor.exposeSchemaMutations({ transport })` returns the

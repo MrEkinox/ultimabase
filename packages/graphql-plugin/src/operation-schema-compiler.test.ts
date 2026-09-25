@@ -3,18 +3,17 @@ import {
 	PluginError,
 	Schema,
 	UltimaBase,
+	contributeOperation,
+	contributeOperationBinding,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -49,14 +48,12 @@ class OperationDatabase implements DatabaseAdapter {
 }
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new OperationDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new OperationDatabase() }),
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-operation-database',
 	version: '1.0.0',
@@ -92,15 +89,6 @@ const echoOperation = defineOperation({
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
-const privateOperation = defineOperation({
-	input,
-	name: 'fixture.graphql-operation.private',
-	result,
-	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
-
 const echoMetadata = immutableRecord({
 	field: 'echo',
 	input: immutableRecord({
@@ -152,7 +140,7 @@ const echoMetadata = immutableRecord({
 
 const createBinding = (
 	metadata: JsonValue = echoMetadata,
-): OperationTransportBindingDefinition =>
+): OperationTransportBindingDefinition<typeof echoOperation> =>
 	operationTransportBinding({
 		codec: operationWireCodec({
 			decode: (wire: unknown) => input.snapshot(wire, 'echo.wire-input'),
@@ -170,50 +158,31 @@ const createBinding = (
 
 const createOperationPlugin = (
 	options: {
-		binding?: OperationTransportBindingDefinition | false
-		declare?: boolean
+		binding?: OperationTransportBindingDefinition<typeof echoOperation> | false
 	} = {},
 ) => {
 	const binding = options.binding ?? createBinding()
 	return definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'echo-handler',
-					create: () => ({
-						value: operationHandler({
-							execute: ({ context, input: operationInput }) => {
-								if (operationInput.message === 'reject') {
-									throw new PluginError(
-										'ECHO_REJECTED',
-										'Private echo rejection details.',
-										{ publicMessage: 'Echo rejected.' },
-									)
-								}
-								return immutableRecord({
-									message: operationInput.message,
-									requestId: context.requestId,
-								})
-							},
-							operation: echoOperation,
-						}),
-					}),
-				}),
-				...(binding === false
-					? []
-					: [
-							provideOperationTransportBinding({
-								contributionId: 'echo-graphql-binding',
-								create: () => ({ value: binding }),
-							}),
-						]),
-			],
-		},
+		operations: [
+			contributeOperation({
+				bindings: binding === false ? [] : [binding],
+				execute: ({ context, input: operationInput }) => {
+					if (operationInput.message === 'reject') {
+						throw new PluginError(
+							'ECHO_REJECTED',
+							'Private echo rejection details.',
+							{ publicMessage: 'Echo rejected.' },
+						)
+					}
+					return immutableRecord({
+						message: operationInput.message,
+						requestId: context.requestId,
+					})
+				},
+				operation: echoOperation,
+			}),
+		],
 		core: '^0.0.0',
-		declare: ({ operations }) => {
-			if (options.declare !== false) operations.declare(echoOperation)
-			operations.declare(privateOperation)
-		},
 		pluginId: 'fixture.graphql-operation-owner',
 		privileges: [
 			{ name: 'operation:declare', reason: 'Declares fixture operations.' },
@@ -399,14 +368,7 @@ describe('GraphQL plugin operations', () => {
 
 		const ownerWithoutBinding = createOperationPlugin({ binding: false })
 		const foreignBinding = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationTransportBinding({
-						contributionId: 'foreign-binding',
-						create: () => ({ value: createBinding() }),
-					}),
-				],
-			},
+			operations: [contributeOperationBinding(createBinding())],
 			core: '^0.0.0',
 			pluginId: 'fixture.graphql-operation-foreign',
 			privileges: [

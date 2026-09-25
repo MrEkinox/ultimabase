@@ -1,6 +1,6 @@
 # Milestone 33 — Simplify Core-native plugin authoring
 
-- Status: in-progress
+- Status: completed
 - Authorization: user request of 2026-09-25
 - ADR: ADR-0269
 
@@ -16,7 +16,7 @@ patterns that are not foundational plugin registration.
 - [x] [3303 — Unify application-operation contributions](3303-operation-contributions.md)
 - [x] [3304 — Remove redundant static registrations](3304-static-registration-deduplication.md)
 - [x] [3305 — Migrate official plugins and shrink Plugin Kit](3305-official-plugin-migration.md)
-- [ ] [3306 — Audit behavioral and authoring parity](3306-parity-audit.md)
+- [x] [3306 — Audit behavioral and authoring parity](3306-parity-audit.md)
 
 Every issue must compare the before/after authoring shape and prove that the
 compiled graph, privilege report, capability inventory, lifecycle ordering,

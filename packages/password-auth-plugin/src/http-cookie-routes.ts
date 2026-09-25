@@ -1,13 +1,14 @@
 import {
 	PluginError,
+	contributeOperationBinding,
 	defineOperationTransport,
 	getCurrentRequest,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationTransportBinding,
 	type ApplicationOperationTransport,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderDeclaration,
+	type PluginOperationBindingContribution,
 	type PluginOperationDefinition,
 	type PluginOperationInput,
 } from '@ultimabase/core'
@@ -72,11 +73,8 @@ const operationBindings = [
 	['sign-up', createHttpBinding(passwordAuthOperations.signUp)],
 ] as const
 
-const operationBindingProviders = operationBindings.map(([name, binding]) =>
-	provideOperationTransportBinding({
-		contributionId: `password-http-${name}`,
-		create: () => ({ value: binding }),
-	}),
+const operationBindingContributions = operationBindings.map(([, binding]) =>
+	contributeOperationBinding(binding),
 )
 
 interface PasswordHttpOperationExecutor {
@@ -320,9 +318,10 @@ const logoutRoute = (
 		protocol: passwordAuthHttpEndpointProtocol,
 	})
 
-/** Carries the conditional providers plus their one-time lifecycle binding. */
+/** Carries conditional declarations plus their one-time lifecycle binding. */
 export interface PasswordHttpCookieIntegration {
-	readonly providers: readonly CapabilityProviderDeclaration[]
+	readonly capabilities: readonly CapabilityProviderDeclaration[]
+	readonly operations: readonly PluginOperationBindingContribution[]
 	start(executor: ApplicationRequestExecutor): void
 }
 
@@ -364,7 +363,8 @@ export const createPasswordHttpCookieIntegration = (
 			]),
 	})
 	return immutableRecord({
-		providers: immutableArray([...operationBindingProviders, endpointProvider]),
+		capabilities: immutableArray([endpointProvider]),
+		operations: immutableArray(operationBindingContributions),
 		start: (requestExecutor) => {
 			executor.bind(
 				requestExecutor.exposeOperations({

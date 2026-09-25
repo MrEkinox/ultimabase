@@ -90,58 +90,56 @@ export const createUpdateFixture = async (options: {
 		},
 	})
 	const workflow = definePlugin({
-		capabilities: {
-			provides: [
-				...(options.omitHandler === true
-					? []
-					: [
-							provideSchemaMutationHandler({
-								contributionId: 'archive-handler',
-								create: () => ({ value: handler }),
-							}),
-						]),
-				provideRuntimeBehavior({
-					contributionId: 'logical-operation-observer',
-					create: () => ({
-						value: {
-							beforeOperation: ({ operation }) => {
-								options.observeOperation?.(operation.kind)
-							},
+		capabilities: [
+			...(options.omitHandler === true
+				? []
+				: [
+						provideSchemaMutationHandler({
+							contributionId: 'archive-handler',
+							create: () => ({ value: handler }),
+						}),
+					]),
+			provideRuntimeBehavior({
+				contributionId: 'logical-operation-observer',
+				create: () => ({
+					value: {
+						beforeOperation: ({ operation }) => {
+							options.observeOperation?.(operation.kind)
+						},
+					},
+				}),
+			}),
+			providePersistencePlanRewriter({
+				contributionId: 'logical-schema-mutation-rewriter',
+				create: () => ({
+					value: persistencePlanRewriter({
+						operations: ['plugin-schema-mutation'],
+						rewrite: ({ logicalOperation, plan }) => {
+							options.observeRewrite?.(logicalOperation.kind, plan.kind)
+							return plan
 						},
 					}),
 				}),
-				providePersistencePlanRewriter({
-					contributionId: 'logical-schema-mutation-rewriter',
-					create: () => ({
-						value: persistencePlanRewriter({
-							operations: ['plugin-schema-mutation'],
-							rewrite: ({ logicalOperation, plan }) => {
-								options.observeRewrite?.(logicalOperation.kind, plan.kind)
-								return plan
-							},
-						}),
-					}),
-				}),
-				...(options.protectedConstraint === true
-					? [
-							provideRuntimeConstraint({
-								contributionId: 'schema-mutation-policy',
-								create: () => ({
-									value: protectedPolicy({
-										evaluate: () => ({
-											constraints: databaseConstraint(
-												'fixture.schema-mutation-tenant',
-												1,
-												{ tenant: 'visible' },
-											),
-										}),
+			}),
+			...(options.protectedConstraint === true
+				? [
+						provideRuntimeConstraint({
+							contributionId: 'schema-mutation-policy',
+							create: () => ({
+								value: protectedPolicy({
+									evaluate: () => ({
+										constraints: databaseConstraint(
+											'fixture.schema-mutation-tenant',
+											1,
+											{ tenant: 'visible' },
+										),
 									}),
 								}),
 							}),
-						]
-					: []),
-			],
-		},
+						}),
+					]
+				: []),
+		],
 		core: '^0.0.0',
 		declare: ({ models, operations, schemas }) => {
 			operations.declare(archive)
@@ -177,7 +175,7 @@ export const createUpdateFixture = async (options: {
 		version: '1.0.0',
 	})
 	const database = definePlugin({
-		capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 		core: '^0.0.0',
 		pluginId: `fixture.schema-mutation-database-${String(fixtureIndex)}`,
 		version: '1.0.0',
@@ -225,16 +223,14 @@ export const createMasterDeleteFixture = async (
 	const adapter = new RecordingDatabaseAdapter([result], trace)
 	const handler = vi.fn(() => undefined)
 	const owner = definePlugin({
-		capabilities: {
-			provides: [
-				provideSchemaMutationHandler({
-					contributionId: 'purge-handler',
-					create: () => ({
-						value: schemaMutationHandler({ mutation: purge, resolve: handler }),
-					}),
+		capabilities: [
+			provideSchemaMutationHandler({
+				contributionId: 'purge-handler',
+				create: () => ({
+					value: schemaMutationHandler({ mutation: purge, resolve: handler }),
 				}),
-			],
-		},
+			}),
+		],
 		core: '^0.0.0',
 		declare: ({ models, operations }) => {
 			operations.declare(purge)
@@ -257,7 +253,7 @@ export const createMasterDeleteFixture = async (
 		version: '1.0.0',
 	})
 	const database = definePlugin({
-		capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 		core: '^0.0.0',
 		pluginId: `fixture.schema-mutation-master-database-${String(fixtureIndex)}`,
 		version: '1.0.0',

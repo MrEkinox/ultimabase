@@ -317,7 +317,7 @@ describe('plugin privilege policy', () => {
 			pluginId: 'fixture.conditional-typegen',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [optionalAudit] },
+			capabilities: [optionalAudit],
 			privileges: [
 				{
 					name: 'typegen:reference',
@@ -354,22 +354,20 @@ describe('plugin privilege policy', () => {
 			pluginId: 'fixture.audit-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(optionalAuditToken, {
-						contributionId: 'primary',
-						create: () => ({
-							value: { record: () => undefined },
-						}),
+			capabilities: [
+				provideCapability(optionalAuditToken, {
+					contributionId: 'primary',
+					create: () => ({
+						value: { record: () => undefined },
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const consumer = definePlugin({
 			pluginId: 'fixture.active-conditional-typegen',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { optional: [optionalAudit] },
+			capabilities: [optionalAudit],
 			privileges: [
 				{
 					name: 'typegen:reference',

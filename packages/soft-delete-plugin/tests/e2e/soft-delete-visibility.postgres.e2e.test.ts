@@ -76,26 +76,24 @@ const ReplaceRecord = Schema.define({
 })
 
 const replaceDeleteObserver = definePlugin({
-	capabilities: {
-		provides: [
-			provideRuntimeBehavior({
-				contributionId: 'replace-delete-logical-observer',
-				create: () => ({
-					value: {
-						postCommit: ({ operation }) => {
-							if (
-								(operation.kind === 'delete-one' ||
-									operation.kind === 'update-one') &&
-								getOperationSchema(operation) === ReplaceRecord
-							) {
-								replaceDeleteTrace.push(`committed:${operation.kind}`)
-							}
-						},
+	capabilities: [
+		provideRuntimeBehavior({
+			contributionId: 'replace-delete-logical-observer',
+			create: () => ({
+				value: {
+					postCommit: ({ operation }) => {
+						if (
+							(operation.kind === 'delete-one' ||
+								operation.kind === 'update-one') &&
+							getOperationSchema(operation) === ReplaceRecord
+						) {
+							replaceDeleteTrace.push(`committed:${operation.kind}`)
+						}
 					},
-				}),
+				},
 			}),
-		],
-	},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.soft-delete-logical-observer',
 	privileges: [
@@ -118,34 +116,32 @@ const staleTombstoneWriter = definePlugin({
 		},
 	] as const,
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideRuntimeInterceptor({
-				contributionId: 'stale-tombstone-write',
-				create: () => ({
-					value: preparedOperation({
-						schema: VisibleRecord,
-						handler: ({ operation }) => ({
-							operation: {
-								...operation,
-								update: {
-									...operation.update,
-									operations: [
-										...operation.update.operations,
-										{
-											field: 'isDeleted',
-											kind: 'set',
-											value: true,
-										},
-									],
-								},
+	capabilities: [
+		provideRuntimeInterceptor({
+			contributionId: 'stale-tombstone-write',
+			create: () => ({
+				value: preparedOperation({
+					schema: VisibleRecord,
+					handler: ({ operation }) => ({
+						operation: {
+							...operation,
+							update: {
+								...operation.update,
+								operations: [
+									...operation.update.operations,
+									{
+										field: 'isDeleted',
+										kind: 'set',
+										value: true,
+									},
+								],
 							},
-						}),
+						},
 					}),
 				}),
 			}),
-		],
-	},
+		}),
+	],
 })
 
 const Author = Schema.define({

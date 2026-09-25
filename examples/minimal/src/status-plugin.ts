@@ -3,11 +3,9 @@ import {
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
+	contributeOperation,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from '@ultimabase/core'
 import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
 
@@ -123,43 +121,25 @@ const statusGraphqlBinding = operationTransportBinding({
 
 /** Owns the operation handler and its explicit REST v1 binding. */
 export const exampleStatusPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideOperationHandler({
-				contributionId: 'status-handler',
-				create: () => ({
-					value: operationHandler({
-						execute: ({ context }) =>
-							Object.freeze({
-								authority: context.access.mode,
-								principalId:
-									context.getValue(passwordPrincipal)?.user.id ?? null,
-							}),
-						operation: exampleStatusOperation,
-					}),
+	operations: [
+		contributeOperation({
+			bindings: [
+				operationTransportBinding({
+					codec: statusCodec,
+					metadata: { errors: {} },
+					operation: exampleStatusOperation,
 				}),
-			}),
-			provideOperationTransportBinding({
-				contributionId: 'rest-v1',
-				create: () => ({
-					value: operationTransportBinding({
-						codec: statusCodec,
-						metadata: { errors: {} },
-						operation: exampleStatusOperation,
-					}),
+				statusGraphqlBinding,
+			],
+			execute: ({ context }) =>
+				Object.freeze({
+					authority: context.access.mode,
+					principalId: context.getValue(passwordPrincipal)?.user.id ?? null,
 				}),
-			}),
-			provideOperationTransportBinding({
-				contributionId: 'graphql-v1',
-				create: () => ({ value: statusGraphqlBinding }),
-			}),
-		],
-	},
+			operation: exampleStatusOperation,
+		}),
+	],
 	core: '^0.0.0',
-	declare: ({ operations }) => {
-		operations.declare(exampleStatusOperation)
-		return undefined
-	},
 	pluginId: 'example.status-plugin',
 	privileges: [
 		{ name: 'operation:declare', reason: 'Declares the status operation.' },

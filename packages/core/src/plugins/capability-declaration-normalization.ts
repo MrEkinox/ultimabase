@@ -30,53 +30,6 @@ const assertRequiredCapabilityRequirement: (
 	}
 }
 
-const normalizeGroupedDeclarations = (
-	options: Readonly<Record<string, unknown>>,
-): PluginCapabilityDeclarations => {
-	for (const key of Object.keys(options)) {
-		if (key !== 'provides' && key !== 'requires' && key !== 'optional') {
-			throw new TypeError(`capabilities contains unknown option: ${key}`)
-		}
-	}
-
-	const provides: CapabilityProviderDeclaration[] = []
-	const requires: CapabilityRequirement<CapabilityToken, false>[] = []
-	const optional: CapabilityRequirement<CapabilityToken, true>[] = []
-	for (const [property, values] of [
-		['provides', options.provides],
-		['requires', options.requires],
-		['optional', options.optional],
-	] as const) {
-		if (values === undefined) continue
-		if (!isUnknownArray(values)) {
-			throw new TypeError(`capabilities.${property} must be an array`)
-		}
-		for (const [index, declaration] of values.entries()) {
-			const path = `capabilities.${property}[${String(index)}]`
-			if (property === 'provides') {
-				assertCapabilityProviderDeclaration(declaration, path)
-				provides.push(declaration)
-				continue
-			}
-
-			assertCapabilityRequirement(declaration, path)
-			if (property === 'optional') {
-				assertOptionalCapabilityRequirement(declaration, path)
-				optional.push(declaration)
-			} else {
-				assertRequiredCapabilityRequirement(declaration)
-				requires.push(declaration)
-			}
-		}
-	}
-
-	return immutableRecord({
-		provides: immutableArray(provides),
-		requires: immutableArray(requires),
-		optional: immutableArray(optional),
-	})
-}
-
 /** Snapshots one flat capability list into the stable inspection buckets. */
 export const normalizeCapabilityDeclarations = (
 	options: PluginCapabilityDeclarationOptions | undefined,
@@ -90,9 +43,6 @@ export const normalizeCapabilityDeclarations = (
 	}
 
 	const untrustedOptions: unknown = options
-	if (isPlainRecord(untrustedOptions)) {
-		return normalizeGroupedDeclarations(untrustedOptions)
-	}
 	if (!isUnknownArray(untrustedOptions)) {
 		throw new TypeError('capabilities must be an array')
 	}

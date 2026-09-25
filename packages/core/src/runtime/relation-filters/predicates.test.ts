@@ -36,9 +36,7 @@ const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.relation-predicate-filter-database',
 		version: '0.0.0',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation-filter predicates', () => {
@@ -174,23 +172,21 @@ describe('Runtime relation-filter predicates', () => {
 					reason: 'Proves private target policy composition.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'fixture.filtered-predicate-target-policy',
-						protectedPolicy({
-							evaluate: () => ({
-								rowFilter: normalizeWhereInput(Target, {
-									status: { ne: 'suspended' },
-								}),
+			capabilities: [
+				provideTestRuntimeConstraint(
+					'fixture.filtered-predicate-target-policy',
+					protectedPolicy({
+						evaluate: () => ({
+							rowFilter: normalizeWhereInput(Target, {
+								status: { ne: 'suspended' },
 							}),
-							master: 'bypass',
-							operations: ['exists'],
-							schema: Target,
 						}),
-					),
-				],
-			},
+						master: 'bypass',
+						operations: ['exists'],
+						schema: Target,
+					}),
+				),
+			],
 		})
 		const application = await createApplication({
 			plugins: [policy, databasePlugin(adapter)],

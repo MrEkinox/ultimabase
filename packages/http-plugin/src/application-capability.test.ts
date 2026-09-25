@@ -42,36 +42,34 @@ describe('HTTP application capability compatibility', () => {
 						pluginId: 'fixture.http-provider',
 						version: '1.0.0',
 						core: '^0.0.0',
-						capabilities: {
-							provides: [
-								provideCapability(httpApplicationCapability, {
-									contributionId: 'http',
-									create: () => ({
-										value: {
-											appId: 'valid',
-											authority: { master: { enabled: false } },
-											protocolVersion: httpApplicationProtocolVersion,
-											originalHeaderMode: httpOriginalHeaderMode,
-											requestTimeoutMs: undefined,
-											routeGraph: {
-												browserBootstraps: [],
-												endpoints: [],
-												mounts: [],
-												routes: [],
-											},
-											fetch: () => Promise.resolve(new Response()),
-											...patch,
-										} as never,
-									}),
+						capabilities: [
+							provideCapability(httpApplicationCapability, {
+								contributionId: 'http',
+								create: () => ({
+									value: {
+										appId: 'valid',
+										authority: { master: { enabled: false } },
+										protocolVersion: httpApplicationProtocolVersion,
+										originalHeaderMode: httpOriginalHeaderMode,
+										requestTimeoutMs: undefined,
+										routeGraph: {
+											browserBootstraps: [],
+											endpoints: [],
+											mounts: [],
+											routes: [],
+										},
+										fetch: () => Promise.resolve(new Response()),
+										...patch,
+									} as never,
 								}),
-							],
-						},
+							}),
+						],
 					}),
 					definePlugin({
 						pluginId: 'fixture.server',
 						version: '1.0.0',
 						core: '^0.0.0',
-						capabilities: { requires: [requirement] },
+						capabilities: [requirement],
 						setup: seen,
 					}),
 				],

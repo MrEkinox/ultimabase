@@ -69,14 +69,12 @@ const resolverPlugin = (
 		pluginId,
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [
-				provideHttpContextResolvers({
-					contributionId: 'fixture-context',
-					create: () => definitions,
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpContextResolvers({
+				contributionId: 'fixture-context',
+				create: () => definitions,
+			}),
+		],
 	})
 
 interface StartHttpFixtureOptions {
@@ -98,26 +96,24 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 		privileges: [
 			{ name: 'transport:expose', reason: 'Exposes the HTTP context fixture.' },
 		],
-		capabilities: {
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'context-route',
-					create: () =>
-						httpRoute({
-							method: 'POST',
-							path: '/context',
-							protocol: { name: 'fixture.http-context', version: '1' },
-							handle: options.handler,
-						}),
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'context-route',
+				create: () =>
+					httpRoute({
+						method: 'POST',
+						path: '/context',
+						protocol: { name: 'fixture.http-context', version: '1' },
+						handle: options.handler,
+					}),
+			}),
+		],
 	})
 	const server = definePlugin({
 		pluginId: 'fixture.http-context-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => {
 			http = capabilities.get(applicationRequirement)
 		},

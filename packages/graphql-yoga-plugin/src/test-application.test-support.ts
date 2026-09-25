@@ -38,14 +38,12 @@ export const graphqlYogaFixtureDatabasePlugin: PluginDefinition = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new GraphqlYogaFixtureDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new GraphqlYogaFixtureDatabase() }),
+		}),
+	],
 })
 
 const httpApplicationRequirement = requireCapability(
@@ -58,7 +56,7 @@ export const graphqlYogaFixtureHttpConsumer: PluginDefinition = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-http-consumer',
 	version: '1.0.0',
-	capabilities: { requires: [httpApplicationRequirement] },
+	capabilities: [httpApplicationRequirement],
 	setup: ({ capabilities }) => ({
 		http: capabilities.get(httpApplicationRequirement),
 	}),

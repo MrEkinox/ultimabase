@@ -54,25 +54,23 @@ const binding = schemaMutationTransportBinding({
 
 const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 	definePlugin({
-		capabilities: {
-			provides:
-				bindingCount > 0
-					? [
-							provideSchemaMutationTransportBinding({
-								contributionId: 'rest-binding',
-								create: () => ({ value: binding }),
-							}),
-							...(bindingCount > 1
-								? [
-										provideSchemaMutationTransportBinding({
-											contributionId: 'duplicate-rest-binding',
-											create: () => ({ value: binding }),
-										}),
-									]
-								: []),
-						]
-					: [],
-		},
+		capabilities:
+			bindingCount > 0
+				? [
+						provideSchemaMutationTransportBinding({
+							contributionId: 'rest-binding',
+							create: () => ({ value: binding }),
+						}),
+						...(bindingCount > 1
+							? [
+									provideSchemaMutationTransportBinding({
+										contributionId: 'duplicate-rest-binding',
+										create: () => ({ value: binding }),
+									}),
+								]
+							: []),
+					]
+				: [],
 		core: '^0.0.0',
 		declare: ({ models, operations, schemas }) => {
 			operations.declare(archive)
@@ -124,20 +122,18 @@ interface Harness {
 }
 const consumerPlugin = (harness: Harness) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'harness',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.owner = owner
-						harness.planner = capabilities.get(planningRequirement)
-						return { value: immutableRecord({ ready: true as const }) }
-					},
-				}),
-			],
-			requires: [planningRequirement],
-		},
+		capabilities: [
+			provideCapability(harnessCapability, {
+				contributionId: 'harness',
+				create: ({ callbacks, capabilities, owner }) => {
+					harness.callbacks = callbacks
+					harness.owner = owner
+					harness.planner = capabilities.get(planningRequirement)
+					return { value: immutableRecord({ ready: true as const }) }
+				},
+			}),
+			planningRequirement,
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.schema-mutation-planning.consumer',
 		privileges: [
@@ -208,14 +204,12 @@ describe('application schema mutation transport planning', () => {
 
 	it('rejects an owner mismatch before transport startup', async () => {
 		const foreign = definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationTransportBinding({
-						contributionId: 'foreign-binding',
-						create: () => ({ value: binding }),
-					}),
-				],
-			},
+			capabilities: [
+				provideSchemaMutationTransportBinding({
+					contributionId: 'foreign-binding',
+					create: () => ({ value: binding }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-planning.foreign',
 			privileges: [

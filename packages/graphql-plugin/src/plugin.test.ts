@@ -53,14 +53,12 @@ const protectionDatabasePlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-protection-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new ProtectionDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new ProtectionDatabase() }),
+		}),
+	],
 })
 
 describe('graphqlPlugin', () => {

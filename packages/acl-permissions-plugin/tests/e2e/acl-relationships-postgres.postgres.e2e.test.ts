@@ -39,17 +39,15 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-relationships.identity',
-	capabilities: {
-		provides: [
-			provideTestPrincipalResolver({
-				resolveCurrent: ({ context }) => {
-					const id = context.getValue(currentMemberId)
+	capabilities: [
+		provideTestPrincipalResolver({
+			resolveCurrent: ({ context }) => {
+				const id = context.getValue(currentMemberId)
 
-					return id === undefined ? undefined : Member.pointer(id)
-				},
-			}),
-		],
-	},
+				return id === undefined ? undefined : Member.pointer(id)
+			},
+		}),
+	],
 })
 const emptyACL = new ACL()
 const Author = Schema.define({

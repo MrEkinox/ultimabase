@@ -63,14 +63,12 @@ const endpointPlugin = (
 				reason: 'Exposes fixture routes through the HTTP application.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideHttpEndpoints({
-					contributionId: 'fixture-routes',
-					create: () => definitions,
-				}),
-			],
-		},
+		capabilities: [
+			provideHttpEndpoints({
+				contributionId: 'fixture-routes',
+				create: () => definitions,
+			}),
+		],
 	})
 
 const serverPlugin = (capture?: (application: HttpApplication) => void) =>
@@ -78,7 +76,7 @@ const serverPlugin = (capture?: (application: HttpApplication) => void) =>
 		pluginId: 'fixture.http-server',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => {
 			const application = capabilities.get(applicationRequirement)
 			capture?.(application)
@@ -177,14 +175,12 @@ describe('HTTP application graph', () => {
 			privileges: [
 				{ name: 'transport:expose', reason: 'Exposes the fixture mount.' },
 			],
-			capabilities: {
-				provides: [
-					provideHttpEndpoints({
-						contributionId: 'mount',
-						create: () => mount,
-					}),
-				],
-			},
+			capabilities: [
+				provideHttpEndpoints({
+					contributionId: 'mount',
+					create: () => mount,
+				}),
+			],
 		})
 		const { application, http } = await initialize([
 			mountOwner,
@@ -234,24 +230,22 @@ describe('HTTP application graph', () => {
 			privileges: [
 				{ name: 'transport:expose', reason: 'Provides provider routes.' },
 			],
-			capabilities: {
-				provides: [
-					provideCapability(httpEndpointContributionsCapability, {
-						contributionId: 'forged',
-						create: () => ({
-							value: [
-								{
-									kind: 'route',
-									method: 'GET',
-									path: '/forged',
-									protocol,
-									handle: () => new Response(),
-								},
-							] as never,
-						}),
+			capabilities: [
+				provideCapability(httpEndpointContributionsCapability, {
+					contributionId: 'forged',
+					create: () => ({
+						value: [
+							{
+								kind: 'route',
+								method: 'GET',
+								path: '/forged',
+								protocol,
+								handle: () => new Response(),
+							},
+						] as never,
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
@@ -286,14 +280,12 @@ describe('HTTP application graph', () => {
 			privileges: [
 				{ name: 'transport:expose', reason: 'Exposes the provider route.' },
 			],
-			capabilities: {
-				provides: [
-					provideCapability(httpEndpointContributionsCapability, {
-						contributionId: 'provider-routes',
-						create: () => ({ value: [providerRoute] }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(httpEndpointContributionsCapability, {
+					contributionId: 'provider-routes',
+					create: () => ({ value: [providerRoute] }),
+				}),
+			],
 		})
 		const fixture = await initialize([
 			provider,
@@ -319,29 +311,27 @@ describe('HTTP application graph', () => {
 			pluginId: 'fixture.competing-http-application',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: {
-				provides: [
-					provideCapability(httpApplicationCapability, {
-						contributionId: 'competing-http-application',
-						create: () => ({
-							value: {
-								appId: 'competing',
-								authority: { master: { enabled: false } },
-								protocolVersion: '1.0.0',
-								originalHeaderMode: 'ordered-pairs',
-								requestTimeoutMs: undefined,
-								routeGraph: {
-									browserBootstraps: [],
-									endpoints: [],
-									mounts: [],
-									routes: [],
-								},
-								fetch: () => Promise.resolve(new Response()),
+			capabilities: [
+				provideCapability(httpApplicationCapability, {
+					contributionId: 'competing-http-application',
+					create: () => ({
+						value: {
+							appId: 'competing',
+							authority: { master: { enabled: false } },
+							protocolVersion: '1.0.0',
+							originalHeaderMode: 'ordered-pairs',
+							requestTimeoutMs: undefined,
+							routeGraph: {
+								browserBootstraps: [],
+								endpoints: [],
+								mounts: [],
+								routes: [],
 							},
-						}),
+							fetch: () => Promise.resolve(new Response()),
+						},
 					}),
-				],
-			},
+				}),
+			],
 		})
 		expect(() => {
 			const application = new FrameworkApplication({

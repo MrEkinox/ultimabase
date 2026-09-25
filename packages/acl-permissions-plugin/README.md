@@ -193,21 +193,19 @@ const aclAuditPlugin = definePlugin({
 			reason: 'Records committed ACL changes.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideACLChangeObserver(
-				'record-acl-change',
-				onACLChange(({ event }) => {
-					console.log(
-						event.name === aclChangedEvent,
-						event.payload.actor,
-						event.payload.target,
-						event.payload.diff,
-					)
-				}),
-			),
-		],
-	},
+	capabilities: [
+		provideACLChangeObserver(
+			'record-acl-change',
+			onACLChange(({ event }) => {
+				console.log(
+					event.name === aclChangedEvent,
+					event.payload.actor,
+					event.payload.target,
+					event.payload.diff,
+				)
+			}),
+		),
+	],
 })
 ```
 

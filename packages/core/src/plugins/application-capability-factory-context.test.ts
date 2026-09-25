@@ -44,14 +44,12 @@ describe('application capability factory context', () => {
 							],
 						}
 					: {}),
-				capabilities: {
-					provides: [
-						provideCapability(token, {
-							contributionId: 'fixture',
-							value: 'value',
-						}),
-					],
-				},
+				capabilities: [
+					provideCapability(token, {
+						contributionId: 'fixture',
+						value: 'value',
+					}),
+				],
 			})
 
 		expect(
@@ -88,23 +86,21 @@ describe('application capability factory context', () => {
 					reason: 'Publishes the factory-context fixture event.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'factory-context',
-						create: ({ assertPrivilege, owner }) => {
-							observedOwner = owner
-							assertPrivilege('event:publish')
-							try {
-								assertPrivilege('adapter:raw')
-							} catch (error: unknown) {
-								denied = error
-							}
-							return { value: 'ready' }
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'factory-context',
+					create: ({ assertPrivilege, owner }) => {
+						observedOwner = owner
+						assertPrivilege('event:publish')
+						try {
+							assertPrivilege('adapter:raw')
+						} catch (error: unknown) {
+							denied = error
+						}
+						return { value: 'ready' }
+					},
+				}),
+			],
 		})
 
 		const application = await createApplication({

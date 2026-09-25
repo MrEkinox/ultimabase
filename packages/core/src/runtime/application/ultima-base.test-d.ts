@@ -19,9 +19,7 @@ const databasePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.typed-ultimabase-database',
-	capabilities: {
-		provides: [provideTestDatabaseAdapter(adapter)],
-	},
+	capabilities: [provideTestDatabaseAdapter(adapter)],
 	setup: () => {
 		return { dialect: 'fixture' as const }
 	},

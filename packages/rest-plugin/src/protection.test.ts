@@ -25,14 +25,12 @@ const databasePlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.rest-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: unavailableAdapter }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: unavailableAdapter }),
+		}),
+	],
 })
 
 const PublicSchema = Schema.define({

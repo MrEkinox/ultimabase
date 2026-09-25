@@ -105,15 +105,13 @@ const fixture = (instanceId = 'one') => {
 			{ name: 'model:extend', reason: 'Attaches schema and model aliases.' },
 			{ name: 'transport:expose', reason: 'Owns an inert wire description.' },
 		] as const,
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'handler',
-					create: () => ({ value: handler }),
-				}),
-				provideOperationTransportBinding({ contributionId: 'binding', create }),
-			],
-		},
+		capabilities: [
+			provideOperationHandler({
+				contributionId: 'handler',
+				create: () => ({ value: handler }),
+			}),
+			provideOperationTransportBinding({ contributionId: 'binding', create }),
+		],
 		declare: ({ models, operations }) => {
 			operations.declare(operation)
 			operations.declare(mutation)
@@ -486,17 +484,15 @@ describe('canonical command graph', () => {
 					reason: 'Exercises exact ownership rejection.',
 				},
 			] as const,
-			capabilities: {
-				provides: [
-					provideOperationTransportBinding({
-						contributionId: 'foreign-binding',
-						create: async () => ({
-							value: (await owned.create()).value,
-							dispose,
-						}),
+			capabilities: [
+				provideOperationTransportBinding({
+					contributionId: 'foreign-binding',
+					create: async () => ({
+						value: (await owned.create()).value,
+						dispose,
 					}),
-				],
-			},
+				}),
+			],
 			setup,
 		})
 		const application = applicationFixture(

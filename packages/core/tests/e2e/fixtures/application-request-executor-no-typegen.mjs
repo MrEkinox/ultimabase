@@ -26,20 +26,18 @@ const captureCapability = defineCapability()({
 const captured = {}
 
 const transportPlugin = definePlugin({
-	capabilities: {
-		requires: [requestExecution],
-		provides: [
-			provideCapability(captureCapability, {
-				contributionId: 'capture-request-executor',
-				create: ({ callbacks, capabilities, owner }) => {
-					captured.callbacks = callbacks
-					captured.executor = capabilities.get(requestExecution)
-					captured.owner = owner
-					return { value: Object.freeze({ ready: true }) }
-				},
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(captureCapability, {
+			contributionId: 'capture-request-executor',
+			create: ({ callbacks, capabilities, owner }) => {
+				captured.callbacks = callbacks
+				captured.executor = capabilities.get(requestExecution)
+				captured.owner = owner
+				return { value: Object.freeze({ ready: true }) }
+			},
+		}),
+		requestExecution,
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-request-transport',
 	version: '1.0.0',
@@ -49,23 +47,21 @@ const unsupported = () => {
 	throw new TypeError('Database execution is not expected in this fixture')
 }
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'javascript-request-database',
-				create: () => ({
-					value: {
-						beginTransaction: unsupported,
-						capabilities: {
-							persistencePlans: databasePersistencePlanCapability,
-						},
-						execute: unsupported,
-						kind: 'database-adapter',
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'javascript-request-database',
+			create: () => ({
+				value: {
+					beginTransaction: unsupported,
+					capabilities: {
+						persistencePlans: databasePersistencePlanCapability,
 					},
-				}),
+					execute: unsupported,
+					kind: 'database-adapter',
+				},
 			}),
-		],
-	},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-request-database',
 	version: '1.0.0',

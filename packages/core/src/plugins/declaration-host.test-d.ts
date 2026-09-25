@@ -50,10 +50,7 @@ test('selects exact declaration facades from privileges and requirements', () =>
 				reason: 'Protects the exact fields facade.',
 			},
 		] as const,
-		capabilities: {
-			requires: [requiredStatic],
-			optional: [optionalStatic, optionalApplication],
-		},
+		capabilities: [requiredStatic, optionalStatic, optionalApplication],
 		declare: ({ capabilities, fields }) => {
 			expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
 			expectTypeOf(capabilities.get(requiredStatic)).toEqualTypeOf<{
@@ -71,7 +68,7 @@ test('selects exact declaration facades from privileges and requirements', () =>
 		pluginId: 'fixture.conditional-schema-authority',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { optional: [optionalStatic] },
+		capabilities: [optionalStatic],
 		privileges: [
 			{
 				name: 'schema:declare',

@@ -56,14 +56,12 @@ const schemaProvider = (
 		privileges: [
 			{ name: 'transport:expose', reason: 'Adds a public GraphQL fixture.' },
 		] as const,
-		capabilities: {
-			provides: [
-				provideGraphqlSchemas({
-					contributionId: `schema-${field}`,
-					create: () => schemaWithQuery(field, value),
-				}),
-			],
-		},
+		capabilities: [
+			provideGraphqlSchemas({
+				contributionId: `schema-${field}`,
+				create: () => schemaWithQuery(field, value),
+			}),
+		],
 	})
 
 describe('GraphQL schema composition', () => {
@@ -297,14 +295,12 @@ describe('GraphQL schema composition', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.denied-graphql-provider',
 			version: '1.0.0',
-			capabilities: {
-				provides: [
-					provideGraphqlSchemas({
-						contributionId: 'denied',
-						create: () => schemaWithQuery('denied', 'no'),
-					}),
-				],
-			},
+			capabilities: [
+				provideGraphqlSchemas({
+					contributionId: 'denied',
+					create: () => schemaWithQuery('denied', 'no'),
+				}),
+			],
 		})
 		expect(
 			() =>

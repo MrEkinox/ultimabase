@@ -74,33 +74,31 @@ export const createOfficialHooksConformanceFixture = () => {
 		},
 	})
 	const compatibleProvider = definePlugin({
-		capabilities: {
-			provides: [
-				provideHookContributions('article-lifecycle', () =>
-					schemaHooks(Article, {
-						afterOperation: {
-							create: () => {
-								trace.push('provider:after')
-							},
+		capabilities: [
+			provideHookContributions('article-lifecycle', () =>
+				schemaHooks(Article, {
+					afterOperation: {
+						create: () => {
+							trace.push('provider:after')
 						},
-						beforeOperation: {
-							create: () => {
-								trace.push('provider:before')
-							},
+					},
+					beforeOperation: {
+						create: () => {
+							trace.push('provider:before')
 						},
-					}),
-				),
-				provideHookEvent(
-					'article-created',
-					onEvent({
-						handler: ({ event }) => {
-							trace.push(`event:${event.name}`)
-						},
-						name: 'official-hooks.created',
-					}),
-				),
-			],
-		},
+					},
+				}),
+			),
+			provideHookEvent(
+				'article-created',
+				onEvent({
+					handler: ({ event }) => {
+						trace.push(`event:${event.name}`)
+					},
+					name: 'official-hooks.created',
+				}),
+			),
+		],
 		core: '^0.0.0',
 		instanceId: 'primary',
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
@@ -145,15 +143,13 @@ export const createInvalidHooksProviderFixture = () => {
 		fields: (field) => ({ title: field.string() }),
 	})
 	const provider = definePlugin({
-		capabilities: {
-			provides: [
-				provideHookContributions('outside-schema', () =>
-					schemaHooks(Outside, {
-						beforeOperation: { create: () => undefined },
-					}),
-				),
-			],
-		},
+		capabilities: [
+			provideHookContributions('outside-schema', () =>
+				schemaHooks(Outside, {
+					beforeOperation: { create: () => undefined },
+				}),
+			),
+		],
 		core: '^0.0.0',
 		peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
 		pluginId: 'community.invalid-hooks-provider',

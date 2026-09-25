@@ -60,20 +60,18 @@ export const createRequestExecutionHarnessPlugin = (
 					},
 				]
 			: [],
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'request-execution-harness',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.executor = capabilities.get(requestExecutionRequirement)
-						harness.owner = owner
-						return { value: { ready: true } }
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(harnessCapability, {
+				contributionId: 'request-execution-harness',
+				create: ({ callbacks, capabilities, owner }) => {
+					harness.callbacks = callbacks
+					harness.executor = capabilities.get(requestExecutionRequirement)
+					harness.owner = owner
+					return { value: { ready: true } }
+				},
+			}),
+			requestExecutionRequirement,
+		],
 		hooks: options.failStart
 			? {
 					startRuntime: () => {
@@ -95,9 +93,7 @@ export const createRequestExecutionDatabasePlugin = (
 		core: '^0.0.0',
 		pluginId: 'fixture.application-request-database',
 		version: '0.0.0',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 	})
 
 export const readRequestExecutionHarness = (

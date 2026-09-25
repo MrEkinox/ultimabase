@@ -203,24 +203,22 @@ describe('plugin schema option compilation', () => {
 			contexts: ['stored'],
 		})
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'runtime-registry',
-						create: () => {
-							events.push('capability:create')
-							return {
-								dispose: () => {
-									events.push('capability:dispose')
-								},
-								value: {
-									register: (event) => events.push(event),
-								},
-							}
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'runtime-registry',
+					create: () => {
+						events.push('capability:create')
+						return {
+							dispose: () => {
+								events.push('capability:dispose')
+							},
+							value: {
+								register: (event) => events.push(event),
+							},
+						}
+					},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-option-runtime-provider',
 			setup: () => {
@@ -229,7 +227,7 @@ describe('plugin schema option compilation', () => {
 			version: '1.0.0',
 		})
 		const owner = definePlugin({
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			core: '^0.0.0',
 			dependencies: [
 				{
@@ -324,22 +322,20 @@ describe('plugin schema option compilation', () => {
 			},
 		})
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(token, {
-						contributionId: 'runtime-registry',
-						create: () => {
-							events.push('capability:create')
-							return {
-								dispose: () => {
-									events.push('capability:dispose')
-								},
-								value: { active: true },
-							}
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(token, {
+					contributionId: 'runtime-registry',
+					create: () => {
+						events.push('capability:create')
+						return {
+							dispose: () => {
+								events.push('capability:dispose')
+							},
+							value: { active: true },
+						}
+					},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.failing-schema-option-runtime-provider',
 			setup: () => {
@@ -348,7 +344,7 @@ describe('plugin schema option compilation', () => {
 			version: '1.0.0',
 		})
 		const owner = definePlugin({
-			capabilities: { requires: [requirement] },
+			capabilities: [requirement],
 			core: '^0.0.0',
 			dependencies: [
 				{

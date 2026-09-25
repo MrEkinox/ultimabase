@@ -30,14 +30,12 @@ const createGuardPlugin = (
 				reason: 'Guards final mutation input in a composition fixture.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideRuntimeBehavior({
-					contributionId: 'final-mutation-guard',
-					create: () => ({ value: { guardMutationInput } }),
-				}),
-			],
-		},
+		capabilities: [
+			provideRuntimeBehavior({
+				contributionId: 'final-mutation-guard',
+				create: () => ({ value: { guardMutationInput } }),
+			}),
+		],
 	})
 
 describe('generic Runtime behavior composition', () => {
@@ -152,26 +150,24 @@ describe('generic Runtime behavior composition', () => {
 					reason: 'Exercises application-local guard resources.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideRuntimeBehavior({
-						contributionId: 'isolated-final-mutation-guard',
-						create: () => {
-							const id = ++nextId
-							return {
-								value: {
-									guardMutationInput: () => {
-										calls.push(id)
-									},
+			capabilities: [
+				provideRuntimeBehavior({
+					contributionId: 'isolated-final-mutation-guard',
+					create: () => {
+						const id = ++nextId
+						return {
+							value: {
+								guardMutationInput: () => {
+									calls.push(id)
 								},
-								dispose: () => {
-									disposals.push(id)
-								},
-							}
-						},
-					}),
-				],
-			},
+							},
+							dispose: () => {
+								disposals.push(id)
+							},
+						}
+					},
+				}),
+			],
 		})
 		const first = applicationFixture(
 			await createApplication({

@@ -59,14 +59,12 @@ const adapter = {
 }
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: adapter }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: adapter }),
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-rest-database',
 	version: '1.0.0',
@@ -77,7 +75,7 @@ const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 })
 let httpApplication
 const capturePlugin = definePlugin({
-	capabilities: { requires: [httpRequirement] },
+	capabilities: [httpRequirement],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-rest-capture',
 	setup: ({ capabilities }) => {

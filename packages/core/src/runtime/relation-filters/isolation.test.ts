@@ -19,9 +19,7 @@ const sourceId = '0198f090-2a50-7000-8000-000000000094'
 
 const databasePlugin = (pluginId: string, adapter: RecordingDatabaseAdapter) =>
 	definePlugin({
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 		core: '^0.0.0',
 		pluginId,
 		version: '0.0.0',

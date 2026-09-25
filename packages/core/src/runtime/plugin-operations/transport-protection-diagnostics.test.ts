@@ -53,27 +53,25 @@ const createBinding = (
 }
 
 const operationPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideOperationHandler({
-				contributionId: 'handler',
-				create: () => ({
-					value: operationHandler({
-						execute: () => null,
-						operation: diagnosticOperation,
-					}),
+	capabilities: [
+		provideOperationHandler({
+			contributionId: 'handler',
+			create: () => ({
+				value: operationHandler({
+					execute: () => null,
+					operation: diagnosticOperation,
 				}),
 			}),
-			provideOperationTransportBinding({
-				contributionId: 'primary-binding',
-				create: () => ({ value: createBinding(primaryTransport) }),
-			}),
-			provideOperationTransportBinding({
-				contributionId: 'secondary-binding',
-				create: () => ({ value: createBinding(secondaryTransport) }),
-			}),
-		],
-	},
+		}),
+		provideOperationTransportBinding({
+			contributionId: 'primary-binding',
+			create: () => ({ value: createBinding(primaryTransport) }),
+		}),
+		provideOperationTransportBinding({
+			contributionId: 'secondary-binding',
+			create: () => ({ value: createBinding(secondaryTransport) }),
+		}),
+	],
 	core: '^0.0.0',
 	declare: ({ operations }) => {
 		operations.declare(diagnosticOperation)
@@ -93,11 +91,9 @@ const operationPlugin = definePlugin({
 })
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-		],
-	},
+	capabilities: [
+		provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.transport-diagnostic.database',
 	version: '1.0.0',
@@ -105,22 +101,20 @@ const databasePlugin = definePlugin({
 
 const createPolicyPlugin = (mode: 'no-op' | 'unrelated') =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideRuntimeConstraint({
-					contributionId: 'policy',
-					create: () => ({
-						value:
-							mode === 'no-op'
-								? protectedPolicy({ evaluate: () => undefined })
-								: protectedPolicy({
-										evaluate: () => ({ allowed: false }),
-										operations: ['find-many'],
-									}),
-					}),
+		capabilities: [
+			provideRuntimeConstraint({
+				contributionId: 'policy',
+				create: () => ({
+					value:
+						mode === 'no-op'
+							? protectedPolicy({ evaluate: () => undefined })
+							: protectedPolicy({
+									evaluate: () => ({ allowed: false }),
+									operations: ['find-many'],
+								}),
 				}),
-			],
-		},
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: `fixture.transport-diagnostic.${mode}`,
 		privileges: [

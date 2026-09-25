@@ -77,22 +77,20 @@ const eventObserverPlugin = definePlugin({
 			reason: 'Observes committed ACL changes for the E2E fixture.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideACLChangeObserver(
-				'fixture.capture-acl-change',
-				onACLChange(async ({ event }: ACLChangeHandlerInput) => {
-					const row = await getFixture().pool.query<{ readonly id: string }>(
-						'SELECT id FROM acl_change_event_posts WHERE id = $1',
-						[event.payload.target.id],
-					)
+	capabilities: [
+		provideACLChangeObserver(
+			'fixture.capture-acl-change',
+			onACLChange(async ({ event }: ACLChangeHandlerInput) => {
+				const row = await getFixture().pool.query<{ readonly id: string }>(
+					'SELECT id FROM acl_change_event_posts WHERE id = $1',
+					[event.payload.target.id],
+				)
 
-					committedChanges.push(event.payload)
-					committedRows.push(...row.rows.map(({ id }) => id))
-				}),
-			),
-		],
-	},
+				committedChanges.push(event.payload)
+				committedRows.push(...row.rows.map(({ id }) => id))
+			}),
+		),
+	],
 })
 
 let ultimabase:

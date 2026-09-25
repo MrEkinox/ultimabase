@@ -69,14 +69,12 @@ class AlternativeReadAdapter implements DatabaseAdapter {
 
 const createSupportPlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database-adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database-adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.alternative-policy-support',
 		version: '1.0.0',

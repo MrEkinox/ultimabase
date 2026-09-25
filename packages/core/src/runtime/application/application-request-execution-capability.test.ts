@@ -21,7 +21,7 @@ const consumer = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.application-request-consumer',
 	version: '0.0.0',
-	capabilities: { requires: [requestExecutionRequirement] },
+	capabilities: [requestExecutionRequirement],
 })
 
 describe('application request execution capability ownership', () => {
@@ -78,10 +78,7 @@ describe('application request execution capability ownership', () => {
 								core: '^0.0.0',
 								pluginId: `fixture.${declaration.contributionId}`,
 								version: '0.0.0',
-								capabilities: {
-									requires: [requestExecutionRequirement],
-									provides: [declaration],
-								},
+								capabilities: [declaration, requestExecutionRequirement],
 							}),
 						],
 					}),

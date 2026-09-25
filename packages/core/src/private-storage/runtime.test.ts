@@ -405,18 +405,16 @@ const createFixture = async () => {
 		},
 	})
 	const plugin = definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'private-handler',
-					create: () => ({ value: handler }),
-				}),
-				provideOperationHandler({
-					contributionId: 'optional-private-handler',
-					create: () => ({ value: optionalHandler }),
-				}),
-			],
-		},
+		capabilities: [
+			provideOperationHandler({
+				contributionId: 'private-handler',
+				create: () => ({ value: handler }),
+			}),
+			provideOperationHandler({
+				contributionId: 'optional-private-handler',
+				create: () => ({ value: optionalHandler }),
+			}),
+		],
 		core: '^0.0.0',
 		declare: ({ operations, privateStorage }) => {
 			privateStorage.register(collection)
@@ -431,14 +429,12 @@ const createFixture = async () => {
 		version: '1.0.0',
 	})
 	const database = definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.private-database',
 		version: '1.0.0',
@@ -597,17 +593,15 @@ describe('owner-private plugin storage', () => {
 			version: '1.0.0',
 		})
 		const database = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(databaseAdapterCapability, {
-						contributionId: 'database',
-						create: () => {
-							adapterEffect()
-							return { value: new MemoryPrivateAdapter() }
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'database',
+					create: () => {
+						adapterEffect()
+						return { value: new MemoryPrivateAdapter() }
+					},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.denied-private-database',
 			version: '1.0.0',
@@ -629,14 +623,12 @@ describe('owner-private plugin storage', () => {
 	it('keeps applications without private declarations compatible with older adapters', async () => {
 		const adapter = new MemoryPrivateAdapter()
 		const database = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(databaseAdapterCapability, {
-						contributionId: 'database',
-						create: () => ({ value: adapter }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'database',
+					create: () => ({ value: adapter }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.private-zero-database',
 			version: '1.0.0',

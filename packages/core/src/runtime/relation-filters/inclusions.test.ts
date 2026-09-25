@@ -37,9 +37,7 @@ const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.relation-inclusion-database',
 		version: '0.0.0',
-		capabilities: {
-			provides: [provideTestDatabaseAdapter(adapter)],
-		},
+		capabilities: [provideTestDatabaseAdapter(adapter)],
 	})
 
 describe('Runtime relation-filter inclusions', () => {
@@ -136,48 +134,46 @@ describe('Runtime relation-filter inclusions', () => {
 					reason: 'Proves nested inclusion constraint composition.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeConstraint(
-						'fixture.included-room-policy',
-						protectedPolicy({
-							evaluate: () => {
-								trace.push('room-policy')
-								return {
-									rowFilter: normalizeWhereInput(Room, {
-										tenant: { eq: 'tenant-a' },
-									}),
-								}
-							},
-							operations: ['find-many'],
-							relation: () => {
-								trace.push('room-traversal')
-								return true
-							},
-							schema: Room,
-						}),
-					),
-					provideTestRuntimeConstraint(
-						'fixture.included-member-policy',
-						protectedPolicy({
-							evaluate: () => {
-								trace.push('member-policy')
-								return {
-									rowFilter: normalizeWhereInput(Member, {
-										role: { ne: 'blocked' },
-									}),
-								}
-							},
-							operations: ['find-many'],
-							relation: () => {
-								trace.push('member-traversal')
-								return true
-							},
-							schema: Member,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeConstraint(
+					'fixture.included-room-policy',
+					protectedPolicy({
+						evaluate: () => {
+							trace.push('room-policy')
+							return {
+								rowFilter: normalizeWhereInput(Room, {
+									tenant: { eq: 'tenant-a' },
+								}),
+							}
+						},
+						operations: ['find-many'],
+						relation: () => {
+							trace.push('room-traversal')
+							return true
+						},
+						schema: Room,
+					}),
+				),
+				provideTestRuntimeConstraint(
+					'fixture.included-member-policy',
+					protectedPolicy({
+						evaluate: () => {
+							trace.push('member-policy')
+							return {
+								rowFilter: normalizeWhereInput(Member, {
+									role: { ne: 'blocked' },
+								}),
+							}
+						},
+						operations: ['find-many'],
+						relation: () => {
+							trace.push('member-traversal')
+							return true
+						},
+						schema: Member,
+					}),
+				),
+			],
 		})
 		const application = await createApplication({
 			plugins: [policy, databasePlugin(adapter)],

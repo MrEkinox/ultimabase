@@ -49,7 +49,7 @@ describe('plugin event authoring helpers', () => {
 			pluginId: 'fixture.unauthorized-event-observer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { provides: [provider] },
+			capabilities: [provider],
 		})
 
 		await expect(
@@ -66,7 +66,7 @@ describe('plugin event authoring helpers', () => {
 					reason: 'Observes committed fixture events.',
 				},
 			],
-			capabilities: { provides: [provider] },
+			capabilities: [provider],
 		})
 		const application = await createApplication({
 			plugins: [authorized],

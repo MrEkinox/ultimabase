@@ -32,7 +32,7 @@ const roleResolverConsumer = <const TPluginId extends string>(
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId,
-		capabilities: { requires: [roleResolverRequirement] },
+		capabilities: [roleResolverRequirement],
 		setup: ({ capabilities }) => capabilities.get(roleResolverRequirement),
 	})
 
@@ -253,14 +253,12 @@ describe('stored role Access integration', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.community-role-provider',
-			capabilities: {
-				provides: [
-					provideCapability(requestRoleResolverCapability, {
-						contributionId: 'community-role-resolver',
-						create: () => ({ value: communityResolver }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(requestRoleResolverCapability, {
+					contributionId: 'community-role-resolver',
+					create: () => ({ value: communityResolver }),
+				}),
+			],
 		})
 		const consumer = roleResolverConsumer('fixture.community-role-consumer')
 		const application = await createApplication({

@@ -1,11 +1,10 @@
 import {
 	adapterValueStorageCapability,
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
 	definePluginField,
-	operationHandler,
-	provideOperationHandler,
 	requireCapability,
 	Schema,
 	UltimaBase,
@@ -117,7 +116,7 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 			'^1.0.0',
 		)
 		const logicalPlugin = definePlugin({
-			capabilities: { requires: [storageRequirement] },
+			capabilities: [storageRequirement],
 			core: '^0.0.0',
 			pluginId: 'fixture.portable-stored-value',
 			privileges: [
@@ -126,20 +125,18 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 			version: '1.0.0',
 		})
 		const physicalBridge = definePlugin({
-			capabilities: {
-				provides: [
-					postgresPhysicalColumn({
-						column: {
-							name: 'workflow_state',
-							nullable: true,
-							type: 'text',
-						},
-						contributionId: 'workflow-state',
-						normalizedStaticOptions: { initial: 'pending' },
-						table: 'adapter_bridge_items',
-					}),
-				],
-			},
+			capabilities: [
+				postgresPhysicalColumn({
+					column: {
+						name: 'workflow_state',
+						nullable: true,
+						type: 'text',
+					},
+					contributionId: 'workflow-state',
+					normalizedStaticOptions: { initial: 'pending' },
+					table: 'adapter_bridge_items',
+				}),
+			],
 			core: '^0.0.0',
 			instanceId: 'primary',
 			pluginId: 'fixture.workflow-postgres',
@@ -149,34 +146,24 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 			version: '1.0.0',
 		})
 		const rawPlugin = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationHandler({
-						contributionId: 'rollback-handler',
-						create: () => ({
-							value: operationHandler({
-								execute: ({ adapters, input }) =>
-									adapters.withRaw(rawRequirement, async (raw) => {
-										if (raw.scope !== 'transaction') {
-											throw new TypeError('transaction raw facade required')
-										}
-										await raw.query(
-											'INSERT INTO adapter_bridge_raw_probe (value) VALUES ($1)',
-											[input],
-										)
-										throw new Error('rollback fixture')
-									}),
-								operation: rollbackOperation,
-							}),
-						}),
-					}),
-				],
-				requires: [rawRequirement],
-			},
+			capabilities: [rawRequirement],
 			core: '^0.0.0',
-			declare: ({ operations }) => {
-				operations.declare(rollbackOperation)
-			},
+			operations: [
+				contributeOperation({
+					execute: ({ adapters, input }) =>
+						adapters.withRaw(rawRequirement, async (raw) => {
+							if (raw.scope !== 'transaction') {
+								throw new TypeError('transaction raw facade required')
+							}
+							await raw.query(
+								'INSERT INTO adapter_bridge_raw_probe (value) VALUES ($1)',
+								[input],
+							)
+							throw new Error('rollback fixture')
+						}),
+					operation: rollbackOperation,
+				}),
+			],
 			pluginId: 'fixture.postgres-raw-rollback',
 			privileges: [
 				{ name: 'adapter:raw', reason: 'Exercises PostgreSQL rollback.' },

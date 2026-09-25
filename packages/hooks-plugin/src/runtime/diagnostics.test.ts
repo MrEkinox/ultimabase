@@ -13,17 +13,15 @@ describe('hookDiagnosticsObserverCapability', () => {
 		const observer = () => undefined
 		let materializations = 0
 		const provider = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(hookDiagnosticsObserverCapability, {
-						contributionId: 'test-observer',
-						create: () => {
-							materializations += 1
-							return { value: observer }
-						},
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(hookDiagnosticsObserverCapability, {
+					contributionId: 'test-observer',
+					create: () => {
+						materializations += 1
+						return { value: observer }
+					},
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.hooks-diagnostics',
 			version: '0.0.0',

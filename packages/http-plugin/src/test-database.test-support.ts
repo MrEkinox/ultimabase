@@ -31,12 +31,10 @@ export const httpTestDatabasePlugin = (): PluginDefinition =>
 		pluginId: 'fixture.http-database',
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'empty-http-test-adapter',
-					create: () => ({ value: new EmptyHttpTestDatabaseAdapter() }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'empty-http-test-adapter',
+				create: () => ({ value: new EmptyHttpTestDatabaseAdapter() }),
+			}),
+		],
 	})

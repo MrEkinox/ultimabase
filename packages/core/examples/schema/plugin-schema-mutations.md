@@ -7,13 +7,11 @@ product vocabulary to Core or mutating an exported schema class.
 import {
 	Schema,
 	addSchemaField,
+	contributeSchemaMutation,
 	defineOperationValue,
 	defineOperationTransport,
 	definePlugin,
 	defineSchemaMutation,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	stringField,
@@ -56,44 +54,29 @@ const restV1 = defineOperationTransport({
 })
 
 export const workflowPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideSchemaMutationHandler({
-				contributionId: 'archive-handler',
-				create: () => ({
-					value: schemaMutationHandler({
+	operations: [
+		contributeSchemaMutation({
+			bindings: [
+				schemaMutationTransportBinding({
+					codec: schemaMutationWireCodec({
+						decode: (value) =>
+							archiveInput.snapshot(value, 'REST archive input'),
 						mutation: archive,
-						resolve: async ({ context, input, originalItem, target }) => {
-							await auditArchiveRequest({
-								context,
-								input,
-								originalItem,
-								target,
-							})
-							return { data: { workflowState: 'archived' } }
-						},
+						transport: restV1,
 					}),
+					metadata: {
+						errors: { 'community.workflow.archive-rejected': 409 },
+					},
+					mutation: archive,
 				}),
-			}),
-			provideSchemaMutationTransportBinding({
-				contributionId: 'archive-rest-v1',
-				create: () => ({
-					value: schemaMutationTransportBinding({
-						codec: schemaMutationWireCodec({
-							decode: (value) =>
-								archiveInput.snapshot(value, 'REST archive input'),
-							mutation: archive,
-							transport: restV1,
-						}),
-						metadata: {
-							errors: { 'community.workflow.archive-rejected': 409 },
-						},
-						mutation: archive,
-					}),
-				}),
-			}),
-		],
-	},
+			],
+			mutation: archive,
+			resolve: async ({ context, input, originalItem, target }) => {
+				await auditArchiveRequest({ context, input, originalItem, target })
+				return { data: { workflowState: 'archived' } }
+			},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'community.workflow',
 	privileges: [
@@ -104,8 +87,7 @@ export const workflowPlugin = definePlugin({
 		{ name: 'transport:expose', reason: 'Binds archive to REST v1.' },
 	],
 	version: '1.0.0',
-	declare: ({ models, operations, schemas }) => {
-		operations.declare(archive)
+	declare: ({ models, schemas }) => {
 		schemas.patch({
 			operations: [
 				addSchemaField({

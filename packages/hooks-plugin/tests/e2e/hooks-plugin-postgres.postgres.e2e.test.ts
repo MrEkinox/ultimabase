@@ -231,65 +231,63 @@ const scopePolicyPlugin = definePlugin({
 			reason: 'Applies the fixture scope guard and narrowing restrictions.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideTestRuntimeConstraint(
-				'fixture.hooks-plugin-guard',
-				guard({
-					schema: HookArticleSchema,
-					handler: ({ context, operation }) => {
-						trace(`policy:guard:${operation.kind}`)
-						readScopeId(context.metadata)
-					},
-				}),
-			),
-			provideTestRuntimeConstraint(
-				'fixture.hooks-plugin-constraint',
-				constraint({
-					handler: ({ context, operation }) => {
-						trace(`policy:constraint:${operation.kind}`)
+	capabilities: [
+		provideTestRuntimeConstraint(
+			'fixture.hooks-plugin-guard',
+			guard({
+				schema: HookArticleSchema,
+				handler: ({ context, operation }) => {
+					trace(`policy:guard:${operation.kind}`)
+					readScopeId(context.metadata)
+				},
+			}),
+		),
+		provideTestRuntimeConstraint(
+			'fixture.hooks-plugin-constraint',
+			constraint({
+				handler: ({ context, operation }) => {
+					trace(`policy:constraint:${operation.kind}`)
 
-						return databaseConstraint('fixture.scope', 1, {
-							scopeId: readScopeId(context.metadata),
-						})
-					},
-					operations: [
-						'find-many',
-						'find-one',
-						'get',
-						'count',
-						'exists',
-						'update-one',
-						'update-many',
-						'delete-one',
-						'delete-many',
-					],
-					schema: HookArticleSchema,
-				}),
-			),
-			provideTestRuntimeConstraint(
-				'fixture.hooks-plugin-selection',
-				restrictSelection({
-					// Selection hides the scope identity before output hooks observe a record.
-					handler: () => ['id', 'title', 'secret', 'profile'],
-					operations: ['find-many', 'find-one', 'get'],
-					schema: HookArticleSchema,
-				}),
-			),
-			provideTestRuntimeConstraint(
-				'fixture.hooks-plugin-output',
-				restrictOutput({
-					handler: ({ operation }) => {
-						trace(`policy:restrictOutput:${operation.kind}`)
+					return databaseConstraint('fixture.scope', 1, {
+						scopeId: readScopeId(context.metadata),
+					})
+				},
+				operations: [
+					'find-many',
+					'find-one',
+					'get',
+					'count',
+					'exists',
+					'update-one',
+					'update-many',
+					'delete-one',
+					'delete-many',
+				],
+				schema: HookArticleSchema,
+			}),
+		),
+		provideTestRuntimeConstraint(
+			'fixture.hooks-plugin-selection',
+			restrictSelection({
+				// Selection hides the scope identity before output hooks observe a record.
+				handler: () => ['id', 'title', 'secret', 'profile'],
+				operations: ['find-many', 'find-one', 'get'],
+				schema: HookArticleSchema,
+			}),
+		),
+		provideTestRuntimeConstraint(
+			'fixture.hooks-plugin-output',
+			restrictOutput({
+				handler: ({ operation }) => {
+					trace(`policy:restrictOutput:${operation.kind}`)
 
-						return ['id', 'title', 'profile']
-					},
-					operations: ['find-many', 'find-one', 'get'],
-					schema: HookArticleSchema,
-				}),
-			),
-		],
-	},
+					return ['id', 'title', 'profile']
+				},
+				operations: ['find-many', 'find-one', 'get'],
+				schema: HookArticleSchema,
+			}),
+		),
+	],
 	setup: ({ constraintCompilers }) => {
 		constraintCompilers.register(scopeConstraintCompiler)
 	},
@@ -313,35 +311,33 @@ const behaviorPlugin = definePlugin({
 			reason: 'Observes committed hooks-plugin events for the E2E fixture.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideHookContributions('article-lifecycle', () =>
-				schemaHooks(HookArticleSchema, {
-					afterOperation: {
-						create: () => {
-							trace('plugin:schema:afterCreate')
-						},
+	capabilities: [
+		provideHookContributions('article-lifecycle', () =>
+			schemaHooks(HookArticleSchema, {
+				afterOperation: {
+					create: () => {
+						trace('plugin:schema:afterCreate')
 					},
-					beforeOperation: {
-						create: ({ item }) => {
-							trace('plugin:schema:beforeCreate')
-							void item
-						},
+				},
+				beforeOperation: {
+					create: ({ item }) => {
+						trace('plugin:schema:beforeCreate')
+						void item
 					},
-				}),
-			),
-			provideHookEvent(
-				'fixture.hooks-plugin-created-event',
-				onEvent({
-					name: 'hooks-plugin.article-created',
-					handler: ({ event }) => {
-						committedEvents.push(event.name)
-						trace(`event:${event.name}`)
-					},
-				}),
-			),
-		],
-	},
+				},
+			}),
+		),
+		provideHookEvent(
+			'fixture.hooks-plugin-created-event',
+			onEvent({
+				name: 'hooks-plugin.article-created',
+				handler: ({ event }) => {
+					committedEvents.push(event.name)
+					trace(`event:${event.name}`)
+				},
+			}),
+		),
+	],
 })
 
 const createHookApplication = (connectionUri: string) =>

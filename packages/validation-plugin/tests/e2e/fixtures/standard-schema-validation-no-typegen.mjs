@@ -31,28 +31,26 @@ const unsupported = () => {
 }
 
 const databasePlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'javascript-validation-database',
-				create: () => ({
-					value: {
-						beginTransaction: async () => ({
-							capabilities: {},
-							commit: () => Promise.resolve(),
-							execute: unsupported,
-							kind: 'database-transaction-adapter',
-							prepare: unsupported,
-							rollback: () => Promise.resolve(),
-						}),
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'javascript-validation-database',
+			create: () => ({
+				value: {
+					beginTransaction: async () => ({
 						capabilities: {},
+						commit: () => Promise.resolve(),
 						execute: unsupported,
-						kind: 'database-adapter',
-					},
-				}),
+						kind: 'database-transaction-adapter',
+						prepare: unsupported,
+						rollback: () => Promise.resolve(),
+					}),
+					capabilities: {},
+					execute: unsupported,
+					kind: 'database-adapter',
+				},
 			}),
-		],
-	},
+		}),
+	],
 	core: '^0.0.0',
 	pluginId: 'fixture.javascript-validation-database',
 	version: '1.0.0',

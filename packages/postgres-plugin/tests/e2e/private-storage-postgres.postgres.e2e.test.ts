@@ -1,13 +1,12 @@
 import {
 	Schema,
 	UltimaBase,
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
 	definePrivateCollection,
-	operationHandler,
 	privateStore,
-	provideOperationHandler,
 	stringField,
 	uuidField,
 } from '@ultimabase/core'
@@ -82,7 +81,7 @@ const atomicOperation = defineOperation({
 describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 	it('enforces unique, CAS, reference, and shared transaction semantics', async () => {
 		let accountId = ''
-		const sessionHandler = operationHandler({
+		const sessionContribution = contributeOperation({
 			operation: sessionOperation,
 			execute: async ({ input }) => {
 				const store = privateStore(sessions)
@@ -123,7 +122,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				}
 			},
 		})
-		const atomicHandler = operationHandler({
+		const atomicContribution = contributeOperation({
 			operation: atomicOperation,
 			execute: async () => {
 				const account = await new Account({ name: 'rolled-back' }).create({})
@@ -137,24 +136,11 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			},
 		})
 		const privatePlugin = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationHandler({
-						contributionId: 'session-handler',
-						create: () => ({ value: sessionHandler }),
-					}),
-					provideOperationHandler({
-						contributionId: 'atomic-handler',
-						create: () => ({ value: atomicHandler }),
-					}),
-				],
-			},
 			core: '^0.0.0',
-			declare: ({ operations, privateStorage }) => {
+			declare: ({ privateStorage }) => {
 				privateStorage.register(sessions)
-				operations.declare(sessionOperation)
-				operations.declare(atomicOperation)
 			},
+			operations: [sessionContribution, atomicContribution],
 			pluginId: 'fixture.private-postgres',
 			privileges: [
 				{

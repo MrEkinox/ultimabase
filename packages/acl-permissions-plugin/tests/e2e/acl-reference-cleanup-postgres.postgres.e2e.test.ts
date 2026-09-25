@@ -198,40 +198,34 @@ const principalOwnerPlugin = definePlugin({
 			reason: 'Observes committed ACL changes for the E2E fixture.',
 		},
 	],
-	capabilities: {
-		optional: [optionalReferenceCleanups],
-		provides: [
-			provideACLChangeObserver(
-				'fixture.observe:acl-change',
-				onACLChange(({ event }: ACLChangeHandlerInput) => {
-					committedACLChanges.push(event.payload)
-				}),
-			),
-			provideHookContributions(
-				'principal-reference-deletion',
-				({ schemas }) => {
-					const readCleanups = () =>
-						principalCleanupsBySchemas.get(schemas) ?? []
+	capabilities: [
+		provideACLChangeObserver(
+			'fixture.observe:acl-change',
+			onACLChange(({ event }: ACLChangeHandlerInput) => {
+				committedACLChanges.push(event.payload)
+			}),
+		),
+		provideHookContributions('principal-reference-deletion', ({ schemas }) => {
+			const readCleanups = () => principalCleanupsBySchemas.get(schemas) ?? []
 
-					return principalPolicies.map(({ policy, schema }) =>
-						schemaHooks(schema, {
-							beforeOperation: {
-								delete: async (input) => {
-									await applyPrincipalPolicy(
-										input.context,
-										schema,
-										input.originalItem.id,
-										policy,
-										readCleanups(),
-									)
-								},
-							},
-						}),
-					)
-				},
-			),
-		],
-	},
+			return principalPolicies.map(({ policy, schema }) =>
+				schemaHooks(schema, {
+					beforeOperation: {
+						delete: async (input) => {
+							await applyPrincipalPolicy(
+								input.context,
+								schema,
+								input.originalItem.id,
+								policy,
+								readCleanups(),
+							)
+						},
+					},
+				}),
+			)
+		}),
+		optionalReferenceCleanups,
+	],
 	setup: ({ capabilities, schemas }) => {
 		principalCleanupsBySchemas.set(
 			schemas,

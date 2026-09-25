@@ -31,20 +31,18 @@ const routeOwner = definePlugin({
 			reason: 'Exposes the JavaScript fixture route.',
 		},
 	],
-	capabilities: {
-		provides: [
-			provideHttpEndpoints({
-				contributionId: 'javascript-route',
-				create: () =>
-					httpRoute({
-						method: 'GET',
-						path: '/javascript',
-						protocol,
-						handle: () => new Response('typegen-free'),
-					}),
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpEndpoints({
+			contributionId: 'javascript-route',
+			create: () =>
+				httpRoute({
+					method: 'GET',
+					path: '/javascript',
+					protocol,
+					handle: () => new Response('typegen-free'),
+				}),
+		}),
+	],
 })
 const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
@@ -53,29 +51,27 @@ const server = definePlugin({
 	pluginId: 'fixture.javascript-http-server',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: { requires: [requirement] },
+	capabilities: [requirement],
 	setup: ({ capabilities }) => ({ http: capabilities.get(requirement) }),
 })
 const database = definePlugin({
 	pluginId: 'fixture.javascript-http-database',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'javascript-http-adapter',
-				create: () => ({
-					value: {
-						kind: 'database-adapter',
-						execute: async () => [],
-						beginTransaction: async () => {
-							throw new TypeError('Fixture does not execute mutations')
-						},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'javascript-http-adapter',
+			create: () => ({
+				value: {
+					kind: 'database-adapter',
+					execute: async () => [],
+					beginTransaction: async () => {
+						throw new TypeError('Fixture does not execute mutations')
 					},
-				}),
+				},
 			}),
-		],
-	},
+		}),
+	],
 })
 const ultimabase = new UltimaBase({
 	pluginPrivileges: { logger: false },

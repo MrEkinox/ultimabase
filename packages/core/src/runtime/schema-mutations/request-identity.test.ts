@@ -92,35 +92,33 @@ describe('canonical mutation request identity', () => {
 					},
 				})
 			},
-			capabilities: {
-				provides: [
-					provideSchemaMutationTransportBinding({
-						contributionId: 'wire',
-						create: () => ({
-							value: schemaMutationTransportBinding({
+			capabilities: [
+				provideSchemaMutationTransportBinding({
+					contributionId: 'wire',
+					create: () => ({
+						value: schemaMutationTransportBinding({
+							mutation: archive,
+							codec: schemaMutationWireCodec({
 								mutation: archive,
-								codec: schemaMutationWireCodec({
-									mutation: archive,
-									transport: protocol,
-									decode: (value: undefined) => value,
-								}),
+								transport: protocol,
+								decode: (value: undefined) => value,
 							}),
 						}),
 					}),
-					provideSchemaMutationHandler({
-						contributionId: 'archive',
-						create: () => ({
-							value: schemaMutationHandler({ mutation: archive, resolve }),
-						}),
+				}),
+				provideSchemaMutationHandler({
+					contributionId: 'archive',
+					create: () => ({
+						value: schemaMutationHandler({ mutation: archive, resolve }),
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const database = definePlugin({
 			pluginId: 'fixture.canonical-mutation.database',
 			core: '^0.0.0',
 			version: '1.0.0',
-			capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+			capabilities: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({

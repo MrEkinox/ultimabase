@@ -35,5 +35,5 @@ export const createTestRuntimeConstraints = (
 	declare((name, definition) => {
 		provides.push(provideTestRuntimeConstraint(name, definition))
 	})
-	return { provides }
+	return provides
 }

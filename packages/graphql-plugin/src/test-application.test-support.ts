@@ -33,12 +33,10 @@ export const graphqlFixtureDatabasePlugin: PluginDefinition = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new GraphqlFixtureDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new GraphqlFixtureDatabase() }),
+		}),
+	],
 })

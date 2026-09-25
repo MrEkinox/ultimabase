@@ -58,31 +58,29 @@ const database = {
 }
 const createKernelSupportPlugin = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: database }),
-				}),
-				provideAdapterCapability(adapterValueStorageCapability, {
-					contributionId: 'json-storage',
-					value: {
-						adapterId: 'fixture.open-kernel-adapter',
-						family: 'value-storage',
-						formats: ['json'],
-					},
-				}),
-				provideAdapterCapability(adapterPersistencePlanCapability, {
-					contributionId: 'persistence-plans',
-					value: {
-						adapterId: 'fixture.open-kernel-adapter',
-						family: 'persistence-plan',
-						kinds: ['update-one', 'delete-one'],
-						protocolVersion: 1,
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: database }),
+			}),
+			provideAdapterCapability(adapterValueStorageCapability, {
+				contributionId: 'json-storage',
+				value: {
+					adapterId: 'fixture.open-kernel-adapter',
+					family: 'value-storage',
+					formats: ['json'],
+				},
+			}),
+			provideAdapterCapability(adapterPersistencePlanCapability, {
+				contributionId: 'persistence-plans',
+				value: {
+					adapterId: 'fixture.open-kernel-adapter',
+					family: 'persistence-plan',
+					kinds: ['update-one', 'delete-one'],
+					protocolVersion: 1,
+				},
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.open-kernel-support',
 		version: '1.0.0',

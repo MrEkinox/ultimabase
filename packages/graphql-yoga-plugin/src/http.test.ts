@@ -54,24 +54,22 @@ const sessionResolverPlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-session',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideHttpContextResolvers({
-				contributionId: 'fixture-session',
-				create: () =>
-					httpContextResolver({
-						resolve: ({ context, request }) => {
-							const authorization = request.headers.get('Authorization')
-							return authorization === null
-								? context
-								: context.withValue(sessionPrincipal, {
-										id: authorization,
-									})
-						},
-					}),
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpContextResolvers({
+			contributionId: 'fixture-session',
+			create: () =>
+				httpContextResolver({
+					resolve: ({ context, request }) => {
+						const authorization = request.headers.get('Authorization')
+						return authorization === null
+							? context
+							: context.withValue(sessionPrincipal, {
+									id: authorization,
+								})
+					},
+				}),
+		}),
+	],
 })
 
 const schema = new GraphQLSchema({

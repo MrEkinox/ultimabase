@@ -389,9 +389,7 @@ describe('plugin schema mutation Runtime', () => {
 				pluginPrivileges: { logger: false },
 				plugins: [
 					definePlugin({
-						capabilities: {
-							provides: [provideTestDatabaseAdapter(otherAdapter)],
-						},
+						capabilities: [provideTestDatabaseAdapter(otherAdapter)],
 						core: '^0.0.0',
 						pluginId: 'fixture.schema-mutation-without-purge',
 						version: '1.0.0',

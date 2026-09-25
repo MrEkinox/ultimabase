@@ -1,10 +1,9 @@
 import {
 	UltimaBase,
+	contributeOperation,
 	defineOperation,
 	defineOperationValue,
 	definePlugin,
-	operationHandler,
-	provideOperationHandler,
 } from '@ultimabase/core'
 import {
 	PasswordUser,
@@ -195,7 +194,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			PasswordUser,
 			upgradedPolicy,
 		)
-		const handler = operationHandler({
+		const credentialContribution = contributeOperation({
 			operation: credentialOperation,
 			execute: async ({ input }) => {
 				const username = normalizePasswordUsername(input.username)
@@ -257,20 +256,12 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			},
 		})
 		const fixturePlugin = definePlugin({
-			capabilities: {
-				provides: [
-					provideOperationHandler({
-						contributionId: 'credential-handler',
-						create: () => ({ value: handler }),
-					}),
-				],
-			},
 			core: '^0.0.0',
-			declare: ({ operations, privateStorage }) => {
+			declare: ({ privateStorage }) => {
 				privateStorage.register(credentials)
-				operations.declare(credentialOperation)
 			},
 			environment: ['environment:native-code'],
+			operations: [credentialContribution],
 			pluginId: '@ultimabase/password-auth-credential-fixture',
 			privileges: [
 				{ name: 'storage:private', reason: 'Stores credential verifiers.' },

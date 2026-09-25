@@ -116,14 +116,12 @@ describe('composeRuntimeContributionBehavior', () => {
 					reason: 'Exercises malformed interceptor materialization.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.invalid',
-						(() => undefined) as never,
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.invalid',
+					(() => undefined) as never,
+				),
+			],
 		})
 		await expect(
 			createApplication({
@@ -148,17 +146,15 @@ describe('composeRuntimeContributionBehavior', () => {
 					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.foreign',
-						beforeOperation({
-							schema: foreignSchema,
-							handler: () => undefined,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.foreign',
+					beforeOperation({
+						schema: foreignSchema,
+						handler: () => undefined,
+					}),
+				),
+			],
 		})
 		const application = applicationFixture(
 			await createApplication({
@@ -185,28 +181,26 @@ describe('composeRuntimeContributionBehavior', () => {
 					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.invalid-before-output',
-						beforeOperation({
-							operations: ['create-one'],
-							handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
-								input.operation) as never,
-						}),
-					),
-					provideTestRuntimeInterceptor(
-						'fixture.invalid-after-output',
-						afterOperation({
-							operations: ['create-one'],
-							handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
-								result: input.result,
-								extra: true,
-							})) as never,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.invalid-before-output',
+					beforeOperation({
+						operations: ['create-one'],
+						handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
+							input.operation) as never,
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.invalid-after-output',
+					afterOperation({
+						operations: ['create-one'],
+						handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
+							result: input.result,
+							extra: true,
+						})) as never,
+					}),
+				),
+			],
 		})
 		const application = applicationFixture(
 			await createApplication({
@@ -249,21 +243,19 @@ describe('composeRuntimeContributionBehavior', () => {
 					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.before-replacement',
-						beforeOperation({
-							operations: ['update-one'],
-							handler: ((
-								input: RuntimeOperationStageInput<typeof updateOperation>,
-							) => ({
-								operation: input.operation,
-							})) as never,
-						}),
-					),
-				],
-			},
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.before-replacement',
+					beforeOperation({
+						operations: ['update-one'],
+						handler: ((
+							input: RuntimeOperationStageInput<typeof updateOperation>,
+						) => ({
+							operation: input.operation,
+						})) as never,
+					}),
+				),
+			],
 		})
 		const application = applicationFixture(
 			await createApplication({
@@ -293,34 +285,30 @@ describe('composeRuntimeContributionBehavior', () => {
 					reason: 'Registers low-level Runtime contributions for tests.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideTestRuntimeInterceptor(
-						'fixture.prepared-value',
-						preparedOperation({
-							schema: articleSchema,
-							handler: ({ operation: current, target }) => {
-								handler(target)
+			capabilities: [
+				provideTestRuntimeInterceptor(
+					'fixture.prepared-value',
+					preparedOperation({
+						schema: articleSchema,
+						handler: ({ operation: current, target }) => {
+							handler(target)
 
-								return {
-									operation: {
-										...current,
-										update: {
-											...current.update,
-											operations: current.update.operations.map(
-												(candidate) => ({
-													...candidate,
-													value: target.title,
-												}),
-											),
-										},
+							return {
+								operation: {
+									...current,
+									update: {
+										...current.update,
+										operations: current.update.operations.map((candidate) => ({
+											...candidate,
+											value: target.title,
+										})),
 									},
-								}
-							},
-						}),
-					),
-				],
-			},
+								},
+							}
+						},
+					}),
+				),
+			],
 		})
 		const application = applicationFixture(
 			await createApplication({
@@ -383,17 +371,15 @@ describe('composeRuntimeContributionBehavior', () => {
 						reason: 'Registers low-level Runtime contributions for tests.',
 					},
 				],
-				capabilities: {
-					provides: [
-						provideTestRuntimeInterceptor(
-							'fixture.invalid-prepared',
-							preparedOperation({
-								schema: articleSchema,
-								handler: () => ({ operation: replacement }),
-							}),
-						),
-					],
-				},
+				capabilities: [
+					provideTestRuntimeInterceptor(
+						'fixture.invalid-prepared',
+						preparedOperation({
+							schema: articleSchema,
+							handler: () => ({ operation: replacement }),
+						}),
+					),
+				],
 			})
 			const application = applicationFixture(
 				await createApplication({

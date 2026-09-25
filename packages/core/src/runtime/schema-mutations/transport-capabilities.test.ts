@@ -77,14 +77,12 @@ describe('schema mutation transport binding capability', () => {
 
 	it('requires the protected provider facade and transport privilege', () => {
 		const withoutPrivilege = definePlugin({
-			capabilities: {
-				provides: [
-					provideSchemaMutationTransportBinding({
-						contributionId: 'binding',
-						create: () => ({ value: binding }),
-					}),
-				],
-			},
+			capabilities: [
+				provideSchemaMutationTransportBinding({
+					contributionId: 'binding',
+					create: () => ({ value: binding }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-transport-no-privilege',
 			version: '1.0.0',
@@ -100,14 +98,12 @@ describe('schema mutation transport binding capability', () => {
 		).toMatchObject({ privilege: 'transport:expose' })
 
 		const generic = definePlugin({
-			capabilities: {
-				provides: [
-					provideCapability(schemaMutationTransportBindingCapability, {
-						contributionId: 'generic',
-						create: () => ({ value: binding }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(schemaMutationTransportBindingCapability, {
+					contributionId: 'generic',
+					create: () => ({ value: binding }),
+				}),
+			],
 			core: '^0.0.0',
 			pluginId: 'fixture.schema-mutation-transport-generic',
 			privileges: [

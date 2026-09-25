@@ -63,20 +63,18 @@ const createApplication = (
 				reason: 'Verify required profile reads through static auth methods.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideAccessContributions('profile', () => [
-					schemaAccess(User, {
-						read: {
-							allow: ({ context }) =>
-								allow &&
-								context.access.mode === 'anonymous' &&
-								context.getValue(passwordPrincipal) !== undefined,
-						},
-					}),
-				]),
-			],
-		},
+		capabilities: [
+			provideAccessContributions('profile', () => [
+				schemaAccess(User, {
+					read: {
+						allow: ({ context }) =>
+							allow &&
+							context.access.mode === 'anonymous' &&
+							context.getValue(passwordPrincipal) !== undefined,
+					},
+				}),
+			]),
+		],
 	})
 	const ultimabase = new UltimaBase({
 		schemas: [User],

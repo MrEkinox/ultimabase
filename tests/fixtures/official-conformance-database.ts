@@ -178,14 +178,12 @@ export const officialConformanceDatabasePlugin = (
 	database: OfficialConformanceDatabase,
 ) =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'official-conformance-database',
-					create: () => ({ value: database }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'official-conformance-database',
+				create: () => ({ value: database }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.official-conformance-database',
 		version: '1.0.0',

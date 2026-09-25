@@ -5,13 +5,11 @@ import {
 	databasePersistencePlanCapability,
 	addSchemaField,
 	booleanField,
+	contributeSchemaMutation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
 	provideCapability,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 	defineSchemaMutation,
@@ -91,14 +89,12 @@ const databasePlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.graphql-yoga-e2e-database',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideCapability(databaseAdapterCapability, {
-				contributionId: 'database',
-				create: () => ({ value: new GraphqlYogaE2eDatabase() }),
-			}),
-		],
-	},
+	capabilities: [
+		provideCapability(databaseAdapterCapability, {
+			contributionId: 'database',
+			create: () => ({ value: new GraphqlYogaE2eDatabase() }),
+		}),
+	],
 })
 
 const reservePort = () =>
@@ -152,40 +148,29 @@ const graphqlProtocol = defineOperationTransport({
 	version: '1.0.0',
 })
 const workflowPlugin = definePlugin({
-	capabilities: {
-		provides: [
-			provideSchemaMutationHandler({
-				contributionId: 'archive-handler',
-				create: () => ({
-					value: schemaMutationHandler({
+	operations: [
+		contributeSchemaMutation({
+			bindings: [
+				schemaMutationTransportBinding({
+					codec: schemaMutationWireCodec({
+						decode: (value) =>
+							archiveInput.snapshot(value, 'archive.wire-input'),
 						mutation: archiveMutation,
-						resolve: () => ({ data: { workflowArchived: true } }),
+						transport: graphqlProtocol,
 					}),
+					metadata: {
+						kind: 'graphql-schema-mutation-binding',
+						types: [],
+					},
+					mutation: archiveMutation,
 				}),
-			}),
-			provideSchemaMutationTransportBinding({
-				contributionId: 'archive-graphql-binding',
-				create: () => ({
-					value: schemaMutationTransportBinding({
-						codec: schemaMutationWireCodec({
-							decode: (value) =>
-								archiveInput.snapshot(value, 'archive.wire-input'),
-							mutation: archiveMutation,
-							transport: graphqlProtocol,
-						}),
-						metadata: {
-							kind: 'graphql-schema-mutation-binding',
-							types: [],
-						},
-						mutation: archiveMutation,
-					}),
-				}),
-			}),
-		],
-	},
+			],
+			mutation: archiveMutation,
+			resolve: () => ({ data: { workflowArchived: true } }),
+		}),
+	],
 	core: '^0.0.0',
-	declare: ({ models, operations, schemas }) => {
-		operations.declare(archiveMutation)
+	declare: ({ models, schemas }) => {
 		schemas.patch({
 			operations: [
 				addSchemaField({

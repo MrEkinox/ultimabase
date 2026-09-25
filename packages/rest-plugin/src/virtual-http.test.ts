@@ -137,14 +137,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-virtual-http-database',
 		version: '1.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
@@ -156,7 +154,7 @@ const capturePlugin = (capture: { current?: HttpApplication }) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.rest-virtual-http-capture',
 		version: '1.0.0',
-		capabilities: { requires: [httpRequirement] },
+		capabilities: [httpRequirement],
 		setup: ({ capabilities }) => {
 			capture.current = capabilities.get(httpRequirement)
 		},
@@ -166,23 +164,21 @@ const contextPlugin = definePlugin({
 	core: '^0.0.0',
 	pluginId: 'fixture.rest-virtual-http-context',
 	version: '1.0.0',
-	capabilities: {
-		provides: [
-			provideHttpContextResolvers({
-				contributionId: 'viewer',
-				create: () => [
-					httpContextResolver({
-						resolve: ({ context, request }) => {
-							const authorization = request.headers.get('Authorization')
-							return authorization === null
-								? context
-								: context.withValue(viewer, authorization)
-						},
-					}),
-				],
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpContextResolvers({
+			contributionId: 'viewer',
+			create: () => [
+				httpContextResolver({
+					resolve: ({ context, request }) => {
+						const authorization = request.headers.get('Authorization')
+						return authorization === null
+							? context
+							: context.withValue(viewer, authorization)
+					},
+				}),
+			],
+		}),
+	],
 })
 
 const createFixture = async (requestTimeoutMs?: number) => {

@@ -81,14 +81,12 @@ resolvers run under that exact plugin and optional instance identity:
 ```ts
 import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
 
-capabilities: {
-	provides: [
-		provideGraphqlSchemas({
-			contributionId: 'admin-graphql',
-			create: () => adminSchema,
-		}),
-	],
-}
+capabilities: [
+	provideGraphqlSchemas({
+		contributionId: 'admin-graphql',
+		create: () => adminSchema,
+	}),
+]
 ```
 
 Composition clones every contributed type and resolver into one final schema.

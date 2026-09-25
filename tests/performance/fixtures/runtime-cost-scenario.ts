@@ -46,16 +46,14 @@ const neutralBehaviorPlugin = (): PluginDefinition =>
 				reason: 'Proves the performance fixture detects one neutral stage.',
 			},
 		],
-		capabilities: {
-			provides: [
-				provideRuntimeBehavior({
-					contributionId: 'neutral-stage',
-					create: () => ({
-						value: { beforeOperation: () => undefined },
-					}),
+		capabilities: [
+			provideRuntimeBehavior({
+				contributionId: 'neutral-stage',
+				create: () => ({
+					value: { beforeOperation: () => undefined },
 				}),
-			],
-		},
+			}),
+		],
 	})
 
 const optionalPlugins = (

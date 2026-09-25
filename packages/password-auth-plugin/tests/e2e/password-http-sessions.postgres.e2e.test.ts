@@ -63,35 +63,33 @@ const contextRoutes = definePlugin({
 	privileges: [
 		{ name: 'transport:expose', reason: 'Exposes HTTP auth context evidence.' },
 	],
-	capabilities: {
-		provides: [
-			provideHttpEndpoints({
-				contributionId: 'password-context',
-				create: () =>
-					(['GET', 'POST'] as const).map((method) =>
-						httpRoute({
-							handle: (request) => {
-								const context = getCurrentRequest()
-								return Response.json({
-									access: context.access.mode,
-									authorizationHeader: request.headers.has('Authorization'),
-									cookieHeader: request.headers.has('Cookie'),
-									principalId:
-										context.getValue(passwordPrincipal)?.user.id ?? null,
-									sessionId: context.getValue(passwordSession)?.id ?? null,
-								})
-							},
-							method,
-							path: '/context',
-							protocol: {
-								name: 'fixture.password-http-context',
-								version: '1',
-							},
-						}),
-					),
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpEndpoints({
+			contributionId: 'password-context',
+			create: () =>
+				(['GET', 'POST'] as const).map((method) =>
+					httpRoute({
+						handle: (request) => {
+							const context = getCurrentRequest()
+							return Response.json({
+								access: context.access.mode,
+								authorizationHeader: request.headers.has('Authorization'),
+								cookieHeader: request.headers.has('Cookie'),
+								principalId:
+									context.getValue(passwordPrincipal)?.user.id ?? null,
+								sessionId: context.getValue(passwordSession)?.id ?? null,
+							})
+						},
+						method,
+						path: '/context',
+						protocol: {
+							name: 'fixture.password-http-context',
+							version: '1',
+						},
+					}),
+				),
+		}),
+	],
 })
 interface PasswordHttpApplicationOptions {
 	readonly appId: string
@@ -110,7 +108,7 @@ const createPasswordHttpApplication = (
 		pluginId: `fixture.password-http-capture.${options.appId}`,
 		version: '1.0.0',
 		core: '^0.0.0',
-		capabilities: { requires: [applicationRequirement] },
+		capabilities: [applicationRequirement],
 		setup: ({ capabilities }) => {
 			http = capabilities.get(applicationRequirement)
 		},

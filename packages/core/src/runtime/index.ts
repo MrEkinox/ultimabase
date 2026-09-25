@@ -154,17 +154,10 @@ export {
 // Custom operations execute through owner-bound handlers and explicit wire bindings.
 export {
 	defineOperationTransport,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 } from './plugin-operations/index.js'
 export {
-	pluginSchemaMutationHandlerCapability,
-	provideSchemaMutationHandler,
-	provideSchemaMutationTransportBinding,
-	schemaMutationHandler,
 	schemaMutationTransportBinding,
 	schemaMutationWireCodec,
 } from './schema-mutations/index.js'

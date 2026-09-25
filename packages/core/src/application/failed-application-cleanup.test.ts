@@ -16,11 +16,9 @@ it('retains original and cleanup failures and never releases unproven resources'
 		plugins: [
 			definePlugin({
 				pluginId: 'fixture.failed-cleanup',
-				capabilities: {
-					provides: [
-						provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-					],
-				},
+				capabilities: [
+					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+				],
 				version: '0.0.0',
 				core: '^0.0.0',
 				hooks: {

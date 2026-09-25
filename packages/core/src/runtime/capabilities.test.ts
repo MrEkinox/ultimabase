@@ -92,14 +92,12 @@ describe('public Runtime capabilities', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.runtime-missing-privilege',
 			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideRuntimeInterceptor({
-						contributionId: 'interceptor',
-						create: () => ({ value: definition }),
-					}),
-				],
-			},
+			capabilities: [
+				provideRuntimeInterceptor({
+					contributionId: 'interceptor',
+					create: () => ({ value: definition }),
+				}),
+			],
 		})
 		const missingPrivilegeError = captureFrameworkError(() =>
 			createPluginApplication(missingPrivilege),
@@ -117,14 +115,12 @@ describe('public Runtime capabilities', () => {
 			privileges: [
 				{ name: 'runtime:intercept', reason: 'Exercises exact facades.' },
 			],
-			capabilities: {
-				provides: [
-					provideCapability(runtimeInterceptorCapability, {
-						contributionId: 'generic',
-						create: () => ({ value: definition }),
-					}),
-				],
-			},
+			capabilities: [
+				provideCapability(runtimeInterceptorCapability, {
+					contributionId: 'generic',
+					create: () => ({ value: definition }),
+				}),
+			],
 		})
 		expect(
 			captureFrameworkError(() => createPluginApplication(genericProvider))
@@ -146,22 +142,20 @@ describe('public Runtime capabilities', () => {
 						reason: 'Tests the removed stage boundary.',
 					},
 				],
-				capabilities: {
-					provides: [
-						provideRuntimeInterceptor({
-							contributionId: 'removed-stage',
-							create: () => ({
-								// Untyped plugins cannot restore a removed stage with a shaped object.
-								value: {
-									stage,
-									handler: () => {
-										effects.push('handler')
-									},
-								} as never,
-							}),
+				capabilities: [
+					provideRuntimeInterceptor({
+						contributionId: 'removed-stage',
+						create: () => ({
+							// Untyped plugins cannot restore a removed stage with a shaped object.
+							value: {
+								stage,
+								handler: () => {
+									effects.push('handler')
+								},
+							} as never,
 						}),
-					],
-				},
+					}),
+				],
 				setup: () => {
 					effects.push('setup')
 				},
@@ -179,16 +173,14 @@ describe('public Runtime capabilities', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.runtime-guard-no-privilege',
 			version: '0.0.0',
-			capabilities: {
-				provides: [
-					provideRuntimeBehavior({
-						contributionId: 'final-mutation-guard',
-						create: () => ({
-							value: { guardMutationInput: () => undefined },
-						}),
+			capabilities: [
+				provideRuntimeBehavior({
+					contributionId: 'final-mutation-guard',
+					create: () => ({
+						value: { guardMutationInput: () => undefined },
 					}),
-				],
-			},
+				}),
+			],
 		})
 		expect(
 			captureFrameworkError(() => createPluginApplication(missingPrivilege))
@@ -208,16 +200,14 @@ describe('public Runtime capabilities', () => {
 					reason: 'Exercises Runtime behavior validation.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideRuntimeBehavior({
-						contributionId: 'malformed-final-mutation-guard',
-						create: () => ({
-							value: { guardMutationInput: true } as never,
-						}),
+			capabilities: [
+				provideRuntimeBehavior({
+					contributionId: 'malformed-final-mutation-guard',
+					create: () => ({
+						value: { guardMutationInput: true } as never,
 					}),
-				],
-			},
+				}),
+			],
 		})
 
 		await expect(
@@ -238,9 +228,7 @@ describe('public Runtime capabilities', () => {
 			core: '^0.0.0',
 			pluginId: 'fixture.runtime-constraint-inspection',
 			version: '0.0.0',
-			capabilities: {
-				optional: [optionalCapability(runtimeConstraintCapability, '^1.0.0')],
-			},
+			capabilities: [optionalCapability(runtimeConstraintCapability, '^1.0.0')],
 		})
 		expect(
 			captureFrameworkError(() => createPluginApplication(inspectingPlugin))
@@ -259,26 +247,24 @@ describe('public Runtime capabilities', () => {
 			privileges: [
 				{ name: 'runtime:intercept', reason: 'Exercises resource isolation.' },
 			],
-			capabilities: {
-				provides: [
-					provideRuntimeInterceptor({
-						contributionId: 'resource',
-						create: () => {
-							const id = ++nextId
-							return {
-								value: beforeOperation({
-									handler: () => {
-										invocations.push(id)
-									},
-								}),
-								dispose: () => {
-									disposals.push(id)
+			capabilities: [
+				provideRuntimeInterceptor({
+					contributionId: 'resource',
+					create: () => {
+						const id = ++nextId
+						return {
+							value: beforeOperation({
+								handler: () => {
+									invocations.push(id)
 								},
-							}
-						},
-					}),
-				],
-			},
+							}),
+							dispose: () => {
+								disposals.push(id)
+							},
+						}
+					},
+				}),
+			],
 		})
 		const first = createPluginApplication(plugin)
 		const second = createPluginApplication(plugin)
@@ -318,26 +304,24 @@ describe('public Runtime capabilities', () => {
 					reason: 'Proves cancellation prevents mutation guards from running.',
 				},
 			],
-			capabilities: {
-				provides: [
-					provideRuntimeBehavior({
-						contributionId: 'final-mutation-guard',
-						create: () => ({
-							value: {
-								guardMutationInput: () => {
-									guardCalls += 1
-								},
+			capabilities: [
+				provideRuntimeBehavior({
+					contributionId: 'final-mutation-guard',
+					create: () => ({
+						value: {
+							guardMutationInput: () => {
+								guardCalls += 1
 							},
-						}),
+						},
 					}),
-				],
-			},
+				}),
+			],
 		})
 		const database = definePlugin({
 			core: '^0.0.0',
 			pluginId: 'fixture.runtime-database',
 			version: '0.0.0',
-			capabilities: { provides: [provideTestDatabaseAdapter(adapter)] },
+			capabilities: [provideTestDatabaseAdapter(adapter)],
 		})
 		const application = applicationFixture(
 			await createApplication({

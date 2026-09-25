@@ -67,6 +67,21 @@ describe('capability declarations', () => {
 		expect(provider.contributionId).toBe('fixture.audit-sink')
 	})
 
+	it('rejects the removed grouped authoring shape at the JavaScript boundary', () => {
+		const provider = provideCapability(declarationToken, {
+			value: { endpoint: 'https://audit.example' },
+		})
+
+		expect(() =>
+			definePlugin({
+				capabilities: { provides: [provider] } as never,
+				core: '^0.0.0',
+				pluginId: 'fixture.grouped-capabilities',
+				version: '1.0.0',
+			}),
+		).toThrow('capabilities must be an array')
+	})
+
 	it('creates frozen serializable metadata for every cardinality and lifetime', () => {
 		const singleToken = defineCapability<string>()({
 			capabilityId: 'fixture.primary-store',

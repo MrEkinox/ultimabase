@@ -67,9 +67,7 @@ export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
 		table,
 	})
 	return definePlugin({
-		capabilities: {
-			provides: [physical],
-		},
+		capabilities: [physical],
 		core: '^0.0.0',
 		instanceId: options.instanceId,
 		pluginId: 'fixture.open-kernel-value-postgres',

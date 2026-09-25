@@ -194,23 +194,19 @@ export const createRoleProviderFixture = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: `fixture.acl-role-provider.${suffix}`,
-		capabilities: {
-			provides: [
-				roleResolverProvider({
-					hasRole: ({ role: candidate }) => candidate.value === role.value,
-					resolveCurrentRoles: () => [role],
-					resolvePersistentRole: ({ role: candidate }) => candidate,
-				}),
-			],
-		},
+		capabilities: [
+			roleResolverProvider({
+				hasRole: ({ role: candidate }) => candidate.value === role.value,
+				resolveCurrentRoles: () => [role],
+				resolvePersistentRole: ({ role: candidate }) => candidate,
+			}),
+		],
 	})
 	const databaseProvider = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: `fixture.acl-role-database.${suffix}`,
-		capabilities: {
-			provides: [databaseAdapterProvider(adapter)],
-		},
+		capabilities: [databaseAdapterProvider(adapter)],
 	})
 	const aclProvider = aclPlugin()
 	let plugins: readonly PluginDefinition[]

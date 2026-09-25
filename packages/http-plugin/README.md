@@ -119,22 +119,20 @@ const credentials = definePlugin({
 	pluginId: 'example.credentials',
 	version: '1.0.0',
 	core: '^0.0.0',
-	capabilities: {
-		provides: [
-			provideHttpContextResolvers({
-				contributionId: 'bearer',
-				create: () =>
-					httpContextResolver({
-						resolve: async ({ context, request }) => {
-							const value = await verifyBearer(
-								request.headers.get('Authorization'),
-							)
-							return context.withValue(principal, value)
-						},
-					}),
-			}),
-		],
-	},
+	capabilities: [
+		provideHttpContextResolvers({
+			contributionId: 'bearer',
+			create: () =>
+				httpContextResolver({
+					resolve: async ({ context, request }) => {
+						const value = await verifyBearer(
+							request.headers.get('Authorization'),
+						)
+						return context.withValue(principal, value)
+					},
+				}),
+		}),
+	],
 })
 ```
 
@@ -209,7 +207,7 @@ const statusPlugin = definePlugin({
 			reason: 'Exposes the selected status routes over HTTP.',
 		},
 	],
-	capabilities: { provides: [routes] },
+	capabilities: [routes],
 })
 ```
 

@@ -62,20 +62,18 @@ const createHarnessPlugin = (harness: ExecutionHarness) =>
 		core: '^0.0.0',
 		pluginId: 'fixture.graphql-relay-postgres-harness',
 		version: '1.0.0',
-		capabilities: {
-			requires: [requestExecutionRequirement],
-			provides: [
-				provideCapability(harnessCapability, {
-					contributionId: 'capture',
-					create: ({ callbacks, capabilities, owner }) => {
-						harness.callbacks = callbacks
-						harness.executor = capabilities.get(requestExecutionRequirement)
-						harness.owner = owner
-						return { value: { ready: true } }
-					},
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(harnessCapability, {
+				contributionId: 'capture',
+				create: ({ callbacks, capabilities, owner }) => {
+					harness.callbacks = callbacks
+					harness.executor = capabilities.get(requestExecutionRequirement)
+					harness.owner = owner
+					return { value: { ready: true } }
+				},
+			}),
+			requestExecutionRequirement,
+		],
 	})
 
 const readHarness = (harness: ExecutionHarness) => {

@@ -170,9 +170,7 @@ describe('aclPlugin prepared input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-replacement-write-database',
-			capabilities: {
-				provides: [databaseAdapterProvider(adapter)],
-			},
+			capabilities: [databaseAdapterProvider(adapter)],
 		})
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({

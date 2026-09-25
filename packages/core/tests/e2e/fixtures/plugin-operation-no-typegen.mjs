@@ -8,17 +8,15 @@ import {
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	contributeOperation,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
 	definePlugin,
 	defineSchemaOption,
-	operationHandler,
 	operationTransportBinding,
 	operationWireCodec,
 	provideCapability,
-	provideOperationHandler,
-	provideOperationTransportBinding,
 	stringField,
 } from '@ultimabase/core'
 import {
@@ -85,22 +83,6 @@ const protocol = defineOperationTransport({
 	name: 'fixture.javascript.fake',
 	version: '1.0.0',
 })
-const handler = operationHandler({
-	operation: inspect,
-	execute: ({ input: value }) => {
-		if (value.message === 'reject') {
-			throw new PluginError(
-				'fixture.javascript.rejected',
-				'internal JavaScript diagnostic',
-				{
-					internalDetails: { secret: 'hidden' },
-					publicMessage: 'Rejected by JavaScript fixture.',
-				},
-			)
-		}
-		return immutable({ echo: value.message })
-	},
-})
 const codec = operationWireCodec({
 	decode: (wire) => immutable({ message: wire.text }),
 	encode: (value) => immutable({ text: value.echo }),
@@ -110,20 +92,8 @@ const codec = operationWireCodec({
 const binding = operationTransportBinding({ codec, operation: inspect })
 const createOperationPlugin = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideOperationHandler({
-					contributionId: 'handler',
-					create: () => ({ value: handler }),
-				}),
-				provideOperationTransportBinding({
-					contributionId: 'binding',
-					create: () => ({ value: binding }),
-				}),
-			],
-		},
 		core: '^0.0.0',
-		declare: ({ operations, schemas }) => {
+		declare: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'javascript-document-options',
 				schema: { document: opaqueDocumentOption },
@@ -139,8 +109,26 @@ const createOperationPlugin = () =>
 				targets: schemas.select({ option: { name: 'document' } }),
 			})
 			schemas.add({ contributionId: 'dynamic-post', schema: DynamicPost })
-			operations.declare(inspect)
 		},
+		operations: [
+			contributeOperation({
+				bindings: [binding],
+				execute: ({ input: value }) => {
+					if (value.message === 'reject') {
+						throw new PluginError(
+							'fixture.javascript.rejected',
+							'internal JavaScript diagnostic',
+							{
+								internalDetails: { secret: 'hidden' },
+								publicMessage: 'Rejected by JavaScript fixture.',
+							},
+						)
+					}
+					return immutable({ echo: value.message })
+				},
+				operation: inspect,
+			}),
+		],
 		pluginId: 'fixture.javascript-operations',
 		privileges: [
 			{
@@ -173,14 +161,12 @@ const adapter = {
 }
 const createDatabasePlugin = () =>
 	definePlugin({
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'adapter',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'adapter',
+				create: () => ({ value: adapter }),
+			}),
+		],
 		core: '^0.0.0',
 		pluginId: 'fixture.javascript-database',
 		version: '1.0.0',

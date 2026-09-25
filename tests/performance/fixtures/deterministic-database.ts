@@ -150,12 +150,10 @@ export const deterministicDatabasePlugin = (
 		pluginId: 'fixture.performance-database',
 		version: '0.0.0',
 		core: '^0.0.0',
-		capabilities: {
-			provides: [
-				provideCapability(databaseAdapterCapability, {
-					contributionId: 'deterministic-database',
-					create: () => ({ value: adapter }),
-				}),
-			],
-		},
+		capabilities: [
+			provideCapability(databaseAdapterCapability, {
+				contributionId: 'deterministic-database',
+				create: () => ({ value: adapter }),
+			}),
+		],
 	})
