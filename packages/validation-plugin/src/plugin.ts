@@ -1,10 +1,8 @@
 import {
-	definePluginModule,
+	contributeDeclarations,
+	plugin,
 	provideRuntimeBehavior,
-	type CapabilityProviderDeclaration,
-	type PluginModule,
-	type PluginModuleInstance,
-	type runtimeBehaviorCapability,
+	type PluginInstance,
 } from '@ultimabase/core'
 
 import { fieldValidationOption } from './options.js'
@@ -14,39 +12,19 @@ import {
 	validateMutationInput,
 } from './operation-validation.js'
 
-const validationPluginModule: PluginModule<
-	'@ultimabase/validation-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/validation-plugin',
-	version: '0.0.0',
-})
-
-const validationPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the official field validation option.',
-	},
-	{
-		name: 'runtime:intercept',
-		reason:
-			'Rejects final mutation candidates using installed field validators.',
-	},
-] as const
-
-type ValidationPluginDefinition = Readonly<{
-	readonly capabilities: readonly [
-		CapabilityProviderDeclaration<typeof runtimeBehaviorCapability>,
-	]
-	readonly privileges: typeof validationPluginPrivileges
-}>
+const validationPluginPermissions = {
+	'schema:declare': 'Declares the official field validation option.',
+	'runtime:intercept':
+		'Rejects final mutation candidates using installed field validators.',
+} as const
 
 /** Names the exact configured official field-validation engine. */
-export type ValidationPlugin = PluginModuleInstance<
-	typeof validationPluginModule,
-	ValidationPluginDefinition
+export type ValidationPlugin = PluginInstance<
+	'@ultimabase/validation-plugin',
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /** Installs direct field validation and its final mutation guard explicitly. */
@@ -66,14 +44,22 @@ export const validationPlugin = (): ValidationPlugin => {
 		},
 	})
 
-	return validationPluginModule.plugin({
-		privileges: validationPluginPrivileges,
-		capabilities: [runtimeProvider],
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'official-field-validation-option',
-				field: { validation: fieldValidationOption },
-			})
-		},
+	return plugin({
+		id: '@ultimabase/validation-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: validationPluginPermissions,
+		contributions: [
+			runtimeProvider,
+			contributeDeclarations({
+				schema: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'official-field-validation-option',
+						field: { validation: fieldValidationOption },
+					})
+					return undefined
+				},
+			}),
+		],
 	})
 }

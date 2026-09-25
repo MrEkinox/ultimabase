@@ -1,11 +1,9 @@
 import {
-	definePluginModule,
+	plugin,
 	provideCapability,
 	requireCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 } from '@ultimabase/core'
 import { graphqlApplicationCapability } from '@ultimabase/graphql-plugin'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
@@ -17,16 +15,6 @@ import {
 	normalizeGraphqlYogaPluginOptions,
 	type GraphqlYogaPluginOptions,
 } from './options.js'
-
-const graphqlYogaPluginModule: PluginModule<
-	'@ultimabase/graphql-yoga-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/graphql-yoga-plugin',
-	version: '0.0.0',
-})
 
 const graphqlApplicationRequirement: CapabilityRequirement<
 	typeof graphqlApplicationCapability,
@@ -40,27 +28,21 @@ const graphqlYogaPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
 
-const graphqlYogaPrivileges = [
-	{
-		name: 'transport:expose',
-		reason: 'Mounts the selected application GraphQL schema over HTTP.',
-	},
-] as const
-
-type GraphqlYogaPluginDefinition = Readonly<{
-	readonly capabilities: readonly [
-		CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
-		CapabilityProviderDeclaration<typeof graphqlHttpEndpointCapability>,
-		typeof graphqlApplicationRequirement,
-	]
-	readonly peers: typeof graphqlYogaPeers
-	readonly privileges: typeof graphqlYogaPrivileges
-}>
+const graphqlYogaPermissions = {
+	'transport:expose':
+		'Mounts the selected application GraphQL schema over HTTP.',
+} as const
 
 /** Names the single official GraphQL-over-HTTP adapter. */
-export type GraphqlYogaPlugin = PluginModuleInstance<
-	typeof graphqlYogaPluginModule,
-	GraphqlYogaPluginDefinition
+export type GraphqlYogaPlugin = PluginInstance<
+	'@ultimabase/graphql-yoga-plugin',
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	typeof graphqlYogaPeers
 >
 
 /** Mounts one explicit GraphQL sibling through the shared HTTP application. */
@@ -93,13 +75,16 @@ export const graphqlYogaPlugin = (
 			}),
 		},
 	)
-	return graphqlYogaPluginModule.plugin({
-		capabilities: [
+	return plugin({
+		id: '@ultimabase/graphql-yoga-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		contributions: [
 			endpointProvider,
 			endpointDescriptionProvider,
 			graphqlApplicationRequirement,
 		],
 		peers: graphqlYogaPeers,
-		privileges: graphqlYogaPrivileges,
+		permissions: graphqlYogaPermissions,
 	})
 }

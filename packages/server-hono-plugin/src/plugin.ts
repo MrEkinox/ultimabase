@@ -1,15 +1,13 @@
 import {
-	definePluginModule,
+	contributeApplication,
+	plugin,
 	requireCapability,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,
-	type HttpApplication,
-	type HttpBrowserPolicy,
 } from '@ultimabase/http-plugin'
 import type { Env, Schema } from 'hono'
 
@@ -18,16 +16,6 @@ import {
 	type HonoServerPluginOptions,
 } from './options.js'
 import { HonoServerProvider } from './provider.js'
-
-const honoServerPluginModule: PluginModule<
-	'@ultimabase/server-hono-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/server-hono-plugin',
-	version: '0.0.0',
-})
 
 const applicationRequirement: CapabilityRequirement<
 	typeof httpApplicationCapability,
@@ -44,32 +32,18 @@ const browserPolicyRequirement: CapabilityRequirement<
 	phase: 'setup',
 })
 
-type HonoServerPluginDefinition = Readonly<{
-	readonly capabilities: readonly [
-		typeof applicationRequirement,
-		typeof browserPolicyRequirement,
-	]
-	readonly environment: readonly ['environment:network']
-	readonly hooks: Readonly<{
-		readonly dispose: (context: HonoServerLifecycleContext) => Promise<void>
-		readonly startTransports: (
-			context: HonoServerLifecycleContext,
-		) => Promise<void>
-		readonly stop: (context: HonoServerLifecycleContext) => Promise<void>
-	}>
-}>
-
-interface HonoServerLifecycleContext {
-	readonly capabilities: Readonly<{
-		get(requirement: typeof applicationRequirement): HttpApplication
-		get(requirement: typeof browserPolicyRequirement): HttpBrowserPolicy
-	}>
-}
-
 /** Names one exact Hono server provider definition. */
-export type HonoServerPlugin = PluginModuleInstance<
-	typeof honoServerPluginModule,
-	HonoServerPluginDefinition
+export type HonoServerPlugin = PluginInstance<
+	'@ultimabase/server-hono-plugin',
+	void,
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	readonly ['environment:network']
 >
 
 /** Creates one explicit Hono provider reusable across sequential application lifetimes. */
@@ -84,21 +58,33 @@ export const honoServerPlugin = <
 		options as HonoServerPluginOptions,
 	)
 	const provider = new HonoServerProvider(normalized)
-	// Stop and disposal release the same exact owner, including failed-startup cleanup.
-	const stop = (context: HonoServerLifecycleContext): Promise<void> =>
-		provider.stop(context.capabilities.get(applicationRequirement))
+	const application = contributeApplication(({ capabilities }) => {
+		const httpApplication = capabilities.get(applicationRequirement)
+		// Stop and disposal release the same exact owner, including failed-startup cleanup.
+		const stop = (): Promise<void> => provider.stop(httpApplication)
 
-	return honoServerPluginModule.plugin({
-		capabilities: [applicationRequirement, browserPolicyRequirement],
-		environment: ['environment:network'],
-		hooks: {
-			startTransports: ({ capabilities }) =>
+		return {
+			exports: undefined,
+			startTransports: () =>
 				provider.start(
-					capabilities.get(applicationRequirement),
+					httpApplication,
 					capabilities.get(browserPolicyRequirement),
 				),
 			stop,
 			dispose: stop,
-		},
+		}
 	})
+
+	const instance = plugin({
+		id: '@ultimabase/server-hono-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		contributions: [
+			applicationRequirement,
+			browserPolicyRequirement,
+			application,
+		],
+		environment: ['environment:network'],
+	})
+	return instance
 }

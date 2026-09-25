@@ -17,6 +17,20 @@ const staticToken = defineCapability<Readonly<{ enabled: true }>>()({
 })
 const optionalStatic = optionalCapability(staticToken, '^1.0.0')
 
+test('normalizes an absent application export to void', () => {
+	const definition = plugin({
+		id: 'fixture.empty-application-exports',
+		version: '1.0.0',
+		core: '^0.0.0',
+		contributions: [contributeApplication(() => ({ exports: undefined }))],
+	})
+
+	expectTypeOf(definition).toBeObject()
+	expectTypeOf<PluginExports<typeof definition>>().toEqualTypeOf<
+		ReturnType<() => void>
+	>()
+})
+
 test('infers identity, exports, and exact static capability reads', () => {
 	const definition = plugin({
 		id: 'fixture.typed-plugin',

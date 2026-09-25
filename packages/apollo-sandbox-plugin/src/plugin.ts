@@ -1,16 +1,13 @@
 import {
-	definePluginModule,
+	plugin,
 	requireCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 } from '@ultimabase/core'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
 import {
 	httpBrowserBootstrapRoute,
 	provideHttpEndpoints,
-	type httpEndpointContributionsCapability,
 } from '@ultimabase/http-plugin'
 
 import {
@@ -19,16 +16,6 @@ import {
 } from './options.js'
 import { createApolloSandboxPageResponse } from './page.js'
 
-const module: PluginModule<
-	'@ultimabase/apollo-sandbox-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/apollo-sandbox-plugin',
-	version: '0.0.0',
-})
-
 const endpointRequirement: CapabilityRequirement<
 	typeof graphqlHttpEndpointCapability,
 	false,
@@ -36,34 +23,35 @@ const endpointRequirement: CapabilityRequirement<
 	'materialization'
 > = requireCapability(graphqlHttpEndpointCapability, '^1.0.0')
 
-const privileges = [
-	{
-		name: 'transport:expose',
-		reason: 'Exposes the selected application Apollo Sandbox browser route.',
-	},
+const permissions = {
+	'transport:expose':
+		'Exposes the selected application Apollo Sandbox browser route.',
+} as const
+const httpPeers = [
+	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
-
-type EnabledDefinition = Readonly<{
-	readonly capabilities: readonly [
-		CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
-		typeof endpointRequirement,
-	]
-	readonly environment: readonly ['environment:network']
-	readonly peers: readonly [
-		Readonly<{
-			readonly pluginId: '@ultimabase/http-plugin'
-			readonly version: '^0.0.0'
-		}>,
-	]
-	readonly privileges: typeof privileges
-}>
-
-type DisabledDefinition = Readonly<{ readonly setup?: never }>
 
 /** Names one independently configured Apollo Sandbox UI plugin. */
 export type ApolloSandboxPlugin =
-	| PluginModuleInstance<typeof module, EnabledDefinition>
-	| PluginModuleInstance<typeof module, DisabledDefinition>
+	| PluginInstance<
+			'@ultimabase/apollo-sandbox-plugin',
+			undefined,
+			undefined,
+			'0.0.0',
+			'^0.0.0',
+			undefined,
+			undefined,
+			typeof httpPeers,
+			undefined,
+			readonly ['environment:network']
+	  >
+	| PluginInstance<
+			'@ultimabase/apollo-sandbox-plugin',
+			undefined,
+			undefined,
+			'0.0.0',
+			'^0.0.0'
+	  >
 
 /** Adds a development Sandbox page for the selected GraphQL HTTP provider. */
 export const apolloSandboxPlugin = (
@@ -71,7 +59,12 @@ export const apolloSandboxPlugin = (
 ): ApolloSandboxPlugin => {
 	const normalized = normalizeApolloSandboxPluginOptions(options)
 	if (!normalized.enabled) {
-		const disabled = module.plugin({} satisfies DisabledDefinition)
+		const disabled = plugin({
+			id: '@ultimabase/apollo-sandbox-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [],
+		})
 		return disabled
 	}
 
@@ -89,11 +82,14 @@ export const apolloSandboxPlugin = (
 			})
 		},
 	})
-	const enabled = module.plugin({
-		capabilities: [routes, endpointRequirement],
+	const enabled = plugin({
+		id: '@ultimabase/apollo-sandbox-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
-		peers: [{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' }],
-		privileges,
-	} satisfies EnabledDefinition)
+		peers: httpPeers,
+		permissions,
+	})
 	return enabled
 }

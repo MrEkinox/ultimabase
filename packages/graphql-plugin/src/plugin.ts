@@ -1,15 +1,15 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
-	definePluginModule,
+	contributeApplication,
+	contributeDeclarations,
 	optionalCapability,
+	plugin,
 	provideCapability,
 	requireCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type CapabilityProviderContribution,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
@@ -44,16 +44,6 @@ import { composeGraphqlSchemas } from './schema-composition.js'
 import type { OwnedGraphqlSchema } from './schema-composition-types.js'
 import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
-
-const graphqlPluginModule: PluginModule<
-	'@ultimabase/graphql-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/graphql-plugin',
-	version: '0.0.0',
-})
 
 /** Configures deterministic GraphQL v1 schema generation. */
 export interface GraphqlPluginOptions {
@@ -165,30 +155,11 @@ const optionalSchemaContributions: CapabilityRequirement<
 	'materialization'
 > = optionalCapability(graphqlSchemaContributionsCapability, '^1.0.0')
 
-const graphqlPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the direct GraphQL schema exposure option.',
-	},
-	{
-		name: 'transport:expose',
-		reason: 'Generates explicitly configured public GraphQL declarations.',
-	},
-] as const
-
-type GraphqlPluginCapabilities = readonly [
-	typeof optionalSchemaContributions,
-	CapabilityProviderDeclaration<typeof graphqlApplicationCapability>,
-
-	CapabilityRequirement<
-		typeof applicationRequestExecutionCapability,
-		false,
-		'^1.0.0',
-		'materialization'
-	>,
-	typeof operationPlanningRequirement,
-	typeof graphqlApplicationRequirement,
-]
+const graphqlPluginPermissions = {
+	'schema:declare': 'Declares the direct GraphQL schema exposure option.',
+	'transport:expose':
+		'Generates explicitly configured public GraphQL declarations.',
+} as const
 
 const pluginSchemaSources = (
 	contributions: readonly CapabilityProviderContribution<
@@ -209,17 +180,13 @@ const pluginSchemaSources = (
 		),
 	)
 
-type GraphqlPluginDefinition = Readonly<{
-	readonly capabilities: GraphqlPluginCapabilities
-	readonly declare: () => undefined
-	readonly privileges: typeof graphqlPluginPrivileges
-	readonly setup: () => GraphqlPluginExports
-}>
-
 /** Names the sole GraphQL v1 owner for one application. */
-export type GraphqlPlugin = PluginModuleInstance<
-	typeof graphqlPluginModule,
-	GraphqlPluginDefinition
+export type GraphqlPlugin = PluginInstance<
+	'@ultimabase/graphql-plugin',
+	GraphqlPluginExports,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /** Installs generated GraphQL schema execution without selecting an HTTP adapter. */
@@ -307,30 +274,23 @@ export const graphqlPlugin = (
 			}
 		},
 	})
-	const capabilities: GraphqlPluginCapabilities = [
-		optionalSchemaContributions,
-		applicationProvider,
-		requestExecutionRequirement,
-		operationPlanningRequirement,
-		graphqlApplicationRequirement,
-	]
-
-	return graphqlPluginModule.plugin({
-		capabilities,
-		privileges: graphqlPluginPrivileges,
-		declare: ({ schemas }) => {
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-graphql-schema-option',
 				schema: { graphql: graphqlSchemaOption },
 			})
+			return undefined
 		},
-		setup: ({ capabilities: reader }) =>
-			reader.get(graphqlApplicationRequirement),
-		hooks: {
-			startTransports: ({ capabilities: reader, pluginExports }) => {
+	})
+	const application = contributeApplication(({ capabilities: reader }) => {
+		const exports = reader.get(graphqlApplicationRequirement)
+		return {
+			exports,
+			startTransports: () => {
 				if (normalized.operations.length > 0) {
 					bindGraphqlOperationTransport(
-						pluginExports,
+						exports,
 						reader.get(requestExecutionRequirement).exposeOperations({
 							// The GraphQL surface reports once below; this private bridge is not
 							// a second independently reachable public transport.
@@ -341,7 +301,7 @@ export const graphqlPlugin = (
 					)
 				}
 				bindGraphqlSchemaMutationTransport(
-					pluginExports,
+					exports,
 					reader.get(requestExecutionRequirement).exposeSchemaMutations({
 						// Generated roots are part of the one public GraphQL report below.
 						acknowledgeUnverifiedProtection: true,
@@ -357,6 +317,22 @@ export const graphqlPlugin = (
 						transport: graphqlProtocol,
 					})
 			},
-		},
+		}
 	})
+	const instance = plugin({
+		id: '@ultimabase/graphql-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: graphqlPluginPermissions,
+		contributions: [
+			optionalSchemaContributions,
+			applicationProvider,
+			requestExecutionRequirement,
+			operationPlanningRequirement,
+			graphqlApplicationRequirement,
+			declarations,
+			application,
+		],
+	})
+	return instance
 }

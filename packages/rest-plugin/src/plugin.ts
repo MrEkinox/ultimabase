@@ -1,15 +1,14 @@
 import {
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
-	definePluginModule,
+	contributeApplication,
+	contributeDeclarations,
+	plugin,
 	provideCapability,
 	requireCapability,
 	type ApplicationOperationTransportPlanner,
-	type ApplicationRequestExecutor,
-	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 	type PluginOperationDefinition,
 } from '@ultimabase/core'
 import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
@@ -47,15 +46,8 @@ import {
 import { defaultRestReadLimits, type RestReadLimits } from './reads.js'
 import { configureRestHttpOwner, createRestHttpMounts } from './http-handler.js'
 
-const restPluginModule: PluginModule<
-	'@ultimabase/rest-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/rest-plugin',
-	version: '0.0.0',
-})
+const restPluginId = '@ultimabase/rest-plugin' as const
+const restPluginVersion = '0.0.0' as const
 
 const routeGraphRequirement: CapabilityRequirement<
 	typeof restRouteGraphCapability,
@@ -223,54 +215,19 @@ const parseRestPluginOptions = definePluginOptionsParser({
 	},
 })
 
-const restPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the direct REST schema route option.',
-	},
-	{
-		name: 'transport:expose',
-		reason: 'Generates explicitly configured public REST route metadata.',
-	},
-] as const
-
-type RestPluginCapabilities = readonly [
-	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-	CapabilityProviderDeclaration<typeof restRouteGraphCapability>,
-	CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability>,
-	typeof routeGraphRequirement,
-	typeof requestExecutionRequirement,
-	typeof transportPlanningRequirement,
-]
-
-type RestPluginDefinition = Readonly<{
-	readonly capabilities: RestPluginCapabilities
-	readonly declare: () => undefined
-	readonly hooks: Readonly<{
-		readonly startTransports: (
-			context: Readonly<{
-				readonly capabilities: Readonly<{
-					get(
-						requirement: typeof requestExecutionRequirement,
-					): ApplicationRequestExecutor
-					get(
-						requirement: typeof transportPlanningRequirement,
-					): ApplicationOperationTransportPlanner
-				}>
-				readonly pluginExports: RestPluginExports
-			}>,
-		) => void
-	}>
-	readonly instanceId: string | undefined
-	readonly privileges: typeof restPluginPrivileges
-	readonly setup: () => RestPluginExports
-}>
+const restPluginPermissions = {
+	'schema:declare': 'Declares the direct REST schema route option.',
+	'transport:expose':
+		'Generates explicitly configured public REST route metadata.',
+} as const
 
 /** Names one configured REST v1 route generator. */
-export type RestPlugin = PluginModuleInstance<
-	typeof restPluginModule,
-	RestPluginDefinition
+export type RestPlugin = PluginInstance<
+	typeof restPluginId,
+	RestPluginExports,
+	string | undefined,
+	typeof restPluginVersion,
+	'^0.0.0'
 >
 
 /** Installs deterministic REST v1 route metadata without executing Runtime. */
@@ -284,7 +241,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			basePath: normalized.basePath,
 			defaultRoutes: normalized.defaultRoutes,
 			owner,
-			pluginVersion: restPluginModule.version,
+			pluginVersion: restPluginVersion,
 			schemas,
 		})
 	const compileOperationRoutes = (
@@ -299,7 +256,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				transport: restProtocol,
 			}),
 			owner,
-			pluginVersion: restPluginModule.version,
+			pluginVersion: restPluginVersion,
 			schemas,
 		})
 	const compileSchemaMutationRoutes = (
@@ -316,7 +273,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			defaultRoutes: normalized.defaultRoutes,
 			owner,
 			plan: planner.planSchemaMutations({ transport: restProtocol }),
-			pluginVersion: restPluginModule.version,
+			pluginVersion: restPluginVersion,
 			schemas,
 		})
 	const routeProvider = provideCapability(restRouteGraphCapability, {
@@ -379,29 +336,17 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			},
 		},
 	)
-	const capabilities: RestPluginCapabilities = [
-		routeProvider,
-		operationRouteProvider,
-		schemaMutationRouteProvider,
-		httpEndpointProvider,
-		routeGraphRequirement,
-		requestExecutionRequirement,
-		transportPlanningRequirement,
-	]
-
-	return restPluginModule.plugin({
-		...(normalized.instanceId === undefined
-			? {}
-			: { instanceId: normalized.instanceId }),
-		capabilities,
-		privileges: restPluginPrivileges,
-		declare: ({ schemas }) => {
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-rest-schema-option',
 				schema: { rest: restSchemaOption },
 			})
+			return undefined
 		},
-		setup: ({ capabilities: reader, schemas }) => {
+	})
+	const application = contributeApplication(
+		({ capabilities: reader, schemas }) => {
 			const routeGraph = reader.get(routeGraphRequirement)
 			const readLimits = immutableRecord({
 				bodyBytes: normalized.bodyLimit,
@@ -410,7 +355,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			const operationRoutes = routeGraph.routes.filter(
 				(route): route is RestPluginOperationRouteDefinition =>
 					route.kind === 'rest-plugin-operation-route' &&
-					route.provenance.plugin.pluginId === restPluginModule.pluginId &&
+					route.provenance.plugin.pluginId === restPluginId &&
 					route.provenance.plugin.instanceId === normalized.instanceId,
 			)
 			const operationTransport =
@@ -420,7 +365,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			const schemaMutationRoutes = routeGraph.routes.filter(
 				(route): route is RestSchemaMutationRouteDefinition =>
 					route.kind === 'rest-schema-mutation-route' &&
-					route.provenance.plugin.pluginId === restPluginModule.pluginId &&
+					route.provenance.plugin.pluginId === restPluginId &&
 					route.provenance.plugin.instanceId === normalized.instanceId,
 			)
 			const schemaMutationTransport =
@@ -431,7 +376,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				reader.get(requestExecutionRequirement),
 				routeGraph,
 				{
-					pluginId: restPluginModule.pluginId,
+					pluginId: restPluginId,
 					...(normalized.instanceId === undefined
 						? {}
 						: { instanceId: normalized.instanceId }),
@@ -440,7 +385,7 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 				operationTransport,
 				schemaMutationTransport,
 			)
-			return immutableRecord({
+			const exports = immutableRecord({
 				basePath: normalized.basePath,
 				readLimits,
 				routeGraph,
@@ -449,42 +394,64 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 					? {}
 					: { schemaMutationTransport }),
 			})
-		},
-		hooks: {
-			startTransports: ({ capabilities: reader, pluginExports }) => {
-				if (pluginExports.operationTransport !== undefined) {
-					bindRestOperationTransport(
-						pluginExports.operationTransport,
-						reader.get(requestExecutionRequirement).exposeOperations({
+			return {
+				exports,
+				startTransports: () => {
+					if (exports.operationTransport !== undefined) {
+						bindRestOperationTransport(
+							exports.operationTransport,
+							reader.get(requestExecutionRequirement).exposeOperations({
+								...(normalized.acknowledgeUnverifiedProtection === true
+									? { acknowledgeUnverifiedProtection: true as const }
+									: {}),
+								operations: normalized.operations,
+								transport: restProtocol,
+							}),
+						)
+					}
+					if (exports.schemaMutationTransport !== undefined) {
+						bindRestSchemaMutationTransport(
+							exports.schemaMutationTransport,
+							reader.get(requestExecutionRequirement).exposeSchemaMutations({
+								...(normalized.acknowledgeUnverifiedProtection === true
+									? { acknowledgeUnverifiedProtection: true as const }
+									: {}),
+								transport: restProtocol,
+							}),
+						)
+					}
+					if (exports.routeGraph.routes.length === 0) return
+					reader
+						.get(requestExecutionRequirement)
+						.reportPublicTransportProtection({
 							...(normalized.acknowledgeUnverifiedProtection === true
 								? { acknowledgeUnverifiedProtection: true as const }
 								: {}),
-							operations: normalized.operations,
 							transport: restProtocol,
-						}),
-					)
-				}
-				if (pluginExports.schemaMutationTransport !== undefined) {
-					bindRestSchemaMutationTransport(
-						pluginExports.schemaMutationTransport,
-						reader.get(requestExecutionRequirement).exposeSchemaMutations({
-							...(normalized.acknowledgeUnverifiedProtection === true
-								? { acknowledgeUnverifiedProtection: true as const }
-								: {}),
-							transport: restProtocol,
-						}),
-					)
-				}
-				if (pluginExports.routeGraph.routes.length === 0) return
-				reader
-					.get(requestExecutionRequirement)
-					.reportPublicTransportProtection({
-						...(normalized.acknowledgeUnverifiedProtection === true
-							? { acknowledgeUnverifiedProtection: true as const }
-							: {}),
-						transport: restProtocol,
-					})
-			},
+						})
+				},
+			}
 		},
+	)
+	const instance = plugin({
+		id: restPluginId,
+		version: restPluginVersion,
+		core: '^0.0.0',
+		...(normalized.instanceId === undefined
+			? {}
+			: { instanceId: normalized.instanceId }),
+		permissions: restPluginPermissions,
+		contributions: [
+			routeProvider,
+			operationRouteProvider,
+			schemaMutationRouteProvider,
+			httpEndpointProvider,
+			routeGraphRequirement,
+			requestExecutionRequirement,
+			transportPlanningRequirement,
+			declarations,
+			application,
+		],
 	})
+	return instance
 }

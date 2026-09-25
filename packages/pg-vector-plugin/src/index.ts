@@ -1,16 +1,16 @@
 import { immutableArray } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
+	contributeDeclarations,
 	type CompatibleFieldOptionsInput,
 	definePluginField,
 	definePluginFieldWireProtocol,
-	definePluginModule,
+	plugin,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 	type ScalarValidationPlan,
 } from '@ultimabase/core'
 import { definePluginFieldBuilderMethod } from '@ultimabase/plugin-kit'
@@ -22,15 +22,6 @@ export type VectorValue = readonly number[]
  * Namespaces the logical kind so independent community packages cannot collide.
  */
 export const vectorFieldKind = 'pg-vector.vector' as const
-const pgVectorPluginModule: PluginModule<
-	'@ultimabase/pg-vector-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/pg-vector-plugin',
-	version: '0.0.0',
-})
 const graphqlV1FieldProtocol = definePluginFieldWireProtocol({
 	name: 'ultimabase.graphql.field',
 	version: '1.0.0',
@@ -195,27 +186,33 @@ const vectorFieldBuilderMethod = definePluginFieldBuilderMethod({
 	},
 })
 
-const pgVectorPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the vector FieldBuilder method.',
-	},
-] as const
-type PgVectorPluginDefinition = Readonly<{
-	readonly privileges: typeof pgVectorPluginPrivileges
-}>
+const pgVectorPluginPermissions = {
+	'schema:declare': 'Declares the vector FieldBuilder method.',
+} as const
 
 /** Names the exact configured plugin contract retained by application lookup. */
-export type PgVectorPlugin = PluginModuleInstance<
-	typeof pgVectorPluginModule,
-	PgVectorPluginDefinition
+export type PgVectorPlugin = PluginInstance<
+	'@ultimabase/pg-vector-plugin',
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /** Declares the vector builder method without a separate setup output. */
-export const pgVectorPlugin = (): PgVectorPlugin =>
-	pgVectorPluginModule.plugin({
-		privileges: pgVectorPluginPrivileges,
-		declare: ({ fields }) => {
+export const pgVectorPlugin = (): PgVectorPlugin => {
+	const declarations = contributeDeclarations({
+		schema: ({ fields }) => {
 			fields.register(vectorFieldBuilderMethod)
+			return undefined
 		},
 	})
+	const instance = plugin({
+		id: '@ultimabase/pg-vector-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: pgVectorPluginPermissions,
+		contributions: [declarations],
+	})
+	return instance
+}

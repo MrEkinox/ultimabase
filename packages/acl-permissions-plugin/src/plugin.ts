@@ -3,15 +3,17 @@ import {
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	FrameworkError,
-	definePluginModule,
+	contributeDeclarations,
 	guard,
 	optionalCapability,
+	plugin,
 	preparedOperation,
 	protectedPolicy,
 	provideCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
+	withPluginPrivileges,
 	type DatabaseOperationAst,
 	type CompiledSchemaRegistry,
 	type ExecutableOperationAst as ExecutableAst,
@@ -46,11 +48,7 @@ import {
 } from './acl-limits.js'
 import { createACLRowFilter } from './acl-access.js'
 import { createACLFieldPolicy } from './acl-field-policy.js'
-import {
-	aclPluginPrivileges,
-	type ACLPlugin,
-	type ACLPluginOptions,
-} from './plugin-contracts.js'
+import { type ACLPlugin, type ACLPluginOptions } from './plugin-contracts.js'
 import { aclFieldName, aclPluginId, readACLSchemaOption } from './acl-option.js'
 import {
 	hasStaticRoleGrant,
@@ -66,12 +64,6 @@ export {
 import { readOperationSchema } from './runtime-operation.js'
 import { declareACLSchema } from './schema-declaration.js'
 import { createAttributedACLApplicationStateReader } from './subject-resolver-attribution.js'
-
-const aclPluginModule = definePluginModule({
-	core: '^0.0.0',
-	pluginId: aclPluginId,
-	version: '0.0.0',
-})
 
 const optionalPrincipalResolver = optionalCapability(
 	requestPrincipalResolverCapability,
@@ -385,9 +377,27 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		},
 	})
 
-	return aclPluginModule.plugin({
-		privileges: aclPluginPrivileges,
-		capabilities: [
+	const declarations = contributeDeclarations({ schema: declareACLSchema })
+	const privilegedBehavior = withPluginPrivileges(behaviorProvider, [
+		'authority:elevate',
+		'event:publish',
+	])
+	const instance = plugin({
+		id: aclPluginId,
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: {
+			'schema:declare':
+				'Declares the direct ACL option and its persisted field patch.',
+			'authority:elevate':
+				'Maintains persisted ACL references through audited internal Master queries.',
+			'runtime:constrain':
+				'Applies deny-only ACL guards and adapter constraints.',
+			'runtime:intercept':
+				'Resolves ACL input and publishes committed ACL changes.',
+			'event:publish': 'Publishes committed ACL change notifications.',
+		},
+		contributions: [
 			optionalPrincipalResolver,
 			optionalRoleResolver,
 			optionalACLChangedEvents,
@@ -398,8 +408,9 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			inputProvider,
 			referenceRowsProvider,
 			rowsProvider,
-			behaviorProvider,
+			privilegedBehavior,
+			declarations,
 		],
-		declare: declareACLSchema,
 	})
+	return instance
 }

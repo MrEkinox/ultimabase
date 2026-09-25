@@ -122,11 +122,13 @@ type OperationProtocolCapabilityProvider =
 export type PluginOperationContributionCapabilities<
 	TCapabilities,
 	TOperations,
-> = TOperations extends readonly PluginOperationAuthoringContribution[]
-	? TCapabilities extends readonly PluginCapabilityDeclaration[]
-		? readonly [...TCapabilities, ...OperationProtocolCapabilityProvider[]]
-		: readonly PluginCapabilityDeclaration[]
-	: TCapabilities
+> = TOperations extends readonly []
+	? TCapabilities
+	: TOperations extends readonly PluginOperationAuthoringContribution[]
+		? TCapabilities extends readonly PluginCapabilityDeclaration[]
+			? readonly [...TCapabilities, ...OperationProtocolCapabilityProvider[]]
+			: readonly PluginCapabilityDeclaration[]
+		: TCapabilities
 
 interface CompiledPluginOperationContributions {
 	readonly capabilities: readonly OperationProtocolCapabilityProvider[]

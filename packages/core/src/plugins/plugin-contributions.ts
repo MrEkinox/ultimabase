@@ -283,10 +283,16 @@ const applicationContributions = new WeakMap<
 	PluginApplicationFactory<unknown>
 >()
 
+type NormalizedPluginApplicationExports<TExports> = TExports extends undefined
+	? ReturnType<() => void>
+	: TExports
+
 /** Creates one application-local export and lifecycle resource. */
 export const contributeApplication = <const TExports>(
 	create: PluginApplicationFactory<TExports>,
-): PluginApplicationContribution<TExports> => {
+): PluginApplicationContribution<
+	NormalizedPluginApplicationExports<TExports>
+> => {
 	if (typeof create !== 'function') {
 		throw new TypeError('plugin application contribution must be a function')
 	}
@@ -294,7 +300,9 @@ export const contributeApplication = <const TExports>(
 		kind: 'plugin-application-contribution' as const,
 	})
 	applicationContributions.set(contribution, create)
-	return contribution as PluginApplicationContribution<TExports>
+	return contribution as PluginApplicationContribution<
+		NormalizedPluginApplicationExports<TExports>
+	>
 }
 
 /** @internal Resolves only nominal application contributions. */

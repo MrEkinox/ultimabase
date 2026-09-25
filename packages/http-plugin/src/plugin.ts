@@ -1,13 +1,13 @@
 import {
 	applicationRequestExecutionCapability,
-	definePluginModule,
+	contributeApplication,
 	optionalCapability,
+	plugin,
 	provideCapability,
 	requireCapability,
-	type CapabilityProviderDeclaration,
+	withPluginPrivileges,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import {
@@ -28,16 +28,6 @@ import {
 } from './browser-policy.js'
 import { httpContextResolverContributionsCapability } from './context.js'
 import { httpEndpointContributionsCapability } from './endpoints.js'
-
-const httpPluginModule: PluginModule<
-	'@ultimabase/http-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/http-plugin',
-	version: '0.0.0',
-})
 
 const requestExecutionRequirement: CapabilityRequirement<
 	typeof applicationRequestExecutionCapability,
@@ -118,32 +108,17 @@ const parseHttpPluginOptions = definePluginOptionsParser({
 	},
 })
 
-const masterPrivileges = [
-	{
-		name: 'authority:elevate',
-		reason: 'Verifies explicitly enabled HTTP Master credentials.',
-	},
-] as const
-type HttpPluginPrivileges = readonly [] | typeof masterPrivileges
-
-type HttpPluginCapabilities = readonly [
-	typeof optionalContextResolverContributions,
-	typeof optionalEndpointContributions,
-	CapabilityProviderDeclaration<typeof httpApplicationCapability>,
-	CapabilityProviderDeclaration<typeof httpBrowserPolicyCapability>,
-	typeof requestExecutionRequirement,
-]
-
-type HttpPluginDefinition = Readonly<{
-	readonly capabilities: HttpPluginCapabilities
-	readonly privileges: HttpPluginPrivileges
-	readonly setup: () => HttpPluginExports
-}>
+const masterPermissions = {
+	'authority:elevate': 'Verifies explicitly enabled HTTP Master credentials.',
+} as const
 
 /** Names the exact configured official HTTP application engine. */
-export type HttpPlugin = PluginModuleInstance<
-	typeof httpPluginModule,
-	HttpPluginDefinition
+export type HttpPlugin = PluginInstance<
+	'@ultimabase/http-plugin',
+	HttpPluginExports,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /** Installs the Fetch-compatible HTTP application graph without opening a socket. */
@@ -172,26 +147,31 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 		contributionId: 'official-http-browser-policy',
 		create: () => ({ value: normalized.browser }),
 	})
-	const capabilities: HttpPluginCapabilities = [
-		optionalContextResolverContributions,
-		optionalEndpointContributions,
-		applicationProvider,
-		browserPolicyProvider,
-		requestExecutionRequirement,
-	]
-	const privileges: HttpPluginPrivileges = normalized.masterEnabled
-		? masterPrivileges
-		: []
-
-	return httpPluginModule.plugin({
-		capabilities,
-		privileges,
-		setup: () =>
-			immutableRecord({
-				appId: normalized.appId,
-				browser: normalized.browser,
-				master: immutableRecord({ enabled: normalized.masterEnabled }),
-				requestTimeoutMs: normalized.requestTimeoutMs,
-			}),
+	const application = contributeApplication(() => ({
+		exports: immutableRecord({
+			appId: normalized.appId,
+			browser: normalized.browser,
+			master: immutableRecord({ enabled: normalized.masterEnabled }),
+			requestTimeoutMs: normalized.requestTimeoutMs,
+		}),
+	}))
+	const configuredApplicationProvider = normalized.masterEnabled
+		? withPluginPrivileges(applicationProvider, ['authority:elevate'])
+		: applicationProvider
+	const permissions = normalized.masterEnabled ? masterPermissions : undefined
+	const instance = plugin({
+		id: '@ultimabase/http-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		contributions: [
+			optionalContextResolverContributions,
+			optionalEndpointContributions,
+			configuredApplicationProvider,
+			browserPolicyProvider,
+			requestExecutionRequirement,
+			application,
+		],
+		permissions,
 	})
+	return instance
 }

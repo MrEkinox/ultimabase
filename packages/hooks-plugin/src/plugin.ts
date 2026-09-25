@@ -1,13 +1,13 @@
 import {
 	applicationSchemaMutationSurfaceCapability,
-	definePluginModule,
+	contributeDeclarations,
 	optionalCapability,
+	plugin,
 	provideRuntimeBehavior,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 	type runtimeBehaviorCapability,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -28,16 +28,6 @@ import {
 	HookExecutionRuntime,
 	type OwnedHookEventHandler,
 } from './runtime/execution-runtime.js'
-
-const hooksPluginModule: PluginModule<
-	'@ultimabase/hooks-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/hooks-plugin',
-	version: '0.0.0',
-})
 
 const optionalHookContributions: CapabilityRequirement<
 	typeof hookContributionsCapability,
@@ -117,38 +107,19 @@ const hooksRuntimeProvider: CapabilityProviderDeclaration<
 	},
 })
 
-const hooksPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the official schema and field Hooks options.',
-	},
-	{
-		name: 'runtime:intercept',
-		reason: 'Runs official Hooks through the public Runtime behavior kernel.',
-	},
-] as const
-const hooksPluginCapabilities: readonly [
-	typeof optionalHookContributions,
-	typeof optionalHookEvents,
-	typeof optionalHookDiagnostics,
-	typeof hooksRuntimeProvider,
-	typeof schemaMutationSurfaceRequirement,
-] = [
-	optionalHookContributions,
-	optionalHookEvents,
-	optionalHookDiagnostics,
-	hooksRuntimeProvider,
-	schemaMutationSurfaceRequirement,
-]
-type HooksPluginDefinition = Readonly<{
-	readonly capabilities: typeof hooksPluginCapabilities
-	readonly privileges: typeof hooksPluginPrivileges
-}>
+const hooksPluginPermissions = {
+	'schema:declare': 'Declares the official schema and field Hooks options.',
+	'runtime:intercept':
+		'Runs official Hooks through the public Runtime behavior kernel.',
+} as const
 
 /** Names the exact configured official Hooks engine. */
-export type HooksPlugin = PluginModuleInstance<
-	typeof hooksPluginModule,
-	HooksPluginDefinition
+export type HooksPlugin = PluginInstance<
+	'@ultimabase/hooks-plugin',
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /**
@@ -156,15 +127,30 @@ export type HooksPlugin = PluginModuleInstance<
  *
  * Importing the package alone has no application effect.
  */
-export const hooksPlugin = (): HooksPlugin =>
-	hooksPluginModule.plugin({
-		privileges: hooksPluginPrivileges,
-		capabilities: hooksPluginCapabilities,
-		declare: ({ schemas }) => {
+export const hooksPlugin = (): HooksPlugin => {
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-hooks-options',
 				field: { hooks: fieldHooksOption },
 				schema: { hooks: schemaHooksOption },
 			})
+			return undefined
 		},
 	})
+	const instance = plugin({
+		id: '@ultimabase/hooks-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: hooksPluginPermissions,
+		contributions: [
+			optionalHookContributions,
+			optionalHookEvents,
+			optionalHookDiagnostics,
+			hooksRuntimeProvider,
+			schemaMutationSurfaceRequirement,
+			declarations,
+		],
+	})
+	return instance
+}

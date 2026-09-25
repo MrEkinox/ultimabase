@@ -1,20 +1,22 @@
 import {
 	Pointer,
-	definePluginModule,
+	contributeApplication,
+	contributeDeclarations,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
 	materializeSchemaModel,
 	optionalCapability,
+	plugin,
 	provideCapability,
 	provideRuntimeBehavior,
+	withPluginPrivileges,
 	type runtimeBehaviorCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type CompiledSchemaRegistry,
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
 	type RelationMutationAction,
 	type RequestContext,
 	type RuntimeBehaviorStages,
@@ -54,13 +56,6 @@ import {
 	type RoleHierarchyChangedEvent,
 	type RoleMembershipChangedEvent,
 } from './role-events.js'
-
-const rolesPluginModule: PluginModule<typeof rolesPluginId, '0.0.0', '^0.0.0'> =
-	definePluginModule({
-		core: '^0.0.0',
-		pluginId: rolesPluginId,
-		version: '0.0.0',
-	})
 
 const optionalReferenceCleanups: CapabilityRequirement<
 	typeof requestSubjectReferenceCleanupCapability,
@@ -386,47 +381,22 @@ const createRoleRuntimeBehavior = (
 		},
 	})
 
-const rolesPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the nominal direct option owned by RoleSchema.',
-	},
-	{
-		name: 'authority:elevate',
-		reason:
-			'Resolves and maintains persisted role membership through audited internal Master queries.',
-	},
-	{
-		name: 'runtime:intercept',
-		reason: 'Maintains role invariants through generic Runtime behavior.',
-	},
-	{
-		name: 'event:publish',
-		reason: 'Publishes committed role membership and hierarchy changes.',
-	},
-] as const
-const rolesPluginCapabilities: readonly [
-	typeof optionalReferenceCleanups,
-	typeof optionalRoleEvents,
-	typeof roleResolverProvider,
-	typeof roleBehaviorProvider,
-] = [
-	optionalReferenceCleanups,
-	optionalRoleEvents,
-	roleResolverProvider,
-	roleBehaviorProvider,
-]
-type RolesPluginDefinition = Readonly<{
-	readonly capabilities: typeof rolesPluginCapabilities
-	readonly declare: () => undefined
-	readonly privileges: typeof rolesPluginPrivileges
-	readonly setup: () => void
-}>
+const rolesPluginPermissions = {
+	'schema:declare': 'Declares the nominal direct option owned by RoleSchema.',
+	'authority:elevate':
+		'Resolves and maintains persisted role membership through audited internal Master queries.',
+	'runtime:intercept':
+		'Maintains role invariants through generic Runtime behavior.',
+	'event:publish': 'Publishes committed role membership and hierarchy changes.',
+} as const
 
 /** Represents the exact option-light official stored-role provider. */
-export type RolesPlugin = PluginModuleInstance<
-	typeof rolesPluginModule,
-	RolesPluginDefinition
+export type RolesPlugin = PluginInstance<
+	typeof rolesPluginId,
+	void,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /**
@@ -435,25 +405,45 @@ export type RolesPlugin = PluginModuleInstance<
  * Schema fields, hooks, Access, indexes, and transports stay in their native
  * declarations rather than becoming plugin options.
  */
-export const rolesPlugin = (): RolesPlugin =>
-	rolesPluginModule.plugin({
-		privileges: rolesPluginPrivileges,
-		capabilities: rolesPluginCapabilities,
-		declare: ({ schemas }) => {
+export const rolesPlugin = (): RolesPlugin => {
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'role-schema-identity',
 				schema: {
 					[roleSchemaIdentityOptionName]: roleSchemaIdentityOption,
 				},
 			})
-		},
-		setup: ({ capabilities, schemas }) => {
-			// Setup still binds reference cleanup contributions for this application.
-			referenceCleanupsBySchemas.set(
-				schemas,
-				collectRoleReferenceCleanups(
-					capabilities.get(optionalReferenceCleanups) ?? [],
-				),
-			)
+			return undefined
 		},
 	})
+	const application = contributeApplication(({ capabilities, schemas }) => {
+		// Setup binds reference cleanup contributions to this exact application.
+		referenceCleanupsBySchemas.set(
+			schemas,
+			collectRoleReferenceCleanups(
+				capabilities.get(optionalReferenceCleanups) ?? [],
+			),
+		)
+		return { exports: undefined }
+	})
+	const behavior = withPluginPrivileges(roleBehaviorProvider, [
+		'authority:elevate',
+		'event:publish',
+	])
+	const instance = plugin({
+		id: rolesPluginId,
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: rolesPluginPermissions,
+		contributions: [
+			optionalReferenceCleanups,
+			optionalRoleEvents,
+			roleResolverProvider,
+			behavior,
+			declarations,
+			application,
+		],
+	})
+	return instance
+}

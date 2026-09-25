@@ -1,14 +1,16 @@
 import {
 	databaseAdapterCapability,
-	definePluginModule,
+	contributeApplication,
+	contributeDeclarations,
 	optionalCapability,
+	plugin,
 	provideAdapterRawCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
+	type PluginInstance,
+	type PluginPrivilegeRequest,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -38,16 +40,6 @@ import {
 	postgresRawAdapterCapability,
 	type PostgresAdapterMetadata,
 } from '../adapter-capabilities.js'
-
-const postgresPluginModule: PluginModule<
-	typeof postgresPluginName,
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: postgresPluginName,
-	version: '0.0.0',
-})
 
 /** Configures the explicit direct schema synchronization policy. */
 export interface PostgresSchemaPolicyOptions {
@@ -87,11 +79,6 @@ const isPostgresSchemaPolicy = (
 	typeof value === 'string' &&
 	postgresSchemaPolicies.some((policy) => policy === value)
 
-type PrepareSchema = () => Promise<void>
-const prepareSchemaByExports = new WeakMap<
-	Readonly<PostgresPluginExports>,
-	PrepareSchema
->()
 const optionalPhysicalSchemaContributions: CapabilityRequirement<
 	typeof postgresPhysicalSchemaContributionCapability,
 	true,
@@ -189,17 +176,13 @@ const connectionRequirement: CapabilityRequirement<
 	'materialization'
 > = requireCapability(postgresConnectionCapability, '^1.0.0')
 const postgresPluginEnvironment = ['environment:network'] as const
-const postgresPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the official PostgreSQL schema and field options.',
-	},
-	{
-		name: 'adapter:consume',
-		reason:
-			'Compiles protected database constraints for the PostgreSQL adapter.',
-	},
-] as const
+const postgresPluginPermissions = {
+	'schema:declare':
+		'Declares the official PostgreSQL schema and field options.',
+	'adapter:consume':
+		'Compiles protected database constraints for the PostgreSQL adapter.',
+} as const
+
 type PostgresPluginCapabilities = readonly [
 	typeof optionalPhysicalSchemaContributions,
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
@@ -211,17 +194,21 @@ type PostgresPluginCapabilities = readonly [
 	CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
 	typeof connectionRequirement,
 ]
-type PostgresPluginDefinition = Readonly<{
-	readonly capabilities: PostgresPluginCapabilities
-	readonly environment: typeof postgresPluginEnvironment
-	readonly privileges: typeof postgresPluginPrivileges
-	readonly setup: () => Readonly<PostgresPluginExports>
-}>
 
 /** Names the exact official PostgreSQL plugin definition. */
-export type PostgresPlugin = PluginModuleInstance<
-	typeof postgresPluginModule,
-	PostgresPluginDefinition
+export type PostgresPlugin = PluginInstance<
+	typeof postgresPluginName,
+	Readonly<PostgresPluginExports>,
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	typeof postgresPluginEnvironment,
+	readonly PluginPrivilegeRequest[],
+	PostgresPluginCapabilities
 >
 
 /** Creates the official database capability provider without opening a connection. */
@@ -288,10 +275,55 @@ export const postgresPlugin = (
 			}),
 		},
 	)
-	return postgresPluginModule.plugin({
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
+			schemas.defineOptions({
+				contributionId: 'postgres-options',
+				field: { postgres: postgresFieldOption },
+				schema: { postgres: postgresSchemaOption },
+			})
+			return undefined
+		},
+	})
+	const application = contributeApplication(({ capabilities, schemas }) => {
+		const connection: PostgresConnectionService = capabilities.get(
+			connectionRequirement,
+		)
+		const managedConnection = connections.get(schemas)
+		const schemaCatalog = catalogs.get(schemas)
+		if (managedConnection === undefined || schemaCatalog === undefined) {
+			throw new TypeError(
+				'PostgreSQL capabilities are unavailable during setup',
+			)
+		}
+
+		const physicalSchema =
+			capabilities.get(optionalPhysicalSchemaContributions) ?? []
+		const exports = immutableRecord({
+			adapterMetadata: immutableRecord({ physicalSchema }),
+			connection,
+		})
+
+		return {
+			exports,
+			connect: () => connection.connect(),
+			prepareSchema: () =>
+				prepareDirectPostgresSchema(
+					managedConnection.getPool(),
+					schemaCatalog,
+					schemaPolicy,
+					physicalSchema,
+				),
+			stop: () => connection.close(),
+		}
+	})
+	const instance = plugin({
+		id: postgresPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
 		environment: postgresPluginEnvironment,
-		privileges: postgresPluginPrivileges,
-		capabilities: [
+		permissions: postgresPluginPermissions,
+		contributions: [
 			optionalPhysicalSchemaContributions,
 			connectionProvider,
 			adapterProvider,
@@ -301,59 +333,9 @@ export const postgresPlugin = (
 			postgresAdapterSupportProviders.physicalSchema,
 			rawAdapterProvider,
 			connectionRequirement,
+			declarations,
+			application,
 		],
-		declare: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'postgres-options',
-				field: { postgres: postgresFieldOption },
-				schema: { postgres: postgresSchemaOption },
-			})
-		},
-		setup: ({ capabilities, schemas }) => {
-			const connection: PostgresConnectionService = capabilities.get(
-				connectionRequirement,
-			)
-			const managedConnection = connections.get(schemas)
-			const schemaCatalog = catalogs.get(schemas)
-			if (managedConnection === undefined || schemaCatalog === undefined) {
-				throw new TypeError(
-					'PostgreSQL capabilities are unavailable during setup',
-				)
-			}
-
-			// Runtime-only preparation stays keyed by this application's public export object.
-			const physicalSchema =
-				capabilities.get(optionalPhysicalSchemaContributions) ?? []
-			const pluginExports = immutableRecord({
-				adapterMetadata: immutableRecord({ physicalSchema }),
-				connection,
-			})
-
-			prepareSchemaByExports.set(pluginExports, () =>
-				prepareDirectPostgresSchema(
-					managedConnection.getPool(),
-					schemaCatalog,
-					schemaPolicy,
-					physicalSchema,
-				),
-			)
-
-			// Setup exports safe lifecycle control; credentials and driver objects remain private.
-			return pluginExports
-		},
-		hooks: {
-			connect: ({ pluginExports }) => pluginExports.connection.connect(),
-			prepareSchema: ({ pluginExports }) => {
-				// Only the configured schema policy controls direct preparation.
-				const prepareSchema = prepareSchemaByExports.get(pluginExports)
-
-				if (prepareSchema === undefined) {
-					throw new TypeError('PostgreSQL schema preparer is unavailable')
-				}
-
-				return prepareSchema()
-			},
-			stop: ({ pluginExports }) => pluginExports.connection.close(),
-		},
 	})
+	return instance
 }

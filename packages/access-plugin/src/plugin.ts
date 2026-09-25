@@ -1,16 +1,14 @@
 import {
 	FrameworkError,
 	applicationSchemaMutationSurfaceCapability,
-	definePluginModule,
+	contributeDeclarations,
 	optionalCapability,
+	plugin,
 	provideRuntimeConstraint,
 	protectedPolicy,
 	requireCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
-	type PluginModule,
-	type PluginModuleInstance,
-	type runtimeConstraintCapability,
+	type PluginInstance,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -28,15 +26,6 @@ import {
 import { AccessRuntime } from './runtime/dispatcher.js'
 import { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 
-const accessPluginModule: PluginModule<
-	'@ultimabase/access-plugin',
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: '@ultimabase/access-plugin',
-	version: '0.0.0',
-})
 const optionalAccessContributions: CapabilityRequirement<
 	typeof accessContributionsCapability,
 	true,
@@ -207,31 +196,19 @@ const evaluatesDenied = async <TResult>(
 	}
 }
 
-const accessPluginPrivileges = [
-	{
-		name: 'schema:declare',
-		reason: 'Declares the official schema and field Access options.',
-	},
-	{
-		name: 'runtime:constrain',
-		reason: 'Applies official Access through protected Runtime policy.',
-	},
-] as const
-type AccessPluginCapabilities = readonly [
-	typeof optionalAccessContributions,
-	typeof optionalAccessDiagnostics,
-	CapabilityProviderDeclaration<typeof runtimeConstraintCapability>,
-	typeof schemaMutationSurfaceRequirement,
-]
-type AccessPluginDefinition = Readonly<{
-	readonly capabilities: AccessPluginCapabilities
-	readonly privileges: typeof accessPluginPrivileges
-}>
+const accessPluginPermissions = {
+	'schema:declare': 'Declares the official schema and field Access options.',
+	'runtime:constrain':
+		'Applies official Access through protected Runtime policy.',
+} as const
 
 /** Names the exact configured official Access engine. */
-export type AccessPlugin = PluginModuleInstance<
-	typeof accessPluginModule,
-	AccessPluginDefinition
+export type AccessPlugin = PluginInstance<
+	'@ultimabase/access-plugin',
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0'
 >
 
 /** Installs official Access authoring and enforcement through the public kernel. */
@@ -284,20 +261,28 @@ export const accessPlugin = (
 		},
 	})
 
-	return accessPluginModule.plugin({
-		privileges: accessPluginPrivileges,
-		capabilities: [
-			optionalAccessContributions,
-			optionalAccessDiagnostics,
-			runtimeProvider,
-			schemaMutationSurfaceRequirement,
-		],
-		declare: ({ schemas }) => {
+	const declarations = contributeDeclarations({
+		schema: ({ schemas }) => {
 			schemas.defineOptions({
 				contributionId: 'official-access-options',
 				field: { access: fieldAccessOption },
 				schema: { access: schemaAccessOption },
 			})
+			return undefined
 		},
 	})
+	const instance = plugin({
+		id: '@ultimabase/access-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		permissions: accessPluginPermissions,
+		contributions: [
+			optionalAccessContributions,
+			optionalAccessDiagnostics,
+			runtimeProvider,
+			schemaMutationSurfaceRequirement,
+			declarations,
+		],
+	})
+	return instance
 }
