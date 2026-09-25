@@ -202,7 +202,7 @@ describe('base project templates', () => {
 					expect(schema).toContain('default: () => new ACL()')
 				if (id === 'password-auth-plugin') {
 					expect(schema).toContain('PasswordUserSchema.define(')
-					expect(application).not.toContain('schemas: [Task, AppUser]')
+					expect(application).toContain('schemas: [Task, AppUser]')
 				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('RoleSchema.define(')
@@ -233,9 +233,8 @@ describe('base project templates', () => {
 		expect(schema).toContain(
 			'resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL()',
 		)
-		expect(application).toContain('schemas: [Task, AppRole]')
+		expect(application).toContain('schemas: [Task, AppUser, AppRole]')
 		expect(application).not.toContain('accessPlugin()')
-		expect(application).not.toContain('schemas: [Task, AppUser')
 		expect(files.get('README.md')).toContain(
 			'A session identifies a caller; it does not grant Task access',
 		)

@@ -79,7 +79,7 @@ const createApplication = (
 		},
 	})
 	const ultimabase = new UltimaBase({
-		schemas: [],
+		schemas: [User],
 		pluginPrivileges: { logger: false },
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'test', value: 'server-only-test-key' }],

@@ -19,7 +19,7 @@ export const assertUserAuthLanguageService = (
 	})
 	const generated = generateApplicationTypes({
 		application: new FrameworkApplication({
-			schemas: [],
+			schemas: [User],
 			plugins: [passwordAuthPlugin({ user: User })],
 			pluginPrivileges: { logger: false },
 		}),

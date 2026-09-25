@@ -13,7 +13,11 @@ export type {
 export { passwordAuthPlugin } from './plugin.js'
 export type { PasswordAuthPlugin, PasswordAuthPluginOptions } from './plugin.js'
 export type { PasswordPrincipal } from './principal.js'
-export { passwordAuthErrorCodes, passwordAuthOperations } from './operations.js'
+export {
+	passwordAuthErrorCodes,
+	passwordAuthOperationList,
+	passwordAuthOperations,
+} from './operations.js'
 export type { PasswordCredentialsInput } from './operations.js'
 export type { PasswordSignUpInput } from './sign-up-input.js'
 export { passwordPrincipal, passwordSession } from './session.js'

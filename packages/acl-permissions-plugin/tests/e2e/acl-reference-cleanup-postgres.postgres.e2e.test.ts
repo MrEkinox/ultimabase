@@ -181,7 +181,7 @@ const principalOwnerPlugin = definePlugin({
 	core: '^0.0.0',
 	peers: [
 		{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' },
-		{ pluginId: 'ultimabase.acl', version: '^0.0.0' },
+		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
 	],
 	pluginId: 'fixture.acl-principal-owner',
 	privileges: [

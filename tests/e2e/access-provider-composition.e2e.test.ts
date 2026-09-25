@@ -273,10 +273,8 @@ interface CompositionSnapshot {
 	readonly rowFilter: string
 }
 
-/** Executes the same public query through top-level or nested plugin syntax. */
-const runCombinedComposition = async (
-	nested: boolean,
-): Promise<CompositionSnapshot> => {
+/** Executes one public query through the flat combined plugin graph. */
+const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 	const adapter = new CompositionReadAdapter([combinedRow])
 	const roleProvider = createRoleProvider(true)
 	const aclProvider = aclPlugin()
@@ -284,26 +282,14 @@ const runCombinedComposition = async (
 	const access = accessPlugin({
 		default: false,
 	})
-	const plugins = nested
-		? [
-				hooksPlugin(),
-				access,
-				definePlugin({
-					version: '0.0.0',
-					core: '^0.0.0',
-					pluginId: 'fixture.composition.bundle',
-					plugins: [roleProvider, communityPolicy, aclProvider],
-				}),
-				database,
-			]
-		: [
-				hooksPlugin(),
-				access,
-				roleProvider,
-				communityPolicy,
-				aclProvider,
-				database,
-			]
+	const plugins = [
+		hooksPlugin(),
+		access,
+		roleProvider,
+		communityPolicy,
+		aclProvider,
+		database,
+	]
 	const ultimabase = new UltimaBase({ plugins, schemas: [CombinedPost] })
 
 	try {
@@ -458,11 +444,8 @@ describe('Access provider composition', () => {
 		}
 	})
 
-	it('combines native, role, community, ACL, and business filters identically when nested', async () => {
-		const topLevel = await runCombinedComposition(false)
-		const nested = await runCombinedComposition(true)
-
-		expect(nested).toStrictEqual(topLevel)
+	it('combines native, role, community, ACL, and business filters in one flat graph', async () => {
+		const topLevel = await runCombinedComposition()
 		expect(topLevel.developerFilter).toContain('developer-visible')
 		expect(topLevel.developerFilter).not.toContain('business-allowed')
 		expect(topLevel.rowFilter).toContain('native-allowed')

@@ -32,7 +32,7 @@ const expectFrameworkError = (
 }
 
 describe('normalizePlugins', () => {
-	it('flattens deep composition while preserving source and parent metadata', () => {
+	it('snapshots a flat list while preserving source order and dependencies', () => {
 		let setupCalls = 0
 		const leaf = definePlugin({
 			version: '0.0.0',
@@ -47,16 +47,14 @@ describe('normalizePlugins', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.child',
-			plugins: [leaf],
 		})
 		const root = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.root',
-			plugins: [child],
 		})
 
-		const normalized = normalizePlugins([root])
+		const normalized = normalizePlugins([root, child, leaf])
 
 		expect(normalized).toHaveLength(3)
 		expect(
@@ -65,60 +63,30 @@ describe('normalizePlugins', () => {
 		expect(
 			normalized.map(({ configurationIndex }) => configurationIndex),
 		).toStrictEqual([0, 1, 2])
-		expect(normalized[0]?.parentIdentities).toStrictEqual([])
-		expect(normalized[1]?.parentIdentities).toStrictEqual([
-			{ pluginId: 'fixture.root' },
-		])
 		expect(normalized[1]?.dependencies).toStrictEqual([])
-		expect(normalized[2]?.parentIdentities).toStrictEqual([
-			{ pluginId: 'fixture.child' },
-		])
 		expect(normalized[2]?.dependencies).toStrictEqual([
 			{ pluginId: 'fixture.child', version: '^0.0.0' },
 		])
 		expect(setupCalls).toBe(0)
 		expect(Object.isFrozen(normalized)).toBe(true)
 		expect(Object.isFrozen(normalized[1])).toBe(true)
-		expect(Object.isFrozen(normalized[1]?.parentIdentities)).toBe(true)
 		expect(Object.isFrozen(normalized[1]?.dependencies)).toBe(true)
 	})
 
-	it('deduplicates repeated definition identities and retains every parent', () => {
+	it('deduplicates a repeated exact definition from the flat list', () => {
 		const shared = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.shared',
 		})
-		const firstParent = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.first-parent',
-			plugins: [shared, shared],
-		})
-		const secondParent = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.second-parent',
-			plugins: [shared],
-		})
-
-		const normalized = normalizePlugins([
-			shared,
-			firstParent,
-			secondParent,
-			shared,
-		])
+		const normalized = normalizePlugins([shared, shared])
 		const sharedPlugin = normalized.find(
 			({ definition }) => definition === shared,
 		)
 
-		expect(normalized).toHaveLength(3)
+		expect(normalized).toHaveLength(1)
 		expect(sharedPlugin).toMatchObject({
 			configurationIndex: 0,
-			parentIdentities: [
-				{ pluginId: 'fixture.first-parent' },
-				{ pluginId: 'fixture.second-parent' },
-			],
 			dependencies: [],
 		})
 	})

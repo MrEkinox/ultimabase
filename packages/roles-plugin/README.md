@@ -12,8 +12,8 @@ hierarchy, and deletion maintenance initiate audited internal Master queries.
 Caller-selected Master execution is merely inherited; no dependency, peer, or
 policy consumer receives this privilege from Roles.
 
-`rolesPlugin()` keeps its application-local setup work but returns no value
-through `getPlugin()`; registered role schemas remain in `application.schemas`.
+`rolesPlugin()` keeps its application-local setup work but returns no setup
+value; registered role schemas remain in `application.schemas`.
 
 ```ts
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -115,7 +115,7 @@ Role membership, hierarchy, and deletion events are optional committed
 notifications. Without an observer, role writes queue no post-commit delivery;
 registered `onRoleEvent()` consumers provided through
 `provideRoleEventObserver()` still receive each event once in deterministic
-plugin order. Observer plugins declare `ultimabase.roles` as a non-ordering
+plugin order. Observer plugins declare `@ultimabase/roles-plugin` as a non-ordering
 peer and request `runtime:observe`; Roles itself has no Hooks dependency.
 
 Each role schema owns its external-reference deletion policy. `fail` is the

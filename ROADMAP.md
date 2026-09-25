@@ -129,7 +129,7 @@ schema options, and TypeScript inference.
 
 ## Milestone 2 — Application and plugins
 
-Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, typed errors, and deterministic ordering.
+Service tokens, a flat plugin graph, lifecycle, isolated applications, typed errors, and deterministic ordering.
 
 ## Milestone 3 — Query and runtime foundations
 

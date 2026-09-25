@@ -75,7 +75,7 @@ test('preserves literal manifests and synchronous setup exports', () => {
 	}>()
 })
 
-test('unwraps asynchronous setup exports and preserves nested tuples', () => {
+test('unwraps asynchronous setup exports and preserves relationships', () => {
 	const child = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -88,9 +88,9 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 		pluginId: 'fixture.parent',
 		dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }] as const,
 		peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }] as const,
-		plugins: [child] as const,
 	})
 
+	expectTypeOf(child).toHaveProperty('setup')
 	expectTypeOf<PluginExports<typeof child>>().toEqualTypeOf<{
 		readonly ready: true
 	}>()
@@ -101,9 +101,7 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 		  ]
 		| undefined
 	>()
-	expectTypeOf(parent.plugins).toEqualTypeOf<
-		readonly [typeof child] | undefined
-	>()
+	expectTypeOf(parent).not.toHaveProperty('plugins')
 	expectTypeOf(parent.peers).toEqualTypeOf<
 		| readonly [
 				{

@@ -105,17 +105,16 @@ describe('UltimaBase', () => {
 		const trace: string[] = []
 		let observedContext: RequestContext | undefined
 		const validation = { timezone: 'UTC' }
+		const databasePlugin = createDatabasePlugin(adapter, {
+			onContext: (context) => {
+				observedContext = context
+			},
+			trace,
+		})
 		const ultimabase = applicationFixture(
 			new UltimaBase({
 				schemas: [articleSchema],
-				plugins: [
-					createDatabasePlugin(adapter, {
-						onContext: (context) => {
-							observedContext = context
-						},
-						trace,
-					}),
-				],
+				plugins: [databasePlugin],
 				validation,
 			}),
 		)
@@ -137,6 +136,10 @@ describe('UltimaBase', () => {
 		await start
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['setup', 'connect'])
+		ultimabase.plugin(databasePlugin)
+		expect(() => {
+			ultimabase.plugin(createDatabasePlugin(adapter))
+		}).toThrow('Plugin setup has not completed: fixture.ultimabase-database')
 
 		const result = await articleSchema.findMany(undefined, { ultimabase })
 

@@ -42,6 +42,12 @@ export interface PluginSchemaDeclarationRegistrar {
 		readonly schema: SchemaDefinition
 		readonly staticOptions?: Readonly<Record<string, JsonValue>>
 	}): void
+	/** Assigns plugin ownership to one exact schema already registered by the application. */
+	claim(options: {
+		readonly contributionId: string
+		readonly schema: SchemaDefinition
+		readonly staticOptions?: Readonly<Record<string, JsonValue>>
+	}): void
 	defineOptions(options: {
 		readonly contributionId: string
 		readonly field?: Readonly<Record<string, FieldOptionDefinition>>
@@ -178,6 +184,15 @@ export interface OwnedSchemaAddition {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
+export interface OwnedSchemaClaim {
+	readonly contributionId: string
+	readonly owner: PluginSchemaContributionOwner
+	readonly schema: SchemaDefinition
+	readonly staticOptions: Readonly<Record<string, JsonValue>>
+}
+
+export type OwnedSchemaSource = OwnedSchemaAddition | OwnedSchemaClaim
+
 export interface OwnedSchemaPatch {
 	readonly operations: readonly SchemaPatchOperation[]
 	readonly owner: PluginSchemaContributionOwner
@@ -188,6 +203,7 @@ export interface OwnedSchemaPatch {
 export interface SchemaDeclarationBatch {
 	readonly additions: readonly OwnedSchemaAddition[]
 	readonly canDeclare: boolean
+	readonly claims: readonly OwnedSchemaClaim[]
 	readonly options: readonly OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: readonly OwnedSchemaPatch[]
@@ -198,6 +214,7 @@ export interface SchemaDeclarationBatch {
 export interface MutableSchemaDeclarationBatch {
 	readonly additions: OwnedSchemaAddition[]
 	readonly canDeclare: boolean
+	readonly claims: OwnedSchemaClaim[]
 	readonly options: OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: OwnedSchemaPatch[]
@@ -239,6 +256,16 @@ export const diagnosePluginDeclarationFailure = (
 	}
 
 	for (const batch of batches) {
+		const claim = batch.claims.find(
+			(candidate) => candidate.schema.className === className,
+		)
+		if (claim !== undefined) {
+			return pluginDeclarationDiagnostic(
+				claim.owner,
+				className,
+				claim.contributionId,
+			)
+		}
 		const addition = batch.additions.find(
 			(candidate) => candidate.schema.className === className,
 		)

@@ -51,11 +51,7 @@ import {
 	type ACLPlugin,
 	type ACLPluginOptions,
 } from './plugin-contracts.js'
-import {
-	aclFieldName,
-	aclPluginName,
-	readACLSchemaOption,
-} from './acl-option.js'
+import { aclFieldName, aclPluginId, readACLSchemaOption } from './acl-option.js'
 import {
 	hasStaticRoleGrant,
 	resolveCreateOperationACL,
@@ -73,7 +69,7 @@ import { createAttributedACLApplicationStateReader } from './subject-resolver-at
 
 const aclPluginModule = definePluginModule({
 	core: '^0.0.0',
-	pluginId: aclPluginName,
+	pluginId: aclPluginId,
 	version: '0.0.0',
 })
 

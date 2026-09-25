@@ -48,7 +48,7 @@ import { normalizePasswordUsername } from './normalization.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import {
-	passwordAuthOperations,
+	passwordAuthOperationList,
 	passwordAuthRestBindings,
 	passwordAuthTypegenReferences,
 } from './operations.js'
@@ -134,7 +134,7 @@ export type PasswordAuthPlugin = PluginModuleInstance<
 export interface PasswordAuthPluginOptions<
 	TUser extends PasswordUserReference = PasswordUserReference,
 > {
-	/** Selects the exact final User schema created by PasswordUserSchema.define(). */
+	/** Selects the exact User schema, which must also appear in the application root `schemas` list. */
 	readonly user?: TUser
 	/** Selects bounded Argon2id parameters and their monotonic policy version. */
 	readonly password?: PasswordHashPolicyOptions
@@ -219,6 +219,7 @@ export const passwordAuthPlugin = <
 ): PasswordAuthPlugin => {
 	const untrusted = normalizePluginOptions(options)
 	assertPasswordHashEngineAvailable()
+	const usesDefaultUser = untrusted.user === undefined
 	const user = (untrusted.user ?? PasswordUser) as TUser
 	if (!isPasswordUserDefinition(user)) {
 		throw new TypeError(
@@ -309,20 +310,22 @@ export const passwordAuthPlugin = <
 		peers: cookie === undefined ? [] : passwordAuthHttpPeers,
 		privileges: passwordAuthPluginPrivileges,
 		declare: ({ operations, privateStorage, schemas, typegenReferences }) => {
-			schemas.add({
+			const userSchemaDeclaration = {
 				contributionId: 'password-user',
 				schema: user,
 				staticOptions: {
 					identity: 'local-password',
-					variant:
-						(user as PasswordUserReference) === PasswordUser
-							? 'default'
-							: 'custom',
+					variant: usesDefaultUser ? 'default' : 'custom',
 				},
-			})
+			} as const
+			if (usesDefaultUser) {
+				schemas.add(userSchemaDeclaration)
+			} else {
+				schemas.claim(userSchemaDeclaration)
+			}
 			privateStorage.register(credentials)
 			privateStorage.register(sessions)
-			for (const operation of Object.values(passwordAuthOperations)) {
+			for (const operation of passwordAuthOperationList) {
 				operations.declare(operation)
 			}
 			for (const reference of passwordAuthTypegenReferences) {

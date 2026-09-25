@@ -3,7 +3,6 @@ import {
 	type DefinePluginOptions,
 	type FrameworkPlugin,
 	type PluginCapabilityDeclarationOptions,
-	type PluginDefinition,
 	type PluginDependency,
 	type PluginEnvironmentClaim,
 	type PluginPrivilegeRequest,
@@ -35,7 +34,6 @@ export type PluginModuleDefinitionOptions<
 	TDependencies extends readonly PluginDependency[] | undefined,
 	TOptionalDependencies extends readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined,
-	TPlugins extends readonly PluginDefinition[] | undefined,
 	TInstanceId extends string | undefined,
 	TVersion extends string,
 	TCoreRange extends string,
@@ -50,7 +48,6 @@ export type PluginModuleDefinitionOptions<
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins,
 		TInstanceId,
 		TVersion,
 		TCoreRange,
@@ -83,7 +80,6 @@ export interface PluginModule<
 		const TOptionalDependencies extends
 			readonly PluginDependency[] | undefined = undefined,
 		const TConflicts extends readonly string[] | undefined = undefined,
-		const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
 		const TInstanceId extends string | undefined = undefined,
 		const TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
 			undefined,
@@ -99,7 +95,6 @@ export interface PluginModule<
 			TDependencies,
 			TOptionalDependencies,
 			TConflicts,
-			TPlugins,
 			TInstanceId,
 			TVersion,
 			TCoreRange,
@@ -114,7 +109,6 @@ export interface PluginModule<
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins,
 		TInstanceId,
 		TVersion,
 		TCoreRange,
@@ -183,10 +177,6 @@ export type PluginModuleInstance<
 				Extract<
 					PluginModuleDefinitionProperty<TDefinition, 'conflicts'>,
 					readonly string[] | undefined
-				>,
-				Extract<
-					PluginModuleDefinitionProperty<TDefinition, 'plugins'>,
-					readonly PluginDefinition[] | undefined
 				>,
 				Extract<
 					PluginModuleDefinitionProperty<TDefinition, 'instanceId'>,

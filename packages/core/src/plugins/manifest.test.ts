@@ -85,7 +85,7 @@ describe('plugin manifests', () => {
 		expect(Object.isFrozen(pluginEnvironmentClaimMetadata)).toBe(true)
 	})
 
-	it('keeps nested manifests and privilege requests owner-scoped', () => {
+	it('keeps separate manifests and privilege requests owner-scoped', () => {
 		const child = definePlugin({
 			pluginId: 'fixture.child',
 			version: '2.0.0',
@@ -101,13 +101,11 @@ describe('plugin manifests', () => {
 			privileges: [
 				{ name: 'schema:declare', reason: 'Declares parent schemas.' },
 			] as const,
-			plugins: [child],
 		})
 
 		expect(parent.manifest.privileges).toStrictEqual([
 			{ name: 'schema:declare', reason: 'Declares parent schemas.' },
 		])
-		expect(parent.plugins?.[0]?.manifest).toBe(child.manifest)
 		expect(child.manifest.privileges).toStrictEqual([
 			{ name: 'runtime:observe', reason: 'Records child activity.' },
 		])

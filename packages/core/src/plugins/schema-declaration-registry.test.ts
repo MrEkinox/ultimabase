@@ -25,6 +25,66 @@ import {
 } from '../../tests/plugins/schema-declarations.fixtures.js'
 
 describe('plugin schema declaration registry', () => {
+	it('lets one plugin claim an exact application-registered schema', async () => {
+		const User = Schema.define({
+			className: 'ClaimedApplicationUser',
+			fields: (field) => ({ name: field.string() }),
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.schema-claim',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Owns one application-selected identity schema.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.claim({ contributionId: 'identity-user', schema: User })
+			},
+		})
+
+		const application = await createApplication({
+			plugins: [plugin],
+			schemas: [User],
+		})
+
+		expect(application.schemas.get(User.className)).toBe(User)
+		expect(User.provenance.schema).toMatchObject({
+			contributionId: 'identity-user',
+			owner: { kind: 'plugin', pluginId: 'fixture.schema-claim' },
+		})
+		await application.dispose()
+	})
+
+	it('rejects a claim for a schema absent from the application list', async () => {
+		const User = Schema.define({
+			className: 'MissingClaimedApplicationUser',
+			fields: () => ({}),
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.missing-schema-claim',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Exercises exact schema claim validation.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.claim({ contributionId: 'identity-user', schema: User })
+			},
+		})
+
+		await expect(
+			createApplication({ plugins: [plugin], schemas: [] }),
+		).rejects.toThrow(
+			'Claimed schema must be registered in application schemas: MissingClaimedApplicationUser',
+		)
+	})
+
 	it('lets a plugin contribute selectable stored fields outside mutation inputs', async () => {
 		const Document = Schema.define({
 			className: 'PluginManagedFieldDocument',

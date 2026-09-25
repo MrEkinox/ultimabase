@@ -38,7 +38,7 @@ import {
 } from './role-schema-identity.js'
 
 /** Identifies the option-light official provider owning RoleSchema behavior. */
-export const rolesPluginName = 'ultimabase.roles' as const
+export const rolesPluginId = '@ultimabase/roles-plugin' as const
 
 const createRoleNameField = (): StringField<
 	ScalarFieldTypegenState<true, false, false, false>

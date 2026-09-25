@@ -20,8 +20,8 @@ reference-maintenance queries. Ordinary policy evaluation does not elevate,
 and neither a subject resolver nor another policy plugin inherits this
 privilege through ACL.
 
-`aclPlugin()` returns no application setup value through `getPlugin()`. Inspect
-the configured schemas through `application.schemas` when needed.
+`aclPlugin()` returns no application setup value. Inspect the configured schemas
+through `application.schemas` when needed.
 
 PostgreSQL stores the ACL as non-null indexed JSONB on the protected row through
 the field's portable versioned codec. Object and ACL writes are therefore one
@@ -151,8 +151,8 @@ execution.
 
 Authentication and roles are optional providers. ACL discovers them only
 through neutral Core capabilities and never imports a concrete auth or roles
-plugin. Provider lookup happens after application setup, so top-level order and
-nested plugin configuration do not change ACL behavior. A static default that
+plugin. Provider lookup happens after application setup, so root configuration
+order does not change ACL behavior. A static default that
 already contains role grants requires a compatible provider during setup;
 dynamically produced role grants fail before persistence when the required
 role capabilities are unavailable. Trusted master execution bypasses ACL
@@ -184,7 +184,9 @@ const aclAuditPlugin = definePlugin({
 	pluginId: 'app.acl-audit',
 	version: '1.0.0',
 	core: '^0.0.0',
-	peers: [{ pluginId: 'ultimabase.acl', version: '^0.0.0' }],
+	peers: [
+		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
+	],
 	privileges: [
 		{
 			name: 'runtime:observe',

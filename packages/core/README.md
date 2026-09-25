@@ -10,7 +10,7 @@ Responsibilities:
 - anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
-- nested plugin normalization;
+- flat deterministic plugin normalization;
 - versioned declaration and application capabilities;
 - lifecycle phases;
 - request engines, validation, transactions, generic Runtime behavior, and database contracts;
@@ -289,6 +289,12 @@ const workflowPlugin = definePlugin({
 	},
 })
 ```
+
+Use `schemas.add(...)` when the plugin supplies the schema class. Use
+`schemas.claim({ contributionId, schema })` when application code supplies the
+exact class in the root `schemas` list but the plugin must own its provenance
+and transport visibility. Claims never register a missing class implicitly and
+cannot target a schema also added by that plugin.
 
 A selector is an inert immutable descriptor. Core evaluates every selector once
 against the graph completed by earlier plugins, before applying any patch from
@@ -1540,14 +1546,16 @@ await application.start()
 Every application owns its schema registry, materialized capabilities, exact
 Core contribution stores, plugin exports, and lifecycle state. One private
 lifecycle slot permits one initialized application per JavaScript realm;
-it is not a default application, schema registry, or request context. `application.getPlugin('fixture.database')` resolves the setup export
-using the configured literal plugin ID; nested plugin definitions participate
-in the same typed lookup. Repeated configurations use the structured
+it is not a default application, schema registry, or request context. Retain a
+configured definition and call `ultimabase.plugin(database)` for the shortest
+precisely typed setup-export lookup. The lower-level
+`application.getPlugin('fixture.database')` resolves by stable identity for
+dynamic integrations; repeated configurations use its structured
 `{ pluginId, instanceId }` overload instead.
 
 Plugins consume only capability requirements declared in their own manifest.
 Application code reaches deliberately public application-local behavior through
-typed plugin exports returned by `application.getPlugin(...)`; there is no
+typed plugin exports returned by `ultimabase.plugin(...)`; there is no
 general service lookup or capability-enumeration escape hatch.
 
 Runtime also uses `application.ownsSchema(schema)` to verify exact object
@@ -1752,9 +1760,9 @@ the official Typegen plugin still conflicts on its plugin identity.
 Manifest literals and setup exports retain their exact types for plugin lookup.
 Setup, declaration, and lifecycle callbacks remain private to Core and do not
 run during manifest inspection. Required dependencies, optional dependencies,
-conflicts, hooks, and nested definitions are copied and frozen. Nested plugins remain
-global graph entries with their own manifest and privileges; their placement
-under `plugins` is composition syntax and grants no inherited power.
+conflicts, and hooks are copied and frozen. Every installed definition appears
+once in the application's flat `plugins` list; plugin relationships are
+declared explicitly.
 
 Named dependencies use `{ pluginId, version, instanceId? }`. Their SemVer range
 is checked against the installed plugin version, and `instanceId` targets one
@@ -1858,7 +1866,10 @@ definePlugin({
 Peers are required, versioned, and instance-aware, but add no graph or
 lifecycle edge. They do not grant setup exports or capability reads. Use
 `dependencies` or `optionalDependencies` whenever provider-first order is part
-of the contract.
+of the contract. A required dependency also requires compatible identity; an
+optional dependency adds provider-first order only when present. Use a
+versioned capability instead when the contract is behavior that several
+different plugins may provide.
 
 `pluginPrivileges` evaluates cumulative denials before field declarations,
 schema compilation, Typegen, setup, or infrastructure work. Core-controlled

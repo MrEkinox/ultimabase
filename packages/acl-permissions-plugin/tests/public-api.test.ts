@@ -12,7 +12,7 @@ describe('@ultimabase/acl-permissions-plugin public entry point', () => {
 			'aclFieldName',
 			'aclPermissions',
 			'aclPlugin',
-			'aclPluginName',
+			'aclPluginId',
 			'onACLChange',
 			'provideACLChangeObserver',
 		])

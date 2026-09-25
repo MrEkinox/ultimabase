@@ -64,7 +64,7 @@ describe('aclPlugin create input resolution', () => {
 		expect(protectedSchema?.fields.acl?.kind).toBe('ultimabase.acl')
 		expect(protectedSchema?.provenance.fields.acl?.owner).toMatchObject({
 			kind: 'plugin',
-			pluginId: 'ultimabase.acl',
+			pluginId: '@ultimabase/acl-permissions-plugin',
 		})
 	})
 
@@ -151,7 +151,6 @@ describe('aclPlugin create input resolution', () => {
 			[
 				['after', 'after'],
 				['before', 'before'],
-				['nested', 'nested'],
 			] as const
 		).map(([suffix, placement]) => createRoleProviderFixture(suffix, placement))
 

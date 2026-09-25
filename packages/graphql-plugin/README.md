@@ -293,10 +293,10 @@ for the canonical `ultimabase.graphql.operation@1.0.0` protocol while holding
 active `transport:expose` privilege:
 
 ```ts
-import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'
+import { passwordAuthOperationList } from '@ultimabase/password-auth-plugin'
 
 graphqlPlugin({
-	operations: [passwordAuthOperations.signUp, passwordAuthOperations.login],
+	operations: passwordAuthOperationList,
 })
 ```
 

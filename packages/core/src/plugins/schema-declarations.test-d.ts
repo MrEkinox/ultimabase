@@ -215,6 +215,26 @@ test('requires nominal additive patch operations', () => {
 	})
 })
 
+test('types exact application schema claims', () => {
+	const User = Schema.define({
+		className: 'TypedClaimedUser',
+		fields: () => ({}),
+	})
+	definePlugin({
+		core: '^0.0.0',
+		pluginId: 'fixture.typed-schema-claim',
+		privileges: [
+			{ name: 'schema:declare', reason: 'Claims one selected User schema.' },
+		] as const,
+		version: '1.0.0',
+		declare: ({ schemas }) => {
+			schemas.claim({ contributionId: 'user', schema: User })
+			// @ts-expect-error -- Claims accept only genuine schema definitions.
+			schemas.claim({ contributionId: 'invalid', schema: {} })
+		},
+	})
+})
+
 test('does not claim issue 1408 direct option augmentation', () => {
 	Schema.define({
 		className: 'UngeneratedOptionSchema',

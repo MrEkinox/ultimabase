@@ -106,6 +106,7 @@ describe('direct schema compilation provenance', () => {
 				}),
 			]),
 			canDeclare: true,
+			claims: immutableArray([]),
 			options: immutableArray([
 				immutableRecord({
 					contributionId: 'workflow-option:schema:workflow',

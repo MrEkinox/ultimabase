@@ -18,6 +18,10 @@ it('compiles the direct ACL option from JavaScript without Typegen', async () =>
 		fieldKind: 'ultimabase.acl',
 		missingPluginCode: 'PLUGIN_DECLARATION_INVALID',
 		optionPresent: true,
-		owner: { kind: 'plugin', pluginId: 'ultimabase.acl', version: '0.0.0' },
+		owner: {
+			kind: 'plugin',
+			pluginId: '@ultimabase/acl-permissions-plugin',
+			version: '0.0.0',
+		},
 	})
 })

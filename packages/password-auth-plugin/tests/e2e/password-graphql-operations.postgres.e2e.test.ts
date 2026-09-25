@@ -19,7 +19,7 @@ import {
 } from '@ultimabase/graphql-plugin'
 import {
 	PasswordUserSchema,
-	passwordAuthOperations,
+	passwordAuthOperationList,
 	passwordAuthPlugin,
 	passwordPrincipal,
 	passwordSession,
@@ -154,15 +154,10 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				profilePolicy,
 				graphqlPlugin({
 					acknowledgeUnverifiedProtection: true,
-					operations: [
-						passwordAuthOperations.signUp,
-						passwordAuthOperations.login,
-						passwordAuthOperations.refresh,
-						passwordAuthOperations.logout,
-					],
+					operations: passwordAuthOperationList,
 				}),
 			],
-			schemas: [GraphqlAuthRecord],
+			schemas: [User, GraphqlAuthRecord],
 		})
 		await ultimabase.start()
 		try {

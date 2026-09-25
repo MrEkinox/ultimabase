@@ -174,7 +174,7 @@ export class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	}
 }
 
-type RoleProviderPlacement = 'after' | 'before' | 'nested'
+type RoleProviderPlacement = 'after' | 'before'
 
 export const createRoleProviderFixture = (
 	suffix: string,
@@ -221,18 +221,6 @@ export const createRoleProviderFixture = (
 			break
 		case 'before':
 			plugins = [roleProvider, aclProvider, databaseProvider]
-			break
-		case 'nested':
-			plugins = [
-				aclProvider,
-				definePlugin({
-					version: '0.0.0',
-					core: '^0.0.0',
-					pluginId: `fixture.acl-role-parent.${suffix}`,
-					plugins: [roleProvider],
-				}),
-				databaseProvider,
-			]
 			break
 	}
 

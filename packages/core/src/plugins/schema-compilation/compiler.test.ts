@@ -73,6 +73,7 @@ describe('direct canonical schema compilation', () => {
 				}),
 			]),
 			canDeclare: true,
+			claims: immutableArray([]),
 			options: immutableArray([
 				immutableRecord({
 					contributionId: 'portable-option:field:portable',

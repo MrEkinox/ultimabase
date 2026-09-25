@@ -17,11 +17,12 @@ The `-plugin` suffix is reserved for packages installed through the application
 plugin graph. Foundations such as `@ultimabase/core` and development utilities
 such as `@ultimabase/testing` do not use it.
 
-Nested plugins are flattened into one graph:
+Every installed definition appears in one flat application list:
 
 ```ts
-postgresPlugin({
-	plugins: [postgresMigrationPlugin()],
+new UltimaBase({
+	plugins: [postgresPlugin(), postgresMigrationPlugin()],
+	schemas: [],
 })
 ```
 
@@ -34,7 +35,9 @@ Ordering is deterministic:
 1. dependency order;
 2. configuration position for otherwise independent plugins.
 
-Lifecycle teardown reverses setup order. A nested child implicitly depends on its parent.
+Lifecycle teardown reverses setup order. Use a dependency when one plugin must
+start after another, a peer for compatible identity without ordering, and a
+capability when the required behavior may have interchangeable providers.
 
 Cross-plugin integration uses only typed capabilities. `single`, `multiple`, and
 `pipeline` tokens have deterministic composition rules and either `declaration`

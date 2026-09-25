@@ -37,7 +37,6 @@ export type TypegenPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	undefined,
 	'0.0.0',
 	'^0.0.0',
 	undefined,

@@ -1,16 +1,13 @@
 import type { PluginDefinition, PluginExports } from '../plugins/definition.js'
 import type { PluginIdentity } from '../plugins/manifest.js'
 
-/** Recursively retains top-level and composition-nested plugin definitions. */
+/** Retains the exact definitions installed in the application's flat plugin list. */
 export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
 	readonly PluginDefinition[] extends TPlugins
 		? PluginDefinition
 		: TPlugins[number] extends infer TPlugin
 			? TPlugin extends PluginDefinition
-				? | TPlugin
-					| ConfiguredPlugin<
-							Extract<TPlugin['plugins'], readonly PluginDefinition[]>
-					  >
+				? TPlugin
 				: never
 			: never
 

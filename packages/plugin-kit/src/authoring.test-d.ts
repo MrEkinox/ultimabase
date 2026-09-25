@@ -66,7 +66,6 @@ expectTypeOf(plugin).toExtend<
 		undefined,
 		undefined,
 		undefined,
-		undefined,
 		'editorial',
 		'1.4.0',
 		'^2.0.0',

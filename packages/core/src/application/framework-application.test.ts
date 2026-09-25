@@ -62,12 +62,13 @@ describe('FrameworkApplication', () => {
 		expect(declarationCalls).toBe(1)
 	})
 
-	it('initializes declarations without starting infrastructure', async () => {
+	it('initializes a flat dependency graph without starting infrastructure', async () => {
 		const events: string[] = []
 		const child = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.child',
+			dependencies: [{ pluginId: 'fixture.parent', version: '^0.0.0' }],
 			setup: () => {
 				events.push('setup:child')
 
@@ -83,7 +84,6 @@ describe('FrameworkApplication', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.parent',
-			plugins: [child],
 			setup: () => {
 				events.push('setup:parent')
 
@@ -98,7 +98,7 @@ describe('FrameworkApplication', () => {
 
 		const application = await createApplication({
 			schemas: [applicationSchema],
-			plugins: [parent],
+			plugins: [parent, child],
 		})
 
 		expect(application).toBeInstanceOf(FrameworkApplication)

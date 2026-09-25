@@ -394,7 +394,7 @@ describe('plugin privilege policy', () => {
 		expect(error.code).toBe('PLUGIN_PRIVILEGE_DENIED')
 	})
 
-	it('targets exact nested plugin instances from the flattened graph', () => {
+	it('targets exact plugin instances from the flat graph', () => {
 		const child = definePlugin({
 			pluginId: 'fixture.nested-policy',
 			instanceId: 'editorial',
@@ -404,18 +404,11 @@ describe('plugin privilege policy', () => {
 				{ name: 'transport:expose', reason: 'Nested instance fixture.' },
 			],
 		})
-		const parent = definePlugin({
-			pluginId: 'fixture.policy-parent',
-			version: '1.0.0',
-			core: '^0.0.0',
-			plugins: [child],
-		})
-
 		const error = captureFrameworkError(
 			() =>
 				new FrameworkApplication({
 					schemas: [],
-					plugins: [parent],
+					plugins: [child],
 					pluginPrivileges: {
 						plugins: {
 							'fixture.nested-policy': {

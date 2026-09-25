@@ -31,7 +31,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { getRoleSchemaDeclaration, rolesPluginName } from './role-schema.js'
+import { getRoleSchemaDeclaration, rolesPluginId } from './role-schema.js'
 import {
 	roleSchemaIdentityOption,
 	roleSchemaIdentityOptionName,
@@ -55,15 +55,12 @@ import {
 	type RoleMembershipChangedEvent,
 } from './role-events.js'
 
-const rolesPluginModule: PluginModule<
-	typeof rolesPluginName,
-	'0.0.0',
-	'^0.0.0'
-> = definePluginModule({
-	core: '^0.0.0',
-	pluginId: rolesPluginName,
-	version: '0.0.0',
-})
+const rolesPluginModule: PluginModule<typeof rolesPluginId, '0.0.0', '^0.0.0'> =
+	definePluginModule({
+		core: '^0.0.0',
+		pluginId: rolesPluginId,
+		version: '0.0.0',
+	})
 
 const optionalReferenceCleanups: CapabilityRequirement<
 	typeof requestSubjectReferenceCleanupCapability,

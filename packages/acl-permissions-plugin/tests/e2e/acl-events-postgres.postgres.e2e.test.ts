@@ -67,7 +67,9 @@ const getFixture = (): PostgresWorkerFixture => {
 const eventObserverPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
-	peers: [{ pluginId: 'ultimabase.acl', version: '^0.0.0' }],
+	peers: [
+		{ pluginId: '@ultimabase/acl-permissions-plugin', version: '^0.0.0' },
+	],
 	pluginId: 'fixture.acl-change-events',
 	privileges: [
 		{

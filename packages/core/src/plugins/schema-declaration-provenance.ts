@@ -10,7 +10,7 @@ import {
 
 import {
 	type OptionDefinitionIndex,
-	type OwnedSchemaAddition,
+	type OwnedSchemaSource,
 	resolveOptionDefinition,
 } from './schema-declaration-contracts.js'
 
@@ -18,12 +18,12 @@ import { coreSchemaKeys } from './schema-option-resolution.js'
 
 export const attachInitialContributionProvenance = (
 	candidate: PreparedSchemaCompilation,
-	addition: OwnedSchemaAddition | undefined,
+	source: OwnedSchemaSource | undefined,
 	definitions: OptionDefinitionIndex,
 ): PreparedSchemaCompilation => {
 	const original = candidate.definition.provenance
 
-	if (addition === undefined) {
+	if (source === undefined) {
 		const fieldOptions = immutableRecord(
 			Object.fromEntries(
 				Object.entries(original.fieldOptions).map(
@@ -102,9 +102,9 @@ export const attachInitialContributionProvenance = (
 		})
 	}
 
-	const sourceOwner = addition.owner
-	const sourceStaticOptions = addition.staticOptions
-	const sourceId = addition.contributionId
+	const sourceOwner = source.owner
+	const sourceStaticOptions = source.staticOptions
+	const sourceId = source.contributionId
 	const requireProvenance = (
 		value: SchemaContributionProvenance | undefined,
 		path: string,
@@ -153,7 +153,7 @@ export const attachInitialContributionProvenance = (
 											definitions.field,
 											optionName,
 											`${candidate.schema.className}.fields.${fieldName}.options.${optionName}`,
-											addition.owner,
+											source.owner,
 										)
 										const prior = original.fieldOptions[fieldName]?.[optionName]
 										return [
@@ -192,7 +192,7 @@ export const attachInitialContributionProvenance = (
 						definitions.schema,
 						name,
 						`${candidate.schema.className}.${name}`,
-						addition.owner,
+						source.owner,
 					)
 					if (descriptor === undefined) {
 						throw new TypeError(`Unknown schema option: ${name}`)

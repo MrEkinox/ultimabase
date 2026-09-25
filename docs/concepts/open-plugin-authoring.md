@@ -101,9 +101,11 @@ declare: ({ operations, schemas, typegenReferences }) => {
 }
 ```
 
-`schemas.add`, `schemas.defineOptions`, `schemas.patch`, `schemas.select`,
+`schemas.add`, `schemas.claim`, `schemas.defineOptions`, `schemas.patch`, `schemas.select`,
 `operations.declare`, and `typegenReferences.register` are the registrars used
-here. Patches are additive and require `schema:declare`; operations require
+here. `schemas.claim` assigns plugin ownership to an exact class already listed
+at the application root without implicitly registering it. Patches are additive
+and require `schema:declare`; operations require
 `operation:declare`; public references require `typegen:reference`. Typegen
 derives declarations from the graph, without a manual output registry.
 

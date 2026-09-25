@@ -180,7 +180,9 @@ export class PluginLifecycleManager {
 	}
 
 	/** Returns setup output without weakening the unknown runtime boundary. */
-	getPluginExports(identity: PluginIdentity | string): unknown {
+	getPluginExports(
+		identity: PluginDefinition | PluginIdentity | string,
+	): unknown {
 		if (
 			typeof identity === 'string' &&
 			this.#graph.plugins.filter(
@@ -192,9 +194,16 @@ export class PluginLifecycleManager {
 			)
 		}
 
-		const plugin = this.#graph.get(identity)?.definition
+		const plugin =
+			typeof identity === 'object' && 'manifest' in identity
+				? identity
+				: this.#graph.get(identity)?.definition
 		const label =
-			typeof identity === 'string' ? identity : formatPluginIdentity(identity)
+			typeof identity === 'string'
+				? identity
+				: formatPluginIdentity(
+						'manifest' in identity ? identity.manifest.identity : identity,
+					)
 
 		if (plugin === undefined || !this.#exportsByDefinition.has(plugin)) {
 			throw new TypeError(`Plugin setup has not completed: ${label}`)

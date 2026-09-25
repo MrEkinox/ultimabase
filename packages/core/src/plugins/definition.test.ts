@@ -89,27 +89,6 @@ describe('definePlugin', () => {
 		expect(Object.isFrozen(plugin.conflicts)).toBe(true)
 	})
 
-	it('retains immutable nested plugin definitions by identity', () => {
-		const child = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.child',
-		})
-		const nestedPlugins = [child]
-		const parent = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.parent',
-			plugins: nestedPlugins,
-		})
-
-		nestedPlugins.pop()
-
-		expect(parent.plugins).toStrictEqual([child])
-		expect(parent.plugins?.[0]).toBe(child)
-		expect(Object.isFrozen(parent.plugins)).toBe(true)
-	})
-
 	it('protects JavaScript callers from malformed plugin metadata', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects null plugin options.
@@ -211,18 +190,9 @@ describe('definePlugin', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
-				// @ts-expect-error -- Nested metadata must remain an array.
+				// @ts-expect-error -- Plugin composition belongs only in the application list.
 				plugins: {},
 			})
-		}).toThrow(new TypeError('plugins must be an array'))
-		expect(() => {
-			definePlugin({
-				version: '0.0.0',
-				core: '^0.0.0',
-				pluginId: 'fixture.plugin',
-				// @ts-expect-error -- Nested definitions require Core provenance.
-				plugins: [{ name: 'forged' }],
-			})
-		}).toThrow(new TypeError('plugins[0] must be created by definePlugin'))
+		}).toThrow(new TypeError('plugin options contain unknown option: plugins'))
 	})
 })

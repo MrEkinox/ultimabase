@@ -1,6 +1,6 @@
 # ADR-0003: Global plugin graph with nested composition
 
-- Status: accepted
+- Status: superseded by ADR-0267
 - Date: 2026-07-30
 
 ## Decision

@@ -11,10 +11,12 @@ import {
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
 import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
+import { getApplicationPluginExports } from '../../application/framework-application.js'
 import {
 	FrameworkApplication,
 	type FrameworkApplicationOptions,
 	type PluginDefinition,
+	type PluginExports,
 } from '../../foundation.js'
 import {
 	readMutationCommand,
@@ -75,7 +77,7 @@ export interface UltimaBaseOptions<
 	 */
 	readonly schemas: TSchemas
 	/**
-	 * Declares top-level plugins; nested plugins join the same global graph.
+	 * Declares every plugin in one flat application-owned list.
 	 *
 	 * @example `plugins: [databasePlugin(), transportPlugin()]`
 	 */
@@ -325,6 +327,16 @@ export class UltimaBase<
 		options: OperationTransportExposureOptions<TTransport>,
 	): ApplicationOperationTransport<TTransport> {
 		return this.engine.exposeOperations(options)
+	}
+
+	/** Retrieves setup exports through the exact configured plugin definition. */
+	plugin<const TPlugin extends PluginDefinition>(
+		plugin: TPlugin,
+	): PluginExports<TPlugin> {
+		return getApplicationPluginExports(
+			this.application,
+			plugin,
+		) as PluginExports<TPlugin>
 	}
 
 	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */

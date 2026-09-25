@@ -27,7 +27,7 @@ import {
 import { normalizeACLEntryLimits, type ACLEntryLimits } from './acl-limits.js'
 
 /** Identifies the optional plugin that executes ACL behavior. */
-export const aclPluginName = 'ultimabase.acl' as const
+export const aclPluginId = '@ultimabase/acl-permissions-plugin' as const
 
 /** Names the logical field injected into every ACL-enabled schema. */
 export const aclFieldName = 'acl' as const

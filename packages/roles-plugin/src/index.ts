@@ -30,7 +30,7 @@ export {
 	resolveRoleReference,
 	resolveRoleReferenceId,
 } from './role-resolution.js'
-export { RoleSchema, rolesPluginName } from './role-schema.js'
+export { RoleSchema, rolesPluginId } from './role-schema.js'
 export type {
 	ReservedRoleFieldName,
 	RoleCurrentMemberInput,

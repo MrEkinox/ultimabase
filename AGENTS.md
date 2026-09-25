@@ -172,7 +172,9 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   handlers. ADR-0259 removes generic decoration and replacement; competing
   single providers remain errors. Tokens declare `declaration` or `application` lifetime;
   resource-backed application values are materialized and disposed by Core.
-- Nested plugins are configuration sugar over one global plugin graph.
+- Plugins are installed through one flat application `plugins` list. Use explicit
+  dependencies, peers, or capabilities for relationships; plugin definitions do
+  not contain nested plugins.
 - Plugin `peers` validate exact identity and semantic compatibility without
   adding declaration, lifecycle, materialization, or teardown order. Use a
   dependency whenever ordering is required.
@@ -196,8 +198,9 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   registries, and generic contribution registries instead of preserving parallel
   escape hatches.
 - Plugin-created schemas, operations, and application-specific model commands
-  are reached through application-owned handles. Plugins never mutate an
-  exported schema class or prototype.
+  are reached through application-owned handles. A plugin may claim exact
+  ownership of a developer schema already listed at the application root, but
+  plugins never mutate an exported schema class or prototype.
 - Typegen may consume the compiled graph and owner-scoped plugin contributions,
   but may emit only declarations and deterministic inert metadata. JavaScript
   applications execute the same graph without Typegen or a generated client.

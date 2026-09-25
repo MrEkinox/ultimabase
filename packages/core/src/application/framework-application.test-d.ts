@@ -47,7 +47,7 @@ test('infers schemas and top-level plugin exports from application options', asy
 	application.getPlugin('fixture.missing')
 })
 
-test('includes nested composition plugins in literal-ID lookup', async () => {
+test('includes every flat configured plugin in typed lookup', async () => {
 	const child = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -58,21 +58,26 @@ test('includes nested composition plugins in literal-ID lookup', async () => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.parent',
-		plugins: [child] as const,
 	})
 	const application = await createApplication({
 		schemas: [],
-		plugins: [parent],
+		plugins: [parent, child],
 	})
 
-	expectTypeOf<ConfiguredPluginId<readonly [typeof parent]>>().toEqualTypeOf<
-		'fixture.parent' | 'fixture.child'
-	>()
 	expectTypeOf<
-		ConfiguredPluginExports<readonly [typeof parent], 'fixture.child'>
+		ConfiguredPluginId<readonly [typeof parent, typeof child]>
+	>().toEqualTypeOf<'fixture.parent' | 'fixture.child'>()
+	expectTypeOf<
+		ConfiguredPluginExports<
+			readonly [typeof parent, typeof child],
+			'fixture.child'
+		>
 	>().toEqualTypeOf<{ readonly child: true }>()
 	expectTypeOf<
-		ConfiguredPluginExports<readonly [typeof parent], 'fixture.parent'>
+		ConfiguredPluginExports<
+			readonly [typeof parent, typeof child],
+			'fixture.parent'
+		>
 	>().toEqualTypeOf<undefined>()
 	expectTypeOf(application.getPlugin('fixture.child')).toEqualTypeOf<{
 		readonly child: true

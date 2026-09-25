@@ -131,7 +131,7 @@ it('publishes the audited privilege and environment contract for every official 
 		},
 		{
 			environment: [],
-			pluginId: 'ultimabase.acl',
+			pluginId: '@ultimabase/acl-permissions-plugin',
 			privileges: [
 				'schema:declare',
 				'authority:elevate',
@@ -142,7 +142,7 @@ it('publishes the audited privilege and environment contract for every official 
 		},
 		{
 			environment: [],
-			pluginId: 'ultimabase.roles',
+			pluginId: '@ultimabase/roles-plugin',
 			privileges: [
 				'schema:declare',
 				'authority:elevate',

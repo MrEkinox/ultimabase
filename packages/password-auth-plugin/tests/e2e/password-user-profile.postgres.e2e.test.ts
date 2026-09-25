@@ -182,7 +182,7 @@ const createApplication = (requiredProfile = false) => {
 			}),
 			capture,
 		],
-		schemas: [],
+		schemas: [User],
 	})
 	const request = async (
 		name: keyof typeof passwordAuthOperations,

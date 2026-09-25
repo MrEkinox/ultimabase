@@ -15,7 +15,7 @@ it('conforms to the public plugin kernel contracts', async () => {
 			expected: {
 				core: '^0.0.0',
 				environment: [],
-				pluginId: 'ultimabase.roles',
+				pluginId: '@ultimabase/roles-plugin',
 				privileges: [
 					'schema:declare',
 					'authority:elevate',

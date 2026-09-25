@@ -95,7 +95,6 @@ export interface PluginDefinition {
 	readonly optionalDependencies?: readonly PluginDependency[] | undefined
 	readonly peers?: readonly PluginDependency[] | undefined
 	readonly conflicts?: readonly string[] | undefined
-	readonly plugins?: readonly PluginDefinition[] | undefined
 }
 
 /** Carries every exact declaration type into later graph and lookup stages. */
@@ -108,8 +107,6 @@ export interface FrameworkPlugin<
 		readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined =
 		readonly string[] | undefined,
-	TPlugins extends readonly PluginDefinition[] | undefined =
-		readonly PluginDefinition[] | undefined,
 	TInstanceId extends string | undefined = string | undefined,
 	TVersion extends string = string,
 	TCoreRange extends string = string,
@@ -140,7 +137,6 @@ export interface FrameworkPlugin<
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly peers?: TPeers
 	readonly conflicts?: TConflicts
-	readonly plugins?: TPlugins
 }
 
 /** Extracts one plugin's initialized export contract without executing setup. */
@@ -154,7 +150,6 @@ export interface DefinePluginOptions<
 	TDependencies extends readonly PluginDependency[] | undefined,
 	TOptionalDependencies extends readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined,
-	TPlugins extends readonly PluginDefinition[] | undefined,
 	TInstanceId extends string | undefined,
 	TVersion extends string,
 	TCoreRange extends string,
@@ -177,7 +172,9 @@ export interface DefinePluginOptions<
 	readonly environment?: TEnvironment
 	/** Declares inert typed providers and explicit required or optional capability uses. */
 	readonly capabilities?: TCapabilities
+	/** Orders this plugin after required providers during declaration and lifecycle. */
 	readonly dependencies?: TDependencies
+	/** Adds the same ordering only when the compatible provider is installed. */
 	readonly optionalDependencies?: TOptionalDependencies
 	/** Requires a compatible plugin to be installed without introducing lifecycle or ordering edges. */
 	readonly peers?: TPeers
@@ -189,7 +186,6 @@ export interface DefinePluginOptions<
 	readonly declare?: PluginDeclaration<TPrivileges, TCapabilities>
 	readonly setup?: (context: PluginSetupContext) => TSetupResult
 	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
-	readonly plugins?: TPlugins
 }
 
 const lifecycleHookNames = [
@@ -214,7 +210,6 @@ const definePluginOptionKeys = new Set([
 	'optionalDependencies',
 	'peers',
 	'pluginId',
-	'plugins',
 	'privileges',
 	'setup',
 	'version',
@@ -348,24 +343,6 @@ export const runPluginLifecycleHook = (
 ): MaybePromise<void> =>
 	getPluginRuntimeDefinition(plugin).runHook(phase, context)
 
-const normalizeNestedPlugins = <
-	const TPlugins extends readonly PluginDefinition[],
->(
-	plugins: TPlugins,
-): readonly [...TPlugins] => {
-	const untrustedPlugins: unknown = plugins
-
-	if (!isUnknownArray(untrustedPlugins)) {
-		throw new TypeError('plugins must be an array')
-	}
-
-	for (const [index, plugin] of untrustedPlugins.entries()) {
-		assertPluginDefinition(plugin, `plugins[${String(index)}]`)
-	}
-
-	return immutableArray(plugins)
-}
-
 const normalizeLifecycleHooks = <const THooks extends object>(
 	hooks: THooks,
 ): Readonly<THooks> => {
@@ -397,7 +374,6 @@ export const definePlugin = <
 	const TOptionalDependencies extends readonly PluginDependency[] | undefined =
 		undefined,
 	const TConflicts extends readonly string[] | undefined = undefined,
-	const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
 	const TInstanceId extends string | undefined = undefined,
 	const TVersion extends string = string,
 	const TCoreRange extends string = string,
@@ -415,7 +391,6 @@ export const definePlugin = <
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins,
 		TInstanceId,
 		TVersion,
 		TCoreRange,
@@ -430,7 +405,6 @@ export const definePlugin = <
 	TDependencies,
 	TOptionalDependencies,
 	TConflicts,
-	TPlugins,
 	TInstanceId,
 	TVersion,
 	TCoreRange,
@@ -531,9 +505,6 @@ export const definePlugin = <
 			: {
 					conflicts: normalizePluginNames(options.conflicts, 'conflicts'),
 				}),
-		...(options.plugins === undefined
-			? {}
-			: { plugins: normalizeNestedPlugins(options.plugins) }),
 	})
 
 	declaredPlugins.add(plugin)
@@ -545,7 +516,6 @@ export const definePlugin = <
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins,
 		TInstanceId,
 		TVersion,
 		TCoreRange,

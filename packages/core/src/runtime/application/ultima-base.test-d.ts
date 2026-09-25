@@ -48,6 +48,9 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	).toEqualTypeOf<{
 		readonly dialect: 'fixture'
 	}>()
+	expectTypeOf(ultimabase.plugin(databasePlugin)).toEqualTypeOf<{
+		readonly dialect: 'fixture'
+	}>()
 	expectTypeOf(ultimabase.start()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.stop()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()

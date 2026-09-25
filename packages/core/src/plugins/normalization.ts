@@ -20,14 +20,12 @@ export interface NormalizedPlugin {
 	readonly [normalizedPluginBrand]: true
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
-	readonly parentIdentities: readonly PluginIdentity[]
 	readonly dependencies: readonly PluginDependency[]
 }
 
 interface MutableNormalizedPlugin {
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
-	readonly parentIdentities: PluginIdentity[]
 	readonly dependencies: PluginDependency[]
 }
 
@@ -42,17 +40,6 @@ export const assertNormalizedPlugin: (
 	}
 }
 
-const addUniqueIdentity = (
-	identities: PluginIdentity[],
-	identity: PluginIdentity,
-): void => {
-	if (
-		!identities.some((candidate) => isSamePluginIdentity(candidate, identity))
-	) {
-		identities.push(identity)
-	}
-}
-
 const throwDuplicateDefinition = (identity: PluginIdentity): never => {
 	throw createDuplicatePluginError(identity, 'definition')
 }
@@ -63,7 +50,6 @@ const snapshotNormalizedPlugin = (
 	const snapshot = immutableRecord({
 		definition: plugin.definition,
 		configurationIndex: plugin.configurationIndex,
-		parentIdentities: immutableArray(plugin.parentIdentities),
 		dependencies: immutableArray(plugin.dependencies),
 	})
 
@@ -73,7 +59,7 @@ const snapshotNormalizedPlugin = (
 	return snapshot as NormalizedPlugin
 }
 
-/** Flattens nested composition into immutable metadata without initializing plugins. */
+/** Snapshots one flat plugin list without initializing definitions. */
 export const normalizePlugins = (
 	plugins: readonly PluginDefinition[],
 ): readonly NormalizedPlugin[] => {
@@ -86,11 +72,7 @@ export const normalizePlugins = (
 	const normalizedPlugins: MutableNormalizedPlugin[] = []
 	const pluginsById = new Map<string, MutableNormalizedPlugin[]>()
 
-	const visitPlugin = (
-		untrustedPlugin: unknown,
-		path: string,
-		parentIdentity?: PluginIdentity,
-	): void => {
+	const visitPlugin = (untrustedPlugin: unknown, path: string): void => {
 		assertPluginDefinition(untrustedPlugin, path)
 		const identity = untrustedPlugin.manifest.identity
 		const configuredInstances = pluginsById.get(identity.pluginId) ?? []
@@ -102,11 +84,6 @@ export const normalizePlugins = (
 			if (existingPlugin.definition !== untrustedPlugin) {
 				throwDuplicateDefinition(identity)
 			}
-
-			if (parentIdentity !== undefined) {
-				addUniqueIdentity(existingPlugin.parentIdentities, parentIdentity)
-			}
-
 			return
 		}
 
@@ -124,27 +101,12 @@ export const normalizePlugins = (
 		const normalizedPlugin: MutableNormalizedPlugin = {
 			definition: untrustedPlugin,
 			configurationIndex: normalizedPlugins.length,
-			parentIdentities: [],
 			dependencies: [...(untrustedPlugin.dependencies ?? [])],
-		}
-
-		if (parentIdentity !== undefined) {
-			normalizedPlugin.parentIdentities.push(parentIdentity)
 		}
 
 		normalizedPlugins.push(normalizedPlugin)
 		configuredInstances.push(normalizedPlugin)
 		pluginsById.set(identity.pluginId, configuredInstances)
-
-		for (const [childIndex, childPlugin] of (
-			untrustedPlugin.plugins ?? []
-		).entries()) {
-			visitPlugin(
-				childPlugin,
-				`${path}.plugins[${String(childIndex)}]`,
-				identity,
-			)
-		}
 	}
 
 	for (const [pluginIndex, plugin] of untrustedPlugins.entries()) {

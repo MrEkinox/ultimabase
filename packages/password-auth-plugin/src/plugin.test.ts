@@ -52,7 +52,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		const application = new FrameworkApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [passwordAuthPlugin({ user: AppUser })],
-			schemas: [],
+			schemas: [AppUser],
 		}).compileSchemas()
 
 		expect(application.schemas.get('User')).toBe(AppUser)
@@ -63,6 +63,26 @@ describe('passwordAuthPlugin identity declaration', () => {
 			unique: false,
 		})
 		expect(PasswordUser.fields).not.toHaveProperty('displayName')
+		expect(AppUser.provenance.schema.owner).toMatchObject({
+			kind: 'plugin',
+			pluginId: '@ultimabase/password-auth-plugin',
+		})
+	})
+
+	it('requires a custom User in the application schema list', () => {
+		const AppUser = PasswordUserSchema.define({
+			className: 'User',
+			fields: (field) => ({ displayName: field.string() }),
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [passwordAuthPlugin({ user: AppUser })],
+			schemas: [],
+		})
+
+		expect(() => application.compileSchemas()).toThrow(
+			'Claimed schema must be registered in application schemas: User',
+		)
 	})
 
 	it('rejects arbitrary User schemas and reserved custom fields', () => {

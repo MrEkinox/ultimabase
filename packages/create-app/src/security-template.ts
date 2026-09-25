@@ -36,7 +36,7 @@ export const securitySchemaImports = (
 export const securitySchemaDeclarations = (plan: InitializerPlan): string => {
 	const declarations: string[] = []
 	if (has(plan, 'password-auth-plugin')) {
-		declarations.push(`// Password Auth contributes this exact User schema; credentials stay in private storage.
+		declarations.push(`// Password Auth claims this exact application User schema; credentials stay in private storage.
 export const AppUser = PasswordUserSchema.define({
   className: 'User',
   fields: (f) => ({ displayName: f.string() }),
@@ -119,6 +119,7 @@ export const securityApplicationImports = (
 export const securitySchemaNames = (
 	plan: InitializerPlan,
 ): readonly string[] => [
+	...(has(plan, 'password-auth-plugin') ? ['AppUser'] : []),
 	...(has(plan, 'roles-plugin') && !has(plan, 'password-auth-plugin')
 		? ['Member']
 		: []),
@@ -140,7 +141,7 @@ export const securityPluginEntries = (
 	...(has(plan, 'roles-plugin') ? ['rolesPlugin()'] : []),
 ]
 
-/** Plugin-owned schemas use attributed contributions instead of inline Access. */
+/** Plugin-owned and claimed schemas use attributed contributions instead of inline Access. */
 export const securityPolicySource = (plan: InitializerPlan): string =>
 	has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
 		? `// Allow only the current session's profile; all other schema reads remain denied.
@@ -217,7 +218,7 @@ export const securityReadmeNotes = (
 		: []),
 	...(has(plan, 'password-auth-plugin')
 		? [
-				'Password Auth contributes a User schema, private credentials, and sessions. A session identifies a caller; it does not grant Task access or publish authentication operations.',
+				'Password Auth claims the configured application User schema and owns private credentials and sessions. A session identifies a caller; it does not grant Task access or publish authentication operations.',
 			]
 		: []),
 	...(has(plan, 'password-auth-plugin') && has(plan, 'access-plugin')

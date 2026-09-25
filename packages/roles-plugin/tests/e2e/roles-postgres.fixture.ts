@@ -234,7 +234,7 @@ export const externalRoleReferencePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.external-role-references',
-	peers: [{ pluginId: 'ultimabase.roles', version: '^0.0.0' }],
+	peers: [{ pluginId: '@ultimabase/roles-plugin', version: '^0.0.0' }],
 	privileges: [
 		{
 			name: 'runtime:observe',

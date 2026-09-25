@@ -147,7 +147,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				postgresPlugin({ pool: isolated.pool, schemaPolicy: 'override' }),
 				passwordAuthPlugin({ user: User }),
 			],
-			schemas: [],
+			schemas: [User],
 		})
 		try {
 			await ultimabase.start()

@@ -495,7 +495,6 @@ describe('PluginGraph', () => {
 				{
 					definition,
 					configurationIndex: 0,
-					parentIdentities: [],
 					dependencies: [],
 				},
 			])

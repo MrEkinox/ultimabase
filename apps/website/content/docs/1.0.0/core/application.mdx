@@ -10,7 +10,7 @@ order: 1
 outcome: Explain how one UltimaBase application is composed, started, used, and isolated.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-09-25
 sources:
   - ARCHITECTURE.md
   - packages/core/README.md
@@ -23,6 +23,7 @@ sources:
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0206-application-owned-master-provenance.md
   - docs/adr/0258-single-active-application-lifecycle.md
+  - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
 ---
 
 An application is one `UltimaBase` instance. It owns a set of schemas and
@@ -34,8 +35,8 @@ project setup, follow [Manual Installation](/docs/1.0.0/manual-installation).
 ## Application graph
 
 Schemas, configured plugins, and static options form the application graph.
-Importing a package alone installs nothing; behavior comes from the plugins
-configured for this application, including their nested plugins. Generated
+Importing a package alone installs nothing; behavior comes from the definitions
+in this application's one flat `plugins` list. Generated
 TypeScript declarations describe this graph but do not decide what runs.
 
 <Mermaid
@@ -68,16 +69,17 @@ without connecting to infrastructure. Its root options are:
 | Option             | Required | Purpose                                                                                     |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------- |
 | `schemas`          | Yes      | Exact schema classes owned by this application.                                             |
-| `plugins`          | Yes      | Top-level plugin definitions; nested definitions join the same graph.                       |
+| `plugins`          | Yes      | One flat list containing every installed plugin definition.                                 |
 | `masterAuthority`  | No       | Audited server authority for explicit Master work.                                          |
 | `pluginPrivileges` | No       | Privilege and environment-claim denials plus the reporting logger.                          |
 | `validation`       | No       | Structural validation settings, timezone, clock, UUID generation, and nested-write budgets. |
 
 No database, server, API, plugin behavior, or Master authority is installed
 implicitly. An unknown root option throws `TypeError`. Schema and plugin graph
-errors are reported before infrastructure starts. Use `app.schema(...)` and
-`app.operation(...)` for application-owned handles; `app.application` is an
-advanced composition surface for plugin exports. For request identity and
+errors are reported before infrastructure starts. Use `app.schema(...)`,
+`app.operation(...)`, and `app.plugin(configuredDefinition)` for typed
+application-owned handles. `app.application.getPlugin(...)` remains the
+lower-level identity lookup for dynamic integrations. For request identity and
 grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
 and [Transactions](/docs/1.0.0/core/writing-data/transactions).
 

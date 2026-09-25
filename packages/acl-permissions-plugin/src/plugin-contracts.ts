@@ -12,7 +12,7 @@ import type { PluginModule, PluginModuleInstance } from '@ultimabase/plugin-kit'
 
 import type { aclChangedEventsCapability } from './acl-events.js'
 import type { ACLEntryLimits } from './acl-limits.js'
-import type { aclPluginName } from './acl-option.js'
+import type { aclPluginId } from './acl-option.js'
 
 /** Configures application-wide defaults for persisted ACL size. */
 export interface ACLPluginOptions {
@@ -111,6 +111,6 @@ type ACLPluginDefinition = Readonly<{
 
 /** Represents the exact optional ACL provider configured for one application. */
 export type ACLPlugin = PluginModuleInstance<
-	PluginModule<typeof aclPluginName, '0.0.0', '^0.0.0'>,
+	PluginModule<typeof aclPluginId, '0.0.0', '^0.0.0'>,
 	ACLPluginDefinition
 >

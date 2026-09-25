@@ -1,6 +1,6 @@
 # ADR-0046: Plugin normalization and exclusive slots
 
-- Status: accepted
+- Status: partially superseded by ADR-0267
 - Date: 2026-07-31
 - Refines: ADR-0003, ADR-0045
 - Partially superseded by: ADR-0190

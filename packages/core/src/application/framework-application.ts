@@ -66,6 +66,23 @@ import {
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'
 import { compileStaticRelationWhereDeclarations } from '../query/filters/relation-where-declaration.js'
 
+const pluginDefinitionLookups = new WeakMap<
+	object,
+	(plugin: PluginDefinition) => unknown
+>()
+
+/** @internal Resolves exports for an exact configured plugin definition. */
+export const getApplicationPluginExports = (
+	application: object,
+	plugin: PluginDefinition,
+): unknown => {
+	const lookup = pluginDefinitionLookups.get(application)
+	if (lookup === undefined) {
+		throw new TypeError('Framework application plugin lookup is unavailable')
+	}
+	return lookup(plugin)
+}
+
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
 	TSchemas extends readonly SchemaDefinition[],
@@ -78,7 +95,7 @@ export interface FrameworkApplicationOptions<
 	 */
 	readonly schemas: TSchemas
 	/**
-	 * Declares top-level plugins; nested plugins join the same global graph.
+	 * Declares every plugin in one flat application-owned list.
 	 *
 	 * @example `plugins: [databasePlugin(), transportPlugin()]`
 	 */
@@ -220,6 +237,9 @@ export class FrameworkApplication<
 			this.#setupRegistries,
 			capabilityHost,
 			this,
+		)
+		pluginDefinitionLookups.set(this, (plugin) =>
+			this.#lifecycle.getPluginExports(plugin),
 		)
 
 		// Public application identity is stable while private lifecycle state may advance.

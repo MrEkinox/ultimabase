@@ -58,6 +58,12 @@ remove repeated package identity fields from plugins requesting the critical
 addon requires a compatible engine but the engine consumes the addon's
 capability, so no lifecycle edge should be introduced.
 
+Keep every definition in the application's flat `plugins` list. Use
+`dependencies` for required identity plus provider-first lifecycle order,
+`optionalDependencies` for that order only when the provider is installed,
+`peers` for compatible identity without order, and capabilities for versioned
+behavior that may have interchangeable providers.
+
 ### Name an exact public plugin type
 
 Packages compiled with TypeScript `isolatedDeclarations` cannot always publish

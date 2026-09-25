@@ -99,6 +99,7 @@ export class SchemaDeclarationRegistry {
 		const batch: MutableSchemaDeclarationBatch = {
 			additions: [],
 			canDeclare: privileges.declare,
+			claims: [],
 			options: [],
 			owner,
 			patches: [],
@@ -164,6 +165,27 @@ export class SchemaDeclarationRegistry {
 						staticOptions: snapshotStaticOptions(
 							options.staticOptions,
 							'Schema addition staticOptions',
+						),
+					}),
+				)
+			},
+			claim: (options): void => {
+				assertDeclare()
+				if (!isPlainRecord(options)) {
+					throw new TypeError('Schema claim must be a plain object')
+				}
+				assertNonEmptyString(
+					options.contributionId,
+					'Schema claim contributionId',
+				)
+				batch.claims.push(
+					immutableRecord({
+						contributionId: options.contributionId,
+						owner,
+						schema: options.schema,
+						staticOptions: snapshotStaticOptions(
+							options.staticOptions,
+							'Schema claim staticOptions',
 						),
 					}),
 				)
@@ -279,6 +301,7 @@ export class SchemaDeclarationRegistry {
 					immutableRecord({
 						...batch,
 						additions: immutableArray(batch.additions),
+						claims: immutableArray(batch.claims),
 						options: immutableArray(batch.options),
 						patches: immutableArray(batch.patches),
 						surfaces: snapshotApplicationSurfaceDeclarations(batch.surfaces),

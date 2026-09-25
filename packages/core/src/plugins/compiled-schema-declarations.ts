@@ -8,6 +8,8 @@ import type { SchemaCompilationProvenance } from '../schema/schema/provenance.js
 import {
 	attachPluginDeclarationDiagnostic,
 	type OwnedSchemaAddition,
+	type OwnedSchemaClaim,
+	type OwnedSchemaSource,
 	type PendingSchemaOptionRuntimeCompilation,
 	type ResolvedFieldOptions,
 	type SchemaDeclarationBatch,
@@ -43,32 +45,64 @@ export const compileSchemaDeclarations = (
 	const optionDefinitions = collectOptionDefinitions(batches)
 	const resolvedFields: ResolvedFieldOptions = new WeakMap()
 	const additionsBySchema = new Map<SchemaDefinition, OwnedSchemaAddition>()
+	const claimsBySchema = new Map<SchemaDefinition, OwnedSchemaClaim>()
 	for (const batch of batches) {
 		for (const addition of batch.additions) {
 			additionsBySchema.set(addition.schema, addition)
 		}
+		for (const claim of batch.claims) {
+			const existing = claimsBySchema.get(claim.schema)
+			if (existing !== undefined) {
+				throw attachPluginDeclarationDiagnostic(
+					new TypeError(
+						`Schema is already claimed by ${existing.owner.pluginId}: ${claim.schema.className}`,
+					),
+					claim.owner,
+					claim.schema.className,
+					claim.contributionId,
+				)
+			}
+			claimsBySchema.set(claim.schema, claim)
+		}
+	}
+	for (const claim of claimsBySchema.values()) {
+		if (
+			additionsBySchema.has(claim.schema) ||
+			!prepared.some((candidate) => candidate.schema === claim.schema)
+		) {
+			throw attachPluginDeclarationDiagnostic(
+				new TypeError(
+					`Claimed schema must be registered in application schemas: ${claim.schema.className}`,
+				),
+				claim.owner,
+				claim.schema.className,
+				claim.contributionId,
+			)
+		}
 	}
 	const initial = prepared.map((candidate) => {
 		const addition = additionsBySchema.get(candidate.schema)
+		const source: OwnedSchemaSource | undefined =
+			addition ?? claimsBySchema.get(candidate.schema)
 		try {
 			const resolved = resolveCandidateOptions(
 				candidate,
 				optionDefinitions,
 				resolvedFields,
-				addition?.owner,
+				source?.owner,
 			)
 			return attachInitialContributionProvenance(
 				resolved,
-				addition,
+				source,
 				optionDefinitions,
 			)
 		} catch (cause: unknown) {
-			if (addition === undefined) throw cause
+			if (source === undefined) throw cause
 			throw attachPluginDeclarationDiagnostic(
 				cause,
-				addition.owner,
+				source.owner,
 				candidate.schema.className,
-				addition.contributionId,
+				source.contributionId,
 			)
 		}
 	})

@@ -1,6 +1,6 @@
 # ADR-0045: Static typed plugin definitions
 
-- Status: accepted
+- Status: partially superseded by ADR-0267
 - Date: 2026-07-31
 - Refines: ADR-0003
 

@@ -22,16 +22,15 @@ const AppUser = PasswordUserSchema.define({
 	}),
 })
 
+const authPlugin = passwordAuthPlugin({ user: AppUser })
+
 const ultimabase = new UltimaBase({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'server', value: env.ULTIMABASE_MASTER_KEY }],
 		onUse: (event) => auditMasterUse(event),
 	}),
-	plugins: [
-		passwordAuthPlugin({ user: AppUser }),
-		postgresPlugin({ url: env.DATABASE_URL }),
-	],
-	schemas: [],
+	plugins: [authPlugin, postgresPlugin({ url: env.DATABASE_URL })],
+	schemas: [AppUser],
 })
 
 await ultimabase.start()
@@ -52,9 +51,7 @@ const loggedIn = await AppUser.login(
 const refreshed = await AppUser.refresh(loggedIn.session.token, { ultimabase })
 await AppUser.logout(refreshed.session.token, { ultimabase })
 
-const auth = ultimabase.application.getPlugin(
-	'@ultimabase/password-auth-plugin',
-)
+const auth = ultimabase.plugin(authPlugin)
 await auth.runWithSession(
 	signedUp.session.token,
 	() => AppUser.findMany(), // Queries inherit the authenticated request context.
@@ -68,6 +65,10 @@ the application's facade. A conflicting explicit application or a User class
 not installed in that application is rejected before credential work. The
 application must be started. These methods do not store a current user or token
 on the class and do not appear on User model instances.
+
+The plugin adds its built-in default User automatically. A custom User remains
+explicit in the application's root `schemas` list; Password Auth claims that
+exact class so credentials and transport exposure keep plugin-owned semantics.
 
 `signUp` accepts `username`, `password`, and the User's ordinary create fields in
 one flat object. Required fields without defaults must be supplied; optional,
@@ -141,6 +142,16 @@ The four operations remain private until explicitly included in a transport.
 For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
 Password Auth contributes the compatible codecs and maps its three public
 errors to status 400 or 401 without importing REST.
+
+```ts
+import {
+	passwordAuthOperationList,
+	passwordAuthOperations,
+} from '@ultimabase/password-auth-plugin'
+
+restPlugin({ operations: passwordAuthOperationList }) // Expose all four.
+restPlugin({ operations: [passwordAuthOperations.login] }) // Or a subset.
+```
 
 The public routes are `POST /api/v1/auth/sign-up`, `/api/v1/auth/login`,
 `/api/v1/auth/refresh`, and `/api/v1/auth/logout`. A custom REST `basePath`

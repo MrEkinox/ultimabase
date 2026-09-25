@@ -34,16 +34,6 @@ const allGraphNodes = (
 ): readonly GraphNode[] =>
 	[...nodesByPluginId.values()].flatMap((nodes) => nodes)
 
-const findNodeByIdentity = (
-	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
-	identity: PluginIdentity,
-): GraphNode | undefined =>
-	nodesByPluginId
-		.get(identity.pluginId)
-		?.find(({ plugin }) =>
-			isSamePluginIdentity(plugin.definition.manifest.identity, identity),
-		)
-
 const throwMissingDependency = (
 	pluginIdentity: PluginIdentity,
 	dependencyId: string,
@@ -295,16 +285,6 @@ const connectGraphNodes = (
 				dependencyDeclaration.pluginId,
 			)
 			connectDependency(node, dependency)
-		}
-
-		for (const parentIdentity of node.plugin.parentIdentities) {
-			const parent = findNodeByIdentity(nodesByPluginId, parentIdentity)
-			assertRequiredDependency(
-				parent,
-				identity,
-				formatPluginIdentity(parentIdentity),
-			)
-			connectDependency(node, parent)
 		}
 
 		for (const optionalDependency of node.plugin.definition
