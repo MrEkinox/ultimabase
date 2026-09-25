@@ -203,13 +203,11 @@ const accessPluginPermissions = {
 } as const
 
 /** Names the exact configured official Access engine. */
-export type AccessPlugin = PluginInstance<
-	'@ultimabase/access-plugin',
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type AccessPlugin = PluginInstance<{
+	readonly id: '@ultimabase/access-plugin'
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /** Installs official Access authoring and enforcement through the public kernel. */
 export const accessPlugin = (

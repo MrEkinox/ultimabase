@@ -19,13 +19,11 @@ const validationPluginPermissions = {
 } as const
 
 /** Names the exact configured official field-validation engine. */
-export type ValidationPlugin = PluginInstance<
-	'@ultimabase/validation-plugin',
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type ValidationPlugin = PluginInstance<{
+	readonly id: '@ultimabase/validation-plugin'
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /** Installs direct field validation and its final mutation guard explicitly. */
 export const validationPlugin = (): ValidationPlugin => {

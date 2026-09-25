@@ -27,7 +27,7 @@ test('accepts URL and pg-compatible existing-pool configuration', async () => {
 	expectTypeOf(
 		urlPlugin.manifest.identity.pluginId,
 	).toEqualTypeOf<'@ultimabase/postgres-plugin'>()
-	expectTypeOf(urlPlugin.manifest.capabilities.provides).toHaveProperty('0')
+	expectTypeOf(urlPlugin.manifest.capabilities.provides).toHaveProperty(0)
 	expectTypeOf(pluginExports).toEqualTypeOf<Readonly<PostgresPluginExports>>()
 	expectTypeOf(connection).toEqualTypeOf<PostgresConnectionService>()
 	expectTypeOf(connection).not.toHaveProperty('pool')

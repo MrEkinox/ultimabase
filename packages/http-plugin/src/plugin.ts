@@ -113,13 +113,12 @@ const masterPermissions = {
 } as const
 
 /** Names the exact configured official HTTP application engine. */
-export type HttpPlugin = PluginInstance<
-	'@ultimabase/http-plugin',
-	HttpPluginExports,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type HttpPlugin = PluginInstance<{
+	readonly id: '@ultimabase/http-plugin'
+	readonly exports: HttpPluginExports
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /** Installs the Fetch-compatible HTTP application graph without opening a socket. */
 export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {

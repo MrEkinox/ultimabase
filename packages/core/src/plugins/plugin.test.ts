@@ -124,6 +124,63 @@ describe('plugin', () => {
 		])
 	})
 
+	it('keeps the native definition immutable without creating its resource', () => {
+		let creates = 0
+		const dependencies = [{ pluginId: 'fixture.services', version: '^0.0.0' }]
+		const definition = plugin({
+			id: 'fixture.immutable-native-plan',
+			version: '1.0.0',
+			core: '^0.0.0',
+			dependencies,
+			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
+			peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }],
+			conflicts: ['fixture.other-plugin'],
+			contributions: [
+				contributeApplication(() => {
+					creates += 1
+					return {}
+				}),
+			],
+		})
+
+		dependencies.push({
+			pluginId: 'fixture.late-dependency',
+			version: '^0.0.0',
+		})
+		expect(creates).toBe(0)
+		expect(definition.dependencies).toStrictEqual([
+			{ pluginId: 'fixture.services', version: '^0.0.0' },
+		])
+		expect(Object.isFrozen(definition)).toBe(true)
+		expect(Object.isFrozen(definition.dependencies)).toBe(true)
+		expect(Object.isFrozen(definition.optionalDependencies)).toBe(true)
+		expect(Object.isFrozen(definition.peers)).toBe(true)
+		expect(Object.isFrozen(definition.conflicts)).toBe(true)
+	})
+
+	it('validates relationship metadata at the native definition boundary', () => {
+		expect(() =>
+			plugin({
+				id: 'fixture.invalid-dependencies',
+				version: '1.0.0',
+				core: '^0.0.0',
+				// @ts-expect-error -- Runtime coverage protects JavaScript callers.
+				dependencies: 'services',
+				contributions: [],
+			}),
+		).toThrow(new TypeError('dependencies must be an array'))
+		expect(() =>
+			plugin({
+				id: 'fixture.invalid-conflicts',
+				version: '1.0.0',
+				core: '^0.0.0',
+				// @ts-expect-error -- Runtime coverage protects JavaScript callers.
+				conflicts: [42],
+				contributions: [],
+			}),
+		).toThrow(new TypeError('conflicts[0] must be a non-empty string'))
+	})
+
 	it('rejects structural contributions and duplicate application resources', () => {
 		expect(() =>
 			plugin({

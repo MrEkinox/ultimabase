@@ -1663,12 +1663,26 @@ export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
 ```
 
 Capability providers and requirements, operations, static declarations, and
-the optional application resource all enter `contributions`. Core retains the
-separate compilation and lifecycle phases internally. It derives required
-privilege names from the contribution types; `permissions` supplies only their
-reviewable reasons. A callback that needs an additional privileged facade uses
+the optional application resource all enter `contributions`. Core compiles that
+list once into its native immutable plugin plan; there is no second setup/hooks
+authoring model behind `plugin()`. It derives required privilege names from the
+contribution types; `permissions` supplies only their reviewable reasons. A
+callback that needs an additional privileged facade uses
 `withPluginPrivileges()` around that exact contribution, keeping the power next
 to the code that consumes it.
+
+An application resource that only owns lifecycle work may omit `exports`:
+
+```ts
+contributeApplication(() => ({
+	connect: () => connectClient(),
+	dispose: () => disconnectClient(),
+}))
+```
+
+Core exposes `undefined` for that plugin and keeps the same resource for every
+lifecycle callback. If the plugin exposes an application-local API, add
+`exports` and its exact type remains available through plugin lookup.
 
 ## Cross-plugin integration
 
@@ -1825,7 +1839,7 @@ Generic capability conflicts, requirements and conditional privileges remain;
 Core no longer designates a unique emitter through a shared token. Repeating
 the official Typegen plugin still conflicts on its plugin identity.
 
-Manifest literals and setup exports retain their exact types for plugin lookup.
+Manifest literals and application exports retain their exact types for plugin lookup.
 Application resources and declaration callbacks do not run during manifest
 inspection. Required dependencies, optional dependencies, conflicts, and
 contributions are copied and frozen. Every installed definition appears

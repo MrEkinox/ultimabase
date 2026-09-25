@@ -1,14 +1,24 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
-import { compilePluginDefinition, type FrameworkPlugin } from './definition.js'
-import type { PluginCapabilityDeclarationOptions } from './capabilities.js'
+import {
+	createPluginDefinition,
+	type FrameworkPlugin,
+	type FrameworkPluginContract,
+} from './definition.js'
+import {
+	normalizeCapabilityDeclarations,
+	type PluginCapabilityDeclarationOptions,
+} from './capabilities.js'
 import type {
 	PluginDependency,
 	PluginEnvironmentClaim,
 	PluginPrivilege,
-	PluginPrivilegeRequest,
 } from './manifest.js'
-import { compilePluginContributions } from './plugin-contribution-compiler.js'
+import { createPluginManifest } from './manifest.js'
+import {
+	compilePluginContributions,
+	derivePluginCapabilityPrivileges,
+} from './plugin-contribution-compiler.js'
 import type {
 	PluginApplicationContribution,
 	PluginContribution,
@@ -19,7 +29,10 @@ import type {
 	PluginOperationAuthoringContribution,
 	PluginOperationContributionCapabilities,
 } from './plugin-operation-contributions.js'
-import type { PluginPermissionReasons } from './plugin-permissions.js'
+import {
+	normalizePluginPermissionRequests,
+	type PluginPermissionReasons,
+} from './plugin-permissions.js'
 
 type UnwrapContribution<TContribution> =
 	TContribution extends PluginPrivilegedContribution<infer TWrapped>
@@ -141,41 +154,13 @@ export interface PluginOptions<
 	readonly conflicts?: TConflicts
 }
 
+/** Names the exact facts preserved by one configured plugin result. */
+export type PluginInstanceContract = FrameworkPluginContract
+
 /** Exact configured result returned by `plugin()`. */
 export type PluginInstance<
-	TPluginId extends string = string,
-	TExports = unknown,
-	TInstanceId extends string | undefined = string | undefined,
-	TVersion extends string = string,
-	TCoreRange extends string = string,
-	TDependencies extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-	TOptionalDependencies extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-	TPeers extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-	TConflicts extends readonly string[] | undefined =
-		readonly string[] | undefined,
-	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
-		readonly PluginEnvironmentClaim[] | undefined,
-	TPrivileges extends readonly PluginPrivilegeRequest[] =
-		readonly PluginPrivilegeRequest[],
-	TCapabilities extends PluginCapabilityDeclarationOptions =
-		PluginCapabilityDeclarationOptions,
-> = FrameworkPlugin<
-	TPluginId,
-	TExports,
-	TDependencies,
-	TOptionalDependencies,
-	TConflicts,
-	TInstanceId,
-	TVersion,
-	TCoreRange,
-	TPrivileges,
-	TEnvironment,
-	TCapabilities,
-	TPeers
->
+	TContract extends PluginInstanceContract = PluginInstanceContract,
+> = FrameworkPlugin<TContract>
 
 const pluginOptionKeys = new Set([
 	'conflicts',
@@ -221,20 +206,20 @@ export const plugin = <
 		TContributions,
 		TPermissions
 	>,
-): PluginInstance<
-	TPluginId,
-	ContributionExports<TContributions>,
-	TInstanceId,
-	TVersion,
-	TCoreRange,
-	TDependencies,
-	TOptionalDependencies,
-	TPeers,
-	TConflicts,
-	TEnvironment,
-	PermissionRequests<TPermissions>,
-	ContributionCapabilityOptions<TContributions>
-> => {
+): PluginInstance<{
+	readonly id: TPluginId
+	readonly exports: ContributionExports<TContributions>
+	readonly instanceId: TInstanceId
+	readonly version: TVersion
+	readonly core: TCoreRange
+	readonly dependencies: TDependencies
+	readonly optionalDependencies: TOptionalDependencies
+	readonly peers: TPeers
+	readonly conflicts: TConflicts
+	readonly environment: TEnvironment
+	readonly privileges: PermissionRequests<TPermissions>
+	readonly capabilities: ContributionCapabilityOptions<TContributions>
+}> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('plugin options must be a plain object')
 	}
@@ -244,26 +229,33 @@ export const plugin = <
 		}
 	}
 
-	const compiled = compilePluginContributions(
-		options.contributions,
+	const compiled = compilePluginContributions(options.contributions)
+	const capabilities = normalizeCapabilityDeclarations(compiled.capabilities)
+	const privileges = normalizePluginPermissionRequests(
 		options.permissions,
+		derivePluginCapabilityPrivileges(compiled.privileges, capabilities),
+		capabilities.optional,
 	)
-	return compilePluginDefinition({
+	const manifest = createPluginManifest({
 		pluginId: options.id,
 		version: options.version,
 		core: options.core,
-		capabilities: compiled.capabilities,
-		operations: compiled.operations,
-		privileges: compiled.privileges,
-		...(compiled.declare === undefined ? {} : { declare: compiled.declare }),
-		...(compiled.setup === undefined ? {} : { setup: compiled.setup }),
-		...(compiled.hooks === undefined ? {} : { hooks: compiled.hooks }),
+		capabilities,
+		privileges,
 		...(options.instanceId === undefined
 			? {}
 			: { instanceId: options.instanceId }),
 		...(options.environment === undefined
 			? {}
 			: { environment: options.environment }),
+	})
+	return createPluginDefinition({
+		manifest,
+		plan: {
+			applicationFactory: compiled.applicationFactory,
+			declare: compiled.declare,
+			operations: compiled.operations,
+		},
 		...(options.dependencies === undefined
 			? {}
 			: { dependencies: options.dependencies }),
@@ -274,18 +266,18 @@ export const plugin = <
 		...(options.conflicts === undefined
 			? {}
 			: { conflicts: options.conflicts }),
-	}) as PluginInstance<
-		TPluginId,
-		ContributionExports<TContributions>,
-		TInstanceId,
-		TVersion,
-		TCoreRange,
-		TDependencies,
-		TOptionalDependencies,
-		TPeers,
-		TConflicts,
-		TEnvironment,
-		PermissionRequests<TPermissions>,
-		ContributionCapabilityOptions<TContributions>
-	>
+	}) as PluginInstance<{
+		readonly id: TPluginId
+		readonly exports: ContributionExports<TContributions>
+		readonly instanceId: TInstanceId
+		readonly version: TVersion
+		readonly core: TCoreRange
+		readonly dependencies: TDependencies
+		readonly optionalDependencies: TOptionalDependencies
+		readonly peers: TPeers
+		readonly conflicts: TConflicts
+		readonly environment: TEnvironment
+		readonly privileges: PermissionRequests<TPermissions>
+		readonly capabilities: ContributionCapabilityOptions<TContributions>
+	}>
 }

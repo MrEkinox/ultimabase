@@ -33,7 +33,11 @@ export type {
 } from './errors/framework-error.js'
 export type { PluginErrorPayload } from './errors/plugin-error.js'
 export { plugin } from './plugins/plugin.js'
-export type { PluginInstance, PluginOptions } from './plugins/plugin.js'
+export type {
+	PluginInstance,
+	PluginInstanceContract,
+	PluginOptions,
+} from './plugins/plugin.js'
 export {
 	contributeApplication,
 	contributeDeclarations,
@@ -166,6 +170,7 @@ export type {
 } from './plugins/constraint-compilers.js'
 export type {
 	FrameworkPlugin,
+	FrameworkPluginContract,
 	PluginDefinition,
 	PluginExports,
 	PluginSetupContext,

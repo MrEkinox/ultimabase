@@ -33,25 +33,18 @@ const httpPeers = [
 
 /** Names one independently configured GraphiQL UI plugin. */
 export type GraphiqlPlugin =
-	| PluginInstance<
-			'@ultimabase/graphiql-plugin',
-			undefined,
-			undefined,
-			'0.0.0',
-			'^0.0.0',
-			undefined,
-			undefined,
-			typeof httpPeers,
-			undefined,
-			readonly ['environment:network']
-	  >
-	| PluginInstance<
-			'@ultimabase/graphiql-plugin',
-			undefined,
-			undefined,
-			'0.0.0',
-			'^0.0.0'
-	  >
+	| PluginInstance<{
+			readonly id: '@ultimabase/graphiql-plugin'
+			readonly version: '0.0.0'
+			readonly core: '^0.0.0'
+			readonly peers: typeof httpPeers
+			readonly environment: readonly ['environment:network']
+	  }>
+	| PluginInstance<{
+			readonly id: '@ultimabase/graphiql-plugin'
+			readonly version: '0.0.0'
+			readonly core: '^0.0.0'
+	  }>
 
 /** Adds a development GraphiQL page for the selected GraphQL HTTP provider. */
 export const graphiqlPlugin = (

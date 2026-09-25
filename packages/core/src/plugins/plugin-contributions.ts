@@ -21,10 +21,10 @@ import type {
 	PluginDeclarationCapabilityReader,
 	PluginDeclarationContext,
 } from './declaration-host.js'
-import type { PluginLifecyclePhase, PluginSetupContext } from './definition.js'
 import { pluginPrivilegeMetadata, type PluginPrivilege } from './manifest.js'
 import type { PluginOperationAuthoringContribution } from './plugin-operation-contributions.js'
 import type { PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
+import type { PluginSetupContext } from './setup-registries.js'
 import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 
 /** Lists static capability reads owned by one declaration contribution. */
@@ -255,9 +255,7 @@ export const runPluginDeclarationContribution = (
 	}
 }
 
-/** Owns one plugin's public exports and application lifecycle callbacks. */
-export interface PluginApplicationResource<TExports> {
-	readonly exports: TExports
+interface PluginApplicationLifecycle {
 	readonly connect?: () => MaybePromise<void>
 	readonly prepareSchema?: () => MaybePromise<void>
 	readonly startRuntime?: () => MaybePromise<void>
@@ -266,9 +264,37 @@ export interface PluginApplicationResource<TExports> {
 	readonly dispose?: () => MaybePromise<void>
 }
 
+/** Owns one plugin's public exports and application lifecycle callbacks. */
+export interface PluginApplicationResource<
+	TExports,
+> extends PluginApplicationLifecycle {
+	readonly exports: TExports
+}
+
 export type PluginApplicationFactory<TExports> = (
 	context: PluginSetupContext,
 ) => MaybePromise<PluginApplicationResource<TExports>>
+
+type PluginApplicationResourceInput = PluginApplicationLifecycle &
+	Readonly<{ readonly exports?: unknown }>
+
+/** @internal Carries the inferred resource shape until Core normalizes it. */
+export type PluginApplicationResourceFactory = (
+	context: PluginSetupContext,
+) => MaybePromise<PluginApplicationResourceInput>
+
+/** Names every application-resource lifecycle boundary Core may invoke. */
+export type PluginApplicationLifecyclePhase = keyof PluginApplicationLifecycle
+
+const applicationResourceKeys = new Set([
+	'connect',
+	'dispose',
+	'exports',
+	'prepareSchema',
+	'startRuntime',
+	'startTransports',
+	'stop',
+])
 
 declare const applicationContributionType: unique symbol
 
@@ -280,19 +306,29 @@ export interface PluginApplicationContribution<TExports = unknown> {
 
 const applicationContributions = new WeakMap<
 	object,
-	PluginApplicationFactory<unknown>
+	PluginApplicationResourceFactory
 >()
 
 type NormalizedPluginApplicationExports<TExports> = TExports extends undefined
 	? ReturnType<() => void>
 	: TExports
 
-/** Creates one application-local export and lifecycle resource. */
-export const contributeApplication = <const TExports>(
-	create: PluginApplicationFactory<TExports>,
-): PluginApplicationContribution<
-	NormalizedPluginApplicationExports<TExports>
-> => {
+interface ContributeApplication {
+	<const TExports>(
+		create: PluginApplicationFactory<TExports>,
+	): PluginApplicationContribution<NormalizedPluginApplicationExports<TExports>>
+	(
+		create: (
+			context: PluginSetupContext,
+		) => MaybePromise<
+			PluginApplicationLifecycle & Readonly<{ readonly exports?: never }>
+		>,
+	): PluginApplicationContribution<ReturnType<() => void>>
+}
+
+const createApplicationContribution = (
+	create: PluginApplicationResourceFactory,
+): PluginApplicationContribution => {
 	if (typeof create !== 'function') {
 		throw new TypeError('plugin application contribution must be a function')
 	}
@@ -300,16 +336,52 @@ export const contributeApplication = <const TExports>(
 		kind: 'plugin-application-contribution' as const,
 	})
 	applicationContributions.set(contribution, create)
-	return contribution as PluginApplicationContribution<
-		NormalizedPluginApplicationExports<TExports>
-	>
+	return contribution as PluginApplicationContribution
 }
+
+/** Creates one application-local export and lifecycle resource. */
+export const contributeApplication =
+	createApplicationContribution as ContributeApplication
 
 /** @internal Resolves only nominal application contributions. */
 export const getPluginApplicationFactory = (
 	value: unknown,
-): PluginApplicationFactory<unknown> | undefined =>
+): PluginApplicationResourceFactory | undefined =>
 	isPlainRecord(value) ? applicationContributions.get(value) : undefined
+
+/** @internal Validates and snapshots the resource created for one application. */
+export const normalizePluginApplicationResource = (
+	value: unknown,
+): PluginApplicationResource<unknown> => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError('plugin application resource must be a plain object')
+	}
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string' || !applicationResourceKeys.has(key)) {
+			throw new TypeError(
+				`Unknown plugin application resource option: ${String(key)}`,
+			)
+		}
+	}
+	for (const phase of pluginApplicationLifecyclePhases) {
+		const callback = value[phase]
+		if (callback !== undefined && typeof callback !== 'function') {
+			throw new TypeError(
+				`plugin application resource ${phase} must be a function`,
+			)
+		}
+	}
+
+	return immutableRecord({
+		exports: value.exports,
+		...Object.fromEntries(
+			pluginApplicationLifecyclePhases.flatMap((phase) => {
+				const callback = value[phase]
+				return typeof callback === 'function' ? [[phase, callback]] : []
+			}),
+		),
+	})
+}
 
 declare const privilegedContributionType: unique symbol
 
@@ -392,7 +464,7 @@ export type PluginContribution =
 	| PluginPrivilegedContribution
 
 /** @internal Lists lifecycle keys accepted from an application resource. */
-export const pluginApplicationLifecyclePhases: readonly PluginLifecyclePhase[] =
+export const pluginApplicationLifecyclePhases: readonly PluginApplicationLifecyclePhase[] =
 	immutableArray([
 		'connect',
 		'prepareSchema',

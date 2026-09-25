@@ -1,25 +1,19 @@
-# Current plan: contribution-first plugin authoring
+# Current plan: native contribution-first plugin plan
 
-- Status: completed
+- Status: in-progress
 
-The user authorized this complete authoring-form migration on 2026-09-25.
-Creating a plugin must require one Core factory and one ordered contribution
-list. Core derives internal phases, capability buckets, operation declarations,
-and required privilege names from those contributions; authors keep explicit
-human-readable privilege reasons.
+The user authorized the internal alignment on 2026-09-25 after milestone 34's
+audit showed that the public contribution-first form still translated through
+Core's older phase-bucket definition compiler.
 
-Work through
-[milestone 34](issues/3400-contribution-first-plugin-authoring/README.md) in
-order. Preserve every current plugin capability, option, privilege, lifecycle,
-transport, Typegen, schema, private-storage, and Runtime behavior. The public
-surface may change, but the compiled application graph and its security
-boundaries may not.
+Work through [milestone 35](issues/3500-native-contribution-plugin-plan/README.md)
+in order. Make contributions Core's native immutable plugin plan, compile and
+validate every fact once, and let the lifecycle manager own application
+resources directly. Preserve every current plugin capability, option,
+privilege, lifecycle, transport, Typegen, schema, private-storage, Runtime, and
+cleanup behavior.
 
 Each issue receives focused runtime and type tests, one dedicated local commit,
-and a documentation-impact classification. Temporary compatibility inside the
-branch may exist only between consecutive milestone commits; the final state
-has one public `plugin()` factory and no public legacy authoring path. Do not
-push without a separate request.
-
-Milestone 34 completed on 2026-09-25. Issue 3405 records the final parity,
-coverage, line accounting, DX assessment, and remaining improvement options.
+and a documentation-impact classification. The final state keeps one public
+`plugin()` factory and has no internal phase bridge. Do not push without a
+separate request.

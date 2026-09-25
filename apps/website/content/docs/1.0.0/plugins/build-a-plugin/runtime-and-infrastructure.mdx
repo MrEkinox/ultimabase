@@ -17,6 +17,7 @@ sources:
   - docs/adr/0264-remove-unused-runtime-stage-contributions.md
   - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0269-core-native-plugin-authoring.md
+  - docs/adr/0271-native-contribution-plugin-plan.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -102,6 +103,19 @@ deeply frozen, serializable facts. They must contain no secret, connection, or
 callback. For a live client, use an `application` lifetime token with a
 `create` factory returning `{ value, dispose? }`; Core materializes it once
 per application and disposes it after that application's lifecycle.
+
+`contributeApplication()` owns one application-local resource. Add `exports`
+only when consumers need a typed API; a lifecycle-only resource can omit it:
+
+```ts
+contributeApplication(() => ({
+	connect: () => connectClient(),
+	dispose: () => disconnectClient(),
+}))
+```
+
+Core exposes `undefined` for that plugin, stores the resource directly, and
+invokes its callbacks in the normal dependency order.
 
 ### Requirements, dependencies, and peers
 

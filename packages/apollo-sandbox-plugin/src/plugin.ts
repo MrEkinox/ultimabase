@@ -33,25 +33,18 @@ const httpPeers = [
 
 /** Names one independently configured Apollo Sandbox UI plugin. */
 export type ApolloSandboxPlugin =
-	| PluginInstance<
-			'@ultimabase/apollo-sandbox-plugin',
-			undefined,
-			undefined,
-			'0.0.0',
-			'^0.0.0',
-			undefined,
-			undefined,
-			typeof httpPeers,
-			undefined,
-			readonly ['environment:network']
-	  >
-	| PluginInstance<
-			'@ultimabase/apollo-sandbox-plugin',
-			undefined,
-			undefined,
-			'0.0.0',
-			'^0.0.0'
-	  >
+	| PluginInstance<{
+			readonly id: '@ultimabase/apollo-sandbox-plugin'
+			readonly version: '0.0.0'
+			readonly core: '^0.0.0'
+			readonly peers: typeof httpPeers
+			readonly environment: readonly ['environment:network']
+	  }>
+	| PluginInstance<{
+			readonly id: '@ultimabase/apollo-sandbox-plugin'
+			readonly version: '0.0.0'
+			readonly core: '^0.0.0'
+	  }>
 
 /** Adds a development Sandbox page for the selected GraphQL HTTP provider. */
 export const apolloSandboxPlugin = (

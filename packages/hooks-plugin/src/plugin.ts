@@ -114,13 +114,11 @@ const hooksPluginPermissions = {
 } as const
 
 /** Names the exact configured official Hooks engine. */
-export type HooksPlugin = PluginInstance<
-	'@ultimabase/hooks-plugin',
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type HooksPlugin = PluginInstance<{
+	readonly id: '@ultimabase/hooks-plugin'
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /**
  * Installs the official Hook authoring namespaces and Runtime lifecycle.

@@ -33,18 +33,13 @@ const browserPolicyRequirement: CapabilityRequirement<
 })
 
 /** Names one exact Hono server provider definition. */
-export type HonoServerPlugin = PluginInstance<
-	'@ultimabase/server-hono-plugin',
-	void,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	readonly ['environment:network']
->
+export type HonoServerPlugin = PluginInstance<{
+	readonly id: '@ultimabase/server-hono-plugin'
+	readonly exports: void
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly environment: readonly ['environment:network']
+}>
 
 /** Creates one explicit Hono provider reusable across sequential application lifetimes. */
 export const honoServerPlugin = <

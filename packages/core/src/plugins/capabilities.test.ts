@@ -453,7 +453,7 @@ describe('CapabilityInventory', () => {
 			}),
 		).toThrow(
 			new TypeError(
-				'privileges[0].when must reference an optional capability requirement declared by the plugin',
+				'plugin permissions.event:publish.when must reference an optional capability contribution declared by the plugin',
 			),
 		)
 	})

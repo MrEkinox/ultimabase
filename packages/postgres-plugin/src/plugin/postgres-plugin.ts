@@ -196,20 +196,15 @@ type PostgresPluginCapabilities = readonly [
 ]
 
 /** Names the exact official PostgreSQL plugin definition. */
-export type PostgresPlugin = PluginInstance<
-	typeof postgresPluginName,
-	Readonly<PostgresPluginExports>,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	typeof postgresPluginEnvironment,
-	readonly PluginPrivilegeRequest[],
-	PostgresPluginCapabilities
->
+export type PostgresPlugin = PluginInstance<{
+	readonly id: typeof postgresPluginName
+	readonly exports: Readonly<PostgresPluginExports>
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly environment: typeof postgresPluginEnvironment
+	readonly privileges: readonly PluginPrivilegeRequest[]
+	readonly capabilities: PostgresPluginCapabilities
+}>
 
 /** Creates the official database capability provider without opening a connection. */
 export const postgresPlugin = (

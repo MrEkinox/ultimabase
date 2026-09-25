@@ -2,17 +2,13 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 import { valid, validRange } from 'semver'
 
 import {
-	assertOptionalCapabilityRequirement,
-	normalizeCapabilityDeclarations,
 	type CapabilityRequirement,
 	type CapabilityToken,
-	type PluginCapabilityDeclarationOptions,
 	type PluginCapabilityDeclarations,
 } from './capabilities.js'
 
@@ -205,7 +201,7 @@ export interface PluginManifestOptions {
 	readonly core: string
 	readonly privileges?: readonly PluginPrivilegeRequest[]
 	readonly environment?: readonly PluginEnvironmentClaim[]
-	readonly capabilities?: PluginCapabilityDeclarationOptions
+	readonly capabilities: PluginCapabilityDeclarations
 }
 
 const pluginIdPattern =
@@ -244,68 +240,6 @@ export const assertPluginId: (
 	}
 }
 
-const normalizePrivilegeRequests = (
-	requests: readonly PluginPrivilegeRequest[] | undefined,
-	optionalCapabilities: readonly CapabilityRequirement<CapabilityToken, true>[],
-): readonly PluginPrivilegeRequest[] => {
-	if (requests === undefined) return immutableArray([])
-
-	const untrustedRequests: unknown = requests
-	if (!isUnknownArray(untrustedRequests)) {
-		throw new TypeError('privileges must be an array')
-	}
-
-	const names = new Set<PluginPrivilege>()
-	return immutableArray(
-		untrustedRequests.map((request, index) => {
-			if (!isPlainRecord(request)) {
-				throw new TypeError(
-					`privileges[${String(index)}] must be a plain object`,
-				)
-			}
-
-			const name = request.name
-			if (
-				typeof name !== 'string' ||
-				!Object.hasOwn(pluginPrivilegeMetadata, name)
-			) {
-				throw new TypeError(
-					`privileges[${String(index)}].name must be a concrete PluginPrivilege`,
-				)
-			}
-
-			const privilege = name as PluginPrivilege
-			if (names.has(privilege)) {
-				throw new TypeError(`Duplicate plugin privilege request: ${privilege}`)
-			}
-
-			assertNonEmptyString(
-				request.reason,
-				`privileges[${String(index)}].reason`,
-			)
-
-			if (request.when !== undefined) {
-				assertOptionalCapabilityRequirement(
-					request.when,
-					`privileges[${String(index)}].when`,
-				)
-				if (!optionalCapabilities.includes(request.when)) {
-					throw new TypeError(
-						`privileges[${String(index)}].when must reference an optional capability requirement declared by the plugin`,
-					)
-				}
-			}
-			names.add(privilege)
-
-			return immutableRecord({
-				name: privilege,
-				reason: request.reason,
-				...(request.when === undefined ? {} : { when: request.when }),
-			})
-		}),
-	)
-}
-
 const normalizeEnvironmentClaims = (
 	claims: readonly PluginEnvironmentClaim[] | undefined,
 ): readonly PluginEnvironmentClaim[] => {
@@ -338,7 +272,7 @@ const normalizeEnvironmentClaims = (
 }
 
 /** Validates and snapshots one inert plugin manifest without invoking plugin code. */
-export const normalizePluginManifest = (
+export const createPluginManifest = (
 	options: PluginManifestOptions,
 ): PluginManifest => {
 	assertPluginId(options.pluginId, 'pluginId')
@@ -357,8 +291,6 @@ export const normalizePluginManifest = (
 		throw new TypeError('core must be a valid semantic version range')
 	}
 
-	const capabilities = normalizeCapabilityDeclarations(options.capabilities)
-
 	return immutableRecord({
 		identity: immutableRecord({
 			pluginId: options.pluginId,
@@ -368,11 +300,8 @@ export const normalizePluginManifest = (
 		}),
 		version: options.version,
 		core: options.core,
-		privileges: normalizePrivilegeRequests(
-			options.privileges,
-			capabilities.optional,
-		),
+		privileges: immutableArray(options.privileges ?? []),
 		environment: normalizeEnvironmentClaims(options.environment),
-		capabilities,
+		capabilities: options.capabilities,
 	})
 }

@@ -7,98 +7,44 @@ import {
 
 import { adapterCapabilityPrivilege } from '../runtime/adapters/capabilities.js'
 import { adapterContributionPrivileges } from '../runtime/adapters/contributions.js'
-import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 import { runtimeProviderPrivilege } from '../runtime/capabilities.js'
+import { operationTransportBindingCapability } from '../runtime/plugin-operations/capabilities.js'
 import { persistencePlanRewriterCapability } from '../runtime/persistence/capabilities.js'
 import { pluginSchemaMutationHandlerCapability } from '../runtime/schema-mutations/capabilities.js'
 import { schemaMutationTransportBindingCapability } from '../runtime/schema-mutations/transport-capabilities.js'
-import {
-	assertCapabilityProviderDeclaration,
-	assertCapabilityRequirement,
-	type PluginCapabilityDeclaration,
+import type {
+	PluginCapabilityDeclaration,
+	PluginCapabilityDeclarations,
 } from './capabilities.js'
 import type {
 	PluginDeclaration,
 	PluginDeclarationContext,
 } from './declaration-host.js'
-import type {
-	PluginLifecycleContext,
-	PluginLifecycleHooks,
-	PluginSetup,
-} from './definition.js'
-import type { PluginPrivilege, PluginPrivilegeRequest } from './manifest.js'
+import type { PluginPrivilege } from './manifest.js'
 import {
 	compilePluginOperationContributions,
 	type PluginOperationAuthoringContribution,
 } from './plugin-operation-contributions.js'
+import type { PluginOperationDefinition } from './plugin-operations.js'
 import {
 	getPluginApplicationFactory,
 	getPluginDeclarationContribution,
 	isPluginPrivilegedContribution,
-	pluginApplicationLifecyclePhases,
 	runPluginDeclarationContribution,
-	type PluginApplicationContribution,
-	type PluginApplicationResource,
+	type PluginApplicationResourceFactory,
 	type PluginContribution,
 	type PluginDeclarationContribution,
 } from './plugin-contributions.js'
-import {
-	normalizePluginPermissionRequests,
-	type PluginPermissionReasons,
-} from './plugin-permissions.js'
+import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 
 export interface CompiledPluginContributions {
+	readonly applicationFactory: PluginApplicationResourceFactory | undefined
 	readonly capabilities: readonly PluginCapabilityDeclaration[]
 	readonly declare: PluginDeclaration | undefined
-	readonly hooks: PluginLifecycleHooks<unknown> | undefined
-	readonly operations: readonly PluginOperationAuthoringContribution[]
-	readonly privileges: readonly PluginPrivilegeRequest[]
-	readonly setup: PluginSetup | undefined
-}
-
-const applicationResourceKeys = new Set([
-	'connect',
-	'dispose',
-	'exports',
-	'prepareSchema',
-	'startRuntime',
-	'startTransports',
-	'stop',
-])
-
-const normalizeApplicationResource = (
-	value: unknown,
-): PluginApplicationResource<unknown> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('plugin application resource must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !applicationResourceKeys.has(key)) {
-			throw new TypeError(
-				`Unknown plugin application resource option: ${String(key)}`,
-			)
-		}
-	}
-	if (!Object.hasOwn(value, 'exports')) {
-		throw new TypeError('plugin application resource must define exports')
-	}
-	for (const phase of pluginApplicationLifecyclePhases) {
-		const callback = value[phase]
-		if (callback !== undefined && typeof callback !== 'function') {
-			throw new TypeError(
-				`plugin application resource ${phase} must be a function`,
-			)
-		}
-	}
-	return immutableRecord({
-		exports: value.exports,
-		...Object.fromEntries(
-			pluginApplicationLifecyclePhases.flatMap((phase) => {
-				const callback = value[phase]
-				return typeof callback === 'function' ? [[phase, callback]] : []
-			}),
-		),
-	})
+	readonly operations: readonly (
+		PluginOperationDefinition | PluginSchemaMutationDefinition
+	)[]
+	readonly privileges: readonly PluginPrivilege[]
 }
 
 const appendPrivilege = (
@@ -115,17 +61,13 @@ const appendCapabilityPrivileges = (
 	declaration: PluginCapabilityDeclaration,
 ): void => {
 	if (declaration.kind === 'capability-provider') {
-		assertCapabilityProviderDeclaration(
-			declaration,
-			'plugin contribution capability provider',
-		)
 		const token = declaration.token
 		appendPrivilege(privileges, token.providerPrivilege)
 		appendPrivilege(privileges, runtimeProviderPrivilege(token))
-		if (token === persistencePlanRewriterCapability) {
-			appendPrivilege(privileges, 'persistence:rewrite')
-		}
-		if (token === pluginSchemaMutationHandlerCapability) {
+		if (
+			token === persistencePlanRewriterCapability ||
+			token === pluginSchemaMutationHandlerCapability
+		) {
 			appendPrivilege(privileges, 'persistence:rewrite')
 		}
 		if (
@@ -134,20 +76,33 @@ const appendCapabilityPrivileges = (
 		) {
 			appendPrivilege(privileges, 'transport:expose')
 		}
-		const adapterPrivileges = adapterContributionPrivileges(token)
-		appendPrivilege(privileges, adapterPrivileges?.provider)
+		appendPrivilege(privileges, adapterContributionPrivileges(token)?.provider)
 		return
 	}
 
-	assertCapabilityRequirement(
-		declaration,
-		'plugin contribution capability requirement',
-	)
 	appendPrivilege(privileges, adapterCapabilityPrivilege(declaration.token))
 	appendPrivilege(
 		privileges,
 		adapterContributionPrivileges(declaration.token)?.consumer,
 	)
+}
+
+/** @internal Adds privileges implied by one already normalized capability plan. */
+export const derivePluginCapabilityPrivileges = (
+	initial: readonly PluginPrivilege[],
+	capabilities: PluginCapabilityDeclarations,
+): readonly PluginPrivilege[] => {
+	const privileges = [...initial]
+	for (const capability of capabilities.provides) {
+		appendCapabilityPrivileges(privileges, capability)
+	}
+	for (const capability of capabilities.requires) {
+		appendCapabilityPrivileges(privileges, capability)
+	}
+	for (const capability of capabilities.optional) {
+		appendCapabilityPrivileges(privileges, capability)
+	}
+	return immutableArray(privileges)
 }
 
 const isOperationContributionKind = (kind: unknown): boolean =>
@@ -157,7 +112,7 @@ const isOperationContributionKind = (kind: unknown): boolean =>
 	kind === 'plugin-schema-mutation-binding-contribution'
 
 interface MutableCompilation {
-	readonly application: PluginApplicationContribution[]
+	readonly applicationFactories: PluginApplicationResourceFactory[]
 	readonly capabilities: PluginCapabilityDeclaration[]
 	readonly declarations: PluginDeclarationContribution[]
 	readonly operations: PluginOperationAuthoringContribution[]
@@ -186,32 +141,11 @@ const compileOneContribution = (
 		contribution.kind === 'capability-provider' ||
 		contribution.kind === 'capability-requirement'
 	) {
-		const capability = contribution as PluginCapabilityDeclaration
-		appendCapabilityPrivileges(compilation.privileges, capability)
-		compilation.capabilities.push(capability)
+		compilation.capabilities.push(contribution)
 		return
 	}
 
 	if (isOperationContributionKind(contribution.kind)) {
-		const compiled = compilePluginOperationContributions([
-			contribution as PluginOperationAuthoringContribution,
-		])
-		for (const capability of compiled.capabilities) {
-			appendCapabilityPrivileges(compilation.privileges, capability)
-		}
-		if (compiled.operations.length > 0) {
-			appendPrivilege(compilation.privileges, 'operation:declare')
-			if (
-				compiled.operations.some((operation) =>
-					operation.kind === 'plugin-operation'
-						? operation.input.typegen !== undefined ||
-							operation.result.typegen !== undefined
-						: operation.input.typegen !== undefined,
-				)
-			) {
-				appendPrivilege(compilation.privileges, 'typegen:reference')
-			}
-		}
 		compilation.operations.push(
 			contribution as PluginOperationAuthoringContribution,
 		)
@@ -224,16 +158,14 @@ const compileOneContribution = (
 		for (const privilege of declaration.privileges) {
 			appendPrivilege(compilation.privileges, privilege)
 		}
-		for (const requirement of typed.requires) {
-			appendCapabilityPrivileges(compilation.privileges, requirement)
-			compilation.capabilities.push(requirement)
-		}
+		compilation.capabilities.push(...typed.requires)
 		compilation.declarations.push(typed)
 		return
 	}
 
-	if (getPluginApplicationFactory(contribution) !== undefined) {
-		compilation.application.push(contribution as PluginApplicationContribution)
+	const applicationFactory = getPluginApplicationFactory(contribution)
+	if (applicationFactory !== undefined) {
+		compilation.applicationFactories.push(applicationFactory)
 		return
 	}
 
@@ -242,57 +174,16 @@ const compileOneContribution = (
 	)
 }
 
-const compileApplicationContribution = (
-	contribution: PluginApplicationContribution | undefined,
-): Readonly<{
-	readonly hooks: PluginLifecycleHooks<unknown> | undefined
-	readonly setup: PluginSetup | undefined
-}> => {
-	if (contribution === undefined) {
-		return immutableRecord({ hooks: undefined, setup: undefined })
-	}
-	const create = getPluginApplicationFactory(contribution)
-	if (create === undefined) {
-		throw new TypeError(
-			'plugin application contribution must be created by contributeApplication',
-		)
-	}
-	const resources = new WeakMap<object, PluginApplicationResource<unknown>>()
-	const setup: PluginSetup = async (context) => {
-		const resource = normalizeApplicationResource(await create(context))
-		resources.set(context.schemas, resource)
-		return resource.exports
-	}
-	const hooks = Object.fromEntries(
-		pluginApplicationLifecyclePhases.map((phase) => [
-			phase,
-			async (context: PluginLifecycleContext<unknown>): Promise<void> => {
-				const resource = resources.get(context.schemas)
-				if (resource === undefined) {
-					throw new TypeError('plugin application resource is unavailable')
-				}
-				try {
-					await resource[phase]?.()
-				} finally {
-					if (phase === 'dispose') resources.delete(context.schemas)
-				}
-			},
-		]),
-	) as PluginLifecycleHooks<unknown>
-	return immutableRecord({ hooks: immutableRecord(hooks), setup })
-}
-
-/** @internal Compiles one public list into Core's existing private phase inputs. */
+/** @internal Compiles one public list directly into Core's native plugin plan. */
 export const compilePluginContributions = (
 	contributions: readonly PluginContribution[],
-	permissions: PluginPermissionReasons | undefined,
 ): CompiledPluginContributions => {
 	const untrustedContributions: unknown = contributions
 	if (!isUnknownArray(untrustedContributions)) {
 		throw new TypeError('plugin contributions must be an array')
 	}
 	const compilation: MutableCompilation = {
-		application: [],
+		applicationFactories: [],
 		capabilities: [],
 		declarations: [],
 		operations: [],
@@ -305,7 +196,7 @@ export const compilePluginContributions = (
 			compilation,
 		)
 	}
-	if (compilation.application.length > 1) {
+	if (compilation.applicationFactories.length > 1) {
 		throw new TypeError(
 			'plugin contributions may contain at most one application resource',
 		)
@@ -320,16 +211,31 @@ export const compilePluginContributions = (
 					}
 					return undefined
 				}
-	const application = compileApplicationContribution(compilation.application[0])
+	const compiledOperations = compilePluginOperationContributions(
+		compilation.operations,
+	)
+	if (compiledOperations.operations.length > 0) {
+		appendPrivilege(compilation.privileges, 'operation:declare')
+		if (
+			compiledOperations.operations.some((operation) =>
+				operation.kind === 'plugin-operation'
+					? operation.input.typegen !== undefined ||
+						operation.result.typegen !== undefined
+					: operation.input.typegen !== undefined,
+			)
+		) {
+			appendPrivilege(compilation.privileges, 'typegen:reference')
+		}
+	}
+
 	return immutableRecord({
-		capabilities: immutableArray(compilation.capabilities),
+		applicationFactory: compilation.applicationFactories[0],
+		capabilities: immutableArray([
+			...compilation.capabilities,
+			...compiledOperations.capabilities,
+		]),
 		declare,
-		hooks: application.hooks,
-		operations: immutableArray(compilation.operations),
-		privileges: normalizePluginPermissionRequests(
-			permissions,
-			compilation.privileges,
-		),
-		setup: application.setup,
+		operations: compiledOperations.operations,
+		privileges: immutableArray(compilation.privileges),
 	})
 }

@@ -53,7 +53,8 @@ describe('@ultimabase/testing plugin conformance language service', () => {
 		const display = contextInfo?.displayParts?.map(({ text }) => text).join('')
 
 		expect(display).toContain('PluginConformanceContext')
-		expect(display).toContain('PluginInstance<"community.search"')
+		expect(display).toContain('PluginInstance<{')
+		expect(display).toContain('readonly id: "community.search"')
 		expect(display).toContain(
 			'readonly [SchemaReference<"ConformanceArticle">]',
 		)

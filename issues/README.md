@@ -92,6 +92,7 @@ consistent without rewriting historical issue prose.
 - [`3200-file-line-budget-remediation/`](3200-file-line-budget-remediation/README.md)
 - [`3300-core-plugin-authoring-simplification/`](3300-core-plugin-authoring-simplification/README.md)
 - [`3400-contribution-first-plugin-authoring/`](3400-contribution-first-plugin-authoring/README.md)
+- [`3500-native-contribution-plugin-plan/`](3500-native-contribution-plugin-plan/README.md)
 
 ## Assignment prompt
 

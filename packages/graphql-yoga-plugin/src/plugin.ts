@@ -34,16 +34,12 @@ const graphqlYogaPermissions = {
 } as const
 
 /** Names the single official GraphQL-over-HTTP adapter. */
-export type GraphqlYogaPlugin = PluginInstance<
-	'@ultimabase/graphql-yoga-plugin',
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	undefined,
-	undefined,
-	typeof graphqlYogaPeers
->
+export type GraphqlYogaPlugin = PluginInstance<{
+	readonly id: '@ultimabase/graphql-yoga-plugin'
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly peers: typeof graphqlYogaPeers
+}>
 
 /** Mounts one explicit GraphQL sibling through the shared HTTP application. */
 export const graphqlYogaPlugin = (

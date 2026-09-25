@@ -4,7 +4,6 @@ import {
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
-	type MaybePromise,
 } from '@ultimabase/shared'
 import { validRange } from 'semver'
 
@@ -17,67 +16,31 @@ import type {
 	PluginDeclaration,
 	PluginDeclarationContext,
 } from './declaration-host.js'
-import type { PluginSetupContext } from './setup-registries.js'
-import {
-	compilePluginOperationContributions,
-	mergePluginOperationCapabilities,
-	type PluginOperationAuthoringContribution,
-	type PluginOperationContributionCapabilities,
-} from './plugin-operation-contributions.js'
-import type { PluginOperationDefinition } from './plugin-operations.js'
-import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 import {
 	assertPluginId,
 	formatPluginIdentity,
-	normalizePluginManifest,
 	type PluginDependency,
 	type PluginEnvironmentClaim,
 	type PluginManifest,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
+import {
+	normalizePluginApplicationResource,
+	type PluginApplicationResource,
+	type PluginApplicationResourceFactory,
+} from './plugin-contributions.js'
+import type { PluginOperationDefinition } from './plugin-operations.js'
+import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
+import type { PluginSetupContext } from './setup-registries.js'
 
 export type { PluginSetupContext } from './setup-registries.js'
 
-/** Creates the runtime exports later consumed through typed plugin lookup. */
-export type PluginSetup<TExports = unknown> = (
-	context: PluginSetupContext,
-) => MaybePromise<TExports>
-
-/** Supplies one lifecycle phase with setup registries and resolved exports. */
-export interface PluginLifecycleContext<TExports> extends PluginSetupContext {
-	readonly pluginExports: TExports
-}
-
-export type PluginLifecycleHook<TExports> = (
-	context: PluginLifecycleContext<TExports>,
-) => MaybePromise<void>
-
-/** Declares lifecycle work without deciding graph or execution order. */
-export interface PluginLifecycleHooks<TExports> {
-	readonly connect?: PluginLifecycleHook<TExports>
-	readonly prepareSchema?: PluginLifecycleHook<TExports>
-	readonly startRuntime?: PluginLifecycleHook<TExports>
-	readonly startTransports?: PluginLifecycleHook<TExports>
-	readonly stop?: PluginLifecycleHook<TExports>
-	readonly dispose?: PluginLifecycleHook<TExports>
-}
-
-/** Names every lifecycle boundary that Core may invoke for a plugin. */
-export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
-
-interface PluginStaticDefinition {
+interface PluginNativePlan {
+	readonly applicationFactory: PluginApplicationResourceFactory | undefined
 	readonly declare: PluginDeclaration | undefined
 	readonly operations: readonly (
 		PluginOperationDefinition | PluginSchemaMutationDefinition
 	)[]
-}
-
-interface PluginRuntimeDefinition {
-	readonly setup: PluginSetup | undefined
-	runHook(
-		phase: PluginLifecyclePhase,
-		context: PluginLifecycleContext<unknown>,
-	): MaybePromise<void>
 }
 
 const hasOperationRegistrar = (
@@ -90,19 +53,13 @@ const hasOperationRegistrar = (
 
 declare const pluginDefinitionBrand: unique symbol
 declare const pluginSetupExportsBrand: unique symbol
-const pluginRuntimeDefinition: unique symbol = Symbol(
-	'ultimabase.plugin-runtime-definition',
-)
-const pluginStaticDefinition: unique symbol = Symbol(
-	'ultimabase.plugin-static-definition',
-)
+const pluginNativePlan: unique symbol = Symbol('ultimabase.plugin-native-plan')
 
 /** Identifies definitions whose runtime provenance was validated by Core. */
 export interface PluginDefinition {
 	readonly [pluginDefinitionBrand]: true
 	readonly [pluginSetupExportsBrand]: unknown
-	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
-	readonly [pluginStaticDefinition]: PluginStaticDefinition
+	readonly [pluginNativePlan]: PluginNativePlan
 	readonly manifest: PluginManifest
 	readonly dependencies?: readonly PluginDependency[] | undefined
 	readonly optionalDependencies?: readonly PluginDependency[] | undefined
@@ -110,157 +67,126 @@ export interface PluginDefinition {
 	readonly conflicts?: readonly string[] | undefined
 }
 
-/** Carries every exact declaration type into later graph and lookup stages. */
-export interface FrameworkPlugin<
-	TPluginId extends string = string,
-	TSetupResult = unknown,
-	TDependencies extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-	TOptionalDependencies extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-	TConflicts extends readonly string[] | undefined =
-		readonly string[] | undefined,
-	TInstanceId extends string | undefined = string | undefined,
-	TVersion extends string = string,
-	TCoreRange extends string = string,
-	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
-		readonly PluginPrivilegeRequest[] | undefined,
-	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
-		readonly PluginEnvironmentClaim[] | undefined,
-	TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
-		PluginCapabilityDeclarationOptions | undefined,
-	TPeers extends readonly PluginDependency[] | undefined =
-		readonly PluginDependency[] | undefined,
-> extends PluginDefinition {
-	readonly [pluginSetupExportsBrand]: Awaited<TSetupResult>
-	readonly manifest: PluginManifest<
-		TPluginId,
-		TInstanceId,
-		TVersion,
-		TCoreRange,
-		TPrivileges extends readonly PluginPrivilegeRequest[]
-			? readonly [...TPrivileges]
-			: readonly [],
-		TEnvironment extends readonly PluginEnvironmentClaim[]
-			? readonly [...TEnvironment]
-			: readonly [],
-		NormalizedPluginCapabilityDeclarations<TCapabilities>
-	>
-	readonly dependencies?: TDependencies
-	readonly optionalDependencies?: TOptionalDependencies
-	readonly peers?: TPeers
-	readonly conflicts?: TConflicts
+/** Names the exact facts carried by one typed plugin definition. */
+export interface FrameworkPluginContract {
+	readonly id: string
+	readonly exports?: unknown
+	readonly instanceId?: string | undefined
+	readonly version?: string
+	readonly core?: string
+	readonly dependencies?: readonly PluginDependency[] | undefined
+	readonly optionalDependencies?: readonly PluginDependency[] | undefined
+	readonly peers?: readonly PluginDependency[] | undefined
+	readonly conflicts?: readonly string[] | undefined
+	readonly environment?: readonly PluginEnvironmentClaim[] | undefined
+	readonly privileges?: readonly PluginPrivilegeRequest[]
+	readonly capabilities?: PluginCapabilityDeclarationOptions
 }
 
-/** Extracts one plugin's initialized export contract without executing setup. */
+type ContractValue<
+	TContract,
+	TKey extends PropertyKey,
+	TFallback,
+	TExpected = unknown,
+> =
+	TContract extends Readonly<Record<TKey, infer TValue>>
+		? TValue extends TExpected
+			? TValue
+			: TFallback
+		: TFallback
+
+/** Carries every exact declaration type into later graph and lookup stages. */
+export interface FrameworkPlugin<
+	TContract extends FrameworkPluginContract = FrameworkPluginContract,
+> extends PluginDefinition {
+	readonly [pluginSetupExportsBrand]: Awaited<
+		ContractValue<TContract, 'exports', undefined>
+	>
+	readonly manifest: PluginManifest<
+		TContract['id'],
+		ContractValue<TContract, 'instanceId', undefined, string | undefined>,
+		ContractValue<TContract, 'version', string, string>,
+		ContractValue<TContract, 'core', string, string>,
+		ContractValue<
+			TContract,
+			'privileges',
+			readonly PluginPrivilegeRequest[]
+		> extends readonly PluginPrivilegeRequest[]
+			? readonly [
+					...ContractValue<
+						TContract,
+						'privileges',
+						readonly PluginPrivilegeRequest[]
+					>,
+				]
+			: readonly [],
+		ContractValue<
+			TContract,
+			'environment',
+			readonly PluginEnvironmentClaim[]
+		> extends readonly PluginEnvironmentClaim[]
+			? readonly [
+					...ContractValue<
+						TContract,
+						'environment',
+						readonly PluginEnvironmentClaim[]
+					>,
+				]
+			: readonly [],
+		NormalizedPluginCapabilityDeclarations<
+			ContractValue<
+				TContract,
+				'capabilities',
+				undefined,
+				PluginCapabilityDeclarationOptions | undefined
+			>
+		>
+	>
+	readonly dependencies?: ContractValue<TContract, 'dependencies', undefined>
+	readonly optionalDependencies?: ContractValue<
+		TContract,
+		'optionalDependencies',
+		undefined
+	>
+	readonly peers?: ContractValue<TContract, 'peers', undefined>
+	readonly conflicts?: ContractValue<TContract, 'conflicts', undefined>
+}
+
+/** Extracts one plugin's initialized export contract without executing its factory. */
 export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
 	? TPlugin[typeof pluginSetupExportsBrand]
 	: never
 
-interface CompiledPluginDefinitionOptions<
-	TPluginId extends string,
-	TSetupResult,
-	TDependencies extends readonly PluginDependency[] | undefined,
-	TOptionalDependencies extends readonly PluginDependency[] | undefined,
-	TConflicts extends readonly string[] | undefined,
-	TInstanceId extends string | undefined,
-	TVersion extends string,
-	TCoreRange extends string,
-	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined,
-	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
-	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
-	TPeers extends readonly PluginDependency[] | undefined,
-	TOperations extends
-		readonly PluginOperationAuthoringContribution[] | undefined = undefined,
-> {
-	/** Stable namespaced identity shared by every configured instance. @example "community.workflow" */
-	readonly pluginId: TPluginId
-	/** Distinguishes repeated configurations without deriving identity from options. @example "primary" */
-	readonly instanceId?: TInstanceId
-	/** Declares the plugin package's canonical semantic version. @example "1.2.0" */
-	readonly version: TVersion
-	/** Declares the supported `@ultimabase/core` semantic-version range. @example "^1.0.0" */
-	readonly core: TCoreRange
-	/** Requests only the exact Core-owned powers used by this plugin. @example `[{ name: 'runtime:observe', reason: 'Records operation timings.' }]` */
-	readonly privileges?: TPrivileges
-	/** Reports direct Node.js powers separately from enforceable Core facades. @example `['environment:network']` */
-	readonly environment?: TEnvironment
-	/** Declares inert typed providers and explicit required or optional capability uses. */
-	readonly capabilities?: TCapabilities
-	/** Correlates owned operation handlers and independent transport bindings. */
-	readonly operations?: TOperations
-	/** Orders this plugin after required providers during declaration and lifecycle. */
-	readonly dependencies?: TDependencies
-	/** Adds the same ordering only when the compatible provider is installed. */
-	readonly optionalDependencies?: TOptionalDependencies
-	/** Requires a compatible plugin to be installed without introducing lifecycle or ordering edges. */
-	readonly peers?: TPeers
-	readonly conflicts?: TConflicts
-	/**
-	 * Declares deterministic metadata through privilege-scoped static facades.
-	 * @example `declare: ({ fields }) => { fields.register(vectorMethod) }`
-	 */
-	readonly declare?: PluginDeclaration<TPrivileges, TCapabilities>
-	readonly setup?: (context: PluginSetupContext) => TSetupResult
-	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
+export interface NativePluginDefinitionOptions {
+	readonly manifest: PluginManifest
+	readonly plan: PluginNativePlan
+	readonly dependencies?: readonly PluginDependency[]
+	readonly optionalDependencies?: readonly PluginDependency[]
+	readonly peers?: readonly PluginDependency[]
+	readonly conflicts?: readonly string[]
 }
 
-const lifecycleHookNames = [
-	'connect',
-	'prepareSchema',
-	'startRuntime',
-	'startTransports',
-	'stop',
-	'dispose',
-] as const
-
 const declaredPlugins = new WeakSet<object>()
-const compiledPluginDefinitionOptionKeys = new Set([
-	'capabilities',
-	'conflicts',
-	'core',
-	'declare',
-	'dependencies',
-	'environment',
-	'hooks',
-	'instanceId',
-	'optionalDependencies',
-	'operations',
-	'peers',
-	'pluginId',
-	'privileges',
-	'setup',
-	'version',
-])
 
-const isLifecycleHookName = (value: string): boolean =>
-	lifecycleHookNames.some((hookName) => hookName === value)
-
-const normalizePluginNames = <const TNames extends readonly string[]>(
-	names: TNames,
+const normalizePluginNames = (
+	names: readonly string[],
 	path: string,
-): readonly [...TNames] => {
+): readonly string[] => {
 	const untrustedNames: unknown = names
-
 	if (!isUnknownArray(untrustedNames)) {
 		throw new TypeError(`${path} must be an array`)
 	}
-
 	for (const [index, name] of untrustedNames.entries()) {
 		assertNonEmptyString(name, `${path}[${String(index)}]`)
 	}
-
 	return immutableArray(names)
 }
 
-const normalizePluginDependencies = <
-	const TDependencies extends readonly PluginDependency[],
->(
-	dependencies: TDependencies,
+const normalizePluginDependencies = (
+	dependencies: readonly PluginDependency[],
 	path: string,
-): readonly [...TDependencies] => {
+): readonly PluginDependency[] => {
 	const untrustedDependencies: unknown = dependencies
-
 	if (!isUnknownArray(untrustedDependencies)) {
 		throw new TypeError(`${path} must be an array`)
 	}
@@ -271,7 +197,6 @@ const normalizePluginDependencies = <
 			if (!isPlainRecord(dependency)) {
 				throw new TypeError(`${dependencyPath} must be a plain object`)
 			}
-
 			for (const key of Object.keys(dependency)) {
 				if (key !== 'pluginId' && key !== 'version' && key !== 'instanceId') {
 					throw new TypeError(
@@ -287,7 +212,6 @@ const normalizePluginDependencies = <
 					`${dependencyPath}.version must be a valid semantic version range`,
 				)
 			}
-
 			if (dependency.instanceId !== undefined) {
 				assertNonEmptyString(
 					dependency.instanceId,
@@ -303,7 +227,7 @@ const normalizePluginDependencies = <
 					: { instanceId: dependency.instanceId }),
 			})
 		}),
-	) as readonly [...TDependencies]
+	)
 }
 
 export const assertPluginDefinition: (
@@ -315,209 +239,13 @@ export const assertPluginDefinition: (
 	}
 }
 
-const getPluginRuntimeDefinition = (
-	plugin: PluginDefinition,
-): PluginRuntimeDefinition => plugin[pluginRuntimeDefinition]
-
-const getPluginStaticDefinition = (
-	plugin: PluginDefinition,
-): PluginStaticDefinition => plugin[pluginStaticDefinition]
-
-/** Runs one setup callback while keeping its exact export type private to the definition. */
-export const runPluginSetup = (
-	plugin: PluginDefinition,
-	context: PluginSetupContext,
-): MaybePromise<unknown> => getPluginRuntimeDefinition(plugin).setup?.(context)
-
-/** Runs one pure synchronous static declaration before schema compilation. */
-export const runPluginDeclaration = (
-	plugin: PluginDefinition,
-	context: PluginDeclarationContext,
-): void => {
-	const staticDefinition = getPluginStaticDefinition(plugin)
-	if (staticDefinition.operations.length > 0) {
-		if (!hasOperationRegistrar(context)) {
-			throw new TypeError(
-				`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" requires operation:declare for its operation contributions`,
-			)
-		}
-		for (const operation of staticDefinition.operations) {
-			context.operations.declare(operation)
-		}
-	}
-
-	const declaration = staticDefinition.declare
-
-	if (declaration === undefined) {
-		return
-	}
-
-	// Keep the runtime boundary defensive for declarations loaded from JavaScript.
-	const invokeDeclaration = declaration as (
-		context: PluginDeclarationContext,
-	) => unknown
-	const returned = invokeDeclaration(context)
-
-	if (returned !== undefined) {
-		throw new TypeError(
-			`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" declare must be synchronous and return nothing`,
-		)
-	}
-}
-
-/** Invokes one lifecycle hook paired with the exports created by the same definition. */
-export const runPluginLifecycleHook = (
-	plugin: PluginDefinition,
-	phase: PluginLifecyclePhase,
-	context: PluginLifecycleContext<unknown>,
-): MaybePromise<void> =>
-	getPluginRuntimeDefinition(plugin).runHook(phase, context)
-
-const normalizeLifecycleHooks = <const THooks extends object>(
-	hooks: THooks,
-): Readonly<THooks> => {
-	const untrustedHooks: unknown = hooks
-
-	if (!isPlainRecord(untrustedHooks)) {
-		throw new TypeError('hooks must be a plain object')
-	}
-
-	for (const [name, hook] of Object.entries(untrustedHooks)) {
-		if (!isLifecycleHookName(name)) {
-			throw new TypeError(`Unknown plugin lifecycle hook: ${name}`)
-		}
-
-		if (typeof hook !== 'function') {
-			throw new TypeError(`hooks.${name} must be a function`)
-		}
-	}
-
-	return immutableRecord(hooks)
-}
-
-/** Creates immutable plugin metadata without initializing its runtime work. */
-export const compilePluginDefinition = <
-	const TPluginId extends string,
-	const TSetupResult = undefined,
-	const TDependencies extends readonly PluginDependency[] | undefined =
-		undefined,
-	const TOptionalDependencies extends readonly PluginDependency[] | undefined =
-		undefined,
-	const TConflicts extends readonly string[] | undefined = undefined,
-	const TInstanceId extends string | undefined = undefined,
-	const TVersion extends string = string,
-	const TCoreRange extends string = string,
-	const TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
-		undefined,
-	const TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
-		undefined,
-	const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
-		undefined,
-	const TPeers extends readonly PluginDependency[] | undefined = undefined,
-	const TOperations extends
-		readonly PluginOperationAuthoringContribution[] | undefined = undefined,
->(
-	options: CompiledPluginDefinitionOptions<
-		TPluginId,
-		TSetupResult,
-		TDependencies,
-		TOptionalDependencies,
-		TConflicts,
-		TInstanceId,
-		TVersion,
-		TCoreRange,
-		TPrivileges,
-		TEnvironment,
-		TCapabilities,
-		TPeers,
-		TOperations
-	>,
-): FrameworkPlugin<
-	TPluginId,
-	TSetupResult,
-	TDependencies,
-	TOptionalDependencies,
-	TConflicts,
-	TInstanceId,
-	TVersion,
-	TCoreRange,
-	TPrivileges,
-	TEnvironment,
-	PluginOperationContributionCapabilities<TCapabilities, TOperations>,
-	TPeers
-> => {
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('plugin options must be a plain object')
-	}
-
-	for (const key of Object.keys(untrustedOptions)) {
-		if (!compiledPluginDefinitionOptionKeys.has(key)) {
-			throw new TypeError(`plugin options contain unknown option: ${key}`)
-		}
-	}
-
-	const operationContributions = compilePluginOperationContributions(
-		options.operations,
-	)
-	const capabilities = mergePluginOperationCapabilities(
-		options.capabilities,
-		operationContributions.capabilities,
-	)
-	const manifest = normalizePluginManifest({
-		pluginId: options.pluginId,
-		...(options.instanceId === undefined
-			? {}
-			: { instanceId: options.instanceId }),
-		version: options.version,
-		core: options.core,
-		...(options.privileges === undefined
-			? {}
-			: { privileges: options.privileges }),
-		...(options.environment === undefined
-			? {}
-			: { environment: options.environment }),
-		capabilities,
-	})
-
-	if (options.setup !== undefined && typeof options.setup !== 'function') {
-		throw new TypeError('setup must be a function')
-	}
-
-	if (options.declare !== undefined && typeof options.declare !== 'function') {
-		throw new TypeError('declare must be a function')
-	}
-
-	const lifecycleHooks =
-		options.hooks === undefined
-			? undefined
-			: normalizeLifecycleHooks(options.hooks)
-
-	const staticDefinition = immutableRecord({
-		declare: options.declare,
-		operations: operationContributions.operations,
-	})
-	const runtimeDefinition = immutableRecord({
-		setup: options.setup,
-		runHook: (
-			phase: PluginLifecyclePhase,
-			context: PluginLifecycleContext<unknown>,
-		): MaybePromise<void> => {
-			const hook = lifecycleHooks?.[phase]
-
-			if (hook === undefined) {
-				return undefined
-			}
-
-			// The manager supplies the export produced by this exact setup callback.
-			return hook(context as PluginLifecycleContext<Awaited<TSetupResult>>)
-		},
-	})
+/** Creates immutable plugin metadata around one already compiled native plan. */
+export const createPluginDefinition = (
+	options: NativePluginDefinitionOptions,
+): PluginDefinition => {
 	const plugin = immutableRecord({
-		[pluginRuntimeDefinition]: runtimeDefinition,
-		[pluginStaticDefinition]: staticDefinition,
-		manifest,
+		[pluginNativePlan]: immutableRecord(options.plan),
+		manifest: options.manifest,
 		...(options.dependencies === undefined
 			? {}
 			: {
@@ -536,31 +264,52 @@ export const compilePluginDefinition = <
 				}),
 		...(options.peers === undefined
 			? {}
-			: {
-					peers: normalizePluginDependencies(options.peers, 'peers'),
-				}),
+			: { peers: normalizePluginDependencies(options.peers, 'peers') }),
 		...(options.conflicts === undefined
 			? {}
-			: {
-					conflicts: normalizePluginNames(options.conflicts, 'conflicts'),
-				}),
+			: { conflicts: normalizePluginNames(options.conflicts, 'conflicts') }),
 	})
-
 	declaredPlugins.add(plugin)
+	return plugin as PluginDefinition
+}
 
-	// Each optional container was copied through the generic-preserving normalizer above.
-	return plugin as FrameworkPlugin<
-		TPluginId,
-		TSetupResult,
-		TDependencies,
-		TOptionalDependencies,
-		TConflicts,
-		TInstanceId,
-		TVersion,
-		TCoreRange,
-		TPrivileges,
-		TEnvironment,
-		PluginOperationContributionCapabilities<TCapabilities, TOperations>,
-		TPeers
-	>
+/** Creates and validates the application resource owned by one plugin definition. */
+export const createPluginApplication = async (
+	plugin: PluginDefinition,
+	context: PluginSetupContext,
+): Promise<PluginApplicationResource<unknown> | undefined> => {
+	const create = plugin[pluginNativePlan].applicationFactory
+	return create === undefined
+		? undefined
+		: normalizePluginApplicationResource(await create(context))
+}
+
+/** Runs one pure synchronous static declaration before schema compilation. */
+export const runPluginDeclaration = (
+	plugin: PluginDefinition,
+	context: PluginDeclarationContext,
+): void => {
+	const plan = plugin[pluginNativePlan]
+	if (plan.operations.length > 0) {
+		if (!hasOperationRegistrar(context)) {
+			throw new TypeError(
+				`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" requires operation:declare for its operation contributions`,
+			)
+		}
+		for (const operation of plan.operations) {
+			context.operations.declare(operation)
+		}
+	}
+
+	if (plan.declare === undefined) return
+
+	// JavaScript callers cannot weaken the synchronous declaration boundary.
+	const returned = (
+		plan.declare as (context: PluginDeclarationContext) => unknown
+	)(context)
+	if (returned !== undefined) {
+		throw new TypeError(
+			`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" declare must be synchronous and return nothing`,
+		)
+	}
 }

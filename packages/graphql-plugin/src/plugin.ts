@@ -181,13 +181,12 @@ const pluginSchemaSources = (
 	)
 
 /** Names the sole GraphQL v1 owner for one application. */
-export type GraphqlPlugin = PluginInstance<
-	'@ultimabase/graphql-plugin',
-	GraphqlPluginExports,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type GraphqlPlugin = PluginInstance<{
+	readonly id: '@ultimabase/graphql-plugin'
+	readonly exports: GraphqlPluginExports
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /** Installs generated GraphQL schema execution without selecting an HTTP adapter. */
 export const graphqlPlugin = (

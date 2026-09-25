@@ -253,6 +253,7 @@ Accepted records:
 - [ADR-0268: Password account methods and generation-based session revocation](0268-password-account-session-management.md)
 - [ADR-0269: Core-native declarative plugin authoring](0269-core-native-plugin-authoring.md)
 - [ADR-0270: Contribution-first plugin authoring](0270-contribution-first-plugin-authoring.md)
+- [ADR-0271: Native contribution-first plugin plan](0271-native-contribution-plugin-plan.md)
 
 Superseded records:
 

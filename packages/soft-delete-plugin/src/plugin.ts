@@ -42,13 +42,12 @@ const softDeletePluginPermissions = {
 } as const
 
 /** Names one configured official soft-delete plugin. */
-export type SoftDeletePlugin = PluginInstance<
-	'@ultimabase/soft-delete-plugin',
-	undefined,
-	string | undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type SoftDeletePlugin = PluginInstance<{
+	readonly id: '@ultimabase/soft-delete-plugin'
+	readonly instanceId: string | undefined
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /**
  * Installs the official soft-delete schema contract explicitly.

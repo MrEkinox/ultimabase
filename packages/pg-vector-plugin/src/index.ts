@@ -191,13 +191,11 @@ const pgVectorPluginPermissions = {
 } as const
 
 /** Names the exact configured plugin contract retained by application lookup. */
-export type PgVectorPlugin = PluginInstance<
-	'@ultimabase/pg-vector-plugin',
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type PgVectorPlugin = PluginInstance<{
+	readonly id: '@ultimabase/pg-vector-plugin'
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /** Declares the vector builder method without a separate setup output. */
 export const pgVectorPlugin = (): PgVectorPlugin => {

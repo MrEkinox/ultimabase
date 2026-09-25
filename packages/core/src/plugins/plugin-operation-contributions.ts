@@ -10,7 +10,6 @@ import {
 	type ApplicationCapabilityFactoryContext,
 	type CapabilityProviderDeclaration,
 	type PluginCapabilityDeclaration,
-	type PluginCapabilityDeclarationOptions,
 } from './capabilities.js'
 import {
 	isPluginOperationDefinition,
@@ -304,7 +303,7 @@ export const compilePluginOperationContributions = (
 	}
 	const untrustedContributions: unknown = contributions
 	if (!isUnknownArray(untrustedContributions)) {
-		throw new TypeError('operations must be an array')
+		throw new TypeError('plugin operation contributions must be an array')
 	}
 
 	const capabilities: OperationProtocolCapabilityProvider[] = []
@@ -314,7 +313,7 @@ export const compilePluginOperationContributions = (
 	for (const [index, contribution] of untrustedContributions.entries()) {
 		if (!isPlainRecord(contribution)) {
 			throw new TypeError(
-				`operations[${String(index)}] must be created by a Core operation contribution factory`,
+				`plugin operation contributions[${String(index)}] must be created by a Core contribution factory`,
 			)
 		}
 
@@ -373,7 +372,7 @@ export const compilePluginOperationContributions = (
 		}
 
 		throw new TypeError(
-			`operations[${String(index)}] must be created by a Core operation contribution factory`,
+			`plugin operation contributions[${String(index)}] must be created by a Core contribution factory`,
 		)
 	}
 
@@ -381,16 +380,4 @@ export const compilePluginOperationContributions = (
 		capabilities: immutableArray(capabilities),
 		operations: immutableArray(operations),
 	})
-}
-
-/** @internal Appends Core-derived providers after explicit author declarations. */
-export const mergePluginOperationCapabilities = (
-	capabilities: PluginCapabilityDeclarationOptions | undefined,
-	derived: readonly OperationProtocolCapabilityProvider[],
-): readonly PluginCapabilityDeclaration[] => {
-	if (capabilities === undefined) return immutableArray(derived)
-	if (!isUnknownArray(capabilities)) {
-		throw new TypeError('capabilities must be an array')
-	}
-	return immutableArray([...capabilities, ...derived])
 }

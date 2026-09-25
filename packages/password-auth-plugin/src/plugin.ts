@@ -80,18 +80,14 @@ const requestExecutionRequirement = requireCapability(
 )
 
 /** Names the exact official local username and password plugin. */
-export type PasswordAuthPlugin = PluginInstance<
-	'@ultimabase/password-auth-plugin',
-	PasswordAuthPluginExports,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	undefined,
-	undefined,
-	readonly [] | typeof passwordAuthHttpPeers,
-	undefined,
-	typeof passwordAuthPluginEnvironment
->
+export type PasswordAuthPlugin = PluginInstance<{
+	readonly id: '@ultimabase/password-auth-plugin'
+	readonly exports: PasswordAuthPluginExports
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly peers: readonly [] | typeof passwordAuthHttpPeers
+	readonly environment: typeof passwordAuthPluginEnvironment
+}>
 
 /** Configures the one local User identity domain owned by Password Auth v1. */
 export interface PasswordAuthPluginOptions<

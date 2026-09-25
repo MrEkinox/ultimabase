@@ -391,13 +391,12 @@ const rolesPluginPermissions = {
 } as const
 
 /** Represents the exact option-light official stored-role provider. */
-export type RolesPlugin = PluginInstance<
-	typeof rolesPluginId,
-	void,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type RolesPlugin = PluginInstance<{
+	readonly id: typeof rolesPluginId
+	readonly exports: void
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
 
 /**
  * Discovers every registered `RoleSchema` through exact package-owned identity.

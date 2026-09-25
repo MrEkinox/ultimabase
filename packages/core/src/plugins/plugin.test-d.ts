@@ -6,6 +6,7 @@ import { plugin } from './plugin.js'
 import {
 	contributeApplication,
 	contributeDeclarations,
+	type PluginApplicationContribution,
 } from './plugin-contributions.js'
 
 const staticToken = defineCapability<Readonly<{ enabled: true }>>()({
@@ -22,12 +23,47 @@ test('normalizes an absent application export to void', () => {
 		id: 'fixture.empty-application-exports',
 		version: '1.0.0',
 		core: '^0.0.0',
-		contributions: [contributeApplication(() => ({ exports: undefined }))],
+		contributions: [contributeApplication(() => ({}))],
 	})
 
 	expectTypeOf(definition).toBeObject()
 	expectTypeOf<PluginExports<typeof definition>>().toEqualTypeOf<
 		ReturnType<() => void>
+	>()
+})
+
+test('unwraps asynchronous exports and preserves exact relationships', () => {
+	const application = contributeApplication(() =>
+		Promise.resolve({ exports: { ready: true } as const }),
+	)
+	expectTypeOf(application).toEqualTypeOf<
+		PluginApplicationContribution<{ readonly ready: true }>
+	>()
+	const definition = plugin({
+		id: 'fixture.async-plugin',
+		version: '1.0.0',
+		core: '^0.0.0',
+		dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }] as const,
+		peers: [{ pluginId: 'fixture.protocol', version: '^1.0.0' }] as const,
+		contributions: [application],
+	})
+	expectTypeOf<PluginExports<typeof definition>>().toEqualTypeOf<{
+		readonly ready: true
+	}>()
+	expectTypeOf(definition.dependencies).toEqualTypeOf<
+		| readonly [
+				{ readonly pluginId: 'fixture.base'; readonly version: '^0.0.0' },
+		  ]
+		| undefined
+	>()
+	expectTypeOf(definition.peers).toEqualTypeOf<
+		| readonly [
+				{
+					readonly pluginId: 'fixture.protocol'
+					readonly version: '^1.0.0'
+				},
+		  ]
+		| undefined
 	>()
 })
 

@@ -34,18 +34,13 @@ interface NormalizedTypegenPluginOptions {
 }
 
 /** Represents automatic startup generation for one application registry. */
-export type TypegenPlugin = PluginInstance<
-	typeof typegenPluginName,
-	Readonly<TypegenPluginExports>,
-	undefined,
-	'0.0.0',
-	'^0.0.0',
-	undefined,
-	undefined,
-	undefined,
-	undefined,
-	readonly ['environment:filesystem']
->
+export type TypegenPlugin = PluginInstance<{
+	readonly id: typeof typegenPluginName
+	readonly exports: Readonly<TypegenPluginExports>
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly environment: readonly ['environment:filesystem']
+}>
 
 const normalizeOptions = (
 	options: TypegenPluginOptions | undefined,

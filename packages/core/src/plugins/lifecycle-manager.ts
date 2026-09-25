@@ -1,17 +1,13 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import { ApplicationCapabilityHost } from './capability-host.js'
 import { runWithApplicationPluginOwner } from './callback-execution.js'
 import type { NormalizedPlugin } from './normalization.js'
-import {
-	runPluginLifecycleHook,
-	runPluginSetup,
-	type PluginDefinition,
-	type PluginLifecycleContext,
-	type PluginLifecyclePhase,
-} from './definition.js'
+import { createPluginApplication, type PluginDefinition } from './definition.js'
 import type { PluginGraph } from './graph.js'
 import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
+import type {
+	PluginApplicationLifecyclePhase,
+	PluginApplicationResource,
+} from './plugin-contributions.js'
 import type { PluginSetupRegistries } from './setup-registries.js'
 
 const startupPhases = [
@@ -19,7 +15,7 @@ const startupPhases = [
 	'prepareSchema',
 	'startRuntime',
 	'startTransports',
-] as const satisfies readonly PluginLifecyclePhase[]
+] as const satisfies readonly PluginApplicationLifecyclePhase[]
 
 /** Describes the externally observable state of one application lifecycle. */
 export type PluginLifecycleState =
@@ -35,7 +31,7 @@ export type PluginLifecycleState =
 
 interface InitializedPlugin {
 	readonly plugin: NormalizedPlugin
-	readonly context: PluginLifecycleContext<unknown>
+	readonly resource: PluginApplicationResource<unknown> | undefined
 }
 
 const reverse = <TValue>(values: readonly TValue[]): readonly TValue[] =>
@@ -221,18 +217,14 @@ export class PluginLifecycleManager {
 				const setupContext = this.#registries.forPlugin(
 					plugin.definition.manifest.identity,
 				)
-				const pluginExports = await runWithApplicationPluginOwner(
+				const resource = await runWithApplicationPluginOwner(
 					this.#application,
 					plugin.definition.manifest.identity,
-					() => runPluginSetup(plugin.definition, setupContext),
+					() => createPluginApplication(plugin.definition, setupContext),
 				)
-				const context = immutableRecord({
-					...setupContext,
-					pluginExports,
-				})
 
-				this.#exportsByDefinition.set(plugin.definition, pluginExports)
-				this.#initializedPlugins.push({ plugin, context })
+				this.#exportsByDefinition.set(plugin.definition, resource?.exports)
+				this.#initializedPlugins.push({ plugin, resource })
 			}
 
 			// Setup-only typed registries close before any infrastructure hook can run.
@@ -257,12 +249,7 @@ export class PluginLifecycleManager {
 					await runWithApplicationPluginOwner(
 						this.#application,
 						initializedPlugin.plugin.definition.manifest.identity,
-						() =>
-							runPluginLifecycleHook(
-								initializedPlugin.plugin.definition,
-								phase,
-								initializedPlugin.context,
-							),
+						() => initializedPlugin.resource?.[phase]?.(),
 					)
 					this.#activePlugins.add(initializedPlugin.plugin.definition)
 				}
@@ -357,12 +344,7 @@ export class PluginLifecycleManager {
 				await runWithApplicationPluginOwner(
 					this.#application,
 					initializedPlugin.plugin.definition.manifest.identity,
-					() =>
-						runPluginLifecycleHook(
-							initializedPlugin.plugin.definition,
-							'stop',
-							initializedPlugin.context,
-						),
+					() => initializedPlugin.resource?.stop?.(),
 				)
 			}, errors)
 		}
@@ -381,12 +363,7 @@ export class PluginLifecycleManager {
 				await runWithApplicationPluginOwner(
 					this.#application,
 					initializedPlugin.plugin.definition.manifest.identity,
-					() =>
-						runPluginLifecycleHook(
-							initializedPlugin.plugin.definition,
-							'dispose',
-							initializedPlugin.context,
-						),
+					() => initializedPlugin.resource?.dispose?.(),
 				)
 			}, errors)
 			await collectFailure(

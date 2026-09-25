@@ -222,13 +222,13 @@ const restPluginPermissions = {
 } as const
 
 /** Names one configured REST v1 route generator. */
-export type RestPlugin = PluginInstance<
-	typeof restPluginId,
-	RestPluginExports,
-	string | undefined,
-	typeof restPluginVersion,
-	'^0.0.0'
->
+export type RestPlugin = PluginInstance<{
+	readonly id: typeof restPluginId
+	readonly exports: RestPluginExports
+	readonly instanceId: string | undefined
+	readonly version: typeof restPluginVersion
+	readonly core: '^0.0.0'
+}>
 
 /** Installs deterministic REST v1 route metadata without executing Runtime. */
 export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {

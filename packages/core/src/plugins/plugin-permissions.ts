@@ -5,7 +5,11 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { CapabilityRequirement } from './capabilities.js'
+import {
+	assertOptionalCapabilityRequirement,
+	type CapabilityRequirement,
+	type CapabilityToken,
+} from './capabilities.js'
 import {
 	pluginPrivilegeMetadata,
 	type PluginPrivilege,
@@ -28,6 +32,7 @@ export type PluginPermissionReasons = Readonly<
 export const normalizePluginPermissionRequests = (
 	permissions: PluginPermissionReasons | undefined,
 	requiredPrivileges: readonly PluginPrivilege[],
+	optionalCapabilities: readonly CapabilityRequirement<CapabilityToken, true>[],
 ): readonly PluginPrivilegeRequest[] => {
 	const untrustedPermissions: unknown = permissions ?? {}
 	if (!isPlainRecord(untrustedPermissions)) {
@@ -74,6 +79,17 @@ export const normalizePluginPermissionRequests = (
 				configured.reason,
 				`plugin permissions.${name}.reason`,
 			)
+			if (configured.when !== undefined) {
+				assertOptionalCapabilityRequirement(
+					configured.when,
+					`plugin permissions.${name}.when`,
+				)
+				if (!optionalCapabilities.includes(configured.when)) {
+					throw new TypeError(
+						`plugin permissions.${name}.when must reference an optional capability contribution declared by the plugin`,
+					)
+				}
+			}
 			return immutableRecord({
 				name,
 				reason: configured.reason,

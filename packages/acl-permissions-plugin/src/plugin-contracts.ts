@@ -10,10 +10,8 @@ export interface ACLPluginOptions {
 }
 
 /** Represents the exact optional ACL provider configured for one application. */
-export type ACLPlugin = PluginInstance<
-	typeof aclPluginId,
-	undefined,
-	undefined,
-	'0.0.0',
-	'^0.0.0'
->
+export type ACLPlugin = PluginInstance<{
+	readonly id: typeof aclPluginId
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+}>
