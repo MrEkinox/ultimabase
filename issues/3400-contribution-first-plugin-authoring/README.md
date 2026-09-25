@@ -1,6 +1,6 @@
 # Milestone 34 — Contribution-first plugin authoring
 
-- Status: in-progress
+- Status: completed
 - Authorization: user request of 2026-09-25
 - ADR: ADR-0270
 
@@ -15,7 +15,7 @@ list while preserving the complete open plugin kernel.
 - [x] [3402 — Prove representative plugin migrations](3402-representative-plugin-migrations.md)
 - [x] [3403 — Migrate every production plugin](3403-production-plugin-migration.md)
 - [x] [3404 — Remove legacy authoring paths](3404-remove-legacy-authoring.md)
-- [ ] [3405 — Audit behavior, documentation, and DX](3405-parity-and-dx-audit.md)
+- [x] [3405 — Audit behavior, documentation, and DX](3405-parity-and-dx-audit.md)
 
 The migration changes authoring form only. Plugin identity and instances,
 dependencies and peers, environmental claims, privilege reasons and policy,

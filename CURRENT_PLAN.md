@@ -1,6 +1,6 @@
 # Current plan: contribution-first plugin authoring
 
-- Status: in-progress
+- Status: completed
 
 The user authorized this complete authoring-form migration on 2026-09-25.
 Creating a plugin must require one Core factory and one ordered contribution
@@ -20,3 +20,6 @@ and a documentation-impact classification. Temporary compatibility inside the
 branch may exist only between consecutive milestone commits; the final state
 has one public `plugin()` factory and no public legacy authoring path. Do not
 push without a separate request.
+
+Milestone 34 completed on 2026-09-25. Issue 3405 records the final parity,
+coverage, line accounting, DX assessment, and remaining improvement options.
