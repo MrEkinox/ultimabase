@@ -6,10 +6,29 @@ import {
 	httpRoute,
 	provideHttpEndpoints,
 } from './endpoints.js'
+import { normalizeHttpBrowserBootstrapPath } from './browser-bootstrap-path.js'
 
 const protocol = { name: 'fixture.http', version: '1' } as const
 
 describe('HTTP endpoint declarations', () => {
+	it('normalizes reusable browser bootstrap plugin option paths', () => {
+		expect(
+			normalizeHttpBrowserBootstrapPath('/console', 'Console plugin path'),
+		).toBe('/console')
+		for (const path of [
+			'/',
+			'/console/',
+			'/console//schema',
+			'/console/%2f',
+			'/console/..',
+			'/__ultimabase/apps/example',
+		]) {
+			expect(() =>
+				normalizeHttpBrowserBootstrapPath(path, 'Console plugin path'),
+			).toThrow('Console plugin path must be a normalized route suffix')
+		}
+	})
+
 	it('creates immutable Fetch routes and mounts', () => {
 		const route = httpRoute({
 			method: 'GET',

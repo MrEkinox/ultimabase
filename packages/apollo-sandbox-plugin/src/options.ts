@@ -1,4 +1,5 @@
-import { isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import { normalizeHttpBrowserBootstrapPath } from '@ultimabase/http-plugin'
 
 /** Selects whether a development-only explorer may expose its route. */
 export type ApolloSandboxEnvironment = 'development' | 'production'
@@ -18,77 +19,30 @@ export interface NormalizedApolloSandboxPluginOptions {
 	readonly path: string
 }
 
-const optionKeys = new Set(['allowInProduction', 'environment', 'path'])
-
-const normalizePath = (value: unknown): string => {
-	const path = value ?? '/apollo-sandbox'
-	if (
-		typeof path !== 'string' ||
-		!path.startsWith('/') ||
-		path === '/' ||
-		path.includes('?') ||
-		path.includes('#') ||
-		path.endsWith('/') ||
-		path === '/__ultimabase/apps' ||
-		path.startsWith('/__ultimabase/apps/')
-	) {
-		throw new TypeError(
-			'Apollo Sandbox plugin path must be a normalized route suffix',
-		)
-	}
-	for (const segment of path.slice(1).split('/')) {
-		let decoded: string
-		try {
-			decoded = decodeURIComponent(segment)
-		} catch {
-			throw new TypeError(
-				'Apollo Sandbox plugin path must be a normalized route suffix',
-			)
-		}
-		if (
-			segment.length === 0 ||
-			decoded === '.' ||
-			decoded === '..' ||
-			decoded.includes('/')
-		) {
-			throw new TypeError(
-				'Apollo Sandbox plugin path must be a normalized route suffix',
-			)
-		}
-	}
-	return path
-}
-
-export const normalizeApolloSandboxPluginOptions = (
+export const normalizeApolloSandboxPluginOptions: (
 	value: unknown,
-): NormalizedApolloSandboxPluginOptions => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('Apollo Sandbox plugin options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !optionKeys.has(key)) {
+) => NormalizedApolloSandboxPluginOptions = definePluginOptionsParser({
+	name: 'Apollo Sandbox plugin options',
+	keys: ['allowInProduction', 'environment', 'path'] as const,
+	formatUnknownKey: (key) =>
+		`Apollo Sandbox plugin options contains unknown option: ${String(key)}`,
+	normalize: ({ allowInProduction, environment, path }) => {
+		if (environment !== 'development' && environment !== 'production') {
 			throw new TypeError(
-				`Apollo Sandbox plugin options contains unknown option: ${String(key)}`,
+				'Apollo Sandbox plugin environment must be development or production',
 			)
 		}
-	}
-	if (
-		value.environment !== 'development' &&
-		value.environment !== 'production'
-	) {
-		throw new TypeError(
-			'Apollo Sandbox plugin environment must be development or production',
-		)
-	}
-	if (
-		value.allowInProduction !== undefined &&
-		value.allowInProduction !== true
-	) {
-		throw new TypeError('Apollo Sandbox plugin allowInProduction must be true')
-	}
-	return {
-		enabled:
-			value.environment === 'development' || value.allowInProduction === true,
-		path: normalizePath(value.path),
-	}
-}
+		if (allowInProduction !== undefined && allowInProduction !== true) {
+			throw new TypeError(
+				'Apollo Sandbox plugin allowInProduction must be true',
+			)
+		}
+		return {
+			enabled: environment === 'development' || allowInProduction === true,
+			path: normalizeHttpBrowserBootstrapPath(
+				path ?? '/apollo-sandbox',
+				'Apollo Sandbox plugin path',
+			),
+		}
+	},
+})

@@ -1,6 +1,6 @@
 # 3605: Audit graph planning and shared plugin shells
 
-- Status: pending
+- Status: planned
 - Milestone: 36
 - Depends on: 3601
 

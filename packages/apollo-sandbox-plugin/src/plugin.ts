@@ -30,21 +30,21 @@ const permissions = {
 const httpPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
+const apolloSandboxPluginMetadata = {
+	core: '^0.0.0',
+	id: '@ultimabase/apollo-sandbox-plugin',
+	version: '0.0.0',
+} as const
 
 /** Names one independently configured Apollo Sandbox UI plugin. */
 export type ApolloSandboxPlugin =
-	| PluginInstance<{
-			readonly id: '@ultimabase/apollo-sandbox-plugin'
-			readonly version: '0.0.0'
-			readonly core: '^0.0.0'
-			readonly peers: typeof httpPeers
-			readonly environment: readonly ['environment:network']
-	  }>
-	| PluginInstance<{
-			readonly id: '@ultimabase/apollo-sandbox-plugin'
-			readonly version: '0.0.0'
-			readonly core: '^0.0.0'
-	  }>
+	| PluginInstance<
+			typeof apolloSandboxPluginMetadata & {
+				readonly peers: typeof httpPeers
+				readonly environment: readonly ['environment:network']
+			}
+	  >
+	| PluginInstance<typeof apolloSandboxPluginMetadata>
 
 /** Adds a development Sandbox page for the selected GraphQL HTTP provider. */
 export const apolloSandboxPlugin = (
@@ -53,9 +53,7 @@ export const apolloSandboxPlugin = (
 	const normalized = normalizeApolloSandboxPluginOptions(options)
 	if (!normalized.enabled) {
 		const disabled = plugin({
-			id: '@ultimabase/apollo-sandbox-plugin',
-			version: '0.0.0',
-			core: '^0.0.0',
+			...apolloSandboxPluginMetadata,
 			contributions: [],
 		})
 		return disabled
@@ -76,9 +74,7 @@ export const apolloSandboxPlugin = (
 		},
 	})
 	const enabled = plugin({
-		id: '@ultimabase/apollo-sandbox-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
+		...apolloSandboxPluginMetadata,
 		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: httpPeers,

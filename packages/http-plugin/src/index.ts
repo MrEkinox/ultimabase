@@ -18,6 +18,7 @@ export type {
 	HttpBrowserPolicy,
 	HttpBrowserPolicyOptions,
 } from './browser-policy.js'
+export { normalizeHttpBrowserBootstrapPath } from './browser-bootstrap-path.js'
 export {
 	httpApplicationIdHeader,
 	httpApplicationProtocolVersion,

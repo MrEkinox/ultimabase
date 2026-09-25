@@ -2,6 +2,7 @@
 
 - Status: completed
 - Milestone: 36
+- Depends on: none
 - ADR: ADR-0272
 
 ## Goal

@@ -30,21 +30,21 @@ const permissions = {
 const httpPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
+const graphiqlPluginMetadata = {
+	core: '^0.0.0',
+	id: '@ultimabase/graphiql-plugin',
+	version: '0.0.0',
+} as const
 
 /** Names one independently configured GraphiQL UI plugin. */
 export type GraphiqlPlugin =
-	| PluginInstance<{
-			readonly id: '@ultimabase/graphiql-plugin'
-			readonly version: '0.0.0'
-			readonly core: '^0.0.0'
-			readonly peers: typeof httpPeers
-			readonly environment: readonly ['environment:network']
-	  }>
-	| PluginInstance<{
-			readonly id: '@ultimabase/graphiql-plugin'
-			readonly version: '0.0.0'
-			readonly core: '^0.0.0'
-	  }>
+	| PluginInstance<
+			typeof graphiqlPluginMetadata & {
+				readonly peers: typeof httpPeers
+				readonly environment: readonly ['environment:network']
+			}
+	  >
+	| PluginInstance<typeof graphiqlPluginMetadata>
 
 /** Adds a development GraphiQL page for the selected GraphQL HTTP provider. */
 export const graphiqlPlugin = (
@@ -53,9 +53,7 @@ export const graphiqlPlugin = (
 	const normalized = normalizeGraphiqlPluginOptions(options)
 	if (!normalized.enabled) {
 		const disabled = plugin({
-			id: '@ultimabase/graphiql-plugin',
-			version: '0.0.0',
-			core: '^0.0.0',
+			...graphiqlPluginMetadata,
 			contributions: [],
 		})
 		return disabled
@@ -73,9 +71,7 @@ export const graphiqlPlugin = (
 		},
 	})
 	const enabled = plugin({
-		id: '@ultimabase/graphiql-plugin',
-		version: '0.0.0',
-		core: '^0.0.0',
+		...graphiqlPluginMetadata,
 		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: httpPeers,

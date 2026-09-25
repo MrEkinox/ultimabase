@@ -253,6 +253,7 @@ export const httpPluginPublicApi = {
 		'httpMount',
 		'httpPlugin',
 		'httpRoute',
+		'normalizeHttpBrowserBootstrapPath',
 		'provideHttpContextResolvers',
 		'provideHttpEndpoints',
 	],

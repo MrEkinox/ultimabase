@@ -1,6 +1,6 @@
 # Milestone 36 — Native command and application simplification
 
-- Status: active
+- Status: in-progress
 - Authorization: user request and architecture approval of 2026-09-25
 - ADR: ADR-0272
 
@@ -24,7 +24,7 @@ without losing a current capability.
 - [x] [3601 — Make command contributions native](3601-native-command-contributions.md)
 - [x] [3602 — Consolidate application-owned private state](3602-application-kernel-state.md)
 - [x] [3603 — Remove static mutation registration](3603-static-mutation-resolution.md)
-- [ ] [3604 — Simplify official plugin option and identity authoring](3604-plugin-authoring-reduction.md)
+- [x] [3604 — Simplify official plugin option and identity authoring](3604-plugin-authoring-reduction.md)
 - [ ] [3605 — Audit graph planning and shared plugin shells](3605-graph-and-plugin-shell-audit.md)
 - [ ] [3606 — Prove parity and measure the final reduction](3606-parity-and-reduction-audit.md)
 

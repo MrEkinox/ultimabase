@@ -10,6 +10,7 @@ import {
 	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { AccessDefaultPolicy } from './authoring/plan.js'
@@ -119,56 +120,51 @@ const normalizeReadDefaults = (value: unknown): AccessDefaultPolicy['read'] => {
 	})
 }
 
-const normalizeDefaults = (
-	options: AccessPluginOptions,
-): AccessDefaultPolicy => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Access plugin options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(options)) {
-		if (key !== 'default') {
-			throw new TypeError(`Unknown Access plugin option: ${String(key)}`)
+const normalizeDefaults = definePluginOptionsParser({
+	name: 'Access plugin options',
+	keys: ['default'] as const,
+	formatUnknownKey: (key) => `Unknown Access plugin option: ${String(key)}`,
+	normalize: ({ default: defaultAccess }): AccessDefaultPolicy => {
+		if (defaultAccess === undefined) return denyByDefault
+		if (typeof defaultAccess === 'boolean') {
+			return immutableRecord({
+				create: defaultAccess,
+				delete: defaultAccess,
+				read: normalizeReadDefaults(defaultAccess),
+				update: defaultAccess,
+				upsert: defaultAccess,
+				schemaMutations: defaultAccess,
+			})
 		}
-	}
-	if (options.default === undefined) return denyByDefault
-	if (typeof options.default === 'boolean') {
-		return immutableRecord({
-			create: options.default,
-			delete: options.default,
-			read: normalizeReadDefaults(options.default),
-			update: options.default,
-			upsert: options.default,
-			schemaMutations: options.default,
-		})
-	}
-	if (!isPlainRecord(options.default)) {
-		throw new TypeError('Access default must be a boolean or plain object')
-	}
-	const allowedFamilies = new Set<string>([
-		...schemaAccessFamilies,
-		'schemaMutations',
-	])
-	for (const key of Reflect.ownKeys(options.default)) {
-		if (typeof key !== 'string' || !allowedFamilies.has(key)) {
-			throw new TypeError(`Unknown Access default: ${String(key)}`)
+		if (!isPlainRecord(defaultAccess)) {
+			throw new TypeError('Access default must be a boolean or plain object')
 		}
-		if (key !== 'read' && typeof options.default[key] !== 'boolean') {
-			throw new TypeError(`Access ${key} default must be a boolean`)
+		const allowedFamilies = new Set<string>([
+			...schemaAccessFamilies,
+			'schemaMutations',
+		])
+		for (const key of Reflect.ownKeys(defaultAccess)) {
+			if (typeof key !== 'string' || !allowedFamilies.has(key)) {
+				throw new TypeError(`Unknown Access default: ${String(key)}`)
+			}
+			if (key !== 'read' && typeof defaultAccess[key] !== 'boolean') {
+				throw new TypeError(`Access ${key} default must be a boolean`)
+			}
 		}
-	}
 
-	return immutableRecord({
-		create: options.default.create === true,
-		delete: options.default.delete === true,
-		read:
-			options.default.read === undefined
-				? denyByDefault.read
-				: normalizeReadDefaults(options.default.read),
-		update: options.default.update === true,
-		upsert: options.default.upsert === true,
-		schemaMutations: options.default.schemaMutations === true,
-	})
-}
+		return immutableRecord({
+			create: defaultAccess.create === true,
+			delete: defaultAccess.delete === true,
+			read:
+				defaultAccess.read === undefined
+					? denyByDefault.read
+					: normalizeReadDefaults(defaultAccess.read),
+			update: defaultAccess.update === true,
+			upsert: defaultAccess.upsert === true,
+			schemaMutations: defaultAccess.schemaMutations === true,
+		})
+	},
+})
 
 // Only authorization denials become policy decisions; other failures propagate.
 const returnsDenied = async (run: () => Promise<unknown>): Promise<boolean> => {

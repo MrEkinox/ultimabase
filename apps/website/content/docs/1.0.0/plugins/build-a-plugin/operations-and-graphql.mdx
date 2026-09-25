@@ -14,6 +14,7 @@ sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/operation-schema-compiler.test.ts
   - packages/http-plugin/README.md
+  - packages/http-plugin/src/browser-bootstrap-path.ts
   - packages/rest-plugin/README.md
   - packages/soft-delete-plugin/src/explicit.ts
   - docs/adr/0240-static-operation-transport-planning.md
@@ -397,6 +398,12 @@ listen on a socket. Route collisions fail during application materialization.
 Even this status route requires `X-UltimaBase-Application-Id`; only configured
 browser preflight can omit application identity. If a route handles application data, it must use the selected request context
 and Core's public request-execution facade rather than bypassing Runtime.
+
+A plugin that exposes a browser bootstrap UI can validate a configurable route
+suffix with `normalizeHttpBrowserBootstrapPath(value, label)` and pass the
+result to `httpBrowserBootstrapRoute()`. This keeps absolute-path, reserved
+namespace, decoded-segment, and non-root checks consistent with the official
+GraphiQL and Apollo Sandbox plugins.
 
 Transport exposure is not authorization. Check Access, ACL, request identity,
 browser policy, and the `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` startup

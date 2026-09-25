@@ -1,6 +1,6 @@
 # 3603: Remove static mutation registration
 
-- Status: complete
+- Status: completed
 - Milestone: 36
 - Depends on: 3602
 

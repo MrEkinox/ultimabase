@@ -1,4 +1,4 @@
-import { isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 
 /** Configures the GraphQL-over-HTTP adapter without changing GraphQL execution. */
 export interface GraphqlYogaPluginOptions {
@@ -15,8 +15,6 @@ export interface NormalizedGraphqlYogaPluginOptions {
 	readonly introspection: boolean
 	readonly path: string
 }
-
-const optionKeys = new Set(['bodyLimit', 'introspection', 'path'])
 
 const normalizePath = (value: unknown): string => {
 	if (value === undefined) return '/graphql'
@@ -51,42 +49,35 @@ const normalizePath = (value: unknown): string => {
 	return value
 }
 
+const parseGraphqlYogaPluginOptions = definePluginOptionsParser({
+	name: 'GraphQL Yoga plugin options',
+	keys: ['bodyLimit', 'introspection', 'path'] as const,
+	formatUnknownKey: (key) =>
+		`GraphQL Yoga plugin options contains unknown option: ${String(key)}`,
+	normalize: ({ bodyLimit: inputBodyLimit, introspection, path }) => {
+		const bodyLimit = inputBodyLimit ?? 1_048_576
+		if (
+			typeof bodyLimit !== 'number' ||
+			!Number.isSafeInteger(bodyLimit) ||
+			bodyLimit < 1
+		) {
+			throw new TypeError(
+				'GraphQL Yoga plugin bodyLimit must be a positive safe integer',
+			)
+		}
+		if (introspection !== undefined && typeof introspection !== 'boolean') {
+			throw new TypeError('GraphQL Yoga plugin introspection must be a boolean')
+		}
+		return {
+			bodyLimit,
+			introspection: introspection ?? false,
+			path: normalizePath(path),
+		}
+	},
+})
+
 /** @internal Rejects unknown options before the plugin can declare effects. */
 export const normalizeGraphqlYogaPluginOptions = (
 	value: unknown,
-): NormalizedGraphqlYogaPluginOptions => {
-	if (value === undefined) {
-		return { bodyLimit: 1_048_576, introspection: false, path: '/graphql' }
-	}
-	if (!isPlainRecord(value)) {
-		throw new TypeError('GraphQL Yoga plugin options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !optionKeys.has(key)) {
-			throw new TypeError(
-				`GraphQL Yoga plugin options contains unknown option: ${String(key)}`,
-			)
-		}
-	}
-	const bodyLimit = value.bodyLimit ?? 1_048_576
-	if (
-		typeof bodyLimit !== 'number' ||
-		!Number.isSafeInteger(bodyLimit) ||
-		bodyLimit < 1
-	) {
-		throw new TypeError(
-			'GraphQL Yoga plugin bodyLimit must be a positive safe integer',
-		)
-	}
-	if (
-		value.introspection !== undefined &&
-		typeof value.introspection !== 'boolean'
-	) {
-		throw new TypeError('GraphQL Yoga plugin introspection must be a boolean')
-	}
-	return {
-		bodyLimit,
-		introspection: value.introspection ?? false,
-		path: normalizePath(value.path),
-	}
-}
+): NormalizedGraphqlYogaPluginOptions =>
+	parseGraphqlYogaPluginOptions(value === undefined ? {} : value)

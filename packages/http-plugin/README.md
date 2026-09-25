@@ -53,6 +53,12 @@ that exact bootstrap route, then resumes the complete normal context,
 credential, timeout, attribution, and response boundary. The reserved
 `/__ultimabase/apps` namespace cannot be used by ordinary routes or mounts.
 
+Browser-tool plugins can validate their configurable suffix once with
+`normalizeHttpBrowserBootstrapPath(value, label)` before creating the route.
+It applies the same absolute, non-root, non-reserved, decoded-segment rules used
+by the official GraphiQL and Apollo Sandbox plugins and returns the normalized
+string without registering behavior.
+
 Every accepted route begins with a new anonymous, application-bound Core
 context. `requestTimeoutMs` optionally composes one deadline with the Fetch
 signal; the resulting signal is shared by resolvers, handlers, Runtime work,

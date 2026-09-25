@@ -8,6 +8,7 @@ import {
 	httpContextResolver,
 	httpPlugin,
 	httpRoute,
+	normalizeHttpBrowserBootstrapPath,
 	provideHttpEndpoints,
 	provideHttpContextResolvers,
 	type HttpBrowserPolicy,
@@ -49,6 +50,9 @@ test('preserves exact route and plugin input types', () => {
 			Readonly<{ readonly name: 'fixture.explorer'; readonly version: '1' }>
 		>
 	>()
+	expectTypeOf(
+		normalizeHttpBrowserBootstrapPath('/explorer', 'Explorer path'),
+	).toEqualTypeOf<string>()
 
 	// @ts-expect-error -- appId is mandatory public routing identity.
 	httpPlugin({})

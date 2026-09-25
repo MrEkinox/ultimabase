@@ -21,11 +21,14 @@ Issue 3603 is complete. Schema-class mutation aliases now resolve from the sole
 active compiled command graph, with no startup copy, secondary registry, or
 disposal reset.
 
-Issue 3604 is active. It reduces repeated official-plugin option boundaries and
-identity declarations, retaining only helpers with a negative production-line
-delta and exact diagnostic, inference, and package-contract parity.
+Issue 3604 is complete. Five official plugins now share Plugin Kit's strict
+option boundary, Apollo Sandbox and GraphiQL no longer repeat package identity
+facts, and HTTP owns their reusable browser-bootstrap path normalizer. The
+result removes 80 production lines while retaining exact public contracts.
 
-Later issues audit graph and Access/Hooks shells, then close with complete
+Issue 3605 is active. It audits graph planning and the shared Access/Hooks
+shells, implementing only reductions that preserve ordering, privilege,
+ownership, and product-specific semantics. Issue 3606 then closes with complete
 parity and line measurements.
 
 No push is authorized.

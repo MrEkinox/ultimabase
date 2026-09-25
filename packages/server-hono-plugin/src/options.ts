@@ -1,4 +1,5 @@
-import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
+import { assertNonEmptyString } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import type { Hono, Env, Schema } from 'hono'
 
 /** Configures the framework-owned Node listener created by the plugin. */
@@ -44,8 +45,6 @@ export interface NormalizedHonoServerPluginOptions {
 	readonly port: number
 }
 
-const optionKeys = new Set(['app', 'browserPolicyOwner', 'host', 'port'])
-
 const isHonoApplication = (value: unknown): value is Hono =>
 	(typeof value === 'object' || typeof value === 'function') &&
 	value !== null &&
@@ -53,72 +52,67 @@ const isHonoApplication = (value: unknown): value is Hono =>
 	typeof Reflect.get(value, 'fetch') === 'function'
 
 /** @internal Validates ownership before the plugin definition can have effects. */
-export const normalizeHonoServerPluginOptions = (
+export const normalizeHonoServerPluginOptions: (
 	options: HonoServerPluginOptions,
-): NormalizedHonoServerPluginOptions => {
-	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('Hono server plugin options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(untrustedOptions)) {
-		if (typeof key !== 'string' || !optionKeys.has(key)) {
-			throw new TypeError(`Unknown Hono server plugin option: ${String(key)}`)
+) => NormalizedHonoServerPluginOptions = definePluginOptionsParser({
+	name: 'Hono server plugin options',
+	keys: ['app', 'browserPolicyOwner', 'host', 'port'] as const,
+	formatUnknownKey: (key) =>
+		`Unknown Hono server plugin option: ${String(key)}`,
+	normalize: ({
+		app,
+		browserPolicyOwner,
+		host,
+		port,
+	}): NormalizedHonoServerPluginOptions => {
+		if (app !== undefined) {
+			if (!isHonoApplication(app)) {
+				throw new TypeError('Hono server plugin app must be a Hono application')
+			}
+			if (host !== undefined || port !== undefined) {
+				throw new TypeError(
+					'Hono server plugin host and port cannot configure an external app',
+				)
+			}
+			if (
+				browserPolicyOwner !== 'external' &&
+				browserPolicyOwner !== 'ultimabase'
+			) {
+				throw new TypeError(
+					'Hono server plugin browserPolicyOwner must be external or ultimabase',
+				)
+			}
+			return {
+				app,
+				browserPolicyOwner,
+				host: undefined,
+				port: 1337,
+			}
 		}
-	}
-
-	const app = untrustedOptions.app
-	const browserPolicyOwner = untrustedOptions.browserPolicyOwner
-	const host = untrustedOptions.host
-	const port = untrustedOptions.port
-	if (app !== undefined) {
-		if (!isHonoApplication(app)) {
-			throw new TypeError('Hono server plugin app must be a Hono application')
-		}
-		if (host !== undefined || port !== undefined) {
+		if (browserPolicyOwner !== undefined) {
 			throw new TypeError(
-				'Hono server plugin host and port cannot configure an external app',
+				'Hono server plugin browserPolicyOwner requires an external app',
 			)
 		}
+		if (host !== undefined) {
+			assertNonEmptyString(host, 'Hono server plugin host')
+		}
 		if (
-			browserPolicyOwner !== 'external' &&
-			browserPolicyOwner !== 'ultimabase'
+			port !== undefined &&
+			(typeof port !== 'number' ||
+				!Number.isSafeInteger(port) ||
+				port < 0 ||
+				port > 65_535)
 		) {
 			throw new TypeError(
-				'Hono server plugin browserPolicyOwner must be external or ultimabase',
+				'Hono server plugin port must be an integer from 0 through 65535',
 			)
 		}
 		return {
-			app,
-			browserPolicyOwner,
-			host: undefined,
-			port: 1337,
+			app: undefined,
+			browserPolicyOwner: 'ultimabase' as const,
+			host: typeof host === 'string' ? host : undefined,
+			port: typeof port === 'number' ? port : 1337,
 		}
-	}
-	if (browserPolicyOwner !== undefined) {
-		throw new TypeError(
-			'Hono server plugin browserPolicyOwner requires an external app',
-		)
-	}
-
-	if (host !== undefined) {
-		assertNonEmptyString(host, 'Hono server plugin host')
-	}
-	if (
-		port !== undefined &&
-		(typeof port !== 'number' ||
-			!Number.isSafeInteger(port) ||
-			port < 0 ||
-			port > 65_535)
-	) {
-		throw new TypeError(
-			'Hono server plugin port must be an integer from 0 through 65535',
-		)
-	}
-
-	return {
-		app: undefined,
-		browserPolicyOwner: 'ultimabase',
-		host,
-		port: port ?? 1337,
-	}
-}
+	},
+})
