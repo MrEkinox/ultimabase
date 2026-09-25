@@ -1,6 +1,6 @@
 # Current plan: native command and application simplification
 
-- Status: active
+- Status: completed
 - Milestone: 36
 - Baseline: `aeb53cab42c9cb3a8487612d5c7be38add3a37c1`
 
@@ -32,8 +32,14 @@ It removes 33 production lines and brings the graph source below its warning
 budget. The Access/Hooks shell was not abstracted because the helper would add
 more code and couple distinct product semantics.
 
-Issue 3606 is active. It closes the milestone with complete parity, public-name
-reconciliation, and final production, test, documentation, export, and
-declaration measurements.
+Issue 3606 is complete. Full coverage, E2E, and packed-package validation passes.
+The milestone removes 535 production lines, including 455 Core lines and one
+Core file, plus 216 test lines. Public exports fall by two net and declaration
+output by 1,863 bytes. The removed names are reconciled with ADR-0272 and every
+supported command, lifecycle, security, transport, Typegen, and cleanup
+capability remains represented by the canonical APIs.
+
+The milestone is closed. Further debt reduction should be selected as a new,
+bounded issue and must preserve the same negative-production-delta rule.
 
 No push is authorized.

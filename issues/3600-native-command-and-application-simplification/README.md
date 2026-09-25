@@ -1,6 +1,6 @@
 # Milestone 36 — Native command and application simplification
 
-- Status: in-progress
+- Status: completed
 - Authorization: user request and architecture approval of 2026-09-25
 - ADR: ADR-0272
 
@@ -26,8 +26,20 @@ without losing a current capability.
 - [x] [3603 — Remove static mutation registration](3603-static-mutation-resolution.md)
 - [x] [3604 — Simplify official plugin option and identity authoring](3604-plugin-authoring-reduction.md)
 - [x] [3605 — Audit graph planning and shared plugin shells](3605-graph-and-plugin-shell-audit.md)
-- [ ] [3606 — Prove parity and measure the final reduction](3606-parity-and-reduction-audit.md)
+- [x] [3606 — Prove parity and measure the final reduction](3606-parity-and-reduction-audit.md)
 
 Every issue receives a dedicated commit. A proposed abstraction is retained
 only when it removes more production work than it introduces and keeps the
 existing security, lifecycle, editor, Runtime, transport, and cleanup contracts.
+
+## Final outcome
+
+The milestone removes 535 production lines and 216 test lines, including 455
+lines and one file from Core. It also removes two net public exports and 1,863
+bytes of generated declarations. Native command contributions, consolidated
+application state, canonical mutation lookup, shared option/path authoring, and
+indexed graph planning retain all validated application and plugin behavior.
+
+The full unit, type, performance, coverage, E2E, packed-package, build, lint,
+constraint, and website validation loop passes. See issue 3606 for the public
+name reconciliation, coverage figures, and remaining reduction candidates.
