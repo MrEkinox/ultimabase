@@ -76,7 +76,7 @@ interface CapabilityPlan {
 }
 
 interface CapabilityInventoryState {
-	readonly plans: readonly CapabilityPlan[]
+	readonly plansByToken: ReadonlyMap<CapabilityToken, CapabilityPlan>
 	readonly declarationConsumers: Map<CapabilityToken, unknown>
 }
 
@@ -297,7 +297,7 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		)
 
 		inventoryStates.set(this, {
-			plans: immutableArray(plans),
+			plansByToken: new Map(plans.map((plan) => [plan.entry.token, plan])),
 			declarationConsumers: new Map(),
 		})
 		Object.freeze(this)
@@ -340,7 +340,7 @@ export const composeDeclarationCapabilities = (
 	inventory: CapabilityInventory,
 ): void => {
 	const state = getInventoryState(inventory)
-	for (const { entry, providers } of state.plans) {
+	for (const { entry, providers } of state.plansByToken.values()) {
 		if (entry.token.lifetime !== 'declaration') continue
 		// An absent optional capability has no consumer view. In particular, a
 		// single-capability composer must never receive an impossible empty tuple.
@@ -367,4 +367,5 @@ export const readDeclarationCapability = (
 /** Supplies application materialization with final static contribution plans. */
 export const readCapabilityPlans = (
 	inventory: CapabilityInventory,
-): readonly CapabilityPlan[] => getInventoryState(inventory).plans
+): ReadonlyMap<CapabilityToken, CapabilityPlan> =>
+	getInventoryState(inventory).plansByToken

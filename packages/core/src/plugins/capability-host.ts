@@ -53,6 +53,12 @@ interface MaterializedCapabilityResource {
 export type MaterializedCapabilityContribution<
 	TToken extends CapabilityToken = CapabilityToken,
 > = CapabilityProviderContribution<TToken>
+interface MaterializedCapability {
+	readonly consumer: unknown
+	readonly contributions: readonly MaterializedCapabilityContribution[]
+}
+const noMaterializedContributions: readonly MaterializedCapabilityContribution[] =
+	immutableArray([])
 const throwCapabilityCycle = (
 	token: CapabilityToken,
 	resolutionStack: readonly CapabilityToken[],
@@ -155,12 +161,7 @@ export class ApplicationCapabilityHost {
 		string,
 		Map<string | undefined, PluginCapabilityReader>
 	>()
-	readonly #resolvedConsumers = new Map<CapabilityToken, unknown>()
-	readonly #resolvedContributions = new Map<
-		CapabilityToken,
-		readonly MaterializedCapabilityContribution[]
-	>()
-	readonly #resolvedTokens = new Set<CapabilityToken>()
+	readonly #resolved = new Map<CapabilityToken, MaterializedCapability>()
 	readonly #resources: MaterializedCapabilityResource[] = []
 	#materializationPromise: Promise<void> | undefined
 	#commandBindings: CommandBindings | undefined
@@ -240,22 +241,20 @@ export class ApplicationCapabilityHost {
 	read<const TToken extends CapabilityToken>(
 		token: TToken,
 	): CapabilityConsumerValue<TToken> | undefined {
-		if (this.#disposed) {
-			throw new TypeError('Application capabilities are no longer available')
-		}
-		if (!this.#materialized) {
-			throw new TypeError(
-				'Application capabilities require completed materialization',
-			)
-		}
-
-		return this.#resolvedConsumers.get(token)
+		this.#assertMaterialized()
+		return this.#resolved.get(token)?.consumer
 	}
 
 	/** Reads Core-owned provider provenance without opening generic plugin lookup. */
 	readContributions<const TToken extends CapabilityToken>(
 		token: TToken,
 	): readonly MaterializedCapabilityContribution<TToken>[] {
+		this.#assertMaterialized()
+		return (this.#resolved.get(token)?.contributions ??
+			noMaterializedContributions) as readonly MaterializedCapabilityContribution<TToken>[]
+	}
+
+	#assertMaterialized(): void {
 		if (this.#disposed) {
 			throw new TypeError('Application capabilities are no longer available')
 		}
@@ -264,11 +263,6 @@ export class ApplicationCapabilityHost {
 				'Application capabilities require completed materialization',
 			)
 		}
-
-		return (this.#resolvedContributions.get(token) ??
-			immutableArray(
-				[],
-			)) as readonly MaterializedCapabilityContribution<TToken>[]
 	}
 
 	/** Returns one stable reader whose requirement objects are fixed to its owner. */
@@ -301,16 +295,30 @@ export class ApplicationCapabilityHost {
 
 	/** Disposes resources owned by one plugin after its dispose hook completes. */
 	async disposeOwner(owner: PluginIdentity): Promise<void> {
+		throwCleanupErrors(await this.#drainResources(owner))
+	}
+
+	/** Releases every resource left after partial setup or plugin cleanup failure. */
+	async dispose(): Promise<void> {
+		if (this.#disposed) return
+		const errors = await this.#drainResources()
+		const bindings = this.#commandBindings ?? this.#commands?.()?.bindings
+		bindings?.dispose()
+		this.#resolved.clear()
+		this.#disposed = true
+		throwCleanupErrors(errors)
+	}
+
+	async #drainResources(owner?: PluginIdentity): Promise<unknown[]> {
 		const errors: unknown[] = []
 		for (let index = this.#resources.length - 1; index >= 0; index -= 1) {
 			const resource = this.#resources[index]
 			if (
 				resource === undefined ||
-				!isSamePluginIdentity(resource.owner, owner)
+				(owner !== undefined && !isSamePluginIdentity(resource.owner, owner))
 			) {
 				continue
 			}
-
 			this.#resources.splice(index, 1)
 			try {
 				await resource.dispose()
@@ -318,28 +326,7 @@ export class ApplicationCapabilityHost {
 				errors.push(error)
 			}
 		}
-		throwCleanupErrors(errors)
-	}
-
-	/** Releases every resource left after partial setup or plugin cleanup failure. */
-	async dispose(): Promise<void> {
-		if (this.#disposed) return
-		const errors: unknown[] = []
-		for (const resource of this.#resources.toReversed()) {
-			try {
-				await resource.dispose()
-			} catch (error: unknown) {
-				errors.push(error)
-			}
-		}
-		const bindings = this.#commandBindings ?? this.#commands?.()?.bindings
-		bindings?.dispose()
-		this.#resources.length = 0
-		this.#resolvedConsumers.clear()
-		this.#resolvedContributions.clear()
-		this.#resolvedTokens.clear()
-		this.#disposed = true
-		throwCleanupErrors(errors)
+		return errors
 	}
 
 	async #performMaterialization(): Promise<void> {
@@ -350,7 +337,7 @@ export class ApplicationCapabilityHost {
 			retain: (resource) => this.#resources.push(resource),
 		})
 		this.#commandBindings = commands.bindTransports(this.#commands?.())
-		for (const { entry } of readCapabilityPlans(this.#inventory)) {
+		for (const { entry } of readCapabilityPlans(this.#inventory).values()) {
 			if (entry.token.lifetime === 'application') {
 				await this.#resolve(entry.token, [])
 			}
@@ -363,18 +350,18 @@ export class ApplicationCapabilityHost {
 		token: CapabilityToken,
 		resolutionStack: readonly CapabilityToken[],
 	): Promise<unknown> {
-		if (this.#resolvedTokens.has(token)) {
-			return this.#resolvedConsumers.get(token)
-		}
+		const resolved = this.#resolved.get(token)
+		if (resolved !== undefined) return resolved.consumer
 		if (resolutionStack.includes(token)) {
 			throwCapabilityCycle(token, resolutionStack)
 		}
 
-		const plan = readCapabilityPlans(this.#inventory).find(
-			({ entry }) => entry.token === token,
-		)
+		const plan = readCapabilityPlans(this.#inventory).get(token)
 		if (plan === undefined || plan.providers.length === 0) {
-			this.#resolvedTokens.add(token)
+			this.#resolved.set(token, {
+				consumer: undefined,
+				contributions: noMaterializedContributions,
+			})
 			return undefined
 		}
 
@@ -459,12 +446,10 @@ export class ApplicationCapabilityHost {
 				this.#resolveSchemaSurface,
 			)
 		}
-		this.#resolvedContributions.set(
-			token,
-			immutableArray(materializedContributions),
-		)
-		this.#resolvedConsumers.set(token, consumer)
-		this.#resolvedTokens.add(token)
+		this.#resolved.set(token, {
+			consumer,
+			contributions: immutableArray(materializedContributions),
+		})
 		return consumer
 	}
 
@@ -500,12 +485,13 @@ export class ApplicationCapabilityHost {
 		if (requirement.token.lifetime === 'declaration') {
 			return readDeclarationCapability(this.#inventory, requirement)
 		}
-		if (!this.#resolvedTokens.has(requirement.token)) {
+		const resolved = this.#resolved.get(requirement.token)
+		if (resolved === undefined) {
 			throw new TypeError(
 				`Application capability "${requirement.token.capabilityId}" was read before materialization`,
 			)
 		}
-		return this.#resolvedConsumers.get(requirement.token)
+		return resolved.consumer
 	}
 
 	#readProviderContributions(
@@ -522,14 +508,13 @@ export class ApplicationCapabilityHost {
 		if (!this.#inventory.isRequirementActive(owner, requirement)) {
 			return immutableArray([])
 		}
-		if (!this.#resolvedTokens.has(requirement.token)) {
+		const resolved = this.#resolved.get(requirement.token)
+		if (resolved === undefined) {
 			throw new TypeError(
 				`Application capability "${requirement.token.capabilityId}" was read before materialization`,
 			)
 		}
-		return (
-			this.#resolvedContributions.get(requirement.token) ?? immutableArray([])
-		)
+		return resolved.contributions
 	}
 
 	#assertDeclaredRequirementRead(

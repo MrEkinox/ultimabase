@@ -93,6 +93,8 @@ consistent without rewriting historical issue prose.
 - [`3300-core-plugin-authoring-simplification/`](3300-core-plugin-authoring-simplification/README.md)
 - [`3400-contribution-first-plugin-authoring/`](3400-contribution-first-plugin-authoring/README.md)
 - [`3500-native-contribution-plugin-plan/`](3500-native-contribution-plugin-plan/README.md)
+- [`3600-native-command-and-application-simplification/`](3600-native-command-and-application-simplification/README.md)
+- [`3700-capability-host-simplification/`](3700-capability-host-simplification/README.md)
 
 ## Assignment prompt
 
