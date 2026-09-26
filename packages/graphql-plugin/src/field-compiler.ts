@@ -22,6 +22,7 @@ import {
 import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlConnectionTypeCompiler } from './connection-types.js'
+import { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
 import {
 	encodeGraphqlPluginFieldValue,
 	readGraphqlPluginFieldCodec,
@@ -56,9 +57,8 @@ type GraphqlRelationArguments = (
 
 /** Compiles schema fields into reusable application-local GraphQL named types. */
 export class GraphqlFieldTypeCompiler {
-	readonly #schemas: CompiledSchemaRegistry
+	readonly #compiled: GraphqlCompiledSchemaLookup
 	readonly #names: GraphqlNameRegistry
-	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 	readonly #relationArguments: GraphqlRelationArguments
 	readonly #relationResolver: GraphqlGeneratedExecution['relation']
 	readonly #models = new Map<SchemaDefinition, GraphQLObjectType>()
@@ -79,14 +79,16 @@ export class GraphqlFieldTypeCompiler {
 		}>,
 	) {
 		this.#names = options.names
-		this.#schemas = options.schemas
-		this.#surfaces = options.surfaces
+		this.#compiled = new GraphqlCompiledSchemaLookup(
+			options.schemas,
+			options.surfaces,
+		)
 		this.#relationArguments = options.relationArguments
 		this.#relationResolver = options.relationResolver
 		this.#connectionTypes = new GraphqlConnectionTypeCompiler({
+			compiled: this.#compiled,
 			model: (schema) => this.model(schema),
 			names: options.names,
-			surfaces: options.surfaces,
 		})
 		this.#outputTypes = new GraphqlOutputTypeCompiler(options.names)
 	}
@@ -97,18 +99,9 @@ export class GraphqlFieldTypeCompiler {
 			...this.#outputTypes.types,
 		]
 	}
-
 	connectionType(schema: SchemaDefinition): GraphQLObjectType {
 		return this.#connectionTypes.connection(schema)
 	}
-	#surface(schema: SchemaDefinition): GraphqlSchemaSurface {
-		const surface = this.#surfaces.get(schema)
-		if (surface === undefined) {
-			throw new TypeError('GraphQL schema surface is unavailable')
-		}
-		return surface
-	}
-
 	#claimGenerated(
 		name: string,
 		schema: SchemaDefinition,
@@ -124,7 +117,7 @@ export class GraphqlFieldTypeCompiler {
 		const existing = this.#models.get(schema)
 		if (existing !== undefined) return existing
 		const model = new GraphQLObjectType({
-			name: this.#surface(schema).typeName,
+			name: this.#compiled.surface(schema).typeName,
 			fields: () => this.#outputFields(schema, schema.definition.fields, []),
 		})
 		this.#models.set(schema, model)
@@ -155,7 +148,7 @@ export class GraphqlFieldTypeCompiler {
 						virtual.output,
 						schema,
 						path,
-						this.#surface(schema).typeName,
+						this.#compiled.surface(schema).typeName,
 					),
 				}
 				continue
@@ -167,7 +160,9 @@ export class GraphqlFieldTypeCompiler {
 			}
 			const codec = readGraphqlPluginFieldCodec(stored, schema, path)
 			const target =
-				stored.kind === 'relation' ? this.#target(schema, path) : undefined
+				stored.kind === 'relation'
+					? this.#compiled.target(schema, path)
+					: undefined
 			compiled[name] = {
 				description: readGraphqlFieldDescription(stored),
 				type: this.#outputType(stored, schema, path),
@@ -179,7 +174,7 @@ export class GraphqlFieldTypeCompiler {
 								schema,
 								name,
 								target,
-								this.#surface(target).typeName,
+								this.#compiled.surface(target).typeName,
 							),
 						}),
 				...(codec === undefined
@@ -219,9 +214,11 @@ export class GraphqlFieldTypeCompiler {
 			case 'object':
 				return this.#embeddedOutput(field, schema, path)
 			case 'pointer':
-				return this.model(this.#target(schema, path))
+				return this.model(this.#compiled.target(schema, path))
 			case 'relation':
-				return this.#connectionTypes.connection(this.#target(schema, path))
+				return this.#connectionTypes.connection(
+					this.#compiled.target(schema, path),
+				)
 			default:
 				readGraphqlPluginFieldCodec(field, schema, path)
 				return GraphqlJSON
@@ -293,7 +290,7 @@ export class GraphqlFieldTypeCompiler {
 			'typeName' in field.options ? field.options.typeName : undefined
 		return typeof explicit === 'string'
 			? explicit
-			: `${this.#surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+			: `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
 	}
 
 	#embeddedOutput(
@@ -334,16 +331,6 @@ export class GraphqlFieldTypeCompiler {
 		this.#embeddedInputs.set(pathKey, result)
 		this.#namedTypes.push(result)
 		return result
-	}
-
-	#target(schema: SchemaDefinition, path: readonly string[]): SchemaDefinition {
-		const target = this.#schemas.schemaTargets.get(schema, path)
-		if (target === undefined) {
-			throw new TypeError(
-				`Missing compiled target for ${schema.className}.${path.join('.')}`,
-			)
-		}
-		return target
 	}
 
 	createFields(

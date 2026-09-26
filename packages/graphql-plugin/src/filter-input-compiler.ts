@@ -21,6 +21,7 @@ import {
 } from 'graphql'
 
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
 import {
 	graphqlEqualityFieldKinds,
 	graphqlOrderedFieldKinds,
@@ -42,9 +43,8 @@ import {
 /** Generates schema-aware GraphQL filter and ordering input objects. */
 export class GraphqlFilterInputCompiler {
 	readonly #fieldTypes: GraphqlFieldTypeCompiler
+	readonly #compiled: GraphqlCompiledSchemaLookup
 	readonly #names: GraphqlNameRegistry
-	readonly #schemas: CompiledSchemaRegistry
-	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 	readonly #types: GraphQLNamedType[] = []
 	readonly #whereTypes = new Map<SchemaDefinition, GraphQLInputObjectType>()
 	readonly #fieldFilters = new Map<string, GraphQLInputObjectType>()
@@ -61,37 +61,22 @@ export class GraphqlFilterInputCompiler {
 		}>,
 	) {
 		this.#fieldTypes = options.fieldTypes
+		this.#compiled = new GraphqlCompiledSchemaLookup(
+			options.schemas,
+			options.surfaces,
+		)
 		this.#names = options.names
-		this.#schemas = options.schemas
-		this.#surfaces = options.surfaces
 		this.#shared = new GraphqlFilterSharedTypes(options.names)
 		this.#structural = new GraphqlStructuralFilterInputCompiler({
+			compiled: this.#compiled,
 			fieldTypes: options.fieldTypes,
 			names: options.names,
 			shared: this.#shared,
-			surfaces: options.surfaces,
 		})
 	}
 
 	get types(): readonly GraphQLNamedType[] {
 		return [...this.#types, ...this.#shared.types, ...this.#structural.types]
-	}
-
-	#surface(schema: SchemaDefinition): GraphqlSchemaSurface {
-		const surface = this.#surfaces.get(schema)
-		if (surface === undefined)
-			throw new TypeError('GraphQL schema surface is unavailable')
-		return surface
-	}
-
-	#target(schema: SchemaDefinition, path: readonly string[]): SchemaDefinition {
-		const target = this.#schemas.schemaTargets.get(schema, path)
-		if (target === undefined) {
-			throw new TypeError(
-				`Missing compiled target for ${schema.className}.${path.join('.')}`,
-			)
-		}
-		return target
 	}
 
 	#claim(
@@ -111,7 +96,7 @@ export class GraphqlFilterInputCompiler {
 	}
 
 	#pathName(schema: SchemaDefinition, path: readonly string[]): string {
-		return `${this.#surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+		return `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
 	}
 
 	#valueType(
@@ -181,7 +166,7 @@ export class GraphqlFilterInputCompiler {
 		const name = `${this.#pathName(schema, path)}CountWhere`
 		this.#claim(name, schema, path)
 		const range = this.#range(name, GraphQLInt, schema, path)
-		const target = this.#target(schema, path)
+		const target = this.#compiled.target(schema, path)
 		const result: GraphQLInputObjectType = new GraphQLInputObjectType({
 			name,
 			fields: () => ({
@@ -229,15 +214,15 @@ export class GraphqlFilterInputCompiler {
 	): GraphQLInputFieldConfigMap {
 		if (field.kind === 'pointer') {
 			const fields: GraphQLInputFieldConfigMap = {
-				is: { type: this.where(this.#target(schema, path)) },
-				isNot: { type: this.where(this.#target(schema, path)) },
+				is: { type: this.where(this.#compiled.target(schema, path)) },
+				isNot: { type: this.where(this.#compiled.target(schema, path)) },
 			}
 			this.#addEqualityOperators(fields, GraphQLID)
 			this.#addNullOperators(fields)
 			return fields
 		}
 		if (field.kind === 'relation') {
-			const targetWhere = this.where(this.#target(schema, path))
+			const targetWhere = this.where(this.#compiled.target(schema, path))
 			return {
 				count: { type: this.#relationCount(schema, path) },
 				every: { type: targetWhere },
@@ -304,7 +289,7 @@ export class GraphqlFilterInputCompiler {
 	where(schema: SchemaDefinition): GraphQLInputObjectType {
 		const existing = this.#whereTypes.get(schema)
 		if (existing !== undefined) return existing
-		const name = `${this.#surface(schema).typeName}Where`
+		const name = `${this.#compiled.surface(schema).typeName}Where`
 		this.#claim(name, schema)
 		const result: GraphQLInputObjectType = new GraphQLInputObjectType({
 			name,
@@ -335,7 +320,7 @@ export class GraphqlFilterInputCompiler {
 	order(schema: SchemaDefinition): GraphQLInputObjectType {
 		const existing = this.#orders.get(schema)
 		if (existing !== undefined) return existing
-		const typeName = this.#surface(schema).typeName
+		const typeName = this.#compiled.surface(schema).typeName
 		const enumName = `${typeName}OrderField`
 		this.#claim(enumName, schema)
 		const field = new GraphQLEnumType({

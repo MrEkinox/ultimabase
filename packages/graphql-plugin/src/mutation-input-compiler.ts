@@ -15,6 +15,7 @@ import {
 } from 'graphql'
 
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
 import {
 	readGraphqlFieldDescription,
 	readGraphqlFieldOwner,
@@ -31,9 +32,9 @@ type MutationInputMode = 'create' | 'update'
 /** Generates recursive singular inputs and separate flat bulk/upsert inputs. */
 export class GraphqlMutationInputCompiler {
 	readonly #fieldTypes: GraphqlFieldTypeCompiler
+	readonly #compiled: GraphqlCompiledSchemaLookup
 	readonly #names: GraphqlNameRegistry
 	readonly #schemas: CompiledSchemaRegistry
-	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 	readonly #creates = new Map<SchemaDefinition, GraphQLInputObjectType>()
 	readonly #flatCreates = new Map<SchemaDefinition, GraphQLInputObjectType>()
 	readonly #updates = new Map<SchemaDefinition, GraphQLInputObjectType>()
@@ -50,31 +51,16 @@ export class GraphqlMutationInputCompiler {
 		}>,
 	) {
 		this.#fieldTypes = options.fieldTypes
+		this.#compiled = new GraphqlCompiledSchemaLookup(
+			options.schemas,
+			options.surfaces,
+		)
 		this.#names = options.names
 		this.#schemas = options.schemas
-		this.#surfaces = options.surfaces
 	}
 
 	get types(): readonly GraphQLNamedType[] {
 		return this.#types
-	}
-
-	#surface(schema: SchemaDefinition): GraphqlSchemaSurface {
-		const surface = this.#surfaces.get(schema)
-		if (surface === undefined) {
-			throw new TypeError('GraphQL schema surface is unavailable')
-		}
-		return surface
-	}
-
-	#target(schema: SchemaDefinition, fieldName: string): SchemaDefinition {
-		const target = this.#schemas.schemaTargets.get(schema, [fieldName])
-		if (target === undefined) {
-			throw new TypeError(
-				`Missing compiled target for ${schema.className}.${fieldName}`,
-			)
-		}
-		return target
 	}
 
 	#canDisconnectRelation(schema: SchemaDefinition, fieldName: string): boolean {
@@ -123,7 +109,7 @@ export class GraphqlMutationInputCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const name = `${this.#surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}Update`
+		const name = `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}Update`
 		return this.#nestedInput(
 			`${schema.className}\0${path.join('\0')}\0value-update`,
 			name,
@@ -152,7 +138,7 @@ export class GraphqlMutationInputCompiler {
 		fieldName: string,
 		target: SchemaDefinition,
 	): GraphQLInputObjectType | undefined {
-		if (this.#surface(target).owner.kind !== 'application') return undefined
+		if (this.#compiled.surface(target).owner.kind !== 'application') return undefined
 		const mappedBy = this.#schemas.schemaTargets.getRelation(source, [
 			fieldName,
 		])?.mappedBy
@@ -166,7 +152,7 @@ export class GraphqlMutationInputCompiler {
 		)
 		if (!eligible) return undefined
 		const path = [fieldName]
-		const name = `${this.#surface(source).typeName}${graphqlFieldTypeSegment(fieldName)}NestedCreateTargetInput`
+		const name = `${this.#compiled.surface(source).typeName}${graphqlFieldTypeSegment(fieldName)}NestedCreateTargetInput`
 		return this.#nestedInput(
 			`${source.className}\0${fieldName}\0relation-create-target`,
 			name,
@@ -182,9 +168,9 @@ export class GraphqlMutationInputCompiler {
 		mode: MutationInputMode,
 		field: GenericField,
 	): GraphQLInputObjectType {
-		const target = this.#target(schema, fieldName)
+		const target = this.#compiled.target(schema, [fieldName])
 		const path = [fieldName]
-		const name = `${this.#surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}Nested${mode === 'create' ? 'Create' : 'Update'}Input`
+		const name = `${this.#compiled.surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}Nested${mode === 'create' ? 'Create' : 'Update'}Input`
 		return this.#nestedInput(
 			`${schema.className}\0${fieldName}\0pointer-${mode}`,
 			name,
@@ -192,12 +178,12 @@ export class GraphqlMutationInputCompiler {
 			path,
 			() => {
 				const create =
-					this.#surface(target).owner.kind === 'application'
+					this.#compiled.surface(target).owner.kind === 'application'
 						? this.createInput(target)
 						: undefined
 				const update =
 					mode === 'update' &&
-					this.#surface(target).owner.kind === 'application'
+					this.#compiled.surface(target).owner.kind === 'application'
 						? this.updateInput(target)
 						: undefined
 				return {
@@ -217,9 +203,9 @@ export class GraphqlMutationInputCompiler {
 		fieldName: string,
 		mode: MutationInputMode,
 	): GraphQLInputObjectType {
-		const target = this.#target(schema, fieldName)
+		const target = this.#compiled.target(schema, [fieldName])
 		const path = [fieldName]
-		const name = `${this.#surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}Nested${mode === 'create' ? 'Create' : 'Update'}Input`
+		const name = `${this.#compiled.surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}Nested${mode === 'create' ? 'Create' : 'Update'}Input`
 		return this.#nestedInput(
 			`${schema.className}\0${fieldName}\0relation-${mode}`,
 			name,
@@ -229,7 +215,7 @@ export class GraphqlMutationInputCompiler {
 				const create = this.#targetCreateInput(schema, fieldName, target)
 				const update =
 					mode === 'update' &&
-					this.#surface(target).owner.kind === 'application'
+					this.#compiled.surface(target).owner.kind === 'application'
 						? this.updateInput(target)
 						: undefined
 				const ids = new GraphQLList(new GraphQLNonNull(GraphQLID))
@@ -238,7 +224,7 @@ export class GraphqlMutationInputCompiler {
 						? undefined
 						: this.#nestedInput(
 								`${schema.className}\0${fieldName}\0relation-update-item`,
-								`${this.#surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}NestedUpdateItemInput`,
+								`${this.#compiled.surface(schema).typeName}${graphqlFieldTypeSegment(fieldName)}NestedUpdateItemInput`,
 								schema,
 								path,
 								() => ({
@@ -338,7 +324,7 @@ export class GraphqlMutationInputCompiler {
 				(!flat || (field.kind !== 'pointer' && field.kind !== 'relation')),
 		)
 		if (!eligible) return undefined
-		const name = `${this.#surface(schema).typeName}${flat ? 'Flat' : ''}CreateInput`
+		const name = `${this.#compiled.surface(schema).typeName}${flat ? 'Flat' : ''}CreateInput`
 		const input = this.#input(name, schema, undefined, () =>
 			this.#fields(schema, 'create', relationships),
 		)
@@ -360,7 +346,7 @@ export class GraphqlMutationInputCompiler {
 				(!flat || (field.kind !== 'pointer' && field.kind !== 'relation')),
 		)
 		if (!mutable) return undefined
-		const name = `${this.#surface(schema).typeName}${flat ? 'Flat' : ''}UpdateInput`
+		const name = `${this.#compiled.surface(schema).typeName}${flat ? 'Flat' : ''}UpdateInput`
 		const input = this.#input(name, schema, undefined, () =>
 			this.#fields(schema, 'update', relationships),
 		)

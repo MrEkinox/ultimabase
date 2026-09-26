@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 42
 - Baseline: `e0d0b4d1`
-- Current issue: 4203
+- Current issue: 4204
 
 The user authorized another repository-wide debt and DX reduction sequence on
 2026-09-26 while retaining every functional capability. This milestone targets
@@ -20,5 +20,9 @@ provider-planning order.
 Issue 4202 made update application and Runtime field traversal share the
 canonical normalized-expression reader with 5 fewer handwritten production
 lines while preserving their distinct errors and operation semantics.
+
+Issue 4203 made five GraphQL compilers share one compiled-schema lookup with 19
+fewer handwritten production lines and no change to generated names, ownership,
+or missing-graph diagnostics.
 
 No push is authorized.

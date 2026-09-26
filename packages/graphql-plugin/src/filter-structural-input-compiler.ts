@@ -16,37 +16,35 @@ import {
 } from 'graphql'
 
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
+import type { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
 import type { GraphqlFilterSharedTypes } from './filter-shared-types.js'
 import { graphqlFieldTypeSegment } from './names.js'
 import type { GraphqlNameRegistry } from './names.js'
 import { GraphqlJSON } from './scalars.js'
-import {
-	graphqlSourceDescription,
-	type GraphqlSchemaSurface,
-} from './surfaces.js'
+import { graphqlSourceDescription } from './surfaces.js'
 
 /** Compiles recursive JSON paths and embedded-object partial inputs. */
 export class GraphqlStructuralFilterInputCompiler {
+	readonly #compiled: GraphqlCompiledSchemaLookup
 	readonly #fieldTypes: GraphqlFieldTypeCompiler
 	readonly #names: GraphqlNameRegistry
 	readonly #shared: GraphqlFilterSharedTypes
-	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 	readonly #pathFilters = new Map<string, GraphQLInputObjectType>()
 	readonly #partialObjects = new Map<string, GraphQLInputObjectType>()
 	readonly #types: GraphQLNamedType[] = []
 
 	constructor(
 		options: Readonly<{
+			readonly compiled: GraphqlCompiledSchemaLookup
 			readonly fieldTypes: GraphqlFieldTypeCompiler
 			readonly names: GraphqlNameRegistry
 			readonly shared: GraphqlFilterSharedTypes
-			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 		}>,
 	) {
+		this.#compiled = options.compiled
 		this.#fieldTypes = options.fieldTypes
 		this.#names = options.names
 		this.#shared = options.shared
-		this.#surfaces = options.surfaces
 	}
 
 	get types(): readonly GraphQLNamedType[] {
@@ -54,10 +52,7 @@ export class GraphqlStructuralFilterInputCompiler {
 	}
 
 	#pathName(schema: SchemaDefinition, path: readonly string[]): string {
-		const surface = this.#surfaces.get(schema)
-		if (surface === undefined)
-			throw new TypeError('GraphQL schema surface is unavailable')
-		return `${surface.typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+		return `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
 	}
 
 	#claim(

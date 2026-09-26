@@ -1,6 +1,6 @@
 # 4204: Complete parity and reduction audit
 
-- Status: planned
+- Status: in progress
 - Milestone: 42
 - Packages: repository
 - Depends on: 4201, 4202, 4203

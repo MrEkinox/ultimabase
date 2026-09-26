@@ -9,16 +9,14 @@ import {
 } from 'graphql'
 
 import type { GraphqlNameRegistry } from './names.js'
-import {
-	graphqlSourceDescription,
-	type GraphqlSchemaSurface,
-} from './surfaces.js'
+import type { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
+import { graphqlSourceDescription } from './surfaces.js'
 
 /** Builds inert Relay-shaped types while issue 611 remains cursor behavior owner. */
 export class GraphqlConnectionTypeCompiler {
+	readonly #compiled: GraphqlCompiledSchemaLookup
 	readonly #model: (schema: SchemaDefinition) => GraphQLObjectType
 	readonly #names: GraphqlNameRegistry
-	readonly #surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 	readonly #connections = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #edges = new Map<SchemaDefinition, GraphQLObjectType>()
 	readonly #types: GraphQLNamedType[] = []
@@ -26,26 +24,18 @@ export class GraphqlConnectionTypeCompiler {
 
 	constructor(
 		options: Readonly<{
+			readonly compiled: GraphqlCompiledSchemaLookup
 			readonly model: (schema: SchemaDefinition) => GraphQLObjectType
 			readonly names: GraphqlNameRegistry
-			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
 		}>,
 	) {
+		this.#compiled = options.compiled
 		this.#model = options.model
 		this.#names = options.names
-		this.#surfaces = options.surfaces
 	}
 
 	get types(): readonly GraphQLNamedType[] {
 		return this.#types
-	}
-
-	#surface(schema: SchemaDefinition): GraphqlSchemaSurface {
-		const surface = this.#surfaces.get(schema)
-		if (surface === undefined) {
-			throw new TypeError('GraphQL schema surface is unavailable')
-		}
-		return surface
 	}
 
 	#claim(name: string, schema: SchemaDefinition): void {
@@ -76,7 +66,7 @@ export class GraphqlConnectionTypeCompiler {
 	#edge(schema: SchemaDefinition): GraphQLObjectType {
 		const existing = this.#edges.get(schema)
 		if (existing !== undefined) return existing
-		const name = `${this.#surface(schema).typeName}Edge`
+		const name = `${this.#compiled.surface(schema).typeName}Edge`
 		this.#claim(name, schema)
 		const edge = new GraphQLObjectType({
 			name,
@@ -93,7 +83,7 @@ export class GraphqlConnectionTypeCompiler {
 	connection(schema: SchemaDefinition): GraphQLObjectType {
 		const existing = this.#connections.get(schema)
 		if (existing !== undefined) return existing
-		const name = `${this.#surface(schema).typeName}Connection`
+		const name = `${this.#compiled.surface(schema).typeName}Connection`
 		this.#claim(name, schema)
 		const connection = new GraphQLObjectType({
 			name,
