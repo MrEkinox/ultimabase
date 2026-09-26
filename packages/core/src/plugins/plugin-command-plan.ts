@@ -1,6 +1,5 @@
 import {
 	immutableRecord,
-	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
@@ -11,6 +10,7 @@ import type {
 } from '../runtime/plugin-operations/contracts.js'
 import type { PluginSchemaMutationHandler } from '../runtime/schema-mutations/contracts.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
 import type {
 	PluginOperationHandlerResource,
@@ -90,14 +90,12 @@ const assertCommandResource: <TKey extends 'execute' | 'resolve'>(
 	handlerKey: TKey,
 	label: string,
 ) => asserts value is CommandResource<TKey> = (value, handlerKey, label) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${label} resource must be a plain object`)
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (key !== 'dispose' && key !== handlerKey) {
-			throw new TypeError(`Unknown ${label} resource option: ${String(key)}`)
-		}
-	}
+	assertExactPlainObject(
+		value,
+		new Set(['dispose', handlerKey]),
+		`${label} resource must be a plain object`,
+		`Unknown ${label} resource option: `,
+	)
 	if (typeof value[handlerKey] !== 'function') {
 		throw new TypeError(`${label} resource ${handlerKey} must be a function`)
 	}

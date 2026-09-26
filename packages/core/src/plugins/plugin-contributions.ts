@@ -8,6 +8,7 @@ import {
 
 import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
 import type { PluginFieldFamilyRegistrar } from '../schema/schema/field-builder-methods.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import type {
 	PluginModelSurfaceRegistrar,
 	PluginOperationDeclarationRegistrar,
@@ -140,18 +141,12 @@ export const contributeDeclarations = <
 >(
 	options: PluginDeclarationContributionOptions<TRequirements>,
 ): PluginDeclarationContribution<TRequirements> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'plugin declaration contribution must be a plain object',
-		)
-	}
-	for (const key of Reflect.ownKeys(options)) {
-		if (typeof key !== 'string' || !declarationOptionKeys.has(key)) {
-			throw new TypeError(
-				`Unknown plugin declaration contribution option: ${String(key)}`,
-			)
-		}
-	}
+	assertExactPlainObject(
+		options,
+		declarationOptionKeys,
+		'plugin declaration contribution must be a plain object',
+		'Unknown plugin declaration contribution option: ',
+	)
 
 	const untrustedRequirements: unknown = options.requires ?? []
 	if (!isUnknownArray(untrustedRequirements)) {
@@ -353,16 +348,12 @@ export const getPluginApplicationFactory = (
 export const normalizePluginApplicationResource = (
 	value: unknown,
 ): PluginApplicationResource<unknown> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('plugin application resource must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !applicationResourceKeys.has(key)) {
-			throw new TypeError(
-				`Unknown plugin application resource option: ${String(key)}`,
-			)
-		}
-	}
+	assertExactPlainObject(
+		value,
+		applicationResourceKeys,
+		'plugin application resource must be a plain object',
+		'Unknown plugin application resource option: ',
+	)
 	for (const phase of pluginApplicationLifecyclePhases) {
 		const callback = value[phase]
 		if (callback !== undefined && typeof callback !== 'function') {

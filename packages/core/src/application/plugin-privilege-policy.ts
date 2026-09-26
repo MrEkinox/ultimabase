@@ -5,6 +5,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../exact-object-validation.js'
 import type { PluginDefinition } from '../plugins/definition.js'
 import type { PluginGraph } from '../plugins/graph.js'
 import {
@@ -147,18 +148,6 @@ const policyScopeKeys = new Set(['deny', 'denyClaims'])
 const pluginPolicyKeys = new Set(['deny', 'denyClaims', 'instances'])
 const rootPolicyKeys = new Set(['deny', 'denyClaims', 'logger', 'plugins'])
 
-const assertKnownKeys = (
-	value: Readonly<Record<PropertyKey, unknown>>,
-	keys: ReadonlySet<string>,
-	path: string,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !keys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
-}
-
 const normalizeDeniedValues = <TValue extends string>(
 	values: unknown,
 	accepted: ReadonlySet<TValue>,
@@ -204,7 +193,11 @@ const normalizeScope = (
 		throw new TypeError(`${path} must be a plain object`)
 	}
 
-	assertKnownKeys(value, acceptedKeys, path)
+	assertExactObjectKeys(
+		value,
+		acceptedKeys,
+		`${path} contains unknown option: `,
+	)
 
 	return {
 		deny: normalizeDeniedValues(value.deny, privileges, `${path}.deny`),
@@ -226,7 +219,11 @@ const normalizeLogger = (value: unknown): PluginPrivilegeLogger | false => {
 		)
 	}
 
-	assertKnownKeys(value, new Set(['error', 'info']), 'pluginPrivileges.logger')
+	assertExactObjectKeys(
+		value,
+		new Set(['error', 'info']),
+		'pluginPrivileges.logger contains unknown option: ',
+	)
 	if (typeof value.info !== 'function') {
 		throw new TypeError('pluginPrivileges.logger.info must be a function')
 	}

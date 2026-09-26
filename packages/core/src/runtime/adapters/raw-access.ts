@@ -1,9 +1,6 @@
-import {
-	immutableRecord,
-	isPlainRecord,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
+import { assertExactPlainObject } from '../../exact-object-validation.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import {
 	defineCapability,
@@ -100,16 +97,12 @@ const rawAdapterValues = new WeakSet<object>()
 const assertProvider: (
 	value: unknown,
 ) => asserts value is AdapterRawProvider<object> = (value) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('raw adapter provider must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (key !== 'setup' && key !== 'transaction') {
-			throw new TypeError(
-				`raw adapter provider contains unknown option: ${String(key)}`,
-			)
-		}
-	}
+	assertExactPlainObject(
+		value,
+		new Set(['setup', 'transaction']),
+		'raw adapter provider must be a plain object',
+		'raw adapter provider contains unknown option: ',
+	)
 	if (value.setup !== undefined && typeof value.setup !== 'function') {
 		throw new TypeError('raw adapter provider setup must be a function')
 	}

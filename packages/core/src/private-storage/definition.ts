@@ -6,6 +6,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../exact-object-validation.js'
 import { assertFieldDefinition } from '../schema/fields/base/definition.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import {
@@ -43,18 +44,6 @@ const forbiddenFieldOptions = new Set([
 	'postgres',
 	'system',
 ])
-
-const assertExactKeys = (
-	value: Readonly<Record<string, unknown>>,
-	allowed: ReadonlySet<string>,
-	path: string,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !allowed.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
-}
 
 const assertPortableField = (field: GenericField, path: string): void => {
 	assertFieldDefinition(field, path)
@@ -106,7 +95,11 @@ const normalizeIndexes = <
 			const path = `private collection indexes[${String(index)}]`
 			if (!isPlainRecord(candidate))
 				throw new TypeError(`${path} must be a plain object`)
-			assertExactKeys(candidate, new Set(['fields']), path)
+			assertExactObjectKeys(
+				candidate,
+				new Set(['fields']),
+				`${path} contains unknown option: `,
+			)
 			if (!isUnknownArray(candidate.fields) || candidate.fields.length === 0) {
 				throw new TypeError(`${path}.fields must be a non-empty array`)
 			}
@@ -148,7 +141,11 @@ const normalizeReferences = <
 			const path = `private collection references[${String(index)}]`
 			if (!isPlainRecord(candidate))
 				throw new TypeError(`${path} must be a plain object`)
-			assertExactKeys(candidate, new Set(['field', 'onDelete', 'target']), path)
+			assertExactObjectKeys(
+				candidate,
+				new Set(['field', 'onDelete', 'target']),
+				`${path} contains unknown option: `,
+			)
 			assertNonEmptyString(candidate.field, `${path}.field`)
 			const field = fields[candidate.field]
 			if (
@@ -191,7 +188,7 @@ export const definePrivateCollection = <
 	if (!isPlainRecord(options)) {
 		throw new TypeError('private collection options must be a plain object')
 	}
-	assertExactKeys(
+	assertExactObjectKeys(
 		options,
 		new Set([
 			'contributionId',
@@ -201,7 +198,7 @@ export const definePrivateCollection = <
 			'protocolVersion',
 			'references',
 		]),
-		'private collection options',
+		'private collection options contains unknown option: ',
 	)
 	assertNonEmptyString(
 		options.contributionId,

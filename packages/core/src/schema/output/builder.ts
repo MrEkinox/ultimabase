@@ -4,6 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../../exact-object-validation.js'
+
 import type { GenericField } from '../fields/base/contract.js'
 import type {
 	FieldBuilderMethodContextDefinition,
@@ -163,13 +165,11 @@ const normalizeOutputOptions = (
 		...commonOptionNames,
 		...specificOptionNames,
 	])
-	for (const key of Reflect.ownKeys(options)) {
-		if (typeof key !== 'string' || !allowed.has(key)) {
-			throw new TypeError(
-				`${path} does not support output option ${String(key)}`,
-			)
-		}
-	}
+	assertExactObjectKeys(
+		options,
+		allowed,
+		`${path} does not support output option `,
+	)
 
 	const nullable: unknown = Reflect.get(options, 'nullable')
 	if (nullable !== undefined && typeof nullable !== 'boolean') {

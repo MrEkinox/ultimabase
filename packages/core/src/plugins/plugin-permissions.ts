@@ -5,6 +5,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../exact-object-validation.js'
 import {
 	assertOptionalCapabilityRequirement,
 	type CapabilityRequirement,
@@ -68,13 +69,11 @@ export const normalizePluginPermissionRequests = (
 					`plugin permissions.${name} must be a reason or conditional reason`,
 				)
 			}
-			for (const key of Reflect.ownKeys(configured)) {
-				if (key !== 'reason' && key !== 'when') {
-					throw new TypeError(
-						`Unknown plugin permissions.${name} option: ${String(key)}`,
-					)
-				}
-			}
+			assertExactObjectKeys(
+				configured,
+				new Set(['reason', 'when']),
+				`Unknown plugin permissions.${name} option: `,
+			)
 			assertNonEmptyString(
 				configured.reason,
 				`plugin permissions.${name}.reason`,

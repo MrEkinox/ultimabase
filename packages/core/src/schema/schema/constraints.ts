@@ -4,6 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../../exact-object-validation.js'
 import { snapshotJsonValue, type JsonValue } from '../fields/builtins/json.js'
 
 /** Describes one adapter-neutral versioned logical schema constraint. */
@@ -35,12 +36,11 @@ export const defineSchemaConstraint = <
 		throw new TypeError('Schema constraint must be a plain object')
 	}
 
-	const unknownKey = Reflect.ownKeys(definition).find(
-		(key) => key !== 'kind' && key !== 'value' && key !== 'version',
+	assertExactObjectKeys(
+		definition,
+		new Set(['kind', 'value', 'version']),
+		'Unknown schema constraint key: ',
 	)
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown schema constraint key: ${String(unknownKey)}`)
-	}
 
 	assertNonEmptyString(definition.kind, 'Schema constraint kind')
 	if (!constraintKindPattern.test(definition.kind)) {

@@ -3,9 +3,10 @@ import type { CompiledCommandGraph } from './command-graph.js'
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
+
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
@@ -89,18 +90,12 @@ const assertApplicationResource: (
 	value,
 	capabilityId,
 ) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(
-			`Application capability "${capabilityId}" factory must return a plain resource object`,
-		)
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (key !== 'value' && key !== 'dispose') {
-			throw new TypeError(
-				`Application capability "${capabilityId}" resource contains unknown option: ${String(key)}`,
-			)
-		}
-	}
+	assertExactPlainObject(
+		value,
+		new Set(['dispose', 'value']),
+		`Application capability "${capabilityId}" factory must return a plain resource object`,
+		`Application capability "${capabilityId}" resource contains unknown option: `,
+	)
 	if (!Object.hasOwn(value, 'value')) {
 		throw new TypeError(
 			`Application capability "${capabilityId}" resource must contain value`,

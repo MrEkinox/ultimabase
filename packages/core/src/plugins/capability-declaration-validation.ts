@@ -1,5 +1,7 @@
 import { assertNonEmptyString } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../exact-object-validation.js'
+
 /** Validates one contribution identity shared by every declaration kind. */
 export const assertCapabilityContributionId: (
 	value: unknown,
@@ -14,9 +16,5 @@ export const assertCapabilityOptions = (
 	keys: ReadonlySet<string>,
 	path: string,
 ): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !keys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
+	assertExactObjectKeys(value, keys, `${path} contains unknown option: `)
 }

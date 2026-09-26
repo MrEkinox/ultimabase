@@ -9,6 +9,7 @@ import { isOperationTransportBinding } from '../runtime/plugin-operations/capabi
 import type { OperationTransportBindingDefinition } from '../runtime/plugin-operations/contracts.js'
 import { isSchemaMutationTransportBinding } from '../runtime/schema-mutations/transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import type {
 	PluginOperationAuthoringContribution,
 	PluginOperationBindingContribution,
@@ -69,14 +70,12 @@ const assertContributionOptions: (
 	keys,
 	label,
 ) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${label} must be a plain object`)
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !keys.has(key)) {
-			throw new TypeError(`Unknown ${label} option: ${String(key)}`)
-		}
-	}
+	assertExactPlainObject(
+		value,
+		keys,
+		`${label} must be a plain object`,
+		`Unknown ${label} option: `,
+	)
 }
 
 const assertExclusiveImplementation = (

@@ -1,5 +1,4 @@
-import { isPlainRecord } from '@ultimabase/shared'
-
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import {
 	createPluginDefinition,
 	type FrameworkPlugin,
@@ -194,14 +193,12 @@ export const plugin = <
 	readonly privileges: PermissionRequests<TPermissions>
 	readonly capabilities: ContributionCapabilityOptions<TContributions>
 }> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('plugin options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(options)) {
-		if (typeof key !== 'string' || !pluginOptionKeys.has(key)) {
-			throw new TypeError(`Unknown plugin option: ${String(key)}`)
-		}
-	}
+	assertExactPlainObject(
+		options,
+		pluginOptionKeys,
+		'plugin options must be a plain object',
+		'Unknown plugin option: ',
+	)
 
 	const compiled = compilePluginContributions(options.contributions)
 	const capabilities = normalizeCapabilityDeclarations(compiled.capabilities)

@@ -4,6 +4,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../../exact-object-validation.js'
 import type {
 	PluginSchemaContributionOwner,
 	SchemaCompilationProvenance,
@@ -32,12 +33,7 @@ const assertExactKeys = (
 	keys: ReadonlySet<string>,
 	path: string,
 ): void => {
-	const unknownKey = Reflect.ownKeys(value).find(
-		(key) => typeof key !== 'string' || !keys.has(key),
-	)
-	if (unknownKey !== undefined) {
-		throw new TypeError(`${path} contains unknown key: ${String(unknownKey)}`)
-	}
+	assertExactObjectKeys(value, keys, `${path} contains unknown key: `)
 }
 
 const ownerIdentity = (owner: SchemaContributionOwner): string =>

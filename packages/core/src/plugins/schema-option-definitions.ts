@@ -4,6 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactObjectKeys } from '../exact-object-validation.js'
+
 import type {
 	CapabilityConsumerValue,
 	CapabilityRequirement,
@@ -135,20 +137,6 @@ const isSchemaOptionRuntimeCompile = (
 	value: unknown,
 ): value is (context: unknown) => unknown => typeof value === 'function'
 
-export const assertKnownKeys = (
-	value: Readonly<Record<string, unknown>>,
-	keys: ReadonlySet<string>,
-	path: string,
-): void => {
-	const unknownKey = Reflect.ownKeys(value).find(
-		(key) => typeof key !== 'string' || !keys.has(key),
-	)
-
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown ${path} key: ${String(unknownKey)}`)
-	}
-}
-
 const normalizeTypegenDescriptor = (
 	value: unknown,
 ): SchemaOptionTypegenDescriptor | false => {
@@ -158,7 +146,11 @@ const normalizeTypegenDescriptor = (
 		throw new TypeError('Schema option typegen must be false or a plain object')
 	}
 
-	assertKnownKeys(value, optionTypegenKeys, 'schema option typegen')
+	assertExactObjectKeys(
+		value,
+		optionTypegenKeys,
+		'Unknown schema option typegen key: ',
+	)
 	assertNonEmptyString(value.module, 'Schema option typegen.module')
 	assertNonEmptyString(value.type, 'Schema option typegen.type')
 
@@ -216,10 +208,10 @@ const normalizeOptionDefinition = <
 		throw new TypeError('Schema option definition must be a plain object')
 	}
 
-	assertKnownKeys(
+	assertExactObjectKeys(
 		definition,
 		field ? fieldOptionDefinitionKeys : optionDefinitionKeys,
-		field ? 'field option definition' : 'schema option definition',
+		`Unknown ${field ? 'field option definition' : 'schema option definition'} key: `,
 	)
 
 	if (
@@ -250,7 +242,11 @@ const normalizeOptionDefinition = <
 		if (!isPlainRecord(runtime)) {
 			throw new TypeError('Schema option runtime must be a plain object')
 		}
-		assertKnownKeys(runtime, optionRuntimeKeys, 'schema option runtime')
+		assertExactObjectKeys(
+			runtime,
+			optionRuntimeKeys,
+			'Unknown schema option runtime key: ',
+		)
 		const untrustedCompile: unknown = runtime.compile
 		if (!isSchemaOptionRuntimeCompile(untrustedCompile)) {
 			throw new TypeError('Schema option runtime.compile must be a function')
