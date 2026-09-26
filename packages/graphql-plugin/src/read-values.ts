@@ -1,7 +1,7 @@
 import {
 	getFieldListDepth,
-	getFieldSchemaTarget,
 	getPluginFieldWireCodec,
+	transformQueryFilterInput,
 	type GenericField,
 	type PluginFieldWireCodec,
 	type SchemaDefinition,
@@ -151,106 +151,14 @@ const decodeOperator = (
 	return decodeElement(field, value, fromJson)
 }
 
-const resolvePathField = (
-	field: GenericField,
-	path: readonly unknown[],
-): GenericField | undefined => {
-	let current: GenericField | undefined = field
-	for (const segment of path) {
-		if (typeof segment !== 'string' || current?.kind !== 'object') {
-			return undefined
-		}
-		current = readGraphqlObjectFields(current)[segment]
-	}
-	return current
-}
-
-const decodeAt = (field: GenericField, value: unknown): unknown => {
-	if (!isUnknownArray(value)) return value
-	return immutableArray(
-		value.map((entry) => {
-			if (!isPlainRecord(entry) || !isUnknownArray(entry.path)) return entry
-			const target = resolvePathField(field, entry.path)
-			if (target === undefined) return entry
-			return immutableRecord(
-				Object.fromEntries(
-					Object.entries(entry).map(([operator, operand]) => [
-						operator,
-						operator === 'path'
-							? operand
-							: decodeOperator(target, operator, operand, true),
-					]),
-				),
-			)
-		}),
-	)
-}
-
-const decodeRelationship = (
-	field: GenericField,
-	operator: string,
-	value: unknown,
-): unknown => {
-	const target = getFieldSchemaTarget(field)?.()
-	if (target === undefined) return value
-	if (
-		operator === 'some' ||
-		operator === 'none' ||
-		operator === 'every' ||
-		operator === 'is' ||
-		operator === 'isNot'
-	) {
-		return decodeGraphqlWhere(target, value)
-	}
-	if (operator === 'count' && isPlainRecord(value)) {
-		return immutableRecord({
-			...value,
-			...(Object.hasOwn(value, 'where')
-				? { where: decodeGraphqlWhere(target, value.where) }
-				: {}),
-		})
-	}
-	return value
-}
-
 /** Decodes GraphQL wire values while leaving all validation to Core. */
 export const decodeGraphqlWhere = (
 	schema: SchemaDefinition,
 	value: unknown,
-): unknown => {
-	if (!isPlainRecord(value)) return value
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				if (name === 'AND' || name === 'OR') {
-					return [
-						name,
-						isUnknownArray(item)
-							? immutableArray(
-									item.map((entry) => decodeGraphqlWhere(schema, entry)),
-								)
-							: item,
-					]
-				}
-				if (name === 'NOT') return [name, decodeGraphqlWhere(schema, item)]
-				const field = schema.persistedFields[name]
-				if (field === undefined || !isPlainRecord(item)) return [name, item]
-				return [
-					name,
-					immutableRecord(
-						Object.fromEntries(
-							Object.entries(item).map(([operator, operand]) => [
-								operator,
-								field.kind === 'pointer' || field.kind === 'relation'
-									? decodeRelationship(field, operator, operand)
-									: operator === 'at'
-										? decodeAt(field, operand)
-										: decodeOperator(field, operator, operand, false),
-							]),
-						),
-					),
-				]
-			}),
-		),
+): unknown =>
+	transformQueryFilterInput(
+		schema,
+		value,
+		({ field, operator, source, value }) =>
+			decodeOperator(field, operator, value, source === 'structured-path'),
 	)
-}

@@ -203,19 +203,3 @@ export const decodeRestListElement = (
 		'identity',
 	)
 }
-
-/** Resolves one embedded child while preserving the caller's error boundary. */
-export const resolveRestObjectPathField = (
-	field: GenericField,
-	path: readonly unknown[],
-	invalid: InvalidRestValue,
-): GenericField | undefined => {
-	let current: GenericField | undefined = field
-	for (const segment of path) {
-		if (typeof segment !== 'string' || current?.kind !== 'object') {
-			return undefined
-		}
-		current = readRestObjectFields(current, invalid)[segment]
-	}
-	return current
-}

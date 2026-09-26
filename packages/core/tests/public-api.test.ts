@@ -236,6 +236,7 @@ describe('@ultimabase/core public entry point', () => {
 			'stringField',
 			'timeField',
 			'transformOperationFieldInputs',
+			'transformQueryFilterInput',
 			'traverseQueryExpression',
 			'unset',
 			'uuidField',

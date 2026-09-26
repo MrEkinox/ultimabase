@@ -24,6 +24,7 @@ sources:
   - packages/core/src/plugins/plugin-command-contribution-contracts.ts
   - packages/core/src/plugins/plugin-command-contributions.ts
   - packages/core/src/plugins/plugin-command-plan.ts
+  - packages/core/src/query/filters/input-transformation.ts
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
 ---
@@ -145,6 +146,34 @@ For transport authors, the Core planner and late execution facade share the
 same frozen descriptors from the compiled command. Keep those descriptors when
 binding execution; a reconstructed object does not identify an exposed mutation.
 The plan contains no codec or handler and cannot authorize a request.
+
+### Decode a Core-shaped filter without rebuilding its traversal
+
+If a transport exposes Core's `where` shape but uses different wire values, use
+`transformQueryFilterInput()` before canonical read normalization:
+
+```ts
+import {
+	normalizeReadOperation,
+	transformQueryFilterInput,
+} from '@ultimabase/core'
+
+const where = transformQueryFilterInput(
+	schema,
+	wireWhere,
+	({ field, operator, source, value }) =>
+		decodeTransportOperand({ field, operator, source, value }),
+)
+
+const operation = normalizeReadOperation(schema, 'find-many', { where })
+```
+
+Core traverses `AND`, `OR`, `NOT`, relationship predicates, filtered relation
+counts, and structured `at` paths. The callback receives only the terminal
+field operand, so the transport keeps its scalar codecs and error contract in
+one place. The helper transforms values; it does not validate operators or
+authorize execution. Always pass its result through the ordinary Core
+normalizer and application request executor.
 
 ## Expose behavior through GraphQL
 

@@ -46,6 +46,12 @@ export type {
 } from './clauses/inclusion.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
 export { traverseQueryExpression } from './filters/traversal.js'
+export { transformQueryFilterInput } from './filters/input-transformation.js'
+export type {
+	QueryFilterOperandInput,
+	QueryFilterOperandSource,
+	QueryFilterOperandTransformer,
+} from './filters/input-transformation.js'
 export { fieldPath } from './filters/factory.js'
 export type {
 	QueryAndFilterNode,

@@ -727,6 +727,16 @@ direct Query. It preserves the bound context, cancellation, policy, inclusion,
 materialization, and strict-target behavior without exposing a request engine,
 application, adapter, or transaction facade.
 
+A transport whose filter syntax mirrors Core can call
+`transformQueryFilterInput(schema, wireWhere, transformOperand)` before
+`normalizeReadOperation()`. Core recursively visits logical groups,
+relationship predicates, filtered relation counts, and structured object paths;
+the callback receives only the terminal field, operator, source, and raw value.
+The transport therefore owns one scalar/list decoder and its own malformed-wire
+errors instead of duplicating the recursive filter walker. This helper does not
+validate operators or produce an AST: canonical Query normalization remains the
+mandatory next boundary.
+
 `executeMutation(context, schema, request)` accepts only the closed set of
 schema create, update, delete, upsert, and homogeneous bulk commands. It
 delegates to the same schema-command normalizers as direct class calls. The

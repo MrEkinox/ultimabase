@@ -1,5 +1,6 @@
 import {
 	getFieldSchemaTarget,
+	transformQueryFilterInput,
 	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -11,11 +12,7 @@ import {
 } from '@ultimabase/shared'
 
 import { invalidRestRead } from './errors.js'
-import {
-	decodeRestFieldValue,
-	decodeRestListElement,
-	resolveRestObjectPathField,
-} from './field-values.js'
+import { decodeRestFieldValue, decodeRestListElement } from './field-values.js'
 
 export { isUuidV7 } from './field-values.js'
 
@@ -51,6 +48,8 @@ const untouchedOperators = new Set([
 	'matches',
 ])
 
+const relationshipOperators = new Set(['every', 'is', 'isNot', 'none', 'some'])
+
 const decodeOperator = (
 	field: GenericField,
 	operator: string,
@@ -85,96 +84,14 @@ const decodeOperator = (
 		: decodeRestFieldValue(field, value, invalidRestRead)
 }
 
-const decodeAt = (field: GenericField, value: unknown): unknown => {
-	if (!isUnknownArray(value)) return value
-	return immutableArray(
-		value.map((entry) => {
-			if (!isPlainRecord(entry) || !isUnknownArray(entry.path)) return entry
-			const target = resolveRestObjectPathField(
-				field,
-				entry.path,
-				invalidRestRead,
-			)
-			if (target === undefined) return entry
-			return immutableRecord(
-				Object.fromEntries(
-					Object.entries(entry).map(([key, item]) => [
-						key,
-						key === 'path' ? item : decodeOperator(target, key, item),
-					]),
-				),
-			)
-		}),
-	)
-}
-
-const decodeRelationshipWhere = (
-	field: GenericField,
-	value: unknown,
-): unknown => {
-	const target = getFieldSchemaTarget(field)?.()
-	return target === undefined ? value : decodeRestWhere(target, value)
-}
-
-const decodeFieldOperators = (field: GenericField, value: unknown): unknown => {
-	if (!isPlainRecord(value)) return value
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([operator, operand]) => {
-				if (operator === 'at') return [operator, decodeAt(field, operand)]
-				if (
-					operator === 'some' ||
-					operator === 'none' ||
-					operator === 'every' ||
-					operator === 'is' ||
-					operator === 'isNot'
-				) {
-					return [operator, decodeRelationshipWhere(field, operand)]
-				}
-				if (operator === 'count' && isPlainRecord(operand)) {
-					const target = getFieldSchemaTarget(field)?.()
-					return [
-						operator,
-						immutableRecord({
-							...operand,
-							...(Object.hasOwn(operand, 'where') && target !== undefined
-								? { where: decodeRestWhere(target, operand.where) }
-								: {}),
-						}),
-					]
-				}
-				return [operator, decodeOperator(field, operator, operand)]
-			}),
-		),
-	)
-}
-
 /** Decodes field values while leaving operator validity to Core normalization. */
 export const decodeRestWhere = (
 	schema: SchemaDefinition,
 	value: unknown,
-): unknown => {
-	if (!isPlainRecord(value)) return value
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				if (name === 'AND' || name === 'OR') {
-					return [
-						name,
-						isUnknownArray(item)
-							? immutableArray(
-									item.map((entry) => decodeRestWhere(schema, entry)),
-								)
-							: item,
-					]
-				}
-				if (name === 'NOT') return [name, decodeRestWhere(schema, item)]
-				const field = schema.persistedFields[name]
-				return [
-					name,
-					field === undefined ? item : decodeFieldOperators(field, item),
-				]
-			}),
-		),
+): unknown =>
+	transformQueryFilterInput(schema, value, ({ field, operator, value }) =>
+		relationshipOperators.has(operator) &&
+		getFieldSchemaTarget(field) === undefined
+			? value
+			: decodeOperator(field, operator, value),
 	)
-}

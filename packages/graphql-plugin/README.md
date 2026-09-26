@@ -143,6 +143,11 @@ Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
 
+GraphQL scalar and plugin-field codecs run through Core's shared filter-input
+traversal before canonical Query normalization. Nested logic, relationship
+predicates, filtered counts, and structured paths therefore use one Core shape
+without moving GraphQL coercion or validation into Core.
+
 Virtual fields are output-only model fields compiled from their Core
 `OutputBuilder` descriptor. Built-in scalar, enum, temporal, decimal, binary,
 JSON, nullable, list, and nested object shapes receive their exact GraphQL

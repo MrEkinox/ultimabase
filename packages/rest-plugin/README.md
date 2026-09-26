@@ -217,6 +217,11 @@ model. Omitting `select` includes virtual fields in the complete result;
 Virtual names remain invalid in `where`, `orderBy`, relationship arguments, and
 every direct or nested mutation data object.
 
+REST field codecs run through Core's shared filter-input traversal before
+canonical Query normalization. Nested logic, relationship predicates, filtered
+counts, and structured paths therefore use one Core shape while REST retains
+its strict JSON representations and `INVALID_REST_INPUT` boundary.
+
 ## Mutation normalization and execution
 
 `normalizeRestMutationRequest(schema, input, limits)` accepts create, update,

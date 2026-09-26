@@ -1,6 +1,6 @@
 # 4901: Consolidate attributed callback execution
 
-- Status: stopped at audit gate
+- Status: completed
 - Milestone: 49
 - Packages: `@ultimabase/core`, `@ultimabase/access-plugin`, `@ultimabase/hooks-plugin`
 - Depends on: 4801

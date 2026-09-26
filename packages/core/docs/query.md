@@ -16,6 +16,15 @@ accepts untrusted object input, delegates every clause and field operand to the
 canonical Query normalizers, and performs no Runtime, hook, Access, adapter, or
 target-loading work.
 
+When a transport reuses Core's filter object shape but represents field values
+differently on the wire, it can first call
+`transformQueryFilterInput(schema, where, transformOperand)`. Core owns the
+immutable recursion through `AND`/`OR`/`NOT`, relationship predicates,
+`count.where`, and structured `at` paths. The callback owns only one operand's
+wire conversion and receives its terminal field, operator, and whether it came
+from a structured path. The result remains untrusted input and must still pass
+through `normalizeReadOperation()`.
+
 After normalization, an attributed transport may pass that read AST and its
 application-bound `RequestContext` to `ApplicationRequestExecutor.executeRead`.
 Core then uses the ordinary Runtime pipeline; the transport still receives no

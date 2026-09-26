@@ -63,7 +63,7 @@ const portableCode = definePluginField(
 
 const Author = Schema.define({
 	className: 'RestReadAuthor',
-	fields: (field) => ({ name: field.string() }),
+	fields: (field) => ({ name: field.string(), rank: field.bigint() }),
 })
 
 const RecordSchema = Schema.define({
@@ -122,9 +122,15 @@ const wireWhere = {
 	moment: { eq: '2026-09-05T12:34:56.000Z' },
 	name: { startsWith: 'A' },
 	nickname: { eq: null },
-	payload: { contains: { nestedHuge: '7' } },
+	payload: {
+		at: [{ path: ['nestedHuge'], eq: '8' }],
+		contains: { nestedHuge: '7' },
+	},
 	portableCode: { eq: { code: 'blue' } },
-	related: { some: { name: { contains: 'B' } } },
+	related: {
+		count: { gte: 1, where: { rank: { eq: '7' } } },
+		some: { name: { contains: 'B' } },
+	},
 	score: { lt: 4.5 },
 	status: { in: ['draft', 'live'] },
 	tags: { hasSome: ['one', 'two'] },
@@ -135,8 +141,15 @@ const logicalWhere = {
 	author: { eq: authorId },
 	blob: { eq: Uint8Array.from([1, 2, 3]) },
 	huge: { eq: 9_007_199_254_740_993n },
-	payload: { contains: { nestedHuge: 7n } },
+	payload: {
+		at: [{ path: ['nestedHuge'], eq: 8n }],
+		contains: { nestedHuge: 7n },
+	},
 	portableCode: { eq: 'BLUE' },
+	related: {
+		count: { gte: 1, where: { rank: { eq: 7n } } },
+		some: { name: { contains: 'B' } },
+	},
 }
 
 const jsonRequest = (

@@ -1,6 +1,6 @@
 # Milestone 49 — Attributed callback runtime
 
-- Status: stopped at audit gate
+- Status: completed
 - Authorization: user request of 2026-09-26
 - Baseline: `e63e07b6`
 

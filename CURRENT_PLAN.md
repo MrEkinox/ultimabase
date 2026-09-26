@@ -1,24 +1,23 @@
-# Current plan: Attributed callback runtime audit
+# Current plan: Query filter input transformation
 
-- Status: stopped at audit gate
-- Milestone: 49
-- Baseline: `e63e07b6`
-- Current issue: completed audit; implementation rejected
+- Status: completed
+- Milestone: 50
+- Baseline: `d7163520`
+- Current issue: 5001
 
-The user authorized the next debt reduction after milestone 48. Core Runtime,
-Access, and Hooks currently maintain parallel async callback stacks and owner
-dispatch even though application capability factories already receive one
-Core-bound `ApplicationCallbackExecutor`.
+The user authorized consolidating the duplicated Core-shaped filter traversal
+in REST and GraphQL. Core will own only immutable recursion through logical
+filters, relationship predicates, relation `count.where`, and structured `at`
+paths. Each transport retains its wire codecs, validation assumptions, and
+public errors.
 
-Issue 4901 prototyped extracting only the shared attribution, stack, depth, and
-recursion mechanism. The smallest behavior-preserving facade increased
-production TypeScript by 88 lines before documentation because each engine
-still required its distinct cancellation, error, diagnostic, lifetime, query
-guard, and observer isolation adapters. Moving those policies into Core would
-violate ADR-0189 and recreate a broad bridge.
+Issue 5001 removed both transport-owned recursive walkers and REST's private
+path resolver. Core now exports one immutable transformer while REST and
+GraphQL each provide one operand codec. Production TypeScript adds 172 lines and
+removes 208, a net reduction of 36, with exact nested relation, filtered count,
+structured path, malformed-input, and public type coverage.
 
-The prototype was fully reverted. No production or public API change remains.
-The next safe candidate is the duplicated Core-shaped filter traversal in REST
-and GraphQL, but starting that separate milestone requires user direction.
+Repository-wide typecheck, 2,578 tests, lint, build, and 66 website
+documentation tests pass.
 
 No push is authorized.
