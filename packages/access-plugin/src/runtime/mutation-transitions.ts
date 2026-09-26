@@ -1,6 +1,5 @@
 import type {
 	DatabaseOperationAst,
-	ExecutableOperationAst,
 	RuntimeFieldInputValue,
 	RuntimeOperationStageInput,
 	SchemaDefinition,
@@ -20,62 +19,30 @@ import type {
 	SchemaAccessPlan,
 } from '../authoring/plan.js'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccessExecutionRuntime } from './execution-runtime.js'
-import { accessFieldPathsEqual } from './field-paths.js'
 import { assertAccessDecisionRules } from './rule-evaluation.js'
 
-const readUpdateFieldValues = (
-	operation: ExecutableOperationAst,
+/** Reuses Core's canonical traversal instead of decoding update expressions again. */
+export const collectUpdateFieldValues = (
+	inputs: readonly RuntimeFieldInputValue[],
+	itemIndex = 0,
 ): ReadonlyMap<string, unknown> => {
 	const values = new Map<string, unknown>()
-	const updates =
-		operation.kind === 'update-one' || operation.kind === 'update-many'
-			? [operation.update]
-			: operation.kind === 'upsert-one'
-				? [operation.update]
-				: operation.kind === 'upsert-many'
-					? operation.items.map(({ update }) => update)
-					: []
 
-	for (const update of updates) {
-		appendUpdateFieldValues(values, update)
-	}
+	for (const input of inputs) {
+		const [fieldName, nestedFieldName] = input.fieldPath
 
-	return values
-}
-
-/** Adds one exact update expression without conflating sibling bulk items. */
-const appendUpdateFieldValues = (
-	values: Map<string, unknown>,
-	update: unknown,
-): void => {
-	if (!isPlainRecord(update) || !isUnknownArray(update.operations)) {
-		return
-	}
-
-	for (const fieldOperation of update.operations) {
 		if (
-			isPlainRecord(fieldOperation) &&
-			typeof fieldOperation.field === 'string'
+			input.mode === 'update' &&
+			input.itemIndex === itemIndex &&
+			fieldName !== undefined &&
+			nestedFieldName === undefined
 		) {
-			values.set(fieldOperation.field, fieldOperation.value)
+			values.set(fieldName, input.value)
 		}
 	}
-}
-
-export const readAccessExpressionUpdateFieldValues = (
-	update: unknown,
-): ReadonlyMap<string, unknown> => {
-	const values = new Map<string, unknown>()
-
-	appendUpdateFieldValues(values, update)
 
 	return values
 }
@@ -90,55 +57,33 @@ export const createAccessUpdateCandidate = (
 		? immutableRecord({ ...originalItem })
 		: applyUpdateExpressionToRecord(schema, originalItem, update)
 
-interface AffectedFieldValuePair {
-	readonly field: FieldAccessPlan
-	readonly originalValue: unknown
-	readonly value: unknown
-}
-
 type RecordFieldValue = ReturnType<typeof collectRecordFieldValues>[number]
+type RecordFieldValuesByField = ReadonlyMap<
+	RecordFieldValue['field'],
+	ReadonlyMap<string, RecordFieldValue>
+>
 
-/** Correlates concrete nested values, including removed list items, by path. */
-const collectAffectedFieldValuePairs = (
-	schemaPlan: SchemaAccessPlan,
-	originalValues: readonly RecordFieldValue[],
+/** Indexes each concrete value once for every Access field that consumes it. */
+const indexRecordFieldValues = (
 	values: readonly RecordFieldValue[],
-	rootFieldName: string,
-): readonly AffectedFieldValuePair[] => {
-	const pairs: AffectedFieldValuePair[] = []
+): RecordFieldValuesByField => {
+	const indexed = new Map<
+		RecordFieldValue['field'],
+		Map<string, RecordFieldValue>
+	>()
 
-	for (const field of schemaPlan.fields) {
-		if (field.path[0] !== rootFieldName || field.field.kind === 'relation') {
-			continue
+	for (const value of values) {
+		let fieldValues = indexed.get(value.field)
+
+		if (fieldValues === undefined) {
+			fieldValues = new Map()
+			indexed.set(value.field, fieldValues)
 		}
 
-		const originalByPath = new Map(
-			originalValues
-				.filter(({ fieldPath }) => accessFieldPathsEqual(fieldPath, field.path))
-				.map((entry) => [JSON.stringify(entry.valuePath), entry] as const),
-		)
-		const valueByPath = new Map(
-			values
-				.filter(({ fieldPath }) => accessFieldPathsEqual(fieldPath, field.path))
-				.map((entry) => [JSON.stringify(entry.valuePath), entry] as const),
-		)
-		const valuePaths = new Set([
-			...originalByPath.keys(),
-			...valueByPath.keys(),
-		])
-
-		for (const valuePath of valuePaths) {
-			pairs.push(
-				immutableRecord({
-					field,
-					originalValue: originalByPath.get(valuePath)?.value ?? null,
-					value: valueByPath.get(valuePath)?.value ?? null,
-				}),
-			)
-		}
+		fieldValues.set(JSON.stringify(value.valuePath), value)
 	}
 
-	return immutableArray(pairs)
+	return indexed
 }
 
 /** Evaluates callback transitions after a locked target yields final values. */
@@ -149,32 +94,39 @@ export const evaluateAccessPreparedUpdateFieldRules = async (
 	defaultFieldDecision: boolean,
 	originalItem: Readonly<Record<string, unknown>>,
 	item: Readonly<Record<string, unknown>>,
-	updateFields?: ReadonlyMap<string, unknown>,
+	updateFields: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
-	// Structural validation establishes the executable closed operation union.
-	const operation = request.operation as unknown as ExecutableOperationAst
-	const originalValues = collectRecordFieldValues(
-		schemaPlan.schema.fields,
-		originalItem,
-		'parent-first',
+	const originalValues = indexRecordFieldValues(
+		collectRecordFieldValues(
+			schemaPlan.schema.fields,
+			originalItem,
+			'parent-first',
+		),
 	)
-	const values = collectRecordFieldValues(
-		schemaPlan.schema.fields,
-		item,
-		'parent-first',
+	const values = indexRecordFieldValues(
+		collectRecordFieldValues(schemaPlan.schema.fields, item, 'parent-first'),
 	)
 
-	for (const [fieldName] of updateFields ?? readUpdateFieldValues(operation)) {
-		for (const {
-			field,
-			originalValue,
-			value,
-		} of collectAffectedFieldValuePairs(
-			schemaPlan,
-			originalValues,
-			values,
-			fieldName,
-		)) {
+	const updatedFields = new Set(updateFields.keys())
+
+	for (const field of schemaPlan.fields) {
+		if (
+			!updatedFields.has(field.path[0] ?? '') ||
+			field.field.kind === 'relation'
+		) {
+			continue
+		}
+
+		const originalByPath = originalValues.get(field.field)
+		const valueByPath = values.get(field.field)
+		const valuePaths = new Set([
+			...(originalByPath?.keys() ?? []),
+			...(valueByPath?.keys() ?? []),
+		])
+
+		for (const valuePath of valuePaths) {
+			const originalValue = originalByPath?.get(valuePath)?.value ?? null
+			const value = valueByPath?.get(valuePath)?.value ?? null
 			const transition: FieldWriteAccessTransition =
 				value === null ? 'clear' : originalValue === null ? 'fill' : 'replace'
 			const rules = field.write[transition]
@@ -252,26 +204,31 @@ export const evaluateAccessRelationWriteRules = async (
 	schemaPlan: SchemaAccessPlan,
 	updateFields: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
-	for (const [fieldName, change] of updateFields) {
-		const fields = schemaPlan.fields.filter(({ path }) => path[0] === fieldName)
+	for (const field of schemaPlan.fields) {
+		const [rootFieldName] = field.path
 
-		for (const field of fields) {
-			if (field.field.kind !== 'relation') continue
-
-			await assertAccessDecisionRules(
-				runtime,
-				request,
-				field.relationWrite,
-				{
-					branch: 'write',
-					field,
-					phase: 'access-field-write',
-					schema: schemaPlan.schema,
-				},
-				immutableRecord({ change, context: request.context }),
-				field.relationWrite.length === 0 ? allowUndeclaredFieldAccess : true,
-			)
+		if (
+			field.field.kind !== 'relation' ||
+			rootFieldName === undefined ||
+			!updateFields.has(rootFieldName)
+		) {
+			continue
 		}
+		const change = updateFields.get(rootFieldName)
+
+		await assertAccessDecisionRules(
+			runtime,
+			request,
+			field.relationWrite,
+			{
+				branch: 'write',
+				field,
+				phase: 'access-field-write',
+				schema: schemaPlan.schema,
+			},
+			immutableRecord({ change, context: request.context }),
+			field.relationWrite.length === 0 ? allowUndeclaredFieldAccess : true,
+		)
 	}
 }
 
@@ -279,24 +236,24 @@ export const evaluateAccessRelationWriteRules = async (
 export const readAccessStaticWriteDecision = (
 	field: FieldAccessPlan,
 ): boolean | undefined => {
-	const decisions: boolean[] = []
+	let decision: boolean | undefined
 
 	for (const transition of ['fill', 'replace', 'clear'] as const) {
-		const rules = field.write[transition]
+		let transitionDecision = true
 
-		if (rules.some(({ rule }) => typeof rule === 'function')) {
+		for (const { rule } of field.write[transition]) {
+			if (typeof rule === 'function') return undefined
+			if (!rule) transitionDecision = false
+		}
+
+		if (decision !== undefined && transitionDecision !== decision) {
 			return undefined
 		}
 
-		decisions.push(!rules.some(({ rule }) => rule === false))
+		decision = transitionDecision
 	}
 
-	const [decision] = decisions
-
-	return decision !== undefined &&
-		decisions.every((value) => value === decision)
-		? decision
-		: undefined
+	return decision
 }
 
 /** Owns early field references, static writes, create fills, and relations. */
@@ -306,8 +263,6 @@ export const evaluateAccessMutationFieldRules = async (
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 ): Promise<void> => {
-	// Structural validation establishes the executable closed operation union.
-	const operation = request.operation as unknown as ExecutableOperationAst
 	const inputs = collectOperationFieldInputs(request.operation, 'parent-first')
 
 	await evaluateAccessCreateFillRules(
@@ -320,7 +275,10 @@ export const evaluateAccessMutationFieldRules = async (
 		),
 	)
 
-	if (operation.kind === 'upsert-one' || operation.kind === 'upsert-many') {
+	if (
+		request.operation.kind === 'upsert-one' ||
+		request.operation.kind === 'upsert-many'
+	) {
 		return
 	}
 
@@ -335,7 +293,9 @@ export const evaluateAccessMutationFieldRules = async (
 			)
 		}
 
-		if (Object.values(field.write).every((rules) => rules.length === 0)) {
+		const writeRules = Object.values(field.write)
+
+		if (writeRules.every((rules) => rules.length === 0)) {
 			await assertAccessDecisionRules(
 				runtime,
 				request,
@@ -358,7 +318,7 @@ export const evaluateAccessMutationFieldRules = async (
 			await assertAccessDecisionRules(
 				runtime,
 				request,
-				Object.values(field.write).flat(),
+				writeRules.flat(),
 				{
 					branch: 'write',
 					field,
@@ -375,7 +335,7 @@ export const evaluateAccessMutationFieldRules = async (
 		runtime,
 		request,
 		schemaPlan,
-		readUpdateFieldValues(operation),
+		collectUpdateFieldValues(inputs),
 	)
 
 	for (const relationship of request.nestedWrite?.node.relationships ?? []) {

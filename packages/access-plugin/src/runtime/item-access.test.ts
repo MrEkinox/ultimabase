@@ -1,4 +1,5 @@
 import {
+	collectOperationFieldInputs,
 	QueryBuilder,
 	Schema,
 	SchemaRegistry,
@@ -6,6 +7,7 @@ import {
 	normalizeUpdateExpression,
 	type DeleteManyOperationAst,
 	type UpdateManyOperationAst,
+	type UpsertManyOperationAst,
 } from '@ultimabase/core'
 import { expect, it } from 'vitest'
 
@@ -22,6 +24,7 @@ import {
 	type AccessDefaultPolicy,
 } from '../authoring/plan.js'
 import { requiresAccessPreparedMutationItems } from './item-access.js'
+import { collectUpdateFieldValues } from './mutation-transitions.js'
 
 const Document = Schema.define({
 	className: 'AccessPreparedSetDecision',
@@ -82,6 +85,31 @@ it('classifies every native terminal through one Access family map', () => {
 		'update-one': 'update',
 		'upsert-many': 'upsert',
 		'upsert-one': 'upsert',
+	})
+})
+
+it('derives update values from Core traversal without mixing bulk items', () => {
+	const secondUpdate = normalizeUpdateExpression(Document, {
+		score: increment(2),
+	})
+	const operation = {
+		items: [update, secondUpdate].map((itemUpdate, index) => ({
+			create: { score: index },
+			query,
+			target: { fields: ['score'], kind: 'unique-upsert-target' } as const,
+			update: itemUpdate,
+		})),
+		kind: 'upsert-many',
+		schema: query.schema,
+		selection: query.selection,
+	} satisfies UpsertManyOperationAst<typeof Document, typeof update>
+	const inputs = collectOperationFieldInputs(operation, 'parent-first')
+
+	expect(Object.fromEntries(collectUpdateFieldValues(inputs))).toEqual({
+		score: 1,
+	})
+	expect(Object.fromEntries(collectUpdateFieldValues(inputs, 1))).toEqual({
+		score: 2,
 	})
 })
 

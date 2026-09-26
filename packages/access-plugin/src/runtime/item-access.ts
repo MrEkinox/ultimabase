@@ -22,10 +22,10 @@ import { immutableRecord } from '@ultimabase/shared'
 import type { AccessExecutionRuntime } from './execution-runtime.js'
 import {
 	createAccessUpdateCandidate,
+	collectUpdateFieldValues,
 	evaluateAccessCreateFillRules,
 	evaluateAccessPreparedUpdateFieldRules,
 	evaluateAccessRelationWriteRules,
-	readAccessExpressionUpdateFieldValues,
 	readAccessStaticWriteDecision,
 } from './mutation-transitions.js'
 import {
@@ -167,6 +167,8 @@ export const enforceAccessPreparedMutation = async (
 
 	// The mutation discriminants above establish the executable operation subset.
 	const operation = request.operation as unknown as ExecutableOperationAst
+	const fieldInputs = collectOperationFieldInputs(operation, 'parent-first')
+	const updateFields = collectUpdateFieldValues(fieldInputs)
 
 	if (
 		(operation.kind === 'update-many' || operation.kind === 'delete-many') &&
@@ -199,6 +201,7 @@ export const enforceAccessPreparedMutation = async (
 				allowUndeclaredFieldAccess,
 				target,
 				candidate,
+				updateFields,
 			)
 			await assertAccessItemRules(
 				runtime,
@@ -240,9 +243,7 @@ export const enforceAccessPreparedMutation = async (
 			request,
 			plan,
 			schemaPlan,
-			collectOperationFieldInputs(request.operation, 'parent-first').filter(
-				(input) => input.mode === 'create',
-			),
+			fieldInputs.filter((input) => input.mode === 'create'),
 		)
 	} else {
 		originalItem = materializeSchemaModel(schemaPlan.schema, request.target)
@@ -264,7 +265,7 @@ export const enforceAccessPreparedMutation = async (
 					runtime,
 					request,
 					schemaPlan,
-					readAccessExpressionUpdateFieldValues(operation.update),
+					updateFields,
 				)
 			}
 			await evaluateAccessPreparedUpdateFieldRules(
@@ -274,6 +275,7 @@ export const enforceAccessPreparedMutation = async (
 				allowUndeclaredFieldAccess,
 				request.target,
 				candidate,
+				updateFields,
 			)
 		} else {
 			throw new TypeError('Native Access received an invalid prepared mutation')
@@ -324,10 +326,7 @@ export const enforceAccessMutationOutcome = async (
 		{ readonly kind: 'upsert-many' | 'upsert-one' }
 	>
 	const items = operation.kind === 'upsert-one' ? [operation] : operation.items
-	const fieldInputs = collectOperationFieldInputs(
-		request.operation,
-		'parent-first',
-	)
+	const fieldInputs = collectOperationFieldInputs(operation, 'parent-first')
 	for (const [
 		index,
 		materialization,
@@ -337,9 +336,7 @@ export const enforceAccessMutationOutcome = async (
 				'Native Access received an invalid upsert materialization',
 			)
 		}
-		const item = items[index]
-
-		if (item === undefined) {
+		if (items[index] === undefined) {
 			throw new TypeError('Native Access received an unmatched upsert outcome')
 		}
 
@@ -355,11 +352,13 @@ export const enforceAccessMutationOutcome = async (
 			: null
 
 		if (update) {
+			const updateFields = collectUpdateFieldValues(fieldInputs, index)
+
 			await evaluateAccessRelationWriteRules(
 				runtime,
 				request,
 				schemaPlan,
-				readAccessExpressionUpdateFieldValues(item.update),
+				updateFields,
 			)
 			await evaluateAccessPreparedUpdateFieldRules(
 				runtime,
@@ -368,7 +367,7 @@ export const enforceAccessMutationOutcome = async (
 				allowUndeclaredFieldAccess,
 				materialization.previous,
 				materialization.current,
-				readAccessExpressionUpdateFieldValues(item.update),
+				updateFields,
 			)
 		} else {
 			await evaluateAccessCreateFillRules(
