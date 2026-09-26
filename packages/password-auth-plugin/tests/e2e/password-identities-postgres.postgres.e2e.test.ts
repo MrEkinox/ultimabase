@@ -134,7 +134,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 
 	it('preserves canonical usernames across atomic creates and upserts', async () => {
 		// This custom User requires a fresh schema, separate from the default User fixture.
-		const isolated = await createPostgresWorkerFixture({
+		await using isolated = await createPostgresWorkerFixture({
 			prefix: 'password_batches',
 		})
 		const User = PasswordUserSchema.define({
@@ -186,7 +186,6 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			expect(await User.count({}, { ultimabase })).toBe(1)
 		} finally {
 			await ultimabase.dispose()
-			await isolated.dispose()
 		}
 	})
 

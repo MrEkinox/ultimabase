@@ -434,7 +434,7 @@ describe(
 		})
 
 		it('rejects a well-formed token issued by another application', async () => {
-			const foreignFixture = await createPostgresWorkerFixture({
+			await using foreignFixture = await createPostgresWorkerFixture({
 				prefix: 'password_sessions_foreign',
 			})
 			const first = createApplication()
@@ -457,7 +457,6 @@ describe(
 					first.ultimabase.dispose(),
 					second.ultimabase.dispose(),
 				])
-				await foreignFixture.dispose()
 			}
 		})
 

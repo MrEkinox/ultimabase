@@ -100,7 +100,7 @@ describe('Runtime nested create and connect execution', () => {
 			trace,
 		)
 		const generatedIds = [childId, rootId]
-		const ultimabase = new UltimaBase({
+		await using ultimabase = new UltimaBase({
 			plugins: [createRequestExecutionDatabasePlugin(adapter)],
 			schemas: [Author, Post, Tag],
 			validation: {
@@ -143,7 +143,6 @@ describe('Runtime nested create and connect execution', () => {
 			kind: 'create-one',
 		})
 		expect(trace.at(-1)).toBe('adapter:commit')
-		await ultimabase.dispose()
 	})
 
 	it('preflights connect targets and rolls a persisted source back on child failure', async () => {
@@ -164,7 +163,7 @@ describe('Runtime nested create and connect execution', () => {
 			trace,
 		)
 		const generatedIds = [childId, rootId]
-		const ultimabase = new UltimaBase({
+		await using ultimabase = new UltimaBase({
 			plugins: [createRequestExecutionDatabasePlugin(adapter)],
 			schemas: [Author, Post, Tag],
 			validation: {
@@ -195,7 +194,6 @@ describe('Runtime nested create and connect execution', () => {
 		expect(trace).toContain('adapter:rollback')
 		expect(trace).not.toContain('adapter:commit')
 		expect(relationWhereInvocations).toBe(0)
-		await ultimabase.dispose()
 	})
 
 	it('shares request context and rolls back when resolution redirects a graph pointer', async () => {
@@ -239,7 +237,7 @@ describe('Runtime nested create and connect execution', () => {
 			},
 		})
 		const generatedIds = [childId, rootId]
-		const ultimabase = new UltimaBase({
+		await using ultimabase = new UltimaBase({
 			plugins: [behavior, createRequestExecutionDatabasePlugin(adapter)],
 			schemas: [Author, Post, Tag],
 			validation: {
@@ -268,7 +266,6 @@ describe('Runtime nested create and connect execution', () => {
 		expect(adapter.transactions[0]?.requests).toHaveLength(1)
 		expect(trace).toContain('adapter:rollback')
 		expect(trace).not.toContain('adapter:commit')
-		await ultimabase.dispose()
 	})
 
 	it('inherits cancellation and rolls back after a completed nested child', async () => {
@@ -295,7 +292,7 @@ describe('Runtime nested create and connect execution', () => {
 		})
 		const harness: RequestExecutionHarness = {}
 		const generatedIds = [childId, rootId]
-		const ultimabase = new UltimaBase({
+		await using ultimabase = new UltimaBase({
 			plugins: [
 				createRequestExecutionHarnessPlugin(harness),
 				behavior,
@@ -332,6 +329,5 @@ describe('Runtime nested create and connect execution', () => {
 		expect(adapter.transactions[0]?.requests).toHaveLength(1)
 		expect(trace).toContain('adapter:rollback')
 		expect(trace).not.toContain('adapter:commit')
-		await ultimabase.dispose()
 	})
 })

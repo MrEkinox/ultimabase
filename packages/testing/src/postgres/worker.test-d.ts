@@ -21,4 +21,5 @@ test('types PostgreSQL worker isolation without a concrete driver', () => {
 	expectTypeOf(worker.connectionOptions).toEqualTypeOf<string>()
 	expectTypeOf(worker.reset()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(worker.dispose()).toEqualTypeOf<Promise<void>>()
+	expectTypeOf(worker).toExtend<AsyncDisposable>()
 })

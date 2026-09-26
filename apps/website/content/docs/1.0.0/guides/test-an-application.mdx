@@ -8,7 +8,7 @@ order: 2
 outcome: Verify a create-and-read path without sharing application or database state between test workers.
 owner: '2814'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-26
 sources:
   - packages/core/README.md
   - packages/postgres-plugin/README.md
@@ -169,6 +169,13 @@ there. The application receives a borrowed pool, so the test closes that pool
 after `ultimabase.dispose()`. The administrative pool then removes the schema
 and closes. No application instance, plugin state, or database schema is
 shared with another worker.
+
+`UltimaBase` and `PostgresTestWorker` also implement JavaScript's native
+`AsyncDisposable` contract. Prefer `await using` when either resource belongs
+to one asynchronous test; it guarantees cleanup when an assertion throws. This
+guide keeps explicit `afterAll` teardown because its resources span the whole
+suite and because the application and borrowed pool must close before the
+worker removes its schema.
 
 ### Use the same lifecycle with Jest
 

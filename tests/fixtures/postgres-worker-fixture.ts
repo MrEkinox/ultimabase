@@ -12,6 +12,7 @@ export interface PostgresWorkerFixture {
 	readonly pool: Pool
 	readonly schemaName: string
 	dispose(): Promise<void>
+	[Symbol.asyncDispose](): Promise<void>
 }
 
 /** Selects a safe namespace family when one test needs multiple databases. */
@@ -57,25 +58,27 @@ export const createPostgresWorkerFixture = async (
 	)
 	const pool = new Pool({ connectionString: connectionUri })
 	let disposed = false
+	const dispose = async (): Promise<void> => {
+		if (disposed) return
+
+		disposed = true
+
+		try {
+			await pool.end()
+		} finally {
+			try {
+				await worker.dispose()
+			} finally {
+				await adminPool.end()
+			}
+		}
+	}
 
 	return Object.freeze({
 		connectionUri,
+		dispose,
 		pool,
 		schemaName: worker.schemaName,
-		dispose: async (): Promise<void> => {
-			if (disposed) return
-
-			disposed = true
-
-			try {
-				await pool.end()
-			} finally {
-				try {
-					await worker.dispose()
-				} finally {
-					await adminPool.end()
-				}
-			}
-		},
+		[Symbol.asyncDispose]: dispose,
 	})
 }

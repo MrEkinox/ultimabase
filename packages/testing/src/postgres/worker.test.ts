@@ -13,7 +13,7 @@ describe('PostgreSQL test worker', () => {
 		expect(worker.connectionOptions).toBe('-c search_path=ultimabase_test_7')
 
 		await worker.reset()
-		await worker.dispose()
+		await worker[Symbol.asyncDispose]()
 
 		expect(query.mock.calls).toStrictEqual([
 			['DROP SCHEMA IF EXISTS "ultimabase_test_7" CASCADE'],

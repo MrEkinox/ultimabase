@@ -543,7 +543,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 	})
 
 	it('rejects a session issued by another application', async () => {
-		const foreignFixture = await createPostgresWorkerFixture({
+		await using foreignFixture = await createPostgresWorkerFixture({
 			prefix: 'password_http_foreign',
 		})
 		const first = createPasswordHttpApplication({ appId: 'password-first' })
@@ -569,7 +569,6 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 				first.ultimabase.dispose(),
 				second.ultimabase.dispose(),
 			])
-			await foreignFixture.dispose()
 		}
 	})
 

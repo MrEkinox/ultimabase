@@ -343,7 +343,7 @@ describe('Password User authentication methods', () => {
 	})
 
 	it('isolates the same class across sequential applications and rejects foreign tokens', async () => {
-		const database = await createPostgresWorkerFixture({
+		await using database = await createPostgresWorkerFixture({
 			prefix: 'password_user_foreign',
 		})
 		const User = createUser()
@@ -382,7 +382,6 @@ describe('Password User authentication methods', () => {
 			).resolves.toMatchObject({ user: { id: right.user.id } })
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
-			await database.dispose()
 		}
 	})
 

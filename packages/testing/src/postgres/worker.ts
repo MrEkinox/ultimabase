@@ -90,4 +90,9 @@ export class PostgresTestWorker {
 	async dispose(): Promise<void> {
 		await this.#query(`DROP SCHEMA IF EXISTS "${this.schemaName}" CASCADE`)
 	}
+
+	/** Releases the worker namespace at the end of an `await using` scope. */
+	async [Symbol.asyncDispose](): Promise<void> {
+		await this.dispose()
+	}
 }

@@ -596,7 +596,7 @@ describe(
 			if (fixture === undefined)
 				throw new TypeError('First database fixture is unavailable')
 			const firstUri = fixture.connectionUri
-			const secondFixture = await createPostgresWorkerFixture({
+			await using secondFixture = await createPostgresWorkerFixture({
 				prefix: 'ultimabase_acl_reference_isolated',
 			})
 			let second = createApplication(secondFixture.connectionUri, 'override')
@@ -654,7 +654,6 @@ describe(
 			} finally {
 				await first.dispose()
 				await second.dispose()
-				await secondFixture.dispose()
 			}
 		})
 	},

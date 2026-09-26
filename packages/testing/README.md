@@ -26,6 +26,17 @@ application disposal, then remove its worker schema. See the website's
 [Test an Application](../../apps/website/content/docs/1.0.0/guides/test-an-application.mdx)
 for the complete PostgreSQL example. There is no test-only activation bypass.
 
+For an application owned by one asynchronous test, prefer its native resource
+scope instead of a manual trailing cleanup:
+
+```ts
+it('executes one isolated application', async () => {
+	await using app = new UltimaBase({ plugins, schemas })
+	await app.start()
+	// The application is disposed on success and on failure.
+})
+```
+
 ## Plugin conformance
 
 `definePluginConformanceSuite()` keeps the exact subject, support-plugin, and
@@ -198,6 +209,10 @@ const pool = new Pool({
 `reset()` drops and recreates only `worker.schemaName`. `connectionOptions`
 sets that schema as the pool's `search_path`. Close the worker pool before
 calling `worker.dispose()`, then close the administrative pool.
+`PostgresTestWorker` also implements `AsyncDisposable`, so a worker owned by one
+test can use `await using worker = new PostgresTestWorker(...)`. Close every
+pool that uses its schema before leaving that scope. Suite-level fixtures that
+span hooks should retain explicit ordered teardown.
 
 The repository's PostgreSQL E2E project starts one Testcontainer globally and
 shares only its connection URI. No mutable application, pool, container,
