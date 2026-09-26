@@ -8,8 +8,8 @@ import {
 	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
 	type OperationKind,
-	type PluginSchemaMutationOperationAst,
 	type QueryExpressionNode,
+	type RuntimeLogicalOperationAst,
 	type RuntimeOperationStageInput,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -41,9 +41,18 @@ export type AccessPhase =
 export type AccessOperationKind = OperationKind | 'plugin-schema-mutation'
 
 /** Carries native and custom logical operations through one Access callback path. */
-export interface AccessRuntimeRequest {
-	readonly context: RuntimeOperationStageInput<DatabaseOperationAst>['context']
-	readonly operation: DatabaseOperationAst | PluginSchemaMutationOperationAst
+export type AccessRuntimeRequest =
+	RuntimeOperationStageInput<RuntimeLogicalOperationAst>
+
+/** Narrows one shared logical request before entering native CRUD-only helpers. */
+export const readNativeAccessRequest = (
+	request: AccessRuntimeRequest,
+): RuntimeOperationStageInput<DatabaseOperationAst> => {
+	if (request.operation.kind === 'plugin-schema-mutation') {
+		throw new TypeError('Native Access requires a database operation')
+	}
+
+	return immutableRecord({ ...request, operation: request.operation })
 }
 
 export interface AccessRuleIdentity {

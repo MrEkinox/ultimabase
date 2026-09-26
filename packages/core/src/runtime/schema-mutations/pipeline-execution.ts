@@ -204,10 +204,12 @@ const createPhysicalOperation = (
 	return operation
 }
 
-const createStageInput = (
+const emptyStageInput = immutableRecord({})
+
+const createStageInput = <const TExtra extends object>(
 	context: RequestContext,
 	operation: PluginSchemaMutationOperationAst,
-	extra: Readonly<Record<string, unknown>> = immutableRecord({}),
+	extra: TExtra,
 ) => immutableRecord({ context, operation, ...extra })
 
 const createBeforeInclusionSource = async (
@@ -274,10 +276,10 @@ export const executeRuntimeSchemaMutation = async (
 	})
 	if (stages.enforcement !== undefined) {
 		enforcement = await stages.enforcement.evaluate(
-			createStageInput(context, logical) as never,
+			createStageInput(context, logical, emptyStageInput),
 		)
 		const enforced = await stages.enforcement.enforceOperation(
-			createStageInput(context, logical, { enforcement }) as never,
+			createStageInput(context, logical, { enforcement }),
 		)
 		const candidateOperation: unknown = enforced.operation
 		assertLogicalIdentity(command, schema, envelope, candidateOperation)
@@ -317,7 +319,7 @@ export const executeRuntimeSchemaMutation = async (
 		enforcement !== undefined
 	) {
 		await stages.enforcement.enforcePreparedMutation(
-			createStageInput(context, logical, { target: completeOriginal }) as never,
+			createStageInput(context, logical, { target: completeOriginal }),
 		)
 	}
 	throwIfOperationCancelled(context.signal, {
@@ -346,10 +348,10 @@ export const executeRuntimeSchemaMutation = async (
 
 	if (stages.enforcement !== undefined && enforcement !== undefined) {
 		enforcement = await stages.enforcement.reevaluate(
-			createStageInput(context, logical, { enforcement }) as never,
+			createStageInput(context, logical, { enforcement }),
 		)
 		const enforced = await stages.enforcement.enforceOperation(
-			createStageInput(context, logical, { enforcement }) as never,
+			createStageInput(context, logical, { enforcement }),
 		)
 		const candidateOperation: unknown = enforced.operation
 		assertLogicalIdentity(command, schema, envelope, candidateOperation)
@@ -360,18 +362,18 @@ export const executeRuntimeSchemaMutation = async (
 				createStageInput(context, logical, {
 					enforcement,
 					target: completeOriginal,
-				}) as never,
+				}),
 			)
 		}
 	}
 	if (stages.behaviors?.beforeOperation !== undefined) {
 		await stages.behaviors.beforeOperation(
-			createStageInput(context, logical) as never,
+			createStageInput(context, logical, emptyStageInput),
 		)
 	}
 	if (stages.behaviors?.observePreparedMutation !== undefined) {
 		await stages.behaviors.observePreparedMutation(
-			createStageInput(context, logical, { target: completeOriginal }) as never,
+			createStageInput(context, logical, { target: completeOriginal }),
 		)
 	}
 
@@ -423,14 +425,14 @@ export const executeRuntimeSchemaMutation = async (
 		stages.enforcement?.enforceMutationOutcome !== undefined &&
 		enforcement !== undefined
 	) {
-		outcome = (await stages.enforcement.enforceMutationOutcome(
-			createStageInput(context, logical, { enforcement, outcome }) as never,
-		)) as unknown as SchemaMutationOutcome
+		outcome = await stages.enforcement.enforceMutationOutcome(
+			createStageInput(context, logical, { enforcement, outcome }),
+		)
 	}
 	if (stages.behaviors?.transformMutationOutcome !== undefined) {
-		outcome = (await stages.behaviors.transformMutationOutcome(
-			createStageInput(context, logical, { outcome }) as never,
-		)) as unknown as SchemaMutationOutcome
+		outcome = await stages.behaviors.transformMutationOutcome(
+			createStageInput(context, logical, { outcome }),
+		)
 	}
 	outcome = boundaries.snapshotMutationOutcome(
 		physical,
@@ -466,7 +468,7 @@ export const executeRuntimeSchemaMutation = async (
 	)
 	let databaseResult = virtualResults.publicResult
 	const selectedFieldsOverride = readRuntimeSelectedFieldsOverride(
-		logical as never,
+		logical,
 		enforcement,
 	)
 	if (stages.enforcement !== undefined && enforcement !== undefined) {
@@ -474,7 +476,7 @@ export const executeRuntimeSchemaMutation = async (
 			createStageInput(context, logical, {
 				enforcement,
 				result: databaseResult,
-			}) as never,
+			}),
 		)
 	}
 	databaseResult = boundaries.snapshotDatabaseResultReplacement(
@@ -486,8 +488,10 @@ export const executeRuntimeSchemaMutation = async (
 		databaseResult = await stages.behaviors.transformDatabaseResult(
 			createStageInput(context, logical, {
 				result: databaseResult,
-				selectedFieldsOverride,
-			}) as never,
+				...(selectedFieldsOverride === undefined
+					? {}
+					: { selectedFieldsOverride }),
+			}),
 		)
 	}
 	const afterInclusionSource =
@@ -495,7 +499,7 @@ export const executeRuntimeSchemaMutation = async (
 			? await loadSingularMutationInclusionSource(
 					executor,
 					physical,
-					outcome as never,
+					outcome,
 					preparedInclusions.length === 0
 						? undefined
 						: preparedInclusions.map(({ database }) => database),
@@ -516,11 +520,11 @@ export const executeRuntimeSchemaMutation = async (
 			executor,
 			physical,
 			sourceRecord,
-			outcome as never,
+				outcome,
 		),
 		result,
-		readRuntimeSchemaModelSelectedFields(
-			logical as never,
+			readRuntimeSchemaModelSelectedFields(
+				logical,
 			selectedFieldsOverride,
 		),
 	)
@@ -541,8 +545,10 @@ export const executeRuntimeSchemaMutation = async (
 			createStageInput(context, logical, {
 				outcome,
 				result,
-				selectedFieldsOverride,
-			}) as never,
+				...(selectedFieldsOverride === undefined
+					? {}
+					: { selectedFieldsOverride }),
+			}),
 		)
 	}
 	result = boundaries.snapshotResultReplacement(
@@ -552,7 +558,7 @@ export const executeRuntimeSchemaMutation = async (
 	)
 	if (stages.enforcement !== undefined && enforcement !== undefined) {
 		result = await stages.enforcement.enforceResult(
-			createStageInput(context, logical, { enforcement, result }) as never,
+			createStageInput(context, logical, { enforcement, result }),
 		)
 	}
 	throwIfOperationCancelled(context.signal, {
@@ -560,9 +566,9 @@ export const executeRuntimeSchemaMutation = async (
 		phase: 'commit',
 	})
 	const completed = createStageInput(context, logical, { result })
-	await stages.commit(completed as never)
+	await stages.commit(completed)
 	if (stages.behaviors?.postCommit !== undefined) {
-		await stages.behaviors.postCommit(completed as never)
+		await stages.behaviors.postCommit(completed)
 	}
 	if (!isPlainRecord(result)) {
 		throw new TypeError('Schema mutation result must be a record')

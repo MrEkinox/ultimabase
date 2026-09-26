@@ -14,6 +14,7 @@ import {
 	type JsonObject,
 	type OperationKind,
 	type RuntimeBehaviorStages,
+	type RuntimeLogicalOperationAst,
 } from '@ultimabase/core'
 import {
 	createPluginEventDispatcher,
@@ -127,8 +128,9 @@ const alternativeBehaviorSchemaOption = defineSchemaOption({
 })
 
 const readOperationIdentity = (
-	operation: Readonly<{ readonly kind: OperationKind }>,
-): Readonly<{ readonly operation: OperationKind; readonly schema: string }> => {
+	operation: RuntimeLogicalOperationAst,
+): Readonly<{ readonly operation: OperationKind; readonly schema: string }> | undefined => {
+	if (operation.kind === 'plugin-schema-mutation') return undefined
 	const schema: unknown = getOperationSchema(operation)
 	if (
 		(typeof schema !== 'object' && typeof schema !== 'function') ||
@@ -219,6 +221,7 @@ export const createAlternativeBehaviorEngine = (
 			const behavior: RuntimeBehaviorStages = immutableRecord({
 				beforeOperation: async ({ context, operation }) => {
 					const identity = readOperationIdentity(operation)
+					if (identity === undefined) return
 					const config = plan.get(identity.schema)
 					if (config === undefined || !mutationKinds.has(identity.operation)) {
 						return
@@ -239,6 +242,7 @@ export const createAlternativeBehaviorEngine = (
 				},
 				transformResult: (input) => {
 					const identity = readOperationIdentity(input.operation)
+					if (identity === undefined) return input.result
 					if (plan.has(identity.schema)) {
 						state.record({ ...identity, phase: 'result' })
 					}
@@ -337,6 +341,7 @@ export const createSharedRuntimeMiddleware = (
 					value: {
 						transformResult: (input) => {
 							const identity = readOperationIdentity(input.operation)
+							if (identity === undefined) return input.result
 							onResult(identity.schema)
 							return input.result
 						},

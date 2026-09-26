@@ -20,7 +20,6 @@ import { collectMutationAfterItems } from './materializations.js'
 interface SchemaMutationHookRequest {
 	readonly context: RequestContext
 	readonly operation: PluginSchemaMutationOperationAst
-	readonly outcome?: DatabaseMutationMaterializationSource
 }
 
 const isSchemaMutationOperation = (
@@ -31,7 +30,7 @@ const isSchemaMutationOperation = (
 /** Prevents physical update and delete statements from selecting native Hook branches. */
 export const isSchemaMutationHookRequest = (
 	request: Readonly<{ readonly operation: unknown }>,
-): request is SchemaMutationHookRequest =>
+): request is typeof request & SchemaMutationHookRequest =>
 	isSchemaMutationOperation(request.operation)
 
 const readSchemaMutationPlan = (
@@ -120,7 +119,11 @@ export const runSchemaMutationBeforeHooks = async (
 export const runSchemaMutationAfterHooks = async <TResult>(
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	request: SchemaMutationHookRequest & Readonly<{ readonly result: TResult }>,
+	request: SchemaMutationHookRequest &
+		Readonly<{
+			readonly outcome?: DatabaseMutationMaterializationSource
+			readonly result: TResult
+		}>,
 ): Promise<TResult> => {
 	const { operation } = request
 	const { schemaPlan } = readSchemaMutationPlan(plan, operation)

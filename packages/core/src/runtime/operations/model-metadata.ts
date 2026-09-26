@@ -6,10 +6,9 @@ import {
 } from '@ultimabase/shared'
 
 import type {
-	DatabaseMutationOperationAst,
+	DatabaseMutationMaterializationSource,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
-	DatabaseOperationOutcome,
 } from '../database/contracts.js'
 
 /** Carries identity and projection beside public values rather than inside them. */
@@ -69,7 +68,7 @@ const collectResultRecords = (
 }
 
 const collectMutationIdentityRecords = (
-	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst> | undefined,
+	outcome: DatabaseMutationMaterializationSource | undefined,
 ): readonly Readonly<Record<string, unknown>>[] => {
 	if (outcome === undefined) {
 		return immutableArray([])
@@ -89,7 +88,7 @@ export const collectDatabaseObjectIdentities = (
 	executor: DatabaseOperationExecutor,
 	operation: DatabaseOperationAst,
 	result: unknown,
-	outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
+	outcome?: DatabaseMutationMaterializationSource,
 ): readonly unknown[] => {
 	const mutationRecords = collectMutationIdentityRecords(outcome)
 	const records =

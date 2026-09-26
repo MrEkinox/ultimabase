@@ -3,7 +3,7 @@
 - Status: active
 - Milestone: 44
 - Baseline: `d97afb1b`
-- Current issue: 4402
+- Current issue: 4403
 
 The user authorized the next repository-wide debt reduction on 2026-09-26 while
 retaining every functional capability. Core's schema-mutation pipeline already
@@ -22,5 +22,10 @@ Issue 4401 added the closed logical operation vocabulary and correlated shared
 stage inputs while retaining native-only adapter and CRUD pipeline contracts.
 It also aligned public interceptor and policy filters with the schema-mutation
 identity they already observed when no operation filter was configured.
+
+Issue 4402 removed the schema-mutation pipeline's forced shared-stage casts and
+aligned Access, Hooks, ACL, and alternative-engine fixtures with the logical
+union. Native and custom mutation execution remain separate; the only retained
+schema-executor double assertion is the opaque adapter preparation boundary.
 
 No push is authorized.

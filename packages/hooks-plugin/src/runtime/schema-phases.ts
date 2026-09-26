@@ -1,10 +1,10 @@
 import { isPlainRecord } from '@ultimabase/shared'
 import type {
+	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	RuntimeBehaviorBoundaries,
 	RuntimeMaterializedResultStageInput,
-	RuntimeOperationResult,
 	RuntimePreparedMutationStageInput,
 } from '@ultimabase/core'
 
@@ -32,6 +32,13 @@ import {
 } from './materializations.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
 
+const readPreparedHookTarget = (
+	value: unknown,
+): Readonly<Record<string, unknown>> | null | undefined => {
+	if (value === null || value === undefined || isPlainRecord(value)) return value
+	throw new TypeError('Native Hooks require a prepared record target')
+}
+
 /** Resolves schema input through the sole transform phase, in before order. */
 export const runSchemaResolveInput = async <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -39,7 +46,10 @@ export const runSchemaResolveInput = async <
 	boundaries: RuntimeBehaviorBoundaries,
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		TOperation,
+		DatabaseMutationLogicalRecord<TOperation>
+	>,
 ): Promise<TOperation> => {
 	const schemaPlan = plan.getSchema(
 		requireDeclaredOperationSchema(input.operation),
@@ -90,10 +100,11 @@ export const runSchemaResolveInput = async <
 /** Runs mutation before-hooks after Runtime has prepared any reliable preimage. */
 export const runSchemaPreparedPhases = async <
 	const TOperation extends DatabaseMutationOperationAst,
+	const TTarget,
 >(
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
 ): Promise<void> => {
 	if (
 		input.operation.kind === 'create-many' ||
@@ -132,8 +143,11 @@ export const runSchemaPreparedPhases = async <
 
 		const items = collectMutationBeforeItems(
 			input.operation,
-			input.target,
-			input.targets,
+			readPreparedHookTarget(input.target),
+			input.targets?.map((target) => {
+				if (isPlainRecord(target)) return target
+				throw new TypeError('Native Hooks require prepared record targets')
+			}),
 		)
 
 		for (const item of items) {
@@ -168,12 +182,13 @@ export const runSchemaPreparedPhases = async <
 
 export const runSchemaResultPhases = async <
 	const TOperation extends DatabaseOperationAst,
+	const TResult,
 >(
 	boundaries: RuntimeBehaviorBoundaries,
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimeMaterializedResultStageInput<TOperation>,
-): Promise<RuntimeOperationResult<TOperation>> => {
+	input: RuntimeMaterializedResultStageInput<TOperation, TResult>,
+): Promise<TResult> => {
 	const schemaPlan = plan.getSchema(
 		requireDeclaredOperationSchema(input.operation),
 	)
@@ -182,11 +197,12 @@ export const runSchemaResultPhases = async <
 	}
 
 	const order = getNativeHookPhaseOrder(input.operation.kind)
-	const result = boundaries.snapshotResultReplacement(
+	boundaries.snapshotResultReplacement(
 		input.operation,
 		input.result,
 		input.selectedFieldsOverride,
 	)
+	const result = boundaries.snapshotValue(input.result)
 
 	if (
 		order.family === 'read' ||

@@ -33,6 +33,8 @@ import type {
 	RuntimePreparedMutationStageInput,
 	RuntimeResultStageInput,
 } from './contracts.js'
+import type { RuntimeLogicalOperationAst } from './contracts.js'
+import { readOperationResultSelection } from '../operations/queries.js'
 
 export const emptyRuntimeConstraints: readonly DatabaseConstraintNode[] =
 	immutableArray([])
@@ -208,25 +210,9 @@ export const createRuntimeProjectedDatabaseResultInput = <
 	})
 
 const readOperationSelectionFields = (
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): readonly string[] | undefined => {
-	const candidate: unknown = operation
-
-	if (!isPlainRecord(candidate)) {
-		return undefined
-	}
-	const selection: unknown =
-		candidate.kind === 'create-one' ||
-		candidate.kind === 'create-many' ||
-		candidate.kind === 'upsert-many'
-			? candidate.selection
-			: isPlainRecord(candidate.query)
-				? candidate.query.selection
-				: undefined
-
-	if (!isPlainRecord(selection) || !isUnknownArray(selection.fields)) {
-		return undefined
-	}
+	const selection = readOperationResultSelection(operation)
 
 	const selectedFields: string[] = []
 
@@ -241,7 +227,7 @@ const readOperationSelectionFields = (
 
 /** Reads the effective projection after enforcement materializes select-all. */
 export const readRuntimeSelectedFieldsOverride = (
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 	enforcement: EnforcementState | undefined,
 ): readonly string[] | undefined => {
 	if (enforcement === undefined) {
@@ -260,7 +246,7 @@ export const readRuntimeSelectedFieldsOverride = (
 
 /** Retains the effective public projection for immutable model commands. */
 export const readRuntimeSchemaModelSelectedFields = (
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 	selectedFieldsOverride: readonly string[] | undefined,
 ): readonly string[] | undefined => {
 	if (selectedFieldsOverride !== undefined) {

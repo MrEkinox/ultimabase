@@ -2,7 +2,6 @@ import {
 	collectOperationFieldInputs,
 	protectedPolicy,
 	readOperationResultSelection,
-	type ExecutableOperationAst,
 	type ProtectedPolicyDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -47,8 +46,7 @@ export const createACLFieldPolicy = (
 			const schema = readOperationSchema(operation)
 			if (!protectedSchemas.has(schema)) return undefined
 
-			const executable = operation as unknown as ExecutableOperationAst
-			const selected = readOperationResultSelection(executable).fields
+			const selected = readOperationResultSelection(operation).fields
 			if (selected.some(({ field }) => field === aclFieldName)) {
 				return immutableRecord({ allowed: false as const })
 			}

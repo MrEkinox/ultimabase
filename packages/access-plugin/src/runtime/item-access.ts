@@ -1,7 +1,6 @@
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
-	DatabaseOperationOutcome,
 	ExecutableOperationAst,
 	OperationKind,
 	RuntimeMutationOutcomeStageInput,
@@ -15,7 +14,7 @@ import {
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord, isUnknownArray } from '@ultimabase/shared'
 import type { AccessExecutionRuntime } from './execution-runtime.js'
 import {
 	createAccessUpdateCandidate,
@@ -152,13 +151,57 @@ export const requiresAccessPreparedMutationItems = (
 }
 
 /** Owns prepared target item decisions and final field-value transitions. */
-export const enforceAccessPreparedMutation = async <
-	const TOperation extends DatabaseMutationOperationAst,
->(
+const isAccessRecord = (
+	value: unknown,
+): value is Readonly<Record<string, unknown>> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const normalizePreparedMutationRequest = (
+	request: RuntimePreparedMutationStageInput<
+		DatabaseMutationOperationAst,
+		unknown
+	>,
+): RuntimePreparedMutationStageInput<
+	DatabaseMutationOperationAst,
+	Readonly<Record<string, unknown>>
+> => {
+	const readTarget = (
+		value: unknown,
+	): Readonly<Record<string, unknown>> | null | undefined => {
+		if (value === null || value === undefined) return value
+		if (isAccessRecord(value)) return value
+		throw new TypeError('Native Access requires a prepared record target')
+	}
+
+	const { targets, ...requestWithoutTargets } = request
+
+	return immutableRecord({
+		...requestWithoutTargets,
+		target: readTarget(request.target),
+		...(targets === undefined
+			? {}
+			: {
+					targets: immutableArray(
+						targets.map((target) => {
+							if (isAccessRecord(target)) return target
+							throw new TypeError(
+								'Native Access requires prepared record targets',
+							)
+						}),
+					),
+				}),
+	})
+}
+
+export const enforceAccessPreparedMutation = async (
 	runtime: AccessExecutionRuntime,
 	plan: AccessPlan,
-	request: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		DatabaseMutationOperationAst,
+		unknown
+	>,
 ): Promise<void> => {
+	const request = normalizePreparedMutationRequest(input)
 	const setBased =
 		request.operation.kind === 'update-many' ||
 		request.operation.kind === 'delete-many'
@@ -351,19 +394,56 @@ type UpsertMaterialization =
 			previous: Readonly<Record<string, unknown>>
 	  }>
 
+const readUpsertMaterializations = (
+	value: unknown,
+): readonly UpsertMaterialization[] => {
+	if (!isAccessRecord(value) || !isUnknownArray(value.materializations)) {
+		throw new TypeError('Native Access requires mutation materializations')
+	}
+
+	return immutableArray(
+		value.materializations.map((materialization) => {
+			if (
+				!isAccessRecord(materialization) ||
+				!isAccessRecord(materialization.current)
+			) {
+				throw new TypeError('Native Access received an invalid materialization')
+			}
+			if (materialization.kind === 'create') {
+				return immutableRecord({
+					current: materialization.current,
+					kind: 'create' as const,
+				})
+			}
+			if (
+				materialization.kind === 'update' &&
+				isAccessRecord(materialization.previous)
+			) {
+				return immutableRecord({
+					current: materialization.current,
+					kind: 'update' as const,
+					previous: materialization.previous,
+				})
+			}
+			throw new TypeError('Native Access received an invalid materialization')
+		}),
+	)
+}
+
 /** Validates the database-selected upsert branch against item and field rules. */
-export const enforceAccessMutationOutcome = async <
-	const TOperation extends DatabaseMutationOperationAst,
->(
+export const enforceAccessMutationOutcome = async (
 	runtime: AccessExecutionRuntime,
 	plan: AccessPlan,
-	request: RuntimeMutationOutcomeStageInput<TOperation>,
-): Promise<DatabaseOperationOutcome<TOperation>> => {
+	request: RuntimeMutationOutcomeStageInput<
+		DatabaseMutationOperationAst,
+		unknown
+	>,
+): Promise<void> => {
 	if (
 		request.operation.kind !== 'upsert-one' &&
 		request.operation.kind !== 'upsert-many'
 	) {
-		return request.outcome
+		return
 	}
 
 	const schemaPlan = plan.getSchema(readAccessSchema(request.operation))
@@ -382,8 +462,7 @@ export const enforceAccessMutationOutcome = async <
 		request.operation,
 		'parent-first',
 	)
-	const materializations = request.outcome
-		.materializations as unknown as readonly UpsertMaterialization[]
+	const materializations = readUpsertMaterializations(request.outcome)
 
 	for (const [index, materialization] of materializations.entries()) {
 		const item = items[index]
@@ -449,5 +528,4 @@ export const enforceAccessMutationOutcome = async <
 		)
 	}
 
-	return request.outcome
 }

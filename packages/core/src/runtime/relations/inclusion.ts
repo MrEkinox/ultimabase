@@ -1,5 +1,4 @@
 import {
-	type ExecutableOperationAst,
 	type FindManyOperationAst,
 	type FindOneOperationAst,
 	type QueryAst,
@@ -49,9 +48,7 @@ export const readInclusions = (
 		return emptyInclusions
 	}
 
-	const fields: unknown = readOperationResultInclusion(
-		operation as ExecutableOperationAst,
-	).fields
+	const fields: unknown = readOperationResultInclusion(operation).fields
 
 	if (!isUnknownArray(fields) || fields.length === 0) {
 		return emptyInclusions

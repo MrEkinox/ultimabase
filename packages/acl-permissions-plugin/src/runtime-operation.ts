@@ -1,13 +1,13 @@
 import {
 	getOperationSchema,
 	Schema,
-	type DatabaseOperationAst,
+	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 
 /** Reads the exact application schema retained by a normalized operation. */
 export const readOperationSchema = (
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): SchemaDefinition => {
 	const schema: unknown = getOperationSchema(operation)
 	if (!Schema.is(schema)) {

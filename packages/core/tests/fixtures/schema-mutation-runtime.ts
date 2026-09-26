@@ -3,6 +3,7 @@ import { vi } from 'vitest'
 import { applicationFixture } from '../application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../runtime/fixtures/database-adapter-capability.js'
+import { provideTestRuntimeInterceptor } from '../runtime/fixtures/runtime-capabilities.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -20,9 +21,9 @@ import type { SchemaDefinition } from '../../src/schema/index.js'
 import { Schema, stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 import {
-	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 } from '../../src/runtime/capabilities.js'
+import { beforeOperation } from '../../src/runtime/contributions/definitions.js'
 import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
 import { protectedPolicy } from '../../src/runtime/enforcement/protected-policy.js'
 import { MasterAuthority } from '../../src/runtime/master/master-authority.js'
@@ -113,16 +114,15 @@ export const createUpdateFixture = async (options: {
 							resolve: handler,
 						}),
 					]),
-			provideRuntimeBehavior({
-				contributionId: 'logical-operation-observer',
-				create: () => ({
-					value: {
-						beforeOperation: ({ operation }) => {
-							options.observeOperation?.(operation.kind)
-						},
+			provideTestRuntimeInterceptor(
+				'logical-operation-observer',
+				beforeOperation({
+					operations: ['plugin-schema-mutation'],
+					handler: ({ operation }) => {
+						options.observeOperation?.(operation.kind)
 					},
 				}),
-			}),
+			),
 			providePersistencePlanRewriter({
 				contributionId: 'logical-schema-mutation-rewriter',
 				create: () => ({
@@ -141,6 +141,7 @@ export const createUpdateFixture = async (options: {
 							contributionId: 'schema-mutation-policy',
 							create: () => ({
 								value: protectedPolicy({
+									operations: ['plugin-schema-mutation'],
 									evaluate: () => ({
 										constraints: databaseConstraint(
 											'fixture.schema-mutation-tenant',

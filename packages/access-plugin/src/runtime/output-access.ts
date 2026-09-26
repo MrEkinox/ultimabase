@@ -4,7 +4,6 @@ import {
 	readOperationResultSelection,
 	readRuntimeFieldValuePath,
 	readRuntimeIncludedPointerValue,
-	type ExecutableOperationAst,
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
@@ -63,10 +62,9 @@ export const assertAccessExplicitSelection = (
 		return
 	}
 
-	// Structural validation establishes the executable closed operation union.
-	const operation = request.operation as unknown as ExecutableOperationAst
-
-	for (const { field: fieldName } of readOperationResultSelection(operation)
+	for (const { field: fieldName } of readOperationResultSelection(
+		request.operation,
+	)
 		.fields) {
 		if (!permitted.includes(fieldName)) {
 			const field = plan.getField(schemaPlan.schema, [fieldName])

@@ -15,6 +15,9 @@ import { Schema, type GenericField } from '../../schema/index.js'
 import { getFieldListDepth } from '../../schema/fields/base/options.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
+import type {
+	PluginSchemaMutationOperationAst,
+} from '../schema-mutations/contracts.js'
 
 export type RuntimeFieldValuePathSegment = number | string
 export type RuntimeFieldVisitOrder = 'children-first' | 'parent-first'
@@ -27,6 +30,7 @@ type RuntimeFieldInputKind =
 	| 'update-one'
 	| 'upsert-many'
 	| 'upsert-one'
+	| 'plugin-schema-mutation'
 
 /** Identifies one present logical field value without flattening structural paths. */
 export interface RuntimeFieldValue {
@@ -70,7 +74,7 @@ const isRuntimeObjectField = (
 
 /** Recovers one validated schema field map from either operation AST shape. */
 export const getRuntimeOperationFields = (
-	operation: DatabaseOperationAst,
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
 ): Readonly<Record<string, GenericField>> => {
 	const schema = getOperationSchema(operation)
 
@@ -288,7 +292,11 @@ const collectUpdateLocations = (
 	itemIndex: number,
 	kind: Extract<
 		RuntimeFieldInputKind,
-		'update-many' | 'update-one' | 'upsert-many' | 'upsert-one'
+		| 'plugin-schema-mutation'
+		| 'update-many'
+		| 'update-one'
+		| 'upsert-many'
+		| 'upsert-one'
 	>,
 	order: RuntimeFieldVisitOrder,
 	locations: RuntimeFieldInputLocation[],
@@ -327,12 +335,26 @@ const collectUpdateLocations = (
 
 /** Collects every present candidate value in deterministic item and field order. */
 export const collectOperationFieldInputs = (
-	operation: DatabaseOperationAst,
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
 	order: RuntimeFieldVisitOrder,
 ): readonly RuntimeFieldInputValue[] => {
 	const fields = getRuntimeOperationFields(operation)
-	const executable = operation as unknown as ExecutableOperationAst
 	const locations: RuntimeFieldInputLocation[] = []
+	if (operation.kind === 'plugin-schema-mutation') {
+		if (operation.effect?.kind === 'update') {
+			collectUpdateLocations(
+				operation.effect.update,
+				fields,
+				immutableArray(['effect', 'update']),
+				0,
+				operation.kind,
+				order,
+				locations,
+			)
+		}
+		return immutableArray(locations)
+	}
+	const executable = operation as unknown as ExecutableOperationAst
 
 	switch (executable.kind) {
 		case 'create-one':

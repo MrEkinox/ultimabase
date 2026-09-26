@@ -6,6 +6,7 @@ import {
 	type UpsertManyOperationAst,
 } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import { expect, it } from 'vitest'
 
 import {
@@ -121,6 +122,54 @@ it('keeps create and update values separate for every bulk upsert item', () => {
 		'operations',
 		0,
 		'value',
+	])
+})
+
+it('collects plugin schema mutation effect fields through the logical operation', () => {
+	const update = normalizeUpdateExpression(TraversalRecord, { count: increment(1) })
+	const operation = {
+		command: 'archive',
+		effect: { kind: 'update', update },
+		id: 'record-1',
+		input: { reason: 'superseded' },
+		item: undefined,
+		kind: 'plugin-schema-mutation',
+		mutation: {
+			authority: 'request',
+			effect: 'update',
+			errors: [],
+			input: {},
+			kind: 'plugin-schema-mutation',
+			name: 'fixture.workflow.archive',
+			returning: 'after',
+			select: {},
+			version: '1.0.0',
+		},
+		originalItem: undefined,
+		owner: {
+			kind: 'plugin',
+			pluginId: 'fixture.workflow',
+			version: '1.0.0',
+		},
+		query,
+	} satisfies PluginSchemaMutationOperationAst
+
+	expect(
+		collectOperationFieldInputs(operation, 'parent-first').map(
+			({ fieldPath, kind, mode, valuePath }) => ({
+				fieldPath,
+				kind,
+				mode,
+				valuePath,
+			}),
+		),
+	).toStrictEqual([
+		{
+			fieldPath: ['count'],
+			kind: 'plugin-schema-mutation',
+			mode: 'update',
+			valuePath: ['effect', 'update', 'operations', 0, 'value'],
+		},
 	])
 })
 

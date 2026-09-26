@@ -5,10 +5,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type {
-	ExecutableOperationAst,
-	QuerySelectionNode,
-} from '../../query/index.js'
+import type { QuerySelectionNode } from '../../query/index.js'
 import { normalizeQuerySelectedFields } from '../../query/clauses/selection.js'
 import {
 	Schema,
@@ -48,9 +45,7 @@ export const prepareRuntimeVirtualFieldProjection = (
 		throw new TypeError('Runtime virtual projection schema is invalid')
 	}
 
-	const selection = readOperationResultSelection(
-		operation as unknown as ExecutableOperationAst,
-	)
+	const selection = readOperationResultSelection(operation)
 	const requested =
 		selection.fields.length === 0
 			? new Set(Object.keys(schema.fields))

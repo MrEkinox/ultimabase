@@ -12,10 +12,9 @@ import {
 import type { SchemaDefinition } from '../../schema/index.js'
 import type {
 	DatabaseInclusionPlan,
-	DatabaseMutationOperationAst,
+	DatabaseMutationMaterializationSource,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
-	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
 import {
@@ -54,7 +53,7 @@ const createMutationInclusionRead = (
 /** Reads one persisted identity from private mutation materialization data. */
 const readMutationProjectionIdentity = (
 	executor: DatabaseOperationExecutor,
-	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
+	outcome: DatabaseMutationMaterializationSource,
 ): string | undefined => {
 	const materialization = outcome.materializations[0]
 
@@ -77,7 +76,7 @@ export const loadSingularMutationInclusionSource = async <
 >(
 	executor: DatabaseOperationExecutor,
 	operation: TOperation,
-	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
+	outcome: DatabaseMutationMaterializationSource,
 	inclusions: readonly DatabaseInclusionPlan[] | undefined,
 	returningSelection?: QuerySelectionNode,
 ): Promise<DatabaseOperationResult<TOperation> | undefined> => {

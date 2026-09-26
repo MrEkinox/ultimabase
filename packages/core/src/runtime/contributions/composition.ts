@@ -203,13 +203,11 @@ const normalizePreparedContributionOutput = <
 	return nextOperation
 }
 
-const normalizeAfterContributionOutput = <const TResult>(
-	output: unknown,
-): TResult => {
+const normalizeAfterContributionOutput = (output: unknown): unknown => {
 	const result = assertExactContributionOutput(output, 'result')
 
 	// Result validation remains operation-specific; this boundary only enforces explicit replacement.
-	return result.result as TResult
+	return result.result
 }
 
 const matchesContribution = (
@@ -319,7 +317,7 @@ const runAfterContributions = async <
 				),
 		)
 
-		result = normalizeAfterContributionOutput<TResult>(output)
+		result = normalizeAfterContributionOutput(output) as TResult
 	}
 
 	return result

@@ -1,9 +1,13 @@
 import { immutableRecord } from '@ultimabase/shared'
 import {
 	createRuntimeBehaviorBoundaries,
+	type DatabaseMutationLogicalRecord,
 	type DatabaseMutationOperationAst,
+	type DatabaseOperationAst,
 	type RuntimeBehaviorBoundaries,
 	type RuntimeBehaviorStages,
+	type RuntimeLogicalMutationOperationAst,
+	type RuntimeLogicalOperationAst,
 	type RuntimePreparedMutationStageInput,
 } from '@ultimabase/core'
 
@@ -21,6 +25,26 @@ import {
 	runSchemaResolveInput,
 } from './schema-phases.js'
 
+const readNativeOperation = (
+	operation: RuntimeLogicalOperationAst,
+): DatabaseOperationAst => {
+	if (operation.kind === 'plugin-schema-mutation') {
+		throw new TypeError('Native Hooks require a database operation')
+	}
+
+	return operation
+}
+
+const readNativeMutationOperation = (
+	operation: RuntimeLogicalMutationOperationAst,
+): DatabaseMutationOperationAst => {
+	if (operation.kind === 'plugin-schema-mutation') {
+		throw new TypeError('Native Hooks require a database mutation')
+	}
+
+	return operation
+}
+
 /** Runs schema input resolution only after the visible target is prepared and locked. */
 const resolveSchemaInput = async <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -28,7 +52,10 @@ const resolveSchemaInput = async <
 	boundaries: RuntimeBehaviorBoundaries,
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		TOperation,
+		DatabaseMutationLogicalRecord<TOperation>
+	>,
 ): Promise<TOperation> => {
 	if (
 		input.operation.kind === 'delete-one' ||
@@ -54,23 +81,32 @@ export const createHookBehavior = (
 			isSchemaMutationHookRequest(input)
 				? runSchemaMutationBeforeHooks(plan, runtime, input)
 				: undefined,
-		transformMutationOutcome: (input) =>
-			isSchemaMutationHookRequest(input)
-				? input.outcome
-				: boundaries.snapshotMutationOutcome(
-						input.operation,
-						input.outcome,
-						input.selectedFieldsOverride,
-					),
+		transformMutationOutcome: (input) => {
+			if (isSchemaMutationHookRequest(input)) return input.outcome
+			boundaries.snapshotMutationOutcome(
+				readNativeMutationOperation(input.operation),
+				input.outcome,
+				input.selectedFieldsOverride,
+			)
+			return boundaries.snapshotValue(input.outcome)
+		},
 		transformInput: (input) => resolveFieldInputs(plan, runtime, input),
-		transformResult: (input) =>
-			isSchemaMutationHookRequest(input)
-				? runSchemaMutationAfterHooks(plan, runtime, input)
-				: runSchemaResultPhases(boundaries, plan, runtime, input),
-		observePreparedMutation: (input) =>
-			isSchemaMutationHookRequest(input)
-				? undefined
-				: runSchemaPreparedPhases(plan, runtime, input),
+		transformResult: (input) => {
+			if (isSchemaMutationHookRequest(input)) {
+				return runSchemaMutationAfterHooks(plan, runtime, input)
+			}
+			return runSchemaResultPhases(boundaries, plan, runtime, {
+				...input,
+				operation: readNativeOperation(input.operation),
+			})
+		},
+		observePreparedMutation: (input) => {
+			if (isSchemaMutationHookRequest(input)) return undefined
+			return runSchemaPreparedPhases(plan, runtime, {
+				...input,
+				operation: readNativeMutationOperation(input.operation),
+			})
+		},
 		transformPreparedInput: (input) =>
 			resolveSchemaInput(boundaries, plan, runtime, input),
 	})

@@ -188,6 +188,7 @@ export const createAlternativePolicyEngine = (
 					evaluate: ({ context, operation }) => {
 						// This engine deliberately adopts Core Master as its explicit bypass.
 						if (context.access.mode === 'master') return undefined
+						if (operation.kind === 'plugin-schema-mutation') return undefined
 						const schema = getOperationSchema(operation)
 						if (!Schema.is(schema)) return undefined
 						const config = plan.get(schema.className)
