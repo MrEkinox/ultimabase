@@ -6,27 +6,17 @@ import type {
 	SchemaFields,
 } from '@ultimabase/core'
 
-const builtInFieldKinds: ReadonlySet<string> = new Set([
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
+import { readGraphqlScalarType } from './scalar-types.js'
+
+const structuralFieldKinds: ReadonlySet<string> = new Set([
 	'enum',
-	'float',
-	'int',
-	'json',
 	'object',
 	'pointer',
 	'relation',
-	'string',
-	'time',
-	'uuid',
 ])
 
 export const isGraphqlBuiltInFieldKind = (kind: string): boolean =>
-	builtInFieldKinds.has(kind)
+	readGraphqlScalarType(kind) !== undefined || structuralFieldKinds.has(kind)
 
 export const readGraphqlEnumValues = (
 	field: GenericField,

@@ -8,6 +8,7 @@ import {
 	GraphQLString,
 	type GraphQLNullableInputType,
 	type GraphQLNullableOutputType,
+	type GraphQLScalarType,
 } from 'graphql'
 
 import {
@@ -21,6 +22,26 @@ import {
 	GraphqlTime,
 	GraphqlUUID,
 } from './scalars.js'
+
+const graphqlScalarTypes: ReadonlyMap<string, GraphQLScalarType> = new Map([
+	['bigint', GraphqlBigInt],
+	['binary', GraphqlBase64],
+	['boolean', GraphQLBoolean],
+	['date', GraphqlDate],
+	['dateTime', GraphqlDateTime],
+	['decimal', GraphqlDecimal],
+	['float', GraphQLFloat],
+	['int', GraphqlSafeInt],
+	['json', GraphqlJSON],
+	['string', GraphQLString],
+	['time', GraphqlTime],
+	['uuid', GraphqlUUID],
+])
+
+/** Resolves the one shared GraphQL representation for a Core scalar kind. */
+export const readGraphqlScalarType = (
+	kind: string,
+): GraphQLScalarType | undefined => graphqlScalarTypes.get(kind)
 
 /** Applies the one-dimensional Core list shape to an input or output type. */
 export const wrapGraphqlFieldList = <
@@ -37,69 +58,13 @@ export const wrapGraphqlFieldList = <
 export const readGraphqlScalarOutputType = (
 	field: GenericField,
 	systemId: boolean,
-): GraphQLNullableOutputType | undefined => {
-	switch (field.kind) {
-		case 'string':
-			return GraphQLString
-		case 'boolean':
-			return GraphQLBoolean
-		case 'int':
-			return GraphqlSafeInt
-		case 'float':
-			return GraphQLFloat
-		case 'bigint':
-			return GraphqlBigInt
-		case 'decimal':
-			return GraphqlDecimal
-		case 'date':
-			return GraphqlDate
-		case 'time':
-			return GraphqlTime
-		case 'dateTime':
-			return GraphqlDateTime
-		case 'binary':
-			return GraphqlBase64
-		case 'uuid':
-			return systemId ? GraphQLID : GraphqlUUID
-		case 'json':
-			return GraphqlJSON
-		default:
-			return undefined
-	}
-}
+): GraphQLNullableOutputType | undefined =>
+	field.kind === 'uuid' && systemId
+		? GraphQLID
+		: readGraphqlScalarType(field.kind)
 
 /** Resolves built-in scalar and pointer input kinds before nested generation. */
 export const readGraphqlScalarInputType = (
 	field: GenericField,
-): GraphQLNullableInputType | undefined => {
-	switch (field.kind) {
-		case 'string':
-			return GraphQLString
-		case 'boolean':
-			return GraphQLBoolean
-		case 'int':
-			return GraphqlSafeInt
-		case 'float':
-			return GraphQLFloat
-		case 'bigint':
-			return GraphqlBigInt
-		case 'decimal':
-			return GraphqlDecimal
-		case 'date':
-			return GraphqlDate
-		case 'time':
-			return GraphqlTime
-		case 'dateTime':
-			return GraphqlDateTime
-		case 'binary':
-			return GraphqlBase64
-		case 'uuid':
-			return GraphqlUUID
-		case 'json':
-			return GraphqlJSON
-		case 'pointer':
-			return GraphQLID
-		default:
-			return undefined
-	}
-}
+): GraphQLNullableInputType | undefined =>
+	field.kind === 'pointer' ? GraphQLID : readGraphqlScalarType(field.kind)

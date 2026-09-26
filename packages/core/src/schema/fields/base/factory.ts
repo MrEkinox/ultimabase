@@ -204,8 +204,8 @@ export type ScalarFieldConfigurationResolver<TOptions extends object> = (
 ) => ScalarFieldConfiguration<TOptions>
 
 /**
- * Keeps only operation-relevant scalar metadata in the returned field type.
- * Field-specific constraints stay contextually typed without becoming literals.
+ * Keeps operation metadata compact; built-ins retain named callable aliases
+ * because TypeScript surfaces those names in source and compiled editor hovers.
  */
 export interface CompactScalarFieldFactory<
 	TKind extends string,

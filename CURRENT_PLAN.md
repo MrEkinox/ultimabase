@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 39
 - Baseline: `776b533c`
-- Current issue: 3902 (completed)
+- Current issue: 3903 (completed)
 
 The user authorized the next debt and DX reduction sequence on 2026-09-25 while
 retaining every functional capability.
@@ -17,11 +17,16 @@ plumbing used by the Access, Hooks, REST, and GraphQL schema-mutation tests. The
 shared fixture is repository-internal test tooling; each package retains its
 own rows, prepared effects, traces, and behavioral assertions.
 
-Later bounded issues will address built-in scalar factory typing and remaining
-internal mapping or registry duplication. Each issue keeps its own commit and
+Issue 3903 preserved the explicit built-in scalar factory aliases as a
+deliberate TypeScript hover boundary. It instead consolidates GraphQL's repeated
+scalar kind-to-type switches and supported-kind sets behind one internal map,
+without changing a public export, source hover, or compiled hover.
+
+Later bounded issues will address remaining internal registry duplication and
+the complete parity and reduction audit. Each issue keeps its own commit and
 validation evidence.
 
-Resume by selecting the built-in scalar factory typing issue and first capture
-the exact source and compiled hover baseline before changing its declarations.
+Resume by selecting the remaining internal registry consolidation issue and
+rejecting any abstraction that would add a parallel registration path.
 
 No push is authorized.

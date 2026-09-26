@@ -13,8 +13,7 @@ one existing Core boundary rather than introduce a parallel facade.
 
 - [x] [3901 — Unify plugin field-family authoring](3901-plugin-field-family.md)
 - [x] [3902 — Consolidate prepared-mutation test adapters](3902-prepared-mutation-test-adapters.md)
-- [ ] Reduce built-in scalar factory typing only with identical source and
-      compiled hovers.
+- [x] [3903 — Preserve scalar hovers and consolidate GraphQL scalar mappings](3903-graphql-scalar-mappings.md)
 - [ ] Consolidate remaining internal scalar mappings and plugin registries.
 - [ ] Run the complete parity and reduction audit.
 

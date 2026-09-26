@@ -5,13 +5,10 @@ import type {
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
-	GraphQLBoolean,
 	GraphQLEnumType,
-	GraphQLFloat,
 	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
-	GraphQLString,
 	type GraphQLFieldConfigMap,
 	type GraphQLNamedType,
 	type GraphQLNullableOutputType,
@@ -26,17 +23,7 @@ import {
 	graphqlFieldTypeSegment,
 } from './names.js'
 import type { GraphqlNameRegistry } from './names.js'
-import {
-	GraphqlBase64,
-	GraphqlBigInt,
-	GraphqlDate,
-	GraphqlDateTime,
-	GraphqlDecimal,
-	GraphqlJSON,
-	GraphqlSafeInt,
-	GraphqlTime,
-	GraphqlUUID,
-} from './scalars.js'
+import { readGraphqlScalarType } from './scalar-types.js'
 import { graphqlSourceDescription } from './surfaces.js'
 
 interface NamedOutputType<TType extends GraphQLNamedType> {
@@ -44,23 +31,6 @@ interface NamedOutputType<TType extends GraphQLNamedType> {
 	readonly source: string
 	readonly type: TType
 }
-
-const builtInOutputKinds: ReadonlySet<string> = new Set([
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'object',
-	'string',
-	'time',
-	'uuid',
-])
 
 const readOutputFields = (
 	descriptor: GenericOutputDescriptor,
@@ -107,39 +77,6 @@ const outputShapeSignature = (descriptor: GenericOutputDescriptor): string => {
 	return `${common}:${readTypeName(descriptor) ?? ''}:${JSON.stringify(fields)}`
 }
 
-const scalarOutputType = (
-	descriptor: GenericOutputDescriptor,
-): GraphQLNullableOutputType | undefined => {
-	switch (descriptor.kind) {
-		case 'string':
-			return GraphQLString
-		case 'boolean':
-			return GraphQLBoolean
-		case 'int':
-			return GraphqlSafeInt
-		case 'float':
-			return GraphQLFloat
-		case 'bigint':
-			return GraphqlBigInt
-		case 'decimal':
-			return GraphqlDecimal
-		case 'date':
-			return GraphqlDate
-		case 'time':
-			return GraphqlTime
-		case 'dateTime':
-			return GraphqlDateTime
-		case 'binary':
-			return GraphqlBase64
-		case 'uuid':
-			return GraphqlUUID
-		case 'json':
-			return GraphqlJSON
-		default:
-			return undefined
-	}
-}
-
 /** Compiles Core output-only descriptors without installing GraphQL resolvers. */
 export class GraphqlOutputTypeCompiler {
 	readonly #names: GraphqlNameRegistry
@@ -172,7 +109,11 @@ export class GraphqlOutputTypeCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): void {
-		if (!builtInOutputKinds.has(descriptor.kind)) {
+		if (
+			descriptor.kind !== 'enum' &&
+			descriptor.kind !== 'object' &&
+			readGraphqlScalarType(descriptor.kind) === undefined
+		) {
 			throw new GraphqlSchemaCompilationError(
 				'missing-field-codec',
 				`Virtual output ${schema.className}.${path.join('.')} uses ${descriptor.kind} without an exact GraphQL v1 representation`,
@@ -319,7 +260,7 @@ export class GraphqlOutputTypeCompiler {
 	): GraphQLOutputType {
 		this.#assertSupported(descriptor, schema, path)
 		const element =
-			scalarOutputType(descriptor) ??
+			readGraphqlScalarType(descriptor.kind) ??
 			(descriptor.kind === 'enum'
 				? this.#enum(descriptor, schema, path, modelTypeName)
 				: this.#object(descriptor, schema, path, modelTypeName))
