@@ -1,4 +1,3 @@
-import { FrameworkError } from '../errors/framework-error.js'
 import {
 	adapterCapabilityPrivilege,
 	isAuthorizedAdapterCapabilityProvider,
@@ -11,6 +10,7 @@ import type {
 	MutableCapabilityEntry,
 	OwnedProvider,
 } from './capability-inventory.js'
+import { throwCapabilityConflict } from './capability-conflict.js'
 import { formatPluginIdentity, type PluginPrivilege } from './manifest.js'
 
 type OwnedRequirement = MutableCapabilityEntry['requirements'][number]
@@ -24,15 +24,6 @@ interface AdapterCapabilityPlanningAccess {
 		requirement: OwnedRequirement,
 		privilege: PluginPrivilege,
 	) => boolean
-}
-
-const throwCapabilityConflict = (
-	message: string,
-	internalDetails: Readonly<Record<string, unknown>>,
-): never => {
-	throw new FrameworkError('PLUGIN_CAPABILITY_CONFLICT', message, {
-		internalDetails,
-	})
 }
 
 /** @internal Enforces the exact helpers and privileges of adapter protocols. */

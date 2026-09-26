@@ -27,6 +27,7 @@ import { isAdapterContributionCapability } from '../runtime/adapters/contributio
 import { canonicalApplicationRequestExecutionFoundation } from '../runtime/application/application-request-execution.js'
 import { canonicalApplicationOperationTransportPlanningFoundation } from '../runtime/application/application-operation-transport-planning.js'
 import { canonicalApplicationSchemaMutationSurfaceFoundation } from '../runtime/application/application-schema-mutation-surface.js'
+import { throwCapabilityConflict } from './capability-conflict.js'
 
 /** Reports one provider without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -84,15 +85,6 @@ const inventoryStates = new WeakMap<
 	CapabilityInventory,
 	CapabilityInventoryState
 >()
-
-const throwCapabilityConflict = (
-	message: string,
-	internalDetails: Readonly<Record<string, unknown>>,
-): never => {
-	throw new FrameworkError('PLUGIN_CAPABILITY_CONFLICT', message, {
-		internalDetails,
-	})
-}
 
 const throwDuplicateTokenIdentity = (
 	entry: MutableCapabilityEntry,

@@ -1,7 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { FrameworkError } from '../errors/framework-error.js'
 import type { CapabilityRequirement } from './capabilities.js'
+import { throwCapabilityConflict } from './capability-conflict.js'
 import type {
 	MutableCapabilityEntry,
 	OwnedProvider,
@@ -23,15 +23,6 @@ import {
 } from '../runtime/persistence/capabilities.js'
 import { assertCoreCapabilityProviders } from './core-capability-planning.js'
 import { validateAdapterCapabilityEntry } from './adapter-capability-planning.js'
-
-const throwCapabilityConflict = (
-	message: string,
-	internalDetails: Readonly<Record<string, unknown>>,
-): never => {
-	throw new FrameworkError('PLUGIN_CAPABILITY_CONFLICT', message, {
-		internalDetails,
-	})
-}
 
 const assertUniqueContributionIds = (entry: MutableCapabilityEntry): void => {
 	const contributions = entry.providers

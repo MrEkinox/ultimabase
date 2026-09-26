@@ -1,18 +1,9 @@
-import { FrameworkError } from '../errors/framework-error.js'
 import { isApplicationRequestExecutionCapability } from '../runtime/application/application-request-execution.js'
 import { isApplicationOperationTransportPlanningCapability } from '../runtime/application/application-operation-transport-planning.js'
 import { isApplicationSchemaMutationSurfaceCapability } from '../runtime/application/application-schema-mutation-surface.js'
 import type { MutableCapabilityEntry } from './capability-inventory.js'
+import { throwCapabilityConflict } from './capability-conflict.js'
 import { formatPluginIdentity } from './manifest.js'
-
-const throwCoreCapabilityConflict = (
-	message: string,
-	internalDetails: Readonly<Record<string, unknown>>,
-): never => {
-	throw new FrameworkError('PLUGIN_CAPABILITY_CONFLICT', message, {
-		internalDetails,
-	})
-}
 
 const coreCapabilityDescription = (
 	entry: MutableCapabilityEntry,
@@ -49,7 +40,7 @@ export const assertCoreCapabilityProviders = (
 	)
 	if (pluginProvider === undefined) return
 
-	throwCoreCapabilityConflict(`${capability.name} is provided only by Core.`, {
+	throwCapabilityConflict(`${capability.name} is provided only by Core.`, {
 		kind: `${capability.kind}-provider-forbidden`,
 		plugin: formatPluginIdentity(pluginProvider.owner),
 		contributionId: pluginProvider.declaration.contributionId,
