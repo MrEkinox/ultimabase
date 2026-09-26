@@ -22,6 +22,7 @@ import type { PluginGraph } from './graph.js'
 import {
 	formatPluginIdentity,
 	type PluginIdentity,
+	type PluginPrivilege,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
 import type { SchemaDeclarationRegistry } from './schema-declarations.js'
@@ -197,6 +198,14 @@ const throwUndeclaredCapabilityRead = (
 	)
 }
 
+const declarationPrivileges: ReadonlySet<PluginPrivilege> = new Set([
+	'model:extend',
+	'operation:declare',
+	'schema:declare',
+	'storage:private',
+	'typegen:reference',
+])
+
 /** Runs the one transactional static declaration phase for an application. */
 export class PluginDeclarationHost {
 	#completed = false
@@ -216,42 +225,20 @@ export class PluginDeclarationHost {
 		for (const plugin of this.graph) {
 			const definition = plugin.definition
 			const owner = definition.manifest.identity
-			const privilege = definition.manifest.privileges.find(
-				(request) => request.name === 'schema:declare',
-			)
-			const canDeclare =
-				privilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, privilege)
-			const modelPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'model:extend',
-			)
-			const operationPrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'operation:declare',
-			)
-			const typegenReferencePrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'typegen:reference',
-			)
-			const privateStoragePrivilege = definition.manifest.privileges.find(
-				(request) => request.name === 'storage:private',
-			)
-			const canExtendModels =
-				modelPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, modelPrivilege)
-			const canDeclareOperations =
-				operationPrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(owner, operationPrivilege)
-			const canReferenceTypegen =
-				typegenReferencePrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(
-					owner,
-					typegenReferencePrivilege,
-				)
-			const canUsePrivateStorage =
-				privateStoragePrivilege !== undefined &&
-				this.graph.capabilities.isPrivilegeActive(
-					owner,
-					privateStoragePrivilege,
-				)
+			const activePrivileges = new Set<PluginPrivilege>()
+			for (const request of definition.manifest.privileges) {
+				if (
+					declarationPrivileges.has(request.name) &&
+					this.graph.capabilities.isPrivilegeActive(owner, request)
+				) {
+					activePrivileges.add(request.name)
+				}
+			}
+			const canDeclare = activePrivileges.has('schema:declare')
+			const canExtendModels = activePrivileges.has('model:extend')
+			const canDeclareOperations = activePrivileges.has('operation:declare')
+			const canReferenceTypegen = activePrivileges.has('typegen:reference')
+			const canUsePrivateStorage = activePrivileges.has('storage:private')
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
 						formatPluginIdentity(owner),

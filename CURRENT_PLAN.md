@@ -3,7 +3,7 @@
 - Status: in-progress
 - Milestone: 40
 - Baseline: `aa2f0097`
-- Current issue: 4003 (planned)
+- Current issue: 4004 (planned)
 
 The user authorized another debt and plugin-authoring DX reduction sequence on
 2026-09-26 while retaining every functional capability.
@@ -19,9 +19,12 @@ Core consumers while retaining every caller-owned diagnostic and the historical
 distinction between `Reflect.ownKeys()` and `Object.keys()` boundaries. It was
 completed with a net reduction of 12 handwritten production TypeScript lines.
 
-Issues 4003 and 4004 next reduce declaration privilege lookup and schema
-add/claim staging. Each change must be private, behavior-preserving, and a net
-handwritten production reduction.
+Issue 4003 replaces five manifest scans with one owner-local active declaration
+privilege set. It was completed with a net reduction of 13 handwritten
+production TypeScript lines while retaining every conditional facade boundary.
+
+Issue 4004 next reduces schema add/claim staging. It must remain private,
+behavior-preserving, and a net handwritten production reduction.
 
 Issue 4005 performs the final parity, validation, and line-count audit from
 baseline `aa2f0097`.

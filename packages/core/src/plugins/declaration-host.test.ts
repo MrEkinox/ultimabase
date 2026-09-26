@@ -121,6 +121,86 @@ describe('PluginDeclarationHost', () => {
 		])
 	})
 
+	it('resolves every declaration privilege through one active set', async () => {
+		const conditionalRequirement = optionalCapability(
+			declarationCapability,
+			'^1.0.0',
+		)
+		const properties = [
+			'fields',
+			'models',
+			'operations',
+			'privateStorage',
+			'typegenReferences',
+		] as const
+		const createDeclarer = (observed: boolean[]) => {
+			const observe =
+				(property: (typeof properties)[number]) =>
+				(context: object): undefined => {
+					observed.push(Object.hasOwn(context, property))
+					return undefined
+				}
+			const conditional = (reason: string) => ({
+				reason,
+				when: conditionalRequirement,
+			})
+			return createPlugin({
+				id: 'fixture.all-conditional-declarations',
+				version: '1.0.0',
+				core: '^0.0.0',
+				permissions: {
+					'model:extend': conditional('Extends models.'),
+					'operation:declare': conditional('Declares operations.'),
+					'schema:declare': conditional('Declares schemas.'),
+					'storage:private': conditional('Declares private storage.'),
+					'typegen:reference': conditional('References public types.'),
+				},
+				contributions: [
+					conditionalRequirement,
+					contributeDeclarations({
+						models: observe('models'),
+						operations: observe('operations'),
+						privateStorage: observe('privateStorage'),
+						schema: observe('fields'),
+						typegen: observe('typegenReferences'),
+					}),
+				],
+			})
+		}
+		const provider = createPlugin({
+			id: 'fixture.all-conditional-provider',
+			version: '1.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'available' },
+				}),
+			],
+		})
+		const inactive: boolean[] = []
+		const active: boolean[] = []
+		const withoutProvider = applicationFixture(
+			await createApplication({
+				plugins: [createDeclarer(inactive)],
+				pluginPrivileges: { logger: false },
+				schemas: [],
+			}),
+		)
+		await withoutProvider.dispose()
+		const withProvider = applicationFixture(
+			await createApplication({
+				plugins: [createDeclarer(active), provider],
+				pluginPrivileges: { logger: false },
+				schemas: [],
+			}),
+		)
+
+		expect(inactive).toEqual(properties.map(() => false))
+		expect(active).toEqual(properties.map(() => true))
+		await withProvider.dispose()
+	})
+
 	it('reads only exact static requirements and closes captured readers', async () => {
 		const required = requireCapability(declarationCapability, '^1.0.0')
 		const absent = optionalCapability(
