@@ -338,9 +338,11 @@ export {
 	collectOperationFieldInputs,
 	collectRecordFieldValues,
 	readRuntimeFieldValuePath,
+	transformOperationFieldInputs,
 } from './operations/field-values.js'
 export type {
 	RuntimeFieldInputValue,
+	RuntimeFieldInputVisitor,
 	RuntimeFieldValue,
 	RuntimeFieldValuePathSegment,
 	RuntimeFieldVisitOrder,

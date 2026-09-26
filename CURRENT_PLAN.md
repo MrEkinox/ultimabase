@@ -1,24 +1,23 @@
-# Current plan: Access mutation traversal consolidation
+# Current plan: Canonical field-input transformation
 
 - Status: completed
-- Milestone: 47
-- Baseline: `41238317`
+- Milestone: 48
+- Baseline: `86581f87`
 - Current issue: completed
 
-The user authorized the next debt reduction after milestone 46. Access still
-decoded normalized update expressions beside Core's canonical field traversal,
-rescanned every materialized value for every affected field, and traversed
-static transition rules more than once.
+The user authorized the next debt reduction after milestone 47. The Hooks
+plugin still owns 613 production lines that duplicate Core's field-input
+collection, path traversal, and immutable transformation.
 
-Issue 4701 converges those paths on Core's existing traversal, isolates bulk
-items through their canonical item index, and indexes values once per snapshot.
-Prepared and materialized upsert checks remain separate, and no public API or
-authorization semantics change.
+Issue 4801 makes Core's already-implemented field-input transformer a deliberate
+public plugin-author helper. Hooks consumes that exact boundary, while its
+existing conformance tests continue to protect nested objects, lists, updates,
+bulk item isolation, and immutable replacement. No Hook capability or Runtime
+stage changes.
 
-Issue 4701 is complete. Access now has one canonical mutation-field traversal,
-one indexed correlation pass for materialized values, and single-pass relation
-and static transition decisions. Production is 41 lines smaller,
-`mutation-transitions.ts` is back under its warning budget, and all 2,574
-repository tests pass. No resume point remains.
+Issue 4801 is complete. Core now owns the only field-input transformer, Hooks'
+three copied Runtime modules are removed, and production TypeScript is 614
+lines smaller. The public helper retains exact operation inference, all 2,575
+repository tests pass, and no resume point remains.
 
 No push is authorized.

@@ -1,22 +1,18 @@
 import {
+	collectOperationFieldInputs,
 	increment,
 	normalizeUpdateExpression,
 	QueryBuilder,
+	transformOperationFieldInputs,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
+	type RuntimeFieldInputValue,
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
 import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
-
-import {
-	collectOperationFieldInputs,
-	collectUpdateExpressionFieldNames,
-	transformOperationFieldInputs,
-	type RuntimeFieldInputValue,
-} from './field-inputs.js'
 
 const traversalSchema = Schema.define({
 	className: 'FieldInputTraversal',
@@ -211,12 +207,6 @@ describe('runtime field inputs', () => {
 			update,
 		} as const
 
-		expect(collectUpdateExpressionFieldNames(update)).toStrictEqual([
-			'literal.name',
-			'profile',
-			'removable',
-			'count',
-		])
 		expect(
 			collectOperationFieldInputs(operation, 'children-first').map(
 				({ fieldPath }) => fieldPath,

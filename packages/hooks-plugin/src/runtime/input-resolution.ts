@@ -2,6 +2,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
+	transformOperationFieldInputs,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type RuntimeOperationStageInput,
@@ -21,7 +22,6 @@ import {
 import { runHookTransformChain } from './composition.js'
 import { createFieldHookTarget } from './execution-descriptor.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
-import { transformOperationFieldInputs } from './field-inputs.js'
 import type { RuntimeMutationItemPair } from './materializations.js'
 import { getMutationHookKind, getNativeHookPhaseOrder } from './phase-order.js'
 

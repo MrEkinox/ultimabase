@@ -15,9 +15,7 @@ import { Schema, type GenericField } from '../../schema/index.js'
 import { getFieldListDepth } from '../../schema/fields/base/options.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
-import type {
-	PluginSchemaMutationOperationAst,
-} from '../schema-mutations/contracts.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 
 export type RuntimeFieldValuePathSegment = number | string
 export type RuntimeFieldVisitOrder = 'children-first' | 'parent-first'
@@ -47,6 +45,7 @@ export interface RuntimeFieldInputValue extends RuntimeFieldValue {
 	readonly mode: 'create' | 'update'
 }
 
+/** Observes or replaces one exact normalized persisted mutation input value. */
 export type RuntimeFieldInputVisitor = (
 	input: RuntimeFieldInputValue,
 ) => MaybePromise<unknown>
@@ -448,16 +447,8 @@ export const collectOperationFieldInputs = (
 	return immutableArray(locations)
 }
 
-interface MissingPathValue {
-	readonly found: false
-}
-
-interface PresentPathValue {
-	readonly found: true
-	readonly value: unknown
-}
-
-type PathValue = MissingPathValue | PresentPathValue
+type PathValue =
+	Readonly<{ found: false }> | Readonly<{ found: true; value: unknown }>
 
 /** Reads a present value through the segmented paths shared by field lifecycles. */
 export const readRuntimeFieldValuePath = (
@@ -524,7 +515,13 @@ export const replaceRuntimeFieldValuePath = (
 	})
 }
 
-/** Applies child-first replacements while preserving the exact operation contract. */
+/**
+ * Visits normalized persisted mutation inputs children-first and immutably
+ * replaces every value for which the visitor returns a defined result.
+ * Returning `undefined` observes without replacement.
+ *
+ * @example `await transformOperationFieldInputs(operation, ({ value }) => value)`
+ */
 export const transformOperationFieldInputs = async <
 	const TOperation extends DatabaseOperationAst,
 >(

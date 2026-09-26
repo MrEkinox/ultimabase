@@ -235,6 +235,7 @@ describe('@ultimabase/core public entry point', () => {
 			'snapshotScalarFieldValue',
 			'stringField',
 			'timeField',
+			'transformOperationFieldInputs',
 			'traverseQueryExpression',
 			'unset',
 			'uuidField',

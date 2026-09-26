@@ -583,6 +583,14 @@ an absent or singular-null target and returns an immutable target collection.
 Complete adapter outcomes remain
 validated by `createRuntimeBehaviorBoundaries().snapshotMutationOutcome()`.
 
+Field-oriented behavior engines can use
+`transformOperationFieldInputs(operation, visitor)` instead of maintaining a
+parallel mutation decoder. Core visits normalized persisted create and update
+values children-first, including embedded object lists and independent bulk
+items. Returning `undefined` observes without replacement; any other return
+value is written through immutable operation copies. The promise retains the
+caller's exact operation type.
+
 Optional engines can require the versioned
 `applicationSchemaMutationSurfaceCapability` to inspect each application's
 immutable callback-free mutation catalog. Core supplies that catalog only on

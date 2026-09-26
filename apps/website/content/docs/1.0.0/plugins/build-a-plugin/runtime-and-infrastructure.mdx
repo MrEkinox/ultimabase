@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-25
 sources:
   - packages/core/README.md
+  - packages/core/src/runtime/operations/field-values.ts
   - packages/core/src/runtime/behaviors/prepared-target-boundary.ts
   - packages/core/src/plugins/manifest.ts
   - packages/plugin-kit/README.md
@@ -160,6 +161,14 @@ record decoder. Validate a complete adapter outcome with
 `createRuntimeBehaviorBoundaries().snapshotMutationOutcome()`; that one Core
 boundary checks the result, materializations, effective selection, and
 immutability together.
+
+For field-oriented input normalization, use
+`transformOperationFieldInputs(operation, visitor)`. It visits normalized
+persisted create and update values children-first, keeps bulk items distinct,
+and returns an immutable operation with the same exact TypeScript type. Return
+`undefined` to observe a value without replacing it. This is a transformation
+helper, not a Runtime contribution: the plugin still needs an authorized
+behavior boundary through which Core invokes it.
 
 Use the optional [Hooks](/docs/1.0.0/plugins/official/hooks) and [Access](/docs/1.0.0/plugins/official/access)
 protocols when your plugin specifically extends those product contracts. A
