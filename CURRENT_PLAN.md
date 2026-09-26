@@ -1,9 +1,9 @@
 # Current plan: Runtime logical-operation typing
 
-- Status: active
+- Status: completed
 - Milestone: 44
 - Baseline: `d97afb1b`
-- Current issue: 4403
+- Current issue: completed
 
 The user authorized the next repository-wide debt reduction on 2026-09-26 while
 retaining every functional capability. Core's schema-mutation pipeline already
@@ -27,5 +27,8 @@ Issue 4402 removed the schema-mutation pipeline's forced shared-stage casts and
 aligned Access, Hooks, ACL, and alternative-engine fixtures with the logical
 union. Native and custom mutation execution remain separate; the only retained
 schema-executor double assertion is the opaque adapter preparation boundary.
+
+Issue 4403 verified the complete repository, recorded the line and cast audit,
+and closed the milestone. No resume point remains.
 
 No push is authorized.
