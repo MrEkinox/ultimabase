@@ -16,7 +16,7 @@ new extension mechanism.
 ## Execution order
 
 - [x] [4201 — Centralize capability conflict construction](4201-capability-conflict-construction.md)
-- [ ] [4202 — Centralize normalized update-expression reading](4202-update-expression-reading.md)
+- [x] [4202 — Centralize normalized update-expression reading](4202-update-expression-reading.md)
 - [ ] [4203 — Centralize GraphQL compiled-schema lookup](4203-graphql-compiled-schema-lookup.md)
 - [ ] [4204 — Complete parity and reduction audit](4204-parity-and-reduction-audit.md)
 

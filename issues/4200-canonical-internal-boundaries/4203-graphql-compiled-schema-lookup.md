@@ -1,6 +1,6 @@
 # 4203: Centralize GraphQL compiled-schema lookup
 
-- Status: planned
+- Status: in progress
 - Milestone: 42
 - Packages: `@ultimabase/graphql-plugin`
 - Depends on: 4202

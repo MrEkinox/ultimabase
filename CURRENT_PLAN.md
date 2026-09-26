@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 42
 - Baseline: `e0d0b4d1`
-- Current issue: 4202
+- Current issue: 4203
 
 The user authorized another repository-wide debt and DX reduction sequence on
 2026-09-26 while retaining every functional capability. This milestone targets
@@ -16,5 +16,9 @@ ordering, naming, or lifecycle ownership.
 Issue 4201 centralized four identical capability-conflict constructors with 24
 fewer handwritten production lines while preserving exact diagnostics and
 provider-planning order.
+
+Issue 4202 made update application and Runtime field traversal share the
+canonical normalized-expression reader with 5 fewer handwritten production
+lines while preserving their distinct errors and operation semantics.
 
 No push is authorized.

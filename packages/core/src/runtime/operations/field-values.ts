@@ -10,6 +10,7 @@ import type {
 	ExecutableOperationAst,
 	UpdateExpressionNode,
 } from '../../query/index.js'
+import { readUpdateExpressionOperations } from '../../query/updates/structure.js'
 import { Schema, type GenericField } from '../../schema/index.js'
 import { getFieldListDepth } from '../../schema/fields/base/options.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
@@ -237,29 +238,16 @@ function collectObjectChildLocations(
 	visitObject(value, getFieldListDepth(field.options), operationPath)
 }
 
-/** Reads one normalized update expression without accepting structural guesses. */
-const readUpdateOperations = (
-	update: UpdateExpressionNode,
-): readonly Readonly<Record<string, unknown>>[] => {
-	if (
-		!isPlainRecord(update) ||
-		update.kind !== 'update-expression' ||
-		!isUnknownArray(update.operations) ||
-		!update.operations.every(isPlainRecord)
-	) {
-		throw new TypeError('Runtime field inputs require an update expression')
-	}
-
-	return update.operations
-}
-
 /** Lists every explicitly affected top-level field. */
 export const collectUpdateExpressionFieldNames = (
 	update: UpdateExpressionNode,
 ): readonly string[] => {
 	const names: string[] = []
 
-	for (const operation of readUpdateOperations(update)) {
+	for (const operation of readUpdateExpressionOperations(
+		update,
+		'Runtime field inputs require an update expression',
+	)) {
 		if (typeof operation.field !== 'string') {
 			throw new TypeError(
 				'Runtime field inputs contain an update without a field name',
@@ -305,7 +293,10 @@ const collectUpdateLocations = (
 	order: RuntimeFieldVisitOrder,
 	locations: RuntimeFieldInputLocation[],
 ): void => {
-	for (const [index, operation] of readUpdateOperations(update).entries()) {
+	for (const [index, operation] of readUpdateExpressionOperations(
+		update,
+		'Runtime field inputs require an update expression',
+	).entries()) {
 		const updateValue = readUpdateOperationValue(operation)
 
 		if (updateValue === undefined) {

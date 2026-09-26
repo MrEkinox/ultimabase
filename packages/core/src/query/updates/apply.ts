@@ -1,13 +1,10 @@
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { applyDecimalDelta } from '../../schema/fields/builtins/decimal.js'
-import {
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { UpdateExpressionNode } from './contracts.js'
+import { readUpdateExpressionOperations } from './structure.js'
 
 type LogicalRecord = Readonly<Record<string, unknown>>
 type MutableLogicalRecord = Record<string, unknown>
@@ -48,22 +45,6 @@ const applyNumericOperation = (
 	}
 }
 
-/** Validates the normalized structural boundary before applying its operations. */
-const readOperations = (
-	update: UpdateExpressionNode,
-): readonly LogicalRecord[] => {
-	if (
-		!isPlainRecord(update) ||
-		update.kind !== 'update-expression' ||
-		!isUnknownArray(update.operations) ||
-		!update.operations.every(isPlainRecord)
-	) {
-		throw new TypeError('Update application requires an update expression')
-	}
-
-	return update.operations
-}
-
 /**
  * Applies one normalized update expression to an immutable logical snapshot.
  *
@@ -83,7 +64,10 @@ export const applyUpdateExpressionToRecord = <
 
 	const candidate: MutableLogicalRecord = { ...record }
 
-	for (const operation of readOperations(update)) {
+	for (const operation of readUpdateExpressionOperations(
+		update,
+		'Update application requires an update expression',
+	)) {
 		if (
 			typeof operation.field !== 'string' ||
 			!Object.hasOwn(schema.persistedFields, operation.field)
