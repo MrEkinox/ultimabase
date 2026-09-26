@@ -54,9 +54,7 @@ describe('Runtime operation characteristics', () => {
 			expect(isCollectionOperationResult(operation.kind)).toBe(collection)
 			expect(isRecordOperationResult(operation.kind)).toBe(record)
 			expect(isQueryBackedOperation(executable)).toBe(queryBacked)
-			expect(supportsOperationResultInclusion(operation.kind)).toBe(
-				inclusion,
-			)
+			expect(supportsOperationResultInclusion(operation.kind)).toBe(inclusion)
 		},
 	)
 })

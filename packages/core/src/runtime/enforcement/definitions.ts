@@ -5,6 +5,7 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import {
 	assertDatabaseConstraintKind,
@@ -312,13 +313,11 @@ const assertOptions = (options: unknown): void => {
 		)
 	}
 
-	for (const key of Object.keys(options)) {
-		if (!optionKeys.has(key)) {
-			throw new TypeError(
-				`enforcement contribution contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		optionKeys,
+		'enforcement contribution contains unknown key: ',
+	)
 
 	if (typeof options.handler !== 'function') {
 		throw new TypeError('enforcement contribution handler must be a function')

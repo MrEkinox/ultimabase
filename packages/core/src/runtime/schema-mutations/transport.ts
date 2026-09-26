@@ -7,6 +7,7 @@ import {
 
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
@@ -114,13 +115,11 @@ export class CoreApplicationSchemaMutationTransport<
 				'schema mutation transport request must be a plain object',
 			)
 		}
-		for (const key of Object.keys(request)) {
-			if (!requestKeys.has(key)) {
-				throw new TypeError(
-					`schema mutation transport request contains unknown key: ${key}`,
-				)
-			}
-		}
+		assertExactEnumerableKeys(
+			request,
+			requestKeys,
+			'schema mutation transport request contains unknown key: ',
+		)
 		if (!(request.context instanceof RequestContext)) {
 			throw new TypeError(
 				'schema mutation transport request context must be a RequestContext',

@@ -1,4 +1,5 @@
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -31,13 +32,11 @@ export const exposeFrameworkSchemaMutations = <
 			'schema mutation transport exposure requires a transport protocol',
 		)
 	}
-	for (const key of Object.keys(options)) {
-		if (!exposureKeys.has(key)) {
-			throw new TypeError(
-				`schema mutation transport exposure contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		exposureKeys,
+		'schema mutation transport exposure contains unknown key: ',
+	)
 	const acknowledgement: unknown = options.acknowledgeUnverifiedProtection
 	if (acknowledgement !== undefined && acknowledgement !== true) {
 		throw new TypeError(

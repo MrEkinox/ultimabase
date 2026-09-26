@@ -17,7 +17,7 @@ and avoid a compatibility bridge or generic registry.
 
 - [x] [4101 — Consolidate operation execution selection](4101-operation-execution-selection.md)
 - [x] [4102 — Centralize operation characteristics](4102-operation-characteristics.md)
-- [ ] [4103 — Centralize enumerable-key validation](4103-enumerable-key-validation.md)
+- [x] [4103 — Centralize enumerable-key validation](4103-enumerable-key-validation.md)
 - [ ] [4104 — Adopt native asynchronous test disposal](4104-native-test-disposal.md)
 - [ ] [4105 — Consolidate captured builder calls](4105-captured-builder-calls.md)
 - [ ] [4106 — Consolidate Query clause application](4106-query-clause-application.md)

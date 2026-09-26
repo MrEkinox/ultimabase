@@ -4,6 +4,7 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 
 import { FrameworkError } from '../errors/framework-error.js'
 
@@ -141,13 +142,11 @@ export const defineDatabaseConstraintCompiler = <
 		)
 	}
 
-	for (const key of Object.keys(untrustedOptions)) {
-		if (!definitionOptionKeys.has(key)) {
-			throw new TypeError(
-				`database constraint compiler contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		untrustedOptions,
+		definitionOptionKeys,
+		'database constraint compiler contains unknown key: ',
+	)
 
 	assertAdapter(
 		untrustedOptions.adapter,

@@ -1,4 +1,5 @@
 import type { QueryAst, QueryFieldName } from '../query/ast/contracts.js'
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -54,13 +55,11 @@ const assertSchemaMutationInput = (
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`Schema mutation ${name} input must be a plain object`)
 	}
-	for (const key of Object.keys(value)) {
-		if (!schemaMutationInputKeys.has(key)) {
-			throw new TypeError(
-				`Schema mutation ${name} input contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		value,
+		schemaMutationInputKeys,
+		`Schema mutation ${name} input contains unknown key: `,
+	)
 	return value
 }
 

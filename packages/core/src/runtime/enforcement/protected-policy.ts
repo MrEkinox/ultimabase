@@ -5,6 +5,7 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import type { OperationKind } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -246,13 +247,11 @@ export const normalizeProtectedPolicyEffects = (
 	if (!isPlainRecord(value)) {
 		throw new TypeError('protected policy effects must be a plain object')
 	}
-	for (const key of Object.keys(value)) {
-		if (!effectKeys.has(key)) {
-			throw new TypeError(
-				`protected policy effects contain unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		value,
+		effectKeys,
+		'protected policy effects contain unknown key: ',
+	)
 	if (value.allowed !== undefined && typeof value.allowed !== 'boolean') {
 		throw new TypeError('protected policy allowed must be a boolean')
 	}

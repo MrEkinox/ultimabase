@@ -2,6 +2,7 @@ import {
 	FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -84,13 +85,11 @@ export const normalizeCreateFrameworkEngineOptions = (
 		)
 	}
 
-	for (const key of Object.keys(options)) {
-		if (!createFrameworkEngineOptionKeys.has(key)) {
-			throw new TypeError(
-				`framework engine factory contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		createFrameworkEngineOptionKeys,
+		'framework engine factory contains unknown key: ',
+	)
 
 	if (
 		options.masterAuthority !== undefined &&

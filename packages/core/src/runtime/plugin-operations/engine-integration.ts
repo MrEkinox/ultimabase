@@ -7,6 +7,7 @@ import {
 
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
@@ -107,13 +108,11 @@ export const reportFrameworkPublicTransportProtection = <
 			'public transport protection requires a transport protocol',
 		)
 	}
-	for (const key of Object.keys(options)) {
-		if (!publicTransportProtectionKeys.has(key)) {
-			throw new TypeError(
-				`public transport protection contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		publicTransportProtectionKeys,
+		'public transport protection contains unknown key: ',
+	)
 	const acknowledgment: unknown = options.acknowledgeUnverifiedProtection
 	if (acknowledgment !== undefined && acknowledgment !== true) {
 		throw new TypeError(
@@ -154,13 +153,11 @@ export const exposeFrameworkOperations = <
 			'operation transport exposure requires a protocol and non-empty operation list',
 		)
 	}
-	for (const key of Object.keys(options)) {
-		if (!operationTransportExposureKeys.has(key)) {
-			throw new TypeError(
-				`operation transport exposure contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		operationTransportExposureKeys,
+		'operation transport exposure contains unknown key: ',
+	)
 	const acknowledgeUnverifiedProtection: unknown =
 		options.acknowledgeUnverifiedProtection
 	if (

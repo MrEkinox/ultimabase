@@ -4,6 +4,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 
 import { snapshotScalarFieldValue } from '../schema/fields/base/definition.js'
 import type { FieldValidationPlan } from '../schema/plans/contracts.js'
@@ -201,13 +202,11 @@ export const normalizePrivateStorageRequest = (
 		delete: new Set(['where']),
 		'compare-and-swap': new Set(['data', 'expected', 'where']),
 	}
-	for (const key of Object.keys(input)) {
-		if (!keys[kind].has(key)) {
-			throw new TypeError(
-				`private storage ${kind} contains unknown option: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		input,
+		keys[kind],
+		`private storage ${kind} contains unknown option: `,
+	)
 	const where =
 		kind === 'insert' ? undefined : snapshotWhere(collection, input.where)
 	const data =

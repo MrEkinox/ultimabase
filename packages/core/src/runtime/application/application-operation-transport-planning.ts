@@ -6,6 +6,7 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { describeOperationTransport } from '../commands/transport-projection.js'
 import {
@@ -137,13 +138,11 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 				'operation transport planning requires a protocol and operation list',
 			)
 		}
-		for (const key of Object.keys(options)) {
-			if (!planningOptionKeys.has(key)) {
-				throw new TypeError(
-					`operation transport planning contains unknown key: ${key}`,
-				)
-			}
-		}
+		assertExactEnumerableKeys(
+			options,
+			planningOptionKeys,
+			'operation transport planning contains unknown key: ',
+		)
 		const names = new Set<string>()
 		const descriptors: ExposedOperationTransportBinding[] = []
 		for (const [index, operation] of options.operations.entries()) {

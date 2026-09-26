@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	assertExactEnumerableKeys,
 	assertExactObjectKeys,
 	assertExactPlainObject,
 } from './exact-object-validation.js'
@@ -25,6 +26,27 @@ describe('exact object validation', () => {
 				'Unknown fixture key: ',
 			)
 		}).toThrow('Unknown fixture key: Symbol(unexpected)')
+	})
+
+	it('keeps enumerable-only callers insensitive to symbol keys', () => {
+		const accepted = Symbol('historically ignored')
+		expect(() => {
+			assertExactEnumerableKeys(
+				{ [accepted]: true, known: true },
+				new Set(['known']),
+				'Unknown enumerable key: ',
+			)
+		}).not.toThrow()
+	})
+
+	it('reports the first enumerable unknown key in object order', () => {
+		expect(() => {
+			assertExactEnumerableKeys(
+				{ first: true, second: true },
+				new Set(),
+				'Unknown enumerable key: ',
+			)
+		}).toThrow('Unknown enumerable key: first')
 	})
 
 	it('checks the plain-object boundary before its keys', () => {

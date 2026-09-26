@@ -3,6 +3,7 @@ import type {
 	MasterRequestAccess,
 } from '../../access/index.js'
 import { FrameworkError } from '../../errors/framework-error.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import {
 	executeOperation,
 	normalizeOperationOptions,
@@ -179,13 +180,11 @@ const assertMasterVerificationOptions: (
 			'Master key verification options must be a plain object',
 		)
 	}
-	for (const key of Object.keys(options)) {
-		if (!masterVerificationOptionKeys.has(key)) {
-			throw new TypeError(
-				`Master key verification contains unknown option: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		masterVerificationOptionKeys,
+		'Master key verification contains unknown option: ',
+	)
 	assertNonEmptyString(options.rawKey, 'Master key')
 	assertNonEmptyString(options.reason, 'Master key verification reason')
 }
