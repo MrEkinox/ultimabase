@@ -1,23 +1,24 @@
-# Current plan: Canonical field-input transformation
+# Current plan: Attributed callback runtime audit
 
-- Status: completed
-- Milestone: 48
-- Baseline: `86581f87`
-- Current issue: completed
+- Status: stopped at audit gate
+- Milestone: 49
+- Baseline: `e63e07b6`
+- Current issue: completed audit; implementation rejected
 
-The user authorized the next debt reduction after milestone 47. The Hooks
-plugin still owns 613 production lines that duplicate Core's field-input
-collection, path traversal, and immutable transformation.
+The user authorized the next debt reduction after milestone 48. Core Runtime,
+Access, and Hooks currently maintain parallel async callback stacks and owner
+dispatch even though application capability factories already receive one
+Core-bound `ApplicationCallbackExecutor`.
 
-Issue 4801 makes Core's already-implemented field-input transformer a deliberate
-public plugin-author helper. Hooks consumes that exact boundary, while its
-existing conformance tests continue to protect nested objects, lists, updates,
-bulk item isolation, and immutable replacement. No Hook capability or Runtime
-stage changes.
+Issue 4901 prototyped extracting only the shared attribution, stack, depth, and
+recursion mechanism. The smallest behavior-preserving facade increased
+production TypeScript by 88 lines before documentation because each engine
+still required its distinct cancellation, error, diagnostic, lifetime, query
+guard, and observer isolation adapters. Moving those policies into Core would
+violate ADR-0189 and recreate a broad bridge.
 
-Issue 4801 is complete. Core now owns the only field-input transformer, Hooks'
-three copied Runtime modules are removed, and production TypeScript is 614
-lines smaller. The public helper retains exact operation inference, all 2,575
-repository tests pass, and no resume point remains.
+The prototype was fully reverted. No production or public API change remains.
+The next safe candidate is the duplicated Core-shaped filter traversal in REST
+and GraphQL, but starting that separate milestone requires user direction.
 
 No push is authorized.
