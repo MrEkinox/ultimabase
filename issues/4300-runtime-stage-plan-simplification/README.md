@@ -1,6 +1,6 @@
 # Milestone 43 — Runtime stage-plan simplification
 
-- Status: in-progress
+- Status: completed
 - Authorization: user request of 2026-09-26
 - Baseline: `d39fa480`
 
@@ -16,7 +16,7 @@ several scans with one direct pass, and avoid a generic dynamic stage registry.
 
 - [x] [4301 — Collect Runtime behavior stages in one pass](4301-runtime-behavior-stage-collection.md)
 - [x] [4302 — Collect Runtime interceptor stages in one pass](4302-runtime-interceptor-stage-collection.md)
-- [ ] [4303 — Complete parity and reduction audit](4303-parity-and-reduction-audit.md)
+- [x] [4303 — Complete parity and reduction audit](4303-parity-and-reduction-audit.md)
 
 If either issue changes provider ordering, contribution placement, Runtime
 stage order, callback attribution, or a public contract, implementation stops
