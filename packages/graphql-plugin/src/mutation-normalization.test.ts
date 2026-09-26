@@ -20,7 +20,7 @@ const recordId = '01991f00-0000-7000-8000-000000000002'
 
 const Author = Schema.define({
 	className: 'GraphqlMutationAuthor',
-	fields: (field) => ({ name: field.string() }),
+	fields: (field) => ({ name: field.string(), rank: field.bigint() }),
 })
 const RecordSchema = Schema.define({
 	className: 'GraphqlMutationRecord',
@@ -85,7 +85,9 @@ describe('GraphQL mutation normalization', () => {
 			source: `
 				mutation Execute {
 					createGraphqlMutationRecord(input: {
-						author: { connect: "${authorId}" }, slug: "created", title: "Created", views: 1
+						author: { connect: "${authorId}" }
+						related: { create: [{ name: "Nested", rank: "7" }] }
+						slug: "created", title: "Created", views: 1
 					}) { title author { id } }
 					createManyGraphqlMutationRecord(input: { data: [
 						{ slug: "bulk-created", title: "Bulk created" }
@@ -93,6 +95,9 @@ describe('GraphQL mutation normalization', () => {
 					updateGraphqlMutationRecord(input: {
 						id: "${recordId}", data: {
 							author: { update: { name: { set: "Renamed" } } }
+							related: { update: [{
+								id: "${authorId}", data: { rank: { increment: "2" } }
+							}] }
 							title: { set: "Updated" }, views: { increment: 2 }
 						}
 					}) { title author { id } }
@@ -131,6 +136,7 @@ describe('GraphQL mutation normalization', () => {
 			input: {
 				data: {
 					author: { connect: authorId },
+					related: { create: [{ name: 'Nested', rank: 7n }] },
 					slug: 'created',
 					title: 'Created',
 					views: 1,
@@ -151,6 +157,14 @@ describe('GraphQL mutation normalization', () => {
 			Reflect.get(commands.get('update')?.input ?? {}, 'data'),
 		).toMatchObject({
 			author: { update: { name: 'Renamed' } },
+			related: {
+				update: [
+					{
+						data: { rank: { kind: 'increment', value: 2n } },
+						id: authorId,
+					},
+				],
+			},
 			title: 'Updated',
 			views: { kind: 'increment', value: 2 },
 		})

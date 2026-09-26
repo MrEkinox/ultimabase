@@ -258,6 +258,9 @@ objects and delegates them through the application request executor; Core alone
 normalizes the bounded graph, rejects conflicts and duplicate identities, and
 executes its one transaction. Core also continues to enforce system, generated,
 immutable, required, unknown-field, depth, and operation-count rules. Every
+schema and nested-command traversal uses Core's shared mutation-data
+transformer, while REST retains strict UUID-v7 identities, command allowlists,
+JSON field codecs, and `INVALID_REST_INPUT` errors. Every
 non-empty mutation body requires JSON, is counted before parsing, and treats
 `Content-Length` only as a checked hint. Item delete carries no body.
 

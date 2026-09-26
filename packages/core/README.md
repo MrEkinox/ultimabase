@@ -737,6 +737,14 @@ errors instead of duplicating the recursive filter walker. This helper does not
 validate operators or produce an AST: canonical Query normalization remains the
 mandatory next boundary.
 
+The matching mutation boundary is
+`transformSchemaMutationDataInput(schema, wireData, options)`. Core classifies
+persisted, virtual, and unknown fields, then follows nested pointer and relation
+`create`/`update` target data. The transport's single `transformField` callback
+retains scalar wrappers, identity decoding, command validation, and public
+errors. The result is still untrusted command input: Core's ordinary schema
+command and bounded nested-write normalization remain mandatory.
+
 `executeMutation(context, schema, request)` accepts only the closed set of
 schema create, update, delete, upsert, and homogeneous bulk commands. It
 delegates to the same schema-command normalizers as direct class calls. The

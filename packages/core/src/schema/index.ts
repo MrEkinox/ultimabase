@@ -168,6 +168,11 @@ export type {
 	SchemaNestedUpdateData,
 } from './nested-writes/inputs.js'
 export { normalizeNestedWriteGraph } from './nested-writes/normalization.js'
+export { transformSchemaMutationDataInput } from './nested-writes/input-transformation.js'
+export type {
+	SchemaMutationDataFieldInput,
+	SchemaMutationDataTransformOptions,
+} from './nested-writes/input-transformation.js'
 export {
 	defaultNestedWriteLimits,
 	normalizeNestedWriteLimits,

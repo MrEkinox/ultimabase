@@ -25,6 +25,7 @@ sources:
   - packages/core/src/plugins/plugin-command-contributions.ts
   - packages/core/src/plugins/plugin-command-plan.ts
   - packages/core/src/query/filters/input-transformation.ts
+  - packages/core/src/schema/nested-writes/input-transformation.ts
   - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
   - docs/adr/0256-rest-operation-public-paths.md
 ---
@@ -156,6 +157,7 @@ If a transport exposes Core's `where` shape but uses different wire values, use
 import {
 	normalizeReadOperation,
 	transformQueryFilterInput,
+	transformSchemaMutationDataInput,
 } from '@ultimabase/core'
 
 const where = transformQueryFilterInput(
@@ -174,6 +176,23 @@ field operand, so the transport keeps its scalar codecs and error contract in
 one place. The helper transforms values; it does not validate operators or
 authorize execution. Always pass its result through the ordinary Core
 normalizer and application request executor.
+
+For mutation data, the matching helper avoids rebuilding schema and nested-write
+recursion:
+
+```ts
+const data = transformSchemaMutationDataInput(schema, wireData, {
+	mode: 'create',
+	relationships: 'nested',
+	transformField: (input) => decodeMutationField(input),
+})
+```
+
+Core classifies persisted, virtual, and unknown fields and follows nested
+pointer/relation `create` and `update` data into the target schema. Your callback
+still owns scalar wrappers, IDs, command allowlists, and transport errors. Pass
+the result to the ordinary schema-mutation normalizer; this helper neither
+validates the complete command nor executes it.
 
 ## Expose behavior through GraphQL
 

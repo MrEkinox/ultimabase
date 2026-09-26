@@ -3,7 +3,9 @@ import {
 	getFieldListDepth,
 	getFieldSchemaTarget,
 	increment,
+	transformSchemaMutationDataInput,
 	type GenericField,
+	type SchemaMutationDataFieldInput,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -15,9 +17,6 @@ import {
 
 import { decodeRestFieldValue, type InvalidRestValue } from './field-values.js'
 import { isUuidV7 } from './read-values.js'
-
-type MutationDataMode = 'create' | 'update'
-type RelationshipInputMode = 'flat' | 'nested'
 
 const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
 const pointerCreateCommands = new Set(['connect', 'create'])
@@ -53,10 +52,8 @@ const decodeIdentityArray = (
 const requireTarget = (
 	field: GenericField,
 	invalid: InvalidRestValue,
-): SchemaDefinition => {
-	const target = getFieldSchemaTarget(field)?.()
-	if (target === undefined) throw invalid()
-	return target
+): void => {
+	if (getFieldSchemaTarget(field)?.() === undefined) throw invalid()
 }
 
 const assertKnownCommands = (
@@ -75,7 +72,7 @@ const assertKnownCommands = (
 const decodePointerCommands = (
 	field: GenericField,
 	value: unknown,
-	mode: MutationDataMode,
+	mode: 'create' | 'update',
 	invalid: InvalidRestValue,
 ): unknown => {
 	const commands = assertKnownCommands(
@@ -83,39 +80,17 @@ const decodePointerCommands = (
 		mode === 'create' ? pointerCreateCommands : pointerUpdateCommands,
 		invalid,
 	)
-	const target = requireTarget(field, invalid)
+	requireTarget(field, invalid)
 	const decoded: Record<string, unknown> = {}
 
 	for (const [command, input] of Object.entries(commands)) {
-		if (command === 'connect') {
-			decoded[command] = decodeIdentity(input, invalid)
-		} else if (command === 'create') {
-			decoded[command] = decodeRestMutationData(
-				target,
-				input,
-				'create',
-				'nested',
-				invalid,
-			)
-		} else if (command === 'update') {
-			decoded[command] = decodeRestMutationData(
-				target,
-				input,
-				'update',
-				'nested',
-				invalid,
-			)
-		} else {
-			// Core owns the literal-true and command-exclusivity validation.
-			decoded[command] = input
-		}
+		decoded[command] =
+			command === 'connect' ? decodeIdentity(input, invalid) : input
 	}
-
 	return immutableRecord(decoded)
 }
 
 const decodeRelationUpdateItems = (
-	target: SchemaDefinition,
 	value: unknown,
 	invalid: InvalidRestValue,
 ): unknown => {
@@ -128,17 +103,6 @@ const decodeRelationUpdateItems = (
 				...(Object.hasOwn(item, 'id')
 					? { id: decodeIdentity(item.id, invalid) }
 					: {}),
-				...(Object.hasOwn(item, 'data')
-					? {
-							data: decodeRestMutationData(
-								target,
-								item.data,
-								'update',
-								'nested',
-								invalid,
-							),
-						}
-					: {}),
 			})
 		}),
 	)
@@ -147,7 +111,7 @@ const decodeRelationUpdateItems = (
 const decodeRelationCommands = (
 	field: GenericField,
 	value: unknown,
-	mode: MutationDataMode,
+	mode: 'create' | 'update',
 	invalid: InvalidRestValue,
 ): unknown => {
 	const commands = assertKnownCommands(
@@ -155,7 +119,7 @@ const decodeRelationCommands = (
 		mode === 'create' ? relationCreateCommands : relationUpdateCommands,
 		invalid,
 	)
-	const target = requireTarget(field, invalid)
+	requireTarget(field, invalid)
 	const decoded: Record<string, unknown> = {}
 
 	for (const [command, input] of Object.entries(commands)) {
@@ -167,19 +131,14 @@ const decodeRelationCommands = (
 			decoded[command] = decodeIdentityArray(input, invalid)
 		} else if (command === 'create') {
 			if (!isUnknownArray(input)) throw invalid()
-			decoded[command] = immutableArray(
-				input.map((item) =>
-					decodeRestMutationData(target, item, 'create', 'nested', invalid),
-				),
-			)
+			decoded[command] = input
 		} else if (command === 'update') {
-			decoded[command] = decodeRelationUpdateItems(target, input, invalid)
+			decoded[command] = decodeRelationUpdateItems(input, invalid)
 		} else {
-			// Core owns the literal-true and replacement-exclusivity validation.
+			// Core Runtime owns literal-true and replacement-exclusivity validation.
 			decoded[command] = input
 		}
 	}
-
 	return immutableRecord(decoded)
 }
 
@@ -206,48 +165,46 @@ const decodeNumericUpdate = (
 		: decrement(operand as bigint | number | string)
 }
 
+const decodeMutationField = (
+	input: SchemaMutationDataFieldInput,
+	invalid: InvalidRestValue,
+): unknown => {
+	if (input.field === undefined) {
+		if (input.kind === 'virtual') throw invalid()
+		return input.value
+	}
+	const { field, mode, relationships, value } = input
+
+	if (relationships === 'nested' && field.kind === 'pointer') {
+		return decodePointerCommands(field, value, mode, invalid)
+	}
+	if (relationships === 'nested' && field.kind === 'relation') {
+		return decodeRelationCommands(field, value, mode, invalid)
+	}
+	if (
+		relationships === 'flat' &&
+		(field.kind === 'pointer' || field.kind === 'relation')
+	) {
+		// ADR-0243 keeps bulk and upsert roots flat.
+		throw invalid()
+	}
+	if (mode === 'update') {
+		const numeric = decodeNumericUpdate(field, value, invalid)
+		if (numeric !== undefined) return numeric
+	}
+	return decodeRestFieldValue(field, value, invalid, false, 'value')
+}
+
 /** Decodes one mutation data object while keeping nested commands declarative. */
 export const decodeRestMutationData = (
 	schema: SchemaDefinition,
 	value: unknown,
-	mode: MutationDataMode,
-	relationships: RelationshipInputMode,
+	mode: 'create' | 'update',
+	relationships: 'flat' | 'nested',
 	invalid: InvalidRestValue,
-): unknown => {
-	if (!isPlainRecord(value)) return value
-
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				if (Object.hasOwn(schema.virtualFields, name)) throw invalid()
-				const field: GenericField | undefined = schema.persistedFields[name]
-				if (field === undefined) return [name, item]
-
-				if (relationships === 'nested' && field.kind === 'pointer') {
-					return [name, decodePointerCommands(field, item, mode, invalid)]
-				}
-				if (relationships === 'nested' && field.kind === 'relation') {
-					return [name, decodeRelationCommands(field, item, mode, invalid)]
-				}
-				if (
-					relationships === 'flat' &&
-					(field.kind === 'pointer' || field.kind === 'relation')
-				) {
-					// ADR-0243 removes the former tagged pointer mutation alias. Flat
-					// roots do not gain nested relationships in this milestone.
-					throw invalid()
-				}
-
-				if (mode === 'update') {
-					const numeric = decodeNumericUpdate(field, item, invalid)
-					if (numeric !== undefined) return [name, numeric]
-				}
-
-				return [
-					name,
-					decodeRestFieldValue(field, item, invalid, false, 'value'),
-				]
-			}),
-		),
-	)
-}
+): unknown =>
+	transformSchemaMutationDataInput(schema, value, {
+		mode,
+		relationships,
+		transformField: (input) => decodeMutationField(input, invalid),
+	})

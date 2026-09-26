@@ -148,6 +148,11 @@ traversal before canonical Query normalization. Nested logic, relationship
 predicates, filtered counts, and structured paths therefore use one Core shape
 without moving GraphQL coercion or validation into Core.
 
+Generated mutation inputs use the matching Core mutation-data traversal for
+schema fields and nested pointer/relation target data. GraphQL keeps its scalar
+wrappers, plugin codecs, and generated-input validation; Core still performs
+the canonical bounded nested-write normalization before Runtime.
+
 Virtual fields are output-only model fields compiled from their Core
 `OutputBuilder` descriptor. Built-in scalar, enum, temporal, decimal, binary,
 JSON, nullable, list, and nested object shapes receive their exact GraphQL
