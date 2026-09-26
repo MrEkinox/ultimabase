@@ -33,6 +33,11 @@ interface ActiveQueryExecution {
 	readonly executor: QueryExecutionDispatcher
 }
 
+interface OperationExecutionSelection {
+	readonly active: ActiveQueryExecution | undefined
+	readonly registration: QueryExecutionOwnerRegistration | undefined
+}
+
 /** Erases schema variance only at the application-owned Runtime bridge. */
 export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
@@ -196,6 +201,41 @@ export const registerQueryExecutionOwner = (
 	queryExecutionApplications.set(registration.application, normalized)
 }
 
+/** Selects one explicit or ambient owner without creating execution state. */
+const resolveOperationExecutionSelection = (
+	options: NormalizedOperationOptions,
+): OperationExecutionSelection => {
+	const active: ActiveQueryExecution | undefined =
+		activeQueryExecution.getStore()
+	const owner = options.ultimabase
+	const explicit =
+		owner === undefined ? undefined : queryExecutionOwners.get(owner)
+
+	if (owner !== undefined && explicit === undefined) {
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
+	}
+	if (
+		active?.application !== undefined &&
+		explicit !== undefined &&
+		active.application !== explicit.application
+	) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			'Explicit query ownership cannot replace the active application.',
+			{ publicMessage: 'The requested schema is not available.' },
+		)
+	}
+
+	return immutableRecord({
+		active,
+		registration:
+			explicit ??
+			(active?.application === undefined
+				? undefined
+				: queryExecutionApplications.get(active.application)),
+	})
+}
+
 /** Dispatches one class-level plugin method through the selected application only. */
 export const executeStaticSchemaMutation = async (
 	schema: SchemaDefinition,
@@ -204,39 +244,15 @@ export const executeStaticSchemaMutation = async (
 	options?: OperationOptions,
 ): Promise<unknown> => {
 	const normalized = normalizeOperationOptions(options)
-	const active = activeQueryExecution.getStore()
-	const explicitOwner = normalized.ultimabase
-	const registration =
-		explicitOwner === undefined
-			? undefined
-			: queryExecutionOwners.get(explicitOwner)
-	if (explicitOwner !== undefined && registration === undefined) {
-		throw new TypeError('operation ultimabase must be an UltimaBase instance')
-	}
-	if (
-		active?.application !== undefined &&
-		registration !== undefined &&
-		active.application !== registration.application
-	) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Explicit query ownership cannot replace the active application.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
-	const selected =
-		registration ??
-		(active?.application === undefined
-			? undefined
-			: queryExecutionApplications.get(active.application))
-	if (selected === undefined) {
+	const { registration } = resolveOperationExecutionSelection(normalized)
+	if (registration === undefined) {
 		throw new FrameworkError(
 			'MISSING_EXECUTION_CONTEXT',
 			'No request is active. Pass { ultimabase } to this schema operation.',
 			{ publicMessage: 'No request execution context is available.' },
 		)
 	}
-	return selected.executeSchemaMutation(schema, name, input, options)
+	return registration.executeSchemaMutation(schema, name, input, options)
 }
 
 /** @internal Rejects a terminal facade that belongs to another application. */
@@ -413,29 +429,8 @@ export const executeOperationBatch = <
 	options: NormalizedOperationOptions,
 	projection?: OperationBatchProjection,
 ): Promise<readonly OperationResult<TOperation>[]> => {
-	const active: ActiveQueryExecution | undefined =
-		activeQueryExecution.getStore()
-	const owner = options.ultimabase
-	const registration =
-		owner === undefined ? undefined : queryExecutionOwners.get(owner)
-
-	if (owner !== undefined && registration === undefined) {
-		throw new TypeError('operation ultimabase must be an UltimaBase instance')
-	}
-
+	const { active, registration } = resolveOperationExecutionSelection(options)
 	if (active !== undefined) {
-		if (
-			registration !== undefined &&
-			active.application !== undefined &&
-			registration.application !== active.application
-		) {
-			throw new FrameworkError(
-				'VALIDATION_ERROR',
-				'Explicit query ownership cannot replace the active application.',
-				{ publicMessage: 'The requested schema is not available.' },
-			)
-		}
-
 		return bindExecutionResult(
 			dispatchOperationBatch(
 				active.executor,
@@ -443,10 +438,7 @@ export const executeOperationBatch = <
 				options,
 				projection,
 			) as Promise<readonly OperationResult<TOperation>[]>,
-			registration ??
-				(active.application === undefined
-					? undefined
-					: queryExecutionApplications.get(active.application)),
+			registration,
 		)
 	}
 
@@ -477,37 +469,13 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 	options: NormalizedOperationOptions,
 	scope?: OperationPrivateScope,
 ): Promise<OperationResult<TOperation>> => {
-	const active: ActiveQueryExecution | undefined =
-		activeQueryExecution.getStore()
-	const owner = options.ultimabase
-	const registration =
-		owner === undefined ? undefined : queryExecutionOwners.get(owner)
-
-	if (owner !== undefined && registration === undefined) {
-		throw new TypeError('operation ultimabase must be an UltimaBase instance')
-	}
-
+	const { active, registration } = resolveOperationExecutionSelection(options)
 	if (active !== undefined) {
-		if (
-			registration !== undefined &&
-			active.application !== undefined &&
-			registration.application !== active.application
-		) {
-			throw new FrameworkError(
-				'VALIDATION_ERROR',
-				'Explicit query ownership cannot replace the active application.',
-				{ publicMessage: 'The requested schema is not available.' },
-			)
-		}
-
 		return bindExecutionResult(
 			dispatchOperation(active.executor, operation, options, scope) as Promise<
 				OperationResult<TOperation>
 			>,
-			registration ??
-				(active.application === undefined
-					? undefined
-					: queryExecutionApplications.get(active.application)),
+			registration,
 		)
 	}
 
