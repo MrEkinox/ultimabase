@@ -21,7 +21,7 @@ and avoid a compatibility bridge or generic registry.
 - [x] [4104 — Adopt native asynchronous test disposal](4104-native-test-disposal.md)
 - [x] [4105 — Consolidate captured builder calls](4105-captured-builder-calls.md)
 - [x] [4106 — Consolidate Query clause application](4106-query-clause-application.md)
-- [ ] [4107 — Consolidate PostgreSQL targeted mutation planning](4107-postgres-targeted-mutation-planning.md)
+- [x] [4107 — Consolidate PostgreSQL targeted mutation planning](4107-postgres-targeted-mutation-planning.md)
 - [ ] [4108 — Complete parity and reduction audit](4108-parity-and-reduction-audit.md)
 
 If issues 4106 or 4107 require changing a public representation, Runtime order,

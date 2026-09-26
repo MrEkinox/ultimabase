@@ -28,10 +28,20 @@ import { compilePostgresUpdate } from './update-compiler.js'
 import { projectPostgresRecord } from './result-projection.js'
 
 type RuntimeOperation = ExecutableOperationAst
+type RuntimeTargetedMutation = Extract<
+	RuntimeOperation,
+	{
+		readonly kind: 'delete-many' | 'delete-one' | 'update-many' | 'update-one'
+	}
+>
 type RuntimeQuery = QueryAst<
 	SchemaDefinition,
 	QueryFilterNode<SchemaDefinition>
 >
+type TargetedMutationResult<TOperation extends RuntimeTargetedMutation> =
+	TOperation extends { readonly kind: 'delete-one' | 'update-one' }
+		? Readonly<Record<string, unknown>> | null
+		: readonly Readonly<Record<string, unknown>>[]
 
 interface SelectOverrides {
 	readonly constraint?: SQL | undefined
@@ -207,132 +217,54 @@ export const executeCreateMany = async (
 	})
 }
 
-const buildSingularTarget = (
+/** Executes one query-targeted write without splitting update/delete cardinality mechanics. */
+export const executePostgresTargetedMutation = async <
+	const TOperation extends RuntimeTargetedMutation,
+>(
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	clauses: CompiledPostgresQueryClauses,
+	operation: TOperation,
 	constraint: SQL | undefined,
-) => {
+	relationCompiler?: PostgresRelationPredicateCompiler,
+): Promise<TargetedMutationResult<TOperation>> => {
+	const clauses = compilePostgresQueryClauses(
+		readBuiltInQuery(operation.query),
+		schema,
+		relationCompiler,
+	)
+	const singular =
+		operation.kind === 'delete-one' || operation.kind === 'update-one'
 	const id = resolveCompiledPostgresField(schema, 'id').column
-
-	return buildSelect(client, schema, { id }, clauses, {
+	const target = buildSelect(client, schema, { id }, clauses, {
 		constraint,
-		limit: 1,
+		...(singular ? { limit: 1 } : {}),
 	})
-}
-
-/** Builds the exact id subquery shared by set-based updates and deletions. */
-const buildManyTarget = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	clauses: CompiledPostgresQueryClauses,
-	constraint: SQL | undefined,
-) => {
-	return buildSelect(
-		client,
-		schema,
-		{ id: resolveCompiledPostgresField(schema, 'id').column },
-		clauses,
-		{ constraint },
-	)
-}
-
-const executeUpdateOne = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'update-one' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildSingularTarget(client, schema, clauses, constraint)
-	const [row] = await client
-		.update(schema.table)
-		.set(compilePostgresUpdate(schema, operation.update))
-		.where(inArray(id, target))
-		.returning(clauses.selection)
-
-	return row === undefined ? null : readPostgresRecord(schema, row)
-}
-
-const executeDeleteOne = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'delete-one' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildSingularTarget(client, schema, clauses, constraint)
-	const [row] = await client
-		.delete(schema.table)
-		.where(inArray(id, target))
-		.returning(clauses.selection)
-
-	return row === undefined ? null : readPostgresRecord(schema, row)
-}
-
-/** Updates every selected id and returns only the requested public columns. */
-export const executeUpdateMany = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'update-many' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-	const clauses = compilePostgresQueryClauses(
-		readBuiltInQuery(operation.query),
-		schema,
-		relationCompiler,
-	)
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(client, schema, clauses, constraint)
-	const where = and(inArray(id, target), constraint)
+	const selectedTarget = inArray(id, target)
+	// Set-based writes reapply protected constraints at the final statement.
+	const where = singular ? selectedTarget : and(selectedTarget, constraint)
 
 	if (where === undefined) {
-		throw new TypeError('PostgreSQL update-many target could not be combined')
+		throw new TypeError(
+			`PostgreSQL ${operation.kind} target could not be combined`,
+		)
 	}
 
-	const rows = await client
-		.update(schema.table)
-		.set(compilePostgresUpdate(schema, operation.update))
-		.where(where)
-		.returning(clauses.selection)
+	const rows =
+		operation.kind === 'update-many' || operation.kind === 'update-one'
+			? await client
+					.update(schema.table)
+					.set(compilePostgresUpdate(schema, operation.update))
+					.where(where)
+					.returning(clauses.selection)
+			: await client
+					.delete(schema.table)
+					.where(where)
+					.returning(clauses.selection)
+	const records = decodeRows(schema, rows)
 
-	return rows.map((row) => readPostgresRecord(schema, row))
-}
-
-/** Deletes every selected id and returns only the requested pre-delete columns. */
-export const executeDeleteMany = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'delete-many' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-	const clauses = compilePostgresQueryClauses(
-		readBuiltInQuery(operation.query),
-		schema,
-		relationCompiler,
-	)
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(client, schema, clauses, constraint)
-	const where = and(inArray(id, target), constraint)
-
-	if (where === undefined) {
-		throw new TypeError('PostgreSQL delete-many target could not be combined')
-	}
-
-	const rows = await client
-		.delete(schema.table)
-		.where(where)
-		.returning(clauses.selection)
-
-	return rows.map((row) => readPostgresRecord(schema, row))
+	return (
+		singular ? (records[0] ?? null) : records
+	) as TargetedMutationResult<TOperation>
 }
 
 /** Locks one complete target for singular mutation and upsert preparation. */
@@ -484,31 +416,10 @@ export const executePostgresOperation = async (
 			case 'create-many':
 				return await executeCreateMany(client, schema, operation)
 			case 'update-one':
-				return await executeUpdateOne(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
 			case 'update-many':
-				return await executeUpdateMany(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
 			case 'delete-one':
-				return await executeDeleteOne(
-					client,
-					schema,
-					operation,
-					constraint,
-					relationCompiler,
-				)
 			case 'delete-many':
-				return await executeDeleteMany(
+				return await executePostgresTargetedMutation(
 					client,
 					schema,
 					operation,

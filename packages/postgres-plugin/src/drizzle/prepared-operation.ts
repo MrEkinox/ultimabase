@@ -16,8 +16,7 @@ import type {
 import {
 	executeCreateInput,
 	executeCreateMany,
-	executeDeleteMany,
-	executeUpdateMany,
+	executePostgresTargetedMutation,
 	lockPostgresSetBasedMutationTargets,
 	lockPostgresMutationTarget,
 } from './operation-executor.js'
@@ -254,21 +253,13 @@ const prepareSetBasedMutation = async (
 						)
 					}
 
-					return resolvedOperation.kind === 'update-many'
-						? executeUpdateMany(
-								client,
-								schema,
-								resolvedOperation,
-								finalConstraint,
-								relationCompiler,
-							)
-						: executeDeleteMany(
-								client,
-								schema,
-								resolvedOperation,
-								finalConstraint,
-								relationCompiler,
-							)
+					return executePostgresTargetedMutation(
+						client,
+						schema,
+						resolvedOperation,
+						finalConstraint,
+						relationCompiler,
+					)
 				},
 			)
 
