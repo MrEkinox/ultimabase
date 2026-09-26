@@ -1,6 +1,6 @@
 # 4303: Complete parity and reduction audit
 
-- Status: planned
+- Status: in-progress
 - Milestone: 43
 - Packages: repository
 - Depends on: 4301, 4302

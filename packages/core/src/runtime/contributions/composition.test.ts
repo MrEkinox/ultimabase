@@ -225,6 +225,76 @@ describe('composeRuntimeContributionBehavior', () => {
 		)
 	})
 
+	it('preserves global and schema interceptor stage order', async () => {
+		const calls: string[] = []
+		const plugin = createPlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			id: 'fixture.ordered-contributions',
+			permissions: {
+				'runtime:intercept': 'Exercises Runtime interceptor ordering.',
+			},
+			contributions: [
+				provideTestRuntimeInterceptor(
+					'fixture.global-after',
+					afterOperation({
+						handler: ({ result }) => {
+							calls.push('global-after')
+							return { result }
+						},
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.schema-before',
+					beforeOperation({
+						schema: articleSchema,
+						handler: () => {
+							calls.push('schema-before')
+						},
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.global-before',
+					beforeOperation({
+						handler: () => {
+							calls.push('global-before')
+						},
+					}),
+				),
+				provideTestRuntimeInterceptor(
+					'fixture.schema-after',
+					afterOperation({
+						schema: articleSchema,
+						handler: ({ result }) => {
+							calls.push('schema-after')
+							return { result }
+						},
+					}),
+				),
+			],
+		})
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [plugin],
+				schemas: [articleSchema],
+			}),
+		)
+		const stages = composeRuntimeContributionBehavior(application)
+		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
+		const result = { ...updateTarget }
+
+		await stages.beforeOperation?.({ context, operation })
+		await stages.transformResult?.({ context, operation, result })
+
+		expect(calls).toStrictEqual([
+			'global-before',
+			'schema-before',
+			'schema-after',
+			'global-after',
+		])
+		await application.dispose()
+	})
+
 	it('rejects every attempted low-level before-operation replacement', async () => {
 		const plugin = createPlugin({
 			version: '0.0.0',

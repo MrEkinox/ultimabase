@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 43
 - Baseline: `d39fa480`
-- Current issue: 4302
+- Current issue: 4303
 
 The user authorized the next repository-wide debt reduction on 2026-09-26 while
 retaining every functional capability. Runtime behavior assembly currently
@@ -17,5 +17,9 @@ Issue 4301 replaced one materialization map and eleven stage-specific scans
 with one explicit ordered behavior pass. It removes two production lines and,
 more importantly, eleven redundant traversals without introducing a dynamic
 stage registry.
+
+Issue 4302 replaced five full interceptor filters with one explicit ordered
+classification pass. It removes 11 production lines and adds focused coverage
+for the required global/schema before-and-after execution order.
 
 No push is authorized.

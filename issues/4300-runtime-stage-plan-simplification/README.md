@@ -15,7 +15,7 @@ several scans with one direct pass, and avoid a generic dynamic stage registry.
 ## Execution order
 
 - [x] [4301 — Collect Runtime behavior stages in one pass](4301-runtime-behavior-stage-collection.md)
-- [ ] [4302 — Collect Runtime interceptor stages in one pass](4302-runtime-interceptor-stage-collection.md)
+- [x] [4302 — Collect Runtime interceptor stages in one pass](4302-runtime-interceptor-stage-collection.md)
 - [ ] [4303 — Complete parity and reduction audit](4303-parity-and-reduction-audit.md)
 
 If either issue changes provider ordering, contribution placement, Runtime

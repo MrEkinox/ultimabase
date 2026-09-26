@@ -382,39 +382,28 @@ export const composeRuntimeContributionBehavior = <
 	if (interceptors.length === 0) return undefined
 
 	const runtime = getApplicationRuntimeCallbackExecutor(application)
-	const globalBefore = immutableArray(
-		interceptors.filter(
-			({ implementation }) =>
-				implementation.kind === 'before-operation' &&
-				implementation.schema === undefined,
-		),
-	)
-	const schemaBefore = immutableArray(
-		interceptors.filter(
-			({ implementation }) =>
-				implementation.kind === 'before-operation' &&
-				implementation.schema !== undefined,
-		),
-	)
-	const schemaAfter = immutableArray(
-		interceptors.filter(
-			({ implementation }) =>
-				implementation.kind === 'after-operation' &&
-				implementation.schema !== undefined,
-		),
-	)
-	const globalAfter = immutableArray(
-		interceptors.filter(
-			({ implementation }) =>
-				implementation.kind === 'after-operation' &&
-				implementation.schema === undefined,
-		),
-	)
-	const prepared = immutableArray(
-		interceptors.filter(
-			({ implementation }) => implementation.kind === 'prepared-operation',
-		),
-	)
+	const globalBefore: OwnedRuntimeContribution[] = [],
+		schemaBefore: OwnedRuntimeContribution[] = [],
+		schemaAfter: OwnedRuntimeContribution[] = [],
+		globalAfter: OwnedRuntimeContribution[] = [],
+		prepared: OwnedRuntimeContribution[] = []
+
+	for (const owned of interceptors) {
+		const { implementation } = owned
+		if (implementation.kind === 'before-operation') {
+			const group =
+				implementation.schema === undefined ? globalBefore : schemaBefore
+			group.push(owned)
+			continue
+		}
+		if (implementation.kind === 'after-operation') {
+			const group =
+				implementation.schema === undefined ? globalAfter : schemaAfter
+			group.push(owned)
+			continue
+		}
+		prepared.push(owned)
+	}
 
 	return immutableRecord({
 		...(globalBefore.length === 0 && schemaBefore.length === 0
