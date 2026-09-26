@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { pointerField, Schema } from '@ultimabase/core'
+import { GraphQLID } from 'graphql'
 
 import {
 	GraphqlBase64,
@@ -11,6 +13,7 @@ import {
 	GraphqlTime,
 	GraphqlUUID,
 } from './scalars.js'
+import { readGraphqlScalarInputType } from './scalar-types.js'
 
 describe('GraphQL scalar contracts', () => {
 	it('keeps safe integers and big integers lossless', () => {
@@ -57,5 +60,16 @@ describe('GraphQL scalar contracts', () => {
 		expect(() => GraphqlUUID.coerceInputValue('not-a-uuid')).toThrow()
 		expect(() => GraphqlBase64.coerceInputValue('AQI')).toThrow()
 		expect(() => GraphqlJSON.coerceInputValue(new Date())).toThrow()
+	})
+
+	it('uses GraphQL ID for pointer scalar inputs', () => {
+		const Target = Schema.define({
+			className: 'GraphqlScalarPointerTarget',
+			fields: () => ({}),
+		})
+
+		expect(
+			readGraphqlScalarInputType(pointerField({ target: () => Target })),
+		).toBe(GraphQLID)
 	})
 })

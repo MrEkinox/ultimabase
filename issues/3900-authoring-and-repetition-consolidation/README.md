@@ -1,6 +1,6 @@
 # Milestone 39 — Authoring and repetition consolidation
 
-- Status: in-progress
+- Status: completed
 - Authorization: user request of 2026-09-25
 - Baseline: `776b533c`
 
@@ -15,6 +15,6 @@ one existing Core boundary rather than introduce a parallel facade.
 - [x] [3902 — Consolidate prepared-mutation test adapters](3902-prepared-mutation-test-adapters.md)
 - [x] [3903 — Preserve scalar hovers and consolidate GraphQL scalar mappings](3903-graphql-scalar-mappings.md)
 - [x] [3904 — Consolidate structured plugin identity maps](3904-structured-plugin-identity-map.md)
-- [ ] Run the complete parity and reduction audit.
+- [x] [3905 — Complete parity and reduction audit](3905-parity-and-reduction-audit.md)
 
 No push is authorized.

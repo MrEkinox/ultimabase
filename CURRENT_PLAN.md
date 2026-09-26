@@ -1,9 +1,9 @@
 # Current plan: Authoring and repetition consolidation
 
-- Status: in progress
+- Status: completed
 - Milestone: 39
 - Baseline: `776b533c`
-- Current issue: 3904 (completed)
+- Current issue: 3905 (completed)
 
 The user authorized the next debt and DX reduction sequence on 2026-09-25 while
 retaining every functional capability.
@@ -26,7 +26,11 @@ Issue 3904 consolidates the repeated nested maps used to retain values by exact
 structured plugin and optional instance identity. It changes no public facade,
 registration path, ownership rule, or lifecycle boundary.
 
-Resume by running the complete parity and reduction audit from the milestone
-baseline.
+Issue 3905 completes the parity and reduction audit from baseline `776b533c`.
+Milestone 39 removes 215 handwritten production TypeScript lines and 193 test
+or test-support lines net while retaining the supported authoring, Runtime,
+Typegen, GraphQL, ownership, isolation, and mutation behaviors.
+
+No milestone work remains. Select a new issue before continuing.
 
 No push is authorized.
