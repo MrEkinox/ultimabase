@@ -130,68 +130,66 @@ export const composeRuntimeBehaviors = (
 		readonly PluginDefinition[]
 	>,
 ): RuntimeBehaviorStages | undefined => {
-	const behaviors = readApplicationKernelState(application)
-		.capabilityContributions(runtimeBehaviorCapability)
-		.map(({ owner, value }) =>
-			attributeRuntimeBehavior(application, owner, value),
-		)
+	const behaviorContributions = readApplicationKernelState(
+		application,
+	).capabilityContributions(runtimeBehaviorCapability)
 	const contributionBehavior = composeRuntimeContributionBehavior(application)
 
-	if (behaviors.length === 0 && contributionBehavior === undefined)
+	if (behaviorContributions.length === 0 && contributionBehavior === undefined)
 		return undefined
 
-	const inputTransforms = behaviors.flatMap(({ transformInput }) =>
-		transformInput === undefined ? [] : [transformInput],
-	)
-	const preparedInputTransforms = behaviors.flatMap(
-		({ transformPreparedInput }) =>
-			transformPreparedInput === undefined ? [] : [transformPreparedInput],
-	)
-	const preparedOperationTransforms = behaviors.flatMap(
-		({ transformPreparedOperation }) =>
-			transformPreparedOperation === undefined
-				? []
-				: [transformPreparedOperation],
-	)
+	const inputTransforms: RuntimeOperationTransformStage[] = [],
+		preparedInputTransforms: RuntimePreparedMutationTransformStage[] = [],
+		preparedOperationTransforms: RuntimePreparedMutationTransformStage[] = [],
+		beforeObservers: RuntimeOperationGuardStage[] = [],
+		mutationInputGuards: RuntimeFinalMutationGuardStage[] = [],
+		preparedObservers: RuntimePreparedMutationEffectStage[] = [],
+		outcomeTransforms: RuntimeMutationOutcomeTransformStage[] = [],
+		databaseResultTransforms: RuntimeProjectedDatabaseResultTransformStage[] =
+			[],
+		resultTransforms: RuntimeMaterializedResultTransformStage[] = [],
+		postCommitObservers: RuntimeResultEffectStage[] = [],
+		preparationPredicates: NonNullable<
+			RuntimeBehaviorStages['requiresPreparedMutationItems']
+		>[] = []
+
+	for (const { owner, value } of behaviorContributions) {
+		const behavior = attributeRuntimeBehavior(application, owner, value)
+		if (behavior.transformInput !== undefined)
+			inputTransforms.push(behavior.transformInput)
+		if (behavior.transformPreparedInput !== undefined)
+			preparedInputTransforms.push(behavior.transformPreparedInput)
+		if (behavior.transformPreparedOperation !== undefined)
+			preparedOperationTransforms.push(behavior.transformPreparedOperation)
+		if (behavior.beforeOperation !== undefined)
+			beforeObservers.push(behavior.beforeOperation)
+		if (behavior.guardMutationInput !== undefined)
+			mutationInputGuards.push(behavior.guardMutationInput)
+		if (behavior.observePreparedMutation !== undefined)
+			preparedObservers.push(behavior.observePreparedMutation)
+		if (behavior.transformMutationOutcome !== undefined)
+			outcomeTransforms.push(behavior.transformMutationOutcome)
+		if (behavior.transformDatabaseResult !== undefined)
+			databaseResultTransforms.push(behavior.transformDatabaseResult)
+		if (behavior.transformResult !== undefined)
+			resultTransforms.push(behavior.transformResult)
+		if (behavior.postCommit !== undefined)
+			postCommitObservers.push(behavior.postCommit)
+		if (behavior.requiresPreparedMutationItems !== undefined)
+			preparationPredicates.push(behavior.requiresPreparedMutationItems)
+	}
+
 	if (contributionBehavior?.transformPreparedOperation !== undefined) {
 		preparedOperationTransforms.push(
 			contributionBehavior.transformPreparedOperation,
 		)
 	}
-	const beforeObservers = behaviors.flatMap(({ beforeOperation }) =>
-		beforeOperation === undefined ? [] : [beforeOperation],
-	)
-	const mutationInputGuards = behaviors.flatMap(({ guardMutationInput }) =>
-		guardMutationInput === undefined ? [] : [guardMutationInput],
-	)
 	if (contributionBehavior?.beforeOperation !== undefined) {
 		beforeObservers.unshift(contributionBehavior.beforeOperation)
 	}
-	const preparedObservers = behaviors.flatMap(({ observePreparedMutation }) =>
-		observePreparedMutation === undefined ? [] : [observePreparedMutation],
-	)
-	const outcomeTransforms = behaviors.flatMap(({ transformMutationOutcome }) =>
-		transformMutationOutcome === undefined ? [] : [transformMutationOutcome],
-	)
-	const databaseResultTransforms = behaviors.flatMap(
-		({ transformDatabaseResult }) =>
-			transformDatabaseResult === undefined ? [] : [transformDatabaseResult],
-	)
-	const resultTransforms = behaviors.flatMap(({ transformResult }) =>
-		transformResult === undefined ? [] : [transformResult],
-	)
 	if (contributionBehavior?.transformResult !== undefined) {
 		resultTransforms.push(contributionBehavior.transformResult)
 	}
-	const postCommitObservers = behaviors.flatMap(({ postCommit }) =>
-		postCommit === undefined ? [] : [postCommit],
-	)
-	const preparationPredicates = behaviors.flatMap(
-		({ requiresPreparedMutationItems }) =>
-			requiresPreparedMutationItems === undefined
-				? []
-				: [requiresPreparedMutationItems],
-	)
 
 	const transformInput: RuntimeOperationTransformStage = async (input) => {
 		let operation = input.operation
