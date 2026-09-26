@@ -1,23 +1,23 @@
-# Current plan: Runtime boundary decoder consolidation
+# Current plan: Access Runtime decision consolidation
 
 - Status: completed
-- Milestone: 45
-- Baseline: `6fdb70f8`
+- Milestone: 46
+- Baseline: `304a9c36`
 - Current issue: completed
 
-The user authorized the follow-up identified by milestone 44's final audit.
-Core already validates prepared adapter targets and owns the complete immutable
-mutation-outcome boundary, while Access and Hooks repeat partial decoding only
-to recover types erased by generic shared stages.
+The user authorized the next debt reduction after milestone 45. Access still
+classifies native operation families in separate item and filter switches,
+repeats the same fail-closed schema-plan lookup in four places, and rebuilds the
+same item-rule identity for every mutation branch.
 
-Issue 4501 will expose the smallest existing Core invariant, reuse it in Core,
-Access, and Hooks, and delete the official-engine copies. Native CRUD and plugin
-schema-mutation execution remain separate. No new lifecycle stage, adapter
-power, configuration, or extension registry is introduced.
+Issue 4601 centralizes those existing invariants inside the Access package. The
+prepared and materialized upsert checks remain separate because they protect
+different moments of the database-selected branch. No public declaration,
+Runtime stage, authority rule, or capability changes.
 
-Issue 4501 is complete. Core now owns one prepared-record decoder and the
-existing complete outcome validator; Access and Hooks consume those boundaries
-without their former local decoders. Production TypeScript is 41 lines smaller,
-all 2,572 repository tests pass, and no resume point remains.
+Issue 4601 is complete. Access now uses one operation-family classifier, one
+fail-closed schema-plan reader, and one item-decision dispatcher. Production is
+47 lines smaller, the previous `item-access.ts` warning is gone, all 2,573
+repository tests pass, and no resume point remains.
 
 No push is authorized.

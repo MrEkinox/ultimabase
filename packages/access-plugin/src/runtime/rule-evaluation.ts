@@ -25,6 +25,7 @@ import type {
 } from '../authoring/plan.js'
 import {
 	allowUndeclaredFieldAccess,
+	readAccessOperationFamily,
 	readAccessOperationDefault,
 } from '../authoring/plan.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -88,6 +89,20 @@ export const readAccessSchema = (operation: unknown): SchemaDefinition => {
 	}
 
 	return schema
+}
+
+/** Reads the exact compiled schema plan or fails closed for a foreign graph. */
+export const requireAccessSchemaPlan = (
+	plan: AccessPlan,
+	operation: unknown,
+): SchemaAccessPlan => {
+	const schemaPlan = plan.getSchema(readAccessSchema(operation))
+
+	if (schemaPlan === undefined) {
+		throw new TypeError('Native Access plan does not own the operation schema')
+	}
+
+	return schemaPlan
 }
 
 const createRuleDescriptor = (
@@ -155,31 +170,6 @@ export const assertAccessDecisionRules = async (
 				identity.field,
 			)
 		}
-	}
-}
-
-const operationFilterFamily = (
-	kind: OperationKind,
-): keyof SchemaAccessPlan['filter'] | undefined => {
-	switch (kind) {
-		case 'count':
-		case 'exists':
-		case 'find-many':
-		case 'find-one':
-		case 'get':
-			return 'read'
-		case 'update-many':
-		case 'update-one':
-			return 'update'
-		case 'upsert-many':
-		case 'upsert-one':
-			return 'upsert'
-		case 'delete-many':
-		case 'delete-one':
-			return 'delete'
-		case 'create-many':
-		case 'create-one':
-			return undefined
 	}
 }
 
@@ -295,9 +285,9 @@ export const evaluateAccessOperationAndFilter = async (
 		true,
 	)
 
-	const family = operationFilterFamily(request.operation.kind)
+	const family = readAccessOperationFamily(request.operation.kind)
 
-	if (family === undefined) {
+	if (family === 'create') {
 		return undefined
 	}
 

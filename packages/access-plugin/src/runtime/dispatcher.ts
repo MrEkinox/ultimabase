@@ -16,7 +16,7 @@ import {
 	readRuntimePreparedMutationRecords,
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
-import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
+import type { AccessPlan } from '../authoring/plan.js'
 import type { AccessDiagnosticsObserver } from './diagnostics.js'
 import { AccessExecutionRuntime } from './execution-runtime.js'
 import {
@@ -36,7 +36,7 @@ import {
 	evaluateAccessFieldReferenceRules,
 	evaluateAccessOperationAndFilter,
 	readNativeAccessRequest,
-	readAccessSchema,
+	requireAccessSchemaPlan,
 	type AccessRuntimeRequest,
 } from './rule-evaluation.js'
 import {
@@ -72,23 +72,14 @@ export class AccessRuntime {
 		Object.freeze(this)
 	}
 
-	#readSchemaPlan(operation: unknown): SchemaAccessPlan {
-		const schemaPlan = this.#plan.getSchema(readAccessSchema(operation))
-
-		if (schemaPlan === undefined) {
-			throw new TypeError(
-				'Native Access plan does not own the operation schema',
-			)
-		}
-
-		return schemaPlan
-	}
-
 	async evaluate<const TOperation extends RuntimeLogicalOperationAst>(
 		request: RuntimeOperationStageInput<TOperation>,
 	): Promise<ProtectedPolicyEffects> {
 		const accessRequest: AccessRuntimeRequest = request
-		const schemaPlan = this.#readSchemaPlan(accessRequest.operation)
+		const schemaPlan = requireAccessSchemaPlan(
+			this.#plan,
+			accessRequest.operation,
+		)
 
 		const schemaMutation = isSchemaMutationAccessRequest(accessRequest)
 		let rowFilter
@@ -137,7 +128,10 @@ export class AccessRuntime {
 	): Promise<boolean> {
 		const accessRequest: AccessRuntimeRequest = request
 		if (isSchemaMutationAccessRequest(accessRequest)) return true
-		const schemaPlan = this.#readSchemaPlan(accessRequest.operation)
+		const schemaPlan = requireAccessSchemaPlan(
+			this.#plan,
+			accessRequest.operation,
+		)
 		const nativeRequest = readNativeAccessRequest(accessRequest)
 
 		await evaluateAccessMutationFieldRules(
@@ -200,7 +194,7 @@ export class AccessRuntime {
 			return enforceSchemaMutationItemAccess(
 				this.#runtime,
 				accessRequest,
-				this.#readSchemaPlan(accessRequest.operation),
+				requireAccessSchemaPlan(this.#plan, accessRequest.operation),
 			)
 		}
 		const { targets, ...requestWithoutTargets } = request
@@ -254,7 +248,7 @@ export class AccessRuntime {
 			this.#runtime,
 			{ ...accessRequest, result: request.result },
 			this.#plan,
-			this.#readSchemaPlan(accessRequest.operation),
+			requireAccessSchemaPlan(this.#plan, accessRequest.operation),
 		)
 	}
 }

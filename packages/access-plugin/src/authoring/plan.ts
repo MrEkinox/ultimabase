@@ -3,10 +3,12 @@ export {
 	accessOperationKinds,
 	emptyFieldAccessPlans,
 	encodeFieldPath,
+	readAccessOperationFamily,
 	readAccessOperationDefault,
 } from './plan-contracts.js'
 export type {
 	AccessDefaultPolicy,
+	AccessOperationFamily,
 	AccessPlan,
 	AccessRuleSource,
 	CompiledAccessRule,

@@ -16,7 +16,11 @@ import {
 	type OwnedAccessContribution,
 } from '../contributions.js'
 import { compileAccessPlan } from '../authoring/compiler.js'
-import type { AccessDefaultPolicy } from '../authoring/plan.js'
+import {
+	accessOperationKinds,
+	readAccessOperationFamily,
+	type AccessDefaultPolicy,
+} from '../authoring/plan.js'
 import { requiresAccessPreparedMutationItems } from './item-access.js'
 
 const Document = Schema.define({
@@ -55,6 +59,31 @@ const deleteMany = {
 	kind: 'delete-many',
 	query,
 } satisfies DeleteManyOperationAst<typeof Document>
+
+it('classifies every native terminal through one Access family map', () => {
+	expect(
+		Object.fromEntries(
+			accessOperationKinds.map((kind) => [
+				kind,
+				readAccessOperationFamily(kind),
+			]),
+		),
+	).toEqual({
+		count: 'read',
+		'create-many': 'create',
+		'create-one': 'create',
+		'delete-many': 'delete',
+		'delete-one': 'delete',
+		exists: 'read',
+		'find-many': 'read',
+		'find-one': 'read',
+		get: 'read',
+		'update-many': 'update',
+		'update-one': 'update',
+		'upsert-many': 'upsert',
+		'upsert-one': 'upsert',
+	})
+})
 
 it('requests set preimages only when item or value-dependent rules need them', () => {
 	const registry = new SchemaRegistry([Document])

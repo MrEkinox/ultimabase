@@ -5,7 +5,7 @@ import type {
 	SchemaContributionOwner,
 	SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	FieldReadAccessChannel,
@@ -34,6 +34,30 @@ export const accessOperationKinds: readonly OperationKind[] = [
 	'delete-one',
 	'delete-many',
 ]
+
+export type AccessOperationFamily =
+	'create' | 'delete' | 'read' | 'update' | 'upsert'
+
+const accessOperationFamilyByKind = immutableRecord({
+	count: 'read',
+	'create-many': 'create',
+	'create-one': 'create',
+	'delete-many': 'delete',
+	'delete-one': 'delete',
+	exists: 'read',
+	'find-many': 'read',
+	'find-one': 'read',
+	get: 'read',
+	'update-many': 'update',
+	'update-one': 'update',
+	'upsert-many': 'upsert',
+	'upsert-one': 'upsert',
+} satisfies Readonly<Record<OperationKind, AccessOperationFamily>>)
+
+/** Resolves one native terminal to its single public Access family. */
+export const readAccessOperationFamily = (
+	kind: OperationKind,
+): AccessOperationFamily => accessOperationFamilyByKind[kind]
 
 /** Attributes one native declaration without inventing plugin provenance. */
 export interface DeveloperAccessSource {
@@ -115,6 +139,10 @@ export const readAccessOperationDefault = (
 	defaults: AccessDefaultPolicy,
 	kind: OperationKind,
 ): boolean => {
+	const family = readAccessOperationFamily(kind)
+
+	if (family !== 'read') return defaults[family]
+
 	switch (kind) {
 		case 'get':
 		case 'find-one':
@@ -125,18 +153,8 @@ export const readAccessOperationDefault = (
 			return defaults.read.count
 		case 'exists':
 			return defaults.read.exists
-		case 'create-one':
-		case 'create-many':
-			return defaults.create
-		case 'update-one':
-		case 'update-many':
-			return defaults.update
-		case 'upsert-one':
-		case 'upsert-many':
-			return defaults.upsert
-		case 'delete-one':
-		case 'delete-many':
-			return defaults.delete
+		default:
+			throw new TypeError('Native Access read family requires a read terminal')
 	}
 }
 
