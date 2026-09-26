@@ -71,7 +71,7 @@ import type {
 	RuntimeResultStageInput,
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
-import { isRuntimeMutationOperation } from './operation-kind.js'
+import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import {
 	retainRuntimeMutationBatchProjector,
 	RuntimeInclusionProjector,

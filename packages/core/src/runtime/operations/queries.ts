@@ -6,12 +6,13 @@ import type {
 } from '../../query/index.js'
 import { emptyQueryInclusion } from '../../query/clauses/inclusion.js'
 import { immutableArray } from '@ultimabase/shared'
+import { isQueryBackedOperation } from './characteristics.js'
 
 /** Reads every public QueryBuilder AST carried by one normalized executable operation. */
 export const readOperationQueries = (
 	operation: ExecutableOperationAst,
 ): readonly QueryAst[] => {
-	if ('query' in operation) {
+	if (isQueryBackedOperation(operation)) {
 		return immutableArray([operation.query])
 	}
 
@@ -24,13 +25,15 @@ export const readOperationQueries = (
 export const readOperationResultSelection = (
 	operation: ExecutableOperationAst,
 ): QuerySelectionNode =>
-	'query' in operation ? operation.query.selection : operation.selection
+	isQueryBackedOperation(operation)
+		? operation.query.selection
+		: operation.selection
 
 /** Reads the normalized relationship projection carried by one result operation. */
 export const readOperationResultInclusion = (
 	operation: ExecutableOperationAst,
 ): QueryInclusionNode =>
-	'query' in operation
+	isQueryBackedOperation(operation)
 		? operation.query.inclusion
 		: operation.kind === 'create-one'
 			? (operation.inclusion ?? emptyQueryInclusion)

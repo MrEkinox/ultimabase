@@ -34,10 +34,10 @@ import {
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
+import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
-import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
 import {
 	createNestedTransactionError,
 	type TransactionLifetime,
@@ -354,7 +354,7 @@ export class RequestEngine<
 
 		if (
 			this.#transactionLifetime === undefined &&
-			requiresAutomaticMutationTransaction(operation)
+			isRuntimeMutationOperation(operation)
 		) {
 			// Every root mutation reuses the exact public transaction lifecycle.
 			return this.transaction(async (transaction) => {

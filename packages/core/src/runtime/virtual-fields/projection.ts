@@ -21,6 +21,7 @@ import type {
 	DatabaseOperationResult,
 } from '../database/contracts.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import { isRecordOperationResult } from '../operations/characteristics.js'
 import { readOperationResultSelection } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
 
@@ -36,14 +37,11 @@ export interface RuntimeVirtualFieldProjection {
 	}>[]
 }
 
-const operationReturnsRecords = (operation: DatabaseOperationAst): boolean =>
-	operation.kind !== 'count' && operation.kind !== 'exists'
-
 /** Compiles private dependencies only after protected selection enforcement. */
 export const prepareRuntimeVirtualFieldProjection = (
 	operation: DatabaseOperationAst,
 ): RuntimeVirtualFieldProjection | undefined => {
-	if (!operationReturnsRecords(operation)) return undefined
+	if (!isRecordOperationResult(operation.kind)) return undefined
 
 	const schema = getOperationSchema(operation)
 	if (!Schema.is(schema)) {

@@ -34,6 +34,7 @@ import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
+import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import { readOperationResultSelection } from '../operations/queries.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import type {
@@ -51,7 +52,6 @@ import {
 	createRuntimePreparedMutationInput,
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
-import { isRuntimeMutationOperation } from './operation-kind.js'
 
 export interface RuntimeDatabaseExecution<
 	TOperation extends DatabaseOperationAst,

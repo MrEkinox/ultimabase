@@ -16,6 +16,10 @@ import type {
 } from '../database/contracts.js'
 import * as modelMetadata from '../operations/model-metadata.js'
 import {
+	isCollectionOperationResult,
+	isNullableOperationResult,
+} from '../operations/characteristics.js'
+import {
 	snapshotRuntimeResultRecord,
 	type RuntimeValidationErrorDescription,
 } from '../validation/runtime-validation.js'
@@ -89,24 +93,13 @@ export const snapshotRuntimeBoundaryResult = <
 	}
 
 	if (value === null) {
-		if (
-			operation.kind !== 'delete-one' &&
-			operation.kind !== 'find-one' &&
-			operation.kind !== 'get' &&
-			operation.kind !== 'update-one'
-		) {
+		if (!isNullableOperationResult(operation.kind)) {
 			return throwIssue(path, 'This terminal cannot return null', description)
 		}
 		return null as DatabaseOperationResult<TOperation>
 	}
 
-	if (
-		operation.kind === 'create-many' ||
-		operation.kind === 'delete-many' ||
-		operation.kind === 'find-many' ||
-		operation.kind === 'update-many' ||
-		operation.kind === 'upsert-many'
-	) {
+	if (isCollectionOperationResult(operation.kind)) {
 		if (!isUnknownArray(value)) {
 			return throwIssue(path, 'This terminal must return an array', description)
 		}

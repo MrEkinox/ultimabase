@@ -21,6 +21,10 @@ import type {
 } from '../database/contracts.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import * as modelMetadata from '../operations/model-metadata.js'
+import {
+	isNullableOperationResult,
+	isRuntimeMutationOperation,
+} from '../operations/characteristics.js'
 import { snapshotRuntimeMutationOperation } from '../validation/runtime-validation.js'
 import {
 	createInclusionOperation,
@@ -36,8 +40,6 @@ import {
 	assertExactKeys,
 	assertSameQueryResultShape,
 	behaviorBoundaryErrorDescription,
-	isMutationOperation,
-	isNullableResultKind,
 	readOperationKeys,
 	readOperationSchema,
 	readOptionalOperationKeys,
@@ -310,7 +312,7 @@ export const createRuntimeBehaviorBoundaries =
 			}
 
 			if (replacement === null) {
-				if (!isNullableResultKind(operation.kind)) {
+				if (!isNullableOperationResult(operation.kind)) {
 					return throwBoundaryIssue(
 						['result'],
 						'This terminal cannot return null',
@@ -419,7 +421,10 @@ export const createRuntimeBehaviorBoundaries =
 			): TOperation => {
 				const snapshot = snapshotOperationShape(operation, replacement)
 
-				if (!isMutationOperation(operation) || !isMutationOperation(snapshot)) {
+				if (
+					!isRuntimeMutationOperation(operation) ||
+					!isRuntimeMutationOperation(snapshot)
+				) {
 					return snapshot
 				}
 

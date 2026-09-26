@@ -14,6 +14,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 import { readOperationResultInclusion } from '../operations/queries.js'
+import { supportsOperationResultInclusion } from '../operations/characteristics.js'
 
 import type { DatabaseOperationAst } from '../database/contracts.js'
 
@@ -40,32 +41,11 @@ export type RuntimeInclusionTargetOperation =
 
 const emptyInclusions: readonly RuntimeInclusion[] = immutableArray([])
 
-/** Selects only terminals whose public result can contain relationship values. */
-const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
-	switch (operation.kind) {
-		case 'delete-one':
-		case 'create-one':
-		case 'find-many':
-		case 'find-one':
-		case 'get':
-		case 'update-one':
-		case 'upsert-one':
-			return true
-		case 'count':
-		case 'create-many':
-		case 'delete-many':
-		case 'exists':
-		case 'update-many':
-		case 'upsert-many':
-			return false
-	}
-}
-
 /** Reads normalized inclusion nodes without trusting an adapter-owned value. */
 export const readInclusions = (
 	operation: DatabaseOperationAst,
 ): readonly RuntimeInclusion[] => {
-	if (!operationReturnsRecords(operation)) {
+	if (!supportsOperationResultInclusion(operation.kind)) {
 		return emptyInclusions
 	}
 

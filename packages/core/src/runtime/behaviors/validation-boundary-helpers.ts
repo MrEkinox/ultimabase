@@ -11,37 +11,13 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import type {
-	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
-} from '../database/contracts.js'
+import type { DatabaseOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import {
 	throwRuntimeValidationIssues,
 	type RuntimeValidationErrorDescription,
 	type RuntimeValidationIssue,
 } from '../validation/runtime-validation.js'
-
-const mutationKinds = new Set<OperationKind>([
-	'create-many',
-	'create-one',
-	'delete-many',
-	'delete-one',
-	'update-many',
-	'update-one',
-	'upsert-many',
-	'upsert-one',
-])
-
-const nullableResultKinds = new Set<OperationKind>([
-	'delete-one',
-	'find-one',
-	'get',
-	'update-one',
-])
-
-export const isNullableResultKind = (kind: OperationKind): boolean =>
-	nullableResultKinds.has(kind)
 
 export const behaviorBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
 	immutableRecord({
@@ -109,11 +85,6 @@ export const readOptionalOperationKeys = (
 	kind: OperationKind,
 ): readonly string[] =>
 	kind === 'create-one' ? immutableArray(['inclusion']) : immutableArray([])
-
-export const isMutationOperation = (
-	operation: DatabaseOperationAst,
-): operation is DatabaseMutationOperationAst =>
-	mutationKinds.has(operation.kind)
 
 export const readOperationSchema = (
 	operation: unknown,

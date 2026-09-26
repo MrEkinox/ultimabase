@@ -4,6 +4,7 @@ import type {
 	QueryAst,
 	QuerySelectedFieldNode,
 } from '../../query/index.js'
+import { isQueryBackedOperation } from '../operations/characteristics.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -174,7 +175,7 @@ const restrictOperationSelection = <
 		return operation
 	}
 
-	if ('query' in executable) {
+	if (isQueryBackedOperation(executable)) {
 		return immutableRecord({
 			...operation,
 			query: restrictQuerySelection(executable.query, permittedFields),
