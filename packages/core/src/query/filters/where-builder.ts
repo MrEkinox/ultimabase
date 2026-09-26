@@ -45,7 +45,7 @@ export const resolveWhereBuilderInput = <TSchema extends SchemaDefinition>(
 			throw new TypeError('WhereBuilder must use the same schema definition')
 		}
 
-		return normalizeWhereInput(schema, input.build())
+		return state.expression ?? createConstantWhereExpression<TSchema>(true)
 	}
 
 	if (typeof input === 'function') {

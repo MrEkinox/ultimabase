@@ -4,6 +4,7 @@ import { Schema, SchemaRegistry } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
+import { readWhereBuilderState } from './where-builder-state.js'
 
 const Tag = Schema.define({
 	className: 'RuntimeWhereTag',
@@ -103,6 +104,9 @@ describe('WhereInput', () => {
 
 		expect(base.build()).toStrictEqual({ published: { eq: false } })
 		expect(fromObject.ast.where).toStrictEqual(fromBuilder.ast.where)
+		expect(fromBuilder.ast.where?.expression).toBe(
+			readWhereBuilderState(builder).expression,
+		)
 		expect(JSON.stringify(built)).not.toContain('20')
 		expect(Object.isFrozen(builder)).toBe(true)
 		expect(Object.isFrozen(built)).toBe(true)

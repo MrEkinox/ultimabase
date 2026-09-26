@@ -137,9 +137,9 @@ const buildQueryOrderByInput = (
 	)
 
 /** Rebuilds the projection subset allowed inside one canonical pointer include. */
-const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
+const buildQueryInput = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
-	kind: 'pointer' | 'relation',
+	kind: 'collection' | 'pointer',
 ): Readonly<Record<string, unknown>> => {
 	const selection: Record<string, true> = {}
 	const include: Record<string, Readonly<Record<string, unknown>>> = {}
@@ -149,9 +149,9 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 	}
 
 	for (const inclusion of ast.inclusion.fields) {
-		include[inclusion.field] = buildQueryProjectionInput(
+		include[inclusion.field] = buildQueryInput(
 			inclusion.query as QueryBuilderAst<SchemaDefinition>,
-			inclusion.kind === 'included-pointer' ? 'pointer' : 'relation',
+			inclusion.kind === 'included-pointer' ? 'pointer' : 'collection',
 		)
 	}
 
@@ -165,13 +165,13 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 		...(Object.keys(include).length === 0
 			? {}
 			: { include: immutableRecord(include) }),
-		...(kind === 'relation' && ast.ordering.orders.length > 0
+		...(kind === 'collection' && ast.ordering.orders.length > 0
 			? { orderBy: buildQueryOrderByInput(ast.ordering.orders) }
 			: {}),
-		...(kind === 'relation' && ast.limit !== undefined
+		...(kind === 'collection' && ast.limit !== undefined
 			? { limit: ast.limit }
 			: {}),
-		...(kind === 'relation' && ast.pagination?.kind === 'offset-pagination'
+		...(kind === 'collection' && ast.pagination?.kind === 'offset-pagination'
 			? { offset: ast.pagination.offset }
 			: {}),
 	})
@@ -451,44 +451,10 @@ export class QueryBuilder<
 
 	/** Returns the canonical object input accepted by schema-root collection reads. */
 	build(): QueryBuilderInput<TSchema, TSelectedField, TIncludedPointer> {
-		const selection: Record<string, true> = {}
-		const include: Record<string, Readonly<Record<string, unknown>>> = {}
-
-		for (const field of this.ast.selection.fields) {
-			selection[field.field] = true
-		}
-
-		for (const inclusion of this.ast.inclusion.fields) {
-			include[inclusion.field] = buildQueryProjectionInput(
-				inclusion.query as QueryBuilderAst<SchemaDefinition>,
-				inclusion.kind === 'included-pointer' ? 'pointer' : 'relation',
-			)
-		}
-
-		const input = immutableRecord({
-			...(this.ast.where === undefined
-				? {}
-				: { where: whereInputFromQueryFilter(this.ast.where.expression) }),
-			...(Object.keys(selection).length === 0
-				? {}
-				: { select: immutableRecord(selection) }),
-			...(Object.keys(include).length === 0
-				? {}
-				: { include: immutableRecord(include) }),
-			...(this.ast.ordering.orders.length === 0
-				? {}
-				: { orderBy: buildQueryOrderByInput(this.ast.ordering.orders) }),
-			...(this.ast.limit === undefined ? {} : { limit: this.ast.limit }),
-			...(this.ast.pagination?.kind === 'offset-pagination'
-				? { offset: this.ast.pagination.offset }
-				: {}),
-		})
-
-		return input as unknown as QueryBuilderInput<
-			TSchema,
-			TSelectedField,
-			TIncludedPointer
-		>
+		return buildQueryInput(
+			this.ast,
+			'collection',
+		) as unknown as QueryBuilderInput<TSchema, TSelectedField, TIncludedPointer>
 	}
 
 	#order(
