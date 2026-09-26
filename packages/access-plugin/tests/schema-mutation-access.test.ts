@@ -24,7 +24,7 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 	type SchemaAccessOption,
-} from './index.js'
+} from '../src/index.js'
 import {
 	SchemaMutationAdapter,
 	schemaMutationAccessId,

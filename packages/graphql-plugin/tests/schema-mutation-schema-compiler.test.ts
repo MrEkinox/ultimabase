@@ -21,7 +21,7 @@ import {
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { graphqlPlugin } from './plugin.js'
+import { graphqlPlugin } from '../src/plugin.js'
 import {
 	GraphqlSchemaMutationAdapter,
 	graphqlSchemaMutationId,

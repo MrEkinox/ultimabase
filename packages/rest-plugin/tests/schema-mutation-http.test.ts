@@ -29,7 +29,7 @@ import {
 } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { restPlugin } from './plugin.js'
+import { restPlugin } from '../src/plugin.js'
 import {
 	RestSchemaMutationAdapter,
 	schemaMutationRestId,
@@ -426,7 +426,7 @@ describe('REST schema mutation exposure', () => {
 				const response = await fetchApplication(fixture.http, path, options)
 				expect(response.status).toBe(status)
 			}
-			expect(fixture.adapter.transactions).toBe(0)
+			expect(fixture.adapter.transactions).toHaveLength(0)
 		} finally {
 			await fixture.application.dispose()
 		}

@@ -12,7 +12,7 @@ one existing Core boundary rather than introduce a parallel facade.
 ## Execution order
 
 - [x] [3901 — Unify plugin field-family authoring](3901-plugin-field-family.md)
-- [ ] Consolidate repeated schema-mutation test adapters.
+- [x] [3902 — Consolidate prepared-mutation test adapters](3902-prepared-mutation-test-adapters.md)
 - [ ] Reduce built-in scalar factory typing only with identical source and
       compiled hovers.
 - [ ] Consolidate remaining internal scalar mappings and plugin registries.

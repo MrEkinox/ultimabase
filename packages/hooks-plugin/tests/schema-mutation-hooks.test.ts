@@ -26,8 +26,8 @@ import {
 	provideHookContributions,
 	provideHookEvent,
 	schemaHooks,
-} from './index.js'
-import type { HookContext } from './index.js'
+} from '../src/index.js'
+import type { HookContext } from '../src/index.js'
 import {
 	SchemaMutationHookAdapter,
 	schemaMutationHookId,

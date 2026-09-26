@@ -13,8 +13,8 @@ import {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { expect, it, vi } from 'vitest'
 
-import { hooksPlugin } from './index.js'
-import type { HookContext } from './index.js'
+import { hooksPlugin } from '../src/index.js'
+import type { HookContext } from '../src/index.js'
 import {
 	SchemaMutationHookAdapter,
 	schemaMutationHookId,

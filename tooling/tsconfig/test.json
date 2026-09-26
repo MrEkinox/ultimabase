@@ -26,6 +26,7 @@
 		"../prototypes/generated-schema-authoring/**/*.ts",
 		"../vitest/**/*.test.ts",
 		"../vitest/optional-product-public-api.ts",
+		"../vitest/prepared-mutation-adapter.ts",
 		"../vitest/typescript-language-service.ts"
 	]
 }
