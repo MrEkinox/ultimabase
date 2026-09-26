@@ -40,6 +40,15 @@ const expectedByKind = {
 } as const satisfies Record<OperationKind, ExpectedOperationCharacteristics>
 
 describe('Runtime operation characteristics', () => {
+	it('recognizes erased logical operations that retain a Query AST', () => {
+		const logical = {
+			kind: 'plugin-schema-mutation',
+			query: {},
+		} as unknown as ExecutableOperationAst
+
+		expect(isQueryBackedOperation(logical)).toBe(true)
+	})
+
 	it.each(Object.entries(expectedByKind))(
 		'classifies every %s trait',
 		(
@@ -47,7 +56,10 @@ describe('Runtime operation characteristics', () => {
 			[mutation, nullable, collection, record, inclusion, queryBacked],
 		) => {
 			const operation: DatabaseOperationAst = { kind: kind as OperationKind }
-			const executable = operation as ExecutableOperationAst
+			const executable = {
+				...operation,
+				...(queryBacked ? { query: {} } : {}),
+			} as ExecutableOperationAst
 
 			expect(isRuntimeMutationOperation(operation)).toBe(mutation)
 			expect(isNullableOperationResult(operation.kind)).toBe(nullable)

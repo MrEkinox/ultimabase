@@ -45,19 +45,6 @@ const inclusionResultKinds: ReadonlySet<OperationKind> = new Set([
 	'upsert-one',
 ])
 
-const queryBackedKinds: ReadonlySet<OperationKind> = new Set([
-	'count',
-	'delete-many',
-	'delete-one',
-	'exists',
-	'find-many',
-	'find-one',
-	'get',
-	'update-many',
-	'update-one',
-	'upsert-one',
-])
-
 type QueryBackedOperation = Extract<
 	ExecutableOperationAst,
 	{ readonly query: unknown }
@@ -84,4 +71,4 @@ export const supportsOperationResultInclusion = (
 
 export const isQueryBackedOperation = (
 	operation: ExecutableOperationAst,
-): operation is QueryBackedOperation => queryBackedKinds.has(operation.kind)
+): operation is QueryBackedOperation => 'query' in operation
