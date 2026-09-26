@@ -3,12 +3,17 @@ import type {
 	ApplicationCallbackExecutor,
 	DatabaseMutationOperationAst,
 	ProtectedPolicyEffects,
+	RuntimeBehaviorBoundaries,
 	RuntimeLogicalOperationAst,
 	RuntimeLogicalMutationOperationAst,
 	RuntimeMutationOutcomeStageInput,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
 	RuntimeRelationEnforcementStageInput,
+} from '@ultimabase/core'
+import {
+	createRuntimeBehaviorBoundaries,
+	readRuntimePreparedMutationRecords,
 } from '@ultimabase/core'
 import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
@@ -52,6 +57,7 @@ const readNativeMutationOperation = (
 
 /** Executes one application's immutable official Access plan at Runtime boundaries. */
 export class AccessRuntime {
+	readonly #boundaries: RuntimeBehaviorBoundaries
 	readonly #plan: AccessPlan
 	readonly #runtime: AccessExecutionRuntime
 
@@ -60,6 +66,7 @@ export class AccessRuntime {
 		observer?: AccessDiagnosticsObserver,
 		callbacks?: ApplicationCallbackExecutor,
 	) {
+		this.#boundaries = createRuntimeBehaviorBoundaries()
 		this.#plan = plan
 		this.#runtime = new AccessExecutionRuntime(observer, callbacks)
 		Object.freeze(this)
@@ -87,19 +94,19 @@ export class AccessRuntime {
 		let rowFilter
 		if (schemaMutation) {
 			rowFilter = await evaluateSchemaMutationAccess(
-					this.#runtime,
-					accessRequest,
-					this.#plan,
-					schemaPlan,
-				)
+				this.#runtime,
+				accessRequest,
+				this.#plan,
+				schemaPlan,
+			)
 		} else {
 			const nativeRequest = readNativeAccessRequest(accessRequest)
 			rowFilter = await evaluateAccessOperationAndFilter(
-					this.#runtime,
-					nativeRequest,
-					this.#plan,
-					schemaPlan,
-				)
+				this.#runtime,
+				nativeRequest,
+				this.#plan,
+				schemaPlan,
+			)
 
 			// Native field transitions and create-item checks belong only to CRUD.
 			await evaluateAccessFieldReferenceRules(
@@ -185,7 +192,9 @@ export class AccessRuntime {
 	async enforcePreparedMutation<
 		const TOperation extends RuntimeLogicalMutationOperationAst,
 		const TTarget,
-	>(request: RuntimePreparedMutationStageInput<TOperation, TTarget>): Promise<void> {
+	>(
+		request: RuntimePreparedMutationStageInput<TOperation, TTarget>,
+	): Promise<void> {
 		const accessRequest: AccessRuntimeRequest = request
 		if (isSchemaMutationAccessRequest(accessRequest)) {
 			return enforceSchemaMutationItemAccess(
@@ -194,10 +203,20 @@ export class AccessRuntime {
 				this.#readSchemaPlan(accessRequest.operation),
 			)
 		}
-		return enforceAccessPreparedMutation(this.#runtime, this.#plan, {
-			...request,
-			operation: readNativeMutationOperation(request.operation),
-		})
+		const { targets, ...requestWithoutTargets } = request
+
+		return enforceAccessPreparedMutation(
+			this.#runtime,
+			this.#plan,
+			immutableRecord({
+				...requestWithoutTargets,
+				...readRuntimePreparedMutationRecords({
+					target: request.target,
+					targets,
+				}),
+				operation: readNativeMutationOperation(request.operation),
+			}),
+		)
 	}
 
 	async enforceMutationOutcome<
@@ -208,9 +227,17 @@ export class AccessRuntime {
 	): Promise<void> {
 		const accessRequest: AccessRuntimeRequest = request
 		if (isSchemaMutationAccessRequest(accessRequest)) return
+		const operation = readNativeMutationOperation(request.operation)
+		const outcome = this.#boundaries.snapshotMutationOutcome(
+			operation,
+			request.outcome,
+			request.selectedFieldsOverride,
+		)
+
 		await enforceAccessMutationOutcome(this.#runtime, this.#plan, {
 			...request,
-			operation: readNativeMutationOperation(request.operation),
+			operation,
+			outcome,
 		})
 	}
 

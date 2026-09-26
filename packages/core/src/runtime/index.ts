@@ -325,8 +325,14 @@ export type {
 	RuntimeResultTransformStage,
 	RuntimeSchemaMutationOutcome,
 } from './pipeline/contracts.js'
-export { createRuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
-export type { RuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
+export {
+	createRuntimeBehaviorBoundaries,
+	readRuntimePreparedMutationRecords,
+} from './behaviors/boundaries.js'
+export type {
+	RuntimeBehaviorBoundaries,
+	RuntimePreparedMutationRecords,
+} from './behaviors/boundaries.js'
 export { getOperationSchema } from './operations/schema.js'
 export {
 	collectOperationFieldInputs,

@@ -10,6 +10,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-25
 sources:
   - packages/core/README.md
+  - packages/core/src/runtime/behaviors/prepared-target-boundary.ts
   - packages/core/src/plugins/manifest.ts
   - packages/plugin-kit/README.md
   - packages/testing/README.md
@@ -150,6 +151,15 @@ transaction boundaries.
 | Add request behavior                  | `provideRuntimeBehavior()`                                                     | `runtime:intercept`   | Core retains mandatory validation and transaction boundaries.     |
 | Deny or narrow access                 | `provideRuntimeConstraint()` with `guard`, `constraint`, or field restrictions | `runtime:constrain`   | Later contributors cannot broaden accumulated restrictions.       |
 | Rewrite the physical persistence plan | `providePersistencePlanRewriter()`                                             | `persistence:rewrite` | Logical policy, hooks, audit, and result identity stay unchanged. |
+
+If a behavior engine consumes a generic prepared-mutation callback, use
+`readRuntimePreparedMutationRecords()` from `@ultimabase/core` to recover the
+validated logical records. The helper preserves the absent and singular-null
+states and snapshots a target collection, so each plugin does not need its own
+record decoder. Validate a complete adapter outcome with
+`createRuntimeBehaviorBoundaries().snapshotMutationOutcome()`; that one Core
+boundary checks the result, materializations, effective selection, and
+immutability together.
 
 Use the optional [Hooks](/docs/1.0.0/plugins/official/hooks) and [Access](/docs/1.0.0/plugins/official/access)
 protocols when your plugin specifically extends those product contracts. A

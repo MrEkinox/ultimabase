@@ -159,6 +159,11 @@ const tenantPlugin = (tenantId: string) =>
 Runtime uses versioned application capabilities. Product behavior and logical
 interceptors form ordered pipelines, constraints remain independent monotonic
 providers, and Core assembles its canonical executor directly.
+Generic prepared-mutation consumers use
+`readRuntimePreparedMutationRecords()` to recover validated logical records;
+they do not need to duplicate Core's record checks. Complete adapter outcomes use
+`createRuntimeBehaviorBoundaries().snapshotMutationOutcome()` so result,
+materialization, selection, and immutability checks stay in one boundary.
 `provideRuntimeBehavior()` and `provideRuntimeInterceptor()` require
 `runtime:intercept`; `provideRuntimeConstraint()` requires `runtime:constrain`.
 Generic providers cannot bypass those exact facades or inspect the composed

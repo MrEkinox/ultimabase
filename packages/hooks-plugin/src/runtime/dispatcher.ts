@@ -4,6 +4,7 @@ import {
 	type DatabaseMutationLogicalRecord,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
+	readRuntimePreparedMutationRecords,
 	type RuntimeBehaviorBoundaries,
 	type RuntimeBehaviorStages,
 	type RuntimeLogicalMutationOperationAst,
@@ -102,8 +103,14 @@ export const createHookBehavior = (
 		},
 		observePreparedMutation: (input) => {
 			if (isSchemaMutationHookRequest(input)) return undefined
+			const { targets, ...inputWithoutTargets } = input
+
 			return runSchemaPreparedPhases(plan, runtime, {
-				...input,
+				...inputWithoutTargets,
+				...readRuntimePreparedMutationRecords({
+					target: input.target,
+					targets,
+				}),
 				operation: readNativeMutationOperation(input.operation),
 			})
 		},

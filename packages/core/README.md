@@ -576,6 +576,13 @@ normalization, prepared CRUD transforms, and `RuntimePipeline.execute()` remain
 restricted to native database operations; this typing does not merge the two
 execution pipelines.
 
+Behavior engines that consume a generic prepared-mutation callback can use
+`readRuntimePreparedMutationRecords()` to recover Core-validated logical
+records instead of maintaining a second record decoder. The helper preserves
+an absent or singular-null target and returns an immutable target collection.
+Complete adapter outcomes remain
+validated by `createRuntimeBehaviorBoundaries().snapshotMutationOutcome()`.
+
 Optional engines can require the versioned
 `applicationSchemaMutationSurfaceCapability` to inspect each application's
 immutable callback-free mutation catalog. Core supplies that catalog only on

@@ -1,5 +1,6 @@
 import { isPlainRecord } from '@ultimabase/shared'
 import type {
+	DatabaseLogicalRecord,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -31,13 +32,6 @@ import {
 	collectMutationBeforeItems,
 } from './materializations.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
-
-const readPreparedHookTarget = (
-	value: unknown,
-): Readonly<Record<string, unknown>> | null | undefined => {
-	if (value === null || value === undefined || isPlainRecord(value)) return value
-	throw new TypeError('Native Hooks require a prepared record target')
-}
 
 /** Resolves schema input through the sole transform phase, in before order. */
 export const runSchemaResolveInput = async <
@@ -100,11 +94,10 @@ export const runSchemaResolveInput = async <
 /** Runs mutation before-hooks after Runtime has prepared any reliable preimage. */
 export const runSchemaPreparedPhases = async <
 	const TOperation extends DatabaseMutationOperationAst,
-	const TTarget,
 >(
 	plan: HookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
+	input: RuntimePreparedMutationStageInput<TOperation, DatabaseLogicalRecord>,
 ): Promise<void> => {
 	if (
 		input.operation.kind === 'create-many' ||
@@ -143,11 +136,8 @@ export const runSchemaPreparedPhases = async <
 
 		const items = collectMutationBeforeItems(
 			input.operation,
-			readPreparedHookTarget(input.target),
-			input.targets?.map((target) => {
-				if (isPlainRecord(target)) return target
-				throw new TypeError('Native Hooks require prepared record targets')
-			}),
+			input.target,
+			input.targets,
 		)
 
 		for (const item of items) {

@@ -203,6 +203,7 @@ describe('@ultimabase/core public entry point', () => {
 			'readOperationResultSelection',
 			'readRuntimeFieldValuePath',
 			'readRuntimeIncludedPointerValue',
+			'readRuntimePreparedMutationRecords',
 			'registerPrivateStorageAdapter',
 			'relationField',
 			'requestPrincipalResolverCapability',

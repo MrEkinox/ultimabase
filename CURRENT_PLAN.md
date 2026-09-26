@@ -1,34 +1,23 @@
-# Current plan: Runtime logical-operation typing
+# Current plan: Runtime boundary decoder consolidation
 
 - Status: completed
-- Milestone: 44
-- Baseline: `d97afb1b`
+- Milestone: 45
+- Baseline: `6fdb70f8`
 - Current issue: completed
 
-The user authorized the next repository-wide debt reduction on 2026-09-26 while
-retaining every functional capability. Core's schema-mutation pipeline already
-passes its product-neutral `plugin-schema-mutation` identity through generic
-policy, behavior, result, and commit stages, but their exported types claim to
-accept only physical database operations. The implementation compensates with
-repeated `as never` and `as unknown as` bridges.
+The user authorized the follow-up identified by milestone 44's final audit.
+Core already validates prepared adapter targets and owns the complete immutable
+mutation-outcome boundary, while Access and Hooks repeat partial decoding only
+to recover types erased by generic shared stages.
 
-Milestone 44 makes those shared stages accept the truthful closed logical union
-while keeping ordinary CRUD and schema-mutation execution separate. Adapter,
-normalization, structural validation, prepared-transform, and persistence
-contracts remain database-operation-only unless they already receive the
-logical custom mutation today.
+Issue 4501 will expose the smallest existing Core invariant, reuse it in Core,
+Access, and Hooks, and delete the official-engine copies. Native CRUD and plugin
+schema-mutation execution remain separate. No new lifecycle stage, adapter
+power, configuration, or extension registry is introduced.
 
-Issue 4401 added the closed logical operation vocabulary and correlated shared
-stage inputs while retaining native-only adapter and CRUD pipeline contracts.
-It also aligned public interceptor and policy filters with the schema-mutation
-identity they already observed when no operation filter was configured.
-
-Issue 4402 removed the schema-mutation pipeline's forced shared-stage casts and
-aligned Access, Hooks, ACL, and alternative-engine fixtures with the logical
-union. Native and custom mutation execution remain separate; the only retained
-schema-executor double assertion is the opaque adapter preparation boundary.
-
-Issue 4403 verified the complete repository, recorded the line and cast audit,
-and closed the milestone. No resume point remains.
+Issue 4501 is complete. Core now owns one prepared-record decoder and the
+existing complete outcome validator; Access and Hooks consume those boundaries
+without their former local decoders. Production TypeScript is 41 lines smaller,
+all 2,572 repository tests pass, and no resume point remains.
 
 No push is authorized.

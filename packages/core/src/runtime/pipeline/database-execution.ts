@@ -1,9 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import {
 	type DatabaseConstraintNode,
@@ -33,6 +28,7 @@ import { createDatabasePersistencePlanWithSelection } from '../persistence/plans
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
+import { readRuntimePreparedMutationRecords } from '../behaviors/prepared-target-boundary.js'
 import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import { readOperationResultSelection } from '../operations/queries.js'
@@ -85,60 +81,22 @@ const assertPreparedMutationExecutor: (
 	}
 }
 
-/** Reads the conditional prepared target through one validated erased boundary. */
-const readPreparedMutationTarget = <
+/** Correlates validated prepared records with their adapter operation contract. */
+const readPreparedMutationRecords = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	prepared: PreparedDatabaseOperation<TOperation>,
-): DatabaseMutationLogicalRecord<TOperation> | null | undefined => {
-	const untrustedPrepared: unknown = prepared
+): Readonly<{
+	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+	targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
+}> => {
+	const records = readRuntimePreparedMutationRecords(prepared)
 
-	if (typeof untrustedPrepared !== 'object' || untrustedPrepared === null) {
-		throw new TypeError('Prepared database operation must be an object')
-	}
-
-	const value: unknown =
-		'target' in untrustedPrepared ? untrustedPrepared.target : undefined
-
-	if (value === undefined || value === null) return value
-
-	if (!isPlainRecord(value)) {
-		throw new TypeError('Prepared database target must be a logical record')
-	}
-
-	// The adapter contract ties this validated logical record to the operation schema.
-	return value as DatabaseMutationLogicalRecord<TOperation>
-}
-
-/** Reads optional stable set-based preimages through one validated boundary. */
-const readPreparedMutationTargets = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	prepared: PreparedDatabaseOperation<TOperation>,
-): readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined => {
-	const untrustedPrepared: unknown = prepared
-
-	if (typeof untrustedPrepared !== 'object' || untrustedPrepared === null) {
-		throw new TypeError('Prepared database operation must be an object')
-	}
-
-	const value: unknown =
-		'targets' in untrustedPrepared ? untrustedPrepared.targets : undefined
-
-	if (value === undefined) return undefined
-
-	if (
-		!isUnknownArray(value) ||
-		value.some((target) => !isPlainRecord(target))
-	) {
-		throw new TypeError(
-			'Prepared database targets must be an array of logical records',
-		)
-	}
-
-	return immutableArray(
-		value,
-	) as readonly DatabaseMutationLogicalRecord<TOperation>[]
+	// The adapter contract ties these validated logical records to the operation schema.
+	return records as Readonly<{
+		target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+		targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
+	}>
 }
 
 export interface RuntimeDatabaseExecutionRequest<
@@ -415,10 +373,6 @@ export const executeRuntimeDatabaseOperation = async <
 		executableOperation.kind === 'create-one' ||
 		executableOperation.kind === 'create-many'
 	let prepared: PreparedDatabaseOperation<TMutationOperation>
-	let target:
-		DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined
-	let targets:
-		readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined
 
 	if (preparesAfterResolution) {
 		if (nestedLifecycle !== undefined) {
@@ -433,13 +387,10 @@ export const executeRuntimeDatabaseOperation = async <
 		nestedLifecycle?.afterMutationResolution(executableOperation)
 		await runMutationObservers(undefined, undefined)
 		prepared = await prepareMutation(executableOperation, finalConstraints)
-		target = readPreparedMutationTarget(prepared)
-		targets = readPreparedMutationTargets(prepared)
 	} else {
 		prepared = await prepareMutation(executableOperation, finalConstraints)
-		target = readPreparedMutationTarget(prepared)
-		targets = readPreparedMutationTargets(prepared)
 	}
+	const { target, targets } = readPreparedMutationRecords(prepared)
 
 	const requiresPreparedTarget =
 		executableOperation.kind === 'update-one' ||
