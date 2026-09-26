@@ -24,5 +24,11 @@ describe('PluginSetupRegistries', () => {
 		expect(context).not.toHaveProperty('services')
 		expect(Object.isFrozen(context)).toBe(true)
 		expect(registries.forPlugin('fixture.plugin')).toBe(context)
+		expect(
+			registries.forPlugin({
+				instanceId: 'secondary',
+				pluginId: 'fixture.plugin',
+			}),
+		).not.toBe(context)
 	})
 })

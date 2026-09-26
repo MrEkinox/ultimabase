@@ -39,6 +39,7 @@ import {
 	type PluginIdentity,
 	type PluginPrivilege,
 } from './manifest.js'
+import { PluginIdentityMap } from './plugin-identity-map.js'
 import { materializeAdapterContribution } from '../runtime/adapters/contributions.js'
 import {
 	bindApplicationOperationTransportPlanner,
@@ -153,14 +154,8 @@ export class ApplicationCapabilityHost {
 	readonly #schemas: CompiledSchemaRegistry
 	readonly #constraintCompilers: DatabaseConstraintCompilerReader
 	readonly #resolveSchemaSurface: mutation.SchemaMutationSurfaceResolver
-	readonly #readers = new Map<
-		string,
-		Map<string | undefined, PluginCapabilityReader>
-	>()
-	readonly #factoryReaders = new Map<
-		string,
-		Map<string | undefined, PluginCapabilityReader>
-	>()
+	readonly #readers = new PluginIdentityMap<PluginCapabilityReader>()
+	readonly #factoryReaders = new PluginIdentityMap<PluginCapabilityReader>()
 	readonly #resolved = new Map<CapabilityToken, MaterializedCapability>()
 	readonly #resources: MaterializedCapabilityResource[] = []
 	#materializationPromise: Promise<void> | undefined
@@ -273,24 +268,18 @@ export class ApplicationCapabilityHost {
 	#readerFor(
 		owner: PluginIdentity,
 		phase: 'factory' | 'setup',
-		readers: Map<string, Map<string | undefined, PluginCapabilityReader>>,
+		readers: PluginIdentityMap<PluginCapabilityReader>,
 	): PluginCapabilityReader {
-		let instances = readers.get(owner.pluginId)
-		if (instances === undefined) {
-			instances = new Map()
-			readers.set(owner.pluginId, instances)
-		}
-		const existing = instances.get(owner.instanceId)
-		if (existing !== undefined) return existing
-
-		const reader = immutableRecord({
-			contributions: (requirement: CapabilityRequirement) =>
-				this.#readProviderContributions(owner, requirement, phase),
-			get: (requirement: CapabilityRequirement): unknown =>
-				this.#read(owner, requirement, phase),
-		}) as PluginCapabilityReader
-		instances.set(owner.instanceId, reader)
-		return reader
+		return readers.getOrCreate(
+			owner,
+			() =>
+				immutableRecord({
+					contributions: (requirement: CapabilityRequirement) =>
+						this.#readProviderContributions(owner, requirement, phase),
+					get: (requirement: CapabilityRequirement): unknown =>
+						this.#read(owner, requirement, phase),
+				}) as PluginCapabilityReader,
+		)
 	}
 
 	/** Disposes resources owned by one plugin after its dispose hook completes. */

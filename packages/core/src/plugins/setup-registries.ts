@@ -23,6 +23,7 @@ import {
 	type PluginIdentity,
 	type PluginPrivilege,
 } from './manifest.js'
+import { PluginIdentityMap } from './plugin-identity-map.js'
 import type { CompiledTypegenGraph } from './typegen-declarations.js'
 import {
 	createAdapterAccess,
@@ -75,10 +76,7 @@ export interface OwnedPluginContribution {
 class OwnedContributionStore {
 	readonly #contributions = new Map<string, OwnedPluginContribution>()
 	readonly #orderedContributions: OwnedPluginContribution[] = []
-	readonly #ownerLocalNames = new Map<
-		string,
-		Map<string | undefined, Set<string>>
-	>()
+	readonly #ownerLocalNames = new PluginIdentityMap<Set<string>>()
 
 	get size(): number {
 		return this.#orderedContributions.length
@@ -156,19 +154,7 @@ class OwnedContributionStore {
 	}
 
 	#ownerLocalContributionNames(owner: PluginIdentity): Set<string> {
-		let instances = this.#ownerLocalNames.get(owner.pluginId)
-		if (instances === undefined) {
-			instances = new Map()
-			this.#ownerLocalNames.set(owner.pluginId, instances)
-		}
-
-		let names = instances.get(owner.instanceId)
-		if (names === undefined) {
-			names = new Set()
-			instances.set(owner.instanceId, names)
-		}
-
-		return names
+		return this.#ownerLocalNames.getOrCreate(owner, () => new Set())
 	}
 
 	#assertOwnerLocalIdentityAvailable(
@@ -217,10 +203,7 @@ export interface PluginSetupContext {
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
 	readonly #constraintCompilers = new OwnedContributionStore()
-	readonly #contexts = new Map<
-		string,
-		Map<string | undefined, PluginSetupContext>
-	>()
+	readonly #contexts = new PluginIdentityMap<PluginSetupContext>()
 	#setupOpen = true
 	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader
 
@@ -271,48 +254,34 @@ export class PluginSetupRegistries {
 	/** Returns one stable owner-bound setup context for a structured plugin identity. */
 	forPlugin(ownerInput: PluginIdentity | string): PluginSetupContext {
 		const owner = toPluginIdentity(ownerInput)
-		let instances = this.#contexts.get(owner.pluginId)
-		if (instances === undefined) {
-			instances = new Map()
-			this.#contexts.set(owner.pluginId, instances)
-		}
-
-		const existingContext = instances.get(owner.instanceId)
-
-		if (existingContext !== undefined) {
-			return existingContext
-		}
-
-		const capabilities = this.capabilitiesForPlugin(owner)
-		const context = immutableRecord({
-			schemas: this.schemas,
-			fieldBuilderMethods: this.fieldBuilderMethods(),
-			pluginFieldTypes: this.pluginFieldTypes(),
-			typegenGraph: this.typegenGraph(),
-			capabilities,
-			adapters: createAdapterAccess({
-				assertPrivilege: (privilege) => {
-					this.assertPrivilegeForPlugin(owner, privilege)
-				},
+		return this.#contexts.getOrCreate(owner, () => {
+			const capabilities = this.capabilitiesForPlugin(owner)
+			return immutableRecord({
+				schemas: this.schemas,
+				fieldBuilderMethods: this.fieldBuilderMethods(),
+				pluginFieldTypes: this.pluginFieldTypes(),
+				typegenGraph: this.typegenGraph(),
 				capabilities,
-				isOpen: (): boolean => this.#setupOpen,
-				scope: () => immutableRecord({ kind: 'setup' as const }),
-			}),
-			constraintCompilers: createPluginConstraintCompilerRegistry({
-				assertPrivilege: () => {
-					this.assertPrivilegeForPlugin(owner, 'adapter:consume')
-				},
-				isOpen: (): boolean => this.#setupOpen,
-				ownerPlugin: owner.pluginId,
-				register: (name: string, value: unknown): void => {
-					this.#constraintCompilers.registerLocal(owner, name, value)
-				},
-				values: () => this.#constraintCompilers.values(),
-			}),
+				adapters: createAdapterAccess({
+					assertPrivilege: (privilege) => {
+						this.assertPrivilegeForPlugin(owner, privilege)
+					},
+					capabilities,
+					isOpen: (): boolean => this.#setupOpen,
+					scope: () => immutableRecord({ kind: 'setup' as const }),
+				}),
+				constraintCompilers: createPluginConstraintCompilerRegistry({
+					assertPrivilege: () => {
+						this.assertPrivilegeForPlugin(owner, 'adapter:consume')
+					},
+					isOpen: (): boolean => this.#setupOpen,
+					ownerPlugin: owner.pluginId,
+					register: (name: string, value: unknown): void => {
+						this.#constraintCompilers.registerLocal(owner, name, value)
+					},
+					values: () => this.#constraintCompilers.values(),
+				}),
+			})
 		})
-
-		instances.set(owner.instanceId, context)
-
-		return context
 	}
 }

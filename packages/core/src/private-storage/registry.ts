@@ -12,6 +12,7 @@ import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
 } from '../plugins/manifest.js'
+import { PluginIdentityMap } from '../plugins/plugin-identity-map.js'
 import { compileFieldValidationPlan } from '../schema/plans/compiler.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import { Schema } from '../schema/schema/definition.js'
@@ -82,7 +83,7 @@ const privateFailure = (
 export class PrivateStorageRegistry {
 	readonly #registered = new Map<object, RegisteredPrivateCollection>()
 	readonly #ordered: RegisteredPrivateCollection[] = []
-	readonly #ownerIds = new Map<string, Map<string | undefined, Set<string>>>()
+	readonly #ownerIds = new PluginIdentityMap<Set<string>>()
 	#closed = false
 
 	beginDeclaration(
@@ -101,16 +102,7 @@ export class PrivateStorageRegistry {
 					if (!open)
 						throw new TypeError('Private storage declaration facade is closed')
 					const definition = readPrivateCollectionDefinition(collection)
-					let instances = this.#ownerIds.get(owner.pluginId)
-					if (instances === undefined) {
-						instances = new Map()
-						this.#ownerIds.set(owner.pluginId, instances)
-					}
-					let ids = instances.get(owner.instanceId)
-					if (ids === undefined) {
-						ids = new Set()
-						instances.set(owner.instanceId, ids)
-					}
+					const ids = this.#ownerIds.getOrCreate(owner, () => new Set())
 					if (ids.has(definition.contributionId)) {
 						throw privateFailure(
 							owner,

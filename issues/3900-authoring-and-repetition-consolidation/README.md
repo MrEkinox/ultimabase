@@ -14,7 +14,7 @@ one existing Core boundary rather than introduce a parallel facade.
 - [x] [3901 — Unify plugin field-family authoring](3901-plugin-field-family.md)
 - [x] [3902 — Consolidate prepared-mutation test adapters](3902-prepared-mutation-test-adapters.md)
 - [x] [3903 — Preserve scalar hovers and consolidate GraphQL scalar mappings](3903-graphql-scalar-mappings.md)
-- [ ] Consolidate remaining internal scalar mappings and plugin registries.
+- [x] [3904 — Consolidate structured plugin identity maps](3904-structured-plugin-identity-map.md)
 - [ ] Run the complete parity and reduction audit.
 
 No push is authorized.

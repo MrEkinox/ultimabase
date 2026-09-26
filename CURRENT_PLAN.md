@@ -3,7 +3,7 @@
 - Status: in progress
 - Milestone: 39
 - Baseline: `776b533c`
-- Current issue: 3903 (completed)
+- Current issue: 3904 (completed)
 
 The user authorized the next debt and DX reduction sequence on 2026-09-25 while
 retaining every functional capability.
@@ -22,11 +22,11 @@ deliberate TypeScript hover boundary. It instead consolidates GraphQL's repeated
 scalar kind-to-type switches and supported-kind sets behind one internal map,
 without changing a public export, source hover, or compiled hover.
 
-Later bounded issues will address remaining internal registry duplication and
-the complete parity and reduction audit. Each issue keeps its own commit and
-validation evidence.
+Issue 3904 consolidates the repeated nested maps used to retain values by exact
+structured plugin and optional instance identity. It changes no public facade,
+registration path, ownership rule, or lifecycle boundary.
 
-Resume by selecting the remaining internal registry consolidation issue and
-rejecting any abstraction that would add a parallel registration path.
+Resume by running the complete parity and reduction audit from the milestone
+baseline.
 
 No push is authorized.
