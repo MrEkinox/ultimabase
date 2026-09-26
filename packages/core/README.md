@@ -143,21 +143,23 @@ Framework and plugin authors may still compose the immutable low-level field
 factories internally. Application schemas use named builder methods; there is
 no general application-facing `field.custom()`.
 
-A plugin can contribute one application-local named method without Core knowing
-its field kind. Its declaration records the existing field factory plus compact
-type-generation references:
+A plugin declares one application-local field family without making Core know
+its semantics. Shared kind and Typegen metadata are written once; an optional
+builder names only the supported contexts:
 
 ```ts
-const vectorMethod = defineFieldBuilderMethod({
-	name: 'vector',
-	contexts: {
-		stored: {
-			fieldKind: 'pg-vector.vector',
-			factory: vectorField,
-			typegen: {
-				module: '@ultimabase/pg-vector-plugin',
+const vectorFamily = definePluginFieldFamily({
+	fieldKind: 'pg-vector.vector',
+	typegen: {
+		module: '@ultimabase/pg-vector-plugin',
+		valueType: 'VectorValue',
+	},
+	builder: {
+		name: 'vector',
+		contexts: {
+			stored: {
+				factory: vectorField,
 				methodType: 'VectorFieldBuilderMethod',
-				valueType: 'VectorValue',
 			},
 		},
 	},
@@ -173,7 +175,7 @@ const vectorPlugin = plugin({
 	contributions: [
 		contributeDeclarations({
 			schema: ({ fields }) => {
-				fields.register(vectorMethod)
+				fields.register(vectorFamily)
 			},
 		}),
 		contributeApplication(() => ({ exports: { ready: true } })),
@@ -181,12 +183,14 @@ const vectorPlugin = plugin({
 })
 ```
 
-Every method names a non-empty subset of `stored`, `embedded`, `virtual`, and
-`output`, with one exact factory and Typegen descriptor per supported context.
+Every builder names a non-empty subset of `stored`, `embedded`, `virtual`, and
+`output`, with one exact factory and method type per supported context.
 Supporting a stored field never implies that the same value is safe inside an
 embedded object or as an output descriptor. Output factories create their
 descriptor with `definePluginOutputDescriptor()`; Core checks descriptor
-provenance and the declared kind before accepting it.
+provenance and the declared kind before accepting it. A context may override
+the family's kind and Typegen metadata when one method intentionally represents
+different values in different contexts.
 
 Registrations are isolated per application and reject built-in overrides,
 duplicates, unstable declarations, unsupported contexts, and factories
@@ -204,7 +208,7 @@ A plugin that contributes a reserved field through a schema patch can declare
 its generated value contract without exposing a misleading builder method:
 
 ```ts
-const secretType = definePluginFieldType({
+const secretFamily = definePluginFieldFamily({
 	fieldKind: 'fixture.secret',
 	typegen: {
 		module: '@fixture/secret-plugin',
@@ -214,14 +218,14 @@ const secretType = definePluginFieldType({
 })
 
 declare({ fields, schemas }) {
-	fields.declareType(secretType)
+	fields.register(secretFamily)
 	// The plugin may now patch its `fixture.secret` field through `schemas`.
 }
 ```
 
 This metadata is application-local and Typegen-only: it creates no field and no
-Runtime behavior. Registering a regular `FieldBuilder` method automatically
-declares the same value metadata, so builder-based plugins do not repeat it.
+Runtime behavior. Adding `builder` to the same family also declares its value
+metadata, so builder-based plugins do not repeat it.
 
 ### Plugin-owned schema compilation
 

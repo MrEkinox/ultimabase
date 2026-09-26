@@ -1,54 +1,37 @@
 import {
 	assertNonEmptyString,
-	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
-import {
-	assertPluginFieldKind,
-	builtInFieldKinds,
-} from '../fields/base/kinds.js'
-import {
-	assertPluginFieldTypeDefinition,
-	normalizePluginFieldTypegen,
-	type OwnedPluginFieldType,
-	type PluginFieldTypeDefinition,
-	type PluginFieldTypegen,
-} from './plugin-field-types.js'
+import { assertPluginFieldKind } from '../fields/base/kinds.js'
 import {
 	fieldDeclarationContexts,
 	assertFieldDeclarationContext,
 	type FieldDeclarationContext,
 } from './field-contexts.js'
 
-/** Names every Core method that a plugin can never replace. */
-export const coreFieldBuilderMethodNames: readonly [
-	'add',
-	...typeof builtInFieldKinds,
-	'virtual',
-] = ['add', ...builtInFieldKinds, 'virtual']
+const familyKeys = new Set(['builder', 'fieldKind', 'typegen'])
+const builderKeys = new Set(['contexts', 'name'])
+const contextKeys = new Set(['factory', 'fieldKind', 'methodType', 'typegen'])
+const typegenKeys = new Set(['module', 'structuralContainsType', 'valueType'])
+const declaredPluginFieldFamilies = new WeakSet<object>()
 
-const coreFieldBuilderMethodNameSet: ReadonlySet<string> = new Set(
-	coreFieldBuilderMethodNames,
-)
-const fieldBuilderMethodKeys = new Set(['contexts', 'name'])
-const fieldBuilderMethodContextKeys = new Set([
-	'factory',
-	'fieldKind',
-	'typegen',
-])
-const fieldBuilderMethodTypegenKeys = new Set([
-	'methodType',
-	'module',
-	'structuralContainsType',
-	'valueType',
-])
-const declaredFieldBuilderMethods = new WeakSet<object>()
+type NamespacedPluginFieldKind = `${string}.${string}`
 
-/** Describes the named public types referenced by deterministic generation. */
+/** Describes the named public types associated with one plugin field kind. */
+export interface PluginFieldTypegen {
+	/** Bare package export that owns every referenced type. */
+	readonly module: string
+	/** Exported partial operand accepted by structural containment when enabled. */
+	readonly structuralContainsType?: string
+	/** Exported logical value type used by generated models and operations. */
+	readonly valueType: string
+}
+
+/** Describes the named public types referenced by one generated builder method. */
 export interface FieldBuilderMethodTypegen extends PluginFieldTypegen {
 	/** Exported callable type used to add the method to generated builders. */
 	readonly methodType: string
@@ -59,9 +42,7 @@ export type FieldBuilderMethodFactory = (
 	options: never,
 ) => GenericField | GenericOutputDescriptor
 
-type NamespacedPluginFieldKind = `${string}.${string}`
-
-/** Defines one exact implementation for one supported builder context. */
+/** Defines one exact implementation for one resolved builder context. */
 export interface FieldBuilderMethodContextDefinition<
 	TFieldKind extends NamespacedPluginFieldKind = NamespacedPluginFieldKind,
 	TFactory extends FieldBuilderMethodFactory = FieldBuilderMethodFactory,
@@ -71,12 +52,12 @@ export interface FieldBuilderMethodContextDefinition<
 	readonly typegen: FieldBuilderMethodTypegen
 }
 
-/** Maps only the builder contexts implemented by one public method name. */
+/** Maps only the resolved builder contexts implemented by one public method. */
 export type FieldBuilderMethodContexts = Readonly<
 	Partial<Record<FieldDeclarationContext, FieldBuilderMethodContextDefinition>>
 >
 
-/** Defines one plugin-owned name-first method before owner injection. */
+/** Describes one resolved plugin-owned builder method. */
 export interface FieldBuilderMethodDefinition<
 	TName extends string = string,
 	TContexts extends FieldBuilderMethodContexts = FieldBuilderMethodContexts,
@@ -85,9 +66,54 @@ export interface FieldBuilderMethodDefinition<
 	readonly contexts: TContexts
 }
 
-/** Adds the application-injected owner to one validated method definition. */
+/** Adds the application-injected owner to one resolved method definition. */
 export interface OwnedFieldBuilderMethod extends FieldBuilderMethodDefinition {
 	readonly owner: string
+}
+
+/** Defines one builder context while inheriting the field family's common metadata. */
+export interface PluginFieldFamilyContextDefinition<
+	TFactory extends FieldBuilderMethodFactory = FieldBuilderMethodFactory,
+	TFieldKind extends NamespacedPluginFieldKind = NamespacedPluginFieldKind,
+> {
+	readonly factory: TFactory
+	readonly fieldKind?: TFieldKind
+	readonly methodType: string
+	readonly typegen?: PluginFieldTypegen
+}
+
+/** Maps only the builder contexts implemented by one plugin field family. */
+export type PluginFieldFamilyContexts = Readonly<
+	Partial<Record<FieldDeclarationContext, PluginFieldFamilyContextDefinition>>
+>
+
+/** Defines an optional public builder method for one plugin field family. */
+export interface PluginFieldFamilyBuilder<
+	TName extends string = string,
+	TContexts extends PluginFieldFamilyContexts = PluginFieldFamilyContexts,
+> {
+	readonly name: TName
+	readonly contexts: TContexts
+}
+
+/** Defines one plugin field kind and its optional contextual builder method. */
+export type PluginFieldFamilyDefinition<
+	TFieldKind extends NamespacedPluginFieldKind = NamespacedPluginFieldKind,
+	TBuilder extends PluginFieldFamilyBuilder | undefined =
+		PluginFieldFamilyBuilder | undefined,
+> = Readonly<{
+	readonly fieldKind: TFieldKind
+	readonly typegen: PluginFieldTypegen
+}> &
+	(TBuilder extends PluginFieldFamilyBuilder
+		? Readonly<{ readonly builder: TBuilder }>
+		: Readonly<{ readonly builder?: undefined }>)
+
+/** Adds the application-injected owner to one generated value contract. */
+export interface OwnedPluginFieldType {
+	readonly fieldKind: string
+	readonly owner: string
+	readonly typegen: PluginFieldTypegen
 }
 
 /** Supplies resolved plugin methods to one application schema compilation. */
@@ -96,12 +122,10 @@ export interface FieldBuilderMethodResolver {
 	values(): readonly OwnedFieldBuilderMethod[]
 }
 
-/** Gives one plugin an owner-bound write-only registration boundary. */
-export interface FieldBuilderMethodRegistrar {
-	/** Declares a generated value contract without adding a public builder method. */
-	declareType(definition: PluginFieldTypeDefinition): void
-	/** Declares a public builder method and its generated value contract together. */
-	register(definition: FieldBuilderMethodDefinition): void
+/** Gives one plugin an owner-bound write-only field-family boundary. */
+export interface PluginFieldFamilyRegistrar {
+	/** Registers one plugin field kind and its optional contextual builder. */
+	register(definition: PluginFieldFamilyDefinition): void
 }
 
 const assertKnownKeys = (
@@ -110,7 +134,6 @@ const assertKnownKeys = (
 	path: string,
 ): void => {
 	const unknownKey = Object.keys(value).find((key) => !knownKeys.has(key))
-
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown ${path} key: ${unknownKey}`)
 	}
@@ -118,313 +141,183 @@ const assertKnownKeys = (
 
 const assertTypeExportName = (value: unknown, path: string): string => {
 	assertNonEmptyString(value, path)
-
 	if (!/^[$A-Z_a-z][$\w]*$/u.test(value)) {
 		throw new TypeError(`${path} must be a TypeScript export identifier`)
 	}
-
 	return value
 }
 
-const normalizeTypegen = (value: unknown): FieldBuilderMethodTypegen => {
+const normalizeTypegen = (value: unknown, path: string): PluginFieldTypegen => {
 	if (!isPlainRecord(value)) {
-		throw new TypeError('FieldBuilder method typegen must be a plain object')
+		throw new TypeError(`${path} must be a plain object`)
+	}
+	assertKnownKeys(value, typegenKeys, path)
+	assertNonEmptyString(value.module, `${path}.module`)
+	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
+		throw new TypeError(`${path}.module must be a stable module specifier`)
 	}
 
-	assertKnownKeys(value, fieldBuilderMethodTypegenKeys, 'typegen')
-	const pluginTypegen = normalizePluginFieldTypegen(
-		immutableRecord({
-			module: value.module,
-			...(value.structuralContainsType === undefined
-				? {}
-				: { structuralContainsType: value.structuralContainsType }),
-			valueType: value.valueType,
-		}),
-		'FieldBuilder method typegen',
-	)
-
 	return immutableRecord({
-		methodType: assertTypeExportName(
-			value.methodType,
-			'FieldBuilder method typegen.methodType',
-		),
-		...pluginTypegen,
+		module: value.module,
+		...(value.structuralContainsType === undefined
+			? {}
+			: {
+					structuralContainsType: assertTypeExportName(
+						value.structuralContainsType,
+						`${path}.structuralContainsType`,
+					),
+				}),
+		valueType: assertTypeExportName(value.valueType, `${path}.valueType`),
 	})
 }
 
-const normalizeContextDefinition = (
+const normalizeContext = (
 	value: unknown,
 	context: FieldDeclarationContext,
-): FieldBuilderMethodContextDefinition => {
+): PluginFieldFamilyContextDefinition => {
+	const path = `Plugin field family builder contexts.${context}`
 	if (!isPlainRecord(value)) {
-		throw new TypeError(
-			`FieldBuilder method contexts.${context} must be a plain object`,
-		)
+		throw new TypeError(`${path} must be a plain object`)
 	}
-	assertKnownKeys(
-		value,
-		fieldBuilderMethodContextKeys,
-		`FieldBuilder method contexts.${context}`,
-	)
-	const fieldKind = assertPluginFieldKind(
-		value.fieldKind,
-		`FieldBuilder method contexts.${context}.fieldKind`,
-	)
+	assertKnownKeys(value, contextKeys, path)
 	if (typeof value.factory !== 'function') {
-		throw new TypeError(
-			`FieldBuilder method contexts.${context}.factory must be a function`,
-		)
+		throw new TypeError(`${path}.factory must be a function`)
 	}
 
 	return immutableRecord({
 		factory: value.factory as FieldBuilderMethodFactory,
-		fieldKind: fieldKind as NamespacedPluginFieldKind,
-		typegen: normalizeTypegen(value.typegen),
+		...(value.fieldKind === undefined
+			? {}
+			: {
+					fieldKind: assertPluginFieldKind(
+						value.fieldKind,
+						`${path}.fieldKind`,
+					) as NamespacedPluginFieldKind,
+				}),
+		methodType: assertTypeExportName(value.methodType, `${path}.methodType`),
+		...(value.typegen === undefined
+			? {}
+			: { typegen: normalizeTypegen(value.typegen, `${path}.typegen`) }),
 	})
 }
 
-const normalizeContexts = (value: unknown): FieldBuilderMethodContexts => {
+const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 	if (!isPlainRecord(value)) {
-		throw new TypeError('FieldBuilder method contexts must be a plain object')
+		throw new TypeError('Plugin field family builder must be a plain object')
 	}
-
-	const keys = Reflect.ownKeys(value)
-	if (keys.length === 0) {
+	assertKnownKeys(value, builderKeys, 'Plugin field family builder')
+	assertNonEmptyString(value.name, 'Plugin field family builder name')
+	if (!/^[$A-Z_a-z][$\w]*$/u.test(value.name)) {
 		throw new TypeError(
-			'FieldBuilder method contexts must declare at least one context',
+			'Plugin field family builder name must be a TypeScript property identifier',
 		)
 	}
-	const entries: [
+	if (!isPlainRecord(value.contexts)) {
+		throw new TypeError(
+			'Plugin field family builder contexts must be a plain object',
+		)
+	}
+	const keys = Reflect.ownKeys(value.contexts)
+	if (keys.length === 0) {
+		throw new TypeError(
+			'Plugin field family builder contexts must declare at least one context',
+		)
+	}
+	const contexts = new Map<
 		FieldDeclarationContext,
-		FieldBuilderMethodContextDefinition,
-	][] = []
+		PluginFieldFamilyContextDefinition
+	>()
 	for (const key of keys) {
-		assertFieldDeclarationContext(key, 'FieldBuilder method context')
-		entries.push([key, normalizeContextDefinition(value[key], key)])
+		assertFieldDeclarationContext(key, 'Plugin field family builder context')
+		contexts.set(key, normalizeContext(value.contexts[key], key))
 	}
 
-	return immutableRecord(
-		Object.fromEntries(
-			fieldDeclarationContexts.flatMap((context) => {
-				const definition = entries.find(([name]) => name === context)?.[1]
-				return definition === undefined ? [] : [[context, definition]]
-			}),
+	return immutableRecord({
+		contexts: immutableRecord(
+			Object.fromEntries(
+				fieldDeclarationContexts.flatMap((context) => {
+					const definition = contexts.get(context)
+					return definition === undefined ? [] : [[context, definition]]
+				}),
+			),
 		),
-	)
+		name: value.name,
+	})
 }
 
 /**
- * Snapshots one reusable plugin method without assigning application ownership.
+ * Defines one plugin field family, with an optional contextual builder method.
  *
- * @example
- * ```ts
- * const vectorMethod = defineFieldBuilderMethod({
- *   name: 'vector',
- *   contexts: {
- *     stored: {
- *       fieldKind: 'pg-vector.vector',
- *       factory: vectorField,
- *       typegen: {
- *         module: '@ultimabase/pg-vector-plugin',
- *         methodType: 'VectorFieldBuilderMethod',
- *         valueType: 'VectorValue',
- *       },
- *     },
- *   },
- * })
- * ```
+ * Shared kind and Typegen metadata are declared once. A context may override
+ * them when one public method intentionally represents different field kinds.
  */
-export const defineFieldBuilderMethod = <
+export function definePluginFieldFamily<
+	const TFieldKind extends NamespacedPluginFieldKind,
 	const TName extends string,
-	const TContexts extends FieldBuilderMethodContexts,
+	const TContexts extends PluginFieldFamilyContexts,
 >(
-	definition: FieldBuilderMethodDefinition<TName, TContexts>,
-): FieldBuilderMethodDefinition<TName, TContexts> => {
-	const untrustedDefinition: unknown = definition
-
-	if (!isPlainRecord(untrustedDefinition)) {
-		throw new TypeError('FieldBuilder method definition must be a plain object')
+	definition: PluginFieldFamilyDefinition<
+		TFieldKind,
+		PluginFieldFamilyBuilder<TName, TContexts>
+	>,
+): PluginFieldFamilyDefinition<
+	TFieldKind,
+	PluginFieldFamilyBuilder<TName, TContexts>
+>
+export function definePluginFieldFamily<
+	const TFieldKind extends NamespacedPluginFieldKind,
+>(
+	definition: PluginFieldFamilyDefinition<TFieldKind, undefined>,
+): PluginFieldFamilyDefinition<TFieldKind, undefined>
+export function definePluginFieldFamily(
+	definition: PluginFieldFamilyDefinition,
+): PluginFieldFamilyDefinition {
+	const candidate: unknown = definition
+	if (!isPlainRecord(candidate)) {
+		throw new TypeError('Plugin field family definition must be a plain object')
 	}
+	assertKnownKeys(candidate, familyKeys, 'Plugin field family definition')
 
-	assertKnownKeys(
-		untrustedDefinition,
-		fieldBuilderMethodKeys,
-		'FieldBuilder method definition',
+	const fieldKind = assertPluginFieldKind(
+		definition.fieldKind,
+		'Plugin field family fieldKind',
+	) as NamespacedPluginFieldKind
+	const typegen = normalizeTypegen(
+		definition.typegen,
+		'Plugin field family typegen',
 	)
-	assertNonEmptyString(definition.name, 'FieldBuilder method name')
+	const snapshot: PluginFieldFamilyDefinition =
+		definition.builder === undefined
+			? immutableRecord({ fieldKind, typegen })
+			: immutableRecord({
+					builder: normalizeBuilder(definition.builder),
+					fieldKind,
+					typegen,
+				})
 
-	if (!/^[$A-Z_a-z][$\w]*$/u.test(definition.name)) {
-		throw new TypeError(
-			'FieldBuilder method name must be a TypeScript property identifier',
-		)
-	}
-
-	const snapshot = immutableRecord({
-		contexts: normalizeContexts(definition.contexts) as TContexts,
-		name: definition.name,
-	})
-
-	declaredFieldBuilderMethods.add(snapshot)
-
+	declaredPluginFieldFamilies.add(snapshot)
 	return snapshot
 }
 
-const assertFieldBuilderMethodDefinition: (
+/** @internal Rejects forged families at the owner-bound registration boundary. */
+export const assertPluginFieldFamily: (
 	value: unknown,
 	path: string,
-) => asserts value is FieldBuilderMethodDefinition = (value, path) => {
-	if (!isPlainRecord(value) || !declaredFieldBuilderMethods.has(value)) {
-		throw new TypeError(`${path} must be created by defineFieldBuilderMethod`)
+) => asserts value is PluginFieldFamilyDefinition = (value, path) => {
+	if (!isPlainRecord(value) || !declaredPluginFieldFamilies.has(value)) {
+		throw new TypeError(`${path} must be created by definePluginFieldFamily`)
 	}
 }
 
-/** Owns the plugin method set for exactly one application compilation. */
-export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
-	readonly #methods = new Map<string, OwnedFieldBuilderMethod>()
-	readonly #fieldTypes: OwnedPluginFieldType[] = []
-	#closed = false
-	#snapshot: readonly OwnedFieldBuilderMethod[] | undefined
-	#fieldTypeSnapshot: readonly OwnedPluginFieldType[] | undefined
-
-	/** Opens one transactional owner-bound registration session. */
-	beginPluginDeclaration(pluginName: string): Readonly<{
-		fields: FieldBuilderMethodRegistrar
-		commit(): void
-		close(): void
-	}> {
-		assertNonEmptyString(pluginName, 'pluginName')
-		if (this.#closed) {
-			throw new TypeError('FieldBuilder method registration is already closed')
-		}
-
-		const stagedMethods = new Map<string, OwnedFieldBuilderMethod>()
-		const stagedFieldTypes: OwnedPluginFieldType[] = []
-		let sessionClosed = false
-		const assertSessionOpen = (): void => {
-			if (sessionClosed || this.#closed) {
-				throw new TypeError(
-					'FieldBuilder method declaration facade is already closed',
-				)
-			}
-		}
-
-		const stageFieldType = (
-			definition: PluginFieldTypeDefinition,
-			path: string,
-		): void => {
-			assertPluginFieldTypeDefinition(definition, path)
-			stagedFieldTypes.push(
-				immutableRecord({ ...definition, owner: pluginName }),
-			)
-		}
-
-		const fields = immutableRecord({
-			declareType: (definition: PluginFieldTypeDefinition): void => {
-				assertSessionOpen()
-				stageFieldType(definition, `Plugin field type from ${pluginName}`)
-			},
-			register: (definition: FieldBuilderMethodDefinition): void => {
-				assertSessionOpen()
-
-				assertFieldBuilderMethodDefinition(
-					definition,
-					`FieldBuilder method from ${pluginName}`,
-				)
-
-				if (coreFieldBuilderMethodNameSet.has(definition.name)) {
-					throw new TypeError(
-						`FieldBuilder method "${definition.name}" from "${pluginName}" conflicts with "@ultimabase/core"`,
-					)
-				}
-
-				const existing =
-					stagedMethods.get(definition.name) ??
-					this.#methods.get(definition.name)
-
-				if (existing !== undefined) {
-					throw new TypeError(
-						`FieldBuilder method "${definition.name}" from "${pluginName}" conflicts with "${existing.owner}"`,
-					)
-				}
-
-				stagedMethods.set(
-					definition.name,
-					immutableRecord({ ...definition, owner: pluginName }),
-				)
-				for (const context of ['stored', 'embedded'] as const) {
-					const implementation = definition.contexts[context]
-					if (implementation === undefined) continue
-					stagedFieldTypes.push(
-						immutableRecord({
-							fieldKind: implementation.fieldKind,
-							owner: pluginName,
-							typegen: immutableRecord({
-								module: implementation.typegen.module,
-								...(implementation.typegen.structuralContainsType === undefined
-									? {}
-									: {
-											structuralContainsType:
-												implementation.typegen.structuralContainsType,
-										}),
-								valueType: implementation.typegen.valueType,
-							}),
-						}),
-					)
-				}
-			},
-		})
-
-		return immutableRecord({
-			fields,
-			commit: (): void => {
-				assertSessionOpen()
-				this.#fieldTypes.push(...stagedFieldTypes)
-				for (const [name, method] of stagedMethods) {
-					this.#methods.set(name, method)
-				}
-				stagedMethods.clear()
-				stagedFieldTypes.length = 0
-			},
-			close: (): void => {
-				sessionClosed = true
-				stagedMethods.clear()
-				stagedFieldTypes.length = 0
-			},
-		})
-	}
-
-	close(): void {
-		if (this.#closed) {
-			return
-		}
-
-		this.#closed = true
-		this.#snapshot = immutableArray([...this.#methods.values()])
-		this.#fieldTypeSnapshot = immutableArray(this.#fieldTypes)
-	}
-
-	get(name: string): OwnedFieldBuilderMethod | undefined {
-		if (!this.#closed) {
-			throw new TypeError('FieldBuilder method registration is not closed')
-		}
-
-		return this.#methods.get(name)
-	}
-
-	values(): readonly OwnedFieldBuilderMethod[] {
-		if (this.#snapshot === undefined) {
-			throw new TypeError('FieldBuilder method registration is not closed')
-		}
-
-		return this.#snapshot
-	}
-
-	/** Reads the immutable generated value contracts after declaration closes. */
-	fieldTypes(): readonly OwnedPluginFieldType[] {
-		if (this.#fieldTypeSnapshot === undefined) {
-			throw new TypeError('Plugin field type registration is not closed')
-		}
-
-		return this.#fieldTypeSnapshot
-	}
+/** @internal Expands one context after the family has been owner-validated. */
+export const resolvePluginFieldFamilyContext = (
+	family: PluginFieldFamilyDefinition,
+	context: PluginFieldFamilyContextDefinition,
+): FieldBuilderMethodContextDefinition => {
+	const typegen = context.typegen ?? family.typegen
+	return immutableRecord({
+		factory: context.factory,
+		fieldKind: context.fieldKind ?? family.fieldKind,
+		typegen: immutableRecord({ methodType: context.methodType, ...typegen }),
+	})
 }

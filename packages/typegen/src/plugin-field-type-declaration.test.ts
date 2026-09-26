@@ -2,7 +2,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
-	definePluginFieldType,
+	definePluginFieldFamily,
 	FrameworkApplication,
 	Schema,
 } from '@ultimabase/core'
@@ -28,7 +28,7 @@ describe('plugin field type declarations', () => {
 				},
 			},
 		)
-		const secretType = definePluginFieldType({
+		const secretType = definePluginFieldFamily({
 			fieldKind: 'fixture.secret',
 			typegen: {
 				module: '@fixture/secret-plugin',
@@ -46,7 +46,7 @@ describe('plugin field type declarations', () => {
 			contributions: [
 				contributeDeclarations({
 					schema: ({ fields }) => {
-						fields.declareType(secretType)
+						fields.register(secretType)
 						return undefined
 					},
 				}),

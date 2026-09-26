@@ -35,6 +35,5 @@ export {
 } from './schema-patch.js'
 export {
 	defineOutputDescriptor,
-	definePluginFieldBuilderMethod,
 	definePluginFieldOption,
 } from './contextual-fields.js'

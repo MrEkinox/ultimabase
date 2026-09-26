@@ -6,7 +6,7 @@ import {
 	contributeDeclarations,
 	optionalCapability,
 	requireCapability,
-	type FieldBuilderMethodRegistrar,
+	type PluginFieldFamilyRegistrar,
 } from '../index.js'
 
 const staticCapability = defineCapability<{ readonly label: 'static' }>()({
@@ -37,7 +37,7 @@ test('selects exact declaration facades from privileges and requirements', () =>
 			contributeDeclarations({
 				requires: [requiredStatic, optionalStatic],
 				schema: ({ capabilities, fields }) => {
-					expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
+					expectTypeOf(fields).toEqualTypeOf<PluginFieldFamilyRegistrar>()
 					expectTypeOf(capabilities.get(requiredStatic)).toEqualTypeOf<{
 						readonly label: 'static'
 					}>()
@@ -65,7 +65,7 @@ test('selects exact declaration facades from privileges and requirements', () =>
 			optionalStatic,
 			contributeDeclarations({
 				schema: ({ fields }) => {
-					expectTypeOf(fields).toEqualTypeOf<FieldBuilderMethodRegistrar>()
+					expectTypeOf(fields).toEqualTypeOf<PluginFieldFamilyRegistrar>()
 
 					return undefined
 				},

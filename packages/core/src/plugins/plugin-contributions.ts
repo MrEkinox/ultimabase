@@ -7,7 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
-import type { FieldBuilderMethodRegistrar } from '../schema/schema/field-builder-methods.js'
+import type { PluginFieldFamilyRegistrar } from '../schema/schema/field-builder-methods.js'
 import type {
 	PluginModelSurfaceRegistrar,
 	PluginOperationDeclarationRegistrar,
@@ -42,7 +42,7 @@ export type PluginSchemaContributionContext<
 		PluginDeclarationRequirements,
 > = DeclarationCapabilities<TRequirements> &
 	Readonly<{
-		readonly fields: FieldBuilderMethodRegistrar
+		readonly fields: PluginFieldFamilyRegistrar
 		readonly schemas: PluginSchemaDeclarationRegistrar
 	}>
 

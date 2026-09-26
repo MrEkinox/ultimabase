@@ -1,7 +1,7 @@
 import {
 	adapterValueStorageCapability,
 	contributeDeclarations,
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	defineFieldOption,
 	definePluginField,
 	defineSchemaOption,
@@ -121,16 +121,18 @@ const decimalValueType = defineTypegenReference({
 	exportName: 'DecimalValue',
 	module: '@fixture/open-kernel',
 })
-const decimalBuilderMethod = defineFieldBuilderMethod({
-	name: 'preciseDecimal',
-	contexts: {
-		stored: {
-			factory: decimalField,
-			fieldKind: decimalFieldKind,
-			typegen: {
+const decimalBuilderMethod = definePluginFieldFamily({
+	fieldKind: decimalFieldKind,
+	typegen: {
+		module: decimalValueType.module,
+		valueType: 'DecimalValue',
+	},
+	builder: {
+		name: 'preciseDecimal',
+		contexts: {
+			stored: {
+				factory: decimalField,
 				methodType: 'DecimalFieldBuilderMethod',
-				module: decimalValueType.module,
-				valueType: 'DecimalValue',
 			},
 		},
 	},

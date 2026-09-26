@@ -1,11 +1,11 @@
 import {
 	definePluginField,
+	definePluginFieldFamily,
 	definePluginFieldWireProtocol,
-	definePluginFieldType,
 	defineSchemaOption,
 	type FieldValueMap,
 	type PluginFieldDefinition,
-	type PluginFieldTypeDefinition,
+	type PluginFieldFamilyDefinition,
 	type PointerValue,
 	type RequestSubjectContext,
 	type SchemaDefinition,
@@ -36,8 +36,8 @@ export const aclFieldName = 'acl' as const
 export const aclFieldKind = 'ultimabase.acl' as const
 
 /** Declares ACL generation types without exposing a schema FieldBuilder method. */
-export const aclFieldType: PluginFieldTypeDefinition<typeof aclFieldKind> =
-	definePluginFieldType({
+export const aclFieldFamily: PluginFieldFamilyDefinition<typeof aclFieldKind> =
+	definePluginFieldFamily({
 		fieldKind: aclFieldKind,
 		typegen: {
 			module: '@ultimabase/acl-permissions-plugin',

@@ -269,22 +269,22 @@ export type {
 	VirtualFieldResolver,
 	VirtualFieldResolverItem,
 } from './schema/virtual-field.js'
-export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
+export { definePluginFieldFamily } from './schema/field-builder-methods.js'
 export type {
 	FieldBuilderMethodDefinition,
 	FieldBuilderMethodContextDefinition,
 	FieldBuilderMethodContexts,
 	FieldBuilderMethodFactory,
-	FieldBuilderMethodRegistrar,
 	FieldBuilderMethodTypegen,
 	OwnedFieldBuilderMethod,
-} from './schema/field-builder-methods.js'
-export { definePluginFieldType } from './schema/plugin-field-types.js'
-export type {
 	OwnedPluginFieldType,
-	PluginFieldTypeDefinition,
+	PluginFieldFamilyBuilder,
+	PluginFieldFamilyContextDefinition,
+	PluginFieldFamilyContexts,
+	PluginFieldFamilyDefinition,
+	PluginFieldFamilyRegistrar,
 	PluginFieldTypegen,
-} from './schema/plugin-field-types.js'
+} from './schema/field-builder-methods.js'
 export type {
 	BaseSchemaTypeInfo,
 	BaseSchemaInputsTypeInfo,

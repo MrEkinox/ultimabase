@@ -3,10 +3,8 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { FrameworkError } from '../errors/framework-error.js'
 import type { PrivateStorageDeclarationRegistrar } from '../private-storage/contracts.js'
 import type { PrivateStorageRegistry } from '../private-storage/registry.js'
-import type {
-	FieldBuilderMethodRegistrar,
-	FieldBuilderMethodRegistry,
-} from '../schema/schema/field-builder-methods.js'
+import type { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
+import type { PluginFieldFamilyRegistrar } from '../schema/schema/field-builder-methods.js'
 import type {
 	PluginModelSurfaceRegistrar,
 	PluginOperationDeclarationRegistrar,
@@ -90,8 +88,8 @@ type PluginFieldDeclarationContext<TPrivileges> = [
 ] extends [never]
 	? Readonly<Record<never, never>>
 	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
-		? Readonly<{ fields?: FieldBuilderMethodRegistrar }>
-		: Readonly<{ fields: FieldBuilderMethodRegistrar }>
+		? Readonly<{ fields?: PluginFieldFamilyRegistrar }>
+		: Readonly<{ fields: PluginFieldFamilyRegistrar }>
 
 type PluginSchemaDeclarationContext<TPrivileges> = [
 	SchemaDeclareRequest<TPrivileges>,

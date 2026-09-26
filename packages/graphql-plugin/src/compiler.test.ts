@@ -5,7 +5,7 @@ import {
 	plugin,
 	contributeDeclarations,
 	definePluginField,
-	definePluginFieldType,
+	definePluginFieldFamily,
 } from '@ultimabase/core'
 import { pgVectorPlugin, vectorField } from '@ultimabase/pg-vector-plugin'
 import {
@@ -408,7 +408,7 @@ describe('GraphQL structural schema compilation', () => {
 			className: 'Missing',
 			fields: () => ({ value: missingField }),
 		})
-		const fieldType = definePluginFieldType({
+		const fieldType = definePluginFieldFamily({
 			fieldKind: 'fixture.missing-codec',
 			typegen: { module: '@fixture/missing-codec', valueType: 'MissingValue' },
 		})
@@ -420,7 +420,7 @@ describe('GraphQL structural schema compilation', () => {
 			contributions: [
 				contributeDeclarations({
 					schema: ({ fields }) => {
-						fields.declareType(fieldType)
+						fields.register(fieldType)
 						return undefined
 					},
 				}),

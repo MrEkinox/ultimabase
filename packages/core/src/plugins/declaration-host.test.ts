@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	createApplication,
 	defineCapability,
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	optionalCapability,
@@ -14,34 +14,26 @@ import {
 	type CapabilityRequirement,
 	type PluginDeclarationCapabilityReader,
 } from '../index.js'
-import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-methods.js'
+import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
 
-const alphaMethod = defineFieldBuilderMethod({
-	name: 'alpha',
-	contexts: {
-		stored: {
-			factory: stringField,
-			fieldKind: 'fixture.alpha',
-			typegen: {
-				methodType: 'AlphaFieldBuilderMethod',
-				module: '@fixture/alpha-plugin',
-				valueType: 'AlphaValue',
-			},
+const alphaMethod = definePluginFieldFamily({
+	fieldKind: 'fixture.alpha',
+	typegen: { module: '@fixture/alpha-plugin', valueType: 'AlphaValue' },
+	builder: {
+		name: 'alpha',
+		contexts: {
+			stored: { factory: stringField, methodType: 'AlphaFieldBuilderMethod' },
 		},
 	},
 })
 
-const betaMethod = defineFieldBuilderMethod({
-	name: 'beta',
-	contexts: {
-		stored: {
-			factory: stringField,
-			fieldKind: 'fixture.beta',
-			typegen: {
-				methodType: 'BetaFieldBuilderMethod',
-				module: '@fixture/beta-plugin',
-				valueType: 'BetaValue',
-			},
+const betaMethod = definePluginFieldFamily({
+	fieldKind: 'fixture.beta',
+	typegen: { module: '@fixture/beta-plugin', valueType: 'BetaValue' },
+	builder: {
+		name: 'beta',
+		contexts: {
+			stored: { factory: stringField, methodType: 'BetaFieldBuilderMethod' },
 		},
 	},
 })
@@ -246,7 +238,7 @@ describe('PluginDeclarationHost', () => {
 		])
 		expect(() => {
 			successful.fields.register(betaMethod)
-		}).toThrow('FieldBuilder method declaration facade is already closed')
+		}).toThrow('Plugin field family declaration facade is already closed')
 	})
 
 	it('binds contributions to two explicit instances in deterministic order', async () => {
@@ -260,7 +252,7 @@ describe('PluginDeclarationHost', () => {
 				version: '1.0.0',
 				core: '^0.0.0',
 				permissions: {
-					'schema:declare': `Declares the ${method.name} fixture method.`,
+					'schema:declare': `Declares the ${method.builder.name} fixture method.`,
 				},
 				contributions: [
 					contributeDeclarations({

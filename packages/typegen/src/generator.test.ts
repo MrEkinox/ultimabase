@@ -1,7 +1,7 @@
 import {
 	addSchemaField,
 	contributeApplication,
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	defineOperation,
 	defineOperationValue,
 	plugin as createPlugin,
@@ -466,30 +466,34 @@ describe('generateApplicationTypes', () => {
 					snapshotValue: (value: unknown) => value,
 				},
 			)
-		const firstMethod = defineFieldBuilderMethod({
-			name: 'firstShared',
-			contexts: {
-				stored: {
-					factory: sharedField,
-					fieldKind: 'fixture.shared-kind',
-					typegen: {
+		const firstMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.shared-kind',
+			typegen: {
+				module: '@fixture/first-shared-plugin',
+				valueType: 'FirstSharedValue',
+			},
+			builder: {
+				name: 'firstShared',
+				contexts: {
+					stored: {
+						factory: sharedField,
 						methodType: 'FirstSharedFieldBuilderMethod',
-						module: '@fixture/first-shared-plugin',
-						valueType: 'FirstSharedValue',
 					},
 				},
 			},
 		})
-		const secondMethod = defineFieldBuilderMethod({
-			name: 'secondShared',
-			contexts: {
-				stored: {
-					factory: sharedField,
-					fieldKind: 'fixture.shared-kind',
-					typegen: {
+		const secondMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.shared-kind',
+			typegen: {
+				module: '@fixture/second-shared-plugin',
+				valueType: 'SecondSharedValue',
+			},
+			builder: {
+				name: 'secondShared',
+				contexts: {
+					stored: {
+						factory: sharedField,
 						methodType: 'SecondSharedFieldBuilderMethod',
-						module: '@fixture/second-shared-plugin',
-						valueType: 'SecondSharedValue',
 					},
 				},
 			},

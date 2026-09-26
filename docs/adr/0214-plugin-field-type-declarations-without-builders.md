@@ -1,7 +1,8 @@
 # ADR-0214: Plugin field types do not require public builders
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-21
+- Superseded by: ADR-0273
 
 ## Context
 

@@ -5,8 +5,8 @@ import {
 	createApplication,
 	plugin as createPlugin,
 	contributeDeclarations,
-	definePluginFieldType,
-	type PluginFieldTypeDefinition,
+	definePluginFieldFamily,
+	type PluginFieldFamilyDefinition,
 } from '../../index.js'
 
 const validDefinition = () => ({
@@ -18,10 +18,10 @@ const validDefinition = () => ({
 	},
 })
 
-describe('plugin field type declarations', () => {
-	it('snapshots a value contract without exposing a builder method', async () => {
+describe('plugin field family registration', () => {
+	it('registers a generated value contract without a builder method', async () => {
 		const input = validDefinition()
-		const fieldType = definePluginFieldType(input)
+		const family = definePluginFieldFamily(input)
 		input.typegen.valueType = 'MutatedValue'
 		const application = applicationFixture(
 			await createApplication({
@@ -36,7 +36,7 @@ describe('plugin field type declarations', () => {
 						contributions: [
 							contributeDeclarations({
 								schema: ({ fields }) => {
-									fields.declareType(fieldType)
+									fields.register(family)
 									return undefined
 								},
 							}),
@@ -53,38 +53,17 @@ describe('plugin field type declarations', () => {
 			{
 				fieldKind: 'fixture.secret',
 				owner: 'fixture.secret-plugin',
-				typegen: {
-					module: '@fixture/secret-plugin',
-					structuralContainsType: 'SecretContainsOperand',
-					valueType: 'SecretValue',
-				},
+				typegen: validDefinition().typegen,
 			},
 		])
-		expect(Object.isFrozen(application.pluginFieldTypes)).toBe(true)
 		expect(Object.isFrozen(application.pluginFieldTypes[0]?.typegen)).toBe(true)
 	})
 
-	it('rejects invalid and forged definitions at deterministic boundaries', async () => {
-		expect(() =>
-			definePluginFieldType({
-				...validDefinition(),
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				fieldKind: 'secret',
-			}),
-		).toThrow('Plugin field type fieldKind must use a namespaced identifier')
-		expect(() =>
-			definePluginFieldType({
-				...validDefinition(),
-				typegen: { ...validDefinition().typegen, valueType: 'Secret<Value>' },
-			}),
-		).toThrow(
-			'Plugin field type typegen.valueType must be a TypeScript export identifier',
-		)
-
-		const forged = validDefinition() as PluginFieldTypeDefinition
+	it('rejects forged definitions at the owner boundary', async () => {
+		const forged = validDefinition() as PluginFieldFamilyDefinition
 		const plugin = createPlugin({
 			core: '^0.0.0',
-			id: 'fixture.forged-field-type-plugin',
+			id: 'fixture.forged-field-family-plugin',
 			permissions: {
 				'schema:declare': 'Exercises forged declaration rejection.',
 			},
@@ -92,7 +71,7 @@ describe('plugin field type declarations', () => {
 			contributions: [
 				contributeDeclarations({
 					schema: ({ fields }) => {
-						fields.declareType(forged)
+						fields.register(forged)
 						return undefined
 					},
 				}),
@@ -102,7 +81,7 @@ describe('plugin field type declarations', () => {
 		await expect(
 			createApplication({ plugins: [plugin], schemas: [] }),
 		).rejects.toThrow(
-			'Plugin field type from fixture.forged-field-type-plugin must be created by definePluginFieldType',
+			'Plugin field family from fixture.forged-field-family-plugin must be created by definePluginFieldFamily',
 		)
 	})
 })

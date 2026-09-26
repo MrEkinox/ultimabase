@@ -4,7 +4,7 @@ import {
 	plugin,
 	contributeDeclarations,
 	definePluginField,
-	definePluginFieldType,
+	definePluginFieldFamily,
 	normalizeReadOperation,
 	type ReadOperationAst,
 } from '@ultimabase/core'
@@ -101,8 +101,8 @@ const fieldOwner = plugin({
 	contributions: [
 		contributeDeclarations({
 			schema: ({ fields }) => {
-				fields.declareType(
-					definePluginFieldType({
+				fields.register(
+					definePluginFieldFamily({
 						fieldKind: 'fixture.graphql-code',
 						typegen: {
 							module: '@fixture/graphql-code',

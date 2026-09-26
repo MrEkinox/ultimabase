@@ -9,7 +9,6 @@ describe('@ultimabase/plugin-kit public API', () => {
 			'defineOutputDescriptor',
 			'definePluginEvent',
 			'definePluginEventCapability',
-			'definePluginFieldBuilderMethod',
 			'definePluginFieldOption',
 			'definePluginOptionsParser',
 			'observePluginEvent',

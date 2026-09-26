@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import {
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
@@ -91,17 +91,19 @@ export const containedVectorField = () =>
 			},
 		},
 	)
-export const containedVectorMethod = defineFieldBuilderMethod({
-	name: 'contained',
-	contexts: {
-		stored: {
-			factory: containedVectorField,
-			fieldKind: 'fixture.packed.contained-vector',
-			typegen: {
+export const containedVectorMethod = definePluginFieldFamily({
+	fieldKind: 'fixture.packed.contained-vector',
+	typegen: {
+		module: '@ultimabase/pg-vector-plugin',
+		structuralContainsType: 'VectorFieldOptions',
+		valueType: 'VectorValue',
+	},
+	builder: {
+		name: 'contained',
+		contexts: {
+			stored: {
+				factory: containedVectorField,
 				methodType: 'VectorFieldBuilderMethod',
-				module: '@ultimabase/pg-vector-plugin',
-				structuralContainsType: 'VectorFieldOptions',
-				valueType: 'VectorValue',
 			},
 		},
 	},

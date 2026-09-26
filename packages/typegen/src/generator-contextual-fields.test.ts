@@ -1,5 +1,5 @@
 import {
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	defineFieldOption,
 	plugin,
 	contributeDeclarations,
@@ -12,48 +12,52 @@ import { generateApplicationTypes } from './generator.js'
 
 describe('contextual Typegen declarations', () => {
 	it('emits two plugins only into their declared contextual interfaces', () => {
-		const firstMethod = defineFieldBuilderMethod({
-			name: 'firstContextual',
-			contexts: {
-				output: {
-					factory: stringField,
-					fieldKind: 'fixture.first-output',
-					typegen: {
+		const firstMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.first-output',
+			typegen: {
+				module: '@fixture/first-contextual-plugin',
+				valueType: 'FirstOutputValue',
+			},
+			builder: {
+				name: 'firstContextual',
+				contexts: {
+					output: {
+						factory: stringField,
 						methodType: 'FirstOutputBuilderMethod',
-						module: '@fixture/first-contextual-plugin',
-						valueType: 'FirstOutputValue',
 					},
-				},
-				stored: {
-					factory: stringField,
-					fieldKind: 'fixture.first-stored',
-					typegen: {
+					stored: {
+						factory: stringField,
+						fieldKind: 'fixture.first-stored',
 						methodType: 'FirstStoredBuilderMethod',
-						module: '@fixture/first-contextual-plugin',
-						valueType: 'FirstStoredValue',
+						typegen: {
+							module: '@fixture/first-contextual-plugin',
+							valueType: 'FirstStoredValue',
+						},
 					},
 				},
 			},
 		})
-		const secondMethod = defineFieldBuilderMethod({
-			name: 'secondContextual',
-			contexts: {
-				embedded: {
-					factory: stringField,
-					fieldKind: 'fixture.second-embedded',
-					typegen: {
+		const secondMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.second-embedded',
+			typegen: {
+				module: '@fixture/second-contextual-plugin',
+				valueType: 'SecondEmbeddedValue',
+			},
+			builder: {
+				name: 'secondContextual',
+				contexts: {
+					embedded: {
+						factory: stringField,
 						methodType: 'SecondEmbeddedBuilderMethod',
-						module: '@fixture/second-contextual-plugin',
-						valueType: 'SecondEmbeddedValue',
 					},
-				},
-				virtual: {
-					factory: stringField,
-					fieldKind: 'fixture.second-virtual',
-					typegen: {
+					virtual: {
+						factory: stringField,
+						fieldKind: 'fixture.second-virtual',
 						methodType: 'SecondVirtualBuilderMethod',
-						module: '@fixture/second-contextual-plugin',
-						valueType: 'SecondVirtualValue',
+						typegen: {
+							module: '@fixture/second-contextual-plugin',
+							valueType: 'SecondVirtualValue',
+						},
 					},
 				},
 			},

@@ -8,7 +8,7 @@ snapshot is a separate partial contract:
 ```ts
 import {
 	contributeDeclarations,
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	definePluginField,
 	plugin,
 	type FieldOptions,
@@ -75,15 +75,21 @@ export const searchDocumentField = (
 
 export type SearchDocumentFieldBuilderMethod = typeof searchDocumentField
 
-const method = defineFieldBuilderMethod({
-	name: 'searchDocument',
+const family = definePluginFieldFamily({
 	fieldKind: 'community.search.document',
-	factory: searchDocumentField,
 	typegen: {
 		module: '@community/search-document-plugin',
-		methodType: 'SearchDocumentFieldBuilderMethod',
 		structuralContainsType: 'SearchContainsOperand',
 		valueType: 'SearchDocument',
+	},
+	builder: {
+		name: 'searchDocument',
+		contexts: {
+			stored: {
+				factory: searchDocumentField,
+				methodType: 'SearchDocumentFieldBuilderMethod',
+			},
+		},
 	},
 })
 
@@ -92,13 +98,13 @@ export const searchDocumentPlugin = () =>
 		id: '@community/search-document-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: [
-			{ name: 'schema:declare', reason: 'Adds the search document field.' },
-		],
+		permissions: {
+			'schema:declare': 'Adds the search document field.',
+		},
 		contributions: [
 			contributeDeclarations({
-				fields: ({ fields }) => {
-					fields.register(method)
+				schema: ({ fields }) => {
+					fields.register(family)
 					return undefined
 				},
 			}),

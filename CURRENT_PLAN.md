@@ -1,20 +1,24 @@
-# Current plan: Password Auth option simplification
+# Current plan: Authoring and repetition consolidation
 
-- Status: completed
-- Milestone: 38
-- Baseline: `6cdc1374`
+- Status: in progress
+- Milestone: 39
+- Baseline: `776b533c`
+- Current issue: 3901 (completed)
 
-The user authorized continuation of debt and DX reduction on 2026-09-25 while
-retaining everything UltimaBase currently permits.
+The user authorized the next debt and DX reduction sequence on 2026-09-25 while
+retaining every functional capability.
 
-Issue 3801 is complete. Password Auth's root, password, and session option
-objects now use Plugin Kit's canonical strict immutable parser, and its numeric
-policies share one package-private bounded-integer resolver. The change removes
-28 production lines while retaining every supported option, security bound,
-default, string-key diagnostic, cookie rule, User rule, peer decision, and
-inferred public type. Package tests, types, build, repository typecheck, lint,
-issue validation, and simplification measurement pass.
+Issue 3901 replaced Core's separate plugin field-type and contextual builder
+declarations with one field-family definition. The same definition covers
+fields with or without a builder, retains per-context overrides, and feeds the
+existing Runtime and Typegen outputs without a compatibility bridge.
 
-Milestone 38 is closed. The next reduction must begin as another bounded issue.
+Later bounded issues will address repeated schema-mutation test adapters,
+built-in scalar factory typing, and remaining internal mapping or registry
+duplication. Each issue keeps its own commit and validation evidence.
+
+Resume by selecting the schema-mutation test-adapter consolidation issue and
+proving that its shared fixture removes repetition without hiding behavioral
+assertions.
 
 No push is authorized.

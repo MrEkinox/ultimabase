@@ -255,6 +255,7 @@ Accepted records:
 - [ADR-0270: Contribution-first plugin authoring](0270-contribution-first-plugin-authoring.md)
 - [ADR-0271: Native contribution-first plugin plan](0271-native-contribution-plugin-plan.md)
 - [ADR-0272: Command contributions are Core-native](0272-native-command-contributions.md)
+- [ADR-0273: Plugin fields use one canonical family declaration](0273-canonical-plugin-field-families.md)
 
 Superseded records:
 
@@ -280,5 +281,6 @@ Superseded records:
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
+- [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

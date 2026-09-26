@@ -1,5 +1,5 @@
 import {
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
@@ -35,17 +35,19 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 				},
 			},
 		)
-	const method = defineFieldBuilderMethod({
-		name: 'contained',
-		contexts: {
-			stored: {
-				factory: containedField,
-				fieldKind: 'fixture.isolated.contained',
-				typegen: {
+	const method = definePluginFieldFamily({
+		fieldKind: 'fixture.isolated.contained',
+		typegen: {
+			module: `@fixture/${suffix.toLowerCase()}-plugin`,
+			structuralContainsType: `${suffix}ContainsOperand`,
+			valueType: `${suffix}Value`,
+		},
+		builder: {
+			name: 'contained',
+			contexts: {
+				stored: {
+					factory: containedField,
 					methodType: `${suffix}FieldBuilderMethod`,
-					module: `@fixture/${suffix.toLowerCase()}-plugin`,
-					structuralContainsType: `${suffix}ContainsOperand`,
-					valueType: `${suffix}Value`,
 				},
 			},
 		},

@@ -1,5 +1,5 @@
 import {
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
@@ -29,17 +29,19 @@ describe('portable plugin field filters', () => {
 					},
 				},
 			)
-		const method = defineFieldBuilderMethod({
-			name: 'portableValue',
-			contexts: {
-				stored: {
-					factory: portableField,
-					fieldKind: 'fixture.portable-value',
-					typegen: {
+		const method = definePluginFieldFamily({
+			fieldKind: 'fixture.portable-value',
+			typegen: {
+				module: '@fixture/portable-plugin',
+				structuralContainsType: 'PortableContainsOperand',
+				valueType: 'PortableValue',
+			},
+			builder: {
+				name: 'portableValue',
+				contexts: {
+					stored: {
+						factory: portableField,
 						methodType: 'PortableFieldBuilderMethod',
-						module: '@fixture/portable-plugin',
-						structuralContainsType: 'PortableContainsOperand',
-						valueType: 'PortableValue',
 					},
 				},
 			},

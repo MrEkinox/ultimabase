@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createApplication,
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginOutputDescriptor,
@@ -48,16 +48,18 @@ describe('virtual schema fields', () => {
 				},
 			)
 		type SlugOutputMethod = typeof slugOutput
-		const method = defineFieldBuilderMethod({
-			name: 'virtualSlug',
-			contexts: {
-				output: {
-					factory: slugOutput,
-					fieldKind: 'fixture.virtual-slug',
-					typegen: {
+		const method = definePluginFieldFamily({
+			fieldKind: 'fixture.virtual-slug',
+			typegen: {
+				module: '@fixture/virtual-slug-plugin',
+				valueType: 'VirtualSlugValue',
+			},
+			builder: {
+				name: 'virtualSlug',
+				contexts: {
+					output: {
+						factory: slugOutput,
 						methodType: 'VirtualSlugOutputBuilderMethod',
-						module: '@fixture/virtual-slug-plugin',
-						valueType: 'VirtualSlugValue',
 					},
 				},
 			},

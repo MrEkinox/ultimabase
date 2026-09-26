@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import {
-	defineFieldBuilderMethod,
+	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
@@ -31,17 +31,19 @@ const createGeneratedRegistry = (): string => {
 				},
 			},
 		)
-	const method = defineFieldBuilderMethod({
-		name: 'contained',
-		contexts: {
-			stored: {
-				factory: containedField,
-				fieldKind: 'fixture.semantic.contained',
-				typegen: {
+	const method = definePluginFieldFamily({
+		fieldKind: 'fixture.semantic.contained',
+		typegen: {
+			module: '@fixture/containment-plugin',
+			structuralContainsType: 'ContainsOperand',
+			valueType: 'ContainedValue',
+		},
+		builder: {
+			name: 'contained',
+			contexts: {
+				stored: {
+					factory: containedField,
 					methodType: 'ContainmentFieldBuilderMethod',
-					module: '@fixture/containment-plugin',
-					structuralContainsType: 'ContainsOperand',
-					valueType: 'ContainedValue',
 				},
 			},
 		},

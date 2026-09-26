@@ -19,7 +19,6 @@ import { z } from 'zod'
 
 import {
 	defineOutputDescriptor,
-	definePluginFieldBuilderMethod,
 	definePluginFieldOption,
 	definePluginOptionsParser,
 	patchSchemas,
@@ -33,20 +32,6 @@ describe('plugin authoring helpers', () => {
 			{ list: false, nullable: false },
 			(value) => String(value),
 		)
-		const method = definePluginFieldBuilderMethod({
-			name: 'label',
-			contexts: {
-				stored: {
-					factory: stringField,
-					fieldKind: 'fixture.label',
-					typegen: {
-						methodType: 'LabelFieldBuilderMethod',
-						module: '@fixture/plugin-kit',
-						valueType: 'LabelValue',
-					},
-				},
-			},
-		})
 		const option = definePluginFieldOption({
 			contexts: ['stored'],
 			normalize: (value) => String(value),
@@ -59,8 +44,7 @@ describe('plugin authoring helpers', () => {
 			core: '^0.0.0',
 			contributions: [
 				contributeDeclarations({
-					schema: ({ fields, schemas }) => {
-						fields.register(method)
+					schema: ({ schemas }) => {
 						schemas.defineOptions({
 							contributionId: 'label-option',
 							field: { label: option },

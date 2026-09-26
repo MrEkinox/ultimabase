@@ -47,7 +47,7 @@ compiled application; generated files never install Runtime behavior.
 | Own an exact schema already listed by the app   | `schemas.claim()`                                                              | `schema:declare` |
 | Add a direct schema or field option             | `schemas.defineOptions()` with `defineSchemaOption()` or `defineFieldOption()` | `schema:declare` |
 | Add a field, index, constraint, or option value | `schemas.select()` and `schemas.patch()`                                       | `schema:declare` |
-| Add a field kind or contextual builder method   | `definePluginField()`, `definePluginFieldBuilderMethod()`                      | `schema:declare` |
+| Add a field kind or contextual builder method   | `definePluginField()`, `definePluginFieldFamily()`                             | `schema:declare` |
 
 Patches are additive: they cannot replace, rename, or remove existing facts.
 Option setters reject an already present value. Every contribution needs a stable owner-local
@@ -166,21 +166,21 @@ option stays untouched. Core rejects unknown options when the plugin is absent.
 Field value representation, builder availability, storage, and wire encoding
 are independent decisions:
 
-| Concern           | Owner decision                                                                                                 |
-| ----------------- | -------------------------------------------------------------------------------------------------------------- |
-| Logical value     | `definePluginField()` snapshots and validates one field kind.                                                  |
-| Builder placement | `definePluginFieldBuilderMethod()` names only supported `stored`, `embedded`, `virtual`, or `output` contexts. |
-| Direct option     | `definePluginFieldOption()` declares the exact contexts and normalization.                                     |
-| Persistence       | A portable JSON storage codec or an explicit adapter integration.                                              |
-| Query predicates  | Portable codec grants complete-value equality/inclusion only; structural `contains` is a separate opt-in.      |
-| Transport value   | An exact protocol-specific wire codec; storage encoding is not automatically a wire format.                    |
+| Concern           | Owner decision                                                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| Logical value     | `definePluginField()` snapshots and validates one field kind.                                             |
+| Builder placement | `definePluginFieldFamily()` names only supported `stored`, `embedded`, `virtual`, or `output` contexts.   |
+| Direct option     | `definePluginFieldOption()` declares the exact contexts and normalization.                                |
+| Persistence       | A portable JSON storage codec or an explicit adapter integration.                                         |
+| Query predicates  | Portable codec grants complete-value equality/inclusion only; structural `contains` is a separate opt-in. |
+| Transport value   | An exact protocol-specific wire codec; storage encoding is not automatically a wire format.               |
 
 The closed field contexts are `stored`, `embedded`, `virtual`, and `output`.
 Do not advertise a builder method in a context your implementation cannot
 validate. A stored field method does not automatically work as a virtual
 output. Core rejects unsupported usage even when JavaScript or stale generated
 types bypass autocomplete. See the concrete
-[plugin field methods](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/plugin-kit/README.md#declare-contextual-fields-and-options)
+[plugin field families](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/README.md#static-schema-compilation-and-relationship-targets)
 and the [plugin scalar example](https://github.com/MrEkinox/ultimadatabase/blob/main/packages/core/examples/schema/plugin-field-containment.md)
 for the full field and codec contracts.
 

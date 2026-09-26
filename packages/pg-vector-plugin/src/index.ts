@@ -4,6 +4,7 @@ import {
 	contributeDeclarations,
 	type CompatibleFieldOptionsInput,
 	definePluginField,
+	definePluginFieldFamily,
 	definePluginFieldWireProtocol,
 	plugin,
 	type FieldListOption,
@@ -13,7 +14,6 @@ import {
 	type PluginInstance,
 	type ScalarValidationPlan,
 } from '@ultimabase/core'
-import { definePluginFieldBuilderMethod } from '@ultimabase/plugin-kit'
 
 /** Names the immutable logical value shared by generation and runtime. */
 export type VectorValue = readonly number[]
@@ -171,17 +171,16 @@ export const isVectorFieldValidationPlan = (
 ): plan is VectorFieldValidationPlan =>
 	plan.kind === 'scalar' && plan.field.kind === vectorFieldKind
 
-const vectorFieldBuilderMethod = definePluginFieldBuilderMethod({
-	name: 'vector',
-	contexts: {
-		stored: {
-			factory: vectorField,
-			fieldKind: vectorFieldKind,
-			typegen: {
-				methodType: 'VectorFieldBuilderMethod',
-				module: '@ultimabase/pg-vector-plugin',
-				valueType: 'VectorValue',
-			},
+const vectorFieldFamily = definePluginFieldFamily({
+	fieldKind: vectorFieldKind,
+	typegen: {
+		module: '@ultimabase/pg-vector-plugin',
+		valueType: 'VectorValue',
+	},
+	builder: {
+		name: 'vector',
+		contexts: {
+			stored: { factory: vectorField, methodType: 'VectorFieldBuilderMethod' },
 		},
 	},
 })
@@ -201,7 +200,7 @@ export type PgVectorPlugin = PluginInstance<{
 export const pgVectorPlugin = (): PgVectorPlugin => {
 	const declarations = contributeDeclarations({
 		schema: ({ fields }) => {
-			fields.register(vectorFieldBuilderMethod)
+			fields.register(vectorFieldFamily)
 			return undefined
 		},
 	})

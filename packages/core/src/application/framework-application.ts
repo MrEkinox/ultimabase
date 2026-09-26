@@ -31,11 +31,11 @@ import {
 	type PluginPrivilege,
 } from '../plugins/manifest.js'
 import { PluginSetupRegistries } from '../plugins/setup-registries.js'
-import {
-	FieldBuilderMethodRegistry,
-	type OwnedFieldBuilderMethod,
+import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
+import type {
+	OwnedFieldBuilderMethod,
+	OwnedPluginFieldType,
 } from '../schema/schema/field-builder-methods.js'
-import type { OwnedPluginFieldType } from '../schema/schema/plugin-field-types.js'
 import type {
 	ConfiguredPluginExports,
 	ConfiguredPluginId,

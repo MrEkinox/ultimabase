@@ -1,5 +1,5 @@
 import type {
-	FieldBuilderMethodRegistrar,
+	PluginFieldFamilyRegistrar,
 	PluginSchemaDeclarationRegistrar,
 } from '@ultimabase/core'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
@@ -7,12 +7,12 @@ import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import {
 	aclField,
 	aclFieldName,
-	aclFieldType,
+	aclFieldFamily,
 	aclSchemaOption,
 } from './acl-option.js'
 
 interface ACLSchemaDeclarationContext {
-	readonly fields: FieldBuilderMethodRegistrar
+	readonly fields: PluginFieldFamilyRegistrar
 	readonly schemas: PluginSchemaDeclarationRegistrar
 }
 
@@ -21,7 +21,7 @@ export const declareACLSchema = ({
 	fields,
 	schemas,
 }: ACLSchemaDeclarationContext): undefined => {
-	fields.declareType(aclFieldType)
+	fields.register(aclFieldFamily)
 	schemas.defineOptions({
 		contributionId: 'official-acl-option',
 		schema: { acl: aclSchemaOption },
