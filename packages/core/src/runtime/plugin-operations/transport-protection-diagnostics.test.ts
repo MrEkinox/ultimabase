@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { plugin as createPlugin } from '../../plugins/plugin.js'
-import { contributeOperation } from '../../plugins/plugin-operation-contributions.js'
+import { contributeOperation } from '../../plugins/plugin-command-contributions.js'
 import {
 	defineOperation,
 	defineOperationValue,

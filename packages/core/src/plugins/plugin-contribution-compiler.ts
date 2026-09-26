@@ -18,10 +18,8 @@ import type {
 	PluginDeclarationContext,
 } from './declaration-host.js'
 import type { PluginPrivilege } from './manifest.js'
-import {
-	compilePluginOperationContributions,
-	type PluginOperationAuthoringContribution,
-} from './plugin-operation-contributions.js'
+import { compilePluginCommandContributions } from './plugin-command-contributions.js'
+import type { PluginOperationAuthoringContribution } from './plugin-command-contribution-contracts.js'
 import {
 	getPluginApplicationFactory,
 	getPluginDeclarationContribution,
@@ -196,7 +194,7 @@ export const compilePluginContributions = (
 					}
 					return undefined
 				}
-	const compiledOperations = compilePluginOperationContributions(
+	const compiledOperations = compilePluginCommandContributions(
 		compilation.operations,
 	)
 	if (compiledOperations.operations.length > 0) {

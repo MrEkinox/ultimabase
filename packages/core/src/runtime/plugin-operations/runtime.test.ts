@@ -17,7 +17,7 @@ import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
 import {
 	contributeOperation,
 	contributeOperationBinding,
-} from '../../plugins/plugin-operation-contributions.js'
+} from '../../plugins/plugin-command-contributions.js'
 import {
 	defineOperation,
 	defineOperationValue,

@@ -14,7 +14,7 @@ import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import {
 	contributeSchemaMutation,
 	contributeSchemaMutationBinding,
-} from './plugin-schema-mutation-contributions.js'
+} from './plugin-command-contributions.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
 const input = defineOperationValue((value) => String(value))

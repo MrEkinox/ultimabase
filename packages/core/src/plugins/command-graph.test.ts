@@ -25,7 +25,7 @@ import {
 import {
 	contributeOperation,
 	contributeOperationBinding,
-} from './plugin-operation-contributions.js'
+} from './plugin-command-contributions.js'
 
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'

@@ -65,29 +65,25 @@ export type {
 export {
 	contributeOperation,
 	contributeOperationBinding,
-} from './plugins/plugin-operation-contributions.js'
-export {
 	contributeSchemaMutation,
 	contributeSchemaMutationBinding,
-} from './plugins/plugin-schema-mutation-contributions.js'
-export type {
-	DirectPluginSchemaMutationContributionOptions,
-	PluginSchemaMutationAuthoringContribution,
-	PluginSchemaMutationBindingContribution,
-	PluginSchemaMutationContribution,
-	PluginSchemaMutationContributionOptions,
-	PluginSchemaMutationResource,
-	ResourcePluginSchemaMutationContributionOptions,
-} from './plugins/plugin-schema-mutation-contributions.js'
+} from './plugins/plugin-command-contributions.js'
 export type {
 	DirectPluginOperationContributionOptions,
+	DirectPluginSchemaMutationContributionOptions,
 	PluginOperationAuthoringContribution,
 	PluginOperationBindingContribution,
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
+	PluginSchemaMutationAuthoringContribution,
+	PluginSchemaMutationBindingContribution,
+	PluginSchemaMutationContribution,
+	PluginSchemaMutationContributionOptions,
+	PluginSchemaMutationResource,
 	ResourcePluginOperationContributionOptions,
-} from './plugins/plugin-operation-contributions.js'
+	ResourcePluginSchemaMutationContributionOptions,
+} from './plugins/plugin-command-contribution-contracts.js'
 export {
 	defineOperation,
 	defineOperationValue,

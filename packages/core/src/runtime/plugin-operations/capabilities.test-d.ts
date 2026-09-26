@@ -7,7 +7,7 @@ import {
 	defineOperationValue,
 	type PluginOperationErrorCode,
 } from '../../plugins/plugin-operations.js'
-import { contributeOperation } from '../../plugins/plugin-operation-contributions.js'
+import { contributeOperation } from '../../plugins/plugin-command-contributions.js'
 import type { JsonValue } from '../../schema/index.js'
 import type { AdapterAccess } from '../adapters/raw-access.js'
 import type { RequestContext } from '../context/request-context.js'

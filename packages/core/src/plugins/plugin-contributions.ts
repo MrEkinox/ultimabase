@@ -22,7 +22,7 @@ import type {
 	PluginDeclarationContext,
 } from './declaration-host.js'
 import { pluginPrivilegeMetadata, type PluginPrivilege } from './manifest.js'
-import type { PluginOperationAuthoringContribution } from './plugin-operation-contributions.js'
+import type { PluginOperationAuthoringContribution } from './plugin-command-contribution-contracts.js'
 import type { PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
 import type { PluginSetupContext } from './setup-registries.js'
 import type { TypegenReferenceRegistrar } from './typegen-declarations.js'

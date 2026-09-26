@@ -8,7 +8,7 @@ import {
 	contributeApplication,
 	withPluginPrivileges,
 } from '../plugins/plugin-contributions.js'
-import { contributeOperation } from '../plugins/plugin-operation-contributions.js'
+import { contributeOperation } from '../plugins/plugin-command-contributions.js'
 
 import {
 	defineOperation,
