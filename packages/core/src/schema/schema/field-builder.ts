@@ -24,6 +24,10 @@ import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { RequestContext } from '../../runtime/context/request-context.js'
 import {
+	createCapturedBuilderCallRegistry,
+	type CapturedBuilderCall,
+} from '../captured-builder-call.js'
+import {
 	captureOutputBuilderCallback,
 	resolveCapturedOutputDescriptor,
 } from '../output/builder.js'
@@ -76,12 +80,8 @@ const isUnknownCallable = (value: unknown): value is UnknownCallable =>
 
 type RuntimeFieldBuilderMethod = (options?: unknown) => GenericField
 
-interface CapturedFieldBuilderCall {
-	readonly methodName: string
-	readonly options: unknown
-}
-
-const capturedFieldBuilderCalls = new WeakSet<object>()
+const [createCapturedFieldBuilderCall, isCapturedFieldBuilderCall] =
+	createCapturedBuilderCallRegistry<GenericField | GenericVirtualField>()
 
 /** Separates developer callback failures from validation of its returned map. */
 export class FieldBuilderDeclarationExecutionError extends Error {
@@ -90,26 +90,6 @@ export class FieldBuilderDeclarationExecutionError extends Error {
 		this.name = 'FieldBuilderDeclarationExecutionError'
 	}
 }
-
-const createCapturedFieldBuilderCall = (
-	methodName: string,
-	options: unknown,
-): GenericField | GenericVirtualField => {
-	const call = immutableRecord({ methodName, options })
-
-	capturedFieldBuilderCalls.add(call)
-
-	// The public builder method retains its concrete return type while compilation
-	// privately replaces this opaque declaration with the plugin's real field.
-	return call as unknown as GenericField | GenericVirtualField
-}
-
-const isCapturedFieldBuilderCall = (
-	value: unknown,
-): value is CapturedFieldBuilderCall =>
-	typeof value === 'object' &&
-	value !== null &&
-	capturedFieldBuilderCalls.has(value)
 
 const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
 	const method = (optionsValue: unknown): GenericField => {
@@ -266,7 +246,7 @@ export const captureFieldBuilderCallback = (
 }
 
 const resolveCapturedFieldBuilderCall = (
-	call: CapturedFieldBuilderCall,
+	call: CapturedBuilderCall,
 	fieldPath: string,
 	embedded: boolean,
 	fieldMethods: FieldBuilderMethodResolver | undefined,
@@ -333,7 +313,7 @@ export const resolveCapturedFieldMap = (
 ): SchemaDeclaredFields => {
 	assertCapturedFieldMap(captured, path)
 	const fields: Record<string, GenericField | GenericVirtualField> = {}
-	const virtualCalls: [string, CapturedFieldBuilderCall][] = []
+	const virtualCalls: [string, CapturedBuilderCall][] = []
 
 	for (const [name, field] of Object.entries(captured)) {
 		if (isCapturedFieldBuilderCall(field)) {

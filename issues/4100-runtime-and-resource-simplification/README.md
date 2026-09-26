@@ -19,7 +19,7 @@ and avoid a compatibility bridge or generic registry.
 - [x] [4102 — Centralize operation characteristics](4102-operation-characteristics.md)
 - [x] [4103 — Centralize enumerable-key validation](4103-enumerable-key-validation.md)
 - [x] [4104 — Adopt native asynchronous test disposal](4104-native-test-disposal.md)
-- [ ] [4105 — Consolidate captured builder calls](4105-captured-builder-calls.md)
+- [x] [4105 — Consolidate captured builder calls](4105-captured-builder-calls.md)
 - [ ] [4106 — Consolidate Query clause application](4106-query-clause-application.md)
 - [ ] [4107 — Consolidate PostgreSQL targeted mutation planning](4107-postgres-targeted-mutation-planning.md)
 - [ ] [4108 — Complete parity and reduction audit](4108-parity-and-reduction-audit.md)

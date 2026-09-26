@@ -5,6 +5,7 @@ import {
 } from '@ultimabase/shared'
 
 import { assertExactObjectKeys } from '../../exact-object-validation.js'
+import { createCapturedBuilderCallRegistry } from '../captured-builder-call.js'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type {
@@ -43,32 +44,11 @@ import {
 
 const commonOptionNames = ['description', 'list', 'nullable'] as const
 
-interface CapturedOutputBuilderCall {
-	readonly methodName: string
-	readonly options: unknown
-}
-
-const capturedOutputBuilderCalls = new WeakSet<object>()
+const [createCapturedOutputBuilderCall, isCapturedOutputBuilderCall] =
+	createCapturedBuilderCallRegistry<GenericOutputDescriptor>()
 
 /** Identifies a delayed output method whose owning plugin is not installed. */
 export class OutputBuilderMethodUnavailableError extends TypeError {}
-
-const createCapturedOutputBuilderCall = (
-	methodName: string,
-	options: unknown,
-): GenericOutputDescriptor => {
-	const call = immutableRecord({ methodName, options })
-	capturedOutputBuilderCalls.add(call)
-
-	return call as unknown as GenericOutputDescriptor
-}
-
-const isCapturedOutputBuilderCall = (
-	value: unknown,
-): value is CapturedOutputBuilderCall =>
-	typeof value === 'object' &&
-	value !== null &&
-	capturedOutputBuilderCalls.has(value)
 
 const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 	const method =
