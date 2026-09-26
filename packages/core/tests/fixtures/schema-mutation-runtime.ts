@@ -20,10 +20,11 @@ import {
 import type { SchemaDefinition } from '../../src/schema/index.js'
 import { Schema, stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { provideRuntimeConstraint } from '../../src/runtime/capabilities.js'
 import {
-	provideRuntimeConstraint,
-} from '../../src/runtime/capabilities.js'
-import { beforeOperation } from '../../src/runtime/contributions/definitions.js'
+	afterOperation,
+	beforeOperation,
+} from '../../src/runtime/contributions/definitions.js'
 import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
 import { protectedPolicy } from '../../src/runtime/enforcement/protected-policy.js'
 import { MasterAuthority } from '../../src/runtime/master/master-authority.js'
@@ -53,6 +54,7 @@ export const createUpdateFixture = async (options: {
 	}) => unknown
 	readonly omitHandler?: boolean
 	readonly observeOperation?: (kind: string) => void
+	readonly observeResult?: (kind: string) => void
 	readonly observeRewrite?: (logicalKind: string, physicalKind: string) => void
 	readonly persistenceCapabilities?: RecordingAdapterCapabilityOptions
 	readonly protectedConstraint?: boolean
@@ -123,6 +125,20 @@ export const createUpdateFixture = async (options: {
 					},
 				}),
 			),
+			...(options.observeResult === undefined
+				? []
+				: [
+						provideTestRuntimeInterceptor(
+							'logical-result-observer',
+							afterOperation({
+								operations: ['plugin-schema-mutation'],
+								handler: ({ operation, result }) => {
+									options.observeResult?.(operation.kind)
+									return { result }
+								},
+							}),
+						),
+					]),
 			providePersistencePlanRewriter({
 				contributionId: 'logical-schema-mutation-rewriter',
 				create: () => ({

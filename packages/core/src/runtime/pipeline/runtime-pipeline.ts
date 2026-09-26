@@ -15,14 +15,12 @@ import { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseOperationAst,
-	DatabaseOperationResult,
 	DatabaseRelationPredicateScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
-import { retainRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
 	inheritRuntimeNestedWrites,
@@ -59,16 +57,12 @@ import {
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
-import {
-	prepareBoundRuntimeVirtualFieldProjection,
-	prepareRuntimeVirtualDatabaseResult,
-} from '../virtual-fields/pipeline.js'
+import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import type {
 	RuntimeEnforcementOperationResult,
 	RuntimeOperationResult,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
-	RuntimeResultStageInput,
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
@@ -86,16 +80,11 @@ import {
 } from './private-execution.js'
 import {
 	createRuntimeEnforcementInput,
-	createRuntimeEnforcementResultInput,
-	createRuntimeProjectedDatabaseResultInput,
-	createRuntimeMaterializedResultInput,
 	createRuntimeOperationInput,
-	createRuntimeResultInput,
 	emptyRuntimeConstraints,
-	readRuntimeSchemaModelSelectedFields,
-	readRuntimeSelectedFieldsOverride,
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
+import { finalizeRuntimeOperationResult } from './result-finalization.js'
 
 export { projectRuntimeMutationBatch } from './inclusion-projection.js'
 export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
@@ -484,115 +473,30 @@ export class RuntimePipeline {
 			operationKind: operation.kind,
 			phase: 'database-operation',
 		})
-		const virtualResults = prepareRuntimeVirtualDatabaseResult(
-			this.#resultBoundaries,
-			operation,
-			virtualProjection,
-			databaseExecution.result,
-		)
-		const privateDatabaseResult = virtualResults.privateResult
-		let databaseResult: DatabaseOperationResult<TOperation> =
-			virtualResults.publicResult
-		const selectedFieldsOverride = readRuntimeSelectedFieldsOverride(
-			operation,
-			enforcement,
-		)
-		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			databaseResult = await this.#stages.enforcement.enforceSelectionResult(
-				immutableRecord({
-					context,
-					enforcement,
-					operation,
-					result: databaseResult,
-				}),
-			)
-		}
-		// Policy projection precedes validation so over-fetching adapters cannot
-		// expose or invalidate fields that product output behaviors may not observe.
-		databaseResult = this.#resultBoundaries.snapshotDatabaseResultReplacement(
-			operation,
-			databaseResult,
-			selectedFieldsOverride,
-		)
-
-		if (this.#stages.behaviors?.transformDatabaseResult !== undefined) {
-			databaseResult = await this.#stages.behaviors.transformDatabaseResult(
-				createRuntimeProjectedDatabaseResultInput(
-					context,
-					operation,
-					databaseResult,
-					selectedFieldsOverride,
-				),
-			)
-		}
-
-		let result: RuntimeOperationResult<TOperation> =
-			await this.#inclusionProjector.hydrate(
-				context,
-				operation,
-				databaseResult,
-				databaseExecution.inclusionSource ?? databaseExecution.result,
-				inclusions,
-				virtualScheduler,
-			)
-		// Identity follows exact records through result behaviors instead of being
-		// reassociated by an unstable final collection index.
-		retainRuntimeSchemaModelMetadata(
-			operation,
-			databaseExecution.objectIdentities,
-			result,
-			readRuntimeSchemaModelSelectedFields(operation, selectedFieldsOverride),
-		)
-		if (virtualProjection !== undefined && virtualScheduler !== undefined) {
-			result = await virtualScheduler.resolve(
-				context,
-				operation,
+		const result: RuntimeOperationResult<TOperation> =
+			await finalizeRuntimeOperationResult<TOperation, TOperation>({
+				boundaries: this.#resultBoundaries,
+				databaseOperation: operation,
+				databaseResult: databaseExecution.result,
+				enforcement,
+				hydrate: (databaseResult) =>
+					this.#inclusionProjector.hydrate(
+						context,
+						operation,
+						databaseResult,
+						databaseExecution.inclusionSource ?? databaseExecution.result,
+						inclusions,
+						virtualScheduler,
+					),
+				outcome: databaseExecution.outcome,
+				// Identity follows exact records through result behaviors instead of
+				// being reassociated by an unstable final collection index.
+				objectIdentities: databaseExecution.objectIdentities,
+				stageInput: createRuntimeOperationInput(context, operation),
+				stages: this.#stages,
 				virtualProjection,
-				result,
-				privateDatabaseResult,
-			)
-		}
-
-		if (this.#stages.behaviors?.transformResult !== undefined) {
-			result = await this.#stages.behaviors.transformResult(
-				createRuntimeMaterializedResultInput(
-					context,
-					operation,
-					result,
-					selectedFieldsOverride,
-					databaseExecution.outcome,
-				),
-			)
-		}
-
-		// Every product behavior shares the same strict result boundary.
-		result = this.#resultBoundaries.snapshotResultReplacement(
-			operation,
-			result,
-			selectedFieldsOverride,
-		)
-
-		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			result = await this.#stages.enforcement.enforceResult(
-				createRuntimeEnforcementResultInput(
-					context,
-					operation,
-					result,
-					enforcement,
-				),
-			)
-		}
-		const completedOperation: RuntimeResultStageInput<TOperation> =
-			createRuntimeResultInput(context, operation, result)
-
-		throwIfOperationCancelled(context.signal, {
-			operationKind: operation.kind,
-			phase: 'commit',
-		})
-		await this.#stages.commit(completedOperation)
-		if (this.#stages.behaviors?.postCommit !== undefined) {
-			await this.#stages.behaviors.postCommit(completedOperation)
-		}
+				virtualScheduler,
+			})
 		execution.operation = operation
 		return result
 	}

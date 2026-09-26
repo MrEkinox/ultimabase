@@ -26,10 +26,7 @@ import type {
 } from '../database/contracts.js'
 import type { DatabasePersistencePlan } from '../persistence/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
-import {
-	collectDatabaseObjectIdentities,
-	retainRuntimeSchemaModelMetadata,
-} from '../operations/model-metadata.js'
+import { collectDatabaseObjectIdentities } from '../operations/model-metadata.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
 	assertPersistencePlanCapability,
@@ -39,19 +36,15 @@ import { createDatabasePersistencePlanWithSelection } from '../persistence/plans
 import type { RuntimeInclusionProjector } from '../pipeline/inclusion-projection.js'
 import { loadSingularMutationInclusionSource } from '../pipeline/inclusion-projection.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
+import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.js'
 import {
 	emptyRuntimeConstraints,
-	readRuntimeSchemaModelSelectedFields,
-	readRuntimeSelectedFieldsOverride,
 	snapshotRuntimeConstraints,
 } from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
 import { createRuntimeVirtualFieldScheduler } from '../virtual-fields/binding.js'
-import {
-	prepareBoundRuntimeVirtualFieldProjection,
-	prepareRuntimeVirtualDatabaseResult,
-} from '../virtual-fields/pipeline.js'
+import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
 import type { PluginSchemaMutationRuntime } from './runtime.js'
@@ -455,121 +448,54 @@ export const executeRuntimeSchemaMutation = async (
 			: materialization.kind === 'update'
 				? materialization.current
 				: previous
-	const virtualResults = prepareRuntimeVirtualDatabaseResult(
+	const databaseResult = projectResultRecord(
+		sourceRecord,
+		(
+			virtualProjection?.persistedSelection ?? physical.query.selection
+		).fields.map(({ field }) => field),
+	) as DatabaseOperationResult<typeof physical>
+	const result = await finalizeRuntimeOperationResult<
+		PluginSchemaMutationOperationAst,
+		typeof physical
+	>({
 		boundaries,
-		physical,
-		virtualProjection,
-		projectResultRecord(
-			sourceRecord,
-			(
-				virtualProjection?.persistedSelection ?? physical.query.selection
-			).fields.map(({ field }) => field),
-		) as DatabaseOperationResult<typeof physical>,
-	)
-	let databaseResult = virtualResults.publicResult
-	const selectedFieldsOverride = readRuntimeSelectedFieldsOverride(
-		logical,
+		databaseOperation: physical,
+		databaseResult,
 		enforcement,
-	)
-	if (stages.enforcement !== undefined && enforcement !== undefined) {
-		databaseResult = await stages.enforcement.enforceSelectionResult(
-			createStageInput(context, logical, {
-				enforcement,
-				result: databaseResult,
-			}),
-		)
-	}
-	databaseResult = boundaries.snapshotDatabaseResultReplacement(
-		physical,
-		databaseResult,
-		selectedFieldsOverride,
-	)
-	if (stages.behaviors?.transformDatabaseResult !== undefined) {
-		databaseResult = await stages.behaviors.transformDatabaseResult(
-			createStageInput(context, logical, {
-				result: databaseResult,
-				...(selectedFieldsOverride === undefined
-					? {}
-					: { selectedFieldsOverride }),
-			}),
-		)
-	}
-	const afterInclusionSource =
-		command.definition.returning === 'after'
-			? await loadSingularMutationInclusionSource(
-					executor,
-					physical,
-					outcome,
-					preparedInclusions.length === 0
-						? undefined
-						: preparedInclusions.map(({ database }) => database),
-					virtualProjection?.persistedSelection,
-				)
-			: undefined
-	let result = await inclusions.hydrate(
-		context,
-		physical,
-		databaseResult,
-		afterInclusionSource ?? beforeInclusionSource ?? sourceRecord,
-		preparedInclusions,
-		virtualScheduler,
-	)
-	retainRuntimeSchemaModelMetadata(
-		physical,
-		collectDatabaseObjectIdentities(
+		hydrate: async (projectedResult) => {
+			const afterInclusionSource =
+				command.definition.returning === 'after'
+					? await loadSingularMutationInclusionSource(
+							executor,
+							physical,
+							outcome,
+							preparedInclusions.length === 0
+								? undefined
+								: preparedInclusions.map(({ database }) => database),
+							virtualProjection?.persistedSelection,
+						)
+					: undefined
+			return (await inclusions.hydrate(
+				context,
+				physical,
+				projectedResult,
+				afterInclusionSource ?? beforeInclusionSource ?? sourceRecord,
+				preparedInclusions,
+				virtualScheduler,
+			)) as unknown as Readonly<Record<string, unknown>>
+		},
+		objectIdentities: collectDatabaseObjectIdentities(
 			executor,
 			physical,
 			sourceRecord,
-				outcome,
+			outcome,
 		),
-		result,
-			readRuntimeSchemaModelSelectedFields(
-				logical,
-			selectedFieldsOverride,
-		),
-	)
-	if (virtualProjection !== undefined) {
-		if (virtualScheduler === undefined) {
-			throw new TypeError('Schema mutation virtual scheduler is unavailable')
-		}
-		result = await virtualScheduler.resolve(
-			context,
-			physical,
-			virtualProjection,
-			result,
-			virtualResults.privateResult,
-		)
-	}
-	if (stages.behaviors?.transformResult !== undefined) {
-		result = await stages.behaviors.transformResult(
-			createStageInput(context, logical, {
-				outcome,
-				result,
-				...(selectedFieldsOverride === undefined
-					? {}
-					: { selectedFieldsOverride }),
-			}),
-		)
-	}
-	result = boundaries.snapshotResultReplacement(
-		physical,
-		result,
-		selectedFieldsOverride,
-	)
-	if (stages.enforcement !== undefined && enforcement !== undefined) {
-		result = await stages.enforcement.enforceResult(
-			createStageInput(context, logical, { enforcement, result }),
-		)
-	}
-	throwIfOperationCancelled(context.signal, {
-		operationKind: logical.kind,
-		phase: 'commit',
+		outcome,
+		stageInput: createStageInput(context, logical, emptyStageInput),
+		stages,
+		virtualProjection,
+		virtualScheduler,
 	})
-	const completed = createStageInput(context, logical, { result })
-	await stages.commit(completed)
-	if (stages.behaviors?.postCommit !== undefined) {
-		await stages.behaviors.postCommit(completed)
-	}
 	if (!isPlainRecord(result)) {
 		throw new TypeError('Schema mutation result must be a record')
 	}

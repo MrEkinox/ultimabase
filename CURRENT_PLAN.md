@@ -1,27 +1,26 @@
-# Current plan: Mutation data input transformation
+# Current plan: Runtime result finalization
 
 - Status: completed
-- Milestone: 51
-- Baseline: `6fce9471`
-- Completed issue: 5101
+- Milestone: 52
+- Baseline: `0a306693`
+- Completed issue: 5201
 
-The user authorized auditing the equivalent mutation-data duplication after
-milestone 50. Core may own only immutable recursion through schema field maps
-and nested pointer/relation target data. REST and GraphQL retain all wire
-wrappers, identities, codecs, validation assumptions, and public errors.
+The user authorized another debt-reduction pass after milestone 51. The audit
+found that native Runtime execution and plugin schema mutations independently
+owned the same terminal result order: protected projection, database-result
+behavior, inclusion hydration, model metadata, virtual fields, final behavior,
+protected output, commit, and post-commit delivery.
 
-The implementation must delete production lines overall. Mutation request
-envelopes, projections, bulk command shapes, and Core Runtime graph
-normalization remain unchanged. If the shared callback surface absorbs
-transport policy or erases the line reduction, issue 5101 stops at the audit
-gate and the prototype is reverted.
+Core may consolidate only that existing private order. Logical plugin mutation
+identity, physical database operations, inclusion-source selection, adapter
+outcomes, and every public stage contract remain unchanged. The implementation
+must delete production lines overall and introduce no public export.
 
 No push is authorized.
 
 ## Outcome
 
-Core now owns the immutable schema-field and nested pointer/relation data
-traversal used by both transports. REST and GraphQL retain their complete wire,
-validation, identity, codec, and error policies behind one field callback each.
-Production TypeScript adds 189 lines and removes 212, a net reduction of 23
-lines.
+One private Core finalizer now owns the terminal result and commit order for
+native Runtime operations and plugin schema mutations. The native pipeline fell
+from 599 to 503 lines and the schema-mutation pipeline from 578 to 504 lines.
+Production TypeScript adds 211 lines and removes 239, a net reduction of 28.

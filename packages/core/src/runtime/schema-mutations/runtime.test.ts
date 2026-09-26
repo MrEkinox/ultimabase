@@ -172,9 +172,11 @@ describe('plugin schema mutation Runtime', () => {
 		const previous = row(id, 'published')
 		const current = row(id, 'archived')
 		const observed: string[] = []
+		const observedResults: string[] = []
 		const rewrites: string[] = []
 		const fixture = await createUpdateFixture({
 			observeOperation: (kind) => observed.push(kind),
+			observeResult: (kind) => observedResults.push(kind),
 			observeRewrite: (logical, physical) =>
 				rewrites.push(`${logical}:${physical}`),
 			results: [
@@ -200,6 +202,7 @@ describe('plugin schema mutation Runtime', () => {
 		expect(observed).toStrictEqual(['plugin-schema-mutation'])
 		expect(observed).not.toContain('update-one')
 		expect(observed).not.toContain('delete-one')
+		expect(observedResults).toStrictEqual(['plugin-schema-mutation'])
 		expect(rewrites).toStrictEqual(['plugin-schema-mutation:update-one'])
 	})
 
