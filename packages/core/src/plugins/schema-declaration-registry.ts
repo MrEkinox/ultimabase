@@ -23,6 +23,7 @@ import type { ApplicationCapabilityHost } from './capability-host.js'
 import {
 	diagnosePluginDeclarationFailure,
 	type MutableSchemaDeclarationBatch,
+	type OwnedSchemaSource,
 	type PendingSchemaOptionRuntimeCompilation,
 	pluginDeclarationDiagnostic,
 	PluginDeclarationDiagnosticError,
@@ -160,48 +161,39 @@ export class SchemaDeclarationRegistry {
 				}
 			},
 		})
+		type SchemaSourceOptions = Parameters<
+			PluginSchemaDeclarationRegistrar['add']
+		>[0]
+		const stageSchemaSource = (
+			kind: 'addition' | 'claim',
+			options: SchemaSourceOptions,
+		): void => {
+			assertDeclare()
+			const path = `Schema ${kind}`
+			if (!isPlainRecord(options)) {
+				throw new TypeError(`${path} must be a plain object`)
+			}
+			assertNonEmptyString(options.contributionId, `${path} contributionId`)
+			const sources: OwnedSchemaSource[] =
+				kind === 'addition' ? batch.additions : batch.claims
+			sources.push(
+				immutableRecord({
+					contributionId: options.contributionId,
+					owner,
+					schema: options.schema,
+					staticOptions: snapshotStaticOptions(
+						options.staticOptions,
+						`${path} staticOptions`,
+					),
+				}),
+			)
+		}
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
 			add: (options): void => {
-				assertDeclare()
-				if (!isPlainRecord(options)) {
-					throw new TypeError('Schema addition must be a plain object')
-				}
-				assertNonEmptyString(
-					options.contributionId,
-					'Schema addition contributionId',
-				)
-				batch.additions.push(
-					immutableRecord({
-						contributionId: options.contributionId,
-						owner,
-						schema: options.schema,
-						staticOptions: snapshotStaticOptions(
-							options.staticOptions,
-							'Schema addition staticOptions',
-						),
-					}),
-				)
+				stageSchemaSource('addition', options)
 			},
 			claim: (options): void => {
-				assertDeclare()
-				if (!isPlainRecord(options)) {
-					throw new TypeError('Schema claim must be a plain object')
-				}
-				assertNonEmptyString(
-					options.contributionId,
-					'Schema claim contributionId',
-				)
-				batch.claims.push(
-					immutableRecord({
-						contributionId: options.contributionId,
-						owner,
-						schema: options.schema,
-						staticOptions: snapshotStaticOptions(
-							options.staticOptions,
-							'Schema claim staticOptions',
-						),
-					}),
-				)
+				stageSchemaSource('claim', options)
 			},
 			defineOptions: (options): void => {
 				assertDeclare()

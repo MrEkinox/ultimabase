@@ -177,21 +177,15 @@ export interface PendingSchemaOptionRuntimeCompilation {
 	readonly runtime: SchemaOptionRuntimeCompiler
 }
 
-export interface OwnedSchemaAddition {
+export interface OwnedSchemaSource {
 	readonly contributionId: string
 	readonly owner: PluginSchemaContributionOwner
 	readonly schema: SchemaDefinition
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
-export interface OwnedSchemaClaim {
-	readonly contributionId: string
-	readonly owner: PluginSchemaContributionOwner
-	readonly schema: SchemaDefinition
-	readonly staticOptions: Readonly<Record<string, JsonValue>>
-}
-
-export type OwnedSchemaSource = OwnedSchemaAddition | OwnedSchemaClaim
+export type OwnedSchemaAddition = OwnedSchemaSource
+export type OwnedSchemaClaim = OwnedSchemaSource
 
 export interface OwnedSchemaPatch {
 	readonly operations: readonly SchemaPatchOperation[]
