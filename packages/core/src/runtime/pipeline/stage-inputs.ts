@@ -123,7 +123,10 @@ export const createRuntimePreparedMutationInput = <
 	operation: TOperation,
 	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined,
 	targets: readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined,
-): RuntimePreparedMutationStageInput<TOperation> =>
+): RuntimePreparedMutationStageInput<
+	TOperation,
+	DatabaseMutationLogicalRecord<TOperation>
+> =>
 	createRuntimeStageInput({
 		context,
 		operation,
@@ -138,7 +141,10 @@ export const createRuntimeMutationOutcomeInput = <
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<TOperation>,
 	selectedFieldsOverride?: readonly string[],
-): RuntimeMutationOutcomeStageInput<TOperation> =>
+): RuntimeMutationOutcomeStageInput<
+	TOperation,
+	DatabaseOperationOutcome<TOperation>
+> =>
 	createRuntimeStageInput({
 		context,
 		operation,
@@ -190,7 +196,10 @@ export const createRuntimeProjectedDatabaseResultInput = <
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
-): RuntimeProjectedDatabaseResultStageInput<TOperation> =>
+): RuntimeProjectedDatabaseResultStageInput<
+	TOperation,
+	DatabaseOperationResult<TOperation>
+> =>
 	createRuntimeStageInput({
 		context,
 		operation,

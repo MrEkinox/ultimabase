@@ -11,7 +11,6 @@ import {
 	assertDatabaseConstraintKind,
 	assertDatabaseConstraintVersion,
 } from '../../plugins/constraint-compilers.js'
-import type { OperationKind } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
 	DatabaseConstraintNode,
@@ -27,8 +26,9 @@ import type {
 	DatabaseConstraintPayload,
 	ImmutableDatabaseConstraintPayload,
 } from '../database/contracts.js'
+import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
 
-const operationKinds = new Set<OperationKind>([
+const operationKinds = new Set<RuntimeLogicalOperationKind>([
 	'find-many',
 	'find-one',
 	'get',
@@ -42,11 +42,12 @@ const operationKinds = new Set<OperationKind>([
 	'upsert-many',
 	'delete-one',
 	'delete-many',
+	'plugin-schema-mutation',
 ])
 
 interface EnforcementOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 	THandler,
 > {
 	/**
@@ -74,7 +75,7 @@ interface EnforcementOptions<
 /** Configures one deny-only operation guard. */
 export type GuardOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = EnforcementOptions<
 	TSchema,
 	TOperations,
@@ -84,7 +85,7 @@ export type GuardOptions<
 /** Configures opaque constraints that Runtime appends for the selected adapter. */
 export type ConstraintOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 	TConstraint extends DatabaseConstraintNode,
 > = EnforcementOptions<
 	TSchema,
@@ -95,7 +96,7 @@ export type ConstraintOptions<
 /** Configures a monotonic mutation-input field restriction. */
 export type InputRestrictionOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = EnforcementOptions<
 	TSchema,
 	TOperations,
@@ -105,7 +106,7 @@ export type InputRestrictionOptions<
 /** Configures a monotonic query-selection field restriction. */
 export type SelectionRestrictionOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = EnforcementOptions<
 	TSchema,
 	TOperations,
@@ -115,7 +116,7 @@ export type SelectionRestrictionOptions<
 /** Configures the final field restriction after every result transform. */
 export type OutputRestrictionOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = EnforcementOptions<
 	TSchema,
 	TOperations,
@@ -128,7 +129,8 @@ declare const enforcementDefinitionType: unique symbol
 export interface EnforcementDefinition<
 	TKind extends EnforcementContributionKind = EnforcementContributionKind,
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 	THandler = unknown,
 > {
 	readonly kind: TKind
@@ -140,7 +142,8 @@ export interface EnforcementDefinition<
 /** Represents a provenance-free deny-only guard declaration. */
 export type GuardDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = EnforcementDefinition<
 	'guard',
 	TSchema,
@@ -151,7 +154,8 @@ export type GuardDefinition<
 /** Represents a provenance-free opaque adapter-constraint declaration. */
 export type ConstraintDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
 > = EnforcementDefinition<
 	'constraint',
@@ -163,7 +167,8 @@ export type ConstraintDefinition<
 /** Represents a provenance-free mutation-input restriction declaration. */
 export type InputRestrictionDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = EnforcementDefinition<
 	'restrictInput',
 	TSchema,
@@ -174,7 +179,8 @@ export type InputRestrictionDefinition<
 /** Represents a provenance-free query-selection restriction declaration. */
 export type SelectionRestrictionDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = EnforcementDefinition<
 	'restrictSelection',
 	TSchema,
@@ -185,7 +191,8 @@ export type SelectionRestrictionDefinition<
 /** Represents a provenance-free final-output restriction declaration. */
 export type OutputRestrictionDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = EnforcementDefinition<
 	'restrictOutput',
 	TSchema,
@@ -209,7 +216,7 @@ export interface EnforcementContributionImplementation {
 	readonly kind: EnforcementContributionKind
 	readonly master: 'bypass' | 'enforce'
 	readonly schema: SchemaDefinition | undefined
-	readonly operations: readonly OperationKind[] | undefined
+	readonly operations: readonly RuntimeLogicalOperationKind[] | undefined
 	run(
 		input: EnforcementOperationInput<never> | EnforcementOutputInput<never>,
 	): MaybePromise<unknown>
@@ -269,8 +276,8 @@ const snapshotDatabaseConstraintPayload = (
 
 /** Normalizes shared operation targeting for protected Runtime definitions. */
 export const normalizeEnforcementOperations = (
-	operations: readonly OperationKind[] | undefined,
-): readonly OperationKind[] | undefined => {
+	operations: readonly RuntimeLogicalOperationKind[] | undefined,
+): readonly RuntimeLogicalOperationKind[] | undefined => {
 	if (operations === undefined) {
 		return undefined
 	}
@@ -286,20 +293,20 @@ export const normalizeEnforcementOperations = (
 		)
 	}
 
-	const normalized: OperationKind[] = []
+	const normalized: RuntimeLogicalOperationKind[] = []
 
 	for (const operation of untrustedOperations) {
 		if (
 			typeof operation !== 'string' ||
-			!operationKinds.has(operation as OperationKind)
+			!operationKinds.has(operation as RuntimeLogicalOperationKind)
 		) {
 			throw new TypeError(
 				`Unknown enforcement operation kind: ${String(operation)}`,
 			)
 		}
 
-		if (!normalized.includes(operation as OperationKind)) {
-			normalized.push(operation as OperationKind)
+		if (!normalized.includes(operation as RuntimeLogicalOperationKind)) {
+			normalized.push(operation as RuntimeLogicalOperationKind)
 		}
 	}
 
@@ -343,7 +350,7 @@ const assertOptions = (options: unknown): void => {
 const defineEnforcement = <
 	const TKind extends EnforcementContributionKind,
 	const TSchema extends SchemaDefinition,
-	const TOperations extends readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[],
 	THandler,
 >(
 	kind: TKind,
@@ -381,7 +388,8 @@ const defineEnforcement = <
  */
 export const guard = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: GuardOptions<TSchema, TOperations>,
 ): GuardDefinition<TSchema, TOperations[number]> =>
@@ -394,7 +402,8 @@ export const guard = <
  */
 export const constraint = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 	const TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
 >(
 	options: ConstraintOptions<TSchema, TOperations, TConstraint>,
@@ -408,7 +417,8 @@ export const constraint = <
  */
 export const restrictInput = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: InputRestrictionOptions<TSchema, TOperations>,
 ): InputRestrictionDefinition<TSchema, TOperations[number]> =>
@@ -421,7 +431,8 @@ export const restrictInput = <
  */
 export const restrictSelection = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: SelectionRestrictionOptions<TSchema, TOperations>,
 ): SelectionRestrictionDefinition<TSchema, TOperations[number]> =>
@@ -434,7 +445,8 @@ export const restrictSelection = <
  */
 export const restrictOutput = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: OutputRestrictionOptions<TSchema, TOperations>,
 ): OutputRestrictionDefinition<TSchema, TOperations[number]> =>
@@ -451,7 +463,7 @@ export const getEnforcementContributionImplementation = (
 /** Matches one contribution without exposing accumulated policy state. */
 export const matchesEnforcementContribution = (
 	implementation: EnforcementContributionImplementation,
-	operation: { readonly kind: OperationKind },
+	operation: { readonly kind: RuntimeLogicalOperationKind },
 	schema: SchemaDefinition,
 ): boolean =>
 	(implementation.operations === undefined ||

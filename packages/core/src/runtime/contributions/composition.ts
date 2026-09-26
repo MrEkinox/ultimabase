@@ -12,14 +12,14 @@ import {
 } from '@ultimabase/shared'
 
 import type {
+	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
 } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimePreparedMutationStageInput,
 	RuntimeBehaviorStages,
-	RuntimeOperationResult,
+	RuntimeLogicalOperationAst,
 	RuntimeOperationStageInput,
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
@@ -54,7 +54,7 @@ interface OwnedRuntimeContribution {
 /** Builds one redacted identity without retaining operation inputs or results. */
 const createRuntimeContributionDescriptor = (
 	owned: OwnedRuntimeContribution,
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): RuntimeCallbackDescriptor => {
 	const { contribution, implementation } = owned
 	return createRuntimeCallbackDescriptor({
@@ -203,20 +203,18 @@ const normalizePreparedContributionOutput = <
 	return nextOperation
 }
 
-const normalizeAfterContributionOutput = <
-	const TOperation extends DatabaseOperationAst,
->(
+const normalizeAfterContributionOutput = <const TResult>(
 	output: unknown,
-): RuntimeOperationResult<TOperation> => {
+): TResult => {
 	const result = assertExactContributionOutput(output, 'result')
 
 	// Result validation remains operation-specific; this boundary only enforces explicit replacement.
-	return result.result as RuntimeOperationResult<TOperation>
+	return result.result as TResult
 }
 
 const matchesContribution = (
 	implementation: RuntimeContributionImplementation,
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): boolean =>
 	(implementation.operations === undefined ||
 		implementation.operations.includes(operation.kind)) &&
@@ -269,7 +267,7 @@ const readContributions = (
 }
 
 const runBeforeContributions = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: RuntimeCallbackExecutor,
@@ -297,13 +295,14 @@ const runBeforeContributions = async <
 }
 
 const runAfterContributions = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: RuntimeCallbackExecutor,
-	input: RuntimeResultStageInput<TOperation>,
-): Promise<RuntimeOperationResult<TOperation>> => {
-	let result: RuntimeOperationResult<TOperation> = input.result
+	input: RuntimeResultStageInput<TOperation, TResult>,
+): Promise<TResult> => {
+	let result = input.result
 
 	for (const owned of contributions) {
 		const { implementation } = owned
@@ -320,7 +319,7 @@ const runAfterContributions = async <
 				),
 		)
 
-		result = normalizeAfterContributionOutput<TOperation>(output)
+		result = normalizeAfterContributionOutput<TResult>(output)
 	}
 
 	return result
@@ -332,7 +331,10 @@ const runPreparedContributions = async <
 >(
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: RuntimeCallbackExecutor,
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		TOperation,
+		DatabaseMutationLogicalRecord<TOperation>
+	>,
 ): Promise<TOperation> => {
 	if (
 		input.operation.kind !== 'update-one' ||

@@ -1,6 +1,5 @@
 import type {
 	ExecutableOperationAst,
-	OperationKind,
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -16,12 +15,16 @@ import type { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
 } from '../database/contracts.js'
-import type { RuntimeOperationResult } from '../pipeline/contracts.js'
+import type {
+	RuntimeLogicalOperationAst,
+	RuntimeLogicalOperationKind,
+	RuntimeOperationResult,
+} from '../pipeline/contracts.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 /** Supplies low-level interceptors with safe execution identity and one operation. */
 export interface RuntimeInterceptorOperationInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > {
 	/** Exposes immutable request identity and application-local capabilities. */
 	readonly context: RequestContext
@@ -31,10 +34,11 @@ export interface RuntimeInterceptorOperationInput<
 
 /** Supplies low-level result interceptors without exposing mutable request state. */
 export interface RuntimeInterceptorResultInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
+	TResult = RuntimeOperationResult<TOperation>,
 > extends RuntimeInterceptorOperationInput<TOperation> {
 	/** Contains the immutable hydrated result paired with the observed operation. */
-	readonly result: RuntimeOperationResult<TOperation>
+	readonly result: TResult
 }
 
 /** Supplies one stable singular preimage after protected policies authorize its row. */
@@ -45,7 +49,7 @@ export interface RuntimePreparedOperationInput<
 	readonly target: DatabaseMutationLogicalRecord<TOperation>
 }
 
-const runtimeOperationKinds = new Set<OperationKind>([
+const runtimeOperationKinds = new Set<RuntimeLogicalOperationKind>([
 	'find-many',
 	'find-one',
 	'get',
@@ -59,22 +63,27 @@ const runtimeOperationKinds = new Set<OperationKind>([
 	'upsert-many',
 	'delete-one',
 	'delete-many',
+	'plugin-schema-mutation',
 ])
 
 type RuntimeInterceptorOperation<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
-> = Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
+	TOperationKind extends RuntimeLogicalOperationKind,
+> = TOperationKind extends 'plugin-schema-mutation'
+	? PluginSchemaMutationOperationAst
+	: Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
 
 /** Makes every result transformation explicit rather than relying on mutation. */
-export interface AfterOperationResult<TOperation extends DatabaseOperationAst> {
+export interface AfterOperationResult<
+	TOperation extends RuntimeLogicalOperationAst,
+> {
 	readonly result: RuntimeOperationResult<TOperation>
 }
 
 /** Observes the final operation before persistence without replacing its AST. */
 export type BeforeOperationHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 > = (
 	input: RuntimeInterceptorOperationInput<
 		RuntimeInterceptorOperation<TSchema, TOperationKind>
@@ -83,7 +92,7 @@ export type BeforeOperationHandler<
 
 export type AfterOperationHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 > = (
 	input: RuntimeInterceptorResultInput<
 		RuntimeInterceptorOperation<TSchema, TOperationKind>
@@ -101,7 +110,7 @@ export type PreparedOperationHandler<TSchema extends SchemaDefinition> = (
 
 interface RuntimeContributionOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 	THandler,
 > {
 	/** Omitting schema declares a global contribution. */
@@ -113,7 +122,7 @@ interface RuntimeContributionOptions<
 
 export type BeforeOperationOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = RuntimeContributionOptions<
 	TSchema,
 	TOperations,
@@ -122,7 +131,7 @@ export type BeforeOperationOptions<
 
 export type AfterOperationOptions<
 	TSchema extends SchemaDefinition,
-	TOperations extends readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[],
 > = RuntimeContributionOptions<
 	TSchema,
 	TOperations,
@@ -143,7 +152,7 @@ declare const runtimeContributionType: unique symbol
 interface RuntimeContributionDefinition<
 	TKind extends RuntimeContributionKind,
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 	THandler,
 > {
 	readonly kind: TKind
@@ -155,7 +164,8 @@ interface RuntimeContributionDefinition<
 
 export type BeforeOperationDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = RuntimeContributionDefinition<
 	'before-operation',
 	TSchema,
@@ -165,7 +175,8 @@ export type BeforeOperationDefinition<
 
 export type AfterOperationDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > = RuntimeContributionDefinition<
 	'after-operation',
 	TSchema,
@@ -193,14 +204,14 @@ type RuntimeContributionKind =
 interface RuntimeContributionImplementation {
 	readonly kind: RuntimeContributionKind
 	readonly schema: SchemaDefinition | undefined
-	readonly operations: readonly OperationKind[] | undefined
+	readonly operations: readonly RuntimeLogicalOperationKind[] | undefined
 	run(input: RuntimeContributionInput): MaybePromise<unknown>
 }
 
 type RuntimeContributionInput =
-	| RuntimeInterceptorOperationInput<DatabaseOperationAst>
+	| RuntimeInterceptorOperationInput<RuntimeLogicalOperationAst>
 	| RuntimePreparedOperationInput<DatabaseMutationOperationAst>
-	| RuntimeInterceptorResultInput<DatabaseOperationAst>
+	| RuntimeInterceptorResultInput<RuntimeLogicalOperationAst>
 
 type ErasedRuntimeContributionHandler = (
 	input: RuntimeContributionInput,
@@ -214,8 +225,8 @@ const runtimeContributionImplementations = new WeakMap<
 const contributionOptionKeys = new Set(['handler', 'operations', 'schema'])
 
 const normalizeOperations = (
-	operations: readonly OperationKind[] | undefined,
-): readonly OperationKind[] | undefined => {
+	operations: readonly RuntimeLogicalOperationKind[] | undefined,
+): readonly RuntimeLogicalOperationKind[] | undefined => {
 	if (operations === undefined) {
 		return undefined
 	}
@@ -231,20 +242,22 @@ const normalizeOperations = (
 		)
 	}
 
-	const normalizedOperations: OperationKind[] = []
+	const normalizedOperations: RuntimeLogicalOperationKind[] = []
 
 	for (const operation of untrustedOperations) {
 		if (
 			typeof operation !== 'string' ||
-			!runtimeOperationKinds.has(operation as OperationKind)
+			!runtimeOperationKinds.has(operation as RuntimeLogicalOperationKind)
 		) {
 			throw new TypeError(
 				`Unknown runtime operation kind: ${String(operation)}`,
 			)
 		}
 
-		if (!normalizedOperations.includes(operation as OperationKind)) {
-			normalizedOperations.push(operation as OperationKind)
+		if (
+			!normalizedOperations.includes(operation as RuntimeLogicalOperationKind)
+		) {
+			normalizedOperations.push(operation as RuntimeLogicalOperationKind)
 		}
 	}
 
@@ -276,7 +289,7 @@ const assertContributionOptions = (options: unknown): void => {
 const defineRuntimeContribution = <
 	const TKind extends RuntimeContributionKind,
 	const TSchema extends SchemaDefinition,
-	const TOperations extends readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[],
 	THandler,
 >(
 	kind: TKind,
@@ -315,7 +328,8 @@ const defineRuntimeContribution = <
 /** Declares a global or schema-scoped operation observer before persistence. */
 export const beforeOperation = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: BeforeOperationOptions<TSchema, TOperations>,
 ): BeforeOperationDefinition<TSchema, TOperations[number]> =>
@@ -324,7 +338,8 @@ export const beforeOperation = <
 /** Declares a global or schema-scoped result transformer before commit. */
 export const afterOperation = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: AfterOperationOptions<TSchema, TOperations>,
 ): AfterOperationDefinition<TSchema, TOperations[number]> =>
@@ -354,7 +369,7 @@ export const getRuntimeContributionImplementation = (
 
 /** Creates a fresh immutable envelope for every sequential callback. */
 export const createBeforeContributionInput = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	context: RequestContext,
 	operation: TOperation,
@@ -363,12 +378,13 @@ export const createBeforeContributionInput = <
 
 /** Creates a fresh immutable envelope for result interceptors and observers. */
 export const createAfterContributionInput = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
 	context: RequestContext,
 	operation: TOperation,
-	result: RuntimeOperationResult<TOperation>,
-): RuntimeInterceptorResultInput<TOperation> =>
+	result: TResult,
+): RuntimeInterceptorResultInput<TOperation, TResult> =>
 	immutableRecord({ context, operation, result })
 
 /** Creates one isolated envelope for an authorized locked-target transformer. */

@@ -295,7 +295,13 @@ export type {
 	RuntimeEnforcementStageInput,
 	RuntimeEnforcementStages,
 	RuntimeFinalMutationGuardStage,
+	RuntimeDatabaseResult,
 	RuntimeDatabaseResultStageInput,
+	RuntimeLogicalMutationOperationAst,
+	RuntimeLogicalOperationAst,
+	RuntimeLogicalOperationKind,
+	RuntimeMutationLogicalRecord,
+	RuntimeMutationOutcome,
 	RuntimeMutationOutcomeTransformStage,
 	RuntimeMutationOutcomeStageInput,
 	RuntimeProjectedDatabaseResultStageInput,
@@ -317,6 +323,7 @@ export type {
 	RuntimeResultEffectStage,
 	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
+	RuntimeSchemaMutationOutcome,
 } from './pipeline/contracts.js'
 export { createRuntimeBehaviorBoundaries } from './behaviors/boundaries.js'
 export type { RuntimeBehaviorBoundaries } from './behaviors/boundaries.js'

@@ -15,11 +15,16 @@ import { createEnforcementState } from '../enforcement/state.js'
 import type {
 	RuntimeBehaviorStages,
 	RuntimeFinalMutationGuardStage,
+	RuntimeLogicalOperationAst,
+	RuntimeLogicalOperationKind,
+	RuntimeMutationOutcomeStageInput,
 	RuntimeMutationRevalidationStageInput,
+	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
 } from './contracts.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 
 const articleSchema = Schema.define({
@@ -142,4 +147,51 @@ test('types final mutation guards without exposing operation replacement', () =>
 		// @ts-expect-error -- A guard cannot return an operation replacement.
 		(input) => input.operation
 	void invalidGuard
+})
+
+test('types the logical schema-mutation identity at shared Runtime stages', () => {
+	type LogicalInput =
+		RuntimeOperationStageInput<PluginSchemaMutationOperationAst>
+	type PreparedInput =
+		RuntimePreparedMutationStageInput<PluginSchemaMutationOperationAst>
+	type OutcomeInput =
+		RuntimeMutationOutcomeStageInput<PluginSchemaMutationOperationAst>
+
+	expectTypeOf<RuntimeLogicalOperationKind>().toEqualTypeOf<
+		| 'count'
+		| 'create-many'
+		| 'create-one'
+		| 'delete-many'
+		| 'delete-one'
+		| 'exists'
+		| 'find-many'
+		| 'find-one'
+		| 'get'
+		| 'plugin-schema-mutation'
+		| 'update-many'
+		| 'update-one'
+		| 'upsert-many'
+		| 'upsert-one'
+	>()
+	expectTypeOf<PluginSchemaMutationOperationAst>().toExtend<RuntimeLogicalOperationAst>()
+	expectTypeOf<
+		LogicalInput['operation']['kind']
+	>().toEqualTypeOf<'plugin-schema-mutation'>()
+	expectTypeOf<PreparedInput['target']>().toEqualTypeOf<
+		Readonly<Record<string, unknown>> | null | undefined
+	>()
+	expectTypeOf<OutcomeInput['outcome']['materializations']>().toExtend<
+		readonly unknown[]
+	>()
+
+	const logicalBehavior = {
+		beforeOperation: (input) => {
+			if (input.operation.kind === 'plugin-schema-mutation') {
+				expectTypeOf(input.operation.command).toBeString()
+			}
+		},
+		transformResult: (input) => input.result,
+	} satisfies RuntimeBehaviorStages
+
+	expectTypeOf(logicalBehavior).toExtend<RuntimeBehaviorStages>()
 })

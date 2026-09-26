@@ -12,7 +12,6 @@ import {
 	type CapabilityToken,
 } from '../plugins/capabilities.js'
 import type { PluginPrivilege } from '../plugins/manifest.js'
-import type { OperationKind } from '../query/index.js'
 import type { SchemaDefinition } from '../schema/index.js'
 import type { EnforcementContributionKind } from './enforcement/contracts.js'
 import { getEnforcementContributionImplementation } from './enforcement/definitions.js'
@@ -21,12 +20,15 @@ import {
 	type ProtectedPolicyDefinition,
 } from './enforcement/protected-policy.js'
 import { getRuntimeContributionImplementation } from './contributions/definitions.js'
-import type { RuntimeBehaviorStages } from './pipeline/contracts.js'
+import type {
+	RuntimeBehaviorStages,
+	RuntimeLogicalOperationKind,
+} from './pipeline/contracts.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
 export type RuntimeInterceptorDefinition = Readonly<{
 	kind: 'after-operation' | 'before-operation' | 'prepared-operation'
-	operations: readonly OperationKind[] | undefined
+	operations: readonly RuntimeLogicalOperationKind[] | undefined
 	schema: SchemaDefinition | undefined
 }>
 
@@ -34,7 +36,7 @@ export type RuntimeInterceptorDefinition = Readonly<{
 export type RuntimeConstraintDefinition =
 	| Readonly<{
 			kind: EnforcementContributionKind
-			operations: readonly OperationKind[] | undefined
+			operations: readonly RuntimeLogicalOperationKind[] | undefined
 			schema: SchemaDefinition | undefined
 	  }>
 	| ProtectedPolicyDefinition

@@ -7,17 +7,17 @@ import {
 } from '@ultimabase/shared'
 import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
-import type { OperationKind } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import type {
+	RuntimeLogicalMutationOperationAst,
+	RuntimeLogicalOperationAst,
+	RuntimeLogicalOperationKind,
 	RuntimeMutationOutcomeStageInput,
-	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
 	RuntimeRelationEnforcementStageInput,
@@ -42,50 +42,54 @@ export interface ProtectedPolicyEffects {
 
 /** Evaluates an operation before business middleware receives it. */
 export type ProtectedPolicyEvaluate = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<ProtectedPolicyEffects | undefined>
 
 /** Rechecks transformed operation values without receiving accumulated policy state. */
 export type ProtectedPolicyReevaluate = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<boolean | undefined>
 
 /** Authorizes one source relationship before its target query can execute. */
 export type ProtectedPolicyRelationGuard = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeRelationEnforcementStageInput<TOperation>,
 ) => MaybePromise<boolean | undefined>
 
 /** Authorizes one stable mutation target before persistence. */
 export type ProtectedPolicyPreparedMutationGuard = <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TTarget,
 >(
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
 ) => MaybePromise<boolean | undefined>
 
 /** Authorizes the actual mutation branch and its complete materialization. */
 export type ProtectedPolicyMutationOutcomeGuard = <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TOutcome,
 >(
-	input: RuntimeMutationOutcomeStageInput<TOperation>,
+	input: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
 ) => MaybePromise<boolean | undefined>
 
 /** Returns only a structural subset of the final result received by the policy. */
 export type ProtectedPolicyResultRestriction = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeResultStageInput<TOperation>,
-) => MaybePromise<RuntimeOperationResult<TOperation> | undefined>
+	input: RuntimeResultStageInput<TOperation, TResult>,
+) => MaybePromise<TResult | undefined>
 
 /** Configures one application-local protected policy without exposing Core state. */
 export interface ProtectedPolicyOptions<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 > {
 	/** Limits the policy to one exact application-owned schema. */
 	readonly schema?: TSchema
@@ -110,7 +114,8 @@ declare const protectedPolicyDefinitionType: unique symbol
 /** Retains inert matching metadata while executable handlers remain private. */
 export interface ProtectedPolicyDefinition<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends OperationKind = OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind =
+		RuntimeLogicalOperationKind,
 > {
 	readonly kind: 'protected-policy'
 	readonly schema: TSchema | undefined
@@ -123,7 +128,7 @@ export interface ProtectedPolicyImplementation {
 	readonly kind: 'protected-policy'
 	readonly master: 'bypass' | 'enforce'
 	readonly schema: SchemaDefinition | undefined
-	readonly operations: readonly OperationKind[] | undefined
+	readonly operations: readonly RuntimeLogicalOperationKind[] | undefined
 	readonly evaluate: ProtectedPolicyEvaluate | undefined
 	readonly reevaluate: ProtectedPolicyReevaluate | undefined
 	readonly relation: ProtectedPolicyRelationGuard | undefined
@@ -160,7 +165,8 @@ const handlerKeys = [
 /** Declares a product-neutral policy whose outputs Core can only accumulate. */
 export const protectedPolicy = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly OperationKind[] = readonly OperationKind[],
+	const TOperations extends readonly RuntimeLogicalOperationKind[] =
+		readonly RuntimeLogicalOperationKind[],
 >(
 	options: ProtectedPolicyOptions<TSchema, TOperations>,
 ): ProtectedPolicyDefinition<TSchema, TOperations[number]> => {
@@ -292,7 +298,7 @@ export const normalizeProtectedPolicyEffects = (
 /** Matches inert schema and operation metadata without invoking one policy. */
 export const matchesProtectedPolicy = (
 	implementation: ProtectedPolicyImplementation,
-	operation: { readonly kind: OperationKind },
+	operation: { readonly kind: RuntimeLogicalOperationKind },
 	schema: SchemaDefinition,
 ): boolean =>
 	(implementation.operations === undefined ||

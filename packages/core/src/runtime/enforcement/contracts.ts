@@ -2,16 +2,17 @@ import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
 	ExecutableOperationAst,
-	OperationKind,
 	QueryFieldName,
 } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
+import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type {
-	DatabaseConstraintNode,
-	DatabaseOperationAst,
-} from '../database/contracts.js'
-import type { RuntimeOperationResult } from '../pipeline/contracts.js'
+	RuntimeLogicalOperationAst,
+	RuntimeLogicalOperationKind,
+	RuntimeOperationResult,
+} from '../pipeline/contracts.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 
 export type { DatabaseConstraintNode } from '../database/contracts.js'
 
@@ -28,7 +29,7 @@ export type EnforcementFieldBoundary = 'input' | 'output' | 'selection'
 
 /** Supplies an exact operation and trusted request authority to one enforcement callback. */
 export interface EnforcementOperationInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > {
 	readonly context: RequestContext
 	readonly operation: TOperation
@@ -36,7 +37,7 @@ export interface EnforcementOperationInput<
 
 /** Adds the exact transformed result only at the final output boundary. */
 export interface EnforcementOutputInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > extends EnforcementOperationInput<TOperation> {
 	readonly result: RuntimeOperationResult<TOperation>
 }
@@ -44,13 +45,15 @@ export interface EnforcementOutputInput<
 /** Resolves the schema-specific AST selected by a contribution declaration. */
 export type EnforcementOperation<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
-> = Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
+	TOperationKind extends RuntimeLogicalOperationKind,
+> = TOperationKind extends 'plugin-schema-mutation'
+	? PluginSchemaMutationOperationAst
+	: Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
 
 /** Rejects by throwing and deliberately has no grant-shaped return value. */
 export type EnforcementGuardHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 > = (
 	input: EnforcementOperationInput<
 		EnforcementOperation<TSchema, TOperationKind>
@@ -60,7 +63,7 @@ export type EnforcementGuardHandler<
 /** Appends opaque constraints without receiving accumulated state. */
 export type EnforcementConstraintHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 	TConstraint extends DatabaseConstraintNode,
 > = (
 	input: EnforcementOperationInput<
@@ -71,7 +74,7 @@ export type EnforcementConstraintHandler<
 /** Returns the only schema fields this contribution permits at one boundary. */
 export type EnforcementFieldRestrictionHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 > = (
 	input: EnforcementOperationInput<
 		EnforcementOperation<TSchema, TOperationKind>
@@ -81,7 +84,7 @@ export type EnforcementFieldRestrictionHandler<
 /** Narrows the final transformed result without allowing a value replacement. */
 export type EnforcementOutputRestrictionHandler<
 	TSchema extends SchemaDefinition,
-	TOperationKind extends OperationKind,
+	TOperationKind extends RuntimeLogicalOperationKind,
 > = (
 	input: EnforcementOutputInput<EnforcementOperation<TSchema, TOperationKind>>,
 ) => MaybePromise<readonly QueryFieldName<TSchema>[]>

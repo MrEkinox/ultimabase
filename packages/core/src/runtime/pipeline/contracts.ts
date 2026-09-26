@@ -2,6 +2,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type {
 	OperationRecordResult,
 	OperationAstNode,
+	OperationKind,
 } from '../../query/index.js'
 
 import type { RequestContext } from '../context/request-context.js'
@@ -22,6 +23,51 @@ import type {
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
 import type { RuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
+
+/** Lists the native and plugin-owned logical operations shared Runtime stages observe. */
+export type RuntimeLogicalOperationAst =
+	DatabaseOperationAst | PluginSchemaMutationOperationAst
+
+/** Names every logical discriminant accepted by shared Runtime lifecycle stages. */
+export type RuntimeLogicalOperationKind =
+	OperationKind | PluginSchemaMutationOperationAst['kind']
+
+/** Lists logical mutations that expose a stable target or persisted outcome. */
+export type RuntimeLogicalMutationOperationAst =
+	DatabaseMutationOperationAst | PluginSchemaMutationOperationAst
+
+/** Correlates one logical operation with its pre-hydration persisted result. */
+export type RuntimeDatabaseResult<
+	TOperation extends RuntimeLogicalOperationAst,
+> = TOperation extends PluginSchemaMutationOperationAst
+	? Readonly<Record<string, unknown>>
+	: TOperation extends DatabaseOperationAst
+		? DatabaseOperationResult<TOperation>
+		: never
+
+/** Correlates one logical mutation with the complete record at its target boundary. */
+export type RuntimeMutationLogicalRecord<
+	TOperation extends RuntimeLogicalMutationOperationAst,
+> = TOperation extends PluginSchemaMutationOperationAst
+	? Readonly<Record<string, unknown>>
+	: TOperation extends DatabaseMutationOperationAst
+		? DatabaseMutationLogicalRecord<TOperation>
+		: never
+
+/** Carries the validated update or delete materialization of one schema mutation. */
+export interface RuntimeSchemaMutationOutcome extends DatabaseMutationMaterializationSource {
+	readonly result: Readonly<Record<string, unknown>> | null
+}
+
+/** Correlates one logical mutation with the adapter-validated materialization it observes. */
+export type RuntimeMutationOutcome<
+	TOperation extends RuntimeLogicalMutationOperationAst,
+> = TOperation extends PluginSchemaMutationOperationAst
+	? RuntimeSchemaMutationOutcome
+	: TOperation extends DatabaseMutationOperationAst
+		? DatabaseOperationOutcome<TOperation>
+		: never
 
 /** Starts one pipeline execution with trusted request identity and one Operation AST. */
 export interface RuntimePipelineRequest<
@@ -41,7 +87,7 @@ export interface RuntimePipelineRequest<
 
 /** Supplies normalization, validation, guards, and behaviors with immutable request state. */
 export interface RuntimeOperationStageInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > {
 	readonly context: RequestContext
 	/** Identifies the Core-owned nested node currently using this ordinary lifecycle. */
@@ -51,14 +97,14 @@ export interface RuntimeOperationStageInput<
 
 /** Carries private monotonic state without exposing it to plugin handlers. */
 export interface RuntimeEnforcementStageInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly enforcement: EnforcementState
 }
 
 /** Reapplies every retained restriction and forwards accumulated constraints. */
 export interface RuntimeEnforcementOperationResult<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
 > {
 	readonly operation: TOperation
 	readonly constraints: readonly DatabaseConstraintNode[]
@@ -69,21 +115,28 @@ export interface RuntimeEnforcementOperationResult<
 }
 
 /** Represents the post-hydration record shape observed by result behaviors. */
-export type RuntimeOperationResult<TOperation extends OperationAstNode> =
-	OperationRecordResult<TOperation>
+export type RuntimeOperationResult<
+	TOperation extends RuntimeLogicalOperationAst,
+> = TOperation extends PluginSchemaMutationOperationAst
+	? Readonly<Record<string, unknown>>
+	: TOperation extends OperationAstNode
+		? OperationRecordResult<TOperation>
+		: never
 
 /** Supplies pre-hydration adapter records to projection and scalar resolution. */
 export interface RuntimeDatabaseResultStageInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
+	TResult = RuntimeDatabaseResult<TOperation>,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly result: DatabaseOperationResult<TOperation>
+	readonly result: TResult
 }
 
 /** Supplies result behaviors, commit, and observers with the current result. */
 export interface RuntimeResultStageInput<
-	TOperation extends DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst,
+	TResult = RuntimeOperationResult<TOperation>,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly result: RuntimeOperationResult<TOperation>
+	readonly result: TResult
 }
 
 /** Transforms one exact operation without changing its schema-specific type. */
@@ -113,60 +166,62 @@ export type RuntimeMutationRevalidationStage = <
 
 /** Observes or rejects one operation without replacing its trusted context. */
 export type RuntimeOperationGuardStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<void>
 
 /** Evaluates deny-only and monotonic contributions before business effects. */
 export type RuntimeEnforcementEvaluationStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<EnforcementState>
 
 /** Rechecks transformed values while retaining the existing monotonic state. */
 export type RuntimeEnforcementReevaluationStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeEnforcementStageInput<TOperation>,
 ) => MaybePromise<EnforcementState>
 
 /** Applies retained input and selection intersections to one exact operation. */
 export type RuntimeEnforcementOperationStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeEnforcementStageInput<TOperation>,
 ) => MaybePromise<RuntimeEnforcementOperationResult<TOperation>>
 
 /** Applies the final output intersection after every result transform. */
 export type RuntimeEnforcementResultStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeResultStageInput<TOperation> & {
+	input: RuntimeResultStageInput<TOperation, TResult> & {
 		readonly enforcement: EnforcementState
 	},
-) => MaybePromise<RuntimeOperationResult<TOperation>>
+) => MaybePromise<TResult>
 
 /** Applies selection restrictions before pointer hydration changes field values. */
 export type RuntimeEnforcementSelectionResultStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeDatabaseResultStageInput<TOperation> & {
+	input: RuntimeDatabaseResultStageInput<TOperation, TResult> & {
 		readonly enforcement: EnforcementState
 	},
-) => MaybePromise<DatabaseOperationResult<TOperation>>
+) => MaybePromise<TResult>
 
 /** Supplies one protected relation traversal only to monotonic enforcement. */
 export interface RuntimeRelationEnforcementStageInput<
-	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
+	TOperation extends RuntimeLogicalOperationAst = RuntimeLogicalOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly relation: DatabaseRelationReference
 }
 
 /** Authorizes one source relation field before its target query executes. */
 export type RuntimeRelationEnforcementStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeRelationEnforcementStageInput<TOperation>,
 ) => MaybePromise<void>
@@ -193,29 +248,33 @@ export interface RuntimeEnforcementStages {
 
 /** Transforms one adapter result while preserving operation result semantics. */
 export type RuntimeResultTransformStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeResultStageInput<TOperation>,
-) => MaybePromise<RuntimeOperationResult<TOperation>>
+	input: RuntimeResultStageInput<TOperation, TResult>,
+) => MaybePromise<TResult>
 
 /** Carries an exact pre-hydration projection into scalar field resolution. */
 export interface RuntimeProjectedDatabaseResultStageInput<
-	TOperation extends DatabaseOperationAst,
-> extends RuntimeDatabaseResultStageInput<TOperation> {
+	TOperation extends RuntimeLogicalOperationAst,
+	TResult = RuntimeDatabaseResult<TOperation>,
+> extends RuntimeDatabaseResultStageInput<TOperation, TResult> {
 	readonly selectedFieldsOverride?: readonly string[]
 }
 
 /** Resolves scalar output while pointer fields still retain declared values. */
 export type RuntimeProjectedDatabaseResultTransformStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeProjectedDatabaseResultStageInput<TOperation>,
-) => MaybePromise<DatabaseOperationResult<TOperation>>
+	input: RuntimeProjectedDatabaseResultStageInput<TOperation, TResult>,
+) => MaybePromise<TResult>
 
 /** Carries an exact policy projection when an empty QueryBuilder selection means no fields. */
 export interface RuntimeMaterializedResultStageInput<
-	TOperation extends DatabaseOperationAst,
-> extends RuntimeResultStageInput<TOperation> {
+	TOperation extends RuntimeLogicalOperationAst,
+	TResult = RuntimeOperationResult<TOperation>,
+> extends RuntimeResultStageInput<TOperation, TResult> {
 	/** Carries complete mutation snapshots without exposing them through selection. */
 	readonly outcome?: DatabaseMutationMaterializationSource
 	readonly selectedFieldsOverride?: readonly string[]
@@ -223,63 +282,75 @@ export interface RuntimeMaterializedResultStageInput<
 
 /** Transforms one native result without losing its effective projection boundary. */
 export type RuntimeMaterializedResultTransformStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeMaterializedResultStageInput<TOperation>,
-) => MaybePromise<RuntimeOperationResult<TOperation>>
+	input: RuntimeMaterializedResultStageInput<TOperation, TResult>,
+) => MaybePromise<TResult>
 
 /** Performs commit or post-commit work without replacing the developer result. */
 export type RuntimeResultEffectStage = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeResultStageInput<TOperation>,
+	input: RuntimeResultStageInput<TOperation, TResult>,
 ) => MaybePromise<void>
 
 /** Supplies the prepared singular target without exposing the executable handle. */
 export interface RuntimePreparedMutationStageInput<
-	TOperation extends DatabaseMutationOperationAst,
+	TOperation extends RuntimeLogicalMutationOperationAst,
+	TTarget = RuntimeMutationLogicalRecord<TOperation>,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+	readonly target: TTarget | null | undefined
 	/** Contains stable set-based preimages only when installed behaviors require them. */
-	readonly targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
+	readonly targets?: readonly TTarget[]
 }
 
 /** Supplies complete private materializations separately from the public result. */
 export interface RuntimeMutationOutcomeStageInput<
-	TOperation extends DatabaseMutationOperationAst,
+	TOperation extends RuntimeLogicalMutationOperationAst,
+	TOutcome = RuntimeMutationOutcome<TOperation>,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly outcome: DatabaseOperationOutcome<TOperation>
+	readonly outcome: TOutcome
 	/** Carries the adapter's exact persisted projection without changing the logical operation. */
 	readonly selectedFieldsOverride?: readonly string[]
 }
 
 /** Executes affected-field behavior without granting handle ownership. */
 export type RuntimePreparedMutationEffectStage = <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TTarget,
 >(
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
 ) => MaybePromise<void>
 
 /** Rejects one final structurally valid mutation without replacing it. */
 export type RuntimeFinalMutationGuardStage = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		TOperation,
+		DatabaseMutationLogicalRecord<TOperation>
+	>,
 ) => MaybePromise<void>
 
 /** Replaces values for one locked singular mutation without changing its target. */
 export type RuntimePreparedMutationTransformStage = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<
+		TOperation,
+		DatabaseMutationLogicalRecord<TOperation>
+	>,
 ) => MaybePromise<TOperation>
 
 /** Validates private materializations while executing their field effects. */
 export type RuntimeMutationOutcomeTransformStage = <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TOutcome,
 >(
-	input: RuntimeMutationOutcomeStageInput<TOperation>,
-) => MaybePromise<DatabaseOperationOutcome<TOperation>>
+	input: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
+) => MaybePromise<TOutcome>
 
 /**
  * Groups optional product behavior at Core-owned logical Runtime boundaries.

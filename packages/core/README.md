@@ -568,6 +568,14 @@ keeps the logical `plugin-schema-mutation` identity through policy and behavior,
 and compiles the final `update-one` or Master-only `delete-one` plan inside the
 automatic transaction.
 
+Shared Runtime callbacks expose that existing distinction through
+`RuntimeLogicalOperationAst` and `RuntimeLogicalOperationKind`. A generic
+before/after interceptor or monotonic policy can therefore narrow on
+`kind === 'plugin-schema-mutation'` without casting. Adapter execution,
+normalization, prepared CRUD transforms, and `RuntimePipeline.execute()` remain
+restricted to native database operations; this typing does not merge the two
+execution pipelines.
+
 Optional engines can require the versioned
 `applicationSchemaMutationSurfaceCapability` to inspect each application's
 immutable callback-free mutation catalog. Core supplies that catalog only on

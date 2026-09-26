@@ -5,17 +5,12 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type {
-	DatabaseOperationAst,
-	DatabaseOperationResult,
-} from '../database/contracts.js'
-import type { ExecutableOperationAst } from '../../query/index.js'
 import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
 import { narrowRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { readOperationResultInclusion } from '../operations/queries.js'
 import type {
+	RuntimeLogicalOperationAst,
 	RuntimeDatabaseResultStageInput,
-	RuntimeOperationResult,
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
 import {
@@ -75,12 +70,13 @@ const restrictResult = <const TResult>(
 
 /** Hides selection-restricted fields before any output behavior can observe them. */
 export const enforceSelectionResultRestrictions = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
-	input: RuntimeDatabaseResultStageInput<TOperation> & {
+	input: RuntimeDatabaseResultStageInput<TOperation, TResult> & {
 		readonly enforcement: EnforcementState
 	},
-): DatabaseOperationResult<TOperation> => {
+): TResult => {
 	const snapshot = getEnforcementStateSnapshot(input.enforcement)
 
 	return restrictResult(input.result, snapshot.selectionFields)
@@ -88,14 +84,15 @@ export const enforceSelectionResultRestrictions = <
 
 /** Evaluates final output restrictions after business result replacement. */
 export const enforceOutputRestrictions = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	runtime: RuntimeCallbackExecutor,
-	input: RuntimeResultStageInput<TOperation> & {
+	input: RuntimeResultStageInput<TOperation, TResult> & {
 		readonly enforcement: EnforcementState
 	},
-): Promise<RuntimeOperationResult<TOperation>> => {
+): Promise<TResult> => {
 	const schema = readEnforcementOperationSchema(input.operation)
 	let state = input.enforcement
 
@@ -149,9 +146,7 @@ export const enforceOutputRestrictions = async <
 
 	// Relationship inclusions are a separately validated output projection and
 	// never enter the physical scalar selection narrowed by policy providers.
-	const inclusionFields = readOperationResultInclusion(
-		input.operation as unknown as ExecutableOperationAst,
-	)
+	const inclusionFields = readOperationResultInclusion(input.operation)
 		.fields.map(({ field }) => field)
 		.filter(
 			(field) =>

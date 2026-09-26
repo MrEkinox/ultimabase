@@ -5,7 +5,6 @@ import {
 	runWithApplicationOwner,
 	runWithApplicationPluginOwner,
 } from '../../plugins/callback-execution.js'
-import type { OperationKind } from '../../query/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -15,11 +14,12 @@ import {
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { readApplicationRuntimeKernelState } from '../../application/application-kernel-state.js'
+import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
 
 /** Identifies one callback without retaining request values or callback inputs. */
 export interface RuntimeCallbackDescriptor {
 	readonly key: string
-	readonly operationKind: OperationKind
+	readonly operationKind: RuntimeLogicalOperationKind
 	readonly owner: Readonly<
 		| {
 				readonly contributionId: string

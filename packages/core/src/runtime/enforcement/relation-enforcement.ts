@@ -1,5 +1,4 @@
 import type {
-	ExecutableOperationAst,
 	QueryExpressionNode,
 	QueryRelationFilterNode,
 } from '../../query/index.js'
@@ -18,7 +17,10 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
 import { readOperationQueries } from '../operations/queries.js'
-import type { RuntimeOperationStageInput } from '../pipeline/contracts.js'
+import type {
+	RuntimeLogicalOperationAst,
+	RuntimeOperationStageInput,
+} from '../pipeline/contracts.js'
 import {
 	evaluateEnforcementContributions,
 	type OwnedEnforcementContribution,
@@ -76,7 +78,7 @@ export const createRelationPredicateTargetOperation = (
 }
 
 type RelationPredicateEvaluator = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 	initialState: EnforcementState,
@@ -93,12 +95,10 @@ export const createRelationPredicateEvaluator = (
 		initialState,
 		policyExpressions = [],
 	) => {
-		// Structural validation has already proven the closed executable-operation union.
-		const executable = input.operation as unknown as ExecutableOperationAst
 		let state = initialState
 		const policyRowFilter = getEnforcementStateSnapshot(state).rowFilter
 		const expressions = [
-			...readOperationQueries(executable).flatMap((query) =>
+			...readOperationQueries(input.operation).flatMap((query) =>
 				query.where === undefined
 					? []
 					: [

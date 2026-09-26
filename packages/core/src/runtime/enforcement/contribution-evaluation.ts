@@ -18,17 +18,17 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type {
-	DatabaseConstraintNode,
-	DatabaseOperationAst,
-} from '../database/contracts.js'
+import type { DatabaseConstraintNode } from '../database/contracts.js'
 import {
 	createRuntimeCallbackDescriptor,
 	type RuntimeCallbackDescriptor,
 	type RuntimeCallbackExecutor,
 } from '../contributions/execution.js'
 import { getOperationSchema } from '../operations/schema.js'
-import type { RuntimeOperationStageInput } from '../pipeline/contracts.js'
+import type {
+	RuntimeLogicalOperationAst,
+	RuntimeOperationStageInput,
+} from '../pipeline/contracts.js'
 import type { EnforcementContributionImplementation } from './definitions.js'
 import type { EnforcementFieldBoundary } from './contracts.js'
 import {
@@ -112,7 +112,7 @@ const attributeProtectedPolicy = (
 /** Gives policy callbacks one stable product-neutral recursion identity. */
 export const createEnforcementExecutionDescriptor = (
 	owned: OwnedEnforcementContribution,
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): RuntimeCallbackDescriptor => {
 	const { contribution, implementation } = owned
 	if (implementation.kind === 'protected-policy') {
@@ -140,7 +140,7 @@ export const createEnforcementExecutionDescriptor = (
 
 /** Returns a trusted schema only after preserving the normalized AST invariant. */
 export const readEnforcementOperationSchema = (
-	operation: DatabaseOperationAst,
+	operation: RuntimeLogicalOperationAst,
 ): SchemaDefinition => {
 	const schema: unknown = getOperationSchema(operation)
 
@@ -244,7 +244,7 @@ export const normalizeEnforcementRestrictedFields = (
 
 /** Evaluates every non-output policy once while keeping accumulated state private. */
 export const evaluateEnforcementContributions = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	runtime: RuntimeCallbackExecutor,

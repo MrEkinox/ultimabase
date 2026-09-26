@@ -573,7 +573,7 @@ export class RuntimePipeline {
 		)
 
 		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			result = await this.#stages.enforcement.enforceResult<TOperation>(
+			result = await this.#stages.enforcement.enforceResult(
 				createRuntimeEnforcementResultInput(
 					context,
 					operation,

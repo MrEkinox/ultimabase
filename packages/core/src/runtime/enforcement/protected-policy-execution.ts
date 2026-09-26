@@ -1,12 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import type {
-	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
-} from '../database/contracts.js'
-import type {
+	RuntimeLogicalMutationOperationAst,
+	RuntimeLogicalOperationAst,
 	RuntimeMutationOutcomeStageInput,
-	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
 	RuntimeRelationEnforcementStageInput,
@@ -25,7 +23,7 @@ import { validateProtectedPolicyResultSubset } from './protected-result.js'
 
 const matchingPolicies = (
 	contributions: readonly OwnedEnforcementContribution[],
-	input: RuntimeOperationStageInput<DatabaseOperationAst>,
+	input: RuntimeOperationStageInput<RuntimeLogicalOperationAst>,
 ): readonly ProtectedPolicyImplementation[] => {
 	const schema = readEnforcementOperationSchema(input.operation)
 
@@ -54,7 +52,7 @@ const requireAllowed = (decision: unknown): void => {
 
 /** Rechecks value-dependent policies without exposing accumulated enforcement. */
 export const reevaluateProtectedPolicies = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimeOperationStageInput<TOperation>,
@@ -68,7 +66,7 @@ export const reevaluateProtectedPolicies = async <
 
 /** Denies one relationship traversal when any matching policy rejects it. */
 export const enforceProtectedRelation = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimeRelationEnforcementStageInput<TOperation>,
@@ -82,10 +80,11 @@ export const enforceProtectedRelation = async <
 
 /** Denies one stable mutation target when any matching policy rejects it. */
 export const enforceProtectedPreparedMutation = async <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TTarget,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
-	input: RuntimePreparedMutationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
 ): Promise<void> => {
 	for (const policy of matchingPolicies(contributions, input)) {
 		if (policy.preparedMutation !== undefined) {
@@ -96,11 +95,12 @@ export const enforceProtectedPreparedMutation = async <
 
 /** Denies one actual mutation branch when any matching policy rejects it. */
 export const enforceProtectedMutationOutcome = async <
-	const TOperation extends DatabaseMutationOperationAst,
+	const TOperation extends RuntimeLogicalMutationOperationAst,
+	const TOutcome,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
-	input: RuntimeMutationOutcomeStageInput<TOperation>,
-): Promise<RuntimeMutationOutcomeStageInput<TOperation>['outcome']> => {
+	input: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
+): Promise<TOutcome> => {
 	for (const policy of matchingPolicies(contributions, input)) {
 		if (policy.mutationOutcome !== undefined) {
 			requireAllowed(await policy.mutationOutcome(input))
@@ -127,11 +127,12 @@ export const protectedPoliciesRequirePreparedMutationItems = (
 
 /** Applies every protected projection while proving each step remains a subset. */
 export const restrictProtectedPolicyResult = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
-	input: RuntimeResultStageInput<TOperation>,
-): Promise<RuntimeOperationResult<TOperation>> => {
+	input: RuntimeResultStageInput<TOperation, TResult>,
+): Promise<TResult> => {
 	let result = input.result
 
 	for (const policy of matchingPolicies(contributions, input)) {

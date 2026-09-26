@@ -16,6 +16,7 @@ import {
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type {
 	RuntimeEnforcementOperationResult,
+	RuntimeLogicalOperationAst,
 	RuntimeOperationStageInput,
 } from '../pipeline/contracts.js'
 import { readEnforcementOperationSchema } from './contribution-evaluation.js'
@@ -160,13 +161,19 @@ const restrictSelection = (
 
 /** Rewrites only query selections while preserving the exact terminal shape. */
 const restrictOperationSelection = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	operation: TOperation,
 	permittedFields: readonly string[] | undefined,
 ): TOperation => {
 	if (permittedFields === undefined) {
 		return operation
+	}
+	if (operation.kind === 'plugin-schema-mutation') {
+		return immutableRecord({
+			...operation,
+			query: restrictQuerySelection(operation.query, permittedFields),
+		})
 	}
 	// The pipeline accepts only normalized executable operations at this point.
 	const executable = operation as unknown as ExecutableOperationAst
@@ -205,7 +212,7 @@ const restrictOperationSelection = <
 
 /** Reapplies the immutable plan after business transforms without reevaluation. */
 export const enforceOperationRestrictions = <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
@@ -214,7 +221,9 @@ export const enforceOperationRestrictions = <
 	const schema = readEnforcementOperationSchema(input.operation)
 	const snapshot = getEnforcementStateSnapshot(input.enforcement)
 
-	assertPermittedMutationInput(input.operation, snapshot.inputFields, schema)
+	if (input.operation.kind !== 'plugin-schema-mutation') {
+		assertPermittedMutationInput(input.operation, snapshot.inputFields, schema)
+	}
 
 	return immutableRecord({
 		constraints: snapshot.constraints,

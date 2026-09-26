@@ -1,30 +1,26 @@
-# Current plan: Runtime stage-plan simplification
+# Current plan: Runtime logical-operation typing
 
-- Status: completed
-- Milestone: 43
-- Baseline: `d39fa480`
-- Current issue: none
+- Status: active
+- Milestone: 44
+- Baseline: `d97afb1b`
+- Current issue: 4402
 
 The user authorized the next repository-wide debt reduction on 2026-09-26 while
-retaining every functional capability. Runtime behavior assembly currently
-scans one ordered provider list eleven times, and low-level interceptor assembly
-scans its ordered contribution list five times. This milestone replaces those
-parallel scans with two explicit one-pass collectors while retaining exact
-provider order, global/schema positioning, callback attribution, and optional
-stage absence.
+retaining every functional capability. Core's schema-mutation pipeline already
+passes its product-neutral `plugin-schema-mutation` identity through generic
+policy, behavior, result, and commit stages, but their exported types claim to
+accept only physical database operations. The implementation compensates with
+repeated `as never` and `as unknown as` bridges.
 
-Issue 4301 replaced one materialization map and eleven stage-specific scans
-with one explicit ordered behavior pass. It removes two production lines and,
-more importantly, eleven redundant traversals without introducing a dynamic
-stage registry.
+Milestone 44 makes those shared stages accept the truthful closed logical union
+while keeping ordinary CRUD and schema-mutation execution separate. Adapter,
+normalization, structural validation, prepared-transform, and persistence
+contracts remain database-operation-only unless they already receive the
+logical custom mutation today.
 
-Issue 4302 replaced five full interceptor filters with one explicit ordered
-classification pass. It removes 11 production lines and adds focused coverage
-for the required global/schema before-and-after execution order.
-
-Issue 4303 completed the parity audit. Runtime stage planning now uses two
-ordered passes instead of seventeen list traversals, removes 13 net production
-lines, and preserves every capability and stage position. Full typecheck, 2,567
-tests, lint, build, and 387 built E2E/PostgreSQL tests pass.
+Issue 4401 added the closed logical operation vocabulary and correlated shared
+stage inputs while retaining native-only adapter and CRUD pipeline contracts.
+It also aligned public interceptor and policy filters with the schema-mutation
+identity they already observed when no operation filter was configured.
 
 No push is authorized.

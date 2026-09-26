@@ -10,7 +10,7 @@ order: 2
 outcome: Identify when Core validates, enforces policy, writes, and commits.
 owner: '2821'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-26
 sources:
   - ARCHITECTURE.md
   - packages/core/docs/runtime.md
@@ -28,6 +28,14 @@ logical before/after-operation behavior and prepared-target transforms;
 `runtimePipelineStage()` and its normalization/commit contribution types are
 no longer exposed. Hook `beforeCommit`/`afterCommit` callbacks and post-commit
 events keep their existing behavior.
+
+The shared policy, before/after behavior, result, and commit contracts use the
+closed `RuntimeLogicalOperationAst` union. It contains native database
+operations plus the existing product-neutral `plugin-schema-mutation`
+identity, so callbacks can narrow that discriminant directly. This does not
+make a schema mutation an adapter operation: normalization, prepared CRUD
+transforms, `RuntimePipeline.execute()`, and database execution remain native
+operation boundaries.
 
 ## Mutation path
 

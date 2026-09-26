@@ -25,9 +25,7 @@ import { databaseConstraint } from '../enforcement/definitions.js'
 
 import type {
 	RuntimeEnforcementStages,
-	RuntimeOperationResult,
 	RuntimePreparedMutationTransformStage,
-	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
 } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
@@ -71,11 +69,7 @@ describe('RuntimePipeline', () => {
 				),
 			readObjectIdentity: (record) => identities.get(record),
 		}
-		const retainSecondResult: RuntimeResultTransformStage = <
-			const TOperation extends DatabaseOperationAst,
-		>(
-			input: RuntimeResultStageInput<TOperation>,
-		): RuntimeOperationResult<TOperation> => {
+		const retainSecondResult: RuntimeResultTransformStage = (input) => {
 			const secondResult = isUnknownArray(input.result)
 				? input.result[1]
 				: undefined
@@ -87,9 +81,7 @@ describe('RuntimePipeline', () => {
 				throw new TypeError('Expected a find result containing two records')
 			}
 
-			return immutableArray([
-				secondResult,
-			]) as unknown as RuntimeOperationResult<TOperation>
+			return immutableArray([secondResult]) as typeof input.result
 		}
 		const operation = immutableRecord({
 			kind: 'find-many',
