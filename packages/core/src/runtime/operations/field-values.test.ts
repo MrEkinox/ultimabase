@@ -17,9 +17,9 @@ import {
 } from './field-values.js'
 
 it('keeps the Runtime-specific malformed update diagnostic', () => {
-	expect(() =>
-		collectUpdateExpressionFieldNames({ kind: 'unknown' }),
-	).toThrow('Runtime field inputs require an update expression')
+	expect(() => collectUpdateExpressionFieldNames({ kind: 'unknown' })).toThrow(
+		'Runtime field inputs require an update expression',
+	)
 })
 
 const TraversalRecord = Schema.define({

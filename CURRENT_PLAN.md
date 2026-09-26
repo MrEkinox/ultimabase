@@ -1,9 +1,9 @@
 # Current plan: Canonical internal boundaries
 
-- Status: in progress
+- Status: completed
 - Milestone: 42
 - Baseline: `e0d0b4d1`
-- Current issue: 4204
+- Current issue: none
 
 The user authorized another repository-wide debt and DX reduction sequence on
 2026-09-26 while retaining every functional capability. This milestone targets
@@ -21,8 +21,16 @@ Issue 4202 made update application and Runtime field traversal share the
 canonical normalized-expression reader with 5 fewer handwritten production
 lines while preserving their distinct errors and operation semantics.
 
-Issue 4203 made five GraphQL compilers share one compiled-schema lookup with 19
+Issue 4203 made five GraphQL compilers share one compiled-schema lookup with 21
 fewer handwritten production lines and no change to generated names, ownership,
 or missing-graph diagnostics.
+
+Issue 4204 completed the parity audit. The milestone removes 50 net handwritten
+production lines, adds one focused diagnostic assertion, and leaves every
+public capability and type unchanged. Full typecheck, 2,566 tests, lint, build,
+and 387 built E2E/PostgreSQL tests pass. Scalar factory inheritance, relation
+collector merging, transport-normalizer merging, and lifecycle cleanup
+extraction were rejected where they harmed TypeScript DX, changed semantics, or
+failed to prove a worthwhile reduction.
 
 No push is authorized.

@@ -138,7 +138,8 @@ export class GraphqlMutationInputCompiler {
 		fieldName: string,
 		target: SchemaDefinition,
 	): GraphQLInputObjectType | undefined {
-		if (this.#compiled.surface(target).owner.kind !== 'application') return undefined
+		if (this.#compiled.surface(target).owner.kind !== 'application')
+			return undefined
 		const mappedBy = this.#schemas.schemaTargets.getRelation(source, [
 			fieldName,
 		])?.mappedBy

@@ -1,7 +1,4 @@
-import type {
-	CompiledSchemaRegistry,
-	SchemaDefinition,
-} from '@ultimabase/core'
+import type { CompiledSchemaRegistry, SchemaDefinition } from '@ultimabase/core'
 
 import type { GraphqlSchemaSurface } from './surfaces.js'
 

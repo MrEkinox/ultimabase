@@ -31,7 +31,7 @@ Field, filter, structural-filter, connection, and mutation compilers now share
 one private lookup object for required GraphQL surfaces and relationship
 targets. Nested compilers receive the same lookup instead of rebuilding it.
 Generated names and exact missing-surface or missing-target errors remain
-unchanged while handwritten production code decreases by 19 lines.
+unchanged while handwritten production code decreases by 21 lines.
 
 ## Validation
 
