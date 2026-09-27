@@ -1,4 +1,4 @@
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { pointerField, Schema, SchemaRegistry } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -67,6 +67,28 @@ describe('normalizeQueryInclusion', () => {
 		).toThrow(
 			new TypeError(
 				'query inclusion author must use target schema IncludedUser',
+			),
+		)
+	})
+
+	it('rejects relationship fields without a schema target', () => {
+		const malformedSchema = Schema.define({
+			className: 'MalformedInclusionTarget',
+			fields: () => ({
+				broken: pointerField({ target: () => ({}) as never }),
+			}),
+		})
+
+		expect(() =>
+			normalizeQueryInclusion(malformedSchema, [
+				{
+					field: 'broken',
+					query: new QueryBuilder(userSchema).ast,
+				},
+			] as never),
+		).toThrow(
+			new TypeError(
+				'query inclusion target must be created by Schema.define',
 			),
 		)
 	})

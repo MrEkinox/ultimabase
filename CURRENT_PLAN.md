@@ -1,28 +1,25 @@
-# Current plan: Runtime boundary regression repair
+# Current plan: Canonical Query inclusion resolution
 
 - Status: completed
-- Milestone: 57
-- Baseline: `270d60b9`
-- Completed issue: 5701
+- Milestone: 58
+- Baseline: `9b10358f`
+- Completed issue: 5801
 
-The complete coverage gate revealed two source-mode PostgreSQL E2E regressions
-that the ordinary root test command does not select. Bisecting unchanged tests
-proved that milestone 44 stopped returning Hooks' validated result snapshot and
-milestone 45 decoded complete mutation outcomes for native mutations that Access
-does not consume.
+Canonical object inputs, `QueryBuilder.include()`, and inclusion AST
+normalization currently repeat the same relationship-field and target-schema
+resolution. Replace those copies with one private Core resolver while retaining
+the exact pointer/relation input capabilities, immutable AST, inferred result,
+and Runtime behavior.
 
-Restore the exact pre-refactor behavior without weakening either test: Hooks
-must return the validated snapshot that retains private selection metadata, and
-Access must use Core's complete mutation-outcome decoder only for upserts, the
-sole native branch whose materializations it consumes. Then run the complete
-coverage gate plus the standard repository validation before committing.
+The change must produce a net reduction in production TypeScript and pass the
+complete coverage gate plus every standard repository validation command.
 
 No push is authorized.
 
 ## Outcome
 
-Hooks again returns Core's validated mutation-outcome and result snapshots, so
-private selection metadata survives ordered behavior composition. Access now
-invokes the complete mutation-outcome decoder only for native upserts, the only
-branch where it reads materializations. The unchanged public nested-write and
-virtual-field verticals pass, as does the complete coverage gate.
+One private Core resolver now validates the relationship field and target
+schema used by canonical object inputs, `QueryBuilder.include()`, and inclusion
+AST normalization. Production TypeScript is reduced by 19 lines,
+`query/input.ts` is back below the 400-line warning threshold, and the complete
+coverage gate passes without changing any public Query capability.

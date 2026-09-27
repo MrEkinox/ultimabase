@@ -1,4 +1,4 @@
-import type { SchemaDefinition } from '../../schema/index.js'
+import type { GenericField, SchemaDefinition } from '../../schema/index.js'
 import type {
 	SchemaRelationshipFieldName,
 	SchemaRelationshipTargetName,
@@ -14,7 +14,6 @@ import type {
 	QueryIncludedRelationNode,
 	QueryInclusionNode,
 } from '../ast/contracts.js'
-import { parsePersistedQueryFieldName } from '../ast/schema.js'
 
 export type QueryPointerFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'pointer'>
@@ -121,18 +120,31 @@ export const emptyQueryInclusion: QueryInclusionNode<never, never> =
 		kind: 'inclusion',
 	})
 
-const resolveInclusionTarget = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	fieldName: QueryIncludableFieldName<TSchema>,
-): SchemaDefinition => {
-	const normalizedFieldName = parsePersistedQueryFieldName(
-		schema,
-		fieldName,
-		'query inclusion field',
-	)
-	const field = schema.persistedFields[normalizedFieldName]
+type QueryInclusionField = GenericField & {
+	readonly kind: 'pointer' | 'relation'
+}
 
-	if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
+interface ResolvedQueryInclusionTarget {
+	readonly field: QueryInclusionField
+	readonly target: SchemaDefinition
+}
+
+const isQueryInclusionField = (
+	field: GenericField | undefined,
+): field is QueryInclusionField =>
+	field?.kind === 'pointer' || field?.kind === 'relation'
+
+/** Resolves the one relationship boundary shared by every Query inclusion author. */
+export const resolveQueryInclusionTarget = (
+	schema: SchemaDefinition,
+	fieldName: unknown,
+): ResolvedQueryInclusionTarget => {
+	const field =
+		typeof fieldName === 'string'
+			? schema.persistedFields[fieldName]
+			: undefined
+
+	if (!isQueryInclusionField(field)) {
 		throw new TypeError(
 			'query inclusion field must reference a pointer or relation field',
 		)
@@ -146,7 +158,7 @@ const resolveInclusionTarget = <const TSchema extends SchemaDefinition>(
 		)
 	}
 
-	return target
+	return { field, target }
 }
 
 /**
@@ -166,7 +178,7 @@ export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 	const nodes: QueryFieldInclusionNode<TSchema>[] = []
 
 	for (const input of inputs) {
-		const target = resolveInclusionTarget(schema, input.field)
+		const { field, target } = resolveQueryInclusionTarget(schema, input.field)
 
 		if (input.query.schema.definition !== target) {
 			throw new TypeError(
@@ -174,7 +186,6 @@ export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 			)
 		}
 
-		const field = schema.persistedFields[input.field]
 		const node = immutableRecord({
 			kind:
 				field.kind === 'pointer'

@@ -158,6 +158,13 @@ describe('canonical read inputs', () => {
 		expect(() => queryFromGetInput(Post, { id: 42 } as never)).toThrow(
 			'get input id must be a string',
 		)
+		expect(() =>
+			queryFromFindManyInput(Post, {
+				include: { title: {} },
+			} as never),
+		).toThrow(
+			'query inclusion field must reference a pointer or relation field',
+		)
 	})
 
 	it('normalizes object ordering and rejects invalid values and clauses', () => {

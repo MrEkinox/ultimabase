@@ -1,9 +1,4 @@
-import {
-	Schema,
-	type GenericField,
-	type SchemaDefinition,
-} from '../../schema/index.js'
-import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
@@ -21,7 +16,10 @@ import type {
 	QueryInclusionInput,
 	QueryInclusionTargetSchema,
 } from '../clauses/inclusion.js'
-import { normalizeQueryInclusion } from '../clauses/inclusion.js'
+import {
+	normalizeQueryInclusion,
+	resolveQueryInclusionTarget,
+} from '../clauses/inclusion.js'
 import {
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
@@ -107,18 +105,6 @@ import type {
 	ReplaceResultInclusion,
 } from './query-contracts.js'
 export type { QueryPointerTargetBuilder } from './query-contracts.js'
-
-const getFieldQueryTarget = (
-	field: GenericField,
-): SchemaDefinition | undefined => {
-	if (field.kind !== 'pointer' && field.kind !== 'relation') {
-		return undefined
-	}
-
-	const target = getFieldSchemaTarget(field)?.()
-
-	return Schema.is(target) ? target : undefined
-}
 
 /** Serializes normalized AST priorities through deterministic property order. */
 const buildQueryOrderByInput = (
@@ -287,14 +273,10 @@ export class QueryBuilder<
 			>
 		>
 	> {
-		const field = this.schema.persistedFields[fieldName]
-		const target = field === undefined ? undefined : getFieldQueryTarget(field)
-
-		if (target === undefined) {
-			throw new TypeError(
-				'query inclusion field must reference a pointer or relation field',
-			)
-		}
+		const { field, target } = resolveQueryInclusionTarget(
+			this.schema,
+			fieldName,
+		)
 
 		// The field-level target type and private callback originate from the same
 		// relationship factory; runtime identity is rechecked below before storage.
@@ -323,7 +305,7 @@ export class QueryBuilder<
 			TTargetIncludedPointer
 		>
 
-		if (field?.kind === 'pointer' && targetQuery.ast.where !== undefined) {
+		if (field.kind === 'pointer' && targetQuery.ast.where !== undefined) {
 			throw new TypeError(
 				'pointer-target input contains an unknown clause: where',
 			)
@@ -337,7 +319,7 @@ export class QueryBuilder<
 			(selection) => selection.field,
 		)
 		const selection =
-			selectionFields.length === 0 || field?.kind === 'relation'
+			selectionFields.length === 0 || field.kind === 'relation'
 				? this.ast.selection
 				: normalizeQuerySelectedFields(this.schema, [
 						...selectionFields,

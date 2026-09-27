@@ -1,5 +1,4 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type {
@@ -20,7 +19,10 @@ import type {
 	QueryInclusionAst,
 	QueryInclusionInput,
 } from '../clauses/inclusion.js'
-import { normalizeQueryInclusion } from '../clauses/inclusion.js'
+import {
+	normalizeQueryInclusion,
+	resolveQueryInclusionTarget,
+} from '../clauses/inclusion.js'
 import {
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
@@ -207,21 +209,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			throw new TypeError(`query.include.${fieldName} must be an object`)
 		}
 
-		const field = fields[fieldName]
-
-		if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
-			throw new TypeError(
-				'query inclusion field must reference a pointer or relation field',
-			)
-		}
-
-		const target = getFieldSchemaTarget(field)?.()
-
-		if (!Schema.is(target)) {
-			throw new TypeError(
-				'query inclusion target must be created by Schema.define',
-			)
-		}
+		const { field, target } = resolveQueryInclusionTarget(schema, fieldName)
 
 		const includedField = fieldName as QueryIncludableFieldName<TSchema>
 		const targetQuery = createInputQuery(
