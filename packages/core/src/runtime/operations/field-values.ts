@@ -64,6 +64,30 @@ interface UpdateOperationValue {
 	readonly value: unknown
 }
 
+type RuntimeFieldInputRoot =
+	| readonly [
+			mode: 'create',
+			value: Readonly<Record<string, unknown>>,
+			path: readonly RuntimeFieldValuePathSegment[],
+			itemIndex: number,
+			kind: RuntimeFieldInputKind,
+	  ]
+	| readonly [
+			mode: 'update',
+			value: UpdateExpressionNode,
+			path: readonly RuntimeFieldValuePathSegment[],
+			itemIndex: number,
+			kind: RuntimeFieldInputKind,
+	  ]
+
+interface RuntimeFieldInputContext {
+	readonly itemIndex: number
+	readonly kind: RuntimeFieldInputKind
+	readonly locations: RuntimeFieldInputLocation[]
+	readonly mode: 'create' | 'update'
+	readonly order: RuntimeFieldVisitOrder
+}
+
 const isRuntimeObjectField = (
 	field: GenericField,
 ): field is RuntimeObjectField =>
@@ -86,22 +110,19 @@ export const getRuntimeOperationFields = (
 
 /** Adds one immutable visit descriptor at the requested traversal position. */
 const appendFieldLocation = (
-	locations: RuntimeFieldInputLocation[],
 	field: GenericField,
+	value: unknown,
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
-	itemIndex: number,
-	kind: RuntimeFieldInputKind,
-	mode: 'create' | 'update',
-	value: unknown,
+	context: RuntimeFieldInputContext,
 ): void => {
-	locations.push(
+	context.locations.push(
 		immutableRecord({
 			field,
 			fieldPath: immutableArray(fieldPath),
-			itemIndex,
-			kind,
-			mode,
+			itemIndex: context.itemIndex,
+			kind: context.kind,
+			mode: context.mode,
 			value,
 			valuePath: immutableArray(operationPath),
 		}),
@@ -113,50 +134,18 @@ const collectFieldLocations = (
 	value: unknown,
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
-	itemIndex: number,
-	kind: RuntimeFieldInputKind,
-	mode: 'create' | 'update',
-	order: RuntimeFieldVisitOrder,
-	locations: RuntimeFieldInputLocation[],
+	context: RuntimeFieldInputContext,
 ): void => {
-	if (order === 'parent-first') {
-		appendFieldLocation(
-			locations,
-			field,
-			fieldPath,
-			operationPath,
-			itemIndex,
-			kind,
-			mode,
-			value,
-		)
+	if (context.order === 'parent-first') {
+		appendFieldLocation(field, value, fieldPath, operationPath, context)
 	}
 
 	if (isRuntimeObjectField(field)) {
-		collectObjectChildLocations(
-			field,
-			value,
-			fieldPath,
-			operationPath,
-			itemIndex,
-			kind,
-			mode,
-			order,
-			locations,
-		)
+		collectObjectChildLocations(field, value, fieldPath, operationPath, context)
 	}
 
-	if (order === 'children-first') {
-		appendFieldLocation(
-			locations,
-			field,
-			fieldPath,
-			operationPath,
-			itemIndex,
-			kind,
-			mode,
-			value,
-		)
+	if (context.order === 'children-first') {
+		appendFieldLocation(field, value, fieldPath, operationPath, context)
 	}
 }
 
@@ -165,11 +154,7 @@ const collectFieldMapLocations = (
 	value: Readonly<Record<string, unknown>>,
 	parentFieldPath: readonly string[],
 	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
-	itemIndex: number,
-	kind: RuntimeFieldInputKind,
-	mode: 'create' | 'update',
-	order: RuntimeFieldVisitOrder,
-	locations: RuntimeFieldInputLocation[],
+	context: RuntimeFieldInputContext,
 ): void => {
 	for (const [name, field] of Object.entries(fields)) {
 		if (!Object.hasOwn(value, name)) {
@@ -181,11 +166,7 @@ const collectFieldMapLocations = (
 			value[name],
 			immutableArray([...parentFieldPath, name]),
 			immutableArray([...parentOperationPath, name]),
-			itemIndex,
-			kind,
-			mode,
-			order,
-			locations,
+			context,
 		)
 	}
 }
@@ -195,11 +176,7 @@ function collectObjectChildLocations(
 	value: unknown,
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
-	itemIndex: number,
-	kind: RuntimeFieldInputKind,
-	mode: 'create' | 'update',
-	order: RuntimeFieldVisitOrder,
-	locations: RuntimeFieldInputLocation[],
+	context: RuntimeFieldInputContext,
 ): void {
 	const visitObject = (
 		candidate: unknown,
@@ -230,11 +207,7 @@ function collectObjectChildLocations(
 			candidate,
 			fieldPath,
 			candidatePath,
-			itemIndex,
-			kind,
-			mode,
-			order,
-			locations,
+			context,
 		)
 	}
 
@@ -288,17 +261,7 @@ const collectUpdateLocations = (
 	update: UpdateExpressionNode,
 	fields: Readonly<Record<string, GenericField>>,
 	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
-	itemIndex: number,
-	kind: Extract<
-		RuntimeFieldInputKind,
-		| 'plugin-schema-mutation'
-		| 'update-many'
-		| 'update-one'
-		| 'upsert-many'
-		| 'upsert-one'
-	>,
-	order: RuntimeFieldVisitOrder,
-	locations: RuntimeFieldInputLocation[],
+	context: RuntimeFieldInputContext & Readonly<{ mode: 'update' }>,
 ): void => {
 	for (const [index, operation] of readUpdateExpressionOperations(
 		update,
@@ -323,12 +286,74 @@ const collectUpdateLocations = (
 			updateValue.value,
 			immutableArray([updateValue.field]),
 			immutableArray([...parentOperationPath, 'operations', index, 'value']),
-			itemIndex,
-			kind,
-			'update',
-			order,
-			locations,
+			context,
 		)
+	}
+}
+
+/** Normalizes operation wrappers without changing field traversal semantics. */
+const collectOperationFieldInputRoots = (
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
+): readonly RuntimeFieldInputRoot[] => {
+	if (operation.kind === 'plugin-schema-mutation') {
+		return operation.effect?.kind === 'update'
+			? [
+					[
+						'update',
+						operation.effect.update,
+						['effect', 'update'],
+						0,
+						operation.kind,
+					],
+				]
+			: []
+	}
+
+	const executable = operation as unknown as ExecutableOperationAst
+
+	switch (executable.kind) {
+		case 'create-one':
+			return [['create', executable.input, ['input'], 0, executable.kind]]
+		case 'create-many':
+			return executable.inputs.map(
+				(value, itemIndex) =>
+					[
+						'create',
+						value,
+						['inputs', itemIndex],
+						itemIndex,
+						executable.kind,
+					] as const,
+			)
+		case 'update-many':
+		case 'update-one':
+			return [['update', executable.update, ['update'], 0, executable.kind]]
+		case 'upsert-one':
+			return [
+				['create', executable.create, ['create'], 0, executable.kind],
+				['update', executable.update, ['update'], 0, executable.kind],
+			]
+		case 'upsert-many':
+			return executable.items.flatMap(
+				(item, itemIndex): readonly RuntimeFieldInputRoot[] => [
+					[
+						'create',
+						item.create,
+						['items', itemIndex, 'create'],
+						itemIndex,
+						executable.kind,
+					],
+					[
+						'update',
+						item.update,
+						['items', itemIndex, 'update'],
+						itemIndex,
+						executable.kind,
+					],
+				],
+			)
+		default:
+			return []
 	}
 }
 
@@ -339,109 +364,32 @@ export const collectOperationFieldInputs = (
 ): readonly RuntimeFieldInputValue[] => {
 	const fields = getRuntimeOperationFields(operation)
 	const locations: RuntimeFieldInputLocation[] = []
-	if (operation.kind === 'plugin-schema-mutation') {
-		if (operation.effect?.kind === 'update') {
-			collectUpdateLocations(
-				operation.effect.update,
-				fields,
-				immutableArray(['effect', 'update']),
-				0,
-				operation.kind,
-				order,
-				locations,
-			)
-		}
-		return immutableArray(locations)
-	}
-	const executable = operation as unknown as ExecutableOperationAst
 
-	switch (executable.kind) {
-		case 'create-one':
-			collectFieldMapLocations(
-				fields,
-				executable.input,
-				immutableArray([]),
-				immutableArray(['input']),
-				0,
-				executable.kind,
-				'create',
-				order,
+	for (const [
+		mode,
+		value,
+		path,
+		itemIndex,
+		kind,
+	] of collectOperationFieldInputRoots(operation)) {
+		if (mode === 'update') {
+			collectUpdateLocations(value, fields, path, {
+				itemIndex,
+				kind,
 				locations,
-			)
-			break
-		case 'create-many':
-			for (const [index, input] of executable.inputs.entries()) {
-				collectFieldMapLocations(
-					fields,
-					input,
-					immutableArray([]),
-					immutableArray(['inputs', index]),
-					index,
-					executable.kind,
-					'create',
-					order,
-					locations,
-				)
-			}
-			break
-		case 'update-many':
-		case 'update-one':
-			collectUpdateLocations(
-				executable.update,
-				fields,
-				immutableArray(['update']),
-				0,
-				executable.kind,
+				mode,
 				order,
-				locations,
-			)
-			break
-		case 'upsert-one':
-			collectFieldMapLocations(
-				fields,
-				executable.create,
-				immutableArray([]),
-				immutableArray(['create']),
-				0,
-				executable.kind,
-				'create',
-				order,
-				locations,
-			)
-			collectUpdateLocations(
-				executable.update,
-				fields,
-				immutableArray(['update']),
-				0,
-				executable.kind,
-				order,
-				locations,
-			)
-			break
-		case 'upsert-many':
-			for (const [index, item] of executable.items.entries()) {
-				collectFieldMapLocations(
-					fields,
-					item.create,
-					immutableArray([]),
-					immutableArray(['items', index, 'create']),
-					index,
-					executable.kind,
-					'create',
-					order,
-					locations,
-				)
-				collectUpdateLocations(
-					item.update,
-					fields,
-					immutableArray(['items', index, 'update']),
-					index,
-					executable.kind,
-					order,
-					locations,
-				)
-			}
-			break
+			})
+			continue
+		}
+
+		collectFieldMapLocations(fields, value, immutableArray([]), path, {
+			itemIndex,
+			kind,
+			locations,
+			mode,
+			order,
+		})
 	}
 
 	return immutableArray(locations)
@@ -570,11 +518,13 @@ export const collectRecordFieldValues = (
 		record,
 		immutableArray([]),
 		immutableArray([]),
-		0,
-		'create-one',
-		'create',
-		order,
-		locations,
+		{
+			itemIndex: 0,
+			kind: 'create-one',
+			locations,
+			mode: 'create',
+			order,
+		},
 	)
 
 	return immutableArray(

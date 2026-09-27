@@ -3,7 +3,13 @@ import {
 	increment,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
+	type CreateOneOperationAst,
+	type DeleteOneOperationAst,
+	type FindManyOperationAst,
+	type UpdateManyOperationAst,
+	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
+	type UpsertOneOperationAst,
 } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
@@ -125,8 +131,75 @@ it('keeps create and update values separate for every bulk upsert item', () => {
 	])
 })
 
+it('normalizes every singular and set-based field-input root', () => {
+	const update = normalizeUpdateExpression(TraversalRecord, {
+		count: increment(1),
+	})
+	const target = { kind: 'unique-upsert-target', fields: ['title'] } as const
+	const createOne = {
+		kind: 'create-one',
+		schema: query.schema,
+		selection: query.selection,
+		input: { title: 'created' },
+	} satisfies CreateOneOperationAst<typeof TraversalRecord>
+	const updateOne = {
+		kind: 'update-one',
+		query,
+		update,
+	} satisfies UpdateOneOperationAst<typeof TraversalRecord, typeof update>
+	const updateMany = {
+		kind: 'update-many',
+		query,
+		update,
+	} satisfies UpdateManyOperationAst<typeof TraversalRecord, typeof update>
+	const upsertOne = {
+		kind: 'upsert-one',
+		query,
+		target,
+		create: { title: 'upserted' },
+		update,
+	} satisfies UpsertOneOperationAst<typeof TraversalRecord, typeof update>
+	const deleteOne = {
+		kind: 'delete-one',
+		query,
+	} satisfies DeleteOneOperationAst<typeof TraversalRecord>
+	const findMany = {
+		kind: 'find-many',
+		query,
+	} satisfies FindManyOperationAst<typeof TraversalRecord>
+	const summarize = (
+		operation: Parameters<typeof collectOperationFieldInputs>[0],
+	) =>
+		collectOperationFieldInputs(operation, 'parent-first').map(
+			({ itemIndex, kind, mode, valuePath }) => [
+				kind,
+				mode,
+				itemIndex,
+				valuePath,
+			],
+		)
+
+	expect(
+		[createOne, updateOne, updateMany, upsertOne, deleteOne, findMany].map(
+			summarize,
+		),
+	).toStrictEqual([
+		[['create-one', 'create', 0, ['input', 'title']]],
+		[['update-one', 'update', 0, ['update', 'operations', 0, 'value']]],
+		[['update-many', 'update', 0, ['update', 'operations', 0, 'value']]],
+		[
+			['upsert-one', 'create', 0, ['create', 'title']],
+			['upsert-one', 'update', 0, ['update', 'operations', 0, 'value']],
+		],
+		[],
+		[],
+	])
+})
+
 it('collects plugin schema mutation effect fields through the logical operation', () => {
-	const update = normalizeUpdateExpression(TraversalRecord, { count: increment(1) })
+	const update = normalizeUpdateExpression(TraversalRecord, {
+		count: increment(1),
+	})
 	const operation = {
 		command: 'archive',
 		effect: { kind: 'update', update },
@@ -171,6 +244,12 @@ it('collects plugin schema mutation effect fields through the logical operation'
 			valuePath: ['effect', 'update', 'operations', 0, 'value'],
 		},
 	])
+	expect(
+		collectOperationFieldInputs(
+			{ ...operation, effect: { kind: 'delete' } },
+			'parent-first',
+		),
+	).toStrictEqual([])
 })
 
 it('transforms children before their parent without mutating the input', async () => {

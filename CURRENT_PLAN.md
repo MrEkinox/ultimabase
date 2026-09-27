@@ -1,26 +1,26 @@
-# Current plan: Runtime result finalization
+# Current plan: Runtime field-input roots
 
 - Status: completed
-- Milestone: 52
-- Baseline: `0a306693`
-- Completed issue: 5201
+- Milestone: 53
+- Baseline: `0e530840`
+- Completed issue: 5301
 
-The user authorized another debt-reduction pass after milestone 51. The audit
-found that native Runtime execution and plugin schema mutations independently
-owned the same terminal result order: protected projection, database-result
-behavior, inclusion hydration, model metadata, virtual fields, final behavior,
-protected output, commit, and post-commit delivery.
+The user authorized another debt-reduction pass after milestone 52. The audit
+found that Core's canonical field-input traversal repeats collector setup for
+every native mutation shape and plugin schema mutation effects.
 
-Core may consolidate only that existing private order. Logical plugin mutation
-identity, physical database operations, inclusion-source selection, adapter
-outcomes, and every public stage contract remain unchanged. The implementation
-must delete production lines overall and introduce no public export.
+Core may normalize only those existing private create/update roots before the
+unchanged field collectors run. Field order, item indexes, modes, exact value
+paths, update decoding, plugin mutation identity, and every public contract
+remain unchanged. The implementation must delete production lines overall and
+introduce no public export.
 
 No push is authorized.
 
 ## Outcome
 
-One private Core finalizer now owns the terminal result and commit order for
-native Runtime operations and plugin schema mutations. The native pipeline fell
-from 599 to 503 lines and the schema-mutation pipeline from 578 to 504 lines.
-Production TypeScript adds 211 lines and removes 239, a net reduction of 28.
+Every supported operation wrapper now normalizes to one private create/update
+root sequence before one shared collection loop. A traversal context removes
+repeated recursive parameters without changing exact field visits. Production
+TypeScript adds 135 lines and removes 185, a net reduction of 50, while
+`field-values.ts` falls from 585 to 535 lines.
