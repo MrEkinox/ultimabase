@@ -5,24 +5,24 @@ import { describe, expect, it } from 'vitest'
 import * as ts from 'typescript'
 
 import {
-	createLanguageService,
 	createLanguageServiceFixture,
+	createLanguageServiceWorkspace,
 	type LanguageServiceFixture,
 } from '../../../tooling/vitest/typescript-language-service.js'
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
-const fixtureFile = path.join(
-	packageDirectory,
-	'access-intellisense.fixture.ts',
-)
+const fixtureFile = (name: string) =>
+	path.join(packageDirectory, `access-intellisense-${name}.fixture.ts`)
+const coreWorkspace = createLanguageServiceWorkspace()
 
 const completionNames = (
 	fixture: LanguageServiceFixture,
+	fileName: string,
 	marker: string,
 ): readonly string[] => {
 	return (
 		fixture.service
-			.getCompletionsAtPosition(fixtureFile, fixture.positionOf(marker), {})
+			.getCompletionsAtPosition(fileName, fixture.positionOf(marker), {})
 			?.entries.map(({ name }) => name) ?? []
 	)
 }
@@ -37,17 +37,20 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
-		const fixture = createLanguageServiceFixture(fixtureFile, source, [
-			'/* schema-options */',
-			'/* field-options */',
-		])
+		const completionFile = fixtureFile('core-options')
+		const fixture = createLanguageServiceFixture(
+			completionFile,
+			source,
+			['/* schema-options */', '/* field-options */'],
+			coreWorkspace,
+		)
 
-		expect(completionNames(fixture, '/* schema-options */')).not.toContain(
-			'access',
-		)
-		expect(completionNames(fixture, '/* field-options */')).not.toContain(
-			'access',
-		)
+		expect(
+			completionNames(fixture, completionFile, '/* schema-options */'),
+		).not.toContain('access')
+		expect(
+			completionNames(fixture, completionFile, '/* field-options */'),
+		).not.toContain('access')
 		const invalidSource = `
 import { Schema } from '@ultimabase/core'
 Schema.define({
@@ -56,10 +59,11 @@ Schema.define({
   access: {},
 })
 `
-		const diagnostics = createLanguageService(
-			fixtureFile,
-			invalidSource,
-		).getSemanticDiagnostics(fixtureFile)
+		const invalidFile = fixtureFile('core-invalid')
+
+		coreWorkspace.addFile(invalidFile, invalidSource)
+		const diagnostics =
+			coreWorkspace.service.getSemanticDiagnostics(invalidFile)
 		const messages = diagnostics.map(({ messageText }) =>
 			ts.flattenDiagnosticMessageText(messageText, '\n'),
 		)
@@ -85,13 +89,18 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
-		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+		const generatedFile = fixtureFile('generated-options')
+		const fixture = createLanguageServiceFixture(generatedFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
 		])
 
-		expect(completionNames(fixture, '/* schema-options */')).toContain('access')
-		expect(completionNames(fixture, '/* field-options */')).toContain('access')
+		expect(
+			completionNames(fixture, generatedFile, '/* schema-options */'),
+		).toContain('access')
+		expect(
+			completionNames(fixture, generatedFile, '/* field-options */'),
+		).toContain('access')
 	})
 
 	it('offers granular plugin defaults with sparse read capabilities', () => {
@@ -104,18 +113,21 @@ accessPlugin({
   },
 })
 `
-		const fixture = createLanguageServiceFixture(fixtureFile, source, [
-			'/* operation-defaults */',
-			'/* read-defaults */',
-		])
+		const defaultsFile = fixtureFile('plugin-defaults')
+		const fixture = createLanguageServiceFixture(
+			defaultsFile,
+			source,
+			['/* operation-defaults */', '/* read-defaults */'],
+			coreWorkspace,
+		)
 
-		expect(completionNames(fixture, '/* operation-defaults */')).toEqual(
-			expect.arrayContaining(['create', 'delete', 'update', 'upsert']),
-		)
-		expect(completionNames(fixture, '/* read-defaults */')).toEqual(
-			expect.arrayContaining(['exists', 'many', 'one']),
-		)
-		const diagnostics = fixture.service.getSemanticDiagnostics(fixtureFile)
+		expect(
+			completionNames(fixture, defaultsFile, '/* operation-defaults */'),
+		).toEqual(expect.arrayContaining(['create', 'delete', 'update', 'upsert']))
+		expect(
+			completionNames(fixture, defaultsFile, '/* read-defaults */'),
+		).toEqual(expect.arrayContaining(['exists', 'many', 'one']))
+		const diagnostics = fixture.service.getSemanticDiagnostics(defaultsFile)
 
 		expect(diagnostics).toStrictEqual([])
 	})

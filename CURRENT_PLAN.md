@@ -3,7 +3,8 @@
 - Status: completed
 - Milestone: 61
 - Baseline: `ce4efbfb`
-- Completed issues: 6101, 6102
+- Completed issues: 6101, 6102, 6103
+- Active issue: none
 
 Reduce local complete-coverage wall time without removing tests, projects,
 reports, thresholds, or production coverage. Local execution may use four
@@ -27,3 +28,14 @@ deleting or merging editor contracts. The focused editor suites are 64.6%
 faster. Two complete local coverage runs finished in 246.45 and 251.58 seconds:
 1.9% to 3.9% faster than issue 6101 and 42.0% to 43.1% faster than the original
 two-worker baseline.
+
+Issue 6103 reused a versioned multi-file TypeScript workspace only where
+virtual sources share exact compiler options and ambient declarations. The
+identical 38-file, 223-test editor profile fell from 19.82 seconds to a stable
+17.69-17.74-second range. Separate source and built-package resolution,
+incompatible augmentation isolation, and every assertion remain intact.
+
+Two final complete runs finished in 235.97 and 218.51 seconds. Their
+227.24-second average is 21.78 seconds or 8.7% below issue 6102's two-run
+average, and 47.6% below the original two-worker baseline. All 621 files, 2,836
+tests, coverage counters, reports, projects, and thresholds remain unchanged.

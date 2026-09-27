@@ -13,6 +13,10 @@ import {
 } from '@ultimabase/pg-vector-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import * as ts from 'typescript'
+import {
+	createLanguageServiceWorkspace,
+	type LanguageServiceWorkspace,
+} from '../../../../tooling/vitest/typescript-language-service.js'
 import { generateApplicationTypes } from '../../src/generator.js'
 
 type GeneratedFixtureBuilder = FieldBuilder & {
@@ -119,46 +123,37 @@ export const createGeneratedRoleRegistry = (): string => {
 	}).contents
 }
 
+export const createSourceLanguageServiceWorkspace =
+	(): LanguageServiceWorkspace => {
+		const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
+		return createLanguageServiceWorkspace({
+			compilerOptions: {
+				baseUrl: repositoryRoot,
+				exactOptionalPropertyTypes: true,
+				module: ts.ModuleKind.NodeNext,
+				moduleResolution: ts.ModuleResolutionKind.NodeNext,
+				paths: {
+					'@ultimabase/core': ['packages/core/src/index.ts'],
+					'@ultimabase/pg-vector-plugin': [
+						'packages/pg-vector-plugin/src/index.ts',
+					],
+					'@ultimabase/roles-plugin': ['packages/roles-plugin/src/index.ts'],
+					'@ultimabase/shared': ['packages/shared/src/index.ts'],
+				},
+				strict: true,
+				target: ts.ScriptTarget.ESNext,
+				types: ['node'],
+			},
+			currentDirectory: repositoryRoot,
+		})
+	}
+
 export const createSourceLanguageService = (
 	fileName: string,
 	source: string,
 ): ts.LanguageService => {
-	const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
-	const host: ts.LanguageServiceHost = {
-		fileExists: (requestedFileName) => ts.sys.fileExists(requestedFileName),
-		getCompilationSettings: () => ({
-			baseUrl: repositoryRoot,
-			exactOptionalPropertyTypes: true,
-			module: ts.ModuleKind.NodeNext,
-			moduleResolution: ts.ModuleResolutionKind.NodeNext,
-			paths: {
-				'@ultimabase/core': ['packages/core/src/index.ts'],
-				'@ultimabase/pg-vector-plugin': [
-					'packages/pg-vector-plugin/src/index.ts',
-				],
-				'@ultimabase/roles-plugin': ['packages/roles-plugin/src/index.ts'],
-				'@ultimabase/shared': ['packages/shared/src/index.ts'],
-			},
-			strict: true,
-			target: ts.ScriptTarget.ESNext,
-			types: ['node'],
-		}),
-		getCurrentDirectory: () => repositoryRoot,
-		getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
-		getScriptFileNames: () => [fileName],
-		getScriptSnapshot: (requestedFileName) => {
-			const contents =
-				requestedFileName === fileName
-					? source
-					: ts.sys.readFile(requestedFileName)
+	const workspace = createSourceLanguageServiceWorkspace()
 
-			return contents === undefined
-				? undefined
-				: ts.ScriptSnapshot.fromString(contents)
-		},
-		getScriptVersion: () => '0',
-		readFile: (requestedFileName) => ts.sys.readFile(requestedFileName),
-	}
-
-	return ts.createLanguageService(host)
+	workspace.addFile(fileName, source)
+	return workspace.service
 }

@@ -5,21 +5,24 @@ import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createLanguageService,
 	createLanguageServiceFixture,
+	createLanguageServiceWorkspace,
 	type LanguageServiceFixture,
 } from '../../../tooling/vitest/typescript-language-service.js'
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
-const fixtureFile = path.join(packageDirectory, 'hooks-intellisense.fixture.ts')
+const fixtureFile = (name: string) =>
+	path.join(packageDirectory, `hooks-intellisense-${name}.fixture.ts`)
+const coreWorkspace = createLanguageServiceWorkspace()
 
 const completionNames = (
 	fixture: LanguageServiceFixture,
+	fileName: string,
 	marker: string,
 ): readonly string[] => {
 	return (
 		fixture.service
-			.getCompletionsAtPosition(fixtureFile, fixture.positionOf(marker), {})
+			.getCompletionsAtPosition(fileName, fixture.positionOf(marker), {})
 			?.entries.map(({ name }) => name) ?? []
 	)
 }
@@ -34,18 +37,20 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
+		const completionFile = fixtureFile('core-options')
 		const fixture = createLanguageServiceFixture(
-			fixtureFile,
+			completionFile,
 			completionSource,
 			['/* schema-options */', '/* field-options */'],
+			coreWorkspace,
 		)
 
-		expect(completionNames(fixture, '/* schema-options */')).not.toContain(
-			'hooks',
-		)
-		expect(completionNames(fixture, '/* field-options */')).not.toContain(
-			'hooks',
-		)
+		expect(
+			completionNames(fixture, completionFile, '/* schema-options */'),
+		).not.toContain('hooks')
+		expect(
+			completionNames(fixture, completionFile, '/* field-options */'),
+		).not.toContain('hooks')
 
 		const invalidSource = `
 import { Schema } from '@ultimabase/core'
@@ -55,8 +60,11 @@ Schema.define({
   hooks: {},
 })
 `
-		const messages = createLanguageService(fixtureFile, invalidSource)
-			.getSemanticDiagnostics(fixtureFile)
+		const invalidFile = fixtureFile('core-invalid')
+
+		coreWorkspace.addFile(invalidFile, invalidSource)
+		const messages = coreWorkspace.service
+			.getSemanticDiagnostics(invalidFile)
 			.map(({ messageText }) =>
 				ts.flattenDiagnosticMessageText(messageText, '\n'),
 			)
@@ -82,13 +90,18 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
-		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+		const generatedFile = fixtureFile('generated-options')
+		const fixture = createLanguageServiceFixture(generatedFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
 		])
 
-		expect(completionNames(fixture, '/* schema-options */')).toContain('hooks')
-		expect(completionNames(fixture, '/* field-options */')).toContain('hooks')
+		expect(
+			completionNames(fixture, generatedFile, '/* schema-options */'),
+		).toContain('hooks')
+		expect(
+			completionNames(fixture, generatedFile, '/* field-options */'),
+		).toContain('hooks')
 	})
 
 	it('exposes the optional nested graph on schema mutation hooks', () => {
@@ -106,11 +119,12 @@ Schema.define({
   hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
 })
 `
-		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+		const nestedFile = fixtureFile('nested-hook-input')
+		const fixture = createLanguageServiceFixture(nestedFile, source, [
 			'/* hook-input */',
 		])
 
-		expect(completionNames(fixture, '/* hook-input */')).toContain(
+		expect(completionNames(fixture, nestedFile, '/* hook-input */')).toContain(
 			'nestedWrite',
 		)
 	})

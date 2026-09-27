@@ -1,7 +1,7 @@
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
+import { createLanguageServiceWorkspace } from '../../../../tooling/vitest/typescript-language-service.js'
 
 const rootMarker = '/* root-builder */'
 const nestedMarker = '/* nested-builder */'
@@ -59,7 +59,9 @@ for (const marker of markers) {
 }
 
 const fileName = `${import.meta.dirname}/field-builder-autocomplete.fixture.ts`
-const service = createLanguageService(fileName, source)
+const workspace = createLanguageServiceWorkspace()
+workspace.addFile(fileName, source)
+const service = workspace.service
 const documentedMarker = '/* documented-builder */'
 const documentedSourceWithMarker = `
 import type { FieldBuilder } from '../../src/index.js'
@@ -73,10 +75,7 @@ const documentedSource = documentedSourceWithMarker.replace(
 	' '.repeat(documentedMarker.length),
 )
 const documentedFileName = `${import.meta.dirname}/documented-field-builder.fixture.ts`
-const documentedService = createLanguageService(
-	documentedFileName,
-	documentedSource,
-)
+workspace.addFile(documentedFileName, documentedSource)
 
 const embeddedFactoryNames = [
 	'bigint',
@@ -155,7 +154,7 @@ for (const [factoryName, marker] of embeddedOptionMarkers) {
 }
 
 const embeddedFileName = `${import.meta.dirname}/embedded-field-builder-autocomplete.fixture.ts`
-const embeddedService = createLanguageService(embeddedFileName, embeddedSource)
+workspace.addFile(embeddedFileName, embeddedSource)
 
 const readEmbeddedOptionCompletions = (
 	factoryName: EmbeddedFactoryName,
@@ -166,7 +165,7 @@ const readEmbeddedOptionCompletions = (
 	}
 
 	return (
-		embeddedService.getCompletionsAtPosition(embeddedFileName, position, {
+		service.getCompletionsAtPosition(embeddedFileName, position, {
 			includeCompletionsWithInsertText: true,
 		})?.entries ?? []
 	)
@@ -268,7 +267,7 @@ describe('FieldBuilder IntelliSense', () => {
 			rootMethodNames,
 		)
 
-		const documentedEntries = documentedService
+		const documentedEntries = service
 			.getCompletionsAtPosition(documentedFileName, documentedPosition, {
 				includeCompletionsWithInsertText: true,
 			})
@@ -281,7 +280,7 @@ describe('FieldBuilder IntelliSense', () => {
 		}
 
 		for (const entry of documentedEntries) {
-			const details = documentedService.getCompletionEntryDetails(
+			const details = service.getCompletionEntryDetails(
 				documentedFileName,
 				documentedPosition,
 				entry.name,
@@ -353,8 +352,6 @@ describe('FieldBuilder IntelliSense', () => {
 
 	it('has no semantic diagnostics', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-		expect(
-			embeddedService.getSemanticDiagnostics(embeddedFileName),
-		).toStrictEqual([])
+		expect(service.getSemanticDiagnostics(embeddedFileName)).toStrictEqual([])
 	})
 })

@@ -1,5 +1,3 @@
-import path from 'node:path'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,33 +5,23 @@ import {
 	graphqlHttpPublicApi,
 	removedGraphqlHttpPublicApiNames,
 } from '../../../tooling/vitest/optional-product-public-api.js'
-import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import { createPublicApiLanguageServiceFixture } from '../../../tooling/vitest/typescript-language-service.js'
 
-const fixtureFile = path.join(import.meta.dirname, 'public-api.fixture.ts')
-const moduleSpecifier = '../src/index.js'
+const fixture = createPublicApiLanguageServiceFixture({
+	directory: import.meta.dirname,
+	moduleSpecifier: '../src/index.js',
+	removedNames: removedGraphqlHttpPublicApiNames,
+})
 
 describe('@ultimabase/graphql-http source declarations', () => {
 	it('classifies its complete provider-neutral root surface', () => {
-		const marker = '/* exports */'
-		const source = `import { ${marker} } from '${moduleSpecifier}'`
-		const completions =
-			createLanguageService(fixtureFile, source)
-				.getCompletionsAtPosition(fixtureFile, source.indexOf(marker), {})
-				?.entries.map(({ name }) => name)
-				.filter((name) => name !== 'type')
-				.sort() ?? []
-		expect(completions).toStrictEqual(
+		expect(fixture.readExportCompletions()).toStrictEqual(
 			getOptionalProductPublicApiNames(graphqlHttpPublicApi),
 		)
 	})
 
 	it('keeps validation internals private', () => {
-		const source = `import { ${removedGraphqlHttpPublicApiNames.join(', ')} } from '${moduleSpecifier}'`
-		const messages = createLanguageService(fixtureFile, source)
-			.getSemanticDiagnostics(fixtureFile)
-			.map(({ messageText }) =>
-				ts.flattenDiagnosticMessageText(messageText, ' '),
-			)
+		const messages = fixture.readRemovedMessages()
 		expect(messages).toHaveLength(removedGraphqlHttpPublicApiNames.length)
 	})
 })

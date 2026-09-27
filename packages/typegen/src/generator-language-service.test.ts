@@ -1,19 +1,25 @@
 import path from 'node:path'
 
 import * as ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import {
 	createGeneratedRegistry,
-	createSourceLanguageService,
+	createSourceLanguageServiceWorkspace,
 } from '../tests/fixtures/generator-language-service.js'
 
 const selectMarker = '/* generated-select */'
 const hoverMarker = '/* generated-hover */'
 const targetMarker = '/* generated-target */'
+const registry = createGeneratedRegistry()
+const workspace = createSourceLanguageServiceWorkspace()
+
+const service = workspace.service
+afterAll(() => {
+	service.dispose()
+})
 
 describe('generated application TypeScript contracts', () => {
 	it('typechecks exact models, operations, relationships, and plugin methods', () => {
-		const registry = createGeneratedRegistry()
 		const sourceWithMarkers = `${registry}
 declare const author: Core.PointerValue
 declare const item: SemanticArticleItem
@@ -127,7 +133,7 @@ void updateInput
 			import.meta.dirname,
 			'generated-application.semantic.fixture.ts',
 		)
-		const service = createSourceLanguageService(fileName, source)
+		workspace.addFile(fileName, source)
 
 		expect(registry).not.toMatch(/\bany\b/u)
 		expect(
@@ -169,7 +175,6 @@ void updateInput
 	})
 
 	it('drives the actual Core schema, Query, mutation, Access, and hook APIs', () => {
-		const registry = createGeneratedRegistry()
 		const publicSource = `${registry}
 import {
   Schema,
@@ -488,7 +493,7 @@ void relatedRead
 			import.meta.dirname,
 			'generated-core-public-api.semantic.fixture.ts',
 		)
-		const service = createSourceLanguageService(fileName, publicSource)
+		workspace.addFile(fileName, publicSource)
 
 		expect(
 			service
@@ -603,12 +608,9 @@ void relatedRead
 		expect(quickInfo('/* public-count-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
 		)
-
-		service.dispose()
 	}, 30_000)
 
 	it('accepts a new schema before the next startup generation', () => {
-		const registry = createGeneratedRegistry()
 		const source = `${registry}
 import { Schema } from '@ultimabase/core'
 
@@ -621,13 +623,11 @@ Schema.define({
 			import.meta.dirname,
 			'generated-new-schema.semantic.fixture.ts',
 		)
-		const service = createSourceLanguageService(fileName, source)
+		workspace.addFile(fileName, source)
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-		service.dispose()
 	})
 
 	it('rejects unknown generated sibling fields in schema indexes', () => {
-		const registry = createGeneratedRegistry()
 		const source = `${registry}
 import { Schema } from '@ultimabase/core'
 
@@ -643,7 +643,7 @@ Schema.define({
 			import.meta.dirname,
 			'generated-invalid-index.semantic.fixture.ts',
 		)
-		const service = createSourceLanguageService(fileName, source)
+		workspace.addFile(fileName, source)
 		const diagnostics = service
 			.getSemanticDiagnostics(fileName)
 			.map(({ messageText }) =>
@@ -651,7 +651,5 @@ Schema.define({
 			)
 		expect(diagnostics).toHaveLength(1)
 		expect(diagnostics[0]).toContain('Type \'"missing"\' is not assignable')
-
-		service.dispose()
 	})
 })

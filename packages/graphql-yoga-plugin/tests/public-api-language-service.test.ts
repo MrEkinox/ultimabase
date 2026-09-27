@@ -1,5 +1,3 @@
-import path from 'node:path'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,49 +5,10 @@ import {
 	graphqlYogaPluginPublicApi,
 	removedGraphqlYogaPluginPublicApiNames,
 } from '../../../tooling/vitest/optional-product-public-api.js'
-import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import { createPublicApiLanguageServiceFixture } from '../../../tooling/vitest/typescript-language-service.js'
 
-const fixtureFile = path.join(
-	import.meta.dirname,
-	'public-api-language-service.fixture.ts',
-)
 const moduleSpecifier = '../src/index.js'
-
-describe('@ultimabase/graphql-yoga-plugin source declarations', () => {
-	it('classifies the complete deliberate root surface', () => {
-		const marker = '/* exports */'
-		const source = `import { ${marker} } from '${moduleSpecifier}'`
-		const service = createLanguageService(fixtureFile, source)
-		const completions =
-			service
-				.getCompletionsAtPosition(fixtureFile, source.indexOf(marker), {})
-				?.entries.map(({ name }) => name)
-				.filter((name) => name !== 'type')
-				.sort() ?? []
-		const expected = getOptionalProductPublicApiNames(
-			graphqlYogaPluginPublicApi,
-		)
-
-		expect(new Set(expected).size).toBe(expected.length)
-		expect(completions).toStrictEqual(expected)
-	})
-
-	it('keeps protocol implementation details private', () => {
-		const source = `import { ${removedGraphqlYogaPluginPublicApiNames.join(', ')} } from '${moduleSpecifier}'`
-		const messages = createLanguageService(fixtureFile, source)
-			.getSemanticDiagnostics(fixtureFile)
-			.map(({ messageText }) =>
-				ts.flattenDiagnosticMessageText(messageText, ' '),
-			)
-
-		expect(messages).toHaveLength(removedGraphqlYogaPluginPublicApiNames.length)
-		for (const name of removedGraphqlYogaPluginPublicApiNames) {
-			expect(messages.some((message) => message.includes(name))).toBe(true)
-		}
-	})
-
-	it('documents the factory and each accepted option in editor hovers', () => {
-		const source = `
+const documentedSource = `
 import { graphqlYogaPlugin, type GraphqlYogaPluginOptions } from '${moduleSpecifier}'
 const options: GraphqlYogaPluginOptions = {
   bodyLimit: 1024,
@@ -58,18 +17,40 @@ const options: GraphqlYogaPluginOptions = {
 }
 graphqlYogaPlugin(options)
 `
-		const service = createLanguageService(fixtureFile, source)
-		const documentationAt = (needle: string): string =>
-			service
-				.getQuickInfoAtPosition(fixtureFile, source.lastIndexOf(needle))
-				?.documentation?.map(({ text }) => text)
-				.join('') ?? ''
+const fixture = createPublicApiLanguageServiceFixture({
+	directory: import.meta.dirname,
+	documentedSource,
+	moduleSpecifier,
+	removedNames: removedGraphqlYogaPluginPublicApiNames,
+})
 
-		expect(documentationAt('graphqlYogaPlugin')).toContain(
+describe('@ultimabase/graphql-yoga-plugin source declarations', () => {
+	it('classifies the complete deliberate root surface', () => {
+		const expected = getOptionalProductPublicApiNames(
+			graphqlYogaPluginPublicApi,
+		)
+
+		expect(new Set(expected).size).toBe(expected.length)
+		expect(fixture.readExportCompletions()).toStrictEqual(expected)
+	})
+
+	it('keeps protocol implementation details private', () => {
+		const messages = fixture.readRemovedMessages()
+
+		expect(messages).toHaveLength(removedGraphqlYogaPluginPublicApiNames.length)
+		for (const name of removedGraphqlYogaPluginPublicApiNames) {
+			expect(messages.some((message) => message.includes(name))).toBe(true)
+		}
+	})
+
+	it('documents the factory and each accepted option in editor hovers', () => {
+		expect(fixture.documentationAt('graphqlYogaPlugin')).toContain(
 			'Mounts one explicit GraphQL sibling',
 		)
-		expect(documentationAt('bodyLimit')).toContain('streamed JSON')
-		expect(documentationAt('introspection')).toContain('schema introspection')
-		expect(documentationAt('path')).toContain('mount path')
+		expect(fixture.documentationAt('bodyLimit')).toContain('streamed JSON')
+		expect(fixture.documentationAt('introspection')).toContain(
+			'schema introspection',
+		)
+		expect(fixture.documentationAt('path')).toContain('mount path')
 	})
 })

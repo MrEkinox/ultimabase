@@ -2,8 +2,8 @@ import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createLanguageService,
 	createLanguageServiceFixture,
+	createLanguageServiceWorkspace,
 } from '../../../../tooling/vitest/typescript-language-service.js'
 
 const fieldFactoryNames = [
@@ -65,6 +65,8 @@ interface FieldIntelliSenseReader {
 		optionName: string,
 	) => IntelliSenseDocumentation
 }
+
+const workspace = createLanguageServiceWorkspace()
 
 const commonFieldOptions = [
 	'default',
@@ -313,6 +315,7 @@ import { ${fieldFactoryNames.join(', ')} } from '../../src/schema/index.js'
 ${declarations.join('\n')}
 `,
 		[...markers.values()],
+		workspace,
 	)
 
 	return (signatureCase) => {
@@ -372,7 +375,8 @@ ${calls.join('\n')}
 		source = source.replace(marker, ' '.repeat(marker.length))
 	}
 
-	const service = createLanguageService(fileName, source)
+	workspace.addFile(fileName, source)
+	const service = workspace.service
 	const readPosition = (factoryName: FieldFactoryName): number => {
 		const position = positions.get(factoryName)
 
@@ -486,7 +490,8 @@ ${calls.join('\n')}
 		source = source.replace(marker, ' '.repeat(marker.length))
 	}
 
-	const service = createLanguageService(fileName, source)
+	workspace.addFile(fileName, source)
+	const service = workspace.service
 
 	return (hoverCase) => {
 		const position = positions.get(hoverCase)
