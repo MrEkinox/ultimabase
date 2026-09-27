@@ -1,26 +1,27 @@
-# Current plan: Runtime field-input roots
+# Current plan: Plugin lifecycle cleanup
 
 - Status: completed
-- Milestone: 53
-- Baseline: `0e530840`
-- Completed issue: 5301
+- Milestone: 54
+- Baseline: `b1f2de91`
+- Completed issue: 5401
 
-The user authorized another debt-reduction pass after milestone 52. The audit
-found that Core's canonical field-input traversal repeats collector setup for
-every native mutation shape and plugin schema mutation effects.
+The user authorized the next debt-reduction pass after milestone 53. The audit
+found that normal plugin disposal and failed setup/start rollback independently
+own the same stop, plugin disposal, capability disposal, and terminal-state
+sequence.
 
-Core may normalize only those existing private create/update roots before the
-unchanged field collectors run. Field order, item indexes, modes, exact value
-paths, update decoding, plugin mutation identity, and every public contract
-remain unchanged. The implementation must delete production lines overall and
-introduce no public export.
+Core may consolidate only that private cleanup sequence. Normal disposal must
+still await an existing stop promise, failure rollback must avoid promise
+cycles, cleanup must continue after errors, and application ownership remains
+unproven after any cleanup failure. The implementation must delete production
+lines overall and introduce no public export.
 
 No push is authorized.
 
 ## Outcome
 
-Every supported operation wrapper now normalizes to one private create/update
-root sequence before one shared collection loop. A traversal context removes
-repeated recursive parameters without changing exact field visits. Production
-TypeScript adds 135 lines and removes 185, a net reduction of 50, while
-`field-values.ts` falls from 585 to 535 lines.
+Normal disposal and failed setup/start rollback now share one private resource
+release sequence while explicitly controlling whether an existing stop promise
+must settle first. Production TypeScript adds 42 lines and removes 58, a net
+reduction of 16. `lifecycle-manager.ts` falls from 403 to 387 lines and leaves
+the advisory file-size warning list.

@@ -34,11 +34,8 @@ interface InitializedPlugin {
 	readonly resource: PluginApplicationResource<unknown> | undefined
 }
 
-const reverse = <TValue>(values: readonly TValue[]): readonly TValue[] =>
-	values.toReversed()
-
 const collectFailure = async (
-	operation: () => Promise<void>,
+	operation: () => PromiseLike<void> | void,
 	errors: unknown[],
 ): Promise<void> => {
 	try {
@@ -170,7 +167,7 @@ export class PluginLifecycleManager {
 			})
 		}
 
-		this.#disposePromise ??= this.#performDispose()
+		this.#disposePromise = this.#performDispose()
 
 		return this.#disposePromise
 	}
@@ -233,7 +230,7 @@ export class PluginLifecycleManager {
 		} catch (error: unknown) {
 			// Missing requirements must not replace the plugin error that prevented setup.
 			this.#registries.abortSetup()
-			const cleanupErrors = await this.#cleanupAfterFailure()
+			const cleanupErrors = await this.#releaseResources()
 
 			throwLifecycleFailure(error, cleanupErrors)
 		}
@@ -261,7 +258,7 @@ export class PluginLifecycleManager {
 				throw error
 			}
 
-			const cleanupErrors = await this.#cleanupAfterFailure()
+			const cleanupErrors = await this.#releaseResources()
 
 			throwLifecycleFailure(error, cleanupErrors)
 		}
@@ -285,46 +282,33 @@ export class PluginLifecycleManager {
 	async #performDispose(): Promise<void> {
 		this.#state = 'disposing'
 		const errors: unknown[] = []
+		const pendingInitialization = this.#startPromise ?? this.#setupPromise
 
-		if (this.#startPromise !== undefined) {
-			await collectFailure(async (): Promise<void> => {
-				await this.#startPromise
-			}, errors)
-		} else if (this.#setupPromise !== undefined) {
-			// Standalone setup must settle before disposal snapshots completed plugins.
-			await collectFailure(async (): Promise<void> => {
-				await this.#setupPromise
-			}, errors)
+		if (pendingInitialization !== undefined) {
+			// Setup/start must settle before disposal snapshots completed plugins.
+			await collectFailure(() => pendingInitialization, errors)
 		}
 
-		if (!this.#isDisposed()) {
-			if (this.#stopPromise === undefined) {
-				errors.push(...(await this.#stopActivePlugins()))
-			} else {
-				await collectFailure(async (): Promise<void> => {
-					await this.#stopPromise
-				}, errors)
-			}
-
-			errors.push(...(await this.#disposeInitializedPlugins()))
-			await collectFailure(
-				async (): Promise<void> => this.#disposeCapabilities(),
-				errors,
-			)
-			this.#state = 'disposed'
+		// Awaited setup/start may have completed the same cleanup concurrently.
+		if (this.state !== 'disposed') {
+			await this.#releaseResources(this.#stopPromise, errors)
 		}
 
 		throwCleanupErrors(errors, 'Multiple plugin disposal operations failed.')
 	}
 
-	async #cleanupAfterFailure(): Promise<readonly unknown[]> {
-		const errors = await this.#stopActivePlugins()
+	async #releaseResources(
+		pendingStop?: Promise<void>,
+		errors: unknown[] = [],
+	): Promise<unknown[]> {
+		if (pendingStop === undefined) {
+			errors.push(...(await this.#stopActivePlugins()))
+		} else {
+			await collectFailure(() => pendingStop, errors)
+		}
 
 		errors.push(...(await this.#disposeInitializedPlugins()))
-		await collectFailure(
-			async (): Promise<void> => this.#disposeCapabilities(),
-			errors,
-		)
+		await collectFailure(() => this.#disposeCapabilities(), errors)
 		this.#state = 'disposed'
 
 		return errors
@@ -333,20 +317,22 @@ export class PluginLifecycleManager {
 	async #stopActivePlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const initializedPlugin of reverse(this.#initializedPlugins)) {
+		for (const initializedPlugin of this.#initializedPlugins.toReversed()) {
 			const plugin = initializedPlugin.plugin.definition
 
 			if (!this.#activePlugins.has(plugin)) {
 				continue
 			}
 
-			await collectFailure(async (): Promise<void> => {
-				await runWithApplicationPluginOwner(
-					this.#application,
-					initializedPlugin.plugin.definition.manifest.identity,
-					() => initializedPlugin.resource?.stop?.(),
-				)
-			}, errors)
+			await collectFailure(
+				() =>
+					runWithApplicationPluginOwner(
+						this.#application,
+						initializedPlugin.plugin.definition.manifest.identity,
+						() => initializedPlugin.resource?.stop?.(),
+					),
+				errors,
+			)
 		}
 
 		this.#activePlugins.clear()
@@ -358,16 +344,18 @@ export class PluginLifecycleManager {
 	async #disposeInitializedPlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const initializedPlugin of reverse(this.#initializedPlugins)) {
-			await collectFailure(async (): Promise<void> => {
-				await runWithApplicationPluginOwner(
-					this.#application,
-					initializedPlugin.plugin.definition.manifest.identity,
-					() => initializedPlugin.resource?.dispose?.(),
-				)
-			}, errors)
+		for (const initializedPlugin of this.#initializedPlugins.toReversed()) {
 			await collectFailure(
-				async (): Promise<void> =>
+				() =>
+					runWithApplicationPluginOwner(
+						this.#application,
+						initializedPlugin.plugin.definition.manifest.identity,
+						() => initializedPlugin.resource?.dispose?.(),
+					),
+				errors,
+			)
+			await collectFailure(
+				() =>
 					this.#capabilities.disposeOwner(
 						initializedPlugin.plugin.definition.manifest.identity,
 					),
@@ -395,9 +383,5 @@ export class PluginLifecycleManager {
 		if (this.#state === 'disposed' || this.#state === 'disposing') {
 			throw new TypeError(`Cannot ${operation} a disposed plugin lifecycle`)
 		}
-	}
-
-	#isDisposed(): boolean {
-		return this.#state === 'disposed'
 	}
 }
