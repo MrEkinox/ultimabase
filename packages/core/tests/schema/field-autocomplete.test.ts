@@ -1,7 +1,10 @@
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
+import {
+	createLanguageService,
+	createLanguageServiceFixture,
+} from '../../../../tooling/vitest/typescript-language-service.js'
 
 const fieldFactoryNames = [
 	'bigintField',
@@ -48,7 +51,6 @@ interface FieldOptionHoverCase {
 
 interface CompactFieldSignatureCase {
 	readonly factoryName: FieldFactoryName
-	readonly imports?: readonly FieldFactoryName[]
 	readonly expression: string
 	readonly expectedReturn: string
 }
@@ -267,7 +269,6 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	},
 	{
 		factoryName: 'objectField',
-		imports: ['stringField'],
 		expression:
 			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, required: true, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedObjectField<',
@@ -292,30 +293,49 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	},
 ]
 
-/** Reads the editor signature at one marker without persisting a fixture file. */
-const readMarkedQuickInfoDisplay = (
-	fileName: string,
-	sourceWithMarker: string,
-	marker: string,
-): string => {
-	const markerPosition = sourceWithMarker.indexOf(marker)
+/** Reuses one editor program for every independently asserted compact signature. */
+const createCompactSignatureReader = (
+	cases: readonly CompactFieldSignatureCase[],
+): ((signatureCase: CompactFieldSignatureCase) => string) => {
+	const fileName = `${import.meta.dirname}/compact-field-signatures.fixture.ts`
+	const markers = new Map<CompactFieldSignatureCase, string>()
+	const declarations = cases.map((signatureCase, index) => {
+		const marker = `/* compact-signature:${String(index)} */`
 
-	if (markerPosition < 0) {
-		throw new TypeError(`Missing QuickInfo marker: ${marker}`)
-	}
-
-	const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
-	const service = createLanguageService(fileName, source)
-	const quickInfo = service.getQuickInfoAtPosition(
+		markers.set(signatureCase, marker)
+		return `const field${String(index)} = ${marker}${signatureCase.expression}`
+	})
+	const fixture = createLanguageServiceFixture(
 		fileName,
-		markerPosition + marker.length,
+		`
+import { ${fieldFactoryNames.join(', ')} } from '../../src/schema/index.js'
+
+${declarations.join('\n')}
+`,
+		[...markers.values()],
 	)
 
-	if (quickInfo === undefined) {
-		throw new TypeError('Expected marked QuickInfo')
-	}
+	return (signatureCase) => {
+		const marker = markers.get(signatureCase)
+		if (marker === undefined) {
+			throw new TypeError(
+				`Unknown compact signature case: ${signatureCase.factoryName}`,
+			)
+		}
 
-	return ts.displayPartsToString(quickInfo.displayParts)
+		const quickInfo = fixture.service.getQuickInfoAtPosition(
+			fileName,
+			fixture.positionOf(marker) + marker.length,
+		)
+
+		if (quickInfo === undefined) {
+			throw new TypeError(
+				`Expected compact signature QuickInfo for ${signatureCase.factoryName}`,
+			)
+		}
+
+		return ts.displayPartsToString(quickInfo.displayParts)
+	}
 }
 
 /** Creates the same contextual completion requests used by TypeScript editors. */
@@ -511,6 +531,9 @@ const expectHoverDocumented = (
 
 describe('field factory IntelliSense', () => {
 	const reader = createFieldOptionCompletionReader(fieldCompletionCases)
+	const readCompactSignature = createCompactSignatureReader(
+		compactFieldSignatureCases,
+	)
 
 	it.each(fieldCompletionCases)(
 		'suggests every $factoryName option',
@@ -536,18 +559,9 @@ describe('field factory IntelliSense', () => {
 
 	it.each(compactFieldSignatureCases)(
 		'keeps the $factoryName signature compact without leaking runtime literals',
-		({ factoryName, imports = [], expression, expectedReturn }) => {
-			const marker = '/* hover */'
-			const importedFactories = [factoryName, ...imports].join(', ')
-			const display = readMarkedQuickInfoDisplay(
-				`${import.meta.dirname}/${factoryName}-hover.fixture.ts`,
-				`
-import { ${importedFactories} } from '../../src/schema/index.js'
-
-const field = ${marker}${expression}
-`,
-				marker,
-			)
+		(signatureCase) => {
+			const { expectedReturn } = signatureCase
+			const display = readCompactSignature(signatureCase)
 
 			expect(display).toContain(expectedReturn)
 			expect(display).not.toContain('DefaultedCompactScalarFieldOptions<')

@@ -12,6 +12,10 @@ commands retain complete discovery.
   and PostgreSQL E2E projects. Unit discovery explicitly excludes E2E files.
 - `vitest/test-discovery.test.ts` checks actual Vitest inventories and isolated
   TypeScript root files so moves cannot silently drop or duplicate suites.
+- `vitest/typescript-language-service.ts` keeps editor-contract tests on
+  TypeScript's real language service. Compatible completion and QuickInfo
+  markers should share one fixture program; source and built-package contracts
+  remain separate when their module resolution differs.
 - `tsconfig/test.json` provides strict shared compiler options and the complete root test
   program. Each package overrides the root files in `tsconfig.test.json` and
   explicitly includes shared application option declaration fixtures.

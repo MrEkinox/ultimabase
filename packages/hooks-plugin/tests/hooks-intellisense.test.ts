@@ -4,19 +4,22 @@ import { fileURLToPath } from 'node:url'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import {
+	createLanguageService,
+	createLanguageServiceFixture,
+	type LanguageServiceFixture,
+} from '../../../tooling/vitest/typescript-language-service.js'
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'hooks-intellisense.fixture.ts')
 
-const completionNames = (source: string, marker: string): readonly string[] => {
-	const position = source.indexOf(marker)
-	if (position < 0) throw new TypeError(`Missing completion marker: ${marker}`)
-	const service = createLanguageService(fixtureFile, source)
-
+const completionNames = (
+	fixture: LanguageServiceFixture,
+	marker: string,
+): readonly string[] => {
 	return (
-		service
-			.getCompletionsAtPosition(fixtureFile, position, {})
+		fixture.service
+			.getCompletionsAtPosition(fixtureFile, fixture.positionOf(marker), {})
 			?.entries.map(({ name }) => name) ?? []
 	)
 }
@@ -31,13 +34,18 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
+		const fixture = createLanguageServiceFixture(
+			fixtureFile,
+			completionSource,
+			['/* schema-options */', '/* field-options */'],
+		)
 
-		expect(
-			completionNames(completionSource, '/* schema-options */'),
-		).not.toContain('hooks')
-		expect(
-			completionNames(completionSource, '/* field-options */'),
-		).not.toContain('hooks')
+		expect(completionNames(fixture, '/* schema-options */')).not.toContain(
+			'hooks',
+		)
+		expect(completionNames(fixture, '/* field-options */')).not.toContain(
+			'hooks',
+		)
 
 		const invalidSource = `
 import { Schema } from '@ultimabase/core'
@@ -74,9 +82,13 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
+		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+			'/* schema-options */',
+			'/* field-options */',
+		])
 
-		expect(completionNames(source, '/* schema-options */')).toContain('hooks')
-		expect(completionNames(source, '/* field-options */')).toContain('hooks')
+		expect(completionNames(fixture, '/* schema-options */')).toContain('hooks')
+		expect(completionNames(fixture, '/* field-options */')).toContain('hooks')
 	})
 
 	it('exposes the optional nested graph on schema mutation hooks', () => {
@@ -94,7 +106,12 @@ Schema.define({
   hooks: { afterOperation: { create: (input) => input./* hook-input */ } },
 })
 `
+		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+			'/* hook-input */',
+		])
 
-		expect(completionNames(source, '/* hook-input */')).toContain('nestedWrite')
+		expect(completionNames(fixture, '/* hook-input */')).toContain(
+			'nestedWrite',
+		)
 	})
 })

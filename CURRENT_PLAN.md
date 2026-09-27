@@ -1,10 +1,9 @@
 # Current plan: Coverage execution efficiency
 
-- Status: paused
+- Status: completed
 - Milestone: 61
 - Baseline: `ce4efbfb`
-- Completed issue: 6101
-- Resume point: 6102 after explicit approval
+- Completed issues: 6101, 6102
 
 Reduce local complete-coverage wall time without removing tests, projects,
 reports, thresholds, or production coverage. Local execution may use four
@@ -23,6 +22,8 @@ Local complete coverage now uses four workers and completes in 256.34 seconds,
 two workers through `VITEST_MAX_WORKERS`.
 
 The profile attributes 72.7% of cumulative file time to editor and TypeScript
-language-service suites. Issue 6102 proposes removing repeated program creation
-without deleting or merging editor contracts; implementation is not yet
-authorized.
+language-service suites. Issue 6102 removed repeated program creation without
+deleting or merging editor contracts. The focused editor suites are 64.6%
+faster. Two complete local coverage runs finished in 246.45 and 251.58 seconds:
+1.9% to 3.9% faster than issue 6101 and 42.0% to 43.1% faster than the original
+two-worker baseline.

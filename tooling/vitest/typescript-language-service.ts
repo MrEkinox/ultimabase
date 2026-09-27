@@ -1,5 +1,10 @@
 import * as ts from 'typescript'
 
+export interface LanguageServiceFixture {
+	readonly positionOf: (marker: string) => number
+	readonly service: ts.LanguageService
+}
+
 /** Creates a TypeScript service with the same strict module settings used by editors. */
 export const createLanguageService = (
 	fileName: string,
@@ -32,6 +37,54 @@ export const createLanguageService = (
 	}
 
 	return ts.createLanguageService(host)
+}
+
+/**
+ * Builds one editor program for every marked request in a compatible source.
+ * Marker replacement preserves offsets while keeping comments out of the
+ * completion and QuickInfo context seen by TypeScript.
+ */
+export const createLanguageServiceFixture = (
+	fileName: string,
+	sourceWithMarkers: string,
+	markers: readonly string[],
+): LanguageServiceFixture => {
+	const positions = new Map<string, number>()
+	let source = sourceWithMarkers
+
+	for (const marker of markers) {
+		const position = source.indexOf(marker)
+
+		if (position < 0) {
+			throw new TypeError(
+				`Missing TypeScript language-service marker: ${marker}`,
+			)
+		}
+
+		if (source.includes(marker, position + marker.length)) {
+			throw new TypeError(
+				`Duplicate TypeScript language-service marker: ${marker}`,
+			)
+		}
+
+		positions.set(marker, position)
+		source = source.replace(marker, ' '.repeat(marker.length))
+	}
+
+	return {
+		positionOf: (marker) => {
+			const position = positions.get(marker)
+
+			if (position === undefined) {
+				throw new TypeError(
+					`Unknown TypeScript language-service marker: ${marker}`,
+				)
+			}
+
+			return position
+		},
+		service: createLanguageService(fileName, source),
+	}
 }
 
 /** Reads QuickInfo at a source marker without coupling tests to line offsets. */

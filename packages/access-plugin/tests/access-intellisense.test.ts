@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import * as ts from 'typescript'
 
-import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import {
+	createLanguageService,
+	createLanguageServiceFixture,
+	type LanguageServiceFixture,
+} from '../../../tooling/vitest/typescript-language-service.js'
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(
@@ -12,14 +16,13 @@ const fixtureFile = path.join(
 	'access-intellisense.fixture.ts',
 )
 
-const completionNames = (source: string, marker: string): readonly string[] => {
-	const position = source.indexOf(marker)
-	if (position < 0) throw new TypeError(`Missing completion marker: ${marker}`)
-	const service = createLanguageService(fixtureFile, source)
-
+const completionNames = (
+	fixture: LanguageServiceFixture,
+	marker: string,
+): readonly string[] => {
 	return (
-		service
-			.getCompletionsAtPosition(fixtureFile, position, {})
+		fixture.service
+			.getCompletionsAtPosition(fixtureFile, fixture.positionOf(marker), {})
 			?.entries.map(({ name }) => name) ?? []
 	)
 }
@@ -34,11 +37,15 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
+		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+			'/* schema-options */',
+			'/* field-options */',
+		])
 
-		expect(completionNames(source, '/* schema-options */')).not.toContain(
+		expect(completionNames(fixture, '/* schema-options */')).not.toContain(
 			'access',
 		)
-		expect(completionNames(source, '/* field-options */')).not.toContain(
+		expect(completionNames(fixture, '/* field-options */')).not.toContain(
 			'access',
 		)
 		const invalidSource = `
@@ -78,9 +85,13 @@ Schema.define({
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
+		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+			'/* schema-options */',
+			'/* field-options */',
+		])
 
-		expect(completionNames(source, '/* schema-options */')).toContain('access')
-		expect(completionNames(source, '/* field-options */')).toContain('access')
+		expect(completionNames(fixture, '/* schema-options */')).toContain('access')
+		expect(completionNames(fixture, '/* field-options */')).toContain('access')
 	})
 
 	it('offers granular plugin defaults with sparse read capabilities', () => {
@@ -93,17 +104,18 @@ accessPlugin({
   },
 })
 `
+		const fixture = createLanguageServiceFixture(fixtureFile, source, [
+			'/* operation-defaults */',
+			'/* read-defaults */',
+		])
 
-		expect(completionNames(source, '/* operation-defaults */')).toEqual(
+		expect(completionNames(fixture, '/* operation-defaults */')).toEqual(
 			expect.arrayContaining(['create', 'delete', 'update', 'upsert']),
 		)
-		expect(completionNames(source, '/* read-defaults */')).toEqual(
+		expect(completionNames(fixture, '/* read-defaults */')).toEqual(
 			expect.arrayContaining(['exists', 'many', 'one']),
 		)
-		const diagnostics = createLanguageService(
-			fixtureFile,
-			source,
-		).getSemanticDiagnostics(fixtureFile)
+		const diagnostics = fixture.service.getSemanticDiagnostics(fixtureFile)
 
 		expect(diagnostics).toStrictEqual([])
 	})
