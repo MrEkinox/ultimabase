@@ -256,6 +256,7 @@ Accepted records:
 - [ADR-0271: Native contribution-first plugin plan](0271-native-contribution-plugin-plan.md)
 - [ADR-0272: Command contributions are Core-native](0272-native-command-contributions.md)
 - [ADR-0273: Plugin fields use one canonical family declaration](0273-canonical-plugin-field-families.md)
+- [ADR-0274: Core owns canonical cooperative cancellation failures](0274-canonical-operation-cancellation.md)
 
 Superseded records:
 

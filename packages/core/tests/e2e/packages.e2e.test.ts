@@ -23,6 +23,7 @@ describe('consolidated Core public entry point', () => {
 
 		expect(context.access.mode).toBe('anonymous')
 		expect(coreApi.RuntimePipeline).toBeTypeOf('function')
+		expect(coreApi.throwIfOperationCancelled).toBeTypeOf('function')
 	})
 
 	it('does not retain pre-release compatibility package facades', () => {

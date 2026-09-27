@@ -8,6 +8,7 @@ import {
 	getCurrentTransactionId,
 	runOutsideRequestEngineScope,
 	runWithQueryExecutionGuard,
+	throwIfOperationCancelled,
 	type PluginIdentity,
 	type ApplicationCallbackExecutor,
 	type RequestContext,
@@ -20,7 +21,6 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import { throwIfOperationCancelled } from './cancellation.js'
 import {
 	type HookDiagnosticEvent,
 	type HookDiagnosticPhase,

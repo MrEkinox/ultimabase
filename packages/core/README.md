@@ -1684,6 +1684,21 @@ includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
 
+Plugin engines that observe an `AbortSignal` at a safe cooperative boundary can
+use the same cancellation failure as Core Runtime:
+
+```ts
+import { throwIfOperationCancelled } from '@ultimabase/core'
+
+throwIfOperationCancelled(context.signal, { phase: 'before-callback' })
+```
+
+The helper returns while the signal is active. Once aborted, it throws
+`OPERATION_CANCELLED` and records only `request-aborted` or
+`deadline-exceeded` as the internal reason. It never copies the arbitrary
+signal reason, aborts work, detaches a running promise, or decides where a safe
+checkpoint belongs.
+
 ## Author plugin packages
 
 Core owns one package-level authoring entry point. A package factory returns one

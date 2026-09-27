@@ -9,15 +9,17 @@ order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 owner: '2812'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-27
 sources:
   - packages/core/src/errors/framework-error.ts
+  - packages/core/src/runtime/cancellation/operation-cancellation.ts
   - packages/core/src/schema/plans/contracts.ts
   - packages/core/src/runtime/validation/runtime-validation.ts
   - packages/postgres-plugin/src/drizzle/operation-error.ts
   - packages/http-plugin/README.md
   - packages/rest-plugin/README.md
   - packages/graphql-plugin/README.md
+  - docs/adr/0274-canonical-operation-cancellation.md
 ---
 
 Core errors have transport-independent codes. A public HTTP request adds another
@@ -99,6 +101,13 @@ codes. Common ones include `VALIDATION_ERROR`, `NOT_FOUND`,
 `PERMISSION_DENIED`, `TRANSACTION_ERROR`, and plugin-graph failures such as
 `PLUGIN_DEPENDENCY_MISSING` and `PLUGIN_PRIVILEGE_DENIED`. Unknown codes or
 malformed constructor options throw `TypeError`.
+
+`OPERATION_CANCELLED` is the stable cooperative cancellation code. Plugin
+engines can call `throwIfOperationCancelled(signal, internalDetails?)` from
+`@ultimabase/core` at a safe boundary to produce the same failure as Core
+Runtime. The helper never exposes `signal.reason`; it records only the internal
+normalized reason `request-aborted` or `deadline-exceeded`. It checks an
+already-aborted signal and does not terminate or detach running JavaScript.
 
 When you need to handle an absent direct-read target, check the stable code:
 

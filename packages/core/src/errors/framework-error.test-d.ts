@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	FrameworkError,
 	frameworkErrorCodes,
+	throwIfOperationCancelled,
 	type FrameworkErrorCode,
 	type FrameworkErrorPayload,
 } from '../index.js'
@@ -56,4 +57,19 @@ test('exposes the stable plugin declaration diagnostic code', () => {
 	)
 
 	expectTypeOf(error.code).toEqualTypeOf<'PLUGIN_DECLARATION_INVALID'>()
+})
+
+test('exposes one typed cooperative cancellation helper', () => {
+	const signal = new AbortController().signal
+
+	expectTypeOf(throwIfOperationCancelled).toEqualTypeOf<
+		(
+			signal: AbortSignal,
+			internalDetails?: Readonly<Record<string, unknown>>,
+		) => void
+	>()
+	throwIfOperationCancelled(signal, { phase: 'plugin-callback' })
+
+	// @ts-expect-error -- Diagnostic details retain a named record shape.
+	throwIfOperationCancelled(signal, [])
 })

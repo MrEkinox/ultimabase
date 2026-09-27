@@ -70,6 +70,12 @@ Master authority, but a contributed Hook that initiates a fresh Master
 elevation must request `authority:elevate`; the Hooks plugin never lends its own
 privileges to that provider.
 
+Hooks checks cooperative cancellation through Core's public
+`throwIfOperationCancelled()` helper before and after cancellable callback
+boundaries. Independent behavior engines can use that same helper with their
+own `AbortSignal`; it standardizes the `OPERATION_CANCELLED` failure but does
+not detach or forcibly terminate running JavaScript.
+
 Schema mutation Hooks receive an optional `nestedWrite` value when their
 ordinary lifecycle belongs to a nested mutation. It is the same immutable,
 selection-independent Core graph for the root and every created child; it is

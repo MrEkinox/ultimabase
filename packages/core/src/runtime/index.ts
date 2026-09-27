@@ -16,6 +16,7 @@ export {
 export type { ActiveFrameworkContext } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
 export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
+export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'
 export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'

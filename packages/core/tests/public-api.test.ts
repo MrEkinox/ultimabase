@@ -234,6 +234,7 @@ describe('@ultimabase/core public entry point', () => {
 			'snapshotRuntimeResultRecord',
 			'snapshotScalarFieldValue',
 			'stringField',
+			'throwIfOperationCancelled',
 			'timeField',
 			'transformOperationFieldInputs',
 			'transformQueryFilterInput',

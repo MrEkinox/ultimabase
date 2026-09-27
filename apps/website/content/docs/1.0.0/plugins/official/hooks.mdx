@@ -9,7 +9,7 @@ contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-27
 sources:
   - packages/hooks-plugin/README.md
   - packages/hooks-plugin/src/authoring/contracts.ts
@@ -25,6 +25,7 @@ sources:
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0172-focused-schema-hook-results.md
   - docs/adr/0202-hooks-are-one-vertical-plugin.md
+  - docs/adr/0274-canonical-operation-cancellation.md
 ---
 
 ## Overview
@@ -330,7 +331,9 @@ but it exposes no adapter, raw credential, or transaction controls. Do not
 retain it for later work: its capabilities close when the callback settles.
 Re-entering the same Hook recursively fails with `RUNTIME_CALLBACK_RECURSION`; an observed
 cancellation prevents later pre-commit handlers from starting. Master bypasses
-authorization policy, not Hooks.
+authorization policy, not Hooks. The engine uses Core's canonical
+`throwIfOperationCancelled()` boundary, so independent plugin engines can
+produce the same `OPERATION_CANCELLED` failure without copying Hooks internals.
 
 ## Troubleshooting
 

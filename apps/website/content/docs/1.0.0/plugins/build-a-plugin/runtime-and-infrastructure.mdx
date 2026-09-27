@@ -7,9 +7,10 @@ contentType: guide
 outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-09-27
 sources:
   - packages/core/README.md
+  - packages/core/src/runtime/cancellation/operation-cancellation.ts
   - packages/core/src/runtime/operations/field-values.ts
   - packages/core/src/runtime/behaviors/prepared-target-boundary.ts
   - packages/core/src/plugins/manifest.ts
@@ -20,6 +21,7 @@ sources:
   - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0269-core-native-plugin-authoring.md
   - docs/adr/0271-native-contribution-plugin-plan.md
+  - docs/adr/0274-canonical-operation-cancellation.md
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -176,6 +178,30 @@ community plugin may instead provide its own independent behavior or policy
 engine through the public Core kernel; it must not depend on a hidden Core
 Hooks or Access registry. ACL's monotonic policy is another concrete example
 of `runtime:constrain` without importing Access.
+
+### Observe cooperative cancellation
+
+A callback or plugin engine that performs bounded work should pass the provided
+`AbortSignal` to cancellable dependencies and check it only at safe boundaries:
+
+```ts title="src/run-plugin-callback.ts"
+import { throwIfOperationCancelled } from '@ultimabase/core'
+
+export const runPluginCallback = async (
+	signal: AbortSignal,
+	callback: () => Promise<void>,
+) => {
+	throwIfOperationCancelled(signal, { phase: 'before-callback' })
+	await callback()
+	throwIfOperationCancelled(signal, { phase: 'after-callback' })
+}
+```
+
+An active signal returns normally. An aborted signal throws Core's stable
+`OPERATION_CANCELLED` error and retains only a normalized internal reason:
+`request-aborted` or `deadline-exceeded`. The arbitrary abort reason is never
+copied. This is cooperative cancellation, not forced termination: do not race a
+business callback and let it continue against resources that Runtime may close.
 
 `guard` may allow or throw; protected row constraints and field restrictions
 can only narrow. Master bypasses authorization only where the contribution
