@@ -222,6 +222,9 @@ export class AccessRuntime {
 		const accessRequest: AccessRuntimeRequest = request
 		if (isSchemaMutationAccessRequest(accessRequest)) return
 		const operation = readNativeMutationOperation(request.operation)
+		if (operation.kind !== 'upsert-one' && operation.kind !== 'upsert-many') {
+			return
+		}
 		const outcome = this.#boundaries.snapshotMutationOutcome(
 			operation,
 			request.outcome,

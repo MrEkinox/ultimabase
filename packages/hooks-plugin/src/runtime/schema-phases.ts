@@ -187,12 +187,11 @@ export const runSchemaResultPhases = async <
 	}
 
 	const order = getNativeHookPhaseOrder(input.operation.kind)
-	boundaries.snapshotResultReplacement(
+	const result = boundaries.snapshotResultReplacement(
 		input.operation,
 		input.result,
 		input.selectedFieldsOverride,
 	)
-	const result = boundaries.snapshotValue(input.result)
 
 	if (
 		order.family === 'read' ||
@@ -201,7 +200,8 @@ export const runSchemaResultPhases = async <
 		input.operation.kind === 'upsert-many' ||
 		input.operation.kind === 'delete-many'
 	) {
-		return result
+		// The boundary preserves the exact generic result while restoring metadata.
+		return result as TResult
 	}
 	if (input.outcome === undefined) {
 		throw new TypeError(
@@ -248,5 +248,6 @@ export const runSchemaResultPhases = async <
 		}
 	}
 
-	return result
+	// The boundary preserves the exact generic result while restoring metadata.
+	return result as TResult
 }

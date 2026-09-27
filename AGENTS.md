@@ -298,6 +298,11 @@ yarn lint
 yarn build
 ```
 
+Every debt-reduction or behavior-preserving refactor must also pass the complete
+`yarn test:coverage` gate before its issue is marked complete or committed. The
+ordinary `yarn test` command does not include the source-mode E2E projects and
+therefore cannot replace this gate.
+
 Document anything that could not be run.
 
 Create a dedicated commit after an issue is complete, but never push it without the user's explicit confirmation.

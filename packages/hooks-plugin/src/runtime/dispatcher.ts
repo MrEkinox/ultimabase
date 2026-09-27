@@ -84,12 +84,14 @@ export const createHookBehavior = (
 				: undefined,
 		transformMutationOutcome: (input) => {
 			if (isSchemaMutationHookRequest(input)) return input.outcome
-			boundaries.snapshotMutationOutcome(
+			const outcome = boundaries.snapshotMutationOutcome(
 				readNativeMutationOperation(input.operation),
 				input.outcome,
 				input.selectedFieldsOverride,
 			)
-			return boundaries.snapshotValue(input.outcome)
+
+			// Validation proves that the snapshot retains this transform's exact value type.
+			return outcome as typeof input.outcome
 		},
 		transformInput: (input) => resolveFieldInputs(plan, runtime, input),
 		transformResult: (input) => {

@@ -1,33 +1,28 @@
-# Current plan: Request-engine derivation
+# Current plan: Runtime boundary regression repair
 
 - Status: completed
-- Milestone: 56
-- Baseline: `1772b024`
-- Completed issue: 5601
+- Milestone: 57
+- Baseline: `270d60b9`
+- Completed issue: 5701
 
-The user authorized the next debt-reduction pass after milestone 55. The audit
-rejected merging PostgreSQL request dispatch, mutation preparation, and SQL
-execution because accepted transaction and persistence-plan ADRs require those
-phases to remain distinct. It rejected compressing `WhereBuilder` because the
-apparent repetition carries public generic signatures and editor documentation.
-It also proved that removing Password Auth's explicit operation annotations
-would violate the repository's `isolatedDeclarations` build contract; changing
-that authoring boundary requires a separate architecture decision.
+The complete coverage gate revealed two source-mode PostgreSQL E2E regressions
+that the ordinary root test command does not select. Bisecting unchanged tests
+proved that milestone 44 stopped returning Hooks' validated result snapshot and
+milestone 45 decoded complete mutation outcomes for native mutations that Access
+does not consume.
 
-The selected debt is internal RequestEngine derivation. Four sites repeat the
-same private constructor wiring for context, Master, schema-mutation, and
-transaction variants, while two private hosts repeat the same transaction
-callback and optional lifetime. Consolidate only those facts. Exact application
-identity, context, pipeline, transaction lifetime, authority, auditing,
-cancellation, and execution semantics remain unchanged. The implementation
-must delete production lines overall and add no public API.
+Restore the exact pre-refactor behavior without weakening either test: Hooks
+must return the validated snapshot that retains private selection metadata, and
+Access must use Core's complete mutation-outcome decoder only for upserts, the
+sole native branch whose materializations it consumes. Then run the complete
+coverage gate plus the standard repository validation before committing.
 
 No push is authorized.
 
 ## Outcome
 
-One private derivation method now owns the four internal RequestEngine variants,
-and both private command hosts reuse one transaction callback and optional
-lifetime description. Production TypeScript adds 27 lines and removes 40, a
-net reduction of 13. `request-engine.ts` falls from 531 to 518 lines with no
-public API or behavior change.
+Hooks again returns Core's validated mutation-outcome and result snapshots, so
+private selection metadata survives ordered behavior composition. Access now
+invokes the complete mutation-outcome decoder only for native upserts, the only
+branch where it reads materializations. The unchanged public nested-write and
+virtual-field verticals pass, as does the complete coverage gate.
