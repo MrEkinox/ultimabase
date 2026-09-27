@@ -84,23 +84,23 @@ follows. Because later commits touch a few lines introduced earlier, the
 baseline-to-final additions and deletions below are slightly lower than this
 sum while retaining the same net reduction.
 
-| Issue | Production additions | Production deletions | Net |
-| --- | ---: | ---: | ---: |
-| 4001 | 649 | 708 | -59 |
-| 4002 | 164 | 176 | -12 |
-| 4003 | 23 | 36 | -13 |
-| 4004 | 33 | 47 | -14 |
-| **Milestone** | **869** | **967** | **-98** |
+| Issue         | Production additions | Production deletions |     Net |
+| ------------- | -------------------: | -------------------: | ------: |
+| 4001          |                  649 |                  708 |     -59 |
+| 4002          |                  164 |                  176 |     -12 |
+| 4003          |                   23 |                   36 |     -13 |
+| 4004          |                   33 |                   47 |     -14 |
+| **Milestone** |              **869** |              **967** | **-98** |
 
 The final diff from `aa2f0097` is:
 
-| Category | Additions | Deletions | Net |
-| --- | ---: | ---: | ---: |
-| Handwritten production TypeScript | 852 | 950 | -98 |
-| Tests | 187 | 6 | +181 |
-| Engineering and website documentation | 505 | 35 | +470 |
-| Configuration | 0 | 0 | 0 |
-| **All files** | **1,544** | **991** | **+553** |
+| Category                              | Additions | Deletions |      Net |
+| ------------------------------------- | --------: | --------: | -------: |
+| Handwritten production TypeScript     |       852 |       950 |      -98 |
+| Tests                                 |       187 |         6 |     +181 |
+| Engineering and website documentation |       505 |        35 |     +470 |
+| Configuration                         |         0 |         0 |        0 |
+| **All files**                         | **1,544** |   **991** | **+553** |
 
 The positive all-file net is entirely tests and documentation. Runtime and
 authoring implementation decreases by 98 lines.

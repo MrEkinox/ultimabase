@@ -87,9 +87,7 @@ describe('normalizeQueryInclusion', () => {
 				},
 			] as never),
 		).toThrow(
-			new TypeError(
-				'query inclusion target must be created by Schema.define',
-			),
+			new TypeError('query inclusion target must be created by Schema.define'),
 		)
 	})
 })

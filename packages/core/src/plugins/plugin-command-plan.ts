@@ -1,7 +1,4 @@
-import {
-	immutableRecord,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import { isOperationTransportBinding } from '../runtime/plugin-operations/capabilities.js'
 import type {

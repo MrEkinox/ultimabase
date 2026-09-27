@@ -37,12 +37,12 @@ without pretending the operation is native CRUD.
 Compared with baseline `d97afb1b`, the completed milestone changes **45 files**
 with **1,102 additions and 433 deletions** (net **+669**):
 
-| Area | Added | Removed | Net |
-| --- | ---: | ---: | ---: |
-| Production | 702 | 390 | +312 |
-| Tests | 121 | 21 | +100 |
-| Engineering and public documentation | 279 | 22 | +257 |
-| Configuration | 0 | 0 | 0 |
+| Area                                 | Added | Removed |  Net |
+| ------------------------------------ | ----: | ------: | ---: |
+| Production                           |   702 |     390 | +312 |
+| Tests                                |   121 |      21 | +100 |
+| Engineering and public documentation |   279 |      22 | +257 |
+| Configuration                        |     0 |       0 |    0 |
 
 The milestone is therefore a type-safety and DX reduction, not a source-line
 reduction. The production increase is concentrated in the closed logical-stage

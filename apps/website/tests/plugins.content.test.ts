@@ -145,9 +145,7 @@ describe('plugin documentation contracts', () => {
 		expect(documentation).toContain(
 			'identity and configured plugin definitions belong directly to Core.',
 		)
-		expect(documentation).toContain(
-			'no generic registry, service locator,',
-		)
+		expect(documentation).toContain('no generic registry, service locator,')
 		expect(documentation).toContain('privilege shortcut')
 	})
 

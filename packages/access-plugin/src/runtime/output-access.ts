@@ -64,8 +64,7 @@ export const assertAccessExplicitSelection = (
 
 	for (const { field: fieldName } of readOperationResultSelection(
 		request.operation,
-	)
-		.fields) {
+	).fields) {
 		if (!permitted.includes(fieldName)) {
 			const field = plan.getField(schemaPlan.schema, [fieldName])
 			throw createAccessDeniedError(

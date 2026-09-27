@@ -129,7 +129,9 @@ const alternativeBehaviorSchemaOption = defineSchemaOption({
 
 const readOperationIdentity = (
 	operation: RuntimeLogicalOperationAst,
-): Readonly<{ readonly operation: OperationKind; readonly schema: string }> | undefined => {
+):
+	| Readonly<{ readonly operation: OperationKind; readonly schema: string }>
+	| undefined => {
 	if (operation.kind === 'plugin-schema-mutation') return undefined
 	const schema: unknown = getOperationSchema(operation)
 	if (
