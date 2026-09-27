@@ -1,27 +1,26 @@
-# Current plan: Plugin lifecycle cleanup
+# Current plan: Schema command input contracts
 
 - Status: completed
-- Milestone: 54
-- Baseline: `b1f2de91`
-- Completed issue: 5401
+- Milestone: 55
+- Baseline: `4697d76d`
+- Completed issue: 5501
 
-The user authorized the next debt-reduction pass after milestone 53. The audit
-found that normal plugin disposal and failed setup/start rollback independently
-own the same stop, plugin disposal, capability disposal, and terminal-state
-sequence.
+The user authorized the next debt-reduction pass after milestone 54. The audit
+found that schema-command execution declares many overlapping required and
+optional key sets and repeats the same untrusted-array validation for every
+collection command.
 
-Core may consolidate only that private cleanup sequence. Normal disposal must
-still await an existing stop promise, failure rollback must avoid promise
-cycles, cleanup must continue after errors, and application ownership remains
-unproven after any cleanup failure. The implementation must delete production
-lines overall and introduce no public export.
+Core may consolidate only those private input-shape contracts and array checks.
+Exact accepted keys, diagnostic order and messages, singular targeting,
+selection, inclusion, itemization, and batch execution remain unchanged. The
+implementation must delete production lines overall and introduce no public
+export.
 
 No push is authorized.
 
 ## Outcome
 
-Normal disposal and failed setup/start rollback now share one private resource
-release sequence while explicitly controlling whether an existing stop promise
-must settle first. Production TypeScript adds 42 lines and removes 58, a net
-reduction of 16. `lifecycle-manager.ts` falls from 403 to 387 lines and leaves
-the advisory file-size warning list.
+One private contract table now owns required and optional schema-command wrapper
+keys, and one assertion owns every collection-array diagnostic. Production
+TypeScript adds 42 lines and removes 64, a net reduction of 22.
+`schema-command-execution.ts` falls from 559 to 537 lines.

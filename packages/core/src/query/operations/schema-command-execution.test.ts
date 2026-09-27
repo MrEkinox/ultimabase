@@ -204,8 +204,14 @@ describe('schema command execution boundaries', () => {
 		expect(() => createSchemaRecords(Post, { data: {} as never })).toThrow(
 			new TypeError('schema createMany data must be an array'),
 		)
+		expect(() => updateSchemaRecords(Post, { data: {} as never })).toThrow(
+			new TypeError('schema updateMany data must be an array'),
+		)
 		expect(() => upsertSchemaRecords(Post, { data: {} as never })).toThrow(
 			new TypeError('schema upsertMany data must be an array'),
+		)
+		expect(() => deleteSchemaRecords(Post, { where: {} as never })).toThrow(
+			new TypeError('schema deleteMany where must be an array'),
 		)
 		expect(() =>
 			upsertSchemaRecords(Post, {

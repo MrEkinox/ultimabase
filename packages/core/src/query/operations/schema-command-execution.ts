@@ -59,55 +59,56 @@ import type {
 import type { UpdateExpression } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
 
+type CommandKeyContract = readonly [
+	required: readonly string[],
+	optional?: readonly string[],
+]
+
+const commandKeyContracts = {
+	dataProjection: [['data'], ['include', 'select']],
+	deleteMany: [['where'], ['select']],
+	deleteOne: [[], ['id', 'select', 'where']],
+	updateItem: [['data', 'where']],
+	updateOne: [['data'], ['id', 'include', 'select', 'where']],
+	upsertItem: [['create', 'update', 'where']],
+	upsertMany: [['data'], ['select']],
+	upsertOne: [['create', 'update', 'where'], ['select']],
+} as const satisfies Record<string, CommandKeyContract>
+
 const assertExactCommandKeys: (
 	input: unknown,
-	keys: ReadonlySet<string>,
+	contract: CommandKeyContract,
 	path: string,
-	optionalKeys?: ReadonlySet<string>,
 ) => asserts input is Readonly<Record<string, unknown>> = (
 	input,
-	keys,
+	[requiredKeys, optionalKeys = []],
 	path,
-	optionalKeys = new Set(),
 ) => {
 	if (!isPlainRecord(input)) {
 		throw new TypeError(`${path} must be an object`)
 	}
 
 	for (const key of Object.keys(input)) {
-		if (!keys.has(key) && !optionalKeys.has(key)) {
+		if (!requiredKeys.includes(key) && !optionalKeys.includes(key)) {
 			throw new TypeError(`${path} contains unknown key: ${key}`)
 		}
 	}
 
-	for (const key of keys) {
+	for (const key of requiredKeys) {
 		if (!Object.hasOwn(input, key)) {
 			throw new TypeError(`${path} must contain key: ${key}`)
 		}
 	}
 }
 
-const updateCommandKeys = new Set(['data', 'where'])
-const updateManyCommandKeys = new Set(['data'])
-const updateOneCommandKeys = new Set(['data'])
-const updateOneOptionalCommandKeys = new Set([
-	'id',
-	'include',
-	'select',
-	'where',
-])
-const updateManyOptionalCommandKeys = new Set(['include', 'select'])
-const createCommandKeys = new Set(['data'])
-const createOneOptionalCommandKeys = new Set(['include', 'select'])
-const createManyOptionalCommandKeys = new Set(['include', 'select'])
-const deleteCommandKeys = new Set(['where'])
-const deleteOneCommandKeys = new Set<string>()
-const deleteOneOptionalCommandKeys = new Set(['id', 'select', 'where'])
-const deleteManyOptionalCommandKeys = new Set(['select'])
-const upsertCommandKeys = new Set(['create', 'update', 'where'])
-const upsertOptionalCommandKeys = new Set(['select'])
-const upsertManyCommandKeys = new Set(['data'])
-const upsertManyOptionalCommandKeys = new Set(['select'])
+const assertCommandArray: (
+	value: unknown,
+	path: string,
+) => asserts value is readonly unknown[] = (value, path) => {
+	if (!isUnknownArray(value)) {
+		throw new TypeError(`${path} must be an array`)
+	}
+}
 
 const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
 	expression: QueryFilterNode<TSchema>,
@@ -224,9 +225,8 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
-		createCommandKeys,
+		commandKeyContracts.dataProjection,
 		'schema create input',
-		createOneOptionalCommandKeys,
 	)
 
 	return executeSchemaCreateOne(schema, input, options, inputMode)
@@ -240,14 +240,10 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
-		createCommandKeys,
+		commandKeyContracts.dataProjection,
 		'schema createMany input',
-		createManyOptionalCommandKeys,
 	)
-
-	if (!isUnknownArray(input.data)) {
-		throw new TypeError('schema createMany data must be an array')
-	}
+	assertCommandArray(input.data, 'schema createMany data')
 
 	const projectionQuery =
 		input.include === undefined
@@ -299,9 +295,8 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
-		updateOneCommandKeys,
+		commandKeyContracts.updateOne,
 		'schema updateOne input',
-		updateOneOptionalCommandKeys,
 	)
 	const where = normalizeSchemaSingularTarget(input, 'schema updateOne input')
 	const query = createSchemaWhereQuery(schema, where)
@@ -335,15 +330,10 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
-		updateManyCommandKeys,
+		commandKeyContracts.dataProjection,
 		'schema updateMany input',
-		updateManyOptionalCommandKeys,
 	)
-	const untrustedInputs: unknown = input.data
-
-	if (!isUnknownArray(untrustedInputs)) {
-		throw new TypeError('schema updateMany data must be an array')
-	}
+	assertCommandArray(input.data, 'schema updateMany data')
 	const projectionQuery =
 		input.include === undefined
 			? undefined
@@ -361,7 +351,7 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 		input.data.map((item, index) => {
 			assertExactCommandKeys(
 				item,
-				updateCommandKeys,
+				commandKeyContracts.updateItem,
 				`schema updateMany data[${String(index)}]`,
 			)
 			const query = createSchemaBatchResultQuery(schema, item.where, selection)
@@ -401,9 +391,8 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
-		upsertCommandKeys,
+		commandKeyContracts.upsertOne,
 		'schema upsert input',
-		upsertOptionalCommandKeys,
 	)
 	const query = createSchemaWhereQuery(schema, input.where)
 
@@ -437,15 +426,10 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
-		upsertManyCommandKeys,
+		commandKeyContracts.upsertMany,
 		'schema upsertMany input',
-		upsertManyOptionalCommandKeys,
 	)
-	const untrustedInputs: unknown = input.data
-
-	if (!isUnknownArray(untrustedInputs)) {
-		throw new TypeError('schema upsertMany data must be an array')
-	}
+	assertCommandArray(input.data, 'schema upsertMany data')
 
 	const selection =
 		input.select === undefined
@@ -455,7 +439,7 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 		input.data.map((item, index) => {
 			assertExactCommandKeys(
 				item,
-				upsertCommandKeys,
+				commandKeyContracts.upsertItem,
 				`schema upsertMany data[${String(index)}]`,
 			)
 
@@ -494,9 +478,8 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
-		deleteOneCommandKeys,
+		commandKeyContracts.deleteOne,
 		'schema deleteOne input',
-		deleteOneOptionalCommandKeys,
 	)
 	const where = normalizeSchemaSingularTarget(input, 'schema deleteOne input')
 	const query = createSchemaWhereQuery(schema, where)
@@ -525,15 +508,10 @@ export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
-		deleteCommandKeys,
+		commandKeyContracts.deleteMany,
 		'schema deleteMany input',
-		deleteManyOptionalCommandKeys,
 	)
-	const untrustedTargets: unknown = input.where
-
-	if (!isUnknownArray(untrustedTargets)) {
-		throw new TypeError('schema deleteMany where must be an array')
-	}
+	assertCommandArray(input.where, 'schema deleteMany where')
 
 	const entries = immutableArray(
 		input.where.map((where) => {
