@@ -86,7 +86,8 @@ Docker.
 - `yarn test:pack`: build and validate every publishable package archive.
 - `yarn test:performance`: run deterministic performance regression budgets.
 - `yarn test:coverage`: run unit, type, performance, ordinary E2E, and PostgreSQL
-  E2E projects with V8 coverage.
+  E2E projects with V8 coverage. Local execution uses four workers; the GitHub
+  coverage job overrides Vitest to the proven memory-safe two-worker bound.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
 

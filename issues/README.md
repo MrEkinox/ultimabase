@@ -98,6 +98,7 @@ consistent without rewriting historical issue prose.
 - [`3800-password-auth-option-simplification/`](3800-password-auth-option-simplification/README.md)
 - [`5900-public-error-state-consolidation/`](5900-public-error-state-consolidation/README.md)
 - [`6000-canonical-operation-cancellation/`](6000-canonical-operation-cancellation/README.md)
+- [`6100-coverage-execution-efficiency/`](6100-coverage-execution-efficiency/README.md)
 
 ## Assignment prompt
 

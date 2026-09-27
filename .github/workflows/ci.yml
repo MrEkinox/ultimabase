@@ -153,6 +153,9 @@ jobs:
     if: needs.select.outputs.coverage == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      # Hosted runners retain the proven memory-safe bound; local machines use four.
+      VITEST_MAX_WORKERS: 2
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup

@@ -1,23 +1,28 @@
-# Current plan: Canonical operation cancellation
+# Current plan: Coverage execution efficiency
 
-- Status: completed
-- Milestone: 60
-- Baseline: `81b8646b`
-- Completed issue: 6001
+- Status: paused
+- Milestone: 61
+- Baseline: `ce4efbfb`
+- Completed issue: 6101
+- Resume point: 6102 after explicit approval
 
-Core Runtime and Hooks currently contain byte-for-byte equivalent cooperative
-cancellation helpers. Expose the Core implementation as the canonical public
-plugin-authoring boundary and remove the Hooks copy without changing when or
-how either engine observes cancellation.
+Reduce local complete-coverage wall time without removing tests, projects,
+reports, thresholds, or production coverage. Local execution may use four
+workers, while GitHub retains its proven two-worker memory-safety bound through
+Vitest's native environment override.
 
-The change must produce a net reduction in production TypeScript and pass the
-complete coverage gate plus every standard repository validation command.
+Profile the resulting complete run and record which suites dominate execution
+time before proposing any further test reorganization.
 
 No push is authorized.
 
-## Outcome
+## Current outcome
 
-`throwIfOperationCancelled` is now a documented `@ultimabase/core` package-root
-helper used directly by Hooks. The exact Hooks copy was removed, producing a
-net reduction of 18 production TypeScript lines while preserving all existing
-cancellation semantics and passing the complete validation and coverage gates.
+Local complete coverage now uses four workers and completes in 256.34 seconds,
+40.9% faster than the measured two-worker baseline. GitHub explicitly retains
+two workers through `VITEST_MAX_WORKERS`.
+
+The profile attributes 72.7% of cumulative file time to editor and TypeScript
+language-service suites. Issue 6102 proposes removing repeated program creation
+without deleting or merging editor contracts; implementation is not yet
+authorized.

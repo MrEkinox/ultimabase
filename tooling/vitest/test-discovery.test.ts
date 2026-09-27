@@ -57,6 +57,24 @@ const e2eFiles = globSync(
 )
 
 describe('test ownership and discovery', () => {
+	it('keeps local coverage parallelism fast while retaining the hosted CI safety bound', () => {
+		const packageManifest = readFileSync(
+			path.join(repositoryRoot, 'package.json'),
+			'utf8',
+		)
+		const workflow = readFileSync(
+			path.join(repositoryRoot, '.github/workflows/ci.yml'),
+			'utf8',
+		)
+		const coverageJob = workflow.slice(
+			workflow.indexOf('\n  coverage:'),
+			workflow.indexOf('\n  website:'),
+		)
+
+		expect(packageManifest).toContain('--coverage --maxWorkers=4')
+		expect(coverageJob).toContain('VITEST_MAX_WORKERS: 2')
+	})
+
 	it('runs every E2E exactly once through its built-export project, never as a unit', () => {
 		for (const file of e2eFiles) {
 			const builtProject = file.endsWith('.postgres.e2e.test.ts')
