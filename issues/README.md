@@ -96,6 +96,7 @@ consistent without rewriting historical issue prose.
 - [`3600-native-command-and-application-simplification/`](3600-native-command-and-application-simplification/README.md)
 - [`3700-capability-host-simplification/`](3700-capability-host-simplification/README.md)
 - [`3800-password-auth-option-simplification/`](3800-password-auth-option-simplification/README.md)
+- [`5900-public-error-state-consolidation/`](5900-public-error-state-consolidation/README.md)
 
 ## Assignment prompt
 

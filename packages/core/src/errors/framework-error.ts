@@ -1,10 +1,10 @@
-import {
-	assertNonEmptyString,
-	assertOptionalBoolean,
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray } from '@ultimabase/shared'
+
+import { PublicError } from './public-error-state.js'
+import type {
+	PublicErrorOptions,
+	PublicErrorPayload,
+} from './public-error-state.js'
 
 const declaredFrameworkErrorCodes = [
 	'VALIDATION_ERROR',
@@ -48,10 +48,7 @@ export type FrameworkErrorDetails = Readonly<Record<string, unknown>>
 export interface FrameworkErrorOptions<
 	TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 	TInternalDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends ErrorOptions {
-	readonly publicMessage?: string
-	readonly publicDetails?: TPublicDetails
-	readonly internalDetails?: TInternalDetails
+> extends PublicErrorOptions<TPublicDetails, TInternalDetails> {
 	readonly retryable?: boolean
 }
 
@@ -59,31 +56,14 @@ export interface FrameworkErrorOptions<
 export interface FrameworkErrorPayload<
 	TCode extends FrameworkErrorCode = FrameworkErrorCode,
 	TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> {
+> extends PublicErrorPayload<TCode, TPublicDetails> {
 	readonly code: TCode
-	readonly retryable: boolean
-	readonly message?: string
-	readonly details?: Readonly<TPublicDetails>
 }
 
-const isFrameworkErrorCode = (value: unknown): value is FrameworkErrorCode =>
-	typeof value === 'string' &&
-	frameworkErrorCodes.some((frameworkCode) => frameworkCode === value)
-
-const snapshotDetails = <const TDetails extends FrameworkErrorDetails>(
-	details: TDetails | undefined,
-	path: string,
-): Readonly<TDetails> | undefined => {
-	if (details === undefined) {
-		return undefined
+const validateFrameworkErrorCode = (value: FrameworkErrorCode): void => {
+	if (!frameworkErrorCodes.some((frameworkCode) => frameworkCode === value)) {
+		throw new TypeError(`Unknown framework error code: ${value}`)
 	}
-
-	if (!isPlainRecord(details)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	// Error metadata must not change after it crosses the construction boundary.
-	return immutableRecord(details)
 }
 
 /**
@@ -96,62 +76,17 @@ export class FrameworkError<
 	const TCode extends FrameworkErrorCode = FrameworkErrorCode,
 	const TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 	const TInternalDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends Error {
-	readonly code: TCode
-	readonly retryable: boolean
-	readonly publicMessage: string | undefined
-	readonly publicDetails: Readonly<TPublicDetails> | undefined
-	readonly internalDetails: Readonly<TInternalDetails> | undefined
-
+> extends PublicError<TCode, TPublicDetails, TInternalDetails> {
 	constructor(
 		code: TCode,
 		message: string,
 		options: FrameworkErrorOptions<TPublicDetails, TInternalDetails> = {},
 	) {
-		const untrustedOptions: unknown = options
-
-		if (!isPlainRecord(untrustedOptions)) {
-			throw new TypeError('Framework error options must be a plain object')
-		}
-
-		super(message, { cause: options.cause })
-
-		if (!isFrameworkErrorCode(code)) {
-			throw new TypeError(`Unknown framework error code: ${String(code)}`)
-		}
-
-		assertNonEmptyString(message, 'message')
-		assertOptionalBoolean(options.retryable, 'retryable')
-
-		if (options.publicMessage !== undefined) {
-			assertNonEmptyString(options.publicMessage, 'publicMessage')
-		}
-
-		this.name = 'FrameworkError'
-		this.code = code
-		this.retryable = options.retryable ?? false
-		this.publicMessage = options.publicMessage
-		this.publicDetails = snapshotDetails(options.publicDetails, 'publicDetails')
-		this.internalDetails = snapshotDetails(
-			options.internalDetails,
-			'internalDetails',
-		)
-
-		// Stable error identity and diagnostics must survive asynchronous handling unchanged.
-		Object.freeze(this)
+		super('FrameworkError', code, message, options, validateFrameworkErrorCode)
 	}
 
 	/** Returns an immutable payload that intentionally omits diagnostic state. */
-	toJSON(): FrameworkErrorPayload<TCode, TPublicDetails> {
-		return immutableRecord({
-			code: this.code,
-			retryable: this.retryable,
-			...(this.publicMessage === undefined
-				? {}
-				: { message: this.publicMessage }),
-			...(this.publicDetails === undefined
-				? {}
-				: { details: this.publicDetails }),
-		})
+	override toJSON(): FrameworkErrorPayload<TCode, TPublicDetails> {
+		return super.toJSON()
 	}
 }
