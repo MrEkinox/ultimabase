@@ -116,28 +116,20 @@ export class RequestEngine<
 		this.#transactionLifetime = transactionLifetime
 		registerAdapterAccess(this, pipeline, transactionLifetime)
 		registerRequestPrivateStorageContext(this, pipeline, transactionLifetime)
+		const transactionHost = {
+			runTransaction: (handler: (engine: RequestEngine) => Promise<unknown>) =>
+				this.transaction(handler),
+			...(transactionLifetime === undefined ? {} : { transactionLifetime }),
+		}
 		registerRequestPluginOperationHost({
 			engine: this,
-			runTransaction: (handler) => this.transaction(handler),
-			...(this.#transactionLifetime === undefined
-				? {}
-				: { transactionLifetime: this.#transactionLifetime }),
+			...transactionHost,
 		})
 		registerRequestSchemaMutationHost({
-			createContextEngine: (nextContext) =>
-				new RequestEngine(
-					requestEngineConstructionKey,
-					this.framework,
-					nextContext,
-					this.#pipeline,
-					this.#transactionLifetime,
-				),
+			createContextEngine: (nextContext) => this.#derive(nextContext),
 			engine: this,
 			pipeline: this.#pipeline,
-			runTransaction: (handler) => this.transaction(handler),
-			...(this.#transactionLifetime === undefined
-				? {}
-				: { transactionLifetime: this.#transactionLifetime }),
+			...transactionHost,
 		})
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			runApplicationWork(this.application, () =>
@@ -153,6 +145,22 @@ export class RequestEngine<
 		)
 
 		Object.freeze(this)
+	}
+
+	/** Derives one request engine without duplicating its private ownership wiring. */
+	#derive<TNextContext extends RequestContext>(
+		context: TNextContext,
+		pipeline: RuntimePipeline = this.#pipeline,
+		transactionLifetime: TransactionLifetime | undefined = this
+			.#transactionLifetime,
+	): RequestEngine<TSchemas, TPlugins, TNextContext> {
+		return new RequestEngine(
+			requestEngineConstructionKey,
+			this.framework,
+			context,
+			pipeline,
+			transactionLifetime,
+		)
 	}
 
 	/** Keeps every directed batch item inside one shared transaction lifetime. */
@@ -261,16 +269,7 @@ export class RequestEngine<
 			)
 		}
 
-		const engine =
-			context === this.context
-				? this
-				: new RequestEngine(
-						requestEngineConstructionKey,
-						this.framework,
-						context,
-						this.#pipeline,
-						this.#transactionLifetime,
-					)
+		const engine = context === this.context ? this : this.#derive(context)
 
 		// Structural normalization guarantees an executable operation for this schema.
 		const rowFilter = scope?.kind === 'row-filter' ? scope.rowFilter : undefined
@@ -478,13 +477,7 @@ export class RequestEngine<
 				this.framework.application,
 			)
 
-			return new RequestEngine(
-				requestEngineConstructionKey,
-				this.framework,
-				masterContext,
-				this.#pipeline,
-				this.#transactionLifetime,
-			)
+			return this.#derive(masterContext)
 		})
 	}
 
@@ -515,13 +508,7 @@ export class RequestEngine<
 			runRequestTransaction(
 				this.#pipeline,
 				(transactionPipeline, lifetime) =>
-					new RequestEngine(
-						requestEngineConstructionKey,
-						this.framework,
-						this.context,
-						transactionPipeline,
-						lifetime,
-					),
+					this.#derive(this.context, transactionPipeline, lifetime),
 				(transaction) =>
 					runWithRequestEngineScope(transaction, () => handler(transaction)),
 				this.context.signal,
