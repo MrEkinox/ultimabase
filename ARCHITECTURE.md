@@ -42,13 +42,24 @@ bindings. Shared inert descriptor identities replace duplicate metadata assembly
 and GraphQL structural comparisons; no binding list or legacy surface resolver
 remains in the planner. Removed extension APIs have no compatibility path.
 
+[ADR-0279](docs/adr/0279-source-typed-configured-application-authoring.md)
+defines the current authoring target. `UltimaBase.use(plugin())` builds one
+immutable configured application factory, `App.Schema.define()` projects its
+exact source-owned plugin surface, and `new App({ schemas: [...] })` remains the
+explicit Runtime registration root. Typegen remains the sole application-local
+literal-name graph for circular and cross-file schema relationships; plugins do
+not repeat source-derivable fields, options, methods, mutations, commands, or
+operations in generated declarations. Direct class and immutable-model commands
+resolve and verify the sole active application without storing resources or
+authority on the class.
+
 ```text
 developer declarations + pure authorized plugin declarations
                               ↓
 privilege policy → deterministic capability graph
                               ↓
 compiled application graph + owner provenance
-                  ├───────────→ optional Typegen → inert .d.ts contracts
+                  ├───────────→ optional Typegen → inert name graph + retained declarations
                               ↓
 logical Query / operation
                               ↓
@@ -204,10 +215,11 @@ surface. Static transport planning and late execution remain separate; Core and
 the transports never name `softDelete`, `restore`, or `purge`.
 
 ADR-0248 also exposes schema mutations through direct frozen-class syntax.
-Each call resolves one active or explicit application and verifies its compiled
-surface before entering the same handle and Runtime. The same class may show
-names from different started applications, but behavior and authority do not
-cross application boundaries.
+Each call resolves the sole active initialized application and verifies exact
+schema and command ownership against its compiled surface before entering the
+same handle and Runtime. Classes retain no application resource, transaction,
+credential, or authority; calls outside the active owner's lifecycle fail
+before effects.
 
 ADR-0247 makes a relation field's static or request-contextual `where` a
 Core-owned private read scope. The exact request context resolves synchronous
@@ -276,9 +288,11 @@ parse Standard Schema contracts, including Plugin Kit and the optional Validatio
 plugin. Core has no direct dependency on it.
 
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
-compiled application graph and consumes owner-scoped nominal public type
-references. It emits one replaceable `.d.ts` contract before infrastructure
-connection; it never generates JavaScript or a
+compiled application graph and retains the sole exact mapping from literal
+relationship targets to application schema contracts. Plugin-added builders,
+options, methods, mutations, commands, and operations instead project from the
+installed plugin source definitions. Typegen emits one replaceable `.d.ts`
+contract before infrastructure connection; it never generates JavaScript or a
 Runtime client. Core never imports Typegen, and JavaScript applications execute
 the same compiled graph without generated artifacts.
 
@@ -329,9 +343,11 @@ is recognized only when `accessPlugin()` contributes its option definitions:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(accessPlugin())
+
+const Post = Application.Schema.define({
 	className: 'Post',
 	access: {
 		read: true,
@@ -341,10 +357,7 @@ const Post = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [accessPlugin()],
-	schemas: [Post],
-})
+const application = new Application({ schemas: [Post] })
 ```
 
 Each used direct option resolves against one exact definition contributed by an
@@ -362,10 +375,11 @@ values; opaque values expose neither their contents nor internal markers. Plugin
 powers evaluated before schema compilation; effective declarations may compile
 to an empty application-local plan without creating a second capability graph.
 
-Developer-authored options declare structured public Typegen references.
-Factory-owned compiler markers instead declare `typegen: false`: Core retains
-their validation, ownership, provenance, and plugin requirement while generated
-authoring types omit their internal names.
+Plugin definitions carry structured public source references for their
+developer-authored options. Factory-owned compiler markers remain internal:
+Core retains their validation, ownership, provenance, and plugin requirement
+while configured authoring types omit their names. Only references needed by
+the retained application schema-name graph reach Typegen.
 
 Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning
@@ -428,18 +442,17 @@ predicate AST, target Access, and an adapter-owned singular relation query.
 
 ## Plugins
 
-Plugins form one deterministic graph. Nesting is configuration sugar:
+Plugins form one deterministic flat graph. The immutable configured factory is
+the sole installation path:
 
 ```ts
-graphqlYogaPlugin({
-	plugins: [apolloSandboxPlugin()],
-})
+const Api = UltimaBase.use(graphqlYogaPlugin()).use(apolloSandboxPlugin())
 ```
 
-The child is still registered globally. Dependencies determine setup order,
-then configuration position breaks ties. Teardown uses the reverse order. Every
-plugin has one stable namespaced ID and may have an explicit instance ID; the
-same plugin can be configured several times only through distinct instance
+Plugin definitions never contain nested plugins. Dependencies determine setup
+order, then `.use()` position breaks ties. Teardown uses the reverse order.
+Every plugin has one stable namespaced ID and may have an explicit instance ID;
+the same plugin can be configured several times only through distinct instance
 identities.
 
 Each plugin definition contains a static manifest with its structured identity,

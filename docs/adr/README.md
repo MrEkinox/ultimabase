@@ -257,6 +257,8 @@ Current records (accepted or still active in part):
 - [ADR-0275: Local and hosted validation share one contract](0275-canonical-repository-validation.md)
 - [ADR-0276: UltimaBase is the sole public application owner](0276-single-public-application-owner.md)
 - [ADR-0277: Schema specialization has one Core-native boundary](0277-canonical-schema-specialization.md)
+- [ADR-0278: Owner-private storage stays an addressable-record boundary](0278-bounded-owner-private-storage.md)
+- [ADR-0279: Configured applications own source-typed authoring](0279-source-typed-configured-application-authoring.md)
 
 Superseded records:
 

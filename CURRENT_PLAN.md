@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301
-- Active issue: 6302
-- Next issue: 6303
+- Completed issues: 6301, 6302
+- Active issue: 6303
+- Next issue: 6304
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -79,3 +79,14 @@ removal is a later decision rather than an assumption. Issue 6301 completed
 the conservative proof from revision `afd4c8b4`; issue 6302 is the resume point
 for the architecture decision. No production export changed and no push is
 authorized.
+
+Issue 6302 accepted ADR-0279 from revision `3ee12f5e`. The decision locks one
+immutable `UltimaBase.use()` chain, configured `App.Schema.define()`, explicit
+schema registration, direct sole-active-owner execution, source-owned plugin
+surfaces, and Typegen as the sole literal cross-schema name graph. It also
+requires each migration issue to compare the complete 1/10/50-schema benchmark
+with both the original issue-6301 baseline and the immediately preceding
+migration point. The documentation-only issue passed `yarn validate:full` with
+551 ordinary files/2,605 tests, 626 coverage files/2,853 tests, unchanged
+90.91/84.48/96.07/91.47 coverage, and no unresolved audit finding. Issue 6303
+is the production resume point; no push is authorized.
