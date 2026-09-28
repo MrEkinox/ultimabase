@@ -289,19 +289,19 @@ Runtime; an absent policy plugin contributes nothing.
   orphaned contributions, and the absence of legacy registry bypasses.
 - Every bug fix includes a regression test.
 
-Before finishing an issue, run the narrowest relevant commands, then the broader checks justified by the change:
+Before finishing an issue, run the narrowest relevant commands, then run the
+canonical ordinary validation contract:
 
 ```text
-yarn typecheck
-yarn test
-yarn lint
-yarn build
+yarn validate
 ```
 
-Every debt-reduction or behavior-preserving refactor must also pass the complete
-`yarn test:coverage` gate before its issue is marked complete or committed. The
-ordinary `yarn test` command does not include the source-mode E2E projects and
-therefore cannot replace this gate.
+Every debt-reduction or behavior-preserving refactor must pass
+`yarn validate:full` before its issue is marked complete or committed. That
+command includes formatting, typecheck, ordinary tests, lint, build, complete
+`yarn test:coverage`, issue metadata, dependency constraints, and public
+documentation validation. The ordinary `yarn test` command does not include the
+source-mode E2E projects and therefore cannot replace this gate.
 
 Document anything that could not be run.
 

@@ -1,41 +1,23 @@
-# Current plan: Coverage execution efficiency
+# Current plan: Future complexity reduction
 
-- Status: completed
-- Milestone: 61
-- Baseline: `ce4efbfb`
-- Completed issues: 6101, 6102, 6103
-- Active issue: none
+- Status: in-progress
+- Milestone: 62
+- Baseline: `b1bc0ffb`
+- Completed issues: 6201
+- Active issue: 6202
 
-Reduce local complete-coverage wall time without removing tests, projects,
-reports, thresholds, or production coverage. Local execution may use four
-workers, while GitHub retains its proven two-worker memory-safety bound through
-Vitest's native environment override.
+Remove architectural choices that multiply the cost of future work without
+removing any current product capability. The milestone establishes one local
+and hosted validation contract, converges public application ownership, makes
+plugin-owned schema specialization type-safe, protects the bounded private
+storage contract, audits PostgreSQL mutation planning, reduces unnecessary
+public Core surface, and makes current architectural decisions directly
+discoverable.
 
-Profile the resulting complete run and record which suites dominate execution
-time before proposing any further test reorganization.
+Each issue remains independently measurable and receives a dedicated commit.
+Architectural migrations remove superseded paths rather than retaining
+compatibility bridges. Runtime order, security, lifecycle, Typegen, transport,
+adapter, editor, and public behavior remain protected by the complete validation
+gate.
 
 No push is authorized.
-
-## Current outcome
-
-Local complete coverage now uses four workers and completes in 256.34 seconds,
-40.9% faster than the measured two-worker baseline. GitHub explicitly retains
-two workers through `VITEST_MAX_WORKERS`.
-
-The profile attributes 72.7% of cumulative file time to editor and TypeScript
-language-service suites. Issue 6102 removed repeated program creation without
-deleting or merging editor contracts. The focused editor suites are 64.6%
-faster. Two complete local coverage runs finished in 246.45 and 251.58 seconds:
-1.9% to 3.9% faster than issue 6101 and 42.0% to 43.1% faster than the original
-two-worker baseline.
-
-Issue 6103 reused a versioned multi-file TypeScript workspace only where
-virtual sources share exact compiler options and ambient declarations. The
-identical 38-file, 223-test editor profile fell from 19.82 seconds to a stable
-17.69-17.74-second range. Separate source and built-package resolution,
-incompatible augmentation isolation, and every assertion remain intact.
-
-Two final complete runs finished in 235.97 and 218.51 seconds. Their
-227.24-second average is 21.78 seconds or 8.7% below issue 6102's two-run
-average, and 47.6% below the original two-worker baseline. All 621 files, 2,836
-tests, coverage counters, reports, projects, and thresholds remain unchanged.

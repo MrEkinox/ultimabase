@@ -89,6 +89,20 @@ process.exit(process.env.FAIL_COMMAND === 'true' ? 7 : 0);
 }
 
 describe('GitHub selected command execution', () => {
+	it('uses the canonical repository-wide format gate during full validation', () => {
+		const { result, commands, directory } = execute('repository', {
+			...selected,
+			full: true,
+			changed: [],
+		})
+		expect(result.status, result.stderr).toBe(0)
+		expect(commands).toEqual([
+			{
+				cwd: directory,
+				args: ['format:check'],
+			},
+		])
+	})
 	it('keeps compiled landing examples when package artifacts are available', () => {
 		const { result, commands, directory } = execute('repository', {
 			...selected,

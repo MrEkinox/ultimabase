@@ -11,7 +11,8 @@
 6. Record one documentation-impact classification: `none`, `internal
 engineering documentation`, `public website documentation`, or `both`.
    Explain `none`; otherwise update the affected documentation in the issue.
-7. Run the relevant checks.
+7. Run `yarn validate` for ordinary work and `yarn validate:full` before
+   completing a debt reduction or behavior-preserving refactor.
 8. Add a Changeset when a public package contract changes.
 
 ## Definition of done
@@ -28,6 +29,7 @@ An issue is complete only when:
   supported integrations have been reviewed against `apps/website`;
 - architectural decisions are recorded or linked;
 - no unrelated changes are bundled into the work.
+- `yarn validate:full` passes for debt reduction and behavior-preserving refactors.
 
 ## Editor setup
 

@@ -97,7 +97,8 @@ const tests = (files: readonly string[], cwd = repositoryRoot): void => {
 switch (process.argv[2]) {
 	case 'repository': {
 		const formatted = plan.changed.filter((file) => existsSync(file))
-		if (formatted.length > 0)
+		if (plan.full) run(['format:check'])
+		else if (formatted.length > 0)
 			run(['prettier', '--check', '--ignore-unknown', '--', ...formatted])
 		if (plan.issues && !plan.tooling && !plan.coverage) run(['check:issues'])
 		if (plan.documentation) {

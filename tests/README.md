@@ -80,6 +80,10 @@ Docker.
 
 ## Commands
 
+- `yarn validate`: run the ordinary repository format, type, unit/type/performance
+  test, lint, and build contract in its canonical order.
+- `yarn validate:full`: extend `yarn validate` with complete source-mode coverage,
+  issue metadata, dependency constraints, and public-documentation validation.
 - `yarn test`: run package unit tests, compile-time type tests, and deterministic performance budgets.
 - `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.

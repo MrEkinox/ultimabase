@@ -99,6 +99,7 @@ consistent without rewriting historical issue prose.
 - [`5900-public-error-state-consolidation/`](5900-public-error-state-consolidation/README.md)
 - [`6000-canonical-operation-cancellation/`](6000-canonical-operation-cancellation/README.md)
 - [`6100-coverage-execution-efficiency/`](6100-coverage-execution-efficiency/README.md)
+- [`6200-future-complexity-reduction/`](6200-future-complexity-reduction/README.md)
 
 ## Assignment prompt
 

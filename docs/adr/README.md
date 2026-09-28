@@ -257,6 +257,7 @@ Accepted records:
 - [ADR-0272: Command contributions are Core-native](0272-native-command-contributions.md)
 - [ADR-0273: Plugin fields use one canonical family declaration](0273-canonical-plugin-field-families.md)
 - [ADR-0274: Core owns canonical cooperative cancellation failures](0274-canonical-operation-cancellation.md)
+- [ADR-0275: Local and hosted validation share one contract](0275-canonical-repository-validation.md)
 
 Superseded records:
 
