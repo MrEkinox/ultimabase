@@ -425,6 +425,25 @@ reconciliation. The [final report](docs/plans/2026-09-21-milestone-31-final-audi
 records the preserved contracts, accepted exceptions, measurements and limits.
 Resume point: none. No push or later feature follows automatically.
 
+## Milestone 63 — Source-typed application authoring
+
+Prove and migrate to one configured application factory where plugins install
+through immutable `UltimaBase.use()` calls, application schemas keep the
+existing `App.Schema.define({ className, fields, ... })` shape, schema
+registration remains explicit, and direct class commands resolve the sole
+active application. Plugin-owned options, fields, commands, specialized
+schemas, transports, security, lifecycle, and community authoring retain their
+current capabilities.
+
+The milestone begins with measured TypeScript inference and editor proofs for
+1, 10, and 50-schema applications. Production migration stops if it requires a
+second installation path, a permanent bridge, duplicated plugin contracts, or
+unacceptable compiler, language-service, hover, diagnostic, or memory cost.
+After parity, remove `@ultimabase/typegen` and every generated application
+registry rather than moving equivalent machinery into Core. A final audit
+compares the complete old and new forms, capabilities, code size, public
+surface, declaration output, TypeScript cost, Runtime cost, tests, and coverage.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,

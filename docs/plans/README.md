@@ -7,11 +7,10 @@ priority changes.
 
 ## Active
 
-- [Residual complexity simplification](2026-09-21-residual-complexity-simplification.md),
-  milestone 31, issues 3101–3112, authorized for autonomous execution with
-  per-issue audits and commits. 3101–3103 are complete; next issue: 3104. The
-  [candidate inventory](2026-09-21-residual-complexity-inventory.md) distinguishes
-  internal cleanup from pending compiler and public-contract decisions.
+- [Source-typed application authoring target](2026-09-28-source-typed-application-authoring-target.md),
+  milestone 63, issues 6301–6316. The approved DX is frozen, but production
+  migration starts only after issue 6301 proves source inference and locks
+  TypeScript editor, compiler, memory, and complexity budgets.
 
 ## Paused
 
@@ -20,6 +19,10 @@ priority changes.
 
 ## Completed
 
+- [Future complexity reduction](2026-09-28-future-complexity-reduction-final-audit.md),
+  milestone 62, issues 6201–6207.
+- [Residual complexity simplification](2026-09-21-residual-complexity-simplification.md),
+  milestone 31, issues 3101–3112.
 - [Pre-feature architecture simplification](2026-09-20-pre-feature-architecture-simplification.md),
   archived in place after issue 3034 with its
   [final audit](2026-09-21-milestone-30-final-audit.md),

@@ -100,6 +100,7 @@ consistent without rewriting historical issue prose.
 - [`6000-canonical-operation-cancellation/`](6000-canonical-operation-cancellation/README.md)
 - [`6100-coverage-execution-efficiency/`](6100-coverage-execution-efficiency/README.md)
 - [`6200-future-complexity-reduction/`](6200-future-complexity-reduction/README.md)
+- [`6300-source-typed-application-authoring/`](6300-source-typed-application-authoring/README.md)
 
 ## Assignment prompt
 
