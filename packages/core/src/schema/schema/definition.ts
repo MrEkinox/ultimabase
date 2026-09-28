@@ -164,7 +164,7 @@ export type SchemaReference<TClassName extends string> = SchemaClass<
 export type SchemaStaticCapabilities = object
 
 /** Creates static capabilities after the exact schema class exists. */
-export type SchemaStaticCapabilityFactory<
+type SchemaStaticCapabilityFactory<
 	TSchema extends object,
 	TCapabilities extends SchemaStaticCapabilities,
 > = (schema: TSchema) => TCapabilities
@@ -176,6 +176,13 @@ export interface SchemaClassCapabilities<
 > {
 	readonly statics: TStatics
 	readonly results: TResults
+}
+
+/** Describes the Core-owned portion of a package-composed schema declaration. */
+interface SpecializedSchemaOptions {
+	readonly className: string
+	readonly fields: SchemaFieldBuilderDeclaration
+	readonly indexes?: readonly SchemaIndexOptions[]
 }
 
 /** Creates specialized class capabilities after exact schema identity exists. */
@@ -217,18 +224,20 @@ const defineSchemaStaticCapabilities = <
 		throw new TypeError('schema static capabilities must be a plain object')
 	}
 
-	for (const [name, capability] of Object.entries(capabilities)) {
-		assertNonEmptyString(name, 'schema static capability name')
+	for (const name of Reflect.ownKeys(capabilities)) {
+		if (typeof name === 'string') {
+			assertNonEmptyString(name, 'schema static capability name')
+		}
 
 		if (name in schema) {
-			throw new TypeError(`Reserved schema static capability: ${name}`)
+			throw new TypeError(`Reserved schema static capability: ${String(name)}`)
 		}
 
 		// Static specialization methods follow native class-method visibility.
 		Object.defineProperty(schema, name, {
 			configurable: false,
 			enumerable: false,
-			value: capability,
+			value: Reflect.get(capabilities, name),
 			writable: false,
 		})
 	}
@@ -406,64 +415,37 @@ export class Schema {
 	}
 
 	/**
-	 * Defines a final schema class with package-owned static capabilities.
-	 *
-	 * This low-level composition point lets optional packages add concise static
-	 * helpers without wrapping, subclassing, or weakening schema identity.
-	 * Ordinary application schemas should use `Schema.define()`.
-	 *
-	 * @example `Schema.defineWithStatics(options, (schema) => ({ byId: (id) => schema.pointer(id) }))`
-	 */
-	static defineWithStatics<
-		const TClassName extends string,
-		const TFields extends SchemaFields,
-		const TCapabilities extends SchemaStaticCapabilities =
-			SchemaStaticCapabilities,
-	>(
-		options: SchemaOptions<TClassName, TFields>,
-		createCapabilities: SchemaStaticCapabilityFactory<
-			SchemaReference<TClassName>,
-			TCapabilities
-		>,
-	): SchemaReference<TClassName> & TCapabilities {
-		const schema = defineSchemaModel<TClassName, TFields>(options)
-		const specializedSchema = defineSchemaStaticCapabilities(
-			schema,
-			createCapabilities,
-		)
-		finalizeSchemaModelClass(specializedSchema)
-		Object.freeze(specializedSchema)
-
-		return specializedSchema
-	}
-
-	/**
 	 * Defines one package-specialized schema with static helpers and persisted commands.
 	 *
 	 * Result commands are absent from drafts at the type level and validate trusted
 	 * persisted identity at runtime. Packages retain ordinary QueryBuilder and relation
-	 * execution rather than receiving an adapter or application escape hatch.
+	 * execution rather than receiving an adapter or application escape hatch. Ordinary
+	 * application schemas should continue to use `Schema.define()`.
+	 *
+	 * @example
+	 * `Schema.defineSpecialized(options, ({ schema }) => ({ statics: { byId: schema.pointer }, results: {} }))`
 	 */
-	static defineWithCapabilities<
-		const TClassName extends string,
-		const TFields extends SchemaFields,
+	static defineSpecialized<
+		const TOptions extends SpecializedSchemaOptions,
 		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
 		const TResults extends object = object,
 	>(
-		options: SchemaOptions<TClassName, TFields>,
+		options: TOptions,
 		createCapabilities: SchemaClassCapabilityFactory<
-			SchemaReference<TClassName>,
+			SchemaReference<TOptions['className']>,
 			TStatics,
 			TResults
 		>,
-	): SchemaReference<TClassName> &
+	): SchemaReference<TOptions['className']> &
 		TStatics &
 		SchemaResultCapabilityCarrier<TResults> {
 		if (typeof createCapabilities !== 'function') {
 			throw new TypeError('createCapabilities must be a function')
 		}
 
-		const schema = defineSchemaModel<TClassName, TFields>(options)
+		const schema = defineSchemaModel<TOptions['className'], SchemaFields>(
+			options,
+		)
 		const capabilities: unknown = createCapabilities(
 			createSchemaModelCapabilityContext(schema),
 		)
@@ -481,10 +463,10 @@ export class Schema {
 			throw new TypeError('schema result capabilities must be a plain object')
 		}
 
-		const specializedSchema = defineSchemaStaticCapabilities(
-			schema,
-			() => staticCapabilities as TStatics,
-		)
+		const specializedSchema = defineSchemaStaticCapabilities<
+			typeof schema,
+			TStatics
+		>(schema, () => staticCapabilities as TStatics)
 		defineSchemaModelResultCapabilities(schema, resultCapabilities)
 		finalizeSchemaModelClass(specializedSchema)
 		Object.freeze(specializedSchema)

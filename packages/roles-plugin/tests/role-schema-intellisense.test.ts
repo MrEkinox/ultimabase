@@ -157,4 +157,38 @@ describe('RoleSchema IntelliSense', () => {
 
 		expect(documentation).toContain('Makes the supplied role a child')
 	})
+
+	it('preserves the same contract through packed package exports', () => {
+		const builtSource = source.replace(
+			"'../src/index.js'",
+			"'@ultimabase/roles-plugin'",
+		)
+		const builtService = createLanguageService(
+			path.join(packageDirectory, 'role-schema-built.virtual.ts'),
+			builtSource,
+		)
+
+		try {
+			const marker = '/* role-hover */'
+			const quickInfo = builtService.getQuickInfoAtPosition(
+				path.join(packageDirectory, 'role-schema-built.virtual.ts'),
+				builtSource.indexOf(marker) + marker.length,
+			)
+
+			expect(ts.displayPartsToString(quickInfo?.documentation)).toContain(
+				'Creates a normalized name reference',
+			)
+			const completions = builtService.getCompletionsAtPosition(
+				path.join(packageDirectory, 'role-schema-built.virtual.ts'),
+				builtSource.indexOf('/* options-complete */'),
+				{},
+			)
+
+			expect(completions?.entries.map(({ name }) => name)).toEqual(
+				expect.arrayContaining(['className', 'fields', 'members']),
+			)
+		} finally {
+			builtService.dispose()
+		}
+	})
 })

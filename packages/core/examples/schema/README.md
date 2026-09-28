@@ -31,6 +31,8 @@ TypeScript snippets:
   uniqueness;
 - [`plugin-field-containment.md`](plugin-field-containment.md) gives a community
   scalar field an exact portable structural `contains` operand;
+- [`plugin-schema-specialization.md`](plugin-schema-specialization.md) gives a
+  package-owned schema one typed static surface and persisted-result commands;
 - [`plugin-transformations.md`](plugin-transformations.md) declares direct plugin
   options, stable and dynamic plugin schemas, application handles, frozen
   selectors, immutable patches, conflicts,

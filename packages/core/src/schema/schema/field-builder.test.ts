@@ -422,14 +422,14 @@ describe('FieldBuilder', () => {
 	})
 
 	it('supports package-owned schema specialization callbacks', () => {
-		const WithStatics = Schema.defineWithStatics(
+		const WithStatics = Schema.defineSpecialized(
 			{
 				className: 'BuilderWithStatics',
 				fields: (field) => ({ title: field.string() }),
 			},
-			() => ({ source: 'statics' as const }),
+			() => ({ results: {}, statics: { source: 'statics' as const } }),
 		)
-		const WithCapabilities = Schema.defineWithCapabilities(
+		const WithCapabilities = Schema.defineSpecialized(
 			{
 				className: 'BuilderWithCapabilities',
 				fields: (field) => ({ title: field.string() }),

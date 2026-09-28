@@ -7,7 +7,7 @@ contentType: guide
 outcome: Choose a schema contribution and publish its correct application-specific TypeScript types.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-09-28
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -21,6 +21,7 @@ sources:
   - docs/concepts/open-plugin-authoring.md
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0277-canonical-schema-specialization.md
 ---
 
 ## Outcome
@@ -59,6 +60,21 @@ Use `schemas.claim({ contributionId, schema })` when the developer owns the
 class declaration and lists it in the root `schemas` array, but your plugin
 must retain provenance and transport-visibility ownership. A claim never adds a
 missing class implicitly and cannot duplicate the plugin's own `schemas.add()`.
+
+### Define a package-owned schema class
+
+Most plugins should contribute to an ordinary developer schema through the
+facades above. If the package must instead expose its own final schema factory
+with class helpers or persisted-result commands, use the one low-level Core
+boundary: `Schema.defineSpecialized()`. The capability factory returns
+`statics` and `results`; Core attaches both before freezing the exact schema
+class. Result commands are available only on trusted persisted models, never on
+drafts.
+
+Keep `Schema.define()` as the application-facing path. A specialization does
+not receive an application, adapter, authority, or mutable prototype, and it
+does not register its class automatically. The former separate statics-only
+and class-capability methods are removed rather than retained as aliases.
 
 ## Add an option and an additive patch
 

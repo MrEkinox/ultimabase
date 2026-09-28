@@ -7,6 +7,8 @@ import {
 } from './reserved-field-names.js'
 import { reservedSystemFieldNames } from './system-fields.js'
 
+type EmptyCapabilities = Readonly<Record<never, never>>
+
 describe('schema definitions', () => {
 	it('keeps Schema itself as a non-constructible static declaration facade', () => {
 		expect((): void => {
@@ -54,14 +56,15 @@ describe('schema definitions', () => {
 		expect(Reflect.set(schema.fields, 'title', stringField())).toBe(false)
 	})
 
-	it('finalizes package-owned static schema capabilities without wrapping identity', () => {
-		const schema = Schema.defineWithStatics(
+	it('finalizes package-owned schema capabilities without wrapping identity', () => {
+		const schema = Schema.defineSpecialized(
 			{
 				className: 'SpecializedPost',
 				fields: (field) => ({ title: field.string() }),
 			},
-			(exactSchema) => ({
-				byId: (id: string) => exactSchema.pointer(id),
+			({ schema: exactSchema }) => ({
+				results: {},
+				statics: { byId: (id: string) => exactSchema.pointer(id) },
 			}),
 		)
 
@@ -73,23 +76,28 @@ describe('schema definitions', () => {
 
 	it('rejects invalid or colliding package-owned static capabilities', () => {
 		expect(() =>
-			Schema.defineWithStatics(
+			Schema.defineSpecialized(
 				{ className: 'InvalidStaticFactory', fields: () => ({}) },
-				true as unknown as () => object,
+				true as unknown as () => {
+					readonly results: EmptyCapabilities
+					readonly statics: EmptyCapabilities
+				},
 			),
 		).toThrow(new TypeError('createCapabilities must be a function'))
 		expect(() =>
-			Schema.defineWithStatics(
+			Schema.defineSpecialized(
 				{ className: 'InvalidStaticResult', fields: () => ({}) },
-				() => [],
+				() =>
+					[] as unknown as {
+						readonly results: EmptyCapabilities
+						readonly statics: EmptyCapabilities
+					},
 			),
-		).toThrow(
-			new TypeError('schema static capabilities must be a plain object'),
-		)
+		).toThrow(new TypeError('schema class capabilities must be a plain object'))
 		expect(() =>
-			Schema.defineWithStatics(
+			Schema.defineSpecialized(
 				{ className: 'CollidingStatic', fields: () => ({}) },
-				() => ({ findMany: true }),
+				() => ({ results: {}, statics: { findMany: true } }),
 			),
 		).toThrow(new TypeError('Reserved schema static capability: findMany'))
 	})

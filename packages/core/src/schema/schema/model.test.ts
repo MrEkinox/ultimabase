@@ -393,7 +393,7 @@ describe('schema model classes', () => {
 			className: 'CapabilityTarget',
 			fields: () => ({}),
 		})
-		const Specialized = Schema.defineWithCapabilities(
+		const Specialized = Schema.defineSpecialized(
 			{ className: 'CapabilitySource', fields: () => ({}) },
 			(context) => ({
 				statics: { kind: 'specialized' as const },

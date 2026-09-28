@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-09-20
 - Refines: ADR-0235, ADR-0253
+- Refined by: ADR-0277
 - Uses: the schema specialization boundary and ADR-0248's application-selection convention
 
 ## Context

@@ -204,7 +204,6 @@ export type {
 	SchemaMetadata,
 	SchemaOptions,
 	SchemaStaticCapabilities,
-	SchemaStaticCapabilityFactory,
 } from './schema/definition.js'
 export type {
 	AppliedSchemaPatchProvenance,

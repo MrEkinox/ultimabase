@@ -14,7 +14,9 @@ import {
 	type PasswordUserAuthMethods,
 } from './user-auth-methods.js'
 
-declare const passwordUserDefinitionBrand: unique symbol
+const passwordUserDefinitionBrand: unique symbol = Symbol(
+	'ultimabase.password-auth.user',
+)
 
 const passwordUserSchemas = new WeakSet<object>()
 const reservedPasswordUserFields = new Set([
@@ -45,7 +47,7 @@ type ReservedPasswordUserFieldCollision<TFields extends object> =
 
 /** Identifies an owned User without erasing its schema-specific command inputs. */
 export type PasswordUserReference = SchemaReference<'User'> & {
-	readonly [passwordUserDefinitionBrand]: SchemaFields
+	readonly [passwordUserDefinitionBrand]: true
 }
 
 /** Identifies one schema created through the final Password User composition point. */
@@ -53,7 +55,7 @@ export type PasswordUserDefinition<
 	TCustomFields extends SchemaFields = SchemaFields,
 > = SchemaReference<'User'> &
 	PasswordUserAuthMethods<TCustomFields> & {
-		readonly [passwordUserDefinitionBrand]: TCustomFields
+		readonly [passwordUserDefinitionBrand]: true
 	}
 
 /** Declares ordinary application fields beside the package-owned username. */
@@ -109,6 +111,7 @@ export class PasswordUserSchema {
 			throw new TypeError('Password User className must be User')
 		}
 		const {
+			className,
 			fields: declareCustomFields,
 			indexes,
 			...generatedOptions
@@ -122,22 +125,28 @@ export class PasswordUserSchema {
 			}
 			return { ...customFields, username: createUsernameField() }
 		}
-		const definition = Schema as unknown as {
-			defineWithStatics(
-				options: Readonly<Record<string, unknown>>,
-				factory: typeof createPasswordUserAuthMethods,
-			): SchemaReference<'User'>
+		const specializedOptions: {
+			readonly className: 'User'
+			readonly fields: SchemaFieldBuilderDeclaration
+			readonly indexes?: readonly SchemaIndexOptions[]
+		} = {
+			...generatedOptions,
+			className,
+			fields,
+			...(indexes === undefined ? {} : { indexes }),
 		}
-		const schema = definition.defineWithStatics(
-			{
-				...generatedOptions,
-				fields,
-				...(indexes === undefined ? {} : { indexes }),
-			},
-			createPasswordUserAuthMethods,
+		const schema = Schema.defineSpecialized(
+			specializedOptions,
+			({ schema: exactSchema }) => ({
+				results: {},
+				statics: {
+					...createPasswordUserAuthMethods<TCustomFields>(exactSchema),
+					[passwordUserDefinitionBrand]: true as const,
+				},
+			}),
 		)
 		passwordUserSchemas.add(schema)
-		return schema as unknown as PasswordUserDefinition<TCustomFields>
+		return schema
 	}
 }
 

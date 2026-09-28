@@ -259,6 +259,7 @@ Accepted records:
 - [ADR-0274: Core owns canonical cooperative cancellation failures](0274-canonical-operation-cancellation.md)
 - [ADR-0275: Local and hosted validation share one contract](0275-canonical-repository-validation.md)
 - [ADR-0276: UltimaBase is the sole public application owner](0276-single-public-application-owner.md)
+- [ADR-0277: Schema specialization has one Core-native boundary](0277-canonical-schema-specialization.md)
 
 Superseded records:
 

@@ -166,11 +166,9 @@ const readCurrentProfile = async <TSchema extends SchemaReference<'User'>>(
 }
 
 /** Creates inert dispatchers before Core freezes the exact schema class. */
-export const createPasswordUserAuthMethods = <
-	TSchema extends SchemaReference<'User'>,
->(
-	schema: TSchema,
-) => {
+export const createPasswordUserAuthMethods = <TFields extends SchemaFields>(
+	schema: SchemaReference<'User'>,
+): PasswordUserAuthMethods<TFields> => {
 	const withSession = <TResult>(
 		token: string,
 		options: PasswordUserAuthOptions | undefined,
@@ -201,7 +199,7 @@ export const createPasswordUserAuthMethods = <
 	return {
 		current: async (
 			options?: PasswordUserAuthOptions,
-		): Promise<SchemaResult<TSchema>> => {
+		): Promise<SchemaResult<PasswordUserDefinition<TFields>>> => {
 			selectApplication(schema, options)
 			const principal = currentPrincipal()
 			if (principal === undefined) {
@@ -210,7 +208,9 @@ export const createPasswordUserAuthMethods = <
 			if (!Object.is(principal.user.schema, schema)) {
 				return rejectPasswordSession()
 			}
-			return readCurrentProfile(schema, principal.user.id)
+			return readCurrentProfile(schema, principal.user.id) as Promise<
+				SchemaResult<PasswordUserDefinition<TFields>>
+			>
 		},
 		changePassword: async (
 			input: PasswordChangeInput,
@@ -222,24 +222,30 @@ export const createPasswordUserAuthMethods = <
 		signUp: async (
 			input: PasswordSignUpInput,
 			options?: PasswordUserAuthOptions,
-		): Promise<PasswordAuthenticationResult> =>
+		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
 			selectApplication(schema, options)
 				.operation(passwordAuthOperations.signUp)
-				.execute(input),
+				.execute(input) as Promise<
+				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
+			>,
 		login: async (
 			input: PasswordCredentialsInput,
 			options?: PasswordUserAuthOptions,
-		): Promise<PasswordAuthenticationResult> =>
+		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
 			selectApplication(schema, options)
 				.operation(passwordAuthOperations.login)
-				.execute(input),
+				.execute(input) as Promise<
+				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
+			>,
 		refresh: async (
 			token: string,
 			options?: PasswordUserAuthOptions,
-		): Promise<PasswordAuthenticationResult> =>
+		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
 			withSession(token, options, (ultimabase) =>
 				ultimabase.operation(passwordAuthOperations.refresh).execute(null),
-			),
+			) as Promise<
+				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
+			>,
 		logout: async (
 			token: string,
 			options?: PasswordUserAuthOptions,

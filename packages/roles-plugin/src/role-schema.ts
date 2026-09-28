@@ -273,12 +273,8 @@ export class RoleSchema {
 		)
 		type SelfSchema = RoleSchemaSelfDefinition<TClassName>
 		const createCapabilities = (
-			context: SchemaModelCapabilityContext<SchemaDefinition>,
+			context: SchemaModelCapabilityContext<SelfSchema>,
 		) => {
-			const exactSchema = context.schema as unknown as SelfSchema
-			const exactContext =
-				context as unknown as SchemaModelCapabilityContext<SelfSchema>
-
 			function role<const TName extends string>(
 				name: TName,
 			): RoleReference<SelfSchema, RoleNameSelector<TName>>
@@ -289,7 +285,7 @@ export class RoleSchema {
 				selector: string | RoleIdSelector,
 			): RoleReference<SelfSchema> {
 				return createRoleReference(
-					exactSchema,
+					context.schema,
 					typeof selector === 'string' ? { name: selector } : selector,
 				)
 			}
@@ -297,7 +293,7 @@ export class RoleSchema {
 			const toRequestRoleReference = function (
 				this: object,
 			): RoleReference<SelfSchema, RoleIdSelector> {
-				exactContext.assertPersisted(this, 'toRequestRoleReference')
+				context.assertPersisted(this, 'toRequestRoleReference')
 
 				if (!('id' in this) || typeof this.id !== 'string') {
 					throw new TypeError(
@@ -306,14 +302,14 @@ export class RoleSchema {
 				}
 
 				// The neutral reference keeps ACL and other consumers independent from roles.
-				return createRoleReference(exactSchema, { id: this.id })
+				return createRoleReference(context.schema, { id: this.id })
 			}
 			const resultCapabilities: RequestRoleReferenceCarrier &
 				RoleMemberCommands<SelfSchema, TMemberSchema> &
 				RoleHierarchyCommands<SelfSchema> = {
 				toRequestRoleReference,
-				...createRoleMemberCommands(exactContext, options.members.schema),
-				...createRoleHierarchyCommands<SelfSchema>(exactContext),
+				...createRoleMemberCommands(context, options.members.schema),
+				...createRoleHierarchyCommands<SelfSchema>(context),
 			}
 
 			return {
@@ -331,25 +327,10 @@ export class RoleSchema {
 			...(options.indexes === undefined ? {} : { indexes: options.indexes }),
 			...(options.access === undefined ? {} : { access: options.access }),
 		}
-		// Public overloads retain exact map or generated builder types. This internal
-		// specialization deliberately crosses their union only after constructing the
-		// corresponding runtime declaration and capability factory together.
-		const schemaDefinition = Schema as unknown as {
-			readonly defineWithCapabilities: (
-				options: typeof commonOptions,
-				factory: typeof createCapabilities,
-			) => SchemaDefinition
-		}
-		const definedSchema = schemaDefinition.defineWithCapabilities(
+		const roleSchema = Schema.defineSpecialized(
 			commonOptions,
 			createCapabilities,
 		)
-
-		// The exact public type mirrors the fields and statics attached above.
-		const roleSchema = definedSchema as unknown as RoleSchemaClass<
-			TClassName,
-			TMemberSchema
-		>
 		selfTargetState.roleSchema = roleSchema
 		roleSchemaDeclarations.set(
 			roleSchema,

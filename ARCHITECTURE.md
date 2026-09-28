@@ -130,6 +130,14 @@ User identity, owner-private credential and session records, authentication
 operations, generation-based account-wide session invalidation, and HTTP
 session integration through the HTTP package's public resolver and endpoint
 capabilities.
+
+Package-owned schema classes use Core's sole `Schema.defineSpecialized()`
+boundary when they need immutable static helpers or persisted-result commands.
+The factory receives only the exact schema capability context and returns
+explicit `statics` and `results`; ordinary application schemas continue to use
+`Schema.define()`. Core attaches string or private symbol statics before
+freezing the class and never exposes a second schema compiler, mutable
+prototype, application, adapter, or authority through this boundary.
 `graphql-plugin` compiles one application-local generated and custom schema,
 accepts ordered plugin-owned schemas through its own multiple capability, and
 executes bounded documents with an exact application-bound `RequestContext`.

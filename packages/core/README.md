@@ -231,6 +231,14 @@ metadata, so builder-based plugins do not repeat it.
 
 ### Plugin-owned schema compilation
 
+When a package itself defines a specialized schema class, use the single
+Core-native `Schema.defineSpecialized()` boundary. Its factory returns explicit
+`statics` and persisted-only `results`; Core attaches both before freezing the
+same ordinary schema identity. Static string or private symbol keys are
+non-enumerable, and result commands never appear on drafts. This low-level API
+is for package-owned factories such as Password User or Role schemas. Ordinary
+application schemas continue to use `Schema.define()`.
+
 The same owner-bound `schemas` facade lets an authorized plugin add stable
 `Schema.define()` classes, declare direct schema and field option contracts, and
 apply callback-free immutable patches. Every persisted contribution has one
