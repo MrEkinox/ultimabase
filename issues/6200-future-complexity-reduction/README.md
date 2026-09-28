@@ -1,6 +1,6 @@
 # Milestone 62: Future complexity reduction
 
-- Status: in-progress
+- Status: completed
 - Issues: 6201, 6202, 6203, 6204, 6205, 6206, 6207
 
 Remove architectural multiplication points before adding another product
@@ -25,7 +25,7 @@ harder to widen accidentally.
 - [x] [6204: Protect bounded owner-private storage](6204-bounded-owner-private-storage.md)
 - [x] [6205: Converge PostgreSQL mutation planning](6205-postgres-mutation-plan-convergence.md)
 - [x] [6206: Reduce the unsupported public Core surface](6206-core-public-surface-reduction.md)
-- [ ] [6207: Index the current architecture](6207-current-architecture-index.md)
+- [x] [6207: Index the current architecture](6207-current-architecture-index.md)
 
 Every retained abstraction must protect a current invariant or remove repeated
 work across current consumers. Moving existing complexity behind an additional

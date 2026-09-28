@@ -1,5 +1,9 @@
 # Architecture
 
+Use the [current architecture index](docs/current-architecture.md) to locate a
+concept's maintained contract, responsible code, and accepted ADRs. This file
+remains the system-level contract and dependency narrative.
+
 ## System shape
 
 Milestone 30 has accepted

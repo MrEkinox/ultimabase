@@ -2,10 +2,9 @@
 
 Status values are `proposed`, `accepted`, `deprecated`, and `superseded`.
 
-Accepted records:
+Current records (accepted or still active in part):
 
 - [ADR-0001: Monorepo and package direction](0001-monorepo-and-package-direction.md)
-- [ADR-0003: Global plugin graph with nested composition](0003-global-plugin-graph.md)
 - [ADR-0004: One operation engine](0004-one-operation-engine.md)
 - [ADR-0005: Immutable class-based public API](0005-immutable-class-api.md)
 - [ADR-0006: Access-control plugins](0006-access-control-plugins.md)
@@ -109,7 +108,6 @@ Accepted records:
 - [ADR-0122: Immutable persisted object ACLs](0122-immutable-persisted-object-acls.md)
 - [ADR-0123: Master-only ACL management](0123-master-only-acl-management.md)
 - [ADR-0124: Portable plugin-field storage codecs](0124-portable-plugin-field-storage-codecs.md)
-- [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md)
 - [ADR-0126: Transactional ACL subject-reference cleanup](0126-transactional-acl-reference-cleanup.md)
 - [ADR-0127: Committed ACL change events](0127-committed-acl-change-events.md)
 - [ADR-0128: Explicit master bypass for policy-neutral enforcement](0128-explicit-master-enforcement-bypass.md)
@@ -195,7 +193,6 @@ Accepted records:
 - [ADR-0211: Plugin options accept synchronous Standard Schema validators](0211-synchronous-standard-schema-plugin-options.md)
 - [ADR-0212: Field-owned portable plugin containment](0212-field-owned-portable-plugin-containment.md)
 - [ADR-0213: Direct plugin options replace schema and field extensions](0213-direct-plugin-options-replace-schema-field-extensions.md)
-- [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md)
 - [ADR-0215: Patched field options materialize implicit indexes](0215-patched-field-options-materialize-implicit-indexes.md)
 - [ADR-0216: Direct plugin options may be compiler-only](0216-compiler-only-direct-plugin-options.md)
 - [ADR-0217: Generated registries do not reject schema class declarations](0217-generated-registries-do-not-reject-schema-class-declarations.md)
@@ -264,6 +261,7 @@ Accepted records:
 Superseded records:
 
 - [ADR-0002: Static schemas and typed extensions](0002-static-schemas-and-typed-extensions.md), superseded by ADR-0213.
+- [ADR-0003: Global plugin graph with nested composition](0003-global-plugin-graph.md), superseded by ADR-0267.
 - [ADR-0013: Access modes and master authority](0013-access-modes-and-master.md), superseded by ADR-0113.
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
@@ -282,6 +280,7 @@ Superseded records:
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
+- [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md), superseded by ADR-0212.
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.

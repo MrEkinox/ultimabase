@@ -103,7 +103,7 @@ users[0]?.toJSON() // A detached immutable object.
   reads stay tombstone-blind, while audited `restore` and `purge` commands remain
   private to trusted server code.
 - Owner-private plugin records retain typed transactional persistence and
-  migration provenance without becoming application schemas, Query or Typegen
+  versioned physical provenance without becoming application schemas, Query or Typegen
   surfaces, generated transport routes, or application behavior inputs.
 - PostgreSQL synchronization is available today. Migration support is not shipped;
   a future migration product would own reviewed DDL and history separately.
@@ -131,6 +131,8 @@ Sandbox remain separate development plugins.
 ## Repository map
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries and dependency graph.
+- [`docs/current-architecture.md`](docs/current-architecture.md): current
+  contracts, responsible packages, and accepted decisions by concept.
 - [`ROADMAP.md`](ROADMAP.md): milestone order.
 - [`docs/`](docs/README.md): concepts, specifications, and ADRs.
 - [`docs/concepts/open-plugin-authoring.md`](docs/concepts/open-plugin-authoring.md): accepted open-plugin authoring and consumption target.
