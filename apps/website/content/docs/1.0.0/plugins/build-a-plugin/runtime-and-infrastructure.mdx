@@ -275,6 +275,13 @@ Only an attributed callback from the same exact plugin instance may use
 Writes join the active request transaction or open an automatic one. Removal
 of the plugin does not silently authorize dropping physical data.
 
+Treat this as exact addressable-record storage, not as a private ORM. Every
+operation targets one declared unique index. If data needs scans, arbitrary
+filters, ordering, pagination, bulk changes, relations, Hooks, Access, or a
+transport surface, model it as an application schema or expose a focused
+domain capability. Private storage intentionally has no migration or generic
+cleanup protocol.
+
 ### Events and external effects
 
 For typed post-commit delivery, Plugin Kit provides event contracts,

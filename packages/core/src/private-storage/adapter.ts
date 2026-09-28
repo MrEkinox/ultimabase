@@ -30,18 +30,45 @@ export interface PrivateStorageAdapterCollection {
 	readonly references: readonly PrivateStorageAdapterReference[]
 }
 
-/** Enumerates the deliberately bounded private persistence vocabulary. */
-export type PrivateStorageOperationKind =
-	'compare-and-swap' | 'delete' | 'find-unique' | 'insert' | 'update'
-
-/** Carries one Core-validated private request without a public Query AST. */
-export interface PrivateStorageOperationRequest {
+interface PrivateStorageOperationBase {
 	readonly collection: PrivateStorageAdapterCollection
-	readonly data?: Readonly<Record<string, unknown>>
-	readonly expected?: Readonly<Record<string, unknown>>
-	readonly kind: PrivateStorageOperationKind
-	readonly where?: Readonly<Record<string, unknown>>
 }
+
+type PrivateStorageOperationRequest =
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly kind: 'find-unique'
+				readonly where: Readonly<Record<string, unknown>>
+			}>)
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly data: Readonly<Record<string, unknown>>
+				readonly kind: 'insert'
+			}>)
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly data: Readonly<Record<string, unknown>>
+				readonly kind: 'update'
+				readonly where: Readonly<Record<string, unknown>>
+			}>)
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly kind: 'delete'
+				readonly where: Readonly<Record<string, unknown>>
+			}>)
+	| (PrivateStorageOperationBase &
+			Readonly<{
+				readonly data: Readonly<Record<string, unknown>>
+				readonly expected: Readonly<Record<string, unknown>>
+				readonly kind: 'compare-and-swap'
+				readonly where: Readonly<Record<string, unknown>>
+			}>)
+
+/** Enumerates the deliberately bounded private persistence vocabulary. */
+export type PrivateStorageOperationKind = PrivateStorageOperationRequest['kind']
+
+/** Carries one exact Core-validated private request without a public Query AST. */
+export type { PrivateStorageOperationRequest }
 
 /** Executes already validated private records without exposing infrastructure upward. */
 export interface PrivateStorageOperationExecutor {

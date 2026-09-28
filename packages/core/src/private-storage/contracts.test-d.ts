@@ -8,7 +8,11 @@ import {
 	stringField,
 	uuidField,
 	type PrivateCollectionHandle,
+	type PrivateStorageAdapterCollection,
+	type PrivateStorageOperationRequest,
 } from '../index.js'
+
+declare const adapterCollection: PrivateStorageAdapterCollection
 
 const credentials = definePrivateCollection({
 	contributionId: 'credentials',
@@ -53,6 +57,10 @@ test('derives the exact private record and operation surface', () => {
 	// @ts-expect-error -- Undeclared selectors are unavailable.
 	void store.findUnique({ where: { label: 'public' } })
 	expectTypeOf(store).not.toHaveProperty('findMany')
+	expectTypeOf(store).not.toHaveProperty('findFirst')
+	expectTypeOf(store).not.toHaveProperty('updateMany')
+	expectTypeOf(store).not.toHaveProperty('deleteMany')
+	expectTypeOf(store).not.toHaveProperty('migrate')
 })
 
 test('exposes declarations only under the exact critical privilege', () => {
@@ -77,5 +85,49 @@ test('exposes declarations only under the exact critical privilege', () => {
 		indexes: [{ fields: ['secret'] }] as const,
 		// @ts-expect-error -- Descriptor options retain portable JSON only.
 		normalizedStaticOptions: { derive: () => 'secret' },
+	})
+})
+
+test('keeps adapter requests exact and discriminated', () => {
+	const read = (request: PrivateStorageOperationRequest): void => {
+		switch (request.kind) {
+			case 'find-unique':
+			case 'delete':
+				expectTypeOf(request.where).toEqualTypeOf<
+					Readonly<Record<string, unknown>>
+				>()
+				break
+			case 'insert':
+				expectTypeOf(request.data).toEqualTypeOf<
+					Readonly<Record<string, unknown>>
+				>()
+				break
+			case 'update':
+				expectTypeOf(request.data).toEqualTypeOf<
+					Readonly<Record<string, unknown>>
+				>()
+				expectTypeOf(request.where).toEqualTypeOf<
+					Readonly<Record<string, unknown>>
+				>()
+				break
+			case 'compare-and-swap':
+				expectTypeOf(request.expected).toEqualTypeOf<
+					Readonly<Record<string, unknown>>
+				>()
+				break
+		}
+	}
+
+	read({
+		collection: adapterCollection,
+		kind: 'find-unique',
+		where: { id: '0198c000-0000-7000-8000-000000000001' },
+	})
+	// @ts-expect-error -- A unique read always requires its exact selector.
+	read({ collection: adapterCollection, kind: 'find-unique' })
+	read({
+		collection: adapterCollection,
+		// @ts-expect-error -- Query-like scans are outside the closed protocol.
+		kind: 'find-many',
 	})
 })

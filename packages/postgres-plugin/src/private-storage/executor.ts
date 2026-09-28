@@ -47,14 +47,14 @@ const execute = async (
 			const [row] = await client
 				.select(returning)
 				.from(collection.table)
-				.where(predicate(collection, request.where ?? {}))
+				.where(predicate(collection, request.where))
 				.limit(1)
 			return row === undefined ? null : immutableRecord(row)
 		}
 		case 'insert': {
 			const [row] = await client
 				.insert(collection.table)
-				.values(request.data ?? {})
+				.values(request.data)
 				.returning(returning)
 			if (row === undefined)
 				throw new TypeError('PostgreSQL private insert returned no row')
@@ -63,26 +63,26 @@ const execute = async (
 		case 'update': {
 			const [row] = await client
 				.update(collection.table)
-				.set(request.data ?? {})
-				.where(predicate(collection, request.where ?? {}))
+				.set(request.data)
+				.where(predicate(collection, request.where))
 				.returning(returning)
 			return row === undefined ? null : immutableRecord(row)
 		}
 		case 'delete': {
 			const [row] = await client
 				.delete(collection.table)
-				.where(predicate(collection, request.where ?? {}))
+				.where(predicate(collection, request.where))
 				.returning(returning)
 			return row === undefined ? null : immutableRecord(row)
 		}
 		case 'compare-and-swap': {
 			const where = and(
-				predicate(collection, request.where ?? {}),
-				predicate(collection, request.expected ?? {}),
+				predicate(collection, request.where),
+				predicate(collection, request.expected),
 			)
 			const [row] = await client
 				.update(collection.table)
-				.set(request.data ?? {})
+				.set(request.data)
 				.where(where)
 				.returning(returning)
 			return row === undefined ? null : immutableRecord(row)

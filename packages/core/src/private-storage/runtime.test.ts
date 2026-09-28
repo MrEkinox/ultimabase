@@ -69,15 +69,15 @@ const executeMemoryRequest = (
 	const records = rows.get(request.collection)
 	if (records === undefined)
 		throw new TypeError('Private collection is not configured')
-	const index =
-		request.where === undefined
-			? -1
-			: records.findIndex((record) => matches(record, request.where ?? {}))
 	switch (request.kind) {
-		case 'find-unique':
+		case 'find-unique': {
+			const index = records.findIndex((record) =>
+				matches(record, request.where),
+			)
 			return index < 0 ? null : (records[index] ?? null)
+		}
 		case 'insert': {
-			const record = immutableRecord(request.data ?? {})
+			const record = immutableRecord(request.data)
 			for (const unique of request.collection.indexes) {
 				if (
 					records.some((candidate) =>
@@ -94,12 +94,15 @@ const executeMemoryRequest = (
 		}
 		case 'update':
 		case 'compare-and-swap': {
+			const index = records.findIndex((record) =>
+				matches(record, request.where),
+			)
 			if (index < 0) return null
 			const current = records[index]
 			if (current === undefined) return null
 			if (
 				request.kind === 'compare-and-swap' &&
-				!matches(current, request.expected ?? {})
+				!matches(current, request.expected)
 			) {
 				return null
 			}
@@ -108,6 +111,9 @@ const executeMemoryRequest = (
 			return next
 		}
 		case 'delete': {
+			const index = records.findIndex((record) =>
+				matches(record, request.where),
+			)
 			if (index < 0) return null
 			return records.splice(index, 1)[0] ?? null
 		}

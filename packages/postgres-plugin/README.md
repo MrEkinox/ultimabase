@@ -103,6 +103,11 @@ Runtime writes. Package upgrades retain physical table identity, while removed
 collections remain inert orphaned storage for explicit migration review rather
 than being dropped implicitly.
 
+The execution protocol is a closed discriminated union of exact unique lookup,
+insert, exact update, exact delete, and compare-and-swap. PostgreSQL does not
+receive a private filter AST, scan, bulk mutation, relation loader, or migration
+command through this boundary.
+
 Core's canonical projection always selects `id`, even when application code
 does not mention it. PostgreSQL therefore returns one visible stable identifier
 on every root and nested model. Adapter-private identity metadata remains only

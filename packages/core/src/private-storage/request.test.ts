@@ -38,6 +38,8 @@ describe('private storage request validation', () => {
 				secret: 'digest',
 			},
 		})
+		if (request.kind !== 'insert')
+			throw new TypeError('Expected insert request')
 
 		expect(request.data).toStrictEqual({
 			id: '0198c000-0000-7000-8000-000000000001',
@@ -45,6 +47,41 @@ describe('private storage request validation', () => {
 			secret: 'digest',
 		})
 		expect(Object.isFrozen(request.data)).toBe(true)
+	})
+
+	it('emits only the exact fields required by each closed operation', () => {
+		const { descriptor } = createFixture()
+		const requests = [
+			normalizePrivateStorageRequest(descriptor, 'find-unique', {
+				where: { secret: 'digest' },
+			}),
+			normalizePrivateStorageRequest(descriptor, 'insert', {
+				data: {
+					id: '0198c000-0000-7000-8000-000000000001',
+					secret: 'digest',
+				},
+			}),
+			normalizePrivateStorageRequest(descriptor, 'update', {
+				data: { note: 'rotated' },
+				where: { secret: 'digest' },
+			}),
+			normalizePrivateStorageRequest(descriptor, 'delete', {
+				where: { secret: 'digest' },
+			}),
+			normalizePrivateStorageRequest(descriptor, 'compare-and-swap', {
+				data: { note: 'rotated' },
+				expected: { note: null },
+				where: { secret: 'digest' },
+			}),
+		]
+
+		expect(requests.map((request) => Object.keys(request).sort())).toEqual([
+			['collection', 'kind', 'where'],
+			['collection', 'data', 'kind'],
+			['collection', 'data', 'kind', 'where'],
+			['collection', 'kind', 'where'],
+			['collection', 'data', 'expected', 'kind', 'where'],
+		])
 	})
 
 	it('rejects missing fields, unknown options, non-unique lookups, and immutable updates', () => {

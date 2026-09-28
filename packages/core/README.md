@@ -1843,6 +1843,14 @@ and `compareAndSwap`. Reads reuse the current request; writes reuse its active
 transaction or open one automatic transaction. A retained handle is bound to
 the application and owner that created it and is rechecked on every operation.
 
+This is an addressable-record boundary, not a private ORM. Every read and
+mutation targets one declared exact unique index. Data that needs scans,
+filters, ordering, pagination, bulk mutations, relations, Hooks, Access,
+transports, or developer queries belongs in an application schema or a focused
+domain capability instead. Adapter requests form an exact discriminated union,
+so an implementation never has to infer which fields are present for an
+operation. Migration and cleanup protocols remain separate architectural work.
+
 Private collections compile through the selected database adapter but never
 enter the application schema registry, Query/model handles, Typegen schema
 declarations, transports, Hooks, Access, validators, policies, observers, or

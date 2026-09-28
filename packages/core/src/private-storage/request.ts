@@ -207,36 +207,58 @@ export const normalizePrivateStorageRequest = (
 		keys[kind],
 		`private storage ${kind} contains unknown option: `,
 	)
-	const where =
-		kind === 'insert' ? undefined : snapshotWhere(collection, input.where)
-	const data =
-		kind === 'insert'
-			? snapshotInsert(collection, input.data)
-			: kind === 'update' || kind === 'compare-and-swap'
-				? snapshotPartial(
-						collection,
-						input.data,
-						'private storage data',
-						false,
-						'update',
-					)
-				: undefined
-	const expected =
-		kind === 'compare-and-swap'
-			? snapshotPartial(
+	switch (kind) {
+		case 'find-unique':
+			return immutableRecord({
+				collection,
+				kind,
+				where: snapshotWhere(collection, input.where),
+			})
+		case 'insert':
+			return immutableRecord({
+				collection,
+				data: snapshotInsert(collection, input.data),
+				kind,
+			})
+		case 'update':
+			return immutableRecord({
+				collection,
+				data: snapshotPartial(
+					collection,
+					input.data,
+					'private storage data',
+					false,
+					'update',
+				),
+				kind,
+				where: snapshotWhere(collection, input.where),
+			})
+		case 'delete':
+			return immutableRecord({
+				collection,
+				kind,
+				where: snapshotWhere(collection, input.where),
+			})
+		case 'compare-and-swap':
+			return immutableRecord({
+				collection,
+				data: snapshotPartial(
+					collection,
+					input.data,
+					'private storage data',
+					false,
+					'update',
+				),
+				expected: snapshotPartial(
 					collection,
 					input.expected,
 					'private storage expected',
 					true,
-				)
-			: undefined
-	return immutableRecord({
-		collection,
-		...(data === undefined ? {} : { data }),
-		...(expected === undefined ? {} : { expected }),
-		kind,
-		...(where === undefined ? {} : { where }),
-	})
+				),
+				kind,
+				where: snapshotWhere(collection, input.where),
+			})
+	}
 }
 
 /** @internal Revalidates every adapter result without publishing it to Runtime behavior. */
