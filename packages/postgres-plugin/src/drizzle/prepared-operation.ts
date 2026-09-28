@@ -48,6 +48,10 @@ type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
 	{ readonly kind: DatabaseMutationOperationAst['kind'] }
 >
+type RuntimeCreateOperation = Extract<
+	RuntimeMutationOperation,
+	{ readonly kind: 'create-many' | 'create-one' }
+>
 /** Reuses PostgreSQL error sanitization for preparation and execution steps. */
 const runPreparedMutationStep = async <TResult>(
 	kind: RuntimeMutationOperation['kind'],
@@ -60,19 +64,15 @@ const runPreparedMutationStep = async <TResult>(
 	}
 }
 
-const prepareCreateOne = (
+const prepareCreate = (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeMutationOperation, { readonly kind: 'create-one' }>,
+	operation: RuntimeCreateOperation,
 	plan: DatabasePersistencePlan,
 	initialConstraint: SQL | undefined,
 	assertActive: () => void,
-	compileConstraint: PreparedMutationConstraintCompiler<
-		Extract<RuntimeMutationOperation, { readonly kind: 'create-one' }>
-	>,
-): PreparedDatabaseOperation<
-	Extract<RuntimeMutationOperation, { readonly kind: 'create-one' }>
-> =>
+	compileConstraint: PreparedMutationConstraintCompiler<RuntimeCreateOperation>,
+): PreparedDatabaseOperation<RuntimeCreateOperation> =>
 	createPreparedMutationHandle({
 		assertActive,
 		compileConstraint,
@@ -80,41 +80,16 @@ const prepareCreateOne = (
 		operation,
 		plan,
 		execute: async (resolvedOperation, resolvedPlan) => {
-			const current = await runPreparedMutationStep(
-				resolvedOperation.kind,
-				() => executeCreateInput(client, schema, resolvedOperation.input),
-			)
-
-			return createPostgresMutationOutcome(
-				projectPostgresRecord(current, resolvedPlan.returning.selection),
-				[immutableRecord({ current, kind: 'create' as const })],
-			)
-		},
-	})
-
-const prepareCreateMany = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<
-		RuntimeMutationOperation,
-		{ readonly kind: 'create-many' }
-	>,
-	plan: DatabasePersistencePlan,
-	initialConstraint: SQL | undefined,
-	assertActive: () => void,
-	compileConstraint: PreparedMutationConstraintCompiler<
-		Extract<RuntimeMutationOperation, { readonly kind: 'create-many' }>
-	>,
-): PreparedDatabaseOperation<
-	Extract<RuntimeMutationOperation, { readonly kind: 'create-many' }>
-> =>
-	createPreparedMutationHandle({
-		assertActive,
-		compileConstraint,
-		initialConstraint,
-		operation,
-		plan,
-		execute: async (resolvedOperation, resolvedPlan) => {
+			if (resolvedOperation.kind === 'create-one') {
+				const current = await runPreparedMutationStep(
+					resolvedOperation.kind,
+					() => executeCreateInput(client, schema, resolvedOperation.input),
+				)
+				return createPostgresMutationOutcome(
+					projectPostgresRecord(current, resolvedPlan.returning.selection),
+					[immutableRecord({ current, kind: 'create' as const })],
+				)
+			}
 			const records = await runPreparedMutationStep(
 				resolvedOperation.kind,
 				() => executeCreateMany(client, schema, resolvedOperation),
@@ -444,18 +419,8 @@ export const preparePostgresMutation = async <
 
 	switch (runtimeOperation.kind) {
 		case 'create-one':
-			prepared = prepareCreateOne(
-				client,
-				schema,
-				runtimeOperation,
-				runtimePlan,
-				constraint,
-				assertActive,
-				runtimeCompileConstraint,
-			)
-			break
 		case 'create-many':
-			prepared = prepareCreateMany(
+			prepared = prepareCreate(
 				client,
 				schema,
 				runtimeOperation,

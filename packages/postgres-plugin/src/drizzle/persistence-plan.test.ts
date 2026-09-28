@@ -155,13 +155,12 @@ describe('PostgreSQL persistence plans', () => {
 		expect(driver.calls[0]?.text).not.toContain('"display"')
 	})
 
-	it('uses Core persisted returning fields for prepared mutation results', async () => {
+	it('keeps direct and prepared create planning in parity', async () => {
 		const driver = new PersistenceDriver()
 		const adapter = createPostgresDatabaseAdapter(
 			new PersistencePool(driver),
 			new PostgresSchemaCatalog([virtualSchema]),
 		)
-		const transaction = await adapter.beginTransaction()
 		const operation = {
 			input: { secret: 'private' },
 			kind: 'create-one',
@@ -171,6 +170,10 @@ describe('PostgreSQL persistence plans', () => {
 		} satisfies CreateOneOperationAst<typeof virtualSchema>
 		const plan = replaceReturningSelection(operation)
 
+		driver.respond([['private', id, timestamp, timestamp]])
+		const direct = await adapter.execute({ constraints: [], operation, plan })
+		const directStatement = driver.calls.at(-1)
+		const transaction = await adapter.beginTransaction()
 		const prepared = await transaction.prepare({
 			constraints: [],
 			operation,
@@ -178,9 +181,12 @@ describe('PostgreSQL persistence plans', () => {
 		})
 		driver.respond([['private', id, timestamp, timestamp]])
 		const outcome = await prepared.execute()
+		const preparedStatement = driver.calls.at(-1)
 
-		expect(outcome.result).toStrictEqual({ id, secret: 'private' })
-		expect(driver.calls.at(-1)?.text).not.toContain('"display"')
+		expect(direct).toStrictEqual({ id, secret: 'private' })
+		expect(outcome.result).toStrictEqual(direct)
+		expect(preparedStatement).toStrictEqual(directStatement)
+		expect(preparedStatement?.text).not.toContain('"display"')
 		await transaction.commit()
 	})
 
