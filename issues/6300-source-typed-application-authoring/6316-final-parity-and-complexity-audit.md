@@ -18,11 +18,11 @@ UltimaBase capability or making TypeScript impractical.
 - [ ] The ADR-0259 capability matrix and every capability added afterward are reconciled against the final implementation.
 - [ ] The audit compares complete old and new application, schema, plugin-author, command, and local-exception examples.
 - [ ] Production, Core, plugin, test, documentation, public export, dependency, package, declaration-byte, and changed-file deltas are reported exactly.
-- [ ] Typegen removal is measured separately from new Core/plugin source-typing code so a facade cannot hide net complexity.
+- [ ] Removed Typegen plugin projections, retained Typegen graph code, and new Core/plugin source-typing code are measured separately so a facade cannot hide net complexity.
 - [ ] Typegen regeneration, complete edit-to-diagnostic latency, cold typecheck, language-service initialization, completion, hover, diagnostics, heap, Runtime startup, complete tests, and coverage are compared with raw samples and summarized distributions.
 - [ ] Every locked issue-6301 budget passes; any exception requires explicit user approval and cannot be hidden by averaging unrelated fixtures.
 - [ ] Total handwritten production lines are below 122,645, public exports are below 1,720, and aggregate package declaration bytes do not exceed 839,935.
-- [ ] No public or private Typegen replacement, duplicate plugin installation path, schema auto-registration, `Schema.use()`, or permanent application-handle bridge remains.
+- [ ] No second public or private Typegen replacement, duplicate plugin installation path, schema auto-registration, `Schema.use()`, or permanent application-handle bridge remains.
 - [ ] Coverage percentages and counters do not regress without an explained unreachable-code removal that increases or preserves effective coverage.
 - [ ] `yarn validate:full` passes and the complete results are recorded.
 - [ ] The final report states what improved, what became worse, remaining debt, and whether the approved DX target was achieved honestly.

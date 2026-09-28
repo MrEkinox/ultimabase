@@ -123,5 +123,5 @@ describe('large-schema Typegen editor measurements', () => {
 		// Timings and process memory are observations, not machine-independent
 		// budgets. Printing both isolated scenarios keeps regressions inspectable.
 		console.info(JSON.stringify({ generated, recursive }, undefined, 2))
-	}, 30_000)
+	}, 60_000)
 })

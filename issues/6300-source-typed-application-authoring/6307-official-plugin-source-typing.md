@@ -28,7 +28,7 @@ and editor semantics without package-specific bridges.
 ## Tests
 
 - [ ] Existing unit, type, editor, E2E, PostgreSQL E2E, security, and conformance suites migrate without dropped assertions.
-- [ ] Source and packed no-generated-artifact applications cover Access, Hooks, Validation, absence, and compatible providers.
+- [ ] Source and packed applications prove that Access, Hooks, Validation, absence, and compatible-provider surfaces need no generated plugin declarations; relationship names continue through the retained graph.
 - [ ] Locked TypeScript performance and memory budgets.
 - [ ] `yarn validate:full` before the issue is completed.
 
@@ -45,4 +45,4 @@ and editor semantics without package-specific bridges.
 
 - ACL, Roles, Password Auth, Soft Delete, vector, database, transport, and application-only plugin migration.
 - Adding a new plugin or weakening a plugin contract to fit the new type system.
-- Keeping a plugin-specific generated declaration fallback.
+- Keeping a plugin-specific generated declaration fallback outside the retained cross-schema graph.

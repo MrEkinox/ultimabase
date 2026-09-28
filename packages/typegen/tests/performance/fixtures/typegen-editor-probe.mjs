@@ -1,14 +1,16 @@
-import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 
-import * as ts from 'typescript'
+import { runEditorProbe } from './editor-probe-runner.mjs'
 
-const schemaCount = 48
+const requestedSchemaCount = Number.parseInt(process.argv[3] ?? '48', 10)
+if (!Number.isSafeInteger(requestedSchemaCount) || requestedSchemaCount < 1) {
+	throw new TypeError('Expected a positive schema count')
+}
+const schemaCount = requestedSchemaCount
 const scalarFieldCount = 12
 const completionMarker = '/* completion */'
 const hoverMarker = '/* hover */'
-
 const scalarName = (index) => `field${index}`
 const scalarType = (index) => (index % 2 === 0 ? 'string' : 'number')
 const scalarKind = (index) => (index % 2 === 0 ? 'TextField' : 'NumberField')
@@ -47,6 +49,17 @@ type AlternativeBehavior<TItem> = {
   readonly after?: (item: TItem) => void
   readonly before?: (item: TItem) => void
 }
+type ExistingField = { readonly kind: string }
+type ExistingFieldBuilder = {
+  readonly int: (options?: FieldOptions<number>) => ExistingField
+  readonly object: <const TFields extends Readonly<Record<string, ExistingField>>>(options: {
+    readonly fields: (field: ExistingFieldBuilder) => TFields
+  }) => ExistingField
+  readonly pointer: (options: { readonly target: string }) => ExistingField
+  readonly relation: (options: { readonly target: string }) => ExistingField
+  readonly string: (options?: FieldOptions<string> & { readonly required?: boolean }) => ExistingField
+  readonly vector: (options: { readonly dimensions: number }) => ExistingField
+}
 `
 
 const scalarProperties = (render) =>
@@ -84,6 +97,58 @@ void query${index}
 void update${index}
 `,
 	).join('\n')
+
+const createGeneratedDefinitions = () => {
+	const itemRegistry = Array.from(
+		{ length: schemaCount },
+		(_, index) => `  readonly Schema${index}: Schema${index}Item`,
+	).join('\n')
+	const whereRegistry = Array.from(
+		{ length: schemaCount },
+		(_, index) => `  readonly Schema${index}: Schema${index}WhereInput`,
+	).join('\n')
+	const definitions = Array.from({ length: schemaCount }, (_, index) => {
+		const next = (index + 1) % schemaCount
+		const fields = scalarProperties(
+			(fieldIndex) =>
+				`    ${scalarName(fieldIndex)}: field.${fieldIndex % 2 === 0 ? 'string' : 'int'}(${fieldIndex === 0 ? '{ required: true }' : ''}),`,
+		)
+		return `
+const ExistingSchema${index} = defineExistingSchema({
+  className: 'Schema${index}',
+  fields: (field) => ({
+${fields}
+    details: field.object({ fields: (field) => ({ label: field.string({ required: true }) }) }),
+    embedding: field.vector({ dimensions: 3 }),
+    related: field.pointer({ target: 'Schema${next}' }),
+    children: field.relation({ target: 'Schema${next}' }),
+  }),
+  access: { read: { item: ({ item }) => item.field0.length > 0 } },
+  hooks: { beforeOperation: { update: ({ item }) => { void item.field1 } } },
+})
+void ExistingSchema${index}
+`
+	}).join('\n')
+
+	return `
+interface ExistingItemRegistry {
+${itemRegistry}
+}
+interface ExistingWhereRegistry {
+${whereRegistry}
+}
+declare const defineExistingSchema: <
+  const TName extends keyof ExistingItemRegistry,
+  const TFields extends Readonly<Record<string, ExistingField>>,
+>(options: {
+  readonly access?: { readonly read?: { readonly item?: (input: { readonly item: ExistingItemRegistry[TName] }) => boolean } }
+  readonly className: TName
+  readonly fields: (field: ExistingFieldBuilder) => TFields
+  readonly hooks?: { readonly beforeOperation?: { readonly update?: (input: { readonly item: ExistingItemRegistry[TName] }) => void } }
+}) => { readonly fields: TFields; readonly where: ExistingWhereRegistry[TName] }
+${definitions}
+`
+}
 
 const createRecursiveUsage = () =>
 	Array.from(
@@ -200,6 +265,7 @@ export type Schema${index}Handle = Schema${index}Api & {
 	return `${commonSource}
 ${schemas}
 ${createGeneratedUsage()}
+${createGeneratedDefinitions()}
 const selection: Schema0Select = { ${completionMarker} }
 const exactItem = ${hoverMarker}item0
 const fieldOptions: FieldOptions<string> = {
@@ -210,6 +276,8 @@ const fieldOptions: FieldOptions<string> = {
 void exactItem
 void fieldOptions
 void selection
+const editProbe: Schema0WhereInput = { field0: { eq: 'valid' } }
+void editProbe
 `
 }
 
@@ -321,6 +389,8 @@ const fieldOptions: FieldOptions<string> = {
 void exactItem
 void fieldOptions
 void selection
+const editProbe: WhereOf<SchemaByName<'Schema0'>> = { field0: { eq: 'valid' } }
+void editProbe
 `
 }
 
@@ -329,73 +399,26 @@ if (scenario !== 'generated' && scenario !== 'recursive') {
 	throw new TypeError('Expected generated or recursive scenario')
 }
 
-const sourceWithMarkers =
+const generationStartedAt = performance.now()
+const scenarioSource =
 	scenario === 'generated' ? createGeneratedSource() : createRecursiveSource()
-const completionPosition = sourceWithMarkers.indexOf(completionMarker)
-const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
-const source = sourceWithMarkers
-	.replace(completionMarker, ' '.repeat(completionMarker.length))
-	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
-const fileName = path.resolve(`typegen-editor-${scenario}.fixture.ts`)
-const host = {
-	fileExists: (requestedFileName) => ts.sys.fileExists(requestedFileName),
-	getCompilationSettings: () => ({
-		exactOptionalPropertyTypes: true,
-		module: ts.ModuleKind.NodeNext,
-		moduleResolution: ts.ModuleResolutionKind.NodeNext,
-		strict: true,
-		target: ts.ScriptTarget.ESNext,
-	}),
-	getCurrentDirectory: () => process.cwd(),
-	getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
-	getScriptFileNames: () => [fileName],
-	getScriptSnapshot: (requestedFileName) => {
-		const contents =
-			requestedFileName === fileName
-				? source
-				: ts.sys.readFile(requestedFileName)
-		return contents === undefined
-			? undefined
-			: ts.ScriptSnapshot.fromString(contents)
-	},
-	getScriptVersion: () => '0',
-	readFile: (requestedFileName) => ts.sys.readFile(requestedFileName),
+const sourceWithMarkers = `namespace ExistingTypegenFixture {
+// Generated application declaration
+${scenarioSource}
 }
-const service = ts.createLanguageService(host)
-const typecheckStartedAt = performance.now()
-const diagnostics = service.getSemanticDiagnostics(fileName)
-const typecheckDurationMs = performance.now() - typecheckStartedAt
-const completionStartedAt = performance.now()
-const completionNames =
-	service
-		.getCompletionsAtPosition(fileName, completionPosition, {})
-		?.entries.map(({ name }) => name) ?? []
-const completionLatencyMs = performance.now() - completionStartedAt
-const hoverStartedAt = performance.now()
-const hover = service.getQuickInfoAtPosition(
-	fileName,
-	hoverPosition + hoverMarker.length,
-)
-const hoverLatencyMs = performance.now() - hoverStartedAt
+`
+const generationDurationMs = performance.now() - generationStartedAt
 
-globalThis.gc?.()
-const memory = process.memoryUsage()
-const result = {
-	completionLatencyMs,
-	completionNames,
-	diagnosticCount: diagnostics.length,
-	diagnosticMessages: diagnostics.map(({ messageText }) =>
-		ts.flattenDiagnosticMessageText(messageText, '\n'),
-	),
-	heapUsedMiB: memory.heapUsed / 1024 / 1024,
-	hoverLatencyMs,
-	hoverOutput: ts.displayPartsToString(hover?.displayParts),
-	rssMiB: memory.rss / 1024 / 1024,
+runEditorProbe({
+	completionMarker,
+	declarationEndMarker: 'declare const api0:',
+	declarationStartMarker: '// Generated application declaration',
+	editFrom: "'valid'",
+	editTo: '42     ',
+	generationDurationMs,
+	hoverMarker,
+	scalarFieldCount,
 	scenario,
 	schemaCount,
-	scalarFieldCount,
-	typecheckDurationMs,
-}
-
-service.dispose()
-process.stdout.write(`${JSON.stringify(result)}\n`)
+	sourceWithMarkers,
+})

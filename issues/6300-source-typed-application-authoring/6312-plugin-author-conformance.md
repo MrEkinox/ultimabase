@@ -20,7 +20,7 @@ testing helpers remaining representative rather than privileged.
 - [ ] Conformance covers fields, options, immutable patches, operations, schema mutations, model surfaces, middleware, protected constraints, persistence-plan rewrites, exact instances, conflicts, order, and application-lifetime resources.
 - [ ] Removed generic decoration, replacement, observer, Query-extension, destructive-patch, arbitrary schema/model-operation, and manual Typegen powers remain rejected.
 - [ ] Testing helpers construct only public contracts, support configured factories, source and packed modules, JavaScript, multiple instances, lifecycle failures, and deterministic cleanup.
-- [ ] Representative community fixtures need no deep import, cast, ambient augmentation, generated declaration, official-plugin identity, or package-specific Core exception.
+- [ ] Representative community fixtures need no deep import, cast, plugin-owned ambient augmentation, generated plugin declaration, official-plugin identity, or package-specific Core exception.
 - [ ] Superseded Plugin Kit, testing, fixture, and Typegen paths are removed.
 - [ ] Plugin-author READMEs, examples, conformance guidance, and public documentation are updated.
 - [ ] Documentation impact is recorded.

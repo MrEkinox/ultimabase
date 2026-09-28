@@ -1,4 +1,4 @@
-# 6305: Project plugin authoring types without Typegen
+# 6305: Project plugin authoring types from source
 
 - Status: planned
 - Milestone: 63
@@ -10,14 +10,15 @@
 ## Goal
 
 Let one static plugin definition project its exact fields, options, operations,
-schema mutations, and model surfaces into `App.Schema` without generated output
-or a second author-maintained registry.
+schema mutations, and model surfaces into `App.Schema` without generated
+plugin-surface output or a second author-maintained registry. The retained
+Typegen graph remains responsible only for named cross-schema resolution.
 
 ## Acceptance criteria
 
 - [ ] Core exposes one plugin-neutral source-type projection contract carried by static plugin definitions.
 - [ ] Core does not import Plugin Kit or a concrete plugin; Plugin Kit remains optional convenience over the same native boundary.
-- [ ] One plugin declaration is the source for Runtime ownership/provenance and TypeScript authoring; authors do not repeat names or shapes in a separate Typegen descriptor.
+- [ ] One plugin declaration is the source for Runtime ownership/provenance and TypeScript authoring; authors do not repeat names or shapes in a separate Typegen descriptor, while the central generator may consume the compiled schema graph for cross-schema names.
 - [ ] Root, embedded, virtual, and output field families; field and schema options; application operations; schema mutations; model commands; and plugin-owned schemas retain their current supported distinctions.
 - [ ] Installed plugins add exact surfaces to only their configured application; absent plugins add nothing.
 - [ ] Multiple explicit instances remain legal and ambiguous local configuration fails deterministically.
@@ -48,5 +49,5 @@ or a second author-maintained registry.
 ## Out of scope
 
 - Special treatment for official plugin package identities.
-- Raw TypeScript declaration emission.
+- Redesigning or removing the retained cross-schema Typegen graph.
 - A general higher-kinded-type API exposed to application developers.

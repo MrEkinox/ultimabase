@@ -20,7 +20,7 @@ boundary and complete GraphQL behavior.
 - [ ] Schema, CRUD, relations, nested writes, plugin operations, authentication context, selection, errors, nullability, custom fields, and naming retain their current behavior.
 - [ ] GraphQL and REST remain sibling normalizers into the same Runtime operation/query path without direct SQL or transport-specific authorization.
 - [ ] Yoga and explorer providers retain configuration, ownership, endpoint, browser-origin, development-mode, lifecycle, and post-shutdown semantics.
-- [ ] Source and packed types expose exact configured options and application/schema operation projections without generated declarations.
+- [ ] Source and packed types expose exact configured options and plugin-owned application/schema operation projections without generated plugin declarations.
 - [ ] Superseded installation consumers and Typegen descriptors are removed rather than bridged per package.
 - [ ] Package READMEs, examples, initializer, and public documentation are updated.
 - [ ] Documentation impact is recorded.

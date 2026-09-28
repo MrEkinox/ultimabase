@@ -10,8 +10,8 @@
 ## Goal
 
 Delete every temporary pre-migration authoring and application-selection entry
-point after Typegen is gone, leaving one public path per approved concern and no
-permanent facade or compatibility branch.
+point after Typegen reaches its retained graph boundary, leaving one public
+path per approved concern and no permanent facade or compatibility branch.
 
 ## Acceptance criteria
 
@@ -20,7 +20,7 @@ permanent facade or compatibility branch.
 - [ ] Redundant public application schema handles and ordinary repeated `{ ultimabase }` selection are removed where direct class/model commands preserve the capability.
 - [ ] Internal handles remain private only when they protect Runtime ownership or a current advanced capability and do not expose a parallel ordinary developer path.
 - [ ] Temporary normalization, delegation, overload, deprecation, feature-flag, migration-only type, and error branches are removed after their last consumer.
-- [ ] No compatibility package, alias, re-export, ambient augmentation, generated fallback, or deprecated facade preserves a removed form.
+- [ ] No compatibility package, alias, re-export, second generated registry, or deprecated facade preserves a removed form; the retained Typegen graph remains the only generated name authority.
 - [ ] Runtime ownership, lifecycle, explicit schema registration, source and packed exports, JavaScript behavior, and focused removed-form diagnostics remain correct.
 - [ ] Repository searches, dependency constraints, public export guards, package archives, examples, and documentation prove the absence of superseded paths.
 - [ ] Documentation impact is recorded.

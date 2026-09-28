@@ -15,10 +15,10 @@ application-selection rules being removed.
 
 ## Acceptance criteria
 
-- [ ] ADR-0279 records `UltimaBase.use()`, `App.Schema.define()`, explicit schema registration, direct class execution, source typing, and complete Typegen removal as one coherent decision.
+- [ ] ADR-0279 records `UltimaBase.use()`, `App.Schema.define()`, explicit schema registration, direct class execution, source-typed plugin surfaces, and the retained Typegen cross-schema graph as one coherent decision.
 - [ ] The ADR names every superseded clause in ADRs 0173, 0184, 0187, 0192, 0197, 0198, 0201, 0248, 0254, 0258, 0262, 0265, 0267, 0273, 0276, and 0277 without rewriting history.
 - [ ] Privilege timing, flat plugin graphs, exact instances, deterministic order, lifecycle, request isolation, Master authority, immutable classes, and JavaScript behavior remain explicit invariants.
-- [ ] The decision explains how pure compilation and package-specialized schemas work without Typegen or late class mutation.
+- [ ] The decision explains how pure compilation and package-specialized schemas use source inference while literal relationship names resolve only through the retained Typegen graph, without late class mutation.
 - [ ] The current architecture index, root architecture, and ADR index identify the new current contract.
 - [ ] The measured issue-6301 limits are part of the decision evidence.
 - [ ] Documentation impact is recorded.

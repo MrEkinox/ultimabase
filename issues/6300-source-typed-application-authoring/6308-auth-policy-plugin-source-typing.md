@@ -18,7 +18,7 @@ surfaces, and transport-neutral behavior.
 - [ ] ACL retains exact schema options, field permissions, pointer/role subjects, AND-only protected constraints, Master bypass, and independence from Access.
 - [ ] Roles retains its plugin-owned schema, hierarchy and membership invariants, request-subject contribution, direct commands, and absence of authority grants by itself.
 - [ ] Password Auth retains its owned User and session schemas, password hashing, sign-up/login/refresh/logout/logout-all behavior, request authentication, session lifecycle, direct User-class methods, and transport-neutral operations.
-- [ ] Source types infer exact policy items, owned schemas, inputs, outputs, static methods, model commands, and configured options without generated declarations.
+- [ ] Source types infer exact plugin-owned policy options, static methods, model commands, and operations without generated plugin declarations; owned-schema relationships use the retained Typegen graph.
 - [ ] Multiple explicit instances, dependency and peer checks, provider composition, plugin absence, ownership conflicts, privilege timing, and focused diagnostics remain exact.
 - [ ] No authentication input, role membership, shaped context, or foreign credential manufactures Core authority.
 - [ ] Superseded Typegen descriptors and package-specific compatibility branches are removed as each package migrates.
@@ -28,7 +28,7 @@ surfaces, and transport-neutral behavior.
 ## Tests
 
 - [ ] Existing unit, type, editor, security, HTTP integration, session, and PostgreSQL suites migrate without dropped assertions.
-- [ ] Source and packed no-generated-artifact applications cover presence, absence, provider composition, direct User methods, and adversarial authority cases.
+- [ ] Source and packed applications cover presence, absence, provider composition, direct User methods, and adversarial authority cases without generated plugin-surface declarations.
 - [ ] Locked TypeScript performance and memory budgets.
 - [ ] `yarn validate:full` before the issue is completed.
 

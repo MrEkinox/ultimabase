@@ -21,7 +21,7 @@ or Runtime execution path.
 - [ ] Hono retains one optional HTTP owner, shutdown behavior, provider options, errors, and resource disposal without a shared-server application map.
 - [ ] REST preserves route coverage, normalization into the common operation/query AST, status and error mapping, selection, relations, files, authentication integration, and schema/plugin operation projection.
 - [ ] Transports receive only the narrow versioned application request execution capability and never receive Core internals or manufacture authority.
-- [ ] Source and packed types expose exact configured transport options and operation surfaces without generated application declarations.
+- [ ] Source and packed types expose exact configured transport options and plugin operation surfaces without generated transport declarations.
 - [ ] Superseded installation consumers and Typegen descriptors are removed rather than bridged per transport.
 - [ ] Package READMEs, examples, initializer, and public documentation are updated.
 - [ ] Documentation impact is recorded.

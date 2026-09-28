@@ -20,7 +20,7 @@ all current specialized fields and commands.
 - [ ] Installing `pgVectorPlugin()` adds `field.vector()` only to that configured factory; absence and unrelated configured factories reject the method in source and at static compilation.
 - [ ] The migration does not claim or add physical PostgreSQL vector columns, vector ordering, or vector-specific indexes; those remain future functionality.
 - [ ] PostgreSQL retains adapter configuration, schema synchronization, metadata, `renamedFrom`, transaction-bound raw access, constraints, atomic deltas, relation behavior, lifecycle, and disposal.
-- [ ] Plugin field builders, schema options, mutations, model commands, application operations, and result types infer from source without generated declarations.
+- [ ] Plugin field builders, schema options, mutations, model commands, application operations, and their local result types infer from source without generated plugin declarations.
 - [ ] Logical operations remain separate from physical plans, and protected constraints cannot be widened by persistence rewrites.
 - [ ] Direct options configure only an installed unambiguous plugin instance; absence, ambiguity, conflicts, and invalid values retain focused source and Runtime diagnostics.
 - [ ] Superseded Typegen descriptors and package-specific compatibility branches are removed as each package migrates.
@@ -30,7 +30,7 @@ all current specialized fields and commands.
 ## Tests
 
 - [ ] Existing unit, type, editor, PostgreSQL E2E, transaction, constraint, lifecycle, and persistence-plan suites migrate without dropped assertions.
-- [ ] Source and packed no-generated-artifact applications cover plugin presence, absence, local exceptions, logical vector fields without physical persistence, and supported database operations.
+- [ ] Source and packed applications cover plugin presence, absence, local exceptions, logical vector fields without physical persistence, and supported database operations without generated plugin-surface declarations.
 - [ ] Locked TypeScript performance and memory budgets.
 - [ ] `yarn validate:full` before the issue is completed.
 

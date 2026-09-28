@@ -16,13 +16,13 @@ Core models and operations while keeping the current declaration object shape.
 
 - [ ] `App.Schema.define({ className, fields, indexes, ... })` is the only ordinary schema declaration path and keeps the current syntax.
 - [ ] `UltimaBase.Schema.define()` is the zero-plugin portable form of that same mechanism; any temporarily retained standalone `Schema` entry delegates the same compiler and is removed by issue 6314.
-- [ ] Core fields, required/default/generated/immutable state, objects, lists, virtuals, pointers, relations, circular targets, indexes, system fields, and constraints infer without generated registry lookup.
+- [ ] Core fields, required/default/generated/immutable state, objects, lists, virtuals, indexes, system fields, and constraints infer from source; pointers, relations, circular targets, nested writes, and relationship filters resolve their literal target names through the sole retained Typegen graph.
 - [ ] Drafts, persisted models, create/update/upsert inputs, where, order, select, include, nested writes, relation commands, and operation results retain their exact current types.
 - [ ] Schema declarations stay inert and are registered only through explicit `new App({ schemas })` roots.
 - [ ] The implementation does not mutate a prior configured factory, exported schema class, or prototype after definition.
 - [ ] Reusable package schemas and separately compiled inert applications retain exact identity and isolation.
 - [ ] Compatible root/ancestor schemas compose into configured descendant applications, while incompatible plugin-dependent schemas fail with focused source and Runtime diagnostics.
-- [ ] Superseded generated schema-name and type-info lookup paths are deleted as their last Core consumers move.
+- [ ] Superseded generated schema contracts are deleted only when the proof identifies a source-owned replacement; the name-to-schema graph remains singular and generated.
 - [ ] Source and packed hover output remains named, concise, and documented.
 - [ ] Schema examples and public documentation are updated.
 - [ ] Documentation impact is recorded.

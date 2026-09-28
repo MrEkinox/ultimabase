@@ -1,11 +1,12 @@
 # Milestone 63: Source-typed application authoring
 
-- Status: planned
+- Status: in-progress
 - Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6313, 6314, 6315, 6316
 
-Replace generated application authoring with one source-typed configured
-application factory while preserving every current UltimaBase capability. The
-approved target is frozen in the
+Replace plugin-generated authoring surfaces with one source-typed configured
+application factory while preserving every current UltimaBase capability and
+retaining Typegen as the sole named cross-schema graph. The approved target is
+frozen in the
 [DX contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md).
 
 ## Baseline
@@ -21,11 +22,11 @@ approved target is frozen in the
 
 ## Execution order
 
-- [ ] [6301: Prove source inference and lock DX budgets](6301-source-inference-proof-and-budgets.md)
+- [x] [6301: Prove source inference and lock DX budgets](6301-source-inference-proof-and-budgets.md)
 - [ ] [6302: Accept the configured source-typed application ADR](6302-source-typed-application-adr.md)
 - [ ] [6303: Make plugin installation an immutable application factory](6303-immutable-configured-application-factory.md)
 - [ ] [6304: Preserve exact schema contracts from source](6304-source-typed-schema-contracts.md)
-- [ ] [6305: Project plugin authoring types without Typegen](6305-plugin-source-type-projections.md)
+- [ ] [6305: Project plugin authoring types from source](6305-plugin-source-type-projections.md)
 - [ ] [6306: Bind direct class execution to the sole active application](6306-direct-class-application-binding.md)
 - [ ] [6307: Migrate Access, Hooks, and Validation source typing](6307-official-plugin-source-typing.md)
 - [ ] [6308: Migrate ACL, Roles, and Password Auth source typing](6308-auth-policy-plugin-source-typing.md)
@@ -33,7 +34,7 @@ approved target is frozen in the
 - [ ] [6310: Migrate HTTP, Hono, and REST configured installation](6310-http-rest-plugin-migration.md)
 - [ ] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
 - [ ] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
-- [ ] [6313: Remove Typegen and generated application registries](6313-remove-typegen.md)
+- [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [ ] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)
 - [ ] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
 - [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
@@ -72,9 +73,11 @@ fields, ... })` declaration shape; no public `Schema.use()` exists.
   command directly through the sole active application, without an ordinary
   explicit application argument.
 - Source and packed TypeScript contracts retain exact completion, hover,
-  signature, and diagnostic behavior without generated artifacts.
-- `@ultimabase/typegen`, its setup, generated registries, build steps, examples,
-  and compatibility paths are removed.
+  signature, and diagnostic behavior; only named cross-schema contracts depend
+  on the retained generated graph.
+- `@ultimabase/typegen` remains the sole application-specific cross-schema name
+  authority, while plugin-added surfaces no longer require generated
+  declarations or author-maintained Typegen descriptors.
 - JavaScript, privilege, lifecycle, ownership, Runtime, transport, database,
   Access, Hooks, validation, authentication, roles, ACL, soft-delete, vector,
   plugin-instance, and community-plugin capabilities remain.
@@ -86,6 +89,13 @@ fields, ... })` declaration shape; no public `Schema.use()` exists.
 
 If any stop condition from the approved DX contract occurs, mark the active
 issue blocked and request architecture review instead of widening the design.
+
+Issue 6301 reached that stop because a source-module scope cannot retain exact
+circular relationship typing inside Access filters and Hook inputs without a
+TypeScript initializer cycle. The user approved retaining the existing Typegen
+graph exclusively for that name-resolution boundary. The milestone is active
+again; plugin-added surfaces must now prove direct source inference without a
+second registry.
 
 ## Preparation audit
 

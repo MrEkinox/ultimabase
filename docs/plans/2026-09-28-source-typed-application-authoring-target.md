@@ -1,6 +1,6 @@
 # Source-typed application authoring target
 
-- Status: user-approved DX target; production migration requires issue 6301 evidence and ADR-0279
+- Status: user-approved revised DX target; production migration requires issue 6301 evidence and ADR-0279
 - Date: 2026-09-28
 - Baseline revision: `3c130475`
 - Milestone: 63
@@ -186,7 +186,30 @@ diagnostics for:
 - native CRUD, plugin schema mutations, model commands, application
   operations, Password User methods, Role schemas, and package-specialized
   schemas;
-- source imports and packed-package imports, without a generated artifact.
+- source imports and packed-package imports, with Typegen used only where the
+  application-specific schema-name graph is required.
+
+### Typegen relationship boundary
+
+Issue 6301 proved that exact Access relationship filters and Hook
+mutation inputs make the source module's class-name map part of the circular
+schema initializer, producing TS7022 and TS2615. Looking up targets by export
+identifier compiles but removes the existing ability for the identifier and
+`className` to differ. The source-module scope is therefore rejected.
+
+The accepted replacement keeps the existing Typegen graph as the sole
+application-specific mapping from a literal relationship target such as
+`target: 'User'` to its exact schema contract. It owns circular and cross-file
+name resolution; no source registry, ambient augmentation owned by a plugin,
+or compatibility bridge may duplicate that map. Explicit `new App({ schemas:
+[...] })` registration remains the Runtime root.
+
+Plugin-added field builders, direct options, methods, schema mutations, model
+commands, and application operations are inferred directly from each installed
+plugin definition. A plugin author must not repeat those surfaces in a Typegen
+descriptor. Other existing generated schema contracts are retained until
+evidence proves that an individual contract is redundant; this milestone does
+not assume their removal merely to reach a line-count target.
 
 An absent plugin must remove its option, field method, and command from editor
 completion and produce a focused TypeScript diagnostic when used. Runtime must
@@ -214,17 +237,20 @@ Internal application handles may remain only where they protect Runtime
 ownership or a current advanced capability. They are not a second ordinary
 developer path and do not require a duplicate public surface.
 
-## Typegen exit condition
+## Typegen retention boundary
 
-The milestone is not complete while ordinary TypeScript authoring requires a
-generated declaration, `typegenPlugin()`, a generation command, generated
-module augmentation, or the `@ultimabase/typegen` workspace. Runtime already
-treats generated output as replaceable; milestone 63 must remove the package
-and superseded generated registries after every current contract is source
-typed.
+The milestone retains `@ultimabase/typegen`, its application-specific generated
+graph, and the current generation workflow for exact named cross-schema
+contracts. The generated graph remains replaceable declaration output and
+never becomes Runtime truth.
 
-No reduced-capability fallback, manually maintained generated fixture, or
-per-plugin ambient augmentation may be kept to claim completion.
+The milestone is not complete while a plugin-added field, option, method,
+mutation, command, or operation requires a parallel Typegen declaration.
+Superseded plugin projections must be removed rather than kept beside their
+source definitions. No reduced-capability source fallback, second name graph,
+manually maintained declaration, or per-plugin ambient augmentation may be
+introduced. Whether additional non-plugin Typegen output can later be removed
+is decided only from the final evidence.
 
 ## Complexity and performance gates
 
@@ -246,13 +272,14 @@ Unless the evidence issue records a stricter stable bound, the target must:
 - reduce total handwritten production lines below 122,645, reduce public
   exports below 1,720, and avoid increasing the 839,935-byte aggregate package
   declaration baseline;
-- remove the 3,415 production lines and 28 public exports currently owned by
-  `@ultimabase/typegen`, without moving equivalent generation machinery into
-  Core.
+- reduce Typegen and plugin projection code without moving equivalent
+  generation machinery into Core, and report the exact retained Typegen lines,
+  exports, and declaration bytes.
 
-The final audit distinguishes Core growth, plugin migration, removed Typegen,
-tests, documentation, and net repository effects. A net reduction cannot hide
-a new duplicate internal system.
+The final audit distinguishes Core growth, plugin migration, removed Typegen
+projections, retained Typegen graph code, tests, documentation, and net
+repository effects. A net reduction cannot hide a new duplicate internal
+system.
 
 ## Architecture stop conditions
 
@@ -260,8 +287,7 @@ Stop and return for architecture review before production migration if the
 proof requires any of the following:
 
 - a second public plugin installation or schema composition form;
-- a permanent facade over the existing generated registry or application
-  handle system;
+- a second facade or registry beside the retained generated schema-name graph;
 - Core importing Plugin Kit or a concrete plugin;
 - plugin authors declaring the same public contract in independent Runtime and
   source-type registries;
@@ -331,7 +357,7 @@ not sufficient without all required tests. Both are mandatory.
 
 The milestone closes only with one old-versus-new audit containing the exact
 authoring examples, capability matrix, production/test/documentation line
-deltas, package and export removals, declaration bytes, Typegen regeneration
+deltas, package and export changes, declaration bytes, Typegen regeneration
 and edit-to-diagnostic latency, TypeScript latency and heap distributions,
 editor assertions, Runtime/startup measurements, complete coverage, the final
 cumulative one-file developer form, and `yarn validate:full` evidence.
