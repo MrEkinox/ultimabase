@@ -3,7 +3,7 @@ import {
 	type FrameworkEngineOptions,
 } from './engine-options.js'
 export type { FrameworkEngineOptions } from './engine-options.js'
-import type { FrameworkApplication } from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type {
 	AnonymousRequestAccess,
@@ -36,6 +36,8 @@ import {
 } from './framework-master-authority.js'
 import { RequestEngine } from './request-engine.js'
 import { requestEngineConstructionKey } from './request-engine-construction.js'
+import { readApplicationFacade } from '../context/current-ultima-base.js'
+import type { UltimaBase } from '../application/ultima-base.js'
 
 export { RequestEngine } from './request-engine.js'
 export type { RequestTransactionHandler } from './request-engine.js'
@@ -64,6 +66,14 @@ export class FrameworkEngine<
 		}
 
 		Object.freeze(this)
+	}
+
+	/** Resolves the sole public owner without exposing the private kernel. */
+	get ultimabase(): UltimaBase<TSchemas, TPlugins> {
+		return readApplicationFacade(this.application) as UltimaBase<
+			TSchemas,
+			TPlugins
+		>
 	}
 
 	/** Verifies one raw credential without retaining it in framework state. */

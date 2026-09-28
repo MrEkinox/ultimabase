@@ -1,12 +1,12 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	Schema,
-	createApplication,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
 	definePluginOutputDescriptor,
 } from '@ultimabase/core'
+import { initializeRestTestApplication as createApplication } from './application.test-support.js'
 
 import { restFieldCodec, restPlugin, type RestPluginExports } from './index.js'
 
@@ -23,8 +23,8 @@ const readRest = (
 ): RestPluginExports => {
 	const exports =
 		instanceId === undefined
-			? application.getPlugin('@ultimabase/rest-plugin')
-			: application.getPlugin({
+			? application.plugin('@ultimabase/rest-plugin')
+			: application.plugin({
 					instanceId,
 					pluginId: '@ultimabase/rest-plugin',
 				})
@@ -336,8 +336,8 @@ describe('REST route metadata', () => {
 		const second = await compile(false)
 
 		expect(firstRoutes).toStrictEqual(summarize(readRest(second)))
-		expect(first.schemas.has('DynamicStorage')).toBe(true)
-		expect(second.schemas.has('DynamicStorage')).toBe(false)
+		expect(first.compile().schemas.has('DynamicStorage')).toBe(true)
+		expect(second.compile().schemas.has('DynamicStorage')).toBe(false)
 		await first.dispose()
 		await second.dispose()
 	})

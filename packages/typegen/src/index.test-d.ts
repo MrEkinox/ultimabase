@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	type PluginDefinition,
 	type SchemaDefinition,
@@ -25,14 +25,14 @@ const Document = Schema.define({
 		title: field.string(),
 	}),
 })
-const application = new FrameworkApplication({
+const application = new UltimaBase({
 	plugins: [],
 	schemas: [Document],
 })
 
 test('exposes precise generation, loading, and atomic writer contracts', () => {
 	const generated = generateApplicationTypes({
-		application,
+		ultimabase: application,
 		applicationId: 'fixture.public-types',
 	})
 
@@ -50,10 +50,7 @@ test('exposes precise generation, loading, and atomic writer contracts', () => {
 		}),
 	).toEqualTypeOf<
 		Promise<
-			FrameworkApplication<
-				readonly SchemaDefinition[],
-				readonly PluginDefinition[]
-			>
+			UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>
 		>
 	>()
 	expectTypeOf(
@@ -71,13 +68,13 @@ test('exposes automatic startup generation as a typed application plugin', () =>
 		applicationId: 'fixture.public-types',
 		outputPath: './generated.d.ts',
 	})
-	const generatedApplication = new FrameworkApplication({
+	const generatedApplication = new UltimaBase({
 		plugins: [plugin],
 		schemas: [Document],
 	})
 
 	expectTypeOf(plugin).toEqualTypeOf<TypegenPlugin>()
 	expectTypeOf(
-		generatedApplication.getPlugin('@ultimabase/typegen'),
+		generatedApplication.plugin('@ultimabase/typegen'),
 	).toEqualTypeOf<Readonly<TypegenPluginExports>>()
 })

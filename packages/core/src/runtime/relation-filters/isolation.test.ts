@@ -1,10 +1,6 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import {
-	createApplication,
-	plugin,
-	Schema,
-	type RelationWhereResolver,
-} from '../../index.js'
+import { plugin, Schema, type RelationWhereResolver } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'

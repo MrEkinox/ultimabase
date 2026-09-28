@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
 	FrameworkError,
 	RequestContext,
 	Schema,
@@ -135,9 +134,9 @@ describe('open-kernel workflow proof', () => {
 					state: 'application',
 				})
 			})
-			.check('schema-surface', ({ createApplication }) => {
-				const { application } = createApplication()
-				application.compileSchemas()
+			.check('schema-surface', ({ createUltimaBase }) => {
+				const { ultimabase } = createUltimaBase()
+				const application = ultimabase.compile()
 				expect(
 					application.schemas.values().map(({ className }) => className),
 				).toStrictEqual(['OpenKernelWorkflowPost', 'WorkflowAuditeditorial'])
@@ -205,7 +204,7 @@ describe('open-kernel workflow proof', () => {
 			const { Stable, workflow } = createWorkflowFixture()
 			expect(
 				() =>
-					new FrameworkApplication({
+					new UltimaBase({
 						pluginPrivileges: { deny: [privilege], logger: false },
 						plugins: [
 							hooksPlugin(),
@@ -215,11 +214,11 @@ describe('open-kernel workflow proof', () => {
 						schemas: [Stable],
 					}),
 			).toThrow(FrameworkError)
-			const allowed = new FrameworkApplication({
+			const allowed = new UltimaBase({
 				plugins: [],
 				schemas: [Stable],
 			})
-			expect(() => allowed.compileSchemas()).not.toThrow()
+			expect(() => allowed.compile()).not.toThrow()
 		}
 	})
 
@@ -249,17 +248,17 @@ describe('open-kernel workflow proof', () => {
 			className: 'OpenKernelIncompatibleShared',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const base = new FrameworkApplication({ plugins: [], schemas: [Shared] })
-		base.compileSchemas()
+		const base = new UltimaBase({ plugins: [], schemas: [Shared] })
+		base.compile()
 		const changed = createWorkflowPlugin({
 			instanceId: 'changed',
 			stableSchema: Shared,
 		})
 		expect(() =>
-			new FrameworkApplication({
+			new UltimaBase({
 				plugins: [hooksPlugin(), changed.plugin],
 				schemas: [Shared],
-			}).compileSchemas(),
+			}).compile(),
 		).toThrow(/incompatible|another application/iu)
 		await base.dispose()
 	})
@@ -300,9 +299,9 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				privileges: ['adapter:consume', 'schema:declare', 'typegen:reference'],
 				version: '1.0.0',
 			},
-		}).check('codec', ({ createApplication }) => {
-			const { application } = createApplication()
-			application.compileSchemas()
+		}).check('codec', ({ createUltimaBase }) => {
+			const { ultimabase } = createUltimaBase()
+			const application = ultimabase.compile()
 			const schema = application.schemas.get('OpenKernelConformanceLedger')
 			if (schema === undefined)
 				throw new TypeError('Missing decimal fixture schema')
@@ -374,9 +373,9 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				],
 				version: '1.0.0',
 			},
-		}).check('persistence', ({ createApplication }) => {
-			const { application } = createApplication()
-			application.compileSchemas()
+		}).check('persistence', ({ createUltimaBase }) => {
+			const { ultimabase } = createUltimaBase()
+			const application = ultimabase.compile()
 			const schema = application.schemas.get('OpenKernelConformanceSoftPost')
 			if (schema === undefined)
 				throw new TypeError('Missing soft-delete fixture schema')
@@ -405,7 +404,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 			readonly decimalLedger: DecimalLedgerOption
 		})
 		const value = createValuePlugin({ instanceId: 'typed', target: Ledger })
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [
 				hooksPlugin(),
 				createKernelSupportPlugin(),
@@ -415,7 +414,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 			schemas: [Stable, Ledger],
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'open-kernel-language-service',
 		}).contents
 		const repository = path.resolve(import.meta.dirname, '../..')
@@ -479,7 +478,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				table: 'open_kernel_migration_second',
 				version: '1.0.0',
 			})
-			const application = new FrameworkApplication({
+			const application = new UltimaBase({
 				plugins: [
 					postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
 					first,
@@ -488,7 +487,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				schemas: [First, Second],
 			})
 			await application.initialize()
-			const metadata = application.getPlugin(
+			const metadata = application.plugin(
 				'@ultimabase/postgres-plugin',
 			).adapterMetadata
 			await application.dispose()

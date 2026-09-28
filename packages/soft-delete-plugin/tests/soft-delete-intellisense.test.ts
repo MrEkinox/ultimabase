@@ -1,10 +1,6 @@
 import path from 'node:path'
 
-import {
-	FrameworkApplication,
-	Schema,
-	type SchemaOptions,
-} from '@ultimabase/core'
+import { UltimaBase, Schema, type SchemaOptions } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { expect, it } from 'vitest'
 
@@ -22,7 +18,7 @@ it('offers only the generated direct schema option and accepted values', () => {
 		readonly softDelete: SoftDeleteSchemaOption
 	})
 	const generated = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [softDeletePlugin()],
 			schemas: [Document],

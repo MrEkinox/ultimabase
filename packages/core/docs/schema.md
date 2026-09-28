@@ -70,7 +70,7 @@ const PostSchema = Schema.define({
 ```
 
 The returned value is the final schema-specific class. Its `className` is
-available immediately. `createApplication()` executes each configured field
+available immediately. `UltimaBase.compile()` executes each configured field
 callback once during an infrastructure-free static compilation phase, then
 freezes `definition`, `fields`, and `indexes`. Before that phase,
 field-dependent static metadata and model construction throw an actionable
@@ -170,17 +170,17 @@ The resulting `SchemaTargetGraph` is immutable and application-local. It
 identifies an edge by exact source class identity and structural field path.
 
 ```ts
-const application = await createApplication({
+const application = new UltimaBase({
 	schemas: [UserSchema, PostSchema],
 	plugins: [],
 })
 
-application.schemaTargets.get(PostSchema, ['author'])
+application.compile().schemas.schemaTargets.get(PostSchema, ['author'])
 ```
 
 Relationship fields populate this graph while keeping callbacks out of public
 field metadata. Application developers normally let the framework own
-`SchemaRegistry.compileSchemas()`. Adapter and framework plugin authors may
+`UltimaBase.compile()`. Adapter and framework plugin authors may
 read the completed graph through the application or their read-only setup
 registry. Target callbacks must be pure declarations and are invoked once per
 accepted application compilation.

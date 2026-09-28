@@ -170,7 +170,7 @@ const createFixture = async (
 	})
 	await ultimabase.start()
 	return {
-		http: readFixtureHttpApplication(ultimabase.application),
+		http: readFixtureHttpApplication(ultimabase),
 		ultimabase,
 	}
 }
@@ -243,10 +243,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 			data: { context: 'http-context:anonymous:true' },
 		})
 
-		const graphql = fixture.ultimabase.application.getPlugin(
+		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = fixture.ultimabase.engine.anonymous({
+		const context = fixture.ultimabase.anonymous({
 			requestId: 'networkless-context',
 			source: 'test',
 		}).context
@@ -493,10 +493,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 			data: { principal: 'Bearer session-1' },
 		})
 
-		const graphql = fixture.ultimabase.application.getPlugin(
+		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const directContext = fixture.ultimabase.engine
+		const directContext = fixture.ultimabase
 			.anonymous({ requestId: 'direct-session', source: 'test' })
 			.context.withValue(sessionPrincipal, { id: 'Bearer session-1' })
 		await expect(

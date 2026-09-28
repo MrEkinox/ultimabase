@@ -103,9 +103,7 @@ describe('GraphQL Yoga plugin graph', () => {
 
 		await application.start()
 		expect(
-			application.application.getPlugin(
-				'fixture.graphql-http-endpoint-consumer',
-			),
+			application.plugin('fixture.graphql-http-endpoint-consumer'),
 		).toEqual({ path: '/api/graphql' })
 		await application.dispose()
 	})

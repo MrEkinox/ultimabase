@@ -460,7 +460,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps explicit pointer transactions atomic', async () => {
 		const app = getUltimaBase()
-		const request = app.engine.anonymous({
+		const request = app.anonymous({
 			requestId: 'pointer-postgres-transaction',
 			source: requestSources.internal,
 		})
@@ -676,16 +676,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('uses one closed application-local target graph in the worker namespace', async () => {
 		const app = getUltimaBase()
-		const graph = app.application.schemaTargets
+		const graph = app.compile().schemas.schemaTargets
 		const independentApp = new UltimaBase({
 			plugins: [hooksPlugin(), accessPlugin({ default: true })],
 			schemas: pointerSchemas,
 		})
 
-		independentApp.application.compileSchemas()
-
 		try {
-			const independentGraph = independentApp.application.schemaTargets
+			const independentGraph = independentApp.compile().schemas.schemaTargets
 
 			expect(fixture?.schemaName).toMatch(/^ultimabase_test_\d+$/u)
 			expect(graph.get(Post, ['author'])).toBe(User)

@@ -1,6 +1,6 @@
 import { stdout } from 'node:process'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
 const ExplicitPost = Schema.define({
@@ -12,18 +12,23 @@ const OmittedPost = Schema.define({
 	className: 'JavaScriptSoftDeleteOmittedPost',
 	fields: (field) => ({ title: field.string() }),
 })
-const application = new FrameworkApplication({
+const application = new UltimaBase({
 	pluginPrivileges: { logger: false },
 	plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 	schemas: [ExplicitPost, OmittedPost],
 })
 await application.initialize()
 
-const explicit = application.schemas.get(ExplicitPost.className)
-const omitted = application.schemas.get(OmittedPost.className)
+const compiled = application.compile()
+const explicit = compiled.schemas.get(ExplicitPost.className)
+const omitted = compiled.schemas.get(OmittedPost.className)
 const option = explicit?.provenance.options.softDelete?.definition
-const explicitSurface = application.getSchemaSurface(ExplicitPost.className)
-const omittedSurface = application.getSchemaSurface(OmittedPost.className)
+const explicitSurface = compiled.typegenGraph.schemaSurfaces.find(
+	({ schema }) => schema.className === ExplicitPost.className,
+)
+const omittedSurface = compiled.typegenGraph.schemaSurfaces.find(
+	({ schema }) => schema.className === OmittedPost.className,
+)
 
 stdout.write(
 	`${JSON.stringify({

@@ -6,8 +6,6 @@ export type {
 } from './context/request-context.js'
 // Contextual access is optional; transports should still inject request engines explicitly.
 export {
-	getCurrentApplication,
-	getCurrentApplicationEngine,
 	getCurrentEngine,
 	getCurrentFrameworkContext,
 	getCurrentRequest,
@@ -17,9 +15,6 @@ export type { ActiveFrameworkContext } from './context/active-framework-context.
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
 export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
-// Application assembly installs every mandatory stage from plugin-owned declarations.
-export { createFrameworkEngine } from './application/create-framework-engine.js'
-export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
 export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
 export type {
 	ApplicationMasterKeyVerificationOptions,
@@ -59,7 +54,10 @@ export type {
 } from './capabilities.js'
 // UltimaBase is the regular class-based facade over Core composition and Runtime execution.
 export { UltimaBase } from './application/ultima-base.js'
-export type { UltimaBaseOptions } from './application/ultima-base.js'
+export type {
+	CompiledApplication,
+	UltimaBaseOptions,
+} from './application/ultima-base.js'
 export {
 	ApplicationModelHandle,
 	ApplicationOperationHandle,
@@ -83,12 +81,9 @@ export type {
 } from '../application/application-schema-mutations.js'
 export { requireCurrentRequestRoleResolver } from './context/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
-export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
+export { RequestEngine } from './engine/request-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
-export type {
-	FrameworkEngineOptions,
-	RequestTransactionHandler,
-} from './engine/framework-engine.js'
+export type { RequestTransactionHandler } from './engine/request-engine.js'
 // Adapter protocols negotiate portable support while concrete bridges retain infrastructure ownership.
 export * from './adapters/index.js'
 // Database plugins implement this neutral boundary without leaking their query builders.

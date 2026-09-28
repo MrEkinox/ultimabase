@@ -247,7 +247,7 @@ describe(
 				),
 			).toBe(true)
 
-			const request = app.engine.anonymous({
+			const request = app.anonymous({
 				requestId: 'explicit-relationship-rollback',
 				source: requestSources.internal,
 			})

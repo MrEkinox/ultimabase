@@ -16,6 +16,10 @@ import { readApplicationKernelState } from '../../application/application-kernel
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
 import { Schema } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import {
+	readUltimaBaseEngine,
+	readUltimaBaseKernel,
+} from '../application/ultima-base-kernel.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
@@ -116,7 +120,9 @@ describe('canonical mutation request identity', () => {
 			}),
 		)
 		await ultimabase.start()
-		const graph = readApplicationKernelState(ultimabase.application).commands
+		const graph = readApplicationKernelState(
+			readUltimaBaseKernel(ultimabase),
+		).commands
 		const command = graph.fromSource(archive)
 		if (command?.kind !== 'mutation')
 			throw new Error('Missing mutation fixture')
@@ -130,7 +136,7 @@ describe('canonical mutation request identity', () => {
 			input: undefined,
 			projection: {},
 		})
-		const engine = ultimabase.engine.anonymous({
+		const engine = ultimabase.anonymous({
 			requestId: 'canonical-mutation',
 			source: 'fixture',
 		})
@@ -143,10 +149,13 @@ describe('canonical mutation request identity', () => {
 				throw new Error('Legacy surface lookup reached Runtime')
 			})
 		try {
-			const exposure = exposeFrameworkSchemaMutations(ultimabase.engine, {
-				transport: protocol,
-				acknowledgeUnverifiedProtection: true,
-			})
+			const exposure = exposeFrameworkSchemaMutations(
+				readUltimaBaseEngine(ultimabase),
+				{
+					transport: protocol,
+					acknowledgeUnverifiedProtection: true,
+				},
+			)
 			const binding = exposure.mutations.find(
 				(item) => item.schema === Post.className,
 			)

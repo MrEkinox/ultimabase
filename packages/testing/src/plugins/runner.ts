@@ -1,5 +1,4 @@
 import {
-	FrameworkApplication,
 	FrameworkError,
 	UltimaBase,
 	type PluginDefinition,
@@ -112,7 +111,7 @@ const assertDenied = async (
 			? denial
 			: { instances: { [identity.instanceId]: denial } }
 	try {
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: {
 				logger: false,
 				plugins: { [identity.pluginId]: pluginPolicy },
@@ -134,19 +133,6 @@ const assertDenied = async (
 }
 
 type Disposable = Readonly<{ dispose(): Promise<void> }>
-
-const createApplication = <
-	TSubject extends PluginDefinition,
-	TSupport extends readonly PluginDefinition[],
-	TSchemas extends readonly SchemaDefinition[],
->(
-	fixture: PluginConformanceFixture<TSubject, TSupport, TSchemas>,
-) =>
-	new FrameworkApplication({
-		pluginPrivileges: { logger: false },
-		plugins: fixture.plugins,
-		schemas: fixture.schemas,
-	})
 
 const createUltimaBase = <
 	TSubject extends PluginDefinition,
@@ -231,7 +217,7 @@ export const runPluginConformance = async <
 					'instance version',
 				)
 			}
-			const application = new FrameworkApplication({
+			const application = new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [...fixture.supportPlugins, first, second],
 				schemas: fixture.schemas,
@@ -255,7 +241,7 @@ export const runPluginConformance = async <
 	const privilegeFixture = freshFixture()
 	if (privilegeFixture.subject.manifest.privileges.length > 0) {
 		await run('privilege-denial', async () => {
-			const application = createApplication(privilegeFixture)
+			const application = createUltimaBase(privilegeFixture)
 			const identity = privilegeFixture.subject.manifest.identity
 			try {
 				const subject = application.pluginPrivilegeReport.plugins.find(
@@ -291,7 +277,7 @@ export const runPluginConformance = async <
 	await run('capability-contracts', async () => {
 		const fixture = freshFixture()
 		assertCapabilities(fixture.subject)
-		const application = createApplication(fixture)
+		const application = createUltimaBase(fixture)
 		try {
 			await application.initialize()
 		} finally {
@@ -301,8 +287,8 @@ export const runPluginConformance = async <
 	await run('static-determinism', async () => {
 		const first = freshFixture()
 		const second = freshFixture()
-		const firstApplication = createApplication(first)
-		const secondApplication = createApplication(second)
+		const firstApplication = createUltimaBase(first)
+		const secondApplication = createUltimaBase(second)
 		try {
 			assertEqual(
 				createPluginStaticConformanceSnapshot(firstApplication),
@@ -317,7 +303,7 @@ export const runPluginConformance = async <
 		}
 	})
 	await run('provenance', async () => {
-		const application = createApplication(freshFixture())
+		const application = createUltimaBase(freshFixture())
 		try {
 			assertPublicPluginProvenance(application)
 		} finally {
@@ -325,7 +311,7 @@ export const runPluginConformance = async <
 		}
 	})
 	await run('lifecycle-cleanup', async () => {
-		const application = createApplication(freshFixture())
+		const application = createUltimaBase(freshFixture())
 		try {
 			await application.initialize()
 		} finally {
@@ -334,8 +320,8 @@ export const runPluginConformance = async <
 		assertEqual(application.state, 'disposed', 'application lifecycle state')
 	})
 	await run('application-isolation', async () => {
-		const first = createApplication(freshFixture())
-		const second = createApplication(freshFixture())
+		const first = createUltimaBase(freshFixture())
+		const second = createUltimaBase(freshFixture())
 		try {
 			await first.initialize()
 			let rejected = false
@@ -367,12 +353,6 @@ export const runPluginConformance = async <
 		await run(check.contract, async () => {
 			const disposables: Disposable[] = []
 			const context: PluginConformanceContext<TSubject, TSupport, TSchemas> = {
-				createApplication: () => {
-					const fixture = freshFixture()
-					const application = createApplication(fixture)
-					disposables.push(application)
-					return immutableRecord({ ...fixture, application })
-				},
 				createUltimaBase: () => {
 					const fixture = freshFixture()
 					const ultimabase = createUltimaBase(fixture)

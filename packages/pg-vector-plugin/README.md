@@ -31,7 +31,7 @@ canonical vector after the plugin has enforced its structural dimension and
 finite-number contract.
 
 ```ts
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
@@ -49,10 +49,10 @@ const DocumentSchema = Schema.define({
 	}),
 })
 
-const application = await createApplication({
+const application = await new UltimaBase({
 	schemas: [DocumentSchema],
 	plugins: [hooksPlugin(), pgVectorPlugin()],
-})
+}).initialize()
 ```
 
 The plugin registers the runtime method before static schema compilation. The

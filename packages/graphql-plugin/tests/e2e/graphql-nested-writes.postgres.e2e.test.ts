@@ -94,7 +94,7 @@ const execute = (
 	document: string,
 	variables?: Readonly<Record<string, unknown>>,
 ) => {
-	const graphql = app().application.getPlugin('@ultimabase/graphql-plugin')
+	const graphql = app().plugin('@ultimabase/graphql-plugin')
 	return graphql.execute({
 		context: context(),
 		document,
@@ -167,7 +167,7 @@ beforeAll(async () => {
 	})
 	try {
 		await application.start()
-		requestContext = application.engine.anonymous({
+		requestContext = application.anonymous({
 			requestId: 'graphql-nested-writes',
 			source: 'ultimabase.graphql',
 		}).context

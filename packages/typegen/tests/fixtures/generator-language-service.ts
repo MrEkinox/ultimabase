@@ -1,10 +1,6 @@
 import path from 'node:path'
 
-import {
-	FrameworkApplication,
-	Schema,
-	type FieldBuilder,
-} from '@ultimabase/core'
+import { UltimaBase, Schema, type FieldBuilder } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -83,13 +79,13 @@ export const createGeneratedRegistry = (): string => {
 			}
 		},
 	})
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		plugins: [accessPlugin(), hooksPlugin(), pgVectorPlugin()],
 		schemas: [Author, Article],
 	})
 
 	return generateApplicationTypes({
-		application,
+		ultimabase: application,
 		applicationId: 'fixture.semantic',
 	}).contents
 }
@@ -112,13 +108,13 @@ export const createGeneratedRoleRegistry = (): string => {
 		throw new TypeError('Expected the semantic role schema to be defined')
 	}
 	const Role = roleCandidate
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		plugins: [hooksPlugin(), rolesPlugin()],
 		schemas: [Member, Role],
 	})
 
 	return generateApplicationTypes({
-		application,
+		ultimabase: application,
 		applicationId: 'fixture.semantic-role',
 	}).contents
 }

@@ -34,7 +34,7 @@ const suite = definePluginConformanceSuite({
 })
 
 suite.check('operation', (context) => {
-  const fixture = context.createApplication()
+  const fixture = context.createUltimaBase()
   void fixture.schemas
 })
 `
@@ -49,7 +49,7 @@ const quickInfo = (needle: string, offset = 0) => {
 describe('@ultimabase/testing plugin conformance language service', () => {
 	it('preserves exact fixture inference and documents suite composition', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
-		const contextInfo = quickInfo('context.createApplication', 0)
+		const contextInfo = quickInfo('context.createUltimaBase', 0)
 		const display = contextInfo?.displayParts?.map(({ text }) => text).join('')
 
 		expect(display).toContain('PluginConformanceContext')

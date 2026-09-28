@@ -56,7 +56,7 @@ see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
 Add `pgVectorPlugin()` to the application and declare a stored vector field:
 
 ```ts title="src/document.ts"
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { UltimaBase, Schema } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const Document = Schema.define({
@@ -66,12 +66,12 @@ const Document = Schema.define({
 	}),
 })
 
-const application = new FrameworkApplication({
+const application = new UltimaBase({
 	plugins: [pgVectorPlugin()],
 	schemas: [Document],
 })
 
-application.compileSchemas()
+application.compile()
 ```
 
 This performs pure schema compilation without initializing an application or

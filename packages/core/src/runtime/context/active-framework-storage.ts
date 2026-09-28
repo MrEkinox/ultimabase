@@ -1,20 +1,15 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
+import type { PluginDefinition } from '../../foundation.js'
 import {
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
 } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { immutableRecord } from '@ultimabase/shared'
 
-import type {
-	FrameworkEngine,
-	RequestEngine,
-} from '../engine/framework-engine.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
+import type { UltimaBase } from '../application/ultima-base.js'
 import type { RequestContext } from './request-context.js'
 
 /** Exposes the consistent application and request references derived from one engine. */
@@ -23,8 +18,7 @@ export interface ActiveFrameworkContext<
 	TPlugins extends readonly PluginDefinition[] = readonly PluginDefinition[],
 	TRequest extends RequestContext = RequestContext,
 > {
-	readonly application: FrameworkApplication<TSchemas, TPlugins>
-	readonly frameworkEngine: FrameworkEngine<TSchemas, TPlugins>
+	readonly ultimabase: UltimaBase<TSchemas, TPlugins>
 	readonly requestEngine: RequestEngine<TSchemas, TPlugins, TRequest>
 	readonly request: TRequest
 }
@@ -39,9 +33,10 @@ const createActiveFrameworkContext = <
 >(
 	requestEngine: RequestEngine<TSchemas, TPlugins, TRequest>,
 ): ActiveFrameworkContext<TSchemas, TPlugins, TRequest> =>
-	immutableRecord({
-		application: requestEngine.application,
-		frameworkEngine: requestEngine.framework,
+	Object.freeze({
+		get ultimabase() {
+			return requestEngine.ultimabase
+		},
 		requestEngine,
 		request: requestEngine.context,
 	})
@@ -69,7 +64,7 @@ export const runWithRequestEngineScope = <
 	callback: () => TResult,
 ): TResult =>
 	runWithQueryExecution(
-		requestEngine.application,
+		readRequestEngineApplication(requestEngine),
 		// Application ownership is checked by RequestEngine before the erased bridge executes.
 		requestEngine as unknown as QueryExecutionDispatcher,
 		() =>

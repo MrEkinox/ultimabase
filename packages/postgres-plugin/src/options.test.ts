@@ -1,4 +1,4 @@
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
@@ -58,10 +58,11 @@ describe('direct PostgreSQL options', () => {
 			fields: () => ({}),
 			postgres: { table: name },
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			plugins: [postgresPlugin({ pool: new FixturePool() })],
 			schemas: [schema],
 		})
+		await application.initialize()
 		const table = pgTable(resolvePostgresTableName(schema), { id: text('id') })
 		const query = drizzle.mock().select({ id: table.id }).from(table).toSQL()
 
@@ -86,10 +87,11 @@ describe('direct PostgreSQL options', () => {
 				}),
 			}),
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			plugins: [postgresPlugin({ pool: new FixturePool() })],
 			schemas: [schema],
 		})
+		await application.initialize()
 		const title = schema.fields.title
 
 		if (title === undefined) {
@@ -125,11 +127,11 @@ describe('direct PostgreSQL options', () => {
 			} as never)
 
 			await expect(
-				createApplication({
+				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					plugins: [postgresPlugin({ pool: new FixturePool() })],
 					schemas: [schema],
-				}),
+				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>
 				hasErrorCauseMessage(error, message),
 			)
@@ -163,11 +165,11 @@ describe('direct PostgreSQL options', () => {
 			})
 
 			await expect(
-				createApplication({
+				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					plugins: [postgresPlugin({ pool: new FixturePool() })],
 					schemas: [schema],
-				}),
+				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>
 				hasErrorCauseMessage(error, message),
 			)
@@ -182,7 +184,7 @@ describe('direct PostgreSQL options', () => {
 		})
 
 		await expect(
-			createApplication({ plugins: [], schemas: [schema] }),
+			new UltimaBase({ plugins: [], schemas: [schema] }).initialize(),
 		).rejects.toThrow('Unknown schema option: postgres')
 	})
 })

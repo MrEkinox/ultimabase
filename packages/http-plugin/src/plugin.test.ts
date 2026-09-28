@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	plugin,
 	contributeApplication,
 	requireCapability,
@@ -45,20 +45,20 @@ describe('httpPlugin', () => {
 			privileges: [],
 		})
 
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [plugin, consumerPlugin()],
 			schemas: [],
 		})
 		await application.initialize()
-		expect(application.getPlugin('@ultimabase/http-plugin')).toStrictEqual({
+		expect(application.plugin('@ultimabase/http-plugin')).toStrictEqual({
 			appId: 'blog',
 			browser: { enabled: false },
 			master: { enabled: false },
 			requestTimeoutMs: undefined,
 		})
 		expect(
-			application.getPlugin('fixture.http-consumer').application,
+			application.plugin('fixture.http-consumer').application,
 		).toMatchObject({ appId: 'blog', protocolVersion: '1.0.0' })
 		await application.dispose()
 	})
@@ -109,7 +109,7 @@ describe('httpPlugin', () => {
 	})
 
 	it('keeps imports inert when the plugin is omitted', async () => {
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [],
 			schemas: [],

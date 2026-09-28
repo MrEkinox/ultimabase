@@ -4,7 +4,6 @@ import path from 'node:path'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
-	FrameworkApplication,
 	MasterAuthority,
 	Schema,
 	UltimaBase,
@@ -118,7 +117,7 @@ describe('independent protected policy engine', () => {
 			className: 'NoAccessGeneratedDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [],
 			schemas: [Plain],
@@ -126,7 +125,7 @@ describe('independent protected policy engine', () => {
 
 		try {
 			const generated = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'no-access-proof',
 			})
 			const [source, javascriptSource] = await Promise.all([
@@ -134,7 +133,7 @@ describe('independent protected policy engine', () => {
 				readFile(noAccessJavascriptFixturePath, 'utf8'),
 			])
 
-			expect(application.typegenGraph.options).toStrictEqual([])
+			expect(application.compile().typegenGraph.options).toStrictEqual([])
 			expect(generated.contents).not.toContain('@ultimabase/access-plugin')
 			expect(generated.contents).not.toContain('SchemaAccessOption')
 			expect(source).not.toContain('@ultimabase/access-plugin')
@@ -169,8 +168,8 @@ describe('independent protected policy engine', () => {
 
 			expect(result[0]).not.toHaveProperty('secret')
 			expect(
-				ultimabase.application
-					.getPlugin({
+				ultimabase
+					.plugin({
 						instanceId: 'typed',
 						pluginId: alternativePolicyPluginId,
 					})
@@ -228,12 +227,12 @@ describe('independent protected policy engine', () => {
 			await first.start()
 			await Document.findMany(undefined, { ultimabase: first })
 			expect(
-				first.application.getPlugin(alternativePolicyPluginId).diagnostics(),
+				first.plugin(alternativePolicyPluginId).diagnostics(),
 			).toHaveLength(1)
 			await first.dispose()
 			await second.start()
 			expect(
-				second.application.getPlugin(alternativePolicyPluginId).diagnostics(),
+				second.plugin(alternativePolicyPluginId).diagnostics(),
 			).toStrictEqual([])
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
@@ -271,21 +270,21 @@ describe('independent protected policy engine', () => {
 
 	it('generates the installed direct ACL option and patched field contract', async () => {
 		const { adapter, Document, engine } = createAlternativeFixture(true)
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [aclPlugin(), engine.plugin, createSupportPlugin(adapter)],
 			schemas: [Document],
 		})
 		try {
 			const generated = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'direct-acl-option',
 			}).contents
 
 			expect(generated).toContain('@ultimabase/acl-permissions-plugin')
 			expect(generated).toContain('ACLSchemaOption<this>')
 			expect(
-				application.schemas.get(Document.className)?.fields.acl?.kind,
+				application.compile().schemas.get(Document.className)?.fields.acl?.kind,
 			).toBe('ultimabase.acl')
 		} finally {
 			await application.dispose()
@@ -386,13 +385,13 @@ describe('independent protected policy engine', () => {
 
 	it('keeps generated contracts valid through compiled package exports', () => {
 		const { adapter, Document, engine } = createAlternativeFixture()
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [createSupportPlugin(adapter), engine.plugin],
 			schemas: [Document],
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'alternative-policy-language-service',
 		}).contents
 		const repository = path.resolve(import.meta.dirname, '../..')

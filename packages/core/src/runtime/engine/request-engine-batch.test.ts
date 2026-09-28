@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { FrameworkApplication } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import {
 	executeOperationBatch,
 	runWithQueryExecution,

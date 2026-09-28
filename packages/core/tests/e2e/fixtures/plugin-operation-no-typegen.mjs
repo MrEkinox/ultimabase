@@ -193,22 +193,28 @@ export const nativeResults = {
 }
 export const inspection = {
 	// Inspection is descriptive even when the source token retains executable validators.
-	callbackFree: ultimabase.application.typegenGraph.operations.every(
-		({ operation }) =>
-			!('snapshot' in operation.input) && !('snapshot' in operation.result),
-	),
-	constructorFree: ultimabase.application.typegenGraph.schemaSurfaces.every(
-		({ schema }) =>
-			typeof schema === 'object' && Object.keys(schema).join() === 'className',
-	),
-	operations: ultimabase.application.typegenGraph.operations.map(
-		({ operation }) => operation.name,
-	),
-	plugins: ultimabase.application.pluginPrivilegeReport.plugins.map(
+	callbackFree: ultimabase
+		.compile()
+		.typegenGraph.operations.every(
+			({ operation }) =>
+				!('snapshot' in operation.input) && !('snapshot' in operation.result),
+		),
+	constructorFree: ultimabase
+		.compile()
+		.typegenGraph.schemaSurfaces.every(
+			({ schema }) =>
+				typeof schema === 'object' &&
+				Object.keys(schema).join() === 'className',
+		),
+	operations: ultimabase
+		.compile()
+		.typegenGraph.operations.map(({ operation }) => operation.name),
+	plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 		({ identity }) => identity.pluginId,
 	),
-	schemas: ultimabase.application.schemas
-		.values()
+	schemas: ultimabase
+		.compile()
+		.schemas.values()
 		.map(({ className }) => className),
 	selectedFields: Object.keys(StablePost.fields),
 }

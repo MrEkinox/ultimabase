@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -27,7 +27,7 @@ describe('GraphQL option IntelliSense', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [graphqlPlugin()],
 				schemas: [Post],

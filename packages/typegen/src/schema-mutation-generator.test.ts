@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	contributeDeclarations,
 	defineOperationValue,
@@ -69,17 +69,17 @@ describe('schema mutation Typegen', () => {
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [plugin],
 			schemas: [Post],
 		})
 		const first = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.schema-mutations',
 		})
 		const second = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.schema-mutations',
 		})
 

@@ -5,7 +5,7 @@ import {
 	plugin,
 	contributeDeclarations,
 	definePluginField,
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
@@ -153,7 +153,7 @@ export const Document = Schema.define({
 		}
 	},
 })
-export const application = new FrameworkApplication({
+export const application = new UltimaBase({
 	plugins: [
 		accessPlugin(),
 		containedVectorPlugin,
@@ -164,17 +164,17 @@ export const application = new FrameworkApplication({
 	schemas: [Owner, Document],
 })
 export const generated = generateApplicationTypes({
-	application,
+	ultimabase: application,
 	applicationId: 'fixture.packed-typegen',
 })
 export const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
 import { Schema, plugin } from '@ultimabase/core'
 import * as Hooks from '@ultimabase/hooks-plugin'
-import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition, SchemaDefinition, UltimaBase } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
 
-declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
+declare const packedApplication: UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>
 declare const packedOwner: Core.PointerValue
 declare const packedTitleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
 
@@ -246,10 +246,10 @@ const packedHookPlugin = plugin({
 // @ts-expect-error -- The intentionally incomplete object drives option completion.
 const packedCompletionOptions: GenerateApplicationTypesOptions = {
   ${optionsMarker}
-  application: packedApplication,
+  ultimabase: packedApplication,
 }
 const apiGenerated = generatePackedApplicationTypes({
-  application: packedApplication,
+  ultimabase: packedApplication,
   applicationId: 'packed',
 })
 const packedPluginOptions: TypegenPluginOptions = {

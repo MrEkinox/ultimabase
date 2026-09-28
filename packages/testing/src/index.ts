@@ -8,7 +8,6 @@ export type { FakeOperationTransportResponse } from './operations/fake-public-tr
 export {
 	createPluginConformanceFixture,
 	type CreatePluginConformanceFixtureOptions,
-	type PluginConformanceApplicationFixture,
 	type PluginConformanceFixture,
 	type PluginConformanceUltimaBaseFixture,
 } from './plugins/fixture.js'

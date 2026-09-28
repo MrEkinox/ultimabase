@@ -32,7 +32,7 @@ try {
 		{ where: { id: { eq: created.id } } },
 		{ ultimabase },
 	)
-	const request = ultimabase.engine.anonymous({
+	const request = ultimabase.anonymous({
 		requestId: 'javascript-no-engine-transaction',
 		source: requestSources.internal,
 	})
@@ -66,10 +66,8 @@ try {
 		{ ultimabase },
 	)
 	const inspection = {
-		options: ultimabase.application.typegenGraph.options.map(
-			({ name }) => name,
-		),
-		plugins: ultimabase.application.pluginPrivilegeReport.plugins.map(
+		options: ultimabase.compile().typegenGraph.options.map(({ name }) => name),
+		plugins: ultimabase.pluginPrivilegeReport.plugins.map(
 			({ identity }) => identity.pluginId,
 		),
 	}

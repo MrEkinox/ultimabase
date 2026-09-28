@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 
 import type {
-	FrameworkApplication,
 	PluginDefinition,
 	SchemaDefinition,
+	UltimaBase,
 } from '@ultimabase/core'
 import { generatedApplicationContractVersion } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
@@ -48,7 +48,7 @@ export interface GeneratedApplicationTypes {
 
 export interface GenerateApplicationTypesOptions {
 	/** Compiles the exact application schema graph without running plugin setup. */
-	readonly application: FrameworkApplication<
+	readonly ultimabase: UltimaBase<
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>
@@ -93,5 +93,5 @@ export const generateApplicationTypes = (
 	options: GenerateApplicationTypesOptions,
 ): GeneratedApplicationTypes =>
 	generateApplicationTypesFromSnapshot(
-		createTypegenSnapshot(options.application, options.applicationId),
+		createTypegenSnapshot(options.ultimabase, options.applicationId),
 	)

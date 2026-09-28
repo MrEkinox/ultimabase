@@ -1,5 +1,5 @@
 import { runApplicationWork } from '../../application/active-application.js'
-import type { FrameworkApplication } from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type { MasterRequestAccess } from '../../access/index.js'
 import type {
@@ -70,6 +70,17 @@ import {
 } from './request-engine-batch.js'
 import type { FrameworkEngine } from './framework-engine.js'
 import { requestEngineConstructionKey } from './request-engine-construction.js'
+import type { UltimaBase } from '../application/ultima-base.js'
+
+type RequestEngineOwner = Readonly<{
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>
+	framework: FrameworkEngine
+}>
+
+const requestEngineOwners = new WeakMap<object, RequestEngineOwner>()
 
 /** Receives one transaction-scoped engine while preserving its exact context type. */
 export type RequestTransactionHandler<
@@ -93,7 +104,8 @@ export class RequestEngine<
 	TContext extends RequestContext = RequestContext,
 > {
 	readonly context: TContext
-	readonly framework: FrameworkEngine<TSchemas, TPlugins>
+	readonly #application: FrameworkApplication<TSchemas, TPlugins>
+	readonly #framework: FrameworkEngine<TSchemas, TPlugins>
 	readonly #pipeline: RuntimePipeline
 	readonly #transactionLifetime: TransactionLifetime | undefined
 
@@ -110,7 +122,12 @@ export class RequestEngine<
 			)
 		}
 
-		this.framework = framework
+		this.#application = framework.application
+		this.#framework = framework
+		requestEngineOwners.set(this, {
+			application: framework.application,
+			framework,
+		})
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
@@ -132,19 +149,24 @@ export class RequestEngine<
 			...transactionHost,
 		})
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
-			runApplicationWork(this.application, () =>
+			runApplicationWork(this.#application, () =>
 				this.#executeTerminal(operation, options, scope),
 			),
 		)
 		registerOperationBatchExecutionHandler(
 			this,
 			(entries, options, projection) =>
-				runApplicationWork(this.application, () =>
+				runApplicationWork(this.#application, () =>
 					this.#executeTerminalBatch(entries, options, projection),
 				),
 		)
 
 		Object.freeze(this)
+	}
+
+	/** Returns the sole public application owner for this request. */
+	get ultimabase(): UltimaBase<TSchemas, TPlugins> {
+		return this.#framework.ultimabase
 	}
 
 	/** Derives one request engine without duplicating its private ownership wiring. */
@@ -156,7 +178,7 @@ export class RequestEngine<
 	): RequestEngine<TSchemas, TPlugins, TNextContext> {
 		return new RequestEngine(
 			requestEngineConstructionKey,
-			this.framework,
+			this.#framework,
 			context,
 			pipeline,
 			transactionLifetime,
@@ -217,11 +239,11 @@ export class RequestEngine<
 		const schema = getOperationSchema(normalizedOperation)
 		let relationScope: DatabaseRelationScope | undefined
 
-		this.framework.assertOwnsSchema(schema)
+		this.#framework.assertOwnsSchema(schema)
 
 		if (scope?.kind === 'relation') {
-			this.framework.assertOwnsSchema(scope.source)
-			const relation = this.framework.application.schemaTargets.getRelation(
+			this.#framework.assertOwnsSchema(scope.source)
+			const relation = this.#application.schemaTargets.getRelation(
 				scope.source,
 				scope.fieldPath,
 			)
@@ -252,20 +274,20 @@ export class RequestEngine<
 			}
 
 			bindRequestContextToApplication(
-				this.framework.application,
+				this.#application,
 				options.context,
-				readFrameworkMasterAuthority(this.framework),
+				readFrameworkMasterAuthority(this.#framework),
 			)
 			context = options.context
 		}
 
 		if (options.useMasterKey) {
-			assertMasterElevationPrivilege(this.framework.application)
+			assertMasterElevationPrivilege(this.#application)
 			context = await elevateTrustedMasterRequest(
-				getFrameworkMasterAuthority(this.framework),
+				getFrameworkMasterAuthority(this.#framework),
 				context,
 				createMasterAuditReason(normalizedOperation, schema),
-				this.framework.application,
+				this.#application,
 			)
 		}
 
@@ -301,15 +323,11 @@ export class RequestEngine<
 		)
 	}
 
-	get application(): FrameworkApplication<TSchemas, TPlugins> {
-		return this.framework.application
-	}
-
 	/** Executes a normalized operation through this request's mandatory pipeline. */
 	async execute<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(operation: TOperation): Promise<OperationResult<TOperation>> {
-		return runApplicationWork(this.application, () =>
+		return runApplicationWork(this.#application, () =>
 			this.#executeOperation(operation),
 		)
 	}
@@ -345,7 +363,7 @@ export class RequestEngine<
 		privateObjectId?: string,
 		relationScope?: DatabaseRelationScope,
 	): Promise<RuntimeOperationResult<TOperation>> {
-		this.framework.assertOwnsSchema(getOperationSchema(operation))
+		this.#framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
 			phase: 'request-engine',
@@ -396,7 +414,7 @@ export class RequestEngine<
 			privateObjectId,
 			{
 				assertOwnsSchema: (schema) => {
-					this.framework.assertOwnsSchema(schema)
+					this.#framework.assertOwnsSchema(schema)
 				},
 				execute: (
 					nestedOperation,
@@ -412,7 +430,7 @@ export class RequestEngine<
 						deniedAsMissing,
 						objectId,
 					),
-				getSchemaTargets: () => this.framework.application.schemaTargets,
+				getSchemaTargets: () => this.#application.schemaTargets,
 			},
 		)
 		const databaseRelationScope = mutationRelationScope ?? relationScope
@@ -464,17 +482,17 @@ export class RequestEngine<
 			RequestContext<MasterRequestAccess, TContext['source']>
 		>
 	> {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationEngineAvailable(this.#application)
 		this.#transactionLifetime?.assertActive()
-		assertMasterElevationPrivilege(this.application)
+		assertMasterElevationPrivilege(this.#application)
 
-		return runApplicationWork(this.application, async () => {
+		return runApplicationWork(this.#application, async () => {
 			const masterContext = await elevateMasterRequest(
-				getFrameworkMasterAuthority(this.framework),
+				getFrameworkMasterAuthority(this.#framework),
 				grant,
 				this.context,
 				reason,
-				this.framework.application,
+				this.#application,
 			)
 
 			return this.#derive(masterContext)
@@ -485,7 +503,7 @@ export class RequestEngine<
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationEngineAvailable(this.#application)
 		if (typeof handler !== 'function') {
 			throw new TypeError(
 				'Request engine transaction handler must be a function',
@@ -504,7 +522,7 @@ export class RequestEngine<
 			throw error
 		}
 
-		return runApplicationWork(this.application, () =>
+		return runApplicationWork(this.#application, () =>
 			runRequestTransaction(
 				this.#pipeline,
 				(transactionPipeline, lifetime) =>
@@ -515,4 +533,30 @@ export class RequestEngine<
 			),
 		)
 	}
+}
+
+/** @internal Reads the private application kernel owning one request engine. */
+export const readRequestEngineApplication = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+>(
+	engine: RequestEngine<TSchemas, TPlugins>,
+): FrameworkApplication<TSchemas, TPlugins> => {
+	const owner = requestEngineOwners.get(engine)
+	if (owner === undefined)
+		throw new TypeError('Request engine owner is unavailable')
+	return owner.application as FrameworkApplication<TSchemas, TPlugins>
+}
+
+/** @internal Reads the private framework engine owning one request engine. */
+export const readRequestEngineFramework = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+>(
+	engine: RequestEngine<TSchemas, TPlugins>,
+): FrameworkEngine<TSchemas, TPlugins> => {
+	const owner = requestEngineOwners.get(engine)
+	if (owner === undefined)
+		throw new TypeError('Request engine owner is unavailable')
+	return owner.framework as FrameworkEngine<TSchemas, TPlugins>
 }

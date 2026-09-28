@@ -47,7 +47,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 		Promise<readonly QueryResult<typeof articleSchema>[]>
 	>()
 	expectTypeOf(
-		ultimabase.application.getPlugin(databasePlugin.manifest.identity.pluginId),
+		ultimabase.plugin(databasePlugin.manifest.identity.pluginId),
 	).toEqualTypeOf<{
 		readonly dialect: 'fixture'
 	}>()

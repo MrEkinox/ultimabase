@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -12,6 +12,7 @@ import {
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { graphqlPlugin } from './plugin.js'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import type { GraphqlSchemaExposureOption } from './options.js'
 
 declare module '@ultimabase/core' {
@@ -321,9 +322,7 @@ describe('GraphQL connection runtime', () => {
 			],
 			schemas: [ConnectionRecord],
 		})
-		const graphqlApplication = application.getPlugin(
-			'@ultimabase/graphql-plugin',
-		)
+		const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 		const runtime = readGraphqlConnectionRuntime(graphqlApplication)
 		const prepared = runtime.prepare({
 			arguments: {},

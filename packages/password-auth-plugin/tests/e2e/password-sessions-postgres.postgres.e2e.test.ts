@@ -148,7 +148,7 @@ describe(
 				expect(login.session.token).not.toBe(signUp.session.token)
 				expect(application.onUse).toHaveBeenCalledTimes(2)
 
-				const auth = application.ultimabase.application.getPlugin(
+				const auth = application.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)
 				const observed = await auth.runWithSession(login.session.token, () => {
@@ -178,7 +178,7 @@ describe(
 				const created = await application.ultimabase
 					.operation(passwordAuthOperations.signUp)
 					.execute({ password, username: 'grace' })
-				const auth = application.ultimabase.application.getPlugin(
+				const auth = application.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)
 				let arrivals = 0
@@ -259,7 +259,7 @@ describe(
 				const created = await application.ultimabase
 					.operation(passwordAuthOperations.signUp)
 					.execute({ password, username: 'global-revocation' })
-				const auth = application.ultimabase.application.getPlugin(
+				const auth = application.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)
 				let arrivals = 0
@@ -343,7 +343,7 @@ describe(
 					{ ultimabase: application.ultimabase, useMasterKey: true },
 				)
 				await user.delete({}, { useMasterKey: true })
-				const auth = application.ultimabase.application.getPlugin(
+				const auth = application.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)
 				await expect(
@@ -379,12 +379,12 @@ describe(
 			const application = createApplication()
 			await application.ultimabase.start()
 			try {
-				const anonymous = application.ultimabase.engine.anonymous({
+				const anonymous = application.ultimabase.anonymous({
 					requestId: 'master-sign-up',
 					source: 'internal',
 				})
 				const master = await anonymous.useMasterKey(
-					application.ultimabase.engine.authorizeMasterKey('server-secret'),
+					application.ultimabase.authorizeMasterKey('server-secret'),
 					'Trusted server sign-up',
 				)
 				await runWithRequestEngine(master, () =>
@@ -446,7 +446,7 @@ describe(
 					.execute({ password, username: 'isolated-user' })
 				await first.ultimabase.dispose()
 				await second.ultimabase.start()
-				const foreignAuth = second.ultimabase.application.getPlugin(
+				const foreignAuth = second.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)
 				await expect(
@@ -486,7 +486,7 @@ describe(
 			})
 			await ultimabase.start()
 			try {
-				const rest: RestPluginExports = ultimabase.application.getPlugin(
+				const rest: RestPluginExports = ultimabase.plugin(
 					'@ultimabase/rest-plugin',
 				)
 				const routes = rest.routeGraph.routes.filter(
@@ -514,7 +514,7 @@ describe(
 					)
 				}
 				const result: unknown = await rest.operationTransport.execute(
-					ultimabase.engine.anonymous({
+					ultimabase.anonymous({
 						requestId: 'password-rest-operation',
 						source: 'rest',
 					}).context,

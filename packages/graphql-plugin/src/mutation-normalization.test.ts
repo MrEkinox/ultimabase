@@ -1,4 +1,4 @@
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
@@ -8,6 +8,7 @@ import {
 	normalizeGraphqlMutation,
 	type GraphqlMutationOperation,
 } from './mutation-normalization.js'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {
@@ -40,7 +41,7 @@ const createFixture = async () => {
 		plugins: [graphqlPlugin({ acknowledgeUnverifiedProtection: true })],
 		schemas: [Author, RecordSchema],
 	})
-	const graphqlApplication = application.getPlugin('@ultimabase/graphql-plugin')
+	const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 	for (const field of Object.values(
 		graphqlApplication.schema.getMutationType()?.getFields() ?? {},
 	)) {

@@ -10,6 +10,7 @@ import {
 	accountSchema,
 	createRequest,
 } from './fixtures/bulk-terminals.js'
+import { readRequestEngineApplication } from '../../src/runtime/engine/request-engine.js'
 describe('bulk and upsert terminals', () => {
 	it('returns an empty immutable result without opening a transaction', async () => {
 		const trace: string[] = []
@@ -273,7 +274,7 @@ describe('bulk and upsert terminals', () => {
 				select: { id: true, visits: true },
 			}),
 		)
-		await updateRequest.application.dispose()
+		await readRequestEngineApplication(updateRequest).dispose()
 		const { adapter: deleteAdapter, request: deleteRequest } =
 			await createRequest(
 				[3, 4].map((suffix) => {

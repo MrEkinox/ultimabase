@@ -1,21 +1,11 @@
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
-import type { SchemaDefinition } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 import type { OperationOptions } from '../../query/operations/options.js'
 import { getCurrentUltimaBase } from './current-ultima-base.js'
 
-import type {
-	FrameworkEngine,
-	RequestEngine,
-} from '../engine/framework-engine.js'
+import type { RequestEngine } from '../engine/framework-engine.js'
 import type { RequestContext } from './request-context.js'
 import {
 	type ActiveFrameworkContext,
-	getCurrentApplication,
-	getCurrentApplicationEngine,
 	getCurrentEngine,
 	getCurrentFrameworkContext,
 	getCurrentRequest,
@@ -29,13 +19,6 @@ test('exposes safe widened contextual types and exact callback results', () => {
 		getCurrentFrameworkContext(),
 	).toEqualTypeOf<ActiveFrameworkContext>()
 	expectTypeOf(getCurrentEngine()).toEqualTypeOf<RequestEngine>()
-	expectTypeOf(getCurrentApplicationEngine()).toEqualTypeOf<FrameworkEngine>()
-	expectTypeOf(getCurrentApplication()).toEqualTypeOf<
-		FrameworkApplication<
-			readonly SchemaDefinition[],
-			readonly PluginDefinition[]
-		>
-	>()
 	expectTypeOf(getCurrentRequest()).toEqualTypeOf<RequestContext>()
 	expectTypeOf(getCurrentUltimaBase()).toEqualTypeOf<
 		NonNullable<OperationOptions['ultimabase']>

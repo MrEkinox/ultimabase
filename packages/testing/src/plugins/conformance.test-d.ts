@@ -1,7 +1,7 @@
 import {
 	plugin,
 	contributeApplication,
-	type FrameworkApplication,
+	type UltimaBase,
 	Schema,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
@@ -42,11 +42,11 @@ test('preserves exact subject and schema tuples in optional checks', () => {
 		},
 	})
 		.check('operation', (context) => {
-			const fixture = context.createApplication()
+			const fixture = context.createUltimaBase()
 			expectTypeOf(fixture.subject).toEqualTypeOf(subject)
 			expectTypeOf(fixture.schemas).toEqualTypeOf<readonly [typeof Post]>()
-			expectTypeOf(fixture.application).toEqualTypeOf<
-				FrameworkApplication<readonly [typeof Post], readonly [typeof subject]>
+			expectTypeOf(fixture.ultimabase).toEqualTypeOf<
+				UltimaBase<readonly [typeof Post], readonly [typeof subject]>
 			>()
 		})
 		.check('relation-read', (context) => {

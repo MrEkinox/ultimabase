@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	compileValidationPlans,
-	createApplication,
+	UltimaBase,
 	Schema,
 	SchemaRegistry,
 } from '@ultimabase/core'
@@ -52,10 +52,11 @@ describe('pgVectorPlugin field plans', () => {
 			className: 'Document',
 			fields: () => ({ embedding: field }),
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			plugins: [pgVectorPlugin()],
 			schemas: [schema],
 		})
+		await application.initialize()
 		onTestFinished(() => application.dispose())
 		const plan = compileValidationPlans(schema).create.fields.embedding
 

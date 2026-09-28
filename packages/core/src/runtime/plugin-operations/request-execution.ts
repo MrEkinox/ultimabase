@@ -2,6 +2,7 @@ import { runApplicationWork } from '../../application/active-application.js'
 import type { PluginOperationEnvelope } from '../../application/application-handles.js'
 import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { executePluginOperationRequest } from './engine-integration.js'
 
@@ -60,7 +61,7 @@ export const executeRequestPluginOperation = (
 	if (executor === undefined) {
 		throw new TypeError('Request plugin operation execution is unavailable')
 	}
-	return runApplicationWork(engine.application, () =>
+	return runApplicationWork(readRequestEngineApplication(engine), () =>
 		executor(compiled, envelope),
 	)
 }

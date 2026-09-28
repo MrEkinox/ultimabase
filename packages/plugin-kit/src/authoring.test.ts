@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	contributeDeclarations,
 	contributeOperation,
@@ -59,10 +59,10 @@ describe('plugin authoring helpers', () => {
 		})
 
 		expect(() =>
-			new FrameworkApplication({
+			new UltimaBase({
 				plugins: [definition],
 				schemas: [],
-			}).compileSchemas(),
+			}).compile(),
 		).not.toThrow()
 		expect(output).toStrictEqual({
 			kind: 'fixture.label-output',
@@ -351,13 +351,13 @@ describe('plugin authoring helpers', () => {
 				'schema:declare': 'Adds fixture schema metadata.',
 			},
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [definition],
 			schemas: [Target],
 		})
 
-		application.compileSchemas()
+		application.compile()
 		expect(Target.definition.fields).toHaveProperty('state')
 		expect(Target.definition.indexes).toContainEqual({
 			fields: ['state', 'createdAt'],
@@ -411,7 +411,7 @@ describe('plugin authoring helpers', () => {
 				'operation:declare': 'Declares the fixture operation.',
 			},
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [definition],
 			schemas: [],
@@ -446,7 +446,7 @@ describe('plugin authoring helpers', () => {
 				'operation:declare': 'Declares the echo operation.',
 			},
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [definition],
 			schemas: [],

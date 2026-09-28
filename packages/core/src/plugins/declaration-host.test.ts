@@ -1,8 +1,8 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
+import { createApplication } from '../application/framework-application.js'
 
 import {
-	createApplication,
 	defineCapability,
 	definePluginFieldFamily,
 	plugin as createPlugin,

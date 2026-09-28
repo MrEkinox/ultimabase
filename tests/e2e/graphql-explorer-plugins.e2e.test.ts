@@ -60,7 +60,7 @@ describe('packed GraphQL explorer composition', () => {
 		})
 		await first.start()
 		const firstHttp = readHttpApplication(
-			first.application.getPlugin('fixture.explorer-http-consumer'),
+			first.plugin('fixture.explorer-http-consumer'),
 		)
 		const table = firstHttp
 
@@ -70,7 +70,7 @@ describe('packed GraphQL explorer composition', () => {
 		await first.dispose()
 		await second.start()
 		const secondHttp = readHttpApplication(
-			second.application.getPlugin('fixture.explorer-http-consumer'),
+			second.plugin('fixture.explorer-http-consumer'),
 		)
 		const secondTable = secondHttp
 

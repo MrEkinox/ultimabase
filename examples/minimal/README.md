@@ -294,8 +294,8 @@ Trusted server code can execute the identical GraphQL application without
 Yoga or HTTP:
 
 ```ts
-const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
-const context = ultimabase.engine.anonymous({
+const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
+const context = ultimabase.anonymous({
 	requestId: crypto.randomUUID(),
 	source: 'internal',
 }).context

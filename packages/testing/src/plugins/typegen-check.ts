@@ -59,14 +59,14 @@ export const withPluginTypegenConformance = <
 	})
 
 	return suite.check('typegen', async (context) => {
-		const first = context.createApplication()
-		const second = context.createApplication()
+		const first = context.createUltimaBase()
+		const second = context.createUltimaBase()
 		const firstGenerated = generateApplicationTypes({
-			application: first.application,
+			ultimabase: first.ultimabase,
 			applicationId: normalized.applicationId,
 		})
 		const secondGenerated = generateApplicationTypes({
-			application: second.application,
+			ultimabase: second.ultimabase,
 			applicationId: normalized.applicationId,
 		})
 

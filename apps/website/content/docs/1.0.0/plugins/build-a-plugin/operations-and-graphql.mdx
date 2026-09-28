@@ -407,7 +407,7 @@ mutations with both REST and GraphQL bindings.
   `provideHttpEndpoints()` and `transport:expose`. HTTP selects the exact
   application and context before the handler; Hono is only a server provider.
 - A custom transport must use Core's narrow application request-execution
-  capability. It never receives `FrameworkEngine`, an adapter, or a Master
+  capability. It never receives the private Runtime engine, an adapter, or a Master
   grant from an HTTP header or shaped object.
 
 For a standalone Fetch route, provide the HTTP endpoint capability. This

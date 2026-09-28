@@ -148,7 +148,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				[entry.id],
 			)
 			expect(stored.rows).toStrictEqual([{ amount, amount_sort_key: null }])
-			const postgres = ultimabase.application.getPlugin(
+			const postgres = ultimabase.plugin(
 				'@ultimabase/postgres-plugin',
 			) as PostgresPluginExports
 			const physical = postgres.adapterMetadata.physicalSchema.find(
@@ -168,7 +168,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			expect(committed).toStrictEqual([
 				{ action: 'publish', auditId: audit.id },
 			])
-			const request = ultimabase.engine.anonymous({
+			const request = ultimabase.anonymous({
 				requestId: 'open-kernel-event-rollback',
 				source: requestSources.internal,
 			})

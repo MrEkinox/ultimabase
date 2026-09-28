@@ -1,8 +1,4 @@
-import {
-	FrameworkApplication,
-	Schema,
-	type SchemaOptions,
-} from '@ultimabase/core'
+import { UltimaBase, Schema, type SchemaOptions } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type { DecimalLedgerOption } from '../../../../tests/e2e/fixtures/open-kernel-value.js'
@@ -16,11 +12,11 @@ describe('direct community plugin options', () => {
 		} as SchemaOptions<'OpenKernelUnknownDecimalSchemaOption'> & {
 			readonly decimalLedger: DecimalLedgerOption
 		})
-		const schemaApplication = new FrameworkApplication({
+		const schemaApplication = new UltimaBase({
 			plugins: [],
 			schemas: [UnknownSchemaOption],
 		})
-		expect(() => schemaApplication.compileSchemas()).toThrow(
+		expect(() => schemaApplication.compile()).toThrow(
 			'Unknown schema option: decimalLedger',
 		)
 		await schemaApplication.dispose()
@@ -34,11 +30,11 @@ describe('direct community plugin options', () => {
 				}),
 			}),
 		})
-		const fieldApplication = new FrameworkApplication({
+		const fieldApplication = new UltimaBase({
 			plugins: [],
 			schemas: [UnknownFieldOption],
 		})
-		expect(() => fieldApplication.compileSchemas()).toThrow(
+		expect(() => fieldApplication.compile()).toThrow(
 			'Unknown string field option: decimalLabel',
 		)
 		await fieldApplication.dispose()

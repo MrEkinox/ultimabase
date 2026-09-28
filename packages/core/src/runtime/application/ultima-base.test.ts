@@ -101,6 +101,39 @@ const createDatabasePlugin = (
 	})
 
 describe('UltimaBase', () => {
+	it('starts lifecycle-only applications without manufacturing a Runtime', async () => {
+		const trace: string[] = []
+		const lifecyclePlugin = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.ultimabase-lifecycle-only',
+			version: '0.0.0',
+			contributions: [
+				contributeApplication(() => ({
+					exports: undefined,
+					connect: () => {
+						trace.push('connect')
+					},
+					dispose: () => {
+						trace.push('dispose')
+					},
+				})),
+			],
+		})
+		const ultimabase = applicationFixture(
+			new UltimaBase({ plugins: [lifecyclePlugin], schemas: [] }),
+		)
+
+		await ultimabase.start()
+		expect(ultimabase.state).toBe('started')
+		expect(trace).toStrictEqual(['connect'])
+		expect(() =>
+			ultimabase.anonymous({ requestId: 'no-runtime', source: 'internal' }),
+		).toThrow('UltimaBase must be started before request execution')
+
+		await ultimabase.dispose()
+		expect(trace).toStrictEqual(['connect', 'dispose'])
+	})
+
 	it('starts lazily and executes concise direct queries as anonymous internal requests', async () => {
 		const rows = [
 			{
@@ -135,11 +168,13 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('idle')
 		expect(trace).toStrictEqual([])
 		expect(Object.isFrozen(ultimabase)).toBe(true)
-		expect(() => ultimabase.engine).toThrow(
-			new TypeError('UltimaBase must be started before accessing its engine'),
+		expect(() =>
+			ultimabase.anonymous({ requestId: 'early', source: 'internal' }),
+		).toThrow(
+			new TypeError('UltimaBase must be started before request execution'),
 		)
 		expect(() => articleSchema.findMany(undefined, { ultimabase })).toThrow(
-			new TypeError('UltimaBase must be started before accessing its engine'),
+			new TypeError('UltimaBase must be started before request execution'),
 		)
 
 		const start = ultimabase.start()
@@ -495,9 +530,9 @@ describe('UltimaBase', () => {
 				source: requestSources.internal,
 			})
 
-			first.engine.withContext(foreignContext)
+			first.withContext(foreignContext)
 
-			await first.engine
+			await first
 				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
 				.transaction(async () =>
 					articleSchema.createOne({ data: { title: 'Transactional' } }),
@@ -510,7 +545,7 @@ describe('UltimaBase', () => {
 				otherSchema.findMany(undefined, { ultimabase: first }),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			runWithRequestEngine(
-				first.engine.anonymous({
+				first.anonymous({
 					requestId: 'active-first',
 					source: requestSources.internal,
 				}),
@@ -534,7 +569,7 @@ describe('UltimaBase', () => {
 				},
 			})
 
-			expect(second.application.ownsSchema(articleSchema)).toBe(false)
+			expect(second.ownsSchema(articleSchema)).toBe(false)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
 		}
@@ -547,6 +582,7 @@ describe('UltimaBase', () => {
 			core: '^0.0.0',
 			id: 'fixture.ultimabase-missing-adapter',
 			contributions: [
+				provideTestDatabaseAdapter({} as never),
 				contributeApplication((context) => {
 					trace.push('setup')
 					const exports = undefined

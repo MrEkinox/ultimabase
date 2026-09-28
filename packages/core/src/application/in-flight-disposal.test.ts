@@ -86,7 +86,7 @@ describe('disposal of framework-owned work', () => {
 		await app.start()
 		const entered = Promise.withResolvers<undefined>()
 		const resume = Promise.withResolvers<undefined>()
-		const request = app.engine.anonymous({
+		const request = app.anonymous({
 			requestId: 'transaction-drain',
 			source: 'fixture',
 		})

@@ -2,7 +2,7 @@
 
 Optional GraphiQL browser UI for one UltimaBase GraphQL HTTP endpoint. It does
 not install GraphQL, Yoga, HTTP, or a server.
-The plugin returns no setup value through `getPlugin()`; its configured route
+The plugin returns no setup value through `ultimabase.plugin()`; its configured route
 is contributed through the HTTP plugin.
 
 ```ts

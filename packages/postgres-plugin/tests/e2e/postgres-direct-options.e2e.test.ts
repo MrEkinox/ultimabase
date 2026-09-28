@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { UltimaBase, Schema } from '@ultimabase/core'
 import {
 	postgresPlugin,
 	type PostgresFieldOption,
@@ -41,13 +41,13 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 		}),
 		postgres: { table: 'generated_posts' },
 	})
-	const application = new FrameworkApplication({
+	const ultimabase = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [postgresPlugin({ pool })],
 		schemas: [Post],
 	})
 	const generated = generateApplicationTypes({
-		application,
+		ultimabase,
 		applicationId: 'fixture.postgres-options',
 	})
 	const fileName = path.join(
@@ -134,7 +134,7 @@ void GeneratedPost
 		).toBe(true)
 	}
 
-	await application.dispose()
+	await ultimabase.dispose()
 }, 20_000)
 
 it('keeps PostgreSQL options unknown without generated plugin declarations', () => {

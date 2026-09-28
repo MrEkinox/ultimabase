@@ -88,13 +88,11 @@ const ultimabase = new UltimaBase({
 })
 
 await ultimabase.start()
-const context = ultimabase.engine.anonymous({
+const context = ultimabase.anonymous({
 	requestId: 'javascript-graphql-request',
 	source: 'ultimabase.graphql',
 }).context
-const graphqlApplication = ultimabase.application.getPlugin(
-	'@ultimabase/graphql-plugin',
-)
+const graphqlApplication = ultimabase.plugin('@ultimabase/graphql-plugin')
 graphqlApplication.schema
 	.getMutationType()
 	.getFields().createJavaScriptGraphqlNote.resolve = (_source, args) => {

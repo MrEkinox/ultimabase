@@ -1,9 +1,5 @@
-import {
-	Schema,
-	createApplication,
-	defineOperation,
-	defineOperationValue,
-} from '@ultimabase/core'
+import { Schema, defineOperation, defineOperationValue } from '@ultimabase/core'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import type { ExecutionResult } from 'graphql'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { expectTypeOf, test } from 'vitest'
@@ -76,7 +72,7 @@ test('preserves plugin and generated schema option types', async () => {
 		plugins: [configured],
 		schemas: [Post],
 	})
-	const exports = application.getPlugin('@ultimabase/graphql-plugin')
+	const exports = application.plugin('@ultimabase/graphql-plugin')
 
 	expectTypeOf(configured).toEqualTypeOf<GraphqlPlugin>()
 	expectTypeOf(limited).toEqualTypeOf<GraphqlPlugin>()

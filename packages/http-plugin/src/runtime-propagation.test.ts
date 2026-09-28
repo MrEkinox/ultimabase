@@ -181,7 +181,7 @@ describe('HTTP Runtime propagation', () => {
 									headers: [...request.headers],
 									kind: 'handler',
 								})
-								const engine = runtime.engine.withContext(getCurrentRequest())
+								const engine = runtime.withContext(getCurrentRequest())
 								const results = await engine.transaction(() =>
 									RuntimeProbe.findMany(),
 								)

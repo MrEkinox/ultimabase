@@ -4,14 +4,14 @@ import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { isMainThread, parentPort, Worker } from 'node:worker_threads'
 
-import { createApplication, FrameworkApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 // Real workers must own independent slots even while their parent remains active.
-const application = await createApplication({
+const application = await new UltimaBase({
 	pluginPrivileges: { logger: false },
 	schemas: [],
 	plugins: [],
-})
+}).initialize()
 if (isMainThread) {
 	const workers = [
 		new Worker(new URL(import.meta.url)),
@@ -19,11 +19,13 @@ if (isMainThread) {
 	]
 	try {
 		await assert.rejects(
-			createApplication({
-				pluginPrivileges: { logger: false },
-				schemas: [],
-				plugins: [],
-			}),
+			Promise.resolve().then(() =>
+				new UltimaBase({
+					pluginPrivileges: { logger: false },
+					schemas: [],
+					plugins: [],
+				}).initialize(),
+			),
 			/Another UltimaBase application is active/,
 		)
 		const messages = await Promise.all(
@@ -35,7 +37,7 @@ if (isMainThread) {
 		for (const worker of workers) worker.postMessage('dispose')
 		assert.deepEqual(await Promise.all(exits), [[0], [0]])
 		await application.dispose()
-		const replacement = new FrameworkApplication({
+		const replacement = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			schemas: [],
 			plugins: [],

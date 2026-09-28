@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
@@ -14,7 +14,7 @@ const generateDecimal = (shaped: boolean) => {
 	})
 
 	return generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [],
 			schemas: [DecimalSchema],
 		}),

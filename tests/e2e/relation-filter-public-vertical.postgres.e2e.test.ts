@@ -84,7 +84,7 @@ const createContext = async (
 	kind: 'anonymous' | 'master',
 ): Promise<RequestContext> => {
 	const anonymous = readObject(
-		await invoke(app().engine, 'anonymous', [
+		await invoke(app(), 'anonymous', [
 			{
 				requestId: `relation-filter-${kind}`,
 				source: 'internal',
@@ -98,7 +98,7 @@ const createContext = async (
 			'anonymous context',
 		) as RequestContext
 	}
-	const grant = await invoke(app().engine, 'authorizeMasterKey', [masterKey])
+	const grant = await invoke(app(), 'authorizeMasterKey', [masterKey])
 	const master = readObject(
 		await invoke(anonymous, 'useMasterKey', [
 			grant,
@@ -128,9 +128,7 @@ const graphqlHttp = async (
 
 const graphqlApplication = async (): Promise<object> =>
 	readObject(
-		await invoke(app().application, 'getPlugin', [
-			'@ultimabase/graphql-plugin',
-		]),
+		await invoke(app(), 'plugin', ['@ultimabase/graphql-plugin']),
 		'GraphQL application',
 	)
 
@@ -150,9 +148,7 @@ const graphqlNetworkless = async (
 		])
 	if (kind === 'session') {
 		const auth = readObject(
-			await invoke(app().application, 'getPlugin', [
-				'@ultimabase/password-auth-plugin',
-			]),
+			await invoke(app(), 'plugin', ['@ultimabase/password-auth-plugin']),
 			'Password Auth application',
 		)
 		return invoke(auth, 'runWithSession', [sessionToken, execute])

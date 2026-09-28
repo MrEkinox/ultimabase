@@ -5,11 +5,8 @@ import {
 	readApplicationPluginOwner,
 	runWithApplicationPluginOwner,
 } from '../../plugins/callback-execution.js'
-import {
-	createApplication,
-	plugin as createPlugin,
-	contributeDeclarations,
-} from '../../index.js'
+import { plugin as createPlugin, contributeDeclarations } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
 import { Pointer, Schema, SchemaRegistry } from '../../schema/index.js'
 import type {

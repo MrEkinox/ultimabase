@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	getCurrentApplication,
 	getCurrentRequest,
 	getCurrentUltimaBase,
 	type OperationOptions,
@@ -121,9 +120,9 @@ const selectApplication = (
 		)
 	}
 	if (explicit !== undefined) {
-		let active: ReturnType<typeof getCurrentApplication> | undefined
+		let active: ReturnType<typeof getCurrentUltimaBase> | undefined
 		try {
-			active = getCurrentApplication()
+			active = getCurrentUltimaBase()
 		} catch (error: unknown) {
 			if (!(
 				error instanceof FrameworkError &&
@@ -131,7 +130,7 @@ const selectApplication = (
 			))
 				throw error
 		}
-		if (active !== undefined && active !== explicit.application) {
+		if (active !== undefined && active !== explicit) {
 			throw new FrameworkError(
 				'VALIDATION_ERROR',
 				'Explicit authentication ownership cannot replace the active application.',
@@ -143,7 +142,7 @@ const selectApplication = (
 		throw new TypeError(
 			'Password User authentication requires a started UltimaBase',
 		)
-	if (ultimabase.application.schemas.get('User') !== schema) {
+	if (!ultimabase.ownsSchema(schema)) {
 		throw new TypeError('Password User is not installed in this application')
 	}
 	return ultimabase
@@ -180,7 +179,7 @@ export const createPasswordUserAuthMethods = <
 		) => Promise<TResult>,
 	): Promise<TResult> => {
 		const ultimabase = selectApplication(schema, options)
-		const auth = ultimabase.application.getPlugin(
+		const auth = ultimabase.plugin(
 			'@ultimabase/password-auth-plugin',
 		) as PasswordAuthPluginExports
 		// The existing session helper validates ownership and installs anonymous authority.

@@ -1,6 +1,4 @@
 import {
-	FrameworkApplication,
-	createApplication,
 	defineCapability,
 	defineOperation,
 	defineOperationValue,
@@ -13,6 +11,10 @@ import {
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '../../foundation.js'
+import {
+	createApplication,
+	FrameworkApplication,
+} from '../../application/framework-application.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 

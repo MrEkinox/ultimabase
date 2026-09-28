@@ -3,7 +3,7 @@ import {
 	RequestSubjectReference,
 	Schema,
 	requestRoleResolverCapability,
-	createApplication,
+	UltimaBase,
 	plugin,
 	contributeApplication,
 	provideCapability,
@@ -226,25 +226,27 @@ describe('stored role Access integration', () => {
 	it('provides the neutral resolver for zero or multiple discovered domains', async () => {
 		const emptyConsumer = roleResolverConsumer('fixture.empty-role-consumer')
 		const roleConsumer = roleResolverConsumer('fixture.role-consumer')
-		const emptyApplication = await createApplication({
+		const emptyApplication = new UltimaBase({
 			schemas: [],
 			plugins: [rolesPlugin(), emptyConsumer],
 		})
+		await emptyApplication.initialize()
 		onTestFinished(() => emptyApplication.dispose())
-		const emptyConsumerExports = emptyApplication.getPlugin(
+		const emptyConsumerExports = emptyApplication.plugin(
 			'fixture.empty-role-consumer',
 		)
 		await emptyApplication.dispose()
-		const roleApplication = await createApplication({
+		const roleApplication = new UltimaBase({
 			schemas: [Member, AppRole, OtherRole],
 			plugins: [rolesPlugin(), roleConsumer],
 		})
+		await roleApplication.initialize()
 		onTestFinished(() => roleApplication.dispose())
 
 		expect(typeof emptyConsumerExports.hasRole).toBe('function')
-		expect(
-			typeof roleApplication.getPlugin('fixture.role-consumer').hasRole,
-		).toBe('function')
+		expect(typeof roleApplication.plugin('fixture.role-consumer').hasRole).toBe(
+			'function',
+		)
 
 		await Promise.all([emptyApplication.dispose(), roleApplication.dispose()])
 	})
@@ -265,13 +267,14 @@ describe('stored role Access integration', () => {
 			],
 		})
 		const consumer = roleResolverConsumer('fixture.community-role-consumer')
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [communityProvider, consumer],
 		})
+		await application.initialize()
 		onTestFinished(() => application.dispose())
 
-		expect(application.getPlugin('fixture.community-role-consumer')).toBe(
+		expect(application.plugin('fixture.community-role-consumer')).toBe(
 			communityResolver,
 		)
 		await application.dispose()

@@ -1,8 +1,5 @@
-import {
-	createApplication,
-	plugin as createPlugin,
-	FrameworkError,
-} from '../../foundation.js'
+import { plugin as createPlugin, FrameworkError } from '../../foundation.js'
+import { createApplication } from '../../application/framework-application.js'
 import {
 	QueryBuilder,
 	type CreateOneOperationAst,

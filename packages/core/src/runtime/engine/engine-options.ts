@@ -1,7 +1,5 @@
-import {
-	FrameworkApplication,
-	type PluginDefinition,
-} from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { MasterAuthority } from '../master/master-authority.js'

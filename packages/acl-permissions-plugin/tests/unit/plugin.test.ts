@@ -6,7 +6,6 @@ import {
 	Pointer,
 	QueryBuilder,
 	Schema,
-	createApplication,
 	plugin,
 	contributeApplication,
 	UltimaBase,
@@ -48,18 +47,20 @@ describe('aclPlugin create input resolution', () => {
 
 	it('requires the owning plugin only when a schema declares acl', async () => {
 		await expect(
-			createApplication({ schemas: [ProtectedPost], plugins: [] }),
+			new UltimaBase({ schemas: [ProtectedPost], plugins: [] }).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
 
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			schemas: [ProtectedPost],
 			plugins: [aclPlugin()],
-		})
+		}).initialize()
 		onTestFinished(() => application.dispose())
 
-		const protectedSchema = application.schemas.get(ProtectedPost.className)
+		const protectedSchema = application
+			.compile()
+			.schemas.get(ProtectedPost.className)
 		expect(protectedSchema).toBe(ProtectedPost)
 		expect(protectedSchema?.fields.acl?.kind).toBe('ultimabase.acl')
 		expect(protectedSchema?.provenance.fields.acl?.owner).toMatchObject({
@@ -219,10 +220,10 @@ describe('aclPlugin create input resolution', () => {
 				}),
 			],
 		})
-		const resolved = await createApplication({
+		const resolved = await new UltimaBase({
 			plugins: [aclPlugin(), roleProvider],
 			schemas: [StaticRolePost],
-		})
+		}).initialize()
 
 		expect(resolved.state).toBe('ready')
 		await resolved.dispose()

@@ -1,9 +1,10 @@
 import type {
-	FrameworkApplication,
+	CompiledApplication,
 	PluginDefinition,
 	SchemaCompilationProvenance,
 	SchemaContributionProvenance,
 	SchemaDefinition,
+	UltimaBase,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -24,9 +25,8 @@ const snapshotOwner = (
 		...(owner.version === undefined ? {} : { version: owner.version }),
 	})
 
-type PublicSchemaSurface = FrameworkApplication<
-	readonly SchemaDefinition[],
-	readonly PluginDefinition[]
+type PublicSchemaSurface = CompiledApplication<
+	readonly SchemaDefinition[]
 >['typegenGraph']['schemaSurfaces'][number]
 
 const snapshotSurface = (surface: PublicSchemaSurface): object => {
@@ -54,12 +54,12 @@ const snapshotSurface = (surface: PublicSchemaSurface): object => {
 
 /** Creates the callback-free public graph compared by the determinism check. */
 export const createPluginStaticConformanceSnapshot = (
-	application: FrameworkApplication<
+	ultimabase: UltimaBase<
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>,
 ): object => {
-	application.compileSchemas()
+	const application = ultimabase.compile()
 	const graph = application.typegenGraph
 
 	return immutableRecord({
@@ -141,12 +141,12 @@ const readContributionProvenance = (
 
 /** Verifies that every public plugin provenance owner names one configured version. */
 export const assertPublicPluginProvenance = (
-	application: FrameworkApplication<
+	ultimabase: UltimaBase<
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>,
 ): void => {
-	application.compileSchemas()
+	const application = ultimabase.compile()
 	const configured = new Map(
 		application.pluginPrivilegeReport.plugins.map((plugin) => [
 			`${plugin.identity.pluginId}\u0000${plugin.identity.instanceId ?? ''}`,

@@ -17,6 +17,10 @@ import {
 } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import {
+	readRequestEngineApplication,
+	readRequestEngineFramework,
+} from '../engine/request-engine.js'
+import {
 	assertApplicationEngineAvailable,
 	bindRequestContextToApplication,
 } from '../engine/application-binding.js'
@@ -118,7 +122,7 @@ export const executeRequestSchemaMutation = (
 	if (executor === undefined) {
 		throw new TypeError('Request schema mutation execution is unavailable')
 	}
-	return runApplicationWork(engine.application, () =>
+	return runApplicationWork(readRequestEngineApplication(engine), () =>
 		executor(command, schema, envelope, options),
 	)
 }
@@ -129,10 +133,11 @@ const assertEnvelope = (
 	schema: SchemaDefinition,
 	envelope: PluginSchemaMutationEnvelope,
 ): void => {
-	const graph = readApplicationKernelState(host.engine.application).commands
+	const application = readRequestEngineApplication(host.engine)
+	const graph = readApplicationKernelState(application).commands
 	const envelopeKind: unknown = envelope.kind
 	if (
-		!host.engine.application.ownsSchema(schema) ||
+		!application.ownsSchema(schema) ||
 		graph.get(command.definition.name) !== command ||
 		!command.surfaces.some(
 			(surface) =>
@@ -162,24 +167,26 @@ const resolveRequestContext = async (
 	options: NormalizedOperationOptions,
 ): Promise<RequestContext> => {
 	let context = host.engine.context
+	const application = readRequestEngineApplication(host.engine)
+	const framework = readRequestEngineFramework(host.engine)
 	if (options.context !== undefined) {
 		if (!isRequestContext(options.context)) {
 			throw new TypeError('operation context must be a RequestContext instance')
 		}
 		bindRequestContextToApplication(
-			host.engine.application,
+			application,
 			options.context,
-			readFrameworkMasterAuthority(host.engine.framework),
+			readFrameworkMasterAuthority(framework),
 		)
 		context = options.context
 	}
 	if (options.useMasterKey) {
-		assertMasterElevationPrivilege(host.engine.application)
+		assertMasterElevationPrivilege(application)
 		context = await elevateTrustedMasterRequest(
-			getFrameworkMasterAuthority(host.engine.framework),
+			getFrameworkMasterAuthority(framework),
 			context,
 			`Schema mutation ${command.definition.name} on schema ${schema.className}`,
-			host.engine.application,
+			application,
 		)
 	}
 	return context
@@ -193,8 +200,9 @@ export const executeSchemaMutationRequest = async (
 	envelope: PluginSchemaMutationEnvelope,
 	options: NormalizedOperationOptions,
 ): Promise<unknown> => {
-	assertApplicationEngineAvailable(host.engine.application)
-	assertOperationExecutionOwner(options.ultimabase, host.engine.application)
+	const application = readRequestEngineApplication(host.engine)
+	assertApplicationEngineAvailable(application)
+	assertOperationExecutionOwner(options.ultimabase, application)
 	assertEnvelope(host, command, schema, envelope)
 	const context = await resolveRequestContext(host, command, schema, options)
 	if (context !== host.engine.context) {
@@ -226,7 +234,9 @@ export const executeSchemaMutationRequest = async (
 				command,
 				context,
 				envelope,
-				runtime: getFrameworkSchemaMutationRuntime(host.engine.framework),
+				runtime: getFrameworkSchemaMutationRuntime(
+					readRequestEngineFramework(host.engine),
+				),
 				schema,
 			}),
 		),

@@ -1,12 +1,12 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	Schema,
-	createApplication,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
 	definePluginFieldFamily,
 } from '@ultimabase/core'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import { pgVectorPlugin, vectorField } from '@ultimabase/pg-vector-plugin'
 import {
 	isEnumType,
@@ -30,7 +30,7 @@ declare module '@ultimabase/core' {
 const readGraphql = (
 	application: Awaited<ReturnType<typeof createApplication>>,
 ): GraphqlPluginExports =>
-	application.getPlugin('@ultimabase/graphql-plugin') as GraphqlPluginExports
+	application.plugin('@ultimabase/graphql-plugin') as GraphqlPluginExports
 
 const defineCompleteSchemas = () => {
 	const Author = Schema.define({

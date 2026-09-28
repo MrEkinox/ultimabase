@@ -114,7 +114,7 @@ one by registration order. Installing an unused descriptor has no effect.
 An option may declare a Runtime compiler when its behavior belongs to a
 versioned application capability. Core records used normalized occurrences
 during static compilation, but does not invoke them from
-`application.compileSchemas()` or Typegen. Real application initialization
+`ultimabase.compile()` or Typegen. Real application initialization
 materializes capabilities, invokes these compilers with a frozen context such as
 the class name, field name, option name, value, and provenance, and only then
 runs plugin setup. The compiler returns `undefined` and registers through its

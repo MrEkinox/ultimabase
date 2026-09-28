@@ -245,12 +245,12 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		)
 		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
 		masterAudits.length = 0
-		const request = app.engine.anonymous({
+		const request = app.anonymous({
 			requestId: 'soft-delete-inherited-master',
 			source: 'internal',
 		})
 		const master = await request.useMasterKey(
-			app.engine.authorizeMasterKey('administration-key'),
+			app.authorizeMasterKey('administration-key'),
 			'Trusted maintenance request',
 		)
 		expect(masterAudits).toHaveLength(1)
@@ -296,13 +296,13 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			id: cancellationTarget.id,
 		})
 		const controller = new AbortController()
-		const request = app.engine.anonymous({
+		const request = app.anonymous({
 			requestId: 'soft-delete-cancelled-administration',
 			signal: controller.signal,
 			source: 'internal',
 		})
 		const master = await request.useMasterKey(
-			app.engine.authorizeMasterKey('administration-key'),
+			app.authorizeMasterKey('administration-key'),
 			'Trusted cancellable maintenance request',
 		)
 		controller.abort('maintenance cancelled')

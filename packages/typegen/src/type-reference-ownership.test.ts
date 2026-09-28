@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	defineOperation,
 	defineOperationValue,
 	plugin,
@@ -76,14 +76,14 @@ it.each(['missing', 'foreign', 'owner'] as const)(
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [owner, foreign],
 			schemas: [],
 		})
 		const generate = () =>
 			generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'reference-ownership',
 			})
 		// The same nominal token registered by another owner grants no import authority.

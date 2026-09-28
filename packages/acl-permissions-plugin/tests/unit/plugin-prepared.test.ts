@@ -3,7 +3,6 @@ import {
 	MasterAuthority,
 	QueryBuilder,
 	Schema,
-	createApplication,
 	plugin,
 	UltimaBase,
 } from '@ultimabase/core'
@@ -29,10 +28,10 @@ import {
 describe('aclPlugin prepared input resolution', () => {
 	beforeAll(async () => {
 		// A standalone suite must compile the ACL-owned field before row-aware updates.
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			plugins: [aclPlugin()],
 			schemas: [ProtectedPost],
-		})
+		}).initialize()
 		await application.dispose()
 	})
 

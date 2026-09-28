@@ -121,8 +121,8 @@ const suite = definePluginConformanceSuite({
 ### Optional domain checks
 
 Use immutable `.check(contract, verifier)` calls for behavior specific to the
-plugin. Every verifier gets fresh public `FrameworkApplication` and
-`UltimaBase` factories; every created value is disposed automatically, including
+plugin. Every verifier gets a fresh public `UltimaBase` factory; every created
+value is disposed automatically, including
 after a failed assertion.
 
 ```ts
@@ -134,8 +134,14 @@ const completeSuite = suite
 		expect(result).toStrictEqual(expectedResult)
 	})
 	.check('schema-surface', (context) => {
-		const { application } = context.createApplication()
-		expect(application.getSchemaSurface('Post')).toBeDefined()
+		const { ultimabase } = context.createUltimaBase()
+		expect(
+			ultimabase
+				.compile()
+				.typegenGraph.schemaSurfaces.some(
+					({ schema }) => schema.className === 'Post',
+				),
+		).toBe(true)
 	})
 	.check('middleware', async (context) => {
 		// Execute a request and assert the contributed interceptor/observer trace.

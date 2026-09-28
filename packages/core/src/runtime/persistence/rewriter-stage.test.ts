@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { FrameworkError } from '../../foundation.js'
 import {
-	FrameworkApplication,
-	FrameworkError,
 	createApplication,
-} from '../../foundation.js'
+	FrameworkApplication,
+} from '../../application/framework-application.js'
 import { provideCapability } from '../../plugins/capabilities.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { QueryBuilder, normalizeUpdateExpression } from '../../query/index.js'

@@ -179,7 +179,7 @@ describe(
 				throw new TypeError('GraphQL PostgreSQL fixture is unavailable')
 			}
 			const requestContext = context
-			const graphqlApplication = application.application.getPlugin(
+			const graphqlApplication = application.plugin(
 				'@ultimabase/graphql-plugin',
 			)
 			const executePage = async (after?: string) =>

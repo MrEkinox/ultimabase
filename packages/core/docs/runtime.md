@@ -46,12 +46,12 @@ backend code may request audited `{ useMasterKey: true }`. These server-only
 options never enter the Query or Operation AST. Schema, selection, input, and
 result inference remain exact.
 
-`ultimabase.application` exposes typed plugin setup exports.
-`ultimabase.engine` exposes explicit anonymous, plugin-derived, master, and
-transport request composition after startup. `stop()` rejects new execution,
+`ultimabase.plugin(...)` exposes typed plugin setup exports. `ultimabase`
+directly exposes anonymous, plugin-derived, master, and transport request
+composition after startup. `stop()` rejects new execution,
 drains admitted work, and cannot be restarted; `dispose()` or
 `Symbol.asyncDispose` permanently releases every owned resource. Initialization claims the sole resource-owning application slot
-in its JavaScript realm, including through `createApplication()`. Inert
+in its JavaScript realm. Inert
 construction and pure compilation may coexist. Stop retains that slot; disposal
 closes new execution, waits for admitted requests and transactions, and releases
 it after successful cleanup. Failed cleanup keeps the realm closed to a
@@ -78,26 +78,23 @@ Independent Jest or Vitest workers can each run one application. Within a suite,
 return `app.start()` from `beforeAll` and `app.dispose()` from `afterAll`; finish
 disposal before starting another application in the same realm.
 
-## Low-level application assembly
+## Runtime assembly
 
-`createFrameworkEngine(application)` remains the lower-level bridge from Core
-plugin setup to Runtime execution. The ADR-0076 assembly resolves the application-scoped
+Runtime assembly is private behind `UltimaBase.start()`. It resolves the application-scoped
 `databaseAdapterCapability`, installs structural validation, composes optional
 behavior and observers, and compiles monotonic enforcement only when a plugin
 contributed it:
 
 ```ts
-const application = await createApplication({
+const application = new UltimaBase({
 	schemas: [ArticleSchema],
 	plugins: [databasePlugin()],
+	validation: { timezone: 'Europe/Paris' },
 })
 
 await application.start()
 
-const framework = createFrameworkEngine(application, {
-	validation: { timezone: 'Europe/Paris' },
-})
-const request = framework.anonymous({
+const request = application.anonymous({
 	requestId: 'article-list',
 	source: requestSources.internal,
 })
@@ -181,7 +178,7 @@ order. Enforcement factories are `guard`, `constraint`, `restrictInput`,
 plugin's accumulated state. Runtime appends constraints for adapter-side
 logical `AND`, intersects field restrictions, and creates no provider-specific
 enforcement stage when no constraint capability is present. An optional `MasterAuthority` may be
-supplied to `createFrameworkEngine` without changing the trusted master
+supplied to `UltimaBase` without changing the trusted master
 boundary.
 
 Low-level enforcement is applied to master by default. A provider may declare
@@ -553,9 +550,9 @@ await runWithRequestEngine(requestEngine, async () => {
 ```
 
 `getCurrentFrameworkContext()` returns an immutable, consistent view containing
-`application`, `frameworkEngine`, `requestEngine`, and `request`. The focused
-helpers `getCurrentApplication()`, `getCurrentApplicationEngine()`,
-`getCurrentEngine()`, and `getCurrentRequest()` read those same references.
+`ultimabase`, `requestEngine`, and `request`. The focused helpers
+`getCurrentUltimaBase()`, `getCurrentEngine()`, and `getCurrentRequest()` read
+those same references.
 Calling any helper outside a scope throws `MISSING_EXECUTION_CONTEXT` rather
 than returning `undefined` or retaining an earlier request.
 

@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema, stringField } from '@ultimabase/core'
+import { Schema, stringField, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { accessPlugin } from './index.js'
@@ -10,12 +10,12 @@ describe('compiled Access field options', () => {
 			className: 'AccessOptionsPlainDocument',
 			fields: (field) => ({ title: field.string(options) }),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [accessPlugin()],
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
-		application.compileSchemas()
+		application.compile()
 
 		const title = Document.fields.title
 		if (title === undefined)
@@ -33,12 +33,12 @@ describe('compiled Access field options', () => {
 				title: field.string({ access, required: true }),
 			}),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [accessPlugin()],
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
-		application.compileSchemas()
+		application.compile()
 
 		// The live compiler snapshots policy options against later caller changes.
 		access.read = false

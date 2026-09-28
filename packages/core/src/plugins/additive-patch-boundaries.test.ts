@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { optionPlugin } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { FrameworkApplication } from '../application/framework-application.js'
 import {
-	FrameworkApplication,
 	Schema,
 	plugin as createPlugin,
 	contributeDeclarations,

@@ -65,14 +65,14 @@ const labels = (models) => models.map(({ label }) => label).sort()
 await ultimabase.start()
 
 try {
-	const anonymousEngine = ultimabase.engine.anonymous({
+	const anonymousEngine = ultimabase.anonymous({
 		requestId: 'javascript-relation-filter',
 		source: 'internal',
 	})
 	const anonymous = anonymousEngine.context
 	const authenticated = anonymous.withValue(authenticatedViewer, true)
 	const master = await anonymousEngine.useMasterKey(
-		ultimabase.engine.authorizeMasterKey('javascript-master-key'),
+		ultimabase.authorizeMasterKey('javascript-master-key'),
 		'Prove JavaScript relation shaping under Master',
 	)
 	const targets = await Target.createMany(

@@ -18,7 +18,7 @@ const ultimabase = createMinimalApplication({
 
 try {
 	const generated = generateApplicationTypes({
-		application: ultimabase.application,
+		ultimabase,
 		applicationId: 'minimal',
 	})
 	await writeGeneratedTypeFile({

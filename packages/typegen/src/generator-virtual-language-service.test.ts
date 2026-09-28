@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { expect, it } from 'vitest'
 
@@ -39,7 +39,7 @@ const createGeneratedVirtualRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		application: new FrameworkApplication({ plugins: [], schemas: [User] }),
+		ultimabase: new UltimaBase({ plugins: [], schemas: [User] }),
 		applicationId: 'fixture.semantic-virtual',
 	}).contents
 }

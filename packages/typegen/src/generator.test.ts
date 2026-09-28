@@ -9,7 +9,7 @@ import {
 	definePluginField,
 	defineSchemaOption,
 	defineTypegenReference,
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	stringField,
 	type FieldBuilder,
@@ -107,7 +107,7 @@ const createFixture = (reverseOrder = false) => {
 	const plugins = reverseOrder
 		? ([setupGuard, pgVectorPlugin()] as const)
 		: ([pgVectorPlugin(), setupGuard] as const)
-	const application = new FrameworkApplication({ plugins, schemas })
+	const application = new UltimaBase({ plugins, schemas })
 
 	return { application, getSetupCalls: () => setupCalls }
 }
@@ -144,13 +144,13 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [contribution],
 			schemas: [Target],
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.compiled-graph',
 		})
 
@@ -164,11 +164,11 @@ describe('generateApplicationTypes', () => {
 		const firstFixture = createFixture()
 		const secondFixture = createFixture(true)
 		const first = generateApplicationTypes({
-			application: firstFixture.application,
+			ultimabase: firstFixture.application,
 			applicationId: 'fixture.application',
 		})
 		const second = generateApplicationTypes({
-			application: secondFixture.application,
+			ultimabase: secondFixture.application,
 			applicationId: 'fixture.application',
 		})
 
@@ -223,7 +223,7 @@ describe('generateApplicationTypes', () => {
 	it('preserves exact field facts and reuses compatible named identities', () => {
 		const { application } = createFixture()
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.application',
 		})
 		const article = generated.snapshot.schemas.find(
@@ -370,14 +370,14 @@ describe('generateApplicationTypes', () => {
 	it('reports normalized schema and incompatible named identity collisions', () => {
 		const First = Schema.define({ className: 'Typegen-A', fields: () => ({}) })
 		const Second = Schema.define({ className: 'Typegen_A', fields: () => ({}) })
-		const schemaCollision = new FrameworkApplication({
+		const schemaCollision = new UltimaBase({
 			plugins: [],
 			schemas: [First, Second],
 		})
 
 		expect(() =>
 			generateApplicationTypes({
-				application: schemaCollision,
+				ultimabase: schemaCollision,
 				applicationId: 'fixture.collision',
 			}),
 		).toThrow(
@@ -406,14 +406,14 @@ describe('generateApplicationTypes', () => {
 				}),
 			}),
 		})
-		const identityCollision = new FrameworkApplication({
+		const identityCollision = new UltimaBase({
 			plugins: [],
 			schemas: [Compatible],
 		})
 
 		expect(() =>
 			generateApplicationTypes({
-				application: identityCollision,
+				ultimabase: identityCollision,
 				applicationId: 'fixture.collision',
 			}),
 		).toThrow(
@@ -439,14 +439,14 @@ describe('generateApplicationTypes', () => {
 				value: orphan,
 			}),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [],
 			schemas: [Orphan],
 		})
 
 		expect(() =>
 			generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'fixture.orphan',
 			}),
 		).toThrow(
@@ -536,14 +536,14 @@ describe('generateApplicationTypes', () => {
 			className: 'TypegenPluginContributionConflict',
 			fields: () => ({}),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [firstPlugin, secondPlugin],
 			schemas: [Empty],
 		})
 
 		expect(() =>
 			generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'fixture.plugin-conflict',
 			}),
 		).toThrow(
@@ -622,17 +622,17 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [plugin],
 			schemas: [Post],
 		})
 
 		const first = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.workflow',
 		})
 		const second = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.workflow',
 		})
 

@@ -85,8 +85,7 @@ const ultimabase = new UltimaBase({
 
 try {
 	await ultimabase.start()
-	const connection =
-		ultimabase.application.getPlugin(postgresPluginName).connection
+	const connection = ultimabase.plugin(postgresPluginName).connection
 	console.log(connection.state) // 'connected'
 } finally {
 	await ultimabase.dispose()

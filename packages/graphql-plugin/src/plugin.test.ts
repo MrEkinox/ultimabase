@@ -163,11 +163,9 @@ describe('graphqlPlugin', () => {
 			schemas: [DisposableRecord],
 		})
 		await application.start()
-		const graphqlApplication = application.application.getPlugin(
-			'@ultimabase/graphql-plugin',
-		)
+		const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 		const schema = graphqlApplication.schema
-		const request = application.engine.anonymous({
+		const request = application.anonymous({
 			requestId: 'graphql-disposed-request',
 			source: 'ultimabase.graphql',
 		}).context

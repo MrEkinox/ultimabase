@@ -1,15 +1,17 @@
 import { Schema } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
-
 import {
 	createApplication,
+	type FrameworkApplication,
+} from './framework-application.js'
+
+import {
 	plugin as createPlugin,
 	contributeApplication,
 	type ConfiguredPluginExports,
 	type ConfiguredPluginId,
 	type ConfiguredPluginIdentity,
 	type ConfiguredPluginIdentityExports,
-	type FrameworkApplication,
 	type PluginDefinition,
 } from '../index.js'
 

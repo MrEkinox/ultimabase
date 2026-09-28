@@ -77,10 +77,10 @@ const isHttpApplication = (value: unknown): value is HttpApplication =>
 
 export const readFixtureHttpApplication = (
 	application: Readonly<{
-		getPlugin(pluginId: 'fixture.graphql-yoga-http-consumer'): unknown
+		plugin(pluginId: 'fixture.graphql-yoga-http-consumer'): unknown
 	}>,
 ): HttpApplication => {
-	const value = application.getPlugin('fixture.graphql-yoga-http-consumer')
+	const value = application.plugin('fixture.graphql-yoga-http-consumer')
 	if (typeof value !== 'object' || value === null) {
 		throw new TypeError('GraphQL Yoga HTTP fixture is unavailable')
 	}

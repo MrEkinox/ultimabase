@@ -1,6 +1,5 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
-	FrameworkApplication,
 	RequestContext,
 	UltimaBase,
 	plugin,
@@ -201,7 +200,7 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: () => new Response(),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
 				endpointPlugin('fixture.first-routes', route),
@@ -244,7 +243,7 @@ describe('HTTP application graph', () => {
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
 				provider,
@@ -329,7 +328,7 @@ describe('HTTP application graph', () => {
 			],
 		})
 		expect(() => {
-			const application = new FrameworkApplication({
+			const application = new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [
 					httpPlugin({ appId: 'official' }),

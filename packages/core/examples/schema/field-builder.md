@@ -77,10 +77,10 @@ const DocumentSchema = Schema.define({
 	}),
 })
 
-const application = await createApplication({
+const application = await new UltimaBase({
 	schemas: [DocumentSchema],
 	plugins: [pgVectorPlugin()],
-})
+}).initialize()
 ```
 
 The method belongs to this application's plugin graph. Another application

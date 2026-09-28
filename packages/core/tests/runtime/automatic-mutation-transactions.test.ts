@@ -1,17 +1,17 @@
 import { applicationFixture } from '../application-fixture.js'
-import { FrameworkApplication } from '../../src/index.js'
+import { FrameworkApplication } from '../../src/application/framework-application.js'
 import { Schema } from '../../src/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
-	FrameworkEngine,
 	type DatabaseMutationOperationAst,
 	getCurrentEngine,
 	MasterAuthority,
 	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
+import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
 
 type MutationOperationKind = DatabaseMutationOperationAst['kind']
 import {

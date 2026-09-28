@@ -3,7 +3,7 @@ import {
 	contributeDeclarations,
 	definePluginField,
 	definePluginFieldFamily,
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -57,7 +57,7 @@ describe('plugin field type declarations', () => {
 			fields: () => ({ secret: secretField }),
 		})
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				plugins: [plugin],
 				schemas: [Document],
 			}),

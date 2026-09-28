@@ -134,9 +134,9 @@ describe('plugin conformance suite', () => {
 				instanceIds: ['primary', 'audit'],
 			},
 		}).check('codec', async (context) => {
-			const { application } = context.createApplication()
-			await application.initialize()
-			expect(application.state).toBe('ready')
+			const { ultimabase } = context.createUltimaBase()
+			await ultimabase.initialize()
+			expect(ultimabase.state).toBe('ready')
 		})
 
 		const report = await runPluginConformance(
@@ -295,9 +295,13 @@ describe('plugin conformance suite', () => {
 				version: '1.0.0',
 			},
 		}).check('schema-mutation', async (context) => {
-			const { application } = context.createApplication()
-			await application.initialize()
-			const surface = application.getSchemaSurface(Post.className)
+			const { ultimabase } = context.createUltimaBase()
+			await ultimabase.initialize()
+			const surface = ultimabase
+				.compile()
+				.typegenGraph.schemaSurfaces.find(
+					({ schema }) => schema.className === Post.className,
+				)
 
 			expect(surface?.schemaMutations.get('archive')?.mutation.name).toBe(
 				archive.name,
@@ -450,8 +454,8 @@ describe('plugin conformance suite', () => {
 				version: '0.0.0',
 			},
 		}).check('transport', async (context) => {
-			const { application } = context.createApplication()
-			await application.initialize()
+			const { ultimabase } = context.createUltimaBase()
+			await ultimabase.initialize()
 			expectedDisposals = disposals + 1
 			throw new Error('transport probe failed')
 		})

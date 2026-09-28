@@ -1,10 +1,10 @@
 import {
 	Schema,
-	createApplication,
 	definePluginOutputDescriptor,
 	normalizeReadOperation,
 	type ReadOperationAst,
 } from '@ultimabase/core'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import {
 	GraphQLObjectType,
 	GraphQLSchema,
@@ -152,7 +152,7 @@ describe('GraphQL virtual schema compilation', () => {
 			],
 			schemas: [Virtual],
 		})
-		const graphql = application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
 		const model = graphql.schema.getType('GraphqlVirtualShape')
@@ -259,7 +259,7 @@ describe('GraphQL virtual schema compilation', () => {
 			plugins: [graphqlPlugin(), graphqlFixtureDatabasePlugin],
 			schemas: [Virtual],
 		})
-		const graphqlApplication = application.getPlugin(
+		const graphqlApplication = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
 		const root = graphqlApplication.schema

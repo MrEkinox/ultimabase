@@ -18,6 +18,10 @@ import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
+import {
+	readRequestEngineApplication,
+	readRequestEngineFramework,
+} from '../engine/request-engine.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
 import { isOperationTransportProtocol } from './capabilities.js'
 import type { OperationTransportProtocol } from './contracts.js'
@@ -240,9 +244,9 @@ export const executePluginOperationRequest = async (
 	const { compiled, engine, envelope, transactionLifetime } = request
 	const targetKind: unknown = envelope.target.kind
 	if (
-		readApplicationKernelState(engine.application).commands.get(
-			compiled.definition.name,
-		) !== compiled ||
+		readApplicationKernelState(
+			readRequestEngineApplication(engine),
+		).commands.get(compiled.definition.name) !== compiled ||
 		envelope.name !== compiled.definition.name ||
 		envelope.version !== compiled.definition.version ||
 		envelope.transaction !== compiled.definition.transaction ||
@@ -290,7 +294,7 @@ export const executePluginOperationRequest = async (
 
 	const execute = () =>
 		runWithRequestEngineScope(engine, () =>
-			getFrameworkPluginOperations(engine.framework).execute(
+			getFrameworkPluginOperations(readRequestEngineFramework(engine)).execute(
 				engine,
 				compiled,
 				envelope,

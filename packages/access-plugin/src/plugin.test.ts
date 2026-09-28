@@ -1,6 +1,5 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
-	FrameworkApplication,
 	MasterAuthority,
 	Schema,
 	UltimaBase,
@@ -141,7 +140,7 @@ const plainRow = {
 
 describe('accessPlugin', () => {
 	it('keeps the access namespace unavailable until the plugin is configured', async () => {
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [],
 			schemas: [SecretDocument],
 		})

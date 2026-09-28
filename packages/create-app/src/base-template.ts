@@ -181,11 +181,11 @@ import {
 const applicationId = 'main'
 const outputPath = path.resolve('.ultimabase/schema.generated.d.ts')
 // Load the configured application without starting it or connecting to PostgreSQL.
-const application = await loadTypegenApplication({
+const ultimabase = await loadTypegenApplication({
   sourcePath: './src/ultimabase.ts',
   exportName: 'ultimabase',
 })
-const generated = generateApplicationTypes({ application, applicationId })
+const generated = generateApplicationTypes({ ultimabase, applicationId })
 await writeGeneratedTypeFiles([
   { applicationId, contents: generated.contents, outputPath },
 ])

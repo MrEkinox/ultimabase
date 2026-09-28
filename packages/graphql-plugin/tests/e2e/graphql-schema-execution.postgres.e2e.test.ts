@@ -156,9 +156,7 @@ const execute = (
 	request: RequestContext = context('anonymous'),
 	variables?: Readonly<Record<string, unknown>>,
 ) => {
-	const graphqlApplication = app().application.getPlugin(
-		'@ultimabase/graphql-plugin',
-	)
+	const graphqlApplication = app().plugin('@ultimabase/graphql-plugin')
 	return graphqlApplication.execute({
 		context: request,
 		document: source,
@@ -189,7 +187,7 @@ beforeAll(async () => {
 		schemas: [],
 	})
 	await foreignApplication.start()
-	foreign = foreignApplication.engine.anonymous({
+	foreign = foreignApplication.anonymous({
 		requestId: 'graphql-execution-forged',
 		source: 'ultimabase.graphql',
 	}).context

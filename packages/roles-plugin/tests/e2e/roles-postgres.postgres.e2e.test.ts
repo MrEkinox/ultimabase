@@ -407,9 +407,9 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			requireMember(alice, 'Alice').id,
 			'roles-e2e-stable-reference',
 		)
-		const request = app.engine.withContext(context)
+		const request = app.withContext(context)
 		const resolver = requireRoleResolver(
-			app.application.getPlugin(roleResolverConsumerPluginName),
+			app.plugin(roleResolverConsumerPluginName),
 		)
 
 		await expect(
@@ -634,17 +634,15 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	it('isolates role capabilities without retaining unused transport metadata', async () => {
 		const first = createRoleApplication(getFixture().connectionUri, 'ignore')
 		await first.start()
-		const firstResolver = first.application.getPlugin(
-			roleResolverConsumerPluginName,
-		)
+		const firstResolver = first.plugin(roleResolverConsumerPluginName)
 		await first.dispose()
 		const second = createRoleApplication(getFixture().connectionUri, 'ignore')
 		await second.start()
 
 		try {
-			expect(
-				second.application.getPlugin(roleResolverConsumerPluginName),
-			).not.toBe(firstResolver)
+			expect(second.plugin(roleResolverConsumerPluginName)).not.toBe(
+				firstResolver,
+			)
 			await expect(
 				AppRole.count(undefined, {
 					ultimabase: second,

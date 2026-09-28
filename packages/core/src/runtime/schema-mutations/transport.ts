@@ -15,6 +15,7 @@ import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import type { PublicTransportProtectionOptions } from '../plugin-operations/transport.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
@@ -127,7 +128,8 @@ export class CoreApplicationSchemaMutationTransport<
 		}
 		// Context provenance and application lifecycle fail before owner codecs run.
 		const engine = this.createEngine(request.context)
-		return runApplicationWork(engine.application, async () => {
+		const application = readRequestEngineApplication(engine)
+		return runApplicationWork(application, async () => {
 			const exposed = this.#exposed.get(request.binding)
 			if (exposed?.schema !== request.schema) {
 				throw new FrameworkError(
@@ -148,7 +150,7 @@ export class CoreApplicationSchemaMutationTransport<
 				request.input,
 			)
 			const envelope = prepareSchemaMutationEnvelope({
-				graph: readApplicationKernelState(engine.application).commands,
+				graph: readApplicationKernelState(application).commands,
 				command: exposed.command,
 				schema: request.schema,
 				name: exposed.commandName,

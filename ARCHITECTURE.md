@@ -515,12 +515,11 @@ preparation, runtime start, and transport start in graph order. Stop and dispose
 run in reverse order, and a partial failure cleans every completed stage before
 the original failure is reported.
 
-`FrameworkApplication` owns those Core objects per instance.
-Core's Runtime domain composes it behind the primary `UltimaBase` facade, whose
-constructor performs no I/O and whose `start()` assembles Runtime before
-starting infrastructure. The lower-level asynchronous factory remains
-available to framework packages. Configured literal plugin names retain their
-setup export types, including definitions introduced through nested composition.
+`UltimaBase` is the sole public application owner. Core's Runtime domain keeps
+its application kernel and engine private behind that facade. Construction and
+`compile()` perform no I/O; `initialize()` materializes application capabilities,
+and `start()` assembles Runtime before starting infrastructure. Configured
+literal plugin names retain their setup export types.
 
 ## Engines
 

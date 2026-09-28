@@ -1,7 +1,5 @@
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { RuntimeRelationFilterResolver } from './execution.js'

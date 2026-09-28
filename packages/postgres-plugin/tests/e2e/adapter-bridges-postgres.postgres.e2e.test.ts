@@ -231,9 +231,8 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 				'SELECT count(*)::text AS count FROM adapter_bridge_raw_probe',
 			)
 			expect(probe.rows).toStrictEqual([{ count: '0' }])
-			const metadata = ultimabase.application.getPlugin(
-				'@ultimabase/postgres-plugin',
-			).adapterMetadata.physicalSchema[0]
+			const metadata = ultimabase.plugin('@ultimabase/postgres-plugin')
+				.adapterMetadata.physicalSchema[0]
 			expect(metadata).toMatchObject({
 				contributionId: 'workflow-state',
 				instanceId: 'primary',

@@ -1,9 +1,9 @@
 import { expectTypeOf, test } from 'vitest'
+import { FrameworkApplication } from './framework-application.js'
 
 import {
 	contributeApplication,
 	plugin,
-	FrameworkApplication,
 	UltimaBase,
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
@@ -58,7 +58,7 @@ test('infers exact plugin and instance policy targets on both application facade
 		application.pluginPrivilegeReport,
 	).toEqualTypeOf<PluginPrivilegeReport>()
 	expectTypeOf(
-		ultimabase.application.pluginPrivilegeReport,
+		ultimabase.pluginPrivilegeReport,
 	).toEqualTypeOf<PluginPrivilegeReport>()
 	expectTypeOf(
 		options.pluginPrivileges.deny[0],

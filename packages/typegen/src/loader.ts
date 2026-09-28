@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
 	UltimaBase,
 	type PluginDefinition,
 	type SchemaDefinition,
@@ -11,7 +10,7 @@ import { createJiti } from 'jiti'
 
 import { SchemaTypegenError } from './errors.js'
 
-type TypegenApplication = FrameworkApplication<
+type TypegenApplication = UltimaBase<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 >
@@ -22,7 +21,7 @@ const readProperty = (value: object, property: PropertyKey): unknown =>
 const isTypegenApplication = (
 	candidate: unknown,
 ): candidate is TypegenApplication => {
-	if (candidate instanceof FrameworkApplication) {
+	if (candidate instanceof UltimaBase) {
 		return true
 	}
 
@@ -30,21 +29,18 @@ const isTypegenApplication = (
 		return false
 	}
 
-	const schemas = readProperty(candidate, 'schemas')
-
 	// Transpilation may load a second Core module identity, so constructor identity
 	// alone cannot validate a legitimate application exported by the source module.
 	return (
-		typeof readProperty(candidate, 'compileSchemas') === 'function' &&
-		typeof schemas === 'object' &&
-		schemas !== null &&
-		typeof readProperty(schemas, 'get') === 'function' &&
-		typeof readProperty(schemas, 'values') === 'function'
+		typeof readProperty(candidate, 'compile') === 'function' &&
+		typeof readProperty(candidate, 'initialize') === 'function' &&
+		typeof readProperty(candidate, 'start') === 'function' &&
+		typeof readProperty(candidate, 'dispose') === 'function'
 	)
 }
 
 export interface LoadTypegenApplicationOptions {
-	/** Names the exported UltimaBase or FrameworkApplication instance. */
+	/** Names the exported UltimaBase instance. */
 	readonly exportName: string
 	/** Points to one TypeScript or JavaScript application module. */
 	readonly sourcePath: string
@@ -78,26 +74,13 @@ export const loadTypegenApplication = async (
 			? loaded
 			: undefined
 
-	if (candidate instanceof UltimaBase) {
-		return candidate.application
-	}
-
 	if (isTypegenApplication(candidate)) {
 		return candidate
 	}
 
-	const nestedApplication =
-		typeof candidate === 'object' && candidate !== null
-			? readProperty(candidate, 'application')
-			: undefined
-
-	if (isTypegenApplication(nestedApplication)) {
-		return nestedApplication
-	}
-
 	throw new SchemaTypegenError(
 		'invalid-application-export',
-		`Export "${options.exportName}" from "${sourcePath}" must be an UltimaBase or FrameworkApplication instance`,
+		`Export "${options.exportName}" from "${sourcePath}" must be an UltimaBase instance`,
 		{ owner: options.exportName, path: sourcePath },
 	)
 }

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { createApplication } from './framework-application.js'
 
 import {
 	FrameworkError,
 	Schema,
 	requestPrincipalResolverCapability,
-	createApplication,
 	plugin as createPlugin,
 	contributeApplication,
 	optionalCapability,

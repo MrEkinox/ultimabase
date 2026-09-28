@@ -3,7 +3,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
-	FrameworkApplication,
+	UltimaBase,
 	QueryBuilder,
 	Schema,
 } from '@ultimabase/core'
@@ -71,7 +71,7 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 		fields: () => ({ value: containedField() }),
 	})
 	const generated = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [plugin],
 			schemas: [Document],
 		}),

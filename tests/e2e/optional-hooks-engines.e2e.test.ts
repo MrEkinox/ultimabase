@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
 	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
@@ -92,7 +91,7 @@ describe('optional Hooks engine proof', () => {
 			className: 'NoHooksGeneratedPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [],
 			schemas: [Plain],
@@ -100,12 +99,12 @@ describe('optional Hooks engine proof', () => {
 
 		try {
 			const generated = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'no-hooks-proof',
 			})
 
 			expect(application.pluginPrivilegeReport.plugins).toStrictEqual([])
-			expect(application.typegenGraph.options).toStrictEqual([])
+			expect(application.compile().typegenGraph.options).toStrictEqual([])
 			expect(generated.contents).not.toContain('@ultimabase/hooks-plugin')
 			expect(generated.contents).not.toContain('SchemaHooksOption')
 			expect(generated.contents).not.toContain('FieldHooksOption')
@@ -141,9 +140,7 @@ describe('optional Hooks engine proof', () => {
 			await ultimabase.start()
 			await schemas[0].findMany(undefined, { ultimabase })
 			expect(
-				ultimabase.application
-					.getPlugin(alternativeBehaviorPluginId)
-					.diagnostics(),
+				ultimabase.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toStrictEqual([
 				{
 					operation: 'find-many',
@@ -198,12 +195,12 @@ describe('optional Hooks engine proof', () => {
 			await first.start()
 			await Post.findMany(undefined, { ultimabase: first })
 			expect(
-				first.application.getPlugin(alternativeBehaviorPluginId).diagnostics(),
+				first.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toHaveLength(1)
 			await first.dispose()
 			await second.start()
 			expect(
-				second.application.getPlugin(alternativeBehaviorPluginId).diagnostics(),
+				second.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toStrictEqual([])
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
@@ -223,27 +220,27 @@ describe('optional Hooks engine proof', () => {
 		})
 		expect(
 			() =>
-				new FrameworkApplication({
+				new UltimaBase({
 					plugins: [workflow.plugin],
 					schemas: [OfficialPost],
 				}),
 		).toThrow(/requires missing plugin.*@ultimabase\/hooks-plugin/iu)
 
-		const official = new FrameworkApplication({
+		const official = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [hooksPlugin(), workflow.plugin],
 			schemas: [OfficialPost],
 		})
 		const independent = createAlternativeFixture()
-		const alternative = new FrameworkApplication({
+		const alternative = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [independent.engine.plugin],
 			schemas: [independent.Post],
 		})
 
 		try {
-			expect(() => official.compileSchemas()).not.toThrow()
-			expect(() => alternative.compileSchemas()).not.toThrow()
+			expect(() => official.compile()).not.toThrow()
+			expect(() => alternative.compile()).not.toThrow()
 			expect('peers' in independent.engine.plugin).toBe(false)
 		} finally {
 			await Promise.all([official.dispose(), alternative.dispose()])
@@ -252,13 +249,13 @@ describe('optional Hooks engine proof', () => {
 
 	it('keeps generated alternative contracts valid through compiled exports', () => {
 		const { engine, observer, Post } = createAlternativeFixture()
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [observer, createBehaviorSupportPlugin(), engine.plugin],
 			schemas: [Post],
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'alternative-behavior-language-service',
 		}).contents
 		const repository = path.resolve(import.meta.dirname, '../..')
@@ -319,7 +316,7 @@ describe('optional Hooks engine proof', () => {
 			await Plain.findMany(undefined, { ultimabase })
 			expect(trace).toStrictEqual(['SharedMiddlewareNoHooksPost'])
 			expect(
-				ultimabase.application.pluginPrivilegeReport.plugins.map(
+				ultimabase.pluginPrivilegeReport.plugins.map(
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/hooks-plugin')

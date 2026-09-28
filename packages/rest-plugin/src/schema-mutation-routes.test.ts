@@ -1,11 +1,11 @@
 import {
 	Schema,
-	createApplication,
 	plugin,
 	provideCapability,
 	type ApplicationSchemaMutationTransportPlan,
 	type PluginIdentity,
 } from '@ultimabase/core'
+import { initializeRestTestApplication as createApplication } from './application.test-support.js'
 import { describe, expect, it } from 'vitest'
 
 import { restPlugin } from './plugin.js'
@@ -58,7 +58,7 @@ const compile = async (
 			owner,
 			plan: { mutations, transport: restProtocol },
 			pluginVersion: '0.0.0',
-			schemas: application.schemas,
+			schemas: application.compile().schemas,
 		})
 	} finally {
 		await application.dispose()

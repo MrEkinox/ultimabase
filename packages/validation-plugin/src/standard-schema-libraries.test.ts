@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 import {
 	definePluginField,
-	FrameworkApplication,
+	UltimaBase,
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
@@ -307,19 +307,19 @@ it('keeps validators isolated between applications with the same logical schema'
 			value: field.string({ validation: valibotValidator }),
 		}),
 	})
-	const zodApplication = new FrameworkApplication({
+	const zodApplication = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [validationPlugin()],
 		schemas: [ZodSchema],
 	})
-	const valibotApplication = new FrameworkApplication({
+	const valibotApplication = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [validationPlugin()],
 		schemas: [ValibotSchema],
 	})
 
-	zodApplication.compileSchemas()
-	valibotApplication.compileSchemas()
+	zodApplication.compile()
+	valibotApplication.compile()
 
 	expect(Reflect.get(ZodSchema.fields.value?.options ?? {}, 'validation')).toBe(
 		zodValidator,

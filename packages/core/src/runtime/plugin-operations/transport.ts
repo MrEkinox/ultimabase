@@ -10,6 +10,7 @@ import type { PluginOperationDefinition } from '../../plugins/plugin-operations.
 import type { JsonValue } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 import type { OperationTransportProtocol } from './contracts.js'
 import { executeRequestPluginOperation } from './request-execution.js'
 import type {
@@ -127,7 +128,8 @@ export class CoreApplicationOperationTransport<
 		}
 		// Application lifecycle and context provenance must pass before codecs run.
 		const engine = this.createEngine(context)
-		return runApplicationWork(engine.application, async () => {
+		const application = readRequestEngineApplication(engine)
+		return runApplicationWork(application, async () => {
 			const exposed = this.exposed.get(request.operation)
 			if (exposed === undefined) {
 				throw new FrameworkError(
@@ -147,7 +149,7 @@ export class CoreApplicationOperationTransport<
 			}
 			const decoded = this.runtime.decode(exposed.binding, request.input)
 			const envelope = prepareOperationEnvelope(
-				readApplicationKernelState(engine.application).commands,
+				readApplicationKernelState(application).commands,
 				exposed.compiled,
 				decoded,
 			)

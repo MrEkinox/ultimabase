@@ -165,7 +165,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 	await application.start()
 	return {
 		application,
-		http: readFixtureHttpApplication(application.application),
+		http: readFixtureHttpApplication(application),
 	}
 }
 

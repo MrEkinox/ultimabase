@@ -1,10 +1,10 @@
 import {
-	FrameworkApplication,
 	Schema,
 	SchemaTargetResolutionError,
 	type SchemaTarget,
 	type SchemaTargetGraph,
 } from '../../src/index.js'
+import { UltimaBase } from '../../src/index.js'
 
 const TargetUserSchema = Schema.define({
 	className: 'TargetUser',
@@ -15,12 +15,12 @@ const /* hover:schema-target */ exactTarget: SchemaTarget<
 		typeof TargetUserSchema
 	> = () => TargetUserSchema
 
-const application = new FrameworkApplication({
+const application = new UltimaBase({
 	schemas: [TargetUserSchema],
 	plugins: [],
 })
 const graph: /* hover:target-graph */ SchemaTargetGraph =
-	application.schemaTargets
+	application.compile().schemas.schemaTargets
 const /* hover:resolved-target */ resolved = graph.get(TargetUserSchema, [
 		'friend',
 	])

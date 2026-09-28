@@ -77,7 +77,7 @@ describe('@ultimabase/http-plugin conformance', () => {
 		}).check('transport', async ({ createUltimaBase }) => {
 			const { ultimabase } = createUltimaBase()
 			await ultimabase.start()
-			const serverExports = ultimabase.application.getPlugin(
+			const serverExports = ultimabase.plugin(
 				'fixture.http-conformance-server',
 			) as Readonly<{ readonly http: HttpApplication }>
 			const http = serverExports.http

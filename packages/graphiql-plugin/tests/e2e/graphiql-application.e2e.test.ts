@@ -31,7 +31,7 @@ describe('packed GraphiQL plugin', () => {
 		})
 		await ultimabase.start()
 		const http = readHttpApplication(
-			ultimabase.application.getPlugin('fixture.explorer-http-consumer'),
+			ultimabase.plugin('fixture.explorer-http-consumer'),
 		)
 		const table = http
 		const response = await table.fetch(
@@ -72,7 +72,7 @@ describe('packed GraphiQL plugin', () => {
 		})
 		await ultimabase.start()
 		const http = readHttpApplication(
-			ultimabase.application.getPlugin('fixture.explorer-http-consumer'),
+			ultimabase.plugin('fixture.explorer-http-consumer'),
 		)
 		const table = http
 		const input = browserRequest('browser-policy', '/graphiql', [
@@ -113,7 +113,7 @@ describe('packed GraphiQL plugin', () => {
 		})
 		await disabled.start()
 		const disabledHttp = readHttpApplication(
-			disabled.application.getPlugin('fixture.explorer-http-consumer'),
+			disabled.plugin('fixture.explorer-http-consumer'),
 		)
 		expect(
 			(

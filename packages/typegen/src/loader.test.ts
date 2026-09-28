@@ -62,7 +62,7 @@ export const ultimabase = new UltimaBase({
 			sourcePath,
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.loaded',
 		})
 
@@ -102,14 +102,14 @@ export const ultimabase = new UltimaBase({ plugins: [], schemas: [Document] })
 		const firstPath = await createTypeScriptModule(source)
 		const secondPath = await createTypeScriptModule(source)
 		const first = generateApplicationTypes({
-			application: await loadTypegenApplication({
+			ultimabase: await loadTypegenApplication({
 				exportName: 'ultimabase',
 				sourcePath: firstPath,
 			}),
 			applicationId: 'fixture.path-independent',
 		})
 		const second = generateApplicationTypes({
-			application: await loadTypegenApplication({
+			ultimabase: await loadTypegenApplication({
 				exportName: 'ultimabase',
 				sourcePath: secondPath,
 			}),

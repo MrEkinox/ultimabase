@@ -45,7 +45,7 @@ export const createPostAndRenameAuthor = (
 	slug: string,
 	title: string,
 ) => {
-	const request = ultimabase.engine.anonymous({
+	const request = ultimabase.anonymous({
 		requestId: `publish:${slug}`,
 		source: requestSources.internal,
 	})

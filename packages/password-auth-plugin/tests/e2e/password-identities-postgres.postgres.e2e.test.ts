@@ -112,7 +112,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const rest = ultimabase.application.getPlugin('@ultimabase/rest-plugin')
+			const rest = ultimabase.plugin('@ultimabase/rest-plugin')
 			expect(rest.routeGraph.routes).not.toContainEqual(
 				expect.objectContaining({ schema: 'User' }),
 			)

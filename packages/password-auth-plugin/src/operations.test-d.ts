@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	type PluginOperationInput,
 	type PluginOperationResult,
 	type SchemaResult,
@@ -63,11 +63,11 @@ test('types the required profile through the configured User schema contract', (
 })
 
 test('exposes one typed application-bound runWithSession helper', async () => {
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		plugins: [passwordAuthPlugin()],
 		schemas: [],
 	})
-	const auth = application.getPlugin('@ultimabase/password-auth-plugin')
+	const auth = application.plugin('@ultimabase/password-auth-plugin')
 	const result = auth.runWithSession('token', () => 42 as const)
 	expectTypeOf(result).toEqualTypeOf<Promise<42>>()
 	// @ts-expect-error -- the helper accepts only raw strings at its credential edge.

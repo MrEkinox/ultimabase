@@ -68,9 +68,11 @@ describe('application-owned schema mutations', () => {
 			plugins: [workflowPlugin],
 			schemas: [WorkflowPost],
 		})
-		const surface = ultimabase.application.getSchemaSurface(
-			WorkflowPost.className,
-		)
+		const surface = ultimabase
+			.compile()
+			.typegenGraph.schemaSurfaces.find(
+				({ schema }) => schema.className === WorkflowPost.className,
+			)
 		const command = surface?.schemaMutations.get('archive')
 
 		expect(command?.owner.pluginId).toBe(
@@ -180,8 +182,11 @@ describe('application-owned schema mutations', () => {
 		})
 
 		expect(
-			ultimabase.application
-				.getSchemaSurface(Document.className)
+			ultimabase
+				.compile()
+				.typegenGraph.schemaSurfaces.find(
+					({ schema }) => schema.className === Document.className,
+				)
 				?.modelMutations.has('mutate'),
 		).toBe(true)
 	})
@@ -365,9 +370,11 @@ describe('application-owned schema mutations', () => {
 			],
 			schemas: [WorkflowPost],
 		})
-		const surface = application.application.getSchemaSurface(
-			WorkflowPost.className,
-		)
+		const surface = application
+			.compile()
+			.typegenGraph.schemaSurfaces.find(
+				({ schema }) => schema.className === WorkflowPost.className,
+			)
 
 		expect([...(surface?.schemaMutations.keys() ?? [])]).toStrictEqual([
 			'archiveEditorial',

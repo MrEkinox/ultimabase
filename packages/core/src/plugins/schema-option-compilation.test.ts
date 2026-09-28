@@ -1,9 +1,8 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
+import * as application from '../application/framework-application.js'
 import {
-	FrameworkApplication,
 	Schema,
-	createApplication,
 	defineCapability,
 	defineFieldOption,
 	plugin as createPlugin,
@@ -21,6 +20,7 @@ import {
 	requireField,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
+const { createApplication, FrameworkApplication } = application
 describe('plugin schema option compilation', () => {
 	it('normalizes closed field contexts and rejects contextual reuse before setup', async () => {
 		const option = defineFieldOption({

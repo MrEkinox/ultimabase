@@ -191,14 +191,12 @@ describe('Password User authentication methods', () => {
 			})
 			expect(signedUp.principal.user.schema).toBe(User)
 			const login = await runWithRequestEngine(
-				ultimabase.engine.anonymous({ requestId: 'login', source: 'internal' }),
+				ultimabase.anonymous({ requestId: 'login', source: 'internal' }),
 				() => User.login({ username: 'ADA', password }),
 			)
 			expect(login.user.id).toBe(signedUp.user.id)
 			expect(login.session.token).not.toBe(signedUp.session.token)
-			const auth = ultimabase.application.getPlugin(
-				'@ultimabase/password-auth-plugin',
-			)
+			const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
 			const refreshed = await auth.runWithSession(
 				signedUp.session.token,
 				async () => {
@@ -255,9 +253,7 @@ describe('Password User authentication methods', () => {
 				{ username: 'account-security', password },
 				{ ultimabase },
 			)
-			const auth = ultimabase.application.getPlugin(
-				'@ultimabase/password-auth-plugin',
-			)
+			const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
 			await expect(User.current({ ultimabase })).rejects.toMatchObject({
 				code: 'PASSWORD_AUTH_INVALID_SESSION',
 			})
@@ -324,7 +320,7 @@ describe('Password User authentication methods', () => {
 				OtherUser.signUp({ username: 'wrong-user', password }, { ultimabase }),
 			).rejects.toThrow('not installed')
 			await runWithRequestEngine(
-				ultimabase.engine.anonymous({
+				ultimabase.anonymous({
 					requestId: 'foreign',
 					source: 'internal',
 				}),
@@ -352,13 +348,13 @@ describe('Password User authentication methods', () => {
 		await first.start()
 		try {
 			const left = await runWithRequestEngine(
-				first.engine.anonymous({ requestId: 'first', source: 'internal' }),
+				first.anonymous({ requestId: 'first', source: 'internal' }),
 				() => User.signUp({ username: 'same-name', password }),
 			)
 			await first.dispose()
 			await second.start()
 			const right = await runWithRequestEngine(
-				second.engine.anonymous({ requestId: 'second', source: 'internal' }),
+				second.anonymous({ requestId: 'second', source: 'internal' }),
 				() => User.signUp({ username: 'same-name', password }),
 			)
 			expect(left.user.id).not.toBe(right.user.id)

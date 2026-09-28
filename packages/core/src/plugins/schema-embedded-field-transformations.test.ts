@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { immutableRecord } from '@ultimabase/shared'
+import { FrameworkApplication } from '../application/framework-application.js'
 
 import {
-	FrameworkApplication,
 	FrameworkError,
 	Schema,
 	addSchemaField,

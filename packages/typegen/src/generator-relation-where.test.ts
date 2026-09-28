@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
@@ -21,7 +21,7 @@ describe('relation where Typegen declarations', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				plugins: [],
 				schemas: [Source, Target],
 			}),

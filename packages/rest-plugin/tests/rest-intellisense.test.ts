@@ -1,7 +1,7 @@
 import path from 'node:path'
 import ts from 'typescript'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { UltimaBase, Schema } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -27,7 +27,7 @@ describe('REST option IntelliSense', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [restPlugin()],
 				schemas: [Post],

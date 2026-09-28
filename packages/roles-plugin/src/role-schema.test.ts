@@ -2,7 +2,7 @@ import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	QueryBuilder,
 	Schema,
-	createApplication,
+	UltimaBase,
 	plugin,
 	contributeApplication,
 	stringField,
@@ -31,10 +31,11 @@ describe('RoleSchema', () => {
 				priority: field.int({ default: 0 }),
 			}),
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [User, BuilderRole],
 			plugins: [rolesPlugin()],
 		})
+		await application.initialize()
 		onTestFinished(() => application.dispose())
 
 		expect(Object.keys(BuilderRole.fields)).toEqual([
@@ -137,10 +138,11 @@ describe('RoleSchema', () => {
 			className: 'PlainRoleFixture',
 			fields: () => ({}),
 		})
-		const plainApplication = await createApplication({
+		const plainApplication = new UltimaBase({
 			schemas: [Plain],
 			plugins: [],
 		})
+		await plainApplication.initialize()
 		onTestFinished(() => plainApplication.dispose())
 
 		await plainApplication.dispose()
@@ -164,10 +166,10 @@ describe('RoleSchema', () => {
 		})
 
 		await expect(
-			createApplication({
+			new UltimaBase({
 				schemas: [User, AppRole],
 				plugins: [infrastructure],
-			}),
+			}).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
@@ -216,10 +218,10 @@ describe('RoleSchema', () => {
 			})
 
 			await expect(
-				createApplication({
+				new UltimaBase({
 					plugins: [rolesPlugin(), infrastructure],
 					schemas: [schema],
-				}),
+				}).initialize(),
 			).rejects.toMatchObject({ code: 'PLUGIN_DECLARATION_INVALID' })
 			expect(infrastructureStarted).toBe(false)
 		}
@@ -234,10 +236,11 @@ describe('RoleSchema', () => {
 				roles: field.relation({ target: 'RoleUser' }),
 			}),
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			plugins: [rolesPlugin()],
 			schemas: [User, Similar],
 		})
+		await application.initialize()
 		onTestFinished(() => application.dispose())
 		expect(getRoleSchemaDeclaration(Similar)).toBeUndefined()
 		await application.dispose()
@@ -266,10 +269,12 @@ describe('RoleSchema', () => {
 		})
 
 		await expect(
-			createApplication({
-				plugins: [rolesPlugin(), infrastructure],
-				schemas: [User, FirstRole, SecondRole],
-			}),
+			Promise.resolve().then(() =>
+				new UltimaBase({
+					plugins: [rolesPlugin(), infrastructure],
+					schemas: [User, FirstRole, SecondRole],
+				}).initialize(),
+			),
 		).rejects.toMatchObject({ code: 'SCHEMA_DUPLICATE_CLASS_NAME' })
 		expect(infrastructureStarted).toBe(false)
 	})
@@ -291,19 +296,21 @@ describe('RoleSchema', () => {
 		})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()
-		const first = await createApplication({
+		const first = new UltimaBase({
 			schemas: [User, FirstRole],
 			plugins: [firstPlugin] as const,
 		})
-		expect(first.schemas.get(FirstRole.className)).toBe(FirstRole)
+		await first.initialize()
+		expect(first.compile().schemas.get(FirstRole.className)).toBe(FirstRole)
 		await first.dispose()
-		const second = await createApplication({
+		const second = new UltimaBase({
 			schemas: [SecondUser, SecondRole],
 			plugins: [secondPlugin] as const,
 		})
+		await second.initialize()
 		onTestFinished(() => second.dispose())
 
-		expect(second.schemas.get(SecondRole.className)).toBe(SecondRole)
+		expect(second.compile().schemas.get(SecondRole.className)).toBe(SecondRole)
 		expect(getRoleSchemaDeclaration(FirstRole)?.memberSchema).toBe(User)
 		expect(getRoleSchemaDeclaration(SecondRole)?.memberSchema).toBe(SecondUser)
 		await Promise.all([first.dispose(), second.dispose()])

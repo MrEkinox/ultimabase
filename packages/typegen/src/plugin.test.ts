@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	PluginGraph,
 	plugin,
@@ -49,7 +49,7 @@ describe('typegenPlugin', () => {
 	it('still rejects two differently configured instances of the official plugin', () => {
 		expect(
 			() =>
-				new FrameworkApplication({
+				new UltimaBase({
 					plugins: [
 						typegenPlugin({ outputPath: 'first.d.ts' }),
 						typegenPlugin({ outputPath: 'second.d.ts' }),
@@ -65,7 +65,7 @@ describe('typegenPlugin', () => {
 
 		expect(
 			() =>
-				new FrameworkApplication({
+				new UltimaBase({
 					pluginPrivileges: {
 						denyClaims: ['environment:filesystem'],
 						logger: false,
@@ -94,7 +94,7 @@ describe('typegenPlugin', () => {
 			}),
 		})
 		let contentsAtConnect: string | undefined
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [
 				// Setup must finish for every plugin before even an earlier plugin connects.
 				plugin({
@@ -128,7 +128,7 @@ describe('typegenPlugin', () => {
 		expect(contents).toContain('export type GeneratedTodoItem')
 		expect(contents).toContain('readonly completed: boolean | null')
 		expect(contents).not.toContain('export type ApplicationFieldBuilder')
-		expect(application.getPlugin('@ultimabase/typegen')).toMatchObject({
+		expect(application.plugin('@ultimabase/typegen')).toMatchObject({
 			outputPath,
 		})
 
@@ -151,7 +151,7 @@ describe('typegenPlugin', () => {
 		options.applicationId = 'fixture.changed'
 		options.outputPath = ignoredPath
 
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [plugin],
 			schemas: [],
 		})

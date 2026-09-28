@@ -376,8 +376,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			validation: { clock, timezone: 'UTC' },
 		})
 		await ultimabase.start()
-		const connection =
-			ultimabase.application.getPlugin(postgresPluginName).connection
+		const connection = ultimabase.plugin(postgresPluginName).connection
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
@@ -539,7 +538,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			},
 		})
 		await ultimabase.start()
-		const request = ultimabase.engine.anonymous({
+		const request = ultimabase.anonymous({
 			requestId: 'postgres-transaction-e2e',
 			source: requestSources.internal,
 		})
@@ -605,7 +604,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			validation: { clock: () => new Date(createInstant), timezone: 'UTC' },
 		})
 		await ultimabase.start()
-		const adapter = ultimabase.application.getPlugin(
+		const adapter = ultimabase.plugin(
 			'fixture.runtime-postgres.adapter-consumer',
 		)
 		const transactions: DatabaseTransactionAdapter[] = []

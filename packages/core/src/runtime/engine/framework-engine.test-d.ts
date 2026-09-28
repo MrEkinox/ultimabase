@@ -3,7 +3,7 @@ import type {
 	MasterRequestAccess,
 } from '../../access/index.js'
 import { RequestContextValue } from '../../access/index.js'
-import { FrameworkApplication } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import type { FindManyOperationAst, QueryResult } from '../../query/index.js'
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'

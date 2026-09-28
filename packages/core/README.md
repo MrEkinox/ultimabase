@@ -8,7 +8,7 @@ Responsibilities:
 - canonical object reads plus immutable QueryBuilder and Operation AST builders;
 - plugin-owned schema and field option compilation plus policy-neutral enforcement foundations;
 - anonymous and trusted master request authority with plugin-owned typed values;
-- isolated `FrameworkApplication` instances;
+- isolated `UltimaBase` application instances;
 - plugin definitions and global plugin graph;
 - flat deterministic plugin normalization;
 - versioned declaration and application capabilities;
@@ -37,7 +37,7 @@ Detailed guides remain focused by domain:
 ## Static schema compilation and relationship targets
 
 `Schema.define()` retains a synchronous field declaration instead of resolving
-fields during module evaluation. `createApplication()` first runs the pure,
+fields during module evaluation. `UltimaBase.compile()` first runs the pure,
 synchronous `declare` callback of every plugin in dependency order, then
 compiles every configured schema atomically before plugin setup or
 infrastructure lifecycle work. Setup receives the resulting read-only schema
@@ -57,10 +57,12 @@ const PostSchema = Schema.define({
 	}),
 })
 
-const application = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [PostSchema],
 	plugins: [],
 })
+
+const application = ultimabase.compile()
 ```
 
 Before compilation, `PostSchema.className` is available, but field-dependent
@@ -352,7 +354,7 @@ are expected to write directly.
 
 An option contract may also declare a Runtime compiler backed by one exact
 application-lifetime capability requirement. Static compilation only records
-the final normalized option occurrences, so `application.compileSchemas()` and
+the final normalized option occurrences, so `ultimabase.compile()` and
 Typegen never materialize infrastructure or invoke the compiler. During real
 application initialization, Core materializes capabilities first, invokes each
 used option compiler in plugin declaration and schema order, then starts plugin
@@ -378,7 +380,7 @@ application-local. Reusing one stable schema class succeeds only when its whole
 final logical graph is compatible; a different installed plugin surface fails
 without rebinding or cleaning the previously compiled class.
 
-Framework tooling can call `application.compileSchemas()` to run exactly this
+Framework tooling can call `ultimabase.compile()` to run exactly this
 synchronous static phase without plugin setup or infrastructure. The method is
 idempotent after success and rethrows the original failure after an unsuccessful
 attempt. `@ultimabase/typegen` uses it to emit the application-owned FieldBuilder,
@@ -407,7 +409,7 @@ registry plus an immutable application-local FieldBuilder method snapshot during
 setup. This lets `typegenPlugin()` regenerate before infrastructure connects
 without introducing a Core dependency on the Typegen package.
 
-`FrameworkApplication.typegenGraph` and setup's `typegenGraph` describe the
+`UltimaBase.compile().typegenGraph` and setup's `typegenGraph` describe the
 canonical commands for tooling. Operation entries retain their names, contracts,
 owners and type references, but omit input/result snapshot callbacks and are not
 executable operation tokens. Each surface's `schema` is only `{ className }`,
@@ -480,9 +482,8 @@ the application. Item-specific commands use the schema-mutation contract below.
 
 Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
 owning the active request and resolve its ordinary `.operation(token)` handles.
-Like `getCurrentApplication()`, it selects no process-wide default. It fails with
-`MISSING_EXECUTION_CONTEXT` outside a request or for a low-level framework that
-has no owning facade. The selected facade retains its lifecycle and operation
+It selects no process-wide default and fails with `MISSING_EXECUTION_CONTEXT`
+outside a request. The selected facade retains its lifecycle and operation
 checks. Transports continue to use their narrow request-execution capability.
 
 `prepare()` validates one immutable logical envelope without I/O; `execute()`
@@ -776,12 +777,12 @@ every schema has been registered, then publishes one immutable graph owned by
 the application:
 
 ```ts
-const application = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [UserSchema, PostSchema],
 	plugins: [],
 })
 
-application.schemaTargets.values()
+ultimabase.compile().schemas.values()
 ```
 
 `field.pointer()` declares one object reference while preserving the exact
@@ -1606,16 +1607,16 @@ and does not depend on Access. Advanced framework plugins may use either the
 focused factories above or `protectedPolicy()` when they own a policy-neutral
 capability outside the official Access vocabulary.
 
-## Framework application
+## Application ownership
 
-The regular developer entry point is `new UltimaBase(options)` from
-`@ultimabase/core`. `createApplication(options)` remains the lower-level
-composition boundary used by advanced integrations. It
-validates the schema registry and complete plugin graph, runs declaration-only
-plugin setup, and returns before infrastructure or transports start:
+The sole public application owner is `new UltimaBase(options)` from
+`@ultimabase/core`. `compile()` validates and snapshots deterministic schema and
+plugin declarations without claiming the active-application slot. `initialize()`
+additionally materializes application capabilities and runs setup, while
+`start()` continues through infrastructure and transports:
 
 ```ts
-const application = await createApplication({
+const application = new UltimaBase({
 	schemas: [UserSchema],
 	plugins: [databasePlugin(), serverPlugin()],
 })
@@ -1628,9 +1629,8 @@ Core contribution stores, plugin exports, and lifecycle state. One private
 lifecycle slot permits one initialized application per JavaScript realm;
 it is not a default application, schema registry, or request context. Retain a
 configured definition and call `ultimabase.plugin(database)` for the shortest
-precisely typed setup-export lookup. The lower-level
-`application.getPlugin('fixture.database')` resolves by stable identity for
-dynamic integrations; repeated configurations use its structured
+precisely typed setup-export lookup. `ultimabase.plugin('fixture.database')`
+resolves by stable identity for dynamic integrations; repeated configurations use its structured
 `{ pluginId, instanceId }` overload instead.
 
 Plugins consume only capability requirements declared in their own manifest.
@@ -1638,19 +1638,16 @@ Application code reaches deliberately public application-local behavior through
 typed plugin exports returned by `ultimabase.plugin(...)`; there is no
 general service lookup or capability-enumeration escape hatch.
 
-Runtime also uses `application.ownsSchema(schema)` to verify exact object
+Runtime also uses `ultimabase.ownsSchema(schema)` to verify exact object
 identity. A separately declared schema with the same `className` is not owned by
 the application, which prevents request engines from crossing application
 boundaries accidentally.
 
-`new FrameworkApplication(options)` remains available for advanced composition.
-It validates static schema and graph configuration synchronously but leaves setup
-lazy until `initialize()` or `start()` is called. A stopped application cannot be
-restarted; disposal permanently releases its plugin and capability resources.
-Initialization claims ownership before capability factories and setup, including
-through `createApplication()`. A second application rejects without affecting
-the incumbent. Pure construction and `compileSchemas()` do not claim ownership.
-Low-level engines require their initialized active owner.
+The application kernel and Runtime engine remain private Core implementation
+details. A stopped application cannot be restarted; disposal permanently
+releases its plugin and capability resources. Initialization claims ownership
+before capability factories and setup. A second application rejects without
+affecting the incumbent. Pure construction and `compile()` do not claim ownership.
 
 `stop()` retains setup resources and the slot. `dispose()` closes new work,
 waits for admitted Core execution, completes teardown, and only then permits a

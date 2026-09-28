@@ -15,6 +15,7 @@ import {
 	createRequest,
 	managerSchema,
 } from './fixtures/bulk-terminals.js'
+import { readRequestEngineApplication } from '../../src/runtime/engine/request-engine.js'
 // Grouped reads retain the original item order and transaction failure semantics.
 describe('bulk result projection', () => {
 	it('projects bulk results while retaining complete private materializations', async () => {
@@ -149,7 +150,7 @@ describe('bulk result projection', () => {
 				select: { email: true },
 			}),
 		)
-		await createRequestEngine.application.dispose()
+		await readRequestEngineApplication(createRequestEngine).dispose()
 		const { adapter: updateAdapter, request: updateRequest } =
 			await createRequest(
 				[

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	createApplication,
 	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginOutputDescriptor,
 	type OutputBuilder,
 } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 import { normalizeQueryOrdering } from '../../query/clauses/ordering.js'
 import { normalizeQuerySelection } from '../../query/clauses/selection.js'
 import { Schema, SchemaCompilationError } from './definition.js'

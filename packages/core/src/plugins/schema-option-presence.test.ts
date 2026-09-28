@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { createApplication } from '../application/framework-application.js'
 
 import {
 	Schema,
 	addSchemaField,
 	addSchemaIndex,
-	createApplication,
 	plugin as createPlugin,
 	contributeApplication,
 	contributeDeclarations,

@@ -58,7 +58,7 @@ describe('plugin schema mutation Runtime', () => {
 		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
 		const selection = { title: true, workflowState: true }
 		const result = await runWithRequestEngine(
-			fixture.ultimabase.engine.anonymous({
+			fixture.ultimabase.anonymous({
 				requestId: 'static-mutation',
 				source: requestSources.internal,
 			}),

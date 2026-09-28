@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { createApplication } from '../../foundation.js'
+import { createApplication } from '../../application/framework-application.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'

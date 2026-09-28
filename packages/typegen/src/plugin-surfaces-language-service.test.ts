@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	contributeDeclarations,
 	defineOperation,
@@ -115,7 +115,7 @@ const createGeneratedRegistry = (): string => {
 		],
 	})
 	return generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [plugin],
 			schemas: [],

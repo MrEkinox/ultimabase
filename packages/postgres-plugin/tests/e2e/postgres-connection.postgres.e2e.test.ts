@@ -1,4 +1,4 @@
-import { createApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -28,11 +28,11 @@ afterAll(async () => {
 
 describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 	it('connects and disposes an application-owned URL pool', async () => {
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			schemas: [],
 			plugins: [postgresPlugin({ url: getFixture().connectionUri })],
-		})
-		const connection = application.getPlugin(postgresPluginName).connection
+		}).initialize()
+		const connection = application.plugin(postgresPluginName).connection
 
 		try {
 			expect(connection.state).toBe('idle')
@@ -49,10 +49,10 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 
 	it('verifies but does not dispose an existing developer-owned pool', async () => {
 		const pool = getFixture().pool
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			schemas: [],
 			plugins: [postgresPlugin({ pool })],
-		})
+		}).initialize()
 
 		try {
 			await application.start()
@@ -73,10 +73,10 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 		const secret = 'testcontainers-never-leak'
 		const url = `postgresql://fixture:${secret}@127.0.0.1:1/fixture?connect_timeout=1`
 		const plugin = postgresPlugin({ url })
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			schemas: [],
 			plugins: [plugin],
-		})
+		}).initialize()
 		let failure: unknown
 
 		try {

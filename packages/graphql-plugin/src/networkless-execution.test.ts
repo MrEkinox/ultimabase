@@ -106,10 +106,10 @@ describe('GraphQL networkless execution', () => {
 	it('executes string and parsed documents in one exact request scope', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = application.engine.anonymous({
+		const context = application.anonymous({
 			requestId: 'networkless-context',
 			source: 'test',
 		}).context
@@ -134,13 +134,13 @@ describe('GraphQL networkless execution', () => {
 		const second = createFixture()
 		await second.start()
 
-		const foreign = second.engine.anonymous({
+		const foreign = second.anonymous({
 			requestId: 'foreign-context',
 			source: 'test',
 		}).context
 		await second.dispose()
 		await first.start()
-		const graphql = first.application.getPlugin(
+		const graphql = first.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
 		await expect(
@@ -155,7 +155,7 @@ describe('GraphQL networkless execution', () => {
 
 		const controller = new AbortController()
 		controller.abort()
-		const cancelled = first.engine.anonymous({
+		const cancelled = first.anonymous({
 			requestId: 'cancelled-context',
 			signal: controller.signal,
 			source: 'test',
@@ -163,7 +163,7 @@ describe('GraphQL networkless execution', () => {
 		await expect(
 			graphql.execute({ context: cancelled, document: '{ context }' }),
 		).rejects.toThrow()
-		const stale = first.engine.anonymous({
+		const stale = first.anonymous({
 			requestId: 'stale-context',
 			source: 'test',
 		}).context
@@ -181,10 +181,10 @@ describe('GraphQL networkless execution', () => {
 	it('preserves public failures and masks unknown resolver details', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = application.engine.anonymous({
+		const context = application.anonymous({
 			requestId: 'safe-custom-errors',
 			source: 'test',
 		}).context
@@ -242,11 +242,11 @@ describe('GraphQL networkless execution', () => {
 		async (limits, document, variables, message) => {
 			const application = createFixture(limits)
 			await application.start()
-			const graphql = application.application.getPlugin(
+			const graphql = application.plugin(
 				'@ultimabase/graphql-plugin',
 			) as GraphqlApplication
 			const result = await graphql.execute({
-				context: application.engine.anonymous({
+				context: application.anonymous({
 					requestId: 'networkless-limit',
 					source: 'test',
 				}).context,
@@ -262,10 +262,10 @@ describe('GraphQL networkless execution', () => {
 	it('rejects cyclic variables, unsupported directives, and subscriptions', async () => {
 		const application = createFixture()
 		await application.start()
-		const graphql = application.application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = application.engine.anonymous({
+		const context = application.anonymous({
 			requestId: 'networkless-invalid',
 			source: 'test',
 		}).context

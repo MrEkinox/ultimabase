@@ -138,14 +138,14 @@ const createFixture = async () => {
 	return {
 		adapter,
 		application,
-		graphql: application.application.getPlugin('@ultimabase/graphql-plugin'),
+		graphql: application.plugin('@ultimabase/graphql-plugin'),
 	}
 }
 
 describe('GraphQL virtual networkless execution', () => {
 	it('selects Core virtuals in connections and serializes nested output values', async () => {
 		const fixture = await createFixture()
-		const context = fixture.application.engine
+		const context = fixture.application
 			.anonymous({ requestId: 'graphql-virtual', source: 'test' })
 			.context.withValue(viewer, 'member')
 		const result = await fixture.graphql.execute({
@@ -184,7 +184,7 @@ describe('GraphQL virtual networkless execution', () => {
 
 	it('uses the safe GraphQL boundary for resolver and output failures', async () => {
 		const fixture = await createFixture()
-		const context = fixture.application.engine.anonymous({
+		const context = fixture.application.anonymous({
 			requestId: 'graphql-virtual-errors',
 			source: 'test',
 		}).context
@@ -211,7 +211,7 @@ describe('GraphQL virtual networkless execution', () => {
 		const fixture = await createFixture()
 		const controller = new AbortController()
 		const pending = fixture.graphql.execute({
-			context: fixture.application.engine.anonymous({
+			context: fixture.application.anonymous({
 				requestId: 'graphql-virtual-cancel',
 				signal: controller.signal,
 				source: 'test',
@@ -234,7 +234,7 @@ describe('GraphQL virtual networkless execution', () => {
 
 	it('keeps virtual resolution bound to one application context', async () => {
 		const first = await createFixture()
-		const firstContext = first.application.engine
+		const firstContext = first.application
 			.anonymous({ requestId: 'graphql-virtual-first', source: 'test' })
 			.context.withValue(viewer, 'first')
 		const document = '{ findOneGraphqlVirtualRecord { displayTitle } }'
@@ -244,7 +244,7 @@ describe('GraphQL virtual networkless execution', () => {
 		})
 		await first.application.dispose()
 		const second = await createFixture()
-		const secondContext = second.application.engine
+		const secondContext = second.application
 			.anonymous({ requestId: 'graphql-virtual-second', source: 'test' })
 			.context.withValue(viewer, 'second')
 

@@ -104,10 +104,10 @@ describe('plugin privilege policy', () => {
 			pluginPrivileges: { logger: false },
 		})
 
-		expect(ultimabase.application.pluginPrivilegeReport.allowed).toBe(true)
-		expect(
-			ultimabase.application.pluginPrivilegeReport.plugins[0]?.identity,
-		).toStrictEqual({ pluginId: 'fixture.ultimabase-policy' })
+		expect(ultimabase.pluginPrivilegeReport.allowed).toBe(true)
+		expect(ultimabase.pluginPrivilegeReport.plugins[0]?.identity).toStrictEqual(
+			{ pluginId: 'fixture.ultimabase-policy' },
+		)
 	})
 
 	it('allows requested privileges by default and exposes one detached ordered report', () => {

@@ -8,8 +8,8 @@ const runWithSession = <TResult>(
 	sessionToken: string,
 	handler: () => Promise<TResult>,
 ): Promise<TResult> =>
-	app.application
-		.getPlugin('@ultimabase/password-auth-plugin')
+	app
+		.plugin('@ultimabase/password-auth-plugin')
 		.runWithSession(sessionToken, handler)
 
 /** Runs the plugin command on the class through this exact application. */

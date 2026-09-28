@@ -3,10 +3,6 @@ export {
 	frameworkErrorCodes,
 } from './errors/framework-error.js'
 export { PluginError } from './errors/plugin-error.js'
-export {
-	createApplication,
-	FrameworkApplication,
-} from './application/framework-application.js'
 export type {
 	ConfiguredPlugin,
 	ConfiguredPluginExports,
@@ -14,7 +10,6 @@ export type {
 	ConfiguredPluginIdentity,
 	ConfiguredPluginIdentityExports,
 } from './application/configured-plugins.js'
-export type { FrameworkApplicationOptions } from './application/framework-application.js'
 export type {
 	PluginEnvironmentClaimReport,
 	PluginPrivilegeLogger,

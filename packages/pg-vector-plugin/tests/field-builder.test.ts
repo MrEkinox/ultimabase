@@ -1,7 +1,7 @@
 import { onTestFinished } from 'vitest'
 import { describe, expect, it } from 'vitest'
 
-import { createApplication, Schema, type FieldBuilder } from '@ultimabase/core'
+import { UltimaBase, Schema, type FieldBuilder } from '@ultimabase/core'
 
 import {
 	pgVectorPlugin,
@@ -34,10 +34,10 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		expect(declarations).toBe(1)
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			plugins: [pgVectorPlugin()],
 			schemas: [Document],
-		})
+		}).initialize()
 		onTestFinished(() => application.dispose())
 		const embedding = Document.fields.embedding
 		if (embedding === undefined) {
@@ -53,7 +53,7 @@ describe('pg-vector FieldBuilder method', () => {
 		expect(embedding.kind).toBe(vectorFieldKind)
 		expect(embedding.options).toMatchObject({ dimensions: 3 })
 		expect(Object.isFrozen(embedding)).toBe(true)
-		expect(application.fieldBuilderMethods).toMatchObject([
+		expect(application.compile().fieldBuilderMethods).toMatchObject([
 			{
 				contexts: {
 					stored: {
@@ -81,7 +81,7 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		await expect(
-			createApplication({ plugins: [], schemas: [Missing] }),
+			new UltimaBase({ plugins: [], schemas: [Missing] }).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 			cause: {
@@ -103,10 +103,10 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		await expect(
-			createApplication({
+			new UltimaBase({
 				plugins: [pgVectorPlugin()],
 				schemas: [Invalid],
-			}),
+			}).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 			cause: {
@@ -124,12 +124,12 @@ describe('pg-vector FieldBuilder method', () => {
 				title: field.string(),
 			}),
 		})
-		const application = await createApplication({
+		const application = await new UltimaBase({
 			plugins: [],
 			schemas: [Empty],
-		})
+		}).initialize()
 		onTestFinished(() => application.dispose())
 
-		expect(application.fieldBuilderMethods).toStrictEqual([])
+		expect(application.compile().fieldBuilderMethods).toStrictEqual([])
 	})
 })

@@ -1,6 +1,5 @@
 import {
 	Schema,
-	createApplication,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
@@ -8,6 +7,7 @@ import {
 	normalizeReadOperation,
 	type ReadOperationAst,
 } from '@ultimabase/core'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
@@ -123,7 +123,7 @@ const createFixture = async () => {
 		plugins: [fieldOwner, graphqlPlugin()],
 		schemas: [Author, RecordSchema],
 	})
-	const graphqlApplication = application.getPlugin('@ultimabase/graphql-plugin')
+	const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 	// These tests inject capture functions through rootValue to isolate the
 	// normalizer from the generated execution boundary covered separately.
 	for (const field of Object.values(

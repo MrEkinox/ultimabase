@@ -5,7 +5,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 } from '@ultimabase/core'
 import * as ts from 'typescript'
@@ -68,7 +68,7 @@ const createGeneratedRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [plugin],
 			schemas: [Document],
 		}),

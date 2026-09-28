@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	addSchemaField,
 	defineFieldOption,
@@ -106,13 +106,13 @@ describe('option-presence Typegen', () => {
 			readonly document: (value: string) => string
 			readonly 'fixture.internal-marker': 'factory-owned'
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [plugin],
 			schemas: [Document],
 		})
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.option-presence',
 		})
 

@@ -240,7 +240,7 @@ const createFixture = async (
 	await application.start()
 	if (capture.current === undefined)
 		throw new TypeError('HTTP application missing')
-	const rest = application.application.getPlugin('@ultimabase/rest-plugin')
+	const rest = application.plugin('@ultimabase/rest-plugin')
 	return {
 		adapter,
 		application,
@@ -434,7 +434,7 @@ describe('REST schema mutation exposure', () => {
 
 	it('keeps application context provenance and cancellation ahead of decoding', async () => {
 		const second = await createFixture()
-		const foreign = second.application.engine.anonymous({
+		const foreign = second.application.anonymous({
 			requestId: 'foreign',
 			source: 'rest',
 		})
@@ -459,9 +459,8 @@ describe('REST schema mutation exposure', () => {
 						headers: { 'content-type': 'application/json' },
 						method: 'POST',
 					}),
-					first.application.application.schemas.get(
-						WorkflowDocument.className,
-					) ?? WorkflowDocument,
+					first.application.compile().schemas.get(WorkflowDocument.className) ??
+						WorkflowDocument,
 					first.rest.readLimits,
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -469,7 +468,7 @@ describe('REST schema mutation exposure', () => {
 
 			const cancelled = new AbortController()
 			cancelled.abort()
-			const context = first.application.engine.anonymous({
+			const context = first.application.anonymous({
 				requestId: 'cancelled',
 				signal: cancelled.signal,
 				source: 'rest',
@@ -484,9 +483,8 @@ describe('REST schema mutation exposure', () => {
 						headers: { 'content-type': 'application/json' },
 						method: 'POST',
 					}),
-					first.application.application.schemas.get(
-						WorkflowDocument.className,
-					) ?? WorkflowDocument,
+					first.application.compile().schemas.get(WorkflowDocument.className) ??
+						WorkflowDocument,
 					first.rest.readLimits,
 				),
 			).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })

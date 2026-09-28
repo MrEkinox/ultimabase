@@ -2,10 +2,10 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createApplication,
 	plugin as createPlugin,
 	contributeApplication,
 } from '../../foundation.js'
+import { createApplication } from '../../application/framework-application.js'
 import {
 	Schema,
 	SchemaRegistry,

@@ -1,9 +1,9 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
+import { plugin as createPlugin } from '../../foundation.js'
 import {
-	FrameworkApplication,
 	createApplication,
-	plugin as createPlugin,
-} from '../../foundation.js'
+	FrameworkApplication,
+} from '../../application/framework-application.js'
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'

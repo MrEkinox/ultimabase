@@ -88,9 +88,7 @@ const ultimabase = new UltimaBase({
 
 try {
 	await ultimabase.start()
-	const http = ultimabase.application.getPlugin(
-		'fixture.javascript-http-server',
-	).http
+	const http = ultimabase.plugin('fixture.javascript-http-server').http
 	const response = await dispatchHttpApplicationRequest(http, {
 		originalHeaders: [['X-UltimaBase-Application-Id', 'javascript-app']],
 		request: new Request('http://localhost/javascript'),

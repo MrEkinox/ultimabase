@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { createApplication } from '../application/framework-application.js'
 import {
 	Schema,
-	createApplication,
 	plugin as createPlugin,
 	contributeDeclarations,
 	type SchemaOptions,

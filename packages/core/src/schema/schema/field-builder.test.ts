@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	createApplication,
 	Schema,
 	SchemaRegistry,
 	stringField,
@@ -10,6 +9,7 @@ import {
 	type GenericField,
 	type SchemaFieldBuilderDeclaration,
 } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 
 interface InvalidEmbeddedFieldCase {
 	readonly build: (field: EmbeddedFieldBuilder) => GenericField

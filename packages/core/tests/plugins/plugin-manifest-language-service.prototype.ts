@@ -3,7 +3,7 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 	defineSchemaOption,
-	FrameworkApplication,
+	UltimaBase,
 	provideCapability,
 	requireCapability,
 	withPluginPrivileges,
@@ -68,7 +68,7 @@ const policyPlugin = createPlugin({
 	contributions: [],
 })
 
-const policyApplication = new FrameworkApplication({
+const policyApplication = new UltimaBase({
 	schemas: [],
 	plugins: [policyPlugin],
 	pluginPrivileges: {
@@ -79,7 +79,7 @@ const policyApplication = new FrameworkApplication({
 	},
 })
 
-const policyInstanceApplication = new FrameworkApplication({
+const policyInstanceApplication = new UltimaBase({
 	schemas: [],
 	plugins: [policyPlugin],
 	pluginPrivileges: {

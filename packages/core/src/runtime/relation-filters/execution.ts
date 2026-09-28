@@ -1,10 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import {
-	FrameworkApplication,
-	FrameworkError,
-	type PluginDefinition,
-} from '../../foundation.js'
+import { FrameworkError, type PluginDefinition } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import {
 	getCompiledStaticRelationWhere,
 	normalizeContextualRelationWhereResult,

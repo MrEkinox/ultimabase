@@ -1,5 +1,4 @@
 import type {
-	FrameworkApplication,
 	UltimaBase,
 	PluginDefinition,
 	SchemaDefinition,
@@ -37,20 +36,7 @@ export interface CreatePluginConformanceFixtureOptions<
 	readonly supportPlugins?: TSupport
 }
 
-/** Adds the Core application created from one exact inferred fixture. */
-export type PluginConformanceApplicationFixture<
-	TSubject extends PluginDefinition,
-	TSupport extends readonly PluginDefinition[],
-	TSchemas extends readonly SchemaDefinition[],
-> = PluginConformanceFixture<TSubject, TSupport, TSchemas> &
-	Readonly<{
-		application: FrameworkApplication<
-			TSchemas,
-			readonly [...TSupport, TSubject]
-		>
-	}>
-
-/** Adds the complete Runtime facade created from one exact inferred fixture. */
+/** Adds the complete application created from one exact inferred fixture. */
 export type PluginConformanceUltimaBaseFixture<
 	TSubject extends PluginDefinition,
 	TSupport extends readonly PluginDefinition[],

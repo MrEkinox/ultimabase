@@ -1,4 +1,5 @@
-import { plugin, type FrameworkApplication } from '../../foundation.js'
+import { plugin } from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 

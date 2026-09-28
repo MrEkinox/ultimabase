@@ -106,8 +106,8 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 			// Generated collection creates are itemized singular master operations.
 			expect(audit).toHaveLength(3)
 			expect(
-				ultimabase.application
-					.getPlugin({
+				ultimabase
+					.plugin({
 						instanceId: 'postgres',
 						pluginId: alternativePolicyPluginId,
 					})

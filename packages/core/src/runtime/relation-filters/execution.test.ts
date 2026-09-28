@@ -1,13 +1,13 @@
 import {
 	addSchemaField,
 	RequestContextValue,
-	createApplication,
 	plugin as createPlugin,
 	contributeDeclarations,
 	relationField,
 	type RelationWhereResolver,
 	Schema,
 } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'

@@ -30,7 +30,7 @@ describe('packed Apollo Sandbox plugin', () => {
 		})
 		await enabled.start()
 		const enabledHttp = readHttpApplication(
-			enabled.application.getPlugin('fixture.explorer-http-consumer'),
+			enabled.plugin('fixture.explorer-http-consumer'),
 		)
 		const response = await enabledHttp.fetch(
 			browserRequest('production-enabled', '/apollo-sandbox'),

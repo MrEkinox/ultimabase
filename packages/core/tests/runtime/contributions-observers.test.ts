@@ -1,20 +1,21 @@
 import { applicationFixture } from '../application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
-	createApplication,
 	plugin as createPlugin,
-	type FrameworkApplication,
 	type PluginDefinition,
 	Schema,
 	type SchemaDefinition,
 } from '../../src/index.js'
+import {
+	createApplication,
+	type FrameworkApplication,
+} from '../../src/application/framework-application.js'
 
 import { describe, expect, it } from 'vitest'
 
 import {
 	afterOperation,
 	beforeOperation,
-	FrameworkEngine,
 	requestSources,
 	runWithRequestEngine,
 	RuntimePipeline,
@@ -24,6 +25,7 @@ import {
 	type RuntimeResultEffectStage,
 	provideRuntimeBehavior,
 } from '../../src/runtime/index.js'
+import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
 import { composeRuntimeBehaviors } from '../../src/runtime/behaviors/composition.js'
 import {
 	RecordingDatabaseAdapter,

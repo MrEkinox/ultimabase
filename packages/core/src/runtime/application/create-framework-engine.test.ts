@@ -1,10 +1,12 @@
 import { provideRuntimeBehavior } from '../capabilities.js'
 import {
-	createApplication,
 	plugin as createPlugin,
-	FrameworkApplication,
 	withPluginPrivileges,
 } from '../../foundation.js'
+import {
+	createApplication,
+	FrameworkApplication,
+} from '../../application/framework-application.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 

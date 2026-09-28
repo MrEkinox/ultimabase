@@ -267,7 +267,7 @@ const createFixture = async (
 		application,
 		audits,
 		decode,
-		graphql: application.application.getPlugin('@ultimabase/graphql-plugin'),
+		graphql: application.plugin('@ultimabase/graphql-plugin'),
 		trace,
 	}
 }
@@ -290,7 +290,7 @@ describe('GraphQL schema mutation exposure', () => {
 				'input SealDocumentGraphqlWorkflowDocumentInput {\n  id: ID!\n}',
 			)
 
-			const context = fixture.application.engine.anonymous({
+			const context = fixture.application.anonymous({
 				requestId: 'graphql-schema-mutation',
 				source: 'ultimabase.graphql',
 			}).context
@@ -332,13 +332,13 @@ describe('GraphQL schema mutation exposure', () => {
 			})
 			expect(unitResult.errors).toBeUndefined()
 
-			const master = await fixture.application.engine
+			const master = await fixture.application
 				.anonymous({
 					requestId: 'graphql-schema-mutation-master',
 					source: 'ultimabase.graphql',
 				})
 				.useMasterKey(
-					fixture.application.engine.authorizeMasterKey('master-secret'),
+					fixture.application.authorizeMasterKey('master-secret'),
 					'GraphQL schema mutation fixture',
 				)
 			const masterResult = await fixture.graphql.execute({
@@ -361,7 +361,7 @@ describe('GraphQL schema mutation exposure', () => {
 
 	it('keeps safe errors, cancellation, and context provenance ahead of codecs', async () => {
 		const second = await createFixture()
-		const foreign = second.application.engine.anonymous({
+		const foreign = second.application.anonymous({
 			requestId: 'graphql-schema-mutation-foreign',
 			source: 'ultimabase.graphql',
 		}).context
@@ -375,7 +375,7 @@ describe('GraphQL schema mutation exposure', () => {
 			}) { id }
 		}`
 		try {
-			const context = first.application.engine.anonymous({
+			const context = first.application.anonymous({
 				requestId: 'graphql-schema-mutation-error',
 				source: 'ultimabase.graphql',
 			}).context
@@ -405,7 +405,7 @@ describe('GraphQL schema mutation exposure', () => {
 			expect(first.decode).toHaveBeenCalledTimes(before)
 
 			const controller = new AbortController()
-			const cancelled = first.application.engine.anonymous({
+			const cancelled = first.application.anonymous({
 				requestId: 'graphql-schema-mutation-cancelled',
 				signal: controller.signal,
 				source: 'ultimabase.graphql',

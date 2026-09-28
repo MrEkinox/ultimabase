@@ -9,10 +9,8 @@ import {
 } from '../../query/index.js'
 import { createQueryRelationDepthError } from '../../query/filters/relation.js'
 import { readRelationWhereField } from '../../query/filters/relation-where-declaration.js'
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { getApplicationRuntimeCallbackExecutor } from '../contributions/execution.js'
 import type { RequestContext } from '../context/request-context.js'

@@ -3,7 +3,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -68,7 +68,7 @@ describe('portable plugin field filters', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				plugins: [plugin],
 				schemas: [Portable],
 			}),

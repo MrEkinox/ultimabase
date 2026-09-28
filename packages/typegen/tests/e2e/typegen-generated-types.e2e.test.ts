@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { FrameworkApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -66,7 +66,7 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 			'../../../../examples/todo-backend/.ultimabase',
 			'schema.generated.d.ts',
 		)
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [
 				accessPlugin(),
 				hooksPlugin(),
@@ -84,7 +84,7 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 
 		try {
 			const generatedTodo = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'todo-backend',
 			}).contents
 			const committedTodo = await readFile(outputPath, 'utf8')

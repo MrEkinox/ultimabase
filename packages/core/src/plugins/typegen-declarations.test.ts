@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { FrameworkApplication } from '../application/framework-application.js'
 
 import {
-	FrameworkApplication,
 	defineOperation,
 	defineOperationValue,
 	plugin as createPlugin,

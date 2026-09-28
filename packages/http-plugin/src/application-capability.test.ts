@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	plugin,
 	contributeApplication,
 	provideCapability,
@@ -35,7 +35,7 @@ describe('HTTP application capability compatibility', () => {
 				'^1.0.0',
 				{ phase: 'setup' },
 			)
-			const application = new FrameworkApplication({
+			const application = new UltimaBase({
 				schemas: [],
 				pluginPrivileges: { logger: false },
 				plugins: [

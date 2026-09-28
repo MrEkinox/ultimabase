@@ -2,7 +2,7 @@ import {
 	plugin,
 	contributeDeclarations,
 	definePrivateCollection,
-	FrameworkApplication,
+	UltimaBase,
 	stringField,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -36,14 +36,14 @@ const createPrivatePlugin = (fieldName: 'digest' | 'verifier') => {
 describe('private storage Typegen boundary', () => {
 	it('changes the application fingerprint without emitting private declarations', () => {
 		const digest = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				plugins: [createPrivatePlugin('digest')],
 				schemas: [],
 			}),
 			applicationId: 'private-app',
 		})
 		const verifier = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				plugins: [createPrivatePlugin('verifier')],
 				schemas: [],
 			}),
@@ -59,7 +59,7 @@ describe('private storage Typegen boundary', () => {
 
 	it('retains no private fingerprint for an application with no consumer', () => {
 		const generated = generateApplicationTypes({
-			application: new FrameworkApplication({ plugins: [], schemas: [] }),
+			ultimabase: new UltimaBase({ plugins: [], schemas: [] }),
 			applicationId: 'public-only',
 		})
 

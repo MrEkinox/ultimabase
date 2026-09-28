@@ -63,7 +63,7 @@ await app.dispose()`,
 				exportName: 'app',
 			})
 			const generated = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'main',
 			})
 			const declarationPath = path.join(directory, 'schema.generated.d.ts')

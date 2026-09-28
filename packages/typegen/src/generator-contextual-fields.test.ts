@@ -3,7 +3,7 @@ import {
 	defineFieldOption,
 	plugin,
 	contributeDeclarations,
-	FrameworkApplication,
+	UltimaBase,
 	stringField,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -118,13 +118,13 @@ describe('contextual Typegen declarations', () => {
 				}),
 			],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [firstPlugin, secondPlugin],
 			schemas: [],
 		})
 
 		const generated = generateApplicationTypes({
-			application,
+			ultimabase: application,
 			applicationId: 'fixture.contextual',
 		})
 

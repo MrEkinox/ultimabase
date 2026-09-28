@@ -255,7 +255,7 @@ import { ultimabase } from './ultimabase.js'
 
 try {
 	await ultimabase.start()
-	const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
+	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
 	console.log(graphql.printSchema())
 } finally {
 	await ultimabase.dispose()
@@ -289,8 +289,8 @@ import { ultimabase } from './ultimabase.js'
 
 try {
 	await ultimabase.start()
-	const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
-	const context = ultimabase.engine.anonymous({
+	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
+	const context = ultimabase.anonymous({
 		requestId: randomUUID(),
 		source: 'internal',
 	}).context

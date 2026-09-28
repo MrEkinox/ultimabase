@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import * as v from 'valibot'
 import { expect, it } from 'vitest'
@@ -28,14 +28,14 @@ it('omits opaque validators from declarations and deterministic fingerprints', (
 		}),
 	})
 	const zod = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [validationPlugin()],
 			schemas: [ZodSchema],
 		}),
 		applicationId: 'validator-neutral',
 	})
 	const valibot = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [validationPlugin()],
 			schemas: [ValibotSchema],
 		}),

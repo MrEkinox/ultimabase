@@ -207,8 +207,8 @@ import { Task } from './src/schema.js'
 await ultimabase.start()
 try {
   await Task.createOne({ data: { title: 'Direct GraphQL' } }, { ultimabase })
-  const graphql = ultimabase.application.getPlugin('@ultimabase/graphql-plugin')
-  const context = ultimabase.engine.anonymous({ requestId: 'direct-graphql', source: 'internal' }).context
+  const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
+  const context = ultimabase.anonymous({ requestId: 'direct-graphql', source: 'internal' }).context
   const result = await graphql.execute({ context, document: '{ findManyTask(first: 10) { nodes { title } } }' })
   if (result.data?.findManyTask?.nodes?.[0]?.title !== 'Direct GraphQL') throw new Error('Direct GraphQL query failed')
   console.log('DIRECT_GRAPHQL_PASS')

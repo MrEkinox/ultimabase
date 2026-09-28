@@ -24,10 +24,8 @@ const application = new UltimaBase({
 })
 try {
 	await application.start()
-	const graphql = application.application.getPlugin(
-		'@ultimabase/graphql-plugin',
-	)
-	const context = application.engine.anonymous({
+	const graphql = application.plugin('@ultimabase/graphql-plugin')
+	const context = application.anonymous({
 		requestId: crypto.randomUUID(),
 		source: 'internal',
 	}).context

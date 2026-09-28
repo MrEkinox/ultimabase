@@ -1,11 +1,11 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
+import { FrameworkError } from '../foundation.js'
 import {
-	FrameworkApplication,
-	FrameworkError,
 	createApplication,
-} from '../foundation.js'
+	FrameworkApplication,
+} from '../application/framework-application.js'
 import { QueryBuilder } from '../query/index.js'
 import { Schema } from '../schema/index.js'
 import { plugin as createPlugin } from '../plugins/plugin.js'

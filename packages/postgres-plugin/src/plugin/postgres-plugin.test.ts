@@ -1,5 +1,4 @@
-import { createApplication } from '@ultimabase/core'
-import { createFrameworkEngine } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { Schema } from '@ultimabase/core'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -54,17 +53,17 @@ afterEach(() => {
 describe('postgresPlugin', () => {
 	it('defers connection verification to lifecycle connect', async () => {
 		const pool = new FixturePool()
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [postgresPlugin({ pool })],
 		})
-		const connection = application.getPlugin(
+		await application.initialize()
+		const connection = application.plugin(
 			'@ultimabase/postgres-plugin',
 		).connection
 
 		expect(application.state).toBe('ready')
 		expect(connection.state).toBe('idle')
-		expect(() => createFrameworkEngine(application)).not.toThrow()
 		expect(pool.connectCalls).toBe(0)
 
 		await application.start()
@@ -85,7 +84,7 @@ describe('postgresPlugin', () => {
 	it('disposes a URL-owned pool without opening it during setup', async () => {
 		const end = vi.spyOn(Pool.prototype, 'end').mockResolvedValue()
 		const connect = vi.spyOn(Pool.prototype, 'connect')
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [
 				postgresPlugin({
@@ -93,6 +92,7 @@ describe('postgresPlugin', () => {
 				}),
 			],
 		})
+		await application.initialize()
 
 		expect(connect).not.toHaveBeenCalled()
 
@@ -107,11 +107,12 @@ describe('postgresPlugin', () => {
 			url: `postgresql://fixture:${secret}@127.0.0.1:5432/fixture`,
 		})
 		vi.spyOn(Pool.prototype, 'end').mockResolvedValue()
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [plugin],
 		})
-		const pluginExports = application.getPlugin('@ultimabase/postgres-plugin')
+		await application.initialize()
+		const pluginExports = application.plugin('@ultimabase/postgres-plugin')
 
 		expect(JSON.stringify(plugin)).not.toContain(secret)
 		expect(JSON.stringify(pluginExports)).not.toContain(secret)
@@ -128,10 +129,11 @@ describe('postgresPlugin', () => {
 
 		mutableOptions.pool = replacementPool
 
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [plugin],
 		})
+		await application.initialize()
 
 		await application.start()
 		await application.dispose()
@@ -142,7 +144,7 @@ describe('postgresPlugin', () => {
 
 	it('skips structural queries when schemaPolicy is ignore', async () => {
 		const pool = new FixturePool()
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [
 				Schema.define({
 					className: 'IgnoredArticle',
@@ -151,6 +153,7 @@ describe('postgresPlugin', () => {
 			],
 			plugins: [postgresPlugin({ pool, schemaPolicy: 'ignore' })],
 		})
+		await application.initialize()
 
 		await application.start()
 		await application.dispose()
@@ -168,10 +171,11 @@ describe('postgresPlugin', () => {
 
 		mutableOptions.schemaPolicy = 'override'
 
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [],
 			plugins: [plugin],
 		})
+		await application.initialize()
 
 		await application.start()
 		await application.dispose()
@@ -185,10 +189,11 @@ describe('postgresPlugin', () => {
 			fields: (field) => ({ title: field.string() }),
 			postgres: { table: 'content.Articles' },
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			schemas: [schema],
 			plugins: [postgresPlugin({ pool: new FixturePool() })],
 		})
+		await application.initialize()
 
 		expect(application.state).toBe('ready')
 

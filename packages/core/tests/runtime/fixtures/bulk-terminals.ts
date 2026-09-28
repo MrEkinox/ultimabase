@@ -1,13 +1,14 @@
 import { expect } from 'vitest'
 import { applicationFixture } from '../../application-fixture.js'
-import { FrameworkApplication, Schema } from '../../../src/index.js'
+import { Schema } from '../../../src/index.js'
+import { FrameworkApplication } from '../../../src/application/framework-application.js'
 
 import {
-	FrameworkEngine,
 	requestSources,
 	type DatabaseMutationOperationAst,
 	type RuntimeEnforcementStages,
 } from '../../../src/runtime/index.js'
+import { FrameworkEngine } from '../../../src/runtime/engine/framework-engine.js'
 import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,

@@ -1,18 +1,35 @@
 import type { OperationOptions } from '../../query/operations/options.js'
-import { FrameworkError } from '../../errors/framework-error.js'
-import { getCurrentApplication } from './active-framework-context.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
+import type { SchemaDefinition } from '../../schema/index.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import { getCurrentFrameworkContext } from './active-framework-context.js'
 
 type ApplicationFacade = NonNullable<OperationOptions['ultimabase']>
+type ApplicationKernel = FrameworkApplication<
+	readonly SchemaDefinition[],
+	readonly PluginDefinition[]
+>
 
 // A weak association selects the owning facade without a process-wide default.
-const applicationFacades = new WeakMap<
-	ApplicationFacade['application'],
-	ApplicationFacade
->()
+const applicationFacades = new WeakMap<ApplicationKernel, ApplicationFacade>()
 
 /** @internal Associates the canonical facade with its own application. */
-export const registerApplicationFacade = (facade: ApplicationFacade): void => {
-	applicationFacades.set(facade.application, facade)
+export const registerApplicationFacade = (
+	facade: ApplicationFacade,
+	application: ApplicationKernel,
+): void => {
+	applicationFacades.set(application, facade)
+}
+
+/** @internal Resolves the sole public owner for a private application kernel. */
+export const readApplicationFacade = (
+	application: ApplicationKernel,
+): ApplicationFacade => {
+	const facade = applicationFacades.get(application)
+	if (facade === undefined) {
+		throw new TypeError('Application kernel has no owning UltimaBase facade')
+	}
+	return facade
 }
 
 /**
@@ -22,13 +39,5 @@ export const registerApplicationFacade = (facade: ApplicationFacade): void => {
  * @example `getCurrentUltimaBase().operation(operation).execute(input)`
  */
 export const getCurrentUltimaBase = (): ApplicationFacade => {
-	const facade = applicationFacades.get(getCurrentApplication())
-	if (facade === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
-			'The active application has no owning UltimaBase facade.',
-			{ publicMessage: 'No application execution facade is available.' },
-		)
-	}
-	return facade
+	return getCurrentFrameworkContext().ultimabase
 }

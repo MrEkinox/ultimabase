@@ -2,6 +2,7 @@ import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
 import type { TransactionLifetime } from '../transactions/transaction-lifetime.js'
@@ -41,16 +42,13 @@ export const createRequestAdapterAccess = (
 	if (request === undefined) {
 		throw new TypeError('Request adapter access context is unavailable')
 	}
-	const capabilities = readApplicationKernelState(
-		engine.application,
-	).pluginCapabilities(owner)
+	const application = readRequestEngineApplication(engine)
+	const capabilities =
+		readApplicationKernelState(application).pluginCapabilities(owner)
 
 	return createAdapterAccess({
 		assertPrivilege: (privilege) => {
-			readApplicationKernelState(engine.application).assertPrivilege(
-				owner,
-				privilege,
-			)
+			readApplicationKernelState(application).assertPrivilege(owner, privilege)
 		},
 		capabilities,
 		isOpen: (): boolean => {

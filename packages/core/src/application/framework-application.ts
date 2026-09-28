@@ -352,7 +352,7 @@ export class FrameworkApplication<
 	}
 
 	/** Starts infrastructure through the deterministic plugin lifecycle. */
-	start(): Promise<void> {
+	start(beforeStart?: () => void): Promise<void> {
 		if (this.#startFailed && this.#startPromise !== undefined)
 			return this.#startPromise
 		if (
@@ -361,7 +361,7 @@ export class FrameworkApplication<
 		) {
 			return Promise.reject(new TypeError('Cannot start a closed application'))
 		}
-		this.#startPromise ??= this.#performStart()
+		this.#startPromise ??= this.#performStart(beforeStart)
 
 		return this.#startPromise
 	}
@@ -397,6 +397,11 @@ export class FrameworkApplication<
 	): ConfiguredPluginIdentityExports<TPlugins, TIdentity>
 	getPlugin(identity: PluginIdentity | ConfiguredPluginId<TPlugins>): unknown {
 		// The public return type restores the tuple relationship erased by the lifecycle map.
+		return this.getPluginDynamic(identity)
+	}
+
+	/** @internal Resolves a dynamic identity after the public tuple overloads erase it. */
+	getPluginDynamic(identity: PluginIdentity | string): unknown {
 		return this.#lifecycle.getPluginExports(identity)
 	}
 
@@ -431,12 +436,27 @@ export class FrameworkApplication<
 		}
 	}
 
-	async #performStart(): Promise<void> {
+	async #performStart(beforeStart: (() => void) | undefined): Promise<void> {
 		try {
 			await this.initialize()
+			beforeStart?.()
 			await this.#lifecycle.start()
 		} catch (error: unknown) {
 			this.#startFailed = true
+			if (this.#lifecycle.state !== 'disposed') {
+				try {
+					await this.#lifecycle.dispose()
+				} catch (cleanupError: unknown) {
+					this.#closing = 'disposed'
+					this.#releaseIfClean()
+					throw new AggregateError(
+						[error, cleanupError],
+						'Application startup failed and cleanup reported an additional error.',
+						{ cause: cleanupError },
+					)
+				}
+			}
+			this.#closing = 'disposed'
 			this.#releaseIfClean()
 			throw error
 		}

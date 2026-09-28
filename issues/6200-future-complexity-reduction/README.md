@@ -20,7 +20,7 @@ harder to widen accidentally.
 ## Execution order
 
 - [x] [6201: Establish one validation contract](6201-canonical-validation-contract.md)
-- [ ] [6202: Converge public application ownership](6202-single-public-application-ownership.md)
+- [x] [6202: Converge public application ownership](6202-single-public-application-ownership.md)
 - [ ] [6203: Specialize plugin-owned schemas without type bridges](6203-plugin-owned-schema-specialization.md)
 - [ ] [6204: Protect bounded owner-private storage](6204-bounded-owner-private-storage.md)
 - [ ] [6205: Converge PostgreSQL mutation planning](6205-postgres-mutation-plan-convergence.md)

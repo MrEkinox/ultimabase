@@ -6,10 +6,8 @@ import type {
 } from '../../application/application-handles.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { PluginError } from '../../errors/plugin-error.js'
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type {
 	CompiledCommandGraph,

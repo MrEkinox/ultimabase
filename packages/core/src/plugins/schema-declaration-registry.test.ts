@@ -2,12 +2,14 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import {
+	createApplication,
 	FrameworkApplication,
+} from '../application/framework-application.js'
+import {
 	Schema,
 	addSchemaField,
 	addSchemaIndex,
 	compileValidationPlans,
-	createApplication,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaOption,

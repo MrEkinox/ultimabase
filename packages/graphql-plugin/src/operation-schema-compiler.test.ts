@@ -219,13 +219,11 @@ const createStartedFixture = async () => {
 describe('GraphQL plugin operations', () => {
 	it('compiles only selected operations and executes through Core codecs', async () => {
 		const ultimabase = await createStartedFixture()
-		const application = ultimabase.application.getPlugin(
-			'@ultimabase/graphql-plugin',
-		)
+		const application = ultimabase.plugin('@ultimabase/graphql-plugin')
 		const schemaText = printSchema(application.schema)
 		expect(schemaText).toContain('echo(input: EchoInput!): EchoPayload!')
 		expect(schemaText).not.toContain('private')
-		const context = ultimabase.engine.anonymous({
+		const context = ultimabase.anonymous({
 			requestId: 'graphql-operation-1',
 			source: 'ultimabase.graphql',
 		}).context
@@ -257,19 +255,17 @@ describe('GraphQL plugin operations', () => {
 
 	it('preserves safe plugin failures, cancellation, and application lifetime', async () => {
 		const foreign = await createStartedFixture()
-		const foreignContext = foreign.engine.anonymous({
+		const foreignContext = foreign.anonymous({
 			requestId: 'graphql-operation-foreign',
 			source: 'ultimabase.graphql',
 		}).context
 		await foreign.dispose()
 		const ultimabase = await createStartedFixture()
-		const application = ultimabase.application.getPlugin(
-			'@ultimabase/graphql-plugin',
-		)
+		const application = ultimabase.plugin('@ultimabase/graphql-plugin')
 		const schema = application.schema
 		const source =
 			'mutation Echo($input: EchoInput!) { echo(input: $input) { message } }'
-		const rejectedContext = ultimabase.engine.anonymous({
+		const rejectedContext = ultimabase.anonymous({
 			requestId: 'graphql-operation-rejected',
 			source: 'ultimabase.graphql',
 		}).context
@@ -289,7 +285,7 @@ describe('GraphQL plugin operations', () => {
 		expect(JSON.stringify(rejected)).not.toContain('Private echo')
 
 		const controller = new AbortController()
-		const cancelledContext = ultimabase.engine.anonymous({
+		const cancelledContext = ultimabase.anonymous({
 			requestId: 'graphql-operation-cancelled',
 			signal: controller.signal,
 			source: 'ultimabase.graphql',

@@ -48,8 +48,7 @@ const ultimabase = new UltimaBase({
 })
 
 await ultimabase.start()
-const connection =
-	ultimabase.application.getPlugin(postgresPluginName).connection
+const connection = ultimabase.plugin(postgresPluginName).connection
 console.log(connection.state) // 'connected'
 await ultimabase.dispose()
 console.log(connection.state) // 'closed'
@@ -80,12 +79,8 @@ not re-exported by this package.
 
 The plugin materializes Core's canonical `databaseAdapterCapability` from the
 configured query client and keeps Drizzle private. This means an application using
-`postgresPlugin` is assembled automatically by the `UltimaBase` facade. The
-lower-level engine remains available to trusted server code:
-
-```ts
-const framework = ultimabase.engine
-```
+`postgresPlugin` is assembled automatically by the `UltimaBase` facade. Trusted
+server code opens explicit request scopes directly from that facade.
 
 Transports use Core's narrow application request execution capability; they
 never receive this engine or the PostgreSQL adapter.
@@ -244,7 +239,7 @@ always returned or destroyed before the transaction completes:
 ```ts
 import { requestSources } from '@ultimabase/core'
 
-const request = ultimabase.engine.anonymous({
+const request = ultimabase.anonymous({
 	requestId: 'publish-post',
 	source: requestSources.internal,
 })
@@ -421,7 +416,7 @@ column metadata, while developer functions and framework timestamps remain
 Runtime-owned and are never executed by the compiler.
 
 ```ts
-import { createApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { Schema } from '@ultimabase/core'
 
@@ -444,13 +439,13 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-const application = await createApplication({
+const application = await new UltimaBase({
 	schemas: [EventSchema],
 	plugins: [postgresPlugin({ url: databaseUrl })],
-})
+}).initialize()
 ```
 
-This lower-level Core example deliberately runs declaration-only setup without
+This Core example deliberately runs setup without
 opening the URL connection. Regular applications use `new UltimaBase(...)` and
 let `start()` compile, prepare, and connect through one lifecycle; developers
 never write Drizzle or SQL themselves.
@@ -507,7 +502,7 @@ const ArticleSchema = Schema.define({
 ```
 
 PostgreSQL compiles these declarations into ordinary or unique Drizzle index
-metadata during `createApplication()`. Physical names are deterministic,
+metadata during `UltimaBase.compile()`. Physical names are deterministic,
 collision-resistant, and limited to PostgreSQL's 63-byte identifier boundary.
 The field tuple of every unique index becomes the exact upsert conflict target;
 developers never import or name a Drizzle index.

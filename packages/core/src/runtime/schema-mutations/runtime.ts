@@ -3,10 +3,8 @@ import { immutableRecord } from '@ultimabase/shared'
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { PluginError } from '../../errors/plugin-error.js'
-import type {
-	FrameworkApplication,
-	PluginDefinition,
-} from '../../foundation.js'
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { CommandBindings } from '../commands/bindings.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'

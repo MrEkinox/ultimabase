@@ -92,7 +92,7 @@ import { AppUser } from './src/schema.js'
 
 await ultimabase.start()
 try {
-  const auth = ultimabase.application.getPlugin('@ultimabase/password-auth-plugin')
+  const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
   const signUp = (username) => ultimabase.operation(passwordAuthOperations.signUp).execute({ username, password: 'correct horse battery staple' })
   const alice = await signUp('profile-alice')
   const bob = await signUp('profile-bob')
@@ -152,7 +152,7 @@ try {
   const input = { where: { id: { eq: task.id } }, select: { title: true } }
   const anonymous = await Task.findOne(input, { ultimabase })
   if (anonymous !== null) throw new Error('Anonymous read unexpectedly succeeded')
-  const auth = ultimabase.application.getPlugin('@ultimabase/password-auth-plugin')
+  const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
   const member = await auth.runWithSession(signed.session.token, () => Task.findOne(input, { ultimabase }))
   if (member?.title !== 'Role-owned task') throw new Error('Role-backed ACL did not grant read')
   console.log('ROLE_ACL_PASS')

@@ -1,4 +1,4 @@
-import { createApplication, plugin, provideCapability } from '@ultimabase/core'
+import { UltimaBase, plugin, provideCapability } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { hooksPlugin } from '../plugin.js'
@@ -22,11 +22,12 @@ describe('hookDiagnosticsObserverCapability', () => {
 			id: 'fixture.hooks-diagnostics',
 			version: '0.0.0',
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [provider, hooksPlugin()],
 			schemas: [],
 		})
+		await application.initialize()
 
 		expect(materializations).toBe(1)
 		await application.dispose()

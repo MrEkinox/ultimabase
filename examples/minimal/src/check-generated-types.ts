@@ -101,7 +101,7 @@ const ultimabase = createMinimalApplication({
 
 try {
 	const generated = generateApplicationTypes({
-		application: ultimabase.application,
+		ultimabase,
 		applicationId: 'minimal',
 	}).contents
 	const committed = await readFile(outputPath, 'utf8')

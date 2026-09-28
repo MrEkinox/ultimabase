@@ -1,16 +1,18 @@
 import { applicationFixture } from '../application-fixture.js'
 import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
-import { FrameworkApplication, FrameworkError } from '../../src/index.js'
+import { FrameworkError } from '../../src/index.js'
+import { FrameworkApplication } from '../../src/application/framework-application.js'
 import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	FrameworkEngine,
 	getCurrentEngine,
 	getCurrentRequest,
 	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
+import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
+import { readRequestEngineFramework } from '../../src/runtime/engine/request-engine.js'
 import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,
@@ -84,7 +86,9 @@ describe('RequestEngine transactions', () => {
 				async (transaction) => {
 					expect(transaction).not.toBe(request)
 					expect(transaction.context).toBe(request.context)
-					expect(transaction.framework).toBe(request.framework)
+					expect(readRequestEngineFramework(transaction)).toBe(
+						readRequestEngineFramework(request),
+					)
 					expect(transaction.context.capabilities).toBe(
 						request.context.capabilities,
 					)

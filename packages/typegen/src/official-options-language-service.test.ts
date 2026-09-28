@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	contributeDeclarations,
 	defineOperationValue,
@@ -80,7 +80,7 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		version: '1.0.0',
 	})
 	const generated = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [
 				accessPlugin(),
@@ -97,7 +97,7 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		fields: (field) => ({ title: field.string() }),
 	})
 	const withoutOfficialPlugins = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [],
 			schemas: [PlainDocument],

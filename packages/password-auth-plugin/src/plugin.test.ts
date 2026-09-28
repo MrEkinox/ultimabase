@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema, stringField } from '@ultimabase/core'
+import { Schema, stringField, UltimaBase } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -8,11 +8,11 @@ import { PasswordUser, PasswordUserSchema } from './user-schema.js'
 describe('passwordAuthPlugin identity declaration', () => {
 	it('contributes the default User and private credential fingerprint', () => {
 		const plugin = passwordAuthPlugin()
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [plugin],
 			schemas: [],
-		}).compileSchemas()
+		}).compile()
 
 		expect(application.schemas.get('User')).toBe(PasswordUser)
 		expect(PasswordUser.fields.username).toMatchObject({
@@ -49,11 +49,11 @@ describe('passwordAuthPlugin identity declaration', () => {
 			fields: (field) => ({ displayName: field.string({ required: true }) }),
 			indexes: [{ fields: ['displayName', 'username'] }],
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [passwordAuthPlugin({ user: AppUser })],
 			schemas: [AppUser],
-		}).compileSchemas()
+		}).compile()
 
 		expect(application.schemas.get('User')).toBe(AppUser)
 		expect(AppUser.fields).toHaveProperty('displayName')
@@ -74,13 +74,13 @@ describe('passwordAuthPlugin identity declaration', () => {
 			className: 'User',
 			fields: (field) => ({ displayName: field.string() }),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [passwordAuthPlugin({ user: AppUser })],
 			schemas: [],
 		})
 
-		expect(() => application.compileSchemas()).toThrow(
+		expect(() => application.compile()).toThrow(
 			'Claimed schema must be registered in application schemas: User',
 		)
 	})
@@ -117,7 +117,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 
 	it('keeps credentials absent from Typegen and from zero-consumer apps', () => {
 		const withAuth = generateApplicationTypes({
-			application: new FrameworkApplication({
+			ultimabase: new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [passwordAuthPlugin()],
 				schemas: [],
@@ -125,7 +125,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 			applicationId: 'password-auth',
 		})
 		const withoutAuth = generateApplicationTypes({
-			application: new FrameworkApplication({ plugins: [], schemas: [] }),
+			ultimabase: new UltimaBase({ plugins: [], schemas: [] }),
 			applicationId: 'without-password-auth',
 		})
 
@@ -158,7 +158,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		)
 		expect(
 			() =>
-				new FrameworkApplication({
+				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					plugins: [passwordAuthPlugin(), passwordAuthPlugin()],
 					schemas: [],
@@ -176,7 +176,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		])
 		expect(
 			() =>
-				new FrameworkApplication({
+				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					plugins: [cookiePlugin],
 					schemas: [],

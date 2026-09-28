@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { FrameworkApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import {
 	PasswordUserSchema,
 	passwordAuthPlugin,
@@ -18,7 +18,7 @@ export const assertUserAuthLanguageService = (
 		fields: (field) => ({ displayName: field.string({ required: true }) }),
 	})
 	const generated = generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			schemas: [User],
 			plugins: [passwordAuthPlugin({ user: User })],
 			pluginPrivileges: { logger: false },

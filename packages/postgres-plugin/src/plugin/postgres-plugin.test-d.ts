@@ -1,4 +1,4 @@
-import { createApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { Pool } from 'pg'
 import { expectTypeOf, test } from 'vitest'
 
@@ -15,11 +15,12 @@ test('accepts URL and pg-compatible existing-pool configuration', async () => {
 		schemaPolicy: 'fail',
 	})
 	const poolPlugin = postgresPlugin({ pool: new Pool() })
-	const application = await createApplication({
+	const application = new UltimaBase({
 		schemas: [],
 		plugins: [urlPlugin],
 	})
-	const pluginExports = application.getPlugin('@ultimabase/postgres-plugin')
+	await application.initialize()
+	const pluginExports = application.plugin('@ultimabase/postgres-plugin')
 	const connection = pluginExports.connection
 
 	expectTypeOf(urlPlugin).toEqualTypeOf<PostgresPlugin>()

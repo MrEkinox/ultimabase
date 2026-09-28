@@ -1,9 +1,6 @@
 import { applicationFixture } from '../application-fixture.js'
-import {
-	FrameworkApplication,
-	increment,
-	type ExecutableOperationAst,
-} from '../../src/index.js'
+import { increment, type ExecutableOperationAst } from '../../src/index.js'
+import { FrameworkApplication } from '../../src/application/framework-application.js'
 import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 

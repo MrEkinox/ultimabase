@@ -4,15 +4,16 @@ import {
 	readFieldTypegenState,
 	type CompiledSchemaRegistry,
 	type CompiledTypegenGraph,
+	type CompiledApplication,
 	type FieldDeclarationContext,
 	type FieldTypegenState,
-	type FrameworkApplication,
 	type GenericField,
 	type JsonValue,
 	type OwnedFieldBuilderMethod,
 	type OwnedPluginFieldType,
 	type PluginDefinition,
 	type SchemaDefinition,
+	type UltimaBase,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -524,13 +525,13 @@ export const createCompiledTypegenSnapshot = (
 
 /** Compiles one application into an inert, deterministic generation snapshot. */
 export const createTypegenSnapshot = (
-	application: FrameworkApplication<
+	ultimabase: UltimaBase<
 		readonly SchemaDefinition[],
 		readonly PluginDefinition[]
 	>,
 	applicationId: string,
 ): TypegenApplicationSnapshot => {
-	application.compileSchemas()
+	const application: CompiledApplication = ultimabase.compile()
 
 	return createCompiledTypegenSnapshot(
 		{

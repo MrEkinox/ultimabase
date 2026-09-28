@@ -1,6 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
-	FrameworkApplication,
+	UltimaBase,
 	plugin,
 	provideCapability,
 	type PluginDefinition,
@@ -82,13 +82,13 @@ describe('honoServerPlugin', () => {
 			app,
 			browserPolicyOwner: 'ultimabase',
 		})
-		const first = new FrameworkApplication({
+		const first = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [applicationProvider('fixture.first-http', 'first'), server],
 			schemas: [],
 		})
 		onTestFinished(() => first.dispose())
-		const second = new FrameworkApplication({
+		const second = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [applicationProvider('fixture.second-http', 'second'), server],
 			schemas: [],
@@ -135,7 +135,7 @@ describe('honoServerPlugin', () => {
 
 	it('fails validation when no HTTP application capability exists', () => {
 		expect(() => {
-			const application = new FrameworkApplication({
+			const application = new UltimaBase({
 				pluginPrivileges: { logger: false },
 				plugins: [
 					honoServerPlugin({

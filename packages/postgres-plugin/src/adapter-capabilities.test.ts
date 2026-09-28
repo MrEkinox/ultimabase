@@ -113,7 +113,7 @@ describe('PostgreSQL adapter capabilities', () => {
 
 		await ultimabase.start()
 		expect(
-			ultimabase.application.getPlugin('fixture.postgres-raw-setup-consumer'),
+			ultimabase.plugin('fixture.postgres-raw-setup-consumer'),
 		).toStrictEqual({
 			clientsDuringSetup: 0,
 			dialect: 'postgres',
@@ -195,7 +195,7 @@ describe('PostgreSQL adapter capabilities', () => {
 		expect(() =>
 			escaped?.scope === 'transaction' ? escaped.query('SELECT 2') : undefined,
 		).toThrow(expect.objectContaining({ code: 'TRANSACTION_ERROR' }))
-		const metadata = ultimabase.application.getPlugin(
+		const metadata = ultimabase.plugin(
 			'@ultimabase/postgres-plugin',
 		).adapterMetadata
 		expect(metadata.physicalSchema[0]).toMatchObject({

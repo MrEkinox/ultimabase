@@ -2,12 +2,12 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createApplication,
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginFieldFamily,
 	type PluginFieldFamilyDefinition,
 } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 
 const validDefinition = () => ({
 	fieldKind: 'fixture.secret' as const,

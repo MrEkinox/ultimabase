@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import {
-	createApplication,
 	definePluginFieldFamily,
 	plugin as createPlugin,
 	contributeApplication,
@@ -16,6 +15,7 @@ import {
 	type PluginFieldFamilyDefinition,
 	type PluginSchemaContributionContext,
 } from '../../index.js'
+import { createApplication } from '../../application/framework-application.js'
 
 interface FixtureFieldOptions extends FieldOptions<string> {
 	readonly marker?: string

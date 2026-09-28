@@ -190,7 +190,7 @@ const createFixture = async (
 	})
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
-	const rest = ultimabase.application.getPlugin('@ultimabase/rest-plugin')
+	const rest = ultimabase.plugin('@ultimabase/rest-plugin')
 	return { rest, ultimabase }
 }
 
@@ -358,7 +358,7 @@ describe('REST plugin operation exposure', () => {
 			try {
 				if (distinct) {
 					await ultimabase.start()
-					const rest = ultimabase.application.getPlugin({
+					const rest = ultimabase.plugin({
 						pluginId: '@ultimabase/rest-plugin',
 						instanceId: 'public',
 					})
@@ -438,13 +438,13 @@ describe('REST plugin operation exposure', () => {
 			requestId: 'foreign',
 			source: 'rest',
 		})
-		second.ultimabase.engine.withContext(foreign)
-		const foreignMasterSource = second.ultimabase.engine.anonymous({
+		second.ultimabase.withContext(foreign)
+		const foreignMasterSource = second.ultimabase.anonymous({
 			requestId: 'foreign-master',
 			source: 'rest',
 		})
 		const foreignMaster = await foreignMasterSource.useMasterKey(
-			second.ultimabase.engine.authorizeMasterKey('second-secret'),
+			second.ultimabase.authorizeMasterKey('second-secret'),
 			'Foreign REST operation test',
 		)
 		await second.ultimabase.dispose()
@@ -456,12 +456,12 @@ describe('REST plugin operation exposure', () => {
 			if (transport === undefined || route === undefined) {
 				throw new TypeError('expected REST operation transport')
 			}
-			const anonymous = first.ultimabase.engine.anonymous({
+			const anonymous = first.ultimabase.anonymous({
 				requestId: 'master-source',
 				source: 'rest',
 			})
 			const master = await anonymous.useMasterKey(
-				first.ultimabase.engine.authorizeMasterKey('first-secret'),
+				first.ultimabase.authorizeMasterKey('first-secret'),
 				'REST operation test',
 			)
 			await expect(

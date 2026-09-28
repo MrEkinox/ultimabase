@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -28,7 +28,7 @@ const createGeneratedRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		application: new FrameworkApplication({
+		ultimabase: new UltimaBase({
 			plugins: [],
 			schemas: [Source, Target],
 		}),

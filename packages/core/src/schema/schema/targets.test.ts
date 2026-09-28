@@ -1,11 +1,11 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 
+import { pointerField } from '../../index.js'
 import {
 	createApplication,
 	FrameworkApplication,
-	pointerField,
-} from '../../index.js'
+} from '../../application/framework-application.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import { objectField } from '../fields/builtins/object.js'

@@ -4,8 +4,6 @@ import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { vi } from 'vitest'
 
 export interface MinimalApplication {
-	readonly application: object
-	readonly engine: object
 	dispose(): Promise<void>
 	start(): Promise<void>
 }
@@ -173,14 +171,14 @@ export const executeMinimalGraphql = async (
 	requestId: string,
 	variables?: Readonly<Record<string, unknown>>,
 ): Promise<unknown> => {
-	const anonymous = await invoke(application.engine, 'anonymous', [
+	const anonymous = await invoke(application, 'anonymous', [
 		{ requestId, source: 'internal' },
 	])
 	const context: unknown = Reflect.get(
 		readObject(anonymous, 'anonymous context'),
 		'context',
 	)
-	const graphql = await invoke(application.application, 'getPlugin', [
+	const graphql = await invoke(application, 'plugin', [
 		'@ultimabase/graphql-plugin',
 	])
 	return invoke(readObject(graphql, 'GraphQL application'), 'execute', [

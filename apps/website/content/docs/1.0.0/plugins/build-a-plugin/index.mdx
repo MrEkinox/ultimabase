@@ -122,7 +122,7 @@ Build your package so its root export resolves, then test the same public
 import an application will use. This plugin needs no database:
 
 ```ts title="tests/workflow-plugin.test.ts"
-import { createApplication } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import {
 	createPluginConformanceFixture,
 	definePluginConformanceSuite,
@@ -133,13 +133,13 @@ import { expect, it } from 'vitest'
 import { workflowPlugin } from '@your-scope/workflow-plugin'
 
 it('exposes setup only through its installed application', async () => {
-	const application = await createApplication({
+	const application = await new UltimaBase({
 		plugins: [workflowPlugin()],
 		schemas: [],
-	})
+	}).initialize()
 
 	try {
-		expect(application.getPlugin('community.workflow')).toStrictEqual({
+		expect(application.plugin('community.workflow')).toStrictEqual({
 			ready: true,
 		})
 	} finally {
@@ -163,7 +163,7 @@ it('conforms to the public plugin kernel', async () => {
 })
 ```
 
-`createApplication()` initializes the graph, materializes application
+`initialize()` compiles the graph, materializes application
 capabilities, and runs setup. This particular plugin opens no resources. Only
 one application may initialize per JavaScript realm; these tests run
 sequentially and dispose their applications even after an assertion failure.

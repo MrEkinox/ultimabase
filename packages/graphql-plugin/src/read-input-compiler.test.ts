@@ -1,8 +1,9 @@
-import { Schema, createApplication } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { isEnumType, isInputObjectType, isObjectType } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
 import { graphqlPlugin, type GraphqlSchemaExposureOption } from './index.js'
+import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaOptions {
@@ -21,7 +22,7 @@ const readSchema = async (
 	})
 	return {
 		application,
-		schema: application.getPlugin('@ultimabase/graphql-plugin').schema,
+		schema: application.plugin('@ultimabase/graphql-plugin').schema,
 	}
 }
 

@@ -9,6 +9,7 @@ import {
 	type DatabaseAdapter,
 } from '../runtime/database/contracts.js'
 import { getActiveFrameworkContext } from '../runtime/context/active-framework-storage.js'
+import { readRequestEngineApplication } from '../runtime/engine/request-engine.js'
 import type { RequestEngine } from '../runtime/engine/framework-engine.js'
 import type { RuntimePipeline } from '../runtime/pipeline/runtime-pipeline.js'
 import type { TransactionLifetime } from '../runtime/transactions/transaction-lifetime.js'
@@ -84,9 +85,9 @@ const executeOnRequest = async (
 	context.transactionLifetime?.assertActive()
 	const database =
 		context.transactionLifetime === undefined
-			? readApplicationKernelState(engine.application).capability(
-					databaseAdapterCapability,
-				)
+			? readApplicationKernelState(
+					readRequestEngineApplication(engine),
+				).capability(databaseAdapterCapability)
 			: readPipelineTransactionAdapter(context.pipeline)
 	const executor = assertPrivateExecutor(
 		database === undefined
@@ -160,9 +161,10 @@ const executeOwned = (
 			{ internalDetails: { kind: 'private-storage-request-missing' } },
 		)
 	}
-	const activeOwner = readApplicationPluginOwner(active.application)
+	const activeApplication = readRequestEngineApplication(active.requestEngine)
+	const activeOwner = readApplicationPluginOwner(activeApplication)
 	if (
-		active.application !== application ||
+		activeApplication !== application ||
 		activeOwner?.pluginId !== owner.pluginId ||
 		activeOwner.instanceId !== owner.instanceId
 	) {
@@ -177,7 +179,7 @@ const executeOwned = (
 		'storage:private',
 	)
 	const descriptor = readApplicationKernelState(
-		active.application,
+		activeApplication,
 	).privateStorage.resolve(collection, owner)
 	return executeOnRequest(
 		active.requestEngine,
@@ -197,7 +199,9 @@ export const privateStore = <const TCollection extends PrivateCollection>(
 	const owner =
 		active === undefined
 			? undefined
-			: readApplicationPluginOwner(active.application)
+			: readApplicationPluginOwner(
+					readRequestEngineApplication(active.requestEngine),
+				)
 	if (active === undefined || owner === undefined) {
 		throw new FrameworkError(
 			'PLUGIN_PRIVILEGE_DENIED',
@@ -205,10 +209,10 @@ export const privateStore = <const TCollection extends PrivateCollection>(
 			{ internalDetails: { kind: 'private-storage-handle-owner-missing' } },
 		)
 	}
-	const state = readApplicationKernelState(active.application)
+	const application = readRequestEngineApplication(active.requestEngine)
+	const state = readApplicationKernelState(application)
 	state.assertPrivilege(owner, 'storage:private')
 	state.privateStorage.resolve(collection, owner)
-	const application = active.application
 	return immutableRecord({
 		findUnique: (options) =>
 			executeOwned(application, owner, collection, 'find-unique', options),

@@ -1,5 +1,6 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { FrameworkApplication, FrameworkError } from '../../foundation.js'
+import { FrameworkError } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -8,8 +9,6 @@ import { FrameworkEngine } from '../engine/framework-engine.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
-	getCurrentApplication,
-	getCurrentApplicationEngine,
 	getCurrentEngine,
 	getCurrentFrameworkContext,
 	getCurrentRequest,
@@ -70,8 +69,6 @@ describe('active framework context', () => {
 		for (const readCurrentValue of [
 			getCurrentFrameworkContext,
 			getCurrentEngine,
-			getCurrentApplicationEngine,
-			getCurrentApplication,
 			getCurrentRequest,
 			getCurrentUltimaBase,
 		]) {
@@ -89,12 +86,8 @@ describe('active framework context', () => {
 		const result = runWithRequestEngine(requestEngine, () => {
 			const context = getCurrentFrameworkContext()
 
-			expect(context.application).toBe(requestEngine.application)
-			expect(context.frameworkEngine).toBe(framework)
 			expect(context.requestEngine).toBe(requestEngine)
 			expect(context.request).toBe(requestEngine.context)
-			expect(getCurrentApplication()).toBe(requestEngine.application)
-			expect(getCurrentApplicationEngine()).toBe(framework)
 			expect(getCurrentEngine()).toBe(requestEngine)
 			expect(getCurrentRequest()).toBe(requestEngine.context)
 			expect(Object.isFrozen(context)).toBe(true)
@@ -175,7 +168,7 @@ describe('active framework context', () => {
 
 		expect(firstObserved).toBe(firstEngine)
 		expect(secondObserved).toBe(secondEngine)
-		expect(firstObserved.application).toBe(secondObserved.application)
+		expect(firstObserved).not.toBe(secondObserved)
 		expectMissingContext(getCurrentEngine)
 	})
 

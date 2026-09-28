@@ -11,7 +11,6 @@ import type {
 	PluginConformanceExpected,
 } from './contracts.js'
 import type {
-	PluginConformanceApplicationFixture,
 	PluginConformanceFixture,
 	PluginConformanceUltimaBaseFixture,
 } from './fixture.js'
@@ -24,19 +23,13 @@ export interface PluginConformanceInstanceFactory {
 	readonly create: (instanceId: string) => PluginDefinition
 }
 
-/** Gives optional checks fresh public applications and Runtime facades. */
+/** Gives optional checks fresh public applications. */
 export interface PluginConformanceContext<
 	TSubject extends PluginDefinition,
 	TSupport extends readonly PluginDefinition[],
 	TSchemas extends readonly SchemaDefinition[],
 > {
-	/** Creates an uninitialized Core application tracked for automatic disposal. */
-	readonly createApplication: () => PluginConformanceApplicationFixture<
-		TSubject,
-		TSupport,
-		TSchemas
-	>
-	/** Creates an unstarted Runtime facade tracked for automatic disposal. */
+	/** Creates an unstarted application tracked for automatic disposal. */
 	readonly createUltimaBase: () => PluginConformanceUltimaBaseFixture<
 		TSubject,
 		TSupport,

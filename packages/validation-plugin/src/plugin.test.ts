@@ -1,4 +1,4 @@
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -25,7 +25,7 @@ describe('validationPlugin', () => {
 				title: field.string({ validation: passThrough<string>() }),
 			}),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			plugins: [],
 			schemas: [Document],
 		})
@@ -44,7 +44,7 @@ describe('validationPlugin', () => {
 			className: 'InstalledValidationPluginDocument',
 			fields: (field) => ({ title: field.string({ validation: validator }) }),
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [validationPlugin()],
 			schemas: [Document],

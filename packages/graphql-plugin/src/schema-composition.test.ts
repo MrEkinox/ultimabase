@@ -146,7 +146,7 @@ describe('GraphQL schema composition', () => {
 			schemas: [Post],
 		})
 		await application.start()
-		const graphql = application.application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
 
@@ -159,7 +159,7 @@ describe('GraphQL schema composition', () => {
 		).toEqual(expect.arrayContaining(['id', 'summary', 'title']))
 		if (originalHealth !== undefined) originalHealth.resolve = () => 'mutated'
 		const result = await graphql.execute({
-			context: application.engine.anonymous({
+			context: application.anonymous({
 				requestId: 'composition-clone',
 				source: 'test',
 			}).context,
@@ -195,14 +195,14 @@ describe('GraphQL schema composition', () => {
 			schemas: [Hidden],
 		})
 		await application.start()
-		const graphql = application.application.getPlugin(
+		const graphql = application.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
 		expect(
 			Object.keys(graphql.schema.getQueryType()?.getFields() ?? {}),
 		).toEqual(['application', 'first', 'second'])
 		const result = await graphql.execute({
-			context: application.engine.anonymous({
+			context: application.anonymous({
 				requestId: 'composition-order',
 				source: 'test',
 			}).context,

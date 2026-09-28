@@ -1,5 +1,5 @@
 import {
-	FrameworkApplication,
+	UltimaBase,
 	Schema,
 	contributeDeclarations,
 	contributeOperation,
@@ -83,13 +83,13 @@ describe('packed @ultimabase/plugin-kit', () => {
 				'schema:declare': 'Adds packed schema metadata.',
 			},
 		})
-		const application = new FrameworkApplication({
+		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			plugins: [definition],
 			schemas: [Target],
 		})
 
-		application.compileSchemas()
+		application.compile()
 		await application.initialize()
 
 		expect(normalized).toStrictEqual({ enabled: true })

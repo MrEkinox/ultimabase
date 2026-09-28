@@ -258,6 +258,7 @@ Accepted records:
 - [ADR-0273: Plugin fields use one canonical family declaration](0273-canonical-plugin-field-families.md)
 - [ADR-0274: Core owns canonical cooperative cancellation failures](0274-canonical-operation-cancellation.md)
 - [ADR-0275: Local and hosted validation share one contract](0275-canonical-repository-validation.md)
+- [ADR-0276: UltimaBase is the sole public application owner](0276-single-public-application-owner.md)
 
 Superseded records:
 

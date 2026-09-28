@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
-import { immutableArray, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
+import type {
+	AnonymousRequestAccess,
+	RequestAccess,
+} from '../../access/index.js'
 import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
@@ -13,11 +21,20 @@ import {
 import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
-	FrameworkApplication,
-	type FrameworkApplicationOptions,
+	type ConfiguredPluginExports,
+	type ConfiguredPluginId,
+	type ConfiguredPluginIdentity,
+	type ConfiguredPluginIdentityExports,
 	type PluginDefinition,
 	type PluginExports,
 } from '../../foundation.js'
+import {
+	FrameworkApplication,
+	type FrameworkApplicationOptions,
+} from '../../application/framework-application.js'
+import type { PluginIdentity } from '../../plugins/manifest.js'
+import type { CompiledTypegenGraph } from '../../plugins/typegen-declarations.js'
+import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import {
 	readMutationCommand,
 	type CompiledOperationCommand,
@@ -28,7 +45,11 @@ import {
 	registerQueryExecutionOwner,
 } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
-import type { SchemaDefinition } from '../../schema/index.js'
+import type {
+	OwnedFieldBuilderMethod,
+	OwnedPluginFieldType,
+} from '../../schema/schema/field-builder-methods.js'
+import type { SchemaDefinition, SchemaRegistry } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
 
@@ -37,7 +58,16 @@ import type { CompiledSchemaMutationCommand } from '../../plugins/application-su
 import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
 import { requestSources } from '../context/request-context.js'
-import type { FrameworkEngine } from '../engine/framework-engine.js'
+import type {
+	RequestContext,
+	RequestContextOptions,
+} from '../context/request-context.js'
+import type {
+	FrameworkEngine,
+	RequestEngine,
+} from '../engine/framework-engine.js'
+import { databaseAdapterCapability } from '../database/contracts.js'
+import type { MasterKeyGrant } from '../master/master-authority.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import type {
@@ -50,6 +80,10 @@ import {
 	normalizeCreateFrameworkEngineOptions,
 	type CreateFrameworkEngineOptions,
 } from './create-framework-engine.js'
+import {
+	bindUltimaBaseEngine,
+	bindUltimaBaseKernel,
+} from './ultima-base-kernel.js'
 
 const ultimaBaseOptionKeys = new Set([
 	'access',
@@ -98,6 +132,18 @@ export interface UltimaBaseOptions<
 	 * @example `validation: { timezone: "Europe/Paris" }`
 	 */
 	readonly validation?: NonNullable<CreateFrameworkEngineOptions['validation']>
+}
+
+/** Immutable callback-free application facts available without starting resources. */
+export interface CompiledApplication<
+	TSchemas extends readonly SchemaDefinition[] = readonly SchemaDefinition[],
+> {
+	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
+	readonly pluginPrivilegeReport: PluginPrivilegeReport
+	readonly privateStorageFingerprint?: string
+	readonly schemas: SchemaRegistry<TSchemas>
+	readonly typegenGraph: CompiledTypegenGraph
 }
 
 const assertUltimaBaseOptions: (
@@ -153,11 +199,10 @@ export class UltimaBase<
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
 > {
-	/** Exposes the Core composition boundary for advanced plugin and service access. */
-	readonly application: FrameworkApplication<TSchemas, TPlugins>
+	readonly #application: FrameworkApplication<TSchemas, TPlugins>
 	readonly #engineOptions: Readonly<CreateFrameworkEngineOptions>
 	#frameworkEngine: FrameworkEngine<TSchemas, TPlugins> | undefined
-	#startPromise: Promise<void> | undefined
+	#compiledApplication: CompiledApplication<TSchemas> | undefined
 	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
 
@@ -166,19 +211,20 @@ export class UltimaBase<
 
 		assertUltimaBaseOptions(untrustedOptions)
 
-		this.application = new FrameworkApplication({
+		this.#application = new FrameworkApplication({
 			...(options.pluginPrivileges === undefined
 				? {}
 				: { pluginPrivileges: options.pluginPrivileges }),
 			schemas: options.schemas,
 			plugins: options.plugins,
 		})
+		bindUltimaBaseKernel(this, this.#application)
 		this.#engineOptions = readEngineOptions(options)
 		registerQueryExecutionOwner(this, {
-			application: this.application,
+			application: this.#application,
 			bindResult: (value) => this.#bindQueryResult(value),
 			executeSchemaMutation: (schema, name, input, options) => {
-				const surface = this.application.getSchemaSurface(schema.className)
+				const surface = this.#application.getSchemaSurface(schema.className)
 				if (surface?.schema !== schema || !surface.schemaMutations.has(name)) {
 					throw new TypeError(
 						`Schema mutation ${schema.className}.${name} is not installed in this application`,
@@ -197,7 +243,7 @@ export class UltimaBase<
 				]) as Promise<unknown>
 			},
 			createRootExecutor: () => {
-				const frameworkEngine = this.#frameworkEngine ?? this.engine
+				const frameworkEngine = this.#frameworkEngine ?? this.#engine
 				const requestEngine = frameworkEngine.anonymous({
 					requestId: randomUUID(),
 					source: requestSources.internal,
@@ -208,27 +254,82 @@ export class UltimaBase<
 			},
 		})
 		// Public facade identity is stable while private lifecycle state may advance.
-		registerApplicationFacade(this)
+		registerApplicationFacade(this, this.#application)
 		Object.freeze(this)
 	}
 
 	/** Reports the exact lifecycle state owned by the underlying application. */
 	get state(): FrameworkApplication<TSchemas, TPlugins>['state'] {
-		return this.application.state
+		return this.#application.state
 	}
 
-	/** Exposes the started Runtime engine for transports and advanced request binding. */
-	get engine(): FrameworkEngine<TSchemas, TPlugins> {
+	/** Reads the detached privilege decision produced before any plugin effect. */
+	get pluginPrivilegeReport(): PluginPrivilegeReport {
+		return this.#application.pluginPrivilegeReport
+	}
+
+	get #engine(): FrameworkEngine<TSchemas, TPlugins> {
 		if (
 			this.#frameworkEngine === undefined ||
-			this.application.state !== 'started'
+			this.#application.state !== 'started'
 		) {
-			throw new TypeError(
-				'UltimaBase must be started before accessing its engine',
-			)
+			throw new TypeError('UltimaBase must be started before request execution')
 		}
 
 		return this.#frameworkEngine
+	}
+
+	/** Compiles and returns the immutable application facts used by deterministic tooling. */
+	compile(): CompiledApplication<TSchemas> {
+		this.#application.compileSchemas()
+		this.#compiledApplication ??= immutableRecord({
+			fieldBuilderMethods: this.#application.fieldBuilderMethods,
+			pluginFieldTypes: this.#application.pluginFieldTypes,
+			pluginPrivilegeReport: this.#application.pluginPrivilegeReport,
+			...(this.#application.privateStorageFingerprint === undefined
+				? {}
+				: {
+						privateStorageFingerprint:
+							this.#application.privateStorageFingerprint,
+					}),
+			schemas: this.#application.schemas,
+			typegenGraph: this.#application.typegenGraph,
+		})
+		return this.#compiledApplication
+	}
+
+	/** Materializes capabilities and runs plugin setup without starting infrastructure. */
+	async initialize(): Promise<this> {
+		await this.#application.initialize()
+		return this
+	}
+
+	/** Checks exact schema identity without exposing the private application kernel. */
+	ownsSchema(schema: unknown): schema is TSchemas[number] {
+		return this.#application.ownsSchema(schema)
+	}
+
+	/** Binds one validated request context to this started application. */
+	withContext<TAccess extends RequestAccess, const TSource extends string>(
+		context: RequestContext<TAccess, TSource>,
+	): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TSource>> {
+		return this.#engine.withContext(context)
+	}
+
+	/** Creates one anonymous request boundary for direct server-side composition. */
+	anonymous<const TSource extends string>(
+		options: RequestContextOptions<TSource>,
+	): RequestEngine<
+		TSchemas,
+		TPlugins,
+		RequestContext<AnonymousRequestAccess, TSource>
+	> {
+		return this.#engine.anonymous(options)
+	}
+
+	/** Verifies one configured raw Master credential without retaining it. */
+	authorizeMasterKey(rawKey: string): MasterKeyGrant {
+		return this.#engine.authorizeMasterKey(rawKey)
 	}
 
 	/** Resolves one inert application operation handle by stable token. */
@@ -244,7 +345,7 @@ export class UltimaBase<
 	): ApplicationOperationHandle {
 		const name =
 			typeof tokenOrName === 'string' ? tokenOrName : tokenOrName.name
-		const compiled = this.application.getOperation(name)
+		const compiled = this.#application.getOperation(name)
 		if (compiled === undefined) {
 			throw new TypeError(`Unknown application operation: ${name}`)
 		}
@@ -293,7 +394,7 @@ export class UltimaBase<
 	schema(nameOrClass: SchemaDefinition | string): ApplicationSchemaHandle {
 		const className =
 			typeof nameOrClass === 'string' ? nameOrClass : nameOrClass.className
-		const surface = this.application.getSchemaSurface(className)
+		const surface = this.#application.getSchemaSurface(className)
 		if (surface === undefined) {
 			throw new TypeError(`Unknown application schema: ${className}`)
 		}
@@ -323,79 +424,73 @@ export class UltimaBase<
 	exposeOperations<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportExposureOptions<TTransport>,
 	): ApplicationOperationTransport<TTransport> {
-		return this.engine.exposeOperations(options)
+		return this.#engine.exposeOperations(options)
 	}
 
 	/** Retrieves setup exports through the exact configured plugin definition. */
 	plugin<const TPlugin extends PluginDefinition>(
 		plugin: TPlugin,
-	): PluginExports<TPlugin> {
-		return readApplicationKernelState(this.application).pluginExports(
-			plugin,
-		) as PluginExports<TPlugin>
+	): PluginExports<TPlugin>
+	plugin<const TPluginId extends ConfiguredPluginId<TPlugins>>(
+		pluginId: TPluginId,
+	): ConfiguredPluginExports<TPlugins, TPluginId>
+	plugin<const TIdentity extends ConfiguredPluginIdentity<TPlugins>>(
+		identity: TIdentity,
+	): ConfiguredPluginIdentityExports<TPlugins, TIdentity>
+	plugin(
+		pluginOrIdentity: PluginDefinition | PluginIdentity | string,
+	): unknown {
+		return typeof pluginOrIdentity === 'object' &&
+			'manifest' in pluginOrIdentity
+			? readApplicationKernelState(this.#application).pluginExports(
+					pluginOrIdentity,
+				)
+			: this.#application.getPluginDynamic(pluginOrIdentity)
 	}
 
 	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */
 	start(): Promise<void> {
 		if (
-			this.application.state === 'stopping' ||
-			this.application.state === 'stopped' ||
-			this.application.state === 'disposing' ||
-			this.application.state === 'disposed'
+			this.#application.state === 'stopping' ||
+			this.#application.state === 'stopped' ||
+			this.#application.state === 'disposing' ||
+			this.#application.state === 'disposed'
 		) {
 			throw new TypeError(
-				`Cannot start UltimaBase while application is ${this.application.state}`,
+				`Cannot start UltimaBase while application is ${this.#application.state}`,
 			)
 		}
 
-		this.#startPromise ??= this.#performStart()
-
-		return this.#startPromise
+		return this.#application.start(() => {
+			if (
+				readApplicationKernelState(this.#application).capabilityContributions(
+					databaseAdapterCapability,
+				).length === 0
+			) {
+				return
+			}
+			const frameworkEngine = createFrameworkEngine(
+				this.#application,
+				this.#engineOptions,
+			)
+			bindUltimaBaseEngine(this, frameworkEngine)
+			this.#frameworkEngine = frameworkEngine
+		})
 	}
 
 	/** Stops active infrastructure without releasing setup-owned resources. */
 	stop(): Promise<void> {
-		return this.application.stop()
+		return this.#application.stop()
 	}
 
 	/** Permanently releases every plugin and service owned by this instance. */
 	dispose(): Promise<void> {
-		return this.application.dispose()
+		return this.#application.dispose()
 	}
 
 	/** Integrates the facade with explicit resource-management scopes. */
 	async [Symbol.asyncDispose](): Promise<void> {
 		await this.dispose()
-	}
-
-	async #performStart(): Promise<void> {
-		try {
-			await this.application.initialize()
-			const frameworkEngine = createFrameworkEngine(
-				this.application,
-				this.#engineOptions,
-			)
-
-			await this.application.start()
-			if (this.application.state !== 'started') {
-				throw new TypeError('Application closed during startup')
-			}
-			this.#frameworkEngine = frameworkEngine
-		} catch (error: unknown) {
-			// Core has already reported startup and cleanup failures for a terminal lifecycle.
-			if (this.application.state === 'disposed') throw error
-			try {
-				await this.application.dispose()
-			} catch (cleanupError: unknown) {
-				throw new AggregateError(
-					[error, cleanupError],
-					'UltimaBase startup failed and cleanup reported an additional error.',
-					{ cause: cleanupError },
-				)
-			}
-
-			throw error
-		}
 	}
 
 	async #executePluginOperation(
@@ -404,9 +499,9 @@ export class UltimaBase<
 	): Promise<unknown> {
 		const active = getActiveFrameworkContext()
 		const requestEngine =
-			active?.application === this.application
+			active?.ultimabase === this
 				? active.requestEngine
-				: this.engine.anonymous({
+				: this.#engine.anonymous({
 						requestId: randomUUID(),
 						source: requestSources.internal,
 					})
@@ -421,9 +516,9 @@ export class UltimaBase<
 	): Promise<unknown> {
 		const active = getActiveFrameworkContext()
 		const requestEngine =
-			active?.application === this.application
+			active?.ultimabase === this
 				? active.requestEngine
-				: this.engine.anonymous({
+				: this.#engine.anonymous({
 						requestId: randomUUID(),
 						source: requestSources.internal,
 					})

@@ -330,7 +330,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 				200, 200, 200, 200,
 			])
 
-			const auth = application.ultimabase.application.getPlugin(
+			const auth = application.ultimabase.plugin(
 				'@ultimabase/password-auth-plugin',
 			)
 			await auth.runWithSession(signedUp.session.token, () =>

@@ -37,7 +37,7 @@ describe('current UltimaBase facade', () => {
 				expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 			)
 			const scope = (app: typeof first) =>
-				app.engine.anonymous({ requestId: 'facade', source: 'internal' })
+				app.anonymous({ requestId: 'facade', source: 'internal' })
 			const observed = await Promise.all(
 				[first, first].map((app) =>
 					runWithRequestEngine(scope(app), async () => {

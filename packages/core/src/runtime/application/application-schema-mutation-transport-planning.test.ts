@@ -2,7 +2,6 @@ import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
-	createApplication,
 	contributeDeclarations,
 	contributeSchemaMutationBinding,
 	defineCapability,
@@ -15,6 +14,7 @@ import {
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
 } from '../../foundation.js'
+import { createApplication } from '../../application/framework-application.js'
 import { addSchemaField } from '../../plugins/schema-field-patch-operations.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'

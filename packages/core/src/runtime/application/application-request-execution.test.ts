@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { FrameworkApplication } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it, vi } from 'vitest'
 

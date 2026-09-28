@@ -1,7 +1,5 @@
-import {
-	FrameworkApplication,
-	type PluginDefinition,
-} from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
 import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'

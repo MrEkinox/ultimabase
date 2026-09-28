@@ -75,7 +75,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				Post.findOne({ where: { id: { eq: created.id } } }, { ultimabase }),
 			).resolves.toMatchObject({ title: 'TypeScript create' })
 
-			const request = ultimabase.engine.anonymous({
+			const request = ultimabase.anonymous({
 				requestId: 'typescript-no-engine-transaction',
 				source: requestSources.internal,
 			})
@@ -116,19 +116,19 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 
 			expect(middlewareTrace).toContain('TypeScriptNoEnginePost')
 			expect(
-				ultimabase.application.pluginPrivilegeReport.plugins.map(
+				ultimabase.pluginPrivilegeReport.plugins.map(
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/hooks-plugin')
 			expect(
-				ultimabase.application.pluginPrivilegeReport.plugins.map(
+				ultimabase.pluginPrivilegeReport.plugins.map(
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/access-plugin')
 			expect(
-				ultimabase.application.typegenGraph.options.map(
-					({ name, scope }) => `${scope}:${name}`,
-				),
+				ultimabase
+					.compile()
+					.typegenGraph.options.map(({ name, scope }) => `${scope}:${name}`),
 			).toStrictEqual(['schema:postgres', 'field:postgres'])
 		} finally {
 			await ultimabase.dispose()
@@ -213,7 +213,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			).toBe(1)
 			expect(diagnostics).toHaveLength(1)
 
-			const request = ultimabase.engine.anonymous({
+			const request = ultimabase.anonymous({
 				requestId: 'alternative-behavior-rollback',
 				source: requestSources.internal,
 			})
@@ -263,9 +263,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				new Set(diagnostics.map(({ transactionId }) => transactionId)).size,
 			).toBe(3)
 			expect(
-				ultimabase.application
-					.getPlugin(alternativeBehaviorPluginId)
-					.diagnostics(),
+				ultimabase.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
@@ -279,7 +277,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				]),
 			)
 			expect(
-				ultimabase.application.pluginPrivilegeReport.plugins.map(
+				ultimabase.pluginPrivilegeReport.plugins.map(
 					({ identity }) => identity.pluginId,
 				),
 			).not.toContain('@ultimabase/hooks-plugin')

@@ -6,13 +6,14 @@ import { FrameworkError } from '../../errors/framework-error.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { immutableRecord } from '@ultimabase/shared'
-import { getCurrentApplication } from './active-framework-context.js'
+import { getCurrentEngine } from './active-framework-context.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 
 const attributedRoleResolvers = new WeakMap<object, RequestRoleResolver>()
 
 /** Resolves the exact role capability for the active application execution. */
 export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {
-	const application = getCurrentApplication()
+	const application = readRequestEngineApplication(getCurrentEngine())
 	const existing = attributedRoleResolvers.get(application)
 	if (existing !== undefined) return existing
 

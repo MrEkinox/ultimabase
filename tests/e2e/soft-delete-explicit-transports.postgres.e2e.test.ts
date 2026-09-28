@@ -255,7 +255,7 @@ describe('official explicit soft-delete transports', () => {
 
 	it('publishes only the explicit REST route and GraphQL field', () => {
 		const { ultimabase: app } = current()
-		const rest = app.application.getPlugin('@ultimabase/rest-plugin')
+		const rest = app.plugin('@ultimabase/rest-plugin')
 		const paths = rest.routeGraph.routes
 			.filter(({ kind }) => kind === 'rest-schema-mutation-route')
 			.map(({ path }) => path)
@@ -265,7 +265,7 @@ describe('official explicit soft-delete transports', () => {
 		expect(paths.some((path) => path.endsWith('/restore'))).toBe(false)
 		expect(paths.some((path) => path.endsWith('/purge'))).toBe(false)
 
-		const graphql = app.application.getPlugin('@ultimabase/graphql-plugin')
+		const graphql = app.plugin('@ultimabase/graphql-plugin')
 		const sdl = graphql.printSchema()
 		expect(sdl).toContain(
 			'softDeleteSoftDeleteTransportExplicit(input: SoftDeleteSoftDeleteTransportExplicitInput!): SoftDeleteTransportExplicit',
@@ -303,8 +303,8 @@ describe('official explicit soft-delete transports', () => {
 			{ data: { title: 'GraphQL explicit' } },
 			{ ultimabase: app },
 		)
-		const graphql = app.application.getPlugin('@ultimabase/graphql-plugin')
-		const context = app.engine.anonymous({
+		const graphql = app.plugin('@ultimabase/graphql-plugin')
+		const context = app.anonymous({
 			requestId: 'soft-delete-networkless',
 			source: 'ultimabase.graphql',
 		}).context

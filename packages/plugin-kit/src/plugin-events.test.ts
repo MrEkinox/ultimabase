@@ -1,4 +1,4 @@
-import { createApplication, plugin, type JsonObject } from '@ultimabase/core'
+import { UltimaBase, plugin, type JsonObject } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -57,10 +57,11 @@ describe('plugin event authoring helpers', () => {
 			permissions: { 'runtime:observe': 'Observes committed fixture events.' },
 			contributions: [provider],
 		})
-		const application = await createApplication({
+		const application = new UltimaBase({
 			plugins: [authorized],
 			schemas: [],
 		})
+		await application.initialize()
 
 		await application.dispose()
 	})

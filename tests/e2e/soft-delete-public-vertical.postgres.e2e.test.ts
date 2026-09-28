@@ -156,9 +156,7 @@ afterAll(async () => {
 describe('documented official soft-delete public vertical', () => {
 	it('publishes only the explicit mutation and keeps administration private', async () => {
 		const rest = readObject(
-			await invoke(requireApplication().application, 'getPlugin', [
-				'@ultimabase/rest-plugin',
-			]),
+			await invoke(requireApplication(), 'plugin', ['@ultimabase/rest-plugin']),
 			'REST application',
 		)
 		const routeGraph = readObject(
@@ -179,7 +177,7 @@ describe('documented official soft-delete public vertical', () => {
 		])
 
 		const graphql = readObject(
-			await invoke(requireApplication().application, 'getPlugin', [
+			await invoke(requireApplication(), 'plugin', [
 				'@ultimabase/graphql-plugin',
 			]),
 			'GraphQL application',

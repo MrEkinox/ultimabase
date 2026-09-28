@@ -4,6 +4,7 @@ import type { PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 
 import { RequestEngine } from '../engine/framework-engine.js'
+import { readRequestEngineApplication } from '../engine/request-engine.js'
 import type { RequestContext } from './request-context.js'
 import {
 	getActiveFrameworkContext,
@@ -33,16 +34,6 @@ export const getCurrentFrameworkContext = (): ActiveFrameworkContext => {
 export const getCurrentEngine = (): ActiveFrameworkContext['requestEngine'] =>
 	getCurrentFrameworkContext().requestEngine
 
-/** Returns the application-wide engine owning the current request engine. */
-export const getCurrentApplicationEngine =
-	(): ActiveFrameworkContext['frameworkEngine'] =>
-		getCurrentFrameworkContext().frameworkEngine
-
-/** Returns the application owning the current asynchronous request scope. */
-export const getCurrentApplication =
-	(): ActiveFrameworkContext['application'] =>
-		getCurrentFrameworkContext().application
-
 /** Returns the immutable request identity carried by the current engine. */
 export const getCurrentRequest = (): ActiveFrameworkContext['request'] =>
 	getCurrentFrameworkContext().request
@@ -68,7 +59,7 @@ export const runWithRequestEngine = <
 		throw new TypeError('Active context callback must be a function')
 	}
 
-	return runApplicationWork(requestEngine.application, () =>
+	return runApplicationWork(readRequestEngineApplication(requestEngine), () =>
 		runWithRequestEngineScope(requestEngine, callback),
 	)
 }

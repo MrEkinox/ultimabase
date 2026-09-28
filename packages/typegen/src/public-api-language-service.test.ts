@@ -12,17 +12,17 @@ const pluginHoverMarker = '/* typegen-plugin-hover */'
 const sourceWithMarkers = `
 import { typegenPlugin, generateApplicationTypes } from './index.js'
 import type { GenerateApplicationTypesOptions } from './index.js'
-import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
+import type { PluginDefinition, SchemaDefinition, UltimaBase } from '@ultimabase/core'
 
-declare const application: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
+declare const ultimabase: UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>
 
 // @ts-expect-error -- The intentionally incomplete object drives option completion.
 const completionOptions: GenerateApplicationTypesOptions = {
   ${optionsMarker}
-  application,
+  ultimabase,
 }
 const generated = ${hoverMarker}generateApplicationTypes({
-  application,
+  ultimabase,
   applicationId: 'main',
 })
 const plugin = ${pluginHoverMarker}typegenPlugin({

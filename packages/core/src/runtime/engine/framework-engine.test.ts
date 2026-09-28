@@ -1,5 +1,6 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { FrameworkApplication, FrameworkError } from '../../foundation.js'
+import { FrameworkError } from '../../foundation.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import {
 	RequestContextValue,
 	type MasterRequestAccess,
@@ -17,6 +18,10 @@ import {
 	requestSources,
 	type RequestContextOptions,
 } from '../context/request-context.js'
+import {
+	readRequestEngineApplication,
+	readRequestEngineFramework,
+} from './request-engine.js'
 import type {
 	DatabaseAdapter,
 	DatabaseMutationOperationAst,
@@ -186,8 +191,8 @@ describe('FrameworkEngine', () => {
 		const scoped = framework.withContext(scopedContext)
 
 		expect(anonymous).toBeInstanceOf(RequestEngine)
-		expect(anonymous.application).toBe(framework.application)
-		expect(anonymous.framework).toBe(framework)
+		expect(readRequestEngineApplication(anonymous)).toBe(framework.application)
+		expect(readRequestEngineFramework(anonymous)).toBe(framework)
 		expect(anonymous.context.access).toStrictEqual({ mode: 'anonymous' })
 		expect(scoped.context.access).toStrictEqual({ mode: 'anonymous' })
 		expect(scoped.context.getValue(principalValue)).toBe('user-1')
@@ -354,7 +359,9 @@ describe('FrameworkEngine', () => {
 				expect(transaction).not.toBe(request)
 				expect(transaction.context).toBe(request.context)
 				expect(transaction.context.getValue(principalValue)).toBe('user-1')
-				expect(transaction.framework).toBe(request.framework)
+				expect(readRequestEngineFramework(transaction)).toBe(
+					readRequestEngineFramework(request),
+				)
 
 				return 'completed' as const
 			}),

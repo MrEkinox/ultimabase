@@ -80,18 +80,27 @@ try {
 			restoredExplicit,
 			surfaces: {
 				disabled: [
-					...(ultimabase.application
-						.getSchemaSurface(Disabled.className)
+					...(ultimabase
+						.compile()
+						.typegenGraph.schemaSurfaces.find(
+							({ schema }) => schema.className === Disabled.className,
+						)
 						?.schemaMutations.keys() ?? []),
 				],
 				explicit: [
-					...(ultimabase.application
-						.getSchemaSurface(Explicit.className)
+					...(ultimabase
+						.compile()
+						.typegenGraph.schemaSurfaces.find(
+							({ schema }) => schema.className === Explicit.className,
+						)
 						?.schemaMutations.keys() ?? []),
 				],
 				replace: [
-					...(ultimabase.application
-						.getSchemaSurface(Replace.className)
+					...(ultimabase
+						.compile()
+						.typegenGraph.schemaSurfaces.find(
+							({ schema }) => schema.className === Replace.className,
+						)
 						?.schemaMutations.keys() ?? []),
 				],
 			},

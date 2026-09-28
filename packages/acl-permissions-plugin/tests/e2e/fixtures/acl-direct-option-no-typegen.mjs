@@ -1,20 +1,19 @@
 import { stdout } from 'node:process'
 
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 
 const ProtectedPost = Schema.define({
 	className: 'JavaScriptDirectACLPost',
 	fields: (field) => ({ title: field.string() }),
 	acl: { default: new ACL().grantPublic('read') },
 })
-const application = new FrameworkApplication({
+const application = new UltimaBase({
 	pluginPrivileges: { logger: false },
 	plugins: [aclPlugin()],
 	schemas: [ProtectedPost],
 })
-application.compileSchemas()
-const compiled = application.schemas.get('JavaScriptDirectACLPost')
+const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
 
 const MissingPluginPost = Schema.define({
 	className: 'JavaScriptMissingACLPluginPost',
@@ -23,11 +22,11 @@ const MissingPluginPost = Schema.define({
 })
 let missingPluginCode
 try {
-	new FrameworkApplication({
+	new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [],
 		schemas: [MissingPluginPost],
-	}).compileSchemas()
+	}).compile()
 } catch (error) {
 	missingPluginCode = error?.code
 }

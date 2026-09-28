@@ -37,8 +37,8 @@ const updateUnknownFieldPolicy = userPlans.update.unknownFields
 The registry does not create global state. Atomic compilation resolves every
 deferred field map and relationship target, closes further schema registration,
 and publishes one application-local immutable graph. Application code normally
-lets `createApplication()` own this boundary instead of invoking
-`compileSchemas()` directly.
+lets `UltimaBase.compile()` own this boundary instead of invoking the registry
+compiler directly.
 `compileValidationPlans` retains the original field definitions and describes
 presence, nullability, objects, and lists without invoking defaults or
 validating request data itself.

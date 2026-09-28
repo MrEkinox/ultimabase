@@ -68,7 +68,7 @@ describe('landing plugin stacks', () => {
 					exportName: 'app',
 				})
 				const generated = generateApplicationTypes({
-					application,
+					ultimabase: application,
 					applicationId: 'landing',
 				})
 				expect(generated.contents).toContain('Article')
@@ -155,7 +155,7 @@ export const app = new UltimaBase({
 				exportName: 'app',
 			})
 			const generated = generateApplicationTypes({
-				application,
+				ultimabase: application,
 				applicationId: 'capability',
 			})
 			await writeFile(

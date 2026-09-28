@@ -1,6 +1,6 @@
 import { stdout } from 'node:process'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const pool = {
@@ -19,13 +19,12 @@ const compile = async (className, table) => {
 		}),
 		postgres: { table },
 	})
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [postgresPlugin({ pool })],
 		schemas: [Post],
 	})
-	application.compileSchemas()
-	const compiled = application.schemas.get(className)
+	const compiled = application.compile().schemas.get(className)
 	const title = compiled.fields.title
 
 	if (title === undefined) {
@@ -54,11 +53,11 @@ const MissingPlugin = Schema.define({
 let missingPluginCode
 
 try {
-	new FrameworkApplication({
+	new UltimaBase({
 		pluginPrivileges: { logger: false },
 		plugins: [],
 		schemas: [MissingPlugin],
-	}).compileSchemas()
+	}).compile()
 } catch (error) {
 	missingPluginCode = error?.code
 }

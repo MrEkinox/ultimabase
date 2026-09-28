@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { FrameworkApplication, Schema } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -34,13 +34,13 @@ const createNestedWriteRegistry = (): string => {
 		className: 'GeneratedNestedTag',
 		fields: (field) => ({ label: field.string({ required: true }) }),
 	})
-	const application = new FrameworkApplication({
+	const application = new UltimaBase({
 		plugins: [],
 		schemas: [Author, Post, Tag],
 	})
 
 	return generateApplicationTypes({
-		application,
+		ultimabase: application,
 		applicationId: 'fixture.nested-writes',
 	}).contents
 }
