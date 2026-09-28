@@ -549,12 +549,12 @@ await runWithRequestEngine(requestEngine, async () => {
 })
 ```
 
-`getCurrentFrameworkContext()` returns an immutable, consistent view containing
-`ultimabase`, `requestEngine`, and `request`. The focused helpers
-`getCurrentUltimaBase()`, `getCurrentEngine()`, and `getCurrentRequest()` read
-those same references.
-Calling any helper outside a scope throws `MISSING_EXECUTION_CONTEXT` rather
-than returning `undefined` or retaining an earlier request.
+Use the focused helpers `getCurrentUltimaBase()`, `getCurrentEngine()`, and
+`getCurrentRequest()` to read the application, engine, or immutable request
+identity from that scope. Core deliberately exposes no parallel aggregate
+context object. Calling any helper outside a scope throws
+`MISSING_EXECUTION_CONTEXT` rather than returning `undefined` or retaining an
+earlier request.
 
 Only the explicit request engine is accepted when opening a scope. The other
 references are derived from it, preventing server code from combining an

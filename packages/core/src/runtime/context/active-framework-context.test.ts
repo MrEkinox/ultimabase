@@ -10,7 +10,6 @@ import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
 	getCurrentEngine,
-	getCurrentFrameworkContext,
 	getCurrentRequest,
 	runWithRequestEngine,
 } from './active-framework-context.js'
@@ -67,7 +66,6 @@ const expectMissingContext = (readCurrentValue: () => unknown): void => {
 describe('active framework context', () => {
 	it('fails every contextual helper outside an active request scope', () => {
 		for (const readCurrentValue of [
-			getCurrentFrameworkContext,
 			getCurrentEngine,
 			getCurrentRequest,
 			getCurrentUltimaBase,
@@ -76,7 +74,7 @@ describe('active framework context', () => {
 		}
 	})
 
-	it('derives one consistent immutable context from the explicit request engine', async () => {
+	it('derives every focused contextual value from the explicit request engine', async () => {
 		const framework = await createFramework()
 		const requestEngine = framework.anonymous({
 			requestId: 'scope-1',
@@ -84,13 +82,8 @@ describe('active framework context', () => {
 		})
 
 		const result = runWithRequestEngine(requestEngine, () => {
-			const context = getCurrentFrameworkContext()
-
-			expect(context.requestEngine).toBe(requestEngine)
-			expect(context.request).toBe(requestEngine.context)
 			expect(getCurrentEngine()).toBe(requestEngine)
 			expect(getCurrentRequest()).toBe(requestEngine.context)
-			expect(Object.isFrozen(context)).toBe(true)
 			// Low-level frameworks must not select an unrelated facade implicitly.
 			expect(getCurrentUltimaBase).toThrow('no owning UltimaBase facade')
 

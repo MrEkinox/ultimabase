@@ -5,9 +5,7 @@ import { getCurrentUltimaBase } from './current-ultima-base.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import type { RequestContext } from './request-context.js'
 import {
-	type ActiveFrameworkContext,
 	getCurrentEngine,
-	getCurrentFrameworkContext,
 	getCurrentRequest,
 	runWithRequestEngine,
 } from './active-framework-context.js'
@@ -15,9 +13,6 @@ import {
 declare const requestEngine: RequestEngine
 
 test('exposes safe widened contextual types and exact callback results', () => {
-	expectTypeOf(
-		getCurrentFrameworkContext(),
-	).toEqualTypeOf<ActiveFrameworkContext>()
 	expectTypeOf(getCurrentEngine()).toEqualTypeOf<RequestEngine>()
 	expectTypeOf(getCurrentRequest()).toEqualTypeOf<RequestContext>()
 	expectTypeOf(getCurrentUltimaBase()).toEqualTypeOf<

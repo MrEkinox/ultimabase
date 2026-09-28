@@ -3,8 +3,8 @@
 - Status: in-progress
 - Milestone: 62
 - Baseline: `b1bc0ffb`
-- Completed issues: 6201, 6202, 6203, 6204, 6205
-- Active issue: 6206
+- Completed issues: 6201, 6202, 6203, 6204, 6205, 6206
+- Active issue: 6207
 
 Remove architectural choices that multiply the cost of future work without
 removing any current product capability. The milestone establishes one local

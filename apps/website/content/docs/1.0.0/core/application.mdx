@@ -88,6 +88,8 @@ with `getCurrentUltimaBase()` from `@ultimabase/core`. It returns the exact
 application's `UltimaBase`, so `.operation(token)` uses the existing request
 scope. There is no global default: outside a request it throws
 `MISSING_EXECUTION_CONTEXT`.
+Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused value
+is needed; Core does not expose a second aggregate context API.
 Scripts should retain and pass their explicit `ultimabase` instance.
 
 Read and validate required environment values at the composition root before

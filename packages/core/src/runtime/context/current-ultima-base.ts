@@ -2,7 +2,7 @@ import type { OperationOptions } from '../../query/operations/options.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import { getCurrentFrameworkContext } from './active-framework-context.js'
+import { getCurrentEngine } from './active-framework-context.js'
 
 type ApplicationFacade = NonNullable<OperationOptions['ultimabase']>
 type ApplicationKernel = FrameworkApplication<
@@ -39,5 +39,5 @@ export const readApplicationFacade = (
  * @example `getCurrentUltimaBase().operation(operation).execute(input)`
  */
 export const getCurrentUltimaBase = (): ApplicationFacade => {
-	return getCurrentFrameworkContext().ultimabase
+	return getCurrentEngine().ultimabase
 }

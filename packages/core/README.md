@@ -492,7 +492,9 @@ Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
 owning the active request and resolve its ordinary `.operation(token)` handles.
 It selects no process-wide default and fails with `MISSING_EXECUTION_CONTEXT`
 outside a request. The selected facade retains its lifecycle and operation
-checks. Transports continue to use their narrow request-execution capability.
+checks. Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused
+value is needed; Core exposes no second aggregate context API. Transports
+continue to use their narrow request-execution capability.
 
 `prepare()` validates one immutable logical envelope without I/O; `execute()`
 enters the active `RequestEngine`, enforces cancellation and transaction policy,
@@ -1955,6 +1957,8 @@ Every provider has one stable owner-local `contributionId`, recorded together
 with its exact plugin and instance in `PluginGraph.capabilities`. Core derives
 it from the nominal capability ID by default. Authors set it only to distinguish
 repeated providers of the same `multiple` or `pipeline` token from one owner.
+The graph owns this inspection inventory; Core does not expose a parallel
+inventory constructor.
 Dependency order and configuration position determine provider order. A
 `single` token rejects competing providers; `multiple` and `pipeline` tokens
 retain their ordered providers. Authors put providers and requirements in one

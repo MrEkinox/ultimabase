@@ -24,7 +24,7 @@ harder to widen accidentally.
 - [x] [6203: Specialize plugin-owned schemas without type bridges](6203-plugin-owned-schema-specialization.md)
 - [x] [6204: Protect bounded owner-private storage](6204-bounded-owner-private-storage.md)
 - [x] [6205: Converge PostgreSQL mutation planning](6205-postgres-mutation-plan-convergence.md)
-- [ ] [6206: Reduce the unsupported public Core surface](6206-core-public-surface-reduction.md)
+- [x] [6206: Reduce the unsupported public Core surface](6206-core-public-surface-reduction.md)
 - [ ] [6207: Index the current architecture](6207-current-architecture-index.md)
 
 Every retained abstraction must protect a current invariant or remove repeated

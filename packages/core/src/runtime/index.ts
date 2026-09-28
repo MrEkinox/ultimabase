@@ -7,11 +7,9 @@ export type {
 // Contextual access is optional; transports should still inject request engines explicitly.
 export {
 	getCurrentEngine,
-	getCurrentFrameworkContext,
 	getCurrentRequest,
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
-export type { ActiveFrameworkContext } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
 export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'

@@ -12,10 +12,8 @@ import {
 	type ActiveFrameworkContext,
 } from './active-framework-storage.js'
 
-export type { ActiveFrameworkContext } from './active-framework-storage.js'
-
-/** Returns the active scope or fails instead of leaking a previous request. */
-export const getCurrentFrameworkContext = (): ActiveFrameworkContext => {
+/** Resolves the active scope for the focused public contextual helpers. */
+const requireCurrentFrameworkContext = (): ActiveFrameworkContext => {
 	const context: ActiveFrameworkContext | undefined =
 		getActiveFrameworkContext()
 
@@ -31,12 +29,12 @@ export const getCurrentFrameworkContext = (): ActiveFrameworkContext => {
 }
 
 /** Returns the request-bound engine from the current asynchronous scope. */
-export const getCurrentEngine = (): ActiveFrameworkContext['requestEngine'] =>
-	getCurrentFrameworkContext().requestEngine
+export const getCurrentEngine = (): RequestEngine =>
+	requireCurrentFrameworkContext().requestEngine
 
 /** Returns the immutable request identity carried by the current engine. */
-export const getCurrentRequest = (): ActiveFrameworkContext['request'] =>
-	getCurrentFrameworkContext().request
+export const getCurrentRequest = (): RequestContext =>
+	requireCurrentFrameworkContext().request
 
 /**
  * Runs one callback in an isolated request scope while preserving its exact

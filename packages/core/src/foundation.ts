@@ -144,12 +144,6 @@ export type {
 	PluginCapabilityReader,
 } from './plugins/capabilities.js'
 export type { ApplicationCallbackExecutor } from './plugins/callback-execution.js'
-export { CapabilityInventory } from './plugins/capability-inventory.js'
-export type {
-	CapabilityInventoryEntry,
-	CapabilityProviderInspection,
-	CapabilityRequirementInspection,
-} from './plugins/capability-inventory.js'
 export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers.js'
 export type {
 	DatabaseConstraintCompilerContribution,
