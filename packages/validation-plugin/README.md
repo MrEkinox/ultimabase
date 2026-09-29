@@ -28,8 +28,8 @@ const Article = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [validationPlugin()],
+const Application = UltimaBase.use(validationPlugin())
+const ultimabase = new Application({
 	schemas: [Article],
 })
 ```

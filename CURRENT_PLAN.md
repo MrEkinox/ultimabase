@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302
-- Active issue: 6303
-- Next issue: 6304
+- Completed issues: 6301, 6302, 6303
+- Active issue: 6304
+- Next issue: 6305
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -88,5 +88,18 @@ requires each migration issue to compare the complete 1/10/50-schema benchmark
 with both the original issue-6301 baseline and the immediately preceding
 migration point. The documentation-only issue passed `yarn validate:full` with
 551 ordinary files/2,605 tests, 626 coverage files/2,853 tests, unchanged
-90.91/84.48/96.07/91.47 coverage, and no unresolved audit finding. Issue 6303
-is the production resume point; no push is authorized.
+90.91/84.48/96.07/91.47 coverage, and no unresolved audit finding. It handed
+the production migration to issue 6303; no push was authorized.
+
+Issue 6303 completed the immutable configured application factory from revision
+`9878f191`. `UltimaBase.use(plugin)` now returns a frozen descendant that owns
+one exact flat plugin tuple; construction immediately feeds that tuple into the
+existing `FrameworkApplication`, compiler, Runtime, lifecycle, and disposal
+path. The zero-plugin root remains `new UltimaBase({ schemas })`, while the old
+constructor plugin option is retained only as the bounded migration input owned
+for deletion by issue 6314 and is no longer taught. Source and packed editor
+contracts, plugin identity/order/privilege/lifecycle regressions, all active
+public documentation, and the counterbalanced 1/10/50-schema benchmark pass.
+The final `yarn validate:full` ran 552 ordinary files/2,611 tests and 628
+coverage files/2,860 tests with 90.91/84.49/96.08/91.47 coverage. Issue 6304 is
+the next resume point; no push is authorized.

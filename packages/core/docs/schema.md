@@ -172,7 +172,6 @@ identifies an edge by exact source class identity and structural field path.
 ```ts
 const application = new UltimaBase({
 	schemas: [UserSchema, PostSchema],
-	plugins: [],
 })
 
 application.compile().schemas.schemaTargets.get(PostSchema, ['author'])

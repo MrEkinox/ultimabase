@@ -115,8 +115,10 @@ const pool = new Pool({
 	connectionString: databaseUrl,
 	options: worker.connectionOptions,
 })
-const ultimabase = new UltimaBase({
-	plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
+const Application = UltimaBase.use(
+	postgresPlugin({ pool, schemaPolicy: 'override' }),
+)
+const ultimabase = new Application({
 	schemas: [Task],
 })
 

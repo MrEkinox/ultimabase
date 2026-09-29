@@ -29,10 +29,7 @@ const bootstrapPostSchema = Schema.define({
 	}),
 })
 
-declare const ultimabase: UltimaBase<
-	readonly [typeof articleSchema],
-	readonly []
->
+declare const ultimabase: UltimaBase<readonly [typeof articleSchema]>
 declare const context: RequestContext
 
 test('preserves schema selection across every root read terminal', () => {

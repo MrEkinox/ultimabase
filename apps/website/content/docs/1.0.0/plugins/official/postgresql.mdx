@@ -31,7 +31,7 @@ a raw database client.
 
 The plugin can prepare a database schema directly at startup. It does **not**
 ship a migration runner. Importing the package alone does not install the
-provider; add `postgresPlugin()` to the application's plugin list.
+provider; add `postgresPlugin()` to the application's `.use()` chain.
 
 ## Installation
 
@@ -78,8 +78,10 @@ const Task = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-const ultimabase = new UltimaBase({
-	plugins: [postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })],
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const ultimabase = new Application({
 	schemas: [Task],
 })
 

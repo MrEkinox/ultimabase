@@ -193,18 +193,17 @@ if (!databaseUrl || !masterKey) {
 	throw new Error('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
 }
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(passwordAuthPlugin())
+	.use(accessPlugin({ default: { read: true } }))
+	.use(profilePolicy)
+	.use(rolesPlugin())
+
+export const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'server', value: masterKey }],
 		onUse: (event) => console.info('Master use', event.reason),
 	}),
-	plugins: [
-		postgresPlugin({ url: databaseUrl }),
-		passwordAuthPlugin(),
-		accessPlugin({ default: { read: true } }),
-		profilePolicy,
-		rolesPlugin(),
-	],
 	schemas: [AppRole, Post],
 })
 ```

@@ -54,8 +54,10 @@ export type {
 export { UltimaBase } from './application/ultima-base.js'
 export type {
 	CompiledApplication,
+	UltimaBaseInstanceOptions,
 	UltimaBaseOptions,
 } from './application/ultima-base.js'
+export type { ConfiguredUltimaBaseFactory } from './application/configured-application-factory.js'
 export {
 	ApplicationModelHandle,
 	ApplicationOperationHandle,

@@ -291,12 +291,11 @@ import { Task } from './schema.js'
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
-	plugins: [
-		postgresPlugin({ url: databaseUrl }),
-		workflowPlugin(),
-		graphqlPlugin({ operations: [formatWorkflow] }),
-	],
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(workflowPlugin())
+	.use(graphqlPlugin({ operations: [formatWorkflow] }))
+
+export const ultimabase = new Application({
 	schemas: [Task],
 })
 ```

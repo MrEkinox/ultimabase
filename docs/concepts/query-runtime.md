@@ -107,9 +107,10 @@ Update inputs use one field-oriented `data` map. Direct values replace fields,
 values normalize to immutable atomic-operation nodes before the shared Runtime
 validation pipeline.
 
-`new UltimaBase(options)` is the regular application boundary. Its `start()`
-method assembles the mandatory pipeline from the application's database capability
-and plugin contributions. Schema classes expose schema-root object reads;
+`UltimaBase.use(plugin)` configures the regular application factory, and
+`new Application(options)` creates its application boundary. Its `start()` method
+assembles the mandatory pipeline from the application's database capability and
+plugin contributions. Schema classes expose schema-root object reads;
 `new QueryBuilder(Post)` is the equivalent non-executing composition utility. The
 lower-level `createFrameworkEngine(application)` factory remains available to
 framework packages and explicit transport composition.
@@ -178,8 +179,8 @@ const UserSchema = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [hooksPlugin()],
+const Application = UltimaBase.use(hooksPlugin())
+const ultimabase = new Application({
 	schemas: [UserSchema],
 })
 ```

@@ -7,7 +7,7 @@ audience:
   - plugin-author
 contentType: concept
 order: 1
-outcome: Decide whether a feature belongs in the application plugin list and know what Core validates.
+outcome: Decide whether a feature belongs in the application plugin chain and know what Core validates.
 owner: '2810'
 releaseStatus: pre-release
 reviewedAt: 2026-09-21
@@ -17,6 +17,7 @@ sources:
   - packages/hooks-plugin/README.md
   - apps/website/lib/official-plugins.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
 ---
 
 ## Context
@@ -29,7 +30,8 @@ package does not install behavior.
 ## Mental model
 
 Importing a plugin package never installs it. Its factory returns an inert
-definition. Add that definition to an application's `plugins` array to opt in:
+definition. Add that definition to an immutable application factory with
+`.use()` to opt in:
 
 ```ts title="src/application.ts"
 import { Schema, UltimaBase } from '@ultimabase/core'
@@ -45,8 +47,9 @@ const Post = Schema.define({
 	},
 })
 
-export const application = new UltimaBase({
-	plugins: [hooksPlugin()],
+const Application = UltimaBase.use(hooksPlugin())
+
+export const application = new Application({
 	schemas: [Post],
 })
 ```
@@ -63,9 +66,9 @@ static declarations; application-local capabilities and resources are
 materialized during initialization and cleaned up on disposal.
 
 <Mermaid
-	description="A plugin definition enters one application's plugin list, where Core validates the graph, compiles declarations, materializes application capabilities, runs lifecycle phases, and disposes resources."
+	description="A plugin definition enters one application's plugin chain, where Core validates the graph, compiles declarations, materializes application capabilities, runs lifecycle phases, and disposes resources."
 	chart="flowchart TB
-    A[Add definition to application plugins] --> B[Validate graph and privileges]
+    A[Compose definition with application use] --> B[Validate graph and privileges]
     B --> C[Compile static declarations]
     C --> D[Materialize application capabilities]
     D --> E[Run lifecycle]

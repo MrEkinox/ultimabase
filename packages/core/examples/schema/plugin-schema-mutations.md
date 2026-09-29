@@ -172,8 +172,9 @@ const SecuredPost = Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
-const securedApplication = new UltimaBase({
-	plugins: [accessPlugin()],
+const SecuredApplication = UltimaBase.use(accessPlugin())
+
+const securedApplication = new SecuredApplication({
 	schemas: [SecuredPost],
 })
 ```
@@ -201,8 +202,9 @@ const ObservedPost = Schema.define({
 	},
 })
 
-const observedApplication = new UltimaBase({
-	plugins: [hooksPlugin()],
+const ObservedApplication = UltimaBase.use(hooksPlugin())
+
+const observedApplication = new ObservedApplication({
 	schemas: [ObservedPost],
 })
 ```

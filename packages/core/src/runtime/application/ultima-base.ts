@@ -81,6 +81,11 @@ import {
 	type CreateFrameworkEngineOptions,
 } from './create-framework-engine.js'
 import {
+	appendConfiguredPlugin,
+	resolveConfiguredPlugins,
+	type ConfiguredUltimaBaseFactory,
+} from './configured-application-factory.js'
+import {
 	bindUltimaBaseEngine,
 	bindUltimaBaseKernel,
 } from './ultima-base-kernel.js'
@@ -94,26 +99,17 @@ const ultimaBaseOptionKeys = new Set([
 	'validation',
 ])
 
-/** Configures one complete framework facade without starting infrastructure. */
-export interface UltimaBaseOptions<
+/** Configures one application instance without repeating its factory's plugins. */
+export interface UltimaBaseInstanceOptions<
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
->
-	extends
-		FrameworkApplicationOptions<TSchemas, TPlugins>,
-		CreateFrameworkEngineOptions {
+> extends CreateFrameworkEngineOptions {
 	/**
 	 * Registers the exact immutable schemas owned by this UltimaBase instance.
 	 *
 	 * @example `schemas: [UserSchema, PostSchema]`
 	 */
 	readonly schemas: TSchemas
-	/**
-	 * Declares every plugin in one flat application-owned list.
-	 *
-	 * @example `plugins: [databasePlugin(), transportPlugin()]`
-	 */
-	readonly plugins: TPlugins
 	/** Configures plugin privilege policy and startup reporting. */
 	readonly pluginPrivileges?: NonNullable<
 		FrameworkApplicationOptions<TSchemas, TPlugins>['pluginPrivileges']
@@ -133,6 +129,24 @@ export interface UltimaBaseOptions<
 	 */
 	readonly validation?: NonNullable<CreateFrameworkEngineOptions['validation']>
 }
+
+/**
+ * Configures the zero-plugin root or the temporarily supported constructor
+ * installation form. New applications install plugins with `UltimaBase.use()`.
+ */
+export type UltimaBaseOptions<
+	TSchemas extends readonly SchemaDefinition[],
+	TPlugins extends readonly PluginDefinition[],
+> = UltimaBaseInstanceOptions<TSchemas, TPlugins> &
+	([TPlugins] extends [readonly []]
+		? {
+				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
+				readonly plugins?: TPlugins
+			}
+		: {
+				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
+				readonly plugins: TPlugins
+			})
 
 /** Immutable callback-free application facts available without starting resources. */
 export interface CompiledApplication<
@@ -163,6 +177,15 @@ const assertUltimaBaseOptions: (
 	}
 }
 
+const readConstructorPlugins = (
+	options: unknown,
+): readonly PluginDefinition[] | undefined => {
+	if (!isPlainRecord(options)) {
+		return undefined
+	}
+	return options.plugins as readonly PluginDefinition[] | undefined
+}
+
 const readEngineOptions = <
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
@@ -186,9 +209,11 @@ const readEngineOptions = <
  *
  * @example
  * ```ts
- * const ultimabase = new UltimaBase({
+ * const Application = UltimaBase.use(
+ *   postgresPlugin({ url: env.DATABASE_URL }),
+ * )
+ * const ultimabase = new Application({
  *   schemas: [PostSchema],
- *   plugins: [postgresPlugin({ url: env.DATABASE_URL })],
  * })
  *
  * await ultimabase.start()
@@ -196,9 +221,24 @@ const readEngineOptions = <
  * ```
  */
 export class UltimaBase<
-	const TSchemas extends readonly SchemaDefinition[],
-	const TPlugins extends readonly PluginDefinition[],
+	const TSchemas extends readonly SchemaDefinition[] =
+		readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[] = readonly [],
 > {
+	/** Declares portable schemas through the zero-plugin source factory. */
+	static readonly Schema: typeof Schema = Schema
+
+	/**
+	 * Returns a new immutable factory with one plugin appended to its flat graph.
+	 *
+	 * @example `const Application = UltimaBase.use(databasePlugin())`
+	 */
+	static use<const TPlugin extends PluginDefinition>(
+		plugin: TPlugin,
+	): ConfiguredUltimaBaseFactory<readonly [TPlugin]> {
+		return appendConfiguredPlugin<readonly [], TPlugin>(this, plugin)
+	}
+
 	readonly #application: FrameworkApplication<TSchemas, TPlugins>
 	readonly #engineOptions: Readonly<CreateFrameworkEngineOptions>
 	#frameworkEngine: FrameworkEngine<TSchemas, TPlugins> | undefined
@@ -211,12 +251,16 @@ export class UltimaBase<
 
 		assertUltimaBaseOptions(untrustedOptions)
 
+		const plugins = resolveConfiguredPlugins(
+			new.target,
+			readConstructorPlugins(untrustedOptions),
+		) as TPlugins
 		this.#application = new FrameworkApplication({
 			...(options.pluginPrivileges === undefined
 				? {}
 				: { pluginPrivileges: options.pluginPrivileges }),
 			schemas: options.schemas,
-			plugins: options.plugins,
+			plugins,
 		})
 		bindUltimaBaseKernel(this, this.#application)
 		this.#engineOptions = readEngineOptions(options)

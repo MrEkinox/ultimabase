@@ -85,9 +85,12 @@ import { Post } from './post.js'
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
+	aclPlugin(),
+)
+
+export const ultimabase = new Application({
 	schemas: [Post],
-	plugins: [postgresPlugin({ url: databaseUrl }), aclPlugin()],
 })
 ```
 
@@ -171,7 +174,7 @@ mandatory ACL dependency.
 ## Troubleshooting
 
 - **The schema rejects `acl` at startup:** install `aclPlugin()` in this
-  application's plugin list and regenerate its Typegen declarations.
+  application's `.use()` chain and regenerate its Typegen declarations.
 - **A record is unexpectedly invisible:** inspect its ACL through trusted
   server code. An empty ACL denies ordinary object rights; identity or role
   membership alone does not grant them.

@@ -21,6 +21,7 @@ sources:
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
 ---
 
 ## Outcome
@@ -72,9 +73,9 @@ yarn add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 ```
 
-### Add the plugins to the application
+### Configure the application with plugins
 
-Keep the existing application and add the new factories to its `plugins` array.
+Build one immutable application factory by chaining each plugin with `.use()`.
 The `typegenPlugin()` setup comes from the Typegen prerequisite:
 
 ```ts title="src/ultimabase.ts"
@@ -89,13 +90,12 @@ import { Task } from './schema.js'
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
-	plugins: [
-		typegenPlugin(),
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-		hooksPlugin(),
-		validationPlugin(),
-	],
+const Application = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
+	.use(hooksPlugin())
+	.use(validationPlugin())
+
+export const ultimabase = new Application({
 	schemas: [Task],
 })
 ```
@@ -103,7 +103,8 @@ export const ultimabase = new UltimaBase({
 Importing either package or calling its factory alone installs no behavior;
 the returned definition must enter this application's graph.
 
-Keep every definition in this one flat list. Use `dependencies` when another
+Keep every definition in this one flat chain. Each `.use()` returns a new
+factory and leaves its parent unchanged. Use `dependencies` when another
 plugin must exist and start first, `optionalDependencies` for that order only
 when it is installed, `peers` for compatible identity without ordering, and a
 versioned capability when several providers can supply the required behavior.

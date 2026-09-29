@@ -42,9 +42,9 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const ultimabase = new Application({
 	schemas: [],
-	plugins: [postgresPlugin({ url: databaseUrl })],
 })
 
 await ultimabase.start()
@@ -61,9 +61,9 @@ shutdown. An injected pool remains owned by the developer:
 import { Pool } from 'pg'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ pool }))
+const ultimabase = new Application({
 	schemas: [],
-	plugins: [postgresPlugin({ pool })],
 })
 
 await ultimabase.start()
@@ -311,9 +311,11 @@ const ArticleSchema = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(hooksPlugin()).use(
+	postgresPlugin({ url: databaseUrl }),
+)
+const ultimabase = new Application({
 	schemas: [ArticleSchema, AuditSchema],
-	plugins: [hooksPlugin(), postgresPlugin({ url: databaseUrl })],
 })
 ```
 
@@ -444,14 +446,14 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-const application = await new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const application = await new Application({
 	schemas: [EventSchema],
-	plugins: [postgresPlugin({ url: databaseUrl })],
 }).initialize()
 ```
 
 This Core example deliberately runs setup without
-opening the URL connection. Regular applications use `new UltimaBase(...)` and
+opening the URL connection. Regular applications use `new Application(...)` and
 let `start()` compile, prepare, and connect through one lifecycle; developers
 never write Drizzle or SQL themselves.
 
@@ -536,14 +538,14 @@ creates missing tables and transactionally applies supported column, primary
 key, default, identity, nullability, and index changes:
 
 ```ts
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	postgresPlugin({
+		url: databaseUrl,
+		schemaPolicy: 'override',
+	}),
+)
+const ultimabase = new Application({
 	schemas: [ArticleSchema],
-	plugins: [
-		postgresPlugin({
-			url: databaseUrl,
-			schemaPolicy: 'override',
-		}),
-	],
 })
 
 await ultimabase.start()

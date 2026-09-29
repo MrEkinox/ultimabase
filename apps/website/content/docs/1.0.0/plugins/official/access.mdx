@@ -91,9 +91,12 @@ import { Article } from './article.js'
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
+	accessPlugin(),
+)
+
+export const ultimabase = new Application({
 	schemas: [Article],
-	plugins: [postgresPlugin({ url: databaseUrl }), accessPlugin()],
 })
 ```
 

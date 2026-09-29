@@ -170,7 +170,7 @@ describe('generated plugin surface declarations', () => {
 		(_, corePath) => {
 			const source = `${createGeneratedRegistry()}
 import { Schema } from '@ultimabase/core'
-declare const ultimabase: Core.UltimaBase<readonly [], readonly []>
+declare const ultimabase: Core.UltimaBase<readonly []>
 const StaticPost = Schema.define({
 	className: 'SemanticDynamicPost',
 	fields: (field) => ({ title: field.string() }),

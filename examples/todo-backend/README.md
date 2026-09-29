@@ -59,12 +59,10 @@ export const Todo = Schema.define({
 })
 
 // Direct options are active only because the application installs their owners.
-const ultimabase = new UltimaBase({
-	plugins: [
-		accessPlugin({ default: true }),
-		hooksPlugin(),
-		validationPlugin() /* ACL, Roles, Typegen, PostgreSQL */,
-	],
+const Application = UltimaBase.use(accessPlugin({ default: true }))
+	.use(hooksPlugin())
+	.use(validationPlugin()) /* ACL, Roles, Typegen, PostgreSQL */
+const ultimabase = new Application({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 ```
@@ -109,16 +107,15 @@ The same file also contains:
 explicitly. Importing a plugin package alone changes nothing:
 
 ```ts
-new UltimaBase({
-	plugins: [
-		accessPlugin({ default: true }),
-		hooksPlugin(),
-		validationPlugin(),
-		rolesPlugin(),
-		aclPlugin(),
-		typegenPlugin({ applicationId: 'todo-backend', outputPath }),
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-	],
+const Application = UltimaBase.use(accessPlugin({ default: true }))
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
+	.use(typegenPlugin({ applicationId: 'todo-backend', outputPath }))
+	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
+
+new Application({
 	schemas: [TodoUser, TodoRole, Todo],
 })
 ```

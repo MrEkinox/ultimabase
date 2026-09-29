@@ -131,8 +131,15 @@ describe('hybrid source-plugin authoring performance', () => {
 			const hybrid: AuthoringMeasurement[] = []
 
 			for (let sample = 0; sample < sampleCount; sample += 1) {
-				current.push(await measure('current', schemaCount))
-				hybrid.push(await measure('hybrid', schemaCount))
+				// Counterbalance process order so startup or host-load drift does not
+				// systematically favor the form that always executes first.
+				const forms: readonly (keyof typeof probes)[] =
+					sample % 2 === 0 ? ['current', 'hybrid'] : ['hybrid', 'current']
+				for (const form of forms) {
+					const measurement = await measure(form, schemaCount)
+					if (form === 'current') current.push(measurement)
+					else hybrid.push(measurement)
+				}
 			}
 
 			for (const measurement of [...current, ...hybrid]) {

@@ -26,8 +26,8 @@ const Post = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [accessPlugin({ default: true })],
+const Application = UltimaBase.use(accessPlugin({ default: true }))
+const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
@@ -74,7 +74,7 @@ const Post = Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 
-const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
+const ultimabase = new UltimaBase({ schemas: [Post] })
 await ultimabase.start()
 await Post.findMany(undefined, { ultimabase })
 ```
@@ -151,8 +151,8 @@ const CountOnlyPost = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [accessPlugin()],
+const Application = UltimaBase.use(accessPlugin())
+const ultimabase = new Application({
 	schemas: [CountOnlyPost],
 })
 ```
@@ -203,8 +203,8 @@ const Post = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [accessPlugin()],
+const Application = UltimaBase.use(accessPlugin())
+const ultimabase = new Application({
 	schemas: [Post],
 })
 ```

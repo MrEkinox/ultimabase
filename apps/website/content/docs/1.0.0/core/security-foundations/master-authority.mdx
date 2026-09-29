@@ -61,9 +61,12 @@ const masterAuthority = new MasterAuthority({
 	},
 })
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(accessPlugin()).use(
+	postgresPlugin({ url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
 	masterAuthority,
-	plugins: [accessPlugin(), postgresPlugin({ url: databaseUrl })],
 	schemas: [Post],
 })
 

@@ -22,12 +22,10 @@ const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
 
-const application = new UltimaBase({
-	plugins: [
-		postgresPlugin({ url: databaseUrl }),
-		httpPlugin({ appId: 'blog' }),
-		server,
-	],
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(server)
+const application = new Application({
 	schemas: [],
 })
 
@@ -74,12 +72,10 @@ const server = honoServerPlugin({
 	app,
 	browserPolicyOwner: 'ultimabase',
 })
-const application = new UltimaBase({
-	plugins: [
-		postgresPlugin({ url: databaseUrl }),
-		httpPlugin({ appId: 'blog' }),
-		server,
-	],
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(server)
+const application = new Application({
 	schemas: [],
 })
 
@@ -98,12 +94,10 @@ const server = honoServerPlugin({
 	browserPolicyOwner: 'external',
 })
 
-const application = new UltimaBase({
-	plugins: [
-		postgresPlugin({ url: databaseUrl }),
-		httpPlugin({ appId: 'blog' }),
-		server,
-	],
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(server)
+const application = new Application({
 	schemas: [],
 })
 ```

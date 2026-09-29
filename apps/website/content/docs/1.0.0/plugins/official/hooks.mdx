@@ -118,9 +118,12 @@ import { Post, PostTitleChange } from './post.js'
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
+	hooksPlugin(),
+)
+
+export const ultimabase = new Application({
 	schemas: [Post, PostTitleChange],
-	plugins: [postgresPlugin({ url: databaseUrl }), hooksPlugin()],
 })
 ```
 

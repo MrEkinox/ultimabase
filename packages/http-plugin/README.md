@@ -13,26 +13,26 @@ authentication, or a database.
 import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 
-const ultimabase = new UltimaBase({
-	plugins: [
-		httpPlugin({
-			appId: 'blog',
-			browser: {
-				allowedOrigins: ['https://console.example'],
-				allowedMethods: ['GET', 'POST'],
-				allowedHeaders: [
-					'X-UltimaBase-Application-Id',
-					'Authorization',
-					'Content-Type',
-					'X-UltimaBase-Request-Id',
-				],
-				credentials: true,
-				maxAgeSeconds: 600,
-			},
-			master: { enabled: true },
-			requestTimeoutMs: 15_000,
-		}),
-	],
+const Application = UltimaBase.use(
+	httpPlugin({
+		appId: 'blog',
+		browser: {
+			allowedOrigins: ['https://console.example'],
+			allowedMethods: ['GET', 'POST'],
+			allowedHeaders: [
+				'X-UltimaBase-Application-Id',
+				'Authorization',
+				'Content-Type',
+				'X-UltimaBase-Request-Id',
+			],
+			credentials: true,
+			maxAgeSeconds: 600,
+		},
+		master: { enabled: true },
+		requestTimeoutMs: 15_000,
+	}),
+)
+const ultimabase = new Application({
 	schemas: [],
 })
 ```

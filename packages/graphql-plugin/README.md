@@ -15,12 +15,11 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const application = new UltimaBase({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+).use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }))
+const application = new Application({
 	schemas: [Post],
-	plugins: [
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-		graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
-	],
 })
 try {
 	await application.start()

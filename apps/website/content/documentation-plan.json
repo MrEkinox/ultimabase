@@ -254,7 +254,7 @@
 				{
 					"slug": "overview",
 					"contentType": "concept",
-					"outcome": "Decide whether a feature belongs in the application plugin list and know what Core validates."
+					"outcome": "Decide whether a feature belongs in the application plugin chain and know what Core validates."
 				},
 				{
 					"slug": "using-plugins",

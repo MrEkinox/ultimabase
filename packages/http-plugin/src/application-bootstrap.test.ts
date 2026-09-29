@@ -20,10 +20,7 @@ import { httpTestDatabasePlugin } from './test-database.test-support.js'
 
 // Exercise the real application boundary after removing the server mount table.
 describe('application-owned HTTP identity and browser bootstrap', () => {
-	let application: Pick<
-		UltimaBase<readonly [], readonly []>,
-		'start' | 'dispose'
-	>
+	let application: Pick<UltimaBase<readonly []>, 'start' | 'dispose'>
 	let http: HttpApplication
 	const handler = vi.fn((request: Request) => new Response(request.url))
 	beforeEach(async () => {

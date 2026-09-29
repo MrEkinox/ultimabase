@@ -17,11 +17,14 @@ The `-plugin` suffix is reserved for packages installed through the application
 plugin graph. Foundations such as `@ultimabase/core` and development utilities
 such as `@ultimabase/testing` do not use it.
 
-Every installed definition appears in one flat application list:
+Every installed definition appears in one flat application chain:
 
 ```ts
-new UltimaBase({
-	plugins: [postgresPlugin(), postgresMigrationPlugin()],
+const Application = UltimaBase.use(postgresPlugin()).use(
+	postgresMigrationPlugin(),
+)
+
+new Application({
 	schemas: [],
 })
 ```

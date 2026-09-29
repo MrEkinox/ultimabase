@@ -27,9 +27,10 @@ configuration without running plugin setup or opening infrastructure. `start()`
 assembles Runtime and completes the deterministic plugin lifecycle:
 
 ```ts
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(databasePlugin())
+
+const ultimabase = new Application({
 	schemas: [ArticleSchema],
-	plugins: [databasePlugin()],
 	validation: { timezone: 'Europe/Paris' },
 })
 
@@ -62,9 +63,10 @@ locally, `await using` invokes the existing `Symbol.asyncDispose` boundary even
 when the scope throws:
 
 ```ts
-await using ultimabase = new UltimaBase({
+const Application = UltimaBase.use(databasePlugin())
+
+await using ultimabase = new Application({
 	schemas: [ArticleSchema],
-	plugins: [databasePlugin()],
 })
 
 await ultimabase.start()
@@ -86,9 +88,10 @@ behavior and observers, and compiles monotonic enforcement only when a plugin
 contributed it:
 
 ```ts
-const application = new UltimaBase({
+const Application = UltimaBase.use(databasePlugin())
+
+const application = new Application({
 	schemas: [ArticleSchema],
-	plugins: [databasePlugin()],
 	validation: { timezone: 'Europe/Paris' },
 })
 

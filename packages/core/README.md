@@ -59,7 +59,6 @@ const PostSchema = Schema.define({
 
 const ultimabase = new UltimaBase({
 	schemas: [PostSchema],
-	plugins: [],
 })
 
 const application = ultimabase.compile()
@@ -789,7 +788,6 @@ the application:
 ```ts
 const ultimabase = new UltimaBase({
 	schemas: [UserSchema, PostSchema],
-	plugins: [],
 })
 
 ultimabase.compile().schemas.values()
@@ -1444,9 +1442,10 @@ const PostSchema = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(databasePlugin())
+
+const ultimabase = new Application({
 	schemas: [PostSchema],
-	plugins: [databasePlugin()],
 })
 
 const draft = new PostSchema({ title: 'Preview' })
@@ -1504,8 +1503,9 @@ import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const ultimabase = new UltimaBase({
-	plugins: [accessPlugin(), hooksPlugin()],
+const Application = UltimaBase.use(accessPlugin()).use(hooksPlugin())
+
+const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
@@ -1526,7 +1526,7 @@ const Note = Schema.define({
 	fields: (field) => ({ body: field.string() }),
 })
 
-const ultimabase = new UltimaBase({ schemas: [Note], plugins: [] })
+const ultimabase = new UltimaBase({ schemas: [Note] })
 await ultimabase.start()
 await Note.findMany(undefined, { ultimabase })
 ```
@@ -1619,16 +1619,20 @@ capability outside the official Access vocabulary.
 
 ## Application ownership
 
-The sole public application owner is `new UltimaBase(options)` from
-`@ultimabase/core`. `compile()` validates and snapshots deterministic schema and
-plugin declarations without claiming the active-application slot. `initialize()`
-additionally materializes application capabilities and runs setup, while
-`start()` continues through infrastructure and transports:
+The sole public application owner is the configured `UltimaBase` factory from
+`@ultimabase/core`. `UltimaBase.use(plugin())` returns a new immutable factory,
+so plugin order is declared once and construction receives only instance
+options. The zero-plugin root follows the same path. `compile()` validates and
+snapshots deterministic schema and plugin declarations without claiming the
+active-application slot. `initialize()` additionally materializes application
+capabilities and runs setup, while `start()` continues through infrastructure
+and transports:
 
 ```ts
-const application = new UltimaBase({
+const Application = UltimaBase.use(databasePlugin()).use(serverPlugin())
+
+const application = new Application({
 	schemas: [UserSchema],
-	plugins: [databasePlugin(), serverPlugin()],
 })
 
 await application.start()
@@ -1668,7 +1672,7 @@ their previous owner. Static plugin mutation visibility is removed on disposal.
 Independent parallel applications use separate workers, processes, or containers.
 Jest/Vitest suites await `start()` in `beforeAll` and `dispose()` in `afterAll`.
 Locally scoped scripts and tests may instead declare
-`await using ultimabase = new UltimaBase(options)`; the facade implements
+`await using ultimabase = new Application(options)`; the facade implements
 `Symbol.asyncDispose` and awaits `dispose()` when the async scope exits.
 
 ## Framework errors
@@ -1919,7 +1923,7 @@ Manifest literals and application exports retain their exact types for plugin lo
 Application resources and declaration callbacks do not run during manifest
 inspection. Required dependencies, optional dependencies, conflicts, and
 contributions are copied and frozen. Every installed definition appears
-once in the application's flat `plugins` list; plugin relationships are
+once in the application's flat `.use()` chain; plugin relationships are
 declared explicitly.
 
 Named dependencies use `{ pluginId, version, instanceId? }`. Their SemVer range
@@ -2042,9 +2046,12 @@ schema compilation, Typegen, setup, or infrastructure work. Core-controlled
 privileges and informational environment claims stay visibly separate:
 
 ```ts
-const ultimabase = new UltimaBase({
+const WorkflowApplication = UltimaBase.use(
+	workflowPlugin({ instanceId: 'editorial' }),
+)
+
+const ultimabase = new WorkflowApplication({
 	schemas: [PostSchema],
-	plugins: [workflowPlugin({ instanceId: 'editorial' })],
 	pluginPrivileges: {
 		deny: ['adapter:raw'],
 		denyClaims: ['environment:native-code'],
@@ -2080,11 +2087,11 @@ route the same immutable report elsewhere. Logger failures are isolated from
 policy results. `application.pluginPrivilegeReport` exposes the detached report
 without plugin options, credentials, capability values, or stack traces.
 
-`normalizePlugins(definitions)` resolves that syntax into immutable flat
-metadata without running plugin code. Children receive implicit parent
-dependencies, source order is retained, and the exact same definition can be
-reused safely. Repeated configurations of one stable ID require distinct,
-explicit instance IDs. A duplicate structured identity fails with
+`normalizePlugins(definitions)` resolves the configured application's flat
+plugin tuple into immutable metadata without running plugin code. The `.use()`
+chain retains source order, and the exact same definition can be reused safely.
+Repeated configurations of one stable ID require distinct, explicit instance
+IDs. A duplicate structured identity fails with
 `PLUGIN_CONFLICT`; exclusive provider selection belongs to `single`
 capabilities.
 

@@ -110,17 +110,20 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
-	plugins: [
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-		httpPlugin({ appId: 'notes' }),
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+	.use(httpPlugin({ appId: 'notes' }))
+	.use(
 		graphqlPlugin({
 			acknowledgeUnverifiedProtection: true,
 			default: false,
 		}),
-		graphqlYogaPlugin(),
-		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-	],
+	)
+	.use(graphqlYogaPlugin())
+	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
+
+export const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
@@ -389,12 +392,12 @@ ID `notes`:
 import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
 import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
 
-// Choose the explorer you want to add to the application's plugins array.
+// Choose the explorer you want to add to the application's `.use()` chain.
 const graphiql = graphiqlPlugin({ environment: 'development' })
 const apolloSandbox = apolloSandboxPlugin({ environment: 'development' })
 ```
 
-Add the chosen value (`graphiql` or `apolloSandbox`) to `plugins` in
+Add the chosen value (`graphiql` or `apolloSandbox`) with another `.use()` in
 `src/ultimabase.ts`, and replace `graphqlYogaPlugin()` there with
 `graphqlYogaPlugin({ introspection: true })` for this development setup.
 Restart the application and open the corresponding URL from the table on

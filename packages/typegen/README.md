@@ -22,8 +22,8 @@ Configure the development tooling once in the application plugin graph:
 import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase } from '@ultimabase/core'
 
-const ultimabase = new UltimaBase({
-	plugins: [typegenPlugin()],
+const Application = UltimaBase.use(typegenPlugin())
+const ultimabase = new Application({
 	schemas: [Todo],
 })
 

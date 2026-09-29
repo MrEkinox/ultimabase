@@ -55,9 +55,9 @@ const Post = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(accessPlugin()).use(rolesPlugin())
+const ultimabase = new Application({
 	schemas: [User, AppRole, Post],
-	plugins: [accessPlugin(), rolesPlugin()],
 })
 
 const Editor = await new AppRole({

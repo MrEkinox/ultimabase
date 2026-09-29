@@ -38,7 +38,7 @@ const Explicit = Schema.define({
   softDelete: 'explicit',
   fields: (field) => ({ title: field.string() }),
 })
-declare const ultimabase: import('@ultimabase/core').UltimaBase<readonly [], readonly []>
+declare const ultimabase: import('@ultimabase/core').UltimaBase<readonly []>
 const Installed = Schema.define({
   className: 'SoftDeleteIntellisenseDocument',
   fields: (field) => ({ title: field.string() }),

@@ -31,7 +31,8 @@ scope instead of a manual trailing cleanup:
 
 ```ts
 it('executes one isolated application', async () => {
-	await using app = new UltimaBase({ plugins, schemas })
+	const Application = UltimaBase.use(databasePlugin())
+	await using app = new Application({ schemas })
 	await app.start()
 	// The application is disposed on success and on failure.
 })

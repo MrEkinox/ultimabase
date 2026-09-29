@@ -36,18 +36,15 @@ const activeUsersInput = { where: { isActive: { eq: true } } } as const
 ```
 
 ```ts
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ url: env.DATABASE_URL }))
+	.use(httpPlugin({ appId: 'main' }))
+	.use(graphqlPlugin())
+	.use(graphqlYogaPlugin())
+	.use(honoServerPlugin())
+
+const ultimabase = new Application({
 	schemas: [UserSchema],
-	plugins: [
-		typegenPlugin(),
-		postgresPlugin({
-			url: env.DATABASE_URL,
-		}),
-		httpPlugin({ appId: 'main' }),
-		graphqlPlugin(),
-		graphqlYogaPlugin(),
-		honoServerPlugin(),
-	],
 })
 
 await ultimabase.start()

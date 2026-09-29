@@ -82,16 +82,19 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-export const ultimabase = new UltimaBase({
-	plugins: [
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-		httpPlugin({ appId: 'blog' }),
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(
 		restPlugin({
 			acknowledgeUnverifiedProtection: true,
 			default: false,
 		}),
-		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-	],
+	)
+	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
+
+export const ultimabase = new Application({
 	schemas: [Post],
 })
 ```

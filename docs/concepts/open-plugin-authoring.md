@@ -170,9 +170,9 @@ Requested privileges are allowed by default, reported, and cumulatively
 denyable:
 
 ```ts
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
+const ultimabase = new Application({
 	schemas: [PostSchema],
-	plugins: [workflowPlugin({ instanceId: 'editorial' })],
 	pluginPrivileges: {
 		deny: ['adapter:raw'],
 		denyClaims: ['environment:native-code'],

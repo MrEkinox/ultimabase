@@ -20,6 +20,7 @@ sources:
   - tests/fixtures/postgres.global-setup.ts
   - examples/minimal/src/main.ts
   - examples/minimal/src/create-application.ts
+  - docs/adr/0279-source-typed-configured-application-authoring.md
 ---
 
 ## What you will build
@@ -236,13 +237,11 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-export const ultimabase = new UltimaBase({
-	plugins: [
-		postgresPlugin({
-			schemaPolicy: 'override',
-			url: databaseUrl,
-		}),
-	],
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
 	schemas: [Task],
 })
 ```
@@ -279,7 +278,7 @@ script constructs the application locally, `await using` provides the same
 guarantee without a handwritten `finally` block:
 
 ```ts
-await using ultimabase = new UltimaBase(options)
+await using ultimabase = new Application(options)
 await ultimabase.start()
 // `dispose()` is awaited automatically when this async scope exits.
 ```

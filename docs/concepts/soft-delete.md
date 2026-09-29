@@ -15,8 +15,10 @@ const Post = Schema.define({
 	softDelete: 'explicit',
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [softDeletePlugin({ defaultMode: 'disabled' })],
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+)
+const ultimabase = new Application({
 	schemas: [Post],
 })
 ```

@@ -25,16 +25,15 @@ const Post = Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 
-const ultimabase = new UltimaBase({
-	plugins: [
-		httpPlugin({ appId: 'blog' }),
-		restPlugin({
-			acknowledgeUnverifiedProtection: true,
-			basePath: '/api',
-			bodyLimit: 1_048_576,
-			maxLimit: 1_000,
-		}),
-	],
+const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
+	restPlugin({
+		acknowledgeUnverifiedProtection: true,
+		basePath: '/api',
+		bodyLimit: 1_048_576,
+		maxLimit: 1_000,
+	}),
+)
+const ultimabase = new Application({
 	schemas: [Post],
 })
 ```

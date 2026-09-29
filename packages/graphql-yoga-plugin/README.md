@@ -29,14 +29,14 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const ultimabase = new UltimaBase({
-	plugins: [
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-		httpPlugin({ appId: 'notes' }),
-		graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
-		graphqlYogaPlugin(),
-		honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-	],
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+	.use(httpPlugin({ appId: 'notes' }))
+	.use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }))
+	.use(graphqlYogaPlugin())
+	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
+const ultimabase = new Application({
 	schemas: [Post],
 })
 

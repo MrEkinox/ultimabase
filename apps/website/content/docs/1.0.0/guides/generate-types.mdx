@@ -77,12 +77,12 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-export const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(typegenPlugin()).use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
 	schemas: [Task],
-	plugins: [
-		typegenPlugin(),
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-	],
 })
 ```
 

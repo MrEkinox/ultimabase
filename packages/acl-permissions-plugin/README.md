@@ -226,7 +226,9 @@ With PostgreSQL, install only the ACL and database plugins. The ACL package
 stays adapter-neutral:
 
 ```ts
-plugins: [aclPlugin(), postgresPlugin({ url: databaseUrl })]
+const Application = UltimaBase.use(aclPlugin()).use(
+	postgresPlugin({ url: databaseUrl }),
+)
 ```
 
 The ACL field validates its narrow portable containment fragments and the

@@ -24,12 +24,14 @@ const AppUser = PasswordUserSchema.define({
 
 const authPlugin = passwordAuthPlugin({ user: AppUser })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(authPlugin).use(
+	postgresPlugin({ url: env.DATABASE_URL }),
+)
+const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'server', value: env.ULTIMABASE_MASTER_KEY }],
 		onUse: (event) => auditMasterUse(event),
 	}),
-	plugins: [authPlugin, postgresPlugin({ url: env.DATABASE_URL })],
 	schemas: [AppUser],
 })
 

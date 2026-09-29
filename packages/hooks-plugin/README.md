@@ -4,7 +4,7 @@ Optional official lifecycle Hooks for UltimaBase.
 
 The package contains both the public authoring contract and its Runtime engine.
 Importing it does not install behavior; add `hooksPlugin()` to the application
-plugin list. Applications that omit it expose no official `hooks` schema or
+`.use()` chain. Applications that omit it expose no official `hooks` schema or
 field option through generated types.
 
 The field-level `hooks` option is available on stored fields and recursively
@@ -28,9 +28,9 @@ const Post = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(hooksPlugin())
+const ultimabase = new Application({
 	schemas: [Post],
-	plugins: [hooksPlugin()],
 })
 ```
 
@@ -95,7 +95,7 @@ const Post = Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 
-const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
+const ultimabase = new UltimaBase({ schemas: [Post] })
 await ultimabase.start()
 await Post.findMany(undefined, { ultimabase })
 ```
@@ -135,9 +135,9 @@ const Post = Schema.define({
 	},
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(hooksPlugin())
+const ultimabase = new Application({
 	schemas: [Post],
-	plugins: [hooksPlugin()],
 })
 ```
 

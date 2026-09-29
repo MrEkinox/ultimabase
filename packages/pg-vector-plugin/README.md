@@ -49,9 +49,9 @@ const DocumentSchema = Schema.define({
 	}),
 })
 
-const application = await new UltimaBase({
+const Application = UltimaBase.use(hooksPlugin()).use(pgVectorPlugin())
+const application = await new Application({
 	schemas: [DocumentSchema],
-	plugins: [hooksPlugin(), pgVectorPlugin()],
 }).initialize()
 ```
 

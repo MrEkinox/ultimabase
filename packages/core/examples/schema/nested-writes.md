@@ -44,7 +44,6 @@ const ultimabase = new UltimaBase({
 	validation: {
 		nestedWrites: { maxDepth: 5, maxOperations: 100 },
 	},
-	plugins,
 	schemas,
 })
 ```

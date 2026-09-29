@@ -24,6 +24,7 @@ sources:
   - docs/adr/0206-application-owned-master-provenance.md
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
 ---
 
 An application is one `UltimaBase` instance. It owns a set of schemas and
@@ -36,7 +37,7 @@ project setup, follow [Manual Installation](/docs/1.0.0/manual-installation).
 
 Schemas, configured plugins, and static options form the application graph.
 Importing a package alone installs nothing; behavior comes from the definitions
-in this application's one flat `plugins` list. Generated
+in this application's one flat `.use()` chain. Generated
 TypeScript declarations describe this graph but do not decide what runs.
 
 <Mermaid
@@ -58,18 +59,18 @@ detail.
 The compiled graph is application-local. Several inert definitions may coexist, but only one application may initialize
 in a JavaScript realm (normally one Node.js process). Core supplies structural
 validation and the Runtime pipeline; PostgreSQL, authentication, REST, and
-GraphQL are examples of separately installed capabilities. The constructor
-options are below.
+GraphQL are examples of separately installed capabilities. Compose plugins
+first, then construct the application with its instance options.
 
 ## Configure the application
 
-`new UltimaBase({ schemas, plugins, ...options })` snapshots the configuration
-without connecting to infrastructure. Its root options are:
+`UltimaBase.use(plugin).use(plugin)` returns a new immutable application factory
+at each step. `new Application({ schemas, ...options })` then snapshots the
+configuration without connecting to infrastructure. Its instance options are:
 
 | Option             | Required | Purpose                                                                                     |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------- |
 | `schemas`          | Yes      | Exact schema classes owned by this application.                                             |
-| `plugins`          | Yes      | One flat list containing every installed plugin definition.                                 |
 | `masterAuthority`  | No       | Audited server authority for explicit Master work.                                          |
 | `pluginPrivileges` | No       | Privilege and environment-claim denials plus the reporting logger.                          |
 | `validation`       | No       | Structural validation settings, timezone, clock, UUID generation, and nested-write budgets. |
@@ -110,7 +111,6 @@ import { Article } from './article.js'
 
 export const ultimabase = new UltimaBase({
 	schemas: [Article],
-	plugins: [],
 	validation: {
 		nestedWrites: { maxDepth: 3, maxOperations: 50 },
 		timezone: 'Europe/Paris',
@@ -171,9 +171,12 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-const app = new UltimaBase({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+const app = new Application({
 	schemas: [Task],
-	plugins: [postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })],
 })
 
 try {

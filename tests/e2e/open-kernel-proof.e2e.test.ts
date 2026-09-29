@@ -422,7 +422,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 			import.meta.dirname,
 			'open-kernel-language-service.fixture.ts',
 		)
-		const source = `${generated}\nconst app = undefined as unknown as Core.UltimaBase<readonly [], readonly []>\nconst operation = app.operation('fixture.workflow.inspect')\noperation.prepare({ reason: 'typed' })\nconst result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })\nconst validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }\n// @ts-expect-error -- Portable equality retains the plugin's exact logical value.\nconst invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }\nvoid result\nvoid validWhere\nvoid invalidWhere\n`
+		const source = `${generated}\nconst app = undefined as unknown as Core.UltimaBase<readonly []>\nconst operation = app.operation('fixture.workflow.inspect')\noperation.prepare({ reason: 'typed' })\nconst result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })\nconst validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }\n// @ts-expect-error -- Portable equality retains the plugin's exact logical value.\nconst invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }\nvoid result\nvoid validWhere\nvoid invalidWhere\n`
 		const host: ts.LanguageServiceHost = {
 			fileExists: (requested) => ts.sys.fileExists(requested),
 			getCompilationSettings: () => ({
