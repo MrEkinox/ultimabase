@@ -121,6 +121,9 @@ export interface SourceSchemaTypeInfo<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 > extends SchemaTypeInfo {
+	readonly fieldKinds: Readonly<{
+		[TName in keyof TFields]: TFields[TName]['kind']
+	}>
 	readonly fields: Extract<
 		keyof StoredSourceFields<TFields> | keyof VirtualSourceFields<TFields>,
 		string

@@ -1,28 +1,46 @@
-import type { bigintField } from '../fields/builtins/bigint.js'
-import type { binaryField } from '../fields/builtins/binary.js'
-import type { booleanField } from '../fields/builtins/boolean.js'
-import type { dateTimeField } from '../fields/builtins/date-time.js'
-import type { dateField } from '../fields/builtins/date.js'
-import type { decimalField } from '../fields/builtins/decimal.js'
-import type { enumField } from '../fields/builtins/enum.js'
-import type { floatField } from '../fields/builtins/float.js'
-import type { intField } from '../fields/builtins/int.js'
-import type { jsonField } from '../fields/builtins/json.js'
+import type {
+	CompactScalarFieldDefinition,
+	DefaultedCompactScalarFieldOptions,
+	NonDefaultedCompactScalarFieldOptions,
+} from '../fields/base/factory.js'
+import type {
+	CompatibleFieldOptionsExtension,
+	FieldListOption,
+	FieldListValue,
+	ResolveFieldSourceTemplate,
+} from '../fields/base/contract.js'
+import type { BigintFieldFactory } from '../fields/builtins/bigint.js'
+import type { BinaryFieldFactory } from '../fields/builtins/binary.js'
+import type { BooleanFieldFactory } from '../fields/builtins/boolean.js'
+import type { DateTimeFieldFactory } from '../fields/builtins/date-time.js'
+import type { DateFieldFactory } from '../fields/builtins/date.js'
+import type { DecimalFieldFactory } from '../fields/builtins/decimal.js'
+import type {
+	CompatibleEnumFieldOptions,
+	EnumFieldOptions,
+	EnumValue,
+	EnumValues,
+} from '../fields/builtins/enum.js'
+import type { FloatFieldFactory } from '../fields/builtins/float.js'
+import type { IntFieldFactory } from '../fields/builtins/int.js'
+import type { JsonFieldFactory } from '../fields/builtins/json.js'
 import type {
 	ObjectFieldOptions,
 	ObjectFields,
 } from '../fields/builtins/object.js'
 import type { NamedPointerFieldBuilderMethod } from '../fields/builtins/pointer.js'
 import type { NamedRelationFieldBuilderMethod } from '../fields/builtins/relation.js'
-import type { stringField } from '../fields/builtins/string.js'
-import type { timeField } from '../fields/builtins/time.js'
-import type { uuidField } from '../fields/builtins/uuid.js'
+import type { StringFieldFactory } from '../fields/builtins/string.js'
+import type { TimeFieldFactory } from '../fields/builtins/time.js'
+import type { UuidFieldFactory } from '../fields/builtins/uuid.js'
+import type { OutputBuilder } from '../output/contracts.js'
 import type {
 	SchemaTypeInfo,
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoSource,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
+	UltimaBaseGeneratedVirtualFieldBuilderMethods,
 } from '../type-info.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type {
@@ -53,81 +71,204 @@ export type ObjectFieldBuilderOptions<
 	readonly fields: (field: EmbeddedFieldBuilder) => TFields
 }
 
+type EmptyFieldSourceTemplate = Readonly<Record<never, never>>
+
 /** Lists built-in scalar methods shared by the stored root builder. */
-export interface ScalarFieldBuilderMethods {
+export interface ScalarFieldBuilderMethods<
+	TSourceTemplate extends object = EmptyFieldSourceTemplate,
+	TEmbeddedBuilder = EmbeddedFieldBuilder,
+> {
 	/** Declares one UTF-16 string. @example `field.string({ required: true })` */
-	readonly string: typeof stringField
+	readonly string: StringFieldFactory<TSourceTemplate>
 	/** Declares one boolean. @example `field.boolean({ default: false })` */
-	readonly boolean: typeof booleanField
+	readonly boolean: BooleanFieldFactory<TSourceTemplate>
 	/** Declares one floating-point number. @example `field.float()` */
-	readonly float: typeof floatField
+	readonly float: FloatFieldFactory<TSourceTemplate>
 	/** Declares one exact decimal string. @example `field.decimal()` */
-	readonly decimal: typeof decimalField
+	readonly decimal: DecimalFieldFactory<TSourceTemplate>
 	/** Declares one UUID string. @example `field.uuid()` */
-	readonly uuid: typeof uuidField
+	readonly uuid: UuidFieldFactory<TSourceTemplate>
 	/** Declares one calendar date. @example `field.date()` */
-	readonly date: typeof dateField
+	readonly date: DateFieldFactory<TSourceTemplate>
 	/** Declares one timestamp. @example `field.dateTime()` */
-	readonly dateTime: typeof dateTimeField
+	readonly dateTime: DateTimeFieldFactory<TSourceTemplate>
 	/** Declares one time of day. @example `field.time()` */
-	readonly time: typeof timeField
+	readonly time: TimeFieldFactory<TSourceTemplate>
 	/** Declares immutable binary data. @example `field.binary()` */
-	readonly binary: typeof binaryField
+	readonly binary: BinaryFieldFactory<TSourceTemplate>
 	/** Declares one arbitrary JSON document. @example `field.json()` */
-	readonly json: typeof jsonField
+	readonly json: JsonFieldFactory<TSourceTemplate>
 	/** Declares one closed string domain. @example `field.enum({ values: ['draft'] })` */
-	readonly enum: typeof enumField
+	readonly enum: EnumFieldBuilderMethod<TSourceTemplate>
 	/** Declares one structured value. @example `field.object({ fields: () => ({}) })` */
-	readonly object: ObjectFieldBuilderMethod
+	readonly object: ObjectFieldBuilderMethod<TSourceTemplate, TEmbeddedBuilder>
+}
+
+type DefaultedEnumFieldBuilderOptions<
+	TValues extends EnumValues,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	EnumFieldOptions<TValues>,
+	EnumValue<TValues>,
+	TRequired,
+	TList,
+	TImmutable
+> &
+	CompatibleEnumFieldOptions<TValues>
+
+type NonDefaultedEnumFieldBuilderOptions<
+	TValues extends EnumValues,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	EnumFieldOptions<TValues>,
+	EnumValue<TValues>,
+	TRequired,
+	TList,
+	TImmutable
+> &
+	CompatibleEnumFieldOptions<TValues>
+
+interface EnumFieldBuilderMethod<
+	TSourceTemplate extends object = EmptyFieldSourceTemplate,
+> {
+	<
+		const TValues extends EnumValues,
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TExtensionOptions extends object = object,
+	>(
+		options: CompatibleFieldOptionsExtension<
+			DefaultedEnumFieldBuilderOptions<TValues, TRequired, TList, TImmutable>,
+			TExtensionOptions,
+			EnumValue<TValues>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<EnumValue<TValues>, TList>
+				>,
+				object
+			>
+		>,
+	): CompactScalarFieldDefinition<
+		'enum',
+		EnumValue<TValues>,
+		EnumFieldOptions<TValues>,
+		TRequired,
+		TList,
+		TImmutable,
+		true
+	>
+	<
+		const TValues extends EnumValues,
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TExtensionOptions extends object = object,
+	>(
+		options: CompatibleFieldOptionsExtension<
+			NonDefaultedEnumFieldBuilderOptions<
+				TValues,
+				TRequired,
+				TList,
+				TImmutable
+			>,
+			TExtensionOptions,
+			EnumValue<TValues>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<EnumValue<TValues>, TList>
+				>,
+				object
+			>
+		>,
+	): CompactScalarFieldDefinition<
+		'enum',
+		EnumValue<TValues>,
+		EnumFieldOptions<TValues>,
+		TRequired,
+		TList,
+		TImmutable,
+		false
+	>
 }
 
 /** Provides top-level factories while the returned object owns field names. */
-export interface FieldBuilder<
+export type FieldBuilder<
 	TSchema extends SchemaTypeInfoSource = SchemaTypeInfo,
->
-	extends ScalarFieldBuilderMethods, UltimaBaseGeneratedFieldBuilderMethods {
-	/** Declares one integer number. @example `field.int({ default: 0 })` */
-	readonly int: typeof intField
-	/** Declares one arbitrary-precision integer. @example `field.bigint()` */
-	readonly bigint: typeof bigintField
-	/** Declares one typed pointer. @example `field.pointer({ target: "User" })` */
-	readonly pointer: NamedPointerFieldBuilderMethod
-	/** Declares one to-many relationship. @example `field.relation({ target: "Post" })` */
-	readonly relation: NamedRelationFieldBuilderMethod
-	/** Declares one output-only field resolved from persisted dependencies. @example `field.virtual({ output, select: { id: true }, resolve })` */
-	readonly virtual: VirtualFieldBuilderMethod<TSchema>
-}
+	TStoredSourceTemplate extends object = EmptyFieldSourceTemplate,
+	TEmbeddedSourceTemplate extends object = EmptyFieldSourceTemplate,
+	TVirtualSourceTemplate extends object = EmptyFieldSourceTemplate,
+	TStoredPluginMethods extends object = UltimaBaseGeneratedFieldBuilderMethods,
+	TEmbeddedPluginMethods extends object =
+		UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+	TVirtualPluginMethods extends object =
+		UltimaBaseGeneratedVirtualFieldBuilderMethods,
+	TOutputBuilder = OutputBuilder,
+> = ScalarFieldBuilderMethods<
+	TStoredSourceTemplate,
+	EmbeddedFieldBuilder<TEmbeddedSourceTemplate, TEmbeddedPluginMethods>
+> &
+	TStoredPluginMethods & {
+		/** Declares one integer number. @example `field.int({ default: 0 })` */
+		readonly int: IntFieldFactory<TStoredSourceTemplate>
+		/** Declares one arbitrary-precision integer. @example `field.bigint()` */
+		readonly bigint: BigintFieldFactory<TStoredSourceTemplate>
+		/** Declares one typed pointer. @example `field.pointer({ target: "User" })` */
+		readonly pointer: NamedPointerFieldBuilderMethod<TStoredSourceTemplate>
+		/** Declares one to-many relationship. @example `field.relation({ target: "Post" })` */
+		readonly relation: NamedRelationFieldBuilderMethod
+		/** Declares one output-only field resolved from persisted dependencies. @example `field.virtual({ output, select: { id: true }, resolve })` */
+		readonly virtual: VirtualFieldBuilderMethod<
+			TSchema,
+			TVirtualSourceTemplate,
+			TOutputBuilder,
+			TVirtualPluginMethods
+		>
+	}
 
 /** Provides only value-field factories accepted inside an embedded object. */
-export interface EmbeddedFieldBuilder extends UltimaBaseGeneratedEmbeddedFieldBuilderMethods {
+export type EmbeddedFieldBuilder<
+	TSourceTemplate extends object = EmptyFieldSourceTemplate,
+	TPluginMethods extends object =
+		UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+> = TPluginMethods & {
 	/** Declares one embedded UTF-16 string. @example `field.string()` */
-	readonly string: EmbeddedStringFieldFactory
+	readonly string: EmbeddedStringFieldFactory<TSourceTemplate>
 	/** Declares one embedded boolean. @example `field.boolean()` */
-	readonly boolean: EmbeddedBooleanFieldFactory
+	readonly boolean: EmbeddedBooleanFieldFactory<TSourceTemplate>
 	/** Declares one embedded floating-point number. @example `field.float()` */
-	readonly float: EmbeddedFloatFieldFactory
+	readonly float: EmbeddedFloatFieldFactory<TSourceTemplate>
 	/** Declares one embedded exact decimal string. @example `field.decimal()` */
-	readonly decimal: EmbeddedDecimalFieldFactory
+	readonly decimal: EmbeddedDecimalFieldFactory<TSourceTemplate>
 	/** Declares one embedded UUID string. @example `field.uuid()` */
-	readonly uuid: EmbeddedUuidFieldFactory
+	readonly uuid: EmbeddedUuidFieldFactory<TSourceTemplate>
 	/** Declares one embedded calendar date. @example `field.date()` */
-	readonly date: EmbeddedDateFieldFactory
+	readonly date: EmbeddedDateFieldFactory<TSourceTemplate>
 	/** Declares one embedded timestamp. @example `field.dateTime()` */
-	readonly dateTime: EmbeddedDateTimeFieldFactory
+	readonly dateTime: EmbeddedDateTimeFieldFactory<TSourceTemplate>
 	/** Declares one embedded time of day. @example `field.time()` */
-	readonly time: EmbeddedTimeFieldFactory
+	readonly time: EmbeddedTimeFieldFactory<TSourceTemplate>
 	/** Declares one embedded immutable binary value. @example `field.binary()` */
-	readonly binary: EmbeddedBinaryFieldFactory
+	readonly binary: EmbeddedBinaryFieldFactory<TSourceTemplate>
 	/** Declares one embedded JSON document. @example `field.json()` */
-	readonly json: EmbeddedJsonFieldFactory
+	readonly json: EmbeddedJsonFieldFactory<TSourceTemplate>
 	/** Declares one embedded enum. @example `field.enum({ values: ['draft'] })` */
-	readonly enum: EmbeddedEnumFieldFactory
+	readonly enum: EmbeddedEnumFieldFactory<TSourceTemplate>
 	/** Declares one recursively embedded object. @example `field.object({ fields: () => ({}) })` */
-	readonly object: EmbeddedObjectFieldBuilderMethod
+	readonly object: EmbeddedObjectFieldBuilderMethod<
+		TSourceTemplate,
+		EmbeddedFieldBuilder<TSourceTemplate, TPluginMethods>
+	>
 	/** Declares one embedded integer number. @example `field.int()` */
-	readonly int: EmbeddedIntFieldFactory
+	readonly int: EmbeddedIntFieldFactory<TSourceTemplate>
 	/** Declares one embedded arbitrary-precision integer. @example `field.bigint()` */
-	readonly bigint: EmbeddedBigintFieldFactory
+	readonly bigint: EmbeddedBigintFieldFactory<TSourceTemplate>
 }
 
 /** Names the canonical map-returning schema field declaration. */

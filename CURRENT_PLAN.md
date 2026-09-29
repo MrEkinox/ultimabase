@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304
-- Active issue: 6305
-- Next issue: 6306
+- Completed issues: 6301, 6302, 6303, 6304, 6305
+- Active issue: 6306
+- Next issue: 6307
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -115,3 +115,14 @@ and the locked 1/10/50-schema benchmark pass. The final `yarn validate:full`
 ran 554 ordinary files/2,616 tests and 631 coverage files/2,871 tests with
 90.91/84.49/96.08/91.47 coverage. Issue 6305 is the next resume point; no push
 is authorized.
+
+Issue 6305 completed Core-native plugin source projections from revision
+`bfa25405`. The same authorized registrar calls now type configured root,
+embedded, virtual, and output builders, direct options, selected additive
+fields, schema/model mutations, and application operations without a second
+registry or generated plugin-surface copy. Source and packed editor contracts,
+two explicit instances, Runtime provenance and privilege boundaries, Plugin Kit
+conformance, and the locked three-sample 1/10/50-schema benchmark pass. The
+final `yarn validate:full` ran 555 ordinary files/2,619 tests and 633 coverage
+files/2,876 tests with 90.92/84.49/96.08/91.48 coverage. Issue 6306 is the next
+resume point; no push is authorized.

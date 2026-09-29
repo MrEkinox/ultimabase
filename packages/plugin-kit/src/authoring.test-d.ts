@@ -1,12 +1,20 @@
 import {
 	contributeApplication,
+	contributeDeclarations,
 	contributeOperation,
+	definePluginField,
+	definePluginFieldFamily,
 	defineOperation,
 	defineOperationValue,
 	plugin,
+	UltimaBase,
 	defineTypegenReference,
+	type FieldOptions,
 	type JsonObject,
 	type PluginExports,
+	type PluginFieldDefinition,
+	type ScalarFieldTypegenState,
+	type SchemaItem,
 } from '@ultimabase/core'
 import { expectTypeOf } from 'vitest'
 import { z } from 'zod'
@@ -41,6 +49,74 @@ const contextualOption = definePluginFieldOption({
 expectTypeOf(contextualOption.contexts).toEqualTypeOf<
 	readonly ('stored' | 'embedded' | 'virtual' | 'output')[]
 >()
+
+type RatingField = PluginFieldDefinition<
+	'community.rating',
+	number,
+	FieldOptions<number>,
+	ScalarFieldTypegenState<true, false, false, false>
+>
+const ratingField = (): RatingField =>
+	definePluginField(
+		'community.rating',
+		{ required: true },
+		{
+			snapshotValue: (value, path) => {
+				if (typeof value !== 'number')
+					throw new TypeError(`${path} must be numeric`)
+				return value
+			},
+		},
+	)
+const ratingFamily = definePluginFieldFamily({
+	fieldKind: 'community.rating',
+	typegen: {
+		module: '@example/rating-plugin',
+		valueType: 'RatingValue',
+	},
+	builder: {
+		name: 'rating',
+		contexts: {
+			stored: { factory: ratingField, methodType: 'RatingFieldBuilderMethod' },
+		},
+	},
+})
+const highlightedOption = definePluginFieldOption({
+	contexts: ['stored'],
+	normalize: (value) => value === true,
+	protocolVersion: 1,
+	typegen: false,
+})
+const ratingPlugin = plugin({
+	core: '^0.0.0',
+	id: 'community.rating',
+	permissions: { 'schema:declare': 'Declares rating authoring.' },
+	version: '1.0.0',
+	contributions: [
+		contributeDeclarations({
+			schema: ({ fields, schemas }) => [
+				fields.register(ratingFamily),
+				schemas.defineOptions({
+					contributionId: 'highlighted-option',
+					field: { highlighted: highlightedOption },
+				}),
+			],
+		}),
+	],
+})
+const RatingApp = UltimaBase.use(ratingPlugin)
+const RatedArticle = RatingApp.Schema.define({
+	className: 'PluginKitRatedArticle',
+	fields: (field) => ({
+		rating: field.rating(),
+		title: field.string({ highlighted: true, required: true }),
+	}),
+})
+expectTypeOf<
+	SchemaItem<typeof RatedArticle>['rating']
+>().toEqualTypeOf<number>()
+expectTypeOf(RatedArticle.className).toEqualTypeOf<'PluginKitRatedArticle'>()
+
 const workflowPlugin = plugin({
 	id: 'community.workflow',
 	version: '1.4.0',

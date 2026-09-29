@@ -20,6 +20,12 @@ import {
 	type PluginSchemaMutationSurfaceBinding,
 } from './schema-mutation-surface-declarations.js'
 import type {
+	PluginSourceMutationMethod,
+	PluginSourceReceipt,
+	PluginSourceSchemaProjection,
+} from './source-projections.js'
+import { pluginSourceReceipt } from './source-projections.js'
+import type {
 	SchemaSelection,
 	SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
@@ -30,24 +36,98 @@ export type {
 
 export interface PluginOperationDeclarationRegistrar {
 	/** Declares one operation or schema-mutation token without installing a handler. */
-	declare(
-		operation: PluginOperationDefinition | PluginSchemaMutationDefinition,
-	): void
+	declare<
+		const TOperation extends
+			PluginOperationDefinition | PluginSchemaMutationDefinition,
+	>(
+		operation: TOperation,
+	): PluginSourceReceipt<OperationSourceProjection<TOperation>>
 }
 
 export interface PluginModelSurfaceRegistrar {
 	/** Adds schema-mutation methods to selected schema and model handles. */
-	extend(
-		target: SchemaDefinition | SchemaSelectorOptions,
+	extend<
+		const TTarget extends SchemaDefinition | SchemaSelectorOptions,
+		const TMutations extends Readonly<
+			Record<string, PluginSchemaMutationSurfaceBinding>
+		> = Readonly<Record<never, never>>,
+	>(
+		target: TTarget,
 		options: {
 			readonly contributionId: string
-			readonly schemaMutations?: Readonly<
-				Record<string, PluginSchemaMutationSurfaceBinding>
-			>
+			readonly schemaMutations?: TMutations
 			readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		},
-	): void
+	): PluginSourceReceipt<ModelSurfaceSourceProjection<TTarget, TMutations>>
 }
+
+type OperationSourceProjection<TOperation> =
+	TOperation extends PluginOperationDefinition<infer TName>
+		? Readonly<{
+				operations: Readonly<Record<TName, TOperation>>
+			}>
+		: Readonly<Record<never, never>>
+
+type SurfaceMutationTemplate<
+	TMutations extends Readonly<
+		Record<string, PluginSchemaMutationSurfaceBinding>
+	>,
+	TSurface extends 'model' | 'schema',
+> = {
+	readonly [
+		TName in keyof TMutations as TSurface extends TMutations[TName]['surfaces'][number]
+			? TName
+			: never
+	]: PluginSourceMutationMethod<TMutations[TName]['mutation'], TSurface>
+}
+
+type TargetClassNames<TTarget> =
+	TTarget extends SchemaDefinition<infer TClassName>
+		? readonly [TClassName]
+		: TTarget extends Readonly<{ className: infer TClassName extends string }>
+			? readonly [TClassName]
+			: undefined
+
+type TargetSelector<TTarget> = TTarget extends SchemaSelectorOptions
+	? TTarget extends Readonly<{ className: string }>
+		? undefined
+		: TTarget
+	: undefined
+
+type SurfaceProjection<
+	TTarget,
+	TMutations extends Readonly<
+		Record<string, PluginSchemaMutationSurfaceBinding>
+	>,
+	TSurface extends 'model' | 'schema',
+> = keyof SurfaceMutationTemplate<TMutations, TSurface> extends never
+	? never
+	: PluginSourceSchemaProjection<
+			SurfaceMutationTemplate<TMutations, TSurface>,
+			TargetClassNames<TTarget>,
+			TargetSelector<TTarget>
+		>
+
+type ModelSurfaceSourceProjection<
+	TTarget,
+	TMutations extends Readonly<
+		Record<string, PluginSchemaMutationSurfaceBinding>
+	>,
+> =
+	| (SurfaceProjection<
+			TTarget,
+			TMutations,
+			'schema'
+	  > extends infer TProjection extends PluginSourceSchemaProjection
+			? Readonly<{ schemaClass: TProjection }>
+			: never)
+	| (SurfaceProjection<
+			TTarget,
+			TMutations,
+			'model'
+	  > extends infer TProjection extends PluginSourceSchemaProjection
+			? Readonly<{ model: TProjection }>
+			: never)
 
 export interface OwnedPluginOperationDeclaration {
 	readonly operation: PluginOperationDefinition | PluginSchemaMutationDefinition
@@ -103,7 +183,7 @@ export const createApplicationSurfaceRegistrars = (
 
 	return immutableRecord({
 		models: immutableRecord({
-			extend: (target, options): void => {
+			extend: (target, options) => {
 				if (!isPlainRecord(options)) {
 					throw new TypeError('model surface must be a plain object')
 				}
@@ -139,10 +219,11 @@ export const createApplicationSurfaceRegistrars = (
 						target: createTarget(target),
 					}),
 				)
+				return pluginSourceReceipt()
 			},
 		}),
 		operations: immutableRecord({
-			declare: (operation): void => {
+			declare: (operation) => {
 				if (
 					!isPluginOperationDefinition(operation) &&
 					!isPluginSchemaMutationDefinition(operation)
@@ -152,6 +233,7 @@ export const createApplicationSurfaceRegistrars = (
 					)
 				}
 				declarations.operations.push(immutableRecord({ operation, owner }))
+				return pluginSourceReceipt()
 			},
 		}),
 	})

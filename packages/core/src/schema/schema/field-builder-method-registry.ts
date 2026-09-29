@@ -16,6 +16,7 @@ import {
 	type PluginFieldFamilyRegistrar,
 	type PluginFieldTypegen,
 } from './field-builder-methods.js'
+import { pluginSourceReceipt } from '../../plugins/source-projections.js'
 
 const reservedMethodNames: ReadonlySet<string> = new Set([
 	'add',
@@ -73,8 +74,8 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 			)
 		}
 
-		const fields = immutableRecord({
-			register: (family: PluginFieldFamilyDefinition): void => {
+		const fields: PluginFieldFamilyRegistrar = immutableRecord({
+			register: (family: PluginFieldFamilyDefinition) => {
 				assertSessionOpen()
 				assertPluginFieldFamily(
 					family,
@@ -83,7 +84,7 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 				const builder = family.builder
 				if (builder === undefined) {
 					stageType(family.fieldKind, family.typegen)
-					return
+					return pluginSourceReceipt()
 				}
 				if (reservedMethodNames.has(builder.name)) {
 					throw new TypeError(
@@ -122,6 +123,7 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 						owner: pluginName,
 					}),
 				)
+				return pluginSourceReceipt()
 			},
 		})
 

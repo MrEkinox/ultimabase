@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -84,7 +85,9 @@ type NonDefaultedBinaryField<
 	TImmutable extends boolean,
 > = ResolvedBinaryField<TRequired, TList, TImmutable, false>
 
-interface BinaryFieldFactory {
+export interface BinaryFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -94,7 +97,8 @@ interface BinaryFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			Uint8Array
+			Uint8Array,
+			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList>
 		>,
 	): DefaultedBinaryField<TRequired, TList, TImmutable>
 	<
@@ -106,7 +110,8 @@ interface BinaryFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			Uint8Array
+			Uint8Array,
+			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList>
 		>,
 	): NonDefaultedBinaryField<TRequired, TList, TImmutable>
 }

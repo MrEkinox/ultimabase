@@ -10,6 +10,10 @@ import {
 	assertFieldDefinition,
 	forbidFieldMutationInput,
 } from '../schema/fields/base/definition.js'
+import type {
+	ForbiddenMutationInputField,
+	GenericField,
+} from '../schema/fields/base/contract.js'
 
 import { snapshotCapturedOptionValue } from '../schema/schema/captured-options.js'
 
@@ -22,9 +26,19 @@ import {
 	type SetSchemaOptionOperation,
 } from './schema-patch-contracts.js'
 
-export const addSchemaField = (
-	options: AddSchemaFieldOptions,
-): AddSchemaFieldOperation => {
+export const addSchemaField = <
+	const TName extends string,
+	const TField extends GenericField,
+	const TMutationInput extends 'forbidden' | undefined = undefined,
+>(
+	options: AddSchemaFieldOptions<TName, TField> &
+		Readonly<{ mutationInput?: TMutationInput }>,
+): AddSchemaFieldOperation<
+	TName,
+	TMutationInput extends 'forbidden'
+		? ForbiddenMutationInputField<TField>
+		: TField
+> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('Schema field addition must be a plain object')
 	}
@@ -53,7 +67,12 @@ export const addSchemaField = (
 	})
 	schemaPatchOperations.add(operation)
 
-	return operation
+	return operation as AddSchemaFieldOperation<
+		TName,
+		TMutationInput extends 'forbidden'
+			? ForbiddenMutationInputField<TField>
+			: TField
+	>
 }
 
 export const addSchemaIndex = (

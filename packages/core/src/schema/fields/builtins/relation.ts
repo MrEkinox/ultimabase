@@ -16,6 +16,7 @@ import type {
 	FieldOptionValueCarrier,
 	FieldTypegenState,
 	GenericField,
+	ResolveFieldSourceTemplate,
 } from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
 import type { SchemaReference } from '../../schema/definition.js'
@@ -158,6 +159,19 @@ export type NamedRelationFieldBuilderMethod = <
 		undefined,
 >(
 	options: NamedRelationFieldOptions<TTargetName, TMappedBy>,
+) => RelationField<SchemaReference<TTargetName>, TMappedBy>
+
+/** Adds configured source options without changing the retained name graph. */
+export type SourceNamedRelationFieldBuilderMethod<
+	TSourceTemplate extends object,
+> = <
+	const TTargetName extends SchemaDeclarationTargetName,
+	const TMappedBy extends
+		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined =
+		undefined,
+>(
+	options: NamedRelationFieldOptions<TTargetName, TMappedBy> &
+		Extract<ResolveFieldSourceTemplate<TSourceTemplate, never>, object>,
 ) => RelationField<SchemaReference<TTargetName>, TMappedBy>
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {

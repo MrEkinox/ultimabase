@@ -19,6 +19,7 @@ import type {
 	FieldDefinition,
 	FieldTypegenState,
 	FieldOptionsBase,
+	ResolveFieldSourceTemplate,
 	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
@@ -168,7 +169,9 @@ type NamedCompactPointerFieldOptions<
 }
 
 /** Declares one application pointer without introducing a value-level schema cycle. */
-export type NamedPointerFieldBuilderMethod = <
+export type NamedPointerFieldBuilderMethod<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = <
 	const TTargetName extends SchemaDeclarationTargetName,
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
@@ -183,7 +186,14 @@ export type NamedPointerFieldBuilderMethod = <
 			TOnDelete
 		>,
 		TExtensionOptions,
-		Pointer<SchemaReference<TTargetName>>
+		Pointer<SchemaReference<TTargetName>>,
+		Extract<
+			ResolveFieldSourceTemplate<
+				TSourceTemplate,
+				Pointer<SchemaReference<TTargetName>>
+			>,
+			object
+		>
 	>,
 ) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 

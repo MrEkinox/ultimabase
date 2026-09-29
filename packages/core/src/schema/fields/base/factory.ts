@@ -4,6 +4,7 @@ import type {
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
+	ResolveFieldSourceTemplate,
 	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
@@ -211,6 +212,7 @@ export interface CompactScalarFieldFactory<
 	TKind extends string,
 	TValue,
 	TOptions extends FieldOptions<TValue>,
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
 		const TRequired extends boolean = false,
@@ -227,7 +229,14 @@ export interface CompactScalarFieldFactory<
 				TImmutable
 			>,
 			TExtensionOptions,
-			TValue
+			TValue,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>
+				>,
+				object
+			>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -250,7 +259,14 @@ export interface CompactScalarFieldFactory<
 				TImmutable
 			>,
 			TExtensionOptions,
-			TValue
+			TValue,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>
+				>,
+				object
+			>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -267,22 +283,35 @@ export interface GeneratedCompactScalarFieldFactory<
 	TOptions extends FieldOptions<TValue>,
 	TGenerationKey extends keyof TOptions & string,
 	TExclusiveGeneration extends boolean,
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TExtensionOptions extends object = object,
 	>(
-		options: DefaultedGeneratedScalarFieldOptions<
-			TOptions,
+		options: CompatibleFieldOptionsExtension<
+			DefaultedGeneratedScalarFieldOptions<
+				TOptions,
+				TValue,
+				TRequired,
+				TList,
+				TImmutable,
+				TGenerationKey,
+				THasGeneratedValue,
+				TExclusiveGeneration
+			>,
+			TExtensionOptions,
 			TValue,
-			TRequired,
-			TList,
-			TImmutable,
-			TGenerationKey,
-			THasGeneratedValue,
-			TExclusiveGeneration
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -299,16 +328,28 @@ export interface GeneratedCompactScalarFieldFactory<
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
+		const TExtensionOptions extends object = object,
 	>(
-		options?: NonDefaultedGeneratedScalarFieldOptions<
-			TOptions,
+		options?: CompatibleFieldOptionsExtension<
+			NonDefaultedGeneratedScalarFieldOptions<
+				TOptions,
+				TValue,
+				TRequired,
+				TList,
+				TImmutable,
+				TGenerationKey,
+				THasGeneratedValue,
+				TExclusiveGeneration
+			>,
+			TExtensionOptions,
 			TValue,
-			TRequired,
-			TList,
-			TImmutable,
-			TGenerationKey,
-			THasGeneratedValue,
-			TExclusiveGeneration
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,

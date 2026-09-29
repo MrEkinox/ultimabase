@@ -59,6 +59,44 @@ const applicationCapability = defineCapability<{
 })
 
 describe('PluginDeclarationHost', () => {
+	it('accepts receipts and rejects arbitrary declaration results', async () => {
+		const valid = createPlugin({
+			id: 'fixture.valid-receipt',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Declares one field family.' },
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => fields.register(alphaMethod),
+				}),
+			],
+		})
+		const application = applicationFixture(
+			await createApplication({ plugins: [valid], schemas: [] }),
+		)
+		expect(application.fieldBuilderMethods.map(({ name }) => name)).toEqual([
+			'alpha',
+		])
+		await application.dispose()
+
+		const invalid = createPlugin({
+			id: 'fixture.invalid-receipt',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Exercises the Runtime boundary.' },
+			contributions: [
+				contributeDeclarations({
+					schema: () => ({ registered: true }) as unknown as undefined,
+				}),
+			],
+		})
+		await expect(
+			createApplication({ plugins: [invalid], schemas: [] }),
+		).rejects.toThrow(
+			'plugin declaration contribution callbacks may return only Core declaration receipts',
+		)
+	})
+
 	it('exposes only active privilege facades and keeps applications isolated', async () => {
 		const conditionalRequirement = optionalCapability(
 			declarationCapability,

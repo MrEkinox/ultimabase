@@ -22,8 +22,12 @@ import type {
 	PluginApplicationContribution,
 	PluginContribution,
 	PluginDeclarationContribution,
+	PluginDeclarationRequirements,
 	PluginPrivilegedContribution,
 } from './plugin-contributions.js'
+import type { PluginOperationContribution } from './plugin-command-contribution-contracts.js'
+import type { PluginOperationDefinition } from './plugin-operations.js'
+import type { PluginSourceProjection } from './source-projections.js'
 import {
 	normalizePluginPermissionRequests,
 	type PluginPermissionReasons,
@@ -60,6 +64,26 @@ type ContributionCapabilities<TContribution> =
 				? TRequirements
 				: readonly []
 		: readonly []
+
+type ContributionSource<TContribution> =
+	UnwrapContribution<TContribution> extends infer TUnwrapped
+		? TUnwrapped extends PluginDeclarationContribution<
+				PluginDeclarationRequirements,
+				infer TProjection
+			>
+			? TProjection
+			: TUnwrapped extends PluginOperationContribution<
+						infer TOperation extends PluginOperationDefinition
+				  >
+				? Readonly<{
+						operations: Readonly<Record<TOperation['name'], TOperation>>
+					}>
+				: never
+		: never
+
+type ContributionSourceProjection<
+	TContributions extends readonly PluginContribution[],
+> = Extract<ContributionSource<TContributions[number]>, PluginSourceProjection>
 
 type CollectContributionCapabilities<
 	TContributions extends readonly PluginContribution[],
@@ -192,6 +216,7 @@ export const plugin = <
 	readonly environment: TEnvironment
 	readonly privileges: PermissionRequests<TPermissions>
 	readonly capabilities: ContributionCapabilityOptions<TContributions>
+	readonly source: ContributionSourceProjection<TContributions>
 }> => {
 	assertExactPlainObject(
 		options,
@@ -250,5 +275,6 @@ export const plugin = <
 		readonly environment: TEnvironment
 		readonly privileges: PermissionRequests<TPermissions>
 		readonly capabilities: ContributionCapabilityOptions<TContributions>
+		readonly source: ContributionSourceProjection<TContributions>
 	}>
 }

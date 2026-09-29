@@ -11,7 +11,9 @@ const probes = {
 	hybrid: path.join(fixtureDirectory, 'hybrid-authoring-probe.mjs'),
 } as const
 const schemaCounts = [1, 10, 50] as const
-const sampleCount = 2
+// Three independent cold processes let the median reject one host-load outlier
+// without weakening any compiler, editor, memory, or generation budget.
+const sampleCount = 3
 
 interface AuthoringMeasurement {
 	readonly coldDiagnosticCount: number
@@ -197,5 +199,5 @@ describe('hybrid source-plugin authoring performance', () => {
 		}
 
 		console.info(JSON.stringify({ raw, summaries }, undefined, 2))
-	}, 120_000)
+	}, 180_000)
 })

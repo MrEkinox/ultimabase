@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -85,7 +86,9 @@ type NonDefaultedUuidField<
 	TImmutable extends boolean,
 > = ResolvedUuidField<TRequired, TList, TImmutable, false>
 
-interface UuidFieldFactory {
+export interface UuidFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -95,7 +98,8 @@ interface UuidFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): DefaultedUuidField<TRequired, TList, TImmutable>
 	<
@@ -107,7 +111,8 @@ interface UuidFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): NonDefaultedUuidField<TRequired, TList, TImmutable>
 }

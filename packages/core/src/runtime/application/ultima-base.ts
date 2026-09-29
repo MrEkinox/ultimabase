@@ -90,6 +90,12 @@ import {
 	bindUltimaBaseEngine,
 	bindUltimaBaseKernel,
 } from './ultima-base-kernel.js'
+import type {
+	EmptyPluginSourceState,
+	MergePluginSourceState,
+	PluginSourceState,
+} from '../../plugins/source-projections.js'
+import type { PluginSource } from '../../plugins/definition.js'
 
 const ultimaBaseOptionKeys = new Set([
 	'access',
@@ -225,10 +231,11 @@ export class UltimaBase<
 	const TSchemas extends readonly SchemaDefinition[] =
 		readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[] = readonly [],
+	TSource extends PluginSourceState = EmptyPluginSourceState,
 > {
 	/** Declares portable schemas through the zero-plugin source factory. */
 	static readonly Schema: ConfiguredSchemaNamespace =
-		Schema as ConfiguredSchemaNamespace
+		Schema as unknown as ConfiguredSchemaNamespace
 
 	/**
 	 * Returns a new immutable factory with one plugin appended to its flat graph.
@@ -237,8 +244,14 @@ export class UltimaBase<
 	 */
 	static use<const TPlugin extends PluginDefinition>(
 		plugin: TPlugin,
-	): ConfiguredUltimaBaseFactory<readonly [TPlugin]> {
-		return appendConfiguredPlugin<readonly [], TPlugin>(this, plugin)
+	): ConfiguredUltimaBaseFactory<
+		readonly [TPlugin],
+		MergePluginSourceState<EmptyPluginSourceState, PluginSource<TPlugin>>
+	> {
+		return appendConfiguredPlugin<readonly [], EmptyPluginSourceState, TPlugin>(
+			this,
+			plugin,
+		)
 	}
 
 	readonly #application: FrameworkApplication<TSchemas, TPlugins>
@@ -382,6 +395,12 @@ export class UltimaBase<
 	operation<TOperation extends PluginOperationDefinition>(
 		operation: TOperation,
 	): ApplicationOperationHandle<TOperation>
+	/** Resolves one source-projected operation installed on this configured factory. */
+	operation<const TName extends Extract<keyof TSource['operations'], string>>(
+		name: TName,
+	): ApplicationOperationHandle<
+		Extract<TSource['operations'][TName], PluginOperationDefinition>
+	>
 	/** Resolves one dynamic operation handle by its namespaced JavaScript name. */
 	operation<const TName extends string>(
 		name: TName,

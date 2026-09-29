@@ -44,7 +44,6 @@ import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SchemaConstraintDefinition } from './constraints.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
-
 import {
 	prepareSchemaCompilation,
 	snapshotUnresolvedSchemaOptions,
@@ -65,6 +64,7 @@ export {
 } from './definition-compilation.js'
 export { SchemaCompilationError } from './definition-error.js'
 export type { SchemaCompilationFailureReason } from './definition-error.js'
+export type { ConfiguredSchemaNamespace } from './configured-schema-namespace.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
@@ -500,15 +500,3 @@ export class Schema {
 			SchemaResultCapabilityCarrier<TResults>
 	}
 }
-
-/** Exposes exact source inference through the one configured application namespace. */
-export type ConfiguredSchemaNamespace = Omit<typeof Schema, 'define'> &
-	Readonly<{
-		define: <
-			const TClassName extends string,
-			const TFields extends SchemaFields,
-		>(
-			options: SchemaOptions<TClassName, TFields> &
-				ReservedSchemaFieldCollision<NoInfer<TFields>>,
-		) => SchemaReference<TClassName, TFields>
-	}>

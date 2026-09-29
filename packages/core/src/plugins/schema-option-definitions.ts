@@ -29,6 +29,8 @@ export interface SchemaOptionTypegenDescriptor {
 	readonly type: string
 }
 
+declare const schemaOptionSourceType: unique symbol
+
 type RequirementConsumerValue<TRequirement> =
 	TRequirement extends CapabilityRequirement<infer TToken, infer TOptional>
 		? TOptional extends true
@@ -90,6 +92,7 @@ export interface SchemaOptionDefinition<
 	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
+	TSource = TValue,
 > {
 	readonly normalize: (value: unknown, path: string) => TValue
 	readonly protocolVersion: number
@@ -101,6 +104,8 @@ export interface SchemaOptionDefinition<
 	readonly typegen: SchemaOptionTypegenDescriptor | false
 	/** Keeps executable or nominal option values application-local; selectors only compare portable values. */
 	readonly valueKind?: 'json' | 'opaque'
+	/** @internal Retains the source-authoring value without emitting Runtime data. */
+	readonly [schemaOptionSourceType]?: TSource
 }
 
 /** Defines one direct field option and every semantic context it can execute. */
@@ -108,9 +113,20 @@ export interface FieldOptionDefinition<
 	TValue = unknown,
 	TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
-> extends SchemaOptionDefinition<TValue, TRequirement> {
+	TSource = TValue,
+> extends SchemaOptionDefinition<TValue, TRequirement, TSource> {
 	readonly contexts: readonly FieldDeclarationContext[]
 }
+
+/** Reads the exact source-authoring value carried by one option definition. */
+export type SchemaOptionSource<TDefinition> =
+	TDefinition extends SchemaOptionDefinition<
+		unknown,
+		SchemaOptionRuntimeRequirement,
+		infer TSource
+	>
+		? TSource
+		: never
 
 export const schemaOptionDefinitions: WeakSet<object> = new WeakSet<object>()
 export const fieldOptionDefinitions: WeakSet<object> = new WeakSet<object>()
@@ -196,14 +212,15 @@ const normalizeOptionDefinition = <
 	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
+	TSource = TValue,
 >(
 	definition:
-		| SchemaOptionDefinition<TValue, TRequirement>
-		| FieldOptionDefinition<TValue, TRequirement>,
+		| SchemaOptionDefinition<TValue, TRequirement, TSource>
+		| FieldOptionDefinition<TValue, TRequirement, TSource>,
 	field: boolean,
 ):
-	| SchemaOptionDefinition<TValue, TRequirement>
-	| FieldOptionDefinition<TValue, TRequirement> => {
+	| SchemaOptionDefinition<TValue, TRequirement, TSource>
+	| FieldOptionDefinition<TValue, TRequirement, TSource> => {
 	if (!isPlainRecord(definition)) {
 		throw new TypeError('Schema option definition must be a plain object')
 	}
@@ -318,9 +335,10 @@ export const defineSchemaOption = <
 	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
+	TSource = TValue,
 >(
-	definition: SchemaOptionDefinition<TValue, TRequirement>,
-): SchemaOptionDefinition<TValue, TRequirement> =>
+	definition: SchemaOptionDefinition<TValue, TRequirement, TSource>,
+): SchemaOptionDefinition<TValue, TRequirement, TSource> =>
 	normalizeOptionDefinition(definition, false)
 
 /** Defines one field-scoped option with an explicit non-empty context set. */
@@ -328,10 +346,12 @@ export const defineFieldOption = <
 	const TValue,
 	const TRequirement extends SchemaOptionRuntimeRequirement =
 		SchemaOptionRuntimeRequirement,
+	TSource = TValue,
 >(
-	definition: FieldOptionDefinition<TValue, TRequirement>,
-): FieldOptionDefinition<TValue, TRequirement> =>
+	definition: FieldOptionDefinition<TValue, TRequirement, TSource>,
+): FieldOptionDefinition<TValue, TRequirement, TSource> =>
 	normalizeOptionDefinition(definition, true) as FieldOptionDefinition<
 		TValue,
-		TRequirement
+		TRequirement,
+		TSource
 	>

@@ -64,6 +64,7 @@ import {
 	snapshotTypegenDeclarations,
 	type TypegenReferenceRegistrar,
 } from './typegen-declarations.js'
+import { pluginSourceReceipt } from './source-projections.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
@@ -126,9 +127,9 @@ export class SchemaDeclarationRegistry {
 				throw new TypeError('schema:declare is required for this declaration')
 			}
 		}
-		const createSelection = (
-			selector: SchemaSelectorOptions,
-		): SchemaSelection => {
+		const createSelection = <const TSelector extends SchemaSelectorOptions>(
+			selector: TSelector,
+		): SchemaSelection<TSelector> => {
 			assertOpen()
 			const selection = immutableRecord({
 				selectionId: `selection:${String(this.#nextSelectionId)}`,
@@ -136,7 +137,7 @@ export class SchemaDeclarationRegistry {
 			})
 			this.#nextSelectionId += 1
 			schemaSelections.add(selection)
-			return selection
+			return selection as SchemaSelection<TSelector>
 		}
 		const surfaces = createApplicationSurfaceRegistrars(
 			owner,
@@ -149,9 +150,9 @@ export class SchemaDeclarationRegistry {
 			assertOpen,
 		)
 		const operations: PluginOperationDeclarationRegistrar = immutableRecord({
-			declare: (operation): void => {
-				surfaces.operations.declare(operation)
-				if (!privileges.typegenReference) return
+			declare: (operation) => {
+				const receipt = surfaces.operations.declare(operation)
+				if (!privileges.typegenReference) return receipt
 				const references =
 					operation.kind === 'plugin-operation'
 						? [operation.input.typegen, operation.result.typegen]
@@ -159,6 +160,7 @@ export class SchemaDeclarationRegistry {
 				for (const reference of references) {
 					if (reference !== undefined) typegen.registerReachable(reference)
 				}
+				return receipt
 			},
 		})
 		type SchemaSourceOptions = Parameters<
@@ -189,13 +191,13 @@ export class SchemaDeclarationRegistry {
 			)
 		}
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
-			add: (options): void => {
+			add: (options) => {
 				stageSchemaSource('addition', options)
 			},
-			claim: (options): void => {
+			claim: (options) => {
 				stageSchemaSource('claim', options)
 			},
-			defineOptions: (options): void => {
+			defineOptions: (options) => {
 				assertDeclare()
 				if (!isPlainRecord(options)) {
 					throw new TypeError('Schema option namespace must be a plain object')
@@ -255,8 +257,9 @@ export class SchemaDeclarationRegistry {
 						)
 					}
 				}
+				return pluginSourceReceipt()
 			},
-			patch: (options): void => {
+			patch: (options) => {
 				assertOpen()
 				if (!batch.canDeclare) {
 					throw new TypeError('schema:declare is required for patches')
@@ -290,8 +293,9 @@ export class SchemaDeclarationRegistry {
 						targets: options.targets,
 					}),
 				)
+				return pluginSourceReceipt()
 			},
-			select: (selector): SchemaSelection => {
+			select: (selector) => {
 				return createSelection(selector)
 			},
 		})

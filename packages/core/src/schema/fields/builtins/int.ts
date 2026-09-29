@@ -10,6 +10,7 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -123,7 +124,9 @@ type NonDefaultedIntField<
 	TAutoIncrement extends boolean,
 > = ResolvedIntField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
-interface IntFieldFactory {
+export interface IntFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -134,7 +137,8 @@ interface IntFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
-			number
+			number,
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
 		>,
 	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -147,7 +151,8 @@ interface IntFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
-			number
+			number,
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
 		>,
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }

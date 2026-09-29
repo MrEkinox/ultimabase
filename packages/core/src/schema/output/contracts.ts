@@ -1,11 +1,19 @@
 import type { JsonDocument } from '../fields/builtins/json.js'
 import type { EnumValue, EnumValues } from '../fields/builtins/enum.js'
+import type { ResolveFieldSourceTemplate } from '../fields/base/contract.js'
 import type {
 	UltimaBaseGeneratedOutputBuilderMethods,
 	UltimaBaseGeneratedOutputOptions,
 } from '../type-info.js'
 
 declare const outputValueMarker: unique symbol
+
+type EmptyOutputSourceOptions = Readonly<Record<never, never>>
+
+type OutputSourceOptions<TTemplate extends object, TValue> = Extract<
+	ResolveFieldSourceTemplate<TTemplate, TValue>,
+	object
+>
 
 /** Lists the transport-neutral value kinds available to virtual outputs. */
 export type OutputKind =
@@ -99,6 +107,7 @@ interface OutputScalarBuilderMethod<
 	TKind extends Exclude<OutputKind, 'enum' | 'object'>,
 	TValue,
 	TRepresentationOptions extends object = object,
+	TSourceTemplate extends object = EmptyOutputSourceOptions,
 > {
 	/** Declares one non-null scalar output value. */
 	(
@@ -106,31 +115,36 @@ interface OutputScalarBuilderMethod<
 			TRepresentationOptions & {
 				readonly list?: false
 				readonly nullable: false
-			},
+			} & OutputSourceOptions<TSourceTemplate, TValue>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, false>
 	(
 		options: OutputValueOptions<false, true> &
 			TRepresentationOptions & {
 				readonly list: true
 				readonly nullable: false
-			},
+			} & OutputSourceOptions<TSourceTemplate, readonly TValue[]>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, false, true>
 	(
 		options: OutputValueOptions<true, true> &
 			TRepresentationOptions & {
 				readonly list: true
 				readonly nullable?: true
-			},
+			} & OutputSourceOptions<TSourceTemplate, readonly TValue[] | null>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, true>
 	(
 		options?: OutputValueOptions<true, false> &
 			TRepresentationOptions & {
 				readonly list?: false
 				readonly nullable?: true
-			},
+			} & OutputSourceOptions<TSourceTemplate, TValue | null>,
 	): ScalarOutputDescriptor<TKind, TValue, TRepresentationOptions, true, false>
 	<const TNullable extends boolean, const TList extends boolean>(
-		options: OutputValueOptions<TNullable, TList> & TRepresentationOptions,
+		options: OutputValueOptions<TNullable, TList> &
+			TRepresentationOptions &
+			OutputSourceOptions<
+				TSourceTemplate,
+				OutputValueShape<TValue, TNullable, TList>
+			>,
 	): ScalarOutputDescriptor<
 		TKind,
 		TValue,
@@ -179,38 +193,47 @@ type EnumOutputDescriptor<
 	}
 >
 
-interface OutputEnumBuilderMethod {
+interface OutputEnumBuilderMethod<
+	TSourceTemplate extends object = EmptyOutputSourceOptions,
+> {
 	/** Declares one non-null output value from an exact enum domain. */
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, false, false> & {
 			readonly list?: false
 			readonly nullable: false
-		},
+		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues>>,
 	): EnumOutputDescriptor<TValues, false, false>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, false, true> & {
 			readonly list: true
 			readonly nullable: false
-		},
+		} & OutputSourceOptions<TSourceTemplate, readonly EnumValue<TValues>[]>,
 	): EnumOutputDescriptor<TValues, false, true>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, true, true> & {
 			readonly list: true
 			readonly nullable?: true
-		},
+		} & OutputSourceOptions<
+				TSourceTemplate,
+				readonly EnumValue<TValues>[] | null
+			>,
 	): EnumOutputDescriptor<TValues, true, true>
 	<const TValues extends EnumValues>(
 		options: EnumOutputOptions<TValues, true, false> & {
 			readonly list?: false
 			readonly nullable?: true
-		},
+		} & OutputSourceOptions<TSourceTemplate, EnumValue<TValues> | null>,
 	): EnumOutputDescriptor<TValues, true, false>
 	<
 		const TValues extends EnumValues,
 		const TNullable extends boolean,
 		const TList extends boolean,
 	>(
-		options: EnumOutputOptions<TValues, TNullable, TList>,
+		options: EnumOutputOptions<TValues, TNullable, TList> &
+			OutputSourceOptions<
+				TSourceTemplate,
+				OutputValueShape<EnumValue<TValues>, TNullable, TList>
+			>,
 	): EnumOutputDescriptor<TValues, TNullable, TList>
 }
 
@@ -219,9 +242,10 @@ export interface ObjectOutputOptions<
 	TFields extends OutputFields,
 	TNullable extends boolean = boolean,
 	TList extends boolean = boolean,
+	TBuilder = OutputBuilder,
 > extends OutputValueOptions<TNullable, TList> {
 	/** Declares every required property through the same output-only builder. */
-	readonly fields: (output: OutputBuilder) => TFields
+	readonly fields: (output: TBuilder) => TFields
 	/** Supplies a stable generator-neutral object identity. @example `typeName: "Summary"` */
 	readonly typeName?: string
 }
@@ -239,81 +263,175 @@ type ObjectOutputDescriptor<
 	}
 >
 
-interface OutputObjectBuilderMethod {
+interface OutputObjectBuilderMethod<
+	TSourceTemplate extends object = EmptyOutputSourceOptions,
+	TPluginMethods extends object = UltimaBaseGeneratedOutputBuilderMethods,
+> {
 	/** Describes one non-null object whose properties are output descriptors. */
 	<const TFields extends OutputFields>(
-		options: ObjectOutputOptions<TFields, false, false> & {
+		options: ObjectOutputOptions<
+			TFields,
+			false,
+			false,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> & {
 			readonly list?: false
 			readonly nullable: false
-		},
+		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields>>,
 	): ObjectOutputDescriptor<TFields, false, false>
 	<const TFields extends OutputFields>(
-		options: ObjectOutputOptions<TFields, false, true> & {
+		options: ObjectOutputOptions<
+			TFields,
+			false,
+			true,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> & {
 			readonly list: true
 			readonly nullable: false
-		},
+		} & OutputSourceOptions<
+				TSourceTemplate,
+				readonly OutputObjectValue<TFields>[]
+			>,
 	): ObjectOutputDescriptor<TFields, false, true>
 	<const TFields extends OutputFields>(
-		options: ObjectOutputOptions<TFields, true, true> & {
+		options: ObjectOutputOptions<
+			TFields,
+			true,
+			true,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> & {
 			readonly list: true
 			readonly nullable?: true
-		},
+		} & OutputSourceOptions<
+				TSourceTemplate,
+				readonly OutputObjectValue<TFields>[] | null
+			>,
 	): ObjectOutputDescriptor<TFields, true, true>
 	<const TFields extends OutputFields>(
-		options: ObjectOutputOptions<TFields, true, false> & {
+		options: ObjectOutputOptions<
+			TFields,
+			true,
+			false,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> & {
 			readonly list?: false
 			readonly nullable?: true
-		},
+		} & OutputSourceOptions<TSourceTemplate, OutputObjectValue<TFields> | null>,
 	): ObjectOutputDescriptor<TFields, true, false>
 	<
 		const TFields extends OutputFields,
 		const TNullable extends boolean,
 		const TList extends boolean,
 	>(
-		options: ObjectOutputOptions<TFields, TNullable, TList>,
+		options: ObjectOutputOptions<
+			TFields,
+			TNullable,
+			TList,
+			OutputBuilder<TSourceTemplate, TPluginMethods>
+		> &
+			OutputSourceOptions<
+				TSourceTemplate,
+				OutputValueShape<OutputObjectValue<TFields>, TNullable, TList>
+			>,
 	): ObjectOutputDescriptor<TFields, TNullable, TList>
 }
 
-/** Provides value descriptors without exposing persistence or mutation behavior. */
-export interface OutputBuilder extends UltimaBaseGeneratedOutputBuilderMethods {
+interface OutputCoreBuilderMethods<
+	TSourceTemplate extends object,
+	TPluginMethods extends object,
+> {
 	/** Describes a string result. @example `output.string({ nullable: false })` */
-	readonly string: OutputScalarBuilderMethod<'string', string>
+	readonly string: OutputScalarBuilderMethod<
+		'string',
+		string,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a boolean result. @example `output.boolean()` */
-	readonly boolean: OutputScalarBuilderMethod<'boolean', boolean>
+	readonly boolean: OutputScalarBuilderMethod<
+		'boolean',
+		boolean,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a safe integer result. @example `output.int()` */
-	readonly int: OutputScalarBuilderMethod<'int', number>
+	readonly int: OutputScalarBuilderMethod<
+		'int',
+		number,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a floating-point result. @example `output.float()` */
-	readonly float: OutputScalarBuilderMethod<'float', number>
+	readonly float: OutputScalarBuilderMethod<
+		'float',
+		number,
+		object,
+		TSourceTemplate
+	>
 	/** Describes an arbitrary-precision integer result. @example `output.bigint()` */
-	readonly bigint: OutputScalarBuilderMethod<'bigint', bigint>
+	readonly bigint: OutputScalarBuilderMethod<
+		'bigint',
+		bigint,
+		object,
+		TSourceTemplate
+	>
 	/** Describes an exact decimal string. @example `output.decimal({ scale: 2 })` */
 	readonly decimal: OutputScalarBuilderMethod<
 		'decimal',
 		string,
-		DecimalOutputRepresentationOptions
+		DecimalOutputRepresentationOptions,
+		TSourceTemplate
 	>
 	/** Describes a UUID string. @example `output.uuid()` */
-	readonly uuid: OutputScalarBuilderMethod<'uuid', string>
+	readonly uuid: OutputScalarBuilderMethod<
+		'uuid',
+		string,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a calendar date string. @example `output.date()` */
-	readonly date: OutputScalarBuilderMethod<'date', string>
+	readonly date: OutputScalarBuilderMethod<
+		'date',
+		string,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a time string. @example `output.time({ timezone: true })` */
 	readonly time: OutputScalarBuilderMethod<
 		'time',
 		string,
-		TemporalOutputRepresentationOptions
+		TemporalOutputRepresentationOptions,
+		TSourceTemplate
 	>
 	/** Describes a date-time string. @example `output.dateTime()` */
 	readonly dateTime: OutputScalarBuilderMethod<
 		'dateTime',
 		string,
-		TemporalOutputRepresentationOptions
+		TemporalOutputRepresentationOptions,
+		TSourceTemplate
 	>
 	/** Describes immutable bytes. @example `output.binary()` */
-	readonly binary: OutputScalarBuilderMethod<'binary', Uint8Array>
+	readonly binary: OutputScalarBuilderMethod<
+		'binary',
+		Uint8Array,
+		object,
+		TSourceTemplate
+	>
 	/** Describes a JSON object or array. @example `output.json()` */
-	readonly json: OutputScalarBuilderMethod<'json', JsonDocument>
+	readonly json: OutputScalarBuilderMethod<
+		'json',
+		JsonDocument,
+		object,
+		TSourceTemplate
+	>
 	/** Describes one exact closed string domain. */
-	readonly enum: OutputEnumBuilderMethod
+	readonly enum: OutputEnumBuilderMethod<TSourceTemplate>
 	/** Describes one exact recursively structured object. */
-	readonly object: OutputObjectBuilderMethod
+	readonly object: OutputObjectBuilderMethod<TSourceTemplate, TPluginMethods>
 }
+
+/** Provides value descriptors without exposing persistence or mutation behavior. */
+export type OutputBuilder<
+	TSourceTemplate extends object = EmptyOutputSourceOptions,
+	TPluginMethods extends object = UltimaBaseGeneratedOutputBuilderMethods,
+> = OutputCoreBuilderMethods<TSourceTemplate, TPluginMethods> & TPluginMethods

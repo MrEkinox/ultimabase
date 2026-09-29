@@ -1,6 +1,8 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldListOption,
+	FieldListValue,
+	ResolveFieldSourceTemplate,
 } from '../fields/base/contract.js'
 import type {
 	DefaultedObjectField,
@@ -18,11 +20,12 @@ type DefaultedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TEmbeddedBuilder,
 > = Omit<
 	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields'
 > & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+	readonly fields: (field: TEmbeddedBuilder) => TFields
 }
 
 type NonDefaultedObjectFieldBuilderOptions<
@@ -30,18 +33,20 @@ type NonDefaultedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TEmbeddedBuilder,
 > = Omit<
 	NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields'
 > & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+	readonly fields: (field: TEmbeddedBuilder) => TFields
 }
 
 /** Describes one recursively embedded object builder call. */
 export type EmbeddedObjectFieldBuilderOptions<
 	TFields extends ObjectFields = ObjectFields,
+	TEmbeddedBuilder = EmbeddedFieldBuilder,
 > = Omit<ObjectFieldOptions<TFields>, 'fields' | 'indexed'> & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+	readonly fields: (field: TEmbeddedBuilder) => TFields
 }
 
 type DefaultedEmbeddedObjectFieldBuilderOptions<
@@ -49,11 +54,12 @@ type DefaultedEmbeddedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TEmbeddedBuilder,
 > = Omit<
 	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields' | 'indexed'
 > & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+	readonly fields: (field: TEmbeddedBuilder) => TFields
 }
 
 type NonDefaultedEmbeddedObjectFieldBuilderOptions<
@@ -61,15 +67,19 @@ type NonDefaultedEmbeddedObjectFieldBuilderOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
+	TEmbeddedBuilder,
 > = Omit<
 	NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
 	'fields' | 'indexed'
 > & {
-	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+	readonly fields: (field: TEmbeddedBuilder) => TFields
 }
 
 /** Preserves exact embedded fields and generated options for FieldBuilder.object. */
-export interface ObjectFieldBuilderMethod {
+export interface ObjectFieldBuilderMethod<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+	TEmbeddedBuilder = EmbeddedFieldBuilder,
+> {
 	<
 		const TFields extends ObjectFields,
 		const TRequired extends boolean = false,
@@ -78,9 +88,22 @@ export interface ObjectFieldBuilderMethod {
 		const TExtensionOptions extends object = object,
 	>(
 		options: CompatibleFieldOptionsExtension<
-			DefaultedObjectFieldBuilderOptions<TFields, TRequired, TList, TImmutable>,
+			DefaultedObjectFieldBuilderOptions<
+				TFields,
+				TRequired,
+				TList,
+				TImmutable,
+				TEmbeddedBuilder
+			>,
 			TExtensionOptions,
-			ObjectFieldValue<TFields>
+			ObjectFieldValue<TFields>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>
+				>,
+				object
+			>
 		>,
 	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
 	<
@@ -95,16 +118,27 @@ export interface ObjectFieldBuilderMethod {
 				TFields,
 				TRequired,
 				TList,
-				TImmutable
+				TImmutable,
+				TEmbeddedBuilder
 			>,
 			TExtensionOptions,
-			ObjectFieldValue<TFields>
+			ObjectFieldValue<TFields>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>
+				>,
+				object
+			>
 		>,
 	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 }
 
 /** Preserves exact nested maps while excluding root-only object metadata. */
-export interface EmbeddedObjectFieldBuilderMethod {
+export interface EmbeddedObjectFieldBuilderMethod<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+	TEmbeddedBuilder = EmbeddedFieldBuilder,
+> {
 	<
 		const TFields extends ObjectFields,
 		const TRequired extends boolean = false,
@@ -117,10 +151,18 @@ export interface EmbeddedObjectFieldBuilderMethod {
 				TFields,
 				TRequired,
 				TList,
-				TImmutable
+				TImmutable,
+				TEmbeddedBuilder
 			>,
 			TExtensionOptions,
-			ObjectFieldValue<TFields>
+			ObjectFieldValue<TFields>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>
+				>,
+				object
+			>
 		>,
 	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
 	<
@@ -135,10 +177,18 @@ export interface EmbeddedObjectFieldBuilderMethod {
 				TFields,
 				TRequired,
 				TList,
-				TImmutable
+				TImmutable,
+				TEmbeddedBuilder
 			>,
 			TExtensionOptions,
-			ObjectFieldValue<TFields>
+			ObjectFieldValue<TFields>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>
+				>,
+				object
+			>
 		>,
 	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 }

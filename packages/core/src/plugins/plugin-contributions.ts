@@ -27,6 +27,11 @@ import type { PluginOperationAuthoringContribution } from './plugin-command-cont
 import type { PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
 import type { PluginSetupContext } from './setup-registries.js'
 import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
+import type {
+	PluginSourceDeclarationResult,
+	PluginSourceProjection,
+	PluginSourceProjectionFromResult,
+} from './source-projections.js'
 
 /** Lists static capability reads owned by one declaration contribution. */
 export type PluginDeclarationRequirements = readonly CapabilityRequirement[]
@@ -77,18 +82,21 @@ export type PluginTypegenContributionContext<
 
 export interface PluginDeclarationContributionOptions<
 	TRequirements extends PluginDeclarationRequirements,
+	TSchemaResult = undefined,
+	TModelResult = undefined,
+	TOperationResult = undefined,
 > {
 	/** Declares exact static capability reads and contributes them to the plugin graph. */
 	readonly requires?: TRequirements
 	readonly schema?: (
 		context: PluginSchemaContributionContext<TRequirements>,
-	) => undefined
+	) => TSchemaResult
 	readonly models?: (
 		context: PluginModelContributionContext<TRequirements>,
-	) => undefined
+	) => TModelResult
 	readonly operations?: (
 		context: PluginOperationDeclarationContributionContext<TRequirements>,
-	) => undefined
+	) => TOperationResult
 	readonly privateStorage?: (
 		context: PluginPrivateStorageContributionContext<TRequirements>,
 	) => undefined
@@ -103,11 +111,45 @@ declare const declarationContributionType: unique symbol
 export interface PluginDeclarationContribution<
 	TRequirements extends PluginDeclarationRequirements =
 		PluginDeclarationRequirements,
+	TProjection extends PluginSourceProjection = PluginSourceProjection,
 > {
 	readonly kind: 'plugin-declaration-contribution'
 	readonly requires: TRequirements
-	readonly [declarationContributionType]: TRequirements
+	readonly [declarationContributionType]: Readonly<{
+		readonly projection: TProjection
+		readonly requirements: TRequirements
+	}>
 }
+
+type DeclarationSourceProjection<
+	TSchemaResult,
+	TModelResult,
+	TOperationResult,
+> = Extract<
+	| PluginSourceProjectionFromResult<TSchemaResult>
+	| PluginSourceProjectionFromResult<TModelResult>
+	| PluginSourceProjectionFromResult<TOperationResult>,
+	PluginSourceProjection
+>
+
+type DeclarationVoid = ReturnType<() => void>
+
+type UnsupportedDeclarationResult<TResult> = TResult extends DeclarationVoid
+	? never
+	: TResult extends PluginSourceDeclarationResult
+		? never
+		: TResult
+
+type ValidDeclarationResult<TResult> = [
+	UnsupportedDeclarationResult<TResult>,
+] extends [never]
+	? unknown
+	: never
+
+type ValidDeclarationResults<TSchemaResult, TModelResult, TOperationResult> =
+	ValidDeclarationResult<TSchemaResult> &
+		ValidDeclarationResult<TModelResult> &
+		ValidDeclarationResult<TOperationResult>
 
 type DeclarationCallback = (context: PluginDeclarationContext) => unknown
 
@@ -135,12 +177,29 @@ const assertCallback = (value: unknown, path: string): void => {
 	}
 }
 
+const isInertDeclarationResult = (value: unknown): boolean =>
+	value === undefined ||
+	(Array.isArray(value) &&
+		value.every((entry) => isInertDeclarationResult(entry)))
+
 /** Creates one nominal static declaration contribution. */
 export const contributeDeclarations = <
 	const TRequirements extends PluginDeclarationRequirements = readonly [],
+	const TSchemaResult = undefined,
+	const TModelResult = undefined,
+	const TOperationResult = undefined,
 >(
-	options: PluginDeclarationContributionOptions<TRequirements>,
-): PluginDeclarationContribution<TRequirements> => {
+	options: PluginDeclarationContributionOptions<
+		TRequirements,
+		TSchemaResult,
+		TModelResult,
+		TOperationResult
+	> &
+		ValidDeclarationResults<TSchemaResult, TModelResult, TOperationResult>,
+): PluginDeclarationContribution<
+	TRequirements,
+	DeclarationSourceProjection<TSchemaResult, TModelResult, TOperationResult>
+> => {
 	assertExactPlainObject(
 		options,
 		declarationOptionKeys,
@@ -221,7 +280,10 @@ export const contributeDeclarations = <
 			privileges: immutableArray(privileges),
 		}),
 	)
-	return contribution as PluginDeclarationContribution<TRequirements>
+	return contribution as PluginDeclarationContribution<
+		TRequirements,
+		DeclarationSourceProjection<TSchemaResult, TModelResult, TOperationResult>
+	>
 }
 
 /** @internal Resolves only nominal static contributions. */
@@ -242,9 +304,10 @@ export const runPluginDeclarationContribution = (
 		)
 	}
 	for (const callback of runtime.callbacks) {
-		if (callback(context) !== undefined) {
+		const result = callback(context)
+		if (!isInertDeclarationResult(result)) {
 			throw new TypeError(
-				'plugin declaration contribution callbacks must return nothing',
+				'plugin declaration contribution callbacks may return only Core declaration receipts',
 			)
 		}
 	}

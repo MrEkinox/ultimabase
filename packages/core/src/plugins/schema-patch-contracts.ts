@@ -52,25 +52,30 @@ export interface SchemaSelectorOptions {
 	readonly owner?: SchemaContributionOwnerReference
 }
 
-export interface SchemaSelection {
+export interface SchemaSelection<
+	TSelector extends SchemaSelectorOptions = SchemaSelectorOptions,
+> {
 	readonly selectionId: string
-	readonly selector: SchemaSelectorOptions
+	readonly selector: TSelector
 }
 
 export const schemaSelections: WeakSet<object> = new WeakSet<object>()
 
-export interface AddSchemaFieldOperation {
+export interface AddSchemaFieldOperation<
+	TName extends string = string,
+	TField extends GenericField = GenericField,
+> {
 	readonly contributionId: string
-	readonly field: GenericField
+	readonly field: TField
 	readonly kind: 'field:add'
-	readonly name: string
+	readonly name: TName
 }
 
 /** Configures one plugin-contributed field before it enters the schema graph. */
-export interface AddSchemaFieldOptions extends Omit<
-	AddSchemaFieldOperation,
-	'kind'
-> {
+export interface AddSchemaFieldOptions<
+	TName extends string = string,
+	TField extends GenericField = GenericField,
+> extends Omit<AddSchemaFieldOperation<TName, TField>, 'kind'> {
 	/** Keeps the stored field selectable while rejecting every caller mutation input. */
 	readonly mutationInput?: 'forbidden'
 }

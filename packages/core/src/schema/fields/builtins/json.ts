@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -94,7 +95,9 @@ type NonDefaultedJsonField<
 	TImmutable extends boolean,
 > = ResolvedJsonField<TRequired, TList, TImmutable, false>
 
-interface JsonFieldFactory {
+export interface JsonFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -104,7 +107,8 @@ interface JsonFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			JsonDocument
+			JsonDocument,
+			ResolvedFieldSourceOptions<TSourceTemplate, JsonDocument, TList>
 		>,
 	): DefaultedJsonField<TRequired, TList, TImmutable>
 	<
@@ -116,7 +120,8 @@ interface JsonFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			JsonDocument
+			JsonDocument,
+			ResolvedFieldSourceOptions<TSourceTemplate, JsonDocument, TList>
 		>,
 	): NonDefaultedJsonField<TRequired, TList, TImmutable>
 }

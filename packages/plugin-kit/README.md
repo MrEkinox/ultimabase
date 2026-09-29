@@ -103,7 +103,7 @@ declare: ({ schemas }) => {
 		option: { name: 'workflow' },
 	})
 
-	schemas.patch(
+	return schemas.patch(
 		patchSchemas({
 			targets,
 			patch: schemaPatch()
@@ -189,9 +189,12 @@ const searchableOption = definePluginFieldOption({
 
 The closed contexts are `stored`, `embedded`, `virtual`, and `output`. A method
 may provide a different factory and public callable type in each supported
-context. A stored representation does not automatically grant embedded or
-output behavior, and Core rejects unsupported use before setup even when
-JavaScript or a stale generated declaration bypasses autocomplete.
+context. Return `fields.register(...)` and `schemas.defineOptions(...)` receipts
+from the same Core declaration callback; `UltimaBase.use()` then infers the
+exact application-local methods and options without a Plugin Kit registry or a
+generated plugin-surface copy. A stored representation does not automatically
+grant embedded or output behavior, and Core rejects unsupported use before
+setup even when JavaScript bypasses autocomplete.
 
 ## Contribute operations through Core
 
@@ -269,15 +272,13 @@ plugin({
 		}),
 	],
 		contributeDeclarations({
-			models: ({ models }) => {
+			models: ({ models }) =>
 				models.extend(Post, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
 						archive: { mutation: archive, surfaces: ['schema', 'model'] },
 					},
-				})
-				return undefined
-			},
+				}),
 		}),
 	],
 	permissions: {

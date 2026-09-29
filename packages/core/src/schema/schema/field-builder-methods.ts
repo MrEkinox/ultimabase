@@ -12,6 +12,7 @@ import {
 	assertFieldDeclarationContext,
 	type FieldDeclarationContext,
 } from './field-contexts.js'
+import type { PluginSourceReceipt } from '../../plugins/source-projections.js'
 
 const familyKeys = new Set(['builder', 'fieldKind', 'typegen'])
 const builderKeys = new Set(['contexts', 'name'])
@@ -125,8 +126,32 @@ export interface FieldBuilderMethodResolver {
 /** Gives one plugin an owner-bound write-only field-family boundary. */
 export interface PluginFieldFamilyRegistrar {
 	/** Registers one plugin field kind and its optional contextual builder. */
-	register(definition: PluginFieldFamilyDefinition): void
+	register<const TDefinition extends PluginFieldFamilyDefinition>(
+		definition: TDefinition,
+	): PluginSourceReceipt<FieldFamilySourceProjection<TDefinition>>
 }
+
+type FieldFamilySourceProjection<
+	TDefinition extends PluginFieldFamilyDefinition,
+> =
+	TDefinition extends Readonly<{
+		builder: infer TBuilder extends PluginFieldFamilyBuilder
+	}>
+		? Readonly<{
+				fieldBuilders: {
+					readonly [TContext in keyof TBuilder['contexts']]: Readonly<
+						Record<
+							TBuilder['name'],
+							TBuilder['contexts'][TContext] extends Readonly<{
+								factory: infer TFactory
+							}>
+								? TFactory
+								: never
+						>
+					>
+				}
+			}>
+		: Readonly<Record<never, never>>
 
 const assertKnownKeys = (
 	value: Readonly<Record<string, unknown>>,

@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -86,7 +87,9 @@ type NonDefaultedBooleanField<
 	TImmutable extends boolean,
 > = ResolvedBooleanField<TRequired, TList, TImmutable, false>
 
-interface BooleanFieldFactory {
+export interface BooleanFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -96,7 +99,8 @@ interface BooleanFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			boolean
+			boolean,
+			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList>
 		>,
 	): DefaultedBooleanField<TRequired, TList, TImmutable>
 	<
@@ -108,7 +112,8 @@ interface BooleanFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			boolean
+			boolean,
+			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList>
 		>,
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }

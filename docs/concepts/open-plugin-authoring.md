@@ -76,7 +76,7 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 })
 
 declare: ({ schemas }) => {
-	schemas.defineOptions({
+	const options = schemas.defineOptions({
 		contributionId: 'workflow-options',
 		schema: { workflow: workflowOption },
 	})
@@ -84,7 +84,7 @@ declare: ({ schemas }) => {
 	const targets = schemas.select({
 		option: { name: 'workflow' },
 	})
-	schemas.patch(
+	const patch = schemas.patch(
 		patchSchemas({
 			patch: schemaPatch().addField({
 				contributionId: 'workflow-state',
@@ -94,6 +94,8 @@ declare: ({ schemas }) => {
 			targets,
 		}),
 	)
+
+	return [options, patch]
 }
 ```
 
@@ -101,8 +103,10 @@ declare: ({ schemas }) => {
 `schemas.select` are the registrars used here. `schemas.claim` assigns plugin
 ownership to an exact class already listed
 at the application root without implicitly registering it. Patches are additive
-and require `schema:declare`. Core derives operation declarations and reachable
-Typegen references from owned contributions; these still require
+and require `schema:declare`. Returning the registrar receipts projects those
+same options and selected fields onto `UltimaBase.use(plugin()).Schema`; the
+receipts carry no Runtime state and do not create a second registry. Core
+derives operation declarations and reachable Typegen references from owned contributions; these still require
 `operation:declare` and `typegen:reference`. Typegen derives declarations from
 the graph, without a manual output registry.
 

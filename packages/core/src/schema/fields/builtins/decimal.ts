@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -102,7 +103,9 @@ type NonDefaultedDecimalField<
 	TImmutable extends boolean,
 > = ResolvedDecimalField<TRequired, TList, TImmutable, false>
 
-interface DecimalFieldFactory {
+export interface DecimalFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -112,7 +115,8 @@ interface DecimalFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): DefaultedDecimalField<TRequired, TList, TImmutable>
 	<
@@ -124,7 +128,8 @@ interface DecimalFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): NonDefaultedDecimalField<TRequired, TList, TImmutable>
 }

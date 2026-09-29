@@ -22,23 +22,26 @@ sources:
   - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0277-canonical-schema-specialization.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+  - packages/core/src/plugins/plugin-source-projections.test-d.ts
 ---
 
 ## Outcome
 
 Extend a schema without changing Core or patching an exported schema class.
-Typegen derives application-specific types from the final graph and references
-public types exported by your plugin package. Typegen describes the
-compiled application; generated files never install Runtime behavior.
+The configured application infers plugin-owned local surfaces from the same
+static declaration that Core compiles at Runtime. Typegen remains the sole
+application-specific graph for exact named cross-schema relationships;
+generated files never install Runtime behavior.
 
 ## Prerequisites
 
 - Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin) and know its stable plugin identity.
 - Read [Schemas](/docs/1.0.0/core/data-modeling/schemas) and
   [Fields](/docs/1.0.0/core/data-modeling/fields) for the native model.
-- For editor inference, configure the application's
-  [Typegen workflow](/docs/1.0.0/guides/generate-types). Regenerate before
-  typechecking source that uses a plugin-owned schema option or field method.
+- Configure the application's [Typegen workflow](/docs/1.0.0/guides/generate-types)
+  when schemas use named cross-file or circular relationship targets. Local
+  plugin fields, options, and commands infer directly from `App`.
 
 ## Choose the schema contribution
 
@@ -78,9 +81,9 @@ and class-capability methods are removed rather than retained as aliases.
 
 ## Add an option and an additive patch
 
-This separate example gives application-owned schemas that opt in to
-`workflow` a stored state field and index. The package root exports
-`WorkflowSchemaOption` so generated declarations can reference it:
+This example gives application-owned schemas that opt in to `workflow` a stored
+state field and index. The option's normalized return type is also its source
+authoring type, so the plugin does not publish a second Typegen declaration:
 
 ```ts title="src/index.ts"
 import {
@@ -92,9 +95,7 @@ import {
 	stringField,
 } from '@ultimabase/core'
 
-export type WorkflowSchemaOption = Readonly<{ enabled: boolean }>
-
-const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
+const workflowOption = defineSchemaOption({
 	normalize(value, path) {
 		if (
 			typeof value !== 'object' ||
@@ -107,23 +108,20 @@ const workflowOption = defineSchemaOption<WorkflowSchemaOption>({
 		return { enabled: value.enabled }
 	},
 	protocolVersion: 1,
-	typegen: {
-		module: '@your-scope/workflow-plugin',
-		type: 'WorkflowSchemaOption',
-	},
+	typegen: false,
 })
 
 export const workflowPlugin = () =>
 	plugin({
 		contributions: [
 			contributeDeclarations({
-				schema({ schemas }) {
-					schemas.defineOptions({
+				schema: ({ schemas }) => {
+					const options = schemas.defineOptions({
 						contributionId: 'workflow-option',
 						schema: { workflow: workflowOption },
 					})
 					const targets = schemas.select({ option: { name: 'workflow' } })
-					schemas.patch({
+					const patch = schemas.patch({
 						targets,
 						operations: [
 							addSchemaField({
@@ -138,18 +136,16 @@ export const workflowPlugin = () =>
 							}),
 						],
 					})
+					return [options, patch]
 				},
 			}),
 		],
 		core: '^1.0.0',
 		id: 'community.workflow',
 		version: '1.0.0',
-		permissions: [
-			{
-				name: 'schema:declare',
-				reason: 'Adds the workflow option, state field, and index.',
-			},
-		] as const,
+		permissions: {
+			'schema:declare': 'Adds the workflow option, state field, and index.',
+		},
 	})
 ```
 
@@ -172,10 +168,11 @@ portable JSON still supports equality even if its definition permits opaque
 values. Each plugin's selection targets are frozen before its own additions and
 patches; later contributions cannot make that selection grow.
 
-Generic Typegen sees the final field, index, and direct option occurrence. It
-derives the application-specific field and input contracts automatically. You
-do not manually emit a duplicate `Task` model type. A schema with no `workflow`
-option stays untouched. Core rejects unknown options when the plugin is absent.
+The returned receipts are Runtime-inert type evidence from those same registrar
+calls. `UltimaBase.use(workflowPlugin())` therefore exposes `workflow` and the
+selected `workflowState` field without a parallel registry or generated plugin
+surface. A schema with no `workflow` option stays untouched. Core rejects
+unknown options when the plugin is absent.
 
 ## Define a new field family carefully
 
@@ -202,11 +199,12 @@ for the full field and codec contracts.
 
 ## Contribute to Typegen
 
-Generic generation includes plugin-added schemas and fields, used direct
-options, query inputs, application operations, and schema-mutation methods.
-Plugins do not add arbitrary declarations or extra output files. Export reusable
-public types from your package root; Typegen can import them when the compiled
-graph needs them.
+Generic generation retains the exact named schema graph required by circular
+and cross-file pointers and relations. Source-derivable plugin fields, options,
+application operations, and schema/model methods come from the installed plugin
+definition instead of a generated copy. Plugins do not add arbitrary
+declarations or extra output files. Export reusable public types from your
+package root when the retained compiled graph must reference them.
 
 For an operation value, attach a nominal reference to its snapshot contract:
 
@@ -243,8 +241,11 @@ The former `typegenEmitterCapability` and `TypegenEmitterCapability` marker
 contracts are removed. Automatic generation still runs in `typegenPlugin()`
 setup; no emitter-selection capability is needed.
 
-Field and option definitions retain their own structured `typegen` metadata;
-they do not need a manual declaration registry. See
+Field definitions and graph-referenced option values retain structured
+`typegen` metadata when the generated schema graph needs a public type
+reference. Their local authoring surfaces still come from source, and options
+that need no graph reference may use `typegen: false`; neither case needs a
+manual declaration registry. See
 [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
 for the complete operation and handler setup.
 
@@ -263,10 +264,11 @@ direct methods and the generated types keep their existing behavior.
 ## Verify
 
 Compile the application graph with and without your plugin. With the plugin,
-confirm the option or field appears only where selected and that its
-provenance names your contribution. Generate types twice and compare output:
-the same graph must produce the same declaration. Then typecheck a consumer
-that imports only package-root exports and uses the generated declaration.
+confirm the option or field appears only where selected and that its provenance
+names your contribution. Typecheck both source and packed-package consumers;
+the configured factory must provide the same completion, hover, signatures, and
+diagnostics without generated plugin declarations. If the fixture uses named
+cross-schema targets, also generate twice and compare the retained graph output.
 
 Use `withPluginTypegenConformance()` from `@ultimabase/testing` for the generic
 repeatability check, then add a focused assertion for the public type or field

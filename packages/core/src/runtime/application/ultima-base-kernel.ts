@@ -3,10 +3,12 @@ import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { UltimaBase } from './ultima-base.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
+import type { PluginSourceState } from '../../plugins/source-projections.js'
 
 type AnyUltimaBase = UltimaBase<
 	readonly SchemaDefinition[],
-	readonly PluginDefinition[]
+	readonly PluginDefinition[],
+	PluginSourceState
 >
 type AnyApplicationKernel = FrameworkApplication<
 	readonly SchemaDefinition[],
@@ -20,8 +22,9 @@ const applicationEngines = new WeakMap<AnyUltimaBase, FrameworkEngine>()
 export const bindUltimaBaseKernel = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
 >(
-	ultimabase: UltimaBase<TSchemas, TPlugins>,
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 	application: FrameworkApplication<TSchemas, TPlugins>,
 ): void => {
 	applicationKernels.set(ultimabase, application)
@@ -31,8 +34,9 @@ export const bindUltimaBaseKernel = <
 export const bindUltimaBaseEngine = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
 >(
-	ultimabase: UltimaBase<TSchemas, TPlugins>,
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 	engine: FrameworkEngine<TSchemas, TPlugins>,
 ): void => {
 	applicationEngines.set(ultimabase, engine)
@@ -42,8 +46,9 @@ export const bindUltimaBaseEngine = <
 export const readUltimaBaseEngine = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
 >(
-	ultimabase: UltimaBase<TSchemas, TPlugins>,
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ): FrameworkEngine<TSchemas, TPlugins> => {
 	const engine = applicationEngines.get(ultimabase)
 	if (engine === undefined) {
@@ -56,8 +61,9 @@ export const readUltimaBaseEngine = <
 export const readUltimaBaseKernel = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
 >(
-	ultimabase: UltimaBase<TSchemas, TPlugins>,
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ): FrameworkApplication<TSchemas, TPlugins> => {
 	const application = applicationKernels.get(ultimabase)
 	if (application === undefined) {

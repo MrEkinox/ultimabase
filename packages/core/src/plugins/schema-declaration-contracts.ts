@@ -21,9 +21,15 @@ import {
 import {
 	type FieldOptionDefinition,
 	type SchemaOptionDefinition,
+	type SchemaOptionSource,
 	type SchemaOptionRuntimeCompilationContext,
 	type SchemaOptionRuntimeCompiler,
+	type SchemaOptionRuntimeRequirement,
 } from './schema-option-definitions.js'
+import type {
+	PluginSourceProjection,
+	PluginSourceReceipt,
+} from './source-projections.js'
 
 import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 import {
@@ -36,30 +42,119 @@ import type {
 	TypegenDeclarations,
 } from './typegen-declarations.js'
 
+export interface PluginSchemaSourceOptions<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> {
+	readonly contributionId: string
+	readonly schema: TSchema
+	readonly staticOptions?: Readonly<Record<string, JsonValue>>
+}
+
+export interface PluginSchemaOptionNamespace<
+	TField extends Readonly<Record<string, FieldOptionDefinition>> | undefined =
+		Readonly<Record<string, FieldOptionDefinition>> | undefined,
+	TSchema extends Readonly<Record<string, SchemaOptionDefinition>> | undefined =
+		Readonly<Record<string, SchemaOptionDefinition>> | undefined,
+> {
+	readonly contributionId: string
+	readonly field?: TField
+	readonly schema?: TSchema
+	readonly staticOptions?: Readonly<Record<string, JsonValue>>
+}
+
+type SchemaOptionSourceProjection<TOptions> =
+	TOptions extends Readonly<Record<string, SchemaOptionDefinition>>
+		? Readonly<{
+				schemaOptions: Readonly<{
+					template: {
+						readonly [TName in keyof TOptions]?: SchemaOptionSource<
+							TOptions[TName]
+						>
+					}
+				}>
+			}>
+		: never
+
+type FieldOptionSourceProjection<TOptions> =
+	TOptions extends Readonly<Record<string, FieldOptionDefinition>>
+		? {
+				[
+					TName in keyof TOptions
+				]: TOptions[TName] extends FieldOptionDefinition<
+					unknown,
+					SchemaOptionRuntimeRequirement,
+					infer TSource
+				>
+					? TOptions[TName]['contexts'][number] extends infer TContext extends
+							FieldDeclarationContext
+						? Readonly<{
+								fieldOptions: Readonly<
+									Record<TContext, Readonly<Partial<Record<TName, TSource>>>>
+								>
+							}>
+						: never
+					: never
+			}[keyof TOptions]
+		: never
+
+type OptionNamespaceSourceProjection<
+	TOptions extends PluginSchemaOptionNamespace,
+> =
+	| SchemaOptionSourceProjection<TOptions['schema']>
+	| FieldOptionSourceProjection<TOptions['field']>
+
+type PatchSourceProjection<
+	TOperations extends readonly SchemaPatchOperation[],
+	TSelection extends SchemaSelection,
+> = TOperations[number] extends infer TOperation
+	? TOperation extends Readonly<{
+			field: infer TField extends GenericField
+			kind: 'field:add'
+			name: infer TName extends string
+		}>
+		? Readonly<{
+				schemaFields: Readonly<
+					{
+						template: Readonly<Record<TName, TField>>
+					} & (TSelection['selector'] extends Readonly<{
+						className: infer TClassName extends string
+					}>
+						? { classNames: readonly [TClassName] }
+						: { selector: TSelection['selector'] })
+				>
+			}>
+		: never
+	: never
+
 export interface PluginSchemaDeclarationRegistrar {
-	add(options: {
-		readonly contributionId: string
-		readonly schema: SchemaDefinition
-		readonly staticOptions?: Readonly<Record<string, JsonValue>>
-	}): void
+	add<const TSchema extends SchemaDefinition>(
+		options: PluginSchemaSourceOptions<TSchema>,
+	): void
 	/** Assigns plugin ownership to one exact schema already registered by the application. */
-	claim(options: {
-		readonly contributionId: string
-		readonly schema: SchemaDefinition
+	claim<const TSchema extends SchemaDefinition>(
+		options: PluginSchemaSourceOptions<TSchema>,
+	): void
+	defineOptions<const TOptions extends PluginSchemaOptionNamespace>(
+		options: TOptions,
+	): PluginSourceReceipt<
+		Extract<OptionNamespaceSourceProjection<TOptions>, PluginSourceProjection>
+	>
+	patch<
+		const TOperations extends readonly SchemaPatchOperation[],
+		const TSelection extends SchemaSelection,
+	>(options: {
+		readonly operations: TOperations
 		readonly staticOptions?: Readonly<Record<string, JsonValue>>
-	}): void
-	defineOptions(options: {
-		readonly contributionId: string
-		readonly field?: Readonly<Record<string, FieldOptionDefinition>>
-		readonly schema?: Readonly<Record<string, SchemaOptionDefinition>>
-		readonly staticOptions?: Readonly<Record<string, JsonValue>>
-	}): void
-	patch(options: {
-		readonly operations: readonly SchemaPatchOperation[]
-		readonly staticOptions?: Readonly<Record<string, JsonValue>>
-		readonly targets: SchemaSelection
-	}): void
-	select(selector: SchemaSelectorOptions): SchemaSelection
+		readonly targets: TSelection
+	}): PluginSourceReceipt<
+		Extract<
+			PatchSourceProjection<TOperations, TSelection>,
+			PluginSourceProjection
+		>
+	>
+	select<const TSelector extends SchemaSelectorOptions>(
+		selector: TSelector,
+	): SchemaSelection<TSelector>
 }
 
 export interface OwnedOptionDefinition {

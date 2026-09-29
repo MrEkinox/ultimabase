@@ -126,15 +126,15 @@ test('types schema declarations from exact active privileges', () => {
 						},
 						owner: { kind: 'application' },
 					})
-					expectTypeOf(selected).toEqualTypeOf<SchemaSelection>()
+					expectTypeOf(selected).toExtend<SchemaSelection>()
 					const present = schemas.select({ option: { name: 'workflow' } })
-					expectTypeOf(present).toEqualTypeOf<SchemaSelection>()
+					expectTypeOf(present).toExtend<SchemaSelection>()
 					const absenceSelector: SchemaOptionAbsenceSelector = {
 						name: 'workflow',
 						present: false,
 					}
 					const absent = schemas.select({ option: absenceSelector })
-					expectTypeOf(absent).toEqualTypeOf<SchemaSelection>()
+					expectTypeOf(absent).toExtend<SchemaSelection>()
 					schemas.select({
 						option: {
 							name: 'workflow',
@@ -252,11 +252,18 @@ test('does not claim issue 1408 direct option augmentation', () => {
 		className: 'UngeneratedOptionSchema',
 		fields: (field) => ({
 			title: field.string({
-				// @ts-expect-error -- Typegen owns installed direct option autocomplete.
+				// @ts-expect-error -- No installed plugin contributes this direct option.
 				search: { weight: 10 },
 			}),
 		}),
-		// @ts-expect-error -- Typegen owns installed direct schema option autocomplete.
+		// @ts-expect-error -- No installed plugin contributes this schema option.
 		workflow: { enabled: true },
+	})
+})
+
+test('accepts only inert Core receipts from static declarations', () => {
+	// @ts-expect-error -- Arbitrary return values are not declaration receipts.
+	contributeDeclarations({
+		schema: () => ({ registered: true }),
 	})
 })

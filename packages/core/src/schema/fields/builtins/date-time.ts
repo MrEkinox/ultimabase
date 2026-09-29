@@ -3,6 +3,7 @@ import type {
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	fieldOptionKeys,
@@ -100,7 +101,9 @@ type NonDefaultedDateTimeField<
 	TAutoNow extends boolean,
 > = ResolvedDateTimeField<TRequired, TList, TImmutable, false, TAutoNow>
 
-interface DateTimeFieldFactory {
+export interface DateTimeFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -111,7 +114,8 @@ interface DateTimeFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -124,7 +128,8 @@ interface DateTimeFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedDateTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 }

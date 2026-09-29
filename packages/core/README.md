@@ -181,9 +181,7 @@ const vectorPlugin = plugin({
 	},
 	contributions: [
 		contributeDeclarations({
-			schema: ({ fields }) => {
-				fields.register(vectorFamily)
-			},
+			schema: ({ fields }) => fields.register(vectorFamily),
 		}),
 		contributeApplication(() => ({ exports: { ready: true } })),
 	],
@@ -204,12 +202,13 @@ duplicates, unstable declarations, unsupported contexts, and factories
 returning another field kind.
 `declare` receives only exact capability reads and facades authorized by active
 privileges; it receives no setup services or runtime state and must return
-synchronously. The generated application declaration emitted by
-`@ultimabase/typegen` adds the contributed method only to that application's
-matching stored, embedded, virtual, or output builder; Core's base builders do
-not expose plugin methods globally. Calling a missing or context-incompatible
-method through untyped or stale code fails during static schema compilation
-before plugin setup.
+synchronously. Returning the registrar receipt lets the same static declaration
+project the contributed method onto the configured factory created by
+`UltimaBase.use()`. Only that application's matching stored, embedded, virtual,
+or output builder receives the method; Core's zero-plugin builders do not expose
+it globally. The receipt carries no Runtime state, so it creates no second
+registry or effect. Calling a missing or context-incompatible method through
+untyped or stale code still fails during static schema compilation before setup.
 
 A plugin that contributes a reserved field through a schema patch can declare
 its generated value contract without exposing a misleading builder method:
@@ -282,7 +281,7 @@ const workflowPlugin = plugin({
 	contributions: [
 		contributeDeclarations({
 			schema: ({ schemas }) => {
-				schemas.defineOptions({
+				const options = schemas.defineOptions({
 					contributionId: 'workflow-options',
 					schema: { workflow: workflowOption },
 				})
@@ -291,7 +290,7 @@ const workflowPlugin = plugin({
 					option: { name: 'workflow' },
 				})
 
-				schemas.patch({
+				const patch = schemas.patch({
 					targets: workflowSchemas,
 					operations: [
 						addSchemaField({
@@ -305,6 +304,8 @@ const workflowPlugin = plugin({
 						}),
 					],
 				})
+
+				return [options, patch]
 			},
 		}),
 	],
@@ -346,11 +347,12 @@ Direct plugin options use ordinary properties rather than a separate options
 bag. Schema-scoped contracts use `defineSchemaOption()`. Field-scoped contracts
 use `defineFieldOption({ contexts, ... })` and must explicitly list every
 `stored`, `embedded`, `virtual`, or `output` location where their behavior can
-execute. Core validates them without generated files. Typegen augments only the
-matching contextual option interfaces for definitions that occur in the final
-application graph. Unused definitions remain absent and therefore cannot create
-application-wide TypeScript conflicts. JavaScript and stale declarations pass
-through the same Runtime context checks.
+execute. Their returned declaration receipt projects the exact normalized
+source type only through configured factories that install the plugin. No
+ambient augmentation or generated plugin-option copy is required. Unused
+definitions remain absent and therefore cannot create application-wide
+TypeScript conflicts. JavaScript and stale declarations pass through the same
+Runtime context checks.
 
 A field kind's value representation and its field behavior are independent.
 For example, a portable JSON codec can make a plugin value storable or
@@ -396,15 +398,13 @@ without rebinding or cleaning the previously compiled class.
 Framework tooling can call `ultimabase.compile()` to run exactly this
 synchronous static phase without plugin setup or infrastructure. The method is
 idempotent after success and rethrows the original failure after an unsuccessful
-attempt. `@ultimabase/typegen` uses it to emit the application-owned FieldBuilder,
-model, operation, relationship, Access, and hook contracts. When that generated
-declaration is part of the TypeScript project, named pointer and relation
-targets resolve through its application-wide literal `className` graph,
-including circular and cross-module relationships. Local Core fields and their
-model, input, filter, selection, nested-write, and result contracts remain exact
-from source even without a generated file. During this bounded migration, an
-existing generated registry still supplies its compact Core aliases when
-present, so applications can move without hover or declaration churn.
+attempt. `@ultimabase/typegen` uses it as the sole application-wide literal
+`className` graph, so named pointer and relation targets remain exact across
+circular and cross-module relationships. Local Core fields and installed plugin
+builders, options, fields, commands, mutations, and operations remain exact
+from source without a generated plugin-surface copy. During this bounded
+migration, other generated contracts remain until their dedicated issues prove
+them redundant, so applications can move without hover or declaration churn.
 
 Core compiles developer schemas and authorized plugin contributions directly.
 Its private immutable prepared schemas retain exact contribution owners,
@@ -548,14 +548,13 @@ const workflowPlugin = plugin({
 	contributions: [
 		archiveContribution,
 		contributeDeclarations({
-			models: ({ models }) => {
+			models: ({ models }) =>
 				models.extend(PostSchema, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
 						archive: { mutation: archive, surfaces: ['schema', 'model'] },
 					},
-				})
-			},
+				}),
 		}),
 	],
 })

@@ -9,6 +9,7 @@ import type {
 	FieldListOption,
 	FieldTypegenState,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -88,7 +89,9 @@ type NonDefaultedFloatField<
 	TImmutable extends boolean,
 > = ResolvedFloatField<TRequired, TList, TImmutable, false>
 
-interface FloatFieldFactory {
+export interface FloatFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -98,7 +101,8 @@ interface FloatFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			number
+			number,
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
 		>,
 	): DefaultedFloatField<TRequired, TList, TImmutable>
 	<
@@ -110,7 +114,8 @@ interface FloatFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			number
+			number,
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
 		>,
 	): NonDefaultedFloatField<TRequired, TList, TImmutable>
 }

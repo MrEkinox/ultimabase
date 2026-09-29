@@ -5,7 +5,10 @@ import {
 } from '@ultimabase/shared'
 
 import type { RequestContext } from '../../runtime/context/request-context.js'
-import type { GenericField } from '../fields/base/contract.js'
+import type {
+	GenericField,
+	ResolveFieldSourceTemplate,
+} from '../fields/base/contract.js'
 import type {
 	GenericOutputDescriptor,
 	OutputBuilder,
@@ -61,20 +64,26 @@ export type VirtualFieldResolver<TItem extends object, TValue> = (input: {
 }) => MaybePromise<TValue>
 
 /** Declares one output-only schema field without persistence behavior. */
-export interface VirtualFieldOptions<
+export type VirtualFieldOptions<
 	TOutput extends GenericOutputDescriptor,
 	TSelection extends object,
 	TItem extends object,
-> extends UltimaBaseGeneratedVirtualFieldOptions {
-	/** Supplies human-readable schema documentation. */
-	readonly description?: string
-	/** Describes the complete nullable and list-aware result value. */
-	readonly output: (output: OutputBuilder) => TOutput
-	/** Resolves the result from the exact private dependency projection. */
-	readonly resolve: VirtualFieldResolver<TItem, OutputValue<TOutput>>
-	/** Selects flat persisted dependencies; canonical identity is always retained. */
-	readonly select: TSelection
-}
+	TOutputBuilder = OutputBuilder,
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = UltimaBaseGeneratedVirtualFieldOptions &
+	Extract<
+		ResolveFieldSourceTemplate<TSourceTemplate, OutputValue<TOutput>>,
+		object
+	> & {
+		/** Supplies human-readable schema documentation. */
+		readonly description?: string
+		/** Describes the complete nullable and list-aware result value. */
+		readonly output: (output: TOutputBuilder) => TOutput
+		/** Resolves the result from the exact private dependency projection. */
+		readonly resolve: VirtualFieldResolver<TItem, OutputValue<TOutput>>
+		/** Selects flat persisted dependencies; canonical identity is always retained. */
+		readonly select: TSelection
+	}
 
 /** Retains inert virtual metadata while Core keeps resolver identity private. */
 export interface VirtualFieldDefinition<
@@ -195,17 +204,28 @@ export const normalizeVirtualFieldSelection = (
 }
 
 /** Creates the callable `field.virtual` surface and its plugin namespace. */
-export interface VirtualFieldBuilderMethod<
+type CoreVirtualFieldBuilderMethod<
 	TSchema extends SchemaTypeInfoSource = SchemaTypeInfo,
-> extends UltimaBaseGeneratedVirtualFieldBuilderMethods {
-	<
-		const TOutput extends GenericOutputDescriptor,
-		const TSelection extends VirtualFieldDependencySelection<TSchema>,
-	>(
-		options: VirtualFieldOptions<
-			TOutput,
-			TSelection,
-			VirtualFieldResolverItem<TSchema, TSelection>
-		>,
-	): VirtualFieldDefinition<TOutput>
-}
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+	TOutputBuilder = OutputBuilder,
+> = <
+	const TOutput extends GenericOutputDescriptor,
+	const TSelection extends VirtualFieldDependencySelection<TSchema>,
+>(
+	options: VirtualFieldOptions<
+		TOutput,
+		TSelection,
+		VirtualFieldResolverItem<TSchema, TSelection>,
+		TOutputBuilder,
+		TSourceTemplate
+	>,
+) => VirtualFieldDefinition<TOutput>
+
+/** Creates the callable virtual field plus application-local plugin methods. */
+export type VirtualFieldBuilderMethod<
+	TSchema extends SchemaTypeInfoSource = SchemaTypeInfo,
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+	TOutputBuilder = OutputBuilder,
+	TPluginMethods extends object = UltimaBaseGeneratedVirtualFieldBuilderMethods,
+> = CoreVirtualFieldBuilderMethod<TSchema, TSourceTemplate, TOutputBuilder> &
+	TPluginMethods

@@ -32,27 +32,13 @@ export interface PackedCoreLanguageFixture {
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
 const markerPattern = /\/\* (?:completion|hover|signature):[a-z-]+ \*\//gu
 
-/**
- * Builds one external-consumer language service from a source-level prototype.
- * The import rewrite ensures every assertion reads the built package declaration.
- * Optional extra source models application-local declaration merging without
- * adding generated contracts to the repository TypeScript program.
- */
-export const createPackedCoreLanguageFixture = async (
+const createCoreLanguageFixture = async (
 	sourceFixtureFile: string,
-	packedFixtureName: string,
-	additionalSource = '',
+	fixtureFile: string,
+	transformSource: (source: string) => string,
 ): Promise<PackedCoreLanguageFixture> => {
-	const packedFixtureFile = path.join(
-		repositoryRoot,
-		'tests/e2e',
-		packedFixtureName,
-	)
 	const sourceFixture = await readFile(sourceFixtureFile, 'utf8')
-	const packedFixture = `${sourceFixture.replaceAll(
-		"'../../src/index.js'",
-		"'@ultimabase/core'",
-	)}\n${additionalSource}`
+	const packedFixture = transformSource(sourceFixture)
 	const markerPositions = new Map<string, number>()
 
 	for (const match of packedFixture.matchAll(markerPattern)) {
@@ -62,11 +48,10 @@ export const createPackedCoreLanguageFixture = async (
 	const packedSource = packedFixture.replace(markerPattern, (marker) =>
 		' '.repeat(marker.length),
 	)
-	const languageService = createLanguageService(packedFixtureFile, packedSource)
+	const languageService = createLanguageService(fixtureFile, packedSource)
 
 	return {
-		diagnostics: () =>
-			languageService.getSemanticDiagnostics(packedFixtureFile),
+		diagnostics: () => languageService.getSemanticDiagnostics(fixtureFile),
 		readMemberCompletions: (name): readonly PackedCoreCompletion[] => {
 			const marker = `/* completion:${name} */`
 			const markerPosition = markerPositions.get(marker)
@@ -76,7 +61,7 @@ export const createPackedCoreLanguageFixture = async (
 			}
 
 			const completions = languageService.getCompletionsAtPosition(
-				packedFixtureFile,
+				fixtureFile,
 				markerPosition,
 				{ includeCompletionsWithInsertText: true },
 			)
@@ -93,7 +78,7 @@ export const createPackedCoreLanguageFixture = async (
 				)
 				.map((entry) => {
 					const details = languageService.getCompletionEntryDetails(
-						packedFixtureFile,
+						fixtureFile,
 						markerPosition,
 						entry.name,
 						undefined,
@@ -125,7 +110,7 @@ export const createPackedCoreLanguageFixture = async (
 			}
 
 			const completions = languageService.getCompletionsAtPosition(
-				packedFixtureFile,
+				fixtureFile,
 				position + 1,
 				{ includeCompletionsWithInsertText: true },
 			)
@@ -151,7 +136,7 @@ export const createPackedCoreLanguageFixture = async (
 			}
 
 			const quickInfo = languageService.getQuickInfoAtPosition(
-				packedFixtureFile,
+				fixtureFile,
 				position,
 			)
 
@@ -175,7 +160,7 @@ export const createPackedCoreLanguageFixture = async (
 			}
 
 			const signature = languageService.getSignatureHelpItems(
-				packedFixtureFile,
+				fixtureFile,
 				markerPosition,
 				undefined,
 			)
@@ -194,3 +179,34 @@ export const createPackedCoreLanguageFixture = async (
 		},
 	}
 }
+
+/** Builds a language service over the repository source declarations. */
+export const createSourceCoreLanguageFixture = async (
+	sourceFixtureFile: string,
+): Promise<PackedCoreLanguageFixture> =>
+	createCoreLanguageFixture(
+		sourceFixtureFile,
+		sourceFixtureFile,
+		(source) => source,
+	)
+
+/**
+ * Builds one external-consumer language service from a source-level prototype.
+ * The import rewrite ensures every assertion reads the built package declaration.
+ * Optional extra source models application-local declaration merging without
+ * adding generated contracts to the repository TypeScript program.
+ */
+export const createPackedCoreLanguageFixture = async (
+	sourceFixtureFile: string,
+	packedFixtureName: string,
+	additionalSource = '',
+): Promise<PackedCoreLanguageFixture> =>
+	createCoreLanguageFixture(
+		sourceFixtureFile,
+		path.join(repositoryRoot, 'tests/e2e', packedFixtureName),
+		(source) =>
+			`${source.replaceAll(
+				"'../../src/index.js'",
+				"'@ultimabase/core'",
+			)}\n${additionalSource}`,
+	)

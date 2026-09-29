@@ -159,6 +159,7 @@ export type {
 	PluginExports,
 	PluginSetupContext,
 } from './plugins/definition.js'
+export type { PluginSourceFieldValue } from './plugins/source-projections.js'
 export type {
 	PluginDeclaration,
 	PluginDeclarationCapabilityReader,

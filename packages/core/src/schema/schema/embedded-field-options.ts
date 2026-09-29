@@ -3,6 +3,8 @@ import { isPlainRecord } from '@ultimabase/shared'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldListOption,
+	FieldListValue,
+	ResolveFieldSourceTemplate,
 } from '../fields/base/contract.js'
 import type {
 	CompactScalarFieldDefinition,
@@ -81,71 +83,107 @@ export type EmbeddedBigintFieldOptions = Omit<
 > &
 	UltimaBaseGeneratedEmbeddedFieldOptions
 
-export type EmbeddedStringFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedStringFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'string',
 	string,
-	EmbeddedStringFieldOptions
+	EmbeddedStringFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedBooleanFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedBooleanFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'boolean',
 	boolean,
-	EmbeddedBooleanFieldOptions
+	EmbeddedBooleanFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedFloatFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedFloatFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'float',
 	number,
-	EmbeddedFloatFieldOptions
+	EmbeddedFloatFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedDecimalFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedDecimalFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'decimal',
 	string,
-	EmbeddedDecimalFieldOptions
+	EmbeddedDecimalFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedUuidFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedUuidFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'uuid',
 	string,
-	EmbeddedUuidFieldOptions
+	EmbeddedUuidFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedDateFieldFactory = GeneratedCompactScalarFieldFactory<
+export type EmbeddedDateFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = GeneratedCompactScalarFieldFactory<
 	'date',
 	string,
 	EmbeddedDateFieldOptions,
 	'autoNow',
-	true
+	true,
+	TSourceTemplate
 >
-export type EmbeddedDateTimeFieldFactory = GeneratedCompactScalarFieldFactory<
+export type EmbeddedDateTimeFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = GeneratedCompactScalarFieldFactory<
 	'dateTime',
 	string,
 	EmbeddedDateTimeFieldOptions,
 	'autoNow',
-	true
+	true,
+	TSourceTemplate
 >
-export type EmbeddedTimeFieldFactory = GeneratedCompactScalarFieldFactory<
+export type EmbeddedTimeFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = GeneratedCompactScalarFieldFactory<
 	'time',
 	string,
 	EmbeddedTimeFieldOptions,
 	'autoNow',
-	true
+	true,
+	TSourceTemplate
 >
-export type EmbeddedBinaryFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedBinaryFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'binary',
 	Uint8Array,
-	EmbeddedBinaryFieldOptions
+	EmbeddedBinaryFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedJsonFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedJsonFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'json',
 	JsonDocument,
-	EmbeddedJsonFieldOptions
+	EmbeddedJsonFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedIntFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedIntFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'int',
 	number,
-	EmbeddedIntFieldOptions
+	EmbeddedIntFieldOptions,
+	TSourceTemplate
 >
-export type EmbeddedBigintFieldFactory = CompactScalarFieldFactory<
+export type EmbeddedBigintFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> = CompactScalarFieldFactory<
 	'bigint',
 	bigint,
-	EmbeddedBigintFieldOptions
+	EmbeddedBigintFieldOptions,
+	TSourceTemplate
 >
 
 type DefaultedEmbeddedEnumFieldOptions<
@@ -177,7 +215,9 @@ type NonDefaultedEmbeddedEnumFieldOptions<
 	CompatibleEnumFieldOptions<TValues>
 
 /** Preserves an embedded enum's exact domain while excluding root metadata. */
-export interface EmbeddedEnumFieldFactory {
+export interface EmbeddedEnumFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TValues extends EnumValues,
 		const TRequired extends boolean = false,
@@ -188,7 +228,14 @@ export interface EmbeddedEnumFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedEmbeddedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
 			TExtensionOptions,
-			EnumValue<TValues>
+			EnumValue<TValues>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<EnumValue<TValues>, TList>
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		'enum',
@@ -214,7 +261,14 @@ export interface EmbeddedEnumFieldFactory {
 				TImmutable
 			>,
 			TExtensionOptions,
-			EnumValue<TValues>
+			EnumValue<TValues>,
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<EnumValue<TValues>, TList>
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		'enum',

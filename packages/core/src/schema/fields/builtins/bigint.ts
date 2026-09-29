@@ -10,6 +10,7 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -128,7 +129,9 @@ type NonDefaultedBigintField<
 	TAutoIncrement extends boolean,
 > = ResolvedBigintField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
-interface BigintFieldFactory {
+export interface BigintFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -139,7 +142,8 @@ interface BigintFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedBigintFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
-			bigint
+			bigint,
+			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList>
 		>,
 	): DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -157,7 +161,8 @@ interface BigintFieldFactory {
 				TAutoIncrement
 			>,
 			TExtensionOptions,
-			bigint
+			bigint,
+			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList>
 		>,
 	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }

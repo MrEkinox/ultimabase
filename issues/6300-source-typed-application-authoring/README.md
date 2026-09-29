@@ -26,7 +26,7 @@ frozen in the
 - [x] [6302: Accept the configured source-typed application ADR](6302-source-typed-application-adr.md)
 - [x] [6303: Make plugin installation an immutable application factory](6303-immutable-configured-application-factory.md)
 - [x] [6304: Preserve exact schema contracts from source](6304-source-typed-schema-contracts.md)
-- [ ] [6305: Project plugin authoring types from source](6305-plugin-source-type-projections.md)
+- [x] [6305: Project plugin authoring types from source](6305-plugin-source-type-projections.md)
 - [ ] [6306: Bind direct class execution to the sole active application](6306-direct-class-application-binding.md)
 - [ ] [6307: Migrate Access, Hooks, and Validation source typing](6307-official-plugin-source-typing.md)
 - [ ] [6308: Migrate ACL, Roles, and Password Auth source typing](6308-auth-policy-plugin-source-typing.md)

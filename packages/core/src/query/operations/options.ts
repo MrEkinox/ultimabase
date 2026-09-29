@@ -1,12 +1,14 @@
 import type { PluginDefinition } from '../../foundation.js'
 import type { UltimaBase } from '../../runtime/application/ultima-base.js'
+import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type { RequestContext } from '../../runtime/context/request-context.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 
 /** Identifies any concrete UltimaBase facade without exposing its plugin tuple. */
 type OperationUltimaBase = UltimaBase<
 	readonly SchemaDefinition[],
-	readonly PluginDefinition[]
+	readonly PluginDefinition[],
+	PluginSourceState
 >
 
 /**

@@ -87,11 +87,7 @@ const alphaPlugin = () =>
 		},
 		contributions: [
 			contributeDeclarations({
-				schema: ({ fields }) => {
-					fields.register(alphaMethod)
-
-					return undefined
-				},
+				schema: ({ fields }) => fields.register(alphaMethod),
 			}),
 		],
 	})
@@ -581,7 +577,7 @@ describe('plugin FieldBuilder methods', () => {
 		await expect(
 			createApplication({ plugins: [asynchronousPlugin], schemas: [] }),
 		).rejects.toThrow(
-			'plugin declaration contribution callbacks must return nothing',
+			'plugin declaration contribution callbacks may return only Core declaration receipts',
 		)
 	})
 

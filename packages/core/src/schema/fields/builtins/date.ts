@@ -8,6 +8,7 @@ import type {
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
+	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -100,7 +101,9 @@ type NonDefaultedDateField<
 	TAutoNow extends boolean,
 > = ResolvedDateField<TRequired, TList, TImmutable, false, TAutoNow>
 
-interface DateFieldFactory {
+export interface DateFieldFactory<
+	TSourceTemplate extends object = Readonly<Record<never, never>>,
+> {
 	<
 		const TRequired extends boolean = false,
 		const TList extends FieldListOption = false,
@@ -111,7 +114,8 @@ interface DateFieldFactory {
 		options: CompatibleFieldOptionsExtension<
 			DefaultedDateFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): DefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -124,7 +128,8 @@ interface DateFieldFactory {
 		options?: CompatibleFieldOptionsExtension<
 			NonDefaultedDateFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
-			string
+			string,
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
 		>,
 	): NonDefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 }

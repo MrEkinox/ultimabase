@@ -31,6 +31,7 @@ import {
 } from './plugin-contributions.js'
 import type { PluginSetupContext } from './setup-registries.js'
 import type { PluginCommandPlan } from './plugin-command-plan.js'
+import type { PluginSourceProjection } from './source-projections.js'
 
 export type { PluginSetupContext } from './setup-registries.js'
 
@@ -50,12 +51,14 @@ const hasOperationRegistrar = (
 
 declare const pluginDefinitionBrand: unique symbol
 declare const pluginSetupExportsBrand: unique symbol
+declare const pluginSourceProjectionBrand: unique symbol
 const pluginNativePlan: unique symbol = Symbol('ultimabase.plugin-native-plan')
 
 /** Identifies definitions whose runtime provenance was validated by Core. */
 export interface PluginDefinition {
 	readonly [pluginDefinitionBrand]: true
 	readonly [pluginSetupExportsBrand]: unknown
+	readonly [pluginSourceProjectionBrand]: PluginSourceProjection
 	readonly [pluginNativePlan]: PluginNativePlan
 	readonly manifest: PluginManifest
 	readonly dependencies?: readonly PluginDependency[] | undefined
@@ -78,6 +81,7 @@ export interface FrameworkPluginContract {
 	readonly environment?: readonly PluginEnvironmentClaim[] | undefined
 	readonly privileges?: readonly PluginPrivilegeRequest[]
 	readonly capabilities?: PluginCapabilityDeclarationOptions
+	readonly source?: PluginSourceProjection
 }
 
 type ContractValue<
@@ -98,6 +102,12 @@ export interface FrameworkPlugin<
 > extends PluginDefinition {
 	readonly [pluginSetupExportsBrand]: Awaited<
 		ContractValue<TContract, 'exports', undefined>
+	>
+	readonly [pluginSourceProjectionBrand]: ContractValue<
+		TContract,
+		'source',
+		never,
+		PluginSourceProjection
 	>
 	readonly manifest: PluginManifest<
 		TContract['id'],
@@ -152,6 +162,11 @@ export interface FrameworkPlugin<
 /** Extracts one plugin's initialized export contract without executing its factory. */
 export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
 	? TPlugin[typeof pluginSetupExportsBrand]
+	: never
+
+/** Reads source-authoring surfaces inferred from one plugin's static definition. */
+export type PluginSource<TPlugin> = TPlugin extends PluginDefinition
+	? TPlugin[typeof pluginSourceProjectionBrand]
 	: never
 
 export interface NativePluginDefinitionOptions {
