@@ -99,7 +99,7 @@ export interface UuidFieldFactory<
 			DefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): DefaultedUuidField<TRequired, TList, TImmutable>
 	<
@@ -112,7 +112,7 @@ export interface UuidFieldFactory<
 			NonDefaultedUuidFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): NonDefaultedUuidField<TRequired, TList, TImmutable>
 }

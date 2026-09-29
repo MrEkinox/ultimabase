@@ -1,6 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	PasswordUser,
@@ -15,11 +15,21 @@ import type {} from '../.ultimabase/schema.generated.js'
 
 const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
+/** Owns every source-typed schema declaration used by the example. */
+export const MinimalSchemaApplication = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+)
+	.use(accessPlugin({ default: true }))
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
+
 /** The exact User schema contributed by the configured Password Auth plugin. */
 export const ExampleUser = PasswordUser
 
 /** Resolves Password Auth identities into the example's independent role domain. */
-export const ExampleRole = RoleSchema.define({
+export const ExampleRole = RoleSchema.define(MinimalSchemaApplication.Schema, {
 	className: 'ExampleRole',
 	members: {
 		schema: PasswordUser,
@@ -48,7 +58,7 @@ const editorACL = new ACL().grantRole(
 )
 
 /** Stores durable evidence from logical soft-delete lifecycle Hooks. */
-export const ExampleSoftDeleteEvent = Schema.define({
+export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
 	className: 'ExampleSoftDeleteEvent',
 	fields: (field) => ({
 		logicalOperation: field.string({ required: true }),
@@ -84,7 +94,7 @@ const recordSoftDeleteEvent = async (
 }
 
 /** Authors can be selected and included through both public transports. */
-export const ExampleAuthor = Schema.define({
+export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 	className: 'ExampleAuthor',
 	fields: (field) => ({
 		articles: field.relation({
@@ -151,7 +161,7 @@ export const ExampleAuthor = Schema.define({
 })
 
 /** Articles demonstrate policy, lifecycle, validation, and relationships. */
-export const ExampleArticle = Schema.define({
+export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 	className: 'ExampleArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'ExampleAuthor' }),
@@ -175,7 +185,7 @@ export const ExampleArticle = Schema.define({
 		}),
 		slug: field.string({ indexed: 'unique', required: true }),
 		title: field.string({
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 			required: true,
 			validation: z.string().min(2).max(200),
 		}),
@@ -308,7 +318,7 @@ export const ExampleArticle = Schema.define({
 })
 
 /** Notes prove authenticated role-based Access and ACL through public CRUD. */
-export const ExamplePrivateNote = Schema.define({
+export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
 	className: 'ExamplePrivateNote',
 	fields: (field) => ({
 		body: field.string({ required: true }),
@@ -323,16 +333,6 @@ export const ExamplePrivateNote = Schema.define({
 	graphql: true,
 	rest: true,
 })
-
-/** Keeps the schema-owning optional plugins explicit and independently removable. */
-export const minimalBehaviorPlugins = [
-	softDeletePlugin({ defaultMode: 'disabled' }),
-	accessPlugin({ default: true }),
-	hooksPlugin(),
-	validationPlugin(),
-	rolesPlugin(),
-	aclPlugin(),
-] as const
 
 export const minimalSchemas = [
 	ExampleAuthor,

@@ -4,9 +4,22 @@ import {
 	plugin,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
+	type PluginDeclarationContribution,
 	type PluginInstance,
+	type PluginModelSurfaceSource,
+	type PluginSchemaOptionSource,
+	type PluginSchemaPatchSource,
+	type SchemaSelection,
+	type AddSchemaFieldOperation,
+	type BooleanField,
+	type ForbiddenMutationInputField,
+	type ScalarFieldTypegenState,
 } from '@ultimabase/core'
-import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
+import {
+	patchSchemas,
+	schemaPatch,
+	type SchemaPatchBuilder,
+} from '@ultimabase/plugin-kit'
 
 import type { SoftDeletePluginOptions } from './contracts.js'
 import {
@@ -41,12 +54,206 @@ const softDeletePluginPermissions = {
 		'Preserves payload-free soft-delete commands in Typegen.',
 } as const
 
+const tombstoneField: BooleanField<
+	ScalarFieldTypegenState<true, false, false, true>
+> = booleanField({ default: false, required: true })
+const tombstonePatch: SchemaPatchBuilder<
+	readonly [
+		AddSchemaFieldOperation<
+			typeof softDeleteTombstoneFieldName,
+			ForbiddenMutationInputField<typeof tombstoneField>
+		>,
+	]
+> = schemaPatch().addField({
+	contributionId: softDeleteTombstoneContributionId,
+	field: tombstoneField,
+	mutationInput: 'forbidden',
+	name: softDeleteTombstoneFieldName,
+})
+
+const explicitSoftDeleteSelector = {
+	option: { equals: 'explicit', name: 'softDelete' },
+	owner: { kind: 'application' },
+} as const
+const replaceSoftDeleteSelector = {
+	option: { equals: 'replace-delete', name: 'softDelete' },
+	owner: { kind: 'application' },
+} as const
+
+type ExplicitSoftDeleteSurface = Readonly<{
+	contributionId: 'official-soft-delete-mutation'
+	schemaMutations: Readonly<{
+		softDelete: Readonly<{
+			mutation: typeof softDeleteMutation
+			surfaces: readonly ['schema', 'model']
+		}>
+	}>
+}>
+
+const explicitSoftDeleteSurface: ExplicitSoftDeleteSurface = {
+	contributionId: 'official-soft-delete-mutation',
+	schemaMutations: {
+		softDelete: {
+			mutation: softDeleteMutation,
+			surfaces: ['schema', 'model'],
+		},
+	},
+}
+
+type SoftDeleteAdministrationSurface = Readonly<{
+	contributionId: 'official-soft-delete-administration'
+	schemaMutations: Readonly<{
+		restore: Readonly<{
+			mutation: typeof restoreMutation
+			surfaces: readonly ['schema']
+		}>
+		purge: Readonly<{
+			mutation: typeof purgeMutation
+			surfaces: readonly ['schema']
+		}>
+	}>
+}>
+
+const softDeleteAdministrationSurface: SoftDeleteAdministrationSurface = {
+	contributionId: 'official-soft-delete-administration',
+	schemaMutations: {
+		restore: {
+			mutation: restoreMutation,
+			surfaces: ['schema'],
+		},
+		purge: {
+			mutation: purgeMutation,
+			surfaces: ['schema'],
+		},
+	},
+}
+type SoftDeleteOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-soft-delete-schema-option'
+	readonly schema: Readonly<{
+		softDelete: typeof softDeleteSchemaOption
+	}>
+}>
+type ExplicitSoftDeleteFieldSource = PluginSchemaPatchSource<
+	typeof tombstonePatch.operations,
+	SchemaSelection<typeof explicitSoftDeleteSelector>
+>
+type ReplaceSoftDeleteFieldSource = PluginSchemaPatchSource<
+	typeof tombstonePatch.operations,
+	SchemaSelection<typeof replaceSoftDeleteSelector>
+>
+type ExplicitSoftDeleteMutationSource = PluginModelSurfaceSource<
+	typeof explicitSoftDeleteSelector,
+	typeof explicitSoftDeleteSurface.schemaMutations
+>
+type ExplicitSoftDeleteAdministrationSource = PluginModelSurfaceSource<
+	typeof explicitSoftDeleteSelector,
+	typeof softDeleteAdministrationSurface.schemaMutations
+>
+type ReplaceSoftDeleteAdministrationSource = PluginModelSurfaceSource<
+	typeof replaceSoftDeleteSelector,
+	typeof softDeleteAdministrationSurface.schemaMutations
+>
+type SoftDeleteSource =
+	| SoftDeleteOptionSource
+	| ExplicitSoftDeleteFieldSource
+	| ReplaceSoftDeleteFieldSource
+	| ExplicitSoftDeleteMutationSource
+	| ExplicitSoftDeleteAdministrationSource
+	| ReplaceSoftDeleteAdministrationSource
+
+const createSoftDeleteDeclarations = (
+	normalized: ReturnType<typeof normalizeSoftDeletePluginOptions>,
+): PluginDeclarationContribution<readonly [], SoftDeleteSource> =>
+	contributeDeclarations({
+		schema: ({ schemas }) => {
+			const options = schemas.defineOptions({
+				contributionId: 'official-soft-delete-schema-option',
+				schema: { softDelete: softDeleteSchemaOption },
+				staticOptions: { defaultMode: normalized.defaultMode },
+			})
+			const explicitField = schemas.patch(
+				patchSchemas({
+					patch: tombstonePatch,
+					targets: schemas.select(explicitSoftDeleteSelector),
+				}),
+			)
+			const replaceField = schemas.patch(
+				patchSchemas({
+					patch: tombstonePatch,
+					targets: schemas.select(replaceSoftDeleteSelector),
+				}),
+			)
+			if (normalized.defaultMode !== 'disabled') {
+				// The implicit-default projection remains owned by issue 6309 because
+				// its source type depends on the exact plugin factory argument.
+				schemas.patch(
+					patchSchemas({
+						patch: tombstonePatch,
+						staticOptions: { defaultMode: normalized.defaultMode },
+						targets: schemas.select({
+							option: { name: 'softDelete', present: false },
+							owner: { kind: 'application' },
+						}),
+					}),
+				)
+			}
+			return [options, explicitField, replaceField] as const
+		},
+		models: ({ models }) => {
+			const explicitMutation = models.extend(
+				explicitSoftDeleteSelector,
+				explicitSoftDeleteSurface,
+			)
+			if (normalized.defaultMode === 'explicit') {
+				models.extend(
+					{
+						option: { name: 'softDelete', present: false },
+						owner: { kind: 'application' },
+					},
+					{
+						...explicitSoftDeleteSurface,
+						contributionId: 'official-soft-delete-default-mutation',
+						staticOptions: { defaultMode: normalized.defaultMode },
+					},
+				)
+			}
+
+			const explicitAdministration = models.extend(explicitSoftDeleteSelector, {
+				...softDeleteAdministrationSurface,
+				contributionId: 'official-soft-delete-explicit-administration',
+			})
+			const replaceAdministration = models.extend(replaceSoftDeleteSelector, {
+				...softDeleteAdministrationSurface,
+				contributionId: 'official-soft-delete-replace-delete-administration',
+			})
+			if (normalized.defaultMode !== 'disabled') {
+				models.extend(
+					{
+						option: { name: 'softDelete', present: false },
+						owner: { kind: 'application' },
+					},
+					{
+						...softDeleteAdministrationSurface,
+						contributionId: 'official-soft-delete-default-administration',
+						staticOptions: { defaultMode: normalized.defaultMode },
+					},
+				)
+			}
+			return [
+				explicitMutation,
+				explicitAdministration,
+				replaceAdministration,
+			] as const
+		},
+	})
+
 /** Names one configured official soft-delete plugin. */
 export type SoftDeletePlugin = PluginInstance<{
 	readonly id: '@ultimabase/soft-delete-plugin'
 	readonly instanceId: string | undefined
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: SoftDeleteSource
 }>
 
 /**
@@ -83,12 +290,7 @@ export const softDeletePlugin = (
 	const explicitContribution = createExplicitSoftDeleteContribution()
 	const administrationContributions =
 		createSoftDeleteAdministrationContributions()
-	const tombstonePatch = schemaPatch().addField({
-		contributionId: softDeleteTombstoneContributionId,
-		field: booleanField({ default: false, required: true }),
-		mutationInput: 'forbidden',
-		name: softDeleteTombstoneFieldName,
-	})
+	const declarations = createSoftDeleteDeclarations(normalized)
 
 	return plugin({
 		id: '@ultimabase/soft-delete-plugin',
@@ -103,110 +305,7 @@ export const softDeletePlugin = (
 			replaceDeleteProvider,
 			explicitContribution,
 			...administrationContributions,
-			contributeDeclarations({
-				schema: ({ schemas }) => {
-					schemas.defineOptions({
-						contributionId: 'official-soft-delete-schema-option',
-						schema: { softDelete: softDeleteSchemaOption },
-						staticOptions: { defaultMode: normalized.defaultMode },
-					})
-					for (const mode of ['explicit', 'replace-delete'] as const) {
-						schemas.patch(
-							patchSchemas({
-								patch: tombstonePatch,
-								targets: schemas.select({
-									option: { equals: mode, name: 'softDelete' },
-									owner: { kind: 'application' },
-								}),
-							}),
-						)
-					}
-					if (normalized.defaultMode !== 'disabled') {
-						schemas.patch(
-							patchSchemas({
-								patch: tombstonePatch,
-								staticOptions: { defaultMode: normalized.defaultMode },
-								targets: schemas.select({
-									option: { name: 'softDelete', present: false },
-									owner: { kind: 'application' },
-								}),
-							}),
-						)
-					}
-					return undefined
-				},
-				models: ({ models }) => {
-					const explicitSurface = {
-						contributionId: 'official-soft-delete-mutation',
-						schemaMutations: {
-							softDelete: {
-								mutation: softDeleteMutation,
-								surfaces: ['schema', 'model'] as const,
-							},
-						},
-					}
-					models.extend(
-						{
-							option: { equals: 'explicit', name: 'softDelete' },
-							owner: { kind: 'application' },
-						},
-						explicitSurface,
-					)
-					if (normalized.defaultMode === 'explicit') {
-						models.extend(
-							{
-								option: { name: 'softDelete', present: false },
-								owner: { kind: 'application' },
-							},
-							{
-								...explicitSurface,
-								contributionId: 'official-soft-delete-default-mutation',
-								staticOptions: { defaultMode: normalized.defaultMode },
-							},
-						)
-					}
-
-					const administrationSurface = {
-						contributionId: 'official-soft-delete-administration',
-						schemaMutations: {
-							restore: {
-								mutation: restoreMutation,
-								surfaces: ['schema'] as const,
-							},
-							purge: {
-								mutation: purgeMutation,
-								surfaces: ['schema'] as const,
-							},
-						},
-					}
-					for (const mode of ['explicit', 'replace-delete'] as const) {
-						models.extend(
-							{
-								option: { equals: mode, name: 'softDelete' },
-								owner: { kind: 'application' },
-							},
-							{
-								...administrationSurface,
-								contributionId: `official-soft-delete-${mode}-administration`,
-							},
-						)
-					}
-					if (normalized.defaultMode !== 'disabled') {
-						models.extend(
-							{
-								option: { name: 'softDelete', present: false },
-								owner: { kind: 'application' },
-							},
-							{
-								...administrationSurface,
-								contributionId: 'official-soft-delete-default-administration',
-								staticOptions: { defaultMode: normalized.defaultMode },
-							},
-						)
-					}
-					return undefined
-				},
-			}),
+			declarations,
 		],
 	})
 }

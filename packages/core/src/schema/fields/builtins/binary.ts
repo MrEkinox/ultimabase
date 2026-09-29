@@ -98,7 +98,7 @@ export interface BinaryFieldFactory<
 			DefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			Uint8Array,
-			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList, TRequired>
 		>,
 	): DefaultedBinaryField<TRequired, TList, TImmutable>
 	<
@@ -111,7 +111,7 @@ export interface BinaryFieldFactory<
 			NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			Uint8Array,
-			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, Uint8Array, TList, TRequired>
 		>,
 	): NonDefaultedBinaryField<TRequired, TList, TImmutable>
 }

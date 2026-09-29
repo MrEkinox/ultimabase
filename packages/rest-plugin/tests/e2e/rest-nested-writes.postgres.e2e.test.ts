@@ -1,7 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	type RequestContext,
 } from '@ultimabase/core'
@@ -23,7 +22,9 @@ import {
 	type RestMutationExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
 
-const Target = Schema.define({
+const RestNestedWriteApplication = UltimaBase.use(accessPlugin())
+
+const Target = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedTarget',
 	access: { update: false },
 	fields: (field) => ({
@@ -32,7 +33,7 @@ const Target = Schema.define({
 	}),
 })
 
-const Post = Schema.define({
+const Post = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedPost',
 	fields: (field) => ({
 		headline: field.virtual({
@@ -49,7 +50,7 @@ const Post = Schema.define({
 	}),
 })
 
-const Node = Schema.define({
+const Node = RestNestedWriteApplication.Schema.define({
 	className: 'RestNestedNode',
 	fields: (field) => ({
 		child: field.pointer({ target: 'RestNestedNode' }),
@@ -111,11 +112,18 @@ const toJson = (value: unknown): Readonly<Record<string, unknown>> => {
 
 const includedTargets = (
 	value: unknown,
-): readonly InstanceType<typeof Target>[] => {
-	if (!Array.isArray(value) || !value.every((item) => item instanceof Target)) {
+): readonly (InstanceType<typeof Target> & Readonly<{ id: string }>)[] => {
+	if (
+		!Array.isArray(value) ||
+		!value.every(
+			(item) =>
+				item instanceof Target && typeof Reflect.get(item, 'id') === 'string',
+		)
+	) {
 		throw new TypeError('Expected included REST nested-write targets')
 	}
-	return value
+	return value as readonly (InstanceType<typeof Target> &
+		Readonly<{ id: string }>)[]
 }
 
 beforeAll(async () => {

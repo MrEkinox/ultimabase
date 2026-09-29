@@ -5,10 +5,6 @@ export type {
 	FieldValidationIssueCode,
 } from './field-validation.js'
 export type {
-	FieldValidationCompatibility,
-	FieldValidationOption,
-} from './options.js'
-export type {
 	CompatibleFieldStandardSchema,
 	FieldStandardSchema,
 	MutableFieldContainer,

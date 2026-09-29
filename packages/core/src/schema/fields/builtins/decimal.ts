@@ -116,7 +116,7 @@ export interface DecimalFieldFactory<
 			DefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): DefaultedDecimalField<TRequired, TList, TImmutable>
 	<
@@ -129,7 +129,7 @@ export interface DecimalFieldFactory<
 			NonDefaultedDecimalFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): NonDefaultedDecimalField<TRequired, TList, TImmutable>
 }

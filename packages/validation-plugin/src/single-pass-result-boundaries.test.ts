@@ -4,10 +4,13 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	createRuntimeBehaviorBoundaries,
 	QueryBuilder,
-	Schema,
+	UltimaBase,
 	type FindManyOperationAst,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { validationPlugin } from './plugin.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
 
 const observingValidator = <TValue>(
 	validate: (value: unknown) => void,
@@ -25,7 +28,7 @@ const observingValidator = <TValue>(
 describe('single-pass result boundaries', () => {
 	it('snapshots read results without application validation', () => {
 		const validate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'SinglePassReadResult',
 			fields: (field) => ({
 				name: field.string({

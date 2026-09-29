@@ -7,7 +7,7 @@ contentType: concept
 outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/validation-plugin/README.md
   - packages/validation-plugin/src/field-validation.ts
@@ -49,11 +49,24 @@ pnpm add @ultimabase/validation-plugin zod
 Attach a validator to a stored field. Here Zod checks the complete canonical
 string after Core has resolved the input:
 
-```ts title="src/article.ts"
-import { Schema } from '@ultimabase/core'
-import { z } from 'zod'
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 
-export const Article = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(validationPlugin())
+```
+
+```ts title="src/article.ts"
+import { z } from 'zod'
+import { Application } from './application.js'
+
+export const Article = Application.Schema.define({
 	className: 'Article',
 	fields: (f) => ({
 		title: f.string({
@@ -67,17 +80,8 @@ export const Article = Schema.define({
 Install the plugin in the same application that registers `Article`:
 
 ```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
+import { Application } from './application.js'
 import { Article } from './article.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
-	validationPlugin(),
-)
 
 export const ultimabase = new Application({
 	schemas: [Article],
@@ -89,9 +93,10 @@ Keep startup in the existing entry point from
 `ultimabase.start()` there and always await `dispose()` when the process finishes.
 This configuration module stays safe to load for static Typegen generation.
 
-`validationPlugin()` takes no options. For TypeScript authoring, regenerate
-application declarations after adding it so the `validation` option appears on
-supported fields; see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+`validationPlugin()` takes no options. Its configured factory exposes
+`validation` on supported fields directly from source. Regenerate Typegen only
+when the application-wide named schema graph changes; see
+[Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
 
 The option accepts one synchronous Standard Schema V1 validator whose input
 and output are compatible with the field's complete canonical non-null value.
@@ -130,8 +135,8 @@ constraints such as unique indexes.
 ## Troubleshooting
 
 - **`validation` is an unknown field option:** confirm `validationPlugin()` is
-  installed in this application's `plugins`, then regenerate Typegen. Importing
-  the package or declaring a validator does not install the plugin.
+  installed on the configured factory used to declare the schema. Importing the
+  package or installing it only on another factory does not expose the option.
 - **A value is rejected with `field.validation`:** inspect the issue path and
   the vendor's message. In the example, an empty title fails `min(1)`; a
   non-empty title passes. The same rule applies to Master mutations.

@@ -141,13 +141,13 @@ void title; void invalid`,
 		try {
 			const filename = path.join(directory, 'capability.ts')
 			const source = `${example.code}
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { validationPlugin } from '@ultimabase/validation-plugin'
-import { accessPlugin } from '@ultimabase/access-plugin'
-export const app = new UltimaBase({
+import { UltimaBase as RuntimeApplication } from '@ultimabase/core'
+import { postgresPlugin as runtimePostgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin as runtimeValidationPlugin } from '@ultimabase/validation-plugin'
+import { accessPlugin as runtimeAccessPlugin } from '@ultimabase/access-plugin'
+export const app = new RuntimeApplication({
   schemas: [${example.schema}],
-  plugins: [postgresPlugin({ url: 'postgres://localhost/landing_check' }), validationPlugin(), accessPlugin()],
+  plugins: [runtimePostgresPlugin({ url: 'postgres://localhost/landing_check' }), runtimeValidationPlugin(), runtimeAccessPlugin()],
 })`
 			await writeFile(filename, source)
 			const application = await loadTypegenApplication({

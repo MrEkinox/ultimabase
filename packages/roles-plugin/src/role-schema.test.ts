@@ -22,6 +22,48 @@ const User = Schema.define({
 })
 
 describe('RoleSchema', () => {
+	it('accepts only the configured application Schema namespace', () => {
+		const Application = UltimaBase.use(rolesPlugin())
+		const ConfiguredRole = RoleSchema.define(Application.Schema, {
+			className: 'ConfiguredRole',
+			members: { schema: User },
+			fields: (field) => ({ description: field.string() }),
+		})
+
+		expect(ConfiguredRole.fields).toHaveProperty('description')
+		const draft = new ConfiguredRole({ name: 'draft' })
+		const toRequestRoleReference: unknown = Reflect.get(
+			draft,
+			'toRequestRoleReference',
+		)
+		if (typeof toRequestRoleReference !== 'function') {
+			throw new TypeError(
+				'Configured RoleSchema must expose toRequestRoleReference at runtime',
+			)
+		}
+		expect(() => {
+			Reflect.apply(toRequestRoleReference, draft, [])
+		}).toThrow(
+			new TypeError(
+				'Schema model toRequestRoleReference requires persisted model state',
+			),
+		)
+		expect(() =>
+			RoleSchema.define(
+				Object.freeze({}) as unknown as typeof Application.Schema,
+				{
+					className: 'InvalidConfiguredRole',
+					members: { schema: User },
+					fields: () => ({}),
+				},
+			),
+		).toThrow(
+			new TypeError(
+				'RoleSchema configured declarations require an UltimaBase Schema namespace',
+			),
+		)
+	})
+
 	it('compiles canonical FieldBuilder declarations before adding role fields', async () => {
 		const BuilderRole = RoleSchema.define({
 			className: 'BuilderRole',

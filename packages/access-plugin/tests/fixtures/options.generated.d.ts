@@ -1,14 +1,10 @@
-import type { FieldAccessOption, SchemaAccessOption } from '../../src/index.js'
+import type { SchemaAccessOption } from '../../src/index.js'
 
-/** Installs application option types without importing another executable suite. */
+/** Simulates the application-local schema declaration emitted for Access. */
 declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly access?: FieldAccessOption<this>
-	}
-	interface UltimaBaseGeneratedVirtualFieldOptions {
-		readonly access?: FieldAccessOption<this>
-	}
 	interface UltimaBaseGeneratedSchemaOptions {
 		readonly access?: SchemaAccessOption<this>
 	}
 }
+
+export {}

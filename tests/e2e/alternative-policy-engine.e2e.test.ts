@@ -282,7 +282,8 @@ describe('independent protected policy engine', () => {
 			}).contents
 
 			expect(generated).toContain('@ultimabase/acl-permissions-plugin')
-			expect(generated).toContain('ACLSchemaOption<this>')
+			expect(generated).not.toContain('ACLSchemaOption<this>')
+			expect(generated).toContain('readonly acl: Plugin1_ACL')
 			expect(
 				application.compile().schemas.get(Document.className)?.fields.acl?.kind,
 			).toBe('ultimabase.acl')

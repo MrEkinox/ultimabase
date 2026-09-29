@@ -9,24 +9,26 @@ import {
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	objectField,
 	Pointer,
-	pointerField,
 	QueryBuilder,
 	RequestContext,
 	requestSources,
-	Schema,
+	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type CreateOneOperationAst,
 	type RuntimeMutationRevalidationStage,
 	type SchemaDefinition,
-	stringField,
+	type SchemaReference,
 	snapshotRuntimeResultRecord,
 } from '@ultimabase/core'
 import {
 	createValidationPlanCache,
 	validateMutationInput,
 } from './operation-validation.js'
+import { readValidationIssues } from './field-validation-fixture.js'
+import { validationPlugin } from './plugin.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
 
 const callbacks: ApplicationCallbackExecutor = {
 	runApplication: (callback) => callback(),
@@ -69,20 +71,6 @@ const rejectingString = (
 	},
 })
 
-const readIssues = (error: unknown): readonly unknown[] => {
-	if (!(error instanceof FrameworkError)) {
-		throw error
-	}
-
-	const details: unknown = error.publicDetails
-	const issues: unknown =
-		typeof details === 'object' && details !== null
-			? Reflect.get(details, 'issues')
-			: undefined
-
-	return Array.isArray(issues) ? issues : []
-}
-
 const completeRecord = (
 	value: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => ({
@@ -101,7 +89,12 @@ const validationContext = RequestContext.anonymous({
 const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: Readonly<Record<string, unknown>>,
+	dependencies: readonly SchemaDefinition[] = [],
 ): CreateOneOperationAst<TSchema> => {
+	new ValidationApplication({
+		pluginPrivileges: { logger: false },
+		schemas: [...dependencies, schema],
+	}).compile()
 	const operation = {
 		input: completeRecord(input),
 		kind: 'create-one',
@@ -140,7 +133,7 @@ describe('Standard Schema field validation', () => {
 		const validator: StandardSchemaV1<string> = {
 			'~standard': { version: 1, vendor: 'generator-test', validate },
 		}
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'ValidatedGeneratedValue',
 			fields: (field) => ({
 				day: field.date({
@@ -192,7 +185,7 @@ describe('Standard Schema field validation', () => {
 				version: 1,
 			},
 		}
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'PostResolutionSlug',
 			fields: (field) => ({
 				slug: field.string({
@@ -241,7 +234,7 @@ describe('Standard Schema field validation', () => {
 	})
 
 	it('runs after every built-in and plugin scalar family snapshot', () => {
-		const Target = Schema.define({
+		const Target = ValidationApplication.Schema.define({
 			className: 'ValidatedPointerTarget',
 			fields: () => ({}),
 		})
@@ -274,7 +267,7 @@ describe('Standard Schema field validation', () => {
 				},
 			},
 		)
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'ValidatedScalarFamilies',
 			fields: (field) => ({
 				bigint: field.bigint({ validation: observe<bigint>('bigint') }),
@@ -295,9 +288,12 @@ describe('Standard Schema field validation', () => {
 				int: field.int({ validation: observe<number>('int') }),
 				json: field.json({ validation: observe<JsonDocument>('json') }),
 				plugin: pluginField,
-				pointer: pointerField({
-					target: () => Target,
-					validation: observe<Pointer<typeof Target>>('pointer'),
+				pointer: field.pointer({
+					target: 'ValidatedPointerTarget',
+					validation:
+						observe<Pointer<SchemaReference<'ValidatedPointerTarget'>>>(
+							'pointer',
+						),
 				}),
 				string: field.string({ validation: observe<string>('string') }),
 				time: field.time({ validation: observe<string>('time') }),
@@ -323,7 +319,7 @@ describe('Standard Schema field validation', () => {
 			uuid: '0198d1ae-a800-7000-8000-000000000001',
 		} as const
 
-		validateFinalCreate(schema, values)
+		validateFinalCreate(schema, values, [Target])
 
 		expect([...calls.keys()].sort()).toStrictEqual(
 			[
@@ -369,7 +365,7 @@ describe('Standard Schema field validation', () => {
 		const validator: StandardSchemaV1<string[]> = {
 			'~standard': { version: 1 as const, vendor: 'list-test', validate },
 		}
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'ValidatedList',
 			fields: (field) => ({
 				tags: field.string({ list: true, validation: validator }),
@@ -381,7 +377,7 @@ describe('Standard Schema field validation', () => {
 			expect.unreachable('Expected list validation to fail')
 		} catch (error: unknown) {
 			expect(error).toMatchObject({ code: 'VALIDATION_ERROR' })
-			expect(readIssues(error)).toContainEqual(
+			expect(readValidationIssues(error)).toContainEqual(
 				expect.objectContaining({
 					code: 'field.validation',
 					message: 'Second tag is invalid',
@@ -416,17 +412,17 @@ describe('Standard Schema field validation', () => {
 				},
 			},
 		} satisfies StandardSchemaV1<string>
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'ValidatedObject',
-			fields: () => ({
-				profile: objectField({
+			fields: (field) => ({
+				profile: field.object({
 					validation: parent,
-					fields: {
-						name: stringField({
+					fields: (nested) => ({
+						name: nested.string({
 							required: true,
 							validation: observedChild,
 						}),
-					},
+					}),
 				}),
 			}),
 		})
@@ -456,11 +452,11 @@ describe('Standard Schema field validation', () => {
 				},
 			},
 		}
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'EqualClonedValidationOutput',
-			fields: () => ({
-				profile: objectField({
-					fields: { name: stringField({ required: true }) },
+			fields: (field) => ({
+				profile: field.object({
+					fields: (nested) => ({ name: nested.string({ required: true }) }),
 					validation: validator,
 				}),
 			}),
@@ -482,17 +478,17 @@ describe('Standard Schema field validation', () => {
 				validate: parentValidate,
 			},
 		} as unknown as StandardSchemaV1<Readonly<{ name: string }>>
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'RejectedObjectChild',
-			fields: () => ({
-				profile: objectField({
+			fields: (field) => ({
+				profile: field.object({
 					validation: parent,
-					fields: {
-						name: stringField({
+					fields: (nested) => ({
+						name: nested.string({
 							required: true,
 							validation: rejectingString('Name is required'),
 						}),
-					},
+					}),
 				}),
 			}),
 		})
@@ -508,13 +504,15 @@ describe('Standard Schema field validation', () => {
 		const validator: StandardSchemaV1<string> = {
 			'~standard': { version: 1 as const, vendor: 'identity-test', validate },
 		}
-		const noteField = stringField({ validation: validator })
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'OptionalValidation',
-			fields: () => ({ note: noteField }),
+			fields: (field) => ({
+				note: field.string({ validation: validator }),
+			}),
 		})
+		const noteField = schema.fields.note
 
-		expect(noteField.options.validation).toBe(validator)
+		expect(Reflect.get(noteField?.options ?? {}, 'validation')).toBe(validator)
 		snapshotRuntimeResultRecord(
 			compileValidationPlans(schema),
 			completeRecord({}),
@@ -545,13 +543,13 @@ describe('Standard Schema field validation', () => {
 				validate: secondValidate,
 			},
 		} as unknown as StandardSchemaV1<string>
-		const firstSchema = Schema.define({
+		const firstSchema = ValidationApplication.Schema.define({
 			className: 'FirstIsolatedValidation',
 			fields: (field) => ({
 				value: field.string({ validation: firstValidator }),
 			}),
 		})
-		const secondSchema = Schema.define({
+		const secondSchema = ValidationApplication.Schema.define({
 			className: 'SecondIsolatedValidation',
 			fields: (field) => ({
 				value: field.string({ validation: secondValidator }),
@@ -596,7 +594,7 @@ describe('Standard Schema field validation', () => {
 				validate,
 			},
 		} as unknown as StandardSchemaV1<string>
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: `ContractFailure${_name}`,
 			fields: (field) => ({
 				value: field.string({
@@ -638,14 +636,14 @@ describe('Standard Schema field validation', () => {
 		} as unknown as StandardSchemaV1<
 			Readonly<{ name: string; role: string | null }>
 		>
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: `ObjectTransformation${_name}`,
-			fields: () => ({
-				profile: objectField({
-					fields: {
-						name: stringField({ required: true }),
-						role: stringField(),
-					},
+			fields: (field) => ({
+				profile: field.object({
+					fields: (nested) => ({
+						name: nested.string({ required: true }),
+						role: nested.string(),
+					}),
 					validation: validator,
 				}),
 			}),
@@ -670,7 +668,7 @@ describe('Standard Schema field validation', () => {
 				validate: () => ({ issues: [] }),
 			},
 		} as unknown as StandardSchemaV1<string>
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'EmptyValidationFailure',
 			fields: (field) => ({
 				value: field.string({
@@ -685,7 +683,7 @@ describe('Standard Schema field validation', () => {
 		} catch (error: unknown) {
 			expect(error).toBeInstanceOf(FrameworkError)
 			if (error instanceof FrameworkError) {
-				const issues = readIssues(error)
+				const issues = readValidationIssues(error)
 				expect(issues).toHaveLength(1)
 				expect(Object.isFrozen(issues)).toBe(true)
 			}

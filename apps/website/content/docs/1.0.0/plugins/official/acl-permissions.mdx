@@ -8,7 +8,7 @@ order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
@@ -59,11 +59,24 @@ pnpm add @ultimabase/acl-permissions-plugin
 Opt a schema in with its direct `acl` option. This default makes each new
 post publicly readable but does not grant ordinary callers update or delete:
 
-```ts title="src/post.ts"
-import { Schema } from '@ultimabase/core'
-import { ACL } from '@ultimabase/acl-permissions-plugin'
+```ts title="src/application.ts"
+import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const Post = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(aclPlugin())
+```
+
+```ts title="src/post.ts"
+import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { Application } from './application.js'
+
+export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({
 		title: f.string({ required: true }),
@@ -77,17 +90,8 @@ export const Post = Schema.define({
 Install the plugin in the same application and register `Post`:
 
 ```ts title="src/ultimabase.ts"
-import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { Application } from './application.js'
 import { Post } from './post.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
-	aclPlugin(),
-)
 
 export const ultimabase = new Application({
 	schemas: [Post],
@@ -173,8 +177,8 @@ mandatory ACL dependency.
 
 ## Troubleshooting
 
-- **The schema rejects `acl` at startup:** install `aclPlugin()` in this
-  application's `.use()` chain and regenerate its Typegen declarations.
+- **The schema rejects `acl` or omits it from autocomplete:** declare it from
+  the configured factory that installs `aclPlugin()`.
 - **A record is unexpectedly invisible:** inspect its ACL through trusted
   server code. An empty ACL denies ordinary object rights; identity or role
   membership alone does not grant them.

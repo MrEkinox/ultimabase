@@ -7,7 +7,10 @@ import {
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
+	type PluginDeclarationContribution,
+	type PluginDeclarationSource,
 	type PluginInstance,
+	type PluginSchemaOptionSource,
 	type runtimeBehaviorCapability,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -113,11 +116,32 @@ const hooksPluginPermissions = {
 		'Runs official Hooks through the public Runtime behavior kernel.',
 } as const
 
+type HooksOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-hooks-options'
+	readonly field: Readonly<{ hooks: typeof fieldHooksOption }>
+	readonly schema: Readonly<{ hooks: typeof schemaHooksOption }>
+}>
+
+const hooksDeclarations: PluginDeclarationContribution<
+	readonly [],
+	HooksOptionSource
+> = contributeDeclarations({
+	schema: ({ schemas }) =>
+		schemas.defineOptions({
+			contributionId: 'official-hooks-options',
+			field: { hooks: fieldHooksOption },
+			schema: { hooks: schemaHooksOption },
+		}),
+})
+
+type HooksSource = PluginDeclarationSource<typeof hooksDeclarations>
+
 /** Names the exact configured official Hooks engine. */
 export type HooksPlugin = PluginInstance<{
 	readonly id: '@ultimabase/hooks-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: HooksSource
 }>
 
 /**
@@ -126,16 +150,6 @@ export type HooksPlugin = PluginInstance<{
  * Importing the package alone has no application effect.
  */
 export const hooksPlugin = (): HooksPlugin => {
-	const declarations = contributeDeclarations({
-		schema: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'official-hooks-options',
-				field: { hooks: fieldHooksOption },
-				schema: { hooks: schemaHooksOption },
-			})
-			return undefined
-		},
-	})
 	const instance = plugin({
 		id: '@ultimabase/hooks-plugin',
 		version: '0.0.0',
@@ -147,7 +161,7 @@ export const hooksPlugin = (): HooksPlugin => {
 			optionalHookDiagnostics,
 			hooksRuntimeProvider,
 			schemaMutationSurfaceRequirement,
-			declarations,
+			hooksDeclarations,
 		],
 	})
 	return instance

@@ -525,9 +525,9 @@ export const createCompiledTypegenSnapshot = (
 
 /** Compiles one application into an inert, deterministic generation snapshot. */
 export const createTypegenSnapshot = (
-	ultimabase: UltimaBase<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
+	ultimabase: Pick<
+		UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>,
+		'compile'
 	>,
 	applicationId: string,
 ): TypegenApplicationSnapshot => {

@@ -49,6 +49,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 		const committed: WorkflowCommittedPayload[] = []
 		const deleteTrace: string[] = []
 		let rejectDelete = false
+		const HookApplication = UltimaBase.use(hooksPlugin())
 		const WorkflowPost = Schema.define({
 			className: 'OpenKernelPostgresWorkflowPost',
 			fields: (field) => ({ title: field.string() }),
@@ -58,15 +59,15 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			decimalLedger: { defaultScale: 2 },
 			postgres: { table: 'open_kernel_ledger_entries' },
 			fields: (field) => ({
-				// @ts-expect-error -- The generated community contract owns this direct option.
 				label: field.string({
+					// @ts-expect-error -- The generated community contract owns this direct option.
 					decimalLabel: { format: 'accounting' },
 				}),
 			}),
 		} as SchemaOptions<'OpenKernelLedgerEntry'> & {
 			readonly decimalLedger: DecimalLedgerOption
 		})
-		const SoftPost = Schema.define({
+		const SoftPost = HookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
 			postgres: { table: 'open_kernel_soft_posts' },
 			fields: (field) => ({

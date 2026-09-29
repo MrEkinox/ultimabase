@@ -1,8 +1,4 @@
-import {
-	MasterAuthority,
-	UltimaBase,
-	type MasterAccessEvent,
-} from '@ultimabase/core'
+import { MasterAuthority, type MasterAccessEvent } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
@@ -17,7 +13,7 @@ import {
 	type HonoServerPlugin,
 } from '@ultimabase/server-hono-plugin'
 
-import { minimalBehaviorPlugins, minimalSchemas } from './schema.ts'
+import { MinimalSchemaApplication, minimalSchemas } from './schema.ts'
 import { exampleStatusOperation, exampleStatusPlugin } from './status-plugin.ts'
 
 interface MinimalApplicationBaseOptions {
@@ -50,23 +46,19 @@ export const createMinimalApplication = ({
 		)
 	},
 	server = honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
-}: MinimalApplicationOptions) =>
-	new UltimaBase({
-		masterAuthority: new MasterAuthority({
-			keys: [{ id: applicationId, value: masterKey }],
-			onUse: onMasterUse,
-		}),
-		plugins: [
-			...minimalBehaviorPlugins,
-			passwordAuthPlugin({
-				http: {
-					cookie: {
-						name: '__Host-minimal-session',
-						sameSite: 'lax',
-					},
+}: MinimalApplicationOptions) => {
+	const Application = MinimalSchemaApplication.use(
+		passwordAuthPlugin({
+			http: {
+				cookie: {
+					name: '__Host-minimal-session',
+					sameSite: 'lax',
 				},
-			}),
-			exampleStatusPlugin,
+			},
+		}),
+	)
+		.use(exampleStatusPlugin)
+		.use(
 			restPlugin({
 				acknowledgeUnverifiedProtection: true,
 				operations: [
@@ -77,6 +69,8 @@ export const createMinimalApplication = ({
 					passwordAuthOperations.refresh,
 				],
 			}),
+		)
+		.use(
 			graphqlPlugin({
 				acknowledgeUnverifiedProtection: true,
 				operations: [
@@ -87,6 +81,8 @@ export const createMinimalApplication = ({
 					passwordAuthOperations.refresh,
 				],
 			}),
+		)
+		.use(
 			httpPlugin({
 				appId: applicationId,
 				browser: {
@@ -105,13 +101,22 @@ export const createMinimalApplication = ({
 				...(masterTransport ? { master: { enabled: true as const } } : {}),
 				requestTimeoutMs: 15_000,
 			}),
-			graphqlYogaPlugin({ introspection: true }),
-			server,
+		)
+		.use(graphqlYogaPlugin({ introspection: true }))
+		.use(server)
+		.use(
 			postgresPlugin(
 				databasePool === undefined
 					? { schemaPolicy: 'override', url: databaseUrl }
 					: { pool: databasePool, schemaPolicy: 'override' },
 			),
-		],
+		)
+
+	return new Application({
+		masterAuthority: new MasterAuthority({
+			keys: [{ id: applicationId, value: masterKey }],
+			onUse: onMasterUse,
+		}),
 		schemas: minimalSchemas,
 	})
+}

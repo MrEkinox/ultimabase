@@ -1,6 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { MasterAuthority, Pointer, Schema, UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, Pointer, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
@@ -12,8 +12,10 @@ import {
 const trace: string[] = []
 const rollbackError = new Error('nested update rollback fixture')
 let rejectParentAfterUpdate = false
+const NestedUpdateApplication =
+	UltimaBase.use(accessPlugin()).use(hooksPlugin())
 
-const Child = Schema.define({
+const Child = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateChild',
 	access: {
 		read: { where: ({ where }) => where.eq('visible', true) },
@@ -46,7 +48,7 @@ const Child = Schema.define({
 	},
 })
 
-const Parent = Schema.define({
+const Parent = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateParent',
 	fields: (field) => ({
 		child: field.pointer({ target: 'NestedUpdateChild' }),
@@ -80,7 +82,7 @@ const Parent = Schema.define({
 	},
 })
 
-const Note = Schema.define({
+const Note = NestedUpdateApplication.Schema.define({
 	className: 'NestedUpdateNote',
 	fields: (field) => ({
 		body: field.string({ required: true }),
@@ -109,6 +111,14 @@ const getUltimaBase = () => {
 		throw new TypeError('Nested-update PostgreSQL application has not started')
 	}
 	return ultimabase
+}
+
+const readIncludedId = (value: object): string => {
+	const id: unknown = Reflect.get(value, 'id')
+	if (typeof id !== 'string') {
+		throw new TypeError('Expected an included model identifier')
+	}
+	return id
 }
 
 beforeAll(async () => {
@@ -304,8 +314,9 @@ describe(
 				{ ultimabase: app, useMasterKey: true },
 			)
 			expect(
+				// The retained Typegen graph owns exact cross-schema include identities.
 				requireChildren(afterSet.children)
-					.map(({ id }) => id)
+					.map((child) => readIncludedId(child))
 					.sort(),
 			).toEqual([hidden.id, replacement.id].sort())
 
@@ -320,9 +331,11 @@ describe(
 				{ id: parent.id, include: { children: {} } },
 				{ ultimabase: app, useMasterKey: true },
 			)
-			expect(requireChildren(afterClear.children).map(({ id }) => id)).toEqual([
-				hidden.id,
-			])
+			expect(
+				requireChildren(afterClear.children).map((child) =>
+					readIncludedId(child),
+				),
+			).toEqual([hidden.id])
 		})
 
 		it('updates inverse-pointer membership without deleting either target', async () => {

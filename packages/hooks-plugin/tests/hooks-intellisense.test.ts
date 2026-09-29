@@ -72,48 +72,39 @@ Schema.define({
 		expect(messages.join('\n')).toContain("'hooks' does not exist")
 	})
 
-	it('adds exact Hooks options when generated declarations install the contract', () => {
+	it('adds exact Hooks options from the configured plugin source', () => {
 		const source = `
-import { Schema } from '@ultimabase/core'
-import type { FieldHooksOption, SchemaHooksOption } from '@ultimabase/hooks-plugin'
-declare module '@ultimabase/core' {
-  interface UltimaBaseGeneratedFieldOptions {
-    readonly hooks?: FieldHooksOption<this>
-  }
-  interface UltimaBaseGeneratedSchemaOptions {
-    readonly hooks?: SchemaHooksOption<this>
-  }
-}
-Schema.define({ /* schema-options */ })
-Schema.define({
+import type {} from './fixtures/options.generated.js'
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+const Application = UltimaBase.use(hooksPlugin())
+Application.Schema.define({ /* schema-options */ })
+Application.Schema.define({
   className: 'WithHooks',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
-		const generatedFile = fixtureFile('generated-options')
-		const fixture = createLanguageServiceFixture(generatedFile, source, [
+		const sourceFile = fixtureFile('source-options')
+		const fixture = createLanguageServiceFixture(sourceFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
 		])
 
 		expect(
-			completionNames(fixture, generatedFile, '/* schema-options */'),
+			completionNames(fixture, sourceFile, '/* schema-options */'),
 		).toContain('hooks')
 		expect(
-			completionNames(fixture, generatedFile, '/* field-options */'),
+			completionNames(fixture, sourceFile, '/* field-options */'),
 		).toContain('hooks')
 	})
 
 	it('exposes the optional nested graph on schema mutation hooks', () => {
 		const source = `
-import { Schema } from '@ultimabase/core'
-import type { SchemaHooksOption } from '@ultimabase/hooks-plugin'
-declare module '@ultimabase/core' {
-  interface UltimaBaseGeneratedSchemaOptions {
-    readonly hooks?: SchemaHooksOption<this>
-  }
-}
-Schema.define({
+import type {} from './fixtures/options.generated.js'
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+const Application = UltimaBase.use(hooksPlugin())
+Application.Schema.define({
   className: 'NestedHookInput',
   fields: (field) => ({ title: field.string() }),
   hooks: { afterOperation: { create: (input) => input./* hook-input */ } },

@@ -45,10 +45,7 @@ export const softDeleteSchemaOption: SchemaOptionDefinition<SoftDeleteSchemaOpti
 	defineSchemaOption({
 		normalize: snapshotSchemaOption,
 		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/soft-delete-plugin',
-			type: 'SoftDeleteSchemaOption',
-		},
+		typegen: false,
 	})
 
 /** @internal Parses the factory boundary before Core observes a plugin. */

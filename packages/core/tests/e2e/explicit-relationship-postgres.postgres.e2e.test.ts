@@ -1,4 +1,4 @@
-import { requestSources, Schema, UltimaBase } from '@ultimabase/core'
+import { requestSources, UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -10,22 +10,24 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
 const membershipTrace: string[] = []
+const ExplicitRelationshipApplication =
+	UltimaBase.use(accessPlugin()).use(hooksPlugin())
 
-const Member = Schema.define({
+const Member = ExplicitRelationshipApplication.Schema.define({
 	className: 'ExplicitEdgeMember',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
 
-const Project = Schema.define({
+const Project = ExplicitRelationshipApplication.Schema.define({
 	className: 'ExplicitEdgeProject',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 })
 
-const Membership = Schema.define({
+const Membership = ExplicitRelationshipApplication.Schema.define({
 	className: 'ExplicitEdgeMembership',
 	fields: (field) => ({
 		internalNote: field.string({ access: { read: false } }),

@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306
-- Active issue: 6307
-- Next issue: 6308
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307
+- Active issue: 6308
+- Next issue: 6309
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -80,6 +80,14 @@ the conservative proof from revision `afd4c8b4`; issue 6302 is the resume point
 for the architecture decision. No production export changed and no push is
 authorized.
 
+Issue 6307 established the narrower ADR-0280 exception after bounded compiler
+proof: field Access, field Hooks, Validation, ACL, and other locally decidable
+options remain source typed, while schema `access` and `hooks` keep structured
+Typegen descriptors. Their complete items, filters, relationships, operations,
+and plugin mutation keys depend on the same retained application graph. The
+failed source-only marker branch is removed; no second registry or weakened
+callback contract is retained.
+
 Issue 6302 accepted ADR-0279 from revision `3ee12f5e`. The decision locks one
 immutable `UltimaBase.use()` chain, configured `App.Schema.define()`, explicit
 schema registration, direct sole-active-owner execution, source-owned plugin
@@ -138,3 +146,19 @@ bounded migration and are still owned for deletion by issue 6314. The final
 `yarn validate:full` ran 556 ordinary files/2,622 tests and 634 coverage
 files/2,879 tests with 90.84/84.34/96.01/91.41 coverage. Issue 6307 is the next
 resume point; no push is authorized.
+
+Issue 6307 completed from revision `7bb941a0`. Its
+dependency audit showed that migrating Access, Hooks, and Validation by package
+would leave configured schema declarations split between source projections and
+removed Typegen fallbacks. ACL and Soft Delete schema options and contributed
+fields, plus generic configured specialization for package-owned schemas such
+as `RoleSchema`, therefore joined the issue; later operation, business,
+persistence, and transport work remains in 6308 and 6309. ADR-0280 retains only
+schema Access and Hooks option descriptors in the existing Typegen graph.
+The repeated final `yarn validate:full` passed 557 ordinary files/2,629 tests
+and 635 coverage files/2,886 tests with 90.85/84.35/96.03/91.42 coverage; the
+website passed 17 files/66 tests. An initial sandboxed run was interrupted
+after local-listener tests hit `listen EPERM`; the complete unsandboxed rerun
+passed. The user approved continuing the milestone and deferred the issue's
+new warning-sized files and net line increase to issue 6316's final debt audit.
+Issue 6308 is the next resume point; no push is authorized.

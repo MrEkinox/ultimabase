@@ -3,7 +3,6 @@ import path from 'node:path'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	UltimaBase,
-	Schema,
 	contributeDeclarations,
 	defineOperationValue,
 	plugin,
@@ -25,10 +24,6 @@ const mutationBeforeHookMarker = '/* schema-mutation-before-hook */'
 const mutationAfterHookMarker = '/* schema-mutation-after-hook */'
 
 it('composes installed Access, Hooks, and Validation authoring contracts', () => {
-	const Document = Schema.define({
-		className: 'OfficialOptionDocument',
-		fields: (field) => ({ title: field.string() }),
-	})
 	const inputReference = defineTypegenReference({
 		exportName: 'BaseItem',
 		module: '@ultimabase/core',
@@ -59,19 +54,24 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		},
 		contributions: [
 			contributeDeclarations({
-				models: ({ models }) => {
-					models.extend(Document, {
-						contributionId: 'document-mutations',
-						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema'] },
-							purge: { mutation: purge, surfaces: ['schema'] },
+				models: ({ models }) =>
+					models.extend(
+						{
+							className: 'OfficialOptionDocument',
+							owner: { kind: 'application' },
 						},
-					})
-				},
-				operations: ({ operations }) => {
-					operations.declare(archive)
-					operations.declare(purge)
-				},
+						{
+							contributionId: 'document-mutations',
+							schemaMutations: {
+								archive: { mutation: archive, surfaces: ['schema'] },
+								purge: { mutation: purge, surfaces: ['schema'] },
+							},
+						},
+					),
+				operations: ({ operations }) => [
+					operations.declare(archive),
+					operations.declare(purge),
+				],
 				typegen: ({ typegenReferences }) => {
 					typegenReferences.register(inputReference)
 				},
@@ -79,20 +79,22 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		],
 		version: '1.0.0',
 	})
+	const OfficialApplication = UltimaBase.use(mutationOwner)
+		.use(accessPlugin())
+		.use(hooksPlugin())
+		.use(validationPlugin())
+	const Document = OfficialApplication.Schema.define({
+		className: 'OfficialOptionDocument',
+		fields: (field) => ({ title: field.string() }),
+	})
 	const generated = generateApplicationTypes({
-		ultimabase: new UltimaBase({
+		ultimabase: new OfficialApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin(),
-				hooksPlugin(),
-				validationPlugin(),
-				mutationOwner,
-			],
 			schemas: [Document],
 		}),
 		applicationId: 'fixture.official-options',
 	})
-	const PlainDocument = Schema.define({
+	const PlainDocument = UltimaBase.Schema.define({
 		className: 'OfficialOptionDocument',
 		fields: (field) => ({ title: field.string() }),
 	})
@@ -105,10 +107,82 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		applicationId: 'fixture.official-options',
 	})
 	const sourceWithMarkers = `${generated.contents}
-import { Schema } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import {
+  UltimaBase,
+  contributeDeclarations,
+  defineOperationValue,
+  defineSchemaMutation,
+  defineTypegenReference,
+  plugin,
+} from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 declare const titleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
 
-const TypedDocument = Schema.define({
+const sourceInputReference = defineTypegenReference({
+  exportName: 'BaseItem',
+  module: '@ultimabase/core',
+})
+const sourceArchive = defineSchemaMutation({
+  authority: 'request',
+  effect: 'update',
+  input: defineOperationValue(
+    (value) => value as import('@ultimabase/core').BaseItem,
+    sourceInputReference,
+  ),
+  name: 'fixture.official-options.archive',
+  returning: 'after',
+  version: '1.0.0',
+})
+const sourcePurge = defineSchemaMutation({
+  authority: 'master',
+  effect: 'delete',
+  input: defineOperationValue(
+    (value) => value as import('@ultimabase/core').BaseItem,
+    sourceInputReference,
+  ),
+  name: 'fixture.official-options.purge',
+  returning: 'before',
+  version: '1.0.0',
+})
+const sourceMutationOwner = plugin({
+  core: '^0.0.0',
+  id: 'fixture.official-options-mutations',
+  permissions: {
+    'model:extend': 'Adds typed schema mutations.',
+    'operation:declare': 'Declares schema mutations.',
+    'typegen:reference': 'References the input type.',
+  },
+  contributions: [
+    contributeDeclarations({
+      models: ({ models }) => models.extend(
+        { className: 'OfficialOptionDocument', owner: { kind: 'application' } },
+        {
+          contributionId: 'document-mutations',
+          schemaMutations: {
+            archive: { mutation: sourceArchive, surfaces: ['schema'] },
+            purge: { mutation: sourcePurge, surfaces: ['schema'] },
+          },
+        },
+      ),
+      operations: ({ operations }) => [
+        operations.declare(sourceArchive),
+        operations.declare(sourcePurge),
+      ],
+      typegen: ({ typegenReferences }) => {
+        typegenReferences.register(sourceInputReference)
+      },
+    }),
+  ],
+  version: '1.0.0',
+})
+const SourceApplication = UltimaBase.use(sourceMutationOwner)
+  .use(accessPlugin())
+  .use(hooksPlugin())
+  .use(validationPlugin())
+
+const TypedDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
   access: {
     archive: {
@@ -149,12 +223,12 @@ const TypedDocument = Schema.define({
     }),
   }),
 })
-const MutationAccessCompletionDocument = Schema.define({
+const MutationAccessCompletionDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
   access: { ${mutationAccessMarker} },
   fields: (field) => ({ title: field.string() }),
 })
-const StaleMutationDocument = Schema.define({
+const StaleMutationDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
   access: {
     // @ts-expect-error -- Stale mutation aliases are rejected.
@@ -162,7 +236,7 @@ const StaleMutationDocument = Schema.define({
   },
   fields: (field) => ({ title: field.string() }),
 })
-const StaleMutationHookDocument = Schema.define({
+const StaleMutationHookDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
   fields: (field) => ({ title: field.string() }),
   hooks: {
@@ -172,7 +246,7 @@ const StaleMutationHookDocument = Schema.define({
     },
   },
 })
-const MutationHookCompletionDocument = Schema.define({
+const MutationHookCompletionDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
   fields: (field) => ({ title: field.string() }),
   hooks: {
@@ -180,7 +254,7 @@ const MutationHookCompletionDocument = Schema.define({
     beforeOperation: { ${mutationBeforeHookMarker} },
   },
 })
-const CompletionDocument = Schema.define({
+const CompletionDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionCompletion',
   ${schemaOptionsMarker}
   fields: (field) => ({ title: field.string() }),
@@ -256,9 +330,18 @@ void TypedDocument
 		]),
 	)
 	expect(inputQuickInfo).toContain('id: string')
-	expect(generated.contents).toContain(
-		'FieldValidationCompatibility<TOptions, TValue>',
-	)
+	expect(
+		generated.snapshot.options.map(({ name, scope }) => ({ name, scope })),
+	).toStrictEqual([
+		{ name: 'access', scope: 'schema' },
+		{ name: 'hooks', scope: 'schema' },
+	])
+	expect(generated.contents).not.toContain('FieldValidationCompatibility')
+	expect(generated.contents).not.toContain('FieldValidationOption')
+	expect(generated.contents).not.toContain('FieldAccessOption')
+	expect(generated.contents).not.toContain('FieldHooksOption')
+	expect(generated.contents).toContain('SchemaAccessOption')
+	expect(generated.contents).toContain('SchemaHooksOption')
 	expect(generated.contents).not.toContain('titleValidator')
 	expect(generated.contents).toContain('readonly schemaMutations: {')
 	expect(generated.contents).toContain(

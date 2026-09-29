@@ -3,22 +3,22 @@ import { z } from 'zod'
 
 import {
 	definePluginField,
-	type EmbeddedFieldBuilder,
 	type FieldOptions,
 	type JsonDocument,
-	objectField,
 	Pointer,
 	type RelationWhereResolver,
-	Schema,
 	type SchemaReference,
-	stringField,
+	UltimaBase,
 } from '@ultimabase/core'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+
+const Application = UltimaBase.use(validationPlugin())
 
 class PackedPluginValue {
 	constructor(readonly value: string) {}
 }
 
-const PackedTarget = Schema.define({
+const PackedTarget = Application.Schema.define({
 	className: 'PackedValidatorTarget',
 	fields: () => ({}),
 })
@@ -58,17 +58,6 @@ definePluginField<
 	},
 )
 
-const zodObjectField = objectField({
-	fields: { label: stringField({ required: true }) },
-	validation: z.object({ label: z.string().min(1) }),
-})
-const valibotObjectField = objectField({
-	fields: { label: stringField({ required: true }) },
-	validation: v.object({
-		label: v.pipe(v.string(), v.minLength(1)),
-	}),
-})
-
 definePluginField<
 	PackedPluginValue,
 	'fixture.valibot',
@@ -89,7 +78,7 @@ definePluginField<
 	},
 )
 
-Schema.define({
+Application.Schema.define({
 	className: 'PackedFieldBuilder',
 	fields: (field) => ({
 		root: field./* completion:root-builder */ string(),
@@ -113,8 +102,16 @@ Schema.define({
 			list: true,
 			validation: v.array(v.pipe(v.string(), v.minLength(1))),
 		}),
-		zodObject: zodObjectField,
-		valibotObject: valibotObjectField,
+		zodObject: field.object({
+			fields: (nested) => ({ label: nested.string({ required: true }) }),
+			validation: z.object({ label: z.string().min(1) }),
+		}),
+		valibotObject: field.object({
+			fields: (nested) => ({ label: nested.string({ required: true }) }),
+			validation: v.object({
+				label: v.pipe(v.string(), v.minLength(1)),
+			}),
+		}),
 		zodTemporal: field.dateTime({ validation: z.iso.datetime() }),
 		valibotTemporal: field.dateTime({
 			validation: v.pipe(v.string(), v.isoTimestamp()),
@@ -151,13 +148,13 @@ Schema.define({
 		}),
 		zodPointer: field.pointer({
 			target: 'PackedValidatorTarget',
-			validation: z.custom<Pointer<typeof PackedTarget>>(
+			validation: z.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
 				(value) => value instanceof Pointer,
 			),
 		}),
 		valibotPointer: field.pointer({
 			target: 'PackedValidatorTarget',
-			validation: v.custom<Pointer<typeof PackedTarget>>(
+			validation: v.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
 				(value) => value instanceof Pointer,
 			),
 		}),
@@ -180,44 +177,64 @@ Schema.define({
 	}),
 })
 
-declare const packedEmbedded: EmbeddedFieldBuilder
-
-packedEmbedded.bigint({/* completion:embedded-bigint-options */})
-packedEmbedded.binary({/* completion:embedded-binary-options */})
-packedEmbedded.boolean({/* completion:embedded-boolean-options */})
-packedEmbedded.date({/* completion:embedded-date-options */})
-packedEmbedded.dateTime({/* completion:embedded-date-time-options */})
-packedEmbedded.decimal({/* completion:embedded-decimal-options */})
-// @ts-expect-error -- Completion intentionally omits the required enum domain.
-packedEmbedded.enum({/* completion:embedded-enum-options */})
-packedEmbedded.float({/* completion:embedded-float-options */})
-packedEmbedded.int({/* completion:embedded-int-options */})
-packedEmbedded.json({/* completion:embedded-json-options */})
-// @ts-expect-error -- Completion intentionally omits the required object fields.
-packedEmbedded.object({/* completion:embedded-object-options */})
-packedEmbedded.string({/* completion:embedded-string-options */})
-packedEmbedded.time({/* completion:embedded-time-options */})
-packedEmbedded.uuid({/* completion:embedded-uuid-options */})
-
-// @ts-expect-error -- Portable indexes require a stored root field.
-packedEmbedded.string({ indexed: true })
-// @ts-expect-error -- Embedded integers cannot declare a sequence option.
-packedEmbedded.int({ autoIncrement: false })
+Application.Schema.define({
+	className: 'PackedEmbeddedFieldOptions',
+	fields: (field) => ({
+		container: field.object({
+			fields: (packedEmbedded) => ({
+				bigint: packedEmbedded.bigint({
+					/* completion:embedded-bigint-options */
+				}),
+				binary: packedEmbedded.binary({
+					/* completion:embedded-binary-options */
+				}),
+				boolean: packedEmbedded.boolean({
+					/* completion:embedded-boolean-options */
+				}),
+				date: packedEmbedded.date({/* completion:embedded-date-options */}),
+				dateTime: packedEmbedded.dateTime({
+					/* completion:embedded-date-time-options */
+				}),
+				decimal: packedEmbedded.decimal({
+					/* completion:embedded-decimal-options */
+				}),
+				// @ts-expect-error -- Completion intentionally omits the required enum domain.
+				enum: packedEmbedded.enum({/* completion:embedded-enum-options */}),
+				float: packedEmbedded.float({/* completion:embedded-float-options */}),
+				int: packedEmbedded.int({/* completion:embedded-int-options */}),
+				json: packedEmbedded.json({/* completion:embedded-json-options */}),
+				// @ts-expect-error -- Completion intentionally omits the required object fields.
+				object: packedEmbedded.object({
+					/* completion:embedded-object-options */
+				}),
+				string: packedEmbedded.string({
+					/* completion:embedded-string-options */
+				}),
+				time: packedEmbedded.time({/* completion:embedded-time-options */}),
+				uuid: packedEmbedded.uuid({/* completion:embedded-uuid-options */}),
+				// @ts-expect-error -- Portable indexes require a stored root field.
+				indexed: packedEmbedded.string({ indexed: true }),
+				// @ts-expect-error -- Embedded integers cannot declare a sequence option.
+				sequence: packedEmbedded.int({ autoIncrement: false }),
+			}),
+		}),
+	}),
+})
 
 // @ts-expect-error -- Packed declarations reject framework system fields.
-Schema.define({
+UltimaBase.Schema.define({
 	className: 'PackedReservedSystemField',
 	fields: (field) => ({ id: field.string() }),
 })
 
 // @ts-expect-error -- Packed declarations reject Query logical keys.
-Schema.define({
+UltimaBase.Schema.define({
 	className: 'PackedReservedQueryField',
 	fields: (field) => ({ AND: field.string() }),
 })
 
 // @ts-expect-error -- Packed declarations reject schema-model capabilities.
-Schema.define({
+UltimaBase.Schema.define({
 	className: 'PackedReservedModelField',
 	fields: (field) => ({ create: field.string() }),
 })

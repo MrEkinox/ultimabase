@@ -10,6 +10,7 @@ import {
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationPlan,
+	type PluginDeclarationContribution,
 	type PluginFieldDefinition,
 	type PluginInstance,
 	type ScalarValidationPlan,
@@ -180,7 +181,10 @@ const vectorFieldFamily = definePluginFieldFamily({
 	builder: {
 		name: 'vector',
 		contexts: {
-			stored: { factory: vectorField, methodType: 'VectorFieldBuilderMethod' },
+			stored: {
+				factory: vectorField,
+				methodType: 'VectorFieldBuilderMethod',
+			},
 		},
 	},
 })
@@ -189,27 +193,35 @@ const pgVectorPluginPermissions = {
 	'schema:declare': 'Declares the vector FieldBuilder method.',
 } as const
 
+type PgVectorSource = Readonly<{
+	fieldBuilders: Readonly<{
+		stored: Readonly<{ vector: VectorFieldBuilderMethod }>
+	}>
+}>
+
+const vectorDeclarations: PluginDeclarationContribution<
+	readonly [],
+	PgVectorSource
+> = contributeDeclarations({
+	schema: ({ fields }) => fields.register(vectorFieldFamily),
+})
+
 /** Names the exact configured plugin contract retained by application lookup. */
 export type PgVectorPlugin = PluginInstance<{
 	readonly id: '@ultimabase/pg-vector-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: PgVectorSource
 }>
 
 /** Declares the vector builder method without a separate setup output. */
 export const pgVectorPlugin = (): PgVectorPlugin => {
-	const declarations = contributeDeclarations({
-		schema: ({ fields }) => {
-			fields.register(vectorFieldFamily)
-			return undefined
-		},
-	})
 	const instance = plugin({
 		id: '@ultimabase/pg-vector-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
 		permissions: pgVectorPluginPermissions,
-		contributions: [declarations],
+		contributions: [vectorDeclarations],
 	})
 	return instance
 }

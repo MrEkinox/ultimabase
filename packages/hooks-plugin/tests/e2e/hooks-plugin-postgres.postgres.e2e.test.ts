@@ -1,12 +1,10 @@
 import {
 	FrameworkError,
-	Schema,
 	UltimaBase,
 	constraint,
 	databaseConstraint,
 	plugin,
 	contributeApplication,
-	definePluginField,
 	guard,
 	requestSources,
 	restrictOutput,
@@ -34,6 +32,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { profileSlugPlugin } from './fixtures/profile-slug-field.js'
 import { provideTestRuntimeConstraint } from '../../../../tests/fixtures/runtime-capabilities.js'
 
 const hookTrace: string[] = []
@@ -73,32 +72,12 @@ const readScopeId = (metadata: Readonly<Record<string, unknown>>): string => {
 	return scopeId
 }
 
-const profileSlugField = definePluginField(
-	'fixture.profile-slug',
-	{
-		hooks: {
-			resolveInput: ({ value }) => {
-				trace('field:slug:developer:resolveInput')
+const HookApplication = UltimaBase.use(profileSlugPlugin)
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(accessPlugin({ default: true }))
 
-				return value === null
-					? null
-					: value.trim().toLowerCase().replace(/\s+/gu, '-')
-			},
-		},
-		required: true,
-		validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
-	},
-	{
-		snapshotValue: (value: unknown, path: string): string => {
-			if (typeof value !== 'string') {
-				throw new TypeError(`${path} must be a string`)
-			}
-
-			return value
-		},
-	},
-)
-const HookAuditSchema = Schema.define({
+const HookAuditSchema = HookApplication.Schema.define({
 	className: 'NativeHookPostgresAudit',
 	fields: (field) => ({
 		action: field.string({ required: true }),
@@ -106,7 +85,7 @@ const HookAuditSchema = Schema.define({
 	}),
 })
 
-const HookArticleSchema = Schema.define({
+const HookArticleSchema = HookApplication.Schema.define({
 	className: 'NativeHookPostgresArticle',
 	fields: (field) => ({
 		scopeId: field.string({ required: true }),
@@ -114,14 +93,28 @@ const HookArticleSchema = Schema.define({
 			hooks: {
 				resolveInput: ({ value }) => {
 					trace('field:title:developer:resolveInput')
-					return value === null ? null : value.trim()
+					return value.trim()
 				},
 			},
 			required: true,
 		}),
 		secret: field.string(),
 		profile: field.object({
-			fields: () => ({ slug: profileSlugField }),
+			fields: (field) => ({
+				slug: field.profileSlug({
+					hooks: {
+						resolveInput: ({ value }) => {
+							trace('field:slug:developer:resolveInput')
+
+							return value === null
+								? null
+								: value.trim().toLowerCase().replace(/\s+/gu, '-')
+						},
+					},
+					required: true,
+					validation: z.string().regex(/^[a-z]+(?:-[a-z]+)*$/u),
+				}),
+			}),
 			required: true,
 		}),
 		published: field.boolean({ default: false }),
@@ -267,7 +260,7 @@ const scopePolicyPlugin = plugin({
 			'fixture.hooks-plugin-selection',
 			restrictSelection({
 				// Selection hides the scope identity before output hooks observe a record.
-				handler: () => ['id', 'title', 'secret', 'profile'],
+				handler: () => ['id', 'title', 'secret', 'profile'] as const,
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
@@ -278,7 +271,7 @@ const scopePolicyPlugin = plugin({
 				handler: ({ operation }) => {
 					trace(`policy:restrictOutput:${operation.kind}`)
 
-					return ['id', 'title', 'profile']
+					return ['id', 'title', 'profile'] as const
 				},
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
@@ -338,16 +331,9 @@ const behaviorPlugin = plugin({
 })
 
 const createHookApplication = (connectionUri: string) =>
-	new UltimaBase({
-		plugins: [
-			// Dependency order must place policy setup before its behavior consumer.
-			hooksPlugin(),
-			validationPlugin(),
-			accessPlugin({ default: true }),
-			behaviorPlugin,
-			scopePolicyPlugin,
-			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
-		],
+	new (HookApplication.use(behaviorPlugin)
+		.use(scopePolicyPlugin)
+		.use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri })))({
 		schemas: [HookArticleSchema, HookAuditSchema],
 		validation: {
 			clock: () => new Date('2026-08-03T12:00:00.000Z'),

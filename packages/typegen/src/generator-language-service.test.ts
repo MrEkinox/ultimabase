@@ -176,12 +176,16 @@ void updateInput
 
 	it('drives the actual Core schema, Query, mutation, Access, and hook APIs', () => {
 		const publicSource = `${registry}
-import {
-  Schema,
-  increment,
-} from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase, increment } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const SemanticAuthor = Schema.define({
+const SemanticApplication = UltimaBase.use(accessPlugin())
+  .use(hooksPlugin())
+  .use(pgVectorPlugin())
+
+const SemanticAuthor = SemanticApplication.Schema.define({
   className: 'SemanticAuthor',
   fields: (field) => ({
     articles: field.relation({
@@ -191,7 +195,7 @@ const SemanticAuthor = Schema.define({
   }),
 })
 
-const SemanticArticle = Schema.define({
+const SemanticArticle = SemanticApplication.Schema.define({
   className: 'SemanticArticle',
   fields: (field) => ({
     author: field.pointer({

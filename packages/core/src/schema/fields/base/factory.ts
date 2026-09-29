@@ -233,7 +233,10 @@ export interface CompactScalarFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<TValue, TList>
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -241,7 +244,7 @@ export interface CompactScalarFieldFactory<
 	): FieldDefinition<
 		TKind,
 		TValue,
-		TOptions,
+		TOptions & TExtensionOptions,
 		ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
 	>
 	<
@@ -263,7 +266,10 @@ export interface CompactScalarFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<TValue, TList>
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -271,7 +277,7 @@ export interface CompactScalarFieldFactory<
 	): FieldDefinition<
 		TKind,
 		TValue,
-		TOptions,
+		TOptions & TExtensionOptions,
 		ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
 	>
 }
@@ -308,7 +314,10 @@ export interface GeneratedCompactScalarFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<TValue, TList>
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -316,7 +325,7 @@ export interface GeneratedCompactScalarFieldFactory<
 	): CompactScalarFieldDefinition<
 		TKind,
 		TValue,
-		TOptions,
+		TOptions & TExtensionOptions,
 		TRequired,
 		TList,
 		TImmutable,
@@ -346,7 +355,10 @@ export interface GeneratedCompactScalarFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<TValue, TList>
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
 				>,
 				object
 			>
@@ -354,7 +366,7 @@ export interface GeneratedCompactScalarFieldFactory<
 	): CompactScalarFieldDefinition<
 		TKind,
 		TValue,
-		TOptions,
+		TOptions & TExtensionOptions,
 		TRequired,
 		TList,
 		TImmutable,

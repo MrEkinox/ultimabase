@@ -10,15 +10,16 @@ fields, and database integrity without this plugin.
 
 The option is available on stored fields and embedded object properties only.
 Virtual wrappers and output descriptors are result contracts rather than
-mutation candidates, so generated autocomplete does not offer `validation`
-there and Core rejects stale or untyped uses.
+mutation candidates, so configured source autocomplete does not offer
+`validation` there and Core rejects stale or untyped uses.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-const Article = Schema.define({
+const Application = UltimaBase.use(validationPlugin())
+const Article = Application.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({
@@ -28,7 +29,6 @@ const Article = Schema.define({
 	}),
 })
 
-const Application = UltimaBase.use(validationPlugin())
 const ultimabase = new Application({
 	schemas: [Article],
 })
@@ -39,21 +39,21 @@ present, non-null mutation values after input resolution and Core structural
 validation, before value-dependent policy reevaluation and persistence. Reads
 and result materialization do not replay application validators.
 
-Importing this package has no effect. Without `validationPlugin()`, Typegen omits
-the option and application compilation rejects declarations that use it.
+Importing this package has no effect. Without `validationPlugin()`, the
+configured factory omits the option and application compilation rejects
+untyped declarations that use it.
 
 ## Field contract
 
 `validation` accepts any Standard Schema V1 implementation whose input and
-output are compatible with the field's complete canonical value. Typegen keeps
-that contract exact for scalars, lists, embedded objects, pointers, and
-plugin-defined stored fields. Relation handles do not expose the option, and an
-untyped `any` validator does not satisfy the generated compatibility check.
+output are compatible with the field's complete canonical value. The configured
+source factory keeps that contract exact for scalars, lists, embedded objects,
+pointers, and plugin-defined stored fields. Relation handles do not expose the
+option, and an untyped `any` validator does not satisfy the compatibility check.
 
 The validator is retained by identity as an opaque application value. Static
 schema compilation checks its Standard Schema shape but never invokes, clones,
-serializes, or emits its callback. Generated declarations contain only inert
-type references.
+serializes, or emits its callback.
 
 `required` remains a Core option. It controls mutation input presence and
 persisted nullability whether or not this plugin is installed; `validation`

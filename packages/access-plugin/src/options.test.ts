@@ -1,17 +1,18 @@
-import { Schema, stringField, UltimaBase } from '@ultimabase/core'
+import { stringField, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { accessPlugin } from './index.js'
 
+const AccessApplication = UltimaBase.use(accessPlugin())
+
 describe('compiled Access field options', () => {
 	it('preserves ordinary metadata when no field policy is declared', () => {
 		const options = { required: true } as const
-		const Document = Schema.define({
+		const Document = AccessApplication.Schema.define({
 			className: 'AccessOptionsPlainDocument',
 			fields: (field) => ({ title: field.string(options) }),
 		})
-		const application = new UltimaBase({
-			plugins: [accessPlugin()],
+		const application = new AccessApplication({
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
@@ -27,14 +28,13 @@ describe('compiled Access field options', () => {
 
 	it('normalizes policy through its installed owner while retaining field metadata', () => {
 		const access = { read: true }
-		const Document = Schema.define({
+		const Document = AccessApplication.Schema.define({
 			className: 'AccessOptionsSecuredDocument',
 			fields: (field) => ({
 				title: field.string({ access, required: true }),
 			}),
 		})
-		const application = new UltimaBase({
-			plugins: [accessPlugin()],
+		const application = new AccessApplication({
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())

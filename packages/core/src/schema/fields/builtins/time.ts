@@ -114,7 +114,7 @@ export interface TimeFieldFactory<
 			DefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -128,7 +128,7 @@ export interface TimeFieldFactory<
 			NonDefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 }

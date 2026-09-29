@@ -9,7 +9,7 @@ import {
 	QueryBuilder,
 	RequestContext,
 	requestSources,
-	Schema,
+	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type RuntimeMutationRevalidationStage,
 	type UpdateManyOperationAst,
@@ -27,6 +27,9 @@ import {
 	createValidationPlanCache,
 	validateMutationInput,
 } from './operation-validation.js'
+import { validationPlugin } from './plugin.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
 
 const callbacks: ApplicationCallbackExecutor = {
 	runApplication: (callback) => callback(),
@@ -85,7 +88,7 @@ const readIssues = (error: unknown): readonly unknown[] => {
 describe('projected arithmetic field validation', () => {
 	it('validates direct update and both explicit upsert branches once', () => {
 		const validate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'DirectMutationValidationCounts',
 			fields: (field) => ({
 				title: field.string({
@@ -137,7 +140,7 @@ describe('projected arithmetic field validation', () => {
 		const decimalValidate = vi.fn()
 		const floatValidate = vi.fn()
 		const intValidate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'ProjectedNumericValues',
 			fields: (field) => ({
 				balance: field.decimal({
@@ -204,7 +207,7 @@ describe('projected arithmetic field validation', () => {
 				version: 1,
 			},
 		}
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'RejectedProjectedValue',
 			fields: (field) => ({
 				score: field.int({
@@ -237,7 +240,7 @@ describe('projected arithmetic field validation', () => {
 	it('rejects unsafe integer and decimal projections structurally before the validator', () => {
 		const intValidate = vi.fn()
 		const decimalValidate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'StructurallyRejectedProjection',
 			fields: (field) => ({
 				amount: field.decimal({
@@ -296,7 +299,7 @@ describe('projected arithmetic field validation', () => {
 
 	it('requires exact targets for targetless upsert and set-based arithmetic', () => {
 		const validate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'RequiredArithmeticTargets',
 			fields: (field) => ({
 				score: field.int({
@@ -356,7 +359,7 @@ describe('projected arithmetic field validation', () => {
 
 	it('validates every prepared update-many target without rewriting the operation', async () => {
 		const validate = vi.fn()
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: 'PreparedBulkArithmetic',
 			fields: (field) => ({
 				score: field.int({

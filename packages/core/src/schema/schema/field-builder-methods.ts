@@ -74,7 +74,7 @@ export interface OwnedFieldBuilderMethod extends FieldBuilderMethodDefinition {
 
 /** Defines one builder context while inheriting the field family's common metadata. */
 export interface PluginFieldFamilyContextDefinition<
-	TFactory extends FieldBuilderMethodFactory = FieldBuilderMethodFactory,
+	TFactory = FieldBuilderMethodFactory,
 	TFieldKind extends NamespacedPluginFieldKind = NamespacedPluginFieldKind,
 > {
 	readonly factory: TFactory
@@ -85,7 +85,9 @@ export interface PluginFieldFamilyContextDefinition<
 
 /** Maps only the builder contexts implemented by one plugin field family. */
 export type PluginFieldFamilyContexts = Readonly<
-	Partial<Record<FieldDeclarationContext, PluginFieldFamilyContextDefinition>>
+	Partial<
+		Record<FieldDeclarationContext, PluginFieldFamilyContextDefinition<unknown>>
+	>
 >
 
 /** Defines an optional public builder method for one plugin field family. */
@@ -337,11 +339,16 @@ export const assertPluginFieldFamily: (
 /** @internal Expands one context after the family has been owner-validated. */
 export const resolvePluginFieldFamilyContext = (
 	family: PluginFieldFamilyDefinition,
-	context: PluginFieldFamilyContextDefinition,
+	context: PluginFieldFamilyContextDefinition<unknown>,
 ): FieldBuilderMethodContextDefinition => {
+	if (typeof context.factory !== 'function') {
+		throw new TypeError(
+			'Plugin field family context factory must be a function',
+		)
+	}
 	const typegen = context.typegen ?? family.typegen
 	return immutableRecord({
-		factory: context.factory,
+		factory: context.factory as FieldBuilderMethodFactory,
 		fieldKind: context.fieldKind ?? family.fieldKind,
 		typegen: immutableRecord({ methodType: context.methodType, ...typegen }),
 	})

@@ -9,7 +9,6 @@ import {
 import {
 	MasterAuthority,
 	Pointer,
-	Schema,
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	createRequestPrincipalReference,
@@ -44,19 +43,21 @@ type ACLChangeHandlerInput = PluginEventHandlerInput<
 	ACLChangedEvent
 >
 
-const FailPrincipal = Schema.define({
+const ACLReferenceApplication = UltimaBase.use(hooksPlugin()).use(aclPlugin())
+
+const FailPrincipal = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceFailPrincipal',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
-const PreservePrincipal = Schema.define({
+const PreservePrincipal = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferencePreservePrincipal',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
-const CascadePrincipal = Schema.define({
+const CascadePrincipal = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceCascadePrincipal',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -90,7 +91,7 @@ const CascadeRole = RoleSchema.define({
 const emptyACL = new ACL()
 const committedACLChanges: ACLChangedEvent[] = []
 let rejectNextSecondaryCleanup = false
-const ProtectedPrimary = Schema.define({
+const ProtectedPrimary = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceProtectedPrimary',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -102,7 +103,7 @@ const ProtectedPrimary = Schema.define({
 	},
 	postgres: { table: 'acl_reference_primary' },
 })
-const ProtectedSecondary = Schema.define({
+const ProtectedSecondary = ACLReferenceApplication.Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: (field) => ({
 		title: field.string({ required: true }),

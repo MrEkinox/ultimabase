@@ -1,9 +1,9 @@
 import { ultimabase } from './application.ts'
 import { Todo } from './schema.ts'
-import type { TodoCreateInput } from '../.ultimabase/schema.generated.js'
+import type { TodoNestedCreateInput } from '../.ultimabase/schema.generated.js'
 
 /** Creates a task while letting schema defaults initialize its state. */
-export const createTodo = (data: TodoCreateInput) =>
+export const createTodo = (data: TodoNestedCreateInput) =>
 	Todo.createOne(
 		{
 			data,

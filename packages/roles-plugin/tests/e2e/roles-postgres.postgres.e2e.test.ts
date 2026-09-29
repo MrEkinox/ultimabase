@@ -390,6 +390,8 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const app = getApplication()
 		const currentEditor = requireRole(editor, 'editor')
 		const stableReference = AppRole.role({ id: currentEditor.id })
+		const modelReference = currentEditor.toRequestRoleReference()
+		expect(modelReference.value).toBe(stableReference.value)
 		const renamed = await currentEditor.update(
 			{ data: { name: 'content-editor' } },
 			{ ultimabase: app, useMasterKey: true },

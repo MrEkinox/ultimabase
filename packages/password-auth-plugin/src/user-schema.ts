@@ -116,7 +116,9 @@ export class PasswordUserSchema {
 			indexes,
 			...generatedOptions
 		} = options
-		const fields: SchemaFieldBuilderDeclaration = (field) => {
+		const fields: SchemaFieldBuilderDeclaration<SchemaFields, 'User'> = (
+			field,
+		) => {
 			const customFields = declareCustomFields(field)
 			for (const name of Object.keys(customFields)) {
 				if (reservedPasswordUserFields.has(name)) {
@@ -127,7 +129,7 @@ export class PasswordUserSchema {
 		}
 		const specializedOptions: {
 			readonly className: 'User'
-			readonly fields: SchemaFieldBuilderDeclaration
+			readonly fields: SchemaFieldBuilderDeclaration<SchemaFields, 'User'>
 			readonly indexes?: readonly SchemaIndexOptions[]
 		} = {
 			...generatedOptions,

@@ -1,21 +1,28 @@
-import { ACL } from '@ultimabase/acl-permissions-plugin'
-import { allMutations } from '@ultimabase/access-plugin'
-import { Schema } from '@ultimabase/core'
-import { RoleSchema } from '@ultimabase/roles-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { accessPlugin, allMutations } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 const serverManagedAccess = {
 	read: true,
 	...allMutations(false),
 }
+const TodoSchemaApplication = UltimaBase.use(accessPlugin())
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
 
 /** Owns tasks assigned to one person and demonstrates inverse relations. */
-export const TodoUser = Schema.define({
+export const TodoUser = TodoSchemaApplication.Schema.define({
 	className: 'TodoUser',
 	fields: (field) => ({
 		displayName: field.string({
 			description: 'Name displayed beside assigned tasks.',
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 			postgres: { renamedFrom: 'name' },
 			required: true,
 		}),
@@ -30,7 +37,7 @@ export const TodoUser = Schema.define({
 })
 
 /** Stores application roles with ordinary schema fields and model commands. */
-export const TodoRole = RoleSchema.define({
+export const TodoRole = RoleSchema.define(TodoSchemaApplication.Schema, {
 	className: 'TodoRole',
 	members: { schema: TodoUser },
 	deletion: { references: 'fail' },
@@ -53,12 +60,12 @@ export const TodoRole = RoleSchema.define({
 export const TodoEditorRole = TodoRole.role('editor')
 
 /** Exercises every built-in field family supported by the Todo application. */
-export const Todo = Schema.define({
+export const Todo = TodoSchemaApplication.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({
 			description: 'Short task summary shown in todo lists.',
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			hooks: { resolveInput: ({ value }) => value.trim() },
 			postgres: { renamedFrom: 'summary' },
 			required: true,
 			validation: z.string().max(200),

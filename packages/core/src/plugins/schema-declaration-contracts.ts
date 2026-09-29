@@ -67,9 +67,13 @@ type SchemaOptionSourceProjection<TOptions> =
 		? Readonly<{
 				schemaOptions: Readonly<{
 					template: {
-						readonly [TName in keyof TOptions]?: SchemaOptionSource<
-							TOptions[TName]
-						>
+						readonly [
+							TName in keyof TOptions as SchemaOptionSource<
+								TOptions[TName]
+							> extends never
+								? never
+								: TName
+						]?: SchemaOptionSource<TOptions[TName]>
 					}
 				}>
 			}>
@@ -103,6 +107,11 @@ type OptionNamespaceSourceProjection<
 	| SchemaOptionSourceProjection<TOptions['schema']>
 	| FieldOptionSourceProjection<TOptions['field']>
 
+/** Derives one source projection directly from the option definitions it installs. */
+export type PluginSchemaOptionSource<
+	TOptions extends PluginSchemaOptionNamespace,
+> = Extract<OptionNamespaceSourceProjection<TOptions>, PluginSourceProjection>
+
 type PatchSourceProjection<
 	TOperations extends readonly SchemaPatchOperation[],
 	TSelection extends SchemaSelection,
@@ -126,6 +135,15 @@ type PatchSourceProjection<
 		: never
 	: never
 
+/** Derives one source projection from the exact patch and schema selection. */
+export type PluginSchemaPatchSource<
+	TOperations extends readonly SchemaPatchOperation[],
+	TSelection extends SchemaSelection,
+> = Extract<
+	PatchSourceProjection<TOperations, TSelection>,
+	PluginSourceProjection
+>
+
 export interface PluginSchemaDeclarationRegistrar {
 	add<const TSchema extends SchemaDefinition>(
 		options: PluginSchemaSourceOptions<TSchema>,
@@ -146,12 +164,7 @@ export interface PluginSchemaDeclarationRegistrar {
 		readonly operations: TOperations
 		readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		readonly targets: TSelection
-	}): PluginSourceReceipt<
-		Extract<
-			PatchSourceProjection<TOperations, TSelection>,
-			PluginSourceProjection
-		>
-	>
+	}): PluginSourceReceipt<PluginSchemaPatchSource<TOperations, TSelection>>
 	select<const TSelector extends SchemaSelectorOptions>(
 		selector: TSelector,
 	): SchemaSelection<TSelector>

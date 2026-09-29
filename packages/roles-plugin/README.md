@@ -16,18 +16,19 @@ policy consumer receives this privilege from Roles.
 value; registered role schemas remain in `application.schemas`.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
-const User = Schema.define({
+const Application = UltimaBase.use(accessPlugin()).use(rolesPlugin())
+const User = Application.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		email: field.string({ required: true }),
 	}),
 })
 
-const AppRole = RoleSchema.define({
+const AppRole = RoleSchema.define(Application.Schema, {
 	className: 'Role',
 	members: { schema: User },
 	deletion: { references: 'fail' },
@@ -45,7 +46,7 @@ const AppRole = RoleSchema.define({
 
 const EditorReference = AppRole.role('editor')
 
-const Post = Schema.define({
+const Post = Application.Schema.define({
 	className: 'Post',
 	access: {
 		update: hasRole(EditorReference),
@@ -55,7 +56,6 @@ const Post = Schema.define({
 	}),
 })
 
-const Application = UltimaBase.use(accessPlugin()).use(rolesPlugin())
 const ultimabase = new Application({
 	schemas: [User, AppRole, Post],
 })

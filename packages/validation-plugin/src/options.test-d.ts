@@ -1,16 +1,24 @@
-import { Schema, type Pointer } from '@ultimabase/core'
+import {
+	type Pointer,
+	type SchemaReference,
+	UltimaBase,
+} from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
-const Target = Schema.define({
+import { validationPlugin } from './plugin.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
+
+const Target = ValidationApplication.Schema.define({
 	className: 'ValidationTypeTarget',
 	fields: (field) => ({ name: field.string() }),
 })
 void Target
 
 test('types scalar, list, object, pointer, and relation validation exactly', () => {
-	const scalar = Schema.define({
+	const scalar = ValidationApplication.Schema.define({
 		className: 'ValidationTypeSubject',
 		fields: (field) => ({
 			count: field.bigint({ validation: z.bigint() }),
@@ -25,14 +33,15 @@ test('types scalar, list, object, pointer, and relation validation exactly', () 
 			}),
 			owner: field.pointer({
 				target: 'ValidationTypeTarget',
-				validation: z.custom<Pointer<typeof Target>>(),
+				validation:
+					z.custom<Pointer<SchemaReference<'ValidationTypeTarget'>>>(),
 			}),
 		}),
 	})
 
 	expectTypeOf(scalar).toExtend<object>()
 
-	Schema.define({
+	ValidationApplication.Schema.define({
 		className: 'InvalidRelationValidation',
 		fields: (field) => ({
 			tags: field.relation({
@@ -64,7 +73,7 @@ test('rejects incompatible and any-based Standard Schema contracts', () => {
 		},
 	}
 
-	Schema.define({
+	ValidationApplication.Schema.define({
 		className: 'InvalidValidationTypes',
 		fields: (field) => ({
 			// @ts-expect-error -- A string field cannot use a number validator.

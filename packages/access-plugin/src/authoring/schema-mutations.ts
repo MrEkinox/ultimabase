@@ -1,6 +1,7 @@
 import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
+	PluginSourceSchemaMutations,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
@@ -98,10 +99,13 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 
+type SchemaMutationMap<TSchema extends SchemaDefinition> =
+	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
+
 /** Projects only request-authority commands present on this generated schema. */
 export type SchemaMutationAccessMap<TSchema extends SchemaDefinition> = {
 	readonly [
-		TCommand in keyof GeneratedMutationMap<TSchema> as GeneratedMutationMap<TSchema>[TCommand] extends PluginSchemaMutationDefinition<
+		TCommand in keyof SchemaMutationMap<TSchema> as SchemaMutationMap<TSchema>[TCommand] extends PluginSchemaMutationDefinition<
 			string,
 			string,
 			unknown,
@@ -110,7 +114,7 @@ export type SchemaMutationAccessMap<TSchema extends SchemaDefinition> = {
 		>
 			? TCommand
 			: never
-	]?: GeneratedMutationMap<TSchema>[TCommand] extends infer TMutation extends
+	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
 		PluginSchemaMutationDefinition
 		? SchemaMutationAccessDeclaration<TSchema, TMutation>
 		: never

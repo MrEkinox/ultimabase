@@ -12,9 +12,10 @@ selectable result.
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(accessPlugin({ default: true }))
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		published: field.boolean({ default: false }),
@@ -26,7 +27,6 @@ const Post = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(accessPlugin({ default: true }))
 const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -36,9 +36,8 @@ const ultimabase = new Application({
 
 The root export has three deliberate groups:
 
-- **Application API:** `accessPlugin`, its options, `AccessContext`, generated
-  `SchemaAccessOption` and `FieldAccessOption` contracts, schema and field rule
-  types, exact plugin schema-mutation rule types, and the `allowAll`, `denyAll`,
+- **Application API:** `accessPlugin`, its options, `AccessContext`, schema and
+  field rule types, exact plugin schema-mutation rule types, and the `allowAll`, `denyAll`,
   `anyOf`, `allOf`, `not`, `allOperations`, and `allMutations` authoring helpers.
 - **Compatible-provider contract:** `accessContributionsCapability`,
   `provideAccessContributions`, the direct and field-kind contribution
@@ -58,9 +57,12 @@ storage, the unused context-narrowing helper, and Core-attributed
 intentionally unavailable from the package root. Importing the package still
 performs no registration or Runtime work.
 
-Without `accessPlugin()`, the `access` option is not declared and application
-compilation fails. Typegen emits the corresponding option augmentations only
-for applications that install the plugin.
+The configured factory exposes field `access` immediately after
+`accessPlugin()` is installed. Schema `access` callbacks use the retained
+Typegen descriptor because their items, row filters, relationships, and plugin
+mutation keys depend on the complete application graph. A factory without the
+plugin exposes neither contract, and Runtime compilation still rejects untyped
+JavaScript declarations that try to use them.
 
 JavaScript uses the same compiled graph without generated declarations. This
 application intentionally has no Access engine, so direct CRUD has no official
@@ -139,9 +141,10 @@ Every omitted capability inherits the operation default:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const CountOnlyPost = Schema.define({
+const Application = UltimaBase.use(accessPlugin())
+const CountOnlyPost = Application.Schema.define({
 	className: 'CountOnlyPost',
 	fields: (field) => ({ title: field.string() }),
 	access: {
@@ -151,7 +154,6 @@ const CountOnlyPost = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(accessPlugin())
 const ultimabase = new Application({
 	schemas: [CountOnlyPost],
 })
@@ -174,16 +176,18 @@ database constraints still execute.
 
 ## Plugin-owned schema mutations
 
-Typegen adds one Access key for each plugin-owned schema mutation whose
+Typegen adds one Access key for each schema mutation in the compiled graph whose
 authority is `request`. The key is the exact application command name, and its
-callbacks receive the mutation's generated payload and immutable logical
-identity:
+callbacks receive the mutation's payload and immutable logical identity. The
+mutation declaration and Runtime handler still have one source owner; Typegen
+projects only their inert application-local type:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(accessPlugin())
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		published: field.boolean(),
@@ -203,7 +207,6 @@ const Post = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(accessPlugin())
 const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -217,7 +220,7 @@ field output restrictions still shape the final selected result. Compatible
 providers may add the same exact branch through `schemaAccess()`; those rules
 run after the developer decision and can only narrow it.
 
-Unknown, removed, and Master-only command keys fail generated TypeScript and
+Unknown, removed, and Master-only command keys fail TypeScript and
 are rejected again against the final compiled application graph before setup
 effects. Without `accessPlugin()`, none of these stages exist and a valid schema
 mutation continues through Core normally.

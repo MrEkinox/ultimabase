@@ -108,7 +108,12 @@ export interface JsonFieldFactory<
 			DefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			JsonDocument,
-			ResolvedFieldSourceOptions<TSourceTemplate, JsonDocument, TList>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				JsonDocument,
+				TList,
+				TRequired
+			>
 		>,
 	): DefaultedJsonField<TRequired, TList, TImmutable>
 	<
@@ -121,7 +126,12 @@ export interface JsonFieldFactory<
 			NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			JsonDocument,
-			ResolvedFieldSourceOptions<TSourceTemplate, JsonDocument, TList>
+			ResolvedFieldSourceOptions<
+				TSourceTemplate,
+				JsonDocument,
+				TList,
+				TRequired
+			>
 		>,
 	): NonDefaultedJsonField<TRequired, TList, TImmutable>
 }

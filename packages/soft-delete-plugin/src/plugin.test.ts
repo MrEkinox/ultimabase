@@ -378,7 +378,7 @@ describe('softDeletePlugin', () => {
 		)
 	})
 
-	it('keeps option provenance and defaults isolated between applications', () => {
+	it('keeps source-owned options and defaults isolated between applications', () => {
 		const Editorial = documentSchema('IsolatedSoftDeleteDocument', 'explicit')
 		const Legal = documentSchema('IsolatedSoftDeleteDocument')
 		const editorial = generateApplicationTypes({
@@ -408,16 +408,10 @@ describe('softDeletePlugin', () => {
 			applicationId: 'legal',
 		})
 
-		expect(editorial.snapshot.options[0]).toMatchObject({
-			name: 'softDelete',
-			owner: { instanceId: 'editorial' },
-			staticOptions: { defaultMode: 'explicit' },
-		})
-		expect(legal.snapshot.options[0]).toMatchObject({
-			name: 'softDelete',
-			owner: { instanceId: 'legal' },
-			staticOptions: { defaultMode: 'replace-delete' },
-		})
+		// Source-owned options no longer need a parallel Typegen descriptor. The
+		// compiled schema and mutation snapshots below still prove isolated defaults.
+		expect(editorial.snapshot.options).toStrictEqual([])
+		expect(legal.snapshot.options).toStrictEqual([])
 		expect(editorial.snapshot.surfaces[0]?.schemaMutations).toEqual([
 			expect.objectContaining({ name: 'purge' }),
 			expect.objectContaining({ name: 'restore' }),

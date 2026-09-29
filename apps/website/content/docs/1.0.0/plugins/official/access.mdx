@@ -9,7 +9,7 @@ order: 4
 outcome: Define fail-closed authorization that can only narrow as policies compose.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/access-plugin/README.md
   - packages/access-plugin/src/authoring/contracts.ts
@@ -59,10 +59,23 @@ Declare a policy on the schema it protects. This example permits reads of
 published articles, hides `internalNote`, and denies every mutation to ordinary
 callers:
 
-```ts title="src/article.ts"
-import { Schema } from '@ultimabase/core'
+```ts title="src/application.ts"
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const Article = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(accessPlugin())
+```
+
+```ts title="src/article.ts"
+import { Application } from './application.js'
+
+export const Article = Application.Schema.define({
 	className: 'Article',
 	fields: (f) => ({
 		internalNote: f.string({
@@ -83,17 +96,8 @@ export const Article = Schema.define({
 Install the plugin alongside the database provider and register the schema:
 
 ```ts title="src/ultimabase.ts"
-import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { Application } from './application.js'
 import { Article } from './article.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
-	accessPlugin(),
-)
 
 export const ultimabase = new Application({
 	schemas: [Article],
@@ -112,9 +116,11 @@ upsert, and delete remain denied. A normal result omits `internalNote`, while
 an explicit selection, filter, or sort using it is rejected. Audited Master
 requests bypass these Access restrictions.
 
-If you use generated TypeScript declarations, regenerate them after adding the
-plugin so the schema and field `access` options appear. JavaScript applications
-use the same compiled policy without Typegen.
+The configured factory exposes field `access` directly from source. Schema
+`access` callbacks use the retained Typegen graph so items, row filters,
+relationships, and plugin mutation keys stay exact; regenerate after changing
+that application graph. JavaScript uses the same compiled policy without
+loading generated declarations.
 
 ## Behavior and limitations
 
@@ -137,9 +143,9 @@ Each schema key accepts a boolean, a request-aware boolean callback, or a
 detailed object. A detailed `read` rule can grant only selected capabilities:
 
 ```ts title="src/count-only-article.ts"
-import { Schema } from '@ultimabase/core'
+import { Application } from './application.js'
 
-export const CountOnlyArticle = Schema.define({
+export const CountOnlyArticle = Application.Schema.define({
 	className: 'CountOnlyArticle',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 	access: { read: { allow: { count: true } } },
@@ -172,9 +178,9 @@ For example, an update can reach only unlocked rows and can keep a published
 article's title unchanged:
 
 ```ts title="src/editable-article.ts"
-import { Schema } from '@ultimabase/core'
+import { Application } from './application.js'
 
-export const EditableArticle = Schema.define({
+export const EditableArticle = Application.Schema.define({
 	className: 'EditableArticle',
 	fields: (f) => ({
 		locked: f.boolean({ default: false }),
@@ -208,10 +214,10 @@ on the caller. For example, with the Password Authentication plugin configured
 in the same application:
 
 ```ts title="src/private-note.ts"
-import { Schema } from '@ultimabase/core'
 import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
+import { Application } from './application.js'
 
-export const PrivateNote = Schema.define({
+export const PrivateNote = Application.Schema.define({
 	className: 'PrivateNote',
 	fields: (f) => ({ body: f.string({ required: true }) }),
 	access: {
@@ -304,9 +310,9 @@ work. Never expose Master as a substitute for a public policy.
   that the operation performs. Explicit selection of a denied field fails;
   ordinary output omits it.
 - **An `access` option is rejected during compilation:** install
-  `accessPlugin()` in that application, regenerate types if you use Typegen,
-  and check the exact rule shape. Read capabilities may be sparse, but grouped
-  field read and write rules must be complete.
+  `accessPlugin()` on the configured factory used to declare that schema and
+  check the exact rule shape. Read capabilities may be sparse, but grouped field
+  read and write rules must be complete.
 - **A role-dependent rule denies unexpectedly:** verify that [Roles](./roles)
   and its subject resolver are configured in the same application. Do not use
   Master to hide a broken caller policy.

@@ -5,6 +5,8 @@ export { attachPluginDeclarationDiagnostic } from './schema-declaration-contract
 export type {
 	PluginDeclarationFailureDiagnostic,
 	PluginSchemaDeclarationRegistrar,
+	PluginSchemaOptionSource,
+	PluginSchemaPatchSource,
 } from './schema-declaration-contracts.js'
 
 export { SchemaDeclarationRegistry } from './schema-declaration-registry.js'
@@ -26,6 +28,7 @@ export type {
 	SchemaOptionDefinition,
 	SchemaOptionRuntimeCompilationContext,
 	SchemaOptionRuntimeCompiler,
+	SchemaOptionRuntimeRequirement,
 	SchemaOptionTypegenDescriptor,
 } from './schema-option-definitions.js'
 

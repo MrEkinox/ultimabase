@@ -100,7 +100,7 @@ export interface StringFieldFactory<
 			DefaultedStringFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): DefaultedStringField<TRequired, TList, TImmutable>
 	<
@@ -113,7 +113,7 @@ export interface StringFieldFactory<
 			NonDefaultedStringFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): NonDefaultedStringField<TRequired, TList, TImmutable>
 }

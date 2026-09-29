@@ -1,9 +1,8 @@
-// Application API: plugin installation, generated option contracts, inline
-// callback authoring, request context, and typed event emission.
+// Application API: plugin installation, generated schema-option contracts,
+// inline callback authoring, request context, and typed event emission.
 export { hooksPlugin } from './plugin.js'
 export type { HooksPlugin } from './plugin.js'
-
-export type { FieldHooksOption, SchemaHooksOption } from './options.js'
+export type { SchemaHooksOption } from './options.js'
 
 export type {
 	HookHandlerDeclaration,

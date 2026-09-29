@@ -1,12 +1,9 @@
 import path from 'node:path'
 
-import { UltimaBase, Schema, type FieldBuilder } from '@ultimabase/core'
+import { UltimaBase, Schema } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import {
-	pgVectorPlugin,
-	type VectorFieldBuilderMethod,
-} from '@ultimabase/pg-vector-plugin'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import * as ts from 'typescript'
 import {
@@ -15,72 +12,67 @@ import {
 } from '../../../../tooling/vitest/typescript-language-service.js'
 import { generateApplicationTypes } from '../../src/generator.js'
 
-type GeneratedFixtureBuilder = FieldBuilder & {
-	readonly vector: VectorFieldBuilderMethod
-}
-
 export const createGeneratedRegistry = (): string => {
-	const Author = Schema.define({
+	const FixtureApplication = UltimaBase.use(accessPlugin())
+		.use(hooksPlugin())
+		.use(pgVectorPlugin())
+	const Author = FixtureApplication.Schema.define({
 		className: 'SemanticAuthor',
 		fields: (field) => ({
 			name: field.string({ required: true }),
 			articles: field.relation({ target: 'SemanticArticle' }),
 		}),
 	})
-	const Article = Schema.define({
+	const Article = FixtureApplication.Schema.define({
 		className: 'SemanticArticle',
-		fields: (field) => {
-			const generatedField = field as GeneratedFixtureBuilder
-			return {
-				title: field.string({ required: true }),
-				views: field.int(),
-				scores: field.int({ list: true }),
-				statuses: field.enum({
-					list: true,
-					typeName: 'SemanticStatus',
-					values: ['draft', 'published'],
-				}),
-				status: field.enum({
-					typeName: 'SemanticStatus',
-					required: true,
-					values: ['draft', 'published'],
-				}),
-				profile: field.object({
-					fields: (field) => ({
-						displayName: field.string({
-							required: true,
-						}),
+		fields: (field) => ({
+			title: field.string({ required: true }),
+			views: field.int(),
+			scores: field.int({ list: true }),
+			statuses: field.enum({
+				list: true,
+				typeName: 'SemanticStatus',
+				values: ['draft', 'published'],
+			}),
+			status: field.enum({
+				typeName: 'SemanticStatus',
+				required: true,
+				values: ['draft', 'published'],
+			}),
+			profile: field.object({
+				fields: (field) => ({
+					displayName: field.string({
+						required: true,
 					}),
-					typeName: 'SemanticProfile',
 				}),
-				profiles: field.object({
-					fields: (field) => ({
-						displayName: field.string({
-							required: true,
-						}),
+				typeName: 'SemanticProfile',
+			}),
+			profiles: field.object({
+				fields: (field) => ({
+					displayName: field.string({
+						required: true,
 					}),
-					list: true,
-					typeName: 'SemanticProfile',
 				}),
-				author: field.pointer({
-					target: 'SemanticAuthor',
-					required: true,
-				}),
-				related: field.relation({
-					target: 'SemanticArticle',
-				}),
-				embedding: generatedField.vector({
-					dimensions: 3,
-				}),
-				embeddings: generatedField.vector({
-					dimensions: 3,
-					list: true,
-				}),
-			}
-		},
+				list: true,
+				typeName: 'SemanticProfile',
+			}),
+			author: field.pointer({
+				target: 'SemanticAuthor',
+				required: true,
+			}),
+			related: field.relation({
+				target: 'SemanticArticle',
+			}),
+			embedding: field.vector({
+				dimensions: 3,
+			}),
+			embeddings: field.vector({
+				dimensions: 3,
+				list: true,
+			}),
+		}),
 	})
-	const application = new UltimaBase({
-		plugins: [accessPlugin(), hooksPlugin(), pgVectorPlugin()],
+	const application = new FixtureApplication({
 		schemas: [Author, Article],
 	})
 
@@ -129,7 +121,9 @@ export const createSourceLanguageServiceWorkspace =
 				module: ts.ModuleKind.NodeNext,
 				moduleResolution: ts.ModuleResolutionKind.NodeNext,
 				paths: {
+					'@ultimabase/access-plugin': ['packages/access-plugin/src/index.ts'],
 					'@ultimabase/core': ['packages/core/src/index.ts'],
+					'@ultimabase/hooks-plugin': ['packages/hooks-plugin/src/index.ts'],
 					'@ultimabase/pg-vector-plugin': [
 						'packages/pg-vector-plugin/src/index.ts',
 					],

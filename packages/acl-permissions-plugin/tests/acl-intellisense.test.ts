@@ -11,13 +11,9 @@ const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
 import { ACL, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
 import type { ACLSchemaOption } from '@ultimabase/acl-permissions-plugin'
-import { Schema, stringField } from '@ultimabase/core'
+import { UltimaBase, stringField } from '@ultimabase/core'
 
-declare module '@ultimabase/core' {
-  interface UltimaBaseGeneratedSchemaOptions {
-    readonly acl?: ACLSchemaOption<this>
-  }
-}
+const Application = UltimaBase.use(aclPlugin())
 
 const acl = new ACL()
 
@@ -32,7 +28,7 @@ const /* json-hover */document = acl.toJSON()
 void ({} as ACLSchemaOption/* option-hover */<unknown>)
 const directACL: ACLSchemaOption<unknown> = { /* options-complete */ }
 void directACL
-Schema.define({ /* schema-option-complete */ })
+Application.Schema.define({ /* schema-option-complete */ })
 void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
@@ -43,7 +39,7 @@ onACLChange(({ event }) => {
 	payload./* event-payload-complete */
 })
 
-const ContextualPost = Schema.define({
+const ContextualPost = Application.Schema.define({
 	className: 'ContextualPost',
 	fields: () => ({
 		title: stringField({ required: true }),

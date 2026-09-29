@@ -115,7 +115,7 @@ export interface DateFieldFactory<
 			DefaultedDateFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): DefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 	<
@@ -129,7 +129,7 @@ export interface DateFieldFactory<
 			NonDefaultedDateFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 			TExtensionOptions,
 			string,
-			ResolvedFieldSourceOptions<TSourceTemplate, string, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, string, TList, TRequired>
 		>,
 	): NonDefaultedDateField<TRequired, TList, TImmutable, TAutoNow>
 }

@@ -1,18 +1,26 @@
 import {
 	defineSchemaOption,
-	type FieldOptionValueCarrier,
 	type FieldOptionDefinition,
+	type PluginSourceFieldObjectValue,
+	type PluginSourceFieldOptionByKind,
+	type PluginSourceFieldValue,
+	type PluginSourceOpaque,
+	type PluginSourceRelationChange,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
 	type SchemaReference,
 } from '@ultimabase/core'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
+import type { MaybePromise } from '@ultimabase/shared'
 
+import type { AccessContext } from './context.js'
 import type { SchemaAccess } from './authoring/contracts.js'
 import { normalizeSchemaAccessDeclarations } from './authoring/declarations.js'
-import type { FieldAccessFor } from './authoring/contracts.js'
-import type { RelationFieldAccess } from './authoring/contracts.js'
 import { normalizeFieldAccessDeclarations } from './authoring/field-declarations.js'
+
+type SourceAccessDecision<TInput> =
+	boolean | ((input: TInput) => MaybePromise<boolean>)
 
 type SchemaForOptions<TOptions> =
 	TOptions extends Readonly<{
@@ -21,49 +29,70 @@ type SchemaForOptions<TOptions> =
 		? SchemaReference<TClassName>
 		: SchemaDefinition
 
-/** Resolves the generated schema identity used by one `access` declaration. */
+/** Resolves the exact generated schema identity used by one `access` declaration. */
 export type SchemaAccessOption<TOptions> = SchemaAccess<
 	SchemaForOptions<TOptions>
 >
 
-type FieldOptionInput<TOptions> = Omit<TOptions, 'access'>
+interface SourceFieldAccessInput {
+	readonly context: PluginSourceOpaque<AccessContext>
+}
 
-type FieldValueForOptions<TOptions> =
-	FieldOptionInput<TOptions> extends FieldOptionValueCarrier<infer TValue>
-		? FieldOptionInput<TOptions> extends { readonly list: true }
-			? readonly TValue[]
-			: TValue
-		: unknown
+interface SourceFieldValueAccessInput {
+	readonly context: PluginSourceOpaque<AccessContext>
+	readonly value: PluginSourceFieldObjectValue
+}
 
-type FieldObjectValueForOptions<TOptions> =
-	FieldOptionInput<TOptions> extends { readonly required: true }
-		? FieldValueForOptions<TOptions>
-		: FieldValueForOptions<TOptions> | null
+interface SourceFieldPresentValueAccessInput {
+	readonly context: PluginSourceOpaque<AccessContext>
+	readonly value: PluginSourceFieldValue
+}
 
-type RelationTargetForOptions<TOptions> =
-	FieldOptionInput<TOptions> extends {
-		readonly target: () => infer TTarget extends SchemaDefinition
-	}
-		? TTarget
-		: FieldOptionInput<TOptions> extends {
-					readonly target: infer TTargetName extends string
-			  }
-			? SchemaReference<TTargetName>
-			: SchemaDefinition
+interface SourceFieldReplaceAccessInput extends SourceFieldPresentValueAccessInput {
+	readonly originalValue: PluginSourceFieldValue
+}
 
-/** Resolves exact scalar, list, and presence values for field Access rules. */
-export type FieldAccessOption<TOptions> = [
-	FieldValueForOptions<TOptions>,
-] extends [never]
-	? RelationFieldAccess<RelationTargetForOptions<TOptions>>
-	: FieldAccessFor<
-			FieldObjectValueForOptions<TOptions>,
-			FieldObjectValueForOptions<TOptions>
-		>
+interface SourceFieldClearAccessInput {
+	readonly context: PluginSourceOpaque<AccessContext>
+	readonly originalValue: PluginSourceFieldObjectValue
+}
+
+interface SourceFieldReadAccessOption {
+	readonly orderBy: SourceAccessDecision<SourceFieldAccessInput>
+	readonly output: SourceAccessDecision<SourceFieldValueAccessInput>
+	readonly where: SourceAccessDecision<SourceFieldAccessInput>
+}
+
+interface SourceFieldWriteAccessOption {
+	readonly clear: SourceAccessDecision<SourceFieldClearAccessInput>
+	readonly fill: SourceAccessDecision<SourceFieldPresentValueAccessInput>
+	readonly replace: SourceAccessDecision<SourceFieldReplaceAccessInput>
+}
+
+interface SourceValueFieldAccessOption {
+	readonly read?: boolean | SourceFieldReadAccessOption
+	readonly write?: boolean | SourceFieldWriteAccessOption
+}
+
+interface SourceRelationWriteAccessInput extends SourceFieldAccessInput {
+	readonly change: PluginSourceRelationChange
+}
+
+interface SourceRelationFieldAccessOption {
+	readonly read?: SourceAccessDecision<SourceFieldAccessInput>
+	readonly write?: SourceAccessDecision<SourceRelationWriteAccessInput>
+}
+
+type SourceFieldAccessOption = PluginSourceFieldOptionByKind<
+	SourceValueFieldAccessOption,
+	SourceRelationFieldAccessOption
+>
 
 /** Owns the official schema `access` namespace as an opaque policy artifact. */
 export const schemaAccessOption: SchemaOptionDefinition<
-	ReturnType<typeof normalizeSchemaAccessDeclarations>
+	ReturnType<typeof normalizeSchemaAccessDeclarations>,
+	SchemaOptionRuntimeRequirement,
+	never
 > = defineSchemaOption({
 	normalize: normalizeSchemaAccessDeclarations,
 	protocolVersion: 1,
@@ -77,15 +106,13 @@ export const schemaAccessOption: SchemaOptionDefinition<
 
 /** Owns the official field `access` namespace as an opaque policy artifact. */
 export const fieldAccessOption: FieldOptionDefinition<
-	ReturnType<typeof normalizeFieldAccessDeclarations>
+	ReturnType<typeof normalizeFieldAccessDeclarations>,
+	SchemaOptionRuntimeRequirement,
+	SourceFieldAccessOption
 > = definePluginFieldOption({
 	contexts: ['stored', 'embedded', 'virtual'],
 	normalize: normalizeFieldAccessDeclarations,
 	protocolVersion: 1,
-	typegen: {
-		generic: 'self',
-		module: '@ultimabase/access-plugin',
-		type: 'FieldAccessOption',
-	},
+	typegen: false,
 	valueKind: 'opaque',
 })

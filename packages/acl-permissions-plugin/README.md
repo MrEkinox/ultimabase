@@ -63,7 +63,8 @@ the field optional because the plugin supplies a static or asynchronous default
 after ordinary field input resolution and before structural revalidation:
 
 ```ts
-const Post = Schema.define({
+const ACLApplication = UltimaBase.use(aclPlugin())
+const Post = ACLApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -102,9 +103,10 @@ acl: {
 },
 ```
 
-`ACLSchemaOption<this>` supplies exact sibling-field autocomplete directly;
-there is no binder, duplicated data interface, or generated Runtime client.
-Typegen emits that option contract only for applications that install ACL.
+The configured factory supplies exact sibling-field autocomplete directly;
+there is no binder, duplicated data interface, generated option copy, or
+generated Runtime client. Typegen remains the sole application-wide named
+schema graph.
 
 The update candidate includes unchanged fields and applies `set` (including
 `null` clears) and numeric operations before the callback. Framework-generated timestamps remain
@@ -128,7 +130,7 @@ The zero-option defaults are 100 principals and 50 roles. A schema may override
 either value independently while inheriting the other:
 
 ```ts
-const Post = Schema.define({
+const Post = ACLApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 	acl: {

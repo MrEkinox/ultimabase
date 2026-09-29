@@ -4,11 +4,13 @@ import {
 	contributeApplication,
 	requireCapability,
 	Schema,
+	UltimaBase,
 	QueryBuilder,
 	type RequestContext,
 	RequestContextValue,
 	type SchemaResult,
 } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
 import { afterAll, beforeAll, expect } from 'vitest'
 import {
@@ -31,7 +33,9 @@ export const databaseAdapterConsumerPlugin = createPlugin({
 		})),
 	],
 })
-export const PostSchema = Schema.define({
+const RuntimeSchemaApplication = UltimaBase.use(hooksPlugin())
+
+export const PostSchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimePost',
 	fields: (field) => ({
 		attachment: field.binary(),
@@ -57,14 +61,14 @@ export const PostSchema = Schema.define({
 	}),
 })
 
-export const HookAuditSchema = Schema.define({
+export const HookAuditSchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimeHookAudit',
 	fields: (field) => ({
 		action: field.string({ required: true }),
 	}),
 })
 
-export const BulkAccountSchema = Schema.define({
+export const BulkAccountSchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimeBulkAccount',
 	fields: (field) => ({
 		email: field.string({
@@ -78,7 +82,7 @@ export const BulkAccountSchema = Schema.define({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
-export const AfterReadIdentitySchema = Schema.define({
+export const AfterReadIdentitySchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimeAfterReadIdentity',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -99,7 +103,7 @@ export const authorityObservations: Readonly<{
 	mode: string
 	principal: string | undefined
 }>[] = []
-export const AuthorityRecordSchema = Schema.define({
+export const AuthorityRecordSchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimeAuthorityRecord',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -120,7 +124,7 @@ export const AuthorityRecordSchema = Schema.define({
 })
 
 export const hookRollbackError = new Error('rollback HookContext nested write')
-export const HookPostSchema = Schema.define({
+export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
 	className: 'RuntimeHookPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

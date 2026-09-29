@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	type NestedWriteGraph,
 } from '@ultimabase/core'
@@ -20,8 +19,10 @@ let denyTagCreate = false
 let observedAuthorGraph: NestedWriteGraph | undefined
 let observedPostBeforeGraph: NestedWriteGraph | undefined
 let observedPostAfterGraph: NestedWriteGraph | undefined
+const NestedCreateApplication =
+	UltimaBase.use(accessPlugin()).use(hooksPlugin())
 
-const Author = Schema.define({
+const Author = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateAuthor',
 	access: {
 		read: { where: ({ where }) => where.eq('visible', true) },
@@ -45,7 +46,7 @@ const Author = Schema.define({
 	},
 })
 
-const Tag = Schema.define({
+const Tag = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateTag',
 	access: { create: () => !denyTagCreate },
 	fields: (field) => ({
@@ -66,7 +67,7 @@ const Tag = Schema.define({
 	},
 })
 
-const Comment = Schema.define({
+const Comment = NestedCreateApplication.Schema.define({
 	className: 'NestedCreateComment',
 	fields: (field) => ({
 		body: field.string({ required: true }),
@@ -86,7 +87,7 @@ const Comment = Schema.define({
 	},
 })
 
-const Post = Schema.define({
+const Post = NestedCreateApplication.Schema.define({
 	className: 'NestedCreatePost',
 	fields: (field) => ({
 		author: field.pointer({ required: true, target: 'NestedCreateAuthor' }),

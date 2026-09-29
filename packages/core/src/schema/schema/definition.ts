@@ -64,7 +64,12 @@ export {
 } from './definition-compilation.js'
 export { SchemaCompilationError } from './definition-error.js'
 export type { SchemaCompilationFailureReason } from './definition-error.js'
-export type { ConfiguredSchemaNamespace } from './configured-schema-namespace.js'
+export type {
+	ConfiguredFieldDeclaration,
+	ConfiguredSchemaDeclarationOptions,
+	ConfiguredSchemaNamespace,
+	ConfiguredSchemaResult,
+} from './configured-schema-namespace.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
@@ -194,16 +199,6 @@ export interface SchemaClassCapabilities<
 	readonly statics: TStatics
 	readonly results: TResults
 }
-
-/** Describes the Core-owned portion of a package-composed schema declaration. */
-interface SpecializedSchemaOptions {
-	readonly className: string
-	readonly fields: SchemaFieldBuilderDeclaration
-	readonly indexes?: readonly SchemaIndexOptions[]
-}
-
-type SpecializedSchemaFields<TOptions extends SpecializedSchemaOptions> =
-	ReturnType<TOptions['fields']>
 
 /** Creates specialized class capabilities after exact schema identity exists. */
 export type SchemaClassCapabilityFactory<
@@ -443,33 +438,26 @@ export class Schema {
 	 * `Schema.defineSpecialized(options, ({ schema }) => ({ statics: { byId: schema.pointer }, results: {} }))`
 	 */
 	static defineSpecialized<
-		const TOptions extends SpecializedSchemaOptions,
+		const TClassName extends string,
+		const TFields extends SchemaDeclaredFields,
 		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
 		const TResults extends object = object,
 	>(
-		options: TOptions &
-			ReservedSchemaFieldCollision<NoInfer<SpecializedSchemaFields<TOptions>>>,
+		options: SchemaOptions<TClassName, TFields> &
+			ReservedSchemaFieldCollision<NoInfer<TFields>>,
 		createCapabilities: SchemaClassCapabilityFactory<
-			SchemaReference<TOptions['className'], SpecializedSchemaFields<TOptions>>,
+			SchemaReference<TClassName, TFields>,
 			TStatics,
 			TResults
 		>,
-	): SchemaReference<TOptions['className'], SpecializedSchemaFields<TOptions>> &
+	): SchemaReference<TClassName, TFields> &
 		TStatics &
 		SchemaResultCapabilityCarrier<TResults> {
 		if (typeof createCapabilities !== 'function') {
 			throw new TypeError('createCapabilities must be a function')
 		}
 
-		const schema = defineSchemaModel<
-			TOptions['className'],
-			SpecializedSchemaFields<TOptions>
-		>(
-			options as SchemaOptions<
-				TOptions['className'],
-				SpecializedSchemaFields<TOptions>
-			>,
-		)
+		const schema = defineSchemaModel<TClassName, TFields>(options)
 		const capabilities: unknown = createCapabilities(
 			createSchemaModelCapabilityContext(schema),
 		)

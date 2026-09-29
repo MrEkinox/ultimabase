@@ -22,6 +22,7 @@ import {
 import type {
 	PluginSourceMutationMethod,
 	PluginSourceReceipt,
+	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaProjection,
 } from './source-projections.js'
 import { pluginSourceReceipt } from './source-projections.js'
@@ -58,7 +59,7 @@ export interface PluginModelSurfaceRegistrar {
 			readonly schemaMutations?: TMutations
 			readonly staticOptions?: Readonly<Record<string, JsonValue>>
 		},
-	): PluginSourceReceipt<ModelSurfaceSourceProjection<TTarget, TMutations>>
+	): PluginSourceReceipt<PluginModelSurfaceSource<TTarget, TMutations>>
 }
 
 type OperationSourceProjection<TOperation> =
@@ -79,7 +80,15 @@ type SurfaceMutationTemplate<
 			? TName
 			: never
 	]: PluginSourceMutationMethod<TMutations[TName]['mutation'], TSurface>
-}
+} & (TSurface extends 'schema'
+	? PluginSourceSchemaMutationCarrier<{
+			readonly [
+				TName in keyof TMutations as TSurface extends TMutations[TName]['surfaces'][number]
+					? TName
+					: never
+			]: TMutations[TName]['mutation']
+		}>
+	: object)
 
 type TargetClassNames<TTarget> =
 	TTarget extends SchemaDefinition<infer TClassName>
@@ -108,7 +117,8 @@ type SurfaceProjection<
 			TargetSelector<TTarget>
 		>
 
-type ModelSurfaceSourceProjection<
+/** Derives source methods and mutation identity from one model-surface declaration. */
+export type PluginModelSurfaceSource<
 	TTarget,
 	TMutations extends Readonly<
 		Record<string, PluginSchemaMutationSurfaceBinding>

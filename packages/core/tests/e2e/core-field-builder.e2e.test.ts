@@ -1,4 +1,5 @@
 import path from 'node:path'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { createPackedCoreLanguageFixture } from './packed-core-language-service.js'
@@ -19,15 +20,6 @@ declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemas {
 		readonly PackedFieldBuilder: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedFieldBuilder'>
 		readonly PackedValidatorTarget: import('@ultimabase/core').BaseSchemaTypeInfo<'PackedValidatorTarget'>
-	}
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly validation?: import('@ultimabase/validation-plugin').FieldValidationOption<this>
-	}
-	interface UltimaBaseGeneratedEmbeddedFieldOptions {
-		readonly validation?: import('@ultimabase/validation-plugin').FieldValidationOption<this>
-	}
-	interface UltimaBaseGeneratedFieldOptionCompatibility<TOptions extends object, TValue> {
-		readonly validation: import('@ultimabase/validation-plugin').FieldValidationCompatibility<TOptions, TValue>
 	}
 }
 `,
@@ -86,7 +78,13 @@ const embeddedSpecificOptions: Readonly<Record<string, readonly string[]>> = {
 
 describe('packed @ultimabase/core FieldBuilder contract', () => {
 	it('type-checks the canonical declaration through package exports', () => {
-		expect(languageFixture.diagnostics()).toStrictEqual([])
+		expect(
+			languageFixture
+				.diagnostics()
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, '\n'),
+				),
+		).toStrictEqual([])
 	}, 20_000)
 
 	it('preserves root and embedded completions', () => {

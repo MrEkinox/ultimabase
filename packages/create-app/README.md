@@ -10,6 +10,10 @@ the complete future reader path.
 The interactive and flag-only selection flows normalize to one project plan.
 The local executable now generates a PostgreSQL project in TypeScript
 or JavaScript, with either a runnable Task starter or an empty application.
+The generated schema module owns one configured application factory so a
+plugin is declared once for both source inference and Runtime installation;
+the Runtime module extends that same factory with database and transport
+plugins instead of repeating a plugin list.
 Hooks, Validation, Soft Delete, and PostgreSQL Vector can be selected today.
 The Task example configures schema-local Hooks, Validation, and recoverable
 native deletes when selected. Vector remains a logical value contract here;

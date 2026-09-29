@@ -48,9 +48,9 @@ export interface GeneratedApplicationTypes {
 
 export interface GenerateApplicationTypesOptions {
 	/** Compiles the exact application schema graph without running plugin setup. */
-	readonly ultimabase: UltimaBase<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
+	readonly ultimabase: Pick<
+		UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>,
+		'compile'
 	>
 	/** Isolates fingerprints and generated registries owned by different applications. */
 	readonly applicationId: string

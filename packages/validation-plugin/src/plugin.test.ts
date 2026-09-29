@@ -22,7 +22,10 @@ describe('validationPlugin', () => {
 		const Document = Schema.define({
 			className: 'MissingValidationPluginDocument',
 			fields: (field) => ({
-				title: field.string({ validation: passThrough<string>() }),
+				// Standalone declarations retain stale generated-option compatibility until issue 6314.
+				title: field.string({
+					validation: passThrough<string>(),
+				} as never),
 			}),
 		})
 		const application = new UltimaBase({
@@ -40,13 +43,13 @@ describe('validationPlugin', () => {
 		const validator: StandardSchemaV1<string, string> = {
 			'~standard': { validate, vendor: 'fixture', version: 1 },
 		}
-		const Document = Schema.define({
+		const ValidationApplication = UltimaBase.use(validationPlugin())
+		const Document = ValidationApplication.Schema.define({
 			className: 'InstalledValidationPluginDocument',
 			fields: (field) => ({ title: field.string({ validation: validator }) }),
 		})
-		const application = new UltimaBase({
+		const application = new ValidationApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [validationPlugin()],
 			schemas: [Document],
 		})
 

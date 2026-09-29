@@ -140,9 +140,10 @@ The TypeScript and Docker choices above create:
 	<File name="tsconfig.json" />
 </Files>
 
-`schema.ts` defines Task. `ultimabase.ts` composes Core, PostgreSQL, and
-Typegen in one graph. `main.ts` starts the application, writes a Task, and
-disposes it. The package depends on `@ultimabase/core`,
+`schema.ts` defines the configured schema application and Task. Plugins that
+affect schema authoring are installed there once; `ultimabase.ts` extends the
+same factory with PostgreSQL and transport plugins. `main.ts` starts the
+application, writes a Task, and disposes it. The package depends on `@ultimabase/core`,
 `@ultimabase/postgres-plugin`, and `@ultimabase/typegen`; TypeScript and
 `@types/node` are development dependencies. Its scripts are:
 
@@ -281,8 +282,9 @@ Authentication](/docs/1.0.0/plugins/official/password-authentication),
 
 ## Next steps
 
-- Edit `src/schema.ts` or `src/schema.js` to define your model, then
-  `src/ultimabase.ts` or `src/ultimabase.js` to choose plugins.
+- Edit `src/schema.ts` or `src/schema.js` to define models and schema-authoring
+  plugins, then extend its `SchemaApplication` in `src/ultimabase.ts` or
+  `src/ultimabase.js` with database and transport plugins.
 - Before publication, run the [repository example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md).
   Use [Manual Installation](/docs/1.0.0/manual-installation) to understand the project setup.
 - Before exposing an API beyond your machine, read [Before Exposing Your

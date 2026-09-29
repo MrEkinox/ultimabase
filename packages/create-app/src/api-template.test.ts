@@ -95,10 +95,10 @@ describe('API project templates', () => {
 		expect(application).toContain('create: false, update: false, delete: false')
 		expect(application).toContain('acknowledgeUnverifiedProtection: true')
 		expect(schema).toMatch(
-			/export const Member = Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
+			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
 		)
 		expect(schema).toMatch(
-			/export const AppRole = RoleSchema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
+			/export const AppRole = RoleSchema\.define\(SchemaApplication\.Schema, \{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
 		)
 		expect(nextCommands(plan)).toEqual(
 			expect.arrayContaining([

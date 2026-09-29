@@ -1,7 +1,6 @@
 import {
 	MasterAuthority,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
@@ -46,7 +45,14 @@ export const currentRoleMemberId = new RequestContextValue<string>(
 	},
 )
 
-export const RoleMember = Schema.define({
+const RoleSchemaApplication = UltimaBase.use(hooksPlugin())
+	.use(accessPlugin({ default: true }))
+	.use(rolesPlugin())
+const MissingProviderSchemaApplication = UltimaBase.use(hooksPlugin()).use(
+	accessPlugin({ default: true }),
+)
+
+export const RoleMember = RoleSchemaApplication.Schema.define({
 	className: 'RoleE2EMember',
 	fields: (field) => ({
 		email: field.string({ indexed: 'unique', required: true }),
@@ -63,7 +69,7 @@ export const roleResolutionTrace: string[] = []
 /** Records developer hooks independently from plugin-owned invariants. */
 export const roleDeveloperHookTrace: string[] = []
 
-export const AppRole = RoleSchema.define({
+export const AppRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	className: 'RoleE2EAppRole',
 	members: {
 		schema: RoleMember,
@@ -92,7 +98,7 @@ export const AppRole = RoleSchema.define({
 	},
 })
 
-export const FailRole = RoleSchema.define({
+export const FailRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	className: 'RoleE2EFailRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'fail' },
@@ -100,7 +106,7 @@ export const FailRole = RoleSchema.define({
 	access: protectedRoleOperations,
 })
 
-export const PreserveRole = RoleSchema.define({
+export const PreserveRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	className: 'RoleE2EPreserveRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'preserve' },
@@ -108,7 +114,7 @@ export const PreserveRole = RoleSchema.define({
 	access: { ...protectedRoleOperations, delete: true },
 })
 
-export const CascadeRole = RoleSchema.define({
+export const CascadeRole = RoleSchema.define(RoleSchemaApplication.Schema, {
 	className: 'RoleE2ECascadeRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'cascade' },
@@ -123,7 +129,7 @@ export const CascadeRole = RoleSchema.define({
 export const EditorReference = AppRole.role('editor')
 export const AdministratorReference = AppRole.role('administrator')
 
-export const ProtectedPost = Schema.define({
+export const ProtectedPost = RoleSchemaApplication.Schema.define({
 	className: 'RoleE2EProtectedPost',
 	fields: (field) => ({
 		internalNote: field.string({
@@ -154,7 +160,7 @@ export const ProtectedPost = Schema.define({
 })
 
 /** Exposes neutral external references used to verify all deletion policies. */
-export const ExternalRoleReference = Schema.define({
+export const ExternalRoleReference = RoleSchemaApplication.Schema.define({
 	className: 'RoleE2EExternalReference',
 	fields: (field) => ({
 		subject: field.string({ indexed: true, required: true }),
@@ -167,25 +173,26 @@ export const resetMissingProviderHookCalls = (): void => {
 	missingProviderHookCalls = 0
 }
 
-export const MissingProviderPost = Schema.define({
-	className: 'RoleE2EMissingProviderPost',
-	fields: (field) => ({
-		title: field.string({ required: true }),
-	}),
-	access: {
-		create: true,
-		read: true,
-		update: hasRole(EditorReference),
-	},
-	hooks: {
-		beforeOperation: {
-			update: ({ operation }) => {
-				missingProviderHookCalls += 1
-				void operation
+export const MissingProviderPost =
+	MissingProviderSchemaApplication.Schema.define({
+		className: 'RoleE2EMissingProviderPost',
+		fields: (field) => ({
+			title: field.string({ required: true }),
+		}),
+		access: {
+			create: true,
+			read: true,
+			update: hasRole(EditorReference),
+		},
+		hooks: {
+			beforeOperation: {
+				update: ({ operation }) => {
+					missingProviderHookCalls += 1
+					void operation
+				},
 			},
 		},
-	},
-})
+	})
 
 export const committedRoleEvents: string[] = []
 /** Records every trusted terminal elevation used by the role application. */

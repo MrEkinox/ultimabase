@@ -143,7 +143,7 @@ export interface BigintFieldFactory<
 			DefaultedBigintFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
 			bigint,
-			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList, TRequired>
 		>,
 	): DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -162,7 +162,7 @@ export interface BigintFieldFactory<
 			>,
 			TExtensionOptions,
 			bigint,
-			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, bigint, TList, TRequired>
 		>,
 	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }

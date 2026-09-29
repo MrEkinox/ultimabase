@@ -8,7 +8,10 @@ import {
 	protectedPolicy,
 	requireCapability,
 	type CapabilityRequirement,
+	type PluginDeclarationContribution,
+	type PluginDeclarationSource,
 	type PluginInstance,
+	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -198,11 +201,32 @@ const accessPluginPermissions = {
 		'Applies official Access through protected Runtime policy.',
 } as const
 
+type AccessOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-access-options'
+	readonly field: Readonly<{ access: typeof fieldAccessOption }>
+	readonly schema: Readonly<{ access: typeof schemaAccessOption }>
+}>
+
+const accessDeclarations: PluginDeclarationContribution<
+	readonly [],
+	AccessOptionSource
+> = contributeDeclarations({
+	schema: ({ schemas }) =>
+		schemas.defineOptions({
+			contributionId: 'official-access-options',
+			field: { access: fieldAccessOption },
+			schema: { access: schemaAccessOption },
+		}),
+})
+
+type AccessSource = PluginDeclarationSource<typeof accessDeclarations>
+
 /** Names the exact configured official Access engine. */
 export type AccessPlugin = PluginInstance<{
 	readonly id: '@ultimabase/access-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: AccessSource
 }>
 
 /** Installs official Access authoring and enforcement through the public kernel. */
@@ -255,16 +279,6 @@ export const accessPlugin = (
 		},
 	})
 
-	const declarations = contributeDeclarations({
-		schema: ({ schemas }) => {
-			schemas.defineOptions({
-				contributionId: 'official-access-options',
-				field: { access: fieldAccessOption },
-				schema: { access: schemaAccessOption },
-			})
-			return undefined
-		},
-	})
 	const instance = plugin({
 		id: '@ultimabase/access-plugin',
 		version: '0.0.0',
@@ -275,7 +289,7 @@ export const accessPlugin = (
 			optionalAccessDiagnostics,
 			runtimeProvider,
 			schemaMutationSurfaceRequirement,
-			declarations,
+			accessDeclarations,
 		],
 	})
 	return instance

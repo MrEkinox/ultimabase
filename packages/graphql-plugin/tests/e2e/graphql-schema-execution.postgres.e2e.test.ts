@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	getCurrentRequest,
 	type RequestContext,
@@ -38,8 +37,12 @@ const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
 const deniedVirtualAccess = { access: { read: false } }
 const hookTrace: string[] = []
+const GraphqlSchemaApplication = UltimaBase.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(accessPlugin({ default: true }))
+	.use(aclPlugin())
 
-const GraphqlAuthor = Schema.define({
+const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -52,7 +55,7 @@ const GraphqlAuthor = Schema.define({
 	postgres: { table: 'graphql_execution_authors' },
 })
 
-const GraphqlPost = Schema.define({
+const GraphqlPost = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'GraphqlExecutionAuthor' }),

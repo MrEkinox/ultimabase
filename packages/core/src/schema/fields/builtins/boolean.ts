@@ -100,7 +100,7 @@ export interface BooleanFieldFactory<
 			DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			boolean,
-			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList, TRequired>
 		>,
 	): DefaultedBooleanField<TRequired, TList, TImmutable>
 	<
@@ -113,7 +113,7 @@ export interface BooleanFieldFactory<
 			NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			boolean,
-			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, boolean, TList, TRequired>
 		>,
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }

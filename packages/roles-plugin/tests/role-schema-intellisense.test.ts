@@ -13,18 +13,21 @@ const fixtureFile = path.join(
 	'role-schema-intellisense.fixture.ts',
 )
 const source = `
-import { Schema, stringField } from '@ultimabase/core'
-import { RoleSchema, hasRole } from '../src/index.js'
+import type {} from '../../access-plugin/tests/fixtures/options.generated.js'
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase, stringField } from '@ultimabase/core'
+import { RoleSchema, hasRole, rolesPlugin } from '../src/index.js'
 
-const User = Schema.define({ className: 'User', fields: () => ({}) })
-const AppRole = RoleSchema.define({
+const RoleApplication = UltimaBase.use(accessPlugin()).use(rolesPlugin())
+const User = RoleApplication.Schema.define({ className: 'User', fields: () => ({}) })
+const AppRole = RoleSchema.define(RoleApplication.Schema, {
   className: 'Role',
   members: { schema: User },
   fields: () => ({ description: stringField() }),
   deletion: { /* deletion-hover */references: 'fail' },
 })
 
-RoleSchema.define({
+RoleSchema.define(RoleApplication.Schema, {
   className: 'CompletedRole',
   members: { schema: User },
   fields: () => ({}),
@@ -33,7 +36,7 @@ RoleSchema.define({
 
 AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
-RoleSchema.define({ /* options-complete */ })
+RoleSchema.define(RoleApplication.Schema, { /* options-complete */ })
 async function inspectMemberCommand() {
   const role = await AppRole.findOne()
   role?./* member-hover */addMember(User.pointer('member-id'))

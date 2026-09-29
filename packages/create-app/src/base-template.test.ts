@@ -21,9 +21,9 @@ describe('base project templates', () => {
 				const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 					readonly dependencies: Record<string, string>
 				}
-				const application = files.get(`src/ultimabase.${language}`) ?? ''
+				const schema = files.get(`src/schema.${language}`) ?? ''
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
-				expect(application).toContain(factory)
+				expect(schema).toContain(factory)
 				expect(plan.plugins).toContain('postgres-plugin')
 			}
 		},
@@ -36,7 +36,7 @@ describe('base project templates', () => {
 			readonly dependencies: Record<string, string>
 			readonly scripts: Record<string, string>
 		}
-		expect(files.get('src/ultimabase.ts')).toContain('typegenPlugin()')
+		expect(files.get('src/schema.ts')).toContain('typegenPlugin()')
 		expect(files.get('scripts/generate-types.mjs')).toContain(
 			'loadTypegenApplication',
 		)
@@ -124,17 +124,14 @@ describe('base project templates', () => {
 		const manifest = JSON.parse(files.get('package.json') ?? '{}') as {
 			readonly dependencies: Record<string, string>
 		}
-		const application = files.get('src/ultimabase.ts') ?? ''
 		const schema = files.get('src/schema.ts') ?? ''
 		for (const id of plan.plugins)
 			expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 		expect(manifest.dependencies).toHaveProperty('zod')
-		expect(application).toContain('hooksPlugin()')
-		expect(application).toContain('pgVectorPlugin()')
-		expect(application).toContain(
-			"softDeletePlugin({ defaultMode: 'disabled' })",
-		)
-		expect(application).toContain('validationPlugin()')
+		expect(schema).toContain('hooksPlugin()')
+		expect(schema).toContain('pgVectorPlugin()')
+		expect(schema).toContain("softDeletePlugin({ defaultMode: 'disabled' })")
+		expect(schema).toContain('validationPlugin()')
 		expect(schema).toContain("softDelete: 'replace-delete'")
 		expect(schema).toContain('resolveInput:')
 		expect(schema).toContain('validation: z.string().min(1).max(200)')
@@ -155,7 +152,7 @@ describe('base project templates', () => {
 		const files = renderBaseFiles(plan)
 		const schema = files.get('src/schema.js') ?? ''
 		expect(schema).not.toContain('export const Task')
-		expect(files.get('src/ultimabase.js')).toContain('validationPlugin()')
+		expect(schema).toContain('validationPlugin()')
 		expect(files.get('package.json')).not.toContain('"zod"')
 		expect(files.get('README.md')).toContain(
 			'no schema for schema-local behavior',
@@ -183,7 +180,8 @@ describe('base project templates', () => {
 					readonly dependencies: Record<string, string>
 				}
 				expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
-				expect(application).toContain(factory)
+				const pluginOwner = id === 'password-auth-plugin' ? application : schema
+				expect(pluginOwner).toContain(factory)
 				expect(application).toContain('new MasterAuthority({')
 				expect(application).toContain('requestId: event.requestId')
 				expect(application).not.toContain('restPlugin(')
@@ -206,7 +204,9 @@ describe('base project templates', () => {
 				}
 				if (id === 'roles-plugin') {
 					expect(schema).toContain('RoleSchema.define(')
-					expect(schema).toContain('export const Member = Schema.define(')
+					expect(schema).toContain(
+						'export const Member = SchemaApplication.Schema.define(',
+					)
 					expect(application).toContain('schemas: [Task, Member, AppRole]')
 				}
 			}

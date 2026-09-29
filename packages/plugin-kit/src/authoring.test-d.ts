@@ -7,6 +7,7 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
+	stringField,
 	UltimaBase,
 	defineTypegenReference,
 	type FieldOptions,
@@ -202,13 +203,12 @@ const publishedObserver = observePluginEvent(publishedEvent, ({ event }) => {
 expectTypeOf(publishedObserver).toEqualTypeOf<
 	PluginEventObserver<'community.workflow.published', PublishedEvent>
 >()
-expectTypeOf(
-	schemaPatch().addField({
-		contributionId: 'state',
-		field: {} as never,
-		name: 'state',
-	}),
-).toEqualTypeOf<SchemaPatchBuilder>()
+const fieldPatch = schemaPatch().addField({
+	contributionId: 'state',
+	field: stringField(),
+	name: 'state',
+})
+expectTypeOf(fieldPatch.operations[0].name).toEqualTypeOf<'state'>()
 
 const text = defineOperationValue((value): string => String(value))
 const operation = defineOperation({

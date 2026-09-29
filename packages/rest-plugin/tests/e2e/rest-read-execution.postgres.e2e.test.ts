@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	defineCapability,
@@ -28,8 +27,9 @@ import {
 const publicAcl = new ACL().grantPublic('read')
 const privateAcl = new ACL()
 const deniedVirtualAccess = { access: { read: false } }
+const RestReadApplication = UltimaBase.use(accessPlugin()).use(aclPlugin())
 
-const RestAuthor = Schema.define({
+const RestAuthor = RestReadApplication.Schema.define({
 	className: 'RestReadExecutionAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -48,7 +48,7 @@ const RestAuthor = Schema.define({
 	},
 })
 
-const RestPost = Schema.define({
+const RestPost = RestReadApplication.Schema.define({
 	className: 'RestReadExecutionPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'RestReadExecutionAuthor' }),
@@ -345,9 +345,14 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 		expect(rest[0]?.toJSON()).toMatchObject({
 			author: { name: 'Visible Author' },
 		})
-		expect(readIncludedNames(rest[0]?.contributors)).toStrictEqual([
-			'Visible Author',
-		])
+		// The retained Typegen graph owns exact cross-schema include properties.
+		expect(
+			readIncludedNames(
+				rest[0] === undefined
+					? undefined
+					: Reflect.get(rest[0], 'contributors'),
+			),
+		).toStrictEqual(['Visible Author'])
 	})
 
 	it('preserves count, exists, strict missing targets, field Access, and Master bypass', async () => {

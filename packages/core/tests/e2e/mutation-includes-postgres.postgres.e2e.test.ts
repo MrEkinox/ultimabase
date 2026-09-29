@@ -1,5 +1,5 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -13,8 +13,9 @@ const projectionAccessError = new Error(
 	'mutation inclusion target Access rejected the projection',
 )
 let rejectAuthorProjection = false
+const MutationIncludeApplication = UltimaBase.use(accessPlugin())
 
-const Author = Schema.define({
+const Author = MutationIncludeApplication.Schema.define({
 	className: 'MutationIncludeAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -34,7 +35,7 @@ const Author = Schema.define({
 	},
 })
 
-const Post = Schema.define({
+const Post = MutationIncludeApplication.Schema.define({
 	className: 'MutationIncludePost',
 	fields: (field) => ({
 		author: field.pointer({
@@ -45,14 +46,14 @@ const Post = Schema.define({
 	}),
 })
 
-const Tag = Schema.define({
+const Tag = MutationIncludeApplication.Schema.define({
 	className: 'MutationIncludeTag',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 })
 
-const Article = Schema.define({
+const Article = MutationIncludeApplication.Schema.define({
 	className: 'MutationIncludeArticle',
 	fields: (field) => ({
 		tags: field.relation({ target: 'MutationIncludeTag' }),
@@ -115,7 +116,13 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		)
 
 		countingPool.reset()
-		const created = await Post.createOne(
+		// This runtime projection deliberately exercises a circular named graph;
+		// its exact editor contract belongs to the retained Typegen graph tests.
+		const createPostWithProjection = Post.createOne.bind(Post) as unknown as (
+			input: unknown,
+			options: unknown,
+		) => Promise<unknown>
+		const created = await createPostWithProjection(
 			{
 				data: {
 					author: { connect: author.id },
@@ -134,14 +141,17 @@ describe('mutation relationship projections with PostgreSQL', () => {
 
 		// One protected connect lookup precedes the single projection query.
 		expect(countingPool.selectCount()).toBe(2)
-		expect(typeof created.id).toBe('string')
-		const includedAuthor: unknown = created.author
+		if (typeof created !== 'object' || created === null) {
+			throw new TypeError('Expected the singular created post model')
+		}
+		expect(typeof Reflect.get(created, 'id')).toBe('string')
+		const includedAuthor: unknown = Reflect.get(created, 'author')
 		if (!(includedAuthor instanceof Author)) {
 			throw new TypeError('Expected the singular included author model')
 		}
-		expect(includedAuthor.name).toBe('Singular author')
-		expect(includedAuthor.id).toBe(author.id)
-		const nestedPosts: unknown = includedAuthor.posts
+		expect(Reflect.get(includedAuthor, 'name')).toBe('Singular author')
+		expect(Reflect.get(includedAuthor, 'id')).toBe(author.id)
+		const nestedPosts: unknown = Reflect.get(includedAuthor, 'posts')
 		if (!Array.isArray(nestedPosts) || !(nestedPosts[0] instanceof Post)) {
 			throw new TypeError('Expected the nested included post collection')
 		}
@@ -150,8 +160,8 @@ describe('mutation relationship projections with PostgreSQL', () => {
 				if (!(candidate instanceof Post)) {
 					throw new TypeError('Expected every nested included post model')
 				}
-				const title: unknown = candidate.title
-				const id: unknown = candidate.id
+				const title: unknown = Reflect.get(candidate, 'title')
+				const id: unknown = Reflect.get(candidate, 'id')
 
 				if (typeof id !== 'string' || typeof title !== 'string') {
 					throw new TypeError('Expected every nested included post identity')
@@ -196,8 +206,8 @@ describe('mutation relationship projections with PostgreSQL', () => {
 				if (!(candidate instanceof Tag)) {
 					throw new TypeError('Expected every singular included tag model')
 				}
-				const label: unknown = candidate.label
-				const id: unknown = candidate.id
+				const label: unknown = Reflect.get(candidate, 'label')
+				const id: unknown = Reflect.get(candidate, 'id')
 
 				if (typeof id !== 'string' || typeof label !== 'string') {
 					throw new TypeError('Expected every singular included tag identity')

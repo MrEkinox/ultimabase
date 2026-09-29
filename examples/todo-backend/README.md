@@ -12,11 +12,20 @@ Plugin behavior is configured directly beside the schema or field that owns it:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-export const Todo = Schema.define({
+const TodoSchemaApplication = UltimaBase.use(accessPlugin({ default: true }))
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
+
+export const Todo = TodoSchemaApplication.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({
@@ -57,15 +66,12 @@ export const Todo = Schema.define({
 	},
 	postgres: { table: 'todos' },
 })
-
-// Direct options are active only because the application installs their owners.
-const Application = UltimaBase.use(accessPlugin({ default: true }))
-	.use(hooksPlugin())
-	.use(validationPlugin()) /* ACL, Roles, Typegen, PostgreSQL */
-const ultimabase = new Application({
-	schemas: [TodoUser, TodoRole, Todo],
-})
 ```
+
+The configured schema factory supplies field Access, field Hooks, Validation,
+Roles, ACL, and locally decidable plugin surfaces directly. Schema Access and
+Hooks, PostgreSQL options, and string relationship targets use the retained
+generated application graph.
 
 `required` remains direct presence metadata, while `precision` and `scale` on
 the Todo budget remain direct storage shape. A scalar validator receives one
@@ -169,31 +175,28 @@ const nextACL = todo.acl.grantPrincipal(
 Role commands are available only on persisted `TodoRole` results. ACL values
 are immutable, so an update replaces the value with a newly granted ACL.
 
-## What Typegen produces
+## What Typegen still produces
 
 The complete committed output is
 [`schema.generated.d.ts`](.ultimabase/schema.generated.d.ts). It is generated
-from the compiled application graph and is never Runtime truth. Its opening
-imports show which installed plugins contributed types:
+from the compiled application graph and is never Runtime truth. Field Access,
+field Hooks, Validation, ACL schema options, and locally decidable plugin
+contracts come directly from `TodoSchemaApplication`. Schema Access and Hooks
+remain generated references because their callbacks require the complete graph.
+The generated file therefore imports those two public contracts, value types,
+and the remaining non-migrated PostgreSQL options:
 
 ```ts
 import type {
-	FieldAccessOption,
-	SchemaAccessOption,
-} from '@ultimabase/access-plugin'
-import type { ACL, ACLSchemaOption } from '@ultimabase/acl-permissions-plugin'
-import type {
-	FieldHooksOption,
-	SchemaHooksOption,
-} from '@ultimabase/hooks-plugin'
+	ACL,
+	ACLContainmentOperand,
+} from '@ultimabase/acl-permissions-plugin'
+import type { SchemaAccessOption } from '@ultimabase/access-plugin'
+import type { SchemaHooksOption } from '@ultimabase/hooks-plugin'
 import type {
 	PostgresFieldOption,
 	PostgresSchemaOption,
 } from '@ultimabase/postgres-plugin'
-import type {
-	FieldValidationCompatibility,
-	FieldValidationOption,
-} from '@ultimabase/validation-plugin'
 ```
 
 The generated application contracts include exact object and operation shapes:
@@ -228,27 +231,24 @@ export type TodoRoleWhereInput = {
 
 It also emits `TodoUpdateInput`, `TodoWhereInput`, `TodoSelect`,
 `TodoOrderByInput`, `TodoInclude`, their `TodoUser` and `TodoRole` equivalents,
-all nested object/path/filter types, and the flat `Schemas` registry. At the
-bottom, module augmentation adds only the options supplied by the installed
-plugins:
+all nested object/path/filter types, and the flat `Schemas` registry. This is
+the irreducible application-wide name graph used by string relationship
+targets such as `target: 'TodoUser'`. At the bottom, module augmentation now
+retains only the PostgreSQL options that have not yet migrated to source:
 
 ```ts
 interface UltimaBaseGeneratedFieldOptions {
-	readonly access?: FieldAccessOption<this>
-	readonly hooks?: FieldHooksOption<this>
 	readonly postgres?: PostgresFieldOption
 }
 
 interface UltimaBaseGeneratedSchemaOptions {
-	readonly access?: SchemaAccessOption<this>
-	readonly acl?: ACLSchemaOption<this>
-	readonly hooks?: SchemaHooksOption<this>
 	readonly postgres?: PostgresSchemaOption
 }
 ```
 
-Removing a plugin makes its direct option unknown at application compilation
-and removes its autocomplete contract from the next generated declaration.
+Removing a source-typed plugin from `TodoSchemaApplication` makes its direct
+option unknown immediately, without waiting for regeneration. Regeneration is
+still required when the named schema and relationship graph changes.
 
 ## Run and verify it
 

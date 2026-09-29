@@ -1,14 +1,7 @@
-import type {
-	FieldHooksOption,
-	SchemaHooksOption,
-} from '@ultimabase/hooks-plugin'
+import type { SchemaHooksOption } from '@ultimabase/hooks-plugin'
 
-/** Simulates the application-local declarations emitted when Hooks is installed. */
+/** Simulates the application-local schema declaration emitted for Hooks. */
 declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly hooks?: FieldHooksOption<this>
-	}
-
 	interface UltimaBaseGeneratedSchemaOptions {
 		readonly hooks?: SchemaHooksOption<this>
 	}

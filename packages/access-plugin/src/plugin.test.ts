@@ -1,7 +1,7 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
+import type {} from '../tests/fixtures/options.generated.js'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -19,23 +19,9 @@ import {
 	accessDiagnosticsObserverCapability,
 	provideAccessContributions,
 	schemaAccess,
-	type FieldAccessOption,
-	type SchemaAccessOption,
 } from './index.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly access?: FieldAccessOption<this>
-	}
-
-	interface UltimaBaseGeneratedVirtualFieldOptions {
-		readonly access?: FieldAccessOption<this>
-	}
-
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly access?: SchemaAccessOption<this>
-	}
-}
+const AccessApplication = UltimaBase.use(accessPlugin())
 
 class StaticReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -70,7 +56,7 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		],
 	})
 
-const SecretDocument = Schema.define({
+const SecretDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginSecretDocument',
 	fields: (field) => ({
 		secret: field.string({ access: { read: false } }),
@@ -79,24 +65,24 @@ const SecretDocument = Schema.define({
 	access: { read: true },
 })
 
-const PlainDocument = Schema.define({
+const PlainDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginPlainDocument',
 	fields: (field) => ({ title: field.string() }),
 })
 
-const ObservedDocument = Schema.define({
+const ObservedDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginObservedDocument',
 	fields: (field) => ({ title: field.string() }),
 	access: { read: () => true },
 })
 
-const CountOnlyDocument = Schema.define({
+const CountOnlyDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginCountOnlyDocument',
 	fields: (field) => ({ title: field.string() }),
 	access: { read: { allow: { count: true } } },
 })
 
-const MasterBypassDocument = Schema.define({
+const MasterBypassDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginMasterBypassDocument',
 	fields: (field) => ({
 		secret: field.string({ access: { read: false } }),
@@ -105,7 +91,7 @@ const MasterBypassDocument = Schema.define({
 	access: { read: false },
 })
 
-const VirtualDocument = Schema.define({
+const VirtualDocument = AccessApplication.Schema.define({
 	className: 'AccessPluginVirtualDocument',
 	fields: (field) => ({
 		label: field.virtual({

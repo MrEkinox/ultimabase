@@ -161,7 +161,15 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		relationTrace.length = 0
-		const articles = await Article.findMany(
+		// Nested circular inclusions are Runtime coverage here; the retained
+		// Typegen graph owns their exact cross-schema editor contract.
+		const findArticlesWithProjection = Article.findMany.bind(
+			Article,
+		) as unknown as (
+			input: unknown,
+			options: unknown,
+		) => Promise<readonly unknown[]>
+		const articles = await findArticlesWithProjection(
 			{
 				where: { id: { eq: article.id } },
 				select: { title: true },
@@ -189,11 +197,15 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(articles).toHaveLength(1)
-		const includedTags = articles[0]?.tags
+		const firstArticle = articles[0]
+		const includedTags: unknown =
+			typeof firstArticle === 'object' && firstArticle !== null
+				? Reflect.get(firstArticle, 'tags')
+				: undefined
 		if (!Array.isArray(includedTags) || !(includedTags[0] instanceof Tag)) {
 			throw new TypeError('Expected one included tag model')
 		}
-		const nestedArticles = includedTags[0].articles
+		const nestedArticles: unknown = Reflect.get(includedTags[0], 'articles')
 		if (
 			!Array.isArray(nestedArticles) ||
 			!(nestedArticles[0] instanceof Article)
@@ -201,9 +213,9 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			throw new TypeError('Expected one nested included article model')
 		}
 		expect(includedTags).toHaveLength(1)
-		expect(includedTags[0].label).toBe('include-zeta')
+		expect(Reflect.get(includedTags[0], 'label')).toBe('include-zeta')
 		expect(nestedArticles).toHaveLength(1)
-		expect(nestedArticles[0].title).toBe('Included relations')
+		expect(Reflect.get(nestedArticles[0], 'title')).toBe('Included relations')
 		expect(relationTrace).toStrictEqual(['article:tags:read'])
 
 		const author = await Author.createOne(

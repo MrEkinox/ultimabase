@@ -121,6 +121,17 @@ export interface PluginDeclarationContribution<
 	}>
 }
 
+/** Reads the source projection carried by one static declaration contribution. */
+export type PluginDeclarationSource<TContribution> =
+	TContribution extends PluginDeclarationContribution<
+		infer TRequirements,
+		infer TProjection
+	>
+		? TRequirements extends PluginDeclarationRequirements
+			? TProjection
+			: never
+		: never
+
 type DeclarationSourceProjection<
 	TSchemaResult,
 	TModelResult,

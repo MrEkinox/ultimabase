@@ -196,9 +196,14 @@ describe('packed initializer outside the repository', () => {
 				path.join(destination, 'src/ultimabase.ts'),
 				'utf8',
 			)
+			const schema = await readFile(
+				path.join(destination, 'src/schema.ts'),
+				'utf8',
+			)
+			const applicationGraphSource = application + schema
 			expect(manifest).toContain(`"@ultimabase/${id}"`)
-			expect(application).toContain(`'@ultimabase/${id}'`)
-			expect(application).not.toContain('/src/')
+			expect(applicationGraphSource).toContain(`'@ultimabase/${id}'`)
+			expect(applicationGraphSource).not.toContain('/src/')
 			await symlink(
 				path.join(repositoryRoot, 'node_modules'),
 				path.join(destination, 'node_modules'),

@@ -2,6 +2,7 @@ import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 	PluginSchemaMutationTarget,
+	PluginSourceSchemaMutations,
 	SchemaDefinition,
 	SchemaItem,
 	SchemaResult,
@@ -83,11 +84,14 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 
+type SchemaMutationMap<TSchema extends SchemaDefinition> =
+	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
+
 /** Projects exact custom before-operation branches from the generated graph. */
 type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
 	readonly [
-		TCommand in keyof GeneratedMutationMap<TSchema>
-	]?: GeneratedMutationMap<TSchema>[TCommand] extends infer TMutation extends
+		TCommand in keyof SchemaMutationMap<TSchema>
+	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
 		PluginSchemaMutationDefinition
 		? HookHandlerDeclaration<SchemaMutationBeforeHook<TSchema, TMutation>>
 		: never
@@ -96,8 +100,8 @@ type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
 /** Projects exact custom after-operation branches from the generated graph. */
 type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> = {
 	readonly [
-		TCommand in keyof GeneratedMutationMap<TSchema>
-	]?: GeneratedMutationMap<TSchema>[TCommand] extends infer TMutation extends
+		TCommand in keyof SchemaMutationMap<TSchema>
+	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
 		PluginSchemaMutationDefinition
 		? HookHandlerDeclaration<SchemaMutationAfterHook<TSchema, TMutation>>
 		: never

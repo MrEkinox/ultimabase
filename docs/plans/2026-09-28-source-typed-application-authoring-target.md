@@ -5,6 +5,12 @@
 - Baseline revision: `3c130475`
 - Milestone: 63
 
+Implementation evidence in issue 6307 refined this target through ADR-0280:
+field Access, field Hooks, Validation, and other locally decidable surfaces stay
+source typed, while schema `access` and `hooks` remain public-type references in
+the sole generated application graph. Their complete callbacks cannot be
+contextualized safely before sibling fields and cross-schema names are known.
+
 This document freezes the developer experience approved before milestone 63 so
 implementation work cannot silently drift toward another facade, a permanent
 compatibility bridge, or a second plugin installation path. Current shipped
@@ -204,12 +210,14 @@ name resolution; no source registry, ambient augmentation owned by a plugin,
 or compatibility bridge may duplicate that map. Explicit `new App({ schemas:
 [...] })` registration remains the Runtime root.
 
-Plugin-added field builders, direct options, methods, schema mutations, model
-commands, and application operations are inferred directly from each installed
-plugin definition. A plugin author must not repeat those surfaces in a Typegen
-descriptor. Other existing generated schema contracts are retained until
-evidence proves that an individual contract is redundant; this milestone does
-not assume their removal merely to reach a line-count target.
+Plugin-added field builders, locally decidable direct options, methods, schema
+mutations, model commands, and application operations are inferred directly
+from each installed plugin definition. ADR-0280 retains structured descriptors
+only for schema Access and Hooks because their callbacks consume the completed
+graph; plugin authors do not write manual declarations or a second registry.
+Other existing generated schema contracts are retained until evidence proves
+that an individual contract is redundant; this milestone does not assume their
+removal merely to reach a line-count target.
 
 An absent plugin must remove its option, field method, and command from editor
 completion and produce a focused TypeScript diagnostic when used. Runtime must
@@ -244,13 +252,14 @@ graph, and the current generation workflow for exact named cross-schema
 contracts. The generated graph remains replaceable declaration output and
 never becomes Runtime truth.
 
-The milestone is not complete while a plugin-added field, option, method,
-mutation, command, or operation requires a parallel Typegen declaration.
-Superseded plugin projections must be removed rather than kept beside their
-source definitions. No reduced-capability source fallback, second name graph,
-manually maintained declaration, or per-plugin ambient augmentation may be
-introduced. Whether additional non-plugin Typegen output can later be removed
-is decided only from the final evidence.
+The milestone is not complete while a locally decidable plugin-added field,
+option, method, mutation, command, or operation requires a parallel Typegen
+declaration. ADR-0280's schema Access and Hooks descriptors are part of the sole
+completed application graph, not a parallel declaration path. Superseded plugin
+projections must be removed rather than kept beside their source definitions.
+No reduced-capability source fallback, second name graph, manually maintained
+declaration, or extra output may be introduced. Whether additional Typegen
+output can later be removed is decided only from final evidence.
 
 ## Complexity and performance gates
 

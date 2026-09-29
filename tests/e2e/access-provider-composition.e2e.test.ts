@@ -6,7 +6,6 @@ import {
 } from '@ultimabase/access-plugin'
 import {
 	RequestSubjectReference,
-	Schema,
 	UltimaBase,
 	requestRoleResolverCapability,
 	databaseAdapterCapability,
@@ -150,7 +149,10 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		],
 	})
 
-const NativeDocument = Schema.define({
+const AccessCompositionApplication =
+	UltimaBase.use(accessPlugin()).use(hooksPlugin())
+
+const NativeDocument = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionNativeDocument',
 	fields: (field) => ({
 		secret: field.string({ access: { read: false } }),
@@ -159,7 +161,7 @@ const NativeDocument = Schema.define({
 	access: { read: true },
 })
 
-const Principal = Schema.define({
+const Principal = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionPrincipal',
 	fields: () => ({}),
 })
@@ -176,7 +178,7 @@ const ACLRole = RoleSchema.define({
 })
 
 const publicACL = new ACL().grantPublic('read')
-const PublicACLPost = Schema.define({
+const PublicACLPost = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionPublicACLPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -185,7 +187,7 @@ const PublicACLPost = Schema.define({
 })
 
 const roleACL = new ACL().grantRole(editor, 'read')
-const CombinedPost = Schema.define({
+const CombinedPost = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionPost',
 	fields: (field) => ({
 		businessScope: field.string(),
@@ -319,7 +321,7 @@ const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 }
 
 let roleAwareBusinessHooks = 0
-const MissingRolePost = Schema.define({
+const MissingRolePost = AccessCompositionApplication.Schema.define({
 	className: 'AccessCompositionMissingRolePost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

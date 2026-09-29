@@ -1,7 +1,9 @@
 import {
 	type FieldOptionDefinition,
-	type FieldOptionValueCarrier,
 	type FieldOptionsValue,
+	type PluginSourceFieldOption,
+	type PluginSourceFieldOptionConstraint,
+	type SchemaOptionRuntimeRequirement,
 } from '@ultimabase/core'
 import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 
@@ -12,35 +14,8 @@ import {
 	type MutableFieldContainer,
 } from './standard-schema.js'
 
-type FieldOptionInput<TOptions> = Omit<TOptions, 'validation'>
-
-type FieldScalarForOptions<TOptions> =
-	FieldOptionInput<TOptions> extends FieldOptionValueCarrier<infer TValue>
-		? TValue
-		: never
-
-/**
- * Adds one Standard Schema V1 validator for a field's complete canonical value.
- *
- * `required` remains an independent Core option. Validation runs only for a
- * present non-null value when `validationPlugin()` is installed.
- *
- * @example
- * ```ts
- * title: field.string({
- *   required: true,
- *   validation: z.string().min(1),
- * })
- * ```
- */
-export type FieldValidationOption<TOptions> = [
-	FieldScalarForOptions<TOptions>,
-] extends [never]
-	? never
-	: FieldStandardSchema
-
 /** Checks the exact inferred validator contract without adding Runtime behavior to Core. */
-export type FieldValidationCompatibility<TOptions extends object, TValue> = [
+type FieldValidationCompatibility<TOptions extends object, TValue> = [
 	TValue,
 ] extends [never]
 	? false
@@ -56,20 +31,28 @@ export type FieldValidationCompatibility<TOptions extends object, TValue> = [
 			: false
 		: true
 
+interface SourceFieldValidationConstraint extends PluginSourceFieldOptionConstraint {
+	readonly valid: FieldValidationCompatibility<this['options'], this['value']>
+}
+
+/** Resolves and validates Standard Schema from the exact source field value. */
+type SourceFieldValidationOption = PluginSourceFieldOption<
+	FieldStandardSchema,
+	SourceFieldValidationConstraint
+>
+
 /** Owns the direct `validation` field option as an opaque executable artifact. */
-export const fieldValidationOption: FieldOptionDefinition<FieldStandardSchema> =
-	definePluginFieldOption({
-		contexts: ['stored', 'embedded'],
-		normalize: (value) => {
-			assertFieldStandardSchema(value)
-			return value
-		},
-		protocolVersion: 1,
-		typegen: {
-			compatibilityType: 'FieldValidationCompatibility',
-			generic: 'self',
-			module: '@ultimabase/validation-plugin',
-			type: 'FieldValidationOption',
-		},
-		valueKind: 'opaque',
-	})
+export const fieldValidationOption: FieldOptionDefinition<
+	FieldStandardSchema,
+	SchemaOptionRuntimeRequirement,
+	SourceFieldValidationOption
+> = definePluginFieldOption({
+	contexts: ['stored', 'embedded'],
+	normalize: (value) => {
+		assertFieldStandardSchema(value)
+		return value
+	},
+	protocolVersion: 1,
+	typegen: false,
+	valueKind: 'opaque',
+})

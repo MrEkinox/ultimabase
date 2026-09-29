@@ -1,34 +1,51 @@
 import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 import type { SchemaTypeInfo } from '../schema/type-info.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
-import type { PluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
 import type {
-	ApplicationModelSchemaMutationMethod,
-	ApplicationSchemaMutationMethod,
-} from '../application/application-schema-mutations.js'
-import type { SchemaClass } from '../schema/schema/definition.js'
+	SchemaClass,
+	SchemaDefinition,
+} from '../schema/schema/definition.js'
 import type { SchemaSelectorOptions } from './schema-patch-contracts.js'
 import type {
+	FieldDefinition,
+	FieldSourceOptionByKind,
+	FieldSourceObjectValue,
+	FieldSourceOpaque,
 	FieldSourceValue,
+	FieldTypegenState,
 	ResolveFieldSourceTemplate,
+	ResolveFieldTypegenState,
 } from '../schema/fields/base/contract.js'
+import type { RelationMutationDelta } from '../schema/relations/mutation.js'
+import type { ResolveSourceSchemaTemplate } from './source-schema-templates.js'
+
+export type {
+	PluginSourceMutationMethod,
+	PluginSourceSchemaFieldValues,
+	PluginSourceSchemaMutationCarrier,
+	PluginSourceSchemaMutations,
+} from './source-schema-templates.js'
 
 declare const pluginSourceReceiptType: unique symbol
-declare const pluginSourceMutationMethodType: unique symbol
+declare const pluginSourceRelationChangeType: unique symbol
 
 /** Substitutes the exact declared field value inside one plugin option template. */
 export type PluginSourceFieldValue = FieldSourceValue
 
-/** Defers one mutation method until the configured schema contract is known. */
-export interface PluginSourceMutationMethod<
-	TMutation extends PluginSchemaMutationDefinition,
-	TSurface extends 'model' | 'schema',
-> {
-	readonly [pluginSourceMutationMethodType]: Readonly<{
-		readonly mutation: TMutation
-		readonly surface: TSurface
-	}>
+/** Substitutes the exact persisted field value inside one plugin template. */
+export type PluginSourceFieldObjectValue = FieldSourceObjectValue
+
+/** Selects exact plugin field options without treating relations as values. */
+export type PluginSourceFieldOptionByKind<TValueOption, TRelationOption> =
+	FieldSourceOptionByKind<TValueOption, TRelationOption>
+
+/** Substitutes the exact logical relation mutation in one option template. */
+export interface PluginSourceRelationChange {
+	readonly [pluginSourceRelationChangeType]: true
 }
+
+/** Preserves one plugin-owned type while Core resolves neighboring source markers. */
+export type PluginSourceOpaque<TValue> = FieldSourceOpaque<TValue>
 
 /** Restricts one schema projection to exact logical class names when supplied. */
 export interface PluginSourceSchemaProjection<
@@ -124,12 +141,38 @@ export type PluginSourceContextSurface<
 		? TSurface
 		: Readonly<Record<never, never>>
 
-/** Adds exact plugin options to one existing contextual factory signature. */
-export type ConfigurePluginSourceFactory<TFactory, TSourceOptions> =
-	TFactory extends (...arguments_: infer TArguments) => infer TResult
+type ConfiguredPluginSourceFactoryResult<
+	TResult,
+	TDeclaredOptions extends object,
+> =
+	TResult extends FieldDefinition<
+		infer TKind,
+		infer TValue,
+		object,
+		FieldTypegenState,
+		infer TStructuralContainsOperand
+	>
+		? TResult &
+				FieldDefinition<
+					TKind,
+					TValue,
+					TDeclaredOptions,
+					ResolveFieldTypegenState<TDeclaredOptions>,
+					TStructuralContainsOperand
+				>
+		: TResult
+
+/** Adds exact plugin options without erasing field-factory option inference. */
+export type ConfigurePluginSourceFactory<TFactory, TSourceOptions> = [
+	keyof TSourceOptions,
+] extends [never]
+	? TFactory
+	: TFactory extends (...arguments_: infer TArguments) => infer TResult
 		? TArguments extends [infer TOptions extends object, ...infer TRest]
-			? ((options: TOptions & TSourceOptions, ...rest: TRest) => TResult) &
-					TFactory
+			? <const TDeclaredOptions extends TOptions & TSourceOptions>(
+					options: TDeclaredOptions,
+					...rest: TRest
+				) => ConfiguredPluginSourceFactoryResult<TResult, TDeclaredOptions>
 			: TFactory
 		: TFactory
 
@@ -182,40 +225,6 @@ export type MergePluginSourceState<
 			readonly schemaOptions:
 				TCurrent['schemaOptions'] | SchemaProjection<TAdded, 'schemaOptions'>
 		}
-
-type ResolveSourceTemplate<
-	TTemplate,
-	TContract extends SchemaTypeInfo,
-> = TTemplate extends PluginSourceFieldValue
-	? never
-	: TTemplate extends PluginSourceMutationMethod<
-				infer TMutation,
-				infer TSurface
-		  >
-		? TSurface extends 'schema'
-			? ApplicationSchemaMutationMethod<SchemaClass<TContract>, TMutation>
-			: ApplicationModelSchemaMutationMethod<SchemaClass<TContract>, TMutation>
-		: TTemplate extends (...arguments_: infer TArguments) => infer TResult
-			? (
-					...arguments_: {
-						[TIndex in keyof TArguments]: ResolveSourceTemplate<
-							TArguments[TIndex],
-							TContract
-						>
-					}
-				) => ResolveSourceTemplate<TResult, TContract>
-			: TTemplate extends Promise<infer TResult>
-				? Promise<ResolveSourceTemplate<TResult, TContract>>
-				: TTemplate extends readonly (infer TEntry)[]
-					? readonly ResolveSourceTemplate<TEntry, TContract>[]
-					: TTemplate extends object
-						? {
-								readonly [TKey in keyof TTemplate]: ResolveSourceTemplate<
-									TTemplate[TKey],
-									TContract
-								>
-							}
-						: TTemplate
 
 type ValueAtPath<TValue, TPath> = TPath extends readonly [
 	infer TKey extends PropertyKey,
@@ -312,60 +321,114 @@ type SchemaFieldSelectorMatches<
 				TOptions
 			>
 
-type ProjectionSelectorMatches<
-	TProjection,
+type ProjectionClassNamesMatch<
+	TClassNames extends readonly string[] | undefined,
+	TContract extends SchemaTypeInfo,
+> = undefined extends TClassNames
+	? true
+	: TContract['key'] extends Extract<TClassNames, readonly string[]>[number]
+		? true
+		: false
+
+type ProjectionSelectorMatch<
+	TSelector extends SchemaSelectorOptions | undefined,
 	TContract extends SchemaTypeInfo,
 	TOptions extends object,
-> =
-	TProjection extends Readonly<{ selector: infer TSelector }>
-		? SchemaSelectorMatches<TSelector, TContract, TOptions>
-		: true
+> = undefined extends TSelector
+	? true
+	: SchemaSelectorMatches<Exclude<TSelector, undefined>, TContract, TOptions>
 
 /** Resolves every matching schema template against one exact source contract. */
 export type ResolvePluginSchemaProjection<
 	TProjection,
 	TContract extends SchemaTypeInfo,
 	TOptions extends object = Readonly<Record<never, never>>,
-> =
-	UnionToIntersection<
-		TProjection extends Readonly<{ template: infer TTemplate extends object }>
-			? TProjection extends Readonly<{
-					classNames: infer TClassNames extends readonly string[]
-				}>
-				? TContract['key'] extends TClassNames[number]
-					? ProjectionSelectorMatches<
-							TProjection,
-							TContract,
-							TOptions
-						> extends true
-						? ResolveSourceTemplate<TTemplate, TContract>
+	TSchema extends SchemaDefinition = SchemaClass<TContract>,
+> = [TProjection] extends [never]
+	? Readonly<Record<never, never>>
+	: UnionToIntersection<
+				TProjection extends PluginSourceSchemaProjection<
+					infer TTemplate,
+					infer TClassNames,
+					infer TSelector
+				>
+					? ProjectionClassNamesMatch<TClassNames, TContract> extends true
+						? ProjectionSelectorMatch<
+								TSelector,
+								TContract,
+								TOptions
+							> extends true
+							? ResolveSourceSchemaTemplate<TTemplate, TContract, TSchema>
+							: object
 						: object
 					: object
-				: ProjectionSelectorMatches<
-							TProjection,
-							TContract,
-							TOptions
-					  > extends true
-					? ResolveSourceTemplate<TTemplate, TContract>
-					: object
-			: object
-	> extends infer TResolved extends object
+		  > extends infer TResolved extends object
 		? { readonly [TKey in keyof TResolved]: TResolved[TKey] }
 		: object
 
-/** Resolves field-option templates against one exact logical field value. */
-export type ResolvePluginFieldTemplate<TTemplate, TValue> =
-	ResolveFieldSourceTemplate<TTemplate, TValue>
+/** Resolves field-option templates against exact declared and persisted values. */
+export type ResolvePluginFieldTemplate<
+	TTemplate,
+	TValue,
+	TObjectValue = never,
+> = ResolveFieldSourceTemplate<TTemplate, TValue, TObjectValue>
 
 /** Resolves one contextual plugin-option surface for an exact field value. */
 export type ResolvePluginFieldSourceOptions<
 	TSource extends PluginSourceState,
 	TContext extends FieldDeclarationContext,
 	TValue,
+	TObjectValue = never,
 > = Extract<
 	ResolvePluginFieldTemplate<
 		PluginSourceContextSurface<TSource, TContext, 'fieldOptions'>,
-		TValue
+		TValue,
+		TObjectValue
+	>,
+	object
+>
+
+type ResolvePluginRelationTemplate<
+	TTemplate,
+	TTarget extends SchemaDefinition,
+> =
+	TTemplate extends FieldSourceOptionByKind<unknown, infer TRelationOption>
+		? ResolvePluginRelationTemplate<TRelationOption, TTarget>
+		: TTemplate extends PluginSourceRelationChange
+			? RelationMutationDelta<TTarget>
+			: TTemplate extends PluginSourceOpaque<infer TValue>
+				? TValue
+				: TTemplate extends (...arguments_: infer TArguments) => infer TResult
+					? (
+							...arguments_: {
+								[TIndex in keyof TArguments]: ResolvePluginRelationTemplate<
+									TArguments[TIndex],
+									TTarget
+								>
+							}
+						) => ResolvePluginRelationTemplate<TResult, TTarget>
+					: TTemplate extends Promise<infer TResult>
+						? Promise<ResolvePluginRelationTemplate<TResult, TTarget>>
+						: TTemplate extends PromiseLike<infer TResult>
+							? PromiseLike<ResolvePluginRelationTemplate<TResult, TTarget>>
+							: TTemplate extends readonly (infer TEntry)[]
+								? readonly ResolvePluginRelationTemplate<TEntry, TTarget>[]
+								: TTemplate extends object
+									? {
+											readonly [
+												TKey in keyof TTemplate
+											]: ResolvePluginRelationTemplate<TTemplate[TKey], TTarget>
+										}
+									: TTemplate
+
+/** Resolves relation-only field options against the retained target graph. */
+export type ResolvePluginRelationSourceOptions<
+	TSource extends PluginSourceState,
+	TTarget extends SchemaDefinition,
+> = Extract<
+	ResolvePluginRelationTemplate<
+		PluginSourceContextSurface<TSource, 'stored', 'fieldOptions'>,
+		TTarget
 	>,
 	object
 >

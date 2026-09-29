@@ -9,18 +9,18 @@ native deletes as tombstone updates. An `explicit` schema keeps native hard
 delete and gains a distinct `softDelete` command.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+)
+const Post = Application.Schema.define({
 	className: 'Post',
 	softDelete: 'explicit',
 	fields: (field) => ({ title: field.string() }),
 })
 
-const Application = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'disabled' }),
-)
 const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -28,8 +28,10 @@ const ultimabase = new Application({
 
 Importing the package has no effect. `softDeletePlugin()` must be present in the
 application plugin graph before Core recognizes the direct `softDelete` option.
-Typegen adds that option to authoring declarations, but the source declaration
-and compiled application graph remain Runtime truth.
+The configured factory projects the option, tombstone field, and applicable
+commands directly from the plugin declaration. Typegen remains responsible for
+the application-wide named schema graph; the compiled application remains
+Runtime truth.
 
 The runnable [`examples/minimal`](../../examples/minimal/README.md) application
 proves both modes, authenticated REST and GraphQL execution, direct generated

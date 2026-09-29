@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	plugin,
 	contributeApplication,
@@ -38,8 +37,12 @@ import {
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
 const hookTrace: string[] = []
+const RestMutationApplication = UltimaBase.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(accessPlugin({ default: true }))
+	.use(aclPlugin())
 
-const MutationPost = Schema.define({
+const MutationPost = RestMutationApplication.Schema.define({
 	className: 'RestMutationExecutionPost',
 	fields: (field) => ({
 		counter: field.int({ default: 0 }),

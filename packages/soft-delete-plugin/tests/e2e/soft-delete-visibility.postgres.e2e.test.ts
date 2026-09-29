@@ -5,13 +5,11 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	getOperationSchema,
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	plugin,
 	preparedOperation,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -20,26 +18,26 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const VisibleRecord = Schema.define({
+const SoftDeleteSchemaApplication = UltimaBase.use(accessPlugin())
+	.use(hooksPlugin())
+	.use(softDeletePlugin())
+
+const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteVisibleRecord'> & {
-	readonly softDelete: 'explicit'
 })
 
-const PlainRecord = Schema.define({
+const PlainRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeletePlainRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: false,
-} as SchemaOptions<'SoftDeletePlainRecord'> & {
-	readonly softDelete: false
 })
 
 const replaceDeleteTrace: string[] = []
 let rejectedDeleteTitle: string | undefined
 
-const ReplaceRecord = Schema.define({
+const ReplaceRecord = SoftDeleteSchemaApplication.Schema.define({
 	access: {
 		create: true,
 		delete: true,
@@ -71,8 +69,6 @@ const ReplaceRecord = Schema.define({
 		},
 	},
 	softDelete: 'replace-delete',
-} as SchemaOptions<'SoftDeleteReplaceRecord'> & {
-	readonly softDelete: 'replace-delete'
 })
 
 const replaceDeleteObserver = plugin({
@@ -117,8 +113,10 @@ const staleTombstoneWriter = plugin({
 			create: () => ({
 				value: preparedOperation({
 					schema: VisibleRecord,
-					handler: ({ operation }) => ({
-						operation: {
+					handler: ({ operation }) => {
+						// This deliberately malicious plugin crosses the typed AST boundary so
+						// final structural validation can prove the write is rejected.
+						const staleOperation: unknown = {
 							...operation,
 							update: {
 								...operation.update,
@@ -131,31 +129,29 @@ const staleTombstoneWriter = plugin({
 									},
 								],
 							},
-						},
-					}),
+						}
+
+						return { operation: staleOperation as typeof operation }
+					},
 				}),
 			}),
 		}),
 	],
 })
 
-const Author = Schema.define({
+const Author = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteVisibilityAuthor'> & {
-	readonly softDelete: 'explicit'
 })
 
-const Tag = Schema.define({
+const Tag = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteVisibilityTag'> & {
-	readonly softDelete: 'explicit'
 })
 
-const Article = Schema.define({
+const Article = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibilityArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'SoftDeleteVisibilityAuthor' }),
@@ -163,8 +159,6 @@ const Article = Schema.define({
 		title: field.string({ required: true }),
 	}),
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteVisibilityArticle'> & {
-	readonly softDelete: 'explicit'
 })
 
 const schemas = [
@@ -264,9 +258,15 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 
 	it('rejects caller tombstones and filters every ordinary read including Master', async () => {
 		const { database, ultimabase: app } = getFixture()
+		const createUntrustedVisibleRecord = VisibleRecord.createOne.bind(
+			VisibleRecord,
+		) as unknown as (
+			input: unknown,
+			options: Readonly<{ ultimabase: typeof app }>,
+		) => Promise<unknown>
 
 		await expect(
-			VisibleRecord.createOne(
+			createUntrustedVisibleRecord(
 				{ data: { isDeleted: true, title: 'forbidden' } },
 				{ ultimabase: app },
 			),
@@ -504,7 +504,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		)
 		const article = await Article.createOne(
 			{
-				data: { author: Author.pointer(author.id), title: 'relations' },
+				data: { author: { connect: author.id }, title: 'relations' },
 			},
 			{ ultimabase: app },
 		)

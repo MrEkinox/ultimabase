@@ -4,8 +4,8 @@ import {
 	increment,
 	MasterAuthority,
 	Pointer,
-	Schema,
 	UltimaBase,
+	type SchemaReference,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -17,20 +17,24 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const Owner = Schema.define({
+const ValidationApplication =
+	UltimaBase.use(hooksPlugin()).use(validationPlugin())
+
+const Owner = ValidationApplication.Schema.define({
 	className: 'SinglePassValidationOwner',
 	fields: (field) => ({ name: field.string({ required: true }) }),
 	postgres: { table: 'single_pass_validation_owners' },
 })
 
 const labelCalls: string[] = []
-const ownerCalls: Pointer<typeof Owner>[] = []
+type OwnerReference = SchemaReference<'SinglePassValidationOwner'>
+const ownerCalls: Pointer<OwnerReference>[] = []
 const scoreCalls: number[] = []
 // The sequential test tightens this application rule without changing storage shape.
 let maximumScore = 2
 
-const isOwnerPointer = (value: unknown): value is Pointer<typeof Owner> =>
-	Pointer.is(value) && value.schema === Owner
+const isOwnerPointer = (value: unknown): value is Pointer<OwnerReference> =>
+	Pointer.is(value) && value.schema.className === Owner.className
 
 const labelValidator: StandardSchemaV1<string> = {
 	'~standard': {
@@ -49,7 +53,7 @@ const labelValidator: StandardSchemaV1<string> = {
 	},
 }
 
-const ownerValidator: StandardSchemaV1<Pointer<typeof Owner>> = {
+const ownerValidator: StandardSchemaV1<Pointer<OwnerReference>> = {
 	'~standard': {
 		version: 1,
 		vendor: 'ultimabase-single-pass-e2e',
@@ -85,12 +89,12 @@ const scoreValidator: StandardSchemaV1<number> = {
 	},
 }
 
-const Item = Schema.define({
+const Item = ValidationApplication.Schema.define({
 	className: 'SinglePassValidationItem',
 	fields: (field) => ({
 		label: field.string({
 			hooks: {
-				resolveInput: ({ value }) => value?.trim().toLowerCase() ?? null,
+				resolveInput: ({ value }) => value.trim().toLowerCase(),
 			},
 			required: true,
 			validation: labelValidator,
@@ -140,19 +144,17 @@ describe(
 		it('validates final mutation values once and keeps reads structural', async () => {
 			maximumScore = 2
 			clearCalls()
-			const ultimabase = new UltimaBase({
+			const RuntimeApplication = ValidationApplication.use(
+				postgresPlugin({
+					pool: getFixture().pool,
+					schemaPolicy: 'override',
+				}),
+			)
+			const ultimabase = new RuntimeApplication({
 				masterAuthority: new MasterAuthority({
 					keys: [{ id: 'single-pass-validation-e2e', value: 'server-only' }],
 					onUse: () => undefined,
 				}),
-				plugins: [
-					hooksPlugin(),
-					validationPlugin(),
-					postgresPlugin({
-						pool: getFixture().pool,
-						schemaPolicy: 'override',
-					}),
-				],
 				schemas: [Owner, Item],
 			})
 			await ultimabase.start()
@@ -167,7 +169,7 @@ describe(
 					{
 						data: {
 							label: '  Pending Review  ',
-							owner: pointer,
+							owner: { connect: owner.id },
 							profile: { name: 'Ada' },
 						},
 					},

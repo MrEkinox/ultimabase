@@ -25,23 +25,24 @@ const createMasterAuthority = () =>
 	})
 // Preserve the original public-export scenarios under their contract owner.
 describe('official optional capability composition', () => {
-	// One orchestration table preserves both public provider contracts and Typegen checks.
+	// One orchestration table preserves both public provider contracts and proves
+	// that configured source typing replaced their field-option overlays.
 	it.each([
 		{
 			name: 'access',
 			create: accessPlugin,
 			privileges: ['schema:declare', 'runtime:constrain'] as const,
-			types: ['FieldAccessOption', 'SchemaAccessOption'],
+			removedTypes: ['FieldAccessOption'],
 		},
 		{
 			name: 'hooks',
 			create: hooksPlugin,
 			privileges: ['schema:declare', 'runtime:intercept'] as const,
-			types: ['FieldHooksOption', 'SchemaHooksOption'],
+			removedTypes: ['FieldHooksOption'],
 		},
 	])(
-		'proves $name manifest and Typegen contracts',
-		async ({ name, create, privileges, types }) => {
+		'proves $name manifest and source-owned option contracts',
+		async ({ name, create, privileges, removedTypes }) => {
 			const pluginId = `@ultimabase/${name}-plugin`
 			const suite = definePluginConformanceSuite({
 				createFixture: () => {
@@ -63,8 +64,8 @@ describe('official optional capability composition', () => {
 				withPluginTypegenConformance(suite, {
 					applicationId: `official-${name}-conformance`,
 					verify: ({ contents }) => {
-						for (const value of [pluginId, ...types])
-							expect(contents).toContain(value)
+						for (const value of removedTypes)
+							expect(contents).not.toContain(value)
 					},
 				}),
 			)

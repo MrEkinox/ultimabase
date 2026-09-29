@@ -38,8 +38,10 @@ the application that installs these plugins.
 - Set up [Generate TypeScript Types](/docs/1.0.0/guides/generate-types), including
   `typegenPlugin()`, the generated declaration in `tsconfig.json`, and the
   [pre-build generator](/docs/1.0.0/guides/generate-types#generate-before-building).
-  The `typecheck` and `build` scripts there regenerate the declaration before
-  checking plugin-owned field options. JavaScript Runtime does not require it.
+  The `typecheck` and `build` scripts there regenerate the retained relationship
+  and complete-schema callback graph. Field Hooks and Validation are inferred
+  directly from the configured source factory. JavaScript Runtime does not
+  require Typegen.
 
 ## Steps
 
@@ -75,28 +77,32 @@ pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 
 ### Configure the application with plugins
 
-Build one immutable application factory by chaining each plugin with `.use()`.
-The `typegenPlugin()` setup comes from the Typegen prerequisite:
+Build one immutable schema application factory by chaining each
+schema-authoring plugin with `.use()`. The `typegenPlugin()` setup comes from
+the Typegen prerequisite. Define Task from that factory so field Hooks and
+Validation are available directly from the installed plugin set:
 
-```ts title="src/ultimabase.ts"
+```ts title="src/schema.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
 
-import { Task } from './schema.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = UltimaBase.use(typegenPlugin())
-	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
+export const SchemaApplication = UltimaBase.use(typegenPlugin())
 	.use(hooksPlugin())
 	.use(validationPlugin())
 
-export const ultimabase = new Application({
-	schemas: [Task],
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			validation: z.string().min(1),
+		}),
+	}),
 })
 ```
 
@@ -109,25 +115,26 @@ plugin must exist and start first, `optionalDependencies` for that order only
 when it is installed, `peers` for compatible identity without ordering, and a
 versioned capability when several providers can supply the required behavior.
 
-### Declare the field behavior
+### Add the database provider
 
-Update the existing `Task` schema. The Hook runs before the final field
-validator, so Zod receives the trimmed title:
+Extend the same factory in `ultimabase.ts`; do not repeat Hooks or Validation.
+The Hook runs before the final field validator, so Zod receives the trimmed
+title:
 
-```ts title="src/schema.ts"
-import { Schema } from '@ultimabase/core'
-import { z } from 'zod'
+```ts title="src/ultimabase.ts"
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const Task = Schema.define({
-	className: 'Task',
-	fields: (f) => ({
-		done: f.boolean({ default: false }),
-		title: f.string({
-			required: true,
-			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
-			validation: z.string().min(1),
-		}),
-	}),
+import { SchemaApplication, Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Application = SchemaApplication.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
+	schemas: [Task],
 })
 ```
 

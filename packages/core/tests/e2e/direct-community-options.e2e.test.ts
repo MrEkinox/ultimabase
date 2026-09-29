@@ -24,8 +24,8 @@ describe('direct community plugin options', () => {
 		const UnknownFieldOption = Schema.define({
 			className: 'OpenKernelUnknownDecimalFieldOption',
 			fields: (field) => ({
-				// @ts-expect-error -- No generated community option contract is installed.
 				label: field.string({
+					// @ts-expect-error -- No generated community option contract is installed.
 					decimalLabel: { format: 'plain' },
 				}),
 			}),

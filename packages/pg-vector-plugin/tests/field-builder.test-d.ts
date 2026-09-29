@@ -1,43 +1,56 @@
 import { expectTypeOf, test } from 'vitest'
 
-import type { FieldBuilder } from '@ultimabase/core'
+import {
+	UltimaBase,
+	type FieldBuilder,
+	type SchemaItem,
+} from '@ultimabase/core'
 
 import {
 	pgVectorPlugin,
 	type PgVectorPlugin,
-	type VectorFieldBuilderMethod,
 	type VectorValue,
 } from '../src/index.js'
 
-declare const generatedField: FieldBuilder & {
-	readonly vector: VectorFieldBuilderMethod
-}
+const VectorApplication = UltimaBase.use(pgVectorPlugin())
+const VectorDocument = VectorApplication.Schema.define({
+	className: 'PgVectorSourceDocument',
+	fields: (field) => ({
+		embedding: field.vector({ dimensions: 3, required: true }),
+		embeddings: field.vector({ dimensions: 3, list: true }),
+	}),
+})
 
-test('types the generated vector method with the existing exact options', () => {
-	generatedField.vector({
-		dimensions: 3,
-		required: true,
-	})
+test('types the source vector method with the existing exact options', () => {
+	expectTypeOf(
+		VectorDocument.className,
+	).toEqualTypeOf<'PgVectorSourceDocument'>()
 	expectTypeOf<VectorValue>().toEqualTypeOf<readonly number[]>()
+	expectTypeOf<SchemaItem<typeof VectorDocument>['embedding']>().toEqualTypeOf<
+		readonly number[]
+	>()
+	expectTypeOf<SchemaItem<typeof VectorDocument>['embeddings']>().toEqualTypeOf<
+		readonly (readonly number[])[] | null
+	>()
 
-	generatedField.vector({
-		dimensions: 3,
-		list: true,
+	VectorApplication.Schema.define({
+		className: 'InvalidVectorDimensions',
+		fields: (field) => ({
+			embedding: field.vector({
+				// @ts-expect-error -- Dimensions remain numeric metadata.
+				dimensions: 'three',
+			}),
+		}),
 	})
-
-	// @ts-expect-error -- Dimensions remain numeric metadata.
-	generatedField.vector({ dimensions: 'three' })
-	generatedField.vector({
-		dimensions: 2,
-		// @ts-expect-error -- Defaults retain the vector's numeric value type.
-		default: ['one', 'two'],
-	})
-	generatedField.vector({
-		dimensions: 2,
-		validation: {
-			// @ts-expect-error -- Validation must implement Standard Schema V1.
-			nullable: true,
-		},
+	VectorApplication.Schema.define({
+		className: 'InvalidVectorDefault',
+		fields: (field) => ({
+			embedding: field.vector({
+				dimensions: 2,
+				// @ts-expect-error -- Defaults retain the vector's numeric value type.
+				default: ['one', 'two'],
+			}),
+		}),
 	})
 })
 

@@ -7,11 +7,14 @@ import {
 	type PluginFieldDefinition,
 	type PluginFieldFamilyDefinition,
 	type PointerValue,
+	type PluginSourceOpaque,
+	type PluginSourceSchemaFieldValues,
 	type RequestSubjectContext,
 	type SchemaDefinition,
 	type SchemaFieldBuilderDeclaration,
 	type SchemaFields,
 	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
 } from '@ultimabase/core'
 import {
 	immutableRecord,
@@ -231,6 +234,50 @@ export interface ACLSchemaOption<TOptions = unknown> {
 	readonly limits?: ACLSchemaLimits
 }
 
+type SourceACLData = PluginSourceSchemaFieldValues<typeof aclFieldName>
+
+interface SourceACLDefaultInput {
+	readonly context: PluginSourceOpaque<RequestSubjectContext>
+	readonly data: SourceACLData
+	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+}
+
+type SourceACLDefaultFactory = (
+	input: SourceACLDefaultInput,
+) => MaybePromise<PluginSourceOpaque<ACL>>
+
+interface SourceACLCreateInputResolution {
+	readonly context: PluginSourceOpaque<RequestSubjectContext>
+	readonly currentAcl: undefined
+	readonly currentData: undefined
+	readonly data: SourceACLData
+	readonly inputAcl: PluginSourceOpaque<ACL | undefined>
+	readonly operation: 'create'
+	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+	readonly update: undefined
+}
+
+interface SourceACLUpdateInputResolution {
+	readonly context: PluginSourceOpaque<RequestSubjectContext>
+	readonly currentAcl: PluginSourceOpaque<ACL>
+	readonly currentData: SourceACLData
+	readonly data: SourceACLData
+	readonly inputAcl: PluginSourceOpaque<ACL | undefined>
+	readonly operation: 'update'
+	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+	readonly update: PluginSourceOpaque<ACLNormalizedUpdateInput>
+}
+
+type SourceACLInputResolver = (
+	input: SourceACLCreateInputResolution | SourceACLUpdateInputResolution,
+) => MaybePromise<PluginSourceOpaque<ACL | undefined>>
+
+interface SourceACLSchemaOption {
+	readonly default?: PluginSourceOpaque<ACL> | SourceACLDefaultFactory
+	readonly limits?: ACLSchemaLimits
+	readonly resolveInput?: SourceACLInputResolver
+}
+
 /** Carries one trusted normalized direct ACL option. */
 export interface NormalizedACLSchemaOption<
 	TData extends Readonly<Record<string, unknown>> = Readonly<
@@ -292,17 +339,16 @@ export const normalizeACLSchemaOption = (
 }
 
 /** Owns the direct `acl` schema namespace as an opaque callback artifact. */
-export const aclSchemaOption: SchemaOptionDefinition<NormalizedACLSchemaOption> =
-	defineSchemaOption({
-		normalize: normalizeACLSchemaOption,
-		protocolVersion: 1,
-		typegen: {
-			generic: 'self',
-			module: '@ultimabase/acl-permissions-plugin',
-			type: 'ACLSchemaOption',
-		},
-		valueKind: 'opaque',
-	})
+export const aclSchemaOption: SchemaOptionDefinition<
+	NormalizedACLSchemaOption,
+	SchemaOptionRuntimeRequirement,
+	SourceACLSchemaOption
+> = defineSchemaOption({
+	normalize: normalizeACLSchemaOption,
+	protocolVersion: 1,
+	typegen: false,
+	valueKind: 'opaque',
+})
 
 /** Reads the exact normalized option occurrence from one compiled schema. */
 export const readACLSchemaOption = (

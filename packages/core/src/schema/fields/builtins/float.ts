@@ -102,7 +102,7 @@ export interface FloatFieldFactory<
 			DefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): DefaultedFloatField<TRequired, TList, TImmutable>
 	<
@@ -115,7 +115,7 @@ export interface FloatFieldFactory<
 			NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): NonDefaultedFloatField<TRequired, TList, TImmutable>
 }

@@ -190,7 +190,10 @@ export type NamedPointerFieldBuilderMethod<
 		Extract<
 			ResolveFieldSourceTemplate<
 				TSourceTemplate,
-				Pointer<SchemaReference<TTargetName>>
+				Pointer<SchemaReference<TTargetName>>,
+				TRequired extends true
+					? Pointer<SchemaReference<TTargetName>>
+					: Pointer<SchemaReference<TTargetName>> | null
 			>,
 			object
 		>

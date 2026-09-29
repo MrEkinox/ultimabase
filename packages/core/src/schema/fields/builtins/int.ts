@@ -138,7 +138,7 @@ export interface IntFieldFactory<
 			DefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
@@ -152,7 +152,7 @@ export interface IntFieldFactory<
 			NonDefaultedIntFieldOptions<TRequired, TList, TImmutable, TAutoIncrement>,
 			TExtensionOptions,
 			number,
-			ResolvedFieldSourceOptions<TSourceTemplate, number, TList>
+			ResolvedFieldSourceOptions<TSourceTemplate, number, TList, TRequired>
 		>,
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }

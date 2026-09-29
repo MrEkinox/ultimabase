@@ -149,7 +149,10 @@ interface EnumFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>
+					FieldListValue<EnumValue<TValues>, TList>,
+					TRequired extends true
+						? FieldListValue<EnumValue<TValues>, TList>
+						: FieldListValue<EnumValue<TValues>, TList> | null
 				>,
 				object
 			>
@@ -157,7 +160,7 @@ interface EnumFieldBuilderMethod<
 	): CompactScalarFieldDefinition<
 		'enum',
 		EnumValue<TValues>,
-		EnumFieldOptions<TValues>,
+		EnumFieldOptions<TValues> & TExtensionOptions,
 		TRequired,
 		TList,
 		TImmutable,
@@ -182,7 +185,10 @@ interface EnumFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>
+					FieldListValue<EnumValue<TValues>, TList>,
+					TRequired extends true
+						? FieldListValue<EnumValue<TValues>, TList>
+						: FieldListValue<EnumValue<TValues>, TList> | null
 				>,
 				object
 			>
@@ -190,7 +196,7 @@ interface EnumFieldBuilderMethod<
 	): CompactScalarFieldDefinition<
 		'enum',
 		EnumValue<TValues>,
-		EnumFieldOptions<TValues>,
+		EnumFieldOptions<TValues> & TExtensionOptions,
 		TRequired,
 		TList,
 		TImmutable,

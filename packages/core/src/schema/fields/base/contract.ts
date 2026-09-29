@@ -5,51 +5,40 @@ import type {
 	UltimaBaseGeneratedVirtualFieldOptions,
 } from '../../type-info.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
+import type {
+	CompatiblePluginSourceFieldOptions,
+	ResolveFieldSourceTemplate,
+} from './source-options.js'
+
+export type {
+	CompatiblePluginSourceFieldOptions,
+	FieldSourceObjectValue,
+	FieldSourceOpaque,
+	FieldSourceOptionByKind,
+	FieldSourceValue,
+	PluginSourceFieldOption,
+	PluginSourceFieldOptionConstraint,
+	ResolveFieldSourceTemplate,
+} from './source-options.js'
 
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
 declare const fieldStructuralContainsOperandMarker: unique symbol
 declare const fieldOptionsValueType: unique symbol
-declare const fieldSourceValueType: unique symbol
-
-/** Substitutes the exact declared field value inside one option template. */
-export interface FieldSourceValue {
-	readonly [fieldSourceValueType]: 'field-value'
-}
-
-/** Resolves one application-local option template for an exact field value. */
-export type ResolveFieldSourceTemplate<TTemplate, TValue> =
-	TTemplate extends FieldSourceValue
-		? TValue
-		: TTemplate extends (...arguments_: infer TArguments) => infer TResult
-			? (
-					...arguments_: {
-						[TIndex in keyof TArguments]: ResolveFieldSourceTemplate<
-							TArguments[TIndex],
-							TValue
-						>
-					}
-				) => ResolveFieldSourceTemplate<TResult, TValue>
-			: TTemplate extends Promise<infer TResult>
-				? Promise<ResolveFieldSourceTemplate<TResult, TValue>>
-				: TTemplate extends readonly (infer TEntry)[]
-					? readonly ResolveFieldSourceTemplate<TEntry, TValue>[]
-					: TTemplate extends object
-						? {
-								readonly [TKey in keyof TTemplate]: ResolveFieldSourceTemplate<
-									TTemplate[TKey],
-									TValue
-								>
-							}
-						: TTemplate
-
 /** Resolves one source option template against the scalar or list field value. */
 export type ResolvedFieldSourceOptions<
 	TTemplate,
 	TValue,
 	TList extends FieldListOption,
+	TRequired extends boolean = false,
 > = Extract<
-	ResolveFieldSourceTemplate<TTemplate, FieldListValue<TValue, TList>>,
+	ResolveFieldSourceTemplate<
+		TTemplate,
+		FieldListValue<TValue, TList>,
+		TRequired extends true
+			? FieldListValue<TValue, TList>
+			: FieldListValue<TValue, TList> | null
+	>,
 	object
 >
 
@@ -257,20 +246,6 @@ type OptionObjectKeysAreCompatible<TDeclared, TAllowed> =
 
 type SourceOptionKeys<TSourceOptions extends object> = keyof TSourceOptions
 
-type SourceOptionsAreExact<
-	TExtensionOptions extends object,
-	TSourceOptions extends object,
-> = false extends {
-	readonly [
-		TKey in Extract<keyof TExtensionOptions, SourceOptionKeys<TSourceOptions>>
-	]: OptionObjectKeysAreCompatible<
-		TExtensionOptions[TKey],
-		TKey extends keyof TSourceOptions ? TSourceOptions[TKey] : never
-	>
-}[Extract<keyof TExtensionOptions, SourceOptionKeys<TSourceOptions>>]
-	? false
-	: true
-
 type GeneratedNonCompatibilityOptionsAreExact<
 	TExtensionOptions extends object,
 	TOptions extends object,
@@ -354,33 +329,20 @@ export type CompatibleFieldOptionsExtension<
 				> extends true
 					? Readonly<Record<never, never>>
 					: never)
-	: TBaseOptions &
+	: Omit<TBaseOptions, keyof TSourceOptions> &
 			TSourceOptions &
 			TExtensionOptions &
 			(Exclude<
 				keyof TExtensionOptions,
-				keyof (TBaseOptions & TSourceOptions)
+				keyof TBaseOptions | keyof TSourceOptions
 			> extends never
 				? unknown
 				: never) &
-			(SourceOptionsAreExact<TExtensionOptions, TSourceOptions> extends true
-				? unknown
-				: never) &
-			([GeneratedCompatibilityOptionKeys<TBaseOptions, TValue>] extends [never]
-				? Readonly<Record<never, never>>
-				: (GeneratedNonCompatibilityOptionsAreExact<
-						TExtensionOptions,
-						TBaseOptions,
-						TValue
-					> extends true
-						? Readonly<Record<never, never>>
-						: never) &
-						(GeneratedFieldOptionsAreCompatible<
-							TBaseOptions & TExtensionOptions,
-							TValue
-						> extends true
-							? Readonly<Record<never, never>>
-							: never))
+			CompatiblePluginSourceFieldOptions<
+				TSourceOptions,
+				TBaseOptions & TExtensionOptions,
+				TValue
+			>
 
 type FieldOptionsList<TOptions> = TOptions extends {
 	readonly list: infer TList extends FieldList

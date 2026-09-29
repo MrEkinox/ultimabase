@@ -232,7 +232,10 @@ export interface EmbeddedEnumFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>
+					FieldListValue<EnumValue<TValues>, TList>,
+					TRequired extends true
+						? FieldListValue<EnumValue<TValues>, TList>
+						: FieldListValue<EnumValue<TValues>, TList> | null
 				>,
 				object
 			>
@@ -265,7 +268,10 @@ export interface EmbeddedEnumFieldFactory<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>
+					FieldListValue<EnumValue<TValues>, TList>,
+					TRequired extends true
+						? FieldListValue<EnumValue<TValues>, TList>
+						: FieldListValue<EnumValue<TValues>, TList> | null
 				>,
 				object
 			>

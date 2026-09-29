@@ -5,7 +5,12 @@ import {
 	provideHookEvent,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
-import { plugin, Schema, type SchemaDefinition } from '@ultimabase/core'
+import {
+	plugin,
+	Schema,
+	UltimaBase,
+	type SchemaDefinition,
+} from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -19,6 +24,7 @@ interface HooksConformanceEvidence {
 }
 
 const hooksEvidence = new WeakMap<object, HooksConformanceEvidence>()
+const HooksApplication = UltimaBase.use(hooksPlugin())
 
 const assertImmutable = (value: unknown, label: string): void => {
 	if (
@@ -34,7 +40,7 @@ const assertImmutable = (value: unknown, label: string): void => {
 export const createOfficialHooksConformanceFixture = () => {
 	const trace: string[] = []
 	const database = new OfficialConformanceDatabase(new Map(), trace)
-	const Article = Schema.define({
+	const Article = HooksApplication.Schema.define({
 		className: 'OfficialHooksBehaviorConformanceArticle',
 		fields: (field) => ({
 			title: field.string({
@@ -42,7 +48,7 @@ export const createOfficialHooksConformanceFixture = () => {
 					resolveInput: (input) => {
 						assertImmutable(input, 'field input')
 						trace.push('developer:field')
-						return input.value === null ? null : input.value.trim()
+						return input.value.trim()
 					},
 				},
 				required: true,

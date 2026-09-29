@@ -4,7 +4,6 @@ import {
 	MasterAuthority,
 	RequestContext,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	plugin,
 	requestSources,
@@ -20,11 +19,15 @@ import {
 import { provideTestPrincipalResolver } from '../../../../tests/fixtures/access-capability-fixtures.js'
 import { requireACLValue } from './acl-test-fixtures.js'
 
-const PrincipalA = Schema.define({
+const ACLCompositionApplication = UltimaBase.use(accessPlugin())
+	.use(hooksPlugin())
+	.use(aclPlugin())
+
+const PrincipalA = ACLCompositionApplication.Schema.define({
 	className: 'ACLCompositionPrincipalA',
 	fields: () => ({}),
 })
-const PrincipalB = Schema.define({
+const PrincipalB = ACLCompositionApplication.Schema.define({
 	className: 'ACLCompositionPrincipalB',
 	fields: () => ({}),
 })
@@ -69,7 +72,7 @@ const identityPlugin = plugin({
 })
 
 const emptyACL = new ACL()
-const Document = Schema.define({
+const Document = ACLCompositionApplication.Schema.define({
 	className: 'ACLCompositionDocument',
 	fields: (field) => ({
 		hookScope: field.string({ default: 'allowed' }),
@@ -77,8 +80,7 @@ const Document = Schema.define({
 		secret: field.string({ access: { read: false } }),
 		title: field.string({
 			hooks: {
-				resolveInput: ({ value }) =>
-					value === null ? null : value.trim().toLowerCase(),
+				resolveInput: ({ value }) => value.trim().toLowerCase(),
 			},
 			required: true,
 		}),

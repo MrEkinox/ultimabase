@@ -4,8 +4,10 @@ Optional official lifecycle Hooks for UltimaBase.
 
 The package contains both the public authoring contract and its Runtime engine.
 Importing it does not install behavior; add `hooksPlugin()` to the application
-`.use()` chain. Applications that omit it expose no official `hooks` schema or
-field option through generated types.
+`.use()` chain. The configured factory exposes field `hooks` directly from
+source. Schema `hooks` callbacks use the retained Typegen graph because their
+exact items, operations, relationships, and plugin mutation keys require the
+completed application contract; factories that omit the plugin expose neither.
 
 The field-level `hooks` option is available on stored fields and recursively
 embedded object properties. It is intentionally absent from virtual wrappers
@@ -13,10 +15,11 @@ and output descriptors because those values never participate in mutation input
 resolution.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(hooksPlugin())
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 	hooks: {
@@ -28,7 +31,6 @@ const Post = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(hooksPlugin())
 const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -38,9 +40,8 @@ const ultimabase = new Application({
 
 The root export has three deliberate groups:
 
-- **Application API:** `hooksPlugin`, `HookContext`, `defineEvent`, generated
-  `SchemaHooksOption` and `FieldHooksOption` contracts, and the schema or field
-  callback types used for explicit annotations.
+- **Application API:** `hooksPlugin`, `HookContext`, `defineEvent`, and the
+  schema or field callback types used for explicit annotations.
 - **Compatible-provider contract:** `hookContributionsCapability`,
   `provideHookContributions`, `globalHooks`, `schemaHooks`, `fieldHooks`, the
   typed field-path and phase contracts, plus
@@ -108,16 +109,17 @@ public-package suite.
 
 ## Plugin-owned schema mutations
 
-Typegen adds every application-specific schema mutation to the same grouped
-`beforeOperation` and `afterOperation` lifecycle. Both request and Master-only
-commands are present because trusted maintenance operations still retain
-business Hooks:
+Typegen projects every schema mutation in the compiled graph into the same
+grouped `beforeOperation` and `afterOperation` callback contract. The Runtime
+declaration remains source-owned. Both request and Master-only commands are
+present because trusted maintenance operations still retain business Hooks:
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(hooksPlugin())
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 	hooks: {
@@ -135,7 +137,6 @@ const Post = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(hooksPlugin())
 const ultimabase = new Application({
 	schemas: [Post],
 })

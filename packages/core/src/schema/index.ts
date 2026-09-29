@@ -113,9 +113,11 @@ export type {
 	CompatibleFieldOptions,
 	CompatibleFieldOptionsExtension,
 	CompatibleFieldOptionsInput,
+	CompatiblePluginSourceFieldOptions,
 	FieldTypegenPresence,
 	FieldTypegenState,
 	FieldTypegenStateOf,
+	ForbiddenMutationInputField,
 	GenericField,
 	FieldList,
 	FieldListOption,
@@ -123,6 +125,8 @@ export type {
 	FieldOptionValueCarrier,
 	FieldOptions,
 	FieldOptionsValue,
+	PluginSourceFieldOption,
+	PluginSourceFieldOptionConstraint,
 	FieldScalarValue,
 	FieldStructuralContainsOperand,
 	FieldValue,
@@ -191,6 +195,10 @@ export type {
 } from './nested-writes/contracts.js'
 export type {
 	BaseItem,
+	ConfiguredFieldDeclaration,
+	ConfiguredSchemaDeclarationOptions,
+	ConfiguredSchemaNamespace,
+	ConfiguredSchemaResult,
 	SchemaAPI,
 	SchemaClass,
 	SchemaClassCapabilities,
@@ -205,6 +213,7 @@ export type {
 	SchemaOptions,
 	SchemaStaticCapabilities,
 } from './schema/definition.js'
+export type { ReservedSchemaFieldCollision } from './schema/reserved-field-names.js'
 export type {
 	AppliedSchemaPatchProvenance,
 	ApplicationSchemaContributionOwner,

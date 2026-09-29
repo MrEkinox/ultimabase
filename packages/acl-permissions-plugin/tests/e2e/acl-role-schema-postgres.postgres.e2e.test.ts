@@ -3,7 +3,6 @@ import {
 	MasterAuthority,
 	RequestContext,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	plugin,
 	requestSources,
@@ -30,7 +29,8 @@ const currentMemberId = new RequestContextValue<string>(
 		return value
 	},
 )
-const Member = Schema.define({
+const ACLRoleSchemaApplication = UltimaBase.use(rolesPlugin()).use(aclPlugin())
+const Member = ACLRoleSchemaApplication.Schema.define({
 	className: 'ACLRoleSchemaMember',
 	fields: (field) => ({
 		email: field.string({ required: true }),
@@ -52,7 +52,7 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const AppRole = RoleSchema.define({
+const AppRole = RoleSchema.define(ACLRoleSchemaApplication.Schema, {
 	className: 'ACLProtectedAppRole',
 	deletion: { references: 'fail' },
 	fields: (field) => ({ description: field.string() }),

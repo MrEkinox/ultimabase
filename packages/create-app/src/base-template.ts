@@ -21,6 +21,7 @@ import {
 	securityReadmeNotes,
 	securitySchemaDeclarations,
 	securitySchemaImports,
+	securitySchemaPluginEntries,
 	securitySchemaNames,
 	taskSecurityOptions,
 } from './security-template.js'
@@ -37,9 +38,7 @@ const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
 
 const applicationSchemaImport = (plan: InitializerPlan): string => {
 	const names = applicationSchemaNames(plan)
-	return names.length === 0
-		? ''
-		: `import { ${names.join(', ')} } from './schema.js'\n`
+	return `import { SchemaApplication${names.length === 0 ? '' : `, ${names.join(', ')}`} } from './schema.js'\n`
 }
 
 const scriptCommand = (
@@ -75,45 +74,73 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 
 const applicationSource = (
 	plan: InitializerPlan,
-): string => `import { UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+): string => `import { postgresPlugin } from '@ultimabase/postgres-plugin'
 ${securityApplicationImports(plan).join('\n')}
 ${apiApplicationImports(plan).join('\n')}
-${includes(plan, 'hooks-plugin') ? "import { hooksPlugin } from '@ultimabase/hooks-plugin'\n" : ''}
-${includes(plan, 'pg-vector-plugin') ? "import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'\n" : ''}
-${includes(plan, 'soft-delete-plugin') ? "import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'\n" : ''}
-${includes(plan, 'validation-plugin') ? "import { validationPlugin } from '@ultimabase/validation-plugin'\n" : ''}
-${plan.typegen ? "import { typegenPlugin } from '@ultimabase/typegen'\n" : ''}
 ${applicationSchemaImport(plan)}
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 ${securityMasterSource(plan)}
 ${securityPolicySource(plan)}
 
+const Application = SchemaApplication${[
+	...securityPluginEntries(plan),
+	"postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })",
+	...apiPluginEntries(plan),
+]
+	.map((entry) => `\n  .use(${entry})`)
+	.join('')}
+
 // Override synchronization is only suitable for this disposable development database.
-export const ultimabase = new UltimaBase({
+export const ultimabase = new Application({
   schemas: [${applicationSchemaNames(plan).join(', ')}],
 ${securityApplicationOption(plan)}
-  plugins: [
-${plan.typegen ? '    typegenPlugin(),\n' : ''}${includes(plan, 'hooks-plugin') ? '    hooksPlugin(),\n' : ''}${includes(plan, 'pg-vector-plugin') ? '    pgVectorPlugin(),\n' : ''}${includes(plan, 'soft-delete-plugin') ? "    softDeletePlugin({ defaultMode: 'disabled' }),\n" : ''}${includes(plan, 'validation-plugin') ? '    validationPlugin(),\n' : ''}${securityPluginEntries(
-	plan,
-)
-	.map((entry) => `    ${entry},\n`)
-	.join('')}    postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-${apiPluginEntries(plan)
-	.map((entry) => `    ${entry},\n`)
-	.join('')}
-  ],
 })
 `
 
+const schemaPluginImports = (plan: InitializerPlan): readonly string[] => [
+	...(plan.typegen
+		? ["import { typegenPlugin } from '@ultimabase/typegen'"]
+		: []),
+	...(includes(plan, 'hooks-plugin')
+		? ["import { hooksPlugin } from '@ultimabase/hooks-plugin'"]
+		: []),
+	...(includes(plan, 'pg-vector-plugin')
+		? ["import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'"]
+		: []),
+	...(includes(plan, 'soft-delete-plugin')
+		? ["import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'"]
+		: []),
+	...(includes(plan, 'validation-plugin')
+		? ["import { validationPlugin } from '@ultimabase/validation-plugin'"]
+		: []),
+	...securitySchemaImports(plan),
+]
+
+const schemaPluginEntries = (plan: InitializerPlan): readonly string[] => [
+	...(plan.typegen ? ['typegenPlugin()'] : []),
+	...(includes(plan, 'hooks-plugin') ? ['hooksPlugin()'] : []),
+	...(includes(plan, 'pg-vector-plugin') ? ['pgVectorPlugin()'] : []),
+	...(includes(plan, 'soft-delete-plugin')
+		? ["softDeletePlugin({ defaultMode: 'disabled' })"]
+		: []),
+	...(includes(plan, 'validation-plugin') ? ['validationPlugin()'] : []),
+	...securitySchemaPluginEntries(plan),
+]
+
+const schemaApplicationSource = (plan: InitializerPlan): string => {
+	const entries = schemaPluginEntries(plan)
+	return `export const SchemaApplication = UltimaBase${entries
+		.map((entry) => `\n  .use(${entry})`)
+		.join('')}`
+}
+
 const baseSchemaSource = (plan: InitializerPlan): string =>
 	plan.starter === 'task'
-		? `import { Schema } from '@ultimabase/core'
-${includes(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
+		? `${includes(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
 
 // The same declaration drives TypeScript inference and Runtime validation.
-export const Task = Schema.define({
+export const Task = SchemaApplication.Schema.define({
   className: 'Task',
 ${includes(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete',\n" : ''}
 ${taskSecurityOptions(plan)}
@@ -130,16 +157,12 @@ export {}
 `
 
 const schemaSource = (plan: InitializerPlan): string => {
-	const needsSchemaImport =
-		plan.starter === 'empty' &&
-		includes(plan, 'roles-plugin') &&
-		!includes(plan, 'password-auth-plugin')
 	const imports = [
-		...(needsSchemaImport ? ["import { Schema } from '@ultimabase/core'"] : []),
-		...securitySchemaImports(plan),
+		"import { UltimaBase } from '@ultimabase/core'",
+		...schemaPluginImports(plan),
 	]
 	const declarations = securitySchemaDeclarations(plan)
-	return `${imports.join('\n')}\n${baseSchemaSource(plan)}\n${declarations}\n`
+	return `${imports.join('\n')}\n\n${schemaApplicationSource(plan)}\n\n${baseSchemaSource(plan)}\n${declarations}\n`
 }
 
 const taskCommand = (plan: InitializerPlan): string =>

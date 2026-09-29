@@ -5,7 +5,11 @@ import {
 	setSchemaFieldOption,
 	setSchemaOption,
 	type AddSchemaConstraintOperation,
+	type AddSchemaFieldOperation,
 	type AddSchemaFieldOptions,
+	type AddSchemaIndexOperation,
+	type ForbiddenMutationInputField,
+	type GenericField,
 	type JsonValue,
 	type SchemaPatchOperation,
 	type SchemaSelection,
@@ -49,11 +53,13 @@ export type SetPatchFieldOptionOptions = Omit<
  *
  * @example `schemaPatch().addField({ contributionId: 'state', name: 'state', field })`
  */
-export class SchemaPatchBuilder {
-	readonly operations: readonly SchemaPatchOperation[]
+export class SchemaPatchBuilder<
+	TOperations extends readonly SchemaPatchOperation[] = readonly [],
+> {
+	readonly operations: TOperations
 
-	private constructor(operations: readonly SchemaPatchOperation[]) {
-		this.operations = immutableArray(operations)
+	private constructor(operations: TOperations) {
+		this.operations = immutableArray(operations) as TOperations
 		Object.freeze(this)
 	}
 
@@ -63,31 +69,62 @@ export class SchemaPatchBuilder {
 	}
 
 	/** Adds one logical field through Core's validated patch factory. */
-	addField(options: AddPatchFieldOptions): SchemaPatchBuilder {
+	addField<
+		const TName extends string,
+		const TField extends GenericField,
+		const TMutationInput extends 'forbidden' | undefined = undefined,
+	>(
+		options: AddSchemaFieldOptions<TName, TField> &
+			Readonly<{ mutationInput?: TMutationInput }>,
+	): SchemaPatchBuilder<
+		readonly [
+			...TOperations,
+			AddSchemaFieldOperation<
+				TName,
+				TMutationInput extends 'forbidden'
+					? ForbiddenMutationInputField<TField>
+					: TField
+			>,
+		]
+	> {
 		return this.append(addSchemaField(options))
 	}
 
 	/** Adds one composite index through Core's validated patch factory. */
-	addIndex(options: AddPatchIndexOptions): SchemaPatchBuilder {
+	addIndex(
+		options: AddPatchIndexOptions,
+	): SchemaPatchBuilder<readonly [...TOperations, AddSchemaIndexOperation]> {
 		return this.append(addSchemaIndex(options))
 	}
 
 	/** Adds one portable constraint through Core's validated patch factory. */
-	addConstraint(options: AddPatchConstraintOptions): SchemaPatchBuilder {
+	addConstraint(
+		options: AddPatchConstraintOptions,
+	): SchemaPatchBuilder<
+		readonly [...TOperations, AddSchemaConstraintOperation]
+	> {
 		return this.append(addSchemaConstraint(options))
 	}
 
 	/** Sets one plugin-owned schema option through Core's validated patch factory. */
-	setSchemaOption(options: SetPatchSchemaOptionOptions): SchemaPatchBuilder {
+	setSchemaOption(
+		options: SetPatchSchemaOptionOptions,
+	): SchemaPatchBuilder<readonly [...TOperations, SetSchemaOptionOperation]> {
 		return this.append(setSchemaOption(options))
 	}
 
 	/** Sets one plugin-owned field option through Core's validated patch factory. */
-	setFieldOption(options: SetPatchFieldOptionOptions): SchemaPatchBuilder {
+	setFieldOption(
+		options: SetPatchFieldOptionOptions,
+	): SchemaPatchBuilder<
+		readonly [...TOperations, SetSchemaFieldOptionOperation]
+	> {
 		return this.append(setSchemaFieldOption(options))
 	}
 
-	private append(operation: SchemaPatchOperation): SchemaPatchBuilder {
+	private append<const TOperation extends SchemaPatchOperation>(
+		operation: TOperation,
+	): SchemaPatchBuilder<readonly [...TOperations, TOperation]> {
 		return new SchemaPatchBuilder([...this.operations, operation])
 	}
 }
@@ -99,17 +136,25 @@ export class SchemaPatchBuilder {
 export const schemaPatch = (): SchemaPatchBuilder => SchemaPatchBuilder.create()
 
 /** Binds one immutable patch to a selection for `schemas.patch(...)`. */
-export interface PatchSchemasOptions {
-	readonly patch: SchemaPatchBuilder
+export interface PatchSchemasOptions<
+	TOperations extends readonly SchemaPatchOperation[] =
+		readonly SchemaPatchOperation[],
+	TSelection extends SchemaSelection = SchemaSelection,
+> {
+	readonly patch: SchemaPatchBuilder<TOperations>
 	readonly staticOptions?: Readonly<Record<string, JsonValue>>
-	readonly targets: SchemaSelection
+	readonly targets: TSelection
 }
 
 /** Contains the exact inert declaration accepted by Core's owner-bound registrar. */
-export interface SchemaPatchDeclaration {
-	readonly operations: readonly SchemaPatchOperation[]
+export interface SchemaPatchDeclaration<
+	TOperations extends readonly SchemaPatchOperation[] =
+		readonly SchemaPatchOperation[],
+	TSelection extends SchemaSelection = SchemaSelection,
+> {
+	readonly operations: TOperations
 	readonly staticOptions?: Readonly<Record<string, JsonValue>>
-	readonly targets: SchemaSelection
+	readonly targets: TSelection
 }
 
 /**
@@ -123,9 +168,12 @@ export interface SchemaPatchDeclaration {
  * }))
  * ```
  */
-export const patchSchemas = (
-	options: PatchSchemasOptions,
-): SchemaPatchDeclaration => {
+export const patchSchemas = <
+	const TOperations extends readonly SchemaPatchOperation[],
+	const TSelection extends SchemaSelection,
+>(
+	options: PatchSchemasOptions<TOperations, TSelection>,
+): SchemaPatchDeclaration<TOperations, TSelection> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('schema patch binding must be a plain object')
 	}

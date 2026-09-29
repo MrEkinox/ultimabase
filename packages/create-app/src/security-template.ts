@@ -19,18 +19,36 @@ export const needsMasterKey = (plan: InitializerPlan): boolean =>
 export const securitySchemaImports = (
 	plan: InitializerPlan,
 ): readonly string[] => [
+	...(has(plan, 'access-plugin')
+		? ["import { accessPlugin } from '@ultimabase/access-plugin'"]
+		: []),
 	...(has(plan, 'acl-permissions-plugin')
-		? ["import { ACL } from '@ultimabase/acl-permissions-plugin'"]
+		? ["import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'"]
 		: []),
 	...(has(plan, 'password-auth-plugin')
 		? ["import { PasswordUserSchema } from '@ultimabase/password-auth-plugin'"]
 		: []),
 	...(has(plan, 'roles-plugin')
-		? ["import { RoleSchema } from '@ultimabase/roles-plugin'"]
+		? ["import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'"]
 		: []),
 	...(has(plan, 'roles-plugin') && has(plan, 'password-auth-plugin')
 		? ["import { passwordPrincipal } from '@ultimabase/password-auth-plugin'"]
 		: []),
+]
+
+/** Installs security plugins once on the schema-owning application factory. */
+export const securitySchemaPluginEntries = (
+	plan: InitializerPlan,
+): readonly string[] => [
+	...(has(plan, 'access-plugin')
+		? [
+				has(plan, 'password-auth-plugin')
+					? 'accessPlugin({ default: { read: true } })'
+					: 'accessPlugin()',
+			]
+		: []),
+	...(has(plan, 'acl-permissions-plugin') ? ['aclPlugin()'] : []),
+	...(has(plan, 'roles-plugin') ? ['rolesPlugin()'] : []),
 ]
 
 export const securitySchemaDeclarations = (plan: InitializerPlan): string => {
@@ -44,7 +62,7 @@ export const AppUser = PasswordUserSchema.define({
 	}
 	if (has(plan, 'roles-plugin') && !has(plan, 'password-auth-plugin')) {
 		declarations.push(`// A local member model keeps Roles useful without installing authentication.
-export const Member = Schema.define({
+export const Member = SchemaApplication.Schema.define({
   className: 'Member',
 ${privateSchemaApiOptions(plan)}
   fields: (f) => ({ name: f.string({ required: true }) }),
@@ -56,7 +74,7 @@ ${privateSchemaApiOptions(plan)}
 			? ',\n    resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user'
 			: ''
 		declarations.push(`// Role membership is data, not an authorization grant by itself.
-export const AppRole = RoleSchema.define({
+export const AppRole = RoleSchema.define(SchemaApplication.Schema, {
   className: 'Role',
 ${privateSchemaApiOptions(plan)}
   members: { schema: ${member}${resolveCurrent} },
@@ -92,15 +110,10 @@ export const securityApplicationImports = (
 	...(needsMasterKey(plan)
 		? ["import { MasterAuthority } from '@ultimabase/core'"]
 		: []),
-	...(has(plan, 'access-plugin')
+	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
 		? [
-				has(plan, 'password-auth-plugin')
-					? "import { accessPlugin, provideAccessContributions, schemaAccess } from '@ultimabase/access-plugin'"
-					: "import { accessPlugin } from '@ultimabase/access-plugin'",
+				"import { provideAccessContributions, schemaAccess } from '@ultimabase/access-plugin'",
 			]
-		: []),
-	...(has(plan, 'acl-permissions-plugin')
-		? ["import { aclPlugin } from '@ultimabase/acl-permissions-plugin'"]
 		: []),
 	...(has(plan, 'password-auth-plugin')
 		? ["import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'"]
@@ -110,9 +123,6 @@ export const securityApplicationImports = (
 				"import { plugin } from '@ultimabase/core'",
 				"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
 			]
-		: []),
-	...(has(plan, 'roles-plugin')
-		? ["import { rolesPlugin } from '@ultimabase/roles-plugin'"]
 		: []),
 ]
 
@@ -129,16 +139,12 @@ export const securitySchemaNames = (
 export const securityPluginEntries = (
 	plan: InitializerPlan,
 ): readonly string[] => [
-	...(has(plan, 'access-plugin')
-		? has(plan, 'password-auth-plugin')
-			? ['accessPlugin({ default: { read: true } })', 'profilePolicy']
-			: ['accessPlugin()']
+	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+		? ['profilePolicy']
 		: []),
-	...(has(plan, 'acl-permissions-plugin') ? ['aclPlugin()'] : []),
 	...(has(plan, 'password-auth-plugin')
 		? ['passwordAuthPlugin({ user: AppUser })']
 		: []),
-	...(has(plan, 'roles-plugin') ? ['rolesPlugin()'] : []),
 ]
 
 /** Plugin-owned and claimed schemas use attributed contributions instead of inline Access. */

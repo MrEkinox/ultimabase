@@ -8,7 +8,7 @@ order: 5
 outcome: Compose role membership with Access or ACL without treating membership as a grant.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/roles-plugin/README.md
   - packages/access-plugin/README.md
@@ -72,14 +72,14 @@ Authentication principal points to the same `PasswordUser` class declared in
 `members.schema`, so `hasRole()` can evaluate the caller's membership:
 
 ```ts title="src/roles.ts"
-import { Schema } from '@ultimabase/core'
 import {
 	PasswordUser,
 	passwordPrincipal,
 } from '@ultimabase/password-auth-plugin'
 import { RoleSchema, hasRole } from '@ultimabase/roles-plugin'
+import { Application } from './application.js'
 
-export const AppRole = RoleSchema.define({
+export const AppRole = RoleSchema.define(Application.Schema, {
 	className: 'Role',
 	members: {
 		schema: PasswordUser,
@@ -99,7 +99,7 @@ export const AppRole = RoleSchema.define({
 
 export const EditorRole = AppRole.role('editor')
 
-export const Post = Schema.define({
+export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 	access: {
@@ -174,30 +174,35 @@ check the installed range when updating.
 
 ### Assemble the application
 
-Install the identity, policy, and role plugins in one application. The User
-schema is contributed by Password Authentication; `AppRole` and `Post` are
-developer schemas:
+Install the identity, policy, and role plugins once on the configured factory.
+The User schema is contributed by Password Authentication; `AppRole` and `Post`
+are developer schemas declared from that factory:
 
-```ts title="src/ultimabase.ts"
+```ts title="src/application.ts"
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { MasterAuthority, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { rolesPlugin } from '@ultimabase/roles-plugin'
-import { AppRole, Post } from './roles.js'
 import { profilePolicy } from './profile-access.js'
 
 const databaseUrl = process.env.DATABASE_URL
-const masterKey = process.env.ULTIMABASE_MASTER_KEY
-if (!databaseUrl || !masterKey) {
-	throw new Error('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
-}
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+export const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
 	.use(passwordAuthPlugin())
 	.use(accessPlugin({ default: { read: true } }))
 	.use(profilePolicy)
 	.use(rolesPlugin())
+```
+
+```ts title="src/ultimabase.ts"
+import { MasterAuthority } from '@ultimabase/core'
+import { Application } from './application.js'
+import { AppRole, Post } from './roles.js'
+
+const masterKey = process.env.ULTIMABASE_MASTER_KEY
+if (!masterKey) throw new Error('ULTIMABASE_MASTER_KEY is required')
 
 export const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({

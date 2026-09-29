@@ -6,7 +6,7 @@ import {
 	type ACLChangedEvent,
 	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
-import { MasterAuthority, Schema, UltimaBase, plugin } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase, plugin } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -24,7 +24,8 @@ type ACLChangeHandlerInput = PluginEventHandlerInput<
 >
 
 let rejectNextUpdate = false
-const Post = Schema.define({
+const ACLChangeApplication = UltimaBase.use(hooksPlugin()).use(aclPlugin())
+const Post = ACLChangeApplication.Schema.define({
 	className: 'ACLChangeEventPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

@@ -4,7 +4,12 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import { plugin, Schema, type SchemaDefinition } from '@ultimabase/core'
+import {
+	plugin,
+	Schema,
+	UltimaBase,
+	type SchemaDefinition,
+} from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -17,6 +22,7 @@ interface AccessConformanceEvidence {
 }
 
 const accessEvidence = new WeakMap<object, AccessConformanceEvidence>()
+const AccessApplication = UltimaBase.use(accessPlugin())
 
 export type AccessCommunityMode = 'allow' | 'deny'
 
@@ -46,26 +52,11 @@ const createAccessProvider = (
 export const createOfficialAccessConformanceFixture = (
 	mode: AccessCommunityMode = 'allow',
 ) => {
-	const Tag = Schema.define({
+	const Tag = AccessApplication.Schema.define({
 		className: 'OfficialAccessBehaviorConformanceTag',
 		fields: (field) => ({ label: field.string() }),
 	})
-	const Document = Schema.define({
-		access: {
-			create: {
-				allow: true,
-				item: ({ item }) => item.title !== 'denied-item',
-			},
-			read: {
-				allow: { count: false, exists: true, many: true, one: true },
-				where: { visible: { eq: true } },
-			},
-			update: {
-				allow: true,
-				item: ({ item, originalItem }) =>
-					originalItem.visible === true && item.title !== 'denied-item',
-			},
-		},
+	const Document = AccessApplication.Schema.define({
 		className: 'OfficialAccessBehaviorConformanceDocument',
 		fields: (field) => ({
 			secret: field.string({ access: { read: false, write: false } }),
@@ -86,6 +77,21 @@ export const createOfficialAccessConformanceFixture = (
 			}),
 			visible: field.boolean(),
 		}),
+		access: {
+			create: {
+				allow: true,
+				item: ({ item }) => item.title !== 'denied-item',
+			},
+			read: {
+				allow: { count: false, exists: true, many: true, one: true },
+				where: { visible: { eq: true } },
+			},
+			update: {
+				allow: true,
+				item: ({ item, originalItem }) =>
+					originalItem.visible === true && item.title !== 'denied-item',
+			},
+		},
 	})
 	const database = new OfficialConformanceDatabase(
 		new Map([

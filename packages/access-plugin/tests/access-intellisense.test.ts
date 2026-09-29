@@ -71,35 +71,29 @@ Schema.define({
 		expect(messages.join('\n')).toContain("'access' does not exist")
 	})
 
-	it('adds exact Access options when generated declarations install the plugin contract', () => {
+	it('adds exact Access options from the configured plugin source', () => {
 		const source = `
-import { Schema } from '@ultimabase/core'
-import type { FieldAccessOption, SchemaAccessOption } from '@ultimabase/access-plugin'
-declare module '@ultimabase/core' {
-  interface UltimaBaseGeneratedFieldOptions {
-    readonly access?: FieldAccessOption<this>
-  }
-  interface UltimaBaseGeneratedSchemaOptions {
-    readonly access?: SchemaAccessOption<this>
-  }
-}
-Schema.define({ /* schema-options */ })
-Schema.define({
+import type {} from './fixtures/options.generated.js'
+import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
+const Application = UltimaBase.use(accessPlugin())
+Application.Schema.define({ /* schema-options */ })
+Application.Schema.define({
   className: 'WithAccess',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
 `
-		const generatedFile = fixtureFile('generated-options')
-		const fixture = createLanguageServiceFixture(generatedFile, source, [
+		const sourceFile = fixtureFile('source-options')
+		const fixture = createLanguageServiceFixture(sourceFile, source, [
 			'/* schema-options */',
 			'/* field-options */',
 		])
 
 		expect(
-			completionNames(fixture, generatedFile, '/* schema-options */'),
+			completionNames(fixture, sourceFile, '/* schema-options */'),
 		).toContain('access')
 		expect(
-			completionNames(fixture, generatedFile, '/* field-options */'),
+			completionNames(fixture, sourceFile, '/* field-options */'),
 		).toContain('access')
 	})
 

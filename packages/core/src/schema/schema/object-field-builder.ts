@@ -100,7 +100,10 @@ export interface ObjectFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<ObjectFieldValue<TFields>, TList>
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
 				>,
 				object
 			>
@@ -126,7 +129,10 @@ export interface ObjectFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<ObjectFieldValue<TFields>, TList>
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
 				>,
 				object
 			>
@@ -159,7 +165,10 @@ export interface EmbeddedObjectFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<ObjectFieldValue<TFields>, TList>
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
 				>,
 				object
 			>
@@ -185,7 +194,10 @@ export interface EmbeddedObjectFieldBuilderMethod<
 			Extract<
 				ResolveFieldSourceTemplate<
 					TSourceTemplate,
-					FieldListValue<ObjectFieldValue<TFields>, TList>
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
 				>,
 				object
 			>

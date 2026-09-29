@@ -6,7 +6,6 @@ import {
 } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	plugin,
 	increment,
@@ -19,14 +18,18 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const AccessAudit = Schema.define({
+const AccessApplication = UltimaBase.use(accessPlugin({ default: true })).use(
+	hooksPlugin(),
+)
+
+const AccessAudit = AccessApplication.Schema.define({
 	className: 'NativeAccessAudit',
 	fields: (field) => ({
 		action: field.string({ required: true }),
 	}),
 })
 
-const AccessArticle = Schema.define({
+const AccessArticle = AccessApplication.Schema.define({
 	className: 'NativeAccessArticleE2E',
 	fields: (field) => ({
 		locked: field.boolean({ default: false }),
@@ -74,7 +77,7 @@ const AccessArticle = Schema.define({
 	},
 })
 
-const BulkDocument = Schema.define({
+const BulkDocument = AccessApplication.Schema.define({
 	className: 'NativeAccessBulkE2E',
 	fields: (field) => ({
 		key: field.string({ indexed: 'unique', required: true }),
@@ -90,7 +93,7 @@ const BulkDocument = Schema.define({
 	},
 })
 
-const UpsertDecisionDocument = Schema.define({
+const UpsertDecisionDocument = AccessApplication.Schema.define({
 	className: 'NativeAccessUpsertDecisionE2E',
 	fields: (field) => ({
 		key: field.string({ indexed: 'unique', required: true }),

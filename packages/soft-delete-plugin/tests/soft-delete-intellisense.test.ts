@@ -1,59 +1,58 @@
 import path from 'node:path'
 
-import { UltimaBase, Schema, type SchemaOptions } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
-import { softDeletePlugin, type SoftDeleteSchemaOption } from '../src/index.js'
+import { softDeletePlugin } from '../src/index.js'
 
 const marker = '/* soft-delete-option */'
 
-it('offers only the generated direct schema option and accepted values', () => {
-	const Document = Schema.define({
+it('offers the source-owned schema option and accepted values', () => {
+	const SoftDeleteApplication = UltimaBase.use(softDeletePlugin())
+	const Document = SoftDeleteApplication.Schema.define({
 		className: 'SoftDeleteIntellisenseDocument',
 		softDelete: 'explicit',
 		fields: (field) => ({ title: field.string() }),
-	} as SchemaOptions<'SoftDeleteIntellisenseDocument'> & {
-		readonly softDelete: SoftDeleteSchemaOption
 	})
 	const generated = generateApplicationTypes({
-		ultimabase: new UltimaBase({
+		ultimabase: new SoftDeleteApplication({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin()],
 			schemas: [Document],
 		}),
 		applicationId: 'fixture.soft-delete-intellisense',
 	})
 	const sourceWithMarker = `${generated.contents}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Completion = Schema.define({
+const SourceApplication = UltimaBase.use(softDeletePlugin())
+const Completion = SourceApplication.Schema.define({
   className: 'SoftDeleteCompletion',
   ${marker}
   fields: (field) => ({ title: field.string() }),
 })
-const Explicit = Schema.define({
+const Explicit = SourceApplication.Schema.define({
   className: 'SoftDeleteExplicit',
   softDelete: 'explicit',
   fields: (field) => ({ title: field.string() }),
 })
-declare const ultimabase: import('@ultimabase/core').UltimaBase<readonly []>
-const Installed = Schema.define({
+const Installed = SourceApplication.Schema.define({
   className: 'SoftDeleteIntellisenseDocument',
   fields: (field) => ({ title: field.string() }),
 })
-const deleted = Installed.softDelete({ id: 'document-1', select: { isDeleted: true } }, { ultimabase })
-const restored = Installed.restore({ id: 'document-1' }, { ultimabase, useMasterKey: true })
-const purged = Installed.purge({ id: 'document-1' }, { ultimabase, useMasterKey: true })
+const deleted = Installed.softDelete({ id: 'document-1', select: { isDeleted: true } })
+const restored = Installed.restore({ id: 'document-1' })
+const purged = Installed.purge({ id: 'document-1' })
 // @ts-expect-error -- Mutation inputs require the exact target id.
-Installed.softDelete({ missing: 'document-1' }, { ultimabase })
-const Disabled = Schema.define({
+Installed.softDelete({ missing: 'document-1' })
+const Disabled = SourceApplication.Schema.define({
   className: 'SoftDeleteDisabled',
   softDelete: false,
   fields: (field) => ({ title: field.string() }),
 })
-const Invalid = Schema.define({
+const Invalid = SourceApplication.Schema.define({
   className: 'SoftDeleteInvalid',
   // @ts-expect-error -- Schema overrides use false instead of the plugin-only disabled mode.
   softDelete: 'disabled',
@@ -82,13 +81,8 @@ void Invalid
 	expect(generated.contents).toContain(
 		'PluginSchemaMutationNoInput as Plugin0_PluginSchemaMutationNoInput',
 	)
-	expect(generated.contents).toContain(
-		'SoftDeleteSchemaOption as Plugin1_SoftDeleteSchemaOption',
-	)
-	expect(generated.contents).toContain('from "@ultimabase/soft-delete-plugin"')
-	expect(generated.contents).toContain(
-		'readonly softDelete?: Plugin1_SoftDeleteSchemaOption',
-	)
+	expect(generated.snapshot.options).toStrictEqual([])
+	expect(generated.contents).not.toContain('SoftDeleteSchemaOption')
 	expect(generated.snapshot.surfaces[0]?.schemaMutations).toEqual([
 		expect.objectContaining({
 			authority: 'master',

@@ -8,7 +8,7 @@ order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code.
 owner: '2809'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/soft-delete-plugin/README.md
   - packages/soft-delete-plugin/src/plugin.ts
@@ -71,19 +71,34 @@ Importing the package installs no behavior. Add `softDeletePlugin()` to the
 application that owns the schema. REST, GraphQL, Access, and Hooks are optional
 integrations, installed separately.
 
-For TypeScript, configure [Typegen](/docs/1.0.0/guides/generate-types) and
-regenerate declarations before typechecking. It supplies the application-specific
-`softDelete` option, methods, and `isDeleted` result field. JavaScript executes
-the same compiled application without Typegen.
+The configured factory supplies the application-specific `softDelete` option,
+methods, and `isDeleted` field directly from the plugin declaration. Keep
+[Typegen](/docs/1.0.0/guides/generate-types) for the application-wide named
+schema and relationship graph. JavaScript executes the same compiled
+application without generated declarations.
 
 ## Configuration
 
 Define a Post with a required title and opt it into explicit soft deletion:
 
-```ts title="src/schemas.ts"
-import { Schema } from '@ultimabase/core'
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
 
-export const Post = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
+	.use(softDeletePlugin({ defaultMode: 'disabled' }))
+```
+
+```ts title="src/schemas.ts"
+import { Application } from './application.js'
+
+export const Post = Application.Schema.define({
 	className: 'Post',
 	softDelete: 'explicit',
 	fields: (f) => ({ title: f.string({ required: true }) }),
@@ -96,21 +111,12 @@ application tables. Master authority is configured for the private restore and
 purge steps later; ordinary soft deletion does not require it.
 
 ```ts title="src/ultimabase.ts"
-import { MasterAuthority, UltimaBase } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
-import { typegenPlugin } from '@ultimabase/typegen'
+import { MasterAuthority } from '@ultimabase/core'
+import { Application } from './application.js'
 import { Post } from './schemas.js'
 
-const databaseUrl = process.env.DATABASE_URL
 const masterKey = process.env.ULTIMABASE_MASTER_KEY
-if (!databaseUrl || !masterKey) {
-	throw new Error('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
-}
-
-const Application = UltimaBase.use(typegenPlugin())
-	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
-	.use(softDeletePlugin({ defaultMode: 'disabled' }))
+if (!masterKey) throw new Error('ULTIMABASE_MASTER_KEY is required')
 
 export const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
@@ -493,8 +499,8 @@ soft delete. A tombstone retains its data and may still occupy a unique value.
   delete is permanent. Only tombstones can be restored.
 - **Restore or purge is rejected:** use trusted server code with audited Master
   authority and an existing tombstone. Neither operation is public.
-- **TypeScript cannot find a field or method:** regenerate Typegen for this
-  application's current plugins and schema modes. At runtime, start the owning
-  application and pass it explicitly outside an active request.
+- **TypeScript cannot find a field or method:** declare the schema from the
+  configured factory that installs `softDeletePlugin()` and check its effective
+  mode. At runtime, start the sole owning application.
 - **A request fails before reaching the operation:** check the application ID,
   credentials, and transport setup in [HTTP troubleshooting](./http#troubleshooting).

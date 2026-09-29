@@ -4,27 +4,17 @@ import { expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
 	definePluginField,
-	decimalField,
-	enumField,
-	floatField,
 	type FieldOptions,
-	intField,
 	type JsonDocument,
-	jsonField,
-	objectField,
 	type Pointer,
-	pointerField,
-	Schema,
-	stringField,
-	timeField,
-	uuidField,
+	type SchemaReference,
+	UltimaBase,
 } from '@ultimabase/core'
+
+import { validationPlugin } from './plugin.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
 
 declare const stringSchema: StandardSchemaV1<string>
 declare const callableStringSchema: StandardSchemaV1<string> & (() => void)
@@ -46,16 +36,19 @@ type ParsedJson = ReturnType<typeof JSON.parse>
 declare const unsafeInputSchema: StandardSchemaV1<ParsedJson, string>
 declare const unsafeOutputSchema: StandardSchemaV1<string, ParsedJson>
 
-const PointerTarget = Schema.define({
+const PointerTarget = ValidationApplication.Schema.define({
 	className: 'ValidationPointerTarget',
 	fields: () => ({}),
 })
+void PointerTarget
 declare const enumSchema: StandardSchemaV1<'draft' | 'published'>
 declare const objectSchema: StandardSchemaV1<
 	{ name: string; tags: string[] },
 	Readonly<{ readonly name: string; readonly tags: readonly string[] }>
 >
-declare const pointerSchema: StandardSchemaV1<Pointer<typeof PointerTarget>>
+declare const pointerSchema: StandardSchemaV1<
+	Pointer<SchemaReference<'ValidationPointerTarget'>>
+>
 
 class PluginScalar {
 	constructor(readonly value: string) {}
@@ -69,33 +62,44 @@ type PluginScalarOptions = FieldOptions<PluginScalar> & {
 }
 
 test('built-in scalar families accept exact Standard Schema values', () => {
-	expectTypeOf(
-		stringField({ validation: stringSchema }).kind,
-	).toEqualTypeOf<'string'>()
-	stringField({ validation: callableStringSchema })
-	stringField({ validation: unknownToStringSchema })
-	stringField({ validation: brandedStringSchema })
-	stringField({ list: true, validation: stringListSchema })
-	bigintField({ validation: bigintSchema })
-	binaryField({ validation: bytesSchema })
-	booleanField({ validation: booleanSchema })
-	intField({ validation: numberSchema })
-	floatField({ validation: numberSchema })
-	decimalField({ validation: stringSchema })
-	dateField({ validation: stringSchema })
-	dateTimeField({ validation: stringSchema })
-	timeField({ validation: stringSchema })
-	uuidField({ validation: stringSchema })
-	jsonField({ validation: jsonSchema })
-	enumField({ values: ['draft', 'published'], validation: enumSchema })
-	objectField({
-		fields: {
-			name: stringField({ required: true }),
-			tags: stringField({ list: true, required: true }),
-		},
-		validation: objectSchema,
+	const Builtins = ValidationApplication.Schema.define({
+		className: 'ValidationStandardSchemaBuiltins',
+		fields: (field) => ({
+			bigint: field.bigint({ validation: bigintSchema }),
+			binary: field.binary({ validation: bytesSchema }),
+			boolean: field.boolean({ validation: booleanSchema }),
+			branded: field.string({ validation: brandedStringSchema }),
+			callable: field.string({ validation: callableStringSchema }),
+			date: field.date({ validation: stringSchema }),
+			dateTime: field.dateTime({ validation: stringSchema }),
+			decimal: field.decimal({ validation: stringSchema }),
+			enum: field.enum({
+				validation: enumSchema,
+				values: ['draft', 'published'],
+			}),
+			float: field.float({ validation: numberSchema }),
+			int: field.int({ validation: numberSchema }),
+			json: field.json({ validation: jsonSchema }),
+			list: field.string({ list: true, validation: stringListSchema }),
+			object: field.object({
+				fields: (nested) => ({
+					name: nested.string({ required: true }),
+					tags: nested.string({ list: true, required: true }),
+				}),
+				validation: objectSchema,
+			}),
+			pointer: field.pointer({
+				target: 'ValidationPointerTarget',
+				validation: pointerSchema,
+			}),
+			string: field.string({ validation: stringSchema }),
+			time: field.time({ validation: stringSchema }),
+			unknownInput: field.string({ validation: unknownToStringSchema }),
+			uuid: field.uuid({ validation: stringSchema }),
+		}),
 	})
-	pointerField({ target: () => PointerTarget, validation: pointerSchema })
+
+	expectTypeOf(Builtins).toExtend<object>()
 	definePluginField<
 		PluginScalar,
 		'fixture.standard-schema',
@@ -116,16 +120,21 @@ test('built-in scalar families accept exact Standard Schema values', () => {
 })
 
 test('field validators reject incompatible and unsafe inferred types', () => {
-	// @ts-expect-error A validator input cannot be narrower than the canonical value.
-	stringField({ validation: literalInputSchema })
-	// @ts-expect-error A validator output must remain assignable to the field value.
-	stringField({ validation: stringToNumberSchema })
-	// @ts-expect-error A scalar validator cannot validate a complete list field.
-	stringField({ list: true, validation: stringSchema })
-	// @ts-expect-error An inferred unsafe input cannot bypass compatibility checks.
-	stringField({ validation: unsafeInputSchema })
-	// @ts-expect-error An inferred unsafe output cannot leak through the field API.
-	stringField({ validation: unsafeOutputSchema })
+	ValidationApplication.Schema.define({
+		className: 'InvalidSourceValidationContracts',
+		fields: (field) => ({
+			// @ts-expect-error A validator input cannot be narrower than the canonical value.
+			literal: field.string({ validation: literalInputSchema }),
+			// @ts-expect-error A scalar validator cannot validate a complete list field.
+			list: field.string({ list: true, validation: stringSchema }),
+			// @ts-expect-error A validator output must remain assignable to the field value.
+			output: field.string({ validation: stringToNumberSchema }),
+			// @ts-expect-error An inferred unsafe input cannot bypass compatibility checks.
+			unsafeInput: field.string({ validation: unsafeInputSchema }),
+			// @ts-expect-error An inferred unsafe output cannot leak through the field API.
+			unsafeOutput: field.string({ validation: unsafeOutputSchema }),
+		}),
+	})
 })
 
 test('real Standard Schema libraries retain their inferred protocol types', () => {
@@ -146,12 +155,17 @@ test('real Standard Schema libraries retain their inferred protocol types', () =
 	expectTypeOf<
 		StandardSchemaV1.InferOutput<typeof valibotObject>
 	>().toEqualTypeOf<{ label: string }>()
-	objectField({
-		fields: { label: stringField({ required: true }) },
-		validation: zodObject,
-	})
-	objectField({
-		fields: { label: stringField({ required: true }) },
-		validation: valibotObject,
+	ValidationApplication.Schema.define({
+		className: 'ValidationStandardSchemaLibraries',
+		fields: (field) => ({
+			valibot: field.object({
+				fields: (nested) => ({ label: nested.string({ required: true }) }),
+				validation: valibotObject,
+			}),
+			zod: field.object({
+				fields: (nested) => ({ label: nested.string({ required: true }) }),
+				validation: zodObject,
+			}),
+		}),
 	})
 })

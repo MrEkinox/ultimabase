@@ -9,7 +9,7 @@ contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-27
+reviewedAt: 2026-09-29
 sources:
   - packages/hooks-plugin/README.md
   - packages/hooks-plugin/src/authoring/contracts.ts
@@ -62,10 +62,23 @@ Declare Hooks on the exact field or schema they affect. This example trims
 titles, prevents changes to a published title, and records successful title
 changes in the same transaction as the post:
 
-```ts title="src/post.ts"
-import { Schema } from '@ultimabase/core'
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-export const PostTitleChange = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(hooksPlugin())
+```
+
+```ts title="src/post.ts"
+import { Application } from './application.js'
+
+export const PostTitleChange = Application.Schema.define({
 	className: 'PostTitleChange',
 	fields: (f) => ({
 		postId: f.string({ required: true }),
@@ -74,7 +87,7 @@ export const PostTitleChange = Schema.define({
 	}),
 })
 
-export const Post = Schema.define({
+export const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({
 		published: f.boolean({ default: false }),
@@ -110,17 +123,8 @@ export const Post = Schema.define({
 Install the plugin alongside the database provider and register both schemas:
 
 ```ts title="src/ultimabase.ts"
-import { UltimaBase } from '@ultimabase/core'
-import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { Application } from './application.js'
 import { Post, PostTitleChange } from './post.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl })).use(
-	hooksPlugin(),
-)
 
 export const ultimabase = new Application({
 	schemas: [Post, PostTitleChange],
@@ -132,10 +136,12 @@ Keep startup in the existing entry point from
 `ultimabase.start()` there and always await `dispose()` when the process finishes.
 This configuration module stays safe to load for static Typegen generation.
 
-`hooksPlugin()` has no factory options. Regenerate your application types after
-adding it so the schema and field `hooks` options appear in TypeScript. An
-unknown `hooks` option at startup usually means the plugin is absent from
-that application.
+`hooksPlugin()` has no factory options. Its configured factory exposes field
+`hooks` directly from source. Schema `hooks` callbacks use the retained Typegen
+graph so exact items, operations, relationships, and plugin mutation keys share
+the completed application contract; regenerate after changing that graph. An
+unknown `hooks` option usually means the schema was declared from a factory
+that omits the plugin or the generated graph is stale.
 
 ## Behavior and limitations
 
@@ -240,10 +246,10 @@ Declare the emitting Hook on a schema and install both `hooksPlugin()` and
 `postCreatedConsumer` in its application's `plugins`:
 
 ```ts title="src/evented-post.ts"
-import { Schema } from '@ultimabase/core'
 import { postCreated } from './post-created-event.js'
+import { Application } from './application.js'
 
-export const EventedPost = Schema.define({
+export const EventedPost = Application.Schema.define({
 	className: 'EventedPost',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 	hooks: {
@@ -341,8 +347,8 @@ produce the same `OPERATION_CANCELLED` failure without copying Hooks internals.
 ## Troubleshooting
 
 - **`hooks` is rejected at startup or absent in autocomplete:** install
-  `hooksPlugin()` in this application and regenerate its Typegen declarations.
-  Importing the package is insufficient.
+  `hooksPlugin()` on the configured factory used to declare the schema.
+  Importing the package or installing it only on another factory is insufficient.
 - **A callback never runs:** check the exact schema or field, the operation
   branch, and whether the input actually supplies that field. Upsert has no
   before-operation branch; a plugin-defined mutation uses its own name rather

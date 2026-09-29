@@ -64,33 +64,29 @@ export const snapshotPackedVector = (value: unknown): VectorValue => {
 		}),
 	)
 }
-export const containedVectorField = () =>
-	definePluginField(
-		'fixture.packed.contained-vector',
-		{},
-		{
-			snapshotValue: snapshotPackedVector,
-			storageCodec: {
-				decode: snapshotPackedVector,
-				encode: (value) => value,
-				format: 'json',
-				version: 1,
-			},
-			structuralContains: {
-				snapshotOperand: (value: unknown): VectorFieldOptions => {
-					if (
-						typeof value !== 'object' ||
-						value === null ||
-						!('dimensions' in value) ||
-						typeof value.dimensions !== 'number'
-					) {
-						throw new TypeError('operand must contain dimensions')
-					}
-					return { dimensions: value.dimensions }
-				},
+export const containedVectorField = (options: VectorFieldOptions) =>
+	definePluginField('fixture.packed.contained-vector', options, {
+		snapshotValue: snapshotPackedVector,
+		storageCodec: {
+			decode: snapshotPackedVector,
+			encode: (value) => value,
+			format: 'json',
+			version: 1,
+		},
+		structuralContains: {
+			snapshotOperand: (value: unknown): VectorFieldOptions => {
+				if (
+					typeof value !== 'object' ||
+					value === null ||
+					!('dimensions' in value) ||
+					typeof value.dimensions !== 'number'
+				) {
+					throw new TypeError('operand must contain dimensions')
+				}
+				return { dimensions: value.dimensions }
 			},
 		},
-	)
+	})
 export const containedVectorMethod = definePluginFieldFamily({
 	fieldKind: 'fixture.packed.contained-vector',
 	typegen: {
@@ -115,10 +111,7 @@ export const containedVectorPlugin = plugin({
 	version: '0.0.0',
 	contributions: [
 		contributeDeclarations({
-			schema: ({ fields }) => {
-				fields.register(containedVectorMethod)
-				return undefined
-			},
+			schema: ({ fields }) => fields.register(containedVectorMethod),
 		}),
 	],
 })
@@ -135,7 +128,7 @@ export const Document = Schema.define({
 	fields: (field) => {
 		const generatedField = field as PackedFieldBuilder
 		return {
-			contained: containedVectorField(),
+			contained: containedVectorField({ dimensions: 3 }),
 			embedding: generatedField.vector({ dimensions: 3 }),
 			owner: field.pointer({
 				target: 'PackedGeneratedOwner',
@@ -169,23 +162,34 @@ export const generated = generateApplicationTypes({
 })
 export const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
-import { Schema, plugin } from '@ultimabase/core'
+import { UltimaBase, plugin } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 import * as Hooks from '@ultimabase/hooks-plugin'
-import type { PluginDefinition, SchemaDefinition, UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import type { PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
+import { containedVectorPlugin as packedContainedVectorPlugin } from './typegen-generated-types-fixture.js'
 
 declare const packedApplication: UltimaBase<readonly SchemaDefinition[], readonly PluginDefinition[]>
 declare const packedOwner: Core.PointerValue
 declare const packedTitleValidator: import('@standard-schema/spec').StandardSchemaV1<string>
 
-const PackedGeneratedOwner = Schema.define({
+const PackedSchemaApplication = UltimaBase.use(accessPlugin())
+  .use(hooksPlugin())
+  .use(packedContainedVectorPlugin)
+  .use(pgVectorPlugin())
+  .use(validationPlugin())
+
+const PackedGeneratedOwner = PackedSchemaApplication.Schema.define({
   className: 'PackedGeneratedOwner',
   fields: (field) => ({
     documents: field.relation({ target: 'PackedGeneratedDocument' }),
     name: field.string({ required: true }),
   }),
 })
-const PackedGeneratedDocument = Schema.define({
+const PackedGeneratedDocument = PackedSchemaApplication.Schema.define({
   className: 'PackedGeneratedDocument',
   fields: (field) => ({
     contained: field.contained({ dimensions: 3 }),

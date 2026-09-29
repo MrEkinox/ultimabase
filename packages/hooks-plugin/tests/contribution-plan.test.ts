@@ -2,7 +2,6 @@ import {
 	UltimaBase,
 	plugin,
 	contributeDeclarations,
-	Schema,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +12,7 @@ const hooksDependency = {
 	pluginId: '@ultimabase/hooks-plugin',
 	version: '^0.0.0',
 } as const
+const HooksApplication = UltimaBase.use(hooksPlugin())
 
 const createSchemaProvider = (schema: SchemaDefinition) =>
 	plugin({
@@ -39,7 +39,7 @@ const createSchemaProvider = (schema: SchemaDefinition) =>
 
 describe('Hook contribution provenance', () => {
 	it('accepts application-owned inline schema and field Hooks', async () => {
-		const Post = Schema.define({
+		const Post = HooksApplication.Schema.define({
 			className: 'ApplicationOwnedInlineHooks',
 			fields: (field) => ({
 				title: field.string({
@@ -60,7 +60,7 @@ describe('Hook contribution provenance', () => {
 	})
 
 	it('rejects inline schema Hooks owned by a plugin', async () => {
-		const Owned = Schema.define({
+		const Owned = HooksApplication.Schema.define({
 			className: 'PluginOwnedInlineSchemaHooks',
 			fields: (field) => ({ title: field.string() }),
 			hooks: { beforeOperation: { create: () => undefined } },
@@ -75,7 +75,7 @@ describe('Hook contribution provenance', () => {
 	})
 
 	it('rejects inline field Hooks owned by a plugin', async () => {
-		const Owned = Schema.define({
+		const Owned = HooksApplication.Schema.define({
 			className: 'PluginOwnedInlineFieldHooks',
 			fields: (field) => ({
 				title: field.string({

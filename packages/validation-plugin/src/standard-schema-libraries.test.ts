@@ -9,18 +9,15 @@ import {
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	objectField,
 	Pointer,
-	pointerField,
 	QueryBuilder,
 	RequestContext,
 	requestSources,
-	Schema,
 	type ApplicationCallbackExecutor,
 	type CreateOneOperationAst,
 	type RuntimeMutationRevalidationStage,
 	type SchemaDefinition,
-	stringField,
+	type SchemaReference,
 } from '@ultimabase/core'
 
 import { validationPlugin } from './plugin.js'
@@ -28,6 +25,8 @@ import {
 	createValidationPlanCache,
 	validateMutationInput,
 } from './operation-validation.js'
+
+const ValidationApplication = UltimaBase.use(validationPlugin())
 
 const callbacks: ApplicationCallbackExecutor = {
 	runApplication: (callback) => callback(),
@@ -43,7 +42,7 @@ const createFinalMutationValidationStage =
 		}
 	}
 
-const Target = Schema.define({
+const Target = ValidationApplication.Schema.define({
 	className: 'LibraryValidationTarget',
 	fields: () => ({}),
 })
@@ -62,7 +61,9 @@ interface ValidatorSet {
 	readonly number: StandardSchemaV1<number>
 	readonly object: StandardSchemaV1<{ label: string }>
 	readonly plugin: StandardSchemaV1<LibraryPluginValue>
-	readonly pointer: StandardSchemaV1<Pointer<typeof Target>>
+	readonly pointer: StandardSchemaV1<
+		Pointer<SchemaReference<'LibraryValidationTarget'>>
+	>
 	readonly rejectedString: StandardSchemaV1<string>
 	readonly string: StandardSchemaV1<string>
 }
@@ -89,7 +90,7 @@ const zodFixture: LibraryFixture = {
 		plugin: z.custom<LibraryPluginValue>(
 			(value) => value instanceof LibraryPluginValue,
 		),
-		pointer: z.custom<Pointer<typeof Target>>(
+		pointer: z.custom<Pointer<SchemaReference<'LibraryValidationTarget'>>>(
 			(value) => value instanceof Pointer,
 		),
 		rejectedString: z.string().min(2, 'Value must contain two characters'),
@@ -113,7 +114,7 @@ const valibotFixture: LibraryFixture = {
 		plugin: v.custom<LibraryPluginValue>(
 			(value) => value instanceof LibraryPluginValue,
 		),
-		pointer: v.custom<Pointer<typeof Target>>(
+		pointer: v.custom<Pointer<SchemaReference<'LibraryValidationTarget'>>>(
 			(value) => value instanceof Pointer,
 		),
 		rejectedString: v.pipe(
@@ -144,6 +145,10 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: Readonly<Record<string, unknown>>,
 ): CreateOneOperationAst<TSchema> => {
+	new ValidationApplication({
+		pluginPrivileges: { logger: false },
+		schemas: [Target, schema],
+	}).compile()
 	const operation = {
 		input: completeRecord(input),
 		kind: 'create-one',
@@ -195,7 +200,7 @@ const createSchema = ({ name, validators }: LibraryFixture) => {
 		},
 	)
 
-	return Schema.define({
+	return ValidationApplication.Schema.define({
 		className: `LibraryValidation${name}`,
 		fields: (field) => ({
 			bigint: field.bigint({ validation: validators.bigint }),
@@ -212,13 +217,13 @@ const createSchema = ({ name, validators }: LibraryFixture) => {
 			int: field.int({ validation: validators.number }),
 			json: field.json({ validation: validators.json }),
 			list: field.string({ list: true, validation: validators.list }),
-			object: objectField({
-				fields: { label: stringField({ required: true }) },
+			object: field.object({
+				fields: (nested) => ({ label: nested.string({ required: true }) }),
 				validation: validators.object,
 			}),
 			plugin: pluginField,
-			pointer: pointerField({
-				target: () => Target,
+			pointer: field.pointer({
+				target: 'LibraryValidationTarget',
 				validation: validators.pointer,
 			}),
 			string: field.string({ validation: validators.string }),
@@ -260,7 +265,7 @@ describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 	})
 
 	it('maps vendor diagnostics to the neutral field.validation issue', () => {
-		const schema = Schema.define({
+		const schema = ValidationApplication.Schema.define({
 			className: `LibraryValidationFailure${fixture.name}`,
 			fields: (field) => ({
 				title: field.string({
@@ -295,26 +300,24 @@ it('keeps validators isolated between applications with the same logical schema'
 			'Expected the Valibot application value',
 		),
 	)
-	const ZodSchema = Schema.define({
+	const ZodSchema = ValidationApplication.Schema.define({
 		className: 'IsolatedLibraryValidation',
 		fields: (field) => ({
 			value: field.string({ validation: zodValidator }),
 		}),
 	})
-	const ValibotSchema = Schema.define({
+	const ValibotSchema = ValidationApplication.Schema.define({
 		className: 'IsolatedLibraryValidation',
 		fields: (field) => ({
 			value: field.string({ validation: valibotValidator }),
 		}),
 	})
-	const zodApplication = new UltimaBase({
+	const zodApplication = new ValidationApplication({
 		pluginPrivileges: { logger: false },
-		plugins: [validationPlugin()],
 		schemas: [ZodSchema],
 	})
-	const valibotApplication = new UltimaBase({
+	const valibotApplication = new ValidationApplication({
 		pluginPrivileges: { logger: false },
-		plugins: [validationPlugin()],
 		schemas: [ValibotSchema],
 	})
 

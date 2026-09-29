@@ -17,10 +17,13 @@ export const Profile = Schema.define({
 
 export const validationRule = 'z.string().min(1).max(200)'
 
-export const validationFieldExample = `import { Schema } from '@ultimabase/core'
+export const validationFieldExample = `import { UltimaBase } from '@ultimabase/core'
+import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-export const ValidatedArticle = Schema.define({
+const Application = UltimaBase.use(validationPlugin())
+
+export const ValidatedArticle = Application.Schema.define({
   className: 'ValidatedArticle',
   fields: (f) => ({
     title: f.string({

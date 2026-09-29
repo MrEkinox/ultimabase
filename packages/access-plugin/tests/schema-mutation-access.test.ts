@@ -23,7 +23,6 @@ import {
 	accessPlugin,
 	provideAccessContributions,
 	schemaAccess,
-	type SchemaAccessOption,
 } from '../src/index.js'
 import {
 	SchemaMutationAdapter,
@@ -76,11 +75,11 @@ const purge: PluginSchemaMutationDefinition<
 	version: '1.0.0',
 })
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly access?: SchemaAccessOption<this>
-	}
+const operationInputs: unknown[] = []
+const filterInputs: unknown[] = []
+const itemInputs: unknown[] = []
 
+declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedSchemaSurfaces {
 		readonly AccessSchemaMutationDocument: {
 			readonly schemaMutations: { readonly archive: typeof archive }
@@ -91,11 +90,75 @@ declare module '@ultimabase/core' {
 	}
 }
 
-const operationInputs: unknown[] = []
-const filterInputs: unknown[] = []
-const itemInputs: unknown[] = []
+const mutationSourcePlugin = plugin({
+	contributions: [
+		contributeSchemaMutation({
+			mutation: archive,
+			resolve: () => ({ data: { workflowState: 'archived' } }),
+		}),
+		contributeDeclarations({
+			schema: ({ schemas }) => [
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'access-document-workflow-state',
+							field: stringField(),
+							name: 'workflowState',
+						}),
+					],
+					targets: schemas.select({
+						className: 'AccessSchemaMutationDocument',
+					}),
+				}),
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'provider-document-workflow-state',
+							field: stringField(),
+							name: 'workflowState',
+						}),
+					],
+					targets: schemas.select({
+						className: 'AccessSchemaMutationProviderDocument',
+					}),
+				}),
+			],
+			models: ({ models }) => [
+				models.extend(
+					{ className: 'AccessSchemaMutationDocument' },
+					{
+						contributionId: 'access-document-archive-surface',
+						schemaMutations: {
+							archive: { mutation: archive, surfaces: ['schema'] },
+						},
+					},
+				),
+				models.extend(
+					{ className: 'AccessSchemaMutationProviderDocument' },
+					{
+						contributionId: 'provider-document-archive-surface',
+						schemaMutations: {
+							archive: { mutation: archive, surfaces: ['schema'] },
+						},
+					},
+				),
+			],
+		}),
+	],
+	core: '^0.0.0',
+	id: 'fixture.access-schema-mutation-source',
+	permissions: {
+		'model:extend': 'Adds source-only archive surfaces for the type fixture.',
+		'operation:declare': 'Declares the archive source contract.',
+		'persistence:rewrite': 'Defines the archive source mutation.',
+		'schema:declare': 'Adds source-only workflow state fields.',
+	},
+	version: '1.0.0',
+})
+const AccessMutationApplication =
+	UltimaBase.use(mutationSourcePlugin).use(accessPlugin())
 
-const AccessDocument = Schema.define({
+const AccessDocument = AccessMutationApplication.Schema.define({
 	className: 'AccessSchemaMutationDocument',
 	fields: (field) => ({
 		secret: field.string({
@@ -140,7 +203,7 @@ const BooleanDefaultDocument = Schema.define({
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })
 
-const ProviderDocument = Schema.define({
+const ProviderDocument = AccessMutationApplication.Schema.define({
 	className: 'AccessSchemaMutationProviderDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 	access: {
@@ -279,7 +342,9 @@ const executeArchive = (
 
 describe('schema mutation Access', () => {
 	it('rejects a forbidden selection before preparing a custom mutation', async () => {
-		const Restricted = Schema.define({
+		const Restricted = UltimaBase.use(
+			accessPlugin({ default: true }),
+		).Schema.define({
 			className: 'AccessSchemaMutationRestrictedSelection',
 			fields: (field) => ({
 				secret: field.string({ access: { read: false } }),
@@ -548,7 +613,8 @@ describe('schema mutation Access', () => {
 	})
 
 	it('rejects stale and Master-only custom Access branches before setup effects', async () => {
-		const StaleDocument = Schema.define({
+		const AccessApplication = UltimaBase.use(accessPlugin())
+		const StaleDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationStaleDocument',
 			fields: (field) => ({ secret: field.string(), title: field.string() }),
 			access: { stale: true } as never,
@@ -567,7 +633,7 @@ describe('schema mutation Access', () => {
 		)
 		expect(adapter.transactions).toHaveLength(0)
 
-		const MasterOnlyDocument = Schema.define({
+		const MasterOnlyDocument = AccessApplication.Schema.define({
 			className: 'AccessSchemaMutationMasterOnlyDocument',
 			fields: (field) => ({ title: field.string() }),
 			access: { purge: true } as never,

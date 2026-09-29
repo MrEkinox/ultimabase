@@ -89,22 +89,28 @@ registrar remains only for references not reachable from an owned command.
 
 References are nominal and owner-scoped. Registering one adds no standalone
 alias. Plugins cannot append arbitrary declarations, schema/model augmentations,
-or extra output files. Field and option definitions retain their existing
-structured Typegen metadata. JavaScript runs the same graph without Typegen.
+or extra output files. JavaScript runs the same graph without Typegen.
 
-Generic generation reads the final graph and emits plugin-added schemas,
-fields, used direct schema and contextual field options, exact namespaced operations,
-dynamic schema handles, schema-mutation methods, and query inputs. Plugin owner,
-version, contribution ID, static options, imports, and contents
+Configured application factories now project source-declared plugin builders,
+options, fields, and command surfaces directly from each installed plugin.
+Typegen remains the sole application-wide mapping from literal schema names to
+exact schema contracts, including circular and cross-file relationships. It
+also retains schema-level Access and Hooks option descriptors because those
+callbacks consume the completed schema graph. Field Access, field Hooks,
+Validation, ACL, and other locally decidable option contracts are not copied.
+
+Generic generation reads the final graph and emits exact schemas, named
+relationships, query inputs, and retained non-migrated application contracts.
+Plugin owner, version, contribution ID, static options, imports, and contents
 all participate in collision checks and fingerprints.
 
 Core-owned structural metadata that cannot change a TypeScript value shape is
 deliberately omitted. Decimal `precision` and `scale`, for example, affect
 Runtime validation and adapter storage but produce the same generated string
 field contract and fingerprint as an otherwise identical decimal field.
-Opaque application artifacts are omitted for the same reason. When the optional
-Validation plugin is installed, Typegen emits its direct option and type-only
-compatibility reference while omitting validator identities and callbacks.
+Opaque application artifacts are omitted for the same reason. The optional
+Validation plugin projects its validator option and compatibility check from
+source; validator identities and callbacks never enter Typegen.
 
 Operation declarations retain exact input, result, and declared public
 `PluginError` code unions. Generated application operation handles add
@@ -121,10 +127,10 @@ when the `model` surface is declared. It omits the target `id` from bound models
 `undefined` payload type, and reuses each schema's exact `select`, `include`,
 and result contracts. The generated schema-surface registry also retains each
 mutation's exact authority, effect, returning mode, dependency selection, and
-payload type. Official option packages use that inert registry to expose only
-application-valid custom Access and Hook keys. A Master-only mutation is not a
-request Access key, but it remains an exact before/after Hook key so trusted
-maintenance work can retain transactional auditing. Custom Hook payload,
+payload type. The generated schema option contracts expose application-valid
+custom Access and Hook keys from the same mutation declaration. A Master-only
+mutation is not a request Access key, but it remains an exact before/after Hook
+key so trusted maintenance work can retain transactional auditing. Custom Hook payload,
 candidate, preimage, result, and target types come from that same inert entry.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
@@ -139,12 +145,11 @@ registry exists. Static compilation registers configured plugin field types and
 the narrower set of public field methods, resolves fields and relationship
 targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
-context-specific builder methods. A plugin declaration is emitted only into
-the stored, embedded, virtual, or output interfaces it explicitly supports;
-Typegen never copies factories, validators, resolvers, or other executable
-implementation code. Those values drive exact contextual options contributed
-by installed plugins, including official Access, Hooks, and Validation. Compatible object
-and enum `typeName` identities are
+context-specific builder methods. Migrated plugin builders and field-context
+options come from the configured factory instead of generated interface
+augmentation. Schema Access and Hooks remain generated references to their
+public package contracts; Typegen never copies callbacks, factories, validators,
+resolvers, or other executable implementation code. Compatible object and enum `typeName` identities are
 reused; incompatible identities and normalized TypeScript name collisions
 report both owners.
 
@@ -173,10 +178,11 @@ those schema types and is isolated in a framework registry section at the
 bottom. It adds only logical field kind, list, and relationship metadata that
 cannot be recovered safely from the public value types.
 
-Access and hook contracts are derived instead of duplicated in that registry.
-They are contextually inferred from the compiled option contracts rather than repeated as standalone
-`TodoAccess` or `TodoHooks` wrappers. Extracted code can name the canonical
-generated value or operation input directly.
+Field Access and Hook contracts are derived from the configured source graph.
+Schema Access and Hook contracts remain two public-type references in the
+generated registry so their items, filters, relationships, operations, and
+mutation keys resolve from the same completed schema-name graph. Typegen does
+not emit standalone `TodoAccess` or `TodoHooks` wrappers.
 
 Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated
@@ -200,14 +206,13 @@ through Core conditionals. Fields are strictly one-dimensional; nested arrays
 are represented explicitly by `jsonField()`.
 
 The emitted declaration augments `@ultimabase/core` with one application-owned
-schema registry plus the configured stored, embedded, virtual, and output
-builder methods and direct options. Keep that file included by the application's
-TypeScript project. Core then resolves
-exact drafts, results, Query and mutation inputs, Access, hooks, direct plugin
-options, indexes, embedded paths, pointers, and relations directly from the
-generated contracts. A schema name absent from the loaded registry remains a
-valid source declaration and uses Core's bootstrap contract until the next
-automatic startup generation replaces the artifact.
+schema registry plus any retained non-migrated application contracts. Keep that
+file included by the application's TypeScript project. Core combines this
+named graph with the configured source projection to resolve exact drafts,
+results, Query inputs, indexes, embedded paths, pointers, relations, Access,
+and Hooks. A schema name absent from the loaded registry remains a valid source
+declaration and uses Core's bootstrap contract until the next automatic startup
+generation replaces the artifact.
 
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field

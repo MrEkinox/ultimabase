@@ -2,7 +2,6 @@ import {
 	databaseAdapterCapability,
 	plugin,
 	provideCapability,
-	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -56,8 +55,10 @@ const databasePlugin = plugin({
 	version: '1.0.0',
 })
 
+const Application = UltimaBase.use(validationPlugin()).use(databasePlugin)
+
 for (const fixture of fixtures) {
-	const Note = Schema.define({
+	const Note = Application.Schema.define({
 		className: `JavaScriptValidation${fixture.name}`,
 		fields: (field) => ({
 			title: field.string({
@@ -66,9 +67,8 @@ for (const fixture of fixtures) {
 			}),
 		}),
 	})
-	const ultimabase = new UltimaBase({
+	const ultimabase = new Application({
 		pluginPrivileges: { logger: false },
-		plugins: [validationPlugin(), databasePlugin],
 		schemas: [Note],
 	})
 

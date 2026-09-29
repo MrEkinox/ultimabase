@@ -42,21 +42,29 @@ ${Array.from(
 const defineSourceSchema = (index) => {
 	const name = schemaName(index)
 	const target = 'User'
-	const factory =
-		index === 0 ? 'PasswordUserSchema' : index === 1 ? 'RoleSchema' : 'Schema'
+	const definition =
+		index === 0
+			? 'PasswordUserSchema.define('
+			: index === 1
+				? 'RoleSchema.define(Authoring.Schema, '
+				: 'Authoring.Schema.define('
 	const roleOptions = index === 1 ? '\n  members: { schema: User },' : ''
-	return `export const ${name} = ${factory}.define({
-  className: '${name}',${roleOptions}
-  fields: (field) => ({${sourceFields(target)}
-  }),
+	const sourceOptions =
+		index === 0
+			? ''
+			: `
   access: { update: { allow: true, item: ({ item }) => item.field0.length > 0 } },
   hooks: { afterOperation: { update: ({ item }) => { void item.field0 } } },
-  softDelete: 'explicit',
+  softDelete: 'explicit',`
+	return `export const ${name} = ${definition}{
+  className: '${name}',${roleOptions}
+  fields: (field) => ({${sourceFields(target)}
+  }),${sourceOptions}
 })`
 }
 
 const applicationSource = `
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { PasswordUserSchema, passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
@@ -65,11 +73,18 @@ import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 
+const Authoring = UltimaBase.use(accessPlugin())
+  .use(hooksPlugin())
+  .use(pgVectorPlugin())
+  .use(rolesPlugin())
+  .use(softDeletePlugin({ defaultMode: 'explicit' }))
+  .use(validationPlugin())
+
 ${Array.from({ length: schemaCount }, (_, index) => defineSourceSchema(index)).join('\n\n')}
 
-export const application = new UltimaBase({
+const Benchmark = Authoring.use(passwordAuthPlugin({ user: User }))
+export const application = new Benchmark({
   pluginPrivileges: { logger: false },
-  plugins: [accessPlugin(), hooksPlugin(), passwordAuthPlugin({ user: User }), pgVectorPlugin(), rolesPlugin(), softDeletePlugin({ defaultMode: 'explicit' }), validationPlugin()],
   schemas: [${Array.from({ length: schemaCount }, (_, index) => schemaName(index)).join(', ')}],
 })
 

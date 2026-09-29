@@ -18,7 +18,6 @@ export const hooksPluginPublicApi = {
 		'FieldHookMode',
 		'FieldHookTypes',
 		'FieldHooks',
-		'FieldHooksOption',
 		'FieldInputHookInput',
 		'FieldInputHookKind',
 		'FieldOutputHookKind',
@@ -133,7 +132,6 @@ export const accessPluginPublicApi = {
 		'FieldAccessDeclaration',
 		'FieldAccessFor',
 		'FieldAccessInput',
-		'FieldAccessOption',
 		'FieldClearAccessInput',
 		'FieldFillAccessInput',
 		'FieldReadAccess',
@@ -210,10 +208,8 @@ export const validationPluginPublicApi = {
 	applicationApi: [
 		'CompatibleFieldStandardSchema',
 		'FieldStandardSchema',
-		'FieldValidationCompatibility',
 		'FieldValidationIssue',
 		'FieldValidationIssueCode',
-		'FieldValidationOption',
 		'MutableFieldContainer',
 		'ValidationPlugin',
 		'validationPlugin',
@@ -441,6 +437,7 @@ export const getOptionalProductPublicApiNames = (
 /** Names Hooks implementation details deliberately removed from the root API. */
 export const removedHooksPluginPublicApiNames = [
 	'FieldHookDeclarations',
+	'FieldHooksOption',
 	'OwnedHookContribution',
 	'SchemaExtensionHookContext',
 	'SchemaHookDeclarations',
@@ -457,6 +454,7 @@ export const removedAccessPluginPublicApiNames = [
 	'FieldAccessDeclarations',
 	'FieldExtensionAccessContributionDefinition',
 	'FieldExtensionAccessTargetContext',
+	'FieldAccessOption',
 	'OwnedAccessContribution',
 	'SchemaAccessDeclarations',
 	'SchemaExtensionAccessContributionDefinition',
@@ -472,6 +470,8 @@ export const removedAccessPluginPublicApiNames = [
 
 /** Names validation implementation details deliberately kept private. */
 export const removedValidationPluginPublicApiNames = [
+	'FieldValidationCompatibility',
+	'FieldValidationOption',
 	'createValidationPlanCache',
 	'fieldValidationOption',
 	'requiresValidationTargets',

@@ -15,15 +15,24 @@ import {
 	provideRuntimeInterceptor,
 	withPluginPrivileges,
 	type DatabaseOperationAst,
+	type AddSchemaFieldOperation,
 	type CompiledSchemaRegistry,
 	type ExecutableOperationAst as ExecutableAst,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
 	type SchemaDefinition,
+	type PluginDeclarationContribution,
+	type PluginInstance,
+	type PluginSchemaOptionSource,
+	type PluginSchemaPatchSource,
+	type SchemaSelection,
 } from '@ultimabase/core'
 import {
 	createPluginEventDispatcher,
 	definePluginOptionsParser,
+	patchSchemas,
+	schemaPatch,
+	type SchemaPatchBuilder,
 } from '@ultimabase/plugin-kit'
 import {
 	immutableRecord,
@@ -48,8 +57,15 @@ import {
 } from './acl-limits.js'
 import { createACLRowFilter } from './acl-access.js'
 import { createACLFieldPolicy } from './acl-field-policy.js'
-import { type ACLPlugin, type ACLPluginOptions } from './plugin-contracts.js'
-import { aclFieldName, aclPluginId, readACLSchemaOption } from './acl-option.js'
+import type { ACLPluginOptions } from './plugin-contracts.js'
+import {
+	aclField,
+	aclFieldFamily,
+	aclFieldName,
+	aclPluginId,
+	aclSchemaOption,
+	readACLSchemaOption,
+} from './acl-option.js'
 import {
 	hasStaticRoleGrant,
 	resolveCreateOperationACL,
@@ -62,8 +78,53 @@ export {
 	resolvePreparedOperationACL,
 } from './acl-operation-resolution.js'
 import { readOperationSchema } from './runtime-operation.js'
-import { declareACLSchema } from './schema-declaration.js'
 import { createAttributedACLApplicationStateReader } from './subject-resolver-attribution.js'
+
+const aclSchemaSelector = { option: { name: 'acl' } } as const
+const aclSchemaPatch: SchemaPatchBuilder<
+	readonly [AddSchemaFieldOperation<typeof aclFieldName, typeof aclField>]
+> = schemaPatch().addField({
+	contributionId: 'acl-field',
+	field: aclField,
+	name: aclFieldName,
+})
+
+type ACLOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-acl-option'
+	readonly schema: Readonly<{ acl: typeof aclSchemaOption }>
+}>
+type ACLFieldSource = PluginSchemaPatchSource<
+	typeof aclSchemaPatch.operations,
+	SchemaSelection<typeof aclSchemaSelector>
+>
+type ACLSource = ACLOptionSource | ACLFieldSource
+
+const aclDeclarations: PluginDeclarationContribution<readonly [], ACLSource> =
+	contributeDeclarations({
+		schema: ({ fields, schemas }) => {
+			fields.register(aclFieldFamily)
+			const options = schemas.defineOptions({
+				contributionId: 'official-acl-option',
+				schema: { acl: aclSchemaOption },
+			})
+			const field = schemas.patch(
+				patchSchemas({
+					patch: aclSchemaPatch,
+					targets: schemas.select(aclSchemaSelector),
+				}),
+			)
+
+			return [options, field] as const
+		},
+	})
+
+/** Represents the exact optional ACL provider configured for one application. */
+export type ACLPlugin = PluginInstance<{
+	readonly id: typeof aclPluginId
+	readonly version: '0.0.0'
+	readonly core: '^0.0.0'
+	readonly source: ACLSource
+}>
 
 const optionalPrincipalResolver = optionalCapability(
 	requestPrincipalResolverCapability,
@@ -377,7 +438,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		},
 	})
 
-	const declarations = contributeDeclarations({ schema: declareACLSchema })
 	const privilegedBehavior = withPluginPrivileges(behaviorProvider, [
 		'authority:elevate',
 		'event:publish',
@@ -409,7 +469,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			referenceRowsProvider,
 			rowsProvider,
 			privilegedBehavior,
-			declarations,
+			aclDeclarations,
 		],
 	})
 	return instance

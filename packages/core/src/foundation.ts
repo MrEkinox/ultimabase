@@ -46,6 +46,7 @@ export type {
 	PluginDeclarationContribution,
 	PluginDeclarationContributionOptions,
 	PluginDeclarationRequirements,
+	PluginDeclarationSource,
 	PluginModelContributionContext,
 	PluginOperationDeclarationContributionContext,
 	PluginPrivateStorageContributionContext,
@@ -112,6 +113,7 @@ export type {
 } from './plugins/plugin-operations.js'
 export type {
 	PluginModelSurfaceRegistrar,
+	PluginModelSurfaceSource,
 	PluginOperationDeclarationRegistrar,
 	PluginSchemaMutationSurface,
 	PluginSchemaMutationSurfaceBinding,
@@ -159,7 +161,17 @@ export type {
 	PluginExports,
 	PluginSetupContext,
 } from './plugins/definition.js'
-export type { PluginSourceFieldValue } from './plugins/source-projections.js'
+export type {
+	PluginSourceFieldObjectValue,
+	PluginSourceFieldOptionByKind,
+	PluginSourceFieldValue,
+	PluginSourceOpaque,
+	PluginSourceRelationChange,
+	PluginSourceSchemaFieldValues,
+	PluginSourceSchemaMutationCarrier,
+	PluginSourceSchemaMutations,
+	PluginSourceState,
+} from './plugins/source-projections.js'
 export type {
 	PluginDeclaration,
 	PluginDeclarationCapabilityReader,
@@ -193,6 +205,8 @@ export type {
 	AddSchemaIndexOperation,
 	FieldOptionDefinition,
 	PluginSchemaDeclarationRegistrar,
+	PluginSchemaOptionSource,
+	PluginSchemaPatchSource,
 	SetSchemaFieldOptionOperation,
 	SetSchemaOptionOperation,
 	SchemaOptionDefinition,
@@ -201,6 +215,7 @@ export type {
 	SchemaOptionPresenceSelector,
 	SchemaOptionRuntimeCompilationContext,
 	SchemaOptionRuntimeCompiler,
+	SchemaOptionRuntimeRequirement,
 	SchemaOptionSelector,
 	SchemaOptionTypegenDescriptor,
 	SchemaPatchOperation,
