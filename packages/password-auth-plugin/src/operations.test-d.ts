@@ -48,6 +48,29 @@ test('retains exact operation input and result contracts', () => {
 	>().toEqualTypeOf<PasswordLogoutResult>()
 })
 
+test('projects installed operation names from the plugin source', () => {
+	const Application = UltimaBase.use(passwordAuthPlugin())
+	const application = new Application({ schemas: [] })
+	const login = application.operation('ultimabase.password-auth.login')
+	const logout = application.operation('ultimabase.password-auth.logout')
+
+	expectTypeOf<
+		Parameters<typeof login.execute>[0]
+	>().toEqualTypeOf<PasswordCredentialsInput>()
+	expectTypeOf<ReturnType<typeof login.execute>>().toEqualTypeOf<
+		Promise<PasswordAuthenticationResult>
+	>()
+	expectTypeOf<Parameters<typeof logout.execute>[0]>().toEqualTypeOf<null>()
+	void login
+	void logout
+
+	// @ts-expect-error -- Login requires both credential fields without Typegen.
+	const incompleteLogin: Parameters<typeof login.execute>[0] = {
+		username: 'Ada',
+	}
+	void incompleteLogin
+})
+
 test('types the required profile through the configured User schema contract', () => {
 	const User = PasswordUserSchema.define({
 		className: 'User',

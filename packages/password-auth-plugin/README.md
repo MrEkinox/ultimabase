@@ -168,6 +168,11 @@ token, password, verifier, grant, role, or authorization decision. Access and
 ACL plugins remain solely responsible for authorization.
 
 The six operations remain private until explicitly included in a transport.
+For advanced server code, `application.operation('ultimabase.password-auth.login')`
+receives its exact input and result types from the installed plugin source,
+without waiting for Typegen. The User-class methods above remain the ordinary
+path. The returned User model's exact custom fields still require the generated
+application schema graph; Typegen also resolves relationships between schemas.
 For REST v1, pass the exact operation tokens to `restPlugin({ operations })`.
 Password Auth contributes the compatible codecs and maps its four public
 errors to status 400 or 401 without importing REST.

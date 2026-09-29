@@ -19,6 +19,7 @@ UltimaBase capability or making TypeScript impractical.
 - [ ] The audit compares complete old and new application, schema, plugin-author, command, and local-exception examples.
 - [ ] Production, Core, plugin, test, documentation, public export, dependency, package, declaration-byte, and changed-file deltas are reported exactly.
 - [ ] Removed Typegen plugin projections, retained Typegen graph code, and new Core/plugin source-typing code are measured separately so a facade cannot hide net complexity.
+- [ ] Explicitly inventory the approved Password Auth User-result exception: generated declarations still needed for exact local fields on `User.findMany()` and authentication results, the developer cost of regenerating them, and whether a later Core model-reference type redesign could eliminate this dependency without a parallel registry or lost capability.
 - [ ] Typegen regeneration, complete edit-to-diagnostic latency, cold typecheck, language-service initialization, completion, hover, diagnostics, heap, Runtime startup, complete tests, and coverage are compared with raw samples and summarized distributions.
 - [ ] Every locked issue-6301 budget passes; any exception requires explicit user approval and cannot be hidden by averaging unrelated fixtures.
 - [ ] Total handwritten production lines are below 122,645, public exports are below 1,720, and aggregate package declaration bytes do not exceed 839,935.

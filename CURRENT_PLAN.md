@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307
-- Active issue: 6308
-- Next issue: 6309
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308
+- Active issue: 6309
+- Next issue: 6310
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -162,3 +162,16 @@ after local-listener tests hit `listen EPERM`; the complete unsandboxed rerun
 passed. The user approved continuing the milestone and deferred the issue's
 new warning-sized files and net line increase to issue 6316's final debt audit.
 Issue 6308 is the next resume point; no push is authorized.
+
+Issue 6308 completed the ACL/Roles/Password Auth identity vertical from
+revision `401e433c`. The existing policy and identity Runtime contracts remain
+unchanged; Password Auth application operation names now infer exact inputs and
+results from their installed handlers in source and packed exports. A bounded
+configured custom-User proof failed to preserve even a local field on direct
+`User.findMany()` results and was removed. The user approved keeping exact User
+results in the existing Typegen graph for this milestone, with no parallel
+bridge; issue 6316 explicitly audits this exception and the possible later Core
+type redesign. The final `yarn validate:full` passed 557 ordinary files/2,631
+tests and 635 coverage files/2,888 tests with 90.85/84.36/96.03/91.42
+coverage; the website passed 17 files/66 tests. The locked 1/10/50-schema
+benchmark passed. Issue 6309 is the next resume point; no push is authorized.

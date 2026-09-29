@@ -80,4 +80,55 @@ const revoked: true = logout.revoked
 	} finally {
 		service.dispose()
 	}
+
+	// This second project has no generated registry: installed operations must
+	// retain their exact public contracts through source and packed exports.
+	const operationFile = path.join(
+		import.meta.dirname,
+		`user-auth-operations-${mode}.virtual.ts`,
+	)
+	const operationSource = `
+import { UltimaBase } from '@ultimabase/core'
+import { passwordAuthPlugin } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
+const Application = UltimaBase.use(passwordAuthPlugin())
+const application = new Application({ schemas: [] })
+const withoutAuth = new UltimaBase({ schemas: [] })
+const dynamicLogin = withoutAuth.operation('ultimabase.password-auth.login')
+// @ts-expect-error -- The dynamic fallback has no typed login result without the plugin.
+const dynamicToken: string = (await dynamicLogin.execute({ username: 'Ada', password: 'secret' })).session.token
+const login = application.operation('ultimabase.password-auth.login')
+const credentials: Parameters<typeof login.execute>[0] = {
+  username: 'Ada',
+  password: 'correct horse battery staple',
+}
+const result = await login.execute(credentials)
+const token: string = result.session.token
+const logout = application.operation('ultimabase.password-auth.logout')
+const revoked: true = (await logout.execute(null)).revoked
+// @ts-expect-error -- Installed login requires both credential fields.
+const invalid: Parameters<typeof login.execute>[0] = { username: 'Ada' }
+void token
+void revoked
+void invalid
+void dynamicToken
+`
+	const operationService = createLanguageService(operationFile, operationSource)
+	try {
+		expect(
+			operationService
+				.getSemanticDiagnostics(operationFile)
+				.map((diagnostic) =>
+					ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+				),
+		).toEqual([])
+		const inputHover = operationService.getQuickInfoAtPosition(
+			operationFile,
+			operationSource.indexOf('credentials:') + 1,
+		)
+		expect(ts.displayPartsToString(inputHover?.displayParts)).toContain(
+			'PasswordCredentialsInput',
+		)
+	} finally {
+		operationService.dispose()
+	}
 }

@@ -6,6 +6,13 @@ import { passwordAuthPlugin } from './plugin.js'
 import { PasswordUser, PasswordUserSchema } from './user-schema.js'
 
 describe('passwordAuthPlugin identity declaration', () => {
+	it('does not expose Password Auth operation names without the plugin', () => {
+		const application = new UltimaBase({ schemas: [] })
+		expect(() =>
+			application.operation('ultimabase.password-auth.login'),
+		).toThrow('Unknown application operation: ultimabase.password-auth.login')
+	})
+
 	it('contributes the default User and private credential fingerprint', () => {
 		const plugin = passwordAuthPlugin()
 		const application = new UltimaBase({

@@ -11,6 +11,7 @@ import {
 	requireCapability,
 	withPluginPrivileges,
 	type PluginInstance,
+	type PluginOperationDefinition,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
@@ -80,6 +81,21 @@ const requestExecutionRequirement = requireCapability(
 	'^1.0.0',
 )
 
+type PasswordAuthInstalledOperation = ReturnType<
+	typeof createPasswordOperationHandlers
+>[number]['operation']
+
+/** Projects each installed handler through the same independent Core receipt. */
+type PasswordAuthOperationSource<TOperation extends PluginOperationDefinition> =
+	TOperation extends PluginOperationDefinition
+		? Readonly<{
+				operations: Readonly<Record<TOperation['name'], TOperation>>
+			}>
+		: never
+
+type PasswordAuthSource =
+	PasswordAuthOperationSource<PasswordAuthInstalledOperation>
+
 /** Names the exact official local username and password plugin. */
 export type PasswordAuthPlugin = PluginInstance<{
 	readonly id: '@ultimabase/password-auth-plugin'
@@ -88,6 +104,7 @@ export type PasswordAuthPlugin = PluginInstance<{
 	readonly core: '^0.0.0'
 	readonly peers: readonly [] | typeof passwordAuthHttpPeers
 	readonly environment: typeof passwordAuthPluginEnvironment
+	readonly source: PasswordAuthSource
 }>
 
 /** Configures the one local User identity domain owned by Password Auth v1. */
