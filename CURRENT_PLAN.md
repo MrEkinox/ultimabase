@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305
-- Active issue: 6306
-- Next issue: 6307
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306
+- Active issue: 6307
+- Next issue: 6308
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -125,4 +125,16 @@ two explicit instances, Runtime provenance and privilege boundaries, Plugin Kit
 conformance, and the locked three-sample 1/10/50-schema benchmark pass. The
 final `yarn validate:full` ran 555 ordinary files/2,619 tests and 633 coverage
 files/2,876 tests with 90.92/84.49/96.08/91.48 coverage. Issue 6306 is the next
+resume point; no push is authorized.
+
+Issue 6306 completed sole-active-application direct execution from revision
+`d6ae7f1a`. Native CRUD, plugin schema/model mutations, Password User statics,
+returned models, and relations now execute from their exact source-typed
+surface without an ordinary application argument. Request-local ownership
+still takes precedence; inert lifecycle tokens make stale and foreign results
+fail before effects without retaining application resources or mutating schema
+classes and prototypes. The explicit application paths remain only for the
+bounded migration and are still owned for deletion by issue 6314. The final
+`yarn validate:full` ran 556 ordinary files/2,622 tests and 634 coverage
+files/2,879 tests with 90.84/84.34/96.01/91.41 coverage. Issue 6307 is the next
 resume point; no push is authorized.

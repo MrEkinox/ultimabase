@@ -494,12 +494,13 @@ Core derives `operation:declare`; the author supplies its explicit reason. Then 
 the application. Item-specific commands use the schema-mutation contract below.
 
 Trusted server helpers can use `getCurrentUltimaBase()` to retrieve the facade
-owning the active request and resolve its ordinary `.operation(token)` handles.
-It selects no process-wide default and fails with `MISSING_EXECUTION_CONTEXT`
-outside a request. The selected facade retains its lifecycle and operation
-checks. Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused
-value is needed; Core exposes no second aggregate context API. Transports
-continue to use their narrow request-execution capability.
+owning the active request, or the sole initialized application outside a
+request, and resolve its ordinary `.operation(token)` handles. It fails with
+`MISSING_EXECUTION_CONTEXT` when no application is active. The selected facade
+retains its lifecycle and operation checks. Use `getCurrentEngine()` or
+`getCurrentRequest()` when an exact request-local value is required; Core
+exposes no second aggregate context API. Transports continue to use their
+narrow request-execution capability.
 
 `prepare()` validates one immutable logical envelope without I/O; `execute()`
 enters the active `RequestEngine`, enforces cancellation and transaction policy,
@@ -562,13 +563,10 @@ const workflowPlugin = plugin({
 
 These declarations compile to callback-free descriptors and direct
 application-owned methods. An installed schema mutation is also callable from
-the frozen schema class with an active request or explicit application:
+the frozen schema class through the sole active application:
 
 ```ts
-await PostSchema.archive(
-	{ id: postId, input: { reason: 'superseded' } },
-	{ ultimabase },
-)
+await PostSchema.archive({ id: postId, input: { reason: 'superseded' } })
 ```
 
 The class only dispatches to the selected application's compiled surface; a
@@ -847,13 +845,10 @@ explicit policy denials, callback errors, and adapter errors still fail the oper
 bounded single-target inclusion is selection-aware:
 
 ```ts
-const posts = await PostSchema.findMany(
-	{
-		select: { id: true, title: true },
-		include: { author: { select: { id: true, name: true } } },
-	},
-	{ ultimabase },
-)
+const posts = await PostSchema.findMany({
+	select: { id: true, title: true },
+	include: { author: { select: { id: true, name: true } } },
+})
 
 // `author` is the selected User model, or null when missing or inaccessible.
 ```
@@ -885,9 +880,9 @@ declaration and accepts no official field Hooks.
 
 The target ID used by pointer reads and inclusion is a private Runtime row
 filter. It never enters the developer AST, so application query options can
-neither inspect nor remove it. A target read inherits the active request; outside one,
-it accepts the same `{ ultimabase, context, useMasterKey }` options as every
-schema-root read.
+neither inspect nor remove it. A target read inherits the active request;
+outside one, it resolves the sole application and accepts the same
+`{ context, useMasterKey }` authority options as every schema-root read.
 
 `onDelete` defaults to `restrict`; `cascade` and optional-pointer `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
@@ -1239,15 +1234,14 @@ irrelevant. Applications with no role-aware policy require no resolver at all.
 
 Every schema read resolves authority only when it executes. Inside an
 active request, transaction, or hook it inherits that exact engine. Root jobs
-identify one application explicitly, while an authentication or tenant plugin
-may supply an already-derived context:
+resolve the sole initialized application, while an authentication or tenant
+plugin may supply an already-derived context:
 
 ```ts
 const inherited = await PostSchema.findMany()
-const root = await PostSchema.findMany(undefined, { ultimabase })
+const root = await PostSchema.findMany()
 const authenticated = await PostSchema.findMany(undefined, {
 	context: contextCreatedByAuthPlugin,
-	ultimabase,
 })
 ```
 
@@ -1261,7 +1255,6 @@ const imported = await PostSchema.createMany(
 	{ data: rows },
 	{
 		context: contextCreatedByAuthPlugin,
-		ultimabase,
 		useMasterKey: true,
 	},
 )
@@ -1291,10 +1284,9 @@ configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 
 ```ts
-const post = await PostSchema.createOne(
-	{ data: { title: 'Atomic by default' } },
-	{ ultimabase },
-)
+const post = await PostSchema.createOne({
+	data: { title: 'Atomic by default' },
+})
 ```
 
 The complete current Runtime mutation pipeline and database work started inside
@@ -1306,13 +1298,10 @@ operations inside one transaction: any missing target, input, persistence,
 business-hook, or finalization failure rolls back the complete batch.
 
 ```ts
-const imported = await PostSchema.createMany(
-	{
-		data: rows,
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const imported = await PostSchema.createMany({
+	data: rows,
+	select: { id: true, title: true },
+})
 ```
 
 Database plugins prepare each transaction-bound mutation through one opaque,
@@ -1328,45 +1317,33 @@ order. These internal reads do not replay root mutation policies or lifecycle
 behavior, and they are omitted entirely when no relationship is requested:
 
 ```ts
-const created = await PostSchema.createOne(
-	{
-		data: { author: { connect: authorId }, title: 'Created' },
-		select: { title: true },
-		include: { author: { select: { name: true } } },
-	},
-	{ ultimabase },
-)
+const created = await PostSchema.createOne({
+	data: { author: { connect: authorId }, title: 'Created' },
+	select: { title: true },
+	include: { author: { select: { name: true } } },
+})
 
-const updated = await PostSchema.updateOne(
-	{
-		id: postId,
-		data: { title: 'Updated' },
-		select: { title: true },
-		include: { author: { select: { name: true } } },
-	},
-	{ ultimabase },
-)
+const updated = await PostSchema.updateOne({
+	id: postId,
+	data: { title: 'Updated' },
+	select: { title: true },
+	include: { author: { select: { name: true } } },
+})
 
-const deleted = await PostSchema.deleteOne(
-	{
-		id: postId,
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const deleted = await PostSchema.deleteOne({
+	id: postId,
+	select: { id: true, title: true },
+})
 
 // Itemized batches return only identifiers unless a projection is requested.
-const published = await PostSchema.updateMany(
-	{
-		data: postIds.map((id) => ({
-			where: { id: { eq: id } },
-			data: { published: true },
-		})),
-		select: { id: true, published: true },
-		include: { author: { select: { id: true, name: true } } },
-	},
-	{ ultimabase },
-)
+const published = await PostSchema.updateMany({
+	data: postIds.map((id) => ({
+		where: { id: { eq: id } },
+		data: { published: true },
+	})),
+	select: { id: true, published: true },
+	include: { author: { select: { id: true, name: true } } },
+})
 
 // Explicitly included targets are materialized with their nested projection.
 const authorName = updated?.author?.name
@@ -1458,23 +1435,17 @@ const selectedPosts = await PostSchema.findMany({
 	select: { id: true, title: true },
 })
 
-const created = await draft.create(
-	{ select: { id: true, title: true } },
-	{ ultimabase },
-)
-const updated = await created.update(
-	{ data: { title: 'Published' }, select: { id: true, title: true } },
-	{ ultimabase },
-)
-const fresh = await updated.fetch(
-	{ select: { id: true, title: true } },
-	{ ultimabase },
-)
+const created = await draft.create({ select: { id: true, title: true } })
+const updated = await created.update({
+	data: { title: 'Published' },
+	select: { id: true, title: true },
+})
+const fresh = await updated.fetch({ select: { id: true, title: true } })
 
 const pointer = fresh.toPointer()
-console.log(fresh.equals(pointer), await fresh.exists({ ultimabase }))
+console.log(fresh.equals(pointer), await fresh.exists())
 
-await updated.delete({ select: { id: true } }, { ultimabase })
+await updated.delete({ select: { id: true } })
 ```
 
 `new PostSchema(input)` creates a typed immutable draft and never performs I/O.
@@ -1533,7 +1504,7 @@ const Note = Schema.define({
 
 const ultimabase = new UltimaBase({ schemas: [Note] })
 await ultimabase.start()
-await Note.findMany(undefined, { ultimabase })
+await Note.findMany()
 ```
 
 See the [`hooks-plugin`](../hooks-plugin/README.md) and

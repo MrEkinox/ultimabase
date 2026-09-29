@@ -86,6 +86,8 @@ export const Post = Application.Schema.define({
 
 export const item = new Post({ important: true, title: 'Typed' })
 export const importanceValue = item./* hover:plugin-value */ important
+export const directQueryResult = Post./* hover:direct-query */ findMany()
+export const directCreateResult = item./* hover:direct-create */ create({})
 export const application = new Application({ schemas: [Post] })
 export const operationResult = application
 	.operation('fixture.source.inspect')

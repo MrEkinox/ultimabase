@@ -156,9 +156,9 @@ application. Use
 application. The same method accepts the registered name of a
 plugin-contributed schema. Most configuration-dependent commands belong to
 that application handle. A plugin schema mutation can also appear directly on
-the frozen class after an owning application starts, but the call still selects
-the active application or takes `{ ultimabase }` and verifies that application's
-compiled plugin graph. See [Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
+the frozen class after an owning application starts; the call resolves the sole
+active application and verifies that application's compiled plugin graph. See
+[Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
 for an example and [Models](./models) for draft and persisted instances.
 
 ## Schema identity

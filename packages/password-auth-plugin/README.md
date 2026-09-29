@@ -37,21 +37,18 @@ const ultimabase = new Application({
 
 await ultimabase.start()
 
-const signedUp = await AppUser.signUp(
-	{
-		displayName: 'Ada Lovelace',
-		username: 'Ada',
-		password: 'correct horse battery staple',
-	},
-	{ ultimabase },
-)
+const signedUp = await AppUser.signUp({
+	displayName: 'Ada Lovelace',
+	username: 'Ada',
+	password: 'correct horse battery staple',
+})
 
-const loggedIn = await AppUser.login(
-	{ username: 'Ada', password: 'correct horse battery staple' },
-	{ ultimabase },
-)
-const refreshed = await AppUser.refresh(loggedIn.session.token, { ultimabase })
-await AppUser.logout(refreshed.session.token, { ultimabase })
+const loggedIn = await AppUser.login({
+	username: 'Ada',
+	password: 'correct horse battery staple',
+})
+const refreshed = await AppUser.refresh(loggedIn.session.token)
+await AppUser.logout(refreshed.session.token)
 
 const auth = ultimabase.plugin(authPlugin)
 await auth.runWithSession(
@@ -86,11 +83,11 @@ administrative session-revocation API is intentionally not exposed.
 `logoutEverywhere()` execute the corresponding application operations.
 `AppUser.current()` reads the authenticated profile through ordinary Query.
 The default `PasswordUser` exposes the same methods.
-Pass `{ ultimabase }` in scripts; inside an active request, omit it to inherit
-the application's facade. A conflicting explicit application or a User class
-not installed in that application is rejected before credential work. The
-application must be started. These methods do not store a current user or token
-on the class and do not appear on User model instances.
+Outside a request, these methods resolve the sole started application. Inside a
+request, they retain that request's exact application, subject, transaction,
+cancellation, and authority. A foreign User class is rejected before credential
+work. These methods do not store an application, current user, or token on the
+class and do not appear on User model instances.
 
 The plugin adds its built-in default User automatically. A custom User remains
 explicit in the application's root `schemas` list; Password Auth claims that

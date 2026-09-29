@@ -15,7 +15,7 @@ interface ExecutionScope {
 	active: boolean
 }
 
-// This slot owns lifecycle exclusivity only; execution never selects a default app.
+// This slot owns lifecycle exclusivity and the sole outside-request owner only.
 let active: ActiveApplication | undefined
 const execution = new AsyncLocalStorage<ExecutionScope>()
 

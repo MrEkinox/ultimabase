@@ -123,23 +123,23 @@ describe('Password User authentication methods', () => {
 				).rejects.toMatchObject({ code: 'PASSWORD_AUTH_SIGN_UP_REJECTED' })
 			}
 			// Reusing the rejected identity proves failed creations left no credential behind.
-			const result = await User.signUp(
-				{
-					...credentials,
-					displayName: 'Ada',
-					avatar: new Uint8Array([4, 5, 6]),
-				},
-				{ ultimabase },
-			)
+			const result = await User.signUp({
+				...credentials,
+				displayName: 'Ada',
+				avatar: new Uint8Array([4, 5, 6]),
+			})
 			expect(result.user).toMatchObject({
 				displayName: 'Ada',
 				locale: 'fr',
 				avatar: new Uint8Array([4, 5, 6]),
 			})
 			expect(result.user).not.toHaveProperty('password')
-			await expect(
-				User.login(credentials, { ultimabase }),
-			).resolves.toMatchObject({ user: { id: result.user.id } })
+			await expect(result.user.exists({ useMasterKey: true })).resolves.toBe(
+				true,
+			)
+			await expect(User.login(credentials)).resolves.toMatchObject({
+				user: { id: result.user.id },
+			})
 			const extra = { ...credentials, displayName: 'Ada' }
 			await expect(
 				ultimabase.operation(passwordAuthOperations.login).execute(extra),
@@ -161,29 +161,23 @@ describe('Password User authentication methods', () => {
 		await ultimabase.start()
 		try {
 			await expect(
-				User.signUp({ username: 'uninstalled', password }, { ultimabase }),
+				User.signUp({ username: 'uninstalled', password }),
 			).rejects.toThrow('Unknown application operation')
-			await expect(User.logout('token', { ultimabase })).rejects.toThrow()
+			await expect(User.logout('token')).rejects.toThrow()
 			await expect(
-				User.count(
-					{ where: { username: { eq: 'uninstalled' } } },
-					{ ultimabase },
-				),
+				User.count({ where: { username: { eq: 'uninstalled' } } }),
 			).resolves.toBe(0)
 		} finally {
 			await ultimabase.dispose()
 		}
 	})
 
-	it('runs the four methods through built exports with explicit and ambient ownership', async () => {
+	it('runs authentication through direct and request-local ownership', async () => {
 		const User = createUser()
 		const { ultimabase } = createApplication(User)
 		await ultimabase.start()
 		try {
-			const signedUp = await User.signUp(
-				{ username: ' Ada ', password },
-				{ ultimabase },
-			)
+			const signedUp = await User.signUp({ username: ' Ada ', password })
 			expect(signedUp.user).toBeInstanceOf(User)
 			expect(signedUp.user).toMatchObject({
 				username: 'ada',
@@ -208,25 +202,22 @@ describe('Password User authentication methods', () => {
 				},
 			)
 			expect(refreshed.session.id).toBe(login.session.id)
-			await expect(
-				User.refresh(login.session.token, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
-			await expect(
-				User.logout(refreshed.session.token, { ultimabase }),
-			).resolves.toEqual({ revoked: true })
-			await expect(
-				User.logout(refreshed.session.token, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			await expect(User.refresh(login.session.token)).rejects.toMatchObject({
+				code: 'PASSWORD_AUTH_INVALID_SESSION',
+			})
+			await expect(User.logout(refreshed.session.token)).resolves.toEqual({
+				revoked: true,
+			})
+			await expect(User.logout(refreshed.session.token)).rejects.toMatchObject({
+				code: 'PASSWORD_AUTH_INVALID_SESSION',
+			})
 			await expect(
 				auth.runWithSession(signedUp.session.token, () =>
 					User.logout(signedUp.session.token),
 				),
 			).resolves.toEqual({ revoked: true })
 			await expect(
-				User.login(
-					{ username: 'ada', password: 'incorrect password value' },
-					{ ultimabase },
-				),
+				User.login({ username: 'ada', password: 'incorrect password value' }),
 			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_CREDENTIALS' })
 		} finally {
 			await ultimabase.dispose()

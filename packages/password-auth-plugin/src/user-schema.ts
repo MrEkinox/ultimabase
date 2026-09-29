@@ -96,7 +96,7 @@ export class PasswordUserSchema {
 	 *   className: 'User',
 	 *   fields: (field) => ({ displayName: field.string() }),
 	 * })
-	 * const result = await AppUser.signUp({ username: 'Ada', password }, { ultimabase })
+	 * const result = await AppUser.signUp({ username: 'Ada', password })
 	 * ```
 	 */
 	static define<const TCustomFields extends SchemaFields>(

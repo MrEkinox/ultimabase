@@ -31,11 +31,12 @@ describe('current UltimaBase facade', () => {
 	it('selects exact facades across concurrent requests and sequential lifetimes', async () => {
 		const first = createApplication()
 		const second = createApplication()
+		expect(getCurrentUltimaBase).toThrow(
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
+		)
 		await first.start()
 		try {
-			expect(getCurrentUltimaBase).toThrow(
-				expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
-			)
+			expect(getCurrentUltimaBase()).toBe(first)
 			const scope = (app: typeof first) =>
 				app.anonymous({ requestId: 'facade', source: 'internal' })
 			const observed = await Promise.all(
@@ -60,11 +61,12 @@ describe('current UltimaBase facade', () => {
 			expect(() =>
 				runWithRequestEngine(oldRequest, getCurrentUltimaBase),
 			).toThrow('initialized active application')
-			expect(getCurrentUltimaBase).toThrow(
-				expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
-			)
+			expect(getCurrentUltimaBase()).toBe(second)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
 		}
+		expect(getCurrentUltimaBase).toThrow(
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
+		)
 	})
 })

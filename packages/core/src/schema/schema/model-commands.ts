@@ -4,6 +4,7 @@ import {
 	createSchemaRecord,
 	upsertSchemaRecord,
 } from '../../query/operations/schema-command-execution.js'
+import { assertOperationExecutionOwnerToken } from '../../query/operations/execution.js'
 import type { SchemaWhereInput } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { WhereInput } from '../../query/filters/where.js'
@@ -244,12 +245,18 @@ export class SchemaModelPrototype {
 	relation(fieldName: string): Relation {
 		const record = readPersistedSchemaModelRecord(this, 'relation')
 
-		return createRelationHandle(record.schema, fieldName, record.objectId)
+		return createRelationHandle(
+			record.schema,
+			fieldName,
+			record.objectId,
+			record.ownerToken,
+		)
 	}
 
 	/** Reloads one trusted identity through the ordinary read pipeline. */
 	async fetch(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'fetch')
+		assertOperationExecutionOwnerToken(record.ownerToken, options)
 
 		if (typeof record.objectId !== 'string') {
 			throw new TypeError(
@@ -270,6 +277,7 @@ export class SchemaModelPrototype {
 	/** Tests one trusted identity through the ordinary read pipeline. */
 	exists(options?: OperationOptions): Promise<boolean> {
 		const record = readPersistedSchemaModelRecord(this, 'exists')
+		assertOperationExecutionOwnerToken(record.ownerToken, options)
 
 		return executeQueryExists(
 			createPersistedModelQuery(record) as QueryBuilder<SchemaDefinition>,
@@ -349,6 +357,7 @@ export class SchemaModelPrototype {
 	/** Targets only Runtime-issued object identity and never a visible caller field. */
 	async update(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
+		assertOperationExecutionOwnerToken(record.ownerToken, options)
 		const normalized = readSchemaModelUpdateInput(input)
 
 		return requirePersistedMutationResult(
@@ -364,6 +373,7 @@ export class SchemaModelPrototype {
 	/** Deletes only Runtime-issued object identity through QueryBuilder's singular alias. */
 	async delete(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
+		assertOperationExecutionOwnerToken(record.ownerToken, options)
 		const normalized = readSchemaModelSelectionInput(input, 'delete')
 
 		return requirePersistedMutationResult(

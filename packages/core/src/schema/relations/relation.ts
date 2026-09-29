@@ -6,6 +6,10 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
 import type { OperationOptions } from '../../query/operations/options.js'
+import {
+	assertOperationExecutionOwnerToken,
+	type OperationExecutionOwnerToken,
+} from '../../query/operations/execution.js'
 import type { QueryResult } from '../../query/query/result.js'
 import {
 	executeQueryCount,
@@ -73,6 +77,7 @@ interface RelationState<
 	TTarget extends SchemaDefinition,
 > {
 	readonly fieldName: string
+	readonly ownerToken?: OperationExecutionOwnerToken
 	readonly source: TSource
 	readonly sourceObjectId: string
 	readonly target: TTarget
@@ -197,7 +202,7 @@ export class Relation<
 		input: FindManyInput<TTarget> = {},
 		options?: OperationOptions,
 	): Promise<readonly object[]> {
-		const state = this.getState()
+		const state = this.getState(options)
 		const query = scopeQueryToRelation(
 			queryFromFindManyInput(state.target, input),
 			state,
@@ -224,7 +229,7 @@ export class Relation<
 		input: FindOneInput<TTarget> = {},
 		options?: OperationOptions,
 	): Promise<object | null> {
-		const state = this.getState()
+		const state = this.getState(options)
 		const query = scopeQueryToRelation(
 			queryFromFindOneInput(state.target, input),
 			state,
@@ -242,7 +247,7 @@ export class Relation<
 		QuerySelectedFieldFromInput<TTarget, TInput>,
 		QueryIncludedFieldFromInput<TTarget, TInput>
 	> | null> {
-		const state = this.getState()
+		const state = this.getState(options)
 		const normalized = queryFromGetInput(state.target, input)
 		const query = scopeQueryToRelation(normalized.query, state)
 
@@ -254,7 +259,7 @@ export class Relation<
 		input: CountInput<TTarget> = {},
 		options?: OperationOptions,
 	): Promise<number> {
-		const state = this.getState()
+		const state = this.getState(options)
 		const query = scopeQueryToRelation(
 			queryFromCountInput(state.target, input),
 			state,
@@ -268,7 +273,7 @@ export class Relation<
 		input: ExistsInput<TTarget> = {},
 		options?: OperationOptions,
 	): Promise<boolean> {
-		const state = this.getState()
+		const state = this.getState(options)
 		const query = scopeQueryToRelation(
 			queryFromExistsInput(state.target, input),
 			state,
@@ -289,7 +294,12 @@ export class Relation<
 		targets: RelationMutationTargets,
 		options?: RelationMutationOptions,
 	): Promise<void> {
-		return executeRelationMutation(this.getState(), 'connect', targets, options)
+		return executeRelationMutation(
+			this.getState(options),
+			'connect',
+			targets,
+			options,
+		)
 	}
 
 	/**
@@ -302,7 +312,7 @@ export class Relation<
 		options?: RelationMutationOptions,
 	): Promise<void> {
 		return executeRelationMutation(
-			this.getState(),
+			this.getState(options),
 			'disconnect',
 			targets,
 			options,
@@ -318,7 +328,12 @@ export class Relation<
 		targets: readonly string[],
 		options?: RelationMutationOptions,
 	): Promise<void> {
-		return executeRelationMutation(this.getState(), 'set', targets, options)
+		return executeRelationMutation(
+			this.getState(options),
+			'set',
+			targets,
+			options,
+		)
 	}
 
 	/**
@@ -327,17 +342,20 @@ export class Relation<
 	 * @example `await post.relation('tags').clear()`
 	 */
 	clear(options?: RelationMutationOptions): Promise<void> {
-		return executeRelationMutation(this.getState(), 'clear', [], options)
+		return executeRelationMutation(this.getState(options), 'clear', [], options)
 	}
 
 	/** Recovers the trusted state retained only by framework-created handles. */
-	private getState(): RelationState<TSource, TTarget> {
+	private getState(
+		options?: OperationOptions,
+	): RelationState<TSource, TTarget> {
 		const state = relationStates.get(this)
 
 		if (state === undefined) {
 			throw new TypeError('Relation instance has no trusted relation state')
 		}
 
+		assertOperationExecutionOwnerToken(state.ownerToken, options)
 		// Only createRelationHandle stores one state beside its exact generic handle.
 		return state as RelationState<TSource, TTarget>
 	}
@@ -360,6 +378,7 @@ export const createRelationHandle = (
 	source: SchemaDefinition,
 	fieldName: string,
 	sourceObjectId: unknown,
+	ownerToken?: OperationExecutionOwnerToken,
 ): Relation => {
 	if (!Schema.is(source)) {
 		throw new TypeError('Relation source must be created by Schema.define')
@@ -385,6 +404,7 @@ export const createRelationHandle = (
 
 	const state: RelationState<SchemaDefinition, SchemaDefinition> = {
 		fieldName,
+		...(ownerToken === undefined ? {} : { ownerToken }),
 		source,
 		sourceObjectId,
 		target,

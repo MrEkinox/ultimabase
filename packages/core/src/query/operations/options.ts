@@ -15,7 +15,7 @@ type OperationUltimaBase = UltimaBase<
  * Selects inherited, plugin-derived, or audited-master operation execution.
  * Omitting `context` and `useMasterKey` inherits the active request.
  *
- * @example `await Post.findMany(undefined, { ultimabase })`
+ * @example `await Post.findMany()`
  * @example `await Post.createOne({ data }, { useMasterKey: true })`
  */
 export interface OperationOptions {
@@ -27,10 +27,10 @@ export interface OperationOptions {
 	 */
 	readonly context?: RequestContext
 	/**
-	 * Selects the exact started application used to create an anonymous root request.
-	 * It is required with an explicit context outside an active request scope.
+	 * Temporarily selects one exact application during migration. Ordinary calls
+	 * resolve the sole initialized active application and should omit this field.
 	 *
-	 * @example `await Post.findMany(undefined, { ultimabase })`
+	 * @deprecated Direct class and model commands resolve their sole active owner.
 	 */
 	readonly ultimabase?: OperationUltimaBase
 	/**

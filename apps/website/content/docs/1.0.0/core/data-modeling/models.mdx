@@ -32,7 +32,6 @@ plugin, as in [Manual Installation](/docs/1.0.0/manual-installation).
 
 ```ts title="src/product-model.ts"
 import { Product } from './product.js'
-import { ultimabase } from './ultimabase.js'
 
 const draft = new Product({
 	name: 'Notebook',
@@ -41,7 +40,7 @@ const draft = new Product({
 })
 
 const draftValues = draft.toJSON()
-const created = await draft.create({ select: { name: true } }, { ultimabase })
+const created = await draft.create({ select: { name: true } })
 const createdValues = created.toJSON()
 ```
 
@@ -94,17 +93,17 @@ inclusion and exclusion rules.
 unique target described in [Upserts](/docs/1.0.0/core/writing-data/upserts).
 `exists()` takes no selection because it returns no fields.
 
-Executing commands accept the ordinary final `OperationOptions` argument. Pass
-the owning `ultimabase` explicitly outside an active request, as in the example
-above. Each command's `select` controls its own result; an earlier selection
+Executing commands resolve the sole active application. Inside a request they
+retain its exact context, transaction, cancellation, subject, and authority.
+Each command's `select` controls its own result; an earlier selection
 does not constrain a later `fetch()`, `update()`, or `delete()` result.
 
 ```ts title="src/product-model.ts"
-const updated = await created.update(
-	{ data: { price: '24.90' }, select: { name: true, price: true } },
-	{ ultimabase },
-)
-const fresh = await updated.fetch({ select: { name: true } }, { ultimabase })
+const updated = await created.update({
+	data: { price: '24.90' },
+	select: { name: true, price: true },
+})
+const fresh = await updated.fetch({ select: { name: true } })
 const sameProduct = fresh.equals(created)
 const pointer = fresh.toPointer()
 ```

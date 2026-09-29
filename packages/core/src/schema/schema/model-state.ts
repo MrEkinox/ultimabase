@@ -1,10 +1,12 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import type { OperationExecutionOwnerToken } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from './definition.js'
 import type { SchemaModelState } from './model-contracts.js'
 
 export interface SchemaModelRecord {
 	readonly objectId: unknown
+	readonly ownerToken?: OperationExecutionOwnerToken
 	readonly schema: SchemaDefinition
 	readonly selectedFields: readonly string[] | undefined
 	readonly state: SchemaModelState
@@ -37,6 +39,22 @@ export const retainSchemaModelAlias = (alias: object, model: object): void => {
 	}
 
 	schemaModelRecords.set(alias, record)
+}
+
+/** Attaches only inert lifecycle provenance to one Runtime-materialized result. */
+export const retainSchemaModelOwner = (
+	model: object,
+	ownerToken: OperationExecutionOwnerToken,
+): void => {
+	const record = schemaModelRecords.get(model)
+	if (record === undefined) {
+		throw new TypeError('Schema model owner requires trusted model state')
+	}
+	if (record.ownerToken !== undefined && record.ownerToken !== ownerToken) {
+		throw new TypeError('Schema model cannot be rebound to another application')
+	}
+	if (record.ownerToken === ownerToken) return
+	schemaModelRecords.set(model, immutableRecord({ ...record, ownerToken }))
 }
 
 /** Registers the exact generated constructor accepted by Runtime materialization. */

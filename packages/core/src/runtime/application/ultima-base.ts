@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 import type {
 	AnonymousRequestAccess,
 	RequestAccess,
@@ -18,7 +14,7 @@ import {
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
-import { bindApplicationSchemaModel } from '../../application/application-model-views.js'
+import { bindDirectApplicationValue } from '../../application/application-model-views.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
 	type ConfiguredPluginExports,
@@ -28,12 +24,8 @@ import {
 	type PluginDefinition,
 	type PluginExports,
 } from '../../foundation.js'
-import {
-	FrameworkApplication,
-	type FrameworkApplicationOptions,
-} from '../../application/framework-application.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
-import type { CompiledTypegenGraph } from '../../plugins/typegen-declarations.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import {
 	readMutationCommand,
@@ -43,16 +35,12 @@ import type { PluginOperationDefinition } from '../../plugins/plugin-operations.
 import {
 	normalizeOperationOptions,
 	registerQueryExecutionOwner,
+	type OperationExecutionOwnerToken,
 } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
-import type {
-	OwnedFieldBuilderMethod,
-	OwnedPluginFieldType,
-} from '../../schema/schema/field-builder-methods.js'
-import type { SchemaDefinition, SchemaRegistry } from '../../schema/index.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
-import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
@@ -78,7 +66,6 @@ import type {
 import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
 import {
 	createFrameworkEngine,
-	normalizeCreateFrameworkEngineOptions,
 	type CreateFrameworkEngineOptions,
 } from './create-framework-engine.js'
 import {
@@ -96,117 +83,18 @@ import type {
 	PluginSourceState,
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
-
-const ultimaBaseOptionKeys = new Set([
-	'access',
-	'masterAuthority',
-	'pluginPrivileges',
-	'plugins',
-	'schemas',
-	'validation',
-])
-
-/** Configures one application instance without repeating its factory's plugins. */
-export interface UltimaBaseInstanceOptions<
-	TSchemas extends readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[],
-> extends CreateFrameworkEngineOptions {
-	/**
-	 * Registers the exact immutable schemas owned by this UltimaBase instance.
-	 *
-	 * @example `schemas: [UserSchema, PostSchema]`
-	 */
-	readonly schemas: TSchemas
-	/** Configures plugin privilege policy and startup reporting. */
-	readonly pluginPrivileges?: NonNullable<
-		FrameworkApplicationOptions<TSchemas, TPlugins>['pluginPrivileges']
-	>
-	/**
-	 * Supplies the optional audited authority used for explicit master access.
-	 *
-	 * @example `masterAuthority: new MasterAuthority({ keys, onUse })`
-	 */
-	readonly masterAuthority?: NonNullable<
-		CreateFrameworkEngineOptions['masterAuthority']
-	>
-	/**
-	 * Configures structural validation, application time, and UUID generation.
-	 *
-	 * @example `validation: { timezone: "Europe/Paris" }`
-	 */
-	readonly validation?: NonNullable<CreateFrameworkEngineOptions['validation']>
-}
-
-/**
- * Configures the zero-plugin root or the temporarily supported constructor
- * installation form. New applications install plugins with `UltimaBase.use()`.
- */
-export type UltimaBaseOptions<
-	TSchemas extends readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[],
-> = UltimaBaseInstanceOptions<TSchemas, TPlugins> &
-	([TPlugins] extends [readonly []]
-		? {
-				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
-				readonly plugins?: TPlugins
-			}
-		: {
-				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
-				readonly plugins: TPlugins
-			})
-
-/** Immutable callback-free application facts available without starting resources. */
-export interface CompiledApplication<
-	TSchemas extends readonly SchemaDefinition[] = readonly SchemaDefinition[],
-> {
-	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
-	readonly pluginFieldTypes: readonly OwnedPluginFieldType[]
-	readonly pluginPrivilegeReport: PluginPrivilegeReport
-	readonly privateStorageFingerprint?: string
-	readonly schemas: SchemaRegistry<TSchemas>
-	readonly typegenGraph: CompiledTypegenGraph
-}
-
-const assertUltimaBaseOptions: (
-	options: unknown,
-) => asserts options is UltimaBaseOptions<
-	readonly SchemaDefinition[],
-	readonly PluginDefinition[]
-> = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('UltimaBase options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!ultimaBaseOptionKeys.has(key)) {
-			throw new TypeError(`UltimaBase contains unknown option: ${key}`)
-		}
-	}
-}
-
-const readConstructorPlugins = (
-	options: unknown,
-): readonly PluginDefinition[] | undefined => {
-	if (!isPlainRecord(options)) {
-		return undefined
-	}
-	return options.plugins as readonly PluginDefinition[] | undefined
-}
-
-const readEngineOptions = <
-	TSchemas extends readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[],
->(
-	options: UltimaBaseOptions<TSchemas, TPlugins>,
-): Readonly<CreateFrameworkEngineOptions> =>
-	normalizeCreateFrameworkEngineOptions({
-		...(options.masterAuthority === undefined
-			? {}
-			: { masterAuthority: options.masterAuthority }),
-		...(options.validation === undefined
-			? {}
-			: { validation: options.validation }),
-	})
+import {
+	assertUltimaBaseOptions,
+	readConstructorPlugins,
+	readEngineOptions,
+	type CompiledApplication,
+	type UltimaBaseOptions,
+} from './ultima-base-contracts.js'
+export type {
+	CompiledApplication,
+	UltimaBaseInstanceOptions,
+	UltimaBaseOptions,
+} from './ultima-base-contracts.js'
 
 /**
  * Owns one isolated UltimaBase application and its Runtime engine.
@@ -224,7 +112,7 @@ const readEngineOptions = <
  * })
  *
  * await ultimabase.start()
- * const posts = await PostSchema.findMany(undefined, { ultimabase })
+ * const posts = await PostSchema.findMany()
  * ```
  */
 export class UltimaBase<
@@ -259,6 +147,7 @@ export class UltimaBase<
 	#frameworkEngine: FrameworkEngine<TSchemas, TPlugins> | undefined
 	#compiledApplication: CompiledApplication<TSchemas> | undefined
 	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
+	readonly #operationOwnerToken: OperationExecutionOwnerToken
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
 
 	constructor(options: UltimaBaseOptions<TSchemas, TPlugins>) {
@@ -279,9 +168,29 @@ export class UltimaBase<
 		})
 		bindUltimaBaseKernel(this, this.#application)
 		this.#engineOptions = readEngineOptions(options)
-		registerQueryExecutionOwner(this, {
+		this.#operationOwnerToken = registerQueryExecutionOwner(this, {
 			application: this.#application,
-			bindResult: (value) => this.#bindQueryResult(value),
+			bindResult: (value, ownerToken) =>
+				this.#bindQueryResult(value, ownerToken),
+			executeModelSchemaMutation: (model, schema, name, input, options) => {
+				const surface = this.#application.getSchemaSurface(schema.className)
+				if (surface?.schema !== schema || !surface.modelMutations.has(name)) {
+					throw new TypeError(
+						`Model mutation ${schema.className}.${name} is not installed in this application`,
+					)
+				}
+				const handle = this.schema(schema).for(model)
+				const method: unknown = Reflect.get(handle, name)
+				if (typeof method !== 'function') {
+					throw new TypeError(
+						`Model mutation ${schema.className}.${name} is not installed in this application`,
+					)
+				}
+				return Reflect.apply(method, handle, [
+					input,
+					options,
+				]) as Promise<unknown>
+			},
 			executeSchemaMutation: (schema, name, input, options) => {
 				const surface = this.#application.getSchemaSurface(schema.className)
 				if (surface?.schema !== schema || !surface.schemaMutations.has(name)) {
@@ -433,19 +342,26 @@ export class UltimaBase<
 	}
 
 	/** Reuses one application-owned immutable view for every Runtime model result. */
-	#bindQueryResult(value: unknown): unknown {
-		if (Array.isArray(value)) {
-			return immutableArray(value.map((entry) => this.#bindQueryResult(entry)))
+	#bindQueryResult(
+		value: unknown,
+		ownerToken: OperationExecutionOwnerToken,
+	): unknown {
+		const modelMutationsBySchema = new Map<
+			SchemaDefinition,
+			ReadonlySet<string>
+		>()
+		for (const schema of this.#application.schemas.values()) {
+			const surface = this.#application.getSchemaSurface(schema.className)
+			modelMutationsBySchema.set(
+				schema,
+				new Set(surface?.modelMutations.keys() ?? []),
+			)
 		}
-		if (typeof value !== 'object' || value === null) {
-			return value
-		}
-		const record = findSchemaModelRecord(value)
-		if (record === undefined) {
-			return value
-		}
-		const handle = this.schema(record.schema)
-		return bindApplicationSchemaModel(handle, value)
+		return bindDirectApplicationValue(
+			value,
+			ownerToken,
+			(schema) => modelMutationsBySchema.get(schema) ?? new Set<string>(),
+		)
 	}
 
 	/** Resolves one exact stable schema class through its application-owned handle. */
@@ -570,7 +486,10 @@ export class UltimaBase<
 						requestId: randomUUID(),
 						source: requestSources.internal,
 					})
-		return executeRequestPluginOperation(requestEngine, compiled, envelope)
+		return this.#bindQueryResult(
+			await executeRequestPluginOperation(requestEngine, compiled, envelope),
+			this.#operationOwnerToken,
+		)
 	}
 
 	async #executeSchemaMutation(
@@ -595,6 +514,7 @@ export class UltimaBase<
 				envelope,
 				normalizeOperationOptions(options),
 			),
+			this.#operationOwnerToken,
 		)
 	}
 }

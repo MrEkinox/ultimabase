@@ -99,6 +99,7 @@ describe('contextual operation execution', () => {
 			application: foreignApplication,
 			bindResult: (value) => value,
 			createRootExecutor: () => active,
+			executeModelSchemaMutation: () => Promise.resolve(undefined),
 			executeSchemaMutation: () => Promise.resolve(undefined),
 		})
 		const publicOptions = {

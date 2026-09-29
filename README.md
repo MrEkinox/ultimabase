@@ -53,10 +53,7 @@ const draft = new UserSchema({ name: 'Ada' })
 ```
 
 ```ts
-const users = await UserSchema.findMany(
-	{ ...activeUsersInput, limit: 25 },
-	{ ultimabase },
-)
+const users = await UserSchema.findMany({ ...activeUsersInput, limit: 25 })
 
 users[0] instanceof UserSchema // true
 users[0]?.toJSON() // A detached immutable object.

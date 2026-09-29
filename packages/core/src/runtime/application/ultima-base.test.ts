@@ -173,6 +173,9 @@ describe('UltimaBase', () => {
 		).toThrow(
 			new TypeError('UltimaBase must be started before request execution'),
 		)
+		expect(() => articleSchema.findMany()).toThrow(
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
+		)
 		expect(() => articleSchema.findMany(undefined, { ultimabase })).toThrow(
 			new TypeError('UltimaBase must be started before request execution'),
 		)
@@ -188,7 +191,7 @@ describe('UltimaBase', () => {
 			ultimabase.plugin(createDatabasePlugin(adapter))
 		}).toThrow('Plugin setup has not completed: fixture.ultimabase-database')
 
-		const result = await articleSchema.findMany(undefined, { ultimabase })
+		const result = await articleSchema.findMany()
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(articleSchema)
@@ -205,9 +208,7 @@ describe('UltimaBase', () => {
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() =>
-			articleSchema.findMany(escapedQuery.build(), { ultimabase }),
-		).toThrow(
+		expect(() => articleSchema.findMany(escapedQuery.build())).toThrow(
 			new TypeError(
 				'Framework engine requires its initialized active application; received stopped',
 			),
@@ -243,7 +244,54 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
 	})
 
-	it('executes explicit plugin contexts and audited master operation options', async () => {
+	it('rejects stale results and foreign schema identities after sequential replacement', async () => {
+		const row = {
+			createdAt: '2026-08-02T08:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000002',
+			title: 'First lifetime',
+			updatedAt: '2026-08-02T08:00:00.000Z',
+		}
+		const firstAdapter = new RecordingDatabaseAdapter(
+			[{ status: 'fulfilled', value: [row] }],
+			[],
+		)
+		const first = applicationFixture(
+			new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [createDatabasePlugin(firstAdapter)],
+				schemas: [articleSchema],
+			}),
+		)
+		await first.start()
+		const [stale] = await articleSchema.findMany()
+		if (stale === undefined)
+			throw new TypeError('Expected one persisted result')
+		await first.dispose()
+
+		const secondAdapter = new RecordingDatabaseAdapter([], [])
+		const second = applicationFixture(
+			new UltimaBase({
+				pluginPrivileges: { logger: false },
+				plugins: [createDatabasePlugin(secondAdapter)],
+				schemas: [articleSchema],
+			}),
+		)
+		await second.start()
+		await expect(stale.fetch({})).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+		})
+
+		const ForeignArticle = Schema.define({
+			className: articleSchema.className,
+			fields: (field) => ({ title: field.string() }),
+		})
+		await expect(ForeignArticle.findMany()).rejects.toThrow(
+			'Schema does not belong to this application',
+		)
+		expect(secondAdapter.rootRequests).toStrictEqual([])
+	})
+
+	it('executes direct plugin contexts and audited master operation options', async () => {
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{ status: 'fulfilled', value: [] },
@@ -283,10 +331,9 @@ describe('UltimaBase', () => {
 
 		try {
 			await ultimabase.start()
-			await articleSchema.findMany(undefined, { context, ultimabase })
+			await articleSchema.findMany(undefined, { context })
 			await articleSchema.findMany(undefined, {
 				context,
-				ultimabase,
 				useMasterKey: true,
 			})
 
@@ -379,19 +426,13 @@ describe('UltimaBase', () => {
 
 		try {
 			await ultimabase.start()
-			const created = await draft.create({}, { ultimabase })
-			const upserted = await importedDraft.upsert(
-				{
-					update: { title: 'Upserted' },
-					where: { title: { eq: 'Imported' } },
-				},
-				{ ultimabase },
-			)
-			const updated = await created.update(
-				{ data: { title: 'Updated' } },
-				{ ultimabase },
-			)
-			const deleted = await updated.delete({}, { ultimabase })
+			const created = await draft.create({})
+			const upserted = await importedDraft.upsert({
+				update: { title: 'Upserted' },
+				where: { title: { eq: 'Imported' } },
+			})
+			const updated = await created.update({ data: { title: 'Updated' } })
+			const deleted = await updated.delete({})
 
 			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })
 			expect(importedDraft.toJSON()).toStrictEqual({ title: 'Imported' })
@@ -460,7 +501,6 @@ describe('UltimaBase', () => {
 
 			await expect(
 				articleSchema.findMany(undefined, {
-					ultimabase: missing,
 					useMasterKey: true,
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
@@ -468,7 +508,6 @@ describe('UltimaBase', () => {
 			await failing.start()
 			await expect(
 				articleSchema.findMany(undefined, {
-					ultimabase: failing,
 					useMasterKey: true,
 				}),
 			).rejects.toBe(auditFailure)

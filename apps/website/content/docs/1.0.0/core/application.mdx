@@ -87,11 +87,11 @@ and [Transactions](/docs/1.0.0/core/writing-data/transactions).
 Inside an active request, trusted server code can retrieve its owning facade
 with `getCurrentUltimaBase()` from `@ultimabase/core`. It returns the exact
 application's `UltimaBase`, so `.operation(token)` uses the existing request
-scope. There is no global default: outside a request it throws
-`MISSING_EXECUTION_CONTEXT`.
+scope. Outside a request it returns the sole initialized application; with no
+active application it throws `MISSING_EXECUTION_CONTEXT`.
 Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused value
-is needed; Core does not expose a second aggregate context API.
-Scripts should retain and pass their explicit `ultimabase` instance.
+is needed; Core does not expose a second aggregate context API. Classes and
+models keep no application resource or authority.
 
 Read and validate required environment values at the composition root before
 passing them to plugin factories. Keep credentials server-side; the
@@ -181,7 +181,7 @@ const app = new Application({
 
 try {
 	await app.start()
-	const tasks = await Task.findMany({ limit: 20 }, { ultimabase: app })
+	const tasks = await Task.findMany({ limit: 20 })
 	console.log(tasks.map((task) => task.toJSON()))
 } finally {
 	await app.dispose()
@@ -196,11 +196,11 @@ and [Reading Data](/docs/1.0.0/core/reading-data/overview).
 
 ## Application boundaries
 
-The `{ ultimabase: app }` option binds a direct TypeScript operation to this
-application. A transport must select one application before sending a request
-into Runtime. Its request context retains that application's scope, cancellation
-signal, and authority; request labels or plugin values cannot manufacture
-Master access. [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
+A direct TypeScript operation resolves the sole active application. A transport
+must select that same application before sending a request into Runtime. Its
+request context retains the application's scope, cancellation signal, and
+authority; request labels or plugin values cannot manufacture Master access.
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
 and [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
 explain those security boundaries. The [HTTP plugin](/docs/1.0.0/plugins/official/http)
 owns transport selection and deadlines.

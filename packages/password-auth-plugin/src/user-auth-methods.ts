@@ -29,8 +29,8 @@ import type { PasswordSignUpInput } from './sign-up-input.js'
 /** Selects the application for a direct Password User authentication call. */
 export interface PasswordUserAuthOptions {
 	/**
-	 * The started application owning this exact User. Required outside a request.
-	 * @example `await AppUser.login(credentials, { ultimabase })`
+	 * Temporarily selects the exact User owner during repository migration.
+	 * @deprecated Ordinary calls resolve the sole active application.
 	 */
 	readonly ultimabase?: NonNullable<OperationOptions['ultimabase']>
 }
@@ -56,7 +56,7 @@ export interface PasswordUserAuthMethods<
 	): Promise<PasswordChangeResult>
 	/**
 	 * Creates a User, credential, and session atomically, with a required readable profile.
-	 * @example `await AppUser.signUp({ username: 'Ada', password }, { ultimabase })`
+	 * @example `await AppUser.signUp({ username: 'Ada', password })`
 	 */
 	signUp(
 		input: PasswordSignUpInput<TFields>,
@@ -73,7 +73,7 @@ export interface PasswordUserAuthMethods<
 	/**
 	 * Validates and rotates one session token, returning a freshly read User.
 	 * The old token becomes invalid only after a successful commit.
-	 * @example `await AppUser.refresh(session.token, { ultimabase })`
+	 * @example `await AppUser.refresh(session.token)`
 	 */
 	refresh(
 		token: string,
@@ -81,7 +81,7 @@ export interface PasswordUserAuthMethods<
 	): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>>
 	/**
 	 * Validates and revokes only the supplied session, leaving other sessions active.
-	 * @example `await AppUser.logout(session.token, { ultimabase })`
+	 * @example `await AppUser.logout(session.token)`
 	 */
 	logout(
 		token: string,

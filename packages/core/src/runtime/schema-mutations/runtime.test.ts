@@ -12,7 +12,6 @@ import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/record
 import { plugin } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 
 describe('plugin schema mutation Runtime', () => {
@@ -53,17 +52,12 @@ describe('plugin schema mutation Runtime', () => {
 			input: unknown,
 		) => Promise<unknown>
 		expect(Object.isFrozen(fixture.Post)).toBe(true)
-		await expect(
-			archive({ id, input: { reason: 'missing owner' } }),
-		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
 		const selection = { title: true, workflowState: true }
-		const result = await runWithRequestEngine(
-			fixture.ultimabase.anonymous({
-				requestId: 'static-mutation',
-				source: requestSources.internal,
-			}),
-			() => archive({ id, input: { reason: 'superseded' }, select: selection }),
-		)
+		const result = await archive({
+			id,
+			input: { reason: 'superseded' },
+			select: selection,
+		})
 
 		expect(result).toBeInstanceOf(fixture.Post)
 		expect(result).toMatchObject({
@@ -122,6 +116,21 @@ describe('plugin schema mutation Runtime', () => {
 			'execute:delete-one',
 			'adapter:commit',
 		])
+
+		await fixture.ultimabase.dispose()
+		const replacement = await createUpdateFixture({ results: [] })
+		try {
+			const staleArchive = Reflect.get(result as object, 'archive') as (
+				input: unknown,
+			) => Promise<unknown>
+			expect(staleArchive).toBeTypeOf('function')
+			expect(() => staleArchive({ input: { reason: 'stale' } })).toThrow(
+				expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+			)
+			expect(replacement.adapter.rootRequests).toStrictEqual([])
+		} finally {
+			await replacement.ultimabase.dispose()
+		}
 	})
 
 	it('hides missing targets and rolls back before invoking the handler', async () => {
@@ -274,7 +283,7 @@ describe('plugin schema mutation Runtime', () => {
 					id,
 					input: { reason: 'cancelled' },
 				},
-				{ context, ultimabase: fixture.ultimabase },
+				{ context },
 			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(handler).toHaveBeenCalledOnce()
@@ -365,19 +374,14 @@ describe('plugin schema mutation Runtime', () => {
 			options?: unknown,
 		) => Promise<unknown>
 
-		await expect(
-			purge({ id }, { ultimabase: fixture.ultimabase }),
-		).rejects.toMatchObject({
+		await expect(purge({ id })).rejects.toMatchObject({
 			code: 'MASTER_ACCESS_DENIED',
 		})
 		expect(fixture.trace).toStrictEqual([])
 		expect(fixture.handler).not.toHaveBeenCalled()
 
 		await expect(
-			purge(
-				{ id, select: { title: true } },
-				{ ultimabase: fixture.ultimabase, useMasterKey: true },
-			),
+			purge({ id, select: { title: true } }, { useMasterKey: true }),
 		).resolves.toMatchObject({ id, title: 'Release notes' })
 		expect(fixture.audit).toHaveBeenCalledOnce()
 		expect(fixture.handler).toHaveBeenCalledOnce()

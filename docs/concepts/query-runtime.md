@@ -20,15 +20,12 @@ const users = await runWithRequestEngine(requestEngine, () =>
 )
 ```
 
-Outside an active scope, the read accepts the exact started application and
-creates one anonymous internal request. Omitting both sources fails with
-`MISSING_EXECUTION_CONTEXT` instead of selecting a process-wide default:
+Outside an active scope, the read resolves the sole started application and
+creates one anonymous internal request. With no initialized application it
+fails with `MISSING_EXECUTION_CONTEXT`:
 
 ```ts
-const users = await UserSchema.findMany(
-	{ ...activeUsers, limit: 25 },
-	{ ultimabase },
-)
+const users = await UserSchema.findMany({ ...activeUsers, limit: 25 })
 ```
 
 Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,

@@ -64,14 +64,17 @@ const expectMissingContext = (readCurrentValue: () => unknown): void => {
 }
 
 describe('active framework context', () => {
-	it('fails every contextual helper outside an active request scope', () => {
-		for (const readCurrentValue of [
-			getCurrentEngine,
-			getCurrentRequest,
-			getCurrentUltimaBase,
-		]) {
+	it('fails request helpers and the application fallback without an owner', () => {
+		for (const readCurrentValue of [getCurrentEngine, getCurrentRequest]) {
 			expectMissingContext(readCurrentValue)
 		}
+		expect(getCurrentUltimaBase).toThrow(
+			new FrameworkError(
+				'MISSING_EXECUTION_CONTEXT',
+				'No initialized active UltimaBase application is available.',
+				{ publicMessage: 'No application execution context is available.' },
+			),
+		)
 	})
 
 	it('derives every focused contextual value from the explicit request engine', async () => {

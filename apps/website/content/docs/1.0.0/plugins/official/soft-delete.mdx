@@ -149,28 +149,24 @@ or an HTTP listener.
 
 ### Create, soft-delete, and verify
 
-In server code, call the schema class directly. Run the following after
-`ultimabase.start()`; outside an active request, pass `{ ultimabase }` to select
-the owning application.
+In server code, call the schema class directly after `ultimabase.start()`.
+Outside an active request, the class resolves the sole active application.
 
 ```ts title="src/soft-delete-flow.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
-const post = await Post.createOne(
-	{ data: { title: 'Draft announcement' } },
-	{ ultimabase },
-)
+const post = await Post.createOne({
+	data: { title: 'Draft announcement' },
+})
 
-const deleted = await Post.softDelete(
-	{ id: post.id, select: { title: true, isDeleted: true } },
-	{ ultimabase },
-)
+const deleted = await Post.softDelete({
+	id: post.id,
+	select: { title: true, isDeleted: true },
+})
 
-const visible = await Post.findOne(
-	{ where: { id: { eq: post.id } } },
-	{ ultimabase },
-)
+const visible = await Post.findOne({
+	where: { id: { eq: post.id } },
+})
 ```
 
 `deleted` contains the same ID and title with `isDeleted: true`: it is the
@@ -178,11 +174,12 @@ record **after** soft deletion. `visible` is `null`. Keep the ID if trusted
 server code will restore it later. Repeating `softDelete()` for that ID fails
 with `NOT_FOUND`, just as it does for an absent target.
 
-Inside an active request, the class methods can inherit the application. The
-application handle `ultimabase.schema(Post).softDelete(...)` and persisted
-model method `post.softDelete()` are also available. A retained model is an
-immutable snapshot; having that object does not make a tombstone visible or
-allow you to soft-delete it twice.
+Inside an active request, the same class methods preserve the exact request
+owner. The temporarily retained application handle
+`ultimabase.schema(Post).softDelete(...)` and persisted model method
+`post.softDelete()` are also available. A retained model is an immutable
+snapshot; having that object does not make a tombstone visible or allow you to
+soft-delete it twice.
 
 <Callout type="warn" title="Native delete stays permanent in explicit mode">
 	`Post.deleteOne()`, REST `DELETE`, and GraphQL `deletePost` still physically
@@ -386,13 +383,12 @@ Continue the earlier server-side flow using its `post.id`:
 ```ts title="src/soft-delete-flow.ts (continued)"
 const restored = await Post.restore(
 	{ id: post.id, select: { title: true, isDeleted: true } },
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 
-const visibleAgain = await Post.findOne(
-	{ where: { id: { eq: post.id } } },
-	{ ultimabase },
-)
+const visibleAgain = await Post.findOne({
+	where: { id: { eq: post.id } },
+})
 ```
 
 `restored.isDeleted` is `false`, and `visibleAgain` returns the Post. Restore
@@ -403,11 +399,11 @@ Purge accepts only an existing tombstone. To finish this disposable example,
 soft-delete the restored Post again, then purge it:
 
 ```ts title="src/soft-delete-flow.ts (continued)"
-await Post.softDelete({ id: post.id }, { ultimabase })
+await Post.softDelete({ id: post.id })
 
 const purged = await Post.purge(
 	{ id: post.id, select: { title: true, isDeleted: true } },
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 ```
 
@@ -427,7 +423,7 @@ with the new compiled application. Regenerate Typegen declarations. The
 additional `softDelete` method, REST route, and GraphQL field are absent in
 this mode; use native delete with a fresh active Post.
 
-For TypeScript, call `Post.deleteOne({ id: postId }, { ultimabase })`.
+For TypeScript, call `Post.deleteOne({ id: postId })`.
 For REST, send a bodyless `DELETE` request:
 
 ```bash title="replace-delete-post.sh"
