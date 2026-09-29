@@ -2,7 +2,7 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 } from '../../foundation.js'
-import { Schema } from '../../schema/index.js'
+import { Schema, type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -80,6 +80,11 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 test('accumulates immutable configured factory tuples', () => {
 	const DatabaseApplication = UltimaBase.use(databasePlugin)
 	const CompleteApplication = DatabaseApplication.use(observerPlugin)
+	const ConfiguredArticle = DatabaseApplication.Schema.define({
+		className: 'TypedConfiguredArticle',
+		fields: (field) => ({ title: field.string({ required: true }) }),
+	})
+	void ConfiguredArticle
 	const databaseApplication = new DatabaseApplication({
 		schemas: [articleSchema],
 		validation: { timezone: 'Europe/Paris' },
@@ -89,7 +94,10 @@ test('accumulates immutable configured factory tuples', () => {
 	})
 	const portableApplication = new UltimaBase({ schemas: [articleSchema] })
 
-	expectTypeOf(DatabaseApplication.Schema).toEqualTypeOf<typeof Schema>()
+	expectTypeOf(DatabaseApplication.Schema).toEqualTypeOf<
+		typeof UltimaBase.Schema
+	>()
+	expectTypeOf<SchemaItem<typeof ConfiguredArticle>['title']>().toBeString()
 	expectTypeOf(databaseApplication).toEqualTypeOf<
 		UltimaBase<
 			readonly [typeof articleSchema],

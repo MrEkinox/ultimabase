@@ -9,7 +9,7 @@ order: 1
 outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-09-29
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -22,14 +22,15 @@ sources:
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
-fields that records of that kind can contain. `Schema.define()` returns the
-schema class immediately; its fields become available after an application
-compiles that declaration.
+fields that records of that kind can contain. `UltimaBase.Schema.define()`
+returns the inert schema class immediately and derives its local TypeScript
+contracts from the field declaration. Registration remains explicit when an
+application lists that class in `schemas`.
 
 ```ts title="src/article.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Article = Schema.define({
+export const Article = UltimaBase.Schema.define({
 	className: 'DocsArticle',
 	fields: (f) => ({
 		published: f.boolean({ default: false }),
@@ -42,7 +43,7 @@ export const Article = Schema.define({
 
 ## Declaration options
 
-`Schema.define()` accepts the following Core options:
+`UltimaBase.Schema.define()` accepts the following Core options:
 
 | Option      | Required | Purpose                                                                                                             |
 | ----------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -87,9 +88,9 @@ For a slug that is unique only within one tenant, declare the pair as unique
 instead of making `slug` globally unique:
 
 ```ts title="src/tenant-article.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const TenantArticle = Schema.define({
+export const TenantArticle = UltimaBase.Schema.define({
 	className: 'TenantArticle',
 	fields: (f) => ({
 		slug: f.string({ required: true }),
@@ -136,15 +137,21 @@ a working application, add a persistence plugin and call `start()` as shown in
 [Manual Installation](/docs/1.0.0/manual-installation). At startup, UltimaBase
 runs installed plugins' static declarations, then compiles the complete schema
 graph before plugin setup or database connections. The `fields` callback runs
-during that compilation, not when `article.ts` is imported.
+once when `article.ts` is imported to capture inert builder calls. That capture
+does not register the schema, connect infrastructure, or depend on application
+lifecycle state.
 
 Plugins can also contribute schemas during static declaration; those schemas
 do not need an entry in the application's `schemas` array.
 
 ## Schema classes and application handles
 
-`Schema.define()` returns the final schema class. After compilation, that class
-constructs immutable drafts and exposes its ordinary schema commands. Use
+`UltimaBase.Schema.define()` returns the final schema class. Its local fields,
+drafts, Core operation inputs, filters, selections, and results are exact from
+source before Typegen. Core-only declarations can construct immutable drafts
+immediately; configured plugin builder calls resolve when a compatible
+application compiles them. Ordinary schema commands execute against an owning
+application. Use
 `ultimabase.schema(Article)` to resolve the cached handle bound to this exact
 application. The same method accepts the registered name of a
 plugin-contributed schema. Most configuration-dependent commands belong to
@@ -177,19 +184,23 @@ them.
 
 ## Compilation errors
 
-Reading field-dependent metadata or constructing a model before compilation
-throws `SchemaCompilationError`. Compilation also rejects duplicate or reserved
-field names, unresolved relationship targets, and plugin options without one
-exact installed owner. These failures occur before plugin setup or database
-connection, not on the first request. See [Relationships](./relationships) for
-target declarations and [Using Plugins](/docs/1.0.0/plugins/using-plugins) for
-installation and ownership.
+Core-only declarations resolve field-dependent metadata immediately. A
+declaration that captured configured plugin builder calls throws
+`SchemaCompilationError` if code reads unresolved Runtime metadata before a
+compatible application compiles it. Compilation also rejects duplicate or
+reserved field names, unresolved relationship targets, and plugin options
+without one exact installed owner. These failures occur before plugin setup or
+database connection, not on the first request. See
+[Relationships](./relationships) for target declarations and
+[Using Plugins](/docs/1.0.0/plugins/using-plugins) for installation and ownership.
 
 ## Optional generated types
 
-The compiled schema graph is Runtime truth. Optional Typegen reads that graph
-to generate application-specific TypeScript declarations for editor completion
-and typechecking; it does not change what the application executes. See
+The compiled schema graph is Runtime truth. Local Core schema contracts infer
+from source. Optional Typegen retains the application-wide literal-name graph
+needed to resolve pointers, relations, circular schemas, and current
+application-specific plugin declarations; it does not change what the
+application executes. See
 [Generate TypeScript Types](/docs/1.0.0/guides/generate-types) for setup.
 
 Continue with [Fields](./fields) for field kinds, [Models](./models) for

@@ -63,6 +63,10 @@ describe('configured UltimaBase factories', () => {
 			className: 'ConfiguredFactoryAncestor',
 			fields: (field) => ({ value: field.string() }),
 		})
+		const Detached = BothApplication.Schema.define({
+			className: 'ConfiguredFactoryDetached',
+			fields: (field) => ({ value: field.string() }),
+		})
 
 		expect(FirstApplication).not.toBe(BothApplication)
 		expect(Object.isFrozen(FirstApplication)).toBe(true)
@@ -97,6 +101,7 @@ describe('configured UltimaBase factories', () => {
 		).toStrictEqual(['fixture.factory-first', 'fixture.factory-second'])
 		expect(bothApplication.ownsSchema(Portable)).toBe(true)
 		expect(bothApplication.ownsSchema(Ancestor)).toBe(true)
+		expect(bothApplication.ownsSchema(Detached)).toBe(false)
 		expect(legacyApplication.pluginPrivilegeReport).toStrictEqual(
 			firstApplication.pluginPrivilegeReport,
 		)
@@ -107,6 +112,33 @@ describe('configured UltimaBase factories', () => {
 		await bothApplication.dispose()
 		await legacyApplication.dispose()
 		await portableApplication.dispose()
+	})
+
+	it('reuses one inert schema identity across isolated explicit roots', async () => {
+		let declarationCalls = 0
+		const Reusable = UltimaBase.Schema.define({
+			className: 'ConfiguredFactoryReusable',
+			fields: (field) => {
+				declarationCalls += 1
+				return { title: field.string({ required: true }) }
+			},
+		})
+		const ownKeys = Reflect.ownKeys(Reusable)
+		const prototype = Reflect.get(Reusable, 'prototype') as unknown
+		const first = new UltimaBase({ schemas: [Reusable] })
+		const second = new UltimaBase({ schemas: [Reusable] })
+
+		expect(first.ownsSchema(Reusable)).toBe(true)
+		expect(second.ownsSchema(Reusable)).toBe(true)
+		expect(first.schema(Reusable).schema).toBe(Reusable)
+		expect(second.schema(Reusable).schema).toBe(Reusable)
+		expect(declarationCalls).toBe(1)
+		expect(Reflect.ownKeys(Reusable)).toStrictEqual(ownKeys)
+		expect(Reflect.get(Reusable, 'prototype') as unknown).toBe(prototype)
+		expect(Object.isFrozen(Reusable)).toBe(true)
+
+		await first.dispose()
+		await second.dispose()
 	})
 
 	it('preserves dependency order and sequential lifecycle replacement', async () => {

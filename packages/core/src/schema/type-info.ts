@@ -156,6 +156,15 @@ export interface SchemaTypeInfoCarrier<TContract extends SchemaTypeInfo> {
 export type SchemaTypeInfoSource =
 	SchemaTypeInfo | Readonly<{ readonly className: string }>
 
+declare const schemaRelationshipSourceType: unique symbol
+
+/** Carries a directly declared relationship target without emitting Runtime metadata. */
+export interface SchemaRelationshipSourceCarrier<
+	TSource extends SchemaTypeInfoSource,
+> {
+	readonly [schemaRelationshipSourceType]: TSource
+}
+
 /** Minimal operation inputs exposed before code generation has run. */
 export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
@@ -276,6 +285,25 @@ export type SchemaRelationshipTargetName<
 	}
 		? TFieldName extends keyof TRelationships
 			? Extract<TRelationships[TFieldName]['target'], string>
+			: never
+		: never
+
+/** Reads a direct callback target when source authoring can retain its exact class. */
+export type SchemaRelationshipSource<
+	TSchema extends SchemaTypeInfoSource,
+	TFieldName extends string,
+> =
+	SchemaTypeInfoFor<TSchema> extends {
+		readonly relationships: infer TRelationships extends Readonly<
+			Record<string, SchemaRelationshipTypeInfo>
+		>
+	}
+		? TFieldName extends keyof TRelationships
+			? TRelationships[TFieldName] extends SchemaRelationshipSourceCarrier<
+					infer TSource
+				>
+				? TSource
+				: never
 			: never
 		: never
 

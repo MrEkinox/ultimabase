@@ -23,9 +23,9 @@ frozen in the
 ## Execution order
 
 - [x] [6301: Prove source inference and lock DX budgets](6301-source-inference-proof-and-budgets.md)
-- [ ] [6302: Accept the configured source-typed application ADR](6302-source-typed-application-adr.md)
-- [ ] [6303: Make plugin installation an immutable application factory](6303-immutable-configured-application-factory.md)
-- [ ] [6304: Preserve exact schema contracts from source](6304-source-typed-schema-contracts.md)
+- [x] [6302: Accept the configured source-typed application ADR](6302-source-typed-application-adr.md)
+- [x] [6303: Make plugin installation an immutable application factory](6303-immutable-configured-application-factory.md)
+- [x] [6304: Preserve exact schema contracts from source](6304-source-typed-schema-contracts.md)
 - [ ] [6305: Project plugin authoring types from source](6305-plugin-source-type-projections.md)
 - [ ] [6306: Bind direct class execution to the sole active application](6306-direct-class-application-binding.md)
 - [ ] [6307: Migrate Access, Hooks, and Validation source typing](6307-official-plugin-source-typing.md)

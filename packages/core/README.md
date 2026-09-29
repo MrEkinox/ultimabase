@@ -36,15 +36,18 @@ Detailed guides remain focused by domain:
 
 ## Static schema compilation and relationship targets
 
-`Schema.define()` retains a synchronous field declaration instead of resolving
-fields during module evaluation. `UltimaBase.compile()` first runs the pure,
+`UltimaBase.Schema.define()` captures a synchronous field declaration without
+registering it. Its exact local model, inputs, filters, selections, and results
+are inferred directly from the returned field map. The field callback runs once
+at definition time to capture inert builder calls; it receives no application,
+adapter, or lifecycle state. `UltimaBase.compile()` first runs the pure,
 synchronous `declare` callback of every plugin in dependency order, then
-compiles every configured schema atomically before plugin setup or
-infrastructure lifecycle work. Setup receives the resulting read-only schema
-registry; plugins cannot register late schemas or field methods:
+resolves every configured schema atomically before plugin setup or infrastructure
+lifecycle work. Setup receives the resulting read-only schema registry; plugins
+cannot register late schemas or field methods:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -64,11 +67,14 @@ const ultimabase = new UltimaBase({
 const application = ultimabase.compile()
 ```
 
-Before compilation, `PostSchema.className` is available, but field-dependent
-metadata and `new PostSchema(...)` fail with `SchemaCompilationError`. The
-callback executes once for an accepted application compilation and its result
-becomes immutable schema metadata. Applications, tests, and framework-owned
-schemas use the same map-returning FieldBuilder declaration.
+Core-only declarations resolve their Runtime metadata immediately, so their
+immutable drafts and metadata are available without an application. A
+declaration that uses configured plugin builder methods keeps its inert capture
+until a compatible application resolves it; accessing unresolved Runtime
+metadata first throws `SchemaCompilationError`. Neither path registers the
+schema, reruns the callback, or mutates its exported class or prototype.
+Applications, tests, and framework-owned schemas use the same map-returning
+FieldBuilder declaration.
 Every builder method delegates to the corresponding immutable field factory, so
 structural validation, defaults, plugin-owned options, and adapter metadata keep
 one implementation. Embedded builders use named context-specific option types.
@@ -392,13 +398,13 @@ synchronous static phase without plugin setup or infrastructure. The method is
 idempotent after success and rethrows the original failure after an unsuccessful
 attempt. `@ultimabase/typegen` uses it to emit the application-owned FieldBuilder,
 model, operation, relationship, Access, and hook contracts. When that generated
-declaration is part of the TypeScript project, `Schema.define()` and every public
-read, mutation, Access, hook, pointer, and relation surface resolve
-the compact contract by literal `className`. Without that generated entry, Core
-keeps only the safe `BaseItem` bootstrap contract and broad object inputs; it
-does not reconstruct local field-map inference. Regeneration through
-`@ultimabase/typegen` replaces those bootstrap types with the exact application
-contract.
+declaration is part of the TypeScript project, named pointer and relation
+targets resolve through its application-wide literal `className` graph,
+including circular and cross-module relationships. Local Core fields and their
+model, input, filter, selection, nested-write, and result contracts remain exact
+from source even without a generated file. During this bounded migration, an
+existing generated registry still supplies its compact Core aliases when
+present, so applications can move without hover or declaration churn.
 
 Core compiles developer schemas and authorized plugin contributions directly.
 Its private immutable prepared schemas retain exact contribution owners,

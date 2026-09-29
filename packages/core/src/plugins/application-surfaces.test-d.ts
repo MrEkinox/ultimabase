@@ -86,9 +86,7 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	const post = ultimabase.schema(Post)
 	expectTypeOf(post).toEqualTypeOf<ApplicationSchemaHandle<typeof Post>>()
 	expectTypeOf(post.schema).toEqualTypeOf<typeof Post>()
-	expectTypeOf(post.findMany()).toEqualTypeOf<
-		ReturnType<typeof Post.findMany>
-	>()
+	expectTypeOf(post.findMany).toEqualTypeOf<typeof Post.findMany>()
 	expectTypeOf(
 		ultimabase.schema('UnknownAtBootstrap').schema.className,
 	).toEqualTypeOf<'UnknownAtBootstrap'>()

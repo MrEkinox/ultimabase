@@ -2,7 +2,7 @@ import { immutableArray } from '@ultimabase/shared'
 
 import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { Schema } from '../../schema/schema/definition.js'
+import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 import type { UltimaBase, UltimaBaseInstanceOptions } from './ultima-base.js'
 
 type AppendPlugin<
@@ -18,7 +18,7 @@ export interface ConfiguredUltimaBaseFactory<
 	TPlugins extends readonly PluginDefinition[],
 > {
 	/** Uses the same schema namespace as the zero-plugin root factory. */
-	readonly Schema: typeof Schema
+	readonly Schema: ConfiguredSchemaNamespace
 	/**
 	 * Returns a new factory with one plugin appended to its flat ordered tuple.
 	 *

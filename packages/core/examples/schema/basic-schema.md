@@ -1,17 +1,19 @@
 # Basic schema
 
-`Schema.define()` combines typed field declarations and automatically adds the
-framework-owned `id`, `createdAt`, and `updatedAt` fields.
+`UltimaBase.Schema.define()` combines typed field declarations and automatically
+adds the framework-owned `id`, `createdAt`, and `updatedAt` fields. Core derives
+the local model, create, update, filter, selection, and result contracts directly
+from this declaration; those contracts do not wait for Typegen.
 
 ```ts
 import {
-	Schema,
+	UltimaBase,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
 } from '@ultimabase/core'
 
-export const UserSchema = Schema.define({
+export const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		username: field.string({
@@ -26,7 +28,7 @@ export const UserSchema = Schema.define({
 	}),
 })
 
-// Application initialization compiles the callback before plugin setup.
+// The callback runs once here; listing the class registers it with an application.
 
 // Persisted objects include generated system fields and resolved defaults.
 export type User = InferObject<typeof UserSchema>
@@ -36,12 +38,14 @@ export type CreateUserInput = InferCreateInput<typeof UserSchema>
 export type UpdateUserInput = InferUpdateInput<typeof UserSchema>
 ```
 
-The callback is retained during module evaluation. Application static
-compilation executes it once before plugin setup and freezes the resulting
-field registry. The generated application contract supplies its exact public
-TypeScript model. Until compilation succeeds, only schema identity such as
-`UserSchema.className` is available; constructing a model or reading its fields
-throws `SchemaCompilationError`.
+The callback runs once to capture inert builder calls without registering the
+schema. Core-only calls resolve their Runtime metadata immediately. Configured
+plugin calls resolve when a compatible application compiles the explicit
+`schemas` list before plugin setup. Neither path reruns the callback or mutates
+the exported class. Typegen retains the application-wide literal-name graph
+used by pointers, relations, and circular schemas; when a generated registry is
+present, its current compact Core aliases remain compatible with the same
+source-derived contract.
 
 `User` is an immutable persisted snapshot. `CreateUserInput` requires
 `username` and `displayName` but omits system fields, while `UpdateUserInput`

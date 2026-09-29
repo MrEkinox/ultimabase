@@ -10,6 +10,7 @@ import type { SchemaTarget } from '../../schema/targets.js'
 import type {
 	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
+	SchemaRelationshipSource,
 	SchemaRelationshipTargetName,
 	SchemaTypeInfoSource,
 } from '../../type-info.js'
@@ -89,10 +90,11 @@ export type SchemaPointerFieldName<TSchema extends SchemaTypeInfoSource> =
 export type SchemaPointerTarget<
 	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends SchemaPointerFieldName<TSchema>,
-> =
-	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+> = [SchemaRelationshipSource<TSchema, TFieldName>] extends [never]
+	? string extends SchemaRelationshipTargetName<TSchema, TFieldName>
 		? SchemaDefinition
 		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
+	: Extract<SchemaRelationshipSource<TSchema, TFieldName>, SchemaDefinition>
 
 type ResolvedPointerField<
 	TTarget extends SchemaDefinition,

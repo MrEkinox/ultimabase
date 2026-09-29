@@ -1,6 +1,7 @@
 import type { GenericField, SchemaDefinition } from '../../schema/index.js'
 import type {
 	SchemaRelationshipFieldName,
+	SchemaRelationshipSource,
 	SchemaRelationshipTargetName,
 	SchemaTypeInfoSource,
 } from '../../schema/type-info.js'
@@ -28,10 +29,11 @@ export type QueryIncludableFieldName<TSchema extends SchemaTypeInfoSource> =
 type RelationshipTarget<
 	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends string,
-> =
-	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+> = [SchemaRelationshipSource<TSchema, TFieldName>] extends [never]
+	? string extends SchemaRelationshipTargetName<TSchema, TFieldName>
 		? SchemaDefinition
 		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
+	: Extract<SchemaRelationshipSource<TSchema, TFieldName>, SchemaDefinition>
 
 /** Resolves the target schema encoded by one exact pointer field value. */
 export type QueryPointerTargetSchema<

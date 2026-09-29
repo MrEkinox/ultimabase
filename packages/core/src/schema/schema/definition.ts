@@ -34,6 +34,7 @@ import {
 import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
+	SchemaTypeInfoByName,
 	SchemaTypeInfoByNameOrBase,
 	UltimaBaseGeneratedSchemaClassSurface,
 	UltimaBaseGeneratedSchemaOptions,
@@ -42,6 +43,7 @@ import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SchemaConstraintDefinition } from './constraints.js'
+import type { SourceSchemaTypeInfo } from './source-type-info.js'
 
 import {
 	prepareSchemaCompilation,
@@ -145,19 +147,34 @@ export interface SchemaDefinition<
 	readonly definition: SchemaMetadata<TClassName, TFields>
 }
 
-/** Represents one public schema class driven by its complete generated contract. */
+/** Represents one public schema class driven by its resolved type contract. */
 export interface SchemaClass<
 	TContract extends SchemaTypeInfo = BaseSchemaTypeInfo<string>,
 > extends SchemaAPI<TContract> {
-	/** Creates one immutable draft from the generated create input. */
+	/** Creates one immutable draft from the resolved create input. */
 	new (input: TContract['inputs']['create']): SchemaDraft<this>
 	/** Creates one immutable pointer to this schema. */
 	pointer(id: string): Pointer<this>
 }
-/** Resolves one public schema class by its generated logical contract. */
-export type SchemaReference<TClassName extends string> = SchemaClass<
-	SchemaTypeInfoByNameOrBase<TClassName>
-> &
+
+// Existing registries retain plugin-owned additions until issue 6313 reduces
+// them to the name graph; otherwise the configured source map owns Core types.
+type SchemaReferenceTypeInfo<
+	TClassName extends string,
+	TFields extends SchemaDeclaredFields | undefined,
+> = TFields extends SchemaDeclaredFields
+	? [SchemaTypeInfoByName<TClassName>] extends [never]
+		? string extends keyof TFields
+			? SchemaTypeInfoByNameOrBase<TClassName>
+			: SourceSchemaTypeInfo<TClassName, TFields>
+		: SchemaTypeInfoByName<TClassName>
+	: SchemaTypeInfoByNameOrBase<TClassName>
+
+/** Resolves one public schema class from source, Typegen, or the bootstrap contract. */
+export type SchemaReference<
+	TClassName extends string,
+	TFields extends SchemaDeclaredFields | undefined = undefined,
+> = SchemaClass<SchemaReferenceTypeInfo<TClassName, TFields>> &
 	UltimaBaseGeneratedSchemaClassSurface<TClassName>
 
 /** Collects additional static capabilities owned by a schema specialization. */
@@ -184,6 +201,9 @@ interface SpecializedSchemaOptions {
 	readonly fields: SchemaFieldBuilderDeclaration
 	readonly indexes?: readonly SchemaIndexOptions[]
 }
+
+type SpecializedSchemaFields<TOptions extends SpecializedSchemaOptions> =
+	ReturnType<TOptions['fields']>
 
 /** Creates specialized class capabilities after exact schema identity exists. */
 export type SchemaClassCapabilityFactory<
@@ -250,7 +270,7 @@ const defineSchemaModel = <
 	const TFields extends SchemaDeclaredFields,
 >(
 	options: SchemaOptions<TClassName, TFields>,
-): SchemaReference<TClassName> => {
+): SchemaReference<TClassName, TFields> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('schema options must be an object')
 	}
@@ -289,11 +309,8 @@ const defineSchemaModel = <
 	})
 	// Readers close over the final class, which is assigned only after construction.
 	// eslint-disable-next-line prefer-const
-	let schemaIdentity: SchemaReference<TClassName> | undefined
-	const schema: SchemaReference<TClassName> = createSchemaModelClass<
-		TClassName,
-		SchemaFields
-	>({
+	let schemaIdentity: SchemaReference<TClassName, TFields> | undefined
+	const schema = createSchemaModelClass<TClassName, SchemaFields>({
 		className: options.className,
 		readDefinition: () => {
 			if (schemaIdentity === undefined) {
@@ -310,7 +327,7 @@ const defineSchemaModel = <
 
 			return readCompiledSchemaRecord(schemaIdentity).developerFields
 		},
-	})
+	}) as SchemaReference<TClassName, TFields>
 	schemaIdentity = schema
 	storeSchemaDeclaration(schema, declaration)
 
@@ -404,14 +421,14 @@ export class Schema {
 	>(
 		options: SchemaOptions<TClassName, TFields> &
 			ReservedSchemaFieldCollision<NoInfer<TFields>>,
-	): SchemaReference<NoInfer<TClassName>> {
+	): SchemaReference<TClassName> {
 		const schema = defineSchemaModel<TClassName, TFields>(options)
 		finalizeSchemaModelClass(schema)
 		Object.freeze(schema)
 
-		// Field literals compile the runtime graph but generated contracts own the
-		// application-facing class type after this declaration boundary.
-		return schema
+		// Standalone declarations retain their generated-or-bootstrap compatibility
+		// contract until issue 6314 removes this migration entry point.
+		return schema as unknown as SchemaReference<TClassName>
 	}
 
 	/**
@@ -430,21 +447,28 @@ export class Schema {
 		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
 		const TResults extends object = object,
 	>(
-		options: TOptions,
+		options: TOptions &
+			ReservedSchemaFieldCollision<NoInfer<SpecializedSchemaFields<TOptions>>>,
 		createCapabilities: SchemaClassCapabilityFactory<
-			SchemaReference<TOptions['className']>,
+			SchemaReference<TOptions['className'], SpecializedSchemaFields<TOptions>>,
 			TStatics,
 			TResults
 		>,
-	): SchemaReference<TOptions['className']> &
+	): SchemaReference<TOptions['className'], SpecializedSchemaFields<TOptions>> &
 		TStatics &
 		SchemaResultCapabilityCarrier<TResults> {
 		if (typeof createCapabilities !== 'function') {
 			throw new TypeError('createCapabilities must be a function')
 		}
 
-		const schema = defineSchemaModel<TOptions['className'], SchemaFields>(
-			options,
+		const schema = defineSchemaModel<
+			TOptions['className'],
+			SpecializedSchemaFields<TOptions>
+		>(
+			options as SchemaOptions<
+				TOptions['className'],
+				SpecializedSchemaFields<TOptions>
+			>,
 		)
 		const capabilities: unknown = createCapabilities(
 			createSchemaModelCapabilityContext(schema),
@@ -476,3 +500,15 @@ export class Schema {
 			SchemaResultCapabilityCarrier<TResults>
 	}
 }
+
+/** Exposes exact source inference through the one configured application namespace. */
+export type ConfiguredSchemaNamespace = Omit<typeof Schema, 'define'> &
+	Readonly<{
+		define: <
+			const TClassName extends string,
+			const TFields extends SchemaFields,
+		>(
+			options: SchemaOptions<TClassName, TFields> &
+				ReservedSchemaFieldCollision<NoInfer<TFields>>,
+		) => SchemaReference<TClassName, TFields>
+	}>

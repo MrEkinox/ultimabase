@@ -51,6 +51,7 @@ import type {
 } from '../../schema/schema/field-builder-methods.js'
 import type { SchemaDefinition, SchemaRegistry } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
+import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 import { findSchemaModelRecord } from '../../schema/schema/model-state.js'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
@@ -226,7 +227,8 @@ export class UltimaBase<
 	const TPlugins extends readonly PluginDefinition[] = readonly [],
 > {
 	/** Declares portable schemas through the zero-plugin source factory. */
-	static readonly Schema: typeof Schema = Schema
+	static readonly Schema: ConfiguredSchemaNamespace =
+		Schema as ConfiguredSchemaNamespace
 
 	/**
 	 * Returns a new immutable factory with one plugin appended to its flat graph.

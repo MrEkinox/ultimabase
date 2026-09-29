@@ -89,7 +89,13 @@ type WhereTargetFilter<TSchema extends SchemaDefinition, TTarget> =
 		infer TFieldName extends WhereFieldName<TSchema>,
 		infer TPath
 	>
-		? Extract<WherePathEntry<TSchema, TFieldName>, { readonly path: TPath }>
+		? WherePathEntry<TSchema, TFieldName> extends infer TEntry
+			? TEntry extends { readonly path: infer TAcceptedPath }
+				? TPath extends TAcceptedPath
+					? TEntry
+					: never
+				: never
+			: never
 		: TTarget extends WhereFieldName<TSchema>
 			? WhereFieldFilter<TSchema, TTarget>
 			: never

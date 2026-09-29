@@ -74,15 +74,37 @@ type SchemaMutationResult<
 	QueryIncludedFieldFromInput<TContract, SchemaProjection<TSelection, TInclude>>
 >
 
-/** Uses the generated filter directly without retaining schema field definitions. */
+/** Uses the resolved filter directly without retaining schema field definitions. */
 type SchemaFilteredInput<TContract extends SchemaTypeInfo> = Readonly<{
 	readonly where?: TContract['inputs']['where']
 }>
 
-/** Public static schema operations driven directly by one generated contract. */
+/** Rebinds overloaded collection results when a schema command is projected onto a bound handle. */
+export interface SchemaFindMany<
+	TContract extends SchemaTypeInfo,
+	TSchema extends SchemaDefinition,
+> {
+	<
+		const TSelection extends TContract['inputs']['select'] | undefined =
+			undefined,
+		const TInclude extends TContract['inputs']['include'] | undefined =
+			undefined,
+	>(
+		input?: ExactGeneratedFindManyInput<TContract, TSelection, TInclude>,
+		options?: OperationOptions,
+	): Promise<
+		readonly SchemaReadResult<TContract, TSchema, TSelection, TInclude>[]
+	>
+	<TSelectedField extends QueryFieldName<TContract>, TIncludedField>(
+		input: QueryBuilderInput<TContract, TSelectedField, TIncludedField>,
+		options?: OperationOptions,
+	): Promise<readonly QueryResult<TSchema, TSelectedField, TIncludedField>[]>
+}
+
+/** Public static schema operations driven directly by one resolved contract. */
 export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	extends SchemaDefinition<TContract['key']>, SchemaTypeInfoCarrier<TContract> {
-	/** Counts rows matching the generated schema filter. */
+	/** Counts rows matching the resolved schema filter. */
 	count(
 		input?: SchemaFilteredInput<TContract>,
 		options?: OperationOptions,
@@ -134,7 +156,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection> | null>
 
-	/** Tests whether at least one row matches the generated schema filter. */
+	/** Tests whether at least one row matches the resolved schema filter. */
 	exists(
 		input?: SchemaFilteredInput<TContract>,
 		options?: OperationOptions,

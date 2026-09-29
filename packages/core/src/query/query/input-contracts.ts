@@ -28,7 +28,7 @@ import type {
 /** Uses concise transport-facing directions independently from AST vocabulary. */
 export type QueryOrderByDirection = 'asc' | 'desc'
 
-/** Uses the compact generated ordering contract when available. */
+/** Uses the compact resolved ordering contract when available. */
 export type QueryOrderByInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaTypeValue<TSchema, 'OrderBy'>
 
@@ -51,7 +51,7 @@ export type QueryRelationTargetInput<TSchema extends SchemaTypeInfoSource> =
 		readonly where?: WhereInput<TSchema>
 	}>
 
-/** Uses the generated relationship input without reconstructing schema fields. */
+/** Uses the resolved relationship input without reconstructing schema fields. */
 export type QueryIncludeInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaTypeValue<TSchema, 'Include'>
 
@@ -182,7 +182,7 @@ type ExactIncludeForInput<
 
 /**
  * Rejects unknown clauses and imprecise nested projections on one read input.
- * `NoInfer` keeps generated clause aliases visible while `TInput` still retains
+ * `NoInfer` keeps resolved clause aliases visible while `TInput` still retains
  * the literal projection needed to infer the exact result model.
  */
 export type ExactReadInput<
@@ -235,9 +235,9 @@ type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 			? TInput &
 					Readonly<Record<Exclude<keyof TInput, keyof TContract>, never>> &
 					Readonly<{
-						readonly [
-							TKey in Extract<keyof TInput, keyof TContract>
-						]: ExactGeneratedValue<TInput[TKey], NonNullable<TContract[TKey]>>
+						readonly [TKey in keyof TInput]: TKey extends keyof TContract
+							? ExactGeneratedValue<TInput[TKey], NonNullable<TContract[TKey]>>
+							: never
 					}>
 			: never
 		: TInput extends TContract
@@ -260,7 +260,7 @@ type ExactReadInclusionInput<
 				>
 		}>
 
-/** Reuses exact generated nested inclusion validation outside read terminals. */
+/** Reuses exact resolved nested inclusion validation outside read terminals. */
 export type ExactGeneratedInclusionInput<
 	TSchema extends SchemaTypeInfoSource,
 	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined,
@@ -271,7 +271,7 @@ interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
 	readonly limit?: number
 	/** Applies deterministic priority ordering from left to right. */
 	readonly orderBy?: TContract['inputs']['orderBy']
-	/** Restricts the visible row universe through the generated schema filter. */
+	/** Restricts the visible row universe through the resolved schema filter. */
 	readonly where?: TContract['inputs']['where']
 }
 
@@ -286,11 +286,11 @@ type ExactFindManyProjectionInput<
 interface ExactFindOneFields<TContract extends SchemaTypeInfo> {
 	/** Applies deterministic priority ordering from left to right. */
 	readonly orderBy?: TContract['inputs']['orderBy']
-	/** Restricts the visible row universe through the generated schema filter. */
+	/** Restricts the visible row universe through the resolved schema filter. */
 	readonly where?: TContract['inputs']['where']
 }
 
-/** Describes one exact first-match read from its generated contract. */
+/** Describes one exact first-match read from its resolved contract. */
 export type ExactGeneratedFindOneInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
@@ -299,7 +299,7 @@ export type ExactGeneratedFindOneInput<
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
 
-/** Describes one exact identifier read from its generated contract. */
+/** Describes one exact identifier read from its resolved contract. */
 export type ExactGeneratedGetInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,

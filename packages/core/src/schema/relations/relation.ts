@@ -38,6 +38,7 @@ import {
 import { getFieldSchemaTarget } from '../fields/base/definition.js'
 import type {
 	SchemaRelationshipFieldName,
+	SchemaRelationshipSource,
 	SchemaRelationshipTargetName,
 	SchemaTypeInfoSource,
 } from '../type-info.js'
@@ -61,10 +62,11 @@ export type SchemaRelationFieldName<TSchema extends SchemaTypeInfoSource> =
 export type SchemaRelationTarget<
 	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends SchemaRelationFieldName<TSchema>,
-> =
-	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+> = [SchemaRelationshipSource<TSchema, TFieldName>] extends [never]
+	? string extends SchemaRelationshipTargetName<TSchema, TFieldName>
 		? SchemaDefinition
 		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
+	: Extract<SchemaRelationshipSource<TSchema, TFieldName>, SchemaDefinition>
 
 interface RelationState<
 	TSource extends SchemaDefinition,

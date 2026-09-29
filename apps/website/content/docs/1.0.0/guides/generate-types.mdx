@@ -8,7 +8,7 @@ order: 7
 outcome: Generate and verify replaceable declarations for one configured UltimaBase application.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-09-29
 sources:
   - packages/typegen/README.md
   - packages/typegen/src/plugin.ts
@@ -23,8 +23,11 @@ sources:
 ---
 
 Typegen turns one application's compiled static graph into replaceable
-TypeScript declarations. Generate them **before** typechecking or building so
-your first build can use plugin-added fields and options. Typegen does not
+TypeScript declarations. Core derives a schema's local fields, models, inputs,
+filters, selections, and results directly from its source declaration. Generate
+Typegen **before** typechecking or building for the application-wide literal-name
+graph used by pointers, relations, and circular schemas, plus plugin-owned
+contracts that have not yet moved to source projection. Typegen does not
 generate an executable client or change Runtime behavior. A missing or stale
 declaration affects TypeScript and editor completion, not what UltimaBase executes.
 
@@ -194,9 +197,11 @@ confirm the file exists:
 test -f .ultimabase/schema.generated.d.ts
 ```
 
-Your editor should now offer the configured `Task` fields and installed
-plugin-owned types. A successful build confirms that TypeScript included the
-declaration; it does not prove that the database is reachable. Regenerate
+Your editor already obtains `Task`'s local Core fields from its source. It should
+now also resolve named relationship targets across the configured schema graph
+and the installed plugin-owned types represented by the current generated
+contract. A successful build confirms that TypeScript included the declaration;
+it does not prove that the database is reachable. Regenerate
 after changing schemas or plugins. Never edit generated output by hand.
 
 ## Limitations

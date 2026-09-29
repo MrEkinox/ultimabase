@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303
-- Active issue: 6304
-- Next issue: 6305
+- Completed issues: 6301, 6302, 6303, 6304
+- Active issue: 6305
+- Next issue: 6306
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -103,3 +103,15 @@ public documentation, and the counterbalanced 1/10/50-schema benchmark pass.
 The final `yarn validate:full` ran 552 ordinary files/2,611 tests and 628
 coverage files/2,860 tests with 90.91/84.49/96.08/91.47 coverage. Issue 6304 is
 the next resume point; no push is authorized.
+
+Issue 6304 completed exact Core schema-contract inference from source at
+revision `3d876e5b`. Configured `App.Schema.define()` now carries precise Core
+field, item, create, update, filter, ordering, selection, inclusion, nested
+write, relationship, and numeric contracts without replacing the generated
+cross-schema name graph. Standalone `Schema.define()` deliberately retains its
+bounded migration behavior until issue 6314 so unmigrated plugin-added fields
+remain available. Source and packed editor profiles, the circular Typegen graph,
+and the locked 1/10/50-schema benchmark pass. The final `yarn validate:full`
+ran 554 ordinary files/2,616 tests and 631 coverage files/2,871 tests with
+90.91/84.49/96.08/91.47 coverage. Issue 6305 is the next resume point; no push
+is authorized.

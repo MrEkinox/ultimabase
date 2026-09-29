@@ -101,7 +101,8 @@ exact contextual declarations through `typegenPlugin()` during startup. A
 future CLI will expose manual generation and watch mode.
 
 The same map-returning declaration is used by applications, tests, and
-framework-owned schemas. The generated application registry provides exact
-model, Query, mutation, plugin-owned option, extension, object-path, pointer,
-and relation contracts for builder-declared schemas without recursive
-field-map inference.
+framework-owned schemas. Core now derives the local model, Query, mutation,
+object-path, and result contracts from that field map. The generated application
+registry remains responsible for the literal target-name graph behind pointer,
+relation, circular, and cross-module contracts, along with plugin projections
+that have not yet moved to source.

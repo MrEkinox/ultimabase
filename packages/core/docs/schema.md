@@ -4,7 +4,7 @@ Static schema declarations are the source of truth for UltimaBase.
 
 Responsibilities:
 
-- `Schema`;
+- `UltimaBase.Schema` and the shared low-level `Schema` implementation;
 - primitive field definitions;
 - system-field metadata;
 - direct plugin option contracts;
@@ -52,13 +52,12 @@ cross-domain behavior and public-export checks.
 
 ## Schema definitions
 
-`Schema.define(options)` records one synchronous Nexus-style declaration and
+`UltimaBase.Schema.define(options)` records one synchronous declaration and
 later compiles its existing immutable field definitions. The logical name comes
-first, while the second argument is the corresponding factory's documented
-options:
+first, while each builder call receives its documented options:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({
@@ -69,23 +68,24 @@ const PostSchema = Schema.define({
 })
 ```
 
-The returned value is the final schema-specific class. Its `className` is
-available immediately. `UltimaBase.compile()` executes each configured field
-callback once during an infrastructure-free static compilation phase, then
-freezes `definition`, `fields`, and `indexes`. Before that phase,
-field-dependent static metadata and model construction throw an actionable
-`SchemaCompilationError`. Infrastructure reads the compiled `definition`,
-while Query and Runtime retain the exact class identity registered by the
-application.
+The returned value is the final schema-specific class. Its `className` and
+exact local TypeScript contracts are available immediately. The callback is
+executed once at definition time to capture inert builder calls without
+registering the schema. Core-only calls resolve their Runtime metadata
+immediately. Configured plugin calls remain unresolved until a compatible
+`UltimaBase.compile()` resolves the declaration during its infrastructure-free
+static phase. The exported class and prototype never change. Infrastructure
+reads the compiled `definition`, while Query and Runtime retain the exact class
+identity explicitly registered by the application.
 
 Callbacks are synchronous declarations. They may close over static values, but
-cannot receive requests, services, adapters,
-transactions, or lifecycle state. Field maps still compile immediately for
-framework-owned composition and isolated tests that need local inference, but
-they are not the ordinary application declaration syntax. Builder declarations
-gain their exact application model contract from the deterministic registry
-emitted by `@ultimabase/typegen`, and Core resolves public schema APIs through
-that registry.
+cannot receive requests, services, adapters, transactions, or lifecycle state.
+Core derives local model, create, update, filter, selection, nested-write, and
+result contracts from the captured field map. The deterministic registry emitted
+by `@ultimabase/typegen` remains the application-wide literal-name graph for
+pointers, relations, circular schemas, and current generated plugin contracts.
+An existing registry continues to provide its compact Core aliases during the
+bounded migration.
 
 The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder with a named option type for every built-in factory.

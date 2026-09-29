@@ -5,6 +5,8 @@ import type {
 	SchemaReference,
 } from '../schema/schema/definition.js'
 import type { SchemaModelState } from '../schema/schema/model-contracts.js'
+import type { SchemaFindMany } from '../schema/schema/schema-api.js'
+import type { SchemaTypeInfoFor } from '../schema/type-info.js'
 import {
 	isSchemaModelInstance,
 	readSchemaModelRecord,
@@ -130,10 +132,15 @@ const schemaCommandNames: ReadonlySet<string> = new Set(
 
 type SchemaCommandName = (typeof coreSchemaHandleCommandNames)[number]
 
-type CoreSchemaHandleCommands<TSchema extends SchemaDefinition> = Pick<
-	TSchema,
-	Extract<keyof TSchema, SchemaCommandName>
->
+type CoreSchemaHandleCommands<TSchema extends SchemaDefinition> = Omit<
+	Pick<TSchema, Extract<keyof TSchema, SchemaCommandName>>,
+	'findMany'
+> &
+	('findMany' extends keyof TSchema
+		? Readonly<{
+				findMany: SchemaFindMany<SchemaTypeInfoFor<TSchema>, TSchema>
+			}>
+		: object)
 
 type GeneratedOperation<TName extends string> =
 	TName extends keyof UltimaBaseGeneratedOperations
