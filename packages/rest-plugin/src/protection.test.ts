@@ -46,8 +46,8 @@ describe('REST public protection reporting', () => {
 		const warning = vi
 			.spyOn(console, 'warn')
 			.mockImplementation(() => undefined)
-		const ultimabase = new UltimaBase({
-			plugins: [restPlugin(), databasePlugin],
+		const Application = UltimaBase.use(restPlugin()).use(databasePlugin)
+		const ultimabase = new Application({
 			schemas: [PublicSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -65,16 +65,17 @@ describe('REST public protection reporting', () => {
 		const warning = vi
 			.spyOn(console, 'warn')
 			.mockImplementation(() => undefined)
-		const acknowledged = new UltimaBase({
-			plugins: [
-				restPlugin({ acknowledgeUnverifiedProtection: true }),
-				databasePlugin,
-			],
+		const Acknowledged = UltimaBase.use(
+			restPlugin({ acknowledgeUnverifiedProtection: true }),
+		).use(databasePlugin)
+		const acknowledged = new Acknowledged({
 			schemas: [PublicSchema],
 		})
 		onTestFinished(() => acknowledged.dispose())
-		const disabled = new UltimaBase({
-			plugins: [restPlugin({ default: false }), databasePlugin],
+		const Disabled = UltimaBase.use(restPlugin({ default: false })).use(
+			databasePlugin,
+		)
+		const disabled = new Disabled({
 			schemas: [PublicSchema],
 		})
 		onTestFinished(() => disabled.dispose())

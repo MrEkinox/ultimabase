@@ -60,19 +60,22 @@ timeout are optional; the example enables an explicit, restrictive browser
 policy:
 
 ```ts
+import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 
-export const applicationHttp = httpPlugin({
-	appId: 'blog',
-	browser: {
-		allowedHeaders: ['Content-Type', 'X-UltimaBase-Application-Id'],
-		allowedMethods: ['GET', 'POST'],
-		allowedOrigins: ['https://console.example'],
-		credentials: false,
-		maxAgeSeconds: 600,
-	},
-	requestTimeoutMs: 15_000,
-})
+export const Application = UltimaBase.use(
+	httpPlugin({
+		appId: 'blog',
+		browser: {
+			allowedHeaders: ['Content-Type', 'X-UltimaBase-Application-Id'],
+			allowedMethods: ['GET', 'POST'],
+			allowedOrigins: ['https://console.example'],
+			credentials: false,
+			maxAgeSeconds: 600,
+		},
+		requestTimeoutMs: 15_000,
+	}),
+)
 ```
 
 `httpPlugin()` also accepts `master: { enabled: true }`, but only when the

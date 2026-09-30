@@ -336,6 +336,18 @@ export type ConfiguredSchemaNamespace<
 	TSource extends PluginSourceState = EmptyPluginSourceState,
 > = Omit<typeof Schema, 'define'> &
 	Readonly<{
+		/**
+		 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
+		 * The configured application projects its installed plugin fields and options here.
+		 *
+		 * @example
+		 * ```ts
+		 * const Post = App.Schema.define({
+		 *   className: 'Post',
+		 *   fields: (field) => ({ title: field.string({ required: true }) }),
+		 * })
+		 * ```
+		 */
 		define: <
 			const TClassName extends string,
 			const TFields extends SchemaFields,

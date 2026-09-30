@@ -31,9 +31,6 @@ export const apiApplicationImports = (
 	...(has(plan, 'server-hono-plugin')
 		? ["import { honoServerPlugin } from '@ultimabase/server-hono-plugin'"]
 		: []),
-	...(has(plan, 'rest-plugin')
-		? ["import { restPlugin } from '@ultimabase/rest-plugin'"]
-		: []),
 	...(has(plan, 'graphql-plugin')
 		? ["import { graphqlPlugin } from '@ultimabase/graphql-plugin'"]
 		: []),
@@ -48,17 +45,31 @@ export const apiApplicationImports = (
 				"import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'",
 			]
 		: []),
-	...(has(plan, 'password-auth-plugin') &&
-	(has(plan, 'rest-plugin') || has(plan, 'graphql-plugin'))
+	...(has(plan, 'password-auth-plugin') && has(plan, 'graphql-plugin')
 		? [
 				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
 			]
 		: []),
 ]
 
-export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
-	...(has(plan, 'http-plugin') ? ["httpPlugin({ appId: 'main' })"] : []),
+/** Installs REST before schema declaration so its direct option is source typed. */
+export const apiSchemaPluginImports = (
+	plan: InitializerPlan,
+): readonly string[] => [
 	...(has(plan, 'rest-plugin')
+		? ["import { restPlugin } from '@ultimabase/rest-plugin'"]
+		: []),
+	...(has(plan, 'rest-plugin') && has(plan, 'password-auth-plugin')
+		? [
+				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
+			]
+		: []),
+]
+
+export const apiSchemaPluginEntries = (
+	plan: InitializerPlan,
+): readonly string[] =>
+	has(plan, 'rest-plugin')
 		? [
 				`restPlugin({
       // Local development only: this acknowledges unverified public policy coverage.
@@ -66,7 +77,10 @@ export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
       default: { create: false, update: false, delete: false, upsert: false, bulk: false, mutations: false }${authOperations(plan)},
     })`,
 			]
-		: []),
+		: []
+
+export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
+	...(has(plan, 'http-plugin') ? ["httpPlugin({ appId: 'main' })"] : []),
 	...(has(plan, 'graphql-plugin')
 		? [
 				`graphqlPlugin({

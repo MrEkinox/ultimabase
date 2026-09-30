@@ -4,14 +4,18 @@ import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	PasswordUser,
+	passwordAuthOperations,
 	passwordPrincipal,
 } from '@ultimabase/password-auth-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
 import type {} from '../.ultimabase/schema.generated.js'
+
+import { exampleStatusOperation } from './status-plugin.ts'
 
 const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
 
@@ -24,6 +28,18 @@ export const MinimalSchemaApplication = UltimaBase.use(
 	.use(validationPlugin())
 	.use(rolesPlugin())
 	.use(aclPlugin())
+	.use(
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [
+				exampleStatusOperation,
+				passwordAuthOperations.signUp,
+				passwordAuthOperations.login,
+				passwordAuthOperations.logout,
+				passwordAuthOperations.refresh,
+			],
+		}),
+	)
 
 /** The exact User schema contributed by the configured Password Auth plugin. */
 export const ExampleUser = PasswordUser

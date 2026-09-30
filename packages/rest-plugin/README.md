@@ -15,15 +15,9 @@ access, and explicitly exposed plugin operations.
 ## Installation
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
-
-const Post = Schema.define({
-	className: 'Post',
-	rest: { count: true, upsert: true },
-	fields: (field) => ({ title: field.string() }),
-})
 
 const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
 	restPlugin({
@@ -33,13 +27,20 @@ const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
 		maxLimit: 1_000,
 	}),
 )
+const Post = Application.Schema.define({
+	className: 'Post',
+	rest: { count: true, upsert: true },
+	fields: (field) => ({ title: field.string() }),
+})
 const ultimabase = new Application({
 	schemas: [Post],
 })
 ```
 
-The `rest` schema option is available only when the plugin contributes it to
-the compiled application graph. Omitted operation properties inherit the
+`Application.Schema.define()` sees `rest` only because this factory installed
+`restPlugin()`; no Typegen run is needed for that local option. Defining the
+schema remains inert: only `schemas: [Post]` registers it. Omitted operation
+properties inherit the
 plugin default and then the provenance-aware built-in default. Application
 schemas enable find, get, first, exists, create, update, and delete by default;
 count, upsert, and all bulk routes remain disabled.

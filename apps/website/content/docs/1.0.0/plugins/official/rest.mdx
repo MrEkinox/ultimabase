@@ -65,19 +65,11 @@ authorization. Use a disposable development database and keep the listener on
 `127.0.0.1`.
 
 ```ts title="src/ultimabase.ts"
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
-
-const Post = Schema.define({
-	className: 'Post',
-	fields: (f) => ({
-		title: f.string({ required: true }),
-	}),
-	rest: { find: true, get: true },
-})
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
@@ -94,6 +86,14 @@ const Application = UltimaBase.use(
 	)
 	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
 
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({
+		title: f.string({ required: true }),
+	}),
+	rest: { find: true, get: true },
+})
+
 export const ultimabase = new Application({
 	schemas: [Post],
 })
@@ -102,6 +102,8 @@ export const ultimabase = new Application({
 Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
 It keeps serving until Ctrl+C and awaits disposal. The exported configuration
 can also be loaded by Typegen without opening a database or listener.
+The direct `rest` option is typed by the installed plugin without first running
+Typegen. Schema declaration does not register it; `schemas: [Post]` does.
 
 `default: false` disables every route unless the schema opts in, including
 plugin-defined schema mutations. The schema above enables only reads. The

@@ -250,24 +250,25 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
-	it('exposes the documented Schema definition factory', () => {
+	it('exposes the documented configured Schema definition factory', () => {
 		const schema = readFixtureQuickInfo('define({')
 
-		// The packed declaration must retain the class-level help shown by editors.
-		expect(schema.display).toContain('Schema.define<')
+		// The packed configured declaration must retain the class-level editor help.
+		expect(schema.display).toContain('(property) define: <')
+		expect(schema.display).toContain('ConfiguredSchemaDeclarationOptions<')
 		expect(schema.documentation).toContain(
 			'Defines one final schema-specific class',
 		)
 	}, 10_000)
 
-	it('keeps the no-Typegen draft fallback minimal and exposes QueryBuilder', () => {
+	it('infers exact source draft fields and exposes QueryBuilder without Typegen', () => {
 		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
 		)
 
-		expect(draft.display).toContain('readonly [x: string]: unknown;')
-		expect(draft.display).not.toContain('readonly title: string;')
+		expect(draft.display).toContain('readonly title: string;')
+		expect(draft.display).not.toContain('readonly [x: string]: unknown;')
 		expect(query.display).toContain('QueryBuilder<')
 		expect(query.display).not.toContain('NonDefaultedStringField<')
 	})
@@ -305,8 +306,8 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	it('preserves field option documentation through package exports', () => {
 		const required = readFixtureQuickInfo('required: true')
 
-		// Compiled declarations expose direct required presence without a nullable switch.
-		expect(required.display).toContain('(property) required?: true')
+		// Literal-preserving source inference makes the supplied option required here.
+		expect(required.display).toContain('(property) required: true')
 		expect(required.display).not.toContain('StringValidationOptions')
 		expect(required.display).not.toContain('nullable')
 		expect(required.documentation).toContain(
@@ -317,7 +318,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		)
 	})
 
-	it('keeps no-Typegen mutation hovers on the minimal generated fallback', () => {
+	it('keeps source-typed mutation hovers exact without Typegen', () => {
 		const created = readFixtureQuickInfo('created = await PostSchema')
 		const selected = readFixtureQuickInfo('selectedCreate = await PostSchema')
 		const deleted = readFixtureQuickInfo('deleted = await PostSchema')
@@ -328,13 +329,17 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 			'createOne(\n\t\t\t\t{ data: allFieldValues },',
 		)
 
-		// Exact application fields come only from the generated application contract.
+		// Local fields come from source; generated declarations still own named relations.
 		for (const result of [created, selected, deleted, bulkUpdated]) {
-			expect(result.display).toContain('readonly [x: string]: unknown;')
-			expect(result.display).toContain('readonly id: string;')
-			expect(result.display).not.toContain('readonly externalId:')
+			expect(result.display).not.toContain('readonly [x: string]: unknown;')
 			expect(result.display).not.toContain('NonDefaultedStringField<')
 		}
+		expect(created.display).toContain('readonly externalId: string | null;')
+		expect(selected.display).toContain('readonly title: string;')
+		expect(deleted.display).toContain('readonly title: string;')
+		expect(deleted.display).toContain('} | null')
+		expect(bulkUpdated.display).toContain('readonly id: string;')
+		expect(bulkUpdated.display).toContain('className: "RuntimeBulkAccount"')
 		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('.createOne<')
 		expect(create.display).toContain('input: SchemaCreateOneInput<')
@@ -355,9 +360,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(select.display).toContain('select<{')
 		expect(select.display).toContain('id: true')
 		expect(select.display).toContain('title: true')
-		// Schema reads use the deliberate minimal contract before code generation.
+		// Schema reads keep their exact local field source without code generation.
 		expect(find.display).toContain(
-			'ExactGeneratedFindManyInput<BaseSchemaTypeInfo<"RuntimePost">',
+			'ExactGeneratedFindManyInput<SourceSchemaTypeInfo<"RuntimePost"',
 		)
 		expect(deletion.display).toContain('.deleteOne<')
 		expect(deletion.display).toContain('input: SchemaDeleteOneInput<')
@@ -387,23 +392,24 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(context.documentation).toContain('plugin-derived context')
 	})
 
-	it('does not infer selected application fields without code generation', () => {
+	it('infers selected local fields without code generation', () => {
 		const found = readFixtureQuickInfo('found = await PostSchema')
 
-		expect(found.display).toContain('readonly [x: string]: unknown;')
+		expect(found.display).not.toContain('readonly [x: string]: unknown;')
 		expect(found.display).toContain('readonly id: string;')
-		expect(found.display).not.toContain('readonly title: string;')
+		expect(found.display).toContain('readonly title: string;')
 		expect(found.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('keeps update data generic until code generation supplies its contract', () => {
+	it('keeps update data source-typed without leaking field descriptor internals', () => {
 		const update = readFixtureQuickInfo(
 			"data: { title: 'Packed query update' }",
 		)
 		const inputDisplay = update.display
 
-		expect(inputDisplay).toContain('readonly [x: string]: unknown;')
-		expect(inputDisplay).not.toContain('readonly attachment:')
+		expect(inputDisplay).toContain('SourceSchemaTypeInfo<"RuntimePost"')
+		expect(inputDisplay).toContain('readonly attachment: Uint8Array<')
+		expect(inputDisplay).not.toContain('readonly [x: string]: unknown;')
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')

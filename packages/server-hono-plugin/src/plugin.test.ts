@@ -82,15 +82,19 @@ describe('honoServerPlugin', () => {
 			app,
 			browserPolicyOwner: 'ultimabase',
 		})
-		const first = new UltimaBase({
+		const First = UltimaBase.use(
+			applicationProvider('fixture.first-http', 'first'),
+		).use(server)
+		const first = new First({
 			pluginPrivileges: { logger: false },
-			plugins: [applicationProvider('fixture.first-http', 'first'), server],
 			schemas: [],
 		})
 		onTestFinished(() => first.dispose())
-		const second = new UltimaBase({
+		const Second = UltimaBase.use(
+			applicationProvider('fixture.second-http', 'second'),
+		).use(server)
+		const second = new Second({
 			pluginPrivileges: { logger: false },
-			plugins: [applicationProvider('fixture.second-http', 'second'), server],
 			schemas: [],
 		})
 		onTestFinished(() => second.dispose())
@@ -135,14 +139,14 @@ describe('honoServerPlugin', () => {
 
 	it('fails validation when no HTTP application capability exists', () => {
 		expect(() => {
-			const application = new UltimaBase({
+			const Application = UltimaBase.use(
+				honoServerPlugin({
+					app: new Hono(),
+					browserPolicyOwner: 'ultimabase',
+				}),
+			)
+			const application = new Application({
 				pluginPrivileges: { logger: false },
-				plugins: [
-					honoServerPlugin({
-						app: new Hono(),
-						browserPolicyOwner: 'ultimabase',
-					}),
-				],
 				schemas: [],
 			})
 			onTestFinished(() => application.dispose())

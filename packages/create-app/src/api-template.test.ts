@@ -5,6 +5,7 @@ import { resolveSelection } from './config.js'
 
 describe('API project templates', () => {
 	it.each([
+		[{ plugins: ['http-plugin'] as const }, ['http-plugin']],
 		[
 			{ apis: ['rest'] as const },
 			['http-plugin', 'rest-plugin', 'server-hono-plugin'],
@@ -68,6 +69,11 @@ describe('API project templates', () => {
 				expect(application).toContain("httpPlugin({ appId: 'main' })")
 				expect(application).not.toContain('master: { enabled: true }')
 				expect(application).not.toContain('browser: {')
+				if (!plan.plugins.includes('server-hono-plugin')) {
+					expect(files.get('README.md')).toContain(
+						'this application opens no listener',
+					)
+				}
 			}
 			if (plan.plugins.includes('server-hono-plugin')) {
 				expect(application).toContain("host: '127.0.0.1', port: 1337")
@@ -90,10 +96,11 @@ describe('API project templates', () => {
 		const files = renderBaseFiles(plan)
 		const application = files.get('src/ultimabase.ts') ?? ''
 		const schema = files.get('src/schema.ts') ?? ''
-		expect(application).toContain('restPlugin({')
+		expect(schema).toContain('restPlugin({')
+		expect(application).not.toContain('restPlugin({')
 		expect(application).toContain('graphqlPlugin({')
-		expect(application).toContain('create: false, update: false, delete: false')
-		expect(application).toContain('acknowledgeUnverifiedProtection: true')
+		expect(schema).toContain('create: false, update: false, delete: false')
+		expect(schema).toContain('acknowledgeUnverifiedProtection: true')
 		expect(schema).toMatch(
 			/export const Member = SchemaApplication\.Schema\.define\(\{[\s\S]*?rest: false,[\s\S]*?graphql: false,/u,
 		)
@@ -124,9 +131,11 @@ describe('API project templates', () => {
 			'/tmp',
 		)
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
+		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
 		expect(application.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(
-			2,
+			1,
 		)
+		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(1)
 		expect(application).toContain('passwordAuthOperations.login')
 		expect(application).toContain('passwordAuthOperations.refresh')
 		expect(application).toContain('passwordAuthOperations.logout')

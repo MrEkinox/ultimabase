@@ -6,6 +6,8 @@ import {
 	apiNextCommands,
 	apiPluginEntries,
 	apiReadmeNotes,
+	apiSchemaPluginEntries,
+	apiSchemaPluginImports,
 	hasHttpListener,
 } from './api-template.js'
 import type { PluginId } from './catalog.js'
@@ -115,6 +117,7 @@ const schemaPluginImports = (plan: InitializerPlan): readonly string[] => [
 		? ["import { validationPlugin } from '@ultimabase/validation-plugin'"]
 		: []),
 	...securitySchemaImports(plan),
+	...apiSchemaPluginImports(plan),
 ]
 
 const schemaPluginEntries = (plan: InitializerPlan): readonly string[] => [
@@ -126,6 +129,7 @@ const schemaPluginEntries = (plan: InitializerPlan): readonly string[] => [
 		: []),
 	...(includes(plan, 'validation-plugin') ? ['validationPlugin()'] : []),
 	...securitySchemaPluginEntries(plan),
+	...apiSchemaPluginEntries(plan),
 ]
 
 const schemaApplicationSource = (plan: InitializerPlan): string => {

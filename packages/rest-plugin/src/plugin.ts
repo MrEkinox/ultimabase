@@ -8,8 +8,10 @@ import {
 	requireCapability,
 	type ApplicationOperationTransportPlanner,
 	type CapabilityRequirement,
+	type PluginDeclarationContribution,
 	type PluginInstance,
 	type PluginOperationDefinition,
+	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { httpEndpointContributionsCapability } from '@ultimabase/http-plugin'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
@@ -221,6 +223,12 @@ const restPluginPermissions = {
 		'Generates explicitly configured public REST route metadata.',
 } as const
 
+// The installed option definition is also the configured factory's type source.
+type RestOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-rest-schema-option'
+	readonly schema: Readonly<{ rest: typeof restSchemaOption }>
+}>
+
 /** Names one configured REST v1 route generator. */
 export type RestPlugin = PluginInstance<{
 	readonly id: typeof restPluginId
@@ -228,6 +236,7 @@ export type RestPlugin = PluginInstance<{
 	readonly instanceId: string | undefined
 	readonly version: typeof restPluginVersion
 	readonly core: '^0.0.0'
+	readonly source: RestOptionSource
 }>
 
 /** Installs deterministic REST v1 route metadata without executing Runtime. */
@@ -336,14 +345,15 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 			},
 		},
 	)
-	const declarations = contributeDeclarations({
-		schema: ({ schemas }) => {
+	const declarations: PluginDeclarationContribution<
+		readonly [],
+		RestOptionSource
+	> = contributeDeclarations({
+		schema: ({ schemas }) =>
 			schemas.defineOptions({
 				contributionId: 'official-rest-schema-option',
 				schema: { rest: restSchemaOption },
-			})
-			return undefined
-		},
+			}),
 	})
 	const application = contributeApplication(
 		({ capabilities: reader, schemas }) => {

@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309
-- Active issue: 6310
-- Next issue: 6311
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310
+- Active issue: none; stop for user review after 6310
+- Next issue: 6311, pending user review
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -187,4 +187,31 @@ ordinary files/2,632 tests and 635 coverage files/2,893 tests, with unchanged
 90.85/84.36/96.03/91.42 coverage; the website passed 17 files/66 tests. The
 locked benchmark passed. Still-consumed PostgreSQL option references and the
 Todo example's old constructor path remain assigned to issues 6313/6314.
-Issue 6310 is the next resume point; no push is authorized.
+Issue 6310 projects REST's direct option from its installed source definition,
+and source/packed completion, diagnostics, and exact type hover pass. Inline
+`rest.count` QuickInfo loses its JSDoc compared with the generated option
+baseline because the configured `App.Schema.define()` signature intersects
+inferred declared options with plugin validation. A general Core signature
+change could affect all schema inference; no speculative bridge or redesign
+was added. The user accepted this documentation-only hover limitation for the
+milestone. It remains in issue 6316's final limitation-by-limitation audit.
+
+The approved short proof found no safe generic signature correction: TypeScript
+6.0.3 retains the JSDoc with a concrete contextual option type, but a generic
+capture loses it; restricting the capture to plugin selector keys preserves
+documentation but widens required literal values. Hard-coding one selector
+would violate Core's plugin neutrality. Core's type signature and Runtime
+remain unchanged; only the configured `define` documentation was restored.
+No long-running inference exploration is authorized during this milestone.
+
+A complete built-E2E run exposed 13 failures before issue 6310 closed: six
+language-service timeouts under default parallelism and seven Core archive
+hover assertions. The latter included stale generic fallback expectations
+and a genuine loss of `App.Schema.define` JSDoc, separate from the accepted
+`rest.count` limitation. The configured declaration regained its documentation,
+the packed hover tests now protect exact source types, and the built E2E project
+has 20-second language-service headroom. The unrestricted rerun passed 101
+files/405 tests. Final `yarn validate:full` passed 557 ordinary files/2,639
+tests, 635 coverage files/2,900 tests, and 17 website files/66 tests, with
+90.85/84.37/96.04/91.42 coverage. Issue 6310 is the last issue worked on;
+stop before 6311 for user review. No push is authorized.

@@ -45,9 +45,9 @@ describe('httpPlugin', () => {
 			privileges: [],
 		})
 
-		const application = new UltimaBase({
+		const Application = UltimaBase.use(plugin).use(consumerPlugin())
+		const application = new Application({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin, consumerPlugin()],
 			schemas: [],
 		})
 		await application.initialize()
@@ -111,7 +111,6 @@ describe('httpPlugin', () => {
 	it('keeps imports inert when the plugin is omitted', async () => {
 		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
-			plugins: [],
 			schemas: [],
 		})
 		await application.initialize()

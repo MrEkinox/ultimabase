@@ -7,7 +7,6 @@ import {
 	passwordAuthPlugin,
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
-import { restPlugin } from '@ultimabase/rest-plugin'
 import {
 	honoServerPlugin,
 	type HonoServerPlugin,
@@ -58,18 +57,6 @@ export const createMinimalApplication = ({
 		}),
 	)
 		.use(exampleStatusPlugin)
-		.use(
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: [
-					exampleStatusOperation,
-					passwordAuthOperations.signUp,
-					passwordAuthOperations.login,
-					passwordAuthOperations.logout,
-					passwordAuthOperations.refresh,
-				],
-			}),
-		)
 		.use(
 			graphqlPlugin({
 				acknowledgeUnverifiedProtection: true,

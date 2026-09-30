@@ -28,10 +28,10 @@ frozen in the
 - [x] [6304: Preserve exact schema contracts from source](6304-source-typed-schema-contracts.md)
 - [x] [6305: Project plugin authoring types from source](6305-plugin-source-type-projections.md)
 - [x] [6306: Bind direct class execution to the sole active application](6306-direct-class-application-binding.md)
-- [ ] [6307: Migrate Access, Hooks, and Validation source typing](6307-official-plugin-source-typing.md)
-- [ ] [6308: Migrate ACL, Roles, and Password Auth source typing](6308-auth-policy-plugin-source-typing.md)
-- [ ] [6309: Migrate Soft Delete, vector, and PostgreSQL source typing](6309-data-plugin-source-typing.md)
-- [ ] [6310: Migrate HTTP, Hono, and REST configured installation](6310-http-rest-plugin-migration.md)
+- [x] [6307: Migrate Access, Hooks, and Validation source typing](6307-official-plugin-source-typing.md)
+- [x] [6308: Migrate ACL, Roles, and Password Auth source typing](6308-auth-policy-plugin-source-typing.md)
+- [x] [6309: Migrate Soft Delete, vector, and PostgreSQL source typing](6309-data-plugin-source-typing.md)
+- [x] [6310: Migrate HTTP, Hono, and REST configured installation](6310-http-rest-plugin-migration.md)
 - [ ] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
 - [ ] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
 - [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
@@ -72,12 +72,14 @@ fields, ... })` declaration shape; no public `Schema.use()` exists.
 - Schema classes and immutable returned models expose every current applicable
   command directly through the sole active application, without an ordinary
   explicit application argument.
-- Source and packed TypeScript contracts retain exact completion, hover,
-  signature, and diagnostic behavior; only named cross-schema contracts depend
-  on the retained generated graph.
+- Source and packed TypeScript contracts retain exact completion, signature,
+  and diagnostic behavior. The user accepted the missing inline JSDoc on
+  nested configured plugin-option hover for this milestone; issue 6316 must
+  review that and every other retained limitation separately.
 - `@ultimabase/typegen` remains the sole application-specific cross-schema name
-  authority, while plugin-added surfaces no longer require generated
-  declarations or author-maintained Typegen descriptors.
+  authority. Source-derivable plugin surfaces no longer require generated
+  declarations or author-maintained Typegen descriptors; accepted exact
+  callback and Password User-result exceptions remain for the final audit.
 - JavaScript, privilege, lifecycle, ownership, Runtime, transport, database,
   Access, Hooks, validation, authentication, roles, ACL, soft-delete, vector,
   plugin-instance, and community-plugin capabilities remain.

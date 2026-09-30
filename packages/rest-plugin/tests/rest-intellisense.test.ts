@@ -21,6 +21,122 @@ const markerPosition = (source: string, marker: string): number => {
 }
 
 describe('REST option IntelliSense', () => {
+	describe.each([
+		['source', '../src/index.js'],
+		['packed', '@ultimabase/rest-plugin'],
+	] as const)('%s configured factory', (mode, moduleName) => {
+		it('types REST routes from the installed plugin without Typegen', () => {
+			const fileName = path.join(
+				import.meta.dirname,
+				`rest-configured-${mode}.fixture.ts`,
+			)
+			const schemaMarker = '/* schema-options */'
+			const routeMarker = '/* route-options */'
+			const hoverMarker = '/* count-hover */'
+			const sourceWithMarkers = `import { UltimaBase } from '@ultimabase/core'
+import { restPlugin } from '${moduleName}'
+const App = UltimaBase.use(restPlugin())
+const Post = App.Schema.define({
+  className: 'ConfiguredRestPost',
+  rest: { ${hoverMarker}count: true },
+  fields: (field) => ({ title: field.string() }),
+})
+App.Schema.define({
+  className: 'RestRouteCompletion',
+  rest: { ${routeMarker} },
+  fields: () => ({}),
+})
+App.Schema.define({
+  className: 'RestOptionCompletion',
+  ${schemaMarker}
+  fields: () => ({}),
+})
+void Post`
+			const schemaPosition = markerPosition(sourceWithMarkers, schemaMarker)
+			const routePosition = markerPosition(sourceWithMarkers, routeMarker)
+			const hoverPosition = markerPosition(sourceWithMarkers, hoverMarker)
+			const source = sourceWithMarkers
+				.replace(schemaMarker, ' '.repeat(schemaMarker.length))
+				.replace(routeMarker, ' '.repeat(routeMarker.length))
+				.replace(hoverMarker, ' '.repeat(hoverMarker.length))
+			const service = createLanguageService(fileName, source)
+			const completions = (position: number): readonly string[] =>
+				service
+					.getCompletionsAtPosition(fileName, position, {})
+					?.entries.map(({ name }) => name) ?? []
+			const hover = service.getQuickInfoAtPosition(
+				fileName,
+				hoverPosition + hoverMarker.length,
+			)
+
+			expect(
+				service
+					.getSemanticDiagnostics(fileName)
+					.map(({ messageText }) =>
+						ts.flattenDiagnosticMessageText(messageText, ' '),
+					),
+			).toStrictEqual([])
+			expect(completions(schemaPosition)).toContain('rest')
+			expect(completions(routePosition)).toEqual(
+				expect.arrayContaining(['bulk', 'count', 'find', 'get', 'mutations']),
+			)
+			expect(ts.displayPartsToString(hover?.displayParts)).toContain(
+				'count: true',
+			)
+			service.dispose()
+		})
+
+		it('rejects REST options on an unrelated configured factory', () => {
+			const fileName = path.join(
+				import.meta.dirname,
+				`rest-absent-${mode}.fixture.ts`,
+			)
+			const source = `import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { restPlugin } from '${moduleName}'
+void restPlugin
+const Other = UltimaBase.use(httpPlugin({ appId: 'unrelated' }))
+Other.Schema.define({
+  className: 'RestAbsentPost',
+  fields: () => ({}),
+  rest: { count: true },
+})`
+			const service = createLanguageService(fileName, source)
+			const messages = service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, ' '),
+				)
+			expect(messages.some((message) => message.includes('rest'))).toBe(true)
+			service.dispose()
+		})
+
+		it('rejects invalid REST route values on the configured factory', () => {
+			const fileName = path.join(
+				import.meta.dirname,
+				`rest-invalid-${mode}.fixture.ts`,
+			)
+			const source = `import { UltimaBase } from '@ultimabase/core'
+import { restPlugin } from '${moduleName}'
+const App = UltimaBase.use(restPlugin())
+App.Schema.define({
+  className: 'InvalidRestPost',
+  rest: { count: 'yes' },
+  fields: () => ({}),
+})`
+			const service = createLanguageService(fileName, source)
+			const messages = service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, ' '),
+				)
+			expect(messages).toHaveLength(1)
+			expect(messages[0]).toContain('count: "yes"')
+			expect(messages[0]).toContain('is not assignable')
+			service.dispose()
+		})
+	})
+
 	it('contributes only inert exact option declarations to Typegen', () => {
 		const Post = Schema.define({
 			className: 'RestTypegenPost',

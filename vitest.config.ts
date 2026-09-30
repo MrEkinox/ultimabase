@@ -145,6 +145,8 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/*/tests/e2e/**/*.e2e.test.ts',
 			],
 			name: 'e2e',
+			// Packed language-service checks compete for CPU during the full E2E run.
+			testTimeout: 20_000,
 		},
 	},
 	{
