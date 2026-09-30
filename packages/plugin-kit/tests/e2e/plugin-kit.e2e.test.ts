@@ -83,9 +83,8 @@ describe('packed @ultimabase/plugin-kit', () => {
 				'schema:declare': 'Adds packed schema metadata.',
 			},
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(definition))({
 			pluginPrivileges: { logger: false },
-			plugins: [definition],
 			schemas: [Target],
 		})
 

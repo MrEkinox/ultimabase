@@ -57,8 +57,7 @@ describe('plugin event authoring helpers', () => {
 			permissions: { 'runtime:observe': 'Observes committed fixture events.' },
 			contributions: [provider],
 		})
-		const application = new UltimaBase({
-			plugins: [authorized],
+		const application = new (UltimaBase.use(authorized))({
 			schemas: [],
 		})
 		await application.initialize()

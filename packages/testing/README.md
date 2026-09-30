@@ -43,7 +43,9 @@ it('executes one isolated application', async () => {
 `definePluginConformanceSuite()` keeps the exact subject, support-plugin, and
 schema tuples inferred from a fresh fixture. `runPluginConformance()` is
 runner-agnostic: use it from Vitest, another test runner, or a plain JavaScript
-script.
+script. The runner installs each fresh fixture through Core's
+`UltimaBase.use()` chain, not the legacy constructor `plugins` option or a
+test-only registry.
 
 ```ts
 import {
@@ -89,6 +91,14 @@ opens PostgreSQL for a logical-only fixture. It silences the normal startup
 logger inside its own applications while still exercising the public policy
 report and denial behavior.
 
+For source-typed fields or options, create the subject and its schemas together
+inside `createFixture`: define the schema through the same ordered
+`UltimaBase.use(support).use(subject).Schema.define(...)` chain used by the
+fixture (omit `.use(support)` when none is required), then pass the subject and
+schema to `createPluginConformanceFixture`. Test the same fixture against
+package-root exports for packed editor behavior. Typegen conformance still
+checks the retained named-schema graph, not local plugin projections.
+
 Official plugins list `expected.environment` even when it is `[]`. This makes a
 deliberate absence of direct filesystem, network, process, and native-code
 behavior as testable as a declared claim.
@@ -122,8 +132,8 @@ const suite = definePluginConformanceSuite({
 ### Optional domain checks
 
 Use immutable `.check(contract, verifier)` calls for behavior specific to the
-plugin. Every verifier gets a fresh public `UltimaBase` factory; every created
-value is disposed automatically, including
+plugin. Every verifier gets a fresh application built through public Core
+factories; every created value is disposed automatically, including
 after a failed assertion.
 
 ```ts

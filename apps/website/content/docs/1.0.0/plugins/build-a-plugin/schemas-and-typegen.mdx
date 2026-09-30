@@ -23,6 +23,7 @@ sources:
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0277-canonical-schema-specialization.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0281-retain-generated-where-contracts.md
   - packages/core/src/plugins/plugin-source-projections.test-d.ts
 ---
 
@@ -31,7 +32,8 @@ sources:
 Extend a schema without changing Core or patching an exported schema class.
 The configured application infers plugin-owned local surfaces from the same
 static declaration that Core compiles at Runtime. Typegen remains the sole
-application-specific graph for exact named cross-schema relationships;
+application-specific graph for exact named cross-schema relationships and
+retains the complete `WhereInput` for every schema during this milestone;
 generated files never install Runtime behavior.
 
 ## Prerequisites
@@ -40,8 +42,9 @@ generated files never install Runtime behavior.
 - Read [Schemas](/docs/1.0.0/core/data-modeling/schemas) and
   [Fields](/docs/1.0.0/core/data-modeling/fields) for the native model.
 - Configure the application's [Typegen workflow](/docs/1.0.0/guides/generate-types)
-  when schemas use named cross-file or circular relationship targets. Local
-  plugin fields, options, and commands infer directly from `App`.
+  for complete schema `where` typing and named cross-file or circular
+  relationship targets. Local plugin fields, options, and commands infer
+  directly from `App`; custom field filter operators need the generated graph.
 
 ## Choose the schema contribution
 
@@ -199,8 +202,9 @@ for the full field and codec contracts.
 
 ## Contribute to Typegen
 
-Generic generation retains the exact named schema graph required by circular
-and cross-file pointers and relations. Source-derivable plugin fields, options,
+Generic generation retains every complete schema `WhereInput` as well as the
+exact named schema graph required by circular and cross-file pointers and
+relations. Source-derivable plugin fields, options,
 application operations, and schema/model methods come from the installed plugin
 definition instead of a generated copy. Plugins do not add arbitrary
 declarations or extra output files. Export reusable public types from your

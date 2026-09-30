@@ -94,8 +94,9 @@ Keep startup in the existing entry point from
 This configuration module stays safe to load for static Typegen generation.
 
 `validationPlugin()` takes no options. Its configured factory exposes
-`validation` on supported fields directly from source. Regenerate Typegen only
-when the application-wide named schema graph changes; see
+`validation` on supported fields directly from source. Regenerate Typegen
+when the application-wide named schema graph or a generated `where` contract
+changes; see
 [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
 
 The option accepts one synchronous Standard Schema V1 validator whose input

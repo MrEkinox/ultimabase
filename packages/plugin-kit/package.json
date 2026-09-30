@@ -24,7 +24,7 @@
 		"typecheck": "tsc --build",
 		"test:unit": "vitest run --project unit --passWithNoTests",
 		"test:types": "vitest run --project types --passWithNoTests",
-		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
+		"test:e2e:built": "yarn --cwd ../.. vitest run --project e2e --project postgres-e2e packages/plugin-kit/tests/e2e --passWithNoTests",
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {

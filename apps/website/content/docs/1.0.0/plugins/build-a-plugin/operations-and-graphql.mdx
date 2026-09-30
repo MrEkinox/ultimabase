@@ -123,9 +123,10 @@ Export both `workflowPlugin` and `formatWorkflow` from the package root. In a
 started application that installs the plugin,
 `await ultimabase.operation(formatWorkflow).execute('  ready  ')` returns
 `'ready'`. The same application without the plugin rejects that token. Generic
-Typegen derives the installed operation's input and result from its
-registered public type references. The operation remains private from every network
-transport at this point.
+The installed operation's source definition gives TypeScript its input and
+result types without a generated plugin declaration. Public type references
+remain available when the retained named-schema graph needs them. The
+operation remains private from every network transport at this point.
 
 ## Reuse queries and mutate one item
 
@@ -136,8 +137,9 @@ registrar or privilege.
 Use a [schema mutation](#expose-a-schema-mutation) when a command updates or
 deletes one item and needs Core's locked target, policy checks, and transaction.
 `models.extend()` attaches its `schemaMutations` to selected schema and model
-surfaces. Typegen derives those methods from the graph; JavaScript uses the
-same compiled surfaces without generated files.
+surfaces. A configured `App.Schema.define(...)` projects those methods from
+the plugin source; JavaScript uses the same compiled surfaces without
+generated files.
 
 A mutation handler or transport binding with no selected schema/model alias
 stays dormant. It contributes no method or route and does not cause an

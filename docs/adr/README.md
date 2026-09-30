@@ -260,6 +260,7 @@ Current records (accepted or still active in part):
 - [ADR-0278: Owner-private storage stays an addressable-record boundary](0278-bounded-owner-private-storage.md)
 - [ADR-0279: Configured applications own source-typed authoring](0279-source-typed-configured-application-authoring.md)
 - [ADR-0280: Complete-schema callbacks use the retained Typegen graph](0280-complete-schema-callbacks-use-typegen-graph.md)
+- [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md)
 
 Superseded records:
 

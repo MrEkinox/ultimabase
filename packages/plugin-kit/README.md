@@ -125,9 +125,9 @@ declare: ({ schemas }) => {
 The builder covers additive fields, indexes, constraints, and
 plugin-owned schema or field option values. These operations require the same
 `schema:declare` privilege that Core would require
-without the helper. Replacement, rename, removal, and exact cross-owner targets
-stay in Core's explicit factories because their provenance checks should remain
-visible at the call site. `mutationInput: 'forbidden'` reserves an added stored
+without the helper. Destructive replacement, rename, and removal patches are
+not plugin powers; the helper does not reintroduce them. Core still validates
+every patch's target, ownership, and provenance. `mutationInput: 'forbidden'` reserves an added stored
 field for plugin-owned effects while keeping it selectable and physically
 persisted; Core applies the same omission to Runtime validation, Typegen,
 nested writes, and transport inputs.
@@ -229,7 +229,7 @@ const publishContribution = contributeOperation({
 })
 ```
 
-Add the contribution to the Core plugin definition's `operations` list and
+Add the contribution to the Core plugin definition's `contributions` list and
 request `operation:declare`. Core derives the static declaration, application
 provider, and owner-local identifier. The contribution also accepts
 `create(context) => ({ execute, dispose? })` when the handler needs application
@@ -270,7 +270,6 @@ plugin({
 			mutation: archive,
 			resolve: () => ({ data: { workflowState: 'archived' } }),
 		}),
-	],
 		contributeDeclarations({
 			models: ({ models }) =>
 				models.extend(Post, {
@@ -309,7 +308,7 @@ Use `@ultimabase/core` directly for:
 
 - capability definitions, providers, and requirements;
 - Runtime middleware, protected constraints, and persistence rewrites;
-- raw adapter leases, transport bindings, migration intent, and lifecycle;
+- raw adapter leases, transport bindings, and lifecycle;
 - every privilege, owner, registry, Master, or security decision.
 
 `plugin-kit` intentionally contains no generic registry, service locator,

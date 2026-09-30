@@ -10,9 +10,7 @@ import {
 	plugin,
 	type FieldOptions,
 	type JsonObject,
-	type PluginDefinition,
 	type PluginFieldDefinition,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -141,13 +139,11 @@ const storage = requireCapability(adapterValueStorageCapability, '^1.0.0')
 
 export interface ValuePluginOptions {
 	readonly instanceId: string
-	readonly target: SchemaDefinition
+	readonly targetClassName: string
 }
 
-/** Adds one portable logical value and its exact generated field type. */
-export const createValuePlugin = (
-	options: ValuePluginOptions,
-): PluginDefinition =>
+/** Adds one portable logical value and its source-typed schema surface. */
+export const createValuePlugin = (options: ValuePluginOptions) =>
 	plugin({
 		core: '^0.0.0',
 		id: 'fixture.open-kernel-value',
@@ -156,13 +152,13 @@ export const createValuePlugin = (
 			storage,
 			contributeDeclarations({
 				schema: ({ fields, schemas }) => {
-					fields.register(decimalBuilderMethod)
-					schemas.defineOptions({
+					const field = fields.register(decimalBuilderMethod)
+					const optionsReceipt = schemas.defineOptions({
 						contributionId: 'decimal-options',
 						field: { decimalLabel: decimalLabelOption },
 						schema: { decimalLedger: decimalLedgerOption },
 					})
-					schemas.patch(
+					const patch = schemas.patch(
 						patchSchemas({
 							patch: schemaPatch().addField({
 								contributionId: 'decimal-amount',
@@ -170,11 +166,12 @@ export const createValuePlugin = (
 								name: 'amount',
 							}),
 							targets: schemas.select({
-								className: options.target.className,
+								className: options.targetClassName,
 								option: { name: 'decimalLedger' },
 							}),
 						}),
 					)
+					return [field, optionsReceipt, patch]
 				},
 				typegen: ({ typegenReferences }) => {
 					// The compiled graph retains its reference without startup generation.

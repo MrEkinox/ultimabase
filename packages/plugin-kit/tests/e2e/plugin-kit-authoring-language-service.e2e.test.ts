@@ -11,13 +11,24 @@ const fileName = path.join(
 const source = `
 import {
   contributeApplication,
+  contributeDeclarations,
   plugin,
+  UltimaBase,
   type PluginExports,
+  type SchemaItem,
 } from '@ultimabase/core'
 import { z } from 'zod'
 import {
+  definePluginFieldOption,
   definePluginOptionsParser,
 } from '@ultimabase/plugin-kit'
+
+const highlighted = definePluginFieldOption({
+  contexts: ['stored'],
+  normalize: (value) => value === true,
+  protocolVersion: 1,
+  typegen: false,
+})
 
 const definition = plugin({
   id: 'community.packed',
@@ -25,10 +36,24 @@ const definition = plugin({
   core: '^1.0.0',
   instanceId: 'editorial',
   peers: [{ pluginId: 'community.protocol', version: '^1.0.0' }],
+  permissions: { 'schema:declare': 'Declares the packed field option.' },
   contributions: [
+    contributeDeclarations({
+      schema: ({ schemas }) => schemas.defineOptions({
+        contributionId: 'highlighted',
+        field: { highlighted },
+      }),
+    }),
     contributeApplication(() => ({ exports: { ready: true as const } })),
   ],
 })
+const Application = UltimaBase.use(definition)
+const Article = Application.Schema.define({
+  className: 'PackedPluginKitArticle',
+  fields: (field) => ({ title: field.string({ highlighted: true }) }),
+})
+declare const packedArticle: SchemaItem<typeof Article>
+export const packedTitle = packedArticle.title
 export const packedInstance = definition.manifest.identity.instanceId
 export const packedCapabilities = definition.manifest.capabilities.provides
 export const packedPeer = definition.peers?.[0]?.pluginId
@@ -58,11 +83,13 @@ describe('packed @ultimabase/plugin-kit authoring types', () => {
 	it('preserves exact instance, capability, peer, and setup contracts', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
 		expect(readQuickInfo('packedInstance =')).toContain('"editorial"')
-		expect(readQuickInfo('packedCapabilities =')).toContain('readonly []')
+		// TypeScript renders an empty inferred capability list as readonly never[].
+		expect(readQuickInfo('packedCapabilities =')).toContain('readonly never[]')
 		expect(readQuickInfo('packedPeer =')).toContain('"community.protocol"')
 		expect(readQuickInfo('packedReady =')).toContain('true')
 		expect(readQuickInfo('packedOptions =')).toContain(
 			'mode: "review" | "publish";',
 		)
+		expect(readQuickInfo('packedTitle =')).toContain('string')
 	}, 20_000)
 })

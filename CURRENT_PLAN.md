@@ -3,19 +3,20 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311
-- Active issue: 6312
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312
+- Active issue: none; resume at 6313
 - Next issue: 6313
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
-the sole cross-schema name graph. The exact target is frozen in the
+the sole cross-schema name graph and, under ADR-0281, all complete schema
+`WhereInput` declarations. The exact target is frozen in the
 [DX contract](docs/plans/2026-09-28-source-typed-application-authoring-target.md):
 plugins install only through `UltimaBase.use()`, schemas retain the current
 `App.Schema.define({ className, fields, ... })` form, registration stays
 explicit, direct class commands resolve the sole active application, plugin
-surfaces infer from source, and Typegen remains only where the exact
-cross-schema graph requires it.
+surfaces infer from source, while complete `where` typing and exact
+cross-schema resolution remain generated for this milestone.
 
 The current logical `pg-vector` field remains source typed only on factories
 that install `pgVectorPlugin()`. Milestone 63 does not add physical PostgreSQL
@@ -231,3 +232,26 @@ and the locked 1/10/50-schema benchmark passed twice. Remaining old
 constructor fixtures belong to issue 6314; the generic plugin-option hover
 documentation limitation remains for issue 6316. Issue 6312 is the resume
 point; no push is authorized.
+
+Issue 6312 completed the Plugin Kit, testing, and community conformance
+migration from revision `15f68c5f`. The user approved ADR-0281: complete
+`WhereInput` stays in Typegen through milestone 63 after two bounded
+source-inference attempts failed. A Runtime-only custom-value query still
+needs a test cast without a generated registry; the built-export language-
+service test proves Typegen-backed DX without one. Do not restart source-only
+`where` experiments before issue 6316.
+
+The final audit corrected a PostgreSQL community fixture that declared its
+`postgres` option before installing PostgreSQL on the schema factory. The
+user also explicitly requested fixing a flaky coverage blocker: PostgreSQL
+could report an independent composite-unique collision before the upsert's
+targeted email conflict. The adapter now suppresses the speculative insert
+and re-locks only the declared target; a conflict on another row still fails.
+The final correctly permissioned `yarn validate:full` passed 557 ordinary
+files/2,649 tests, 636 coverage files/2,911 tests, and 17 website files/66
+tests. Coverage was 90.87/84.39/96.04/91.44, above issue 6311 on every
+measure; the complete built E2E passed 102 files/406 tests after the fixture
+correction. The locked 1/10/50-schema benchmark passed twice, but its
+synthetic hybrid registry omits the retained production `WhereInput`.
+Issue 6316 owns the final Typegen-byte and regeneration measurement. Issue
+6313 is the resume point; no push is authorized.

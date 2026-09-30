@@ -53,6 +53,11 @@ operations in generated declarations. Direct class and immutable-model commands
 resolve and verify the sole active application without storing resources or
 authority on the class.
 
+[ADR-0281](docs/adr/0281-retain-generated-where-contracts.md) also retains
+the complete generated `WhereInput` for every schema through this milestone.
+Source filters before generation are a bootstrap shape, not a claim that
+custom plugin operators have complete Typegen-free editor typing.
+
 ```text
 developer declarations + pure authorized plugin declarations
                               ↓

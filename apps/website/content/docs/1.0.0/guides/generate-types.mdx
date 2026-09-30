@@ -20,14 +20,16 @@ sources:
   - packages/core/src/plugins/typegen-declarations.test.ts
   - apps/website/content/docs/1.0.0/manual-installation.mdx
   - packages/create-app/src/base-template.ts
+  - docs/adr/0281-retain-generated-where-contracts.md
 ---
 
 Typegen turns one application's compiled static graph into replaceable
 TypeScript declarations. Core derives a schema's local fields, models, inputs,
-filters, selections, and results directly from its source declaration. Generate
-Typegen **before** typechecking or building for the application-wide literal-name
-graph used by pointers, relations, and circular schemas, plus plugin-owned
-contracts that have not yet moved to source projection. Typegen does not
+bootstrap filters, selections, and results directly from its source declaration.
+Generate Typegen **before** typechecking or building for the complete `WhereInput`
+of every schema, the application-wide literal-name graph used by pointers,
+relations, and circular schemas, and plugin-owned contracts that have not yet
+moved to source projection. Typegen does not
 generate an executable client or change Runtime behavior. A missing or stale
 declaration affects TypeScript and editor completion, not what UltimaBase executes.
 

@@ -4,20 +4,22 @@
 - Milestone: 63
 - Packages: `@ultimabase/typegen`, `@ultimabase/core`, repository tooling and consumers
 - Depends on: 6312
-- ADR: ADR-0279
+- ADR: ADR-0279, ADR-0281
 - Execution contract: [milestone 63 DX and audit contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md)
 
 ## Goal
 
 Remove Typegen projections superseded by source-typed plugin definitions while
 retaining one capability-complete generated graph for literal cross-schema name
-resolution. Do not assume that another generated schema contract is removable
-until evidence identifies its source-owned replacement.
+resolution and every schema `WhereInput` under ADR-0281. Do not assume that
+another generated schema contract is removable until evidence identifies its
+source-owned replacement.
 
 ## Acceptance criteria
 
 - [ ] Every current Typegen output, snapshot field, reference, privilege, public export, and consumer is classified as required cross-schema graph data, proven superseded plugin projection, or explicitly retained pending later evidence.
 - [ ] The application-specific name-to-schema graph remains the sole authority for pointers, relations, circular targets, nested writes, relationship filters, and other contracts that resolve a literal target name.
+- [ ] Every generated schema `WhereInput`, including plugin-field scalar filters, remains intact with its required snapshot facts, public value references, registry wiring, and source/packed editor tests; no `where` reduction is counted in this issue.
 - [ ] Plugin manifests and definitions no longer carry Typegen declarations for field builders, direct options, methods, schema mutations, model commands, or application operations that now infer from their source definition.
 - [ ] Removing or reconfiguring a plugin immediately changes those source completions and diagnostics without regeneration; changes to the application schema-name graph retain the existing generation and stale-output safeguards.
 - [ ] The Typegen workspace, loader, deterministic snapshot, fingerprint, writer, package exports, build integration, and clean-checkout workflow remain only where a retained contract uses them.
@@ -44,7 +46,7 @@ until evidence identifies its source-owned replacement.
 
 ## Out of scope
 
-- Removing `@ultimabase/typegen` or its sole cross-schema graph.
+- Removing `@ultimabase/typegen`, its sole cross-schema graph, or any generated schema `WhereInput`.
 - Removing another generated schema contract without a proven source-owned replacement.
 - OpenAPI, SDK, transport schema, or client generation.
 - Runtime source rewriting or a TypeScript compiler plugin.

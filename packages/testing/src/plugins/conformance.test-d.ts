@@ -1,8 +1,10 @@
 import {
 	plugin,
 	contributeApplication,
+	contributeDeclarations,
+	defineSchemaOption,
 	type UltimaBase,
-	Schema,
+	UltimaBase as UltimaBaseFactory,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
@@ -13,19 +15,41 @@ import {
 	type PluginConformanceContract,
 } from '../index.js'
 
-const Post = Schema.define({
-	className: 'ConformancePost',
-	fields: (field) => ({ title: field.string() }),
+const sourceOption = defineSchemaOption({
+	normalize: (value) => value === true,
+	protocolVersion: 1,
+	typegen: false,
 })
 const subject = plugin({
 	core: '^0.0.0',
 	id: 'fixture.typed-conformance',
 	contributions: [
+		contributeDeclarations({
+			schema: ({ schemas }) =>
+				schemas.defineOptions({
+					contributionId: 'source-option',
+					schema: { enabled: sourceOption },
+				}),
+		}),
 		contributeApplication(() => ({
 			exports: { marker: 'typed' as const },
 		})),
 	],
+	permissions: { 'schema:declare': 'Declares source-typed fixture options.' },
 	version: '0.0.0',
+})
+const Application = UltimaBaseFactory.use(subject)
+const Post = Application.Schema.define({
+	className: 'ConformancePost',
+	enabled: true,
+	fields: (field) => ({ title: field.string() }),
+})
+
+// @ts-expect-error -- The unconfigured factory cannot author plugin options.
+UltimaBaseFactory.Schema.define({
+	className: 'UnconfiguredConformancePost',
+	enabled: true,
+	fields: (field) => ({ title: field.string() }),
 })
 
 test('preserves exact subject and schema tuples in optional checks', () => {

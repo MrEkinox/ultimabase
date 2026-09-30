@@ -17,6 +17,11 @@ compatibility bridge, or a second plugin installation path. Current shipped
 behavior remains authoritative until the evidence gate and superseding ADR are
 complete.
 
+ADR-0281 further refines the typing boundary: Typegen retains every complete
+schema `WhereInput` through milestone 63. The final audit will revisit this
+dependency separately; source-only filter types are not counted as complete
+custom-plugin `where` parity.
+
 ## Canonical developer experience
 
 ```ts
@@ -184,16 +189,21 @@ Runtime declaration, without Core importing a concrete plugin.
 The same source graph must provide exact completions, hovers, signatures, and
 diagnostics for:
 
-- Core fields, system fields, immutable models, create/update inputs, where,
-  order, select, include, nested writes, pointers, relations, and virtuals;
-- Access `item`, `originalItem`, `where`, operation and field declarations;
+- Core fields, system fields, immutable models, create/update inputs, order,
+  select, include, nested writes, pointers, relations, and virtuals;
+- Access `item`, `originalItem`, operation and field declarations;
 - schema and field Hooks, including plugin-provided mutation names;
 - Standard Schema validation and plugin-defined fields such as vector;
 - native CRUD, plugin schema mutations, model commands, application
   operations, Password User methods, Role schemas, and package-specialized
   schemas;
-- source imports and packed-package imports, with Typegen used only where the
-  application-specific schema-name graph is required.
+- source imports and packed-package imports, with Typegen retained for the
+  application-specific schema-name graph and every complete `WhereInput`.
+
+The generated graph also supplies exact schema `where` contracts to Access,
+Hooks, native queries, and plugin consumers when those contracts require the
+completed application. Source-only filters before generation are a bootstrap
+shape, not complete custom-plugin operator typing.
 
 ### Typegen relationship boundary
 
@@ -248,14 +258,16 @@ developer path and do not require a duplicate public surface.
 ## Typegen retention boundary
 
 The milestone retains `@ultimabase/typegen`, its application-specific generated
-graph, and the current generation workflow for exact named cross-schema
-contracts. The generated graph remains replaceable declaration output and
-never becomes Runtime truth.
+graph, every schema `WhereInput`, and the current generation workflow. The
+generated graph remains replaceable declaration output and never becomes
+Runtime truth. ADR-0281 records `where` as a deliberate additional retention
+pending the final limitation-by-limitation audit.
 
 The milestone is not complete while a locally decidable plugin-added field,
 option, method, mutation, command, or operation requires a parallel Typegen
-declaration. ADR-0280's schema Access and Hooks descriptors are part of the sole
-completed application graph, not a parallel declaration path. Superseded plugin
+declaration. ADR-0280's schema Access and Hooks descriptors and ADR-0281's
+`WhereInput` declarations are parts of the sole completed application graph,
+not parallel declaration paths. Superseded plugin
 projections must be removed rather than kept beside their source definitions.
 No reduced-capability source fallback, second name graph, manually maintained
 declaration, or extra output may be introduced. Whether additional Typegen

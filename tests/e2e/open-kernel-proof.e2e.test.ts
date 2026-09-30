@@ -13,7 +13,6 @@ import {
 	provideAdapterCapability,
 	provideCapability,
 	type PluginPrivilege,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -30,10 +29,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createValuePostgresPlugin } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
-import {
-	createValuePlugin,
-	type DecimalLedgerOption,
-} from './fixtures/open-kernel-value.js'
+import { createValuePlugin } from './fixtures/open-kernel-value.js'
 import {
 	createWorkflowPlugin,
 	inspectWorkflow,
@@ -202,22 +198,17 @@ describe('open-kernel workflow proof', () => {
 		]
 		for (const privilege of privileges) {
 			const { Stable, workflow } = createWorkflowFixture()
+			const Application = UltimaBase.use(hooksPlugin())
+				.use(createKernelSupportPlugin())
+				.use(workflow.plugin)
 			expect(
 				() =>
-					new UltimaBase({
+					new Application({
 						pluginPrivileges: { deny: [privilege], logger: false },
-						plugins: [
-							hooksPlugin(),
-							createKernelSupportPlugin(),
-							workflow.plugin,
-						],
 						schemas: [Stable],
 					}),
 			).toThrow(FrameworkError)
-			const allowed = new UltimaBase({
-				plugins: [],
-				schemas: [Stable],
-			})
+			const allowed = new UltimaBase({ schemas: [Stable] })
 			expect(() => allowed.compile()).not.toThrow()
 		}
 	})
@@ -225,12 +216,14 @@ describe('open-kernel workflow proof', () => {
 	it('isolates different graphs and rejects incompatible reuse clearly', async () => {
 		const first = createWorkflowFixture()
 		const second = createWorkflowFixture()
-		const firstApp = new UltimaBase({
-			plugins: [hooksPlugin(), first.workflow.plugin],
+		const firstApp = new (UltimaBase.use(hooksPlugin()).use(
+			first.workflow.plugin,
+		))({
 			schemas: [first.Stable],
 		})
-		const secondApp = new UltimaBase({
-			plugins: [hooksPlugin(), second.workflow.plugin],
+		const secondApp = new (UltimaBase.use(hooksPlugin()).use(
+			second.workflow.plugin,
+		))({
 			schemas: [second.Stable],
 		})
 		expect(firstApp.schema(first.workflow.DynamicAudit).schema).toBe(
@@ -248,15 +241,14 @@ describe('open-kernel workflow proof', () => {
 			className: 'OpenKernelIncompatibleShared',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const base = new UltimaBase({ plugins: [], schemas: [Shared] })
+		const base = new UltimaBase({ schemas: [Shared] })
 		base.compile()
 		const changed = createWorkflowPlugin({
 			instanceId: 'changed',
 			stableSchema: Shared,
 		})
 		expect(() =>
-			new UltimaBase({
-				plugins: [hooksPlugin(), changed.plugin],
+			new (UltimaBase.use(hooksPlugin()).use(changed.plugin))({
 				schemas: [Shared],
 			}).compile(),
 		).toThrow(/incompatible|another application/iu)
@@ -267,22 +259,20 @@ describe('open-kernel workflow proof', () => {
 describe('open-kernel Typegen and physical metadata proof', () => {
 	it('runs the value and soft-delete fixtures through public conformance', async () => {
 		const createValueFixture = () => {
-			const Ledger = Schema.define({
+			const value = createValuePlugin({
+				instanceId: 'main',
+				targetClassName: 'OpenKernelConformanceLedger',
+			})
+			const Ledger = UltimaBase.use(value).Schema.define({
 				className: 'OpenKernelConformanceLedger',
 				decimalLedger: { defaultScale: 2 },
 				fields: (field) => ({
 					label: field.string({
-						// @ts-expect-error -- The generated community contract owns this direct option.
 						decimalLabel: { format: 'plain' },
 					}),
 				}),
-			} as SchemaOptions<'OpenKernelConformanceLedger'> & {
-				readonly decimalLedger: DecimalLedgerOption
 			})
-			return {
-				Ledger,
-				plugin: createValuePlugin({ instanceId: 'main', target: Ledger }),
-			}
+			return { Ledger, plugin: value }
 		}
 		const valueSuite = definePluginConformanceSuite({
 			createFixture: () => {
@@ -391,26 +381,24 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 
 	it('keeps exact generated types valid through built public exports', () => {
 		const { Stable, workflow } = createWorkflowFixture()
-		const Ledger = Schema.define({
+		const value = createValuePlugin({
+			instanceId: 'typed',
+			targetClassName: 'OpenKernelLanguageServiceLedger',
+		})
+		const Ledger = UltimaBase.use(value).Schema.define({
 			className: 'OpenKernelLanguageServiceLedger',
 			decimalLedger: { defaultScale: 4 },
 			fields: (field) => ({
 				label: field.string({
-					// @ts-expect-error -- The generated community contract owns this direct option.
 					decimalLabel: { format: 'accounting' },
 				}),
 			}),
-		} as SchemaOptions<'OpenKernelLanguageServiceLedger'> & {
-			readonly decimalLedger: DecimalLedgerOption
 		})
-		const value = createValuePlugin({ instanceId: 'typed', target: Ledger })
-		const application = new UltimaBase({
-			plugins: [
-				hooksPlugin(),
-				createKernelSupportPlugin(),
-				workflow.plugin,
-				value,
-			],
+		const Application = UltimaBase.use(hooksPlugin())
+			.use(createKernelSupportPlugin())
+			.use(workflow.plugin)
+			.use(value)
+		const application = new Application({
 			schemas: [Stable, Ledger],
 		})
 		const generated = generateApplicationTypes({
@@ -422,7 +410,29 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 			import.meta.dirname,
 			'open-kernel-language-service.fixture.ts',
 		)
-		const source = `${generated}\nconst app = undefined as unknown as Core.UltimaBase<readonly []>\nconst operation = app.operation('fixture.workflow.inspect')\noperation.prepare({ reason: 'typed' })\nconst result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })\nconst validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }\n// @ts-expect-error -- Portable equality retains the plugin's exact logical value.\nconst invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }\nvoid result\nvoid validWhere\nvoid invalidWhere\n`
+		const source = `${generated}
+import { UltimaBase } from '@ultimabase/core'
+import { createValuePlugin } from './fixtures/open-kernel-value.js'
+const app = undefined as unknown as Core.UltimaBase<readonly []>
+const operation = app.operation('fixture.workflow.inspect')
+operation.prepare({ reason: 'typed' })
+const result: Promise<Plugin0_WorkflowTransitionResult> = operation.execute({ reason: 'typed' })
+const valuePlugin = createValuePlugin({ instanceId: 'typed', targetClassName: 'OpenKernelLanguageServiceLedger' })
+const ConfiguredLedger = UltimaBase.use(valuePlugin).Schema.define({
+  className: 'OpenKernelLanguageServiceLedger',
+  decimalLedger: { defaultScale: 4 },
+  fields: (field) => ({ label: field.string({ decimalLabel: { format: 'accounting' } }) }),
+})
+ConfiguredLedger.findMany({ where: { amount: { eq: { scale: 2, units: '100' } } } })
+// @ts-expect-error -- Generated portable equality retains the exact logical value.
+ConfiguredLedger.findMany({ where: { amount: { eq: { scale: '2', units: '100' } } } })
+const validWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: 2, units: '100' }, notIn: [{ scale: 0, units: '0' }] } }
+// @ts-expect-error -- Portable equality retains the plugin's exact logical value.
+const invalidWhere: OpenKernelLanguageServiceLedgerWhereInput = { amount: { eq: { scale: '2', units: '100' } } }
+void result
+void validWhere
+void invalidWhere
+`
 		const host: ts.LanguageServiceHost = {
 			fileExists: (requested) => ts.sys.fileExists(requested),
 			getCompilationSettings: () => ({
@@ -478,12 +488,11 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				table: 'open_kernel_migration_second',
 				version: '1.0.0',
 			})
-			const application = new UltimaBase({
-				plugins: [
-					postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
-					first,
-					...(version === '1.0.0' ? [second] : []),
-				],
+			const Base = UltimaBase.use(
+				postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
+			).use(first)
+			const Application = version === '1.0.0' ? Base.use(second) : Base
+			const application = new Application({
 				schemas: [First, Second],
 			})
 			await application.initialize()

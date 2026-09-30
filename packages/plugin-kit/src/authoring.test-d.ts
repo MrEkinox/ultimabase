@@ -26,6 +26,7 @@ import {
 	definePluginEvent,
 	observePluginEvent,
 	definePluginOptionsParser,
+	patchSchemas,
 	schemaPatch,
 	type PluginOptionsParser,
 	type SchemaPatchBuilder,
@@ -101,6 +102,16 @@ const ratingPlugin = plugin({
 					contributionId: 'highlighted-option',
 					field: { highlighted: highlightedOption },
 				}),
+				schemas.patch(
+					patchSchemas({
+						patch: schemaPatch().addField({
+							contributionId: 'rating-state',
+							field: stringField({ required: true }),
+							name: 'ratingState',
+						}),
+						targets: schemas.select({ className: 'PluginKitRatedArticle' }),
+					}),
+				),
 			],
 		}),
 	],
@@ -116,6 +127,9 @@ const RatedArticle = RatingApp.Schema.define({
 expectTypeOf<
 	SchemaItem<typeof RatedArticle>['rating']
 >().toEqualTypeOf<number>()
+expectTypeOf<
+	SchemaItem<typeof RatedArticle>['ratingState']
+>().toEqualTypeOf<string>()
 expectTypeOf(RatedArticle.className).toEqualTypeOf<'PluginKitRatedArticle'>()
 
 const workflowPlugin = plugin({

@@ -291,7 +291,7 @@ export const lockPostgresMutationTarget = async (
 	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
-/** Attempts the create branch while restricting conflict handling to the declared key. */
+/** Attempts insertion; the caller resolves every conflict against the declared key. */
 export const tryCreatePostgresUpsert = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
@@ -321,20 +321,17 @@ export const tryCreatePostgresUpsert = async (
 		)
 	}
 
-	const targetColumns = target.fields.map(
-		(fieldName) => resolveCompiledPostgresField(schema, fieldName).column,
-	)
-	const conflictTarget =
-		targetColumns.length === 1 ? targetColumns[0] : targetColumns
-
-	if (conflictTarget === undefined) {
-		throw new TypeError('PostgreSQL upsert target has no fields')
+	for (const fieldName of targetFields) {
+		resolveCompiledPostgresField(schema, fieldName)
 	}
 
+	// A concurrent insert can violate another unique index on the same row before
+	// PostgreSQL checks the declared target. The caller re-locks that exact target
+	// and rejects a conflict that does not resolve to its row.
 	const [row] = await client
 		.insert(schema.table)
 		.values(preparePostgresRecord(schema, create))
-		.onConflictDoNothing({ target: conflictTarget })
+		.onConflictDoNothing()
 		.returning(compilePostgresSelection(schema))
 
 	return row === undefined ? null : readPostgresRecord(schema, row)

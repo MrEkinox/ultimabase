@@ -19,6 +19,8 @@ sources:
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
+  - packages/postgres-plugin/src/drizzle/operation-executor.ts
+  - packages/postgres-plugin/src/drizzle/prepared-operation-execution.ts
 ---
 
 Use `Post.upsertOne()` when the same unique key should create a record if absent
@@ -71,6 +73,10 @@ framework `id`, one field declared unique, or every field of one declared
 composite unique index. Extra conditions, partial composite keys, ranges, and
 multi-match filters are invalid. See [Schemas](/docs/1.0.0/core/data-modeling/schemas)
 for index declarations.
+
+If the proposed create values collide with a different unique key but no row
+matches the chosen `where` target, the upsert fails. It never redirects the
+update to a row selected by that other key.
 
 For the `TenantArticle` schema in [Indexes](/docs/1.0.0/core/data-modeling/schemas#indexes),
 the pair is the target. Both values must be present; `slug` alone is not

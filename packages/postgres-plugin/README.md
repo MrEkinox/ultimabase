@@ -505,6 +505,9 @@ metadata during `UltimaBase.compile()`. Physical names are deterministic,
 collision-resistant, and limited to PostgreSQL's 63-byte identifier boundary.
 The field tuple of every unique index becomes the exact upsert conflict target;
 developers never import or name a Drizzle index.
+If a concurrent insert collides on another unique index, the adapter rechecks
+only the declared target before choosing the update branch. An unrelated
+conflict fails instead of updating a row selected by that other index.
 
 ## Catalog introspection
 

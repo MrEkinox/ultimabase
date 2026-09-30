@@ -1,6 +1,7 @@
 import {
 	FrameworkError,
 	UltimaBase,
+	type ConfiguredUltimaBaseFactory,
 	type PluginDefinition,
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
@@ -98,6 +99,20 @@ const assertCapabilities = (plugin: PluginDefinition): void => {
 	}
 }
 
+/** Replays a conformance fixture through Core's sole installation path. */
+const configurePlugins = (
+	plugins: readonly PluginDefinition[],
+): ConfiguredUltimaBaseFactory<readonly PluginDefinition[]> => {
+	let factory: unknown = UltimaBase
+	for (const definition of plugins) {
+		factory = (
+			factory as ConfiguredUltimaBaseFactory<readonly PluginDefinition[]>
+		).use(definition)
+	}
+	// The runner only needs the broad constructor contract after ordered replay.
+	return factory as ConfiguredUltimaBaseFactory<readonly PluginDefinition[]>
+}
+
 const assertDenied = async (
 	fixture: PluginConformanceFixture,
 	denial: Readonly<{
@@ -111,12 +126,12 @@ const assertDenied = async (
 			? denial
 			: { instances: { [identity.instanceId]: denial } }
 	try {
-		const application = new UltimaBase({
+		const Application = configurePlugins(fixture.plugins)
+		const application = new Application({
 			pluginPrivileges: {
 				logger: false,
 				plugins: { [identity.pluginId]: pluginPolicy },
 			},
-			plugins: fixture.plugins,
 			schemas: fixture.schemas,
 		})
 		await application.dispose()
@@ -141,9 +156,8 @@ const createUltimaBase = <
 >(
 	fixture: PluginConformanceFixture<TSubject, TSupport, TSchemas>,
 ) =>
-	new UltimaBase({
+	new (configurePlugins(fixture.plugins))({
 		pluginPrivileges: { logger: false },
-		plugins: fixture.plugins,
 		schemas: fixture.schemas,
 	})
 
@@ -217,9 +231,13 @@ export const runPluginConformance = async <
 					'instance version',
 				)
 			}
-			const application = new UltimaBase({
+			const Application = configurePlugins([
+				...fixture.supportPlugins,
+				first,
+				second,
+			] as const)
+			const application = new Application({
 				pluginPrivileges: { logger: false },
-				plugins: [...fixture.supportPlugins, first, second],
 				schemas: fixture.schemas,
 			})
 			try {

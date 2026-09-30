@@ -68,6 +68,11 @@ describe('internal PostgreSQL database adapter transactions', () => {
 			materializations: [{ current: create, kind: 'create' }],
 			result: { id: firstId, title: 'Created' },
 		})
+		// PostgreSQL may see a different unique index first; the subsequent
+		// target lock, not the insert arbiter, decides the upsert branch.
+		expect(
+			driver.calls.find(({ text }) => text.startsWith('insert'))?.text,
+		).toMatch(/on conflict do nothing/u)
 
 		const current = { ...create, title: 'Updated' }
 		driver.respond([articleRow(null, 'Created', 0, firstId)])

@@ -98,6 +98,10 @@ exact schema contracts, including circular and cross-file relationships. It
 also retains schema-level Access and Hooks option descriptors because those
 callbacks consume the completed schema graph. Field Access, field Hooks,
 Validation, ACL, and other locally decidable option contracts are not copied.
+ADR-0281 additionally retains the complete generated `WhereInput` for every
+schema during milestone 63. Source-only filter inference before generation is
+a bootstrap shape, not complete custom-plugin operator typing; the final audit
+will revisit this dependency separately.
 
 Generic generation reads the final graph and emits exact schemas, named
 relationships, query inputs, and retained non-migrated application contracts.

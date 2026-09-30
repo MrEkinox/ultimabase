@@ -1,9 +1,4 @@
-import {
-	Schema,
-	UltimaBase,
-	requestSources,
-	type SchemaOptions,
-} from '@ultimabase/core'
+import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -18,10 +13,7 @@ import {
 	createValuePostgresPlugin,
 } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
-import {
-	createValuePlugin,
-	type DecimalLedgerOption,
-} from './fixtures/open-kernel-value.js'
+import { createValuePlugin } from './fixtures/open-kernel-value.js'
 import {
 	createWorkflowPlugin,
 	type WorkflowCommittedPayload,
@@ -49,25 +41,31 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 		const committed: WorkflowCommittedPayload[] = []
 		const deleteTrace: string[] = []
 		let rejectDelete = false
-		const HookApplication = UltimaBase.use(hooksPlugin())
+		const postgresDefinition = postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		})
+		const PostgresHookApplication =
+			UltimaBase.use(postgresDefinition).use(hooksPlugin())
 		const WorkflowPost = Schema.define({
 			className: 'OpenKernelPostgresWorkflowPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const LedgerEntry = Schema.define({
+		const value = createValuePlugin({
+			instanceId: 'primary',
+			targetClassName: 'OpenKernelLedgerEntry',
+		})
+		const LedgerEntry = PostgresHookApplication.use(value).Schema.define({
 			className: 'OpenKernelLedgerEntry',
 			decimalLedger: { defaultScale: 2 },
 			postgres: { table: 'open_kernel_ledger_entries' },
 			fields: (field) => ({
 				label: field.string({
-					// @ts-expect-error -- The generated community contract owns this direct option.
 					decimalLabel: { format: 'accounting' },
 				}),
 			}),
-		} as SchemaOptions<'OpenKernelLedgerEntry'> & {
-			readonly decimalLedger: DecimalLedgerOption
 		})
-		const SoftPost = HookApplication.Schema.define({
+		const SoftPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelSoftPost',
 			postgres: { table: 'open_kernel_soft_posts' },
 			fields: (field) => ({
@@ -90,10 +88,6 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			onCommitted: (payload) => committed.push(payload),
 			stableSchema: WorkflowPost,
 		})
-		const value = createValuePlugin({
-			instanceId: 'primary',
-			target: LedgerEntry,
-		})
 		const valuePostgres = createValuePostgresPlugin({
 			instanceId: 'primary',
 			table: 'open_kernel_ledger_entries',
@@ -108,17 +102,13 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			schema: SoftPost,
 			table: 'open_kernel_soft_posts',
 		})
-		const ultimabase = new UltimaBase({
+		const Application = PostgresHookApplication.use(workflow.plugin)
+			.use(value)
+			.use(valuePostgres)
+			.use(softDeletePostgres)
+			.use(softDelete)
+		const ultimabase = new Application({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				hooksPlugin(),
-				workflow.plugin,
-				value,
-				valuePostgres,
-				softDeletePostgres,
-				softDelete,
-			],
 			schemas: [WorkflowPost, LedgerEntry, SoftPost],
 		})
 		await ultimabase.start()
@@ -136,6 +126,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 					{ ultimabase },
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			// This Runtime-only fixture has no generated registry; the companion
+			// editor test verifies this exact query with generated WhereInput types.
 			const filtered = await LedgerEntry.findMany(
 				{ where: { amount: { eq: amount } } } as never,
 				{ ultimabase },

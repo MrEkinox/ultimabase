@@ -4,7 +4,7 @@
 - Milestone: 63
 - Packages: complete repository
 - Depends on: 6315
-- ADR: ADR-0279
+- ADR: ADR-0279, ADR-0280, ADR-0281
 - Execution contract: [milestone 63 DX and audit contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md)
 
 ## Goal
@@ -20,6 +20,8 @@ UltimaBase capability or making TypeScript impractical.
 - [ ] Production, Core, plugin, test, documentation, public export, dependency, package, declaration-byte, and changed-file deltas are reported exactly.
 - [ ] Removed Typegen plugin projections, retained Typegen graph code, and new Core/plugin source-typing code are measured separately so a facade cannot hide net complexity.
 - [ ] Explicitly inventory the approved Password Auth User-result exception: generated declarations still needed for exact local fields on `User.findMany()` and authentication results, the developer cost of regenerating them, and whether a later Core model-reference type redesign could eliminate this dependency without a parallel registry or lost capability.
+- [ ] Explicitly inventory every retained generated schema `WhereInput` under ADR-0281: built-in, plugin scalar, structural, pointer, and relation filters; declaration/code bytes and regeneration DX; the issue-6312 codec-presence proof and its exact failure; and later alternatives without a second registry or capability loss. Do not count this retention as Typegen removal or a proven TypeScript impossibility.
+- [ ] Distinguish the locked issue-6301 synthetic hybrid benchmark from measured production Typegen: its reduced `createRegistry()` omits complete generated `WhereInput`, so its declaration-byte and regeneration advantage cannot stand in for the final retained graph.
 - [ ] Compare nested plugin-option QuickInfo documentation in configured source and packed schemas against the generated baseline; issue 6310's `rest.count` proof found an exact type but no JSDoc in the configured path. The user accepted this limitation for the milestone, not as a permanent removal of hover explanations.
 - [ ] Present every accepted or retained limitation separately to the user at the end of the milestone, including Typegen exceptions and the nested plugin-option hover documentation gap, before deciding whether or how to address each one.
 - [ ] Typegen regeneration, complete edit-to-diagnostic latency, cold typecheck, language-service initialization, completion, hover, diagnostics, heap, Runtime startup, complete tests, and coverage are compared with raw samples and summarized distributions.

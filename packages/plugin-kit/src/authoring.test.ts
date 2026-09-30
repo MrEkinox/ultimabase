@@ -1,6 +1,5 @@
 import {
 	UltimaBase,
-	Schema,
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
@@ -11,7 +10,6 @@ import {
 	defineTypegenReference,
 	stringField,
 	type ResourcePluginOperationContributionOptions,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it } from 'vitest'
@@ -59,8 +57,7 @@ describe('plugin authoring helpers', () => {
 		})
 
 		expect(() =>
-			new UltimaBase({
-				plugins: [definition],
+			new (UltimaBase.use(definition))({
 				schemas: [],
 			}).compile(),
 		).not.toThrow()
@@ -269,13 +266,6 @@ describe('plugin authoring helpers', () => {
 			},
 			valueKind: 'opaque',
 		})
-		const Target = Schema.define({
-			className: 'PluginKitPatchTarget',
-			fields: (field) => ({ title: field.string() }),
-			workflow: (value: string) => value,
-		} as SchemaOptions<'PluginKitPatchTarget'> & {
-			readonly workflow: (value: string) => string
-		})
 		const constraint = defineSchemaConstraint({
 			kind: 'fixture.workflow',
 			value: { required: true },
@@ -322,11 +312,11 @@ describe('plugin authoring helpers', () => {
 			contributions: [
 				contributeDeclarations({
 					schema: ({ schemas }) => {
-						schemas.defineOptions({
+						const options = schemas.defineOptions({
 							contributionId: 'workflow-options',
 							schema: { workflow: workflowOption },
 						})
-						schemas.patch(
+						const patch = schemas.patch(
 							patchSchemas({
 								patch: schemaPatch()
 									.addField({
@@ -343,7 +333,7 @@ describe('plugin authoring helpers', () => {
 								}),
 							}),
 						)
-						return undefined
+						return [options, patch]
 					},
 				}),
 			],
@@ -351,9 +341,14 @@ describe('plugin authoring helpers', () => {
 				'schema:declare': 'Adds fixture schema metadata.',
 			},
 		})
-		const application = new UltimaBase({
+		const Application = UltimaBase.use(definition)
+		const Target = Application.Schema.define({
+			className: 'PluginKitPatchTarget',
+			fields: (field) => ({ title: field.string() }),
+			workflow: (value: string) => value,
+		})
+		const application = new Application({
 			pluginPrivileges: { logger: false },
-			plugins: [definition],
 			schemas: [Target],
 		})
 
@@ -411,9 +406,8 @@ describe('plugin authoring helpers', () => {
 				'operation:declare': 'Declares the fixture operation.',
 			},
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(definition))({
 			pluginPrivileges: { logger: false },
-			plugins: [definition],
 			schemas: [],
 		})
 
@@ -446,9 +440,8 @@ describe('plugin authoring helpers', () => {
 				'operation:declare': 'Declares the echo operation.',
 			},
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(definition))({
 			pluginPrivileges: { logger: false },
-			plugins: [definition],
 			schemas: [],
 		})
 

@@ -39,6 +39,12 @@ suite.check('operation', (context) => {
 })
 `
 const service = createLanguageService(fileName, source)
+const packedFileName = path.join(
+	import.meta.dirname,
+	'plugin-conformance.packed.fixture.ts',
+)
+const packedSource = source.replace('../src/index.js', '@ultimabase/testing')
+const packedService = createLanguageService(packedFileName, packedSource)
 
 const quickInfo = (needle: string, offset = 0) => {
 	const position = source.indexOf(needle)
@@ -61,5 +67,18 @@ describe('@ultimabase/testing plugin conformance language service', () => {
 				?.documentation?.map(({ text }) => text)
 				.join(''),
 		).toContain('Adds one named domain invariant')
+	})
+
+	it('retains the same fixture inference through compiled package exports', () => {
+		expect(packedService.getSemanticDiagnostics(packedFileName)).toStrictEqual(
+			[],
+		)
+		const position = packedSource.indexOf('context.createUltimaBase')
+		const display = packedService
+			.getQuickInfoAtPosition(packedFileName, position)
+			?.displayParts?.map(({ text }) => text)
+			.join('')
+		expect(display).toContain('PluginConformanceContext')
+		expect(display).toContain('"community.search"')
 	})
 })

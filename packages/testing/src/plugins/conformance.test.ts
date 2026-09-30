@@ -62,6 +62,15 @@ const optionalContracts = [
 ] as const
 
 describe('plugin conformance suite', () => {
+	it('rejects a non-suite JavaScript input before creating a fixture', async () => {
+		const runUntyped = runPluginConformance as (
+			suite: unknown,
+		) => Promise<unknown>
+		await expect(runUntyped(null)).rejects.toThrow(
+			'runPluginConformance expects a conformance suite',
+		)
+	})
+
 	it('runs common and optional contracts with cleanup and exact reports', async () => {
 		let setups = 0
 		let disposals = 0

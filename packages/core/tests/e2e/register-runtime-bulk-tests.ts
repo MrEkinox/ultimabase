@@ -193,35 +193,55 @@ export const registerRuntimeBulkTests = (): void => {
 				),
 			).resolves.toBe(false)
 
-			const concurrent = await Promise.all([
+			// Each pair races on email while also sharing an independent composite
+			// unique index; either physical index may detect the competing insert.
+			for (let attempt = 0; attempt < 100; attempt += 1) {
+				const suffix = String(attempt)
+				const email = `concurrent-${suffix}@example.com`
+				const handle = `concurrent-${suffix}`
+				const upsert = () =>
+					BulkAccountSchema.upsertOne(
+						{
+							where: { email: { eq: email } },
+							create: { email, handle, tenantId: 'tenant-e' },
+							update: { visits: increment(1) },
+						},
+						{ ultimabase },
+					)
+				const concurrent = await Promise.all([upsert(), upsert()])
+				expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([
+					0, 1,
+				])
+			}
+			await expect(
 				BulkAccountSchema.upsertOne(
 					{
-						where: { email: { eq: 'concurrent@example.com' } },
+						where: { email: { eq: 'foreign@example.com' } },
 						create: {
-							email: 'concurrent@example.com',
-							handle: 'concurrent',
+							email: 'foreign@example.com',
+							handle: 'concurrent-0',
 							tenantId: 'tenant-e',
 						},
 						update: { visits: increment(1) },
 					},
 					{ ultimabase },
 				),
-				BulkAccountSchema.upsertOne(
-					{
-						where: { email: { eq: 'concurrent@example.com' } },
-						create: {
-							email: 'concurrent@example.com',
-							handle: 'concurrent',
-							tenantId: 'tenant-e',
-						},
-						update: { visits: increment(1) },
-					},
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: { kind: 'postgres-upsert-target-inaccessible' },
+			})
+			await expect(
+				BulkAccountSchema.exists(
+					{ where: { email: { eq: 'foreign@example.com' } } },
 					{ ultimabase },
 				),
-			])
-			expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([
-				0, 1,
-			])
+			).resolves.toBe(false)
+			await expect(
+				BulkAccountSchema.findOne(
+					{ where: { email: { eq: 'concurrent-0@example.com' } } },
+					{ ultimabase },
+				),
+			).resolves.toMatchObject({ visits: 1 })
 			await expect(
 				BulkAccountSchema.deleteMany(
 					{ where: [{ id: { eq: composite.id } }] },
