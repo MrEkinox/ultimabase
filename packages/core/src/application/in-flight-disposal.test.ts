@@ -19,32 +19,29 @@ const createFixture = (value: unknown) => {
 		[{ status: 'fulfilled', value }],
 		trace,
 	)
-	const app = new UltimaBase({
-		schemas: [Post],
-		plugins: [
-			createPlugin({
-				id: 'fixture.draining',
-				version: '0.0.0',
-				core: '^0.0.0',
-				contributions: [
-					provideTestDatabaseAdapter(adapter),
-					contributeApplication((context) => {
-						const exports = undefined
-						const lifecycleContext = { ...context, pluginExports: exports }
-						void lifecycleContext
-						return {
-							exports,
-							dispose: () => {
-								;(() => {
-									trace.push('dispose')
-								})()
-							},
-						}
-					}),
-				],
-			}),
-		],
-	})
+	const app = new (UltimaBase.use(
+		createPlugin({
+			id: 'fixture.draining',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideTestDatabaseAdapter(adapter),
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						dispose: () => {
+							;(() => {
+								trace.push('dispose')
+							})()
+						},
+					}
+				}),
+			],
+		}),
+	))({ schemas: [Post] })
 	onTestFinished(() => app.dispose())
 	return { app, adapter, trace }
 }

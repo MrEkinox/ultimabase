@@ -130,7 +130,11 @@ const schemas = [
 ] as const
 
 const createApplication = (database: PostgresWorkerFixture) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		softDeletePlugin(),
+		hooksPlugin(),
+		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'soft-delete-administration', value: 'administration-key' }],
 			onUse: (event) => {
@@ -140,11 +144,6 @@ const createApplication = (database: PostgresWorkerFixture) =>
 			},
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			softDeletePlugin(),
-			hooksPlugin(),
-			postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
-		],
 		schemas,
 	})
 

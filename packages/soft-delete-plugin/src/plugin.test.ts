@@ -91,9 +91,10 @@ describe('softDeletePlugin', () => {
 		const Replace = documentSchema('AdministrationReplace', 'replace-delete')
 		const Inherited = documentSchema('AdministrationInherited')
 		const Disabled = documentSchema('AdministrationDisabled', false)
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			softDeletePlugin({ defaultMode: 'replace-delete' }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 			schemas: [Explicit, Replace, Inherited, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -140,9 +141,10 @@ describe('softDeletePlugin', () => {
 			'replace-delete',
 		)
 		const Disabled = documentSchema('DisabledWithoutSoftDeleteCommand', false)
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			softDeletePlugin({ defaultMode: 'explicit' }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin({ defaultMode: 'explicit' })],
 			schemas: [Direct, Inherited, Replace, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -187,9 +189,8 @@ describe('softDeletePlugin', () => {
 			defaultMode: 'replace-delete',
 			instanceId: 'replace-targets',
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [Direct, Inherited, Explicit, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -216,15 +217,13 @@ describe('softDeletePlugin', () => {
 		const ExplicitDocument = documentSchema('IsolatedReplaceDeleteDocument')
 		const replacePlugin = softDeletePlugin({ defaultMode: 'replace-delete' })
 		const explicitPlugin = softDeletePlugin({ defaultMode: 'explicit' })
-		const replaceApplication = new UltimaBase({
+		const replaceApplication = new (UltimaBase.use(replacePlugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [replacePlugin],
 			schemas: [ReplaceDocument],
 		})
 		onTestFinished(() => replaceApplication.dispose())
-		const explicitApplication = new UltimaBase({
+		const explicitApplication = new (UltimaBase.use(explicitPlugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [explicitPlugin],
 			schemas: [ExplicitDocument],
 		})
 		onTestFinished(() => explicitApplication.dispose())
@@ -254,10 +253,7 @@ describe('softDeletePlugin', () => {
 
 	it('does not install the direct option through import side effects', async () => {
 		const Document = documentSchema('MissingSoftDeletePlugin', 'explicit')
-		const application = new UltimaBase({
-			plugins: [],
-			schemas: [Document],
-		})
+		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
@@ -269,9 +265,10 @@ describe('softDeletePlugin', () => {
 		const Explicit = documentSchema('ExplicitSoftDeleteDocument', 'explicit')
 		const Disabled = documentSchema('DisabledSoftDeleteDocument', false)
 		const Inherited = documentSchema('InheritedSoftDeleteDocument')
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			softDeletePlugin({ defaultMode: 'replace-delete' }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 			schemas: [Explicit, Disabled, Inherited],
 		})
 		onTestFinished(() => application.dispose())
@@ -322,9 +319,8 @@ describe('softDeletePlugin', () => {
 		} as SchemaOptions<'SoftDeleteCollisionDocument'> & {
 			readonly softDelete: SoftDeleteSchemaOption
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(softDeletePlugin()))({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin()],
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
@@ -348,9 +344,8 @@ describe('softDeletePlugin', () => {
 			],
 		})
 		const Invalid = documentSchema('InvalidSoftDeleteDocument', 'disabled')
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin(), observer],
 			schemas: [Invalid],
 		})
 		onTestFinished(() => application.dispose())
@@ -363,12 +358,11 @@ describe('softDeletePlugin', () => {
 
 	it('rejects ambiguous direct-option ownership between explicit instances', async () => {
 		const Document = documentSchema('AmbiguousSoftDeleteDocument', 'explicit')
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			softDeletePlugin({ instanceId: 'editorial' }),
+			softDeletePlugin({ instanceId: 'legal' }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				softDeletePlugin({ instanceId: 'editorial' }),
-				softDeletePlugin({ instanceId: 'legal' }),
-			],
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
@@ -382,29 +376,21 @@ describe('softDeletePlugin', () => {
 		const Editorial = documentSchema('IsolatedSoftDeleteDocument', 'explicit')
 		const Legal = documentSchema('IsolatedSoftDeleteDocument')
 		const editorial = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				pluginPrivileges: { logger: false },
-				plugins: [
-					softDeletePlugin({
-						defaultMode: 'explicit',
-						instanceId: 'editorial',
-					}),
-				],
-				schemas: [Editorial],
-			}),
+			ultimabase: new (UltimaBase.use(
+				softDeletePlugin({
+					defaultMode: 'explicit',
+					instanceId: 'editorial',
+				}),
+			))({ pluginPrivileges: { logger: false }, schemas: [Editorial] }),
 			applicationId: 'editorial',
 		})
 		const legal = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				pluginPrivileges: { logger: false },
-				plugins: [
-					softDeletePlugin({
-						defaultMode: 'replace-delete',
-						instanceId: 'legal',
-					}),
-				],
-				schemas: [Legal],
-			}),
+			ultimabase: new (UltimaBase.use(
+				softDeletePlugin({
+					defaultMode: 'replace-delete',
+					instanceId: 'legal',
+				}),
+			))({ pluginPrivileges: { logger: false }, schemas: [Legal] }),
 			applicationId: 'legal',
 		})
 

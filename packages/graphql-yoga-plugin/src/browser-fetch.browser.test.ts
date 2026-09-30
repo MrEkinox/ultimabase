@@ -67,45 +67,41 @@ it('serves GraphQL through a real browser Fetch boundary', async () => {
 	const originServer = await startOriginServer()
 	const browserOrigin = readOrigin(originServer)
 	const app = new Hono()
-	const ultimabase = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			graphqlYogaFixtureDatabasePlugin,
-			httpPlugin({
-				appId: 'browser-graphql',
-				browser: {
-					allowedHeaders: ['Content-Type', httpApplicationIdHeader],
-					allowedMethods: ['POST'],
-					allowedOrigins: [browserOrigin],
-					credentials: false,
-					maxAgeSeconds: 300,
-				},
-			}),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: false,
-				schemas: [
-					new GraphQLSchema({
-						query: new GraphQLObjectType({
-							name: 'Query',
-							fields: {
-								value: {
-									resolve: () => 'browser-value',
-									type: GraphQLString,
-								},
+	const ultimabase = new (UltimaBase.use(
+		graphqlYogaFixtureDatabasePlugin,
+		httpPlugin({
+			appId: 'browser-graphql',
+			browser: {
+				allowedHeaders: ['Content-Type', httpApplicationIdHeader],
+				allowedMethods: ['POST'],
+				allowedOrigins: [browserOrigin],
+				credentials: false,
+				maxAgeSeconds: 300,
+			},
+		}),
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: false,
+			schemas: [
+				new GraphQLSchema({
+					query: new GraphQLObjectType({
+						name: 'Query',
+						fields: {
+							value: {
+								resolve: () => 'browser-value',
+								type: GraphQLString,
 							},
-						}),
+						},
 					}),
-				],
-			}),
-			graphqlYogaPlugin(),
-			honoServerPlugin({
-				app,
-				browserPolicyOwner: 'ultimabase',
-			}),
-		],
-		schemas: [],
-	})
+				}),
+			],
+		}),
+		graphqlYogaPlugin(),
+		honoServerPlugin({
+			app,
+			browserPolicyOwner: 'ultimabase',
+		}),
+	))({ pluginPrivileges: { logger: false }, schemas: [] })
 	let targetServer: ServerType | undefined
 	const browser = await chromium.launch({ headless: true })
 

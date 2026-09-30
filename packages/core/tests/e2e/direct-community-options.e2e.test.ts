@@ -12,10 +12,7 @@ describe('direct community plugin options', () => {
 		} as SchemaOptions<'OpenKernelUnknownDecimalSchemaOption'> & {
 			readonly decimalLedger: DecimalLedgerOption
 		})
-		const schemaApplication = new UltimaBase({
-			plugins: [],
-			schemas: [UnknownSchemaOption],
-		})
+		const schemaApplication = new UltimaBase({ schemas: [UnknownSchemaOption] })
 		expect(() => schemaApplication.compile()).toThrow(
 			'Unknown schema option: decimalLedger',
 		)
@@ -30,10 +27,7 @@ describe('direct community plugin options', () => {
 				}),
 			}),
 		})
-		const fieldApplication = new UltimaBase({
-			plugins: [],
-			schemas: [UnknownFieldOption],
-		})
+		const fieldApplication = new UltimaBase({ schemas: [UnknownFieldOption] })
 		expect(() => fieldApplication.compile()).toThrow(
 			'Unknown string field option: decimalLabel',
 		)

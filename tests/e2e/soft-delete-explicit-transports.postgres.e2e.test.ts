@@ -110,25 +110,24 @@ let fixture: PostgresWorkerFixture | undefined
 const schemas = [Explicit, Replace, Disabled] as const
 
 const createUltimabase = (database: PostgresWorkerFixture) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		softDeletePlugin(),
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: { mutations: true },
+		}),
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: { mutations: true },
+		}),
+		graphqlYogaPlugin(),
+		httpPlugin({ appId: 'soft-delete-transports' }),
+		capturePlugin,
+		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
+	))({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			softDeletePlugin(),
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: { mutations: true },
-			}),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: { mutations: true },
-			}),
-			graphqlYogaPlugin(),
-			httpPlugin({ appId: 'soft-delete-transports' }),
-			capturePlugin,
-			postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
-		],
 		schemas,
 	})
 

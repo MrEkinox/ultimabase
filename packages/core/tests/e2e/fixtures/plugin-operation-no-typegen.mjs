@@ -171,9 +171,12 @@ const createDatabasePlugin = () =>
 		id: 'fixture.javascript-database',
 		version: '1.0.0',
 	})
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	createDatabasePlugin(),
+	createOperationPlugin(),
+)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [createDatabasePlugin(), createOperationPlugin()],
 	schemas: [StablePost],
 })
 await ultimabase.start()

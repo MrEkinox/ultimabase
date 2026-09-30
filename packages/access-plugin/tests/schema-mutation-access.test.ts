@@ -14,6 +14,7 @@ import {
 	stringField,
 	type DatabaseAdapter,
 	type PluginDefinition,
+	type PluginSourceState,
 	type PluginSchemaMutationDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -321,7 +322,8 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 const executeArchive = (
 	ultimabase: UltimaBase<
 		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
+		readonly PluginDefinition[],
+		PluginSourceState
 	>,
 	schema: SchemaDefinition,
 	reason: string,
@@ -353,13 +355,12 @@ describe('schema mutation Access', () => {
 		})
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(Restricted)
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			owner.plugin,
+			databasePlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin({ default: true }),
-				owner.plugin,
-				databasePlugin(adapter),
-			],
 			schemas: [Restricted],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -382,9 +383,12 @@ describe('schema mutation Access', () => {
 		itemInputs.length = 0
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(AccessDocument)
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin(),
+			owner.plugin,
+			databasePlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [AccessDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -441,33 +445,30 @@ describe('schema mutation Access', () => {
 		const deniedOwner = createMutationOwner(GranularDeniedDocument)
 		const allowedOwner = createMutationOwner(GranularAllowedDocument)
 		const booleanOwner = createMutationOwner(BooleanDefaultDocument)
-		const denied = new UltimaBase({
+		const denied = new (UltimaBase.use(
+			accessPlugin({ default: { update: true } }),
+			deniedOwner.plugin,
+			databasePlugin(deniedAdapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin({ default: { update: true } }),
-				deniedOwner.plugin,
-				databasePlugin(deniedAdapter),
-			],
 			schemas: [GranularDeniedDocument],
 		})
 		onTestFinished(() => denied.dispose())
-		const allowed = new UltimaBase({
+		const allowed = new (UltimaBase.use(
+			accessPlugin({ default: { schemaMutations: true } }),
+			allowedOwner.plugin,
+			databasePlugin(allowedAdapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin({ default: { schemaMutations: true } }),
-				allowedOwner.plugin,
-				databasePlugin(allowedAdapter),
-			],
 			schemas: [GranularAllowedDocument],
 		})
 		onTestFinished(() => allowed.dispose())
-		const booleanAllowed = new UltimaBase({
+		const booleanAllowed = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			booleanOwner.plugin,
+			databasePlugin(booleanAdapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin({ default: true }),
-				booleanOwner.plugin,
-				databasePlugin(booleanAdapter),
-			],
 			schemas: [BooleanDefaultDocument],
 		})
 		onTestFinished(() => booleanAllowed.dispose())
@@ -522,14 +523,13 @@ describe('schema mutation Access', () => {
 			},
 			version: '1.0.0',
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			provider,
+			accessPlugin({ default: { schemaMutations: true } }),
+			owner.plugin,
+			databasePlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				provider,
-				accessPlugin({ default: { schemaMutations: true } }),
-				owner.plugin,
-				databasePlugin(adapter),
-			],
 			schemas: [ProviderDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -555,13 +555,16 @@ describe('schema mutation Access', () => {
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(MasterDocument)
 		const audit = vi.fn()
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin(),
+			owner.plugin,
+			databasePlugin(adapter),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'schema-mutation-access-master', value: 'unused' }],
 				onUse: audit,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [MasterDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -595,11 +598,10 @@ describe('schema mutation Access', () => {
 	it('executes structurally valid mutations when the Access engine is omitted', async () => {
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(NoAccessDocument)
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [owner.plugin, databasePlugin(adapter)],
-			schemas: [NoAccessDocument],
-		})
+		const ultimabase = new (UltimaBase.use(
+			owner.plugin,
+			databasePlugin(adapter),
+		))({ pluginPrivileges: { logger: false }, schemas: [NoAccessDocument] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -621,9 +623,12 @@ describe('schema mutation Access', () => {
 		})
 		const adapter = new SchemaMutationAdapter()
 		const owner = createMutationOwner(StaleDocument)
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin(),
+			owner.plugin,
+			databasePlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [accessPlugin(), owner.plugin, databasePlugin(adapter)],
 			schemas: [StaleDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -639,13 +644,12 @@ describe('schema mutation Access', () => {
 			access: { purge: true } as never,
 		})
 		const masterAdapter = new SchemaMutationAdapter()
-		const masterOnly = new UltimaBase({
+		const masterOnly = new (UltimaBase.use(
+			accessPlugin(),
+			createMasterMutationOwner(MasterOnlyDocument),
+			databasePlugin(masterAdapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin(),
-				createMasterMutationOwner(MasterOnlyDocument),
-				databasePlugin(masterAdapter),
-			],
 			schemas: [MasterOnlyDocument],
 		})
 		onTestFinished(() => masterOnly.dispose())

@@ -189,23 +189,22 @@ const contextPlugin = plugin({
 const createFixture = async (requestTimeoutMs?: number) => {
 	const adapter = new VirtualDatabase()
 	const capture: { current?: HttpApplication } = {}
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin(adapter),
+		contextPlugin,
+		restPlugin({ acknowledgeUnverifiedProtection: true }),
+		httpPlugin({
+			appId: 'response-app',
+			master: { enabled: true },
+			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+		}),
+		capturePlugin(capture),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'rest-http-master', value: 'rest-http-secret' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin(adapter),
-			contextPlugin,
-			restPlugin({ acknowledgeUnverifiedProtection: true }),
-			httpPlugin({
-				appId: 'response-app',
-				master: { enabled: true },
-				...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
-			}),
-			capturePlugin(capture),
-		],
 		schemas: [VirtualHttpRecord, VirtualFailureRecord],
 	})
 	await application.start()

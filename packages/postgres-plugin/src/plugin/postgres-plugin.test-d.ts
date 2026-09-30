@@ -15,10 +15,7 @@ test('accepts URL and pg-compatible existing-pool configuration', async () => {
 		schemaPolicy: 'fail',
 	})
 	const poolPlugin = postgresPlugin({ pool: new Pool() })
-	const application = new UltimaBase({
-		schemas: [],
-		plugins: [urlPlugin],
-	})
+	const application = new (UltimaBase.use(urlPlugin))({ schemas: [] })
 	await application.initialize()
 	const pluginExports = application.plugin('@ultimabase/postgres-plugin')
 	const connection = pluginExports.connection

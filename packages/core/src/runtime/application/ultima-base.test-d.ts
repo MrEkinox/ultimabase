@@ -1,15 +1,12 @@
 import {
 	plugin as createPlugin,
 	contributeApplication,
+	type PluginDefinition,
 } from '../../foundation.js'
 import { Schema, type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	type DatabaseAdapter,
-	type UltimaBaseOptions,
-	UltimaBase,
-} from '../index.js'
+import { type DatabaseAdapter, UltimaBase } from '../index.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import type { QueryResult } from '../../query/index.js'
 
@@ -41,9 +38,8 @@ const observerPlugin = createPlugin({
 })
 
 test('preserves exact schema and plugin tuples behind the concise facade', () => {
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(databasePlugin))({
 		schemas: [articleSchema],
-		plugins: [databasePlugin],
 		validation: { timezone: 'Europe/Paris' },
 	})
 
@@ -69,9 +65,8 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()
 	// Ownership remains a Runtime identity check because QueryBuilder stays application-free.
 	void otherSchema.findMany(undefined, { ultimabase })
-	new UltimaBase({
+	new (UltimaBase.use(databasePlugin))({
 		schemas: [articleSchema],
-		plugins: [databasePlugin],
 		// @ts-expect-error -- Runtime assembly options remain closed and documented.
 		unknown: true,
 	})
@@ -92,6 +87,14 @@ test('accumulates immutable configured factory tuples', () => {
 	const completeApplication = new CompleteApplication({
 		schemas: [articleSchema],
 	})
+	const fixedPlugins = [databasePlugin, observerPlugin] as const
+	const VariadicApplication = UltimaBase.use(...fixedPlugins)
+	const variadicApplication = new VariadicApplication({
+		schemas: [articleSchema],
+	})
+	const dynamicPlugins: readonly PluginDefinition[] = fixedPlugins
+	const DynamicApplication = UltimaBase.use(...dynamicPlugins)
+	void new DynamicApplication({ schemas: [articleSchema] })
 	const portableApplication = new UltimaBase({ schemas: [articleSchema] })
 
 	expectTypeOf(DatabaseApplication.Schema).toEqualTypeOf<
@@ -110,6 +113,12 @@ test('accumulates immutable configured factory tuples', () => {
 			readonly [typeof databasePlugin, typeof observerPlugin]
 		>
 	>()
+	expectTypeOf(variadicApplication).toEqualTypeOf<
+		UltimaBase<
+			readonly [typeof articleSchema],
+			readonly [typeof databasePlugin, typeof observerPlugin]
+		>
+	>()
 	expectTypeOf(portableApplication).toEqualTypeOf<
 		UltimaBase<readonly [typeof articleSchema]>
 	>()
@@ -123,11 +132,16 @@ test('accumulates immutable configured factory tuples', () => {
 		plugins: [observerPlugin],
 	})
 
-	const missingPlugins = { schemas: [articleSchema] as const }
-	// @ts-expect-error -- The migration constructor cannot claim absent plugins.
-	const invalidOptions: UltimaBaseOptions<
+	new UltimaBase<
 		readonly [typeof articleSchema],
 		readonly [typeof databasePlugin]
-	> = missingPlugins
-	void invalidOptions
+	>(
+		// @ts-expect-error -- Explicit generic arguments cannot invent installed plugins.
+		{ schemas: [articleSchema] },
+	)
+	new UltimaBase({
+		schemas: [articleSchema],
+		// @ts-expect-error -- The root constructor cannot install plugins.
+		plugins: [databasePlugin],
+	})
 })

@@ -3,9 +3,32 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312
-- Active issue: none; resume at 6313
-- Next issue: 6313
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317
+- Active issue: none; resume at 6318
+- Next issue: 6318
+
+The user approved reordering issues 6314 and 6313 on 2026-09-30. Issue 6314
+first removes the still-valid standalone `Schema.define()` and old application
+handle paths that consume generated plugin projections. Issue 6313 then removes
+only projections proven superseded, preserving the named schema graph and
+every complete generated `WhereInput`. The earlier 6313 deletion experiment
+was fully reverted before this dependency correction.
+
+Issue 6314's first bounded probe changed 386 calls in 133 Core files and was
+also fully reverted. TypeScript exposed several distinct old-contract test
+classes, not a mechanical spelling migration. The user approved splitting
+consumer migration into issue 6317 (constructor plugin installation), issue
+6318 (standalone schema authoring), then issue 6314 (remaining handles and
+selectors). Issue 6313 follows those removals. Do not retry the broad codemod.
+
+The user approved a bounded variadic `UltimaBase.use(...plugins)` extension
+for issue 6317. ADR-0282 records that decision without rewriting ADR-0279.
+The fixed-tuple and dynamic-list proof passed root typecheck, focused Runtime
+tests, build, and the locked 1/10/50-schema TypeScript benchmark. The
+constructor plugin option has now been removed and repository consumers have
+been migrated. Complete validation, built E2E, locked budgets, diff audit, and
+the issue handoff pass. Its dedicated local commit records this checkpoint; no
+push is authorized.
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -29,7 +52,7 @@ API migration. If the proof requires another installation path, a permanent
 bridge, duplicated plugin contracts, capability loss, or unacceptable
 TypeScript cost, stop for architecture review.
 
-Issues 6301–6316 run sequentially with one dedicated commit and complete
+Issues run in the milestone execution order with one dedicated commit and complete
 `yarn validate:full` evidence per issue. The milestone ends with an exact
 old-versus-new audit of DX, capabilities, lines, exports, declarations,
 TypeScript cost, Runtime cost, tests, and coverage.
@@ -254,4 +277,5 @@ measure; the complete built E2E passed 102 files/406 tests after the fixture
 correction. The locked 1/10/50-schema benchmark passed twice, but its
 synthetic hybrid registry omits the retained production `WhereInput`.
 Issue 6316 owns the final Typegen-byte and regeneration measurement. Issue
-6313 is the resume point; no push is authorized.
+6318 is the resume point after issue 6317's reviewed local commit; no push is
+authorized.

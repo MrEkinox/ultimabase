@@ -126,10 +126,7 @@ const plainRow = {
 
 describe('accessPlugin', () => {
 	it('keeps the access namespace unavailable until the plugin is configured', async () => {
-		const application = new UltimaBase({
-			plugins: [],
-			schemas: [SecretDocument],
-		})
+		const application = new UltimaBase({ schemas: [SecretDocument] })
 		onTestFinished(() => application.dispose())
 
 		await expect(application.initialize()).rejects.toThrow(
@@ -138,13 +135,10 @@ describe('accessPlugin', () => {
 	})
 
 	it('enforces official declarations through the protected Core policy kernel', async () => {
-		const ultimabase = new UltimaBase({
-			plugins: [
-				accessPlugin({ default: true }),
-				databasePlugin(new StaticReadAdapter([row])),
-			],
-			schemas: [SecretDocument],
-		})
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			databasePlugin(new StaticReadAdapter([row])),
+		))({ schemas: [SecretDocument] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -161,15 +155,10 @@ describe('accessPlugin', () => {
 	})
 
 	it('keeps virtual read policy separate from persisted adapter projection', async () => {
-		const ultimabase = new UltimaBase({
-			plugins: [
-				accessPlugin({ default: true }),
-				databasePlugin(
-					new StaticReadAdapter([{ id: row.id, title: 'visible' }]),
-				),
-			],
-			schemas: [VirtualDocument],
-		})
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			databasePlugin(new StaticReadAdapter([{ id: row.id, title: 'visible' }])),
+		))({ schemas: [VirtualDocument] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -193,12 +182,14 @@ describe('accessPlugin', () => {
 	})
 
 	it('bypasses operation and field Access for audited master requests', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin(),
+			databasePlugin(new StaticReadAdapter([row])),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'access-unit-master', value: 'unused-by-terminal' }],
 				onUse: () => undefined,
 			}),
-			plugins: [accessPlugin(), databasePlugin(new StaticReadAdapter([row]))],
 			schemas: [MasterBypassDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -222,21 +213,15 @@ describe('accessPlugin', () => {
 	})
 
 	it('denies by default and isolates explicit defaults between applications', async () => {
-		const allowed = new UltimaBase({
-			plugins: [
-				accessPlugin({ default: true }),
-				databasePlugin(new StaticReadAdapter([plainRow])),
-			],
-			schemas: [PlainDocument],
-		})
+		const allowed = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			databasePlugin(new StaticReadAdapter([plainRow])),
+		))({ schemas: [PlainDocument] })
 		onTestFinished(() => allowed.dispose())
-		const denied = new UltimaBase({
-			plugins: [
-				accessPlugin(),
-				databasePlugin(new StaticReadAdapter([plainRow])),
-			],
-			schemas: [PlainDocument],
-		})
+		const denied = new (UltimaBase.use(
+			accessPlugin(),
+			databasePlugin(new StaticReadAdapter([plainRow])),
+		))({ schemas: [PlainDocument] })
 		onTestFinished(() => denied.dispose())
 
 		try {
@@ -255,24 +240,23 @@ describe('accessPlugin', () => {
 	})
 
 	it('supports granular defaults that allow reads except count', async () => {
-		const ultimabase = new UltimaBase({
-			plugins: [
-				accessPlugin({
-					default: {
-						create: true,
-						delete: true,
-						read: {
-							count: false,
-							exists: true,
-							many: true,
-							one: true,
-						},
-						update: true,
-						upsert: true,
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin({
+				default: {
+					create: true,
+					delete: true,
+					read: {
+						count: false,
+						exists: true,
+						many: true,
+						one: true,
 					},
-				}),
-				databasePlugin(new StaticReadAdapter([plainRow])),
-			],
+					update: true,
+					upsert: true,
+				},
+			}),
+			databasePlugin(new StaticReadAdapter([plainRow])),
+		))({
 			schemas: [PlainDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -291,21 +275,19 @@ describe('accessPlugin', () => {
 	})
 
 	it('prefers exact schema decisions and lets omissions inherit the default', async () => {
-		const deniedByDefault = new UltimaBase({
-			plugins: [
-				accessPlugin({
-					default: { read: { count: false } },
-				}),
-				databasePlugin(new StaticReadAdapter(1)),
-			],
+		const deniedByDefault = new (UltimaBase.use(
+			accessPlugin({
+				default: { read: { count: false } },
+			}),
+			databasePlugin(new StaticReadAdapter(1)),
+		))({
 			schemas: [CountOnlyDocument],
 		})
 		onTestFinished(() => deniedByDefault.dispose())
-		const allowedByConfiguredDefault = new UltimaBase({
-			plugins: [
-				accessPlugin({ default: true }),
-				databasePlugin(new StaticReadAdapter([plainRow])),
-			],
+		const allowedByConfiguredDefault = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			databasePlugin(new StaticReadAdapter([plainRow])),
+		))({
 			schemas: [CountOnlyDocument],
 		})
 		onTestFinished(() => allowedByConfiguredDefault.dispose())
@@ -355,12 +337,11 @@ describe('accessPlugin', () => {
 				]),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [
-				peer,
-				accessPlugin(),
-				databasePlugin(new StaticReadAdapter([row])),
-			],
+		const ultimabase = new (UltimaBase.use(
+			peer,
+			accessPlugin(),
+			databasePlugin(new StaticReadAdapter([row])),
+		))({
 			schemas: [CountOnlyDocument, PlainDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -398,12 +379,11 @@ describe('accessPlugin', () => {
 				}),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [
-				observer,
-				accessPlugin(),
-				databasePlugin(new StaticReadAdapter([plainRow])),
-			],
+		const ultimabase = new (UltimaBase.use(
+			observer,
+			accessPlugin(),
+			databasePlugin(new StaticReadAdapter([plainRow])),
+		))({
 			schemas: [ObservedDocument],
 		})
 		onTestFinished(() => ultimabase.dispose())

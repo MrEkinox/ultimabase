@@ -7,6 +7,7 @@ import {
 	UltimaBase,
 	plugin,
 	requestSources,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -124,7 +125,8 @@ let ultimabase:
 				typeof identityPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
-			]
+			],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -150,21 +152,20 @@ const request = (
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		identityPlugin,
+		aclPlugin(),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'acl-composition-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			identityPlugin,
-			aclPlugin(),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas: [PrincipalA, PrincipalB, Document],
 	})
 	await ultimabase.start()

@@ -93,7 +93,6 @@ describe('optional Hooks engine proof', () => {
 		})
 		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
-			plugins: [],
 			schemas: [Plain],
 		})
 
@@ -180,14 +179,12 @@ describe('optional Hooks engine proof', () => {
 			onDispose: () => disposed.push('disposed'),
 		})
 		const database = createBehaviorSupportPlugin()
-		const first = new UltimaBase({
+		const first = new (UltimaBase.use(database, engine.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, engine.plugin],
 			schemas: [Post],
 		})
-		const second = new UltimaBase({
+		const second = new (UltimaBase.use(database, engine.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, engine.plugin],
 			schemas: [Post],
 		})
 
@@ -219,22 +216,16 @@ describe('optional Hooks engine proof', () => {
 			stableSchema: OfficialPost,
 		})
 		expect(
-			() =>
-				new UltimaBase({
-					plugins: [workflow.plugin],
-					schemas: [OfficialPost],
-				}),
+			() => new (UltimaBase.use(workflow.plugin))({ schemas: [OfficialPost] }),
 		).toThrow(/requires missing plugin.*@ultimabase\/hooks-plugin/iu)
 
-		const official = new UltimaBase({
+		const official = new (UltimaBase.use(hooksPlugin(), workflow.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), workflow.plugin],
 			schemas: [OfficialPost],
 		})
 		const independent = createAlternativeFixture()
-		const alternative = new UltimaBase({
+		const alternative = new (UltimaBase.use(independent.engine.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [independent.engine.plugin],
 			schemas: [independent.Post],
 		})
 
@@ -249,9 +240,12 @@ describe('optional Hooks engine proof', () => {
 
 	it('keeps generated alternative contracts valid through compiled exports', () => {
 		const { engine, observer, Post } = createAlternativeFixture()
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			observer,
+			createBehaviorSupportPlugin(),
+			engine.plugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [observer, createBehaviorSupportPlugin(), engine.plugin],
 			schemas: [Post],
 		})
 		const generated = generateApplicationTypes({
@@ -302,14 +296,10 @@ describe('optional Hooks engine proof', () => {
 			className: 'SharedMiddlewareNoHooksPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				createBehaviorSupportPlugin(),
-				createSharedRuntimeMiddleware((schema) => trace.push(schema)),
-			],
-			schemas: [Plain],
-		})
+		const ultimabase = new (UltimaBase.use(
+			createBehaviorSupportPlugin(),
+			createSharedRuntimeMiddleware((schema) => trace.push(schema)),
+		))({ pluginPrivileges: { logger: false }, schemas: [Plain] })
 
 		try {
 			await ultimabase.start()

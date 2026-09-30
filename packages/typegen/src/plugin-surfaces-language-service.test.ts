@@ -115,9 +115,8 @@ const createGeneratedRegistry = (): string => {
 		],
 	})
 	return generateApplicationTypes({
-		ultimabase: new UltimaBase({
+		ultimabase: new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [],
 		}),
 		applicationId: 'fixture.semantic-surfaces',

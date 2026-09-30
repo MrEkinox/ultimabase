@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	contributeApplication,
 	plugin as createPlugin,
+	type PluginDefinition,
 	withPluginPrivileges,
 } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
@@ -49,6 +50,39 @@ const createLifecyclePlugin = (
 	})
 
 describe('configured UltimaBase factories', () => {
+	it('installs a fixed tuple and a dynamic list through the same flat factory', async () => {
+		const trace: string[] = []
+		const first = createLifecyclePlugin('fixture.variadic-first', trace)
+		const second = createLifecyclePlugin('fixture.variadic-second', trace)
+		const tuple = [first, second] as const
+		const dynamic: readonly PluginDefinition[] = tuple
+		const Fixed = UltimaBase.use(...tuple)
+		const Dynamic = UltimaBase.use(...dynamic)
+		const Extended = Fixed.use(...([] as readonly PluginDefinition[]))
+		const fixed = new Fixed({
+			pluginPrivileges: { logger: false },
+			schemas: [],
+		})
+		const variable = new Dynamic({
+			pluginPrivileges: { logger: false },
+			schemas: [],
+		})
+
+		expect(Extended).toBe(Fixed)
+		expect(
+			fixed.pluginPrivilegeReport.plugins.map(
+				({ identity }) => identity.pluginId,
+			),
+		).toStrictEqual(['fixture.variadic-first', 'fixture.variadic-second'])
+		expect(variable.pluginPrivilegeReport).toStrictEqual(
+			fixed.pluginPrivilegeReport,
+		)
+		expect(trace).toStrictEqual([])
+
+		await fixed.dispose()
+		await variable.dispose()
+	})
+
 	it('appends one flat immutable tuple without mutating its parent', async () => {
 		const trace: string[] = []
 		const first = createLifecyclePlugin('fixture.factory-first', trace)
@@ -82,9 +116,8 @@ describe('configured UltimaBase factories', () => {
 			pluginPrivileges: { logger: false },
 			schemas: [Portable, Ancestor],
 		})
-		const legacyApplication = new UltimaBase({
+		const legacyApplication = new (UltimaBase.use(first))({
 			pluginPrivileges: { logger: false },
-			plugins: [first],
 			schemas: [],
 		})
 		const portableApplication = new UltimaBase({ schemas: [] })
@@ -232,7 +265,7 @@ describe('configured UltimaBase factories', () => {
 		await application.dispose()
 	})
 
-	it('rejects a second constructor installation path on configured factories', () => {
+	it('rejects constructor plugin installation on root and configured factories', () => {
 		const trace: string[] = []
 		const configured = createLifecyclePlugin(
 			'fixture.factory-configured',
@@ -246,9 +279,13 @@ describe('configured UltimaBase factories', () => {
 
 		expect(
 			() => new RuntimeConstructor({ plugins: [extra], schemas: [] }),
-		).toThrow(
-			'Configured UltimaBase factories install plugins through use(), not constructor options',
-		)
+		).toThrow('UltimaBase contains unknown option: plugins')
+		const RootConstructor = UltimaBase as unknown as new (
+			options: unknown,
+		) => object
+		expect(
+			() => new RootConstructor({ plugins: [extra], schemas: [] }),
+		).toThrow('UltimaBase contains unknown option: plugins')
 		expect(trace).toStrictEqual([])
 	})
 

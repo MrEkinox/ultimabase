@@ -256,18 +256,17 @@ const createApplication = (
 	connectionUri: string,
 	schemaPolicy: 'ignore' | 'override',
 ) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		hooksPlugin(),
+		principalOwnerPlugin,
+		rolesPlugin(),
+		aclPlugin(),
+		postgresPlugin({ schemaPolicy, url: connectionUri }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'acl-reference-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			principalOwnerPlugin,
-			rolesPlugin(),
-			aclPlugin(),
-			postgresPlugin({ schemaPolicy, url: connectionUri }),
-		],
 		schemas,
 	})
 

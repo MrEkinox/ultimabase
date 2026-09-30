@@ -105,16 +105,13 @@ describe(
 					}),
 				],
 			})
-			const ultimabase = new UltimaBase({
-				schemas: [SoftDeletePost],
-				plugins: [
-					postgresPlugin({
-						schemaPolicy: 'override',
-						url: getFixture().connectionUri,
-					}),
-					softDeleteFixture,
-				],
-			})
+			const ultimabase = new (UltimaBase.use(
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+				softDeleteFixture,
+			))({ schemas: [SoftDeletePost] })
 			await ultimabase.start()
 
 			try {

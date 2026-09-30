@@ -314,21 +314,20 @@ export const createRoleApplication = (
 	connectionUri: string,
 	schemaPolicy: PostgresSchemaPolicy = 'override',
 ) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		externalRoleReferencePlugin,
+		rolesPlugin(),
+		roleResolverConsumerPlugin,
+		postgresPlugin({ schemaPolicy, url: connectionUri }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'roles-e2e-master', value: 'server-only' }],
 			onUse: ({ reason }) => {
 				masterRoleAccessReasons.push(reason)
 			},
 		}),
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			externalRoleReferencePlugin,
-			rolesPlugin(),
-			roleResolverConsumerPlugin,
-			postgresPlugin({ schemaPolicy, url: connectionUri }),
-		],
 		schemas: roleSchemas,
 		validation: {
 			clock: () => new Date('2026-08-04T10:00:00.000Z'),
@@ -353,13 +352,11 @@ export const createProviderBoundaryApplication = (
 		],
 	})
 
-	return new UltimaBase({
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			...(provider === 'community' ? [communityProvider] : []),
-			postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
-		],
-		schemas: [MissingProviderPost],
-	})
+	const Application = UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		...(provider === 'community' ? [communityProvider] : []),
+		postgresPlugin({ schemaPolicy: 'ignore', url: connectionUri }),
+	)
+	return new Application({ schemas: [MissingProviderPost] })
 }

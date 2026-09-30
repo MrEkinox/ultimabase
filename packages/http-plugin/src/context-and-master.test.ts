@@ -120,26 +120,28 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 			}),
 		],
 	})
-	const runtime = new UltimaBase({
+	// This fixture accepts an open resolver list and matching open privilege policy.
+	const installed: readonly PluginDefinition[] = [
+		httpTestDatabasePlugin(),
+		...(options.resolvers ?? []),
+		routeOwner,
+		httpPlugin({
+			appId: options.appId ?? 'context-app',
+			...(options.masterEnabled === true
+				? { master: { enabled: true as const } }
+				: {}),
+			...(options.requestTimeoutMs === undefined
+				? {}
+				: { requestTimeoutMs: options.requestTimeoutMs }),
+		}),
+		server,
+	]
+	const Application = UltimaBase.use(...installed)
+	const runtime = new Application({
 		...(options.masterAuthority === undefined
 			? {}
 			: { masterAuthority: options.masterAuthority }),
 		pluginPrivileges: options.pluginPrivileges ?? { logger: false },
-		plugins: [
-			httpTestDatabasePlugin(),
-			...(options.resolvers ?? []),
-			routeOwner,
-			httpPlugin({
-				appId: options.appId ?? 'context-app',
-				...(options.masterEnabled === true
-					? { master: { enabled: true as const } }
-					: {}),
-				...(options.requestTimeoutMs === undefined
-					? {}
-					: { requestTimeoutMs: options.requestTimeoutMs }),
-			}),
-			server,
-		],
 		schemas: [],
 	})
 	onTestFinished(() => runtime.dispose())

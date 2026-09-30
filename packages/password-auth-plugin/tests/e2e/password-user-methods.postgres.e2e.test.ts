@@ -74,22 +74,21 @@ const createApplication = (
 			]),
 		],
 	})
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
+		passwordAuthPlugin({
+			user: User,
+			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
+		}),
+		policy,
+		accessPlugin({ default: true }),
+	))({
 		schemas: [User],
 		pluginPrivileges: { logger: false },
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'test', value: 'server-only-test-key' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
-			passwordAuthPlugin({
-				user: User,
-				password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
-			}),
-			policy,
-			accessPlugin({ default: true }),
-		],
 	})
 	return {
 		ultimabase,
@@ -151,13 +150,9 @@ describe('Password User authentication methods', () => {
 
 	it('does not install authentication merely by declaring the User class', async () => {
 		const User = createUser()
-		const ultimabase = new UltimaBase({
-			schemas: [User],
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-			],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+		))({ schemas: [User], pluginPrivileges: { logger: false } })
 		await ultimabase.start()
 		try {
 			await expect(
@@ -305,7 +300,7 @@ describe('Password User authentication methods', () => {
 		const OtherUser = createUser()
 		const { ultimabase } = createApplication(User)
 		await ultimabase.start()
-		const other = new UltimaBase({ schemas: [], plugins: [] })
+		const other = new UltimaBase({ schemas: [] })
 		try {
 			await expect(
 				OtherUser.signUp({ username: 'wrong-user', password }, { ultimabase }),

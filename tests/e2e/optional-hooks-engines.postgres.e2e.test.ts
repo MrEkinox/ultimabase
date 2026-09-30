@@ -53,17 +53,13 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			}),
 			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({
-					pool: getFixture().pool,
-					schemaPolicy: 'override',
-				}),
-				createSharedRuntimeMiddleware((schema) => middlewareTrace.push(schema)),
-			],
-			schemas: [Post],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			createSharedRuntimeMiddleware((schema) => middlewareTrace.push(schema)),
+		))({ pluginPrivileges: { logger: false }, schemas: [Post] })
 		await ultimabase.start()
 
 		try {
@@ -186,16 +182,15 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				})
 			},
 		)
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			observer,
+			engine.plugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({
-					pool: getFixture().pool,
-					schemaPolicy: 'override',
-				}),
-				observer,
-				engine.plugin,
-			],
 			schemas: [Post],
 		})
 		await ultimabase.start()

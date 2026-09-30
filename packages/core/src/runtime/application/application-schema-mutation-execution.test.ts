@@ -39,11 +39,10 @@ describe('application request schema mutation execution', () => {
 			trace,
 		)
 		const harness: RequestExecutionHarness = {}
-		const ultimabase = new UltimaBase({
-			plugins: [
-				createRequestExecutionHarnessPlugin(harness),
-				createRequestExecutionDatabasePlugin(adapter),
-			],
+		const ultimabase = new (UltimaBase.use(
+			createRequestExecutionHarnessPlugin(harness),
+			createRequestExecutionDatabasePlugin(adapter),
+		))({
 			schemas: [MutationRecord],
 		})
 		await ultimabase.start()

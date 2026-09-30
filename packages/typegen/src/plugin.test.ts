@@ -49,13 +49,10 @@ describe('typegenPlugin', () => {
 	it('still rejects two differently configured instances of the official plugin', () => {
 		expect(
 			() =>
-				new UltimaBase({
-					plugins: [
-						typegenPlugin({ outputPath: 'first.d.ts' }),
-						typegenPlugin({ outputPath: 'second.d.ts' }),
-					],
-					schemas: [],
-				}),
+				new (UltimaBase.use(
+					typegenPlugin({ outputPath: 'first.d.ts' }),
+					typegenPlugin({ outputPath: 'second.d.ts' }),
+				))({ schemas: [] }),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_DUPLICATE' }))
 	})
 
@@ -65,12 +62,11 @@ describe('typegenPlugin', () => {
 
 		expect(
 			() =>
-				new UltimaBase({
+				new (UltimaBase.use(typegenPlugin({ outputPath })))({
 					pluginPrivileges: {
 						denyClaims: ['environment:filesystem'],
 						logger: false,
 					},
-					plugins: [typegenPlugin({ outputPath })],
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))
@@ -94,28 +90,29 @@ describe('typegenPlugin', () => {
 			}),
 		})
 		let contentsAtConnect: string | undefined
-		const application = new UltimaBase({
-			plugins: [
-				// Setup must finish for every plugin before even an earlier plugin connects.
-				plugin({
-					core: '^0.0.0',
-					id: 'fixture.typegen-startup-order',
-					version: '0.0.0',
-					environment: ['environment:filesystem'],
-					contributions: [
-						contributeApplication(() => ({
-							exports: undefined,
-							connect: async () => {
-								contentsAtConnect = await readFile(outputPath, 'utf8')
-							},
-						})),
-					],
-				}),
-				typegenPlugin({
-					applicationId: 'fixture.todo',
-					outputPath,
-				}),
-			],
+		// Setup must finish for every plugin before even an earlier plugin connects.
+		const Application = UltimaBase.use(
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.typegen-startup-order',
+				version: '0.0.0',
+				environment: ['environment:filesystem'],
+				contributions: [
+					contributeApplication(() => ({
+						exports: undefined,
+						connect: async () => {
+							contentsAtConnect = await readFile(outputPath, 'utf8')
+						},
+					})),
+				],
+			}),
+		).use(
+			typegenPlugin({
+				applicationId: 'fixture.todo',
+				outputPath,
+			}),
+		)
+		const application = new Application({
 			schemas: [Todo],
 		})
 
@@ -151,10 +148,7 @@ describe('typegenPlugin', () => {
 		options.applicationId = 'fixture.changed'
 		options.outputPath = ignoredPath
 
-		const application = new UltimaBase({
-			plugins: [plugin],
-			schemas: [],
-		})
+		const application = new (UltimaBase.use(plugin))({ schemas: [] })
 
 		await application.start()
 

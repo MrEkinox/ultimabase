@@ -73,9 +73,8 @@ describe('RoleSchema', () => {
 				priority: field.int({ default: 0 }),
 			}),
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(rolesPlugin()))({
 			schemas: [User, BuilderRole],
-			plugins: [rolesPlugin()],
 		})
 		await application.initialize()
 		onTestFinished(() => application.dispose())
@@ -180,10 +179,7 @@ describe('RoleSchema', () => {
 			className: 'PlainRoleFixture',
 			fields: () => ({}),
 		})
-		const plainApplication = new UltimaBase({
-			schemas: [Plain],
-			plugins: [],
-		})
+		const plainApplication = new UltimaBase({ schemas: [Plain] })
 		await plainApplication.initialize()
 		onTestFinished(() => plainApplication.dispose())
 
@@ -208,9 +204,8 @@ describe('RoleSchema', () => {
 		})
 
 		await expect(
-			new UltimaBase({
+			new (UltimaBase.use(infrastructure))({
 				schemas: [User, AppRole],
-				plugins: [infrastructure],
 			}).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
@@ -260,8 +255,7 @@ describe('RoleSchema', () => {
 			})
 
 			await expect(
-				new UltimaBase({
-					plugins: [rolesPlugin(), infrastructure],
+				new (UltimaBase.use(rolesPlugin(), infrastructure))({
 					schemas: [schema],
 				}).initialize(),
 			).rejects.toMatchObject({ code: 'PLUGIN_DECLARATION_INVALID' })
@@ -278,8 +272,7 @@ describe('RoleSchema', () => {
 				roles: field.relation({ target: 'RoleUser' }),
 			}),
 		})
-		const application = new UltimaBase({
-			plugins: [rolesPlugin()],
+		const application = new (UltimaBase.use(rolesPlugin()))({
 			schemas: [User, Similar],
 		})
 		await application.initialize()
@@ -312,8 +305,7 @@ describe('RoleSchema', () => {
 
 		await expect(
 			Promise.resolve().then(() =>
-				new UltimaBase({
-					plugins: [rolesPlugin(), infrastructure],
+				new (UltimaBase.use(rolesPlugin(), infrastructure))({
 					schemas: [User, FirstRole, SecondRole],
 				}).initialize(),
 			),
@@ -338,16 +330,14 @@ describe('RoleSchema', () => {
 		})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()
-		const first = new UltimaBase({
+		const first = new (UltimaBase.use(firstPlugin))({
 			schemas: [User, FirstRole],
-			plugins: [firstPlugin] as const,
 		})
 		await first.initialize()
 		expect(first.compile().schemas.get(FirstRole.className)).toBe(FirstRole)
 		await first.dispose()
-		const second = new UltimaBase({
+		const second = new (UltimaBase.use(secondPlugin))({
 			schemas: [SecondUser, SecondRole],
-			plugins: [secondPlugin] as const,
 		})
 		await second.initialize()
 		onTestFinished(() => second.dispose())

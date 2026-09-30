@@ -16,6 +16,7 @@ import {
 	stringField,
 	type DatabaseAdapter,
 	type PluginDefinition,
+	type PluginSourceState,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -132,7 +133,8 @@ const createArchiveParts = (trace: string[], hooks?: unknown) => {
 	const execute = (
 		ultimabase: UltimaBase<
 			readonly SchemaDefinition[],
-			readonly PluginDefinition[]
+			readonly PluginDefinition[],
+			PluginSourceState
 		>,
 		options?: unknown,
 	) => {
@@ -255,16 +257,15 @@ describe('schema mutation Hooks', () => {
 				),
 			],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			first,
+			second,
+			events,
+			hooksPlugin(),
+			parts.owner,
+			parts.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				first,
-				second,
-				events,
-				hooksPlugin(),
-				parts.owner,
-				parts.database,
-			],
 			schemas: [parts.Document, Audit],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -337,9 +338,12 @@ describe('schema mutation Hooks', () => {
 				},
 			},
 		})
-		const beforeApp = new UltimaBase({
+		const beforeApp = new (UltimaBase.use(
+			hooksPlugin(),
+			before.owner,
+			before.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), before.owner, before.database],
 			schemas: [before.Document],
 		})
 		onTestFinished(() => beforeApp.dispose())
@@ -361,9 +365,12 @@ describe('schema mutation Hooks', () => {
 				},
 			},
 		})
-		const afterApp = new UltimaBase({
+		const afterApp = new (UltimaBase.use(
+			hooksPlugin(),
+			after.owner,
+			after.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), after.owner, after.database],
 			schemas: [after.Document],
 		})
 		onTestFinished(() => afterApp.dispose())
@@ -390,9 +397,12 @@ describe('schema mutation Hooks', () => {
 				},
 			},
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			hooksPlugin(),
+			parts.owner,
+			parts.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), parts.owner, parts.database],
 			schemas: [parts.Document],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -424,9 +434,12 @@ describe('schema mutation Hooks', () => {
 		const stale = createArchiveParts(staleTrace, {
 			beforeOperation: { stale: () => undefined },
 		})
-		const staleApp = new UltimaBase({
+		const staleApp = new (UltimaBase.use(
+			hooksPlugin(),
+			stale.owner,
+			stale.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), stale.owner, stale.database],
 			schemas: [stale.Document],
 		})
 		onTestFinished(() => staleApp.dispose())
@@ -437,11 +450,9 @@ describe('schema mutation Hooks', () => {
 
 		const trace: string[] = []
 		const noEngine = createArchiveParts(trace)
-		const noEngineApp = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [noEngine.owner, noEngine.database],
-			schemas: [noEngine.Document],
-		})
+		const noEngineApp = new (UltimaBase.use(noEngine.owner, noEngine.database))(
+			{ pluginPrivileges: { logger: false }, schemas: [noEngine.Document] },
+		)
 		onTestFinished(() => noEngineApp.dispose())
 		try {
 			await noEngineApp.start()
@@ -465,15 +476,21 @@ describe('schema mutation Hooks', () => {
 		const second = createArchiveParts(secondTrace, {
 			beforeOperation: { archive: secondHook },
 		})
-		const firstApp = new UltimaBase({
+		const firstApp = new (UltimaBase.use(
+			hooksPlugin(),
+			first.owner,
+			first.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), first.owner, first.database],
 			schemas: [first.Document],
 		})
 		onTestFinished(() => firstApp.dispose())
-		const secondApp = new UltimaBase({
+		const secondApp = new (UltimaBase.use(
+			hooksPlugin(),
+			second.owner,
+			second.database,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), second.owner, second.database],
 			schemas: [second.Document],
 		})
 		onTestFinished(() => secondApp.dispose())
@@ -502,13 +519,16 @@ describe('schema mutation Hooks', () => {
 			beforeOperation: { archive: hook },
 		})
 		const audit = vi.fn()
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			hooksPlugin(),
+			parts.owner,
+			parts.database,
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'schema-mutation-hooks-master', value: 'unused' }],
 				onUse: audit,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [hooksPlugin(), parts.owner, parts.database],
 			schemas: [parts.Document],
 		})
 		onTestFinished(() => ultimabase.dispose())

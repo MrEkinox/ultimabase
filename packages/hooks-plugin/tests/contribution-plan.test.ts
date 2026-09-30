@@ -50,10 +50,7 @@ describe('Hook contribution provenance', () => {
 				beforeOperation: { create: () => undefined },
 			},
 		})
-		const application = new UltimaBase({
-			plugins: [hooksPlugin()],
-			schemas: [Post],
-		})
+		const application = new (UltimaBase.use(hooksPlugin()))({ schemas: [Post] })
 		await application.initialize()
 
 		await application.dispose()
@@ -67,8 +64,7 @@ describe('Hook contribution provenance', () => {
 		})
 
 		await expect(
-			new UltimaBase({
-				plugins: [createSchemaProvider(Owned), hooksPlugin()],
+			new (UltimaBase.use(createSchemaProvider(Owned), hooksPlugin()))({
 				schemas: [],
 			}).initialize(),
 		).rejects.toThrow('plugins must use provideHookContributions()')
@@ -85,8 +81,7 @@ describe('Hook contribution provenance', () => {
 		})
 
 		await expect(
-			new UltimaBase({
-				plugins: [hooksPlugin(), createSchemaProvider(Owned)],
+			new (UltimaBase.use(hooksPlugin(), createSchemaProvider(Owned)))({
 				schemas: [],
 			}).initialize(),
 		).rejects.toThrow('plugins must use provideHookContributions()')

@@ -65,9 +65,8 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 		'fixture.types.denied' | 'fixture.types.conflict'
 	>()
 
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(plugin))({
 		pluginPrivileges: { logger: false },
-		plugins: [plugin],
 		schemas: [Post],
 	})
 	const operation = ultimabase.operation(inspect)

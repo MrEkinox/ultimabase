@@ -101,7 +101,6 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 	const withoutOfficialPlugins = generateApplicationTypes({
 		ultimabase: new UltimaBase({
 			pluginPrivileges: { logger: false },
-			plugins: [],
 			schemas: [PlainDocument],
 		}),
 		applicationId: 'fixture.official-options',

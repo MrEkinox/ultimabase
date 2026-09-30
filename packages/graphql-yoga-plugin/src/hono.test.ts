@@ -26,10 +26,8 @@ const createApplication = (
 	server: ReturnType<typeof honoServerPlugin>,
 	browser = false,
 ) => {
-	const application = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			graphqlYogaFixtureDatabasePlugin,
+	const Application = UltimaBase.use(graphqlYogaFixtureDatabasePlugin)
+		.use(
 			httpPlugin({
 				appId,
 				...(browser
@@ -44,14 +42,18 @@ const createApplication = (
 						}
 					: {}),
 			}),
+		)
+		.use(
 			graphqlPlugin({
 				acknowledgeUnverifiedProtection: true,
 				default: false,
 				schemas: [schemaReturning(value)],
 			}),
-			graphqlYogaPlugin(),
-			server,
-		],
+		)
+		.use(graphqlYogaPlugin())
+		.use(server)
+	const application = new Application({
+		pluginPrivileges: { logger: false },
 		schemas: [],
 	})
 	onTestFinished(() => application.dispose())

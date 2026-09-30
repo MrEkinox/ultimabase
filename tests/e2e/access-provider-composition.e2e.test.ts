@@ -282,7 +282,8 @@ const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 		aclProvider,
 		database,
 	]
-	const ultimabase = new UltimaBase({ plugins, schemas: [CombinedPost] })
+	const Application = UltimaBase.use(...plugins)
+	const ultimabase = new Application({ schemas: [CombinedPost] })
 
 	try {
 		await ultimabase.start()
@@ -349,10 +350,10 @@ describe('Access provider composition', () => {
 				updatedAt: fixedInstant,
 			},
 		])
-		const ultimabase = new UltimaBase({
-			plugins: [accessPlugin({ default: false }), databasePlugin(adapter)],
-			schemas: [NativeDocument],
-		})
+		const ultimabase = new (UltimaBase.use(
+			accessPlugin({ default: false }),
+			databasePlugin(adapter),
+		))({ schemas: [NativeDocument] })
 
 		try {
 			await ultimabase.start()
@@ -379,21 +380,22 @@ describe('Access provider composition', () => {
 				updatedAt: fixedInstant,
 			},
 		])
-		const rolesOnly = new UltimaBase({
-			plugins: [hooksPlugin(), rolesPlugin(), databasePlugin(adapter)],
-			schemas: [Principal, RoleOnly],
-		})
-		const aclOnly = new UltimaBase({
-			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(aclOnlyAdapter)],
-			schemas: [PublicACLPost],
-		})
-		const composed = new UltimaBase({
-			plugins: [
-				hooksPlugin(),
-				rolesPlugin(),
-				aclPlugin(),
-				databasePlugin(new CompositionReadAdapter([])),
-			],
+		const rolesOnly = new (UltimaBase.use(
+			hooksPlugin(),
+			rolesPlugin(),
+			databasePlugin(adapter),
+		))({ schemas: [Principal, RoleOnly] })
+		const aclOnly = new (UltimaBase.use(
+			hooksPlugin(),
+			aclPlugin(),
+			databasePlugin(aclOnlyAdapter),
+		))({ schemas: [PublicACLPost] })
+		const composed = new (UltimaBase.use(
+			hooksPlugin(),
+			rolesPlugin(),
+			aclPlugin(),
+			databasePlugin(new CompositionReadAdapter([])),
+		))({
 			schemas: [Principal, ACLRole],
 		})
 
@@ -420,10 +422,10 @@ describe('Access provider composition', () => {
 
 	it('fails before the adapter when plugin-field containment is unavailable', async () => {
 		const adapter = new CompositionReadAdapter([], false)
-		const ultimabase = new UltimaBase({
-			plugins: [aclPlugin(), databasePlugin(adapter)],
-			schemas: [PublicACLPost],
-		})
+		const ultimabase = new (UltimaBase.use(
+			aclPlugin(),
+			databasePlugin(adapter),
+		))({ schemas: [PublicACLPost] })
 
 		try {
 			await ultimabase.start()
@@ -450,20 +452,18 @@ describe('Access provider composition', () => {
 
 	it('fails closed before business or storage when a configured role capability is absent', async () => {
 		const readAdapter = new CompositionReadAdapter([combinedRow])
-		const readApplication = new UltimaBase({
-			plugins: [
-				hooksPlugin(),
-				accessPlugin(),
-				aclPlugin(),
-				databasePlugin(readAdapter),
-			],
-			schemas: [CombinedPost],
-		})
+		const readApplication = new (UltimaBase.use(
+			hooksPlugin(),
+			accessPlugin(),
+			aclPlugin(),
+			databasePlugin(readAdapter),
+		))({ schemas: [CombinedPost] })
 		const writeAdapter = new CompositionWriteAdapter()
-		const writeApplication = new UltimaBase({
-			plugins: [hooksPlugin(), aclPlugin(), databasePlugin(writeAdapter)],
-			schemas: [MissingRolePost],
-		})
+		const writeApplication = new (UltimaBase.use(
+			hooksPlugin(),
+			aclPlugin(),
+			databasePlugin(writeAdapter),
+		))({ schemas: [MissingRolePost] })
 
 		try {
 			await readApplication.start()
@@ -498,17 +498,14 @@ describe('Access provider composition', () => {
 
 	it('keeps every independent denial monotonic with a compatible community provider', async () => {
 		const adapter = new CompositionReadAdapter([combinedRow])
-		const ultimabase = new UltimaBase({
-			plugins: [
-				hooksPlugin(),
-				accessPlugin(),
-				createRoleProvider(false),
-				communityPolicy,
-				aclPlugin(),
-				databasePlugin(adapter),
-			],
-			schemas: [CombinedPost],
-		})
+		const ultimabase = new (UltimaBase.use(
+			hooksPlugin(),
+			accessPlugin(),
+			createRoleProvider(false),
+			communityPolicy,
+			aclPlugin(),
+			databasePlugin(adapter),
+		))({ schemas: [CombinedPost] })
 
 		try {
 			await ultimabase.start()

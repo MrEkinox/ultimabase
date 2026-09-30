@@ -15,9 +15,11 @@ const Post = Schema.define({
 		title: field.string({ required: true }),
 	}),
 })
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })],
 	schemas: [Post],
 })
 

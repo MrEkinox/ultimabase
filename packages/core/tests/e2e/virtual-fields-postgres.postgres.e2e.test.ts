@@ -1,5 +1,10 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { FrameworkError, Schema, UltimaBase } from '@ultimabase/core'
+import {
+	FrameworkError,
+	Schema,
+	UltimaBase,
+	type PluginSourceState,
+} from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -50,7 +55,8 @@ let pool: RecordingPostgresPool | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [...typeof schemas],
-			readonly [ReturnType<typeof postgresPlugin>]
+			readonly [ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -83,10 +89,9 @@ const expectResolverFailure = async (
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'virtual_fields' })
 	pool = new RecordingPostgresPool(fixture.pool)
-	ultimabase = new UltimaBase({
-		plugins: [postgresPlugin({ pool, schemaPolicy: 'override' })],
-		schemas,
-	})
+	ultimabase = new (UltimaBase.use(
+		postgresPlugin({ pool, schemaPolicy: 'override' }),
+	))({ schemas })
 
 	try {
 		await ultimabase.start()
@@ -392,15 +397,12 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		const isolatedFixture = await createPostgresWorkerFixture({
 			prefix: 'virtual_fields_isolated',
 		})
-		const isolated = new UltimaBase({
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: isolatedFixture.connectionUri,
-				}),
-			],
-			schemas,
-		})
+		const isolated = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: isolatedFixture.connectionUri,
+			}),
+		))({ schemas })
 
 		try {
 			await primary.dispose()
@@ -418,15 +420,12 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase: isolated },
 			)
 			await isolated.dispose()
-			ultimabase = new UltimaBase({
-				plugins: [
-					postgresPlugin({
-						pool: getApplication().pool,
-						schemaPolicy: 'ignore',
-					}),
-				],
-				schemas,
-			})
+			ultimabase = new (UltimaBase.use(
+				postgresPlugin({
+					pool: getApplication().pool,
+					schemaPolicy: 'ignore',
+				}),
+			))({ schemas })
 			await ultimabase.start()
 			const local = await Person.findOne(
 				{

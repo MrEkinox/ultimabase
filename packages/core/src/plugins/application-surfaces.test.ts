@@ -77,9 +77,8 @@ describe('application-owned plugin surfaces', () => {
 		const { DynamicSchema, plugin } = createSurfacePlugin(
 			'ApplicationSurfaceDynamicPost',
 		)
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [StablePost],
 		})
 
@@ -136,14 +135,12 @@ describe('application-owned plugin surfaces', () => {
 	it('keeps declarations isolated and rejects duplicate or incompatible surfaces', () => {
 		const first = createSurfacePlugin('ApplicationSurfaceIsolationOne')
 		const second = createSurfacePlugin('ApplicationSurfaceIsolationTwo')
-		const firstApplication = new UltimaBase({
+		const firstApplication = new (UltimaBase.use(first.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [first.plugin],
 			schemas: [],
 		})
-		const secondApplication = new UltimaBase({
+		const secondApplication = new (UltimaBase.use(second.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [second.plugin],
 			schemas: [],
 		})
 		expect(firstApplication.schema(first.DynamicSchema).schema).toBe(
@@ -174,9 +171,8 @@ describe('application-owned plugin surfaces', () => {
 				}),
 			],
 		})
-		const duplicateApplication = new UltimaBase({
+		const duplicateApplication = new (UltimaBase.use(duplicate))({
 			pluginPrivileges: { logger: false },
-			plugins: [duplicate],
 			schemas: [],
 		})
 		expect(() => duplicateApplication.operation(applicationOperation)).toThrow(

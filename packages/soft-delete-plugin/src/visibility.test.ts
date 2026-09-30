@@ -73,11 +73,10 @@ describe('soft-delete visibility', () => {
 	it('keeps the active-row predicate private from contradictory developer filters', async () => {
 		const Document = documentSchema('SoftDeleteVisibleDocument', 'explicit')
 		const adapter = new VisibilityReadAdapter([])
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin(), databasePlugin(adapter)],
-			schemas: [Document],
-		})
+		const ultimabase = new (UltimaBase.use(
+			softDeletePlugin(),
+			databasePlugin(adapter),
+		))({ pluginPrivileges: { logger: false }, schemas: [Document] })
 		onTestFinished(() => ultimabase.dispose())
 
 		try {
@@ -110,13 +109,15 @@ describe('soft-delete visibility', () => {
 		const Enabled = documentSchema('SoftDeleteMasterDocument', 'replace-delete')
 		const Disabled = documentSchema('SoftDeletePlainDocument', false)
 		const enabledAdapter = new VisibilityReadAdapter([activeRow])
-		const enabled = new UltimaBase({
+		const enabled = new (UltimaBase.use(
+			softDeletePlugin(),
+			databasePlugin(enabledAdapter),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'soft-delete-master', value: 'unused' }],
 				onUse: () => undefined,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin(), databasePlugin(enabledAdapter)],
 			schemas: [Enabled],
 		})
 		onTestFinished(() => enabled.dispose())
@@ -128,11 +129,10 @@ describe('soft-delete visibility', () => {
 				updatedAt: activeRow.updatedAt,
 			},
 		])
-		const disabled = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [softDeletePlugin(), databasePlugin(disabledAdapter)],
-			schemas: [Disabled],
-		})
+		const disabled = new (UltimaBase.use(
+			softDeletePlugin(),
+			databasePlugin(disabledAdapter),
+		))({ pluginPrivileges: { logger: false }, schemas: [Disabled] })
 		onTestFinished(() => disabled.dispose())
 
 		try {

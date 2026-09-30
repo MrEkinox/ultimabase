@@ -44,7 +44,7 @@ it('executes one isolated application', async () => {
 schema tuples inferred from a fresh fixture. `runPluginConformance()` is
 runner-agnostic: use it from Vitest, another test runner, or a plain JavaScript
 script. The runner installs each fresh fixture through Core's
-`UltimaBase.use()` chain, not the legacy constructor `plugins` option or a
+`UltimaBase.use()` installation path, not the removed constructor `plugins` option or a
 test-only registry.
 
 ```ts

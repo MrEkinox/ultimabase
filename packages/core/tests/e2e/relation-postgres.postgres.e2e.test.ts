@@ -398,17 +398,14 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			'CREATE TABLE relation_external_notes (note text NOT NULL)',
 		)
 		await getUltimaBase().dispose()
-		const verifier = new UltimaBase({
-			plugins: [
-				hooksPlugin(),
-				accessPlugin({ default: true }),
-				postgresPlugin({
-					schemaPolicy: 'fail',
-					url: activeFixture.connectionUri,
-				}),
-			],
-			schemas: relationSchemas,
-		})
+		const verifier = new (UltimaBase.use(
+			hooksPlugin(),
+			accessPlugin({ default: true }),
+			postgresPlugin({
+				schemaPolicy: 'fail',
+				url: activeFixture.connectionUri,
+			}),
+		))({ schemas: relationSchemas })
 
 		try {
 			await expect(verifier.start()).resolves.toBeUndefined()

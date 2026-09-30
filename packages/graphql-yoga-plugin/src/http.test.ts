@@ -140,7 +140,22 @@ const createFixture = async (
 	master = false,
 	requestTimeoutMs?: number,
 ) => {
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		graphqlYogaFixtureDatabasePlugin,
+		httpPlugin({
+			appId: 'notes',
+			...(master ? { master: { enabled: true as const } } : {}),
+			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+		}),
+		sessionResolverPlugin,
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: false,
+			schemas: [schema],
+		}),
+		graphqlYogaPlugin(options),
+		graphqlYogaFixtureHttpConsumer,
+	))({
 		...(master
 			? {
 					masterAuthority: new MasterAuthority({
@@ -150,22 +165,6 @@ const createFixture = async (
 				}
 			: {}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			graphqlYogaFixtureDatabasePlugin,
-			httpPlugin({
-				appId: 'notes',
-				...(master ? { master: { enabled: true as const } } : {}),
-				...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
-			}),
-			sessionResolverPlugin,
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: false,
-				schemas: [schema],
-			}),
-			graphqlYogaPlugin(options),
-			graphqlYogaFixtureHttpConsumer,
-		],
 		schemas: [],
 	})
 	await ultimabase.start()

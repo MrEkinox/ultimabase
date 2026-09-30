@@ -85,17 +85,16 @@ const customSchema = (): GraphQLSchema =>
 	})
 
 const createFixture = (limits: GraphqlExecutionLimits = {}) => {
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: false,
+			limits,
+			schemas: [customSchema()],
+		}),
+		graphqlFixtureDatabasePlugin,
+	))({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: false,
-				limits,
-				schemas: [customSchema()],
-			}),
-			graphqlFixtureDatabasePlugin,
-		],
 		schemas: [Hidden],
 	})
 	onTestFinished(() => application.dispose())

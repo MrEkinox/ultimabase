@@ -10,6 +10,7 @@ import {
 	preparedOperation,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -178,7 +179,8 @@ type SoftDeleteApplication = UltimaBase<
 		typeof staleTombstoneWriter,
 		typeof replaceDeleteObserver,
 		ReturnType<typeof postgresPlugin>,
-	]
+	],
+	PluginSourceState
 >
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: SoftDeleteApplication | undefined
@@ -195,20 +197,19 @@ const getFixture = (): Readonly<{
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'soft_delete' })
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		softDeletePlugin(),
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		staleTombstoneWriter,
+		replaceDeleteObserver,
+		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'soft-delete-e2e-master', value: 'unused' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			softDeletePlugin(),
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			staleTombstoneWriter,
-			replaceDeleteObserver,
-			postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
-		],
 		schemas,
 	})
 

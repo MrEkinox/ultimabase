@@ -78,12 +78,12 @@ const databasePlugin = plugin({
 	version: '1.0.0',
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	databasePlugin,
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [
-		databasePlugin,
-		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-	],
 	schemas: [Target, Note],
 })
 

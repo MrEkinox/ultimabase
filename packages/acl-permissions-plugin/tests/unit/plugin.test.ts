@@ -47,14 +47,13 @@ describe('aclPlugin create input resolution', () => {
 
 	it('requires the owning plugin only when a schema declares acl', async () => {
 		await expect(
-			new UltimaBase({ schemas: [ProtectedPost], plugins: [] }).initialize(),
+			new UltimaBase({ schemas: [ProtectedPost] }).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 		} satisfies Partial<FrameworkError>)
 
-		const application = await new UltimaBase({
+		const application = await new (UltimaBase.use(aclPlugin()))({
 			schemas: [ProtectedPost],
-			plugins: [aclPlugin()],
 		}).initialize()
 		onTestFinished(() => application.dispose())
 
@@ -105,12 +104,15 @@ describe('aclPlugin create input resolution', () => {
 			id: 'fixture.acl-read-database',
 			contributions: [databaseAdapterProvider(adapter)],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			aclPlugin(),
+			identityProvider,
+			databaseProvider,
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'acl-test-master', value: 'unused-by-terminal' }],
 				onUse: () => undefined,
 			}),
-			plugins: [aclPlugin(), identityProvider, databaseProvider],
 			schemas: [Principal, ProtectedPost],
 		})
 
@@ -194,8 +196,7 @@ describe('aclPlugin create input resolution', () => {
 				})),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [aclPlugin(), infrastructure],
+		const ultimabase = new (UltimaBase.use(aclPlugin(), infrastructure))({
 			schemas: [StaticRolePost],
 		})
 
@@ -220,8 +221,7 @@ describe('aclPlugin create input resolution', () => {
 				}),
 			],
 		})
-		const resolved = await new UltimaBase({
-			plugins: [aclPlugin(), roleProvider],
+		const resolved = await new (UltimaBase.use(aclPlugin(), roleProvider))({
 			schemas: [StaticRolePost],
 		}).initialize()
 
@@ -248,8 +248,7 @@ describe('aclPlugin create input resolution', () => {
 			id: 'fixture.acl-dynamic-role-database',
 			contributions: [databaseAdapterProvider(adapter)],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [aclPlugin(), databaseProvider],
+		const ultimabase = new (UltimaBase.use(aclPlugin(), databaseProvider))({
 			schemas: [DynamicRolePost],
 		})
 
@@ -419,10 +418,10 @@ describe('aclPlugin create input resolution', () => {
 			id: 'fixture.acl-limit-write-database',
 			contributions: [databaseAdapterProvider(adapter)],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [aclPlugin({ limits: { maxPrincipals: 1 } }), databaseProvider],
-			schemas: [Principal, BatchPost, OverridePost],
-		})
+		const ultimabase = new (UltimaBase.use(
+			aclPlugin({ limits: { maxPrincipals: 1 } }),
+			databaseProvider,
+		))({ schemas: [Principal, BatchPost, OverridePost] })
 
 		try {
 			await ultimabase.start()

@@ -392,18 +392,14 @@ describe('plugin schema mutation Runtime', () => {
 		expect(Reflect.has(fixture.Post, 'purge')).toBe(false)
 		const otherAdapter = new RecordingDatabaseAdapter([], [])
 		const other = applicationFixture(
-			new UltimaBase({
-				pluginPrivileges: { logger: false },
-				plugins: [
-					plugin({
-						contributions: [provideTestDatabaseAdapter(otherAdapter)],
-						core: '^0.0.0',
-						id: 'fixture.schema-mutation-without-purge',
-						version: '1.0.0',
-					}),
-				],
-				schemas: [fixture.Post],
-			}),
+			new (UltimaBase.use(
+				plugin({
+					contributions: [provideTestDatabaseAdapter(otherAdapter)],
+					core: '^0.0.0',
+					id: 'fixture.schema-mutation-without-purge',
+					version: '1.0.0',
+				}),
+			))({ pluginPrivileges: { logger: false }, schemas: [fixture.Post] }),
 		)
 		try {
 			await other.start()

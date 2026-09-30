@@ -34,77 +34,76 @@ export const createBrowserApplication = async (
 	const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 		phase: 'setup',
 	})
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin(),
+		httpPlugin({
+			appId: 'browser',
+			master: { enabled: true },
+			...(policy.enabled
+				? {
+						browser: {
+							allowedOrigins: policy.allowedOrigins,
+							allowedMethods: policy.allowedMethods,
+							allowedHeaders: policy.allowedHeaders,
+							credentials: policy.credentials,
+							maxAgeSeconds: policy.maxAgeSeconds,
+						},
+					}
+				: {}),
+		}),
+		plugin({
+			id: 'fixture.browser',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: {
+				'transport:expose': 'Expose browser fixture responses.',
+			},
+			contributions: [
+				provideHttpContextResolvers({
+					contributionId: 'credentials',
+					create: () =>
+						httpContextResolver({
+							resolve: ({ context, request }) => {
+								authorization = request.headers.get('Authorization')
+								cookie = request.headers.get('Cookie')
+								return context
+							},
+						}),
+				}),
+				provideHttpEndpoints({
+					contributionId: 'routes',
+					create: () =>
+						httpMount({
+							path: '/',
+							protocol: { name: 'fixture.browser', version: '1' },
+							handle: (request) => {
+								observations.applicationEffects += 1
+								return Response.json({
+									applicationEffects: observations.applicationEffects,
+									authorization,
+									cookie,
+									mode: getCurrentRequest().access.mode,
+									master: request.headers.get('X-UltimaBase-Master-Key'),
+									preflights: observations.preflights,
+								})
+							},
+						}),
+				}),
+				requirement,
+				contributeApplication(({ capabilities }) => {
+					http = capabilities.get(requirement)
+					const exports = undefined
+					return { exports }
+				}),
+			],
+		}),
+	))({
 		schemas: [],
 		pluginPrivileges: { logger: false },
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'browser', value: 'master-secret' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			databasePlugin(),
-			httpPlugin({
-				appId: 'browser',
-				master: { enabled: true },
-				...(policy.enabled
-					? {
-							browser: {
-								allowedOrigins: policy.allowedOrigins,
-								allowedMethods: policy.allowedMethods,
-								allowedHeaders: policy.allowedHeaders,
-								credentials: policy.credentials,
-								maxAgeSeconds: policy.maxAgeSeconds,
-							},
-						}
-					: {}),
-			}),
-			plugin({
-				id: 'fixture.browser',
-				version: '1.0.0',
-				core: '^0.0.0',
-				permissions: {
-					'transport:expose': 'Expose browser fixture responses.',
-				},
-				contributions: [
-					provideHttpContextResolvers({
-						contributionId: 'credentials',
-						create: () =>
-							httpContextResolver({
-								resolve: ({ context, request }) => {
-									authorization = request.headers.get('Authorization')
-									cookie = request.headers.get('Cookie')
-									return context
-								},
-							}),
-					}),
-					provideHttpEndpoints({
-						contributionId: 'routes',
-						create: () =>
-							httpMount({
-								path: '/',
-								protocol: { name: 'fixture.browser', version: '1' },
-								handle: (request) => {
-									observations.applicationEffects += 1
-									return Response.json({
-										applicationEffects: observations.applicationEffects,
-										authorization,
-										cookie,
-										mode: getCurrentRequest().access.mode,
-										master: request.headers.get('X-UltimaBase-Master-Key'),
-										preflights: observations.preflights,
-									})
-								},
-							}),
-					}),
-					requirement,
-					contributeApplication(({ capabilities }) => {
-						http = capabilities.get(requirement)
-						const exports = undefined
-						return { exports }
-					}),
-				],
-			}),
-		],
 	})
 	try {
 		await application.start()

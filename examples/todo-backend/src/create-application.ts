@@ -46,8 +46,7 @@ export const createTodoPlugins = ({
 	] as const
 
 /** Builds one isolated Todo application with every schema-owning official plugin. */
-export const createTodoApplication = (options: TodoApplicationOptions) =>
-	new UltimaBase({
-		plugins: createTodoPlugins(options),
-		schemas: todoSchemas,
-	})
+export const createTodoApplication = (options: TodoApplicationOptions) => {
+	const Application = UltimaBase.use(...createTodoPlugins(options))
+	return new Application({ schemas: todoSchemas })
+}

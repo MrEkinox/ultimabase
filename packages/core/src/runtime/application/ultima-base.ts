@@ -69,9 +69,10 @@ import {
 	type CreateFrameworkEngineOptions,
 } from './create-framework-engine.js'
 import {
-	appendConfiguredPlugin,
-	resolveConfiguredPlugins,
+	appendConfiguredPlugins,
+	readConfiguredPlugins,
 	type ConfiguredUltimaBaseFactory,
+	type MergeInstalledPluginSources,
 } from './configured-application-factory.js'
 import {
 	bindUltimaBaseEngine,
@@ -79,21 +80,17 @@ import {
 } from './ultima-base-kernel.js'
 import type {
 	EmptyPluginSourceState,
-	MergePluginSourceState,
 	PluginSourceState,
 } from '../../plugins/source-projections.js'
-import type { PluginSource } from '../../plugins/definition.js'
 import {
 	assertUltimaBaseOptions,
-	readConstructorPlugins,
 	readEngineOptions,
 	type CompiledApplication,
-	type UltimaBaseOptions,
+	type RootUltimaBaseOptions,
 } from './ultima-base-contracts.js'
 export type {
 	CompiledApplication,
 	UltimaBaseInstanceOptions,
-	UltimaBaseOptions,
 } from './ultima-base-contracts.js'
 
 /**
@@ -126,20 +123,21 @@ export class UltimaBase<
 		Schema as unknown as ConfiguredSchemaNamespace
 
 	/**
-	 * Returns a new immutable factory with one plugin appended to its flat graph.
+	 * Returns a new immutable factory with plugins appended to its flat graph.
 	 *
-	 * @example `const Application = UltimaBase.use(databasePlugin())`
+	 * @example `const Application = UltimaBase.use(databasePlugin(), httpPlugin())`
 	 */
-	static use<const TPlugin extends PluginDefinition>(
-		plugin: TPlugin,
+	static use<const TInstalled extends readonly PluginDefinition[]>(
+		...plugins: TInstalled
 	): ConfiguredUltimaBaseFactory<
-		readonly [TPlugin],
-		MergePluginSourceState<EmptyPluginSourceState, PluginSource<TPlugin>>
+		readonly [...TInstalled],
+		MergeInstalledPluginSources<EmptyPluginSourceState, TInstalled>
 	> {
-		return appendConfiguredPlugin<readonly [], EmptyPluginSourceState, TPlugin>(
-			this,
-			plugin,
-		)
+		return appendConfiguredPlugins<
+			readonly [],
+			EmptyPluginSourceState,
+			TInstalled
+		>(this, ...plugins)
 	}
 
 	readonly #application: FrameworkApplication<TSchemas, TPlugins>
@@ -150,15 +148,12 @@ export class UltimaBase<
 	readonly #operationOwnerToken: OperationExecutionOwnerToken
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
 
-	constructor(options: UltimaBaseOptions<TSchemas, TPlugins>) {
+	constructor(options: RootUltimaBaseOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
 
 		assertUltimaBaseOptions(untrustedOptions)
 
-		const plugins = resolveConfiguredPlugins(
-			new.target,
-			readConstructorPlugins(untrustedOptions),
-		) as TPlugins
+		const plugins = readConfiguredPlugins(new.target) as TPlugins
 		this.#application = new FrameworkApplication({
 			...(options.pluginPrivileges === undefined
 				? {}

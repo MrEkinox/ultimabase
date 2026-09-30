@@ -34,22 +34,20 @@ describe('GraphQL Yoga plugin graph', () => {
 	it('requires explicit GraphQL and HTTP sibling plugins', () => {
 		expect(
 			() =>
-				new UltimaBase({
-					pluginPrivileges: { logger: false },
-					plugins: [graphqlYogaFixtureDatabasePlugin, graphqlYogaPlugin()],
-					schemas: [],
-				}),
+				new (UltimaBase.use(
+					graphqlYogaFixtureDatabasePlugin,
+					graphqlYogaPlugin(),
+				))({ pluginPrivileges: { logger: false }, schemas: [] }),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_DEPENDENCY_MISSING' }))
 
 		expect(
 			() =>
-				new UltimaBase({
+				new (UltimaBase.use(
+					graphqlYogaFixtureDatabasePlugin,
+					graphqlPlugin({ default: false }),
+					graphqlYogaPlugin(),
+				))({
 					pluginPrivileges: { logger: false },
-					plugins: [
-						graphqlYogaFixtureDatabasePlugin,
-						graphqlPlugin({ default: false }),
-						graphqlYogaPlugin(),
-					],
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_DEPENDENCY_MISSING' }))
@@ -64,14 +62,13 @@ describe('GraphQL Yoga plugin graph', () => {
 		})
 		expect(
 			() =>
-				new UltimaBase({
+				new (UltimaBase.use(
+					graphqlYogaFixtureDatabasePlugin,
+					httpPlugin({ appId: 'lookalike' }),
+					lookalike,
+					graphqlYogaPlugin(),
+				))({
 					pluginPrivileges: { logger: false },
-					plugins: [
-						graphqlYogaFixtureDatabasePlugin,
-						httpPlugin({ appId: 'lookalike' }),
-						lookalike,
-						graphqlYogaPlugin(),
-					],
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
@@ -89,17 +86,13 @@ describe('GraphQL Yoga plugin graph', () => {
 				})),
 			],
 		})
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				graphqlYogaFixtureDatabasePlugin,
-				httpPlugin({ appId: 'endpoint-capability' }),
-				graphqlPlugin({ default: false, schemas: [schema] }),
-				graphqlYogaPlugin({ path: '/api/graphql' }),
-				consumer,
-			],
-			schemas: [],
-		})
+		const application = new (UltimaBase.use(
+			graphqlYogaFixtureDatabasePlugin,
+			httpPlugin({ appId: 'endpoint-capability' }),
+			graphqlPlugin({ default: false, schemas: [schema] }),
+			graphqlYogaPlugin({ path: '/api/graphql' }),
+			consumer,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 
 		await application.start()
 		expect(
@@ -126,17 +119,13 @@ describe('GraphQL Yoga plugin graph', () => {
 				}),
 			],
 		})
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				graphqlYogaFixtureDatabasePlugin,
-				httpPlugin({ appId: 'collision' }),
-				graphqlPlugin({ default: false, schemas: [schema] }),
-				graphqlYogaPlugin(),
-				collision,
-			],
-			schemas: [],
-		})
+		const application = new (UltimaBase.use(
+			graphqlYogaFixtureDatabasePlugin,
+			httpPlugin({ appId: 'collision' }),
+			graphqlPlugin({ default: false, schemas: [schema] }),
+			graphqlYogaPlugin(),
+			collision,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		await expect(application.start()).rejects.toThrow('HTTP endpoint collision')
 		await application.dispose()
 	})

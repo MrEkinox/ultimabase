@@ -62,17 +62,17 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 		)
 	}
 
-	return new UltimaBase({
+	const Application = UltimaBase.use(
+		accessPlugin(),
+		hooksPlugin(),
+		passwordAuthPlugin({ user: User }),
+		pgVectorPlugin(),
+		rolesPlugin(),
+		softDeletePlugin({ defaultMode: 'explicit' }),
+		validationPlugin(),
+	)
+	return new Application({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			accessPlugin(),
-			hooksPlugin(),
-			passwordAuthPlugin({ user: User }),
-			pgVectorPlugin(),
-			rolesPlugin(),
-			softDeletePlugin({ defaultMode: 'explicit' }),
-			validationPlugin(),
-		],
 		schemas,
 	})
 }

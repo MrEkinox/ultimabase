@@ -161,27 +161,26 @@ const createApplication = (requiredProfile = false) => {
 			originalHeaders: [...request.headers.entries()],
 		})
 	}
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
+		passwordAuthPlugin({
+			user: User,
+			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
+		}),
+		policy,
+		accessPlugin({ default: true }),
+		httpPlugin({ appId: 'profile', master: { enabled: true } }),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: Object.values(passwordAuthOperations),
+		}),
+		capture,
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'profile', value: 'profile-master' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
-			passwordAuthPlugin({
-				user: User,
-				password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
-			}),
-			policy,
-			accessPlugin({ default: true }),
-			httpPlugin({ appId: 'profile', master: { enabled: true } }),
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: Object.values(passwordAuthOperations),
-			}),
-			capture,
-		],
 		schemas: [User],
 	})
 	const request = async (

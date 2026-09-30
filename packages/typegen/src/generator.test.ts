@@ -107,7 +107,8 @@ const createFixture = (reverseOrder = false) => {
 	const plugins = reverseOrder
 		? ([setupGuard, pgVectorPlugin()] as const)
 		: ([pgVectorPlugin(), setupGuard] as const)
-	const application = new UltimaBase({ plugins, schemas })
+	const Application = UltimaBase.use(...plugins)
+	const application = new Application({ schemas })
 
 	return { application, getSetupCalls: () => setupCalls }
 }
@@ -144,9 +145,8 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(contribution))({
 			pluginPrivileges: { logger: false },
-			plugins: [contribution],
 			schemas: [Target],
 		})
 		const generated = generateApplicationTypes({
@@ -370,10 +370,7 @@ describe('generateApplicationTypes', () => {
 	it('reports normalized schema and incompatible named identity collisions', () => {
 		const First = Schema.define({ className: 'Typegen-A', fields: () => ({}) })
 		const Second = Schema.define({ className: 'Typegen_A', fields: () => ({}) })
-		const schemaCollision = new UltimaBase({
-			plugins: [],
-			schemas: [First, Second],
-		})
+		const schemaCollision = new UltimaBase({ schemas: [First, Second] })
 
 		expect(() =>
 			generateApplicationTypes({
@@ -406,10 +403,7 @@ describe('generateApplicationTypes', () => {
 				}),
 			}),
 		})
-		const identityCollision = new UltimaBase({
-			plugins: [],
-			schemas: [Compatible],
-		})
+		const identityCollision = new UltimaBase({ schemas: [Compatible] })
 
 		expect(() =>
 			generateApplicationTypes({
@@ -439,10 +433,7 @@ describe('generateApplicationTypes', () => {
 				value: orphan,
 			}),
 		})
-		const application = new UltimaBase({
-			plugins: [],
-			schemas: [Orphan],
-		})
+		const application = new UltimaBase({ schemas: [Orphan] })
 
 		expect(() =>
 			generateApplicationTypes({
@@ -536,8 +527,7 @@ describe('generateApplicationTypes', () => {
 			className: 'TypegenPluginContributionConflict',
 			fields: () => ({}),
 		})
-		const application = new UltimaBase({
-			plugins: [firstPlugin, secondPlugin],
+		const application = new (UltimaBase.use(firstPlugin, secondPlugin))({
 			schemas: [Empty],
 		})
 
@@ -622,10 +612,7 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const application = new UltimaBase({
-			plugins: [plugin],
-			schemas: [Post],
-		})
+		const application = new (UltimaBase.use(plugin))({ schemas: [Post] })
 
 		const first = generateApplicationTypes({
 			ultimabase: application,

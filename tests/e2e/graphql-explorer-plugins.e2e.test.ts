@@ -14,20 +14,16 @@ import { describe, expect, it } from 'vitest'
 // Preserve the original public-export scenarios under their contract owner.
 describe('packed GraphQL explorer composition', () => {
 	it('rejects explorer route collisions before any request can dispatch', async () => {
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'collision' }),
-				graphqlHttpProvider(),
-				graphiqlPlugin({ environment: 'development', path: '/explorer' }),
-				apolloSandboxPlugin({
-					environment: 'development',
-					path: '/explorer',
-				}),
-			],
-			schemas: [],
-		})
+		const ultimabase = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'collision' }),
+			graphqlHttpProvider(),
+			graphiqlPlugin({ environment: 'development', path: '/explorer' }),
+			apolloSandboxPlugin({
+				environment: 'development',
+				path: '/explorer',
+			}),
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 
 		await expect(ultimabase.start()).rejects.toThrow('HTTP endpoint collision')
 		await ultimabase.dispose()
@@ -35,27 +31,22 @@ describe('packed GraphQL explorer composition', () => {
 
 	it('rejects foreign explorer routes across sequential applications', async () => {
 		const firstConsumer = httpConsumer()
-		const first = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'first' }),
-				graphqlHttpProvider(),
-				graphiqlPlugin({ environment: 'development' }),
-				firstConsumer,
-			],
-			schemas: [],
-		})
+		const first = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'first' }),
+			graphqlHttpProvider(),
+			graphiqlPlugin({ environment: 'development' }),
+			firstConsumer,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		const secondConsumer = httpConsumer()
-		const second = new UltimaBase({
+		const second = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'second' }),
+			graphqlHttpProvider(),
+			apolloSandboxPlugin({ environment: 'development' }),
+			secondConsumer,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'second' }),
-				graphqlHttpProvider(),
-				apolloSandboxPlugin({ environment: 'development' }),
-				secondConsumer,
-			],
 			schemas: [],
 		})
 		await first.start()

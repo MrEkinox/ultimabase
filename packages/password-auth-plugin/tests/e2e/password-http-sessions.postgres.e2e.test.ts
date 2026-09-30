@@ -138,42 +138,42 @@ const createPasswordHttpApplication = (
 					app: options.hono,
 					browserPolicyOwner: 'ultimabase',
 				})
-	const ultimabase = new UltimaBase({
+	const Application = UltimaBase.use(
+		postgresPlugin({
+			pool: (options.database ?? getFixture()).pool,
+			schemaPolicy: 'override',
+		}),
+		passwordAuthPlugin({
+			...(options.cookie === true
+				? {
+						http: {
+							cookie: { name: cookieName, sameSite: 'lax' as const },
+						},
+					}
+				: {}),
+			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
+			session: {
+				absoluteExpiresInMs: 86_400_000,
+				expiresInMs: 300_000,
+			},
+		}),
+		contextRoutes,
+		httpPlugin({
+			appId: options.appId,
+			...(browser === undefined ? {} : { browser }),
+			...(options.masterTransport === true
+				? { master: { enabled: true as const } }
+				: {}),
+		}),
+		capture,
+		...(server === undefined ? [] : [server]),
+	)
+	const ultimabase = new Application({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'password-http-master', value: 'master-secret' }],
 			onUse: options.onMasterUse ?? (() => undefined),
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({
-				pool: (options.database ?? getFixture()).pool,
-				schemaPolicy: 'override',
-			}),
-			passwordAuthPlugin({
-				...(options.cookie === true
-					? {
-							http: {
-								cookie: { name: cookieName, sameSite: 'lax' as const },
-							},
-						}
-					: {}),
-				password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
-				session: {
-					absoluteExpiresInMs: 86_400_000,
-					expiresInMs: 300_000,
-				},
-			}),
-			contextRoutes,
-			httpPlugin({
-				appId: options.appId,
-				...(browser === undefined ? {} : { browser }),
-				...(options.masterTransport === true
-					? { master: { enabled: true as const } }
-					: {}),
-			}),
-			capture,
-			...(server === undefined ? [] : [server]),
-		],
 		schemas: [],
 	})
 	return {
@@ -626,19 +626,18 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 	})
 
 	it('rejects cookie mode without the exact credentialed browser policy', async () => {
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			passwordAuthPlugin({
+				http: { cookie: { name: cookieName } },
+			}),
+			httpPlugin({ appId: 'password-cookie-policy' }),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'policy', value: 'master-secret' }],
 				onUse: () => undefined,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				passwordAuthPlugin({
-					http: { cookie: { name: cookieName } },
-				}),
-				httpPlugin({ appId: 'password-cookie-policy' }),
-			],
 			schemas: [],
 		})
 		await expect(application.start()).rejects.toThrow(

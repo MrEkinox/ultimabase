@@ -119,7 +119,6 @@ describe('independent protected policy engine', () => {
 		})
 		const application = new UltimaBase({
 			pluginPrivileges: { logger: false },
-			plugins: [],
 			schemas: [Plain],
 		})
 
@@ -212,14 +211,12 @@ describe('independent protected policy engine', () => {
 			onDispose: () => disposed.push('disposed'),
 		})
 		const support = createSupportPlugin(new AlternativeReadAdapter())
-		const first = new UltimaBase({
+		const first = new (UltimaBase.use(support, engine.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [support, engine.plugin],
 			schemas: [Document],
 		})
-		const second = new UltimaBase({
+		const second = new (UltimaBase.use(support, engine.plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [support, engine.plugin],
 			schemas: [Document],
 		})
 
@@ -243,14 +240,13 @@ describe('independent protected policy engine', () => {
 
 	it('composes official and alternative engines through disjoint claims', async () => {
 		const { adapter, Document, engine } = createAlternativeFixture(true)
-		const composed = new UltimaBase({
+		const composed = new (UltimaBase.use(
+			accessPlugin({ default: true }),
+			engine.plugin,
+			aclPlugin(),
+			createSupportPlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin({ default: true }),
-				engine.plugin,
-				aclPlugin(),
-				createSupportPlugin(adapter),
-			],
 			schemas: [Document],
 		})
 
@@ -270,9 +266,12 @@ describe('independent protected policy engine', () => {
 
 	it('generates the installed direct ACL option and patched field contract', async () => {
 		const { adapter, Document, engine } = createAlternativeFixture(true)
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			aclPlugin(),
+			engine.plugin,
+			createSupportPlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [aclPlugin(), engine.plugin, createSupportPlugin(adapter)],
 			schemas: [Document],
 		})
 		try {
@@ -314,29 +313,28 @@ describe('independent protected policy engine', () => {
 				updatedAt: '2026-08-20T10:00:00.000Z',
 			},
 		]
-		const noAccess = new UltimaBase({
+		const noAccess = new (UltimaBase.use(
+			createSupportPlugin(new AlternativeReadAdapter(plainRow)),
+		))({
 			masterAuthority: authority('none'),
 			pluginPrivileges: { logger: false },
-			plugins: [createSupportPlugin(new AlternativeReadAdapter(plainRow))],
 			schemas: [Plain],
 		})
-		const official = new UltimaBase({
+		const official = new (UltimaBase.use(
+			accessPlugin(),
+			createSupportPlugin(new AlternativeReadAdapter(plainRow)),
+		))({
 			masterAuthority: authority('official'),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				accessPlugin(),
-				createSupportPlugin(new AlternativeReadAdapter(plainRow)),
-			],
 			schemas: [Plain],
 		})
 		const alternativeFixture = createAlternativeFixture()
-		const alternative = new UltimaBase({
+		const alternative = new (UltimaBase.use(
+			alternativeFixture.engine.plugin,
+			createSupportPlugin(alternativeFixture.adapter),
+		))({
 			masterAuthority: authority('alternative'),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				alternativeFixture.engine.plugin,
-				createSupportPlugin(alternativeFixture.adapter),
-			],
 			schemas: [alternativeFixture.Document],
 		})
 
@@ -386,11 +384,10 @@ describe('independent protected policy engine', () => {
 
 	it('keeps generated contracts valid through compiled package exports', () => {
 		const { adapter, Document, engine } = createAlternativeFixture()
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [createSupportPlugin(adapter), engine.plugin],
-			schemas: [Document],
-		})
+		const application = new (UltimaBase.use(
+			createSupportPlugin(adapter),
+			engine.plugin,
+		))({ pluginPrivileges: { logger: false }, schemas: [Document] })
 		const generated = generateApplicationTypes({
 			ultimabase: application,
 			applicationId: 'alternative-policy-language-service',

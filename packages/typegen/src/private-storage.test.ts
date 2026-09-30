@@ -36,15 +36,13 @@ const createPrivatePlugin = (fieldName: 'digest' | 'verifier') => {
 describe('private storage Typegen boundary', () => {
 	it('changes the application fingerprint without emitting private declarations', () => {
 		const digest = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				plugins: [createPrivatePlugin('digest')],
+			ultimabase: new (UltimaBase.use(createPrivatePlugin('digest')))({
 				schemas: [],
 			}),
 			applicationId: 'private-app',
 		})
 		const verifier = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				plugins: [createPrivatePlugin('verifier')],
+			ultimabase: new (UltimaBase.use(createPrivatePlugin('verifier')))({
 				schemas: [],
 			}),
 			applicationId: 'private-app',
@@ -59,7 +57,7 @@ describe('private storage Typegen boundary', () => {
 
 	it('retains no private fingerprint for an application with no consumer', () => {
 		const generated = generateApplicationTypes({
-			ultimabase: new UltimaBase({ plugins: [], schemas: [] }),
+			ultimabase: new UltimaBase({ schemas: [] }),
 			applicationId: 'public-only',
 		})
 

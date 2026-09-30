@@ -25,7 +25,7 @@ import {
 	contributeSchemaMutation,
 } from './plugin-command-contributions.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
-import type { PluginSource } from './definition.js'
+import type { PluginDefinition, PluginSource } from './definition.js'
 import type { PluginSourceFieldValue } from './source-projections.js'
 import type { ResolvePluginSchemaProjection } from './source-projections.js'
 import type { SourceSchemaTypeInfo } from '../schema/schema/source-type-info.js'
@@ -273,8 +273,7 @@ const analyticsInstance = plugin({
 	],
 })
 
-const InstanceApplication =
-	UltimaBase.use(primaryInstance).use(analyticsInstance)
+const InstanceApplication = UltimaBase.use(primaryInstance, analyticsInstance)
 const instanceApplication = new InstanceApplication({ schemas: [] })
 expectTypeOf(
 	instanceApplication.operation('fixture.source.primary').execute('1'),
@@ -284,6 +283,14 @@ expectTypeOf(
 ).toEqualTypeOf<Promise<number>>()
 
 const Application = UltimaBase.use(sourcePlugin)
+const dynamicPlugins: readonly PluginDefinition[] = [primaryInstance]
+const MixedApplication = UltimaBase.use(sourcePlugin, ...dynamicPlugins)
+const MixedPost = MixedApplication.Schema.define({
+	className: 'SourceProjectionMixedPost',
+	fields: (field) => ({ score: field.rating({ required: true }) }),
+})
+expectTypeOf<SchemaItem<typeof MixedPost>['score']>().toBeNumber()
+void MixedPost
 const Post = Application.Schema.define({
 	className: 'SourceProjectionPost',
 	fields: (field) => ({

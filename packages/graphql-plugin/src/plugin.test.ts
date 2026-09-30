@@ -105,10 +105,10 @@ describe('graphqlPlugin', () => {
 		const warning = vi
 			.spyOn(console, 'warn')
 			.mockImplementation(() => undefined)
-		const unacknowledged = new UltimaBase({
-			plugins: [graphqlPlugin(), protectionDatabasePlugin],
-			schemas: [PublicRecord],
-		})
+		const unacknowledged = new (UltimaBase.use(
+			graphqlPlugin(),
+			protectionDatabasePlugin,
+		))({ schemas: [PublicRecord] })
 		await unacknowledged.start()
 		expect(
 			warning.mock.calls.some((call) =>
@@ -126,13 +126,10 @@ describe('graphqlPlugin', () => {
 		await unacknowledged.dispose()
 
 		warning.mockClear()
-		const acknowledged = new UltimaBase({
-			plugins: [
-				graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-				protectionDatabasePlugin,
-			],
-			schemas: [PublicRecord],
-		})
+		const acknowledged = new (UltimaBase.use(
+			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+			protectionDatabasePlugin,
+		))({ schemas: [PublicRecord] })
 		await acknowledged.start()
 		expect(
 			warning.mock.calls.some((call) =>
@@ -154,12 +151,11 @@ describe('graphqlPlugin', () => {
 			className: 'GraphqlDisposedRecord',
 			fields: (field) => ({ value: field.string() }),
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+			protectionDatabasePlugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-				protectionDatabasePlugin,
-			],
 			schemas: [DisposableRecord],
 		})
 		await application.start()

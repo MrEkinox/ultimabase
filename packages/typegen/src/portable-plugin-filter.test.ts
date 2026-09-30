@@ -68,10 +68,7 @@ describe('portable plugin field filters', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				plugins: [plugin],
-				schemas: [Portable],
-			}),
+			ultimabase: new (UltimaBase.use(plugin))({ schemas: [Portable] }),
 			applicationId: 'fixture.portable',
 		})
 		const field = generated.snapshot.schemas[0]?.fields.find(

@@ -106,9 +106,8 @@ describe('option-presence Typegen', () => {
 			readonly document: (value: string) => string
 			readonly 'fixture.internal-marker': 'factory-owned'
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [Document],
 		})
 		const generated = generateApplicationTypes({

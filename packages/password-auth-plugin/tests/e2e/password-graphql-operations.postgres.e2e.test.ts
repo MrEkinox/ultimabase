@@ -11,6 +11,7 @@ import {
 	UltimaBase,
 	getCurrentRequest,
 	type PluginDefinition,
+	type PluginSourceState,
 	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -61,7 +62,7 @@ const executeAnonymous = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
 >(
-	ultimabase: UltimaBase<TSchemas, TPlugins>,
+	ultimabase: UltimaBase<TSchemas, TPlugins, PluginSourceState>,
 	graphql: GraphqlApplication,
 	source: string,
 	requestId: string,
@@ -137,25 +138,24 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 			user: User,
 			password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			passwordPlugin,
+			accessPlugin({ default: true }),
+			profilePolicy,
+			graphqlPlugin({
+				acknowledgeUnverifiedProtection: true,
+				operations: passwordAuthOperationList,
+			}),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'graphql-sign-up', value: 'server-secret' }],
 				onUse: () => undefined,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({
-					pool: getFixture().pool,
-					schemaPolicy: 'override',
-				}),
-				passwordPlugin,
-				accessPlugin({ default: true }),
-				profilePolicy,
-				graphqlPlugin({
-					acknowledgeUnverifiedProtection: true,
-					operations: passwordAuthOperationList,
-				}),
-			],
 			schemas: [User, GraphqlAuthRecord],
 		})
 		await ultimabase.start()

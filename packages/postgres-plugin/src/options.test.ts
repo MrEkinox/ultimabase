@@ -58,10 +58,9 @@ describe('direct PostgreSQL options', () => {
 			fields: () => ({}),
 			postgres: { table: name },
 		})
-		const application = new UltimaBase({
-			plugins: [postgresPlugin({ pool: new FixturePool() })],
-			schemas: [schema],
-		})
+		const application = new (UltimaBase.use(
+			postgresPlugin({ pool: new FixturePool() }),
+		))({ schemas: [schema] })
 		await application.initialize()
 		const table = pgTable(resolvePostgresTableName(schema), { id: text('id') })
 		const query = drizzle.mock().select({ id: table.id }).from(table).toSQL()
@@ -87,10 +86,9 @@ describe('direct PostgreSQL options', () => {
 				}),
 			}),
 		})
-		const application = new UltimaBase({
-			plugins: [postgresPlugin({ pool: new FixturePool() })],
-			schemas: [schema],
-		})
+		const application = new (UltimaBase.use(
+			postgresPlugin({ pool: new FixturePool() }),
+		))({ schemas: [schema] })
 		await application.initialize()
 		const title = schema.fields.title
 
@@ -127,9 +125,8 @@ describe('direct PostgreSQL options', () => {
 			} as never)
 
 			await expect(
-				new UltimaBase({
+				new (UltimaBase.use(postgresPlugin({ pool: new FixturePool() })))({
 					pluginPrivileges: { logger: false },
-					plugins: [postgresPlugin({ pool: new FixturePool() })],
 					schemas: [schema],
 				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>
@@ -165,9 +162,8 @@ describe('direct PostgreSQL options', () => {
 			})
 
 			await expect(
-				new UltimaBase({
+				new (UltimaBase.use(postgresPlugin({ pool: new FixturePool() })))({
 					pluginPrivileges: { logger: false },
-					plugins: [postgresPlugin({ pool: new FixturePool() })],
 					schemas: [schema],
 				}).initialize(),
 			).rejects.toSatisfy((error: unknown) =>
@@ -184,7 +180,7 @@ describe('direct PostgreSQL options', () => {
 		})
 
 		await expect(
-			new UltimaBase({ plugins: [], schemas: [schema] }).initialize(),
+			new UltimaBase({ schemas: [schema] }).initialize(),
 		).rejects.toThrow('Unknown schema option: postgres')
 	})
 })

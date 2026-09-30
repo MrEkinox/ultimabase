@@ -113,9 +113,8 @@ describe('canonical mutation request identity', () => {
 			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(database, owner))({
 				schemas: [Post, Other],
-				plugins: [database, owner],
 				pluginPrivileges: { logger: false },
 			}),
 		)

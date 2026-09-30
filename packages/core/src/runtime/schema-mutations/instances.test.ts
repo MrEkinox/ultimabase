@@ -126,9 +126,12 @@ describe('schema mutation instance ownership', () => {
 			version: '1.0.0',
 			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			database,
+			first.plugin,
+			second.plugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, first.plugin, second.plugin],
 			schemas: [Post],
 		})
 		await ultimabase.start()

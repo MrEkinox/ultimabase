@@ -12,36 +12,33 @@ it('retains original and cleanup failures and never releases unproven resources'
 	const startupError = new Error('connect failed')
 	const cleanupError = new Error('resource could not close')
 	let disposals = 0
-	const app = new UltimaBase({
-		schemas: [],
-		plugins: [
-			createPlugin({
-				id: 'fixture.failed-cleanup',
-				version: '0.0.0',
-				core: '^0.0.0',
-				contributions: [
-					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-					contributeApplication((context) => {
-						const exports = undefined
-						const lifecycleContext = { ...context, pluginExports: exports }
-						void lifecycleContext
-						return {
-							exports,
-							connect: () =>
-								(() => {
-									throw startupError
-								})(),
-							dispose: () =>
-								(() => {
-									disposals += 1
-									throw cleanupError
-								})(),
-						}
-					}),
-				],
-			}),
-		],
-	})
+	const app = new (UltimaBase.use(
+		createPlugin({
+			id: 'fixture.failed-cleanup',
+			version: '0.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+				contributeApplication((context) => {
+					const exports = undefined
+					const lifecycleContext = { ...context, pluginExports: exports }
+					void lifecycleContext
+					return {
+						exports,
+						connect: () =>
+							(() => {
+								throw startupError
+							})(),
+						dispose: () =>
+							(() => {
+								disposals += 1
+								throw cleanupError
+							})(),
+					}
+				}),
+			],
+		}),
+	))({ schemas: [] })
 	await expect(app.start()).rejects.toMatchObject({
 		errors: [startupError, cleanupError],
 	})

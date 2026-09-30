@@ -214,9 +214,8 @@ export const createUpdateFixture = async (options: {
 		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const ultimabase = applicationFixture(
-		new UltimaBase({
+		new (UltimaBase.use(database, workflow))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, workflow],
 			schemas: [Post],
 		}),
 	)
@@ -290,13 +289,12 @@ export const createMasterDeleteFixture = async (
 	})
 	const audit = vi.fn()
 	const ultimabase = applicationFixture(
-		new UltimaBase({
+		new (UltimaBase.use(database, owner))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'schema-mutation-master', value: 'unused-terminal-key' }],
 				onUse: audit,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [database, owner],
 			schemas: [Post],
 		}),
 	)

@@ -40,7 +40,7 @@ describe('Password User static authentication boundary', () => {
 		await expect(PasswordUser.signUp(credentials)).rejects.toMatchObject({
 			code: 'MISSING_EXECUTION_CONTEXT',
 		})
-		await using ultimabase = new UltimaBase({ schemas: [], plugins: [] })
+		await using ultimabase = new UltimaBase({ schemas: [] })
 		{
 			await expect(
 				PasswordUser.login(credentials, { ultimabase }),

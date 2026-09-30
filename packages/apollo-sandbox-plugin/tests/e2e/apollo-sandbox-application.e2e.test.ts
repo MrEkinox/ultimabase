@@ -14,18 +14,17 @@ import { describe, expect, it } from 'vitest'
 describe('packed Apollo Sandbox plugin', () => {
 	it('enables production only through an explicit override', async () => {
 		const enabledConsumer = httpConsumer()
-		const enabled = new UltimaBase({
+		const enabled = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'production-enabled' }),
+			graphqlHttpProvider(),
+			apolloSandboxPlugin({
+				allowInProduction: true,
+				environment: 'production',
+			}),
+			enabledConsumer,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'production-enabled' }),
-				graphqlHttpProvider(),
-				apolloSandboxPlugin({
-					allowInProduction: true,
-					environment: 'production',
-				}),
-				enabledConsumer,
-			],
 			schemas: [],
 		})
 		await enabled.start()

@@ -143,9 +143,8 @@ App.Schema.define({
 			fields: (field) => ({ title: field.string() }),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new UltimaBase({
+			ultimabase: new (UltimaBase.use(restPlugin()))({
 				pluginPrivileges: { logger: false },
-				plugins: [restPlugin()],
 				schemas: [Post],
 			}),
 			applicationId: 'fixture.rest-options',

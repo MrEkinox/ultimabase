@@ -156,12 +156,11 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				}),
 			],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			privatePlugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				privatePlugin,
-			],
 			schemas: [Account],
 		})
 		await ultimabase.start()
@@ -263,12 +262,11 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			return result.rows.map(({ table_name: tableName }) => tableName)
 		}
 		const before = await readPrivateTables()
-		const v1 = new UltimaBase({
+		const v1 = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			declareOnly(v1Collection, '1.0.0'),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				declareOnly(v1Collection, '1.0.0'),
-			],
 			schemas: [],
 		})
 		await v1.start()
@@ -278,12 +276,11 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 		if (tableName === undefined)
 			throw new TypeError('Private upgrade table was not created')
 
-		const v2 = new UltimaBase({
+		const v2 = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			declareOnly(v2Collection, '2.0.0'),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				declareOnly(v2Collection, '2.0.0'),
-			],
 			schemas: [],
 		})
 		await v2.start()
@@ -302,13 +299,9 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			columns.rows.map(({ column_name: columnName }) => columnName),
 		).toStrictEqual(['note', 'secret'])
 
-		const noConsumer = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-			],
-			schemas: [],
-		})
+		const noConsumer = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		await noConsumer.start()
 		await noConsumer.dispose()
 		expect(await readPrivateTables()).toContain(tableName)

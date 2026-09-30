@@ -21,10 +21,7 @@ describe('relation where Typegen declarations', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				plugins: [],
-				schemas: [Source, Target],
-			}),
+			ultimabase: new UltimaBase({ schemas: [Source, Target] }),
 			applicationId: 'fixture.relation-where',
 		})
 

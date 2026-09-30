@@ -24,16 +24,16 @@ const Disabled = Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 const audits = []
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'javascript-soft-delete', value: 'javascript-master-key' }],
 		onUse: (event) => audits.push(event.reason),
 	}),
 	pluginPrivileges: { logger: false },
-	plugins: [
-		softDeletePlugin({ defaultMode: 'disabled' }),
-		postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-	],
 	schemas: [Explicit, Replace, Disabled],
 })
 

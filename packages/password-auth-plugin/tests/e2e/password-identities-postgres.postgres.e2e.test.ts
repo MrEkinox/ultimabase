@@ -100,13 +100,12 @@ const upgradedPolicy = resolvePasswordHashPolicy({
 
 describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 	it('stores only canonical public usernames and enforces uniqueness', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			passwordAuthPlugin(),
+			restPlugin({ default: true }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				passwordAuthPlugin(),
-				restPlugin({ default: true }),
-			],
 			schemas: [],
 		})
 		await ultimabase.start()
@@ -141,12 +140,11 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			className: 'User',
 			fields: (field) => ({ displayName: field.string({ required: true }) }),
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: isolated.pool, schemaPolicy: 'override' }),
+			passwordAuthPlugin({ user: User }),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: isolated.pool, schemaPolicy: 'override' }),
-				passwordAuthPlugin({ user: User }),
-			],
 			schemas: [User],
 		})
 		try {
@@ -275,15 +273,11 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				}),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-				passwordAuthPlugin(),
-				fixturePlugin,
-			],
-			schemas: [],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+			passwordAuthPlugin(),
+			fixturePlugin,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		await ultimabase.start()
 
 		try {

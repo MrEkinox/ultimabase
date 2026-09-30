@@ -10,7 +10,6 @@ import { UltimaBase } from '@ultimabase/core'
 const application = await new UltimaBase({
 	pluginPrivileges: { logger: false },
 	schemas: [],
-	plugins: [],
 }).initialize()
 if (isMainThread) {
 	const workers = [
@@ -23,7 +22,6 @@ if (isMainThread) {
 				new UltimaBase({
 					pluginPrivileges: { logger: false },
 					schemas: [],
-					plugins: [],
 				}).initialize(),
 			),
 			/Another UltimaBase application is active/,
@@ -40,7 +38,6 @@ if (isMainThread) {
 		const replacement = new UltimaBase({
 			pluginPrivileges: { logger: false },
 			schemas: [],
-			plugins: [],
 		})
 		await replacement.initialize()
 		await application.dispose()

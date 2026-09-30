@@ -10,7 +10,7 @@ order: 1
 outcome: Explain how one UltimaBase application is composed, started, used, and isolated.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-09-30
 sources:
   - ARCHITECTURE.md
   - packages/core/README.md
@@ -25,6 +25,7 @@ sources:
   - docs/adr/0258-single-active-application-lifecycle.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0282-variadic-configured-plugin-installation.md
 ---
 
 An application is one `UltimaBase` instance. It owns a set of schemas and
@@ -64,8 +65,11 @@ first, then construct the application with its instance options.
 
 ## Configure the application
 
-`UltimaBase.use(plugin).use(plugin)` returns a new immutable application factory
-at each step. `new Application({ schemas, ...options })` then snapshots the
+`UltimaBase.use(pluginA, pluginB)` returns a new immutable application factory
+with one flat ordered plugin list. You can also spread a dynamic list or chain
+`.use()` calls; every call leaves its parent unchanged. The constructor accepts
+instance options only, never a `plugins` option.
+`new Application({ schemas, ...options })` then snapshots the
 configuration without connecting to infrastructure. Its instance options are:
 
 | Option             | Required | Purpose                                                                                     |

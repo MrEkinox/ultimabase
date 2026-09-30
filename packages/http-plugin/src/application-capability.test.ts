@@ -35,51 +35,47 @@ describe('HTTP application capability compatibility', () => {
 				'^1.0.0',
 				{ phase: 'setup' },
 			)
-			const application = new UltimaBase({
-				schemas: [],
-				pluginPrivileges: { logger: false },
-				plugins: [
-					plugin({
-						id: 'fixture.http-provider',
-						version: '1.0.0',
-						core: '^0.0.0',
-						contributions: [
-							provideCapability(httpApplicationCapability, {
-								contributionId: 'http',
-								create: () => ({
-									value: {
-										appId: 'valid',
-										authority: { master: { enabled: false } },
-										protocolVersion: httpApplicationProtocolVersion,
-										originalHeaderMode: httpOriginalHeaderMode,
-										requestTimeoutMs: undefined,
-										routeGraph: {
-											browserBootstraps: [],
-											endpoints: [],
-											mounts: [],
-											routes: [],
-										},
-										fetch: () => Promise.resolve(new Response()),
-										...patch,
-									} as never,
-								}),
+			const application = new (UltimaBase.use(
+				plugin({
+					id: 'fixture.http-provider',
+					version: '1.0.0',
+					core: '^0.0.0',
+					contributions: [
+						provideCapability(httpApplicationCapability, {
+							contributionId: 'http',
+							create: () => ({
+								value: {
+									appId: 'valid',
+									authority: { master: { enabled: false } },
+									protocolVersion: httpApplicationProtocolVersion,
+									originalHeaderMode: httpOriginalHeaderMode,
+									requestTimeoutMs: undefined,
+									routeGraph: {
+										browserBootstraps: [],
+										endpoints: [],
+										mounts: [],
+										routes: [],
+									},
+									fetch: () => Promise.resolve(new Response()),
+									...patch,
+								} as never,
 							}),
-						],
-					}),
-					plugin({
-						id: 'fixture.server',
-						version: '1.0.0',
-						core: '^0.0.0',
-						contributions: [
-							requirement,
-							contributeApplication((context) => {
-								seen(context)
-								return { exports: undefined }
-							}),
-						],
-					}),
-				],
-			})
+						}),
+					],
+				}),
+				plugin({
+					id: 'fixture.server',
+					version: '1.0.0',
+					core: '^0.0.0',
+					contributions: [
+						requirement,
+						contributeApplication((context) => {
+							seen(context)
+							return { exports: undefined }
+						}),
+					],
+				}),
+			))({ schemas: [], pluginPrivileges: { logger: false } })
 			try {
 				await expect(application.initialize()).rejects.toThrow(message)
 				expect(seen).not.toHaveBeenCalled()

@@ -139,12 +139,11 @@ const createFixture = async (options: FixtureOptions = {}) => {
 		contributions: [provideTestDatabaseAdapter(adapter)],
 	})
 	const ultimabase = applicationFixture(
-		new UltimaBase({
+		new (UltimaBase.use(database, plugin))({
 			...(options.masterAuthority === undefined
 				? {}
 				: { masterAuthority: options.masterAuthority }),
 			pluginPrivileges: { logger: false },
-			plugins: [database, plugin],
 			schemas: [Post],
 		}),
 	)
@@ -312,9 +311,8 @@ describe('plugin operation Runtime', () => {
 			],
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(database, operation))({
 				pluginPrivileges: { logger: false },
-				plugins: [database, operation],
 				schemas: [],
 			}),
 		)

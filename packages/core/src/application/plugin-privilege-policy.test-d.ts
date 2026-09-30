@@ -52,7 +52,11 @@ test('infers exact plugin and instance policy targets on both application facade
 	} as const
 
 	const application = new FrameworkApplication(options)
-	const ultimabase = new UltimaBase(options)
+	const ConfiguredApplication = UltimaBase.use(primary, secondary)
+	const ultimabase = new ConfiguredApplication({
+		schemas: options.schemas,
+		pluginPrivileges: options.pluginPrivileges,
+	})
 
 	expectTypeOf(
 		application.pluginPrivilegeReport,

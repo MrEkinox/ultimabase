@@ -18,7 +18,6 @@ const ultimaBaseOptionKeys = new Set([
 	'access',
 	'masterAuthority',
 	'pluginPrivileges',
-	'plugins',
 	'schemas',
 	'validation',
 ])
@@ -42,20 +41,12 @@ export interface UltimaBaseInstanceOptions<
 	readonly validation?: NonNullable<CreateFrameworkEngineOptions['validation']>
 }
 
-/** Retains the constructor plugin form only for the bounded migration window. */
-export type UltimaBaseOptions<
+/** Prevents explicit generic arguments from inventing plugins on the root. */
+export type RootUltimaBaseOptions<
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
 > = UltimaBaseInstanceOptions<TSchemas, TPlugins> &
-	([TPlugins] extends [readonly []]
-		? {
-				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
-				readonly plugins?: TPlugins
-			}
-		: {
-				/** @deprecated Install plugins once through `UltimaBase.use(plugin)`. */
-				readonly plugins: TPlugins
-			})
+	([TPlugins] extends [readonly []] ? unknown : never)
 
 /** Immutable callback-free application facts available without starting resources. */
 export interface CompiledApplication<
@@ -72,7 +63,7 @@ export interface CompiledApplication<
 /** Validates the closed application constructor shape before any plugin work. */
 export const assertUltimaBaseOptions: (
 	options: unknown,
-) => asserts options is UltimaBaseOptions<
+) => asserts options is UltimaBaseInstanceOptions<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 > = (options) => {
@@ -86,20 +77,12 @@ export const assertUltimaBaseOptions: (
 	}
 }
 
-/** Reads only the deprecated constructor input without widening Runtime options. */
-export const readConstructorPlugins = (
-	options: unknown,
-): readonly PluginDefinition[] | undefined => {
-	if (!isPlainRecord(options)) return undefined
-	return options.plugins as readonly PluginDefinition[] | undefined
-}
-
 /** Snapshots engine configuration independently from the plugin graph. */
 export const readEngineOptions = <
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
 >(
-	options: UltimaBaseOptions<TSchemas, TPlugins>,
+	options: UltimaBaseInstanceOptions<TSchemas, TPlugins>,
 ): Readonly<CreateFrameworkEngineOptions> =>
 	normalizeCreateFrameworkEngineOptions({
 		...(options.masterAuthority === undefined

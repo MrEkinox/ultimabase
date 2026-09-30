@@ -209,7 +209,13 @@ describe('HTTP Runtime propagation', () => {
 				}),
 			],
 		})
-		const created = new UltimaBase({
+		const created = new (UltimaBase.use(
+			database,
+			hooks,
+			routeOwner,
+			httpPlugin({ appId: 'runtime-app', master: { enabled: true } }),
+			server,
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'runtime', value: rawSecret }],
 				onUse: (event) => {
@@ -226,13 +232,6 @@ describe('HTTP Runtime propagation', () => {
 					},
 				},
 			},
-			plugins: [
-				database,
-				hooks,
-				routeOwner,
-				httpPlugin({ appId: 'runtime-app', master: { enabled: true } }),
-				server,
-			],
 			schemas: [RuntimeProbe],
 		})
 		runtimeState.current = created

@@ -39,7 +39,12 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 	it('executes immutable model commands and returns complete mutation models', async () => {
 		const auditReasons: string[] = []
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'model-command-master', value: 'unused-by-terminal' }],
 				onUse: ({ reason }) => {
@@ -47,12 +52,6 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			}),
 			schemas: [BulkAccountSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
 			validation: {
 				clock: () => new Date(createInstant),
 				timezone: 'UTC',
@@ -180,15 +179,12 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('keeps model commands bound after selecting ordered records', async () => {
-		const ultimabase = new UltimaBase({
-			schemas: [AfterReadIdentitySchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({ schemas: [AfterReadIdentitySchema] })
 		await ultimabase.start()
 
 		try {
@@ -240,7 +236,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	it('executes plugin-derived and audited-master terminals against PostgreSQL', async () => {
 		authorityObservations.length = 0
 		const auditReasons: string[] = []
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			hooksPlugin(),
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'postgres-server', value: 'unused-by-terminal' }],
 				onUse: ({ reason }) => {
@@ -248,13 +250,6 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			}),
 			schemas: [AuthorityRecordSchema],
-			plugins: [
-				hooksPlugin(),
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
 			validation: {
 				clock: () => new Date(createInstant),
 				timezone: 'UTC',
@@ -295,15 +290,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('keeps HookContext nested writes in the primary PostgreSQL transaction', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			hooksPlugin(),
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({
 			schemas: [HookPostSchema, HookAuditSchema],
-			plugins: [
-				hooksPlugin(),
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
 			validation: {
 				clock: () => new Date(createInstant),
 				timezone: 'UTC',
@@ -365,16 +359,12 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			return new Date(instant)
 		}
-		const ultimabase = new UltimaBase({
-			schemas: [PostSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
-			validation: { clock, timezone: 'UTC' },
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({ schemas: [PostSchema], validation: { clock, timezone: 'UTC' } })
 		await ultimabase.start()
 		const connection = ultimabase.plugin(postgresPluginName).connection
 
@@ -514,14 +504,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 	it('commits and rolls back explicit Runtime transactions on one PostgreSQL client', async () => {
 		const instants = [createInstant, updateInstant]
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({
 			schemas: [PostSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
 			validation: {
 				clock: () => {
 					const instant = instants.shift()
@@ -592,15 +581,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('keeps prepared update and delete targets stable across concurrent transactions', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+			databaseAdapterConsumerPlugin,
+		))({
 			schemas: [PostSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-				databaseAdapterConsumerPlugin,
-			],
 			validation: { clock: () => new Date(createInstant), timezone: 'UTC' },
 		})
 		await ultimabase.start()

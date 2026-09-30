@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 63
 - Packages: repository examples, initializer, READMEs, public website, engineering documentation
-- Depends on: 6314
+- Depends on: 6313
 - ADR: ADR-0279
 - Execution contract: [milestone 63 DX and audit contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md)
 

@@ -445,9 +445,8 @@ const createFixture = async () => {
 		],
 	})
 	const ultimabase = applicationFixture(
-		new UltimaBase({
+		new (UltimaBase.use(database, plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, plugin],
 			schemas: [PublicRecord],
 		}),
 	)
@@ -621,9 +620,8 @@ describe('owner-private plugin storage', () => {
 		})
 		expect(() =>
 			applicationFixture(
-				new UltimaBase({
+				new (UltimaBase.use(database, plugin))({
 					pluginPrivileges: { deny: ['storage:private'], logger: false },
-					plugins: [database, plugin],
 					schemas: [],
 				}),
 			),
@@ -647,9 +645,8 @@ describe('owner-private plugin storage', () => {
 			],
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(database))({
 				pluginPrivileges: { logger: false },
-				plugins: [database],
 				schemas: [],
 			}),
 		)

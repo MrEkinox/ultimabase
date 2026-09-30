@@ -52,8 +52,7 @@ describe('pgVectorPlugin field plans', () => {
 			className: 'Document',
 			fields: () => ({ embedding: field }),
 		})
-		const application = new UltimaBase({
-			plugins: [pgVectorPlugin()],
+		const application = new (UltimaBase.use(pgVectorPlugin()))({
 			schemas: [schema],
 		})
 		await application.initialize()

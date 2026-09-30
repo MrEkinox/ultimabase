@@ -240,7 +240,16 @@ const createFixture = async (
 	const audits: unknown[] = []
 	const decode = vi.fn((value: unknown) => archiveInput.snapshot(value, 'wire'))
 	const adapter = new GraphqlSchemaMutationAdapter(trace)
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin(adapter),
+		createMutationPlugin(trace, decode, options),
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			...(options.mutations === undefined
+				? {}
+				: { default: { mutations: options.mutations } }),
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'graphql-schema-mutation', value: 'master-secret' }],
 			onUse: (event) => {
@@ -248,16 +257,6 @@ const createFixture = async (
 			},
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin(adapter),
-			createMutationPlugin(trace, decode, options),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				...(options.mutations === undefined
-					? {}
-					: { default: { mutations: options.mutations } }),
-			}),
-		],
 		schemas: [WorkflowDocument],
 	})
 	onTestFinished(() => application.dispose())

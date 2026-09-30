@@ -9,6 +9,7 @@ import {
 	runWithRequestEngine,
 	type BaseItem,
 	type OperationOptions,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -203,7 +204,8 @@ let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [...typeof pointerSchemas],
-			readonly [ReturnType<typeof postgresPlugin>]
+			readonly [ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -217,19 +219,18 @@ const getUltimaBase = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'pointer-postgres-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas: pointerSchemas,
 		validation: {
 			clock: () => new Date('2026-08-03T18:00:00.000Z'),
@@ -677,10 +678,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	it('uses one closed application-local target graph in the worker namespace', async () => {
 		const app = getUltimaBase()
 		const graph = app.compile().schemas.schemaTargets
-		const independentApp = new UltimaBase({
-			plugins: [hooksPlugin(), accessPlugin({ default: true })],
-			schemas: pointerSchemas,
-		})
+		const independentApp = new (UltimaBase.use(
+			hooksPlugin(),
+			accessPlugin({ default: true }),
+		))({ schemas: pointerSchemas })
 
 		try {
 			const independentGraph = independentApp.compile().schemas.schemaTargets

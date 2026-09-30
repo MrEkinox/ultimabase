@@ -1,6 +1,11 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { MasterAuthority, Pointer, UltimaBase } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	Pointer,
+	UltimaBase,
+	type PluginSourceState,
+} from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
@@ -102,7 +107,8 @@ let ultimabase:
 				ReturnType<typeof hooksPlugin>,
 				ReturnType<typeof accessPlugin>,
 				ReturnType<typeof postgresPlugin>,
-			]
+			],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -123,19 +129,18 @@ const readIncludedId = (value: object): string => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'nested-update-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas,
 		validation: { timezone: 'UTC' },
 	})

@@ -28,8 +28,7 @@ import {
 describe('aclPlugin prepared input resolution', () => {
 	beforeAll(async () => {
 		// A standalone suite must compile the ACL-owned field before row-aware updates.
-		const application = await new UltimaBase({
-			plugins: [aclPlugin()],
+		const application = await new (UltimaBase.use(aclPlugin()))({
 			schemas: [ProtectedPost],
 		}).initialize()
 		await application.dispose()
@@ -171,12 +170,11 @@ describe('aclPlugin prepared input resolution', () => {
 			id: 'fixture.acl-replacement-write-database',
 			contributions: [databaseAdapterProvider(adapter)],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(aclPlugin(), databaseProvider))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'acl-replacement-master', value: 'unused-by-terminal' }],
 				onUse: () => undefined,
 			}),
-			plugins: [aclPlugin(), databaseProvider],
 			schemas: [ProtectedPost],
 		})
 		const replacement = new ACL().grantPublic('read')

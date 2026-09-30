@@ -167,15 +167,12 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 				}),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			plugins: [
-				postgresPlugin({ pool: worker.pool, schemaPolicy: 'override' }),
-				logicalPlugin,
-				physicalBridge,
-				rawPlugin,
-			],
-			schemas: [BridgeItem],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool: worker.pool, schemaPolicy: 'override' }),
+			logicalPlugin,
+			physicalBridge,
+			rawPlugin,
+		))({ schemas: [BridgeItem] })
 
 		await ultimabase.start()
 		try {

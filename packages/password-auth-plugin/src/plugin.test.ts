@@ -15,9 +15,8 @@ describe('passwordAuthPlugin identity declaration', () => {
 
 	it('contributes the default User and private credential fingerprint', () => {
 		const plugin = passwordAuthPlugin()
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [],
 		}).compile()
 
@@ -56,11 +55,9 @@ describe('passwordAuthPlugin identity declaration', () => {
 			fields: (field) => ({ displayName: field.string({ required: true }) }),
 			indexes: [{ fields: ['displayName', 'username'] }],
 		})
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [passwordAuthPlugin({ user: AppUser })],
-			schemas: [AppUser],
-		}).compile()
+		const application = new (UltimaBase.use(
+			passwordAuthPlugin({ user: AppUser }),
+		))({ pluginPrivileges: { logger: false }, schemas: [AppUser] }).compile()
 
 		expect(application.schemas.get('User')).toBe(AppUser)
 		expect(AppUser.fields).toHaveProperty('displayName')
@@ -81,11 +78,9 @@ describe('passwordAuthPlugin identity declaration', () => {
 			className: 'User',
 			fields: (field) => ({ displayName: field.string() }),
 		})
-		const application = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [passwordAuthPlugin({ user: AppUser })],
-			schemas: [],
-		})
+		const application = new (UltimaBase.use(
+			passwordAuthPlugin({ user: AppUser }),
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 
 		expect(() => application.compile()).toThrow(
 			'Claimed schema must be registered in application schemas: User',
@@ -124,15 +119,14 @@ describe('passwordAuthPlugin identity declaration', () => {
 
 	it('keeps credentials absent from Typegen and from zero-consumer apps', () => {
 		const withAuth = generateApplicationTypes({
-			ultimabase: new UltimaBase({
+			ultimabase: new (UltimaBase.use(passwordAuthPlugin()))({
 				pluginPrivileges: { logger: false },
-				plugins: [passwordAuthPlugin()],
 				schemas: [],
 			}),
 			applicationId: 'password-auth',
 		})
 		const withoutAuth = generateApplicationTypes({
-			ultimabase: new UltimaBase({ plugins: [], schemas: [] }),
+			ultimabase: new UltimaBase({ schemas: [] }),
 			applicationId: 'without-password-auth',
 		})
 
@@ -165,9 +159,8 @@ describe('passwordAuthPlugin identity declaration', () => {
 		)
 		expect(
 			() =>
-				new UltimaBase({
+				new (UltimaBase.use(passwordAuthPlugin(), passwordAuthPlugin()))({
 					pluginPrivileges: { logger: false },
-					plugins: [passwordAuthPlugin(), passwordAuthPlugin()],
 					schemas: [],
 				}),
 		).toThrow()
@@ -183,9 +176,8 @@ describe('passwordAuthPlugin identity declaration', () => {
 		])
 		expect(
 			() =>
-				new UltimaBase({
+				new (UltimaBase.use(cookiePlugin))({
 					pluginPrivileges: { logger: false },
-					plugins: [cookiePlugin],
 					schemas: [],
 				}),
 		).toThrow()

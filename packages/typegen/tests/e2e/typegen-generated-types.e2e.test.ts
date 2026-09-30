@@ -66,19 +66,19 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 			'../../../../examples/todo-backend/.ultimabase',
 			'schema.generated.d.ts',
 		)
-		const application = new UltimaBase({
-			plugins: [
-				accessPlugin(),
-				hooksPlugin(),
-				validationPlugin(),
-				rolesPlugin(),
-				aclPlugin(),
-				typegenPlugin({ applicationId: 'todo-backend', outputPath }),
+		const Application = UltimaBase.use(accessPlugin())
+			.use(hooksPlugin())
+			.use(validationPlugin())
+			.use(rolesPlugin())
+			.use(aclPlugin())
+			.use(typegenPlugin({ applicationId: 'todo-backend', outputPath }))
+			.use(
 				postgresPlugin({
 					schemaPolicy: 'override',
 					url: 'postgres://typegen.invalid/ultimabase',
 				}),
-			],
+			)
+		const application = new Application({
 			schemas: [TodoUser, TodoRole, Todo],
 		})
 

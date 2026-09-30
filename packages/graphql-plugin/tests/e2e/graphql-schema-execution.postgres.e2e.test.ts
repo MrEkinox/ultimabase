@@ -163,16 +163,12 @@ const recordAt = (
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'graphql_execution' })
-	const foreignApplication = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({
-				schemaPolicy: 'ignore',
-				url: fixture.connectionUri,
-			}),
-		],
-		schemas: [],
-	})
+	const foreignApplication = new (UltimaBase.use(
+		postgresPlugin({
+			schemaPolicy: 'ignore',
+			url: fixture.connectionUri,
+		}),
+	))({ pluginPrivileges: { logger: false }, schemas: [] })
 	await foreignApplication.start()
 	foreign = foreignApplication.anonymous({
 		requestId: 'graphql-execution-forged',

@@ -18,13 +18,12 @@ const verifyProviderPresence = async (
 	provider: FrameworkPlugin,
 ): Promise<void> => {
 	const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		officialConformanceDatabasePlugin(new OfficialConformanceDatabase()),
+		provider,
+		createPublicTransportDiagnosticPlugin(),
+	))({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			officialConformanceDatabasePlugin(new OfficialConformanceDatabase()),
-			provider,
-			createPublicTransportDiagnosticPlugin(),
-		],
 		schemas: [],
 	})
 

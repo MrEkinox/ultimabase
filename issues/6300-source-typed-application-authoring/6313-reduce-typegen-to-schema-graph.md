@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 63
 - Packages: `@ultimabase/typegen`, `@ultimabase/core`, repository tooling and consumers
-- Depends on: 6312
+- Depends on: 6314
 - ADR: ADR-0279, ADR-0281
 - Execution contract: [milestone 63 DX and audit contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md)
 
@@ -14,6 +14,28 @@ retaining one capability-complete generated graph for literal cross-schema name
 resolution and every schema `WhereInput` under ADR-0281. Do not assume that
 another generated schema contract is removable until evidence identifies its
 source-owned replacement.
+
+## Baseline
+
+- Initial inventory revision: `b48effa0`. The user approved executing 6314
+  first; record a fresh implementation baseline after 6314 completes. No push
+  is authorized.
+- Inventory and classification are in progress before deletion. In particular,
+  generated schema surfaces still have Access/Hooks and Core consumers; their
+  removal cannot be inferred merely from source-typed plugin commands.
+- Architecture stop (2026-09-30): generated builder methods and direct plugin
+  options still type the public standalone `Schema.define()` entry point, while
+  issue 6314 removes that entry point.
+  `FieldBuilder` defaults to `UltimaBaseGeneratedFieldBuilderMethods`; source
+  projections are only available through configured `App.Schema.define()`.
+  Generated operations and schema surfaces likewise still type public
+  application handles in `application-handles.ts`. Removing these projections
+  in 6313 would silently degrade a still-valid path before 6314 removes it.
+  A bounded field-method deletion passed Core/Typegen unit tests and root
+  typecheck, but those checks did not protect standalone plugin completion;
+  the experiment was fully reverted, with no production change or commit.
+  The user approved executing 6314 before this issue; resume the deletion only
+  after 6314's committed-diff audit and validation pass.
 
 ## Acceptance criteria
 

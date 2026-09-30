@@ -15,10 +15,7 @@ const /* hover:schema-target */ exactTarget: SchemaTarget<
 		typeof TargetUserSchema
 	> = () => TargetUserSchema
 
-const application = new UltimaBase({
-	schemas: [TargetUserSchema],
-	plugins: [],
-})
+const application = new UltimaBase({ schemas: [TargetUserSchema] })
 const graph: /* hover:target-graph */ SchemaTargetGraph =
 	application.compile().schemas.schemaTargets
 const /* hover:resolved-target */ resolved = graph.get(TargetUserSchema, [

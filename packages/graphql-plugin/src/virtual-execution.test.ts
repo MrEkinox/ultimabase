@@ -125,14 +125,10 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 
 const createFixture = async () => {
 	const adapter = new VirtualDatabase()
-	const application = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin(adapter),
-			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-		],
-		schemas: [VirtualRecord],
-	})
+	const application = new (UltimaBase.use(
+		databasePlugin(adapter),
+		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+	))({ pluginPrivileges: { logger: false }, schemas: [VirtualRecord] })
 	onTestFinished(() => application.dispose())
 	await application.start()
 	return {

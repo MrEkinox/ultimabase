@@ -25,10 +25,7 @@ const Document = Schema.define({
 		title: field.string(),
 	}),
 })
-const application = new UltimaBase({
-	plugins: [],
-	schemas: [Document],
-})
+const application = new UltimaBase({ schemas: [Document] })
 
 test('exposes precise generation, loading, and atomic writer contracts', () => {
 	const generated = generateApplicationTypes({
@@ -68,8 +65,7 @@ test('exposes automatic startup generation as a typed application plugin', () =>
 		applicationId: 'fixture.public-types',
 		outputPath: './generated.d.ts',
 	})
-	const generatedApplication = new UltimaBase({
-		plugins: [plugin],
+	const generatedApplication = new (UltimaBase.use(plugin))({
 		schemas: [Document],
 	})
 

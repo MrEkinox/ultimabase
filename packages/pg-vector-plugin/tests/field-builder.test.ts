@@ -34,8 +34,7 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		expect(declarations).toBe(1)
-		const application = await new UltimaBase({
-			plugins: [pgVectorPlugin()],
+		const application = await new (UltimaBase.use(pgVectorPlugin()))({
 			schemas: [Document],
 		}).initialize()
 		onTestFinished(() => application.dispose())
@@ -81,7 +80,7 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		await expect(
-			new UltimaBase({ plugins: [], schemas: [Missing] }).initialize(),
+			new UltimaBase({ schemas: [Missing] }).initialize(),
 		).rejects.toMatchObject({
 			code: 'PLUGIN_DECLARATION_INVALID',
 			cause: {
@@ -103,8 +102,7 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		await expect(
-			new UltimaBase({
-				plugins: [pgVectorPlugin()],
+			new (UltimaBase.use(pgVectorPlugin()))({
 				schemas: [Invalid],
 			}).initialize(),
 		).rejects.toMatchObject({
@@ -124,10 +122,7 @@ describe('pg-vector FieldBuilder method', () => {
 				title: field.string(),
 			}),
 		})
-		const application = await new UltimaBase({
-			plugins: [],
-			schemas: [Empty],
-		}).initialize()
+		const application = await new UltimaBase({ schemas: [Empty] }).initialize()
 		onTestFinished(() => application.dispose())
 
 		expect(application.compile().fieldBuilderMethods).toStrictEqual([])

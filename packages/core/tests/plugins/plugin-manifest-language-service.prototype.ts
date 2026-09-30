@@ -10,6 +10,7 @@ import {
 	type CapabilityToken,
 	type PluginEnvironmentClaim,
 	type PluginDeclarationContext,
+	type PluginDefinition,
 	type PluginIdentity,
 	type PluginManifest,
 	type PluginPrivilege,
@@ -68,9 +69,9 @@ const policyPlugin = createPlugin({
 	contributions: [],
 })
 
-const policyApplication = new UltimaBase({
+const PolicyApplication = UltimaBase.use(policyPlugin)
+const policyApplication = new PolicyApplication({
 	schemas: [],
-	plugins: [policyPlugin],
 	pluginPrivileges: {
 		deny: [/* completion:policy-privilege */ 'runtime:observe'],
 		denyClaims: [/* completion:policy-claim */ 'environment:network'],
@@ -79,9 +80,8 @@ const policyApplication = new UltimaBase({
 	},
 })
 
-const policyInstanceApplication = new UltimaBase({
+const policyInstanceApplication = new PolicyApplication({
 	schemas: [],
-	plugins: [policyPlugin],
 	pluginPrivileges: {
 		plugins: {
 			'fixture.policy-language-service': {
@@ -105,6 +105,32 @@ const plugin = createPlugin({
 		),
 	],
 })
+
+const analyticsPlugin = createPlugin({
+	id: 'fixture.policy-language-service',
+	instanceId: 'analytics',
+	version: '1.0.0',
+	core: '^0.0.0',
+	contributions: [],
+})
+const ExactApplication = UltimaBase.use(policyPlugin, analyticsPlugin)
+const exactApplication: UltimaBase<
+	readonly [],
+	readonly [typeof policyPlugin, typeof analyticsPlugin]
+> = new ExactApplication({ schemas: [], pluginPrivileges: { logger: false } })
+const dynamicPlugins: readonly PluginDefinition[] = [
+	policyPlugin,
+	analyticsPlugin,
+]
+const DynamicApplication = UltimaBase.use(...dynamicPlugins)
+const dynamicApplication = new DynamicApplication({ schemas: [] })
+new UltimaBase({
+	schemas: [],
+	// @ts-expect-error -- The public constructor cannot install plugins.
+	plugins: [policyPlugin],
+})
+void exactApplication
+void dynamicApplication
 
 const privilege: PluginPrivilege = /* completion:privilege */ 'runtime:observe'
 // @ts-expect-error -- Direct environment behavior is an informational claim.

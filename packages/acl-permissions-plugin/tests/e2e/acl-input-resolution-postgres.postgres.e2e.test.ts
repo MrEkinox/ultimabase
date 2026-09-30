@@ -9,6 +9,7 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -86,7 +87,11 @@ let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [typeof ResolutionPost],
-			readonly [ReturnType<typeof aclPlugin>, ReturnType<typeof postgresPlugin>]
+			readonly [
+				ReturnType<typeof aclPlugin>,
+				ReturnType<typeof postgresPlugin>,
+			],
+			PluginSourceState
 	  >
 	| undefined
 let postId: string | undefined
@@ -117,19 +122,18 @@ const getPostId = (): string => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		aclPlugin(),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'acl-input-resolution-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			aclPlugin(),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas: [ResolutionPost],
 	})
 	await ultimabase.start()

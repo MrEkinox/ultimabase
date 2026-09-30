@@ -120,7 +120,7 @@ describe('UltimaBase', () => {
 			],
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({ plugins: [lifecyclePlugin], schemas: [] }),
+			new (UltimaBase.use(lifecyclePlugin))({ schemas: [] }),
 		)
 
 		await ultimabase.start()
@@ -157,9 +157,8 @@ describe('UltimaBase', () => {
 			trace,
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(databasePlugin))({
 				schemas: [articleSchema],
-				plugins: [databasePlugin],
 				validation,
 			}),
 		)
@@ -232,10 +231,9 @@ describe('UltimaBase', () => {
 			  >
 			| undefined
 		{
-			await using ultimabase = new UltimaBase({
-				schemas: [articleSchema],
-				plugins: [createDatabasePlugin(adapter, { trace })],
-			})
+			await using ultimabase = new (UltimaBase.use(
+				createDatabasePlugin(adapter, { trace }),
+			))({ schemas: [articleSchema] })
 			scoped = ultimabase
 			await ultimabase.start()
 			expect(ultimabase.state).toBe('started')
@@ -256,9 +254,8 @@ describe('UltimaBase', () => {
 			[],
 		)
 		const first = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(firstAdapter)))({
 				pluginPrivileges: { logger: false },
-				plugins: [createDatabasePlugin(firstAdapter)],
 				schemas: [articleSchema],
 			}),
 		)
@@ -270,9 +267,8 @@ describe('UltimaBase', () => {
 
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
 		const second = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(secondAdapter)))({
 				pluginPrivileges: { logger: false },
-				plugins: [createDatabasePlugin(secondAdapter)],
 				schemas: [articleSchema],
 			}),
 		)
@@ -310,18 +306,17 @@ describe('UltimaBase', () => {
 			},
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(
+				createDatabasePlugin(adapter, {
+					onContext: (context) => {
+						// Runtime callbacks observe immutable request capabilities.
+						observedAccesses.push(context.access)
+						observedPrincipals.push(context.getValue(principalValue))
+					},
+				}),
+			))({
 				masterAuthority: authority,
 				schemas: [articleSchema],
-				plugins: [
-					createDatabasePlugin(adapter, {
-						onContext: (context) => {
-							// Runtime callbacks observe immutable request capabilities.
-							observedAccesses.push(context.access)
-							observedPrincipals.push(context.getValue(principalValue))
-						},
-					}),
-				],
 			}),
 		)
 		const context = RequestContext.anonymous({
@@ -416,8 +411,7 @@ describe('UltimaBase', () => {
 			[],
 		)
 		const ultimabase = applicationFixture(
-			new UltimaBase({
-				plugins: [createDatabasePlugin(adapter)],
+			new (UltimaBase.use(createDatabasePlugin(adapter)))({
 				schemas: [articleSchema],
 			}),
 		)
@@ -476,15 +470,14 @@ describe('UltimaBase', () => {
 	it('fails before execution when terminal master authority is unavailable', async () => {
 		const missingAdapter = new RecordingDatabaseAdapter([], [])
 		const missing = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(missingAdapter)))({
 				schemas: [articleSchema],
-				plugins: [createDatabasePlugin(missingAdapter)],
 			}),
 		)
 		const auditFailure = new Error('master audit unavailable')
 		const failingAdapter = new RecordingDatabaseAdapter([], [])
 		const failing = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(failingAdapter)))({
 				masterAuthority: new MasterAuthority({
 					keys: [{ id: 'failing-default', value: 'unused-by-terminal' }],
 					onUse: () => {
@@ -492,7 +485,6 @@ describe('UltimaBase', () => {
 					},
 				}),
 				schemas: [articleSchema],
-				plugins: [createDatabasePlugin(failingAdapter)],
 			}),
 		)
 
@@ -550,15 +542,13 @@ describe('UltimaBase', () => {
 		})
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
 		const first = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(firstAdapter)))({
 				schemas: [articleSchema],
-				plugins: [createDatabasePlugin(firstAdapter)],
 			}),
 		)
 		const second = applicationFixture(
-			new UltimaBase({
+			new (UltimaBase.use(createDatabasePlugin(secondAdapter)))({
 				schemas: [otherSchema],
-				plugins: [createDatabasePlugin(secondAdapter)],
 			}),
 		)
 
@@ -639,10 +629,7 @@ describe('UltimaBase', () => {
 			],
 		})
 		const ultimabase = applicationFixture(
-			new UltimaBase({
-				schemas: [articleSchema],
-				plugins: [plugin],
-			}),
+			new (UltimaBase.use(plugin))({ schemas: [articleSchema] }),
 		)
 
 		await expect(ultimabase.start()).rejects.toThrow(
@@ -663,7 +650,6 @@ describe('UltimaBase', () => {
 			applicationFixture(
 				new UltimaBase({
 					schemas: [],
-					plugins: [],
 					// @ts-expect-error -- Runtime validation protects unknown options.
 					unknown: true,
 				}),
@@ -671,11 +657,7 @@ describe('UltimaBase', () => {
 		).toThrow(new TypeError('UltimaBase contains unknown option: unknown'))
 		expect(() =>
 			applicationFixture(
-				new UltimaBase({
-					schemas: [],
-					plugins: [],
-					validation: { timezone: '' },
-				}),
+				new UltimaBase({ schemas: [], validation: { timezone: '' } }),
 			),
 		).toThrow(
 			new TypeError('Runtime validation timezone must be a non-empty string'),

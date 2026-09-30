@@ -39,7 +39,7 @@ const createGeneratedVirtualRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		ultimabase: new UltimaBase({ plugins: [], schemas: [User] }),
+		ultimabase: new UltimaBase({ schemas: [User] }),
 		applicationId: 'fixture.semantic-virtual',
 	}).contents
 }

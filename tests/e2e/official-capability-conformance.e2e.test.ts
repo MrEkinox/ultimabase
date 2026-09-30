@@ -76,9 +76,9 @@ describe('official optional capability composition', () => {
 	it('proves master bypass and monotonic compatible-provider composition', async () => {
 		const fixture = createOfficialAccessConformanceFixture('deny')
 		const document = requireSchema(fixture.schemas[0], 'Access deny')
-		const ultimabase = new UltimaBase({
+		const Application = UltimaBase.use(...fixture.plugins)
+		const ultimabase = new Application({
 			masterAuthority: createMasterAuthority(),
-			plugins: fixture.plugins,
 			schemas: fixture.schemas,
 		})
 		try {

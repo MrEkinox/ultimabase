@@ -63,9 +63,8 @@ const workflowPlugin = createPlugin({
 
 describe('application-owned schema mutations', () => {
 	it('compiles callback-free descriptors and exposes direct JavaScript methods', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(workflowPlugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [workflowPlugin],
 			schemas: [WorkflowPost],
 		})
 		const surface = ultimabase
@@ -175,9 +174,8 @@ describe('application-owned schema mutations', () => {
 				}),
 			],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			plugins: [plugin],
 			schemas: [Related, Document],
 		})
 
@@ -225,11 +223,10 @@ describe('application-owned schema mutations', () => {
 				}),
 			],
 		})
-		const foreignApplication = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [declaringPlugin, foreignSurface],
-			schemas: [WorkflowPost],
-		})
+		const foreignApplication = new (UltimaBase.use(
+			declaringPlugin,
+			foreignSurface,
+		))({ pluginPrivileges: { logger: false }, schemas: [WorkflowPost] })
 		expect(() => foreignApplication.schema(WorkflowPost)).toThrow(
 			'must be attached by its declaring owner',
 		)
@@ -271,9 +268,8 @@ describe('application-owned schema mutations', () => {
 			],
 		})
 		expect(() =>
-			new UltimaBase({
+			new (UltimaBase.use(invalidSelection))({
 				pluginPrivileges: { logger: false },
-				plugins: [invalidSelection],
 				schemas: [WorkflowPost],
 			}).schema(WorkflowPost),
 		).toThrow('selects unavailable persisted field: removedField')
@@ -311,9 +307,8 @@ describe('application-owned schema mutations', () => {
 			],
 		})
 		expect(() =>
-			new UltimaBase({
+			new (UltimaBase.use(duplicate))({
 				pluginPrivileges: { logger: false },
-				plugins: [duplicate],
 				schemas: [WorkflowPost],
 			}).schema(WorkflowPost),
 		).toThrow('surface contains duplicate command: archive')
@@ -362,12 +357,11 @@ describe('application-owned schema mutations', () => {
 				],
 			})
 		}
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			configured('editorial', 'archiveEditorial'),
+			configured('legal', 'archiveLegal'),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				configured('editorial', 'archiveEditorial'),
-				configured('legal', 'archiveLegal'),
-			],
 			schemas: [WorkflowPost],
 		})
 		const surface = application

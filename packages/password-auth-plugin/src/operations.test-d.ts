@@ -86,8 +86,7 @@ test('types the required profile through the configured User schema contract', (
 })
 
 test('exposes one typed application-bound runWithSession helper', async () => {
-	const application = new UltimaBase({
-		plugins: [passwordAuthPlugin()],
+	const application = new (UltimaBase.use(passwordAuthPlugin()))({
 		schemas: [],
 	})
 	const auth = application.plugin('@ultimabase/password-auth-plugin')

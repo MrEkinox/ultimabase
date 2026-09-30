@@ -11,10 +11,26 @@ import type {
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
 
-type AppendPlugin<
+type AppendPlugins<
 	TPlugins extends readonly PluginDefinition[],
-	TPlugin extends PluginDefinition,
-> = readonly [...TPlugins, TPlugin]
+	TAdded extends readonly PluginDefinition[],
+> = readonly [...TPlugins, ...TAdded]
+
+/** Folds exact tuple receipts while treating an open array as one broad source. */
+export type MergeInstalledPluginSources<
+	TSource extends PluginSourceState,
+	TPlugins extends readonly PluginDefinition[],
+> = TPlugins extends readonly [
+	infer TFirst extends PluginDefinition,
+	...infer TRest extends readonly PluginDefinition[],
+]
+	? MergeInstalledPluginSources<
+			MergePluginSourceState<TSource, PluginSource<TFirst>>,
+			TRest
+		>
+	: number extends TPlugins['length']
+		? MergePluginSourceState<TSource, PluginSource<TPlugins[number]>>
+		: TSource
 
 /**
  * Constructs one application with the exact immutable plugin tuple accumulated
@@ -27,15 +43,15 @@ export interface ConfiguredUltimaBaseFactory<
 	/** Uses the same schema namespace as the zero-plugin root factory. */
 	readonly Schema: ConfiguredSchemaNamespace<TSource>
 	/**
-	 * Returns a new factory with one plugin appended to its flat ordered tuple.
+	 * Returns a new factory with plugins appended to its flat ordered tuple.
 	 *
-	 * @example `const Api = DatabaseApplication.use(httpPlugin())`
+	 * @example `const Api = DatabaseApplication.use(httpPlugin(), restPlugin())`
 	 */
-	use<const TPlugin extends PluginDefinition>(
-		plugin: TPlugin,
+	use<const TAdded extends readonly PluginDefinition[]>(
+		...plugins: TAdded
 	): ConfiguredUltimaBaseFactory<
-		AppendPlugin<TPlugins, TPlugin>,
-		MergePluginSourceState<TSource, PluginSource<TPlugin>>
+		AppendPlugins<TPlugins, TAdded>,
+		MergeInstalledPluginSources<TSource, TAdded>
 	>
 	/**
 	 * Creates one application without repeating its configured plugin tuple.
@@ -52,47 +68,38 @@ type RuntimeApplicationConstructor = new (options: unknown) => object
 const configuredPlugins = new WeakMap<object, readonly PluginDefinition[]>()
 const emptyPlugins: readonly PluginDefinition[] = immutableArray([])
 
-const readConfiguredPlugins = (factory: object): readonly PluginDefinition[] =>
-	configuredPlugins.get(factory) ?? emptyPlugins
+/** @internal Reads the one frozen tuple installed on a configured factory. */
+export const readConfiguredPlugins = (
+	factory: object,
+): readonly PluginDefinition[] => configuredPlugins.get(factory) ?? emptyPlugins
 
-/** @internal Creates a frozen descendant without compiling an application graph. */
-export const appendConfiguredPlugin = <
+/** @internal Creates one frozen descendant without compiling an application graph. */
+export const appendConfiguredPlugins = <
 	TPlugins extends readonly PluginDefinition[],
 	TSource extends PluginSourceState,
-	const TPlugin extends PluginDefinition,
+	const TAdded extends readonly PluginDefinition[],
 >(
 	factory: object,
-	plugin: TPlugin,
+	...added: TAdded
 ): ConfiguredUltimaBaseFactory<
-	AppendPlugin<TPlugins, TPlugin>,
-	MergePluginSourceState<TSource, PluginSource<TPlugin>>
+	AppendPlugins<TPlugins, TAdded>,
+	MergeInstalledPluginSources<TSource, TAdded>
 > => {
+	if (added.length === 0) {
+		return factory as ConfiguredUltimaBaseFactory<
+			AppendPlugins<TPlugins, TAdded>,
+			MergeInstalledPluginSources<TSource, TAdded>
+		>
+	}
 	const parent = factory as unknown as RuntimeApplicationConstructor
-	const plugins = immutableArray([...readConfiguredPlugins(factory), plugin])
+	const plugins = immutableArray([...readConfiguredPlugins(factory), ...added])
 	const ConfiguredApplication = class extends parent {}
 
 	configuredPlugins.set(ConfiguredApplication, plugins)
 	return Object.freeze(
 		ConfiguredApplication,
 	) as unknown as ConfiguredUltimaBaseFactory<
-		AppendPlugin<TPlugins, TPlugin>,
-		MergePluginSourceState<TSource, PluginSource<TPlugin>>
+		AppendPlugins<TPlugins, TAdded>,
+		MergeInstalledPluginSources<TSource, TAdded>
 	>
-}
-
-/** @internal Resolves both migration forms into the one constructor plugin tuple. */
-export const resolveConfiguredPlugins = (
-	factory: object,
-	constructorPlugins: readonly PluginDefinition[] | undefined,
-): readonly PluginDefinition[] => {
-	const plugins = configuredPlugins.get(factory)
-	if (plugins === undefined) {
-		return immutableArray(constructorPlugins ?? [])
-	}
-	if (constructorPlugins !== undefined) {
-		throw new TypeError(
-			'Configured UltimaBase factories install plugins through use(), not constructor options',
-		)
-	}
-	return plugins
 }

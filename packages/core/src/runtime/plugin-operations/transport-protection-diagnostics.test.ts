@@ -106,12 +106,11 @@ const createPolicyPlugin = (mode: 'no-op' | 'unrelated') =>
 const createFixture = async (
 	policy?: ReturnType<typeof createPolicyPlugin>,
 ) => {
-	const ultimabase = new UltimaBase({
+	const Base = UltimaBase.use(databasePlugin)
+	const WithPolicy = policy === undefined ? Base : Base.use(policy)
+	const Application = WithPolicy.use(operationPlugin)
+	const ultimabase = new Application({
 		pluginPrivileges: { logger: false },
-		plugins:
-			policy === undefined
-				? [databasePlugin, operationPlugin]
-				: [databasePlugin, policy, operationPlugin],
 		schemas: [],
 	})
 	await ultimabase.start()

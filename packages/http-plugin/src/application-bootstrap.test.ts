@@ -28,46 +28,42 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 		const requirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 			phase: 'setup',
 		})
-		application = new UltimaBase({
-			schemas: [],
-			pluginPrivileges: { logger: false },
-			plugins: [
-				httpTestDatabasePlugin(),
-				httpPlugin({ appId: 'notes/team' }),
-				plugin({
-					id: 'fixture.bootstrap',
-					version: '1.0.0',
-					core: '^0.0.0',
-					permissions: {
-						'transport:expose': 'Expose fixture bootstrap and ordinary routes.',
-					},
-					contributions: [
-						provideHttpEndpoints({
-							contributionId: 'routes',
-							create: () => [
-								httpBrowserBootstrapRoute({
-									path: '/graphiql',
-									protocol: { name: 'fixture.explorer', version: '1' },
-									handle: handler,
-								}),
-								httpRoute({
-									path: '/ordinary',
-									method: 'GET',
-									protocol: { name: 'fixture.ordinary', version: '1' },
-									handle: handler,
-								}),
-							],
-						}),
-						requirement,
-						contributeApplication(({ capabilities }) => {
-							http = capabilities.get(requirement)
-							const exports = undefined
-							return { exports }
-						}),
-					],
-				}),
-			],
-		})
+		application = new (UltimaBase.use(
+			httpTestDatabasePlugin(),
+			httpPlugin({ appId: 'notes/team' }),
+			plugin({
+				id: 'fixture.bootstrap',
+				version: '1.0.0',
+				core: '^0.0.0',
+				permissions: {
+					'transport:expose': 'Expose fixture bootstrap and ordinary routes.',
+				},
+				contributions: [
+					provideHttpEndpoints({
+						contributionId: 'routes',
+						create: () => [
+							httpBrowserBootstrapRoute({
+								path: '/graphiql',
+								protocol: { name: 'fixture.explorer', version: '1' },
+								handle: handler,
+							}),
+							httpRoute({
+								path: '/ordinary',
+								method: 'GET',
+								protocol: { name: 'fixture.ordinary', version: '1' },
+								handle: handler,
+							}),
+						],
+					}),
+					requirement,
+					contributeApplication(({ capabilities }) => {
+						http = capabilities.get(requirement)
+						const exports = undefined
+						return { exports }
+					}),
+				],
+			}),
+		))({ schemas: [], pluginPrivileges: { logger: false } })
 		await application.start()
 	})
 	afterEach(async () => {

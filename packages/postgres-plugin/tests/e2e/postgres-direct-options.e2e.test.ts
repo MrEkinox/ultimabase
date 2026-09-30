@@ -93,9 +93,8 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 		}),
 		postgres: { table: 'generated_posts' },
 	})
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(postgresPlugin({ pool })))({
 		pluginPrivileges: { logger: false },
-		plugins: [postgresPlugin({ pool })],
 		schemas: [Post],
 	})
 	const generated = generateApplicationTypes({

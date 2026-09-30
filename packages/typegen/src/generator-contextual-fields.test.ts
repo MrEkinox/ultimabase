@@ -118,8 +118,7 @@ describe('contextual Typegen declarations', () => {
 				}),
 			],
 		})
-		const application = new UltimaBase({
-			plugins: [firstPlugin, secondPlugin],
+		const application = new (UltimaBase.use(firstPlugin, secondPlugin))({
 			schemas: [],
 		})
 

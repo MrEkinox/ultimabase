@@ -9,7 +9,7 @@ order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-09-30
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -22,6 +22,7 @@ sources:
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0282-variadic-configured-plugin-installation.md
 ---
 
 ## Outcome
@@ -77,8 +78,8 @@ pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
 
 ### Configure the application with plugins
 
-Build one immutable schema application factory by chaining each
-schema-authoring plugin with `.use()`. The `typegenPlugin()` setup comes from
+Build one immutable schema application factory by passing schema-authoring
+plugins to `.use()`. The `typegenPlugin()` setup comes from
 the Typegen prerequisite. Define Task from that factory so field Hooks and
 Validation are available directly from the installed plugin set:
 
@@ -89,9 +90,11 @@ import { typegenPlugin } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { z } from 'zod'
 
-export const SchemaApplication = UltimaBase.use(typegenPlugin())
-	.use(hooksPlugin())
-	.use(validationPlugin())
+export const SchemaApplication = UltimaBase.use(
+	typegenPlugin(),
+	hooksPlugin(),
+	validationPlugin(),
+)
 
 export const Task = SchemaApplication.Schema.define({
 	className: 'Task',
@@ -109,8 +112,10 @@ export const Task = SchemaApplication.Schema.define({
 Importing either package or calling its factory alone installs no behavior;
 the returned definition must enter this application's graph.
 
-Keep every definition in this one flat chain. Each `.use()` returns a new
-factory and leaves its parent unchanged. Use `dependencies` when another
+Keep every definition in this one flat ordered installation path. You can
+spread a plugin list or chain `.use()` calls; each call returns a new factory
+and leaves its parent unchanged. The application constructor takes no
+`plugins` option. Use `dependencies` when another
 plugin must exist and start first, `optionalDependencies` for that order only
 when it is installed, `peers` for compatible identity without ordering, and a
 versioned capability when several providers can supply the required behavior.

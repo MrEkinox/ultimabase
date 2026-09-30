@@ -142,24 +142,23 @@ const contextPlugin = plugin({
 })
 
 const createFixture = async (requestTimeoutMs?: number) => {
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin,
+		httpPlugin({
+			appId: 'virtual-yoga',
+			master: { enabled: true },
+			...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+		}),
+		contextPlugin,
+		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+		graphqlYogaPlugin(),
+		graphqlYogaFixtureHttpConsumer,
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'graphql-yoga-master', value: 'master-secret' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin,
-			httpPlugin({
-				appId: 'virtual-yoga',
-				master: { enabled: true },
-				...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
-			}),
-			contextPlugin,
-			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-			graphqlYogaPlugin(),
-			graphqlYogaFixtureHttpConsumer,
-		],
 		schemas: [VirtualYogaRecord],
 	})
 	await application.start()

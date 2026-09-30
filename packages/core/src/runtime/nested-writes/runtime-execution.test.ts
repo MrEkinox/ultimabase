@@ -100,8 +100,9 @@ describe('Runtime nested create and connect execution', () => {
 			trace,
 		)
 		const generatedIds = [childId, rootId]
-		await using ultimabase = new UltimaBase({
-			plugins: [createRequestExecutionDatabasePlugin(adapter)],
+		await using ultimabase = new (UltimaBase.use(
+			createRequestExecutionDatabasePlugin(adapter),
+		))({
 			schemas: [Author, Post, Tag],
 			validation: {
 				clock: () => new Date(instant),
@@ -163,8 +164,9 @@ describe('Runtime nested create and connect execution', () => {
 			trace,
 		)
 		const generatedIds = [childId, rootId]
-		await using ultimabase = new UltimaBase({
-			plugins: [createRequestExecutionDatabasePlugin(adapter)],
+		await using ultimabase = new (UltimaBase.use(
+			createRequestExecutionDatabasePlugin(adapter),
+		))({
 			schemas: [Author, Post, Tag],
 			validation: {
 				clock: () => new Date(instant),
@@ -237,8 +239,10 @@ describe('Runtime nested create and connect execution', () => {
 			},
 		})
 		const generatedIds = [childId, rootId]
-		await using ultimabase = new UltimaBase({
-			plugins: [behavior, createRequestExecutionDatabasePlugin(adapter)],
+		await using ultimabase = new (UltimaBase.use(
+			behavior,
+			createRequestExecutionDatabasePlugin(adapter),
+		))({
 			schemas: [Author, Post, Tag],
 			validation: {
 				clock: () => new Date(instant),
@@ -292,12 +296,11 @@ describe('Runtime nested create and connect execution', () => {
 		})
 		const harness: RequestExecutionHarness = {}
 		const generatedIds = [childId, rootId]
-		await using ultimabase = new UltimaBase({
-			plugins: [
-				createRequestExecutionHarnessPlugin(harness),
-				behavior,
-				createRequestExecutionDatabasePlugin(adapter),
-			],
+		await using ultimabase = new (UltimaBase.use(
+			createRequestExecutionHarnessPlugin(harness),
+			behavior,
+			createRequestExecutionDatabasePlugin(adapter),
+		))({
 			schemas: [Author, Post, Tag],
 			validation: {
 				clock: () => new Date(instant),

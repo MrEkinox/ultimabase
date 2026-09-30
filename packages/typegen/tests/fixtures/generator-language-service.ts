@@ -100,8 +100,7 @@ export const createGeneratedRoleRegistry = (): string => {
 		throw new TypeError('Expected the semantic role schema to be defined')
 	}
 	const Role = roleCandidate
-	const application = new UltimaBase({
-		plugins: [hooksPlugin(), rolesPlugin()],
+	const application = new (UltimaBase.use(hooksPlugin(), rolesPlugin()))({
 		schemas: [Member, Role],
 	})
 

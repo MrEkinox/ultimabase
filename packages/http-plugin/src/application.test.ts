@@ -86,13 +86,13 @@ const serverPlugin = (capture?: (application: HttpApplication) => void) =>
 
 const initialize = async (plugins: readonly PluginDefinition[]) => {
 	let http: HttpApplication | undefined
-	const application = new UltimaBase({
+	const Application = UltimaBase.use(
+		httpTestDatabasePlugin(),
+		...plugins,
+		serverPlugin((value) => (http = value)),
+	)
+	const application = new Application({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			httpTestDatabasePlugin(),
-			...plugins,
-			serverPlugin((value) => (http = value)),
-		],
 		schemas: [],
 	})
 	onTestFinished(() => application.dispose())
@@ -200,14 +200,13 @@ describe('HTTP application graph', () => {
 			protocol,
 			handle: () => new Response(),
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			endpointPlugin('fixture.first-routes', route),
+			endpointPlugin('fixture.second-routes', route),
+			httpPlugin({ appId: 'collision' }),
+			serverPlugin(seen),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				endpointPlugin('fixture.first-routes', route),
-				endpointPlugin('fixture.second-routes', route),
-				httpPlugin({ appId: 'collision' }),
-				serverPlugin(seen),
-			],
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -243,13 +242,12 @@ describe('HTTP application graph', () => {
 				}),
 			],
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			provider,
+			httpPlugin({ appId: 'replaced' }),
+			serverPlugin(seen),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				provider,
-				httpPlugin({ appId: 'replaced' }),
-				serverPlugin(seen),
-			],
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -328,13 +326,12 @@ describe('HTTP application graph', () => {
 			],
 		})
 		expect(() => {
-			const application = new UltimaBase({
+			const application = new (UltimaBase.use(
+				httpPlugin({ appId: 'official' }),
+				competing,
+				serverPlugin(seen),
+			))({
 				pluginPrivileges: { logger: false },
-				plugins: [
-					httpPlugin({ appId: 'official' }),
-					competing,
-					serverPlugin(seen),
-				],
 				schemas: [],
 			})
 			onTestFinished(() => application.dispose())

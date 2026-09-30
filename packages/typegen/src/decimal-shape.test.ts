@@ -14,10 +14,7 @@ const generateDecimal = (shaped: boolean) => {
 	})
 
 	return generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [],
-			schemas: [DecimalSchema],
-		}),
+		ultimabase: new UltimaBase({ schemas: [DecimalSchema] }),
 		applicationId: 'fixture.decimal-shape',
 	})
 }

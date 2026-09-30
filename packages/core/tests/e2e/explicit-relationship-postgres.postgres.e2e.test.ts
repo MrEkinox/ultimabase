@@ -1,4 +1,8 @@
-import { requestSources, UltimaBase } from '@ultimabase/core'
+import {
+	requestSources,
+	UltimaBase,
+	type PluginSourceState,
+} from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -71,7 +75,8 @@ let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [...typeof explicitRelationshipSchemas],
-			readonly [ReturnType<typeof postgresPlugin>]
+			readonly [ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -85,17 +90,14 @@ const getUltimaBase = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
-		schemas: explicitRelationshipSchemas,
-	})
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({ schemas: explicitRelationshipSchemas })
 
 	try {
 		await ultimabase.start()

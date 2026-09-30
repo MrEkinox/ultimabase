@@ -134,15 +134,14 @@ describe('GraphQL schema composition', () => {
 		})
 		const custom = schemaWithQuery('health', 'ok', [extension])
 		const originalHealth = custom.getQueryType()?.getFields().health
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			graphqlPlugin({
+				acknowledgeUnverifiedProtection: true,
+				schemas: [custom],
+			}),
+			graphqlFixtureDatabasePlugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				graphqlPlugin({
-					acknowledgeUnverifiedProtection: true,
-					schemas: [custom],
-				}),
-				graphqlFixtureDatabasePlugin,
-			],
 			schemas: [Post],
 		})
 		await application.start()
@@ -180,18 +179,17 @@ describe('GraphQL schema composition', () => {
 			'second',
 			'two',
 		)
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			first,
+			second,
+			graphqlPlugin({
+				acknowledgeUnverifiedProtection: true,
+				default: false,
+				schemas: [schemaWithQuery('application', 'direct')],
+			}),
+			graphqlFixtureDatabasePlugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				first,
-				second,
-				graphqlPlugin({
-					acknowledgeUnverifiedProtection: true,
-					default: false,
-					schemas: [schemaWithQuery('application', 'direct')],
-				}),
-				graphqlFixtureDatabasePlugin,
-			],
 			schemas: [Hidden],
 		})
 		await application.start()
@@ -272,16 +270,15 @@ describe('GraphQL schema composition', () => {
 		'rejects deterministic %s conflicts',
 		async (left, right, label) => {
 			await expect(
-				new UltimaBase({
+				new (UltimaBase.use(
+					graphqlPlugin({
+						acknowledgeUnverifiedProtection: true,
+						default: false,
+						schemas: [left, right],
+					}),
+					graphqlFixtureDatabasePlugin,
+				))({
 					pluginPrivileges: { logger: false },
-					plugins: [
-						graphqlPlugin({
-							acknowledgeUnverifiedProtection: true,
-							default: false,
-							schemas: [left, right],
-						}),
-						graphqlFixtureDatabasePlugin,
-					],
 					schemas: [Hidden],
 				}).start(),
 			).rejects.toThrow(label)
@@ -317,14 +314,10 @@ describe('GraphQL schema composition', () => {
 		})
 
 		await expect(
-			new UltimaBase({
-				pluginPrivileges: { logger: false },
-				plugins: [
-					graphqlPlugin({ schemas: [schema] }),
-					graphqlFixtureDatabasePlugin,
-				],
-				schemas: [Hidden],
-			}).start(),
+			new (UltimaBase.use(
+				graphqlPlugin({ schemas: [schema] }),
+				graphqlFixtureDatabasePlugin,
+			))({ pluginPrivileges: { logger: false }, schemas: [Hidden] }).start(),
 		).rejects.toThrow('subscriptions')
 	})
 })

@@ -453,15 +453,15 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(declarations).not.toContain('UnprotectedPublicTransportWarning')
 	})
 
-	it('exposes the documented UltimaBase facade and compact QueryBuilder', () => {
-		const facade = readFixtureQuickInfo('UltimaBase({')
+	it('exposes documented plugin installation and compact QueryBuilder', () => {
+		const installation = readFixtureQuickInfo('use(hooksPlugin())')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
 		)
 
-		expect(facade.display).toContain('new UltimaBase<')
-		expect(facade.documentation).toContain(
-			'Owns one isolated UltimaBase application',
+		expect(installation.display).toContain('use<')
+		expect(installation.documentation).toContain(
+			'Returns a new immutable factory',
 		)
 		expect(query.display).toContain('QueryBuilder<')
 		expect(query.display).not.toContain('RequestEngine<')

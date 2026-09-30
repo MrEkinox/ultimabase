@@ -289,13 +289,12 @@ describe('REST read execution', () => {
 	it('executes every read discriminant with the same operation as direct Query', async () => {
 		const harness: RequestHarness = {}
 		const adapter = new ReadDatabaseAdapter()
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			createHarnessPlugin(harness),
+			databasePlugin(adapter),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				restPlugin({ acknowledgeUnverifiedProtection: true }),
-				createHarnessPlugin(harness),
-				databasePlugin(adapter),
-			],
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -378,27 +377,22 @@ describe('REST read execution', () => {
 		const secondHarness: RequestHarness = {}
 		const firstAdapter = new ReadDatabaseAdapter()
 		const secondAdapter = new ReadDatabaseAdapter()
-		const first = new UltimaBase({
+		const first = new (UltimaBase.use(
+			createHarnessPlugin(firstHarness),
+			databasePlugin(firstAdapter),
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'rest-master', value: 'rest-secret' }],
 				onUse: () => undefined,
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				createHarnessPlugin(firstHarness),
-				databasePlugin(firstAdapter),
-			],
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => first.dispose())
-		const second = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				createHarnessPlugin(secondHarness),
-				databasePlugin(secondAdapter),
-			],
-			schemas: [RecordSchema],
-		})
+		const second = new (UltimaBase.use(
+			createHarnessPlugin(secondHarness),
+			databasePlugin(secondAdapter),
+		))({ pluginPrivileges: { logger: false }, schemas: [RecordSchema] })
 		onTestFinished(() => second.dispose())
 		await first.start()
 		const anonymous = createContext(firstHarness, 'rest-read-security')
@@ -467,15 +461,14 @@ describe('REST read execution', () => {
 	it('stops Runtime through the configured HTTP deadline signal', async () => {
 		const adapter = new ReadDatabaseAdapter(true)
 		const capture: { current?: HttpApplication } = {}
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			databasePlugin(adapter),
+			createDeadlineRoutePlugin(),
+			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			httpPlugin({ appId: 'rest-deadline', requestTimeoutMs: 10 }),
+			createHttpCapturePlugin(capture),
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(adapter),
-				createDeadlineRoutePlugin(),
-				restPlugin({ acknowledgeUnverifiedProtection: true }),
-				httpPlugin({ appId: 'rest-deadline', requestTimeoutMs: 10 }),
-				createHttpCapturePlugin(capture),
-			],
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())

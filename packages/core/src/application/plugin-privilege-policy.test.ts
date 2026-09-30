@@ -98,9 +98,8 @@ describe('plugin privilege policy', () => {
 				),
 			],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(plugin))({
 			schemas: [],
-			plugins: [plugin],
 			pluginPrivileges: { logger: false },
 		})
 

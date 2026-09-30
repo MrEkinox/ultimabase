@@ -68,10 +68,7 @@ const createGeneratedRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [plugin],
-			schemas: [Document],
-		}),
+		ultimabase: new (UltimaBase.use(plugin))({ schemas: [Document] }),
 		applicationId: 'fixture.semantic-containment',
 	}).contents
 }

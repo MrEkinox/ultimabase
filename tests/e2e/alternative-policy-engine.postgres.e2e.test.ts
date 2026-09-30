@@ -46,7 +46,13 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 			postgres: { table: 'alternative_policy_documents' },
 		})
 		const engine = createAlternativePolicyEngine({ instanceId: 'postgres' })
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			engine.plugin,
+		))({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'postgres-master', value: 'unused-by-terminal' }],
 				onUse: ({ reason }) => {
@@ -54,13 +60,6 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 				},
 			}),
 			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({
-					pool: getFixture().pool,
-					schemaPolicy: 'override',
-				}),
-				engine.plugin,
-			],
 			schemas: [Document],
 		})
 		await ultimabase.start()

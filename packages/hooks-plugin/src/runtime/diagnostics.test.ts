@@ -22,9 +22,8 @@ describe('hookDiagnosticsObserverCapability', () => {
 			id: 'fixture.hooks-diagnostics',
 			version: '0.0.0',
 		})
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(provider, hooksPlugin()))({
 			pluginPrivileges: { logger: false },
-			plugins: [provider, hooksPlugin()],
 			schemas: [],
 		})
 		await application.initialize()

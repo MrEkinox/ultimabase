@@ -220,6 +220,7 @@ export const createRoleProviderFixture = (
 			break
 	}
 
-	const ultimabase = new UltimaBase({ plugins, schemas: [ProtectedPost] })
+	const Application = UltimaBase.use(...plugins)
+	const ultimabase = new Application({ schemas: [ProtectedPost] })
 	return { adapter, role, ultimabase }
 }

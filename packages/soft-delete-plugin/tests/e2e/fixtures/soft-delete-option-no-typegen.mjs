@@ -12,9 +12,11 @@ const OmittedPost = Schema.define({
 	className: 'JavaScriptSoftDeleteOmittedPost',
 	fields: (field) => ({ title: field.string() }),
 })
-const application = new UltimaBase({
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'replace-delete' }),
+)
+const application = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [softDeletePlugin({ defaultMode: 'replace-delete' })],
 	schemas: [ExplicitPost, OmittedPost],
 })
 await application.initialize()

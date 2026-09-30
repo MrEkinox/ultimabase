@@ -166,25 +166,24 @@ const readIncludedNames = (value: unknown): readonly unknown[] => {
 }
 
 const createApplication = (connectionUri: string) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		accessPlugin({ default: true }),
+		aclPlugin(),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: { count: true },
+		}),
+		createHarnessPlugin(harness),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'rest-e2e', value: 'rest-e2e-secret' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			accessPlugin({ default: true }),
-			aclPlugin(),
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: { count: true },
-			}),
-			createHarnessPlugin(harness),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: connectionUri,
-			}),
-		],
 		schemas: [RestAuthor, RestPost],
 		validation: {
 			clock: () => new Date('2026-09-05T12:00:00.000Z'),

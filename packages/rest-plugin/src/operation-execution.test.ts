@@ -168,7 +168,14 @@ const createFixture = async (
 			? {}
 			: { transport: options.transport }),
 	})
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		databasePlugin,
+		operationPlugin,
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			...(options.expose === false ? {} : { operations: [inspectOperation] }),
+		}),
+	))({
 		...(options.masterKey === undefined
 			? {}
 			: {
@@ -178,14 +185,6 @@ const createFixture = async (
 					}),
 				}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin,
-			operationPlugin,
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				...(options.expose === false ? {} : { operations: [inspectOperation] }),
-			}),
-		],
 		schemas: [],
 	})
 	onTestFinished(() => ultimabase.dispose())
@@ -332,28 +331,24 @@ describe('REST plugin operation exposure', () => {
 	])(
 		'validates operation route composition for %j',
 		async ({ path, distinct }) => {
-			const ultimabase = new UltimaBase({
-				pluginPrivileges: { logger: false },
-				plugins: [
-					databasePlugin,
-					createOperationPlugin({
-						metadata: {
-							errors: { 'fixture.rest-operation.rejected': 409 },
-							...(path === undefined ? {} : { path }),
-						},
-					}),
-					restPlugin({
-						instanceId: 'public',
-						operations: [inspectOperation],
-					}),
-					restPlugin({
-						instanceId: 'admin',
-						...(distinct ? { basePath: '/admin' } : {}),
-						operations: [inspectOperation],
-					}),
-				],
-				schemas: [],
-			})
+			const ultimabase = new (UltimaBase.use(
+				databasePlugin,
+				createOperationPlugin({
+					metadata: {
+						errors: { 'fixture.rest-operation.rejected': 409 },
+						...(path === undefined ? {} : { path }),
+					},
+				}),
+				restPlugin({
+					instanceId: 'public',
+					operations: [inspectOperation],
+				}),
+				restPlugin({
+					instanceId: 'admin',
+					...(distinct ? { basePath: '/admin' } : {}),
+					operations: [inspectOperation],
+				}),
+			))({ pluginPrivileges: { logger: false }, schemas: [] })
 			onTestFinished(() => ultimabase.dispose())
 			try {
 				if (distinct) {

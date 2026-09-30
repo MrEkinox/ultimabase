@@ -71,10 +71,7 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 		fields: () => ({ value: containedField() }),
 	})
 	const generated = generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [plugin],
-			schemas: [Document],
-		}),
+		ultimabase: new (UltimaBase.use(plugin))({ schemas: [Document] }),
 		applicationId: `fixture.isolated-${suffix.toLowerCase()}`,
 	})
 

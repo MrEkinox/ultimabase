@@ -19,10 +19,7 @@ describe('virtual field Typegen declarations', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new UltimaBase({
-				plugins: [],
-				schemas: [Virtual],
-			}),
+			ultimabase: new UltimaBase({ schemas: [Virtual] }),
 			applicationId: 'fixture.virtual',
 		})
 

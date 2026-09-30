@@ -18,17 +18,13 @@ import { describe, expect, it } from 'vitest'
 describe('packed GraphiQL plugin', () => {
 	it('materializes GraphiQL through a provider-neutral endpoint and cleans up', async () => {
 		const consumer = httpConsumer()
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'notes-public-id' }),
-				graphqlHttpProvider(),
-				graphiqlPlugin({ environment: 'development' }),
-				consumer,
-			],
-			schemas: [],
-		})
+		const ultimabase = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'notes-public-id' }),
+			graphqlHttpProvider(),
+			graphiqlPlugin({ environment: 'development' }),
+			consumer,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		await ultimabase.start()
 		const http = readHttpApplication(
 			ultimabase.plugin('fixture.explorer-http-consumer'),
@@ -59,17 +55,13 @@ describe('packed GraphiQL plugin', () => {
 
 	it('preserves the explicit browser policy on headerless bootstrap navigation', async () => {
 		const consumer = httpConsumer()
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'browser-policy' }),
-				graphqlHttpProvider(),
-				graphiqlPlugin({ environment: 'development' }),
-				consumer,
-			],
-			schemas: [],
-		})
+		const ultimabase = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'browser-policy' }),
+			graphqlHttpProvider(),
+			graphiqlPlugin({ environment: 'development' }),
+			consumer,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 		await ultimabase.start()
 		const http = readHttpApplication(
 			ultimabase.plugin('fixture.explorer-http-consumer'),
@@ -100,15 +92,14 @@ describe('packed GraphiQL plugin', () => {
 
 	it('keeps production absent by default', async () => {
 		const disabledConsumer = httpConsumer()
-		const disabled = new UltimaBase({
+		const disabled = new (UltimaBase.use(
+			databasePlugin(),
+			httpPlugin({ appId: 'production-disabled' }),
+			graphqlHttpProvider(),
+			graphiqlPlugin({ environment: 'production' }),
+			disabledConsumer,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [
-				databasePlugin(),
-				httpPlugin({ appId: 'production-disabled' }),
-				graphqlHttpProvider(),
-				graphiqlPlugin({ environment: 'production' }),
-				disabledConsumer,
-			],
 			schemas: [],
 		})
 		await disabled.start()

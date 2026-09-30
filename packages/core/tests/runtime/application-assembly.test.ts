@@ -31,9 +31,8 @@ describe('public application Runtime assembly', () => {
 			id: 'fixture.public-assembled-database',
 			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(plugin))({
 			schemas: [publicArticleSchema],
-			plugins: [plugin],
 		})
 		await ultimabase.start()
 

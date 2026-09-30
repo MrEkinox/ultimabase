@@ -9,6 +9,7 @@ import {
 	UltimaBase,
 	plugin,
 	increment,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -138,7 +139,8 @@ let ultimabase:
 				typeof BulkDocument,
 				typeof UpsertDecisionDocument,
 			],
-			readonly [typeof pluginVisibility, ReturnType<typeof postgresPlugin>]
+			readonly [typeof pluginVisibility, ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 let publicId = ''
@@ -156,17 +158,16 @@ const getUltimaBase = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		pluginVisibility,
+		postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'access-plugin-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			pluginVisibility,
-			postgresPlugin({ schemaPolicy: 'override', url: fixture.connectionUri }),
-		],
 		schemas: [AccessArticle, AccessAudit, BulkDocument, UpsertDecisionDocument],
 		validation: {
 			clock: () => new Date('2026-08-03T12:00:00.000Z'),

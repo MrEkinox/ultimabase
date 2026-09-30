@@ -52,8 +52,8 @@ const Document = Schema.define({
   }),
 })
 
-export const ultimabase = new UltimaBase({
-  plugins: [pgVectorPlugin(), SetupGuard],
+const Application = UltimaBase.use(pgVectorPlugin(), SetupGuard)
+export const ultimabase = new Application({
   schemas: [Document],
 })
 `)
@@ -97,7 +97,7 @@ const Document = Schema.define({
   className: 'PathIndependentDocument',
   fields: (field) => ({ title: field.string({ required: true }) }),
 })
-export const ultimabase = new UltimaBase({ plugins: [], schemas: [Document] })
+export const ultimabase = new UltimaBase({ schemas: [Document] })
 `
 		const firstPath = await createTypeScriptModule(source)
 		const secondPath = await createTypeScriptModule(source)

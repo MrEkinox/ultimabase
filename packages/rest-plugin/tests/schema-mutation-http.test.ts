@@ -211,7 +211,21 @@ const createFixture = async (
 	})
 	const adapter = new RestSchemaMutationAdapter(trace)
 	const capture: { current?: HttpApplication } = {}
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin(adapter),
+		createMutationPlugin(trace, decode, options.metadata),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			...(options.bodyLimit === undefined
+				? {}
+				: { bodyLimit: options.bodyLimit }),
+			...(options.restDefault === undefined
+				? {}
+				: { default: options.restDefault }),
+		}),
+		httpPlugin({ appId: 'schema-mutation-app', master: { enabled: true } }),
+		capturePlugin(capture),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'rest-schema-mutation', value: 'master-secret' }],
 			onUse: (event) => {
@@ -219,21 +233,6 @@ const createFixture = async (
 			},
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin(adapter),
-			createMutationPlugin(trace, decode, options.metadata),
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				...(options.bodyLimit === undefined
-					? {}
-					: { bodyLimit: options.bodyLimit }),
-				...(options.restDefault === undefined
-					? {}
-					: { default: options.restDefault }),
-			}),
-			httpPlugin({ appId: 'schema-mutation-app', master: { enabled: true } }),
-			capturePlugin(capture),
-		],
 		schemas: [WorkflowDocument],
 	})
 	onTestFinished(() => application.dispose())

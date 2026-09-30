@@ -1598,8 +1598,9 @@ capability outside the official Access vocabulary.
 ## Application ownership
 
 The sole public application owner is the configured `UltimaBase` factory from
-`@ultimabase/core`. `UltimaBase.use(plugin())` returns a new immutable factory,
-so plugin order is declared once and construction receives only instance
+`@ultimabase/core`. `UltimaBase.use(pluginA(), pluginB())` or
+`UltimaBase.use(...plugins)` returns a new immutable factory with one flat
+ordered plugin tuple. Calls can also be chained. Construction receives only instance
 options. The zero-plugin root follows the same path. `compile()` validates and
 snapshots deterministic schema and plugin declarations without claiming the
 active-application slot. `initialize()` additionally materializes application
@@ -1607,7 +1608,7 @@ capabilities and runs setup, while `start()` continues through infrastructure
 and transports:
 
 ```ts
-const Application = UltimaBase.use(databasePlugin()).use(serverPlugin())
+const Application = UltimaBase.use(databasePlugin(), serverPlugin())
 
 const application = new Application({
 	schemas: [UserSchema],

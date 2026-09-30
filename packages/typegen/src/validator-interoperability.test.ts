@@ -28,15 +28,13 @@ it('omits opaque validators from declarations and deterministic fingerprints', (
 		}),
 	})
 	const zod = generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [validationPlugin()],
+		ultimabase: new (UltimaBase.use(validationPlugin()))({
 			schemas: [ZodSchema],
 		}),
 		applicationId: 'validator-neutral',
 	})
 	const valibot = generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [validationPlugin()],
+		ultimabase: new (UltimaBase.use(validationPlugin()))({
 			schemas: [ValibotSchema],
 		}),
 		applicationId: 'validator-neutral',

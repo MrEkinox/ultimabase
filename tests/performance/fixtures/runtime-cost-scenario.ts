@@ -77,12 +77,12 @@ export const runRuntimeCostScenario = async (
 ): Promise<RuntimeCostScenarioResult> => {
 	const adapter = new DeterministicDatabaseAdapter()
 	const probe = new RuntimeCostProbe()
-	const ultimabase = new UltimaBase({
+	const Application = UltimaBase.use(
+		...optionalPlugins(configuration),
+		deterministicDatabasePlugin(adapter),
+	)
+	const ultimabase = new Application({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			...optionalPlugins(configuration),
-			deterministicDatabasePlugin(adapter),
-		],
 		schemas: [MeasuredPost],
 	})
 

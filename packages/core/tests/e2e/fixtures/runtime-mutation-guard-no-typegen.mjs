@@ -74,9 +74,9 @@ const Note = Schema.define({
 	className: 'JavaScriptRuntimeGuardNote',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(behaviorPlugin, databasePlugin)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [behaviorPlugin, databasePlugin],
 	schemas: [Note],
 })
 

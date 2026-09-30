@@ -1,5 +1,5 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, type PluginSourceState } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -68,7 +68,8 @@ let pool: RecordingPostgresPool | undefined
 let ultimabase:
 	| UltimaBase<
 			readonly [...typeof schemas],
-			readonly [ReturnType<typeof postgresPlugin>]
+			readonly [ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -83,13 +84,10 @@ const getApplication = () => {
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'mutation_include' })
 	pool = new RecordingPostgresPool(fixture.pool)
-	ultimabase = new UltimaBase({
-		plugins: [
-			accessPlugin({ default: true }),
-			postgresPlugin({ pool, schemaPolicy: 'override' }),
-		],
-		schemas,
-	})
+	ultimabase = new (UltimaBase.use(
+		accessPlugin({ default: true }),
+		postgresPlugin({ pool, schemaPolicy: 'override' }),
+	))({ schemas })
 
 	try {
 		await ultimabase.start()

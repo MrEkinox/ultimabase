@@ -28,10 +28,7 @@ describe('validationPlugin', () => {
 				} as never),
 			}),
 		})
-		const application = new UltimaBase({
-			plugins: [],
-			schemas: [Document],
-		})
+		const application = new UltimaBase({ schemas: [Document] })
 
 		await expect(application.initialize()).rejects.toThrow(
 			'Unknown string field option: validation',

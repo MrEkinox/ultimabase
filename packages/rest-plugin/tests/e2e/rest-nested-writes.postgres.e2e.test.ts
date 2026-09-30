@@ -3,6 +3,7 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	type RequestContext,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
@@ -69,7 +70,8 @@ let application:
 				ReturnType<typeof restPlugin>,
 				ReturnType<typeof createRestMutationExecutionHarnessPlugin>,
 				ReturnType<typeof postgresPlugin>,
-			]
+			],
+			PluginSourceState
 	  >
 	| undefined
 let anonymous: RequestContext | undefined
@@ -128,20 +130,19 @@ const includedTargets = (
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'rest_nested_writes' })
-	application = new UltimaBase({
+	application = new (UltimaBase.use(
+		accessPlugin({ default: true }),
+		restPlugin(),
+		createRestMutationExecutionHarnessPlugin(harness),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'rest-nested-writes', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			accessPlugin({ default: true }),
-			restPlugin(),
-			createRestMutationExecutionHarnessPlugin(harness),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas,
 		validation: { timezone: 'UTC' },
 	})

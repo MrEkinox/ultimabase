@@ -110,13 +110,12 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 		],
 	})
 	const audit = vi.fn()
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(hooksPlugin(), owner, database))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'schema-mutation-purge-master', value: 'unused' }],
 			onUse: audit,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [hooksPlugin(), owner, database],
 		schemas: [Document],
 	})
 

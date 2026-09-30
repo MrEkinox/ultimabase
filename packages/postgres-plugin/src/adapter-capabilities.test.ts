@@ -102,14 +102,10 @@ describe('PostgreSQL adapter capabilities', () => {
 				})),
 			],
 		})
-		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
-			plugins: [
-				postgresPlugin({ pool, schemaPolicy: 'ignore' }),
-				setupConsumer,
-			],
-			schemas: [],
-		})
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({ pool, schemaPolicy: 'ignore' }),
+			setupConsumer,
+		))({ pluginPrivileges: { logger: false }, schemas: [] })
 
 		await ultimabase.start()
 		expect(
@@ -179,9 +175,12 @@ describe('PostgreSQL adapter capabilities', () => {
 			],
 		})
 		const database = postgresPlugin({ pool, schemaPolicy: 'ignore' })
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			database,
+			bridgePlugin,
+			operationPlugin,
+		))({
 			pluginPrivileges: { logger: false },
-			plugins: [database, bridgePlugin, operationPlugin],
 			schemas: [],
 		})
 

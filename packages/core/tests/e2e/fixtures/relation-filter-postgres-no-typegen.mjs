@@ -48,7 +48,10 @@ const Source = Schema.define({
 	}),
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [
 			{ id: 'javascript-relation-filter', value: 'javascript-master-key' },
@@ -56,7 +59,6 @@ const ultimabase = new UltimaBase({
 		onUse: () => undefined,
 	}),
 	pluginPrivileges: { logger: false },
-	plugins: [postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })],
 	schemas: [Target, Source],
 })
 

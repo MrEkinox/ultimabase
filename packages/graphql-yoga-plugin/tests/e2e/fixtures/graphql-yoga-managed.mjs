@@ -211,20 +211,20 @@ const schema = new GraphQLSchema({
 		},
 	}),
 })
-const application = new UltimaBase({
+const Application = UltimaBase.use(
+	databasePlugin,
+	workflowPlugin,
+	httpPlugin({ appId: 'managed' }),
+	graphqlPlugin({
+		acknowledgeUnverifiedProtection: true,
+		default: { findOne: true, mutations: true },
+		schemas: [schema],
+	}),
+	graphqlYogaPlugin(),
+	honoServerPlugin({ host: '127.0.0.1', port }),
+)
+const application = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [
-		databasePlugin,
-		workflowPlugin,
-		httpPlugin({ appId: 'managed' }),
-		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			default: { findOne: true, mutations: true },
-			schemas: [schema],
-		}),
-		graphqlYogaPlugin(),
-		honoServerPlugin({ host: '127.0.0.1', port }),
-	],
 	schemas: [ManagedVirtual],
 })
 

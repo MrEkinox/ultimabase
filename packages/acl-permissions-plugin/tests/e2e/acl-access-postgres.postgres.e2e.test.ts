@@ -8,6 +8,7 @@ import {
 	requestSources,
 	Schema,
 	UltimaBase,
+	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -104,7 +105,8 @@ let ultimabase:
 				typeof identityPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
-			]
+			],
+			PluginSourceState
 	  >
 	| undefined
 let rowIds: Readonly<Record<string, string>> = immutableRecord({})
@@ -136,20 +138,19 @@ const requireRowId = (title: string): string => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		identityPlugin,
+		aclPlugin(),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'acl-access-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			identityPlugin,
-			aclPlugin(),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas: [Principal, ProtectedPost],
 	})
 	await ultimabase.start()

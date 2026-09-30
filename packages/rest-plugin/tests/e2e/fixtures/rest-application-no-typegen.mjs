@@ -88,14 +88,14 @@ const capturePlugin = plugin({
 	version: '1.0.0',
 })
 
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	databasePlugin,
+	restPlugin({ acknowledgeUnverifiedProtection: true }),
+	httpPlugin({ appId: 'javascript-rest' }),
+	capturePlugin,
+)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [
-		databasePlugin,
-		restPlugin({ acknowledgeUnverifiedProtection: true }),
-		httpPlugin({ appId: 'javascript-rest' }),
-		capturePlugin,
-	],
 	schemas: [Note],
 })
 

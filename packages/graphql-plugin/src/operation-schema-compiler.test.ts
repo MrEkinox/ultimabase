@@ -199,18 +199,14 @@ const RecordSchema = Schema.define({
 })
 
 const createStartedFixture = async () => {
-	const ultimabase = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin,
-			createOperationPlugin(),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: [echoOperation],
-			}),
-		],
-		schemas: [RecordSchema],
-	})
+	const ultimabase = new (UltimaBase.use(
+		databasePlugin,
+		createOperationPlugin(),
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [echoOperation],
+		}),
+	))({ pluginPrivileges: { logger: false }, schemas: [RecordSchema] })
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
 	return ultimabase
@@ -333,18 +329,17 @@ describe('GraphQL plugin operations', () => {
 			'fixture.graphql-operation-owner',
 		]) {
 			expect(() => {
-				const application = new UltimaBase({
+				const application = new (UltimaBase.use(
+					databasePlugin,
+					createOperationPlugin(),
+					graphqlPlugin({ operations: [echoOperation] }),
+				))({
 					pluginPrivileges: {
 						logger: false,
 						plugins: {
 							[pluginId]: { deny: ['transport:expose'] },
 						},
 					},
-					plugins: [
-						databasePlugin,
-						createOperationPlugin(),
-						graphqlPlugin({ operations: [echoOperation] }),
-					],
 					schemas: [RecordSchema],
 				})
 				onTestFinished(() => application.dispose())
@@ -352,13 +347,12 @@ describe('GraphQL plugin operations', () => {
 			}).toThrow('denied 1 active request')
 		}
 		await expect(
-			new UltimaBase({
+			new (UltimaBase.use(
+				databasePlugin,
+				createOperationPlugin({ binding: false }),
+				graphqlPlugin({ operations: [echoOperation] }),
+			))({
 				pluginPrivileges: { logger: false },
-				plugins: [
-					databasePlugin,
-					createOperationPlugin({ binding: false }),
-					graphqlPlugin({ operations: [echoOperation] }),
-				],
 				schemas: [RecordSchema],
 			}).start(),
 		).rejects.toThrow('requires one exact binding')
@@ -372,14 +366,13 @@ describe('GraphQL plugin operations', () => {
 			contributions: [contributeOperationBinding(createBinding())],
 		})
 		await expect(
-			new UltimaBase({
+			new (UltimaBase.use(
+				databasePlugin,
+				ownerWithoutBinding,
+				foreignBinding,
+				graphqlPlugin({ operations: [echoOperation] }),
+			))({
 				pluginPrivileges: { logger: false },
-				plugins: [
-					databasePlugin,
-					ownerWithoutBinding,
-					foreignBinding,
-					graphqlPlugin({ operations: [echoOperation] }),
-				],
 				schemas: [RecordSchema],
 			}).start(),
 			// Core rejects the foreign provider before GraphQL receives its inert plan.
@@ -403,13 +396,12 @@ describe('GraphQL plugin operations', () => {
 			operation: echoOperation,
 		})
 		await expect(
-			new UltimaBase({
+			new (UltimaBase.use(
+				databasePlugin,
+				createOperationPlugin({ binding: incompatibleBinding }),
+				graphqlPlugin({ operations: [echoOperation] }),
+			))({
 				pluginPrivileges: { logger: false },
-				plugins: [
-					databasePlugin,
-					createOperationPlugin({ binding: incompatibleBinding }),
-					graphqlPlugin({ operations: [echoOperation] }),
-				],
 				schemas: [RecordSchema],
 			}).start(),
 		).rejects.toThrow('requires one exact binding')
@@ -453,13 +445,12 @@ describe('GraphQL plugin operations', () => {
 			[{ ...echoMetadata, field: 'createGraphqlOperationRecord' }, 'collides'],
 		] as const) {
 			await expect(
-				new UltimaBase({
+				new (UltimaBase.use(
+					databasePlugin,
+					createOperationPlugin({ binding: createBinding(metadata) }),
+					graphqlPlugin({ operations: [echoOperation] }),
+				))({
 					pluginPrivileges: { logger: false },
-					plugins: [
-						databasePlugin,
-						createOperationPlugin({ binding: createBinding(metadata) }),
-						graphqlPlugin({ operations: [echoOperation] }),
-					],
 					schemas: [RecordSchema],
 				}).start(),
 			).rejects.toThrow(message)

@@ -226,19 +226,17 @@ describe('stored role Access integration', () => {
 	it('provides the neutral resolver for zero or multiple discovered domains', async () => {
 		const emptyConsumer = roleResolverConsumer('fixture.empty-role-consumer')
 		const roleConsumer = roleResolverConsumer('fixture.role-consumer')
-		const emptyApplication = new UltimaBase({
-			schemas: [],
-			plugins: [rolesPlugin(), emptyConsumer],
-		})
+		const emptyApplication = new (UltimaBase.use(rolesPlugin(), emptyConsumer))(
+			{ schemas: [] },
+		)
 		await emptyApplication.initialize()
 		onTestFinished(() => emptyApplication.dispose())
 		const emptyConsumerExports = emptyApplication.plugin(
 			'fixture.empty-role-consumer',
 		)
 		await emptyApplication.dispose()
-		const roleApplication = new UltimaBase({
+		const roleApplication = new (UltimaBase.use(rolesPlugin(), roleConsumer))({
 			schemas: [Member, AppRole, OtherRole],
-			plugins: [rolesPlugin(), roleConsumer],
 		})
 		await roleApplication.initialize()
 		onTestFinished(() => roleApplication.dispose())
@@ -267,9 +265,8 @@ describe('stored role Access integration', () => {
 			],
 		})
 		const consumer = roleResolverConsumer('fixture.community-role-consumer')
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(communityProvider, consumer))({
 			schemas: [],
-			plugins: [communityProvider, consumer],
 		})
 		await application.initialize()
 		onTestFinished(() => application.dispose())

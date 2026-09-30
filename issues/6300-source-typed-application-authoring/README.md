@@ -1,7 +1,7 @@
 # Milestone 63: Source-typed application authoring
 
 - Status: in-progress
-- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6313, 6314, 6315, 6316
+- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6313, 6315, 6316
 
 Replace plugin-generated authoring surfaces with one source-typed configured
 application factory while preserving every current UltimaBase capability and
@@ -33,15 +33,21 @@ frozen in the
 - [x] [6309: Migrate Soft Delete, vector, and PostgreSQL source typing](6309-data-plugin-source-typing.md)
 - [x] [6310: Migrate HTTP, Hono, and REST configured installation](6310-http-rest-plugin-migration.md)
 - [x] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
-- [ ] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
-- [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
+- [x] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
+- [x] [6317: Migrate plugin installation consumers](6317-migrate-plugin-installation-consumers.md)
+- [ ] [6318: Migrate schema authoring consumers](6318-migrate-schema-authoring-consumers.md)
 - [ ] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)
+- [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [ ] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
 - [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
 
 Issues are sequential because each removes the previous implementation only
 after its replacement proves the same capability and editor behavior. No issue
 may retain a compatibility alias merely to make the next issue easier.
+The user approved executing 6314 before 6313 after the 6313 inventory proved
+that generated plugin projections still type 6314's old authoring paths.
+The user then approved splitting the broad 6314 consumer migration into 6317
+and 6318 before the final 6314 removal gate.
 
 ## Mandatory execution loop
 

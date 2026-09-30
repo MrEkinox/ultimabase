@@ -47,16 +47,12 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		}),
 		postgres: { table: 'direct_option_articles' },
 	})
-	const legacy = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({
-				pool: getFixture().pool,
-				schemaPolicy: 'override',
-			}),
-		],
-		schemas: [LegacyArticle],
-	})
+	const legacy = new (UltimaBase.use(
+		postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		}),
+	))({ pluginPrivileges: { logger: false }, schemas: [LegacyArticle] })
 	await legacy.start()
 	const created = await LegacyArticle.createOne(
 		{ data: { headline: 'Preserved headline' } },
@@ -74,16 +70,12 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		}),
 		postgres: { table: 'direct_option_articles' },
 	})
-	const renamed = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({
-				pool: getFixture().pool,
-				schemaPolicy: 'override',
-			}),
-		],
-		schemas: [Article],
-	})
+	const renamed = new (UltimaBase.use(
+		postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		}),
+	))({ pluginPrivileges: { logger: false }, schemas: [Article] })
 	await renamed.start()
 
 	try {

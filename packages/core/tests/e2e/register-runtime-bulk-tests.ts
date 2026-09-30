@@ -12,14 +12,13 @@ import {
 /** Registers bulk database cases in the owning E2E file and worker. */
 export const registerRuntimeBulkTests = (): void => {
 	it('executes ordered atomic bulk, set writes, and unique upserts', async () => {
-		const ultimabase = new UltimaBase({
+		const ultimabase = new (UltimaBase.use(
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: getFixture().connectionUri,
+			}),
+		))({
 			schemas: [BulkAccountSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
 			validation: {
 				clock: () => new Date(createInstant),
 				timezone: 'UTC',

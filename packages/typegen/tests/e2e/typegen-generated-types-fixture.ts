@@ -146,16 +146,13 @@ export const Document = Schema.define({
 		}
 	},
 })
-export const application = new UltimaBase({
-	plugins: [
-		accessPlugin(),
-		containedVectorPlugin,
-		hooksPlugin(),
-		pgVectorPlugin(),
-		validationPlugin(),
-	],
-	schemas: [Owner, Document],
-})
+export const application = new (UltimaBase.use(
+	accessPlugin(),
+	containedVectorPlugin,
+	hooksPlugin(),
+	pgVectorPlugin(),
+	validationPlugin(),
+))({ schemas: [Owner, Document] })
 export const generated = generateApplicationTypes({
 	ultimabase: application,
 	applicationId: 'fixture.packed-typegen',

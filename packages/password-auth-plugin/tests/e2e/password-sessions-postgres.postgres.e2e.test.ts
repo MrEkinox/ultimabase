@@ -80,19 +80,18 @@ const createApplication = (
 			expiresInMs: 5 * 60_000,
 		},
 	})
-	const ultimabase = new UltimaBase({
+	const ultimabase = new (UltimaBase.use(
+		postgresPlugin({
+			pool: (options.fixture ?? getFixture()).pool,
+			schemaPolicy: 'override',
+		}),
+		plugin,
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'password-sign-up', value: 'server-secret' }],
 			onUse,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			postgresPlugin({
-				pool: (options.fixture ?? getFixture()).pool,
-				schemaPolicy: 'override',
-			}),
-			plugin,
-		],
 		schemas: [],
 	})
 	return { onUse, plugin, ultimabase }
@@ -464,24 +463,23 @@ describe(
 			const plugin = passwordAuthPlugin({
 				password: { memoryCostKiB: 19_456, parallelism: 1, timeCost: 2 },
 			})
-			const ultimabase = new UltimaBase({
+			const ultimabase = new (UltimaBase.use(
+				postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
+				plugin,
+				restPlugin({
+					operations: [
+						passwordAuthOperations.signUp,
+						passwordAuthOperations.login,
+						passwordAuthOperations.logout,
+						passwordAuthOperations.refresh,
+					],
+				}),
+			))({
 				masterAuthority: new MasterAuthority({
 					keys: [{ id: 'rest-sign-up', value: 'server-secret' }],
 					onUse: () => undefined,
 				}),
 				pluginPrivileges: { logger: false },
-				plugins: [
-					postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-					plugin,
-					restPlugin({
-						operations: [
-							passwordAuthOperations.signUp,
-							passwordAuthOperations.login,
-							passwordAuthOperations.logout,
-							passwordAuthOperations.refresh,
-						],
-					}),
-				],
 				schemas: [],
 			})
 			await ultimabase.start()

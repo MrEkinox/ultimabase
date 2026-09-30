@@ -34,10 +34,7 @@ const createNestedWriteRegistry = (): string => {
 		className: 'GeneratedNestedTag',
 		fields: (field) => ({ label: field.string({ required: true }) }),
 	})
-	const application = new UltimaBase({
-		plugins: [],
-		schemas: [Author, Post, Tag],
-	})
+	const application = new UltimaBase({ schemas: [Author, Post, Tag] })
 
 	return generateApplicationTypes({
 		ultimabase: application,

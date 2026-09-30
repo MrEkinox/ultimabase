@@ -11,20 +11,16 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 
 const createApplication = () =>
 	applicationFixture(
-		new UltimaBase({
-			pluginPrivileges: { logger: false },
-			schemas: [],
-			plugins: [
-				plugin({
-					id: 'fixture.current-facade',
-					version: '1.0.0',
-					core: '^0.0.0',
-					contributions: [
-						provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
-					],
-				}),
-			],
-		}),
+		new (UltimaBase.use(
+			plugin({
+				id: 'fixture.current-facade',
+				version: '1.0.0',
+				core: '^0.0.0',
+				contributions: [
+					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+				],
+			}),
+		))({ pluginPrivileges: { logger: false }, schemas: [] }),
 	)
 
 describe('current UltimaBase facade', () => {

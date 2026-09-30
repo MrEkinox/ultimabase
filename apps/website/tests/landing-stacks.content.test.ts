@@ -145,10 +145,12 @@ import { UltimaBase as RuntimeApplication } from '@ultimabase/core'
 import { postgresPlugin as runtimePostgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin as runtimeValidationPlugin } from '@ultimabase/validation-plugin'
 import { accessPlugin as runtimeAccessPlugin } from '@ultimabase/access-plugin'
-export const app = new RuntimeApplication({
-  schemas: [${example.schema}],
-  plugins: [runtimePostgresPlugin({ url: 'postgres://localhost/landing_check' }), runtimeValidationPlugin(), runtimeAccessPlugin()],
-})`
+const RuntimeConfiguredApplication = RuntimeApplication.use(
+  runtimePostgresPlugin({ url: 'postgres://localhost/landing_check' }),
+  runtimeValidationPlugin(),
+  runtimeAccessPlugin(),
+)
+export const app = new RuntimeConfiguredApplication({ schemas: [${example.schema}] })`
 			await writeFile(filename, source)
 			const application = await loadTypegenApplication({
 				sourcePath: filename,

@@ -189,18 +189,17 @@ const capturePlugin = (capture: { current?: HttpApplication }) =>
 const createFixture = async () => {
 	const adapter = new ResponseDatabase()
 	const capture: { current?: HttpApplication } = {}
-	const application = new UltimaBase({
+	const application = new (UltimaBase.use(
+		databasePlugin(adapter),
+		operationPlugin,
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [httpOperation],
+		}),
+		httpPlugin({ appId: 'response-app' }),
+		capturePlugin(capture),
+	))({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			databasePlugin(adapter),
-			operationPlugin,
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: [httpOperation],
-			}),
-			httpPlugin({ appId: 'response-app' }),
-			capturePlugin(capture),
-		],
 		schemas: [HttpRecord],
 	})
 	await application.start()

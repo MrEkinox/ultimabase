@@ -53,9 +53,8 @@ afterEach(() => {
 describe('postgresPlugin', () => {
 	it('defers connection verification to lifecycle connect', async () => {
 		const pool = new FixturePool()
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(postgresPlugin({ pool })))({
 			schemas: [],
-			plugins: [postgresPlugin({ pool })],
 		})
 		await application.initialize()
 		const connection = application.plugin(
@@ -84,13 +83,12 @@ describe('postgresPlugin', () => {
 	it('disposes a URL-owned pool without opening it during setup', async () => {
 		const end = vi.spyOn(Pool.prototype, 'end').mockResolvedValue()
 		const connect = vi.spyOn(Pool.prototype, 'connect')
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			postgresPlugin({
+				url: 'postgresql://fixture:private@127.0.0.1:5432/fixture',
+			}),
+		))({
 			schemas: [],
-			plugins: [
-				postgresPlugin({
-					url: 'postgresql://fixture:private@127.0.0.1:5432/fixture',
-				}),
-			],
 		})
 		await application.initialize()
 
@@ -107,10 +105,7 @@ describe('postgresPlugin', () => {
 			url: `postgresql://fixture:${secret}@127.0.0.1:5432/fixture`,
 		})
 		vi.spyOn(Pool.prototype, 'end').mockResolvedValue()
-		const application = new UltimaBase({
-			schemas: [],
-			plugins: [plugin],
-		})
+		const application = new (UltimaBase.use(plugin))({ schemas: [] })
 		await application.initialize()
 		const pluginExports = application.plugin('@ultimabase/postgres-plugin')
 
@@ -129,10 +124,7 @@ describe('postgresPlugin', () => {
 
 		mutableOptions.pool = replacementPool
 
-		const application = new UltimaBase({
-			schemas: [],
-			plugins: [plugin],
-		})
+		const application = new (UltimaBase.use(plugin))({ schemas: [] })
 		await application.initialize()
 
 		await application.start()
@@ -144,14 +136,15 @@ describe('postgresPlugin', () => {
 
 	it('skips structural queries when schemaPolicy is ignore', async () => {
 		const pool = new FixturePool()
-		const application = new UltimaBase({
+		const application = new (UltimaBase.use(
+			postgresPlugin({ pool, schemaPolicy: 'ignore' }),
+		))({
 			schemas: [
 				Schema.define({
 					className: 'IgnoredArticle',
 					fields: (field) => ({ title: field.string() }),
 				}),
 			],
-			plugins: [postgresPlugin({ pool, schemaPolicy: 'ignore' })],
 		})
 		await application.initialize()
 
@@ -171,10 +164,7 @@ describe('postgresPlugin', () => {
 
 		mutableOptions.schemaPolicy = 'override'
 
-		const application = new UltimaBase({
-			schemas: [],
-			plugins: [plugin],
-		})
+		const application = new (UltimaBase.use(plugin))({ schemas: [] })
 		await application.initialize()
 
 		await application.start()
@@ -189,10 +179,9 @@ describe('postgresPlugin', () => {
 			fields: (field) => ({ title: field.string() }),
 			postgres: { table: 'content.Articles' },
 		})
-		const application = new UltimaBase({
-			schemas: [schema],
-			plugins: [postgresPlugin({ pool: new FixturePool() })],
-		})
+		const application = new (UltimaBase.use(
+			postgresPlugin({ pool: new FixturePool() }),
+		))({ schemas: [schema] })
 		await application.initialize()
 
 		expect(application.state).toBe('ready')

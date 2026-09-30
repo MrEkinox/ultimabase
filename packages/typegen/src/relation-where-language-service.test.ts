@@ -28,10 +28,7 @@ const createGeneratedRegistry = (): string => {
 	})
 
 	return generateApplicationTypes({
-		ultimabase: new UltimaBase({
-			plugins: [],
-			schemas: [Source, Target],
-		}),
+		ultimabase: new UltimaBase({ schemas: [Source, Target] }),
 		applicationId: 'fixture.semantic-relation-where',
 	}).contents.replaceAll('@ultimabase/core', '../../core/src/index.js')
 }

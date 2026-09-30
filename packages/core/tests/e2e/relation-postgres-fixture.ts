@@ -1,4 +1,9 @@
-import { booleanField, stringField, UltimaBase } from '@ultimabase/core'
+import {
+	booleanField,
+	stringField,
+	UltimaBase,
+	type PluginSourceState,
+} from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -156,7 +161,8 @@ export let fixture: PostgresWorkerFixture | undefined
 export let ultimabase:
 	| UltimaBase<
 			readonly [...typeof relationSchemas],
-			readonly [ReturnType<typeof postgresPlugin>]
+			readonly [ReturnType<typeof postgresPlugin>],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -169,15 +175,14 @@ export const getUltimaBase = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
-		plugins: [
-			hooksPlugin(),
-			accessPlugin({ default: true }),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		accessPlugin({ default: true }),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		schemas: relationSchemas,
 		validation: {
 			clock: () => new Date('2026-08-04T01:00:00.000Z'),

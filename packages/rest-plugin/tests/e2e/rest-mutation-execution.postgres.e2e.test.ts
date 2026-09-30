@@ -172,30 +172,29 @@ const toJson = (value: object): Readonly<Record<string, unknown>> => {
 const harness: ExecutionHarness = {}
 const httpCapture: { current?: HttpApplication } = {}
 const createApplication = (connectionUri: string) =>
-	new UltimaBase({
+	new (UltimaBase.use(
+		hooksPlugin(),
+		validationPlugin(),
+		accessPlugin({ default: true }),
+		aclPlugin(),
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: true,
+		}),
+		httpPlugin({
+			appId: 'rest-mutation-e2e',
+			requestTimeoutMs: 10,
+		}),
+		createDeadlineRoutePlugin(),
+		createHttpCapturePlugin(httpCapture),
+		createHarnessPlugin(harness),
+		postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'rest-mutation-e2e', value: 'rest-mutation-secret' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			hooksPlugin(),
-			validationPlugin(),
-			accessPlugin({ default: true }),
-			aclPlugin(),
-			restPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: true,
-			}),
-			httpPlugin({
-				appId: 'rest-mutation-e2e',
-				requestTimeoutMs: 10,
-			}),
-			createDeadlineRoutePlugin(),
-			createHttpCapturePlugin(httpCapture),
-			createHarnessPlugin(harness),
-			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
-		],
 		schemas: [MutationPost],
 		validation: {
 			clock: () => new Date('2026-09-05T15:00:00.000Z'),

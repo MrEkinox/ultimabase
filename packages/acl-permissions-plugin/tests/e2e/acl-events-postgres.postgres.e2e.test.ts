@@ -6,7 +6,12 @@ import {
 	type ACLChangedEvent,
 	type aclChangedEvent,
 } from '@ultimabase/acl-permissions-plugin'
-import { MasterAuthority, UltimaBase, plugin } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	UltimaBase,
+	plugin,
+	type PluginSourceState,
+} from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PluginEventHandlerInput } from '@ultimabase/plugin-kit'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -94,7 +99,8 @@ let ultimabase:
 				typeof eventObserverPlugin,
 				ReturnType<typeof aclPlugin>,
 				ReturnType<typeof postgresPlugin>,
-			]
+			],
+			PluginSourceState
 	  >
 	| undefined
 
@@ -108,20 +114,19 @@ const getApplication = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new UltimaBase({
+	ultimabase = new (UltimaBase.use(
+		hooksPlugin(),
+		eventObserverPlugin,
+		aclPlugin(),
+		postgresPlugin({
+			schemaPolicy: 'override',
+			url: fixture.connectionUri,
+		}),
+	))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'acl-events-e2e', value: 'server-only' }],
 			onUse: () => undefined,
 		}),
-		plugins: [
-			hooksPlugin(),
-			eventObserverPlugin,
-			aclPlugin(),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
 		schemas: [Post],
 	})
 	await ultimabase.start()

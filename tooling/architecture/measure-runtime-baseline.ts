@@ -30,11 +30,9 @@ const measure = async (): Promise<RuntimeSample> => {
 	globalThis.gc?.()
 	const heapBefore = process.memoryUsage().heapUsed
 	const adapter = new DeterministicDatabaseAdapter()
-	const ultimabase = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [deterministicDatabasePlugin(adapter)],
-		schemas: [MeasuredPost],
-	})
+	const ultimabase = new (UltimaBase.use(deterministicDatabasePlugin(adapter)))(
+		{ pluginPrivileges: { logger: false }, schemas: [MeasuredPost] },
+	)
 
 	try {
 		const startupStart = performance.now()

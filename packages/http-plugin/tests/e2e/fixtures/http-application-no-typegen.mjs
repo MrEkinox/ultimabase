@@ -75,14 +75,14 @@ const database = plugin({
 		}),
 	],
 })
-const ultimabase = new UltimaBase({
+const Application = UltimaBase.use(
+	database,
+	routeOwner,
+	httpPlugin({ appId: 'javascript-app' }),
+	server,
+)
+const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
-	plugins: [
-		database,
-		routeOwner,
-		httpPlugin({ appId: 'javascript-app' }),
-		server,
-	],
 	schemas: [],
 })
 
