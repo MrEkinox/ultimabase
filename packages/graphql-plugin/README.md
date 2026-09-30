@@ -3,11 +3,14 @@
 Network-independent GraphQL schema generation for UltimaBase applications.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const Post = Schema.define({
+const SchemaApplication = UltimaBase.use(
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
+)
+const Post = SchemaApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	graphql: { operations: { findMany: true } },
@@ -15,9 +18,9 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const Application = UltimaBase.use(
+const Application = SchemaApplication.use(
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-).use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }))
+)
 const application = new Application({
 	schemas: [Post],
 })
@@ -43,6 +46,10 @@ Use a disposable database: `override` may create or alter tables. This example
 exposes one read without authorization; the acknowledgement does not add policy.
 Configure and review protection before public exposure. The [website guide](../../apps/website/content/docs/1.0.0/plugins/official/graphql.mdx)
 separates reusable configuration, direct execution, HTTP serving and explorers.
+
+Declare schemas through the configured factory: its installed GraphQL plugin
+types `graphql` directly, without a generated GraphQL option declaration.
+Typegen remains responsible for the application-wide named-schema graph.
 
 The plugin compiles one application-local executable `GraphQLSchema` after the
 complete Core schema graph exists. Importing the package installs no behavior.
@@ -158,7 +165,7 @@ schema composition rules, so compatible definitions merge and incompatible
 fields fail startup.
 
 ```ts
-const Post = Schema.define({
+const Post = SchemaApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),
@@ -254,7 +261,7 @@ Plugin-owned schema mutations use the same schema exposure policy. The
 schema option and `graphqlPlugin({ default })`, and controls declarations only:
 
 ```ts
-const Post = Schema.define({
+const Post = SchemaApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 	graphql: { operations: { mutations: true } },

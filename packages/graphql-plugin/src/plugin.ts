@@ -9,8 +9,10 @@ import {
 	requireCapability,
 	type CapabilityRequirement,
 	type CapabilityProviderContribution,
+	type PluginDeclarationContribution,
 	type PluginInstance,
 	type PluginOperationDefinition,
+	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
@@ -180,12 +182,19 @@ const pluginSchemaSources = (
 		),
 	)
 
+// The configured factory derives the option from this same authorized declaration.
+type GraphqlOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'official-graphql-schema-option'
+	readonly schema: Readonly<{ graphql: typeof graphqlSchemaOption }>
+}>
+
 /** Names the sole GraphQL v1 owner for one application. */
 export type GraphqlPlugin = PluginInstance<{
 	readonly id: '@ultimabase/graphql-plugin'
 	readonly exports: GraphqlPluginExports
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
+	readonly source: GraphqlOptionSource
 }>
 
 /** Installs generated GraphQL schema execution without selecting an HTTP adapter. */
@@ -273,14 +282,15 @@ export const graphqlPlugin = (
 			}
 		},
 	})
-	const declarations = contributeDeclarations({
-		schema: ({ schemas }) => {
+	const declarations: PluginDeclarationContribution<
+		readonly [],
+		GraphqlOptionSource
+	> = contributeDeclarations({
+		schema: ({ schemas }) =>
 			schemas.defineOptions({
 				contributionId: 'official-graphql-schema-option',
 				schema: { graphql: graphqlSchemaOption },
-			})
-			return undefined
-		},
+			}),
 	})
 	const application = contributeApplication(({ capabilities: reader }) => {
 		const exports = reader.get(graphqlApplicationRequirement)

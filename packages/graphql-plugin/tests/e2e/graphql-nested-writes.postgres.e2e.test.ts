@@ -1,8 +1,5 @@
-import { Schema, UltimaBase, type RequestContext } from '@ultimabase/core'
-import {
-	graphqlPlugin,
-	type GraphqlSchemaExposureOption,
-} from '@ultimabase/graphql-plugin'
+import { UltimaBase, type RequestContext } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { httpApplicationIdHeader, httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
@@ -16,13 +13,12 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
+const appId = 'graphql-nested-writes'
+const GraphqlSchemaApplication = UltimaBase.use(httpPlugin({ appId })).use(
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: true }),
+)
 
-const Target = Schema.define({
+const Target = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedTarget',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -31,7 +27,7 @@ const Target = Schema.define({
 	graphql: true,
 })
 
-const Post = Schema.define({
+const Post = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedPost',
 	fields: (field) => ({
 		primary: field.pointer({ target: 'GraphqlNestedTarget' }),
@@ -49,7 +45,7 @@ const Post = Schema.define({
 	graphql: true,
 })
 
-const Node = Schema.define({
+const Node = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlNestedNode',
 	fields: (field) => ({
 		child: field.pointer({ target: 'GraphqlNestedNode' }),
@@ -59,21 +55,19 @@ const Node = Schema.define({
 })
 
 const schemas = [Target, Post, Node] as const
-const appId = 'graphql-nested-writes'
 const hono = new Hono()
 let fixture: PostgresWorkerFixture | undefined
-let application:
-	| UltimaBase<
-			readonly [...typeof schemas],
-			readonly [
-				ReturnType<typeof httpPlugin>,
-				ReturnType<typeof graphqlPlugin>,
-				ReturnType<typeof graphqlYogaPlugin>,
-				ReturnType<typeof honoServerPlugin>,
-				ReturnType<typeof postgresPlugin>,
-			]
-	  >
-	| undefined
+const createPostgresApplication = (connectionUri: string) => {
+	const Application = GraphqlSchemaApplication.use(graphqlYogaPlugin())
+		.use(honoServerPlugin({ app: hono, browserPolicyOwner: 'ultimabase' }))
+		.use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
+	return new Application({
+		pluginPrivileges: { logger: false },
+		schemas,
+		validation: { timezone: 'UTC' },
+	})
+}
+let application: ReturnType<typeof createPostgresApplication> | undefined
 let requestContext: RequestContext | undefined
 
 const app = () => {
@@ -147,24 +141,7 @@ beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({
 		prefix: 'graphql_nested_writes',
 	})
-	application = new UltimaBase({
-		pluginPrivileges: { logger: false },
-		plugins: [
-			httpPlugin({ appId }),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: true,
-			}),
-			graphqlYogaPlugin(),
-			honoServerPlugin({ app: hono, browserPolicyOwner: 'ultimabase' }),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: fixture.connectionUri,
-			}),
-		],
-		schemas,
-		validation: { timezone: 'UTC' },
-	})
+	application = createPostgresApplication(fixture.connectionUri)
 	try {
 		await application.start()
 		requestContext = application.anonymous({

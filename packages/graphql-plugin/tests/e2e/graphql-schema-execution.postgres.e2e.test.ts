@@ -6,10 +6,7 @@ import {
 	getCurrentRequest,
 	type RequestContext,
 } from '@ultimabase/core'
-import {
-	graphqlPlugin,
-	type GraphqlSchemaExposureOption,
-} from '@ultimabase/graphql-plugin'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -27,12 +24,6 @@ import {
 	type RestMutationExecutionHarness as ExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
-
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
 const deniedVirtualAccess = { access: { read: false } }
@@ -41,6 +32,7 @@ const GraphqlSchemaApplication = UltimaBase.use(hooksPlugin())
 	.use(validationPlugin())
 	.use(accessPlugin({ default: true }))
 	.use(aclPlugin())
+	.use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: true }))
 
 const GraphqlAuthor = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlExecutionAuthor',
@@ -114,31 +106,23 @@ let anonymous: RequestContext | undefined
 let master: RequestContext | undefined
 let foreign: RequestContext | undefined
 
-const createApplication = (connectionUri: string) =>
-	new UltimaBase({
+const createApplication = (connectionUri: string) => {
+	const Application = GraphqlSchemaApplication.use(
+		createHarnessPlugin(harness),
+	).use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
+	return new Application({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'graphql-execution', value: 'graphql-master-secret' }],
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		plugins: [
-			hooksPlugin(),
-			validationPlugin(),
-			accessPlugin({ default: true }),
-			aclPlugin(),
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				default: true,
-			}),
-			createHarnessPlugin(harness),
-			postgresPlugin({ schemaPolicy: 'override', url: connectionUri }),
-		],
 		schemas: [GraphqlAuthor, GraphqlPost],
 		validation: {
 			clock: () => new Date('2026-09-07T20:00:00.000Z'),
 			timezone: 'UTC',
 		},
 	})
+}
 
 let application: ReturnType<typeof createApplication> | undefined
 

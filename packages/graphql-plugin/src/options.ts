@@ -160,10 +160,8 @@ export const graphqlSchemaOption: SchemaOptionDefinition<GraphqlSchemaExposureOp
 	defineSchemaOption({
 		normalize: normalizeGraphqlSchemaExposure,
 		protocolVersion: 1,
-		typegen: {
-			module: '@ultimabase/graphql-plugin',
-			type: 'GraphqlSchemaExposureOption',
-		},
+		// The installed plugin projects this option from source, not Typegen.
+		typegen: false,
 	})
 
 /** Reads the normalized direct option without treating omission as denial. */

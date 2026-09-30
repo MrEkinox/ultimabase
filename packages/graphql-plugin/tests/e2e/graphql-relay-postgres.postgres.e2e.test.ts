@@ -1,5 +1,4 @@
 import {
-	Schema,
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	defineCapability,
@@ -11,7 +10,6 @@ import {
 	type PluginIdentity,
 	type RequestContext,
 } from '@ultimabase/core'
-import type { GraphqlSchemaExposureOption } from '@ultimabase/graphql-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -22,13 +20,8 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
-
-const RelayRecord = Schema.define({
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
+const RelayRecord = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlRelayPostgresRecord',
 	fields: (field) => ({
 		label: field.string({ required: true }),
@@ -113,19 +106,15 @@ let context: RequestContext | undefined
 let expectedLabels: readonly string[] = []
 const harness: ExecutionHarness = {}
 
-const createPostgresApplication = (connectionUri: string) =>
-	new UltimaBase({
+const createPostgresApplication = (connectionUri: string) => {
+	const Application = GraphqlSchemaApplication.use(
+		createHarnessPlugin(harness),
+	).use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
+	return new Application({
 		pluginPrivileges: { logger: false },
-		plugins: [
-			graphqlPlugin(),
-			createHarnessPlugin(harness),
-			postgresPlugin({
-				schemaPolicy: 'override',
-				url: connectionUri,
-			}),
-		],
 		schemas: [RelayRecord],
 	})
+}
 
 let application: ReturnType<typeof createPostgresApplication> | undefined
 

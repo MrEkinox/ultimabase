@@ -13,14 +13,17 @@ The package does not install GraphQL, HTTP, authentication, or a server. The
 application must configure those sibling plugins explicitly:
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
-const Post = Schema.define({
+const SchemaApplication = UltimaBase.use(
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }),
+)
+const Post = SchemaApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	graphql: { operations: { get: true, findMany: true } },
@@ -29,11 +32,10 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
-const Application = UltimaBase.use(
+const Application = SchemaApplication.use(
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 )
 	.use(httpPlugin({ appId: 'notes' }))
-	.use(graphqlPlugin({ acknowledgeUnverifiedProtection: true, default: false }))
 	.use(graphqlYogaPlugin())
 	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
 const ultimabase = new Application({

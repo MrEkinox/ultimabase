@@ -66,6 +66,9 @@ describe('GraphQL schema exposure options', () => {
 	})
 
 	it.each([
+		[null, 'must be a boolean or plain object'],
+		[{ operations: null }, 'must be a boolean or plain object'],
+		[{ operations: { bulk: null } }, 'must be a boolean or plain object'],
 		[{ operations: { unknown: true } }, 'unknown option'],
 		[{ operations: { get: 'yes' } }, 'must be a boolean'],
 		[{ operations: { bulk: { unknown: true } } }, 'unknown option'],

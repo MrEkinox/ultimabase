@@ -31,9 +31,6 @@ export const apiApplicationImports = (
 	...(has(plan, 'server-hono-plugin')
 		? ["import { honoServerPlugin } from '@ultimabase/server-hono-plugin'"]
 		: []),
-	...(has(plan, 'graphql-plugin')
-		? ["import { graphqlPlugin } from '@ultimabase/graphql-plugin'"]
-		: []),
 	...(has(plan, 'graphql-yoga-plugin')
 		? ["import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'"]
 		: []),
@@ -45,21 +42,20 @@ export const apiApplicationImports = (
 				"import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'",
 			]
 		: []),
-	...(has(plan, 'password-auth-plugin') && has(plan, 'graphql-plugin')
-		? [
-				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
-			]
-		: []),
 ]
 
-/** Installs REST before schema declaration so its direct option is source typed. */
+/** Installs transport options before schema declaration so they are source typed. */
 export const apiSchemaPluginImports = (
 	plan: InitializerPlan,
 ): readonly string[] => [
 	...(has(plan, 'rest-plugin')
 		? ["import { restPlugin } from '@ultimabase/rest-plugin'"]
 		: []),
-	...(has(plan, 'rest-plugin') && has(plan, 'password-auth-plugin')
+	...(has(plan, 'graphql-plugin')
+		? ["import { graphqlPlugin } from '@ultimabase/graphql-plugin'"]
+		: []),
+	...(has(plan, 'password-auth-plugin') &&
+	(has(plan, 'rest-plugin') || has(plan, 'graphql-plugin'))
 		? [
 				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
 			]
@@ -68,8 +64,8 @@ export const apiSchemaPluginImports = (
 
 export const apiSchemaPluginEntries = (
 	plan: InitializerPlan,
-): readonly string[] =>
-	has(plan, 'rest-plugin')
+): readonly string[] => [
+	...(has(plan, 'rest-plugin')
 		? [
 				`restPlugin({
       // Local development only: this acknowledges unverified public policy coverage.
@@ -77,10 +73,7 @@ export const apiSchemaPluginEntries = (
       default: { create: false, update: false, delete: false, upsert: false, bulk: false, mutations: false }${authOperations(plan)},
     })`,
 			]
-		: []
-
-export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
-	...(has(plan, 'http-plugin') ? ["httpPlugin({ appId: 'main' })"] : []),
+		: []),
 	...(has(plan, 'graphql-plugin')
 		? [
 				`graphqlPlugin({
@@ -90,6 +83,10 @@ export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
     })`,
 			]
 		: []),
+]
+
+export const apiPluginEntries = (plan: InitializerPlan): readonly string[] => [
+	...(has(plan, 'http-plugin') ? ["httpPlugin({ appId: 'main' })"] : []),
 	...(has(plan, 'graphql-yoga-plugin')
 		? [
 				hasGraphqlExplorer(plan)

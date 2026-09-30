@@ -97,8 +97,9 @@ describe('API project templates', () => {
 		const application = files.get('src/ultimabase.ts') ?? ''
 		const schema = files.get('src/schema.ts') ?? ''
 		expect(schema).toContain('restPlugin({')
+		expect(schema).toContain('graphqlPlugin({')
 		expect(application).not.toContain('restPlugin({')
-		expect(application).toContain('graphqlPlugin({')
+		expect(application).not.toContain('graphqlPlugin({')
 		expect(schema).toContain('create: false, update: false, delete: false')
 		expect(schema).toContain('acknowledgeUnverifiedProtection: true')
 		expect(schema).toMatch(
@@ -132,13 +133,11 @@ describe('API project templates', () => {
 		)
 		const application = renderBaseFiles(exposed).get('src/ultimabase.ts') ?? ''
 		const schema = renderBaseFiles(exposed).get('src/schema.ts') ?? ''
-		expect(application.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(
-			1,
-		)
-		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(1)
-		expect(application).toContain('passwordAuthOperations.login')
-		expect(application).toContain('passwordAuthOperations.refresh')
-		expect(application).toContain('passwordAuthOperations.logout')
+		expect(application).not.toContain('passwordAuthOperations.')
+		expect(schema.match(/passwordAuthOperations\.signUp/gu)).toHaveLength(2)
+		expect(schema).toContain('passwordAuthOperations.login')
+		expect(schema).toContain('passwordAuthOperations.refresh')
+		expect(schema).toContain('passwordAuthOperations.logout')
 		expect(application).not.toContain('cookie:')
 	})
 

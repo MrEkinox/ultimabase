@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310
-- Active issue: none; stop for user review after 6310
-- Next issue: 6311, pending user review
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311
+- Active issue: 6312
+- Next issue: 6313
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -213,5 +213,21 @@ the packed hover tests now protect exact source types, and the built E2E project
 has 20-second language-service headroom. The unrestricted rerun passed 101
 files/405 tests. Final `yarn validate:full` passed 557 ordinary files/2,639
 tests, 635 coverage files/2,900 tests, and 17 website files/66 tests, with
-90.85/84.37/96.04/91.42 coverage. Issue 6310 is the last issue worked on;
-stop before 6311 for user review. No push is authorized.
+90.85/84.37/96.04/91.42 coverage. The user authorized continuing after the
+6310 review. Issue 6311 is complete; no push is authorized.
+
+Issue 6311 completed GraphQL's configured source-option projection from
+revision `95c185b8`. The authorized schema declaration receipt now types
+`graphql` on `App.Schema.define()` in source and packed exports without a
+generated GraphQL option declaration. The minimal example and initializer
+install GraphQL before schema declaration while retaining the same flat
+chain, exact operation allowlists, explicit schema registration, and
+GraphQL/REST sibling Runtime path. GraphQL Core, Yoga, HTTP, and explorer
+execution boundaries did not change. Full `yarn validate:full` passed 557
+ordinary files/2,647 tests, 635 coverage files/2,908 tests, and 17 website
+files/66 tests. Coverage was 90.86/84.38/96.04/91.43, above issue 6310's
+four percentages. The separate full built-E2E run passed 101 files/405 tests,
+and the locked 1/10/50-schema benchmark passed twice. Remaining old
+constructor fixtures belong to issue 6314; the generic plugin-option hover
+documentation limitation remains for issue 6316. Issue 6312 is the resume
+point; no push is authorized.

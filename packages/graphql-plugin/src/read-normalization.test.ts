@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
@@ -11,20 +11,12 @@ import { initializeGraphqlTestApplication as createApplication } from './applica
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
-import {
-	graphqlFieldProtocol,
-	graphqlPlugin,
-	type GraphqlSchemaExposureOption,
-} from './index.js'
+import { graphqlFieldProtocol, graphqlPlugin } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
 import { normalizeGraphqlCollectionArguments } from './read-normalization.js'
 import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 
 const authorId = '01991f00-0000-7000-8000-000000000001'
 
@@ -73,11 +65,11 @@ const portableCode = definePluginField(
 	},
 )
 
-const Author = Schema.define({
+const Author = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlReadAuthor',
 	fields: (field) => ({ name: field.string(), rank: field.bigint() }),
 })
-const RecordSchema = Schema.define({
+const RecordSchema = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlReadRecord',
 	fields: (field) => ({
 		author: field.pointer({ target: 'GraphqlReadAuthor' }),

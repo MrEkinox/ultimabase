@@ -1,18 +1,14 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { isEnumType, isInputObjectType, isObjectType } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
-import { graphqlPlugin, type GraphqlSchemaExposureOption } from './index.js'
+import { graphqlPlugin } from './index.js'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 
 const readSchema = async (
-	schemas: readonly ReturnType<typeof Schema.define>[],
+	schemas: readonly SchemaDefinition[],
 	plugin = graphqlPlugin(),
 ) => {
 	const application = await createApplication({
@@ -28,11 +24,11 @@ const readSchema = async (
 
 describe('GraphQL read input compilation', () => {
 	it('generates enabled roots, exact field operators, ordering, and relation arguments', async () => {
-		const Author = Schema.define({
+		const Author = GraphqlSchemaApplication.Schema.define({
 			className: 'ReadInputAuthor',
 			fields: (field) => ({ name: field.string() }),
 		})
-		const Post = Schema.define({
+		const Post = GraphqlSchemaApplication.Schema.define({
 			className: 'ReadInputPost',
 			fields: (field) => ({
 				author: field.pointer({ target: 'ReadInputAuthor' }),
@@ -139,11 +135,11 @@ describe('GraphQL read input compilation', () => {
 	})
 
 	it('uses the configured default page size on roots and relations', async () => {
-		const Child = Schema.define({
+		const Child = GraphqlSchemaApplication.Schema.define({
 			className: 'ConfiguredReadChild',
 			fields: (field) => ({ value: field.string() }),
 		})
-		const Parent = Schema.define({
+		const Parent = GraphqlSchemaApplication.Schema.define({
 			className: 'ConfiguredReadParent',
 			fields: (field) => ({
 				children: field.relation({ target: 'ConfiguredReadChild' }),
@@ -171,7 +167,7 @@ describe('GraphQL read input compilation', () => {
 	})
 
 	it('omits disabled read roots without changing supporting model types', async () => {
-		const HiddenReads = Schema.define({
+		const HiddenReads = GraphqlSchemaApplication.Schema.define({
 			className: 'HiddenReads',
 			fields: (field) => ({ value: field.string() }),
 			graphql: {

@@ -94,14 +94,20 @@ is not a working generated API. This local example exposes only `getPost` and
 policy may create or alter tables.
 
 ```ts title="src/ultimabase.ts"
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
-const Post = Schema.define({
+const SchemaApplication = UltimaBase.use(
+	graphqlPlugin({
+		acknowledgeUnverifiedProtection: true,
+		default: false,
+	}),
+)
+const Post = SchemaApplication.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 	graphql: { operations: { get: true, findMany: true } },
@@ -110,16 +116,10 @@ const Post = Schema.define({
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-const Application = UltimaBase.use(
+const Application = SchemaApplication.use(
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 )
 	.use(httpPlugin({ appId: 'notes' }))
-	.use(
-		graphqlPlugin({
-			acknowledgeUnverifiedProtection: true,
-			default: false,
-		}),
-	)
 	.use(graphqlYogaPlugin())
 	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
 
@@ -141,6 +141,10 @@ identity and [Access](./access) or [ACL](./acl-permissions) rules, then review
 the complete exposed schema. Authentication alone grants no permission. Do
 not use `override` against shared or production data without a reviewed
 schema plan.
+
+Install GraphQL before `SchemaApplication.Schema.define(...)` so the `graphql`
+option is inferred from source without a generated plugin-option declaration.
+Typegen still supplies the application-wide named-schema graph where needed.
 
 For direct execution only, keep `graphqlPlugin()` and omit HTTP, Yoga, and
 Hono. The plugin also accepts `schemas` for completed custom GraphQL schemas,

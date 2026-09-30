@@ -1,6 +1,7 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	PasswordUser,
@@ -30,6 +31,18 @@ export const MinimalSchemaApplication = UltimaBase.use(
 	.use(aclPlugin())
 	.use(
 		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [
+				exampleStatusOperation,
+				passwordAuthOperations.signUp,
+				passwordAuthOperations.login,
+				passwordAuthOperations.logout,
+				passwordAuthOperations.refresh,
+			],
+		}),
+	)
+	.use(
+		graphqlPlugin({
 			acknowledgeUnverifiedProtection: true,
 			operations: [
 				exampleStatusOperation,

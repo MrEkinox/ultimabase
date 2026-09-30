@@ -1,5 +1,8 @@
-import { Schema, defineOperation, defineOperationValue } from '@ultimabase/core'
-import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
+import {
+	UltimaBase,
+	defineOperation,
+	defineOperationValue,
+} from '@ultimabase/core'
 import type { ExecutionResult } from 'graphql'
 import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
 import { expectTypeOf, test } from 'vitest'
@@ -13,7 +16,6 @@ import {
 	type GraphqlExecuteOptions,
 	type GraphqlPlugin,
 	type GraphqlPluginExports,
-	type GraphqlSchemaExposureOption,
 } from './index.js'
 
 const operationValue = defineOperationValue((value: unknown): null => {
@@ -29,14 +31,10 @@ const applicationOperation = defineOperation({
 	version: '1.0.0',
 })
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
-
-test('preserves plugin and generated schema option types', async () => {
-	const Post = Schema.define({
+test('preserves plugin and configured schema option types', async () => {
+	const configured = graphqlPlugin({ default: { count: true } })
+	const App = UltimaBase.use(configured)
+	const Post = App.Schema.define({
 		className: 'Post',
 		fields: (field) => ({ title: field.string({ required: true }) }),
 		graphql: {
@@ -49,7 +47,6 @@ test('preserves plugin and generated schema option types', async () => {
 			typeName: 'Article',
 		},
 	})
-	const configured = graphqlPlugin({ default: { count: true } })
 	const limited = graphqlPlugin({
 		limits: { defaultPageSize: 10, maxPageSize: 50 },
 	})
@@ -68,10 +65,9 @@ test('preserves plugin and generated schema option types', async () => {
 			return customSchema
 		},
 	})
-	const application = await createApplication({
-		plugins: [configured],
+	const application = await new App({
 		schemas: [Post],
-	})
+	}).initialize()
 	const exports = application.plugin('@ultimabase/graphql-plugin')
 
 	expectTypeOf(configured).toEqualTypeOf<GraphqlPlugin>()

@@ -16,8 +16,8 @@ Auth credentials and session storage never enter either public schema.
 
 Access, ACL, Hooks, Validation, Roles, Password Auth, REST, GraphQL, Yoga,
 HTTP, Hono, and PostgreSQL remain explicit independently removable plugins.
-The schema factory installs REST before declaring schemas, so their `rest`
-options are typed from source; the application extends that same flat plugin
+The schema factory installs REST and GraphQL before declaring schemas, so their
+`rest` and `graphql` options are typed from source; the application extends that same flat plugin
 chain and explicitly registers the schemas at construction.
 REST and GraphQL normalize requests into the same Core operation pipeline;
 their offset envelopes and Relay connections remain intentionally different

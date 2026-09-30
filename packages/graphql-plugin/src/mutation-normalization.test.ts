@@ -1,8 +1,8 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
-import { graphqlPlugin, type GraphqlSchemaExposureOption } from './index.js'
+import { graphqlPlugin } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
 import {
 	normalizeGraphqlMutation,
@@ -10,20 +10,16 @@ import {
 } from './mutation-normalization.js'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 
 const authorId = '01991f00-0000-7000-8000-000000000001'
 const recordId = '01991f00-0000-7000-8000-000000000002'
 
-const Author = Schema.define({
+const Author = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlMutationAuthor',
 	fields: (field) => ({ name: field.string(), rank: field.bigint() }),
 })
-const RecordSchema = Schema.define({
+const RecordSchema = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlMutationRecord',
 	fields: (field) => ({
 		author: field.pointer({ target: 'GraphqlMutationAuthor' }),

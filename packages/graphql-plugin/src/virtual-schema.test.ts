@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	definePluginOutputDescriptor,
 	normalizeReadOperation,
 	type ReadOperationAst,
@@ -22,10 +22,11 @@ import { readGraphqlConnectionRuntime } from './application.js'
 import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 const outputOnly = { graphql: true }
 
 const defineVirtualSchema = () =>
-	Schema.define({
+	GraphqlSchemaApplication.Schema.define({
 		...outputOnly,
 		className: 'GraphqlVirtualShape',
 		fields: (field) => ({
@@ -219,7 +220,7 @@ describe('GraphQL virtual schema compilation', () => {
 	})
 
 	it('rejects incompatible repeated output object definitions', async () => {
-		const Invalid = Schema.define({
+		const Invalid = GraphqlSchemaApplication.Schema.define({
 			className: 'InvalidVirtualShape',
 			fields: (field) => ({
 				first: field.virtual({
@@ -333,7 +334,7 @@ describe('GraphQL virtual schema compilation', () => {
 			{ list: false, nullable: false },
 			(value): string => String(value),
 		)
-		const Invalid = Schema.define({
+		const Invalid = GraphqlSchemaApplication.Schema.define({
 			className: 'UnsupportedGraphqlVirtual',
 			fields: (field) => ({
 				value: field.virtual({

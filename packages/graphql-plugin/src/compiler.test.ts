@@ -1,6 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
-	Schema,
+	UltimaBase,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
@@ -15,17 +15,10 @@ import {
 	printSchema,
 } from 'graphql'
 
-import {
-	graphqlPlugin,
-	type GraphqlPluginExports,
-	type GraphqlSchemaExposureOption,
-} from './index.js'
+import { graphqlPlugin, type GraphqlPluginExports } from './index.js'
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
+const GraphqlSchemaApplication =
+	UltimaBase.use(pgVectorPlugin()).use(graphqlPlugin())
 
 const readGraphql = (
 	application: Awaited<ReturnType<typeof createApplication>>,
@@ -33,14 +26,14 @@ const readGraphql = (
 	application.plugin('@ultimabase/graphql-plugin') as GraphqlPluginExports
 
 const defineCompleteSchemas = () => {
-	const Author = Schema.define({
+	const Author = GraphqlSchemaApplication.Schema.define({
 		className: 'Author',
 		fields: (field) => ({
 			name: field.string({ required: true }),
 			posts: field.relation({ mappedBy: 'author', target: 'Post' }),
 		}),
 	})
-	const Post = Schema.define({
+	const Post = GraphqlSchemaApplication.Schema.define({
 		className: 'Post',
 		fields: (field) => ({
 			active: field.boolean(),
@@ -209,7 +202,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('builds circular nested inputs lazily and omits injected inverse pointers', async () => {
-		const CircularAuthor = Schema.define({
+		const CircularAuthor = GraphqlSchemaApplication.Schema.define({
 			className: 'CircularAuthor',
 			fields: (field) => ({
 				name: field.string(),
@@ -217,7 +210,7 @@ describe('GraphQL structural schema compilation', () => {
 			}),
 			graphql: true,
 		})
-		const CircularPost = Schema.define({
+		const CircularPost = GraphqlSchemaApplication.Schema.define({
 			className: 'CircularPost',
 			fields: (field) => ({
 				author: field.pointer({ required: true, target: 'CircularAuthor' }),
@@ -268,7 +261,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('maps non-GraphQL enum values reversibly without exposing raw invalid names', async () => {
-		const Entry = Schema.define({
+		const Entry = GraphqlSchemaApplication.Schema.define({
 			className: 'Entry',
 			fields: (field) => ({ state: field.enum({ values: ['in-review'] }) }),
 		})
@@ -289,14 +282,14 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('keeps plugin-owned schemas as supporting types without generating CRUD roots', async () => {
-		const Post = Schema.define({
+		const Post = GraphqlSchemaApplication.Schema.define({
 			className: 'Post',
 			fields: (field) => ({
 				audit: field.pointer({ target: 'Audit' }),
 				title: field.string(),
 			}),
 		})
-		const Audit = Schema.define({
+		const Audit = GraphqlSchemaApplication.Schema.define({
 			className: 'Audit',
 			fields: (field) => ({ message: field.string() }),
 		})
@@ -336,11 +329,11 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('rejects every direct graphql occurrence on a plugin-owned schema', async () => {
-		const Post = Schema.define({
+		const Post = GraphqlSchemaApplication.Schema.define({
 			className: 'Post',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Private = Schema.define({
+		const Private = GraphqlSchemaApplication.Schema.define({
 			className: 'PrivateRecord',
 			fields: (field) => ({ secret: field.string() }),
 			graphql: false,
@@ -373,7 +366,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('rejects private plugin schema options, invalid names, collisions, and missing codecs', async () => {
-		const Invalid = Schema.define({
+		const Invalid = GraphqlSchemaApplication.Schema.define({
 			className: 'Invalid',
 			fields: (field) => ({ 'bad-name': field.string() }),
 		})
@@ -385,7 +378,7 @@ describe('GraphQL structural schema compilation', () => {
 			}),
 		).rejects.toThrow('Invalid GraphQL field name')
 
-		const Collision = Schema.define({
+		const Collision = GraphqlSchemaApplication.Schema.define({
 			className: 'SafeInt',
 			fields: (field) => ({ value: field.int() }),
 		})
@@ -404,7 +397,7 @@ describe('GraphQL structural schema compilation', () => {
 				snapshotValue: (value: unknown) => value,
 			},
 		)
-		const Missing = Schema.define({
+		const Missing = GraphqlSchemaApplication.Schema.define({
 			className: 'Missing',
 			fields: () => ({ value: missingField }),
 		})
@@ -436,11 +429,11 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('detects generated type collisions with exact schema provenance', async () => {
-		const Post = Schema.define({
+		const Post = GraphqlSchemaApplication.Schema.define({
 			className: 'Post',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Conflicting = Schema.define({
+		const Conflicting = GraphqlSchemaApplication.Schema.define({
 			className: 'PostCreateInput',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -457,7 +450,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('produces the same schema from repeated isolated compilation', async () => {
-		const Repeatable = Schema.define({
+		const Repeatable = GraphqlSchemaApplication.Schema.define({
 			className: 'Repeatable',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -477,7 +470,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('rejects a final graph without a query and releases schema state on disposal', async () => {
-		const Hidden = Schema.define({
+		const Hidden = GraphqlSchemaApplication.Schema.define({
 			className: 'Hidden',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -489,7 +482,7 @@ describe('GraphQL structural schema compilation', () => {
 			}),
 		).rejects.toThrow('requires at least one public query field')
 
-		const Visible = Schema.define({
+		const Visible = GraphqlSchemaApplication.Schema.define({
 			className: 'Visible',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -506,7 +499,7 @@ describe('GraphQL structural schema compilation', () => {
 	})
 
 	it('rejects duplicate GraphQL owners and isolates sequential applications', async () => {
-		const Duplicate = Schema.define({
+		const Duplicate = GraphqlSchemaApplication.Schema.define({
 			className: 'Duplicate',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -518,14 +511,14 @@ describe('GraphQL structural schema compilation', () => {
 			}),
 		).rejects.toThrow()
 
-		const Alpha = Schema.define({
+		const Alpha = GraphqlSchemaApplication.Schema.define({
 			className: 'Alpha',
 			fields: (field) => ({
 				next: field.pointer({ target: 'Alpha' }),
 				value: field.string(),
 			}),
 		})
-		const Beta = Schema.define({
+		const Beta = GraphqlSchemaApplication.Schema.define({
 			className: 'Beta',
 			fields: (field) => ({
 				next: field.pointer({ target: 'Beta' }),

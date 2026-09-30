@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -13,15 +13,9 @@ import {
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { graphqlPlugin } from './plugin.js'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
-import type { GraphqlSchemaExposureOption } from './options.js'
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly graphql?: GraphqlSchemaExposureOption
-	}
-}
-
-const ConnectionRecord = Schema.define({
+const ConnectionRecord = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlConnectionRecord',
 	fields: (field) => ({ group: field.string(), rank: field.int() }),
 	graphql: true,

@@ -32,7 +32,7 @@ frozen in the
 - [x] [6308: Migrate ACL, Roles, and Password Auth source typing](6308-auth-policy-plugin-source-typing.md)
 - [x] [6309: Migrate Soft Delete, vector, and PostgreSQL source typing](6309-data-plugin-source-typing.md)
 - [x] [6310: Migrate HTTP, Hono, and REST configured installation](6310-http-rest-plugin-migration.md)
-- [ ] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
+- [x] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
 - [ ] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
 - [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [ ] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)

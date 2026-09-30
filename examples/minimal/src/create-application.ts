@@ -1,11 +1,7 @@
 import { MasterAuthority, type MasterAccessEvent } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
-import {
-	passwordAuthOperations,
-	passwordAuthPlugin,
-} from '@ultimabase/password-auth-plugin'
+import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin, type PostgresPool } from '@ultimabase/postgres-plugin'
 import {
 	honoServerPlugin,
@@ -13,7 +9,7 @@ import {
 } from '@ultimabase/server-hono-plugin'
 
 import { MinimalSchemaApplication, minimalSchemas } from './schema.ts'
-import { exampleStatusOperation, exampleStatusPlugin } from './status-plugin.ts'
+import { exampleStatusPlugin } from './status-plugin.ts'
 
 interface MinimalApplicationBaseOptions {
 	readonly applicationId?: string
@@ -57,18 +53,6 @@ export const createMinimalApplication = ({
 		}),
 	)
 		.use(exampleStatusPlugin)
-		.use(
-			graphqlPlugin({
-				acknowledgeUnverifiedProtection: true,
-				operations: [
-					exampleStatusOperation,
-					passwordAuthOperations.signUp,
-					passwordAuthOperations.login,
-					passwordAuthOperations.logout,
-					passwordAuthOperations.refresh,
-				],
-			}),
-		)
 		.use(
 			httpPlugin({
 				appId: applicationId,
