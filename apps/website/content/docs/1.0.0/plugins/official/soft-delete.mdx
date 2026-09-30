@@ -137,7 +137,9 @@ for audit configuration.
 `defaultMode: 'disabled'` makes every schema opt in deliberately. You can instead
 set the default to `explicit` or `replace-delete`. Each schema inherits that
 default unless it sets `softDelete: 'explicit'`, `'replace-delete'`, or `false`.
-Plugin-owned schemas are never enabled implicitly.
+The configured factory types inherited commands from a literal default;
+`softDelete: false` excludes them. Plugin-owned schemas are never enabled
+implicitly.
 
 Start the exported application from a separate entry point:
 

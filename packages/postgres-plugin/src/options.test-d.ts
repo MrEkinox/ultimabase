@@ -1,8 +1,11 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import type { PostgresFieldOption, PostgresSchemaOption } from './options.js'
+import { postgresPlugin } from './plugin/postgres-plugin.js'
 
+// Legacy standalone Schema tests in this package still use the bounded
+// generated-option contract until the repository migration in issue 6314.
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedFieldOptions {
 		readonly postgres?: PostgresFieldOption
@@ -14,7 +17,10 @@ declare module '@ultimabase/core' {
 }
 
 test('types the direct PostgreSQL schema and field options exactly', () => {
-	const Post = Schema.define({
+	const App = UltimaBase.use(
+		postgresPlugin({ url: 'postgresql://localhost/fixture' }),
+	)
+	const Post = App.Schema.define({
 		className: 'PostgresDirectOptionTypePost',
 		fields: (field) => ({
 			title: field.string({
@@ -26,26 +32,26 @@ test('types the direct PostgreSQL schema and field options exactly', () => {
 
 	expectTypeOf(Post.className).toEqualTypeOf<'PostgresDirectOptionTypePost'>()
 
-	Schema.define({
+	App.Schema.define({
 		className: 'PostgresInvalidSchemaOption',
 		fields: () => ({}),
 		// @ts-expect-error -- The direct schema option requires one table name.
 		postgres: {},
 	})
-	Schema.define({
+	App.Schema.define({
 		className: 'PostgresUnknownSchemaOption',
 		fields: () => ({}),
 		// @ts-expect-error -- Unknown PostgreSQL schema keys are rejected.
 		postgres: { namespace: 'public', table: 'posts' },
 	})
-	Schema.define({
+	App.Schema.define({
 		className: 'PostgresInvalidFieldOption',
 		fields: (field) => ({
 			// @ts-expect-error -- renamedFrom must be a string.
 			title: field.string({ postgres: { renamedFrom: 42 } }),
 		}),
 	})
-	Schema.define({
+	App.Schema.define({
 		className: 'PostgresUnknownFieldOption',
 		fields: (field) => ({
 			// @ts-expect-error -- Unknown PostgreSQL field keys are rejected.

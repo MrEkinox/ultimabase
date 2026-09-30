@@ -3,9 +3,9 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308
-- Active issue: 6309
-- Next issue: 6310
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309
+- Active issue: 6310
+- Next issue: 6311
 
 Replace plugin-generated authoring surfaces with the user-approved configured
 application factory and source-typed plugin contract while retaining Typegen as
@@ -175,3 +175,16 @@ type redesign. The final `yarn validate:full` passed 557 ordinary files/2,631
 tests and 635 coverage files/2,888 tests with 90.85/84.36/96.03/91.42
 coverage; the website passed 17 files/66 tests. The locked 1/10/50-schema
 benchmark passed. Issue 6309 is the next resume point; no push is authorized.
+
+Issue 6309 completed the Soft Delete/vector/PostgreSQL source-typing vertical
+from revision `bea238f8`. Soft Delete now projects literal inherited modes and
+direct false exceptions, PostgreSQL projects its existing schema and stored
+field options from the installed plugin, and pg-vector source/packed tests
+protect its configured-only logical builder. Runtime persistence, protected
+constraints, transactions, metadata, raw leases, lifecycle, and the logical
+vector-only limit did not change. The final `yarn validate:full` passed 557
+ordinary files/2,632 tests and 635 coverage files/2,893 tests, with unchanged
+90.85/84.36/96.03/91.42 coverage; the website passed 17 files/66 tests. The
+locked benchmark passed. Still-consumed PostgreSQL option references and the
+Todo example's old constructor path remain assigned to issues 6313/6314.
+Issue 6310 is the next resume point; no push is authorized.

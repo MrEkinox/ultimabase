@@ -20,10 +20,11 @@ options, and `adapter:consume` to compile protected database constraints. The
 options are recognized only when `postgresPlugin()` is installed; unknown keys
 and empty identifiers fail static application compilation.
 
-The field-level `postgres` option supports stored schema fields only. Embedded
-properties, virtual wrappers, and output descriptors have no independent
-physical column identity, so Typegen omits the option in those contexts and Core
-rejects stale or untyped declarations before connection setup.
+The configured factory projects the schema-level `postgres.table` and stored
+field `postgres.renamedFrom` options directly from the installed plugin without
+Typegen. Embedded properties, virtual wrappers, and output descriptors have no
+independent physical column identity, so the option is absent in those contexts
+and Core rejects stale or untyped declarations before connection setup.
 
 ## Connection lifecycle
 
@@ -330,17 +331,14 @@ batch semantics.
 ## CRUD, bulk, and upsert execution
 
 After `ultimabase.start()` prepares the static schemas, Query handles reads and
-the generated schema class handles writes without SQL or Drizzle in developer
-code:
+the schema class handles writes without SQL or Drizzle in developer code.
+Direct class commands resolve the sole active application:
 
 ```ts
-const created = await ArticleSchema.createOne(
-	{
-		data: { title: 'Runtime to PostgreSQL' },
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const created = await ArticleSchema.createOne({
+	data: { title: 'Runtime to PostgreSQL' },
+	select: { id: true, title: true },
+})
 
 const found = await ultimabase
 	.query(ArticleSchema)
@@ -348,21 +346,15 @@ const found = await ultimabase
 	.select({ id: true, title: true })
 	.findOne()
 
-const updated = await ArticleSchema.updateOne(
-	{
-		where: { id: { eq: created.id } },
-		data: { title: 'Updated' },
-	},
-	{ ultimabase },
-)
+const updated = await ArticleSchema.updateOne({
+	where: { id: { eq: created.id } },
+	data: { title: 'Updated' },
+})
 
-const deleted = await ArticleSchema.deleteOne(
-	{
-		where: { id: { eq: created.id } },
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const deleted = await ArticleSchema.deleteOne({
+	where: { id: { eq: created.id } },
+	select: { id: true, title: true },
+})
 ```
 
 Inclusive `between(field, lower, upper)` and inverse `notBetween(...)` Query
@@ -568,9 +560,9 @@ destructive `DROP COLUMN`. Unsupported structures on a managed table stop
 Renames are explicit direct field options and preserve existing column data:
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { Application } from './application.js'
 
-const ArticleSchema = Schema.define({
+const ArticleSchema = Application.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({

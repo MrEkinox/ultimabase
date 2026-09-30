@@ -65,15 +65,8 @@ development database and lets the plugin own its connection pool.
 runs; keep it out of source control.
 
 ```ts title="src/main.ts"
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
-
-const Task = Schema.define({
-	className: 'Task',
-	fields: (f) => ({
-		title: f.string({ required: true }),
-	}),
-})
 
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
@@ -81,6 +74,12 @@ if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 const Application = UltimaBase.use(
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 )
+const Task = Application.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		title: f.string({ required: true }),
+	}),
+})
 const ultimabase = new Application({
 	schemas: [Task],
 })
@@ -118,10 +117,8 @@ identifier; otherwise PostgreSQL derives a plural `snake_case` name from
 `className`. The stored-field `postgres.renamedFrom` records one explicit
 old column name for a data-preserving rename:
 
-```ts title="src/article.ts"
-import { Schema } from '@ultimabase/core'
-
-export const Article = Schema.define({
+```ts
+const Article = Application.Schema.define({
 	className: 'Article',
 	postgres: { table: 'articles' },
 	fields: (f) => ({
@@ -131,8 +128,9 @@ export const Article = Schema.define({
 ```
 
 Use `renamedFrom` only when an existing managed column is actually being
-renamed. Neither option is a Core default: application compilation requires
-`postgresPlugin()`, and field-level `postgres` is limited to stored fields.
+renamed. The configured `Application` above projects both options from
+`postgresPlugin()` without Typegen; a factory without the plugin rejects them.
+Field-level `postgres` is limited to stored fields.
 
 ## Behavior and limitations
 

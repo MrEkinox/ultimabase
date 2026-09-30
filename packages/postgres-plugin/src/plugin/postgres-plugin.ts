@@ -10,7 +10,9 @@ import {
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginInstance,
+	type PluginDeclarationContribution,
 	type PluginPrivilegeRequest,
+	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
@@ -195,6 +197,13 @@ type PostgresPluginCapabilities = readonly [
 	typeof connectionRequirement,
 ]
 
+// Keep the public projection tied to the two option definitions installed below.
+type PostgresOptionSource = PluginSchemaOptionSource<{
+	readonly contributionId: 'postgres-options'
+	readonly field: Readonly<{ postgres: typeof postgresFieldOption }>
+	readonly schema: Readonly<{ postgres: typeof postgresSchemaOption }>
+}>
+
 /** Names the exact official PostgreSQL plugin definition. */
 export type PostgresPlugin = PluginInstance<{
 	readonly id: typeof postgresPluginName
@@ -204,6 +213,7 @@ export type PostgresPlugin = PluginInstance<{
 	readonly environment: typeof postgresPluginEnvironment
 	readonly privileges: readonly PluginPrivilegeRequest[]
 	readonly capabilities: PostgresPluginCapabilities
+	readonly source: PostgresOptionSource
 }>
 
 /** Creates the official database capability provider without opening a connection. */
@@ -270,15 +280,16 @@ export const postgresPlugin = (
 			}),
 		},
 	)
-	const declarations = contributeDeclarations({
-		schema: ({ schemas }) => {
+	const declarations: PluginDeclarationContribution<
+		readonly [],
+		PostgresOptionSource
+	> = contributeDeclarations({
+		schema: ({ schemas }) =>
 			schemas.defineOptions({
 				contributionId: 'postgres-options',
 				field: { postgres: postgresFieldOption },
 				schema: { postgres: postgresSchemaOption },
-			})
-			return undefined
-		},
+			}),
 	})
 	const application = contributeApplication(({ capabilities, schemas }) => {
 		const connection: PostgresConnectionService = capabilities.get(

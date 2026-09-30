@@ -31,11 +31,12 @@ canonical vector after the plugin has enforced its structural dimension and
 finite-number contract.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const DocumentSchema = Schema.define({
+const Application = UltimaBase.use(hooksPlugin()).use(pgVectorPlugin())
+const DocumentSchema = Application.Schema.define({
 	className: 'Document',
 	fields: (field) => ({
 		embedding: field.vector({
@@ -49,16 +50,17 @@ const DocumentSchema = Schema.define({
 	}),
 })
 
-const Application = UltimaBase.use(hooksPlugin()).use(pgVectorPlugin())
-const application = await new Application({
+const application = new Application({
 	schemas: [DocumentSchema],
-}).initialize()
+})
+
+application.compile()
 ```
 
-The plugin registers the runtime method before static schema compilation. The
-generated application contract adds its exact `VectorFieldBuilderMethod` type
-to that application's builder; Core deliberately does not expose `vector` when
-the plugin is absent. No PostgreSQL column compiler is shipped for this field:
+The configured factory infers `VectorFieldBuilderMethod` from the installed
+plugin without Typegen. Core deliberately does not expose `vector` when the
+plugin is absent. The plugin registers the runtime method before static schema
+compilation. No PostgreSQL column compiler is shipped for this field:
 the plugin currently provides the logical value contract and GraphQL codec only.
 It contains no Drizzle or SQL dependency and cannot persist vector fields yet.
 The plugin has no setup output. Value checks use Core's scalar snapshot boundary.

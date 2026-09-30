@@ -28,10 +28,11 @@ const ultimabase = new Application({
 
 Importing the package has no effect. `softDeletePlugin()` must be present in the
 application plugin graph before Core recognizes the direct `softDelete` option.
-The configured factory projects the option, tombstone field, and applicable
-commands directly from the plugin declaration. Typegen remains responsible for
-the application-wide named schema graph; the compiled application remains
-Runtime truth.
+The configured factory projects the option, tombstone field, inherited mode,
+and applicable commands directly from the plugin declaration. A schema with
+`softDelete: false` does not gain inherited commands. Typegen remains
+responsible for the application-wide named schema graph; the compiled
+application remains Runtime truth.
 
 The runnable [`examples/minimal`](../../examples/minimal/README.md) application
 proves both modes, authenticated REST and GraphQL execution, direct generated
@@ -79,10 +80,10 @@ For an effective `explicit` schema, the class, application schema handle, and
 every bound persisted model expose the same singular command after startup:
 
 ```ts
-const deleted = await Post.softDelete(
-	{ id: postId, select: { id: true, isDeleted: true, title: true } },
-	{ ultimabase },
-)
+const deleted = await Post.softDelete({
+	id: postId,
+	select: { id: true, isDeleted: true, title: true },
+})
 
 const deletedFromHandle = await ultimabase.schema(Post).softDelete({
 	id: postId,
@@ -114,12 +115,12 @@ its class and application schema handle, but never on a persisted model:
 ```ts
 const restored = await Post.restore(
 	{ id: postId, select: { id: true, isDeleted: true, title: true } },
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 
 const purged = await Post.purge(
 	{ id: postId, select: { id: true, title: true } },
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 ```
 

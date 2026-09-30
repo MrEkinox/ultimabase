@@ -47,26 +47,27 @@ yarn add @ultimabase/pg-vector-plugin
 pnpm add @ultimabase/pg-vector-plugin
 ```
 
-For TypeScript authoring, regenerate the application's declarations after
-adding the plugin so `f.vector()` appears on this application's builder;
-see [Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+The configured factory adds `f.vector()` to TypeScript directly from the
+installed plugin; this local builder needs no Typegen regeneration. Keep
+[Typegen](/docs/1.0.0/guides/generate-types) for the application-wide named
+schema and relationship graph.
 
 ## Configuration
 
 Add `pgVectorPlugin()` to the application and declare a stored vector field:
 
 ```ts title="src/document.ts"
-import { UltimaBase, Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
-const Document = Schema.define({
+const Application = UltimaBase.use(pgVectorPlugin())
+const Document = Application.Schema.define({
 	className: 'Document',
 	fields: (f) => ({
 		embedding: f.vector({ dimensions: 1536, required: true }),
 	}),
 })
 
-const Application = UltimaBase.use(pgVectorPlugin())
 const application = new Application({
 	schemas: [Document],
 })
@@ -129,9 +130,9 @@ UltimaBase Query, validation, or schema synchronization understand the field.
 
 ## Troubleshooting
 
-- **`f.vector` is missing in TypeScript:** install `pgVectorPlugin()` in
-  this application and regenerate its Typegen declarations. Without the
-  plugin, schema compilation also rejects the builder method.
+- **`f.vector` is missing in TypeScript:** define the schema through the same
+  configured factory that installs `pgVectorPlugin()`. A factory without the
+  plugin has no vector builder, and Runtime also rejects an untyped call.
 - **A dimension or value is rejected:** use a positive safe integer for
   `dimensions`; provide an array of exactly that many finite numbers. A
   `default` is checked when the field is declared.

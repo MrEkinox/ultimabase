@@ -139,3 +139,47 @@ describe('packed @ultimabase/pg-vector-plugin FieldBuilder contract', () => {
 		)
 	})
 })
+
+describe.each([
+	['source', '../../src/index.js'],
+	['packed', '@ultimabase/pg-vector-plugin'],
+] as const)('%s configured vector builder', (mode, moduleName) => {
+	it('requires this factory to install the plugin without Typegen', () => {
+		const fixtureFile = path.join(
+			import.meta.dirname,
+			`vector-configured.${mode}.fixture.ts`,
+		)
+		const validSource = `import { UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '${moduleName}'
+const App = UltimaBase.use(pgVectorPlugin())
+const Document = App.Schema.define({
+  className: 'VectorSourceDocument',
+  fields: (field) => ({ embedding: field.vector({ dimensions: 3 }) }),
+})
+void Document`
+		const validDiagnostics = createLanguageService(fixtureFile, validSource)
+			.getSemanticDiagnostics(fixtureFile)
+			.map(({ messageText }) =>
+				ts.flattenDiagnosticMessageText(messageText, ' '),
+			)
+		expect(validDiagnostics).toStrictEqual([])
+
+		const absentSource = `import { UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '${moduleName}'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+void pgVectorPlugin
+const Other = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture' }))
+Other.Schema.define({
+  className: 'VectorAbsentDocument',
+  fields: (field) => ({ embedding: field.vector({ dimensions: 3 }) }),
+})`
+		const absentDiagnostics = createLanguageService(fixtureFile, absentSource)
+			.getSemanticDiagnostics(fixtureFile)
+			.map(({ messageText }) =>
+				ts.flattenDiagnosticMessageText(messageText, ' '),
+			)
+		expect(
+			absentDiagnostics.some((message) => message.includes('vector')),
+		).toBe(true)
+	})
+})

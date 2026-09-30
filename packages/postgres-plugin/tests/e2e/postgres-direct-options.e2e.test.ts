@@ -12,7 +12,7 @@ import {
 } from '@ultimabase/postgres-plugin'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import ts from 'typescript'
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
 
@@ -32,6 +32,58 @@ const pool: PostgresPool = {
 	end: () => Promise.resolve(),
 	query: () => Promise.resolve({ rows: [] }),
 }
+
+describe.each([
+	['source', '../../src/index.js'],
+	['packed', '@ultimabase/postgres-plugin'],
+] as const)('%s configured PostgreSQL options', (_mode, moduleName) => {
+	it('projects exact schema and stored-field options without Typegen', () => {
+		const fileName = path.join(
+			import.meta.dirname,
+			`postgres-source-options.${_mode}.fixture.ts`,
+		)
+		const source = `import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '${moduleName}'
+const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture' }))
+const Post = App.Schema.define({
+  className: 'PostgresSourceOptionPost',
+  fields: (field) => ({ title: field.string({ postgres: { renamedFrom: 'headline' } }) }),
+  postgres: { table: 'posts' },
+})
+void Post`
+		const service = createLanguageService(fileName, source)
+		expect(
+			service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, ' '),
+				),
+		).toStrictEqual([])
+	})
+
+	it('keeps PostgreSQL options absent from an unrelated configured factory', () => {
+		const fileName = path.join(
+			import.meta.dirname,
+			`postgres-absent-options.${_mode}.fixture.ts`,
+		)
+		const source = `import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '${moduleName}'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+void postgresPlugin
+const Other = UltimaBase.use(pgVectorPlugin())
+Other.Schema.define({
+  className: 'PostgresAbsentOptionPost',
+  fields: () => ({}),
+  postgres: { table: 'posts' },
+})`
+		const messages = createLanguageService(fileName, source)
+			.getSemanticDiagnostics(fileName)
+			.map(({ messageText }) =>
+				ts.flattenDiagnosticMessageText(messageText, ' '),
+			)
+		expect(messages.some((message) => message.includes('postgres'))).toBe(true)
+	})
+})
 
 it('generates and packs exact PostgreSQL option autocomplete', async () => {
 	const Post = Schema.define({

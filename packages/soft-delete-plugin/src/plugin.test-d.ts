@@ -54,3 +54,50 @@ test('projects explicit schema fields and mutations without Typegen', () => {
 		'softDelete' extends keyof typeof ReplaceDelete ? true : false
 	expectTypeOf<HasReplaceDeleteSoftDelete>().toEqualTypeOf<false>()
 })
+
+test('projects only the commands inherited from one literal default mode', () => {
+	const ExplicitApp = UltimaBase.use(
+		softDeletePlugin({ defaultMode: 'explicit' }),
+	)
+	const Inherited = ExplicitApp.Schema.define({
+		className: 'SourceInheritedSoftDeleteDocument',
+		fields: (field) => ({ title: field.string() }),
+	})
+	const Excluded = ExplicitApp.Schema.define({
+		className: 'SourceExcludedSoftDeleteDocument',
+		fields: (field) => ({ title: field.string() }),
+		softDelete: false,
+	})
+	void Inherited.softDelete({ id: 'document-1', select: { isDeleted: true } })
+	void Inherited.restore({ id: 'document-1', select: { isDeleted: true } })
+	void Inherited.purge({ id: 'document-1' })
+	type ExcludedSoftDelete = 'softDelete' extends keyof typeof Excluded
+		? true
+		: false
+	type ExcludedRestore = 'restore' extends keyof typeof Excluded ? true : false
+	expectTypeOf<ExcludedSoftDelete>().toEqualTypeOf<false>()
+	expectTypeOf<ExcludedRestore>().toEqualTypeOf<false>()
+	void Excluded
+
+	const ReplaceApp = UltimaBase.use(
+		softDeletePlugin({ defaultMode: 'replace-delete' }),
+	)
+	const Replaced = ReplaceApp.Schema.define({
+		className: 'SourceInheritedReplaceDeleteDocument',
+		fields: (field) => ({ title: field.string() }),
+	})
+	void Replaced.restore({ id: 'document-1', select: { isDeleted: true } })
+	type ReplaceSoftDelete = 'softDelete' extends keyof typeof Replaced
+		? true
+		: false
+	expectTypeOf<ReplaceSoftDelete>().toEqualTypeOf<false>()
+
+	const DisabledApp = UltimaBase.use(softDeletePlugin())
+	const Disabled = DisabledApp.Schema.define({
+		className: 'SourceInheritedDisabledDocument',
+		fields: (field) => ({ title: field.string() }),
+	})
+	type DisabledRestore = 'restore' extends keyof typeof Disabled ? true : false
+	expectTypeOf<DisabledRestore>().toEqualTypeOf<false>()
+	void Disabled
+})

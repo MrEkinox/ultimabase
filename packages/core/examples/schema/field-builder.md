@@ -66,7 +66,12 @@ Configured plugins may add equally concise methods. For example,
 `pgVectorPlugin()` contributes `field.vector()` before schema compilation:
 
 ```ts
-const DocumentSchema = Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+
+const Application = UltimaBase.use(pgVectorPlugin())
+
+const DocumentSchema = Application.Schema.define({
 	className: 'Document',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -77,28 +82,27 @@ const DocumentSchema = Schema.define({
 	}),
 })
 
-const Application = UltimaBase.use(pgVectorPlugin())
-
-const application = await new Application({
+const application = new Application({
 	schemas: [DocumentSchema],
-}).initialize()
+})
+
+application.compile()
 ```
 
-The method belongs to this application's plugin graph. Another application
-without `pgVectorPlugin()` does not register it. Once the generated declaration
-is included by TypeScript, its module augmentation exposes `field.vector()` on
-this application's stored FieldBuilder. The plugin declares `stored` explicitly;
+The method belongs to this configured factory's plugin graph. A factory
+without `pgVectorPlugin()` has no `field.vector()` in TypeScript or at Runtime.
+The method is inferred from the plugin source without Typegen. The plugin
+declares `stored` explicitly;
 its storage and wire codecs do not silently make `vector()` valid inside an
 embedded object or an output descriptor.
 
 Plugin methods may implement any non-empty subset of the closed `stored`,
 `embedded`, `virtual`, and `output` contexts. Each supported context supplies
-its own exact factory and Typegen method reference. Direct field options follow
+its own exact factory and source type. Direct field options follow
 the same rule through `defineFieldOption({ contexts, ... })`. Core's unaugmented
 base types remain neutral, and stale or untyped use in an unsupported context
-fails during application compilation before setup. Applications regenerate the
-exact contextual declarations through `typegenPlugin()` during startup. A
-future CLI will expose manual generation and watch mode.
+fails during application compilation before setup. Typegen remains responsible
+for the application-wide named schema graph, not this local builder.
 
 The same map-returning declaration is used by applications, tests, and
 framework-owned schemas. Core now derives the local model, Query, mutation,

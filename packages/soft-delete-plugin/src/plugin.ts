@@ -21,7 +21,7 @@ import {
 	type SchemaPatchBuilder,
 } from '@ultimabase/plugin-kit'
 
-import type { SoftDeletePluginOptions } from './contracts.js'
+import type { SoftDeleteMode, SoftDeletePluginOptions } from './contracts.js'
 import {
 	normalizeSoftDeletePluginOptions,
 	softDeleteSchemaOption,
@@ -77,6 +77,11 @@ const explicitSoftDeleteSelector = {
 } as const
 const replaceSoftDeleteSelector = {
 	option: { equals: 'replace-delete', name: 'softDelete' },
+	owner: { kind: 'application' },
+} as const
+// One selector owns every inherited Runtime and source-typing branch.
+const defaultSoftDeleteSelector = {
+	option: { name: 'softDelete', present: false },
 	owner: { kind: 'application' },
 } as const
 
@@ -153,7 +158,7 @@ type ReplaceSoftDeleteAdministrationSource = PluginModelSurfaceSource<
 	typeof replaceSoftDeleteSelector,
 	typeof softDeleteAdministrationSurface.schemaMutations
 >
-type SoftDeleteSource =
+type ExplicitSoftDeleteSource =
 	| SoftDeleteOptionSource
 	| ExplicitSoftDeleteFieldSource
 	| ReplaceSoftDeleteFieldSource
@@ -161,9 +166,29 @@ type SoftDeleteSource =
 	| ExplicitSoftDeleteAdministrationSource
 	| ReplaceSoftDeleteAdministrationSource
 
+type DefaultSoftDeleteFieldSource = PluginSchemaPatchSource<
+	typeof tombstonePatch.operations,
+	SchemaSelection<typeof defaultSoftDeleteSelector>
+>
+type DefaultSoftDeleteMutationSource = PluginModelSurfaceSource<
+	typeof defaultSoftDeleteSelector,
+	typeof explicitSoftDeleteSurface.schemaMutations
+>
+type DefaultSoftDeleteAdministrationSource = PluginModelSurfaceSource<
+	typeof defaultSoftDeleteSelector,
+	typeof softDeleteAdministrationSurface.schemaMutations
+>
+// Widened modes expose only commands guaranteed for every possible default.
+type SoftDeleteSource<TMode extends SoftDeleteMode> =
+	| ExplicitSoftDeleteSource
+	| ([TMode] extends ['explicit' | 'replace-delete']
+			? DefaultSoftDeleteFieldSource | DefaultSoftDeleteAdministrationSource
+			: never)
+	| ([TMode] extends ['explicit'] ? DefaultSoftDeleteMutationSource : never)
+
 const createSoftDeleteDeclarations = (
 	normalized: ReturnType<typeof normalizeSoftDeletePluginOptions>,
-): PluginDeclarationContribution<readonly [], SoftDeleteSource> =>
+): PluginDeclarationContribution<readonly [], ExplicitSoftDeleteSource> =>
 	contributeDeclarations({
 		schema: ({ schemas }) => {
 			const options = schemas.defineOptions({
@@ -190,10 +215,7 @@ const createSoftDeleteDeclarations = (
 					patchSchemas({
 						patch: tombstonePatch,
 						staticOptions: { defaultMode: normalized.defaultMode },
-						targets: schemas.select({
-							option: { name: 'softDelete', present: false },
-							owner: { kind: 'application' },
-						}),
+						targets: schemas.select(defaultSoftDeleteSelector),
 					}),
 				)
 			}
@@ -205,17 +227,11 @@ const createSoftDeleteDeclarations = (
 				explicitSoftDeleteSurface,
 			)
 			if (normalized.defaultMode === 'explicit') {
-				models.extend(
-					{
-						option: { name: 'softDelete', present: false },
-						owner: { kind: 'application' },
-					},
-					{
-						...explicitSoftDeleteSurface,
-						contributionId: 'official-soft-delete-default-mutation',
-						staticOptions: { defaultMode: normalized.defaultMode },
-					},
-				)
+				models.extend(defaultSoftDeleteSelector, {
+					...explicitSoftDeleteSurface,
+					contributionId: 'official-soft-delete-default-mutation',
+					staticOptions: { defaultMode: normalized.defaultMode },
+				})
 			}
 
 			const explicitAdministration = models.extend(explicitSoftDeleteSelector, {
@@ -227,17 +243,11 @@ const createSoftDeleteDeclarations = (
 				contributionId: 'official-soft-delete-replace-delete-administration',
 			})
 			if (normalized.defaultMode !== 'disabled') {
-				models.extend(
-					{
-						option: { name: 'softDelete', present: false },
-						owner: { kind: 'application' },
-					},
-					{
-						...softDeleteAdministrationSurface,
-						contributionId: 'official-soft-delete-default-administration',
-						staticOptions: { defaultMode: normalized.defaultMode },
-					},
-				)
+				models.extend(defaultSoftDeleteSelector, {
+					...softDeleteAdministrationSurface,
+					contributionId: 'official-soft-delete-default-administration',
+					staticOptions: { defaultMode: normalized.defaultMode },
+				})
 			}
 			return [
 				explicitMutation,
@@ -248,13 +258,14 @@ const createSoftDeleteDeclarations = (
 	})
 
 /** Names one configured official soft-delete plugin. */
-export type SoftDeletePlugin = PluginInstance<{
-	readonly id: '@ultimabase/soft-delete-plugin'
-	readonly instanceId: string | undefined
-	readonly version: '0.0.0'
-	readonly core: '^0.0.0'
-	readonly source: SoftDeleteSource
-}>
+export type SoftDeletePlugin<TMode extends SoftDeleteMode = SoftDeleteMode> =
+	PluginInstance<{
+		readonly id: '@ultimabase/soft-delete-plugin'
+		readonly instanceId: string | undefined
+		readonly version: '0.0.0'
+		readonly core: '^0.0.0'
+		readonly source: SoftDeleteSource<TMode>
+	}>
 
 /**
  * Installs the official soft-delete schema contract explicitly.
@@ -267,9 +278,11 @@ export type SoftDeletePlugin = PluginInstance<{
  * softDeletePlugin({ defaultMode: 'disabled' })
  * ```
  */
-export const softDeletePlugin = (
-	options: SoftDeletePluginOptions = {},
-): SoftDeletePlugin => {
+export const softDeletePlugin = <
+	const TMode extends SoftDeleteMode = 'disabled',
+>(
+	options: SoftDeletePluginOptions & { readonly defaultMode?: TMode } = {},
+): SoftDeletePlugin<TMode> => {
 	const normalized = normalizeSoftDeletePluginOptions(options)
 	const visibilityProvider = provideRuntimeConstraint({
 		contributionId: 'official-soft-delete-visibility',
@@ -292,6 +305,8 @@ export const softDeletePlugin = (
 		createSoftDeleteAdministrationContributions()
 	const declarations = createSoftDeleteDeclarations(normalized)
 
+	// The parser validates the same mode captured by TMode before Core receives
+	// this immutable definition; no default surface is added at Runtime by typing.
 	return plugin({
 		id: '@ultimabase/soft-delete-plugin',
 		version: '0.0.0',
