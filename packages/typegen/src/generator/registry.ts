@@ -5,51 +5,6 @@ import type { RenderContext } from './types.js'
 import { renderGeneratedSurfaces } from './contributions.js'
 import { SchemaTypegenError } from '../errors.js'
 
-export const renderFieldBuilder = (
-	snapshot: TypegenApplicationSnapshot,
-	context: RenderContext,
-): string => {
-	const renderMethods = (
-		fieldContext: (typeof snapshot.fieldMethods)[number]['context'],
-	) =>
-		snapshot.fieldMethods
-			.filter(({ context }) => context === fieldContext)
-			.map(
-				(method) =>
-					`\treadonly ${propertyName(method.name)}: ${context.imports.alias(method.method)}`,
-			)
-			.join('\n')
-	const stored = renderMethods('stored')
-	const embedded = renderMethods('embedded')
-	const output = renderMethods('output')
-	const virtual = renderMethods('virtual')
-
-	if ([stored, embedded, output, virtual].every((methods) => methods === '')) {
-		return ''
-	}
-
-	return [
-		...(stored === ''
-			? []
-			: [
-					`export type ApplicationFieldBuilder = Core.FieldBuilder & {\n${stored}\n}`,
-				]),
-		...(embedded === ''
-			? []
-			: [
-					`export type ApplicationEmbeddedFieldBuilder = Core.EmbeddedFieldBuilder & {\n${embedded}\n}`,
-				]),
-		...(virtual === ''
-			? []
-			: [`export type ApplicationVirtualFieldBuilder = {\n${virtual}\n}`]),
-		...(output === ''
-			? []
-			: [
-					`export type ApplicationOutputBuilder = Core.OutputBuilder & {\n${output}\n}`,
-				]),
-	].join('\n')
-}
-
 export const renderSchemas = (
 	snapshot: TypegenApplicationSnapshot,
 	context: RenderContext,

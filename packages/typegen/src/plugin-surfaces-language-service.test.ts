@@ -98,6 +98,8 @@ const createGeneratedRegistry = (): string => {
 								mutation: archive,
 								surfaces: ['schema', 'model'],
 							},
+							archiveSchemaOnly: { mutation: archive, surfaces: ['schema'] },
+							archiveModelOnly: { mutation: archive, surfaces: ['model'] },
 							softDelete: {
 								mutation: softDelete,
 								surfaces: ['schema', 'model'],
@@ -175,10 +177,16 @@ const StaticPost = UltimaBase.Schema.define({
 })
 const staticMutation = StaticPost.softDelete({ id: 'post-1' })
 const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
+StaticPost.archiveSchemaOnly({ id: 'post-1', input: { id: 'reason-1' } })
+// @ts-expect-error -- Sharing a descriptor does not expose model-only methods on classes.
+StaticPost.archiveModelOnly
 const schema = ultimabase.schema('SemanticDynamicPost')
 const envelope = ultimabase.operation('fixture.semantic.publish').prepare({ id: 'post-1' })
 const archiveExecution = schema.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
 const softDeleteExecution = schema.softDelete({ id: 'post-1' })
+schema.archiveSchemaOnly({ id: 'post-1', input: { id: 'reason-1' } })
+// @ts-expect-error -- Advanced schema handles preserve the declared surface.
+schema.archiveModelOnly
 const exactId: string = envelope.payload.id
 const query = StaticPost.findMany({ where: { id: { eq: "post-1" } } })
 // @ts-expect-error -- Ordinary terminals no longer select an application.
@@ -199,6 +207,9 @@ const useModelCommands = async () => {
 	// @ts-expect-error -- The advanced handle does not duplicate ordinary CRUD.
 	schema.findOne()
 	if (fromSchema !== null) {
+		fromSchema.archiveModelOnly({ input: { id: 'reason-2' } })
+		// @ts-expect-error -- A canonical callback descriptor does not broaden model methods.
+		fromSchema.archiveSchemaOnly
 		const archiveResult = fromSchema.archive({ input: { id: 'reason-2' }, select: { title: true } })
 		const softDeleteResult = fromSchema.softDelete()
 		// @ts-expect-error -- Arbitrary operation commands are no longer generated.

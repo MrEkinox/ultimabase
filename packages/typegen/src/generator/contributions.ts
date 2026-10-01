@@ -29,11 +29,13 @@ export const renderGeneratedSurfaces = (
 		schemaType = `Core.SchemaReference<${quote(className)}>`,
 	): string => {
 		if (mutations.length === 0) return 'Readonly<Record<never, never>>'
+		// Core rejects duplicate aliases across surfaces; one descriptor owns
+		// each command's input, authority and result contract for this schema.
 		const mutationType = `{
 ${mutations
 	.map(
 		(mutation) =>
-			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<${schemaType}, ${renderMutationDefinition(mutation)}>`,
+			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<${schemaType}, Core.UltimaBaseGeneratedSchemaSurfaces[${quote(className)}]["schemaMutations"][${quote(mutation.name)}]>`,
 	)
 	.join('\n')}
 \t\t\t}`

@@ -38,7 +38,7 @@ frozen in the
 - [x] [6318: Migrate schema authoring consumers](6318-migrate-schema-authoring-consumers.md)
 - [x] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)
 - [x] [6319: Align Password User authoring with configured Role schemas](6319-configured-password-user-schema.md)
-- [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
+- [x] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [ ] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
 - [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
 

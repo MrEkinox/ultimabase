@@ -23,7 +23,7 @@ describe('generated application TypeScript contracts', () => {
 		const sourceWithMarkers = `${registry}
 declare const author: Core.PointerValue
 declare const item: SemanticArticleItem
-declare const field: ApplicationFieldBuilder
+declare const field: Core.FieldBuilder
 
 const createInput: SemanticArticleCreateInput = {
   author,

@@ -7,7 +7,7 @@ contentType: guide
 outcome: Choose a schema contribution and publish its correct application-specific TypeScript types.
 owner: '2810'
 releaseStatus: pre-release
-reviewedAt: 2026-09-28
+reviewedAt: 2026-10-01
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -209,6 +209,15 @@ application operations, and schema/model methods come from the installed plugin
 definition instead of a generated copy. Plugins do not add arbitrary
 declarations or extra output files. Export reusable public types from your
 package root when the retained compiled graph must reference them.
+
+This source inference applies to configured authoring. Standalone specialized
+schemas and low-level builders can still need generated contextual method or
+option interfaces. Advanced handles and dynamic operation names also retain
+generated descriptors, while complete Access/Hooks/ACL callbacks consume the
+completed graph. Preserve references used by those paths; a source-typed
+configured call alone does not prove a public reference redundant. Generated
+schema mutation methods now index their single canonical callback descriptor
+instead of emitting another copy for each surface.
 
 For an operation value, attach a nominal reference to its snapshot contract:
 

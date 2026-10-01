@@ -3,11 +3,26 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319
-- Active issue: none; 6319's implementation and audit are complete
-- Next issue: 6313; resume from 6319's validated local commit
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313
+- Active issue: 6315, after the reviewed 6313 commit
+- Next issue: 6316, the final capability, DX and complexity audit
 
-Issue 6313 resumes after 6319's validated local commit, building on `d7a507f6`.
+Issue 6313 removes only proven duplicate Typegen output: four emitted builder
+aliases and repeated mutation definitions. Production decreases by 48 lines,
+without Core changes. The actual 50-schema declaration is 37,977 bytes smaller
+(-5.75%). The full gate passes 557 ordinary files/2,652 tests and 636 coverage
+files/2,914 tests; the extra source/packed editor matrix passes 6 files/37 tests.
+Function coverage displays 96.09% rather than 96.10% only because five covered
+functions were deleted; uncovered functions remain 203. The inventory explicitly
+retains standalone specialized, advanced/dynamic and complete-graph consumers
+under the accepted ADRs. Typegen is not a relationships-only file, and final
+milestone production/export/declaration ceilings are still unmet. Continue with
+6315 in autonomy after commit inspection. No push is authorized.
+
+Issue 6313 resumed from `10b55be7` with a clean working tree and no remote
+divergence (17 local commits ahead). Continue the approved milestone in autonomy;
+an intermediate issue checkpoint is not a reason to stop. Architecture blockers
+still require the explicit stop-and-explain rule.
 Classify every Typegen output and consumer before deletion; remove only
 proven-superseded plugin projections. The one cross-schema name graph, complete
 schema `WhereInput`, and exact Access/Hooks/ACL callback descriptors remain.

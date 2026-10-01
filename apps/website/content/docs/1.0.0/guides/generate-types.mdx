@@ -8,7 +8,7 @@ order: 7
 outcome: Generate and verify replaceable declarations for one configured UltimaBase application.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-01
 sources:
   - packages/typegen/README.md
   - packages/typegen/src/plugin.ts
@@ -32,6 +32,13 @@ relations, and circular schemas, and plugin-owned contracts that have not yet
 moved to source projection. Typegen does not
 generate an executable client or change Runtime behavior. A missing or stale
 declaration affects TypeScript and editor completion, not what UltimaBase executes.
+
+Configured `App.Schema.define()` callbacks infer local plugin builders and
+options from the installed plugins. Typegen still supplies complete
+Access/Hooks/ACL callback contexts, exact Password User results, standalone
+specialized builder contracts, and advanced dynamically named operation or
+schema/model handles. These are retained consumers of the same generated graph.
+It is not yet a relationships-only file.
 
 The unpublished [project initializer](/docs/1.0.0/quick-start) already
 configures Typegen and runs generation before typecheck and build when you
@@ -142,7 +149,10 @@ const application = await loadTypegenApplication({
 	sourcePath: './src/ultimabase.ts',
 	exportName: 'ultimabase',
 })
-const generated = generateApplicationTypes({ application, applicationId })
+const generated = generateApplicationTypes({
+	ultimabase: application,
+	applicationId,
+})
 
 await writeGeneratedTypeFiles([
 	{ applicationId, contents: generated.contents, outputPath },
@@ -205,6 +215,12 @@ and the installed plugin-owned types represented by the current generated
 contract. A successful build confirms that TypeScript included the declaration;
 it does not prove that the database is reachable. Regenerate
 after changing schemas or plugins. Never edit generated output by hand.
+
+The redundant generated `Application*Builder` aliases are no longer emitted.
+Prefer the inferred callback parameter; use Core's public builder types for
+explicit low-level annotations. Plugin methods remain available through their
+contextual interfaces. Mutation methods likewise share one generated descriptor
+per schema alias, without changing their input, result, or error types.
 
 ## Limitations
 

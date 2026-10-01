@@ -127,6 +127,11 @@ describe('contextual Typegen declarations', () => {
 			applicationId: 'fixture.contextual',
 		})
 
+		// Core's contextual interfaces already carry every registered method.
+		expect(generated.contents).not.toMatch(
+			/export type Application(?:FieldBuilder|EmbeddedFieldBuilder|VirtualFieldBuilder|OutputBuilder)/u,
+		)
+
 		expect(
 			generated.snapshot.fieldMethods.map(({ context, name }) => ({
 				context,

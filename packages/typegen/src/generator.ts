@@ -11,11 +11,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { renderSharedTypes } from './generator/filters/shared.js'
 import { GeneratedIdentifiers } from './generator/identifiers.js'
 import { ReferenceImports } from './generator/imports.js'
-import {
-	renderFieldBuilder,
-	renderRegistry,
-	renderSchemas,
-} from './generator/registry.js'
+import { renderRegistry, renderSchemas } from './generator/registry.js'
 import { renderSchemaPublic } from './generator/schema.js'
 import type { RenderContext } from './generator/types.js'
 
@@ -24,7 +20,7 @@ import {
 	type TypegenApplicationSnapshot,
 } from './snapshot.js'
 
-const generatorVersion = 19
+const generatorVersion = 20
 
 const fingerprintSnapshot = (snapshot: TypegenApplicationSnapshot): string =>
 	createHash('sha256')
@@ -70,7 +66,6 @@ export const generateApplicationTypesFromSnapshot = (
 	const generatedSections = [
 		...snapshot.schemas.map((schema) => renderSchemaPublic(schema, context)),
 		renderSharedTypes(snapshot, context),
-		renderFieldBuilder(snapshot, context),
 		renderSchemas(snapshot, context),
 		'// Framework registry',
 		renderRegistry(snapshot, context),

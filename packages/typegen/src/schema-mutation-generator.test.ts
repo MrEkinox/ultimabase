@@ -106,5 +106,14 @@ describe('schema mutation Typegen', () => {
 		expect(first.contents).toContain(
 			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
 		)
+		// All three callable surfaces share the complete callback descriptor.
+		expect(
+			first.contents.match(/Core\.PluginSchemaMutationDefinition</gu),
+		).toHaveLength(1)
+		expect(
+			first.contents.match(
+				/Core\.UltimaBaseGeneratedSchemaSurfaces\["TypegenSchemaMutationPost"\]\["schemaMutations"\]\["archive"\]/gu,
+			),
+		).toHaveLength(3)
 	})
 })

@@ -59,7 +59,7 @@ const application = await loadTypegenApplication({
 })
 
 const generated = generateApplicationTypes({
-	application,
+	ultimabase: application,
 	applicationId: 'main',
 })
 
@@ -105,6 +105,20 @@ schema during milestone 63. Source-only filter inference before generation is
 a bootstrap shape, not complete custom-plugin operator typing; the final audit
 will revisit this dependency separately.
 
+Generated builder-method and option interfaces are still retained when needed
+by standalone specialized schemas and low-level builder consumers. Advanced
+schema/model handles and dynamically named application operations also retain
+generated descriptors when their configured source receipts are unavailable.
+Do not remove a public type reference merely because the configured authoring
+path can infer its local surface without it. These retained consumers use the
+same graph, not a second registry.
+
+The generated `Application*Builder` aliases are removed: they repeated the
+methods already merged into Core's contextual builder interfaces. Prefer
+inferred `App.Schema.define()` callbacks; explicit low-level annotations use
+Core's `FieldBuilder`, `EmbeddedFieldBuilder`, or `OutputBuilder`. The virtual
+method map remains `UltimaBaseGeneratedVirtualFieldBuilderMethods`.
+
 Generic generation reads the final graph and emits exact schemas, named
 relationships, query inputs, and retained non-migrated application contracts.
 Plugin owner, version, contribution ID, static options, imports, and contents
@@ -138,9 +152,11 @@ custom Access and Hook keys from the same mutation declaration. A Master-only
 mutation is not a request Access key, but it remains an exact before/after Hook
 key so trusted maintenance work can retain transactional auditing. Custom Hook payload,
 candidate, preimage, result, and target types come from that same inert entry.
+Schema-class, schema-handle and model methods reference that canonical entry
+instead of repeating the full mutation definition three more times.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 11 and the generator format to version 19. Owner-private
+format to version 11 and the generator format to version 20. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without
