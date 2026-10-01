@@ -21,6 +21,9 @@ sources:
   - apps/website/content/docs/1.0.0/manual-installation.mdx
   - packages/create-app/src/base-template.ts
   - docs/adr/0281-retain-generated-where-contracts.md
+  - docs/adr/0285-sparse-generated-mutation-surfaces.md
+  - packages/typegen/src/generator/contributions.ts
+  - packages/core/src/schema/type-info.ts
 ---
 
 Typegen turns one application's compiled static graph into replaceable
@@ -221,6 +224,12 @@ Prefer the inferred callback parameter; use Core's public builder types for
 explicit low-level annotations. Plugin methods remain available through their
 contextual interfaces. Mutation methods likewise share one generated descriptor
 per schema alias, without changing their input, result, or error types.
+Core derives class mutation types from that descriptor and schema-handle
+visibility, so no separate `schemaClass` map is generated. Schemas without
+mutation methods have no generated surface entry; entirely empty operation or
+surface interfaces are omitted. Installed mutations such as Soft Delete still
+retain schema/model maps for named handles, related models, and exact policy
+callbacks. Regenerate declarations after upgrading Core and Typegen together.
 
 ## Limitations
 

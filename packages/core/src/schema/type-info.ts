@@ -1,5 +1,9 @@
+import type { ApplicationSchemaMutationMethod } from '../application/application-schema-mutations.js'
+import type { PluginSchemaMutationDefinition } from '../plugins/plugin-schema-mutations.js'
+import type { SchemaClass } from './schema/definition.js'
+
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 20 as const
+export const generatedApplicationContractVersion = 21 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -67,13 +71,23 @@ export interface UltimaBaseGeneratedOperations {}
 /** Application-generated declarations merge exact application handle surfaces here. */
 export interface UltimaBaseGeneratedSchemaSurfaces {}
 
-/** Narrows class-level methods to the selected generated schema name. */
+/** Derives class methods from the canonical mutation catalog and schema visibility. */
 export type UltimaBaseGeneratedSchemaClassSurface<TClassName extends string> =
 	TClassName extends keyof UltimaBaseGeneratedSchemaSurfaces
 		? UltimaBaseGeneratedSchemaSurfaces[TClassName] extends Readonly<{
-				readonly schemaClass: infer TMethods extends object
+				readonly schema: infer TMethods extends object
+				readonly schemaMutations: infer TMutations extends object
 			}>
-			? TMethods
+			? {
+					readonly [TName in keyof TMethods]: TName extends keyof TMutations
+						? TMutations[TName] extends PluginSchemaMutationDefinition
+							? ApplicationSchemaMutationMethod<
+									SchemaClass<SchemaTypeInfoByNameOrBase<TClassName>>,
+									TMutations[TName]
+								>
+							: never
+						: never
+				}
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 

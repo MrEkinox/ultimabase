@@ -37,6 +37,10 @@ describe('schema mutation Typegen', () => {
 			select: { workflowState: true },
 			version: '1.1.0',
 		})
+		const WithoutMutations = UltimaBase.Schema.define({
+			className: 'TypegenSchemaMutationUnused',
+			fields: (field) => ({ title: field.string() }),
+		})
 		const plugin = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.schema-mutation-typegen',
@@ -70,7 +74,7 @@ describe('schema mutation Typegen', () => {
 		})
 		const application = new (UltimaBase.use(plugin))({
 			pluginPrivileges: { logger: false },
-			schemas: [Post],
+			schemas: [Post, WithoutMutations],
 		})
 		const first = generateApplicationTypes({
 			ultimabase: application,
@@ -96,9 +100,15 @@ describe('schema mutation Typegen', () => {
 		expect(first.contents).toContain(
 			'readonly archive: Core.ApplicationSchemaMutationMethod',
 		)
-		expect(first.contents).toContain('readonly schemaClass: {')
-		expect(first.contents).toContain(
-			'Core.SchemaClass<Core.SchemaTypeInfoByNameOrBase<"TypegenSchemaMutationPost">>',
+		expect(first.contents).not.toContain('readonly schemaClass:')
+		// Sparse output must not discard schema identity from the inert snapshot.
+		expect(first.snapshot.surfaces).toContainEqual({
+			className: 'TypegenSchemaMutationUnused',
+			modelMutations: [],
+			schemaMutations: [],
+		})
+		expect(first.contents).not.toContain(
+			'readonly "TypegenSchemaMutationUnused": {',
 		)
 		expect(first.contents).toContain(
 			'readonly archive: Core.ApplicationModelSchemaMutationMethod',
@@ -106,7 +116,7 @@ describe('schema mutation Typegen', () => {
 		expect(first.contents).toContain(
 			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
 		)
-		// All three callable surfaces share the complete callback descriptor.
+		// Handles and models reference one descriptor; Core derives class methods.
 		expect(
 			first.contents.match(/Core\.PluginSchemaMutationDefinition</gu),
 		).toHaveLength(1)
@@ -114,6 +124,25 @@ describe('schema mutation Typegen', () => {
 			first.contents.match(
 				/Core\.UltimaBaseGeneratedSchemaSurfaces\["TypegenSchemaMutationPost"\]\["schemaMutations"\]\["archive"\]/gu,
 			),
-		).toHaveLength(3)
+		).toHaveLength(2)
+	})
+
+	it('omits empty operation and surface interfaces without dropping graph facts', () => {
+		const Post = UltimaBase.Schema.define({
+			className: 'TypegenEmptySurfacePost',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const generated = generateApplicationTypes({
+			ultimabase: new UltimaBase({ schemas: [Post] }),
+			applicationId: 'fixture.empty-surfaces',
+		})
+		expect(generated.snapshot.schemas).toHaveLength(1)
+		expect(generated.snapshot.surfaces).toHaveLength(1)
+		expect(generated.contents).not.toContain(
+			'interface UltimaBaseGeneratedOperations',
+		)
+		expect(generated.contents).not.toContain(
+			'interface UltimaBaseGeneratedSchemaSurfaces',
+		)
 	})
 })

@@ -618,7 +618,7 @@ describe('generateApplicationTypes', () => {
 		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
 		expect(first.contents).toContain('readonly "fixture.workflow.publish"')
 		expect(first.contents).toContain('readonly ["fixture.workflow.rejected"]')
-		expect(first.contents).toContain(
+		expect(first.contents).not.toContain(
 			'interface UltimaBaseGeneratedSchemaSurfaces',
 		)
 		expect(first.contents).toContain(

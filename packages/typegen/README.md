@@ -152,11 +152,13 @@ custom Access and Hook keys from the same mutation declaration. A Master-only
 mutation is not a request Access key, but it remains an exact before/after Hook
 key so trusted maintenance work can retain transactional auditing. Custom Hook payload,
 candidate, preimage, result, and target types come from that same inert entry.
-Schema-class, schema-handle and model methods reference that canonical entry
-instead of repeating the full mutation definition three more times.
+Schema-handle and model methods reference that canonical entry; Core derives
+class methods from the same schema visibility and descriptor without another
+generated method map. Empty schema-surface entries and empty operation/surface
+interfaces are omitted, while the complete inert snapshot is preserved.
 Typegen emits `contains` only for those fields and keeps the executable snapshot
 callback out of generated artifacts. These contracts advance the inert snapshot
-format to version 11 and the generator format to version 20. Owner-private
+format to version 11 and the generator format and Core contract ABI to version 21. Owner-private
 collections contribute only an opaque application fingerprint input; their
 owners, collection names, fields, indexes, references, options, and records
 never enter the snapshot or emitted declarations. An application without

@@ -1,7 +1,7 @@
 # Milestone 63: Source-typed application authoring
 
 - Status: in-progress
-- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315, 6316
+- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315, 6320, 6316
 
 Replace plugin-generated authoring surfaces with one source-typed configured
 application factory while preserving every current UltimaBase capability and
@@ -40,6 +40,7 @@ frozen in the
 - [x] [6319: Align Password User authoring with configured Role schemas](6319-configured-password-user-schema.md)
 - [x] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [x] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
+- [x] [6320: Remove empty and duplicate generated mutation surfaces](6320-sparse-generated-mutation-surfaces.md)
 - [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
 
 Issues are sequential because each removes the previous implementation only

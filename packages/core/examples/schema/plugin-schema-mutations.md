@@ -134,6 +134,9 @@ await post.archive({ input: { reason: 'superseded' } })
 ```
 
 Static mutation names are visible only while their owning application is active.
+Class types derive from the generated schema-handle aliases and canonical
+mutation descriptors, not a duplicate `schemaClass` map. Model-only aliases do
+not become class methods, and schemas without mutations emit no surface entry.
 After `dispose()`, those names disappear from the schema class view. A later
 application may reuse the same schema with different mutations; captured
 dispatchers still check its selected graph, and old application/model handles

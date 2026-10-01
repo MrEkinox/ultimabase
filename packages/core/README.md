@@ -439,6 +439,12 @@ name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
 relation mutations still verify the exact registered schema identity before
 creating an operation.
 
+Generated class mutation types derive from the schema-handle alias visibility
+and canonical mutation descriptors; Typegen emits no separate `schemaClass`
+map or empty surface entries. Named handles and relation-returned model commands
+still use the same generated graph. Regenerate declarations when upgrading Core
+and Typegen together; runtime dispatch and method visibility are unchanged.
+
 ### Application-owned schema, model, and operation handles
 
 Plugin-created schemas and conditional public methods never mutate an exported

@@ -31,6 +31,12 @@ const createGeneratedRegistry = (): string => {
 		className: 'SemanticDynamicPost',
 		fields: (field) => ({ title: field.string() }),
 	})
+	const Author = UltimaBase.Schema.define({
+		className: 'SemanticSurfaceAuthor',
+		fields: (field) => ({
+			posts: field.relation({ target: 'SemanticDynamicPost' }),
+		}),
+	})
 	const publish = defineOperation({
 		errors: ['fixture.semantic.rejected'] as const,
 		input: defineOperationValue(
@@ -84,6 +90,7 @@ const createGeneratedRegistry = (): string => {
 			contributeDeclarations({
 				schema: ({ schemas }) => {
 					schemas.add({ contributionId: 'dynamic', schema: Dynamic })
+					schemas.add({ contributionId: 'author', schema: Author })
 				},
 				operations: ({ operations }) => {
 					operations.declare(publish)
@@ -177,6 +184,8 @@ const StaticPost = UltimaBase.Schema.define({
 })
 const staticMutation = StaticPost.softDelete({ id: 'post-1' })
 const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
+// @ts-expect-error -- Derived class methods retain exact mutation selection.
+StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { missing: true } })
 StaticPost.archiveSchemaOnly({ id: 'post-1', input: { id: 'reason-1' } })
 // @ts-expect-error -- Sharing a descriptor does not expose model-only methods on classes.
 StaticPost.archiveModelOnly
@@ -196,6 +205,10 @@ operation.prepare({ id: 'post-2' })
 const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
 const operationError: Core.PluginOperationErrorCode<typeof operation.definition> = 'fixture.semantic.rejected'
 const directSchema = schema.schema
+const Author = UltimaBase.Schema.define({
+	className: 'SemanticSurfaceAuthor',
+	fields: (field) => ({ posts: field.relation({ target: 'SemanticDynamicPost' }) }),
+})
 const useModelCommands = async () => {
 	const archived = await schema.archive({ id: 'post-1', input: { id: 'reason-5' }, select: { title: true } })
 	const archivedTitle: string | null = archived.title
@@ -223,6 +236,20 @@ const useModelCommands = async () => {
 	}
 	void archivedTitle
 	void deletedTitle
+}
+const useRelatedModelCommands = async () => {
+	const author = await Author.findOne()
+	if (author === null) return
+	for (const post of await author.relation('posts').findMany()) {
+		const archived = await post.archive({ input: { id: 'reason-6' }, select: { title: true } })
+		const title: string | null = archived.title
+		await post.softDelete()
+		// @ts-expect-error -- Named relation results retain model-only visibility.
+		post.archiveSchemaOnly
+		// @ts-expect-error -- Related model mutations still require their payload.
+		post.archive({ select: { title: true } })
+		void title
+	}
 }
 // @ts-expect-error -- Generated dynamic handles reject unknown plugin aliases.
 schema.unknownPluginSurface
@@ -255,6 +282,7 @@ void softDeleteExecution
 void staticMutation
 void staticArchive
 void useModelCommands
+void useRelatedModelCommands
 void unknownError
 void (undefined as unknown as RemovedHookContext)
 void (undefined as unknown as RemovedSchemaAccess)
@@ -278,6 +306,27 @@ void (undefined as unknown as RemovedFieldAccess)
 			expect(diagnostics).toStrictEqual([])
 			expect(executeDisplay).toContain('execute')
 			expect(executeDisplay).toContain('): Promise<Readonly<')
+			// Derivation changes generated shape, not the class editor surface.
+			const classPosition =
+				source.indexOf('StaticPost.archive(') + 'StaticPost.'.length
+			const classCompletions = service.getCompletionsAtPosition(
+				fileName,
+				classPosition,
+				{},
+			)
+			const classNames = classCompletions?.entries.map(({ name }) => name) ?? []
+			expect(classNames).toEqual(
+				expect.arrayContaining(['archive', 'archiveSchemaOnly', 'softDelete']),
+			)
+			expect(classNames).not.toContain('archiveModelOnly')
+			const classDisplay =
+				service
+					.getQuickInfoAtPosition(fileName, classPosition)
+					?.displayParts?.map(({ text }) => text)
+					.join('') ?? ''
+			expect(classDisplay).toContain('PluginSchemaMutationSchemaInput')
+			expect(classDisplay).toContain('Schemas.SemanticDynamicPost')
+			expect(classDisplay).toContain('=> Promise<')
 			expect(source).not.toMatch(/\bany\b/u)
 		},
 	)

@@ -26,7 +26,6 @@ export const renderGeneratedSurfaces = (
 		method:
 			| 'ApplicationModelSchemaMutationMethod'
 			| 'ApplicationSchemaMutationMethod',
-		schemaType = `Core.SchemaReference<${quote(className)}>`,
 	): string => {
 		if (mutations.length === 0) return 'Readonly<Record<never, never>>'
 		// Core rejects duplicate aliases across surfaces; one descriptor owns
@@ -35,7 +34,7 @@ export const renderGeneratedSurfaces = (
 ${mutations
 	.map(
 		(mutation) =>
-			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<${schemaType}, Core.UltimaBaseGeneratedSchemaSurfaces[${quote(className)}]["schemaMutations"][${quote(mutation.name)}]>`,
+			`\t\t\t\treadonly ${propertyName(mutation.name)}: Core.${method}<Core.SchemaReference<${quote(className)}>, Core.UltimaBaseGeneratedSchemaSurfaces[${quote(className)}]["schemaMutations"][${quote(mutation.name)}]>`,
 	)
 	.join('\n')}
 \t\t\t}`
@@ -53,35 +52,48 @@ ${mutations
 		const errors = `readonly [${operation.errors.map(quote).join(', ')}]`
 		return `\t\treadonly ${quote(operation.name)}: Core.PluginOperationDefinition<${quote(operation.name)}, ${quote(operation.version)}, ${quote(operation.target)}, ${input}, ${result}, ${errors}>`
 	})
-	const surfaces = snapshot.surfaces.map((surface) => {
-		const schemaMutations = [
-			...surface.schemaMutations,
-			...surface.modelMutations.filter(
-				(modelMutation) =>
-					!surface.schemaMutations.some(
-						(schemaMutation) => schemaMutation.name === modelMutation.name,
-					),
-			),
-		]
-			.sort((left, right) => left.name.localeCompare(right.name))
-			.map(
-				(mutation) =>
-					`\t\t\treadonly ${propertyName(mutation.name)}: ${renderMutationDefinition(mutation)}`,
-			)
-			.join('\n')
-		return `\t\treadonly ${quote(surface.className)}: {
-\t\t\treadonly schemaClass: ${renderSurfaceType(surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod', `Core.SchemaClass<Core.SchemaTypeInfoByNameOrBase<${quote(surface.className)}>>`)}
+	// Empty projections remain compiled graph facts, but add no ambient types.
+	const surfaces = snapshot.surfaces
+		.filter(
+			(surface) =>
+				surface.schemaMutations.length + surface.modelMutations.length > 0,
+		)
+		.map((surface) => {
+			const schemaMutations = [
+				...surface.schemaMutations,
+				...surface.modelMutations.filter(
+					(modelMutation) =>
+						!surface.schemaMutations.some(
+							(schemaMutation) => schemaMutation.name === modelMutation.name,
+						),
+				),
+			]
+				.sort((left, right) => left.name.localeCompare(right.name))
+				.map(
+					(mutation) =>
+						`\t\t\treadonly ${propertyName(mutation.name)}: ${renderMutationDefinition(mutation)}`,
+				)
+				.join('\n')
+			return `\t\treadonly ${quote(surface.className)}: {
 \t\t\treadonly model: ${renderSurfaceType(surface.modelMutations, surface.className, 'ApplicationModelSchemaMutationMethod')}
 \t\t\treadonly schema: ${renderSurfaceType(surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod')}
 \t\t\treadonly schemaMutations: {
 ${schemaMutations}
 \t\t\t}
 \t\t}`
-	})
-	return `\tinterface UltimaBaseGeneratedOperations {
+		})
+	return [
+		operations.length === 0
+			? ''
+			: `\tinterface UltimaBaseGeneratedOperations {
 ${operations.join('\n')}
-\t}
-\tinterface UltimaBaseGeneratedSchemaSurfaces {
+\t}`,
+		surfaces.length === 0
+			? ''
+			: `\tinterface UltimaBaseGeneratedSchemaSurfaces {
 ${surfaces.join('\n')}
-\t}`
+\t}`,
+	]
+		.filter(Boolean)
+		.join('\n')
 }
