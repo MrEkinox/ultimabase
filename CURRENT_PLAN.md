@@ -1,11 +1,120 @@
 # Current plan: Source-typed application authoring
 
-- Status: in-progress
+- Status: completed
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315
-- Active issue: 6316, after the reviewed 6315 commit
-- Next issue: none; final capability, DX and complexity audit
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315, 6320, 6316
+- Active issue: none
+- Next issue: none; debt reduction deferred, no new implementation selected
+
+On 2026-10-02 the user explicitly accepted the final costs and deferred debt
+reduction. [ADR-0286](docs/adr/0286-accept-source-authoring-milestone-costs.md)
+records one-time cost and historical measurement exceptions, not passed original
+budgets. No capability, correctness, security or coverage requirement is waived;
+no test threshold changes. The final `yarn validate:full` passes: 558 ordinary
+files/2,657 tests; 637 coverage files/2,921 tests; metadata, constraints and
+17 website files/66 tests. A third complete coverage run retains identical
+counters and all 516 text rows, with zero covered-location losses against the
+saved raw control. 6316 and the milestone are closed with these explicit costs;
+their dedicated local completion commit is the handoff. Do not push or start a
+debt-reduction task.
+The historical stop sections below do not override this explicit acceptance
+and must not be used to restart discarded typing experiments.
+
+The user resumed the final audit on 2026-10-01 without another product refactor.
+The [final report](issues/6300-source-typed-application-authoring/evidence/6316-final-audit.md)
+now records the 89-ID capability ledger, exact cost attribution, retained Typegen
+families, final one-file form, nine fresh actual-production TS probes and paired
+Runtime medians. Correctly permissioned full validation and all built E2E pass.
+Production is +5,556/-1,769 (net +3,787); formal complexity/performance ceilings
+are not met. The recovered 6320 coverage table localizes the historical
+one-point difference to Password Auth's stale refresh compare-and-swap rejection
+at `operation-handlers.ts:374`. A deterministic regression forces that path
+without changing production code. Full validation passes 558 ordinary files/
+2,657 tests and 637 coverage files/2,921 tests; all 516 historical coverage table
+rows now match, with zero covered-point losses against the saved raw control.
+A second complete coverage run passes with identical counters and covered
+locations. The original complexity/performance ceilings remain missed and
+visible; their explicit acceptance and passing final closure gate are recorded
+above. No push or new implementation is authorized.
+Historical stops below remain evidence, not instructions to restart discarded
+typing experiments.
+
+## Historical milestone checkpoints
+
+The user approved issue [6320](issues/6300-source-typed-application-authoring/6320-sparse-generated-mutation-surfaces.md)
+after the generated-surface audit: omit empty entries/interfaces and derive class
+mutations from existing descriptors. Preserve current consumers and measure
+actual production before/after. This is not approval for the descriptor generic
+experiment, a source-only graph retry, a budget waiver, or a push.
+The cleanup now passes full validation. Todo/minimal output loses 28/41 lines,
+and the actual 50-schema declaration loses 31,801 bytes (5.11%). Compiler timing
+is similar; handwritten production grows 26 lines and package declarations 312
+bytes. The historical 6316 stop remains open, not waived by this correction.
+
+The authorized [bounded experiment](issues/6300-source-typed-application-authoring/evidence/6316-bounded-overlap-experiment.md)
+tested three small substitutions with passing root typechecks and actual
+50-schema probes. None improved measured performance; all product edits were
+restored. A compiler trace locates expensive callback/model comparisons.
+The user subsequently authorized a bounded in-memory proof of an opt-in schema
+generic while preserving self. Three control/candidate 50-schema runs and exact
+packed canaries pass typing, but cold/edit medians worsen by 0.76%/1.99%, with
+no demonstrated performance gain. The proposal is discarded; no public
+descriptor, ABI, generator or product code is changed. Do not retry the same
+shortcut without new evidence. Its samples and scope are recorded in the same
+bounded-experiment report.
+The subsequent model-flattening proof finds a real isolated gain: corrected
+readonly composition reduces 50-schema cold/edit medians by 20.17%/23.98%,
+with exact fields, commands, selections and method documentation. Plain removal
+breaks readonly command typing; the corrected candidate also replaces readable
+selected-model hovers with large internal generic aliases. Neither candidate is
+integrated. This is a new DX tradeoff, not an already approved hover exception.
+The same report records all six timing samples and the editor regression.
+Preserve the evidence; review the hover boundary before adopting this shortcut.
+The original complexity/performance stop remains. No issue-6316 commit or push is authorized.
+
+The user subsequently approved testing a boundary-only flattening correction.
+The working-tree candidate keeps readonly model intersections and flattens only
+selected command results. Root typing and focused source/packed checks pass;
+three rebuilt production samples reduce cold/edit medians by 19.28%/19.24% and
+peak heap by 22.19%, with unchanged selected-model/method documentation. Hook item
+hover still uses its named exact SchemaResult rather than expanded fields.
+The candidate passes full validation, but one covered statement/branch/line
+differs from 6320's earlier run. One complete control run with Core identical to
+HEAD fails only the synthetic generation timing budget (103.987 vs 99.472 ms),
+so no control coverage report is produced and counter parity is unproven.
+The candidate is restored and rebuilt. Do not launch another complete loop or
+waive that finding: retain both the coverage difference and benchmark sensitivity
+for review. This does not complete 6316 or waive its complexity budgets. Preserve
+the evidence and review the named Hook item display difference. No commit or push.
+
+Latest direction: the user prioritizes readable item hovers over the isolated
+compiler gain and identifies ten schemas as the typical target. Restore the
+original model flattening, not a new Hooks display wrapper. Core's model contract
+is now byte-identical to HEAD; retain the readonly/selection tests and add
+source/packed persisted-item hover regressions. Root typing and the focused
+source/type checks and rebuilt package checks pass. Three ten-schema samples
+measure cold analysis 3.149 -> 3.603 s, with warm hover/completion below 1 ms.
+Full validation passes (557 ordinary files/2,656 tests; 636 coverage files/2,920
+tests, plus metadata/constraints/website checks). Coverage counters match the
+optimized candidate's successful run exactly. The earlier optimization measurements remain historical;
+they are not the selected product result. No milestone completion, commit or push.
+
+The user authorized the bounded correction on 2026-10-01 after reviewing the
+stop. Preserve the approved API and capabilities; measure one small change on
+the actual production fixture, root typecheck and source/packed contracts before
+expanding. No source-only graph/where/callback retry or budget waiver is approved.
+The earlier stop evidence remains historical and unresolved until remeasured.
+
+Current stop (2026-10-01): the [6316 checkpoint](issues/6300-source-typed-application-authoring/evidence/6316-architecture-stop.md)
+confirms all three complexity ceilings are missed and actual 50-schema production
+median cold typecheck/edit latency/heap grow 46.40%/81.23%/28.66% against a rebuilt
+isolated old checkout. The green synthetic hybrid test does not check delivered
+production against that historical baseline. Six raw samples and fixture
+comparability limits are saved. Do not retry source-only graph/where/callback
+inference, continue implementation, waive budgets or commit 6316 without user
+direction. 6315 is complete and committed; 6316 and the milestone are not.
+Earlier autonomous continuation notes below are superseded by this stop.
 
 Issue 6315 aligns the complete root journey, initializer User declaration,
 retained Typegen documentation and public migration notes. Its full gate passes

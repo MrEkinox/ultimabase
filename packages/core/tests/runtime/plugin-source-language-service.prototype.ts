@@ -88,6 +88,30 @@ export const item = new Post({ important: true, title: 'Typed' })
 export const importanceValue = item./* hover:plugin-value */ important
 export const directQueryResult = Post./* hover:direct-query */ findMany()
 export const directCreateResult = item./* hover:direct-create */ create({})
+
+/** Exercises readonly command composition and its public editor presentation. */
+export const selectedModelCommands = async () => {
+	const persisted = await item.create({})
+	const updateCommand = persisted.update
+	// @ts-expect-error -- Command composition must not make methods writable.
+	persisted.update = updateCommand
+	const /* hover:selected-model */ selected =
+			await persisted./* hover:model-update */ update({
+				data: { title: 'Updated' },
+				select: { title: true },
+			})
+	const exact: string = selected./* completion:selected-fields */ title
+	// @ts-expect-error -- Installed fields remain absent when not selected.
+	void selected.important
+	// @ts-expect-error -- Command inputs preserve their scalar types.
+	void selected.update({ data: { title: 42 } })
+	const snapshotCommand = selected.get
+	// @ts-expect-error -- Selected model helpers are readonly too.
+	selected.get = snapshotCommand
+	void selected.fetch({ select: { important: true } })
+	return exact
+}
+
 export const application = new Application({ schemas: [Post] })
 export const operationResult = application
 	.operation('fixture.source.inspect')

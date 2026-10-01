@@ -115,6 +115,17 @@ output, never Runtime truth.
 
 ### Validation evidence
 
+The final milestone audit consolidates the preceding recorded corrections into
+an iteration table; it does not invent additional runs or change their results.
+
+| Iteration | Recorded finding                                                                                  | Correction and evidence                                                                                  | Remaining work at that checkpoint                                                    |
+| --------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1         | Source-only schema callbacks failed with TS7022/TS2615 and incompatible complete-schema generics. | Removed the experimental marker; ADR-0280 retains exact Access/Hooks contexts in the single graph.       | Complete the package declaration migration.                                          |
+| 2         | ACL, Soft Delete and specialized schemas still used split declaration authoring.                  | Migrated their declaration layer, retaining later business/transport issue ownership.                    | Complete coverage and public examples.                                               |
+| 3         | Coverage exposed stale ACL, Typegen, initializer and landing fixtures.                            | Updated the fixtures; the generated TypeScript starter builds.                                           | Reconcile the first coverage drop.                                                   |
+| 4         | Branch/line coverage was 0.01 point below 6306.                                                   | Added Role namespace and persisted-reference regressions; final percentages exceed the prior checkpoint. | Final public declaration audit.                                                      |
+| 5         | Removing explicit public projection annotations failed isolated declarations.                     | Reverted the experiment; the full gate below passes without weakening package compilation.               | No issue-local implementation finding; retained graph and size costs belong to 6316. |
+
 - `yarn validate:full`: passed.
 - Ordinary suite: 557/557 files, 2,629/2,629 tests, no type errors.
 - Complete coverage suite: 635/635 files, 2,886/2,886 tests, no type errors.

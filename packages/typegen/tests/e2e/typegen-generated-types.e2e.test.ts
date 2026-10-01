@@ -37,6 +37,8 @@ import {
 	fieldHookPosition,
 	schemaHookPosition,
 	schemaHookItemPosition,
+	schemaAfterItemPosition,
+	schemaAfterItemMarker,
 	pluginHookRegistryPosition,
 	pluginHookItemPosition,
 	pointerPosition,
@@ -154,6 +156,20 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 				.getCompletionsAtPosition(fileName, schemaHookItemPosition, {})
 				?.entries.map(({ name }) => name),
 		).toEqual(expect.arrayContaining(['embedding', 'owner', 'status', 'title']))
+		// Packed declarations retain expanded persisted-item hovers and their JSDoc.
+		const afterItem = service.getQuickInfoAtPosition(
+			fileName,
+			schemaAfterItemPosition + schemaAfterItemMarker.length,
+		)
+		const afterItemDisplay = ts.displayPartsToString(afterItem?.displayParts)
+		expect(afterItemDisplay).toContain('readonly embedding:')
+		expect(afterItemDisplay).toContain('readonly owner:')
+		expect(afterItemDisplay).not.toContain(
+			'(parameter) item: Core.SchemaResult<',
+		)
+		expect(ts.displayPartsToString(afterItem?.documentation)).toContain(
+			'Contains the candidate or persisted object',
+		)
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, pluginHookRegistryPosition, {})

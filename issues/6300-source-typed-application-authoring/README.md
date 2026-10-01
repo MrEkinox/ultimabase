@@ -1,6 +1,6 @@
 # Milestone 63: Source-typed application authoring
 
-- Status: in-progress
+- Status: completed
 - Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315, 6320, 6316
 
 Replace plugin-generated authoring surfaces with one source-typed configured
@@ -8,6 +8,33 @@ application factory while preserving every current UltimaBase capability and
 retaining Typegen as the sole named cross-schema graph. The approved target is
 frozen in the
 [DX contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md).
+
+On 2026-10-02 the user accepted the final measured costs and deferred debt
+reduction. [ADR-0286](../../docs/adr/0286-accept-source-authoring-milestone-costs.md)
+records closure with explicit cost and historical measurement exceptions.
+Final `yarn validate:full` passes: 558 ordinary files/2,657 tests, 637 coverage
+files/2,921 tests, metadata, constraints and 17 website files/66 tests. The third
+complete coverage run has identical counters and covered locations. Original ceilings remain missed;
+no capability, security, typing, coverage requirement or current test is waived.
+No push or new debt-reduction work is authorized.
+
+Issue 6315 is complete at `2503dfa0`. Issue 6316 correctly raised the mandatory
+architecture stop: final complexity ceilings and measured actual-production
+compiler/memory budgets fail. The [checkpoint report](evidence/6316-architecture-stop.md)
+and raw samples remain historical evidence; ADR-0286 records their disposition
+without changing thresholds or removing capabilities.
+The separately approved issue-6320 cleanup is complete: empty entries and the
+generated class-method copy are removed without changing Runtime. Its full gate
+passes; the historical architecture stop and descriptor-review boundary remain.
+
+The user resumed issue 6316's final audit on 2026-10-01 without another product
+refactor. The [final report](evidence/6316-final-audit.md) now records capability/DX
+evidence, cost attribution, current full validation and the final developer form.
+The historical one-point coverage discrepancy is resolved by a deterministic
+refresh rejection regression: all 516 recovered historical table rows match
+after the passing full gate. See the [coverage reconciliation](evidence/6316-coverage-reconciliation.md).
+The separately accepted complexity/performance exceptions are recorded above;
+the final closure gate passes, and 6316 completes the milestone.
 
 ## Baseline
 
@@ -41,7 +68,7 @@ frozen in the
 - [x] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [x] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
 - [x] [6320: Remove empty and duplicate generated mutation surfaces](6320-sparse-generated-mutation-surfaces.md)
-- [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
+- [x] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)
 
 Issues are sequential because each removes the previous implementation only
 after its replacement proves the same capability and editor behavior. No issue
@@ -69,6 +96,9 @@ never excuses a failed test. A later issue cannot start before the previous
 issue has zero findings, complete validation, an accurate handoff, and its
 reviewed dedicated commit.
 
+ADR-0286 supplies only the explicit final cost/historical measurement exceptions;
+it does not waive this loop's current correctness, coverage or validation gates.
+
 ## Milestone exit criteria
 
 - The canonical application is configured through chained
@@ -91,9 +121,11 @@ fields, ... })` declaration shape; no public `Schema.use()` exists.
 - JavaScript, privilege, lifecycle, ownership, Runtime, transport, database,
   Access, Hooks, validation, authentication, roles, ACL, soft-delete, vector,
   plugin-instance, and community-plugin capabilities remain.
-- The locked TypeScript latency and memory budgets pass.
+- The locked TypeScript latency and memory budgets pass, or their explicit
+  one-time missed-budget acceptance is recorded under ADR-0286.
 - Total production lines and public exports decrease, aggregate package
-  declaration bytes do not increase, and no duplicate internal bridge remains.
+  declaration bytes do not increase, or their one-time cost exception is recorded
+  under ADR-0286. No duplicate internal bridge remains.
 - `yarn validate:full` passes with no coverage loss.
 - The final audit compares the old and new forms with exact measurements.
 

@@ -44,4 +44,24 @@ describe.each([
 		expect(directCreate.display).toContain('Promise<')
 		expect(directCreate.display.length).toBeLessThan(2_000)
 	})
+
+	it('retains readable selected models and documented immutable commands', () => {
+		expect(fixture.diagnostics()).toStrictEqual([])
+		const selected = fixture.readHover('selected-model').display
+		expect(selected).toContain('readonly title: string')
+		expect(selected).toContain('readonly id: string')
+		expect(selected).not.toContain('SelectedPersistedSchemaModel')
+		expect(selected).not.toContain('readonly important:')
+		const fields = fixture
+			.readMemberCompletions('selected-fields')
+			.map(({ name }) => name)
+		expect(fields).toEqual(expect.arrayContaining(['id', 'title', 'update']))
+		expect(fields).not.toContain('important')
+		const update = fixture.readHover('model-update')
+		expect(update.display).toContain('Promise<')
+		expect(update.documentation).toContain(
+			'Updates this protected object identity',
+		)
+		expect(update.hasExample).toBe(true)
+	})
 })

@@ -57,6 +57,13 @@ files / 66 tests. Formatting, typecheck, lint, build/export checks, constraints,
 and the locked 1/10/50-schema performance gate pass. Existing file-size warnings
 remain unchanged. Zero implementation findings remain in this bounded scope.
 
+The final milestone audit consolidates the two recorded iterations above.
+
+| Iteration | Finding                                                                                                           | Correction and evidence                                                                | Remaining work at that checkpoint                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1         | Relation syntax, empty-entry assertion and callable QuickInfo expectations were inaccurate in new tests.          | Corrected the fixtures; four focused files/14 tests, root and example typechecks pass. | Complete diff and full validation.                                            |
+| 2         | Removed generated readers/renderers must preserve canonical mutations, snapshots, ABI and per-surface visibility. | Complete diff review and the correctly permissioned full gate pass as recorded above.  | No bounded-cleanup finding; historical milestone budgets remain open in 6316. |
+
 Documentation impact: both. Core/Typegen READMEs, the public generation guide,
 the Core schema-mutation example, and ADR-0285 explain the smaller replaceable
 declaration without changing developer syntax or Runtime behavior. Nothing

@@ -1,0 +1,404 @@
+{
+	"baseline": "3c130475",
+	"productRevision": "3a5874d73f2a1879e1e6d2e4860a3b63d5bf776a",
+	"acceptance": {
+		"date": "2026-10-02",
+		"decision": "ADR-0286",
+		"originalComplexityCeilingsPassed": false,
+		"historicalProductionCompilerBudgetsPassed": false,
+		"historicalMeasurementLimitationsAccepted": true,
+		"debtReductionDeferred": true,
+		"testThresholdsChanged": false
+	},
+	"closureValidation": {
+		"date": "2026-10-02",
+		"command": "yarn validate:full",
+		"exitCode": 0,
+		"ordinary": { "files": 558, "tests": 2657, "durationSeconds": 263.01 },
+		"coverage": { "files": 637, "tests": 2921, "durationSeconds": 454.13 },
+		"issueMetadata": { "files": 1, "tests": 9 },
+		"website": { "files": 17, "tests": 66 },
+		"rootLintWarnings": 53,
+		"rootLintErrors": 0,
+		"currentProductMetricsReproduced": true
+	},
+	"definitions": {
+		"lines": "physical UTF-8 lines excluding the final empty line",
+		"production": "non-generated, non-test TypeScript under packages/*/src",
+		"tests": "TypeScript test modules and TypeScript support below a tests directory",
+		"tooling": "non-generated, non-test TypeScript under tooling",
+		"publicExports": "TypeScript module exports resolved from each built dist/index.d.ts"
+	},
+	"baselineTotals": {
+		"production": {
+			"files": 717,
+			"lines": 122645
+		},
+		"core": {
+			"files": 358,
+			"lines": 67022
+		},
+		"tests": {
+			"files": 744,
+			"lines": 133755
+		},
+		"tooling": {
+			"files": 14,
+			"lines": 2371
+		},
+		"publicExports": 1720,
+		"declarationBytes": 839935
+	},
+	"currentTotals": {
+		"production": {
+			"files": 729,
+			"lines": 126432
+		},
+		"core": {
+			"files": 370,
+			"lines": 70257,
+			"sharePercent": 55.57
+		},
+		"tests": {
+			"files": 765,
+			"lines": 137172
+		},
+		"tooling": {
+			"files": 14,
+			"lines": 2366
+		},
+		"publicExports": 1739,
+		"declarationBytes": 939352
+	},
+	"productionDiff": {
+		"files": 121,
+		"added": 5556,
+		"deleted": 1769,
+		"net": 3787
+	},
+	"productionPackageDeltas": [
+		{
+			"packageName": "core",
+			"files": 77,
+			"added": 4241,
+			"deleted": 1006,
+			"net": 3235
+		},
+		{
+			"packageName": "roles-plugin",
+			"files": 1,
+			"added": 240,
+			"deleted": 46,
+			"net": 194
+		},
+		{
+			"packageName": "soft-delete-plugin",
+			"files": 2,
+			"added": 236,
+			"deleted": 125,
+			"net": 111
+		},
+		{
+			"packageName": "acl-permissions-plugin",
+			"files": 5,
+			"added": 129,
+			"deleted": 69,
+			"net": 60
+		},
+		{
+			"packageName": "hooks-plugin",
+			"files": 5,
+			"added": 98,
+			"deleted": 44,
+			"net": 54
+		},
+		{
+			"packageName": "plugin-kit",
+			"files": 1,
+			"added": 67,
+			"deleted": 19,
+			"net": 48
+		},
+		{
+			"packageName": "access-plugin",
+			"files": 4,
+			"added": 106,
+			"deleted": 61,
+			"net": 45
+		},
+		{
+			"packageName": "create-app",
+			"files": 3,
+			"added": 106,
+			"deleted": 63,
+			"net": 43
+		},
+		{
+			"packageName": "testing",
+			"files": 1,
+			"added": 24,
+			"deleted": 6,
+			"net": 18
+		},
+		{
+			"packageName": "rest-plugin",
+			"files": 2,
+			"added": 25,
+			"deleted": 9,
+			"net": 16
+		},
+		{
+			"packageName": "graphql-plugin",
+			"files": 3,
+			"added": 27,
+			"deleted": 13,
+			"net": 14
+		},
+		{
+			"packageName": "password-auth-plugin",
+			"files": 4,
+			"added": 101,
+			"deleted": 88,
+			"net": 13
+		},
+		{
+			"packageName": "pg-vector-plugin",
+			"files": 1,
+			"added": 20,
+			"deleted": 8,
+			"net": 12
+		},
+		{
+			"packageName": "validation-plugin",
+			"files": 4,
+			"added": 63,
+			"deleted": 61,
+			"net": 2
+		},
+		{
+			"packageName": "typegen",
+			"files": 4,
+			"added": 47,
+			"deleted": 83,
+			"net": -36
+		},
+		{
+			"packageName": "postgres-plugin",
+			"files": 4,
+			"added": 26,
+			"deleted": 68,
+			"net": -42
+		}
+	],
+	"packages": [
+		{
+			"packageName": "@ultimabase/access-plugin",
+			"files": 27,
+			"lines": 4943,
+			"declarationBytes": 38073,
+			"publicExports": 78
+		},
+		{
+			"packageName": "@ultimabase/acl-permissions-plugin",
+			"files": 18,
+			"lines": 3559,
+			"declarationBytes": 20293,
+			"publicExports": 41
+		},
+		{
+			"packageName": "@ultimabase/apollo-sandbox-plugin",
+			"files": 4,
+			"lines": 210,
+			"declarationBytes": 1613,
+			"publicExports": 4
+		},
+		{
+			"packageName": "@ultimabase/core",
+			"files": 370,
+			"lines": 70257,
+			"declarationBytes": 668223,
+			"publicExports": 1118
+		},
+		{
+			"packageName": "@ultimabase/create-app",
+			"files": 9,
+			"lines": 1757,
+			"declarationBytes": 5544,
+			"publicExports": 15
+		},
+		{
+			"packageName": "@ultimabase/graphiql-plugin",
+			"files": 4,
+			"lines": 201,
+			"declarationBytes": 1520,
+			"publicExports": 4
+		},
+		{
+			"packageName": "@ultimabase/graphql-http",
+			"files": 2,
+			"lines": 82,
+			"declarationBytes": 783,
+			"publicExports": 3
+		},
+		{
+			"packageName": "@ultimabase/graphql-plugin",
+			"files": 54,
+			"lines": 8235,
+			"declarationBytes": 10776,
+			"publicExports": 33
+		},
+		{
+			"packageName": "@ultimabase/graphql-yoga-plugin",
+			"files": 8,
+			"lines": 778,
+			"declarationBytes": 1306,
+			"publicExports": 3
+		},
+		{
+			"packageName": "@ultimabase/hooks-plugin",
+			"files": 28,
+			"lines": 4622,
+			"declarationBytes": 46153,
+			"publicExports": 101
+		},
+		{
+			"packageName": "@ultimabase/http-plugin",
+			"files": 15,
+			"lines": 2510,
+			"declarationBytes": 18145,
+			"publicExports": 65
+		},
+		{
+			"packageName": "@ultimabase/password-auth-plugin",
+			"files": 22,
+			"lines": 3802,
+			"declarationBytes": 20441,
+			"publicExports": 34
+		},
+		{
+			"packageName": "@ultimabase/pg-vector-plugin",
+			"files": 1,
+			"lines": 227,
+			"declarationBytes": 3564,
+			"publicExports": 10
+		},
+		{
+			"packageName": "@ultimabase/plugin-kit",
+			"files": 5,
+			"lines": 853,
+			"declarationBytes": 13123,
+			"publicExports": 31
+		},
+		{
+			"packageName": "@ultimabase/postgres-plugin",
+			"files": 67,
+			"lines": 10565,
+			"declarationBytes": 13624,
+			"publicExports": 35
+		},
+		{
+			"packageName": "@ultimabase/rest-plugin",
+			"files": 27,
+			"lines": 4607,
+			"declarationBytes": 17313,
+			"publicExports": 45
+		},
+		{
+			"packageName": "@ultimabase/roles-plugin",
+			"files": 12,
+			"lines": 2466,
+			"declarationBytes": 19642,
+			"publicExports": 39
+		},
+		{
+			"packageName": "@ultimabase/server-hono-plugin",
+			"files": 5,
+			"lines": 464,
+			"declarationBytes": 2396,
+			"publicExports": 6
+		},
+		{
+			"packageName": "@ultimabase/shared",
+			"files": 2,
+			"lines": 85,
+			"declarationBytes": 2070,
+			"publicExports": 9
+		},
+		{
+			"packageName": "@ultimabase/soft-delete-plugin",
+			"files": 8,
+			"lines": 764,
+			"declarationBytes": 7000,
+			"publicExports": 5
+		},
+		{
+			"packageName": "@ultimabase/testing",
+			"files": 9,
+			"lines": 1327,
+			"declarationBytes": 13661,
+			"publicExports": 25
+		},
+		{
+			"packageName": "@ultimabase/typegen",
+			"files": 25,
+			"lines": 3379,
+			"declarationBytes": 9964,
+			"publicExports": 28
+		},
+		{
+			"packageName": "@ultimabase/validation-plugin",
+			"files": 7,
+			"lines": 739,
+			"declarationBytes": 4125,
+			"publicExports": 7
+		}
+	],
+	"currentCoverage": {
+		"statements": {
+			"covered": 23789,
+			"total": 26146,
+			"percent": 90.98
+		},
+		"branches": {
+			"covered": 14693,
+			"total": 17384,
+			"percent": 84.52
+		},
+		"functions": {
+			"covered": 4999,
+			"total": 5202,
+			"percent": 96.09
+		},
+		"lines": {
+			"covered": 23065,
+			"total": 25192,
+			"percent": 91.55
+		}
+	},
+	"coverageComparison": {
+		"savedCandidate": "successful discarded model-flattening candidate before the deterministic refresh regression",
+		"comparedLocationKinds": ["statement", "function", "branch"],
+		"coveredLocationDifferences": 2,
+		"coveredLocationLosses": 0,
+		"coveredLocationGains": { "statements": 1, "branches": 1, "functions": 0 },
+		"historical6320CoveredStatementBranchLineDifference": 0,
+		"historical6320RawLocationsUnavailable": true,
+		"historical6320TextTableRecovered": true,
+		"historical6320TextTableRows": 516,
+		"historical6320TextTableDifferences": 0,
+		"postCorrectionCompleteCoverageRuns": 3,
+		"repeatCoveredLocationDifferences": 0,
+		"resolvedPath": {
+			"file": "packages/password-auth-plugin/src/operation-handlers.ts",
+			"statementLine": 374,
+			"branchLine": 368,
+			"statementHitSamples": [1, 2, 2],
+			"branchHitSamples": [
+				[1, 20],
+				[2, 19],
+				[2, 19]
+			],
+			"regressionTest": "packages/password-auth-plugin/tests/operation-handlers.test.ts"
+		}
+	}
+}

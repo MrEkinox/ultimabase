@@ -27,6 +27,7 @@ export const accessMarker = '/* packed-access-item */'
 export const fieldHookMarker = '/* packed-field-hook */'
 export const schemaHookMarker = '/* packed-schema-hook */'
 export const schemaHookItemMarker = '/* packed-schema-hook-item */'
+export const schemaAfterItemMarker = '/* packed-schema-after-item */'
 export const pluginHookRegistryMarker = '/* packed-plugin-hook-registry */'
 export const pluginHookItemMarker = '/* packed-plugin-hook-item */'
 export const pointerMarker = '/* packed-pointer-where */'
@@ -225,6 +226,10 @@ const packedHookPlugin = plugin({
       Hooks.${pluginHookRegistryMarker}schemaHooks(
       PackedGeneratedDocument,
       {
+        afterOperation: {
+          update: ({ item }) => { void ${schemaAfterItemMarker}item.title },
+          delete: ({ item }) => { const deleted: null = item; void deleted },
+        },
         beforeOperation: {
           update: ({ item }) => {
             item.${pluginHookItemMarker}title
@@ -434,6 +439,9 @@ export const fieldHookPosition = sourceWithMarkers.indexOf(fieldHookMarker)
 export const schemaHookPosition = sourceWithMarkers.indexOf(schemaHookMarker)
 export const schemaHookItemPosition =
 	sourceWithMarkers.indexOf(schemaHookItemMarker)
+export const schemaAfterItemPosition = sourceWithMarkers.indexOf(
+	schemaAfterItemMarker,
+)
 export const pluginHookRegistryPosition = sourceWithMarkers.indexOf(
 	pluginHookRegistryMarker,
 )
@@ -467,6 +475,7 @@ export const source = sourceWithMarkers
 	.replace(fieldHookMarker, ' '.repeat(fieldHookMarker.length))
 	.replace(schemaHookMarker, ' '.repeat(schemaHookMarker.length))
 	.replace(schemaHookItemMarker, ' '.repeat(schemaHookItemMarker.length))
+	.replace(schemaAfterItemMarker, ' '.repeat(schemaAfterItemMarker.length))
 	.replace(
 		pluginHookRegistryMarker,
 		' '.repeat(pluginHookRegistryMarker.length),

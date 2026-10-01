@@ -244,6 +244,10 @@ const SemanticArticle = SemanticApplication.Schema.define({
     upsert: false,
   },
   hooks: {
+    afterOperation: {
+      update: ({ item }) => { void /* public-after-item-hover */item.title },
+      delete: ({ item }) => { const deleted: null = item; void deleted },
+    },
     beforeOperation: {
       update: ({ item, originalItem }) => {
         item./* public-hook-item */profile
@@ -534,6 +538,11 @@ void relatedRead
 		expect(completionNames('/* public-hook-item */')).toEqual(
 			expect.arrayContaining(['embedding', 'profile', 'status', 'title']),
 		)
+		// Callback hovers must show model fields, not just a generic result alias.
+		const afterItemHover = quickInfo('/* public-after-item-hover */')
+		expect(afterItemHover).toContain('readonly embedding:')
+		expect(afterItemHover).toContain('readonly author:')
+		expect(afterItemHover).not.toContain('(parameter) item: Core.SchemaResult<')
 		expect(completionNames('/* public-query-where */')).toEqual(
 			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
 		)

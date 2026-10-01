@@ -113,6 +113,16 @@ remains.
 
 ## Architecture stop: community field query typing (2026-09-30)
 
+The final milestone audit consolidates the recorded handoff into this table.
+The prose below retains the original failures and exact validation results.
+
+| Iteration | Recorded finding                                                                                                          | Correction and evidence                                                                                                                                                          | Remaining work at that checkpoint                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1         | Deprecated constructor installation and erased/cast community source options survived.                                    | Migrated the runner and returned declaration receipts; source options infer directly.                                                                                            | Prove custom portable-field queries.                                         |
+| 2         | Two bounded codec-presence attempts could not type the existing equality query.                                           | Removed the experiment; user-approved ADR-0281 retains all WhereInput contracts and a generated editor proof.                                                                    | Correctly permissioned complete validation.                                  |
+| 3         | Full coverage failed the unchanged concurrent PostgreSQL upsert case.                                                     | At the user's explicit request, reproduced the unrelated unique-index collision and fixed speculative insert/re-locking; focused stress and unrelated-key regression tests pass. | Final community fixture and diff review.                                     |
+| 4         | A community schema declared PostgreSQL options without installing that plugin; two documentation details were inaccurate. | Reused its installed factory and corrected adapter/conformance explanations; final full and built gates pass below.                                                              | No issue-local implementation finding; complete graph costs remain for 6316. |
+
 The community decimal fixture now creates its plugin before the schema and
 returns Core declaration receipts. `UltimaBase.use(value).Schema.define(...)`
 accepts its `decimalLedger` and `decimalLabel` options without the old schema

@@ -1,0 +1,630 @@
+{
+	"revision": "3a5874d73f2a1879e1e6d2e4860a3b63d5bf776a",
+	"scope": "Current built production; no compiler-host substitutions; three fresh sequential processes per schema count. Historical baseline remains a separately recorded comparison.",
+	"command": "node --expose-gc packages/typegen/tests/performance/fixtures/current-typegen-authoring-probe.mjs <1|10|50>",
+	"samples": [
+		{
+			"sample": 1,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 2450.9372799999996,
+			"completionLatencyMs": 0.8250259999999798,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 16876,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.042629999999917345,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 741.1757670000002,
+			"generationDurationMs": 28.544033999999954,
+			"heapUsedMiB": 305.84741973876953,
+			"hoverLatencyMs": 0.5969390000000203,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin3_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 288.2998819999998,
+			"peakHeapMiB": 508.57886505126953,
+			"rssMiB": 778.9296875,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 1,
+			"typecheckDurationMs": 494.297364
+		},
+		{
+			"sample": 2,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 2432.412211,
+			"completionLatencyMs": 0.7836870000000999,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 16876,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.047542999999677704,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 755.1908750000002,
+			"generationDurationMs": 28.792832999999973,
+			"heapUsedMiB": 305.9039611816406,
+			"hoverLatencyMs": 0.6101889999999912,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin3_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 284.2069819999997,
+			"peakHeapMiB": 502.10919189453125,
+			"rssMiB": 775.34765625,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 1,
+			"typecheckDurationMs": 494.54806199999985
+		},
+		{
+			"sample": 3,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 2426.620449,
+			"completionLatencyMs": 1.0827730000000884,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 16876,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.04769899999973859,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 726.8167600000002,
+			"generationDurationMs": 28.393583999999976,
+			"heapUsedMiB": 305.88736724853516,
+			"hoverLatencyMs": 0.7349160000003394,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin3_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 292.33716400000003,
+			"peakHeapMiB": 504.47277069091797,
+			"rssMiB": 762.0703125,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 1,
+			"typecheckDurationMs": 493.6116710000001
+		},
+		{
+			"sample": 1,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 3555.2131809999996,
+			"completionLatencyMs": 0.7909040000004097,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 123167,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.0473599999995713,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 2012.0353260000002,
+			"generationDurationMs": 49.626011000000005,
+			"heapUsedMiB": 444.46581268310547,
+			"hoverLatencyMs": 0.6785540000000765,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 311.48637400000007,
+			"peakHeapMiB": 822.9022674560547,
+			"rssMiB": 1130.07421875,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 10,
+			"typecheckDurationMs": 1917.5269509999998
+		},
+		{
+			"sample": 2,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 3580.913612,
+			"completionLatencyMs": 0.8954389999998966,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 123167,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.0650950000008379,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 2044.6927299999988,
+			"generationDurationMs": 47.193895,
+			"heapUsedMiB": 444.4711151123047,
+			"hoverLatencyMs": 0.6261620000004768,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 300.5827699999995,
+			"peakHeapMiB": 817.8900375366211,
+			"rssMiB": 1124.4296875,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 10,
+			"typecheckDurationMs": 1955.9360459999998
+		},
+		{
+			"sample": 3,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 3567.763838,
+			"completionLatencyMs": 1.2602769999994052,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 123167,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.044364999999743304,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 1984.4312670000008,
+			"generationDurationMs": 47.197419999999966,
+			"heapUsedMiB": 444.4581527709961,
+			"hoverLatencyMs": 0.6103459999994811,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 295.8068909999997,
+			"peakHeapMiB": 819.62158203125,
+			"rssMiB": 1105.8359375,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 10,
+			"typecheckDurationMs": 2084.471692
+		},
+		{
+			"sample": 1,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 8095.947278000001,
+			"completionLatencyMs": 0.9144379999997909,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 590807,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.042862000000241096,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 6778.603141000001,
+			"generationDurationMs": 83.99466899999999,
+			"heapUsedMiB": 821.1241912841797,
+			"hoverLatencyMs": 0.6047490000000835,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 364.98693899999853,
+			"peakHeapMiB": 1537.7490310668945,
+			"rssMiB": 1912.62890625,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 50,
+			"typecheckDurationMs": 6815.389227
+		},
+		{
+			"sample": 2,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 8082.649772999999,
+			"completionLatencyMs": 0.8027789999996457,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 590807,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.04169500000170956,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 6727.379037000001,
+			"generationDurationMs": 83.27216999999996,
+			"heapUsedMiB": 821.0807037353516,
+			"hoverLatencyMs": 0.6376039999995555,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 371.9497479999991,
+			"peakHeapMiB": 1534.7320709228516,
+			"rssMiB": 1917.515625,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 50,
+			"typecheckDurationMs": 6793.147695
+		},
+		{
+			"sample": 3,
+			"coldDiagnosticCount": 0,
+			"coldTypecheckDurationMs": 8075.597512,
+			"completionLatencyMs": 0.8441899999997986,
+			"completionNames": [
+				"AND",
+				"children",
+				"createdAt",
+				"details",
+				"embedding",
+				"field0",
+				"field1",
+				"field2",
+				"field3",
+				"field4",
+				"field5",
+				"field6",
+				"field7",
+				"field8",
+				"field9",
+				"field10",
+				"field11",
+				"id",
+				"NOT",
+				"OR",
+				"related",
+				"updatedAt",
+				"username"
+			],
+			"declarationBytes": 590807,
+			"diagnosticCount": 0,
+			"diagnosticLatencyMs": 0.043161999999938416,
+			"diagnosticMessages": [],
+			"editDiagnosticCount": 1,
+			"editToDiagnosticLatencyMs": 6736.685649000001,
+			"generationDurationMs": 82.66224600000004,
+			"heapUsedMiB": 821.136962890625,
+			"hoverLatencyMs": 0.6268579999996291,
+			"hoverOutput": "const query0: Promise<readonly {\n    readonly createdAt: string;\n    readonly details: UserDetails | null;\n    readonly embedding: Plugin4_VectorValue | null;\n    readonly field0: string;\n    readonly field1: number | null;\n    readonly field10: string | null;\n    readonly field11: number | null;\n    readonly field2: string | null;\n    readonly field3: number | null;\n    readonly field4: string | null;\n    readonly field5: number | null;\n    readonly field6: string | null;\n    readonly field7: number | null;\n    readonly field8: string | null;\n    readonly field9: number | null;\n    readonly id: string;\n    readonly related: Core.GeneratedPointerHandle<\"User\"> | null;\n    ... 12 more ...;\n    readonly relation: <const TFieldName extends \"children\">(fieldName: TFieldName) => Core.Relation<...>;\n}[]>",
+			"languageServiceInitializationMs": 384.85357399999884,
+			"peakHeapMiB": 1534.6365127563477,
+			"rssMiB": 1903.9296875,
+			"scalarFieldCount": 12,
+			"scenario": "current-typegen",
+			"schemaCount": 50,
+			"typecheckDurationMs": 6709.117240000001
+		}
+	],
+	"summaries": [
+		{
+			"schemas": 1,
+			"bytes": 16876,
+			"diagnostics": [
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				}
+			],
+			"metrics": {
+				"coldTypecheckDurationMs": {
+					"median": 2432.412211,
+					"min": 2426.620449,
+					"max": 2450.9372799999996
+				},
+				"editToDiagnosticLatencyMs": {
+					"median": 741.1757670000002,
+					"min": 726.8167600000002,
+					"max": 755.1908750000002
+				},
+				"generationDurationMs": {
+					"median": 28.544033999999954,
+					"min": 28.393583999999976,
+					"max": 28.792832999999973
+				},
+				"languageServiceInitializationMs": {
+					"median": 288.2998819999998,
+					"min": 284.2069819999997,
+					"max": 292.33716400000003
+				},
+				"peakHeapMiB": {
+					"median": 504.47277069091797,
+					"min": 502.10919189453125,
+					"max": 508.57886505126953
+				},
+				"hoverLatencyMs": {
+					"median": 0.6101889999999912,
+					"min": 0.5969390000000203,
+					"max": 0.7349160000003394
+				},
+				"completionLatencyMs": {
+					"median": 0.8250259999999798,
+					"min": 0.7836870000000999,
+					"max": 1.0827730000000884
+				},
+				"diagnosticLatencyMs": {
+					"median": 0.047542999999677704,
+					"min": 0.042629999999917345,
+					"max": 0.04769899999973859
+				}
+			}
+		},
+		{
+			"schemas": 10,
+			"bytes": 123167,
+			"diagnostics": [
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				}
+			],
+			"metrics": {
+				"coldTypecheckDurationMs": {
+					"median": 3567.763838,
+					"min": 3555.2131809999996,
+					"max": 3580.913612
+				},
+				"editToDiagnosticLatencyMs": {
+					"median": 2012.0353260000002,
+					"min": 1984.4312670000008,
+					"max": 2044.6927299999988
+				},
+				"generationDurationMs": {
+					"median": 47.197419999999966,
+					"min": 47.193895,
+					"max": 49.626011000000005
+				},
+				"languageServiceInitializationMs": {
+					"median": 300.5827699999995,
+					"min": 295.8068909999997,
+					"max": 311.48637400000007
+				},
+				"peakHeapMiB": {
+					"median": 819.62158203125,
+					"min": 817.8900375366211,
+					"max": 822.9022674560547
+				},
+				"hoverLatencyMs": {
+					"median": 0.6261620000004768,
+					"min": 0.6103459999994811,
+					"max": 0.6785540000000765
+				},
+				"completionLatencyMs": {
+					"median": 0.8954389999998966,
+					"min": 0.7909040000004097,
+					"max": 1.2602769999994052
+				},
+				"diagnosticLatencyMs": {
+					"median": 0.0473599999995713,
+					"min": 0.044364999999743304,
+					"max": 0.0650950000008379
+				}
+			}
+		},
+		{
+			"schemas": 50,
+			"bytes": 590807,
+			"diagnostics": [
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				},
+				{
+					"cold": 0,
+					"initial": 0,
+					"edit": 1
+				}
+			],
+			"metrics": {
+				"coldTypecheckDurationMs": {
+					"median": 8082.649772999999,
+					"min": 8075.597512,
+					"max": 8095.947278000001
+				},
+				"editToDiagnosticLatencyMs": {
+					"median": 6736.685649000001,
+					"min": 6727.379037000001,
+					"max": 6778.603141000001
+				},
+				"generationDurationMs": {
+					"median": 83.27216999999996,
+					"min": 82.66224600000004,
+					"max": 83.99466899999999
+				},
+				"languageServiceInitializationMs": {
+					"median": 371.9497479999991,
+					"min": 364.98693899999853,
+					"max": 384.85357399999884
+				},
+				"peakHeapMiB": {
+					"median": 1534.7320709228516,
+					"min": 1534.6365127563477,
+					"max": 1537.7490310668945
+				},
+				"hoverLatencyMs": {
+					"median": 0.6268579999996291,
+					"min": 0.6047490000000835,
+					"max": 0.6376039999995555
+				},
+				"completionLatencyMs": {
+					"median": 0.8441899999997986,
+					"min": 0.8027789999996457,
+					"max": 0.9144379999997909
+				},
+				"diagnosticLatencyMs": {
+					"median": 0.042862000000241096,
+					"min": 0.04169500000170956,
+					"max": 0.043161999999938416
+				}
+			}
+		}
+	]
+}

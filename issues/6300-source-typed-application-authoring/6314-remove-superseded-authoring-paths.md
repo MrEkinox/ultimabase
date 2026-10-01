@@ -82,6 +82,17 @@ errors, fixtures, docs, and removed capabilities. Findings and corrections:
    option augmentation to issue 6314. It now names issue 6313, which owns
    removing proven-superseded Typegen projections.
 
+The final milestone audit consolidates the preceding recorded corrections;
+these rows reference the original validation evidence, not new historical runs.
+
+| Iteration | Recorded finding                                                                                  | Correction and evidence                                                                            | Remaining work at that checkpoint                                                |
+| --------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1         | Incremental typecheck replaced bundled Password Auth declarations with broken sibling references. | Rebuilt that package; the final full gate passes.                                                  | Review ownership and packed fixtures.                                            |
+| 2         | A Password Auth ownership fixture depended on the removed selector.                               | Tested sequential owners and rejection of the foreign User in an actual request.                   | Migrate packed legacy calls.                                                     |
+| 3         | Packed JavaScript called handle CRUD; an editor assertion used obsolete source formatting.        | Switched to direct schema execution and the actual hover marker; focused suites pass.              | Complete built validation.                                                       |
+| 4         | One relation-suite setup failed during the first built run.                                       | Recorded the failure; isolated and two complete built gates subsequently pass 102 files/406 tests. | Final documentation review.                                                      |
+| 5         | A PostgreSQL fixture comment assigned generated-option ownership to the wrong issue.              | Corrected it to 6313; final full gate and the complete diff review pass.                           | No issue-local implementation finding; tooling sensitivity is retained for 6316. |
+
 `yarn validate:full` passes on the corrected diff: 557 ordinary files/2,650
 tests, 636 coverage files/2,912 tests, typecheck, lint, build, issue metadata,
 constraints, and 17 website files/66 tests. Coverage is 90.98% statements,
