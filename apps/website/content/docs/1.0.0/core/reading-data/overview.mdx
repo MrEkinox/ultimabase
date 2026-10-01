@@ -30,18 +30,14 @@ application is started with a persistence plugin. See
 
 ```ts title="src/read-posts.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readPublishedPosts = () =>
-	Post.findMany(
-		{
-			limit: 20,
-			orderBy: { createdAt: 'desc', id: 'asc' },
-			select: { createdAt: true, title: true },
-			where: { published: { eq: true } },
-		},
-		{ ultimabase },
-	)
+	Post.findMany({
+		limit: 20,
+		orderBy: { createdAt: 'desc', id: 'asc' },
+		select: { createdAt: true, title: true },
+		where: { published: { eq: true } },
+	})
 ```
 
 The call returns at most 20 immutable `Post` models, ordered newest first with
@@ -103,7 +99,7 @@ const recentPublishedInput = new QueryBuilder(Post)
 	.build()
 
 export const readRecentPublishedPosts = () =>
-	Post.findMany(recentPublishedInput, { ultimabase })
+	Post.findMany(recentPublishedInput)
 ```
 
 Every builder method returns a new frozen branch. `build()` emits the same
@@ -124,7 +120,7 @@ const draftInput = base.where({ published: { eq: false } }).build()
 
 Both inputs select `title`, but only their own `published` condition. `base`
 remains unchanged and none of these lines executes a request. Pass either
-input to `Post.findMany(input, { ultimabase })` when you want to read it.
+input to `Post.findMany(input)` when you want to read it.
 
 An empty builder has no filter, selection, inclusion, ordering, limit, or
 offset. Omitted selection returns the complete visible model; Core adds no

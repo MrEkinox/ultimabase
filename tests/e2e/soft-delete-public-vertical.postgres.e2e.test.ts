@@ -107,7 +107,6 @@ const createArticle = async (slug: string): Promise<string> => {
 	const created = readObject(
 		await invoke(requireExample().ExampleArticle, 'createOne', [
 			{ data: { slug, title: slug } },
-			{ ultimabase: requireApplication() },
 		]),
 		'created article',
 	)
@@ -282,15 +281,14 @@ describe('documented official soft-delete public vertical', () => {
 			{
 				where: { id: { in: [schemaId, modelId, restId, yogaId] } },
 			},
-			{ ultimabase: app },
 		])
 		expect(hidden).toStrictEqual([])
 
-		await expect(minimal.restoreArticle(app, schemaId)).resolves.toMatchObject({
+		await expect(minimal.restoreArticle(schemaId)).resolves.toMatchObject({
 			id: schemaId,
 			isDeleted: false,
 		})
-		await expect(minimal.purgeArticle(app, modelId)).resolves.toMatchObject({
+		await expect(minimal.purgeArticle(modelId)).resolves.toMatchObject({
 			id: modelId,
 			isDeleted: true,
 		})
@@ -305,14 +303,11 @@ describe('documented official soft-delete public vertical', () => {
 		const author = readObject(
 			await invoke(minimal.ExampleAuthor, 'createOne', [
 				{ data: { name: 'Replace mode author' } },
-				{ ultimabase: app },
 			]),
 			'created author',
 		)
 		const authorId = readString(author, 'id')
-		await expect(
-			minimal.softDeleteAuthor(app, authorId),
-		).resolves.toMatchObject({
+		await expect(minimal.softDeleteAuthor(authorId)).resolves.toMatchObject({
 			id: authorId,
 		})
 		const storedAuthor = await fixture?.pool.query<{ isDeleted: boolean }>(
@@ -332,7 +327,7 @@ describe('documented official soft-delete public vertical', () => {
 						targetId: true,
 					},
 				},
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			]),
 			'Audit events',
 		)

@@ -152,12 +152,12 @@ source before Typegen. Core-only declarations can construct immutable drafts
 immediately; configured plugin builder calls resolve when a compatible
 application compiles them. Ordinary schema commands execute against an owning
 application. Use
-`ultimabase.schema(Article)` to resolve the cached handle bound to this exact
-application. The same method accepts the registered name of a
-plugin-contributed schema. Most configuration-dependent commands belong to
-that application handle. A plugin schema mutation can also appear directly on
-the frozen class after an owning application starts; the call resolves the sole
-active application and verifies that application's compiled plugin graph. See
+`ultimabase.schema(Article)` only for application-specific mutation handles or
+model binding. Ordinary CRUD uses `Article` directly. The handle also accepts
+the registered name of a plugin-contributed schema; its `.schema` is the
+runtime class and can run ordinary commands. A plugin schema mutation can also
+appear directly on the frozen class after an owning application starts; the call
+resolves the sole active application and verifies that application's compiled plugin graph. See
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
 for an example and [Models](./models) for draft and persisted instances.
 

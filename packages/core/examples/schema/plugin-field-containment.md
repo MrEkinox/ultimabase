@@ -121,9 +121,7 @@ as the accepted developer input. The generated `WhereInput` uses the field
 family's public `structuralContainsType` reference for the exact input shape.
 
 ```ts
-const Posts = ultimabase.schema(PostSchema)
-
-await Posts.findMany({
+await PostSchema.findMany({
 	where: {
 		search: { contains: { tags: ['typescript'] } },
 	},

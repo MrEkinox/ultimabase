@@ -19,10 +19,10 @@ export const softDeleteArticle = (
 	sessionToken: string,
 ) =>
 	runWithSession(app, sessionToken, () =>
-		ExampleArticle.softDelete(
-			{ id, select: { id: true, isDeleted: true, title: true } },
-			{ ultimabase: app },
-		),
+		ExampleArticle.softDelete({
+			id,
+			select: { id: true, isDeleted: true, title: true },
+		}),
 	)
 
 /** Demonstrates the same explicit command from a bound persisted model. */
@@ -32,10 +32,10 @@ export const softDeleteArticleFromModel = async (
 	sessionToken: string,
 ) => {
 	return runWithSession(app, sessionToken, async () => {
-		const article = await ExampleArticle.findOne(
-			{ select: { id: true, title: true }, where: { id: { eq: id } } },
-			{ ultimabase: app },
-		)
+		const article = await ExampleArticle.findOne({
+			select: { id: true, title: true },
+			where: { id: { eq: id } },
+		})
 		if (article === null) return null
 		return article.softDelete({
 			select: { id: true, isDeleted: true, title: true },
@@ -44,22 +44,19 @@ export const softDeleteArticleFromModel = async (
 }
 
 /** Restores one hidden article through trusted server authority. */
-export const restoreArticle = (app: MinimalApplication, id: string) =>
+export const restoreArticle = (id: string) =>
 	ExampleArticle.restore(
 		{ id, select: { id: true, isDeleted: true, title: true } },
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 /** Permanently removes one already hidden article. */
-export const purgeArticle = (app: MinimalApplication, id: string) =>
+export const purgeArticle = (id: string) =>
 	ExampleArticle.purge(
 		{ id, select: { id: true, isDeleted: true, title: true } },
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 /** Keeps native delete syntax while replace mode writes an author tombstone. */
-export const softDeleteAuthor = (app: MinimalApplication, id: string) =>
-	ExampleAuthor.deleteOne(
-		{ id, select: { id: true, name: true } },
-		{ ultimabase: app },
-	)
+export const softDeleteAuthor = (id: string) =>
+	ExampleAuthor.deleteOne({ id, select: { id: true, name: true } })

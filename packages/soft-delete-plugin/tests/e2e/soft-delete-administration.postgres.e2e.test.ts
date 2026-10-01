@@ -193,10 +193,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		administrationTrace.length = 0
 		masterAudits.length = 0
 		rejectedAdministration = undefined
-		const row = await Document.createOne(
-			{ data: { title: 'restore target' } },
-			{ ultimabase: app },
-		)
+		const row = await Document.createOne({ data: { title: 'restore target' } })
 		const softDelete = schemaCommand(app, Document, 'softDelete')
 		const restore = schemaCommand(app, Document, 'restore')
 		await softDelete({ id: row.id })
@@ -224,7 +221,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			'after:restore:restore target:false',
 		])
 		await expect(
-			Document.findOne({ where: { id: { eq: row.id } } }, { ultimabase: app }),
+			Document.findOne({ where: { id: { eq: row.id } } }),
 		).resolves.toMatchObject({ id: row.id, title: 'restore target' })
 		await expect(
 			restore({ id: row.id }, { useMasterKey: true }),
@@ -233,10 +230,9 @@ describe('official soft-delete administration with PostgreSQL', () => {
 
 	it('inherits an existing Master context without a second elevation audit', async () => {
 		const { ultimabase: app } = getFixture()
-		const row = await Document.createOne(
-			{ data: { title: 'inherited master' } },
-			{ ultimabase: app },
-		)
+		const row = await Document.createOne({
+			data: { title: 'inherited master' },
+		})
 		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
 		masterAudits.length = 0
 		const request = app.anonymous({
@@ -254,7 +250,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 				app,
 				Document,
 				'restore',
-			)({ id: row.id }, { context: master.context, ultimabase: app }),
+			)({ id: row.id }, { context: master.context }),
 		).resolves.toMatchObject({ id: row.id })
 		expect(masterAudits).toHaveLength(1)
 	})
@@ -262,10 +258,9 @@ describe('official soft-delete administration with PostgreSQL', () => {
 	it('stops before Hooks and persistence when audit or cancellation rejects', async () => {
 		const { database, ultimabase: app } = getFixture()
 		administrationTrace.length = 0
-		const auditTarget = await Document.createOne(
-			{ data: { title: 'audit failure' } },
-			{ ultimabase: app },
-		)
+		const auditTarget = await Document.createOne({
+			data: { title: 'audit failure' },
+		})
 		await schemaCommand(app, Document, 'softDelete')({ id: auditTarget.id })
 		rejectMasterAudit = true
 		await expect(
@@ -278,10 +273,9 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		rejectMasterAudit = false
 		expect(administrationTrace).toStrictEqual([])
 
-		const cancellationTarget = await Document.createOne(
-			{ data: { title: 'cancelled restore' } },
-			{ ultimabase: app },
-		)
+		const cancellationTarget = await Document.createOne({
+			data: { title: 'cancelled restore' },
+		})
 		await schemaCommand(
 			app,
 			Document,
@@ -305,10 +299,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 				app,
 				Document,
 				'restore',
-			)(
-				{ id: cancellationTarget.id },
-				{ context: master.context, ultimabase: app },
-			),
+			)({ id: cancellationTarget.id }, { context: master.context }),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(administrationTrace).toStrictEqual([])
 
@@ -327,10 +318,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const { database, ultimabase: app } = getFixture()
 		administrationTrace.length = 0
 		masterAudits.length = 0
-		const row = await Document.createOne(
-			{ data: { title: 'purge target' } },
-			{ ultimabase: app },
-		)
+		const row = await Document.createOne({ data: { title: 'purge target' } })
 		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
 		const purge = schemaCommand(app, Document, 'purge')
 
@@ -365,10 +353,9 @@ describe('official soft-delete administration with PostgreSQL', () => {
 
 	it('rolls back the effect and Hook-started work when administration rejects', async () => {
 		const { database, ultimabase: app } = getFixture()
-		const restoreTarget = await Document.createOne(
-			{ data: { title: 'rejected restore' } },
-			{ ultimabase: app },
-		)
+		const restoreTarget = await Document.createOne({
+			data: { title: 'rejected restore' },
+		})
 		await schemaCommand(app, Document, 'softDelete')({ id: restoreTarget.id })
 		rejectedAdministration = 'restore'
 		await expect(
@@ -379,10 +366,9 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			)({ id: restoreTarget.id }, { useMasterKey: true }),
 		).rejects.toThrow('administrative restore rejected')
 
-		const purgeTarget = await Document.createOne(
-			{ data: { title: 'rejected purge' } },
-			{ ultimabase: app },
-		)
+		const purgeTarget = await Document.createOne({
+			data: { title: 'rejected purge' },
+		})
 		await schemaCommand(app, Document, 'softDelete')({ id: purgeTarget.id })
 		rejectedAdministration = 'purge'
 		await expect(
@@ -407,41 +393,29 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		expect(stored.rows).toHaveLength(2)
 		expect(stored.rows.every(({ isDeleted }) => isDeleted)).toBe(true)
 		await expect(
-			AdministrationLog.findMany(
-				{
-					where: {
-						message: {
-							in: ['restore:rejected restore', 'purge:rejected purge'],
-						},
+			AdministrationLog.findMany({
+				where: {
+					message: {
+						in: ['restore:rejected restore', 'purge:rejected purge'],
 					},
 				},
-				{ ultimabase: app },
-			),
+			}),
 		).resolves.toEqual([])
 	})
 
 	it('preserves pointer and relation state through replace-delete restore', async () => {
 		const { ultimabase: app } = getFixture()
-		const author = await Author.createOne(
-			{ data: { name: 'Ada' } },
-			{ ultimabase: app },
-		)
-		const tag = await Tag.createOne(
-			{ data: { label: 'runtime' } },
-			{ ultimabase: app },
-		)
-		const article = await Article.createOne(
-			{
-				data: {
-					// The fixture has no generated named-schema graph for this pointer.
-					author: Author.pointer(author.id) as never,
-					title: 'recoverable graph',
-				},
+		const author = await Author.createOne({ data: { name: 'Ada' } })
+		const tag = await Tag.createOne({ data: { label: 'runtime' } })
+		const article = await Article.createOne({
+			data: {
+				// The fixture has no generated named-schema graph for this pointer.
+				author: Author.pointer(author.id) as never,
+				title: 'recoverable graph',
 			},
-			{ ultimabase: app },
-		)
-		await article.relation('tags').connect(tag.id, { ultimabase: app })
-		await Article.deleteOne({ id: article.id }, { ultimabase: app })
+		})
+		await article.relation('tags').connect(tag.id)
+		await Article.deleteOne({ id: article.id })
 
 		const restored = await schemaCommand(
 			app,
@@ -468,10 +442,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const { ultimabase: app } = getFixture()
 		expect(Reflect.has(app.schema(Disabled), 'restore')).toBe(false)
 		expect(Reflect.has(app.schema(Disabled), 'purge')).toBe(false)
-		const row = await Document.createOne(
-			{ data: { title: 'model surface' } },
-			{ ultimabase: app },
-		)
+		const row = await Document.createOne({ data: { title: 'model surface' } })
 		expect(Reflect.has(row, 'restore')).toBe(false)
 		expect(Reflect.has(row, 'purge')).toBe(false)
 	})

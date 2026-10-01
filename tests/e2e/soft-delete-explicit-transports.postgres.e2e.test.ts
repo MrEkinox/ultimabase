@@ -184,10 +184,9 @@ describe('official explicit soft-delete transports', () => {
 		const { ultimabase: app } = current()
 		explicitSoftDeleteTrace.length = 0
 		rejectedSoftDeleteTitle = undefined
-		const row = await Explicit.createOne(
-			{ data: { title: 'explicit command' } },
-			{ ultimabase: app },
-		)
+		const row = await Explicit.createOne({
+			data: { title: 'explicit command' },
+		})
 		const softDelete = Reflect.get(app.schema(Explicit), 'softDelete') as (
 			input: unknown,
 		) => Promise<Readonly<Record<string, unknown>>>
@@ -210,10 +209,7 @@ describe('official explicit soft-delete transports', () => {
 			code: 'NOT_FOUND',
 		})
 
-		const bound = await Explicit.createOne(
-			{ data: { title: 'bound command' } },
-			{ ultimabase: app },
-		)
+		const bound = await Explicit.createOne({ data: { title: 'bound command' } })
 		const boundSoftDelete = Reflect.get(bound, 'softDelete') as (
 			input?: unknown,
 		) => Promise<Readonly<Record<string, unknown>>>
@@ -228,10 +224,9 @@ describe('official explicit soft-delete transports', () => {
 
 	it('rolls back when the explicit before hook rejects the command', async () => {
 		const { database, ultimabase: app } = current()
-		const row = await Explicit.createOne(
-			{ data: { title: 'reject explicit command' } },
-			{ ultimabase: app },
-		)
+		const row = await Explicit.createOne({
+			data: { title: 'reject explicit command' },
+		})
 		rejectedSoftDeleteTitle = 'reject explicit command'
 		const softDelete = Reflect.get(app.schema(Explicit), 'softDelete') as (
 			input: unknown,
@@ -246,7 +241,7 @@ describe('official explicit soft-delete transports', () => {
 		)
 		expect(stored.rows).toStrictEqual([{ isDeleted: false }])
 		rejectedSoftDeleteTitle = undefined
-		await Explicit.deleteOne({ id: row.id }, { ultimabase: app })
+		await Explicit.deleteOne({ id: row.id })
 	})
 
 	it('publishes only the explicit REST route and GraphQL field', () => {
@@ -277,10 +272,9 @@ describe('official explicit soft-delete transports', () => {
 
 	it('executes the same command through REST and networkless GraphQL', async () => {
 		const { http, ultimabase: app } = current()
-		const restRow = await Explicit.createOne(
-			{ data: { title: 'REST explicit' } },
-			{ ultimabase: app },
-		)
+		const restRow = await Explicit.createOne({
+			data: { title: 'REST explicit' },
+		})
 		const response = await fetchApplication(
 			http,
 			`/api/v1/classes/${Explicit.className}/${restRow.id}/soft-delete`,
@@ -295,10 +289,9 @@ describe('official explicit soft-delete transports', () => {
 			result: { id: restRow.id, isDeleted: true, title: 'REST explicit' },
 		})
 
-		const graphqlRow = await Explicit.createOne(
-			{ data: { title: 'GraphQL explicit' } },
-			{ ultimabase: app },
-		)
+		const graphqlRow = await Explicit.createOne({
+			data: { title: 'GraphQL explicit' },
+		})
 		const graphql = app.plugin('@ultimabase/graphql-plugin')
 		const context = app.anonymous({
 			requestId: 'soft-delete-networkless',
@@ -325,11 +318,8 @@ describe('official explicit soft-delete transports', () => {
 	})
 
 	it('executes the generated mutation through Yoga without another handler', async () => {
-		const { http, ultimabase: app } = current()
-		const row = await Explicit.createOne(
-			{ data: { title: 'Yoga explicit' } },
-			{ ultimabase: app },
-		)
+		const { http } = current()
+		const row = await Explicit.createOne({ data: { title: 'Yoga explicit' } })
 		const response = await fetchApplication(http, '/graphql', {
 			body: JSON.stringify({
 				query: `mutation SoftDelete($id: ID!) {

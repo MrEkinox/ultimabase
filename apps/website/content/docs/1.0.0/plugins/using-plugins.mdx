@@ -160,15 +160,14 @@ import { ultimabase } from './ultimabase.js'
 
 try {
 	await ultimabase.start()
-	const task = await Task.createOne(
-		{ data: { title: '  Write the documentation  ' } },
-		{ ultimabase },
-	)
+	const task = await Task.createOne({
+		data: { title: '  Write the documentation  ' },
+	})
 	console.log(task.title) // 'Write the documentation'
 
 	let rejected = false
 	try {
-		await Task.createOne({ data: { title: '   ' } }, { ultimabase })
+		await Task.createOne({ data: { title: '   ' } })
 	} catch (error) {
 		if (
 			!(error instanceof FrameworkError) ||

@@ -67,12 +67,11 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const created = await Post.createOne(
-				{ data: { title: 'TypeScript create' } },
-				{ ultimabase },
-			)
+			const created = await Post.createOne({
+				data: { title: 'TypeScript create' },
+			})
 			await expect(
-				Post.findOne({ where: { id: { eq: created.id } } }, { ultimabase }),
+				Post.findOne({ where: { id: { eq: created.id } } }),
 			).resolves.toMatchObject({ title: 'TypeScript create' })
 
 			const request = ultimabase.anonymous({
@@ -88,10 +87,10 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				}),
 			).resolves.toMatchObject({ title: 'TypeScript committed' })
 			await expect(
-				Post.updateOne(
-					{ data: { title: 'TypeScript update' }, id: created.id },
-					{ ultimabase },
-				),
+				Post.updateOne({
+					data: { title: 'TypeScript update' },
+					id: created.id,
+				}),
 			).resolves.toMatchObject({ title: 'TypeScript update' })
 			await expect(
 				request.transaction(async () => {
@@ -102,16 +101,13 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				}),
 			).rejects.toThrow('rollback TypeScript transaction')
 			await expect(
-				Post.count(
-					{ where: { title: { eq: 'TypeScript rollback' } } },
-					{ ultimabase },
-				),
+				Post.count({ where: { title: { eq: 'TypeScript rollback' } } }),
 			).resolves.toBe(0)
+			await expect(Post.deleteOne({ id: created.id })).resolves.toMatchObject({
+				id: created.id,
+			})
 			await expect(
-				Post.deleteOne({ id: created.id }, { ultimabase }),
-			).resolves.toMatchObject({ id: created.id })
-			await expect(
-				Post.exists({ where: { id: { eq: created.id } } }, { ultimabase }),
+				Post.exists({ where: { id: { eq: created.id } } }),
 			).resolves.toBe(false)
 
 			expect(middlewareTrace).toContain('TypeScriptNoEnginePost')
@@ -201,15 +197,11 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const created = await Post.createOne(
-				{ data: { title: 'Alternative create' } },
-				{ ultimabase },
-			)
+			const created = await Post.createOne({
+				data: { title: 'Alternative create' },
+			})
 			expect(
-				await engine.Audit.count(
-					{ where: { label: { eq: 'publishing' } } },
-					{ ultimabase },
-				),
+				await engine.Audit.count({ where: { label: { eq: 'publishing' } } }),
 			).toBe(1)
 			expect(diagnostics).toHaveLength(1)
 
@@ -226,29 +218,20 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				}),
 			).rejects.toThrow('rollback alternative behavior')
 			expect(
-				await Post.count(
-					{ where: { title: { eq: 'Alternative rollback' } } },
-					{ ultimabase },
-				),
+				await Post.count({ where: { title: { eq: 'Alternative rollback' } } }),
 			).toBe(0)
 			expect(
-				await engine.Audit.count(
-					{ where: { label: { eq: 'publishing' } } },
-					{ ultimabase },
-				),
+				await engine.Audit.count({ where: { label: { eq: 'publishing' } } }),
 			).toBe(1)
 			expect(diagnostics).toHaveLength(1)
 
-			await Post.updateOne(
-				{ data: { title: 'Alternative update' }, id: created.id },
-				{ ultimabase },
-			)
-			await Post.deleteOne({ id: created.id }, { ultimabase })
+			await Post.updateOne({
+				data: { title: 'Alternative update' },
+				id: created.id,
+			})
+			await Post.deleteOne({ id: created.id })
 			expect(
-				await engine.Audit.findMany(
-					{ orderBy: { createdAt: 'asc' } },
-					{ ultimabase },
-				),
+				await engine.Audit.findMany({ orderBy: { createdAt: 'asc' } }),
 			).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({ action: 'create-one' }),

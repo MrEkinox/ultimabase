@@ -36,18 +36,14 @@ started application with a persistence plugin, as in
 
 ```ts title="src/upsert-post.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const savePost = (slug: string, title: string) =>
-	Post.upsertOne(
-		{
-			where: { slug: { eq: slug } },
-			create: { slug, title },
-			update: { title },
-			select: { slug: true, title: true },
-		},
-		{ ultimabase },
-	)
+	Post.upsertOne({
+		where: { slug: { eq: slug } },
+		create: { slug, title },
+		update: { title },
+		select: { slug: true, title: true },
+	})
 ```
 
 ## Verify the result
@@ -84,22 +80,18 @@ unique:
 
 ```ts title="src/upsert-tenant-article.ts"
 import { TenantArticle } from './tenant-article.js'
-import { ultimabase } from './ultimabase.js'
 
 export const saveTenantArticle = (
 	tenantId: string,
 	slug: string,
 	title: string,
 ) =>
-	TenantArticle.upsertOne(
-		{
-			where: { tenantId: { eq: tenantId }, slug: { eq: slug } },
-			create: { title },
-			update: { title },
-			select: { slug: true, title: true },
-		},
-		{ ultimabase },
-	)
+	TenantArticle.upsertOne({
+		where: { tenantId: { eq: tenantId }, slug: { eq: slug } },
+		create: { title },
+		update: { title },
+		select: { slug: true, title: true },
+	})
 ```
 
 Core supplies the two target values to the create branch before validating

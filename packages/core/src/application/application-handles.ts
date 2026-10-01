@@ -1,19 +1,14 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import type { OperationOptions } from '../query/operations/options.js'
 import type {
 	SchemaDefinition,
 	SchemaReference,
 } from '../schema/schema/definition.js'
 import type { SchemaModelState } from '../schema/schema/model-contracts.js'
-import type { SchemaFindMany } from '../schema/schema/schema-api.js'
-import type { SchemaTypeInfoFor } from '../schema/type-info.js'
 import {
 	isSchemaModelInstance,
 	readSchemaModelRecord,
 } from '../schema/schema/model-state.js'
 
 import {
-	coreSchemaHandleCommandNames,
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
 	type CompiledSchemaMutationCommand,
@@ -35,10 +30,6 @@ import type {
 	UltimaBaseGeneratedOperations,
 	UltimaBaseGeneratedSchemaSurfaces,
 } from '../schema/type-info.js'
-import {
-	registerApplicationSchemaModelViewHost,
-	type ApplicationSchemaModelViewState,
-} from './application-model-views.js'
 import {
 	snapshotApplicationContributionOwner,
 	type ApplicationContributionOwner,
@@ -126,22 +117,6 @@ export const registerApplicationOperationExecutor = (
 ): void => {
 	applicationOperationExecutors.set(handle, executor)
 }
-const schemaCommandNames: ReadonlySet<string> = new Set(
-	coreSchemaHandleCommandNames,
-)
-
-type SchemaCommandName = (typeof coreSchemaHandleCommandNames)[number]
-
-type CoreSchemaHandleCommands<TSchema extends SchemaDefinition> = Omit<
-	Pick<TSchema, Extract<keyof TSchema, SchemaCommandName>>,
-	'findMany'
-> &
-	('findMany' extends keyof TSchema
-		? Readonly<{
-				findMany: SchemaFindMany<SchemaTypeInfoFor<TSchema>, TSchema>
-			}>
-		: object)
-
 type GeneratedOperation<TName extends string> =
 	TName extends keyof UltimaBaseGeneratedOperations
 		? UltimaBaseGeneratedOperations[TName] extends PluginOperationDefinition
@@ -162,29 +137,9 @@ type SurfacePart<TSchema extends SchemaDefinition, TKey extends PropertyKey> =
 /** Represents one schema through an application, without a constructible class. */
 export type ApplicationSchemaHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
-> = CoreSchemaHandleCommands<TSchema> &
-	ApplicationSchemaHandleBase<TSchema> &
-	SurfacePart<TSchema, 'schema'>
+> = ApplicationSchemaHandleBase<TSchema> & SurfacePart<TSchema, 'schema'>
 
-const mergeApplicationOptions = (
-	options: unknown,
-	ultimabase: NonNullable<OperationOptions['ultimabase']>,
-): OperationOptions => {
-	if (options === undefined) return immutableRecord({ ultimabase })
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'schema handle operation options must be a plain object',
-		)
-	}
-	if (options.ultimabase !== undefined && options.ultimabase !== ultimabase) {
-		throw new TypeError(
-			'schema handle cannot execute through another application',
-		)
-	}
-	return immutableRecord({ ...options, ultimabase })
-}
-
-/** Owns native schema commands, schema mutations, and immutable model binding behavior. */
+/** Owns application-specific schema mutations and immutable model binding. */
 export class ApplicationSchemaHandleBase<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > {
@@ -192,18 +147,10 @@ export class ApplicationSchemaHandleBase<
 
 	constructor(
 		private readonly lifetime: ApplicationHandleLifetime,
-		private readonly ultimabase: NonNullable<OperationOptions['ultimabase']>,
 		private readonly surface: CompiledApplicationSchemaSurface,
 		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
 		this.schema = surface.schema as TSchema
-		const state: ApplicationSchemaModelViewState = {
-			mergeOptions: (options) => mergeApplicationOptions(options, ultimabase),
-			modelViews: new WeakMap(),
-			surface,
-			executeSchemaMutation,
-		}
-		registerApplicationSchemaModelViewHost(this, state)
 		Object.freeze(this)
 		const handle = new Proxy(this, {
 			get: (target, property, receiver): unknown => {
@@ -212,14 +159,6 @@ export class ApplicationSchemaHandleBase<
 						return target.createSchemaMutationMethod(property)
 					}
 				}
-				if (
-					typeof property === 'string' &&
-					schemaCommandNames.has(property) &&
-					!Reflect.has(target, property)
-				) {
-					return (...arguments_: readonly unknown[]) =>
-						target.invokeSchemaCommand(property, arguments_)
-				}
 				return Reflect.get(target, property, receiver)
 			},
 			has: (target, property): boolean =>
@@ -227,7 +166,6 @@ export class ApplicationSchemaHandleBase<
 					target.surface.schemaMutations.has(property)) ||
 				Reflect.has(target, property),
 		})
-		registerApplicationSchemaModelViewHost(handle, state)
 		return handle
 	}
 
@@ -269,25 +207,6 @@ export class ApplicationSchemaHandleBase<
 			name,
 			schema: this.schema,
 		})
-	}
-
-	private invokeSchemaCommand(
-		name: string,
-		arguments_: readonly unknown[],
-	): unknown {
-		assertHandleAvailable(this.lifetime)
-		const command: unknown = Reflect.get(this.schema, name)
-		if (typeof command !== 'function') {
-			throw new TypeError(`Schema command is unavailable: ${name}`)
-		}
-		if (arguments_.length > 2) {
-			throw new TypeError(
-				`Schema command ${name} accepts at most two arguments`,
-			)
-		}
-		const input = arguments_[0]
-		const options = mergeApplicationOptions(arguments_[1], this.ultimabase)
-		return Reflect.apply(command, this.schema, [input, options])
 	}
 }
 

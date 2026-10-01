@@ -137,13 +137,6 @@ let ultimabase:
 	  >
 	| undefined
 
-const getUltimaBase = () => {
-	if (ultimabase === undefined) {
-		throw new TypeError('Nested-write PostgreSQL application has not started')
-	}
-	return ultimabase
-}
-
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
@@ -187,40 +180,33 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('executes pointer, owning relation, and inverse relation work in lifecycle order', async () => {
-			const app = getUltimaBase()
-			const existingTag = await Tag.createOne(
-				{ data: { label: 'Existing' } },
-				{ ultimabase: app },
-			)
+			const existingTag = await Tag.createOne({ data: { label: 'Existing' } })
 			trace.length = 0
 			observedAuthorGraph = undefined
 			observedPostBeforeGraph = undefined
 			observedPostAfterGraph = undefined
 
-			const created = await Post.createOne(
-				{
-					data: {
-						author: { create: { name: 'Ada' } },
-						comments: { create: [{ body: 'First' }] },
-						tags: {
-							connect: [existingTag.id],
-							create: [
-								{
-									creator: { create: { name: 'Grace' } },
-									label: 'Created',
-								},
-							],
-						},
-						title: 'Nested post',
+			const created = await Post.createOne({
+				data: {
+					author: { create: { name: 'Ada' } },
+					comments: { create: [{ body: 'First' }] },
+					tags: {
+						connect: [existingTag.id],
+						create: [
+							{
+								creator: { create: { name: 'Grace' } },
+								label: 'Created',
+							},
+						],
 					},
-					include: {
-						author: {},
-						comments: {},
-						tags: { include: { creator: {} } },
-					},
+					title: 'Nested post',
 				},
-				{ ultimabase: app },
-			)
+				include: {
+					author: {},
+					comments: {},
+					tags: { include: { creator: {} } },
+				},
+			})
 
 			const includedAuthor: unknown = created.author
 			const includedComments: unknown = created.comments
@@ -270,97 +256,74 @@ describe(
 		})
 
 		it('rolls back the complete graph when source relation Access denies it', async () => {
-			const app = getUltimaBase()
 			denyTagRelationWrite = true
 			trace.length = 0
 
 			await expect(
-				Post.createOne(
-					{
-						data: {
-							author: { create: { name: 'Denied author' } },
-							tags: { create: [{ label: 'Denied tag' }] },
-							title: 'Denied post',
-						},
+				Post.createOne({
+					data: {
+						author: { create: { name: 'Denied author' } },
+						tags: { create: [{ label: 'Denied tag' }] },
+						title: 'Denied post',
 					},
-					{ ultimabase: app },
-				),
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 			expect(trace).toEqual(['post:tags:create'])
 			expect(
-				await Author.findMany(
-					{
-						where: { name: { eq: 'Denied author' } },
-					},
-					{ ultimabase: app },
-				),
+				await Author.findMany({
+					where: { name: { eq: 'Denied author' } },
+				}),
 			).toEqual([])
 			expect(
-				await Post.findMany(
-					{
-						where: { title: { eq: 'Denied post' } },
-					},
-					{ ultimabase: app },
-				),
+				await Post.findMany({
+					where: { title: { eq: 'Denied post' } },
+				}),
 			).toEqual([])
 			expect(
-				await Tag.findMany(
-					{
-						where: { label: { eq: 'Denied tag' } },
-					},
-					{ ultimabase: app },
-				),
+				await Tag.findMany({
+					where: { label: { eq: 'Denied tag' } },
+				}),
 			).toEqual([])
 		})
 
 		it('makes absent and policy-hidden connect targets indistinguishable', async () => {
-			const app = getUltimaBase()
-			const hidden = await Author.createOne(
-				{ data: { name: 'Hidden target', visible: false } },
-				{ ultimabase: app },
-			)
+			const hidden = await Author.createOne({
+				data: { name: 'Hidden target', visible: false },
+			})
 			trace.length = 0
 
 			for (const id of [hidden.id, '0199c2d0-0000-7000-8000-000000000099']) {
 				await expect(
-					Post.createOne(
-						{
-							data: {
-								author: { connect: id },
-								title: `Unavailable ${id}`,
-							},
+					Post.createOne({
+						data: {
+							author: { connect: id },
+							title: `Unavailable ${id}`,
 						},
-						{ ultimabase: app },
-					),
+					}),
 				).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			}
 
 			expect(trace).toEqual([])
 			expect(
-				await Post.findMany(
-					{ where: { title: { startsWith: 'Unavailable' } } },
-					{ ultimabase: app },
-				),
+				await Post.findMany({
+					where: { title: { startsWith: 'Unavailable' } },
+				}),
 			).toEqual([])
 		})
 
 		it('rolls a persisted root back when a nested child Access rule denies it', async () => {
-			const app = getUltimaBase()
 			denyTagCreate = true
 			trace.length = 0
 
 			await expect(
-				Post.createOne(
-					{
-						data: {
-							author: { create: { name: 'Child denial author' } },
-							tags: { create: [{ label: 'Child denial tag' }] },
-							title: 'Child denial post',
-						},
+				Post.createOne({
+					data: {
+						author: { create: { name: 'Child denial author' } },
+						tags: { create: [{ label: 'Child denial tag' }] },
+						title: 'Child denial post',
 					},
-					{ ultimabase: app },
-				),
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 			expect(trace).toEqual([
@@ -370,21 +333,16 @@ describe(
 				'post:before',
 			])
 			expect(
-				await Author.findMany(
-					{ where: { name: { eq: 'Child denial author' } } },
-					{ ultimabase: app },
-				),
+				await Author.findMany({
+					where: { name: { eq: 'Child denial author' } },
+				}),
 			).toEqual([])
 			expect(
-				await Post.findMany(
-					{ where: { title: { eq: 'Child denial post' } } },
-					{ ultimabase: app },
-				),
+				await Post.findMany({ where: { title: { eq: 'Child denial post' } } }),
 			).toEqual([])
 		})
 
 		it('inherits Master authority while retaining every nested Hook lifecycle', async () => {
-			const app = getUltimaBase()
 			denyTagRelationWrite = true
 			denyTagCreate = true
 			trace.length = 0
@@ -397,7 +355,7 @@ describe(
 						title: 'Master post',
 					},
 				},
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			expect(created.title).toBe('Master post')
 			expect(trace).toEqual([

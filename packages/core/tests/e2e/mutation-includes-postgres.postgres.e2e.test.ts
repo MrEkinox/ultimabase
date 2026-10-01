@@ -107,35 +107,28 @@ afterAll(async () => {
 
 describe('mutation relationship projections with PostgreSQL', () => {
 	it('projects singular pointer, relation, and nested results once', async () => {
-		const { pool: countingPool, ultimabase: app } = getApplication()
-		const author = await Author.createOne(
-			{ data: { name: 'Singular author' } },
-			{ ultimabase: app },
-		)
+		const { pool: countingPool } = getApplication()
+		const author = await Author.createOne({ data: { name: 'Singular author' } })
 
 		countingPool.reset()
 		// This runtime projection deliberately exercises a circular named graph;
 		// its exact editor contract belongs to the retained Typegen graph tests.
 		const createPostWithProjection = Post.createOne.bind(Post) as unknown as (
 			input: unknown,
-			options: unknown,
 		) => Promise<unknown>
-		const created = await createPostWithProjection(
-			{
-				data: {
-					author: { connect: author.id },
-					title: 'Singular post',
-				},
-				select: { title: true },
-				include: {
-					author: {
-						select: { name: true },
-						include: { posts: { select: { title: true } } },
-					},
+		const created = await createPostWithProjection({
+			data: {
+				author: { connect: author.id },
+				title: 'Singular post',
+			},
+			select: { title: true },
+			include: {
+				author: {
+					select: { name: true },
+					include: { posts: { select: { title: true } } },
 				},
 			},
-			{ ultimabase: app },
-		)
+		})
 
 		// One protected connect lookup precedes the single projection query.
 		expect(countingPool.selectCount()).toBe(2)
@@ -169,26 +162,19 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			}),
 		).toStrictEqual(['Singular post'])
 
-		const tag = await Tag.createOne(
-			{ data: { label: 'Mutation tag' } },
-			{ ultimabase: app },
-		)
-		const article = await Article.createOne(
-			{ data: { title: 'Before update' } },
-			{ ultimabase: app },
-		)
-		await article.relation('tags').connect(tag.id, { ultimabase: app })
+		const tag = await Tag.createOne({ data: { label: 'Mutation tag' } })
+		const article = await Article.createOne({
+			data: { title: 'Before update' },
+		})
+		await article.relation('tags').connect(tag.id)
 
 		countingPool.reset()
-		const updated = await Article.updateOne(
-			{
-				where: { id: { eq: article.id } },
-				data: { title: 'After update' },
-				select: { title: true },
-				include: { tags: { select: { label: true } } },
-			},
-			{ ultimabase: app },
-		)
+		const updated = await Article.updateOne({
+			where: { id: { eq: article.id } },
+			data: { title: 'After update' },
+			select: { title: true },
+			include: { tags: { select: { label: true } } },
+		})
 
 		expect(countingPool.selectCount()).toBe(2)
 		if (updated === null) {
@@ -217,36 +203,30 @@ describe('mutation relationship projections with PostgreSQL', () => {
 	})
 
 	it('uses one grouped projection and restores collection declaration order', async () => {
-		const { pool: countingPool, ultimabase: app } = getApplication()
-		const [firstAuthor, secondAuthor] = await Author.createMany(
-			{
-				data: [{ name: 'Grouped first' }, { name: 'Grouped second' }],
-			},
-			{ ultimabase: app },
-		)
+		const { pool: countingPool } = getApplication()
+		const [firstAuthor, secondAuthor] = await Author.createMany({
+			data: [{ name: 'Grouped first' }, { name: 'Grouped second' }],
+		})
 
 		if (firstAuthor === undefined || secondAuthor === undefined) {
 			throw new TypeError('Expected both grouped authors')
 		}
 
 		countingPool.reset()
-		const created = await Post.createMany(
-			{
-				data: [
-					{
-						author: Author.pointer(firstAuthor.id),
-						title: 'Grouped first post',
-					},
-					{
-						author: Author.pointer(secondAuthor.id),
-						title: 'Grouped second post',
-					},
-				],
-				select: { title: true },
-				include: { author: { select: { name: true } } },
-			},
-			{ ultimabase: app },
-		)
+		const created = await Post.createMany({
+			data: [
+				{
+					author: Author.pointer(firstAuthor.id),
+					title: 'Grouped first post',
+				},
+				{
+					author: Author.pointer(secondAuthor.id),
+					title: 'Grouped second post',
+				},
+			],
+			select: { title: true },
+			include: { author: { select: { name: true } } },
+		})
 
 		expect(countingPool.selectCount()).toBe(1)
 		expect(created.map(({ title }) => title)).toStrictEqual([
@@ -265,23 +245,20 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		).toStrictEqual(['Grouped first', 'Grouped second'])
 
 		countingPool.reset()
-		const updated = await Post.updateMany(
-			{
-				data: [created[1], created[0]].map((post, index) => {
-					if (post === undefined) {
-						throw new TypeError('Expected every grouped post result')
-					}
+		const updated = await Post.updateMany({
+			data: [created[1], created[0]].map((post, index) => {
+				if (post === undefined) {
+					throw new TypeError('Expected every grouped post result')
+				}
 
-					return {
-						where: { id: { eq: post.id } },
-						data: { title: `Grouped updated ${String(index + 1)}` },
-					}
-				}),
-				select: { title: true },
-				include: { author: { select: { name: true } } },
-			},
-			{ ultimabase: app },
-		)
+				return {
+					where: { id: { eq: post.id } },
+					data: { title: `Grouped updated ${String(index + 1)}` },
+				}
+			}),
+			select: { title: true },
+			include: { author: { select: { name: true } } },
+		})
 
 		expect(countingPool.selectCount()).toBe(3)
 		expect(updated.map(({ title }) => title)).toStrictEqual([
@@ -301,34 +278,28 @@ describe('mutation relationship projections with PostgreSQL', () => {
 	})
 
 	it('rolls back every grouped write when target Access rejects projection', async () => {
-		const { pool: countingPool, ultimabase: app } = getApplication()
-		const author = await Author.createOne(
-			{ data: { name: 'Rollback author' } },
-			{ ultimabase: app },
-		)
+		const { pool: countingPool } = getApplication()
+		const author = await Author.createOne({ data: { name: 'Rollback author' } })
 
 		countingPool.reset()
 		rejectAuthorProjection = true
 
 		try {
 			await expect(
-				Post.createMany(
-					{
-						data: [
-							{
-								author: Author.pointer(author.id),
-								title: 'Rollback first',
-							},
-							{
-								author: Author.pointer(author.id),
-								title: 'Rollback second',
-							},
-						],
-						include: { author: { select: { name: true } } },
-						select: { title: true },
-					},
-					{ ultimabase: app },
-				),
+				Post.createMany({
+					data: [
+						{
+							author: Author.pointer(author.id),
+							title: 'Rollback first',
+						},
+						{
+							author: Author.pointer(author.id),
+							title: 'Rollback second',
+						},
+					],
+					include: { author: { select: { name: true } } },
+					select: { title: true },
+				}),
 			).rejects.toBe(projectionAccessError)
 		} finally {
 			rejectAuthorProjection = false
@@ -341,10 +312,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		).toHaveLength(2)
 		expect(countingPool.statements).toContain('ROLLBACK')
 		await expect(
-			Post.count(
-				{ where: { title: { startsWith: 'Rollback' } } },
-				{ ultimabase: app },
-			),
+			Post.count({ where: { title: { startsWith: 'Rollback' } } }),
 		).resolves.toBe(0)
 	})
 })

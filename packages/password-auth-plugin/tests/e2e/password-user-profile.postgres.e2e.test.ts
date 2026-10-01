@@ -265,7 +265,7 @@ describe('Password Auth readable profiles', () => {
 					where: { username: { eq: 'profile-rest' } },
 					data: { displayName: 'Updated' },
 				},
-				{ ultimabase: app.ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const loginToken = sessionToken(record(login.body.result))
 			const refresh = await app.request('refresh', null, loginToken, true)
@@ -378,7 +378,7 @@ describe('Password Auth readable profiles', () => {
 				expect(
 					await app.User.findOne(
 						{ where: { username: { eq: credentials.username } } },
-						{ ultimabase: app.ultimabase, useMasterKey: true },
+						{ useMasterKey: true },
 					),
 				).toBeNull()
 

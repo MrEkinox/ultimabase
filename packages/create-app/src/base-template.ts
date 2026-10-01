@@ -171,8 +171,7 @@ const schemaSource = (plan: InitializerPlan): string => {
 
 const taskCommand = (plan: InitializerPlan): string =>
 	`  const task = await Task.createOne(
-    { data: { title: 'Ship the first feature' } },
-    { ultimabase${needsMasterKey(plan) ? ', useMasterKey: true' : ''} },
+    { data: { title: 'Ship the first feature' } }${needsMasterKey(plan) ? ',\n    { useMasterKey: true }' : ''},
   )
   console.log(task.toJSON())
 `

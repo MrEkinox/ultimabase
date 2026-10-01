@@ -175,9 +175,6 @@ describe('UltimaBase', () => {
 		expect(() => articleSchema.findMany()).toThrow(
 			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 		)
-		expect(() => articleSchema.findMany(undefined, { ultimabase })).toThrow(
-			new TypeError('UltimaBase must be started before request execution'),
-		)
 
 		const start = ultimabase.start()
 
@@ -570,26 +567,24 @@ describe('UltimaBase', () => {
 			expect(firstAdapter.rootRequests).toStrictEqual([])
 			expect(firstAdapter.transactions).toHaveLength(1)
 			expect(firstAdapter.transactions[0]?.requests).toHaveLength(1)
-			await expect(
-				otherSchema.findMany(undefined, { ultimabase: first }),
-			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-			runWithRequestEngine(
+			await expect(otherSchema.findMany(undefined)).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+			})
+			await runWithRequestEngine(
 				first.anonymous({
 					requestId: 'active-first',
 					source: requestSources.internal,
 				}),
-				() => {
-					expect(() =>
-						otherSchema.findMany(undefined, { ultimabase: second }),
-					).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
-				},
+				() =>
+					expect(otherSchema.findMany()).rejects.toMatchObject({
+						code: 'VALIDATION_ERROR',
+					}),
 			)
 			await first.dispose()
 			await second.start()
 			await expect(
 				otherSchema.findMany(undefined, {
 					context: foreignContext,
-					ultimabase: second,
 				}),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',

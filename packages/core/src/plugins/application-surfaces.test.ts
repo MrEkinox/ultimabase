@@ -124,9 +124,10 @@ describe('application-owned plugin surfaces', () => {
 		)
 
 		await ultimabase.dispose()
-		expect(() => stable.findMany()).toThrow(
+		expect(() => stable.for(draft)).toThrow(
 			'Application handle cannot be used after disposal',
 		)
+		expect(Reflect.has(stable, 'findMany')).toBe(false)
 		expect(() => tokenHandle.prepare({ message: 'disposed' })).toThrow(
 			'Application handle cannot be used after disposal',
 		)

@@ -140,18 +140,15 @@ export const createTodo = (data: TodoCreateInput) =>
 			data,
 			select: { completed: true, id: true, priority: true, title: true },
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 export const listPendingTodos = () =>
-	Todo.findMany(
-		{
-			include: { assignee: { select: { displayName: true } } },
-			orderBy: { dueAt: 'asc', createdAt: 'asc' },
-			where: { completed: { eq: false } },
-		},
-		{ ultimabase },
-	)
+	Todo.findMany({
+		include: { assignee: { select: { displayName: true } } },
+		orderBy: { dueAt: 'asc', createdAt: 'asc' },
+		where: { completed: { eq: false } },
+	})
 ```
 
 Selections and includes narrow the resolved return type. Application code never

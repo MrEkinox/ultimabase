@@ -387,23 +387,17 @@ order afterward. Without `include`, no projection query is added. Target-lock
 reads required by item-oriented updates remain separate from that projection.
 
 ```ts
-const imported = await ArticleSchema.createMany(
-	{
-		data: rows,
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const imported = await ArticleSchema.createMany({
+	data: rows,
+	select: { id: true, title: true },
+})
 
-const article = await ArticleSchema.upsertOne(
-	{
-		where: { slug: { eq: 'runtime-postgres' } },
-		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
-		update: { title: 'Runtime + PostgreSQL' },
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const article = await ArticleSchema.upsertOne({
+	where: { slug: { eq: 'runtime-postgres' } },
+	create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
+	update: { title: 'Runtime + PostgreSQL' },
+	select: { id: true, title: true },
+})
 ```
 
 ## Primitive schema compilation
@@ -612,22 +606,18 @@ const Post = UltimaBase.Schema.define({
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.createOne(
-	{ data: { author: { connect: author.id } } },
-	{ ultimabase },
-)
-const found = await Post.findOne(
-	{
-		where: {
-			author: {
-				eq: author.id,
-				is: { name: { startsWith: 'A' } },
-			},
+const created = await Post.createOne({
+	data: { author: { connect: author.id } },
+})
+const found = await Post.findOne({
+	where: {
+		author: {
+			eq: author.id,
+			is: { name: { startsWith: 'A' } },
 		},
-		include: { author: { select: { id: true, name: true } } },
 	},
-	{ ultimabase },
-)
+	include: { author: { select: { id: true, name: true } } },
+})
 ```
 
 Identity predicates send only the target UUID as a parameter. `is` and `isNot`
@@ -663,22 +653,17 @@ it never creates duplicate storage.
 ```ts
 const tags = article.relation('tags')
 
-await tags.connect([firstTagId, secondTagId], {
-	ultimabase,
+await tags.connect([firstTagId, secondTagId])
+
+const selected = await tags.findMany({
+	select: { id: true, label: true },
+	orderBy: { label: 'asc' },
+	limit: 20,
 })
 
-const selected = await tags.findMany(
-	{
-		select: { id: true, label: true },
-		orderBy: { label: 'asc' },
-		limit: 20,
-	},
-	{ ultimabase },
-)
-
-await tags.set([featuredTagId], { ultimabase })
-await tags.disconnect(featuredTagId, { ultimabase })
-await tags.clear({ ultimabase })
+await tags.set([featuredTagId])
+await tags.disconnect(featuredTagId)
+await tags.clear()
 ```
 
 The same generated Drizzle relation graph supports collection inclusion on a

@@ -32,21 +32,17 @@ Pass the ID of an existing target that the operation may connect.
 
 ```ts title="src/create-post.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const createPost = (authorId: string, slug: string, title: string) =>
-	Post.createOne(
-		{
-			data: {
-				author: { connect: authorId },
-				slug,
-				title,
-			},
-			include: { author: { select: { displayName: true } } },
-			select: { published: true, slug: true, title: true },
+	Post.createOne({
+		data: {
+			author: { connect: authorId },
+			slug,
+			title,
 		},
-		{ ultimabase },
-	)
+		include: { author: { select: { displayName: true } } },
+		select: { published: true, slug: true, title: true },
+	})
 ```
 
 `connect` links the new post to an existing author; it does not create the

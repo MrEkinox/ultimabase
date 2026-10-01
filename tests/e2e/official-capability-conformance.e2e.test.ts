@@ -83,12 +83,11 @@ describe('official optional capability composition', () => {
 		})
 		try {
 			await ultimabase.start()
-			await expect(
-				document.findMany(undefined, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(document.findMany(undefined)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 			await expect(
 				document.findMany(undefined, {
-					ultimabase,
 					useMasterKey: true,
 				}),
 			).resolves.toHaveLength(1)

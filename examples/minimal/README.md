@@ -124,8 +124,8 @@ Restoration and irreversible purge are server-only Master operations:
 ```ts
 import { purgeArticle, restoreArticle } from './src/soft-delete.ts'
 
-await restoreArticle(ultimabase, articleId)
-await purgeArticle(ultimabase, obsoleteArticleId)
+await restoreArticle(articleId)
+await purgeArticle(obsoleteArticleId)
 ```
 
 They are absent from REST and GraphQL. V1 also deliberately excludes
@@ -181,19 +181,16 @@ virtual fields cover primitive, nullable, list, structured, asynchronous, and
 request-aware results:
 
 ```ts
-const article = await ExampleArticle.findOne(
-	{
-		select: {
-			displayTitle: true,
-			labels: true,
-			optionalSubtitle: true,
-			summary: true,
-			viewerLabel: true,
-		},
-		where: { slug: { eq: 'hello-rest' } },
+const article = await ExampleArticle.findOne({
+	select: {
+		displayTitle: true,
+		labels: true,
+		optionalSubtitle: true,
+		summary: true,
+		viewerLabel: true,
 	},
-	{ ultimabase },
-)
+	where: { slug: { eq: 'hello-rest' } },
+})
 ```
 
 Core privately loads only the persisted dependencies declared by each virtual
@@ -218,51 +215,45 @@ field already identifies `ExampleAuthor`, so relationship commands need only
 canonical object IDs:
 
 ```ts
-const article = await ExampleArticle.createOne(
-	{
-		data: {
-			author: { connect: existingAuthorId },
-			contributors: {
-				create: [{ name: 'Grace' }],
-				connect: [existingContributorId],
-			},
-			slug: 'nested-writes',
-			title: 'Nested writes',
+const article = await ExampleArticle.createOne({
+	data: {
+		author: { connect: existingAuthorId },
+		contributors: {
+			create: [{ name: 'Grace' }],
+			connect: [existingContributorId],
 		},
-		include: {
-			author: { select: { name: true } },
-			contributors: { select: { id: true, name: true } },
-		},
+		slug: 'nested-writes',
+		title: 'Nested writes',
 	},
-	{ ultimabase },
-)
+	include: {
+		author: { select: { name: true } },
+		contributors: { select: { id: true, name: true } },
+	},
+})
 
 const createdContributor = article.contributors.find(
 	(contributor) => contributor.name === 'Grace',
 )
 if (createdContributor === undefined) throw new Error('Missing contributor')
 
-const updated = await ExampleArticle.updateOne(
-	{
-		id: article.id,
-		data: {
-			contributors: {
-				update: [
-					{
-						id: createdContributor.id,
-						data: { name: 'Grace Hopper' },
-					},
-				],
-				disconnect: [existingContributorId],
-			},
-		},
-		include: {
-			author: { select: { name: true } },
-			contributors: { select: { id: true, name: true } },
+const updated = await ExampleArticle.updateOne({
+	id: article.id,
+	data: {
+		contributors: {
+			update: [
+				{
+					id: createdContributor.id,
+					data: { name: 'Grace Hopper' },
+				},
+			],
+			disconnect: [existingContributorId],
 		},
 	},
-	{ ultimabase },
-)
+	include: {
+		author: { select: { name: true } },
+		contributors: { select: { id: true, name: true } },
+	},
+})
 ```
 
 REST sends the same command object as its concise JSON body. GraphQL uses the

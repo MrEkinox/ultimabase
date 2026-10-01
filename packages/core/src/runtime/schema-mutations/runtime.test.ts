@@ -403,9 +403,7 @@ describe('plugin schema mutation Runtime', () => {
 		)
 		try {
 			await other.start()
-			await expect(
-				purge({ id }, { ultimabase: other, useMasterKey: true }),
-			).rejects.toThrow(
+			await expect(purge({ id }, { useMasterKey: true })).rejects.toThrow(
 				`Schema mutation ${fixture.Post.className}.purge is not installed in this application`,
 			)
 			expect(otherAdapter.rootRequests).toStrictEqual([])
@@ -414,9 +412,7 @@ describe('plugin schema mutation Runtime', () => {
 		}
 	})
 
-	it('rejects a foreign application owner before transaction effects', async () => {
-		const second = await createUpdateFixture({ results: [] })
-		await second.ultimabase.dispose()
+	it('rejects a stale application handle before transaction effects', async () => {
 		const firstHandler = vi.fn()
 		const first = await createUpdateFixture({
 			handler: firstHandler,
@@ -425,19 +421,21 @@ describe('plugin schema mutation Runtime', () => {
 		const archive = Reflect.get(
 			first.ultimabase.schema(first.Post),
 			'archive',
-		) as (input: unknown, options: unknown) => Promise<unknown>
-
-		await expect(
-			archive(
-				{
+		) as (input: unknown) => Promise<unknown>
+		await first.ultimabase.dispose()
+		const second = await createUpdateFixture({ results: [] })
+		try {
+			await expect(
+				archive({
 					id: '0199325a-0c00-7000-8000-000000000107',
-					input: { reason: 'foreign owner' },
-				},
-				{ ultimabase: second.ultimabase },
-			),
-		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		expect(firstHandler).not.toHaveBeenCalled()
-		expect(first.trace).toStrictEqual([])
-		expect(second.trace).toStrictEqual([])
+					input: { reason: 'stale owner' },
+				}),
+			).rejects.toThrow('Application handle cannot be used after disposal')
+			expect(firstHandler).not.toHaveBeenCalled()
+			expect(first.trace).toStrictEqual([])
+			expect(second.trace).toStrictEqual([])
+		} finally {
+			await second.ultimabase.dispose()
+		}
 	})
 })

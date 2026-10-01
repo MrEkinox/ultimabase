@@ -88,26 +88,26 @@ try {
 				{ audience: 'public', label: 'public-hidden', visible: false },
 			],
 		},
-		{ context: master.context, ultimabase },
+		{ context: master.context },
 	)
 	const source = await Source.createOne(
 		{ data: { label: 'source' } },
-		{ context: master.context, ultimabase },
+		{ context: master.context },
 	)
 	const targetIds = targets.map(({ id }) => id)
 	await source
 		.relation('staticTargets')
-		.connect(targetIds, { context: master.context, ultimabase })
+		.connect(targetIds, { context: master.context })
 	await source
 		.relation('contextualTargets')
-		.connect(targetIds, { context: master.context, ultimabase })
+		.connect(targetIds, { context: master.context })
 
 	const read = (field, context) =>
 		source
 			.relation(field)
 			.findMany(
 				{ orderBy: { label: 'asc' }, select: { label: true } },
-				{ context, ultimabase },
+				{ context },
 			)
 	const included = await Source.findOne(
 		{
@@ -118,7 +118,7 @@ try {
 			select: { label: true },
 			where: { id: { eq: source.id } },
 		},
-		{ context: authenticated, ultimabase },
+		{ context: authenticated },
 	)
 
 	process.stdout.write(

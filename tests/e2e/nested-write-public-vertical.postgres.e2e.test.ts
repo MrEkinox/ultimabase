@@ -147,7 +147,6 @@ const normalizeArticle = (value: unknown) => {
 const seedAuthor = async (name: string): Promise<string> => {
 	const author = await invoke(requireExample().ExampleAuthor, 'createOne', [
 		{ data: { name } },
-		{ ultimabase: requireApplication() },
 	])
 	return readString(author, 'id')
 }
@@ -215,7 +214,6 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 				},
 				include: { author: {}, contributors: {} },
 			},
-			{ ultimabase: app },
 		])
 		const directCreatedJson = await modelJson(directCreated)
 		const directUpdated = await invoke(minimal.ExampleArticle, 'updateOne', [
@@ -235,7 +233,6 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 				id: readString(directCreated, 'id'),
 				include: { author: {}, contributors: {} },
 			},
-			{ ultimabase: app },
 		])
 
 		const restAuthorId = await seedAuthor('Connected author')
@@ -393,7 +390,6 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 				limit: 10,
 				orderBy: { slug: 'asc' },
 			},
-			{ ultimabase: app },
 		])
 		if (!Array.isArray(persisted))
 			throw new TypeError('Articles are unavailable')

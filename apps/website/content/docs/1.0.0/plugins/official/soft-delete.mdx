@@ -183,7 +183,7 @@ server code will restore it later. Repeating `softDelete()` for that ID fails
 with `NOT_FOUND`, just as it does for an absent target.
 
 Inside an active request, the same class methods preserve the exact request
-owner. The temporarily retained application handle
+owner. The advanced application handle
 `ultimabase.schema(Post).softDelete(...)` and persisted model method
 `post.softDelete()` are also available. A retained model is an immutable
 snapshot; having that object does not make a tombstone visible or allow you to

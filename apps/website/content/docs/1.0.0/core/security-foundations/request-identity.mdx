@@ -70,7 +70,6 @@ carry its own cancellation signal:
 import { RequestContext, requestSources } from '@ultimabase/core'
 
 import { Post } from './post.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readPostsForJob = (requestId: string, signal: AbortSignal) => {
 	const context = RequestContext.anonymous({
@@ -80,7 +79,7 @@ export const readPostsForJob = (requestId: string, signal: AbortSignal) => {
 		metadata: { job: 'daily-report' },
 	})
 
-	return Post.findMany({ limit: 20 }, { context, ultimabase })
+	return Post.findMany({ limit: 20 }, { context })
 }
 ```
 

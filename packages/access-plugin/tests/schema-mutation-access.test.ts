@@ -424,13 +424,10 @@ describe('schema mutation Access', () => {
 				originalItem: { workflowState: 'published' },
 			})
 			await expect(
-				AccessDocument.updateOne(
-					{
-						data: { title: 'denied' },
-						where: { id: { eq: schemaMutationAccessId } },
-					},
-					{ ultimabase },
-				),
+				AccessDocument.updateOne({
+					data: { title: 'denied' },
+					where: { id: { eq: schemaMutationAccessId } },
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		} finally {
 			await ultimabase.dispose()

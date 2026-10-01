@@ -37,10 +37,7 @@ export type {
 	ResolvedPasswordSessionPolicy,
 } from './session-policy.js'
 export type { PasswordAuthPluginExports } from './application-api.js'
-export type {
-	PasswordUserAuthMethods,
-	PasswordUserAuthOptions,
-} from './user-auth-methods.js'
+export type { PasswordUserAuthMethods } from './user-auth-methods.js'
 export type {
 	PasswordAuthCookieOptions,
 	PasswordAuthCookieSameSite,

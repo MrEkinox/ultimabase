@@ -173,7 +173,7 @@ const findRelation = async (
 		await invoke(model, 'relation', [field]),
 		`${field} relation`,
 	)
-	return invoke(relation, 'findMany', [input, { context, ultimabase: app() }])
+	return invoke(relation, 'findMany', [input, { context }])
 }
 
 beforeAll(async () => {
@@ -244,7 +244,7 @@ beforeAll(async () => {
 					{ acl: privateAcl, name: 'E ACL hidden' },
 				],
 			},
-			{ context: master, ultimabase: app() },
+			{ context: master },
 		]),
 		'created authors',
 	).map((author) => readObject(author, 'created author'))
@@ -263,7 +263,7 @@ beforeAll(async () => {
 				data: { acl: publicAcl, slug: 'relation-main', title: 'Relation main' },
 				select: { id: true },
 			},
-			{ context: master, ultimabase: app() },
+			{ context: master },
 		]),
 		'created article',
 	)
@@ -273,10 +273,7 @@ beforeAll(async () => {
 			await invoke(article, 'relation', [field]),
 			`${field} relation`,
 		)
-		await invoke(relation, 'connect', [
-			authorIds,
-			{ context: master, ultimabase: app() },
-		])
+		await invoke(relation, 'connect', [authorIds, { context: master }])
 	}
 	await invoke(minimal().ExampleArticle, 'createOne', [
 		{
@@ -289,7 +286,7 @@ beforeAll(async () => {
 				title: 'Relation unpublished',
 			},
 		},
-		{ context: master, ultimabase: app() },
+		{ context: master },
 	])
 	await invoke(minimal().ExampleArticle, 'createOne', [
 		{
@@ -300,7 +297,7 @@ beforeAll(async () => {
 				title: 'Relation second',
 			},
 		},
-		{ context: master, ultimabase: app() },
+		{ context: master },
 	])
 }, 30_000)
 
@@ -319,7 +316,7 @@ describe(
 			const article = readObject(
 				await invoke(minimal().ExampleArticle, 'findOne', [
 					{ select: { id: true }, where: { id: { eq: articleId } } },
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 				'relation article',
 			)
@@ -346,13 +343,13 @@ describe(
 			expect(
 				await invoke(contributors, 'count', [
 					undefined,
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 			).toBe(2)
 			expect(
 				await invoke(contributors, 'exists', [
 					{ where: { name: { eq: 'C Unlisted' } } },
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 			).toBe(false)
 			expect(
@@ -364,14 +361,14 @@ describe(
 							reviewers: { every: { audience: { eq: 'public' } } },
 						},
 					},
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 			).toBe(true)
 
 			const publicAuthor = readObject(
 				await invoke(minimal().ExampleAuthor, 'findOne', [
 					{ where: { name: { eq: 'A Public' } } },
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 				'public author',
 			)
@@ -384,10 +381,7 @@ describe(
 					`${field} relation`,
 				)
 				expect(
-					await invoke(relation, 'count', [
-						undefined,
-						{ context: anonymous, ultimabase: app() },
-					]),
+					await invoke(relation, 'count', [undefined, { context: anonymous }]),
 				).toBe(expected)
 			}
 
@@ -404,7 +398,7 @@ describe(
 						orderBy: { slug: 'asc' },
 						select: { slug: true },
 					},
-					{ context: anonymous, ultimabase: app() },
+					{ context: anonymous },
 				]),
 				'included articles',
 			)
@@ -527,7 +521,7 @@ describe(
 						include: { contributors: { select: { name: true } } },
 						select: { slug: true },
 					},
-					{ context: master, ultimabase: app() },
+					{ context: master },
 				]),
 				'created hidden-edge article',
 			)
@@ -561,7 +555,7 @@ describe(
 			)
 			await invoke(relation, 'disconnect', [
 				unlistedAuthorId,
-				{ context: master, ultimabase: app() },
+				{ context: master },
 			])
 			expect((await countEdges()).rows).toStrictEqual([{ count: '0' }])
 		})

@@ -119,7 +119,7 @@ describe('aclPlugin create input resolution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await ProtectedPost.findMany(undefined, { ultimabase })
+			const result = await ProtectedPost.findMany(undefined)
 			expect(result[0]?.acl).toBeUndefined()
 			expect(adapter.requests[0]?.constraints).toStrictEqual([])
 			const rowFilter = JSON.stringify(adapter.requests[0]?.rowFilter)
@@ -128,14 +128,13 @@ describe('aclPlugin create input resolution', () => {
 			expect(rowFilter).toContain(currentPrincipal.id)
 			expect(resolveCurrent).toHaveBeenCalledOnce()
 			await expect(
-				ProtectedPost.findMany({ select: { acl: true } }, { ultimabase }),
+				ProtectedPost.findMany({ select: { acl: true } }),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 				publicMessage: 'The operation is not permitted.',
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.requests).toHaveLength(1)
 			const masterResult = await ProtectedPost.findMany(undefined, {
-				ultimabase,
 				useMasterKey: true,
 			})
 			expect(masterResult[0]?.acl).toBe(storedACL)
@@ -157,7 +156,7 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			for (const { ultimabase } of fixtures) {
 				await ultimabase.start()
-				await ProtectedPost.findMany(undefined, { ultimabase })
+				await ProtectedPost.findMany(undefined)
 				await ultimabase.dispose()
 			}
 
@@ -256,10 +255,7 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				DynamicRolePost.createOne(
-					{ data: { title: 'Dynamic' } },
-					{ ultimabase },
-				),
+				DynamicRolePost.createOne({ data: { title: 'Dynamic' } }),
 			).rejects.toThrow(
 				'ACL role grants require a role resolver with current-role enumeration',
 			)
@@ -427,12 +423,9 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				BatchPost.createMany(
-					{ data: [{ title: 'Oversized' }, { title: 'Accepted' }] },
-					{
-						ultimabase,
-					},
-				),
+				BatchPost.createMany({
+					data: [{ title: 'Oversized' }, { title: 'Accepted' }],
+				}),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				internalDetails: { kind: 'acl-entry-limit' },
@@ -446,10 +439,7 @@ describe('aclPlugin create input resolution', () => {
 			})
 
 			await expect(
-				OverridePost.createOne(
-					{ data: { title: 'Schema override' } },
-					{ ultimabase },
-				),
+				OverridePost.createOne({ data: { title: 'Schema override' } }),
 			).rejects.toThrow('ACL limit fixture stops after adapter preparation')
 			expect(adapter.transactions[1]).toMatchObject({
 				commitCount: 0,

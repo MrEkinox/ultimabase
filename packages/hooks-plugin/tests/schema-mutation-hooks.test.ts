@@ -415,7 +415,7 @@ describe('schema mutation Hooks', () => {
 				source: requestSources.internal,
 			})
 			await expect(
-				parts.execute(ultimabase, { context, ultimabase }),
+				parts.execute(ultimabase, { context }),
 			).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 			expect(trace).toStrictEqual([
 				'begin',

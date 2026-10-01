@@ -28,23 +28,19 @@ started application exported as `ultimabase`.
 
 ```ts title="src/discover-posts.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readDiscoverablePosts = () =>
-	Post.findMany(
-		{
-			where: {
-				published: { eq: true },
-				views: { between: { lower: 100, upper: 10_000 } },
-				OR: [
-					{ title: { contains: 'TypeScript' } },
-					{ tags: { has: 'featured' } },
-				],
-				NOT: { title: { startsWith: 'Archive' } },
-			},
+	Post.findMany({
+		where: {
+			published: { eq: true },
+			views: { between: { lower: 100, upper: 10_000 } },
+			OR: [
+				{ title: { contains: 'TypeScript' } },
+				{ tags: { has: 'featured' } },
+			],
+			NOT: { title: { startsWith: 'Archive' } },
 		},
-		{ ultimabase },
-	)
+	})
 ```
 
 Every returned post is published, has 100–10,000 views inclusive, matches at
@@ -79,20 +75,16 @@ object with `contact.email`:
 
 ```ts title="src/filter-profiles.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readPublicProfiles = () =>
-	Post.findMany(
-		{
-			where: {
-				metadata: { contains: { visibility: 'public' } },
-				profile: {
-					at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
-				},
+	Post.findMany({
+		where: {
+			metadata: { contains: { visibility: 'public' } },
+			profile: {
+				at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
 			},
 		},
-		{ ultimabase },
-	)
+	})
 ```
 
 Each `at` path is an array of segments, not a dotted string. Typed object
@@ -110,20 +102,16 @@ against the visible target:
 
 ```ts title="src/filter-memberships.ts"
 import { Membership } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readActiveMemberships = (projectId: string) =>
-	Membership.findMany(
-		{
-			where: {
-				project: {
-					eq: projectId,
-					is: { archived: { eq: false } },
-				},
+	Membership.findMany({
+		where: {
+			project: {
+				eq: projectId,
+				is: { archived: { eq: false } },
 			},
 		},
-		{ ultimabase },
-	)
+	})
 ```
 
 This assumes `Membership.project` points to a `Project` with an `archived`
@@ -157,7 +145,7 @@ export const readVisiblePosts = (minimumViews: number) => {
 		.eq('published', true)
 		.gte('views', minimumViews)
 
-	return Post.findMany({ where: where.build() }, { ultimabase })
+	return Post.findMany({ where: where.build() })
 }
 ```
 

@@ -4,8 +4,8 @@ import { expectTypeOf, test } from 'vitest'
 import type { PostgresFieldOption, PostgresSchemaOption } from './options.js'
 import { postgresPlugin } from './plugin/postgres-plugin.js'
 
-// Legacy standalone Schema tests in this package still use the bounded
-// generated-option contract until the repository migration in issue 6314.
+// This test-only generated-option contract is retained until issue 6313
+// removes superseded Typegen projections after the authoring migration.
 declare module '@ultimabase/core' {
 	interface UltimaBaseGeneratedFieldOptions {
 		readonly postgres?: PostgresFieldOption

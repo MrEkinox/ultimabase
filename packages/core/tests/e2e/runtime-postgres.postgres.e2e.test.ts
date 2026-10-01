@@ -65,26 +65,20 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				handle: 'model-create',
 				tenantId: 'model-commands',
 			})
-			const created = await draft.create(
-				{ select: { email: true, id: true } },
-				{ ultimabase },
-			)
+			const created = await draft.create({ select: { email: true, id: true } })
 			const upserted = await new BulkAccountSchema({
 				email: 'model-upsert@example.com',
 				handle: 'model-upsert',
 				tenantId: 'model-commands',
-			}).upsert(
-				{
-					select: { email: true, id: true, visits: true },
-					update: { visits: increment(1) },
-					where: { email: { eq: 'model-upsert@example.com' } },
-				},
-				{ ultimabase },
-			)
-			const selected = await BulkAccountSchema.findOne(
-				{ where: { id: { eq: created.id } }, select: { email: true } },
-				{ ultimabase },
-			)
+			}).upsert({
+				select: { email: true, id: true, visits: true },
+				update: { visits: increment(1) },
+				where: { email: { eq: 'model-upsert@example.com' } },
+			})
+			const selected = await BulkAccountSchema.findOne({
+				where: { id: { eq: created.id } },
+				select: { email: true },
+			})
 
 			if (selected === null) {
 				throw new TypeError(
@@ -92,12 +86,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				)
 			}
 			const pointer = selected.toPointer()
-			const fetched = await selected.fetch(
-				{ select: { email: true, id: true, visits: true } },
-				{ ultimabase },
-			)
+			const fetched = await selected.fetch({
+				select: { email: true, id: true, visits: true },
+			})
 
-			await expect(selected.exists({ ultimabase })).resolves.toBe(true)
+			await expect(selected.exists()).resolves.toBe(true)
 			expect(pointer.schema).toBe(BulkAccountSchema)
 			expect(pointer.id).toBe(created.id)
 			expect(selected.equals(created)).toBe(true)
@@ -108,12 +101,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					data: { visits: increment(2) },
 					select: { email: true, id: true, visits: true },
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const deleted = await updated.delete(
 				{ select: { email: true, id: true } },
 				{
-					ultimabase,
 					useMasterKey: true,
 				},
 			)
@@ -157,21 +149,15 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				'Schema command update-one on RuntimeBulkAccount',
 				'Schema command delete-one on RuntimeBulkAccount',
 			])
-			await expect(selected.exists({ ultimabase })).resolves.toBe(false)
-			await expect(selected.fetch({}, { ultimabase })).rejects.toMatchObject({
+			await expect(selected.exists()).resolves.toBe(false)
+			await expect(selected.fetch({})).rejects.toMatchObject({
 				code: 'NOT_FOUND',
 			})
 			await expect(
-				BulkAccountSchema.exists(
-					{ where: { id: { eq: created.id } } },
-					{ ultimabase },
-				),
+				BulkAccountSchema.exists({ where: { id: { eq: created.id } } }),
 			).resolves.toBe(false)
 			await expect(
-				BulkAccountSchema.exists(
-					{ where: { email: { eq: upserted.email } } },
-					{ ultimabase },
-				),
+				BulkAccountSchema.exists({ where: { email: { eq: upserted.email } } }),
 			).resolves.toBe(true)
 		} finally {
 			await ultimabase.dispose()
@@ -188,19 +174,18 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const [first, second] = await AfterReadIdentitySchema.createMany(
-				{ data: [{ title: 'First' }, { title: 'Second' }] },
-				{ ultimabase },
-			)
+			const [first, second] = await AfterReadIdentitySchema.createMany({
+				data: [{ title: 'First' }, { title: 'Second' }],
+			})
 
 			if (first === undefined || second === undefined) {
 				throw new TypeError('Expected two identity fixtures')
 			}
 
-			const ordered = await AfterReadIdentitySchema.findMany(
-				{ orderBy: { title: 'asc' }, select: { title: true } },
-				{ ultimabase },
-			)
+			const ordered = await AfterReadIdentitySchema.findMany({
+				orderBy: { title: 'asc' },
+				select: { title: true },
+			})
 			const selected = ordered[0]
 
 			expect(ordered.map(({ title }) => title)).toStrictEqual([
@@ -212,19 +197,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				throw new TypeError('Expected a reordered model')
 			}
 
-			await selected.update(
-				{ data: { title: 'First updated' } },
-				{ ultimabase },
-			)
+			await selected.update({ data: { title: 'First updated' } })
 
-			const persistedFirst = await AfterReadIdentitySchema.findOne(
-				{ where: { id: { eq: first.id } }, select: { title: true } },
-				{ ultimabase },
-			)
-			const persistedSecond = await AfterReadIdentitySchema.findOne(
-				{ where: { id: { eq: second.id } }, select: { title: true } },
-				{ ultimabase },
-			)
+			const persistedFirst = await AfterReadIdentitySchema.findOne({
+				where: { id: { eq: first.id } },
+				select: { title: true },
+			})
+			const persistedSecond = await AfterReadIdentitySchema.findOne({
+				where: { id: { eq: second.id } },
+				select: { title: true },
+			})
 
 			expect(persistedFirst?.title).toBe('First updated')
 			expect(persistedSecond?.title).toBe('Second')
@@ -265,11 +247,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		try {
 			const ordinary = await AuthorityRecordSchema.createOne(
 				{ data: { title: 'plugin context' } },
-				{ context, ultimabase },
+				{ context },
 			)
 			const master = await AuthorityRecordSchema.createOne(
 				{ data: { title: 'master context' } },
-				{ context, ultimabase, useMasterKey: true },
+				{ context, useMasterKey: true },
 			)
 
 			expect(ordinary.title).toBe('plugin context')
@@ -281,9 +263,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(auditReasons).toStrictEqual([
 				'Schema command create-one on RuntimeAuthorityRecord',
 			])
-			await expect(
-				AuthorityRecordSchema.count(undefined, { ultimabase }),
-			).resolves.toBe(2)
+			await expect(AuthorityRecordSchema.count(undefined)).resolves.toBe(2)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -307,14 +287,12 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const committed = await HookPostSchema.createOne(
-				{ data: { title: 'commit' } },
-				{ ultimabase },
-			)
-			const audits = await HookAuditSchema.findMany(
-				{ select: { action: true } },
-				{ ultimabase },
-			)
+			const committed = await HookPostSchema.createOne({
+				data: { title: 'commit' },
+			})
+			const audits = await HookAuditSchema.findMany({
+				select: { action: true },
+			})
 
 			expect(committed).toBeInstanceOf(HookPostSchema)
 			expect(committed.toJSON()).toMatchObject({ title: 'commit' })
@@ -326,22 +304,15 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 
 			await expect(
-				HookPostSchema.createOne(
-					{ data: { title: 'rollback' } },
-					{ ultimabase },
-				),
+				HookPostSchema.createOne({ data: { title: 'rollback' } }),
 			).rejects.toBe(hookRollbackError)
 			await expect(
-				HookPostSchema.exists(
-					{ where: { title: { eq: 'rollback' } } },
-					{ ultimabase },
-				),
+				HookPostSchema.exists({ where: { title: { eq: 'rollback' } } }),
 			).resolves.toBe(false)
 			await expect(
-				HookAuditSchema.exists(
-					{ where: { action: { eq: 'create:rollback' } } },
-					{ ultimabase },
-				),
+				HookAuditSchema.exists({
+					where: { action: { eq: 'create:rollback' } },
+				}),
 			).resolves.toBe(false)
 		} finally {
 			await ultimabase.dispose()
@@ -370,12 +341,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
-			const created = await PostSchema.createOne(
-				{ data: allFieldValues },
-				{
-					ultimabase,
-				},
-			)
+			const created = await PostSchema.createOne({ data: allFieldValues })
 
 			expect(created).toBeInstanceOf(PostSchema)
 			expect(created).toMatchObject({
@@ -388,64 +354,52 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(created.id).toMatch(uuidV7Pattern)
 			expect(created.attachment).not.toBe(allFieldValues.attachment)
 
-			const found = await PostSchema.findMany(
-				{
-					where: {
-						published: { eq: false },
-						views: { gte: 0 },
-					},
-					select: { id: true, title: true },
+			const found = await PostSchema.findMany({
+				where: {
+					published: { eq: false },
+					views: { gte: 0 },
 				},
-				{ ultimabase },
-			)
+				select: { id: true, title: true },
+			})
 
 			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
 			expect(found.map((post) => post.toJSON())).toStrictEqual([
 				{ id: created.id, title: 'First real E2E' },
 			])
 
-			const listed = await PostSchema.findMany(
-				{
-					where: {
-						id: { eq: created.id },
-						labels: {
-							eq: ['typed', 'postgres'],
-							has: 'typed',
-							hasEvery: ['typed', 'postgres'],
-							hasSome: ['missing', 'postgres'],
-						},
+			const listed = await PostSchema.findMany({
+				where: {
+					id: { eq: created.id },
+					labels: {
+						eq: ['typed', 'postgres'],
+						has: 'typed',
+						hasEvery: ['typed', 'postgres'],
+						hasSome: ['missing', 'postgres'],
 					},
-					select: { id: true },
 				},
-				{ ultimabase },
-			)
+				select: { id: true },
+			})
 
 			expect(listed.map((post) => post.id)).toStrictEqual([created.id])
 			expect(
-				await PostSchema.findMany(
-					{
-						where: {
-							id: { eq: created.id },
-							labels: { isEmpty: true },
-						},
-						select: { id: true },
+				await PostSchema.findMany({
+					where: {
+						id: { eq: created.id },
+						labels: { isEmpty: true },
 					},
-					{ ultimabase },
-				),
+					select: { id: true },
+				}),
 			).toStrictEqual([])
 
-			const updated = await PostSchema.updateOne(
-				{
-					id: created.id,
-					data: {
-						views: increment(2),
-						published: true,
-						title: 'Persisted E2E',
-					},
-					select: { id: true, title: true, views: true },
+			const updated = await PostSchema.updateOne({
+				id: created.id,
+				data: {
+					views: increment(2),
+					published: true,
+					title: 'Persisted E2E',
 				},
-				{ ultimabase },
-			)
+				select: { id: true, title: true, views: true },
+			})
 
 			expect(updated).toBeInstanceOf(PostSchema)
 			expect(updated?.toJSON()).toStrictEqual({
@@ -454,13 +408,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				views: 2,
 			})
 
-			const deleted = await PostSchema.deleteOne(
-				{
-					id: created.id,
-					select: { id: true, title: true },
-				},
-				{ ultimabase },
-			)
+			const deleted = await PostSchema.deleteOne({
+				id: created.id,
+				select: { id: true, title: true },
+			})
 
 			expect(deleted).toBeInstanceOf(PostSchema)
 			expect(deleted?.toJSON()).toStrictEqual({
@@ -468,33 +419,22 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				title: 'Persisted E2E',
 			})
 			await expect(
-				PostSchema.findMany(
-					{ where: { id: { eq: created.id } } },
-					{ ultimabase },
-				),
+				PostSchema.findMany({ where: { id: { eq: created.id } } }),
 			).resolves.toStrictEqual([])
 
-			const selectedCreate = await PostSchema.createOne(
-				{
-					data: { ...allFieldValues, title: 'Selected create E2E' },
-					select: { id: true, title: true },
-				},
-				{ ultimabase },
-			)
+			const selectedCreate = await PostSchema.createOne({
+				data: { ...allFieldValues, title: 'Selected create E2E' },
+				select: { id: true, title: true },
+			})
 
 			expect(selectedCreate).toBeInstanceOf(PostSchema)
 			expect(selectedCreate.toJSON()).toStrictEqual({
 				id: selectedCreate.id,
 				title: 'Selected create E2E',
 			})
-			await PostSchema.deleteOne(
-				{ where: { id: { eq: selectedCreate.id } } },
-				{ ultimabase },
-			)
-			await expect(PostSchema.count(undefined, { ultimabase })).resolves.toBe(0)
-			await expect(PostSchema.exists(undefined, { ultimabase })).resolves.toBe(
-				false,
-			)
+			await PostSchema.deleteOne({ where: { id: { eq: selectedCreate.id } } })
+			await expect(PostSchema.count(undefined)).resolves.toBe(0)
+			await expect(PostSchema.exists(undefined)).resolves.toBe(false)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -598,10 +538,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		const transactions: DatabaseTransactionAdapter[] = []
 
 		try {
-			const updatedTarget = await PostSchema.createOne(
-				{ data: { title: 'Original update target' } },
-				{ ultimabase },
-			)
+			const updatedTarget = await PostSchema.createOne({
+				data: { title: 'Original update target' },
+			})
 			const updateQuery = new QueryBuilder(PostSchema)
 				.where((where) => where.eq('id', updatedTarget.id))
 				.select({ id: true, title: true })
@@ -640,10 +579,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			])
 
-			const deletedTarget = await PostSchema.createOne(
-				{ data: { title: 'Stable delete target' } },
-				{ ultimabase },
-			)
+			const deletedTarget = await PostSchema.createOne({
+				data: { title: 'Stable delete target' },
+			})
 			const deleteQuery = new QueryBuilder(PostSchema)
 				.where((where) => where.eq('id', deletedTarget.id))
 				.select({ id: true, title: true })

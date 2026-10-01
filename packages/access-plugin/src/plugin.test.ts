@@ -143,11 +143,11 @@ describe('accessPlugin', () => {
 
 		try {
 			await ultimabase.start()
+			await expect(SecretDocument.findMany(undefined)).resolves.toEqual([
+				expect.not.objectContaining({ secret: 'hidden' }),
+			])
 			await expect(
-				SecretDocument.findMany(undefined, { ultimabase }),
-			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
-			await expect(
-				SecretDocument.findMany({ select: { secret: true } }, { ultimabase }),
+				SecretDocument.findMany({ select: { secret: true } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		} finally {
 			await ultimabase.dispose()
@@ -163,18 +163,14 @@ describe('accessPlugin', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await VirtualDocument.findMany(
-				{ select: { label: true, title: true } },
-				{ ultimabase },
-			)
+			const result = await VirtualDocument.findMany({
+				select: { label: true, title: true },
+			})
 			expect(result).toEqual([
 				expect.objectContaining({ label: 'Label: visible', title: 'visible' }),
 			])
 			await expect(
-				VirtualDocument.findMany(
-					{ select: { privateLabel: true } },
-					{ ultimabase },
-				),
+				VirtualDocument.findMany({ select: { privateLabel: true } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		} finally {
 			await ultimabase.dispose()
@@ -197,11 +193,10 @@ describe('accessPlugin', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				MasterBypassDocument.findMany(undefined, { ultimabase }),
+				MasterBypassDocument.findMany(undefined),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				MasterBypassDocument.findMany(undefined, {
-					ultimabase,
 					useMasterKey: true,
 				}),
 			).resolves.toEqual([
@@ -226,14 +221,12 @@ describe('accessPlugin', () => {
 
 		try {
 			await allowed.start()
-			await expect(
-				PlainDocument.findMany(undefined, { ultimabase: allowed }),
-			).resolves.toHaveLength(1)
+			await expect(PlainDocument.findMany(undefined)).resolves.toHaveLength(1)
 			await allowed.dispose()
 			await denied.start()
-			await expect(
-				PlainDocument.findMany(undefined, { ultimabase: denied }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(PlainDocument.findMany(undefined)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 		} finally {
 			await Promise.all([allowed.dispose(), denied.dispose()])
 		}
@@ -263,12 +256,10 @@ describe('accessPlugin', () => {
 
 		try {
 			await ultimabase.start()
-			await expect(
-				PlainDocument.findMany(undefined, { ultimabase }),
-			).resolves.toHaveLength(1)
-			await expect(
-				PlainDocument.count({}, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(PlainDocument.findMany(undefined)).resolves.toHaveLength(1)
+			await expect(PlainDocument.count({})).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -294,21 +285,15 @@ describe('accessPlugin', () => {
 
 		try {
 			await deniedByDefault.start()
-			await expect(
-				CountOnlyDocument.count({}, { ultimabase: deniedByDefault }),
-			).resolves.toBe(1)
-			await expect(
-				CountOnlyDocument.findMany(undefined, {
-					ultimabase: deniedByDefault,
-				}),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(CountOnlyDocument.count({})).resolves.toBe(1)
+			await expect(CountOnlyDocument.findMany(undefined)).rejects.toMatchObject(
+				{ code: 'PERMISSION_DENIED' },
+			)
 			await deniedByDefault.dispose()
 			await allowedByConfiguredDefault.start()
-			await expect(
-				CountOnlyDocument.findMany(undefined, {
-					ultimabase: allowedByConfiguredDefault,
-				}),
-			).resolves.toHaveLength(1)
+			await expect(CountOnlyDocument.findMany(undefined)).resolves.toHaveLength(
+				1,
+			)
 		} finally {
 			await Promise.all([
 				deniedByDefault.dispose(),
@@ -348,12 +333,12 @@ describe('accessPlugin', () => {
 
 		try {
 			await ultimabase.start()
-			await expect(
-				PlainDocument.findMany(undefined, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-			await expect(
-				CountOnlyDocument.count({}, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(PlainDocument.findMany(undefined)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
+			await expect(CountOnlyDocument.count({})).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -390,7 +375,7 @@ describe('accessPlugin', () => {
 
 		try {
 			await ultimabase.start()
-			await ObservedDocument.findMany(undefined, { ultimabase })
+			await ObservedDocument.findMany(undefined)
 			expect(events).toContain('fulfilled:access-operation')
 		} finally {
 			await ultimabase.dispose()

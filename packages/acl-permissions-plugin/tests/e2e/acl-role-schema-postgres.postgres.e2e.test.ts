@@ -110,9 +110,6 @@ const requireFixture = <TValue>(
 	return value
 }
 
-const getApplication = (): NonNullable<typeof ultimabase> =>
-	requireFixture(ultimabase, 'application')
-
 const aliceRequest = (requestId: string): RequestContext =>
 	RequestContext.anonymous({
 		requestId,
@@ -138,11 +135,10 @@ beforeAll(async () => {
 		schemas: [Member, AppRole],
 	})
 	await ultimabase.start()
-	const app = getApplication()
 
 	;[alice, bob] = await Member.createMany(
 		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	const alicePointer = Member.pointer(requireFixture(alice, 'alice').id)
 	const aliceRead = new ACL().grantPrincipal(alicePointer, 'read')
@@ -156,9 +152,9 @@ beforeAll(async () => {
 				name: 'editor',
 			},
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
-	await editor.addMember(alicePointer, { ultimabase: app, useMasterKey: true })
+	await editor.addMember(alicePointer, { useMasterKey: true })
 
 	roleProtected = await AppRole.createOne(
 		{
@@ -172,17 +168,17 @@ beforeAll(async () => {
 				name: 'role-protected',
 			},
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	parent = await AppRole.createOne(
 		{
 			data: { acl: aliceUpdate, description: 'Nested parent', name: 'parent' },
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	child = await AppRole.createOne(
 		{ data: { acl: aliceRead, description: 'Nested child', name: 'child' } },
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	deletable = await AppRole.createOne(
 		{
@@ -192,7 +188,7 @@ beforeAll(async () => {
 				name: 'deletable',
 			},
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 }, 30_000)
 
@@ -206,7 +202,6 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('resolves role ACLs without recursively authorizing provider queries', async () => {
-			const app = getApplication()
 			const context = aliceRequest('acl-role-schema-resolution')
 			const current = requireFixture(roleProtected, 'role-protected')
 			const resolved = await AppRole.findOne(
@@ -214,13 +209,13 @@ describe(
 					where: { id: { eq: current.id } },
 					select: { description: true, name: true },
 				},
-				{ context, ultimabase: app },
+				{ context },
 			)
 
 			expect(resolved?.name).toBe('role-protected')
 			const persistedACL = await AppRole.findOne(
 				{ where: { id: { eq: current.id } }, select: { acl: true } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const aclValue = requireACLValue(
 				persistedACL?.acl,
@@ -237,13 +232,12 @@ describe(
 			await expect(
 				current.update(
 					{ data: { description: 'Updated through role ACL' } },
-					{ context, ultimabase: app },
+					{ context },
 				),
 			).resolves.toMatchObject({ description: 'Updated through role ACL' })
 		})
 
 		it('applies ordinary update ACLs to member and nested-role commands', async () => {
-			const app = getApplication()
 			const context = aliceRequest('acl-role-schema-commands')
 			const currentEditor = requireFixture(editor, 'editor')
 			const currentParent = requireFixture(parent, 'parent')
@@ -252,42 +246,32 @@ describe(
 			await expect(
 				currentEditor.addMember(requireFixture(bob, 'bob'), {
 					context,
-					ultimabase: app,
 				}),
 			).resolves.toBeUndefined()
 			await expect(
-				currentParent.addRole(currentChild, { context, ultimabase: app }),
+				currentParent.addRole(currentChild, { context }),
 			).resolves.toBeUndefined()
+			await expect(currentEditor.relation('members').count({})).resolves.toBe(2)
 			await expect(
-				currentEditor.relation('members').count({}, { ultimabase: app }),
-			).resolves.toBe(2)
-			await expect(
-				currentParent.relation('roles').count({}, { context, ultimabase: app }),
+				currentParent.relation('roles').count({}, { context }),
 			).resolves.toBe(1)
 		})
 
 		it('keeps ACL replacement master-only while honoring delete rights', async () => {
-			const app = getApplication()
 			const context = aliceRequest('acl-role-schema-management')
 			const currentEditor = requireFixture(editor, 'editor')
 
 			await expect(
 				currentEditor.update(
 					{ data: { acl: new ACL().grantPublic('read') } },
-					{ context, ultimabase: app },
+					{ context },
 				),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			await expect(
-				requireFixture(deletable, 'deletable').delete(
-					{},
-					{ context, ultimabase: app },
-				),
+				requireFixture(deletable, 'deletable').delete({}, { context }),
 			).resolves.toMatchObject({ name: 'deletable' })
 			await expect(
-				AppRole.findMany(
-					{ select: { acl: true } },
-					{ context, ultimabase: app },
-				),
+				AppRole.findMany({ select: { acl: true } }, { context }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

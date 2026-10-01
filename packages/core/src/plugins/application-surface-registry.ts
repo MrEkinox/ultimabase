@@ -21,7 +21,6 @@ import {
 	attachPluginDeclarationDiagnostic,
 	samePluginOwner,
 } from './schema-declaration-contracts.js'
-export { coreSchemaHandleCommandNames } from './application-surface-contracts.js'
 export type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,

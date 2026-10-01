@@ -119,10 +119,6 @@ export interface QueryExecutionGuard {
 }
 
 const activeQueryExecution = new AsyncLocalStorage<ActiveQueryExecution>()
-const queryExecutionOwners = new WeakMap<
-	object,
-	QueryExecutionOwnerRegistration
->()
 const queryExecutionApplications = new WeakMap<
 	object,
 	QueryExecutionOwnerRegistration
@@ -136,14 +132,10 @@ const operationBatchExecutionHandlers = new WeakMap<
 	OperationBatchExecutionHandler
 >()
 
-/** Registers one facade-owned root executor without creating a default application. */
+/** Registers one application-owned root executor without creating a default application. */
 export const registerQueryExecutionOwner = (
-	owner: object,
 	registration: QueryExecutionOwnerRegistrationInput,
 ): OperationExecutionOwnerToken => {
-	if (queryExecutionOwners.has(owner)) {
-		throw new TypeError('query execution owner is already registered')
-	}
 	if (queryExecutionApplications.has(registration.application)) {
 		throw new TypeError('query execution application is already registered')
 	}
@@ -152,15 +144,12 @@ export const registerQueryExecutionOwner = (
 		...registration,
 		ownerToken: Symbol('ultimabase.operation-execution-owner'),
 	})
-	queryExecutionOwners.set(owner, normalized)
 	queryExecutionApplications.set(registration.application, normalized)
 	return normalized.ownerToken
 }
 
-/** Selects one explicit or ambient owner without creating execution state. */
-const resolveOperationExecutionSelection = (
-	options: NormalizedOperationOptions,
-): OperationExecutionSelection => {
+/** Selects the ambient owner without creating execution state. */
+const resolveOperationExecutionSelection = (): OperationExecutionSelection => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
 	const lifecycleApplication = readActiveApplicationOwner()
@@ -168,62 +157,30 @@ const resolveOperationExecutionSelection = (
 		lifecycleApplication === undefined
 			? undefined
 			: queryExecutionApplications.get(lifecycleApplication)
-	const owner = options.ultimabase
-	const explicit =
-		owner === undefined ? undefined : queryExecutionOwners.get(owner)
-
-	if (owner !== undefined && explicit === undefined) {
-		throw new TypeError('operation ultimabase must be an UltimaBase instance')
-	}
-	if (
-		active?.application !== undefined &&
-		explicit !== undefined &&
-		active.application !== explicit.application
-	) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Explicit query ownership cannot replace the active application.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
-	if (
-		lifecycleRegistration !== undefined &&
-		explicit !== undefined &&
-		lifecycleRegistration !== explicit
-	) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Explicit query ownership cannot replace the active application.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
-
 	return immutableRecord({
 		active,
 		registration:
-			explicit ??
-			(active?.application === undefined
+			active?.application === undefined
 				? lifecycleRegistration
-				: queryExecutionApplications.get(active.application)),
+				: queryExecutionApplications.get(active.application),
 	})
 }
 
-const requireOperationExecutionRegistration = (
-	options: NormalizedOperationOptions,
-): QueryExecutionOwnerRegistration => {
-	const { registration } = resolveOperationExecutionSelection(options)
-	if (registration === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
-			'No initialized active application owns this operation.',
-			{
-				publicMessage: 'No application execution context is available.',
-				internalDetails: { reason: 'operation-owner-missing' },
-			},
-		)
+const requireOperationExecutionRegistration =
+	(): QueryExecutionOwnerRegistration => {
+		const { registration } = resolveOperationExecutionSelection()
+		if (registration === undefined) {
+			throw new FrameworkError(
+				'MISSING_EXECUTION_CONTEXT',
+				'No initialized active application owns this operation.',
+				{
+					publicMessage: 'No application execution context is available.',
+					internalDetails: { reason: 'operation-owner-missing' },
+				},
+			)
+		}
+		return registration
 	}
-	return registration
-}
 
 /** @internal Rejects stale application-bound values before any Runtime effect. */
 export const assertOperationExecutionOwnerToken = (
@@ -231,9 +188,8 @@ export const assertOperationExecutionOwnerToken = (
 	options?: OperationOptions,
 ): void => {
 	if (ownerToken === undefined) return
-	const registration = requireOperationExecutionRegistration(
-		normalizeOperationOptions(options),
-	)
+	normalizeOperationOptions(options)
+	const registration = requireOperationExecutionRegistration()
 	if (registration.ownerToken !== ownerToken) {
 		throw new FrameworkError(
 			'VALIDATION_ERROR',
@@ -252,9 +208,8 @@ export const executeActiveModelSchemaMutation = (
 	input: unknown,
 	options?: OperationOptions,
 ): Promise<unknown> => {
-	const registration = requireOperationExecutionRegistration(
-		normalizeOperationOptions(options),
-	)
+	normalizeOperationOptions(options)
+	const registration = requireOperationExecutionRegistration()
 	if (registration.ownerToken !== ownerToken) {
 		throw new FrameworkError(
 			'VALIDATION_ERROR',
@@ -278,8 +233,8 @@ export const executeStaticSchemaMutation = async (
 	input: unknown,
 	options?: OperationOptions,
 ): Promise<unknown> => {
-	const normalized = normalizeOperationOptions(options)
-	const { registration } = resolveOperationExecutionSelection(normalized)
+	normalizeOperationOptions(options)
+	const { registration } = resolveOperationExecutionSelection()
 	if (registration === undefined) {
 		throw new FrameworkError(
 			'MISSING_EXECUTION_CONTEXT',
@@ -288,25 +243,6 @@ export const executeStaticSchemaMutation = async (
 		)
 	}
 	return registration.executeSchemaMutation(schema, name, input, options)
-}
-
-/** @internal Rejects a terminal facade that belongs to another application. */
-export const assertOperationExecutionOwner = (
-	owner: object | undefined,
-	expectedApplication: object,
-): void => {
-	if (owner === undefined) return
-	const registration = queryExecutionOwners.get(owner)
-	if (registration === undefined) {
-		throw new TypeError('operation ultimabase must be an UltimaBase instance')
-	}
-	if (registration.application !== expectedApplication) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Explicit query ownership cannot replace the active application.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
 }
 
 const bindExecutionResult = async <TResult>(
@@ -465,7 +401,7 @@ export const executeOperationBatch = <
 	options: NormalizedOperationOptions,
 	projection?: OperationBatchProjection,
 ): Promise<readonly OperationResult<TOperation>[]> => {
-	const { active, registration } = resolveOperationExecutionSelection(options)
+	const { active, registration } = resolveOperationExecutionSelection()
 	if (active !== undefined) {
 		return bindExecutionResult(
 			dispatchOperationBatch(
@@ -505,7 +441,7 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 	options: NormalizedOperationOptions,
 	scope?: OperationPrivateScope,
 ): Promise<OperationResult<TOperation>> => {
-	const { active, registration } = resolveOperationExecutionSelection(options)
+	const { active, registration } = resolveOperationExecutionSelection()
 	if (active !== undefined) {
 		return bindExecutionResult(
 			dispatchOperation(active.executor, operation, options, scope) as Promise<

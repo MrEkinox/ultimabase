@@ -372,7 +372,7 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 				data: { acl: privateAcl, slug: 'private', title: 'Private' },
 				select: { id: true },
 			},
-			{ context: context('master'), ultimabase: app() },
+			{ context: context('master') },
 		)
 		const anonymousRead = await execute(
 			`query { getGraphqlExecutionPost(id: "${privateRecord.id}") { id title } }`,

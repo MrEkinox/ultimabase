@@ -49,9 +49,11 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 			readonly [typeof databasePlugin]
 		>
 	>()
-	expectTypeOf(articleSchema.findMany(undefined, { ultimabase })).toEqualTypeOf<
+	expectTypeOf(articleSchema.findMany(undefined)).toEqualTypeOf<
 		Promise<readonly QueryResult<typeof articleSchema>[]>
 	>()
+	// @ts-expect-error -- Operations resolve the sole active application.
+	void articleSchema.findMany(undefined, { ultimabase })
 	expectTypeOf(
 		ultimabase.plugin(databasePlugin.manifest.identity.pluginId),
 	).toEqualTypeOf<{
@@ -64,7 +66,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(ultimabase.stop()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()
 	// Ownership remains a Runtime identity check because QueryBuilder stays application-free.
-	void otherSchema.findMany(undefined, { ultimabase })
+	void otherSchema.findMany(undefined)
 	new (UltimaBase.use(databasePlugin))({
 		schemas: [articleSchema],
 		// @ts-expect-error -- Runtime assembly options remain closed and documented.

@@ -64,13 +64,9 @@ read only the computed field:
 
 ```ts title="src/read-profile.ts"
 import { Profile } from './profile.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readDisplayName = async (id: string) => {
-	const profile = await Profile.get(
-		{ id, select: { displayName: true } },
-		{ ultimabase },
-	)
+	const profile = await Profile.get({ id, select: { displayName: true } })
 
 	return profile.toJSON()
 }

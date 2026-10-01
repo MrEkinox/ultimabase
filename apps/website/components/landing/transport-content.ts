@@ -12,8 +12,7 @@ const article = await ExampleArticle.createOne(
       slug: 'hello-typescript',
       title: '  Hello UltimaBase  ',
     },
-  },
-  { ultimabase: app },
+  }
 )`,
 	},
 	{

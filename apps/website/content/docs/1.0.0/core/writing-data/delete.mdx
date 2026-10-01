@@ -33,13 +33,9 @@ and `title` fields, in a started application with a persistence plugin.
 
 ```ts title="src/delete-post.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const deletePost = (postId: string) =>
-	Post.deleteOne(
-		{ id: postId, select: { slug: true, title: true } },
-		{ ultimabase },
-	)
+	Post.deleteOne({ id: postId, select: { slug: true, title: true } })
 ```
 
 `id` is shorthand for `where: { id: { eq: postId } }`. You may instead pass a
@@ -71,11 +67,10 @@ When you already have a persisted `Post`, call its strict identity command:
 
 ```ts title="src/delete-loaded-post.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const deleteLoadedPost = async (postId: string) => {
-	const post = await Post.get({ id: postId }, { ultimabase })
-	return post.delete({ select: { title: true } }, { ultimabase })
+	const post = await Post.get({ id: postId })
+	return post.delete({ select: { title: true } })
 }
 ```
 

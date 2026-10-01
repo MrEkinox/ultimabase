@@ -19,14 +19,8 @@ export interface MinimalExampleModule {
 	readonly ExampleRole: object
 	readonly ExampleSoftDeleteEvent: object
 	readonly ExampleUser: object
-	readonly purgeArticle: (
-		application: MinimalApplication,
-		id: string,
-	) => Promise<unknown>
-	readonly restoreArticle: (
-		application: MinimalApplication,
-		id: string,
-	) => Promise<unknown>
+	readonly purgeArticle: (id: string) => Promise<unknown>
+	readonly restoreArticle: (id: string) => Promise<unknown>
 	readonly softDeleteArticle: (
 		application: MinimalApplication,
 		id: string,
@@ -37,10 +31,7 @@ export interface MinimalExampleModule {
 		id: string,
 		sessionToken: string,
 	) => Promise<unknown>
-	readonly softDeleteAuthor: (
-		application: MinimalApplication,
-		id: string,
-	) => Promise<unknown>
+	readonly softDeleteAuthor: (id: string) => Promise<unknown>
 	readonly createMinimalApplication: (options: {
 		readonly applicationId: string
 		readonly browserOrigin?: string

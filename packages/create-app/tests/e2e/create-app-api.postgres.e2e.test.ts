@@ -206,7 +206,7 @@ import { Task } from './src/schema.js'
 
 await ultimabase.start()
 try {
-  await Task.createOne({ data: { title: 'Direct GraphQL' } }, { ultimabase })
+  await Task.createOne({ data: { title: 'Direct GraphQL' } })
   const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
   const context = ultimabase.anonymous({ requestId: 'direct-graphql', source: 'internal' }).context
   const result = await graphql.execute({ context, document: '{ findManyTask(first: 10) { nodes { title } } }' })

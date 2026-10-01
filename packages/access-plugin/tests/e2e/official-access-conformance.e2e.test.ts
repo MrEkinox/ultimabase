@@ -31,34 +31,25 @@ describe('official Access capability conformance', () => {
 			const evidence = getOfficialAccessConformanceEvidence(document)
 			await fixture.ultimabase.start()
 
-			const rows = await document.findMany(undefined, {
-				ultimabase: fixture.ultimabase,
-			})
+			const rows = await document.findMany(undefined)
 			expect(rows).toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 			expect(evidence.database.requests.at(-1)?.rowFilter).toBeDefined()
+			await expect(document.count(undefined)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 			await expect(
-				document.count(undefined, { ultimabase: fixture.ultimabase }),
+				document.createOne({
+					data: { secret: 'forbidden', title: 'field-denied' },
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				document.createOne(
-					{ data: { secret: 'forbidden', title: 'field-denied' } },
-					{ ultimabase: fixture.ultimabase },
-				),
+				document.createOne({ data: { title: 'denied-item' } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				document.createOne(
-					{ data: { title: 'denied-item' } },
-					{ ultimabase: fixture.ultimabase },
-				),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-			await expect(
-				document.updateOne(
-					{
-						data: { title: 'denied-transition' },
-						where: { id: { eq: '019c0000-0000-7000-8000-000000000101' } },
-					},
-					{ ultimabase: fixture.ultimabase },
-				),
+				document.updateOne({
+					data: { title: 'denied-transition' },
+					where: { id: { eq: '019c0000-0000-7000-8000-000000000101' } },
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(evidence.database.rollbacks).toBeGreaterThan(0)
 
@@ -66,9 +57,7 @@ describe('official Access capability conformance', () => {
 			if (visible === undefined)
 				throw new TypeError('Visible row is unavailable')
 			await expect(
-				visible.relation('tags').findMany(undefined, {
-					ultimabase: fixture.ultimabase,
-				}),
+				visible.relation('tags').findMany(undefined),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 

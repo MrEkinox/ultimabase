@@ -114,8 +114,7 @@ it.each([
 		code: virtualFieldExample,
 		schema: 'Profile',
 		checks: `const profile = await Profile.get(
-  { id: 'example', select: { displayName: true } },
-  { ultimabase: app },
+  { id: 'example', select: { displayName: true } }
 )
 const name: string = profile.displayName
 // @ts-expect-error Private virtual dependencies are not selected result properties.
@@ -127,8 +126,7 @@ void name`,
 		code: validationFieldExample,
 		schema: 'ValidatedArticle',
 		checks: `const article = await ValidatedArticle.createOne(
-  { data: { title: 'A validated title' } },
-  { ultimabase: app },
+  { data: { title: 'A validated title' } }
 )
 const title: string = article.title
 // @ts-expect-error Validation must preserve the declared field type.

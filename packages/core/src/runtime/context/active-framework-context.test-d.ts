@@ -1,9 +1,12 @@
 import { expectTypeOf, test } from 'vitest'
-import type { OperationOptions } from '../../query/operations/options.js'
 import { getCurrentUltimaBase } from './current-ultima-base.js'
 
 import type { RequestEngine } from '../engine/framework-engine.js'
 import type { RequestContext } from './request-context.js'
+import type { UltimaBase } from '../application/ultima-base.js'
+import type { PluginDefinition } from '../../plugins/definition.js'
+import type { PluginSourceState } from '../../plugins/source-projections.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	getCurrentEngine,
 	getCurrentRequest,
@@ -16,7 +19,11 @@ test('exposes safe widened contextual types and exact callback results', () => {
 	expectTypeOf(getCurrentEngine()).toEqualTypeOf<RequestEngine>()
 	expectTypeOf(getCurrentRequest()).toEqualTypeOf<RequestContext>()
 	expectTypeOf(getCurrentUltimaBase()).toEqualTypeOf<
-		NonNullable<OperationOptions['ultimabase']>
+		UltimaBase<
+			readonly SchemaDefinition[],
+			readonly PluginDefinition[],
+			PluginSourceState
+		>
 	>()
 	expectTypeOf(
 		runWithRequestEngine(requestEngine, () => 'completed' as const),

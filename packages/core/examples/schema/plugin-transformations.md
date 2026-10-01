@@ -142,7 +142,7 @@ Plugin-owned schemas remain accessible through application-owned handles:
 
 ```ts
 const AuditEntry = ultimabase.schema('WorkflowAuditLog')
-const entry = await AuditEntry.findOne({ where: { id: entryId } })
+const entry = await AuditEntry.schema.findOne({ where: { id: entryId } })
 ```
 
 To add an item-oriented command, declare a `defineSchemaMutation` token and

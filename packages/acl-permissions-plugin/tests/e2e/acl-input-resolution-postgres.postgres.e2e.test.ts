@@ -96,14 +96,6 @@ let ultimabase:
 	| undefined
 let postId: string | undefined
 
-const getApplication = (): NonNullable<typeof ultimabase> => {
-	if (ultimabase === undefined) {
-		throw new TypeError('ACL input-resolution application is missing')
-	}
-
-	return ultimabase
-}
-
 const getFixture = (): NonNullable<typeof fixture> => {
 	if (fixture === undefined) {
 		throw new TypeError('ACL input-resolution PostgreSQL fixture is missing')
@@ -139,7 +131,7 @@ beforeAll(async () => {
 	await ultimabase.start()
 	const created = await ResolutionPost.createOne(
 		{ data: { acl: emptyACL, note: 'remove-me', title: 'current' } },
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 	postId = created.id
@@ -152,10 +144,9 @@ afterAll(async () => {
 
 describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 	it('exposes honest create and update candidates inside the mutation transaction', async () => {
-		const app = getApplication()
 		const id = getPostId()
 		const replacement = new ACL().grantPublic('read')
-		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+		const masterOptions = { useMasterKey: true } as const
 
 		expect(createResolution).toStrictEqual({
 			currentData: undefined,
@@ -238,9 +229,8 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('rolls back resolver failures and skips ordinary object updates', async () => {
-		const app = getApplication()
 		const id = getPostId()
-		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+		const masterOptions = { useMasterKey: true } as const
 		const countBeforeRollback = resolutionCount
 
 		await expect(

@@ -120,7 +120,7 @@ describe('configured UltimaBase factories', () => {
 			pluginPrivileges: { logger: false },
 			schemas: [Portable, Ancestor],
 		})
-		const legacyApplication = new (UltimaBase.use(first))({
+		const equivalentApplication = new (UltimaBase.use(first))({
 			pluginPrivileges: { logger: false },
 			schemas: [],
 		})
@@ -139,7 +139,7 @@ describe('configured UltimaBase factories', () => {
 		expect(bothApplication.ownsSchema(Portable)).toBe(true)
 		expect(bothApplication.ownsSchema(Ancestor)).toBe(true)
 		expect(bothApplication.ownsSchema(Detached)).toBe(false)
-		expect(legacyApplication.pluginPrivilegeReport).toStrictEqual(
+		expect(equivalentApplication.pluginPrivilegeReport).toStrictEqual(
 			firstApplication.pluginPrivilegeReport,
 		)
 		expect(portableApplication.pluginPrivilegeReport.plugins).toStrictEqual([])
@@ -147,7 +147,7 @@ describe('configured UltimaBase factories', () => {
 
 		await firstApplication.dispose()
 		await bothApplication.dispose()
-		await legacyApplication.dispose()
+		await equivalentApplication.dispose()
 		await portableApplication.dispose()
 	})
 

@@ -39,7 +39,6 @@ ties:
 
 ```ts title="src/post-page.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 const PAGE_SIZE = 25
 
@@ -54,15 +53,12 @@ export const readPostPage = (pageIndex: number) => {
 		throw new RangeError('pageIndex must produce a non-negative safe offset')
 	}
 
-	return Post.findMany(
-		{
-			limit: PAGE_SIZE,
-			offset,
-			orderBy: { createdAt: 'desc', id: 'asc' },
-			select: { createdAt: true, title: true },
-		},
-		{ ultimabase },
-	)
+	return Post.findMany({
+		limit: PAGE_SIZE,
+		offset,
+		orderBy: { createdAt: 'desc', id: 'asc' },
+		select: { createdAt: true, title: true },
+	})
 }
 ```
 

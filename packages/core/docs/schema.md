@@ -298,10 +298,7 @@ Runtime-materialized models expose independently queryable relations without
 adding a collection property:
 
 ```ts
-const user = await UserSchema.get(
-	{ id: userId, select: { name: true } },
-	{ ultimabase },
-)
+const user = await UserSchema.get({ id: userId, select: { name: true } })
 
 const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
@@ -373,10 +370,7 @@ behavior and output restrictions complete, Runtime converts neutral adapter reco
 exact registered class:
 
 ```ts
-const post = await PostSchema.findOne(
-	{ select: { id: true, title: true } },
-	{ ultimabase },
-)
+const post = await PostSchema.findOne({ select: { id: true, title: true } })
 
 if (post !== null) {
 	post instanceof PostSchema // true
@@ -401,25 +395,19 @@ helpers:
 import { increment } from '@ultimabase/core'
 
 const draft = new PostSchema({ title: 'Hello' })
-const created = await draft.create(
-	{ select: { id: true, title: true } },
-	{ ultimabase },
-)
+const created = await draft.create({ select: { id: true, title: true } })
 
-const imported = await new PostSchema({ title: 'Imported' }).upsert(
-	{
-		select: { id: true, title: true },
-		where: { slug: { eq: 'imported' } },
-		update: { imports: increment(1) },
-	},
-	{ ultimabase },
-)
+const imported = await new PostSchema({ title: 'Imported' }).upsert({
+	select: { id: true, title: true },
+	where: { slug: { eq: 'imported' } },
+	update: { imports: increment(1) },
+})
 
-const updated = await created.update(
-	{ data: { title: 'Updated' }, select: { id: true, title: true } },
-	{ ultimabase },
-)
-await updated.delete({ select: { id: true } }, { ultimabase })
+const updated = await created.update({
+	data: { title: 'Updated' },
+	select: { id: true, title: true },
+})
+await updated.delete({ select: { id: true } })
 ```
 
 `where` must build distinct non-null equalities matching `id`, one unique field,

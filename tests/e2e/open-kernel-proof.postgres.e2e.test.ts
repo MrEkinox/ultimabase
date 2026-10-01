@@ -115,23 +115,20 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 
 		try {
 			const amount = { scale: 2, units: '12345' } as const
-			const entry = await LedgerEntry.createOne(
-				{ data: { amount, label: 'invoice' } },
-				{ ultimabase },
-			)
+			const entry = await LedgerEntry.createOne({
+				data: { amount, label: 'invoice' },
+			})
 			expect(entry.toJSON()).toMatchObject({ amount, label: 'invoice' })
 			await expect(
-				LedgerEntry.createOne(
-					{ data: { amount: { scale: -1, units: 'broken' }, label: 'bad' } },
-					{ ultimabase },
-				),
+				LedgerEntry.createOne({
+					data: { amount: { scale: -1, units: 'broken' }, label: 'bad' },
+				}),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			// This Runtime-only fixture has no generated registry; the companion
 			// editor test verifies this exact query with generated WhereInput types.
-			const filtered = await LedgerEntry.findMany(
-				{ where: { amount: { eq: amount } } } as never,
-				{ ultimabase },
-			)
+			const filtered = await LedgerEntry.findMany({
+				where: { amount: { eq: amount } },
+			} as never)
 			expect(filtered.map(({ id }) => id)).toStrictEqual([entry.id])
 			const stored = await getFixture().pool.query<{
 				readonly amount: unknown
@@ -154,10 +151,9 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 				protocolVersion: 1,
 			})
 
-			const audit = await workflow.DynamicAudit.createOne(
-				{ data: { action: 'publish' } },
-				{ ultimabase },
-			)
+			const audit = await workflow.DynamicAudit.createOne({
+				data: { action: 'publish' },
+			})
 			expect(committed).toStrictEqual([
 				{ action: 'publish', auditId: audit.id },
 			])
@@ -175,40 +171,31 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			).rejects.toThrow('rollback event')
 			expect(committed).toHaveLength(1)
 			expect(
-				await workflow.DynamicAudit.count(
-					{ where: { action: { eq: 'rollback' } } },
-					{ ultimabase },
-				),
+				await workflow.DynamicAudit.count({
+					where: { action: { eq: 'rollback' } },
+				}),
 			).toBe(0)
 
-			const created = await SoftPost.createOne(
-				{ data: { title: 'Tombstone me' } },
-				{ ultimabase },
-			)
-			await SoftPost.deleteOne({ id: created.id }, { ultimabase })
+			const created = await SoftPost.createOne({
+				data: { title: 'Tombstone me' },
+			})
+			await SoftPost.deleteOne({ id: created.id })
 			expect(
-				await SoftPost.findOne(
-					{ where: { id: { eq: created.id } } },
-					{ ultimabase },
-				),
+				await SoftPost.findOne({ where: { id: { eq: created.id } } }),
 			).toBeNull()
 			expect(deleteTrace).toStrictEqual([`delete:${created.id}`])
 			expect(deleteTrace).not.toContain('update')
-			const retained = await SoftPost.createOne(
-				{ data: { title: 'Keep on rollback' } },
-				{ ultimabase },
-			)
+			const retained = await SoftPost.createOne({
+				data: { title: 'Keep on rollback' },
+			})
 
 			rejectDelete = true
-			await expect(
-				SoftPost.deleteOne({ id: retained.id }, { ultimabase }),
-			).rejects.toThrow('reject tombstone')
+			await expect(SoftPost.deleteOne({ id: retained.id })).rejects.toThrow(
+				'reject tombstone',
+			)
 			rejectDelete = false
 			expect(
-				await SoftPost.findOne(
-					{ where: { id: { eq: retained.id } } },
-					{ ultimabase },
-				),
+				await SoftPost.findOne({ where: { id: { eq: retained.id } } }),
 			).not.toBeNull()
 			const remaining = await getFixture().pool.query<{
 				readonly count: string

@@ -33,18 +33,15 @@ application, engine, adapter, authority, transaction, or lifecycle control.
 ## Canonical object reads
 
 ```ts
-const feed = await Post.findMany(
-	{
-		where: {
-			OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
-		},
-		select: { id: true, title: true, createdAt: true },
-		orderBy: { createdAt: 'desc' },
-		limit: 25,
-		offset: 50,
+const feed = await Post.findMany({
+	where: {
+		OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
 	},
-	{ ultimabase },
-)
+	select: { id: true, title: true, createdAt: true },
+	orderBy: { createdAt: 'desc' },
+	limit: 25,
+	offset: 50,
+})
 ```
 
 `limit` defines the maximum page size and `offset` skips a validated
@@ -104,7 +101,7 @@ Autocomplete exposes only operators supported by the selected field kind.
 same canonical filter contract:
 
 ```ts
-const post = await Post.get({ id: postId }, { ultimabase })
+const post = await Post.get({ id: postId })
 ```
 
 Pointer identity filters accept target object IDs directly. Target traversal
@@ -189,7 +186,7 @@ const feedInput = new QueryBuilder(Post)
 	.select({ id: true, title: true })
 	.use(recentPublished)
 	.build()
-const feed = await Post.findMany(feedInput, { ultimabase })
+const feed = await Post.findMany(feedInput)
 ```
 
 Repeated `where` calls combine through implicit `AND`. Object filters never
@@ -218,30 +215,21 @@ Relation cardinality ranges use the same object bounds under `count`.
 Generated schema classes own collection and target-based writes:
 
 ```ts
-const created = await Post.createOne(
-	{
-		data: { title: 'Created from a job' },
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const created = await Post.createOne({
+	data: { title: 'Created from a job' },
+	select: { id: true, title: true },
+})
 
-const updated = await Post.updateOne(
-	{
-		id: created.id,
-		data: { title: 'Updated' },
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const updated = await Post.updateOne({
+	id: created.id,
+	data: { title: 'Updated' },
+	select: { id: true, title: true },
+})
 
-const deleted = await Post.deleteOne(
-	{
-		id: created.id,
-		select: { id: true, title: true },
-	},
-	{ ultimabase },
-)
+const deleted = await Post.deleteOne({
+	id: created.id,
+	select: { id: true, title: true },
+})
 ```
 
 The write surface is:
@@ -413,11 +401,8 @@ const created = await Article.createOne({
 Outside an active scope, pass the exact started application:
 
 ```ts
-const articles = await Article.findMany(undefined, { ultimabase })
-const created = await Article.createOne(
-	{ data: { title: 'Root job' } },
-	{ ultimabase },
-)
+const articles = await Article.findMany(undefined)
+const created = await Article.createOne({ data: { title: 'Root job' } })
 ```
 
 An explicit plugin-derived context and audited master authority use the same
@@ -426,14 +411,12 @@ final options position:
 ```ts
 const scoped = await Article.findMany(undefined, {
 	context: contextCreatedByAPlugin,
-	ultimabase,
 })
 
 const imported = await Article.createMany(
 	{ data: rows },
 	{
 		context: contextCreatedByAPlugin,
-		ultimabase,
 		useMasterKey: true,
 	},
 )
@@ -452,13 +435,10 @@ automatic transaction. It resolves to an immutable array only when every item
 and pre-commit hook succeeds:
 
 ```ts
-const imported = await Account.createMany(
-	{
-		data: rows,
-		select: { id: true, email: true },
-	},
-	{ ultimabase },
-)
+const imported = await Account.createMany({
+	data: rows,
+	select: { id: true, email: true },
+})
 ```
 
 Update, upsert, and delete batches give every item its own exact unique
@@ -467,17 +447,14 @@ predicate. Their hook lifecycle receives the same singular operation shape as
 while an exposed `operation.kind` remains the exact `*-one` terminal.
 
 ```ts
-const imported = await Account.upsertMany(
-	{
-		data: rows.map((row) => ({
-			where: { email: { eq: row.email } },
-			create: row,
-			update: { displayName: row.displayName },
-		})),
-		select: { id: true, email: true },
-	},
-	{ ultimabase },
-)
+const imported = await Account.upsertMany({
+	data: rows.map((row) => ({
+		where: { email: { eq: row.email } },
+		create: row,
+		update: { displayName: row.displayName },
+	})),
+	select: { id: true, email: true },
+})
 ```
 
 The unique equality values seed the create candidate before installed behavior runs. A

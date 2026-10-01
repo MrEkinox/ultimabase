@@ -63,18 +63,17 @@ const ultimabase = new Application({
 const Editor = await new AppRole({
 	name: 'editor',
 	description: 'Content editors',
-}).create({}, { ultimabase, useMasterKey: true })
+}).create({}, { useMasterKey: true })
 const Administrator = await new AppRole({ name: 'administrator' }).create(
 	{},
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 const EditorById = AppRole.role({ id: Editor.id })
 
 await Editor.addMember(User.pointer(user.id), {
-	ultimabase,
 	useMasterKey: true,
 })
-await Administrator.addRole(Editor, { ultimabase, useMasterKey: true })
+await Administrator.addRole(Editor, { useMasterKey: true })
 ```
 
 `RoleSchema.define()` injects `name`, `members`, and `roles`. Role names are

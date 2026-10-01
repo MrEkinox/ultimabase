@@ -114,26 +114,22 @@ describe(
 			await ultimabase.start()
 
 			try {
-				const single = await SoftDeletePost.createOne(
-					{ data: { title: 'Single soft delete' } },
-					{ ultimabase },
-				)
-				const deleted = await SoftDeletePost.deleteOne(
-					{ id: single.id, select: { id: true, title: true } },
-					{ ultimabase },
-				)
+				const single = await SoftDeletePost.createOne({
+					data: { title: 'Single soft delete' },
+				})
+				const deleted = await SoftDeletePost.deleteOne({
+					id: single.id,
+					select: { id: true, title: true },
+				})
 
 				expect(deleted?.toJSON()).toStrictEqual({
 					id: single.id,
 					title: 'Single soft delete',
 				})
-				const stored = await SoftDeletePost.findOne(
-					{
-						select: { id: true, title: true },
-						where: { id: { eq: single.id } },
-					},
-					{ ultimabase },
-				)
+				const stored = await SoftDeletePost.findOne({
+					select: { id: true, title: true },
+					where: { id: { eq: single.id } },
+				})
 				expect(stored?.toJSON()).toStrictEqual({
 					id: single.id,
 					title: 'TOMBSTONED',
@@ -144,22 +140,19 @@ describe(
 					'after:delete-one:Single soft delete',
 				])
 
-				const first = await SoftDeletePost.createOne(
-					{ data: { title: 'First batch' } },
-					{ ultimabase },
-				)
-				const second = await SoftDeletePost.createOne(
-					{ data: { title: 'Second batch' } },
-					{ ultimabase },
-				)
+				const first = await SoftDeletePost.createOne({
+					data: { title: 'First batch' },
+				})
+				const second = await SoftDeletePost.createOne({
+					data: { title: 'Second batch' },
+				})
 				trace.length = 0
 				failBatch = true
 				batchBeforeCount = 0
 				await expect(
-					SoftDeletePost.deleteMany(
-						{ where: [{ id: { eq: first.id } }, { id: { eq: second.id } }] },
-						{ ultimabase },
-					),
+					SoftDeletePost.deleteMany({
+						where: [{ id: { eq: first.id } }, { id: { eq: second.id } }],
+					}),
 				).rejects.toThrow('fixture batch failure')
 				expect(trace).toStrictEqual([
 					'before:delete-one',
@@ -168,14 +161,8 @@ describe(
 					'before:delete-one',
 				])
 				const [firstAfter, secondAfter] = await Promise.all([
-					SoftDeletePost.findOne(
-						{ where: { id: { eq: first.id } } },
-						{ ultimabase },
-					),
-					SoftDeletePost.findOne(
-						{ where: { id: { eq: second.id } } },
-						{ ultimabase },
-					),
+					SoftDeletePost.findOne({ where: { id: { eq: first.id } } }),
+					SoftDeletePost.findOne({ where: { id: { eq: second.id } } }),
 				])
 				expect(firstAfter?.title).toBe('First batch')
 				expect(secondAfter?.title).toBe('Second batch')

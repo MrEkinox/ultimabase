@@ -196,7 +196,6 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 					viewerLabel: true,
 				},
 			},
-			{ ultimabase: app },
 		])
 		const directJson = readRecord(await modelJson(direct), 'direct result')
 		expect(directJson).toStrictEqual(
@@ -265,7 +264,6 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 				select: { name: true },
 				where: { name: { endsWith: 'virtual contributor' } },
 			},
-			{ ultimabase: app },
 		])
 		if (!Array.isArray(contributors)) {
 			throw new TypeError('Contributor query must return an array')
@@ -288,7 +286,6 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 				data: { slug, title: 'Context title' },
 				select: { id: true },
 			},
-			{ ultimabase: requireApplication() },
 		])
 		const articleId = readString(created, 'id')
 
@@ -374,7 +371,6 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 				})),
 				select: { id: true },
 			},
-			{ ultimabase: requireApplication() },
 		])
 
 		const rows = await invoke(minimal.ExampleArticle, 'findMany', [
@@ -384,7 +380,6 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 				select: { summary: true },
 				where: { slug: { startsWith: 'virtual-batch-' } },
 			},
-			{ ultimabase: requireApplication() },
 		])
 		if (!Array.isArray(rows))
 			throw new TypeError('Batch query must return an array')

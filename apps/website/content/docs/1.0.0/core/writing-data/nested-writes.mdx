@@ -32,32 +32,28 @@ for application setup.
 
 ```ts title="src/create-post-graph.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const createPostGraph = (existingCommentId: string) =>
-	Post.createOne(
-		{
-			data: {
-				author: {
-					create: {
-						displayName: 'Ada',
-						email: 'ada@example.com',
-					},
+	Post.createOne({
+		data: {
+			author: {
+				create: {
+					displayName: 'Ada',
+					email: 'ada@example.com',
 				},
-				comments: {
-					create: [{ body: 'First' }, { body: 'Second' }],
-					connect: [existingCommentId],
-				},
-				slug: 'nested-post',
-				title: 'Nested post',
 			},
-			include: {
-				author: { select: { displayName: true } },
-				comments: { select: { body: true } },
+			comments: {
+				create: [{ body: 'First' }, { body: 'Second' }],
+				connect: [existingCommentId],
 			},
+			slug: 'nested-post',
+			title: 'Nested post',
 		},
-		{ ultimabase },
-	)
+		include: {
+			author: { select: { displayName: true } },
+			comments: { select: { body: true } },
+		},
+	})
 ```
 
 `author.create` creates an author and stores its pointer on the post.
@@ -71,27 +67,23 @@ policy may omit some included targets.
 
 ```ts title="src/revise-post-graph.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const revisePostGraph = (
 	postId: string,
 	commentId: string,
 	oldCommentId: string,
 ) =>
-	Post.updateOne(
-		{
-			data: {
-				author: { update: { displayName: 'Ada Lovelace' } },
-				comments: {
-					create: [{ body: 'Third' }],
-					update: [{ data: { body: 'Edited' }, id: commentId }],
-					disconnect: [oldCommentId],
-				},
+	Post.updateOne({
+		data: {
+			author: { update: { displayName: 'Ada Lovelace' } },
+			comments: {
+				create: [{ body: 'Third' }],
+				update: [{ data: { body: 'Edited' }, id: commentId }],
+				disconnect: [oldCommentId],
 			},
-			id: postId,
 		},
-		{ ultimabase },
-	)
+		id: postId,
+	})
 ```
 
 `author.update` changes the currently linked, visible author; it needs no

@@ -74,7 +74,7 @@ for (const fixture of fixtures) {
 
 	try {
 		await ultimabase.start()
-		await Note.createOne({ data: { title: 'x' } }, { ultimabase })
+		await Note.createOne({ data: { title: 'x' } })
 		throw new Error(`${fixture.name} unexpectedly accepted invalid input`)
 	} catch (error) {
 		if (error?.code !== 'VALIDATION_ERROR') {

@@ -339,7 +339,7 @@ describe(
 				expect(stored.rows[0]?.tokenDigest).not.toContain(created.session.token)
 				const user = await PasswordUser.get(
 					{ id: created.principal.user.id },
-					{ ultimabase: application.ultimabase, useMasterKey: true },
+					{ useMasterKey: true },
 				)
 				await user.delete({}, { useMasterKey: true })
 				const auth = application.ultimabase.plugin(

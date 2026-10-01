@@ -249,7 +249,7 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		const editor = readObject(
 			await invoke(minimal.ExampleRole, 'createOne', [
 				{ data: { description: 'Can manage private notes', name: 'editor' } },
-				{ ultimabase: application, useMasterKey: true },
+				{ useMasterKey: true },
 			]),
 			'editor role',
 		)
@@ -259,7 +259,6 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		await invoke(editor, 'addMember', [
 			userPointer,
 			{
-				ultimabase: application,
 				useMasterKey: true,
 			},
 		])
@@ -402,7 +401,6 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 						title: 'Second application',
 					},
 				},
-				{ ultimabase: secondApplicationInstance },
 			]),
 			'second application article',
 		)
@@ -430,7 +428,6 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		await expect(
 			invoke(minimal.ExampleArticle, 'findOne', [
 				{ where: { id: { eq: isolatedArticleId } } },
-				{ ultimabase: secondApplicationInstance },
 			]),
 		).resolves.toBeNull()
 

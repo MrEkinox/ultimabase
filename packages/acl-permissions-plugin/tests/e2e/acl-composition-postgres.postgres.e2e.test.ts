@@ -130,14 +130,6 @@ let ultimabase:
 	  >
 	| undefined
 
-const getApplication = (): NonNullable<typeof ultimabase> => {
-	if (ultimabase === undefined) {
-		throw new TypeError('ACL composition application has not started')
-	}
-
-	return ultimabase
-}
-
 const request = (
 	requestId: string,
 	schema: 'a' | 'b',
@@ -181,22 +173,20 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('derives defaults from resolved input and the exact current principal', async () => {
-			const app = getApplication()
 			const alice = request('acl-composition-default', 'a')
 			const owned = await Document.createOne(
 				{ data: { secret: 'private', title: '  Owned  ' } },
-				{ context: alice, ultimabase: app },
+				{ context: alice },
 			)
-			const publicDocument = await Document.createOne(
-				{ data: { secret: 'public-secret', title: '  PUBLIC  ' } },
-				{ ultimabase: app },
-			)
+			const publicDocument = await Document.createOne({
+				data: { secret: 'public-secret', title: '  PUBLIC  ' },
+			})
 			const persisted = await Document.findOne(
 				{
 					where: { id: { eq: owned.id } },
 					select: { acl: true, title: true },
 				},
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			if (persisted === null) {
 				throw new TypeError(
@@ -223,15 +213,11 @@ describe(
 					.toJSON(),
 			)
 			await expect(
-				Document.exists(
-					{ where: { id: { eq: publicDocument.id } } },
-					{ ultimabase: app },
-				),
+				Document.exists({ where: { id: { eq: publicDocument.id } } }),
 			).resolves.toBe(true)
 		})
 
 		it('keeps schema-qualified principals distinct while intersecting every SQL scope', async () => {
-			const app = getApplication()
 			const alice = request('acl-composition-a', 'a')
 			const otherSchema = request('acl-composition-b', 'b')
 			await Document.createMany(
@@ -273,7 +259,7 @@ describe(
 						},
 					],
 				},
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
 			const visibleTitles = (context: RequestContext) =>
@@ -290,7 +276,7 @@ describe(
 						limit: 10,
 						select: { title: true },
 					},
-					{ context, ultimabase: app },
+					{ context },
 				).then((rows) => rows.map(({ title }) => title))
 
 			await expect(visibleTitles(alice)).resolves.toStrictEqual(['principal-a'])
@@ -300,26 +286,20 @@ describe(
 			await expect(
 				Document.exists(
 					{ where: { title: { eq: 'native-denied' } } },
-					{ context: alice, ultimabase: app },
+					{ context: alice },
 				),
 			).resolves.toBe(false)
 			await expect(
 				Document.count(
 					{ where: { title: { eq: 'hook-denied' } } },
-					{ context: alice, ultimabase: app },
+					{ context: alice },
 				),
 			).resolves.toBe(0)
 			await expect(
-				Document.findMany(
-					{ select: { secret: true } },
-					{ context: alice, ultimabase: app },
-				),
+				Document.findMany({ select: { secret: true } }, { context: alice }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				Document.findMany(
-					{ select: { acl: true } },
-					{ context: alice, ultimabase: app },
-				),
+				Document.findMany({ select: { acl: true } }, { context: alice }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

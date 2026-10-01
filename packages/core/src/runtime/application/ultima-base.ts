@@ -170,7 +170,7 @@ export class UltimaBase<
 		})
 		bindUltimaBaseKernel(this, this.#application)
 		this.#engineOptions = readEngineOptions(options)
-		this.#operationOwnerToken = registerQueryExecutionOwner(this, {
+		this.#operationOwnerToken = registerQueryExecutionOwner({
 			application: this.#application,
 			bindResult: (value, ownerToken) =>
 				this.#bindQueryResult(value, ownerToken),
@@ -391,7 +391,6 @@ export class UltimaBase<
 		let handle = this.#schemaHandles.get(className)
 		if (handle === undefined) {
 			const schemaHandle = new ApplicationSchemaHandleBase(
-				this,
 				this,
 				surface,
 				(command, schema, envelope, options) =>

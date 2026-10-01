@@ -84,13 +84,6 @@ const jsonRequest = (method: 'PATCH' | 'POST', path: string, body: unknown) =>
 		method,
 	})
 
-const getApplication = () => {
-	if (application === undefined) {
-		throw new TypeError('REST nested-write application is unavailable')
-	}
-	return application
-}
-
 const getContext = (mode: 'anonymous' | 'master'): RequestContext => {
 	const context = mode === 'master' ? master : anonymous
 	if (context === undefined) {
@@ -177,13 +170,12 @@ afterAll(async () => {
 
 describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 	it('executes every pointer and owning-relation command with root inclusion', async () => {
-		const app = getApplication()
 		const context = getContext('master')
 		const [first, second, removed] = await Target.createMany(
 			{
 				data: [{ name: 'First' }, { name: 'Second' }, { name: 'Removed' }],
 			},
-			{ context, ultimabase: app },
+			{ context },
 		)
 		if (first === undefined || second === undefined || removed === undefined) {
 			throw new TypeError('REST nested-write seed is incomplete')
@@ -286,18 +278,17 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 
 		const final = await Post.get(
 			{ id: postId, include: { primary: {}, targets: {} } },
-			{ context, ultimabase: app },
+			{ context },
 		)
 		expect(final.primary).toMatchObject({ name: 'Pointer replaced' })
 		expect(includedTargets(final.targets)).toEqual([])
 	})
 
 	it('retains child authorization under anonymous and audited Master contexts', async () => {
-		const app = getApplication()
 		const masterContext = getContext('master')
 		const target = await Target.createOne(
 			{ data: { name: 'Protected' } },
-			{ context: masterContext, ultimabase: app },
+			{ context: masterContext },
 		)
 		const post = await Post.createOne(
 			{
@@ -306,7 +297,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 					title: 'Authorization root',
 				},
 			},
-			{ context: masterContext, ultimabase: app },
+			{ context: masterContext },
 		)
 
 		await expect(
@@ -322,10 +313,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 			),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		expect(
-			await Post.get(
-				{ id: post.id },
-				{ context: masterContext, ultimabase: app },
-			),
+			await Post.get({ id: post.id }, { context: masterContext }),
 		).toMatchObject({
 			title: 'Authorization root',
 		})
@@ -340,23 +328,19 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		expect(
-			await Target.get(
-				{ id: target.id },
-				{ context: masterContext, ultimabase: app },
-			),
+			await Target.get({ id: target.id }, { context: masterContext }),
 		).toMatchObject({ name: 'Master change' })
 	})
 
 	it('rejects conflicts and Core limits before retaining partial work', async () => {
-		const app = getApplication()
 		const context = getContext('master')
 		const target = await Target.createOne(
 			{ data: { name: 'Conflict target' } },
-			{ context, ultimabase: app },
+			{ context },
 		)
 		const post = await Post.createOne(
 			{ data: { targets: { connect: [target.id] }, title: 'Stable' } },
-			{ context, ultimabase: app },
+			{ context },
 		)
 
 		for (const targets of [
@@ -377,9 +361,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		}
-		expect(
-			await Post.get({ id: post.id }, { context, ultimabase: app }),
-		).toMatchObject({
+		expect(await Post.get({ id: post.id }, { context })).toMatchObject({
 			title: 'Stable',
 		})
 
@@ -395,9 +377,9 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		expect(await Node.count({}, { context, ultimabase: app })).toBe(0)
+		expect(await Node.count({}, { context })).toBe(0)
 
-		const targetCount = await Target.count({}, { context, ultimabase: app })
+		const targetCount = await Target.count({}, { context })
 		await expect(
 			runAsRestMutationExecutionHarness(harness, (executor) =>
 				executeRestMutationRequest(executor, context, Post, {
@@ -413,9 +395,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 				}),
 			),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-		expect(await Target.count({}, { context, ultimabase: app })).toBe(
-			targetCount,
-		)
+		expect(await Target.count({}, { context })).toBe(targetCount)
 	})
 
 	it('keeps malformed identity and legacy pointer tags at the REST boundary', async () => {

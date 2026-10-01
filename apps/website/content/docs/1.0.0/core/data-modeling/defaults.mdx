@@ -49,12 +49,11 @@ persistence plugin, create a record with only its required input:
 
 ```ts title="src/publication-input.ts"
 import { Publication } from './publication.js'
-import { ultimabase } from './ultimabase.js'
 
 const draft = new Publication({ title: 'Release notes' })
 console.log(draft.toJSON())
 
-const created = await draft.create({}, { ultimabase })
+const created = await draft.create({})
 console.log(created.toJSON())
 ```
 

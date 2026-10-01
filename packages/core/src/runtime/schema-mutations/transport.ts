@@ -165,7 +165,6 @@ export class CoreApplicationSchemaMutationTransport<
 				envelope,
 				immutableRecord({
 					context: undefined,
-					ultimabase: undefined,
 					useMasterKey: false,
 				}),
 			)

@@ -37,18 +37,16 @@ convenient when the caller genuinely needs every other field:
 
 ```ts title="src/post-results.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 const cardFields = { createdAt: true, title: true } as const
 
-export const readPostCard = (id: string) =>
-	Post.get({ id, select: cardFields }, { ultimabase })
+export const readPostCard = (id: string) => Post.get({ id, select: cardFields })
 
 export const readPostsWithoutNotes = () =>
-	Post.findMany(
-		{ select: { internalNote: false }, where: { published: { eq: true } } },
-		{ ultimabase },
-	)
+	Post.findMany({
+		select: { internalNote: false },
+		where: { published: { eq: true } },
+	})
 ```
 
 The first call returns a model with `id`, `createdAt`, and `title` when the

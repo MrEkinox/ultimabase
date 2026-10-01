@@ -311,7 +311,7 @@ describe('REST read execution', () => {
 		)
 		const direct = await RecordSchema.findMany(
 			{ limit: 100, where },
-			{ context, ultimabase },
+			{ context },
 		)
 		const first = await runAsHarness(harness, (executor) =>
 			executeRestReadRequest(executor, context, RecordSchema, {

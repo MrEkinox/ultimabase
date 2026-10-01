@@ -104,14 +104,6 @@ let ultimabase:
 	  >
 	| undefined
 
-const getApplication = () => {
-	if (ultimabase === undefined) {
-		throw new TypeError('ACL event application has not started')
-	}
-
-	return ultimabase
-}
-
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
@@ -140,10 +132,7 @@ afterAll(async () => {
 describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	it('emits default ACL creation only after anonymous commit', async () => {
 		const start = committedChanges.length
-		const created = await Post.createOne(
-			{ data: { title: 'default' } },
-			{ ultimabase: getApplication() },
-		)
+		const created = await Post.createOne({ data: { title: 'default' } })
 		const [event] = committedChanges.slice(start)
 
 		expect(event).toStrictEqual({
@@ -167,7 +156,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 					title: 'updated',
 				},
 			},
-			{ ultimabase: getApplication(), useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		const createdACL = requireACLValue(
 			created.acl,
@@ -183,7 +172,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 				where: { id: { eq: created.id } },
 				data: { acl: replacement },
 			},
-			{ ultimabase: getApplication(), useMasterKey: true },
+			{ useMasterKey: true },
 		)
 
 		expect(committedChanges.slice(start)).toStrictEqual([
@@ -208,7 +197,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 				where: { id: { eq: created.id } },
 				data: { acl: ACL.fromJSON(replacement.toJSON()) },
 			},
-			{ ultimabase: getApplication(), useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		expect(committedChanges.slice(start)).toHaveLength(1)
 	})
@@ -216,7 +205,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	it('discards queued ACL events when a later developer hook rolls back', async () => {
 		const created = await Post.createOne(
 			{ data: { title: 'rollback' } },
-			{ ultimabase: getApplication(), useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		const createdACL = requireACLValue(
 			created.acl,
@@ -231,14 +220,14 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 					where: { id: { eq: created.id } },
 					data: { acl: createdACL.grantAuthenticated('update') },
 				},
-				{ ultimabase: getApplication(), useMasterKey: true },
+				{ useMasterKey: true },
 			),
 		).rejects.toThrow('ACL change event rollback fixture')
 		expect(committedChanges).toHaveLength(start)
 
 		const persisted = await Post.findOne(
 			{ where: { id: { eq: created.id } }, select: { acl: true } },
-			{ ultimabase: getApplication(), useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		const persistedACL = requireACLValue(
 			persisted?.acl,
@@ -250,10 +239,9 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 	it('emits one deterministic event per create-many item', async () => {
 		const start = committedChanges.length
-		const created = await Post.createMany(
-			{ data: [{ title: 'many-a' }, { title: 'many-b' }] },
-			{ ultimabase: getApplication() },
-		)
+		const created = await Post.createMany({
+			data: [{ title: 'many-a' }, { title: 'many-b' }],
+		})
 		const events = committedChanges.slice(start)
 
 		expect(events).toHaveLength(2)

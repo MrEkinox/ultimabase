@@ -176,7 +176,6 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('matches direct Runtime across CRUD, query, relationships, and bulk', async () => {
-			const application = requireApplication(firstApplication, 'first')
 			const minimal = requireExample()
 			const anonymous = minimal.createMinimalClient({
 				applicationId: firstAppId,
@@ -243,7 +242,7 @@ describe(
 
 			const article = await invoke(minimal.ExampleArticle, 'findOne', [
 				{ where: { id: { eq: articleId } } },
-				{ ultimabase: application, useMasterKey: true },
+				{ useMasterKey: true },
 			])
 			if (article === null)
 				throw new TypeError('Created REST article is missing')
@@ -254,7 +253,7 @@ describe(
 			)
 			await invoke(readObject(relation, 'contributors relation'), 'connect', [
 				authorId,
-				{ ultimabase: application, useMasterKey: true },
+				{ useMasterKey: true },
 			])
 
 			const queryInput = {
@@ -278,7 +277,6 @@ describe(
 			const queryBody = await responseJson(queryResponse)
 			const direct = await invoke(minimal.ExampleArticle, 'findMany', [
 				queryInput,
-				{ ultimabase: application },
 			])
 			if (!Array.isArray(direct)) {
 				throw new TypeError('Direct Runtime query must return an array')
@@ -448,7 +446,6 @@ describe(
 						},
 					},
 					{
-						ultimabase: requireApplication(firstApplication, 'first'),
 						useMasterKey: true,
 					},
 				]),

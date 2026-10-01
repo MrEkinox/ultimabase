@@ -327,9 +327,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		const bulkUpdated = readFixtureQuickInfo(
 			'bulkUpdated = await BulkAccountSchema',
 		)
-		const create = readFixtureQuickInfo(
-			'createOne(\n\t\t\t\t{ data: allFieldValues },',
-		)
+		const create = readFixtureQuickInfo('createOne({ data: allFieldValues })')
 
 		// Local fields come from source; generated declarations still own named relations.
 		for (const result of [created, selected, deleted, bulkUpdated]) {
@@ -355,8 +353,8 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 			'findMany(undefined, { useMasterKey: true })',
 		)
 		const deletion = readFixtureQuickInfo('deleteOne(')
-		const count = readFixtureQuickInfo('count(undefined, { ultimabase })')
-		const exists = readFixtureQuickInfo('exists(undefined, { ultimabase })')
+		const count = readFixtureQuickInfo('count(undefined)')
+		const exists = readFixtureQuickInfo('exists(undefined)')
 
 		// Selection inference retains the literal object needed by true/false projection.
 		expect(select.display).toContain('select<{')

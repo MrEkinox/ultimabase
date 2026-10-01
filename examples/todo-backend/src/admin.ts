@@ -1,8 +1,7 @@
-import { ultimabase } from './application.ts'
 import { Todo, TodoRole, TodoUser } from './schema.ts'
 import type { TodoUserCreateInput } from '../.ultimabase/schema.generated.js'
 
-const masterOptions = { ultimabase, useMasterKey: true } as const
+const masterOptions = { useMasterKey: true } as const
 
 /** Creates one application member through the same schema-owned mutation API. */
 export const createTodoUser = (data: TodoUserCreateInput) =>

@@ -287,10 +287,9 @@ const runCombinedComposition = async (): Promise<CompositionSnapshot> => {
 
 	try {
 		await ultimabase.start()
-		const result = await CombinedPost.findMany(
-			{ where: { title: { eq: 'developer-visible' } } },
-			{ ultimabase },
-		)
+		const result = await CombinedPost.findMany({
+			where: { title: { eq: 'developer-visible' } },
+		})
 		const request = adapter.requests[0]
 		const operation = request?.operation
 
@@ -357,11 +356,11 @@ describe('Access provider composition', () => {
 
 		try {
 			await ultimabase.start()
+			await expect(NativeDocument.findMany(undefined)).resolves.toEqual([
+				expect.not.objectContaining({ secret: 'hidden' }),
+			])
 			await expect(
-				NativeDocument.findMany(undefined, { ultimabase }),
-			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
-			await expect(
-				NativeDocument.findMany({ select: { secret: true } }, { ultimabase }),
+				NativeDocument.findMany({ select: { secret: true } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(1)
 		} finally {
@@ -404,9 +403,9 @@ describe('Access provider composition', () => {
 			expect(rolesOnly.state).toBe('started')
 			await rolesOnly.dispose()
 			await aclOnly.start()
-			await expect(
-				PublicACLPost.findMany(undefined, { ultimabase: aclOnly }),
-			).resolves.toEqual([expect.objectContaining({ title: 'public ACL' })])
+			await expect(PublicACLPost.findMany(undefined)).resolves.toEqual([
+				expect.objectContaining({ title: 'public ACL' }),
+			])
 			expect(aclOnly.state).toBe('started')
 			await aclOnly.dispose()
 			await composed.start()
@@ -429,9 +428,9 @@ describe('Access provider composition', () => {
 
 		try {
 			await ultimabase.start()
-			await expect(
-				PublicACLPost.findMany(undefined, { ultimabase }),
-			).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+			await expect(PublicACLPost.findMany(undefined)).rejects.toMatchObject({
+				code: 'INTERNAL_ERROR',
+			})
 			expect(adapter.requests).toHaveLength(0)
 		} finally {
 			await ultimabase.dispose()
@@ -467,9 +466,7 @@ describe('Access provider composition', () => {
 
 		try {
 			await readApplication.start()
-			await expect(
-				CombinedPost.findMany(undefined, { ultimabase: readApplication }),
-			).rejects.toMatchObject({
+			await expect(CombinedPost.findMany(undefined)).rejects.toMatchObject({
 				code: 'PLUGIN_CAPABILITY_MISSING',
 			} satisfies Partial<FrameworkError>)
 			expect(readAdapter.requests).toHaveLength(0)
@@ -478,10 +475,7 @@ describe('Access provider composition', () => {
 			await writeApplication.start()
 			roleAwareBusinessHooks = 0
 			await expect(
-				MissingRolePost.createOne(
-					{ data: { title: 'missing provider' } },
-					{ ultimabase: writeApplication },
-				),
+				MissingRolePost.createOne({ data: { title: 'missing provider' } }),
 			).rejects.toThrow(
 				'ACL role grants require a role resolver with current-role enumeration',
 			)
@@ -509,9 +503,9 @@ describe('Access provider composition', () => {
 
 		try {
 			await ultimabase.start()
-			await expect(
-				CombinedPost.findMany(undefined, { ultimabase }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(CombinedPost.findMany(undefined)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 			expect(adapter.requests).toHaveLength(0)
 		} finally {
 			await ultimabase.dispose()

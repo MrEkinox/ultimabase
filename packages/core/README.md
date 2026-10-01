@@ -445,7 +445,8 @@ dispatchers on the frozen class after application startup; each call still
 selects one application's compiled surface. `ultimabase.schema(nameOrClass)` resolves one
 cached handle from the final application graph. Stable classes preserve their
 ordinary package-owned methods, while configuration-dependent schemas remain
-available by runtime name in JavaScript:
+available by runtime name in JavaScript. Native CRUD runs on the schema class,
+including the class obtained from a dynamic handle's `.schema` property:
 
 ```ts
 const Posts = ultimabase.schema(PostSchema)
@@ -453,6 +454,7 @@ const AuditEntries = ultimabase.schema('WorkflowAuditEntry')
 
 Posts.schema === PostSchema
 AuditEntries.schema.className === 'WorkflowAuditEntry'
+await AuditEntries.schema.findMany()
 ```
 
 Custom operations are immutable namespaced SemVer tokens. Their input and

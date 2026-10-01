@@ -67,21 +67,17 @@ that setup.
 
 ```ts title="src/customer-values.ts"
 import { Customer } from './customer.js'
-import { ultimabase } from './ultimabase.js'
 
-const created = await Customer.createOne(
-	{
-		data: {
-			name: 'Ada',
-			shippingAddress: {
-				city: 'Paris',
-				countryCode: 'FR',
-				line1: '12 Rue Exemple',
-			},
+const created = await Customer.createOne({
+	data: {
+		name: 'Ada',
+		shippingAddress: {
+			city: 'Paris',
+			countryCode: 'FR',
+			line1: '12 Rue Exemple',
 		},
 	},
-	{ ultimabase },
-)
+})
 
 console.log(created.toJSON().shippingAddress)
 ```
@@ -103,21 +99,18 @@ entire list**: each supplied item must include its required children. There is
 no index-based patch of one list entry.
 
 ```ts title="src/customer-values.ts"
-const updated = await created.update(
-	{
-		data: {
-			shippingAddress: { line2: 'Suite 2' },
-			previousAddresses: [
-				{
-					city: 'Lyon',
-					countryCode: 'FR',
-					line1: '8 Rue Exemple',
-				},
-			],
-		},
+const updated = await created.update({
+	data: {
+		shippingAddress: { line2: 'Suite 2' },
+		previousAddresses: [
+			{
+				city: 'Lyon',
+				countryCode: 'FR',
+				line1: '8 Rue Exemple',
+			},
+		],
 	},
-	{ ultimabase },
-)
+})
 ```
 
 The patch keeps the existing `shippingAddress.city`, `countryCode`, and

@@ -538,9 +538,9 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 		])
 
 		hookTrace.length = 0
-		await expect(
-			HookArticleSchema.findMany(undefined, { ultimabase: getUltimaBase() }),
-		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(HookArticleSchema.findMany(undefined)).rejects.toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
 		expect(hookTrace).toContain('policy:guard:find-many')
 	})
 

@@ -1,12 +1,17 @@
-import type { OperationOptions } from '../../query/operations/options.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
+import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { UltimaBase } from '../application/ultima-base.js'
 import { readActiveApplicationOwner } from '../../application/active-application.js'
 import { FrameworkError } from '../../foundation.js'
 import { getActiveFrameworkContext } from './active-framework-storage.js'
 
-type ApplicationFacade = NonNullable<OperationOptions['ultimabase']>
+type ApplicationFacade = UltimaBase<
+	readonly SchemaDefinition[],
+	readonly PluginDefinition[],
+	PluginSourceState
+>
 type ApplicationKernel = FrameworkApplication<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]

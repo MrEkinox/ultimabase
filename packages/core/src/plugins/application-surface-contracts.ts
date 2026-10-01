@@ -42,7 +42,7 @@ export interface CompiledApplicationSchemaSurface extends CompiledSchemaSurfaceF
 }
 
 /** Names Core commands that plugin direct schema surfaces cannot shadow. */
-export const coreSchemaHandleCommandNames = [
+const coreSchemaCommandNames = [
 	'count',
 	'createMany',
 	'createOne',
@@ -62,7 +62,7 @@ const dangerousObjectNames = ['__proto__', 'constructor', 'prototype', 'then']
 
 /** @internal Protects schema handles and promise-like object behavior. */
 export const reservedSchemaHandleNames: ReadonlySet<string> = new Set([
-	...coreSchemaHandleCommandNames,
+	...coreSchemaCommandNames,
 	...dangerousObjectNames,
 	'for',
 	'schema',

@@ -44,10 +44,9 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		schemas: [LegacyArticle],
 	})
 	await legacy.start()
-	const created = await LegacyArticle.createOne(
-		{ data: { headline: 'Preserved headline' } },
-		{ ultimabase: legacy },
-	)
+	const created = await LegacyArticle.createOne({
+		data: { headline: 'Preserved headline' },
+	})
 	await legacy.dispose()
 
 	const RenamedApplication = UltimaBase.use(
@@ -73,10 +72,7 @@ it('preserves data while applying a direct field rename to an explicit table', a
 	await renamed.start()
 
 	try {
-		const article = await Article.findOne(
-			{ where: { id: { eq: created.id } } },
-			{ ultimabase: renamed },
-		)
+		const article = await Article.findOne({ where: { id: { eq: created.id } } })
 		const { rows } = await getFixture().pool.query<{
 			readonly column_name: string
 		}>(

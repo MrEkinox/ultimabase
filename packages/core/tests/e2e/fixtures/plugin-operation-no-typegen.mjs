@@ -185,8 +185,8 @@ export const directResult = await ultimabase
 	.execute({ message: 'direct' })
 const stableHandle = ultimabase.schema(StablePost)
 const dynamicHandle = ultimabase.schema('JavaScriptDynamicPost')
-const queriedPost = await stableHandle.findOne()
-// Native schema/model handles remain usable in JavaScript without generated types.
+const queriedPost = await StablePost.findOne()
+// Native schema commands and advanced model handles work without generated types.
 export const nativeResults = {
 	title: queriedPost.title,
 	dynamicSchema: dynamicHandle.schema.className,

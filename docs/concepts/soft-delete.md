@@ -47,7 +47,7 @@ schema handle and its persisted models:
 ```ts
 await ultimabase.schema(Post).softDelete({ id: postId })
 
-const post = await ultimabase.schema(Post).findOne({
+const post = await Post.findOne({
 	where: { id: { eq: postId } },
 })
 await post?.softDelete()

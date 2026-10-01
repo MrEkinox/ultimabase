@@ -160,21 +160,15 @@ describe(
 			await ultimabase.start()
 
 			try {
-				const owner = await Owner.createOne(
-					{ data: { name: 'Ada' } },
-					{ ultimabase },
-				)
+				const owner = await Owner.createOne({ data: { name: 'Ada' } })
 				const pointer = Owner.pointer(owner.id)
-				const created = await Item.createOne(
-					{
-						data: {
-							label: '  Pending Review  ',
-							owner: { connect: owner.id },
-							profile: { name: 'Ada' },
-						},
+				const created = await Item.createOne({
+					data: {
+						label: '  Pending Review  ',
+						owner: { connect: owner.id },
+						profile: { name: 'Ada' },
 					},
-					{ ultimabase },
-				)
+				})
 
 				expect(created).toMatchObject({ label: 'pending review', score: 1 })
 				expect(labelCalls).toStrictEqual(['pending review'])
@@ -182,33 +176,27 @@ describe(
 				expect(scoreCalls).toStrictEqual([1])
 
 				clearCalls()
-				const included = await Item.findOne(
-					{
-						where: { id: { eq: created.id } },
-						include: { owner: { select: { name: true } } },
-					},
-					{ ultimabase },
-				)
+				const included = await Item.findOne({
+					where: { id: { eq: created.id } },
+					include: { owner: { select: { name: true } } },
+				})
 
 				expect(included?.owner).toBeInstanceOf(Owner)
 				expect(labelCalls).toStrictEqual([])
 				expect(ownerCalls).toStrictEqual([])
 				expect(scoreCalls).toStrictEqual([])
 
-				const updated = await Item.updateOne(
-					{ id: created.id, data: { score: increment(1) } },
-					{ ultimabase },
-				)
+				const updated = await Item.updateOne({
+					id: created.id,
+					data: { score: increment(1) },
+				})
 
 				expect(updated?.score).toBe(2)
 				expect(scoreCalls).toStrictEqual([2])
 
 				clearCalls()
 				await expect(
-					Item.updateOne(
-						{ id: created.id, data: { score: increment(1) } },
-						{ ultimabase },
-					),
+					Item.updateOne({ id: created.id, data: { score: increment(1) } }),
 				).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 				expect(scoreCalls).toStrictEqual([3])
 
@@ -227,17 +215,14 @@ describe(
 				await expect(
 					Item.updateOne(
 						{ id: created.id, data: { label: '   ' } },
-						{ ultimabase, useMasterKey: true },
+						{ useMasterKey: true },
 					),
 				).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 				expect(labelCalls).toStrictEqual([''])
 
 				maximumScore = 0
 				clearCalls()
-				const legacy = await Item.findOne(
-					{ where: { id: { eq: created.id } } },
-					{ ultimabase },
-				)
+				const legacy = await Item.findOne({ where: { id: { eq: created.id } } })
 				expect(legacy?.label).toBe('pending review')
 				expect(legacy?.score).toBe(2)
 				expect(labelCalls).toStrictEqual([])
@@ -252,7 +237,7 @@ describe(
 					[created.id],
 				)
 				await expect(
-					Item.findOne({ where: { id: { eq: created.id } } }, { ultimabase }),
+					Item.findOne({ where: { id: { eq: created.id } } }),
 				).rejects.toBeInstanceOf(FrameworkError)
 				expect(labelCalls).toStrictEqual([])
 				expect(ownerCalls).toStrictEqual([])

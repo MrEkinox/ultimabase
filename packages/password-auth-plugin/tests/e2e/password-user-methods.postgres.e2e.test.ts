@@ -218,8 +218,8 @@ describe('Password User authentication methods', () => {
 			await ultimabase.dispose()
 		}
 		await expect(
-			User.login({ username: 'ada', password }, { ultimabase }),
-		).rejects.toThrow('started UltimaBase')
+			User.login({ username: 'ada', password }),
+		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
 	})
 
 	it('reads the current User, changes its password, and revokes account sessions', async () => {
@@ -227,20 +227,17 @@ describe('Password User authentication methods', () => {
 		const { ultimabase } = createApplication(User)
 		await ultimabase.start()
 		try {
-			const signedUp = await User.signUp(
-				{ username: 'account-security', password },
-				{ ultimabase },
-			)
-			const current = await User.login(
-				{ username: 'account-security', password },
-				{ ultimabase },
-			)
-			const other = await User.login(
-				{ username: 'account-security', password },
-				{ ultimabase },
-			)
+			const signedUp = await User.signUp({
+				username: 'account-security',
+				password,
+			})
+			const current = await User.login({
+				username: 'account-security',
+				password,
+			})
+			const other = await User.login({ username: 'account-security', password })
 			const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
-			await expect(User.current({ ultimabase })).rejects.toMatchObject({
+			await expect(User.current()).rejects.toMatchObject({
 				code: 'PASSWORD_AUTH_INVALID_SESSION',
 			})
 			await auth.runWithSession(current.session.token, async () => {
@@ -273,15 +270,12 @@ describe('Password User authentication methods', () => {
 				auth.runWithSession(current.session.token, () => 'current'),
 			).resolves.toBe('current')
 			await expect(
-				User.login({ username: 'account-security', password }, { ultimabase }),
+				User.login({ username: 'account-security', password }),
 			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_CREDENTIALS' })
-			const replacement = await User.login(
-				{
-					username: 'account-security',
-					password: 'replacement password value',
-				},
-				{ ultimabase },
-			)
+			const replacement = await User.login({
+				username: 'account-security',
+				password: 'replacement password value',
+			})
 			await auth.runWithSession(current.session.token, () =>
 				User.logoutEverywhere(),
 			)
@@ -299,24 +293,23 @@ describe('Password User authentication methods', () => {
 		const User = createUser()
 		const OtherUser = createUser()
 		const { ultimabase } = createApplication(User)
-		await ultimabase.start()
-		const other = new UltimaBase({ schemas: [] })
+		const { ultimabase: other } = createApplication(OtherUser)
 		try {
+			await ultimabase.start()
 			await expect(
-				OtherUser.signUp({ username: 'wrong-user', password }, { ultimabase }),
+				OtherUser.signUp({ username: 'wrong-user', password }),
 			).rejects.toThrow('not installed')
+			await ultimabase.dispose()
+			await other.start()
 			await runWithRequestEngine(
-				ultimabase.anonymous({
+				other.anonymous({
 					requestId: 'foreign',
 					source: 'internal',
 				}),
 				async () => {
 					await expect(
-						User.login(
-							{ username: 'wrong-user', password },
-							{ ultimabase: other },
-						),
-					).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+						User.login({ username: 'wrong-user', password }),
+					).rejects.toThrow('not installed')
 				},
 			)
 		} finally {
@@ -344,24 +337,24 @@ describe('Password User authentication methods', () => {
 				() => User.signUp({ username: 'same-name', password }),
 			)
 			expect(left.user.id).not.toBe(right.user.id)
-			await expect(
-				User.refresh(left.session.token, { ultimabase: second }),
-			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
+			await expect(User.refresh(left.session.token)).rejects.toMatchObject({
+				code: 'PASSWORD_AUTH_INVALID_SESSION',
+			})
 			await second.dispose()
 			first = createApplication(User).ultimabase
 			await first.start()
-			await expect(
-				User.logout(right.session.token, { ultimabase: first }),
-			).rejects.toMatchObject({ code: 'PASSWORD_AUTH_INVALID_SESSION' })
-			await expect(
-				User.refresh(left.session.token, { ultimabase: first }),
-			).resolves.toMatchObject({ user: { id: left.user.id } })
+			await expect(User.logout(right.session.token)).rejects.toMatchObject({
+				code: 'PASSWORD_AUTH_INVALID_SESSION',
+			})
+			await expect(User.refresh(left.session.token)).resolves.toMatchObject({
+				user: { id: left.user.id },
+			})
 			await first.dispose()
 			second = createApplication(User, database).ultimabase
 			await second.start()
-			await expect(
-				User.refresh(right.session.token, { ultimabase: second }),
-			).resolves.toMatchObject({ user: { id: right.user.id } })
+			await expect(User.refresh(right.session.token)).resolves.toMatchObject({
+				user: { id: right.user.id },
+			})
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])
 		}
@@ -370,28 +363,27 @@ describe('Password User authentication methods', () => {
 	it('preserves required profile rollback for signup, login, and refresh', async () => {
 		const User = createUser()
 		const app = createApplication(User)
-		const options = { ultimabase: app.ultimabase }
 		await app.ultimabase.start()
 		try {
 			const credentials = { username: 'rollback', password }
 			app.setReadable(false)
-			await expect(User.signUp(credentials, options)).rejects.toMatchObject({
+			await expect(User.signUp(credentials)).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 			})
 			app.setReadable(true)
-			const signedUp = await User.signUp(credentials, options)
+			const signedUp = await User.signUp(credentials)
 			app.setReadable(false)
-			await expect(User.login(credentials, options)).rejects.toMatchObject({
+			await expect(User.login(credentials)).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 			})
-			await expect(
-				User.refresh(signedUp.session.token, options),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(User.refresh(signedUp.session.token)).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			})
 			app.setReadable(true)
 			// A failed rotation leaves the original credential usable.
-			await expect(
-				User.refresh(signedUp.session.token, options),
-			).resolves.toMatchObject({ user: { id: signedUp.user.id } })
+			await expect(User.refresh(signedUp.session.token)).resolves.toMatchObject(
+				{ user: { id: signedUp.user.id } },
+			)
 		} finally {
 			await app.ultimabase.dispose()
 		}

@@ -166,7 +166,6 @@ describe(
 			const app = requireApplication()
 			await invoke(minimal.ExampleArticle, 'createOne', [
 				{ data: { slug: 'a-direct', title: '  Direct  ' } },
-				{ ultimabase: app },
 			])
 
 			const restCreated = await requireClient().fetch(articlePath, {
@@ -206,7 +205,6 @@ describe(
 					orderBy: { slug: 'asc' },
 					select: { slug: true, title: true },
 				},
-				{ ultimabase: app },
 			])
 			if (!Array.isArray(directRows)) {
 				throw new TypeError('Direct article query must return an array')

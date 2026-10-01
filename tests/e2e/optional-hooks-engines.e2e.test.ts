@@ -136,7 +136,7 @@ describe('optional Hooks engine proof', () => {
 		}).check('middleware', async ({ createUltimaBase }) => {
 			const { ultimabase, schemas } = createUltimaBase()
 			await ultimabase.start()
-			await schemas[0].findMany(undefined, { ultimabase })
+			await schemas[0].findMany(undefined)
 			expect(
 				ultimabase.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toStrictEqual([
@@ -189,7 +189,7 @@ describe('optional Hooks engine proof', () => {
 
 		try {
 			await first.start()
-			await Post.findMany(undefined, { ultimabase: first })
+			await Post.findMany(undefined)
 			expect(
 				first.plugin(alternativeBehaviorPluginId).diagnostics(),
 			).toHaveLength(1)
@@ -302,7 +302,7 @@ describe('optional Hooks engine proof', () => {
 
 		try {
 			await ultimabase.start()
-			await Plain.findMany(undefined, { ultimabase })
+			await Plain.findMany(undefined)
 			expect(trace).toStrictEqual(['SharedMiddlewareNoHooksPost'])
 			expect(
 				ultimabase.pluginPrivilegeReport.plugins.map(

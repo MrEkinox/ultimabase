@@ -262,10 +262,9 @@ import { ultimabase } from './ultimabase.js'
 try {
 	await ultimabase.start()
 
-	const task = await Task.createOne(
-		{ data: { title: 'Write the documentation' } },
-		{ ultimabase },
-	)
+	const task = await Task.createOne({
+		data: { title: 'Write the documentation' },
+	})
 
 	console.log(task.toJSON())
 } finally {

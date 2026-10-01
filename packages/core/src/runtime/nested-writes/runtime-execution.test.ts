@@ -115,15 +115,12 @@ describe('Runtime nested create and connect execution', () => {
 		})
 		await ultimabase.start()
 
-		const created = await Post.createOne(
-			{
-				data: {
-					author: { create: { name: 'Ada' } },
-					title: 'Nested',
-				},
+		const created = await Post.createOne({
+			data: {
+				author: { create: { name: 'Ada' } },
+				title: 'Nested',
 			},
-			{ ultimabase },
-		)
+		})
 
 		expect(created.id).toBe(rootId)
 		expect(generatedIds).toEqual([])
@@ -176,18 +173,15 @@ describe('Runtime nested create and connect execution', () => {
 		await ultimabase.start()
 
 		await expect(
-			Post.createOne(
-				{
-					data: {
-						tags: {
-							connect: [tagId],
-							create: [{ label: 'New' }],
-						},
-						title: 'Root',
+			Post.createOne({
+				data: {
+					tags: {
+						connect: [tagId],
+						create: [{ label: 'New' }],
 					},
+					title: 'Root',
 				},
-				{ ultimabase },
-			),
+			}),
 		).rejects.toBe(childFailure)
 
 		expect(
@@ -252,15 +246,12 @@ describe('Runtime nested create and connect execution', () => {
 		await ultimabase.start()
 
 		await expect(
-			Post.createOne(
-				{
-					data: {
-						author: { create: { name: 'Ada' } },
-						title: 'Redirected',
-					},
+			Post.createOne({
+				data: {
+					author: { create: { name: 'Ada' } },
+					title: 'Redirected',
 				},
-				{ ultimabase },
-			),
+			}),
 		).rejects.toThrow(
 			'Nested pointer resolution changed its graph target: NestedRuntimePost.author',
 		)

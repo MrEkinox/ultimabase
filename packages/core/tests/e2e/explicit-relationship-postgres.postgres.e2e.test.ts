@@ -120,58 +120,39 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('uses ordinary Query, hooks, Access, and composite uniqueness', async () => {
-			const app = getUltimaBase()
-			const member = await Member.createOne(
-				{ data: { name: 'Ada' } },
-				{ ultimabase: app },
-			)
-			const project = await Project.createOne(
-				{ data: { title: 'UltimaBase' } },
-				{ ultimabase: app },
-			)
-			const membership = await Membership.createOne(
-				{
-					data: {
-						internalNote: 'private edge data',
-						member: { connect: member.id },
-						project: { connect: project.id },
-						role: 'editor',
-					},
+			const member = await Member.createOne({ data: { name: 'Ada' } })
+			const project = await Project.createOne({ data: { title: 'UltimaBase' } })
+			const membership = await Membership.createOne({
+				data: {
+					internalNote: 'private edge data',
+					member: { connect: member.id },
+					project: { connect: project.id },
+					role: 'editor',
 				},
-				{ ultimabase: app },
-			)
+			})
 
 			expect(membershipTrace).toContain('created:editor')
 			expect(membership.toJSON()).not.toHaveProperty('internalNote')
 			expect(
-				await Membership.count(
-					{ where: { member: { eq: member.id } } },
-					{ ultimabase: app },
-				),
+				await Membership.count({ where: { member: { eq: member.id } } }),
 			).toBe(1)
 			expect(
-				await Membership.count(
-					{ where: { project: { eq: project.id } } },
-					{ ultimabase: app },
-				),
+				await Membership.count({ where: { project: { eq: project.id } } }),
 			).toBe(1)
 
-			const selected = await Membership.findOne(
-				{
-					where: { id: { eq: membership.id } },
-					include: {
-						project: { select: { id: true, title: true } },
-					},
-					select: {
-						id: true,
-						member: true,
-						position: true,
-						project: true,
-						role: true,
-					},
+			const selected = await Membership.findOne({
+				where: { id: { eq: membership.id } },
+				include: {
+					project: { select: { id: true, title: true } },
 				},
-				{ ultimabase: app },
-			)
+				select: {
+					id: true,
+					member: true,
+					position: true,
+					project: true,
+					role: true,
+				},
+			})
 
 			expect(selected?.toJSON()).toMatchObject({
 				id: membership.id,
@@ -181,75 +162,53 @@ describe(
 			})
 
 			await expect(
-				Membership.createOne(
-					{
-						data: {
-							member: { connect: member.id },
-							position: 1,
-							project: { connect: project.id },
-							role: 'viewer',
-						},
+				Membership.createOne({
+					data: {
+						member: { connect: member.id },
+						position: 1,
+						project: { connect: project.id },
+						role: 'viewer',
 					},
-					{ ultimabase: app },
-				),
+				}),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				internalDetails: { driverCode: '23505' },
 			})
 			await expect(
-				Membership.createOne(
-					{
-						data: {
-							member: { connect: member.id },
-							project: { connect: project.id },
-							role: 'viewer',
-						},
+				Membership.createOne({
+					data: {
+						member: { connect: member.id },
+						project: { connect: project.id },
+						role: 'viewer',
 					},
-					{ ultimabase: app },
-				),
+				}),
 			).rejects.toThrow('The first project member must be an editor')
 			await expect(
-				Membership.findMany(
-					{ select: { internalNote: true } },
-					{ ultimabase: app },
-				),
+				Membership.findMany({ select: { internalNote: true } }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
 		it('keeps edge writes atomic and applies pointer referential actions', async () => {
 			const app = getUltimaBase()
-			const member = await Member.createOne(
-				{ data: { name: 'Grace' } },
-				{ ultimabase: app },
-			)
-			const project = await Project.createOne(
-				{ data: { title: 'Cascade project' } },
-				{ ultimabase: app },
-			)
-			await Membership.createOne(
-				{
-					data: {
-						member: { connect: member.id },
-						project: { connect: project.id },
-						role: 'editor',
-					},
+			const member = await Member.createOne({ data: { name: 'Grace' } })
+			const project = await Project.createOne({
+				data: { title: 'Cascade project' },
+			})
+			await Membership.createOne({
+				data: {
+					member: { connect: member.id },
+					project: { connect: project.id },
+					role: 'editor',
 				},
-				{ ultimabase: app },
-			)
+			})
 
-			await member.delete({}, { ultimabase: app })
+			await member.delete({})
 			expect(
-				await Membership.count(
-					{ where: { project: { eq: project.id } } },
-					{ ultimabase: app },
-				),
+				await Membership.count({ where: { project: { eq: project.id } } }),
 			).toBe(0)
-			expect(
-				await Project.exists(
-					{ where: { id: { eq: project.id } } },
-					{ ultimabase: app },
-				),
-			).toBe(true)
+			expect(await Project.exists({ where: { id: { eq: project.id } } })).toBe(
+				true,
+			)
 
 			const request = app.anonymous({
 				requestId: 'explicit-relationship-rollback',
@@ -283,16 +242,12 @@ describe(
 
 			// The edge and both endpoints share the same explicit transaction boundary.
 			expect(
-				await Member.exists(
-					{ where: { name: { eq: 'Rolled back member' } } },
-					{ ultimabase: app },
-				),
+				await Member.exists({ where: { name: { eq: 'Rolled back member' } } }),
 			).toBe(false)
 			expect(
-				await Project.exists(
-					{ where: { title: { eq: 'Rolled back project' } } },
-					{ ultimabase: app },
-				),
+				await Project.exists({
+					where: { title: { eq: 'Rolled back project' } },
+				}),
 			).toBe(false)
 		})
 	},

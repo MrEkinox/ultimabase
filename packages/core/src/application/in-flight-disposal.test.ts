@@ -56,7 +56,7 @@ describe('disposal of framework-owned work', () => {
 		const result = Promise.withResolvers<readonly (typeof row)[]>()
 		const { app, adapter, trace } = createFixture(result.promise)
 		await app.start()
-		const reading = Post.findMany(undefined, { ultimabase: app })
+		const reading = Post.findMany(undefined)
 		await vi.waitFor(() => {
 			expect(adapter.rootRequests).toHaveLength(1)
 		})
@@ -64,7 +64,7 @@ describe('disposal of framework-owned work', () => {
 		try {
 			await Promise.resolve(undefined)
 			expect(trace).not.toContain('dispose')
-			expect(() => Post.findMany(undefined, { ultimabase: app })).toThrow(
+			expect(() => Post.findMany(undefined)).toThrow(
 				'initialized active application',
 			)
 			result.resolve([row])

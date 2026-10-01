@@ -47,32 +47,25 @@ accept `include`; upsert and delete batches do not.
 
 ```ts title="src/bulk-posts.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const createPostBatch = (
 	posts: readonly { readonly slug: string; readonly title: string }[],
 ) =>
-	Post.createMany(
-		{
-			data: posts.map(({ slug, title }) => ({ slug, title })),
-			select: { slug: true, title: true },
-		},
-		{ ultimabase },
-	)
+	Post.createMany({
+		data: posts.map(({ slug, title }) => ({ slug, title })),
+		select: { slug: true, title: true },
+	})
 
 export const renamePostBatch = (
 	updates: readonly { readonly id: string; readonly title: string }[],
 ) =>
-	Post.updateMany(
-		{
-			data: updates.map(({ id, title }) => ({
-				data: { title },
-				where: { id: { eq: id } },
-			})),
-			select: { title: true },
-		},
-		{ ultimabase },
-	)
+	Post.updateMany({
+		data: updates.map(({ id, title }) => ({
+			data: { title },
+			where: { id: { eq: id } },
+		})),
+		select: { title: true },
+	})
 ```
 
 `updateMany` entries and the `deleteMany` target list use `where`, even when
@@ -83,31 +76,24 @@ commands. Each `where` must identify one unique target, not a broad filter.
 
 ```ts title="src/bulk-import-and-delete.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const upsertPostBatch = (
 	posts: readonly { readonly slug: string; readonly title: string }[],
 ) =>
-	Post.upsertMany(
-		{
-			data: posts.map(({ slug, title }) => ({
-				where: { slug: { eq: slug } },
-				create: { slug, title },
-				update: { title },
-			})),
-			select: { slug: true, title: true },
-		},
-		{ ultimabase },
-	)
+	Post.upsertMany({
+		data: posts.map(({ slug, title }) => ({
+			where: { slug: { eq: slug } },
+			create: { slug, title },
+			update: { title },
+		})),
+		select: { slug: true, title: true },
+	})
 
 export const deletePostBatch = (postIds: readonly string[]) =>
-	Post.deleteMany(
-		{
-			where: postIds.map((id) => ({ id: { eq: id } })),
-			select: { slug: true, title: true },
-		},
-		{ ultimabase },
-	)
+	Post.deleteMany({
+		where: postIds.map((id) => ({ id: { eq: id } })),
+		select: { slug: true, title: true },
+	})
 ```
 
 Upsert entries create a missing unique target or update an existing one. By

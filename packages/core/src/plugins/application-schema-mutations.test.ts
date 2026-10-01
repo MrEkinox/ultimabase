@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
-import { bindApplicationSchemaModel } from '../application/application-model-views.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 
 import { plugin as createPlugin } from './plugin.js'
@@ -101,11 +100,6 @@ describe('application-owned schema mutations', () => {
 			updatedAt: '2026-09-10T00:00:00.000Z',
 			workflowState: 'published',
 		})
-		const boundModel = bindApplicationSchemaModel(schemaHandle, persisted)
-		expect('archive' in boundModel).toBe(true)
-		await expect(
-			(Reflect.get(boundModel, 'archive') as () => Promise<unknown>)(),
-		).rejects.toThrow('input must be a string')
 		const persistedHandle = schemaHandle.for(persisted)
 		expect('archive' in persistedHandle).toBe(true)
 		await expect(

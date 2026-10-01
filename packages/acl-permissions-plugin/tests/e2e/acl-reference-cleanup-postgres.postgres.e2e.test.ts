@@ -286,10 +286,9 @@ const getApplication = (): ACLReferenceApplication => {
 const readACL = async (
 	schema: typeof ProtectedPrimary | typeof ProtectedSecondary,
 	id: string,
-	ultimabase: ACLReferenceApplication,
 ): Promise<ACL> => {
 	const input = { where: { id: { eq: id } }, select: { acl: true } } as const
-	const options = { ultimabase, useMasterKey: true } as const
+	const options = { useMasterKey: true } as const
 	const row =
 		schema === ProtectedPrimary
 			? await ProtectedPrimary.findOne(input, options)
@@ -319,14 +318,13 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('lets principal owners enforce fail and preserve policies', async () => {
-			const ultimabase = getApplication()
 			const fail = await new FailPrincipal({ name: 'fail' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const preserve = await new PreservePrincipal({ name: 'preserve' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const failRow = await ProtectedPrimary.createOne(
 				{
@@ -338,7 +336,7 @@ describe(
 						title: 'principal-fail',
 					},
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const preserveRow = await ProtectedPrimary.createOne(
 				{
@@ -350,32 +348,31 @@ describe(
 						title: 'principal-preserve',
 					},
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
+			await expect(fail.delete({}, { useMasterKey: true })).rejects.toThrow(
+				'still has external references',
+			)
 			await expect(
-				fail.delete({}, { ultimabase, useMasterKey: true }),
-			).rejects.toThrow('still has external references')
-			await expect(
-				preserve.delete({}, { ultimabase, useMasterKey: true }),
+				preserve.delete({}, { useMasterKey: true }),
 			).resolves.toMatchObject({ id: preserve.id })
 			expect(
-				(
-					await readACL(ProtectedPrimary, failRow.id, ultimabase)
-				).permissionsForPrincipal(FailPrincipal.pointer(fail.id)),
+				(await readACL(ProtectedPrimary, failRow.id)).permissionsForPrincipal(
+					FailPrincipal.pointer(fail.id),
+				),
 			).toStrictEqual(['read'])
 			expect(
 				(
-					await readACL(ProtectedPrimary, preserveRow.id, ultimabase)
+					await readACL(ProtectedPrimary, preserveRow.id)
 				).permissionsForPrincipal(PreservePrincipal.pointer(preserve.id)),
 			).toStrictEqual(['read'])
 		})
 
 		it('rolls multi-schema principal cascade back before succeeding', async () => {
-			const ultimabase = getApplication()
 			const cascade = await new CascadePrincipal({ name: 'cascade' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const unrelated = FailPrincipal.pointer(
 				'0198a43e-2431-7000-8000-000000000090',
@@ -386,52 +383,41 @@ describe(
 				.grantPrincipal(unrelated, 'delete')
 			const primary = await ProtectedPrimary.createOne(
 				{ data: { acl: value, title: 'principal-cascade-primary' } },
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const secondary = await ProtectedSecondary.createOne(
 				{ data: { acl: value, title: 'principal-cascade-secondary' } },
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
-			await expect(cascade.delete({}, { ultimabase })).rejects.toThrow(
+			await expect(cascade.delete({})).rejects.toThrow(
 				'Cascade principal deletion requires master authority',
 			)
 			const changeStart = committedACLChanges.length
 			rejectNextSecondaryCleanup = true
-			await expect(
-				cascade.delete({}, { ultimabase, useMasterKey: true }),
-			).rejects.toThrow('ACL reference cleanup rollback fixture')
+			await expect(cascade.delete({}, { useMasterKey: true })).rejects.toThrow(
+				'ACL reference cleanup rollback fixture',
+			)
 			expect(committedACLChanges).toHaveLength(changeStart)
 			await expect(
-				CascadePrincipal.exists(
-					{ where: { id: { eq: cascade.id } } },
-					{ ultimabase },
-				),
+				CascadePrincipal.exists({ where: { id: { eq: cascade.id } } }),
 			).resolves.toBe(true)
 			expect(
-				(
-					await readACL(ProtectedPrimary, primary.id, ultimabase)
-				).permissionsForPrincipal(CascadePrincipal.pointer(cascade.id)),
+				(await readACL(ProtectedPrimary, primary.id)).permissionsForPrincipal(
+					CascadePrincipal.pointer(cascade.id),
+				),
 			).toStrictEqual(['read', 'update'])
 			expect(
 				(
-					await readACL(ProtectedSecondary, secondary.id, ultimabase)
+					await readACL(ProtectedSecondary, secondary.id)
 				).permissionsForPrincipal(CascadePrincipal.pointer(cascade.id)),
 			).toStrictEqual(['read', 'update'])
 
 			await expect(
-				cascade.delete({}, { ultimabase, useMasterKey: true }),
+				cascade.delete({}, { useMasterKey: true }),
 			).resolves.toMatchObject({ id: cascade.id })
-			const cleanedPrimary = await readACL(
-				ProtectedPrimary,
-				primary.id,
-				ultimabase,
-			)
-			const cleanedSecondary = await readACL(
-				ProtectedSecondary,
-				secondary.id,
-				ultimabase,
-			)
+			const cleanedPrimary = await readACL(ProtectedPrimary, primary.id)
+			const cleanedSecondary = await readACL(ProtectedSecondary, secondary.id)
 
 			expect(
 				cleanedPrimary.permissionsForPrincipal(
@@ -493,18 +479,17 @@ describe(
 		})
 
 		it('lets RoleSchema own fail, preserve, and cascade behavior', async () => {
-			const ultimabase = getApplication()
 			const fail = await new FailRole({ name: 'fail-role' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const preserve = await new PreserveRole({ name: 'preserve-role' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const cascade = await new CascadeRole({ name: 'cascade-role' }).create(
 				{},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const failReference = FailRole.role({ id: fail.id })
 			const preserveReference = PreserveRole.role({
@@ -520,7 +505,7 @@ describe(
 						title: 'role-fail',
 					},
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const preserveRow = await ProtectedPrimary.createOne(
 				{
@@ -529,7 +514,7 @@ describe(
 						title: 'role-preserve',
 					},
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const cascadeRow = await ProtectedPrimary.createOne(
 				{
@@ -541,30 +526,30 @@ describe(
 						title: 'role-cascade',
 					},
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
 			await expect(
-				fail.delete({}, { ultimabase, useMasterKey: true }),
+				fail.delete({}, { useMasterKey: true }),
 			).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
 			await expect(
-				preserve.delete({}, { ultimabase, useMasterKey: true }),
+				preserve.delete({}, { useMasterKey: true }),
 			).resolves.toMatchObject({ id: preserve.id })
 			const changeStart = committedACLChanges.length
 			await expect(
-				cascade.delete({}, { ultimabase, useMasterKey: true }),
+				cascade.delete({}, { useMasterKey: true }),
 			).resolves.toMatchObject({ id: cascade.id })
 			expect(
-				(
-					await readACL(ProtectedPrimary, failRow.id, ultimabase)
-				).permissionsForRole(failReference),
+				(await readACL(ProtectedPrimary, failRow.id)).permissionsForRole(
+					failReference,
+				),
 			).toStrictEqual(['read'])
 			expect(
-				(
-					await readACL(ProtectedPrimary, preserveRow.id, ultimabase)
-				).permissionsForRole(preserveReference),
+				(await readACL(ProtectedPrimary, preserveRow.id)).permissionsForRole(
+					preserveReference,
+				),
 			).toStrictEqual(['read'])
-			const cleaned = await readACL(ProtectedPrimary, cascadeRow.id, ultimabase)
+			const cleaned = await readACL(ProtectedPrimary, cascadeRow.id)
 
 			expect(cleaned.permissionsForRole(cascadeReference)).toStrictEqual([])
 			expect(cleaned.permissionsForRole(failReference)).toStrictEqual([
@@ -604,7 +589,7 @@ describe(
 			try {
 				const principal = await new CascadePrincipal({
 					name: 'isolated',
-				}).create({}, { ultimabase: first, useMasterKey: true })
+				}).create({}, { useMasterKey: true })
 				const pointer = CascadePrincipal.pointer(principal.id)
 				const firstRow = await ProtectedPrimary.createOne(
 					{
@@ -613,7 +598,7 @@ describe(
 							title: 'first-application',
 						},
 					},
-					{ ultimabase: first, useMasterKey: true },
+					{ useMasterKey: true },
 				)
 				await first.dispose()
 				await second.start()
@@ -624,7 +609,7 @@ describe(
 							title: 'second-application',
 						},
 					},
-					{ ultimabase: second, useMasterKey: true },
+					{ useMasterKey: true },
 				)
 
 				await second.dispose()
@@ -632,15 +617,12 @@ describe(
 				await first.start()
 				const freshPrincipal = await CascadePrincipal.get(
 					{ id: principal.id },
-					{ ultimabase: first, useMasterKey: true },
+					{ useMasterKey: true },
 				)
-				await freshPrincipal.delete(
-					{},
-					{ ultimabase: first, useMasterKey: true },
-				)
+				await freshPrincipal.delete({}, { useMasterKey: true })
 				expect(
 					(
-						await readACL(ProtectedPrimary, firstRow.id, first)
+						await readACL(ProtectedPrimary, firstRow.id)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual([])
 				await first.dispose()
@@ -648,7 +630,7 @@ describe(
 				await second.start()
 				expect(
 					(
-						await readACL(ProtectedPrimary, secondRow.id, second)
+						await readACL(ProtectedPrimary, secondRow.id)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual(['read'])
 			} finally {

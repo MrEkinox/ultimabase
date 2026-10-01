@@ -165,10 +165,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const account = await new Account({ name: 'cascade' }).create(
-				{},
-				{ ultimabase },
-			)
+			const account = await new Account({ name: 'cascade' }).create({})
 			accountId = account.id
 			expect(
 				await ultimabase
@@ -190,7 +187,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			])
 			expect(race.sort()).toStrictEqual(['2', 'conflict'])
 
-			await account.delete({}, { ultimabase })
+			await account.delete({})
 			expect(
 				await ultimabase
 					.operation(sessionOperation)
@@ -201,10 +198,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				ultimabase.operation(atomicOperation).execute({ action: 'rollback' }),
 			).rejects.toThrow('handler failed')
 			expect(
-				await Account.findOne(
-					{ where: { name: { eq: 'rolled-back' } } },
-					{ ultimabase },
-				),
+				await Account.findOne({ where: { name: { eq: 'rolled-back' } } }),
 			).toBeNull()
 			expect(
 				await ultimabase

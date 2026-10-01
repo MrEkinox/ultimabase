@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../query/query.js'
 
 import {
-	executeOperationBatch,
 	executeStaticSchemaMutation,
 	normalizeOperationOptions,
-	registerQueryExecutionOwner,
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
 } from './execution.js'
@@ -89,67 +87,35 @@ describe('contextual operation execution', () => {
 		expect('engine' in reusable).toBe(false)
 	})
 
-	it('rejects one foreign explicit owner across every ambient dispatch path', async () => {
-		const activeApplication = {}
-		const foreignApplication = {}
-		const foreignOwner = {}
+	it('rejects the removed application selector before dispatch', async () => {
+		const removedOptions = { ultimabase: {} } as never
 		const active = new RecordingDispatcher(new Error('unused execution'))
 
-		registerQueryExecutionOwner(foreignOwner, {
-			application: foreignApplication,
-			bindResult: (value) => value,
-			createRootExecutor: () => active,
-			executeModelSchemaMutation: () => Promise.resolve(undefined),
-			executeSchemaMutation: () => Promise.resolve(undefined),
-		})
-		const publicOptions = {
-			ultimabase: foreignOwner as never,
-		} as const
-		const options = normalizeOperationOptions(publicOptions)
-		const assertOwnershipConflict = (callback: () => unknown): void => {
-			expect(callback).toThrow(
-				expect.objectContaining({
-					code: 'VALIDATION_ERROR',
-					message:
-						'Explicit query ownership cannot replace the active application.',
-				}),
+		await runWithQueryExecution({}, active, async () => {
+			expect(() => PostSchema.findMany(undefined, removedOptions)).toThrow(
+				'operation options contain unknown key: ultimabase',
 			)
-		}
-
-		await runWithQueryExecution(activeApplication, active, async () => {
-			assertOwnershipConflict(() =>
-				PostSchema.findMany(undefined, publicOptions),
-			)
-			assertOwnershipConflict(() => executeOperationBatch([], options))
 			await expect(
 				executeStaticSchemaMutation(
 					PostSchema,
 					'fixture.command',
 					{},
-					publicOptions,
+					removedOptions,
 				),
-			).rejects.toEqual(
-				expect.objectContaining({
-					code: 'VALIDATION_ERROR',
-					message:
-						'Explicit query ownership cannot replace the active application.',
-				}),
-			)
+			).rejects.toThrow('operation options contain unknown key: ultimabase')
 		})
+		expect(active.operations).toHaveLength(0)
 	})
 
-	it('normalizes operation ownership without entering the AST', () => {
+	it('normalizes operation authority without entering the AST', () => {
 		const context = {}
-		const owner = {}
 		const terminal = normalizeOperationOptions({
 			context: context as never,
-			ultimabase: owner as never,
 			useMasterKey: true,
 		})
 
 		expect(terminal).toStrictEqual({
 			context,
-			ultimabase: owner,
 			useMasterKey: true,
 		})
 		expect(Object.isFrozen(terminal)).toBe(true)

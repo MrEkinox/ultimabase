@@ -132,9 +132,6 @@ const requireFixture = <TValue>(
 	return value
 }
 
-const getApplication = (): NonNullable<typeof ultimabase> =>
-	requireFixture(ultimabase, 'application')
-
 const aliceRequest = (requestId: string): RequestContext =>
 	RequestContext.anonymous({
 		requestId,
@@ -159,11 +156,10 @@ beforeAll(async () => {
 		schemas: [Member, Author, Tag, Article],
 	})
 	await ultimabase.start()
-	const app = getApplication()
 
 	alice = await Member.createOne(
 		{ data: { name: 'Alice' } },
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	const alicePointer = Member.pointer(alice.id)
 	const readACL = new ACL().grantPrincipal(alicePointer, 'read')
@@ -176,7 +172,7 @@ beforeAll(async () => {
 				{ acl: emptyACL, name: 'Hidden author' },
 			],
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	;[visibleTag, hiddenTag] = await Tag.createMany(
 		{
@@ -185,7 +181,7 @@ beforeAll(async () => {
 				{ acl: emptyACL, label: 'hidden' },
 			],
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	;[visibleArticle, , hiddenArticle] = await Article.createMany(
 		{
@@ -209,7 +205,7 @@ beforeAll(async () => {
 				},
 			],
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 	await requireFixture(visibleArticle, 'visible article')
@@ -219,7 +215,7 @@ beforeAll(async () => {
 				requireFixture(visibleTag, 'visible tag').id,
 				requireFixture(hiddenTag, 'hidden tag').id,
 			],
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 }, 30_000)
 
@@ -233,14 +229,13 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('uses target ACL constraints for pointer queries and inclusion', async () => {
-			const app = getApplication()
 			const context = aliceRequest('acl-relationships-pointers')
 			const rows = await Article.findMany(
 				{
 					orderBy: { title: 'asc' },
 					include: { author: { select: { name: true } } },
 				},
-				{ context, ultimabase: app },
+				{ context },
 			)
 
 			expect(rows.map(({ title }) => title)).toStrictEqual([
@@ -259,11 +254,11 @@ describe(
 			await expect(
 				Author.pointer(
 					requireFixture(hiddenAuthor, 'hidden author').id,
-				).findOne(undefined, { context, ultimabase: app }),
+				).findOne(undefined, { context }),
 			).resolves.toBeNull()
 			const protectedInclusion = await Article.findMany(
 				{ include: { author: { select: { acl: true } } } },
-				{ context, ultimabase: app },
+				{ context },
 			)
 
 			// A forbidden target projection is indistinguishable from a missing pointer.
@@ -271,43 +266,31 @@ describe(
 				true,
 			)
 			await expect(
-				Article.findMany(
-					{ select: { acl: true } },
-					{ context, ultimabase: app },
-				),
+				Article.findMany({ select: { acl: true } }, { context }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
 		it('keeps relation reads and mutations inside source and target ACLs', async () => {
-			const app = getApplication()
 			const context = aliceRequest('acl-relationships-relations')
 			const article = requireFixture(visibleArticle, 'visible article')
 			const tags = article.relation('tags')
 
 			await expect(
-				tags.findMany(
-					{ limit: 10, select: { label: true } },
-					{ context, ultimabase: app },
-				),
+				tags.findMany({ limit: 10, select: { label: true } }, { context }),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
-			await expect(tags.count({}, { context, ultimabase: app })).resolves.toBe(
-				1,
-			)
-			await expect(tags.exists({}, { context, ultimabase: app })).resolves.toBe(
-				true,
-			)
+			await expect(tags.count({}, { context })).resolves.toBe(1)
+			await expect(tags.exists({}, { context })).resolves.toBe(true)
 			await expect(
-				tags.findMany({ select: { acl: true } }, { context, ultimabase: app }),
+				tags.findMany({ select: { acl: true } }, { context }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				requireFixture(hiddenArticle, 'hidden article')
 					.relation('tags')
-					.findMany(undefined, { context, ultimabase: app }),
+					.findMany(undefined, { context }),
 			).resolves.toStrictEqual([])
 			await expect(
 				tags.connect(requireFixture(hiddenTag, 'hidden tag').id, {
 					context,
-					ultimabase: app,
 				}),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})

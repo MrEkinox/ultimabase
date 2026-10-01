@@ -81,15 +81,12 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 						},
 					],
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
-			const anonymous = await Document.findMany(
-				{ orderBy: { title: 'asc' } },
-				{ ultimabase },
-			)
+			const anonymous = await Document.findMany({ orderBy: { title: 'asc' } })
 			const master = await Document.findMany(
 				{ orderBy: { title: 'asc' } },
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
 			expect(anonymous).toHaveLength(1)

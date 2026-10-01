@@ -207,13 +207,6 @@ let application: ReturnType<typeof createApplication> | undefined
 let anonymous: RequestContext | undefined
 let master: RequestContext | undefined
 
-const getApplication = (): ReturnType<typeof createApplication> => {
-	if (application === undefined) {
-		throw new TypeError('REST mutation application is unavailable')
-	}
-	return application
-}
-
 const getAnonymous = (): RequestContext => {
 	if (anonymous === undefined) {
 		throw new TypeError('REST mutation anonymous context is unavailable')
@@ -257,7 +250,6 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('matches direct create, update, upsert, and delete commands', async () => {
-			const app = getApplication()
 			const context = getAnonymous()
 			const restCreated = await runAsHarness(harness, (executor) =>
 				executeRestMutationRequest(executor, context, MutationPost, {
@@ -273,7 +265,7 @@ describe(
 					data: { slug: 'direct-one', title: 'Direct one' },
 					select: { counter: true, id: true, slug: true, title: true },
 				},
-				{ context, ultimabase: app },
+				{ context },
 			)
 			expect(toJson(restCreated)).toMatchObject({
 				counter: 0,
@@ -304,7 +296,7 @@ describe(
 					id: directCreated.id,
 					select: { counter: true, id: true, slug: true, title: true },
 				},
-				{ context, ultimabase: app },
+				{ context },
 			)
 			expect(restUpdated === null ? null : toJson(restUpdated)).toMatchObject({
 				counter: 2,
@@ -406,7 +398,7 @@ describe(
 					select: { counter: true, slug: true },
 					where: { id: { in: ids } },
 				},
-				{ context, ultimabase: getApplication() },
+				{ context },
 			)
 			expect(
 				afterRollback.map(({ counter, slug }) => ({ counter, slug })),
@@ -478,12 +470,11 @@ describe(
 		})
 
 		it('preserves ACL denial, Master bypass, hooks, validation, and cancellation', async () => {
-			const app = getApplication()
 			const privatePost = await MutationPost.createOne(
 				{
 					data: { acl: privateAcl, slug: 'private', title: 'Private post' },
 				},
-				{ context: getMaster(), ultimabase: app },
+				{ context: getMaster() },
 			)
 			const anonymousUpdate = (): Promise<object | null> =>
 				runAsHarness(harness, (executor) =>
@@ -556,7 +547,7 @@ describe(
 			await expect(
 				MutationPost.findOne(
 					{ where: { slug: { eq: 'cancelled' } } },
-					{ context: getMaster(), ultimabase: app },
+					{ context: getMaster() },
 				),
 			).resolves.toBeNull()
 		})
@@ -583,7 +574,7 @@ describe(
 			await expect(
 				MutationPost.findOne(
 					{ where: { slug: { eq: 'deadline' } } },
-					{ context: getMaster(), ultimabase: getApplication() },
+					{ context: getMaster() },
 				),
 			).resolves.toBeNull()
 		})

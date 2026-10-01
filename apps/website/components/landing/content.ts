@@ -16,8 +16,7 @@ export const readExample = `const articles = await Article.findMany(
     orderBy: { title: 'asc', id: 'asc' },
     limit: 3,
     offset: 0,
-  },
-  { ultimabase: app },
+  }
 )`
 
 export const writeExample = `const article = await Article.createOne(
@@ -26,8 +25,7 @@ export const writeExample = `const article = await Article.createOne(
       title: 'Hello, world',
       published: true,
     },
-  },
-  { ultimabase: app },
+  }
 )`
 
 export const applicationExample = `import { UltimaBase } from '@ultimabase/core'

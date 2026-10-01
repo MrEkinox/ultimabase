@@ -177,7 +177,7 @@ describe('aclPlugin prepared input resolution', () => {
 			schemas: [ProtectedPost],
 		})
 		const replacement = new ACL().grantPublic('read')
-		const masterOptions = { ultimabase, useMasterKey: true } as const
+		const masterOptions = { useMasterKey: true } as const
 
 		try {
 			await ultimabase.start()
@@ -234,17 +234,14 @@ describe('aclPlugin prepared input resolution', () => {
 			}
 
 			await expect(
-				ProtectedPost.updateMany(
-					{
-						data: [
-							{
-								where: { id: { eq: updateTarget } },
-								data: { acl: replacement },
-							},
-						],
-					},
-					{ ultimabase },
-				),
+				ProtectedPost.updateMany({
+					data: [
+						{
+							where: { id: { eq: updateTarget } },
+							data: { acl: replacement },
+						},
+					],
+				}),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 			} satisfies Partial<FrameworkError>)

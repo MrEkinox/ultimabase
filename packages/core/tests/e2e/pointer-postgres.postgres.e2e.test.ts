@@ -256,45 +256,32 @@ afterAll(async () => {
 
 describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	it('honors explicit id ordering on an eager bounded page', async () => {
-		const app = getUltimaBase()
-		const author = await User.createOne(
-			{ data: { name: 'Cursor author' } },
-			{ ultimabase: app },
-		)
+		const author = await User.createOne({ data: { name: 'Cursor author' } })
 		const higherId = '0198a43e-2431-7000-8000-00000000f002'
 		const lowerId = '0198a43e-2431-7000-8000-00000000f001'
 
 		queuedPointerIds.push(higherId)
-		await Post.createOne(
-			{
-				data: {
-					author: { connect: author.id },
-					title: 'Cursor order fixture',
-				},
+		await Post.createOne({
+			data: {
+				author: { connect: author.id },
+				title: 'Cursor order fixture',
 			},
-			{ ultimabase: app },
-		)
+		})
 		queuedPointerIds.push(lowerId)
-		await Post.createOne(
-			{
-				data: {
-					author: { connect: author.id },
-					title: 'Cursor order fixture',
-				},
+		await Post.createOne({
+			data: {
+				author: { connect: author.id },
+				title: 'Cursor order fixture',
 			},
-			{ ultimabase: app },
-		)
+		})
 
-		const page = await Post.findMany(
-			{
-				where: { title: { eq: 'Cursor order fixture' } },
-				select: { id: true },
-				include: { author: { select: { name: true } } },
-				limit: 2,
-				orderBy: { id: 'asc' },
-			},
-			{ ultimabase: app },
-		)
+		const page = await Post.findMany({
+			where: { title: { eq: 'Cursor order fixture' } },
+			select: { id: true },
+			include: { author: { select: { name: true } } },
+			limit: 2,
+			orderBy: { id: 'asc' },
+		})
 
 		expect(page.map(({ id }) => id)).toStrictEqual([lowerId, higherId])
 		expect(
@@ -305,22 +292,15 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('executes public CRUD, model commands, selection-aware inclusion, and hooks', async () => {
-		const app = getUltimaBase()
 		pointerTrace.length = 0
-		const firstAuthor = await User.createOne(
-			{ data: { name: 'Ada' } },
-			{ ultimabase: app },
-		)
-		const secondAuthor = await User.createOne(
-			{ data: { name: 'Grace' } },
-			{ ultimabase: app },
-		)
+		const firstAuthor = await User.createOne({ data: { name: 'Ada' } })
+		const secondAuthor = await User.createOne({ data: { name: 'Grace' } })
 		const firstPointer = User.pointer(firstAuthor.id)
 		const secondPointer = User.pointer(secondAuthor.id)
 		const created = await new Post({
 			author: firstPointer,
 			title: 'Typed pointer',
-		}).create({}, { ultimabase: app })
+		}).create({})
 
 		if (!Pointer.is(created.author)) {
 			throw new TypeError(
@@ -330,14 +310,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(created.author).toBeInstanceOf(Pointer)
 		expect(created.author.equals(firstPointer)).toBe(true)
 
-		const included = await Post.findOne(
-			{
-				where: { author: { eq: firstPointer.id } },
-				select: { title: true },
-				include: { author: { select: { name: true } } },
-			},
-			{ ultimabase: app },
-		)
+		const included = await Post.findOne({
+			where: { author: { eq: firstPointer.id } },
+			select: { title: true },
+			include: { author: { select: { name: true } } },
+		})
 
 		expect(included?.title).toBe('Typed pointer')
 		if (!isUpdatableIncludedUser(included?.author)) {
@@ -348,17 +325,13 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			name: 'Ada',
 		})
 
-		const renamedAuthor = await included.author.update(
-			{ data: { name: 'Ada Lovelace' } },
-			{ ultimabase: app },
-		)
+		const renamedAuthor = await included.author.update({
+			data: { name: 'Ada Lovelace' },
+		})
 
 		expect(renamedAuthor.name).toBe('Ada Lovelace')
 
-		const directAuthor = await firstPointer.findOne(
-			{ select: { name: true } },
-			{ ultimabase: app },
-		)
+		const directAuthor = await firstPointer.findOne({ select: { name: true } })
 
 		expect(directAuthor?.toJSON()).toStrictEqual({
 			id: firstAuthor.id,
@@ -369,7 +342,6 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const updated = await created.update(
 			// This E2E fixture has no generated name-to-schema type graph.
 			{ data: { author: secondPointer as never, title: 'Updated pointer' } },
-			{ ultimabase: app },
 		)
 		if (!Pointer.is(updated.author)) {
 			throw new TypeError(
@@ -383,25 +355,19 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		await expect(
-			Post.updateOne(
-				{
-					where: { id: { eq: created.id } },
-					data: {
-						author: firstPointer as never,
-						title: 'rollback-pointer',
-					},
+			Post.updateOne({
+				where: { id: { eq: created.id } },
+				data: {
+					author: firstPointer as never,
+					title: 'rollback-pointer',
 				},
-				{ ultimabase: app },
-			),
+			}),
 		).rejects.toBe(pointerRollbackError)
 
-		const afterRollback = await Post.findOne(
-			{
-				where: { id: { eq: created.id } },
-				select: { author: true, title: true },
-			},
-			{ ultimabase: app },
-		)
+		const afterRollback = await Post.findOne({
+			where: { id: { eq: created.id } },
+			select: { author: true, title: true },
+		})
 		if (!Pointer.is(afterRollback?.author)) {
 			throw new TypeError(
 				'Expected the persisted author pointer to be materialized',
@@ -411,7 +377,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(afterRollback.author.equals(secondPointer)).toBe(true)
 		expect(afterRollback.title).toBe('Updated pointer')
 
-		const deleted = await updated.delete({}, { ultimabase: app })
+		const deleted = await updated.delete({})
 		if (!Pointer.is(deleted.author)) {
 			throw new TypeError(
 				'Expected the deleted author pointer to be materialized',
@@ -420,42 +386,33 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(deleted.author.equals(secondPointer)).toBe(true)
 		await expect(
-			Post.exists({ where: { id: { eq: created.id } } }, { ultimabase: app }),
+			Post.exists({ where: { id: { eq: created.id } } }),
 		).resolves.toBe(false)
 	})
 
 	it('enforces unique and foreign-key constraints through sanitized errors', async () => {
-		const app = getUltimaBase()
-		const target = await UniqueTarget.createOne(
-			{ data: { label: 'unique' } },
-			{ ultimabase: app },
-		)
+		const target = await UniqueTarget.createOne({ data: { label: 'unique' } })
 		const targetPointer = UniqueTarget.pointer(target.id)
 
-		await UniqueSource.createOne(
-			{ data: { target: { connect: targetPointer.id } } },
-			{ ultimabase: app },
-		)
+		await UniqueSource.createOne({
+			data: { target: { connect: targetPointer.id } },
+		})
 		await expect(
-			UniqueSource.createOne(
-				{ data: { target: { connect: targetPointer.id } } },
-				{ ultimabase: app },
-			),
+			UniqueSource.createOne({
+				data: { target: { connect: targetPointer.id } },
+			}),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_ERROR',
 			internalDetails: { driverCode: '23505' },
 		})
 		await expect(
-			UniqueSource.createOne(
-				{
-					data: {
-						target: {
-							connect: '0198a43e-2431-7000-8000-000000000999',
-						},
+			UniqueSource.createOne({
+				data: {
+					target: {
+						connect: '0198a43e-2431-7000-8000-000000000999',
 					},
 				},
-				{ ultimabase: app },
-			),
+			}),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 	})
 
@@ -510,121 +467,84 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('applies restrict, cascade, and setNull in PostgreSQL', async () => {
-		const app = getUltimaBase()
-		const restrictedTarget = await RestrictedTarget.createOne(
-			{ data: { label: 'restricted' } },
-			{ ultimabase: app },
-		)
-		const restrictedSource = await RestrictedSource.createOne(
-			{
-				data: {
-					target: { connect: restrictedTarget.id },
-				},
+		const restrictedTarget = await RestrictedTarget.createOne({
+			data: { label: 'restricted' },
+		})
+		const restrictedSource = await RestrictedSource.createOne({
+			data: {
+				target: { connect: restrictedTarget.id },
 			},
-			{ ultimabase: app },
-		)
+		})
 
 		await expect(
-			RestrictedTarget.deleteOne(
-				{ where: { id: { eq: restrictedTarget.id } } },
-				{ ultimabase: app },
-			),
+			RestrictedTarget.deleteOne({
+				where: { id: { eq: restrictedTarget.id } },
+			}),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_ERROR',
 			internalDetails: { driverCode: '23503' },
 		})
 		await expect(
-			RestrictedSource.exists(
-				{ where: { id: { eq: restrictedSource.id } } },
-				{ ultimabase: app },
-			),
+			RestrictedSource.exists({ where: { id: { eq: restrictedSource.id } } }),
 		).resolves.toBe(true)
 
-		const cascadeTarget = await CascadeTarget.createOne(
-			{ data: { label: 'cascade' } },
-			{ ultimabase: app },
-		)
-		const cascadeSource = await CascadeSource.createOne(
-			{ data: { target: { connect: cascadeTarget.id } } },
-			{ ultimabase: app },
-		)
+		const cascadeTarget = await CascadeTarget.createOne({
+			data: { label: 'cascade' },
+		})
+		const cascadeSource = await CascadeSource.createOne({
+			data: { target: { connect: cascadeTarget.id } },
+		})
 
-		await CascadeTarget.deleteOne(
-			{ where: { id: { eq: cascadeTarget.id } } },
-			{ ultimabase: app },
-		)
+		await CascadeTarget.deleteOne({ where: { id: { eq: cascadeTarget.id } } })
 		await expect(
-			CascadeSource.exists(
-				{ where: { id: { eq: cascadeSource.id } } },
-				{ ultimabase: app },
-			),
+			CascadeSource.exists({ where: { id: { eq: cascadeSource.id } } }),
 		).resolves.toBe(false)
 
-		const nullableTarget = await NullableTarget.createOne(
-			{ data: { label: 'set-null' } },
-			{ ultimabase: app },
-		)
-		const nullableSource = await NullableSource.createOne(
-			{
-				data: { target: { connect: nullableTarget.id } },
-			},
-			{ ultimabase: app },
-		)
+		const nullableTarget = await NullableTarget.createOne({
+			data: { label: 'set-null' },
+		})
+		const nullableSource = await NullableSource.createOne({
+			data: { target: { connect: nullableTarget.id } },
+		})
 
-		await NullableTarget.deleteOne(
-			{ where: { id: { eq: nullableTarget.id } } },
-			{ ultimabase: app },
-		)
-		const detached = await NullableSource.findOne(
-			{
-				where: { id: { eq: nullableSource.id } },
-				select: { target: true },
-				include: { target: { select: { label: true } } },
-			},
-			{ ultimabase: app },
-		)
+		await NullableTarget.deleteOne({ where: { id: { eq: nullableTarget.id } } })
+		const detached = await NullableSource.findOne({
+			where: { id: { eq: nullableSource.id } },
+			select: { target: true },
+			include: { target: { select: { label: true } } },
+		})
 
 		expect(detached?.target).toBeNull()
 	})
 
 	it('hides denied and deleted included targets behind the same null result', async () => {
-		const app = getUltimaBase()
-		const target = await PrivateTarget.createOne(
-			{ data: { label: 'private' } },
-			{ ultimabase: app },
-		)
+		const target = await PrivateTarget.createOne({ data: { label: 'private' } })
 		const source = await PrivateSource.createOne(
 			{ data: { target: { connect: target.id } } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		const query = {
 			where: { id: { eq: source.id } },
 			select: { target: true },
 			include: { target: { select: { label: true } } },
 		} as const
-		const denied = await PrivateSource.findOne(query, { ultimabase: app })
+		const denied = await PrivateSource.findOne(query)
 		const allowed = await PrivateSource.findOne(query, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
-		const deletedTarget = await NullableTarget.createOne(
-			{ data: { label: 'deleted' } },
-			{ ultimabase: app },
-		)
-		const detachedSource = await NullableSource.createOne(
-			{ data: { target: { connect: deletedTarget.id } } },
-			{ ultimabase: app },
-		)
+		const deletedTarget = await NullableTarget.createOne({
+			data: { label: 'deleted' },
+		})
+		const detachedSource = await NullableSource.createOne({
+			data: { target: { connect: deletedTarget.id } },
+		})
 
-		await deletedTarget.delete({}, { ultimabase: app })
-		const detached = await NullableSource.findOne(
-			{
-				where: { id: { eq: detachedSource.id } },
-				select: { target: true },
-				include: { target: { select: { label: true } } },
-			},
-			{ ultimabase: app },
-		)
+		await deletedTarget.delete({})
+		const detached = await NullableSource.findOne({
+			where: { id: { eq: detachedSource.id } },
+			select: { target: true },
+			include: { target: { select: { label: true } } },
+		})
 
 		expect(denied?.target).toBeNull()
 		expect(denied?.target).toBe(detached?.target)
@@ -640,19 +560,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('persists and cleans circular pointers without transport infrastructure', async () => {
-		const app = getUltimaBase()
-		const left = await CircularLeft.createOne({ data: {} }, { ultimabase: app })
-		const right = await CircularRight.createOne(
-			{ data: { left: { connect: left.id } } },
-			{ ultimabase: app },
-		)
-		const updatedLeft = await CircularLeft.updateOne(
-			{
-				where: { id: { eq: left.id } },
-				data: { right: new Pointer(CircularRight, right.id) as never },
-			},
-			{ ultimabase: app },
-		)
+		const left = await CircularLeft.createOne({ data: {} })
+		const right = await CircularRight.createOne({
+			data: { left: { connect: left.id } },
+		})
+		const updatedLeft = await CircularLeft.updateOne({
+			where: { id: { eq: left.id } },
+			data: { right: new Pointer(CircularRight, right.id) as never },
+		})
 		if (!Pointer.is(updatedLeft?.right)) {
 			throw new TypeError(
 				'Expected the circular right pointer to be materialized',
@@ -660,17 +575,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		}
 
 		expect(updatedLeft.right.id).toBe(right.id)
-		await CircularLeft.deleteOne(
-			{ where: { id: { eq: left.id } } },
-			{ ultimabase: app },
-		)
-		const detachedRight = await CircularRight.findOne(
-			{
-				where: { id: { eq: right.id } },
-				select: { left: true },
-			},
-			{ ultimabase: app },
-		)
+		await CircularLeft.deleteOne({ where: { id: { eq: left.id } } })
+		const detachedRight = await CircularRight.findOne({
+			where: { id: { eq: right.id } },
+			select: { left: true },
+		})
 
 		expect(detachedRight?.left).toBeNull()
 	})

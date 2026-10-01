@@ -40,35 +40,31 @@ const ultimabase = new Application({
 await ultimabase.start()
 
 try {
-	const explicit = await Explicit.createOne(
-		{ data: { title: 'Explicit JavaScript' } },
-		{ ultimabase },
-	)
+	const explicit = await Explicit.createOne({
+		data: { title: 'Explicit JavaScript' },
+	})
 	const explicitHandle = ultimabase.schema(Explicit)
 	await explicitHandle.softDelete({ id: explicit.id })
-	const hiddenExplicit = await Explicit.count({}, { ultimabase })
+	const hiddenExplicit = await Explicit.count({})
 	await explicitHandle.restore({ id: explicit.id }, { useMasterKey: true })
-	const restoredExplicit = await Explicit.count({}, { ultimabase })
+	const restoredExplicit = await Explicit.count({})
 	await explicitHandle.softDelete({ id: explicit.id })
 	await explicitHandle.purge({ id: explicit.id }, { useMasterKey: true })
-	const purgedExplicit = await Explicit.count({}, { ultimabase })
+	const purgedExplicit = await Explicit.count({})
 
-	const replace = await Replace.createOne(
-		{ data: { title: 'Replace JavaScript' } },
-		{ ultimabase },
-	)
-	await Replace.deleteOne({ id: replace.id }, { ultimabase })
-	const hiddenReplace = await Replace.count({}, { ultimabase })
+	const replace = await Replace.createOne({
+		data: { title: 'Replace JavaScript' },
+	})
+	await Replace.deleteOne({ id: replace.id })
+	const hiddenReplace = await Replace.count({})
 
-	const disabled = await Disabled.createOne(
-		{ data: { title: 'Disabled JavaScript' } },
-		{ ultimabase },
-	)
-	await Disabled.deleteOne({ id: disabled.id }, { ultimabase })
-	const deletedDisabled = await Disabled.exists(
-		{ where: { id: { eq: disabled.id } } },
-		{ ultimabase },
-	)
+	const disabled = await Disabled.createOne({
+		data: { title: 'Disabled JavaScript' },
+	})
+	await Disabled.deleteOne({ id: disabled.id })
+	const deletedDisabled = await Disabled.exists({
+		where: { id: { eq: disabled.id } },
+	})
 
 	process.stdout.write(
 		`${JSON.stringify({

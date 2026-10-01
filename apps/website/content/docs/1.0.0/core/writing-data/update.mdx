@@ -33,17 +33,13 @@ before running them.
 
 ```ts title="src/update-post.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const renamePost = (postId: string, title: string) =>
-	Post.updateOne(
-		{
-			id: postId,
-			data: { title },
-			select: { title: true },
-		},
-		{ ultimabase },
-	)
+	Post.updateOne({
+		id: postId,
+		data: { title },
+		select: { title: true },
+	})
 ```
 
 `id` is shorthand for `where: { id: { eq: postId } }`. Pass **either** `id`
@@ -77,14 +73,11 @@ import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
 export const clearSummary = (postId: string) =>
-	Post.updateOne(
-		{
-			id: postId,
-			data: { summary: unset(), editCount: increment(1) },
-			select: { summary: true, editCount: true },
-		},
-		{ ultimabase },
-	)
+	Post.updateOne({
+		id: postId,
+		data: { summary: unset(), editCount: increment(1) },
+		select: { summary: true, editCount: true },
+	})
 ```
 
 This clears `summary` to `null` and increases `editCount` by one. Core checks

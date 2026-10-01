@@ -78,7 +78,7 @@ const Post = UltimaBase.Schema.define({
 
 const ultimabase = new UltimaBase({ schemas: [Post] })
 await ultimabase.start()
-await Post.findMany(undefined, { ultimabase })
+await Post.findMany(undefined)
 ```
 
 Core validation, transactions, protected constraints, and anonymous or
@@ -313,7 +313,7 @@ const suite = definePluginConformanceSuite({
 }).check('persistence', async ({ createUltimaBase }) => {
 	const { ultimabase } = createUltimaBase()
 	await ultimabase.start()
-	await Post.findMany(undefined, { ultimabase })
+	await Post.findMany(undefined)
 	// Assert the adapter-visible row filter and monotonic denial here.
 })
 

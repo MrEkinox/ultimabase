@@ -110,11 +110,7 @@ afterAll(async () => {
 
 describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 	it('keeps DDL physical and materializes async read and mutation projections', async () => {
-		const {
-			fixture: database,
-			pool: recorder,
-			ultimabase: app,
-		} = getApplication()
+		const { fixture: database, pool: recorder } = getApplication()
 		const columns = await database.pool.query<{ column_name: string }>(
 			`select column_name from information_schema.columns
 			 where table_schema = $1 and table_name = 'virtual_postgres_people'
@@ -132,18 +128,15 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			'updatedAt',
 		])
 
-		const created = await Person.createOne(
-			{
-				data: {
-					email: 'ada@example.com',
-					firstName: 'Ada',
-					lastName: 'Lovelace',
-					secret: 'analytical-engine',
-				},
-				select: { displayName: true, initials: true },
+		const created = await Person.createOne({
+			data: {
+				email: 'ada@example.com',
+				firstName: 'Ada',
+				lastName: 'Lovelace',
+				secret: 'analytical-engine',
 			},
-			{ ultimabase: app },
-		)
+			select: { displayName: true, initials: true },
+		})
 
 		expect(created.toJSON()).toStrictEqual({
 			displayName: 'Ada Lovelace',
@@ -152,13 +145,10 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		})
 
 		recorder.reset()
-		const selected = await Person.findOne(
-			{
-				select: { displayName: true, initials: true },
-				where: { id: { eq: created.id } },
-			},
-			{ ultimabase: app },
-		)
+		const selected = await Person.findOne({
+			select: { displayName: true, initials: true },
+			where: { id: { eq: created.id } },
+		})
 
 		expect(selected?.toJSON()).toStrictEqual({
 			displayName: 'Ada Lovelace',
@@ -173,122 +163,96 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		expect(select).not.toContain('"displayName"')
 		expect(select).not.toContain('"initials"')
 
-		const complete = await Person.findOne(
-			{ where: { id: { eq: created.id } } },
-			{ ultimabase: app },
-		)
+		const complete = await Person.findOne({ where: { id: { eq: created.id } } })
 		expect(complete).toMatchObject({
 			displayName: 'Ada Lovelace',
 			initials: 'AL',
 			secret: 'analytical-engine',
 		})
 
-		const excluded = await Person.findOne(
-			{
-				select: { secret: false },
-				where: { id: { eq: created.id } },
-			},
-			{ ultimabase: app },
-		)
+		const excluded = await Person.findOne({
+			select: { secret: false },
+			where: { id: { eq: created.id } },
+		})
 		expect(excluded?.toJSON()).toMatchObject({
 			displayName: 'Ada Lovelace',
 			initials: 'AL',
 		})
 		expect(excluded?.toJSON()).not.toHaveProperty('secret')
 
-		const updated = await Person.updateOne(
-			{
-				data: { lastName: 'Byron' },
-				select: { displayName: true },
-				where: { id: { eq: created.id } },
-			},
-			{ ultimabase: app },
-		)
+		const updated = await Person.updateOne({
+			data: { lastName: 'Byron' },
+			select: { displayName: true },
+			where: { id: { eq: created.id } },
+		})
 		expect(updated?.toJSON()).toStrictEqual({
 			displayName: 'Ada Byron',
 			id: created.id,
 		})
 
-		const upserted = await Person.upsertOne(
-			{
-				create: {
-					email: 'grace@example.com',
-					firstName: 'Grace',
-					lastName: 'Hopper',
-					secret: 'compiler',
-				},
-				select: { displayName: true },
-				update: { lastName: 'Murray Hopper' },
-				where: { email: { eq: 'grace@example.com' } },
+		const upserted = await Person.upsertOne({
+			create: {
+				email: 'grace@example.com',
+				firstName: 'Grace',
+				lastName: 'Hopper',
+				secret: 'compiler',
 			},
-			{ ultimabase: app },
-		)
+			select: { displayName: true },
+			update: { lastName: 'Murray Hopper' },
+			where: { email: { eq: 'grace@example.com' } },
+		})
 		expect(upserted.displayName).toBe('Grace Hopper')
 
-		const collection = await Person.findMany(
-			{
-				orderBy: { email: 'asc' },
-				select: { displayName: true },
-			},
-			{ ultimabase: app },
-		)
+		const collection = await Person.findMany({
+			orderBy: { email: 'asc' },
+			select: { displayName: true },
+		})
 		expect(collection.map(({ displayName }) => displayName)).toStrictEqual([
 			'Ada Byron',
 			'Grace Hopper',
 		])
 
-		const removed = await Person.deleteOne(
-			{
-				select: { displayName: true },
-				where: { id: { eq: upserted.id } },
-			},
-			{ ultimabase: app },
-		)
+		const removed = await Person.deleteOne({
+			select: { displayName: true },
+			where: { id: { eq: upserted.id } },
+		})
 		expect(removed?.displayName).toBe('Grace Hopper')
 	})
 
 	it('rejects virtual predicates and ordering before PostgreSQL execution', () => {
-		const { pool: recorder, ultimabase: app } = getApplication()
+		const { pool: recorder } = getApplication()
 
 		recorder.reset()
 		expect(() =>
-			Person.findMany(
-				{ where: { displayName: { eq: 'Ada Byron' } } } as never,
-				{ ultimabase: app },
-			),
+			Person.findMany({ where: { displayName: { eq: 'Ada Byron' } } } as never),
 		).toThrow(TypeError)
 		expect(recorder.statements).toStrictEqual([])
 
 		expect(() =>
-			Person.findMany({ orderBy: { displayName: 'asc' } } as never, {
-				ultimabase: app,
-			}),
+			Person.findMany({ orderBy: { displayName: 'asc' } } as never),
 		).toThrow(TypeError)
 		expect(recorder.statements).toStrictEqual([])
 	})
 
 	it('loads virtual dependencies through nested writes and relational includes', async () => {
-		const { ultimabase: app } = getApplication()
-		const post = await Post.createOne(
-			{
-				data: {
-					author: {
-						create: {
-							email: 'nested@example.com',
-							firstName: 'Katherine',
-							lastName: 'Johnson',
-							secret: 'orbital-mechanics',
-						},
+		getApplication()
+		const post = await Post.createOne({
+			data: {
+				author: {
+					create: {
+						email: 'nested@example.com',
+						firstName: 'Katherine',
+						lastName: 'Johnson',
+						secret: 'orbital-mechanics',
 					},
-					title: 'Trajectory',
 				},
-				include: {
-					author: { select: { displayName: true, initials: true } },
-				},
-				select: { title: true },
+				title: 'Trajectory',
 			},
-			{ ultimabase: app },
-		)
+			include: {
+				author: { select: { displayName: true, initials: true } },
+			},
+			select: { title: true },
+		})
 		const author: unknown = post.author
 
 		if (!(author instanceof Person)) {
@@ -304,14 +268,11 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			initials: 'KJ',
 		})
 
-		const reloaded = await Post.findOne(
-			{
-				include: { author: { select: { displayName: true } } },
-				select: { title: true },
-				where: { id: { eq: post.id } },
-			},
-			{ ultimabase: app },
-		)
+		const reloaded = await Post.findOne({
+			include: { author: { select: { displayName: true } } },
+			select: { title: true },
+			where: { id: { eq: post.id } },
+		})
 		const reloadedAuthor: unknown = reloaded?.author
 
 		if (!(reloadedAuthor instanceof Person)) {
@@ -324,58 +285,43 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('rolls back a mutation when async virtual materialization fails', async () => {
-		const { ultimabase: app } = getApplication()
+		getApplication()
 
 		await expectResolverFailure(
-			Person.createOne(
-				{
-					data: {
-						email: 'rollback@example.com',
-						firstName: 'Rollback',
-						lastName: 'Create',
-						secret: 'must-not-persist',
-					},
-					select: { displayName: true },
+			Person.createOne({
+				data: {
+					email: 'rollback@example.com',
+					firstName: 'Rollback',
+					lastName: 'Create',
+					secret: 'must-not-persist',
 				},
-				{ ultimabase: app },
-			),
+				select: { displayName: true },
+			}),
 		)
 		await expect(
-			Person.exists(
-				{ where: { email: { eq: 'rollback@example.com' } } },
-				{ ultimabase: app },
-			),
+			Person.exists({ where: { email: { eq: 'rollback@example.com' } } }),
 		).resolves.toBe(false)
 
-		const stable = await Person.createOne(
-			{
-				data: {
-					email: 'stable@example.com',
-					firstName: 'Stable',
-					lastName: 'Before',
-					secret: 'preserved',
-				},
+		const stable = await Person.createOne({
+			data: {
+				email: 'stable@example.com',
+				firstName: 'Stable',
+				lastName: 'Before',
+				secret: 'preserved',
 			},
-			{ ultimabase: app },
-		)
+		})
 		await expectResolverFailure(
-			Person.updateOne(
-				{
-					data: { firstName: 'Rollback', lastName: 'Update' },
-					select: { displayName: true },
-					where: { id: { eq: stable.id } },
-				},
-				{ ultimabase: app },
-			),
+			Person.updateOne({
+				data: { firstName: 'Rollback', lastName: 'Update' },
+				select: { displayName: true },
+				where: { id: { eq: stable.id } },
+			}),
 		)
 
-		const persisted = await Person.findOne(
-			{
-				select: { firstName: true, lastName: true },
-				where: { id: { eq: stable.id } },
-			},
-			{ ultimabase: app },
-		)
+		const persisted = await Person.findOne({
+			select: { firstName: true, lastName: true },
+			where: { id: { eq: stable.id } },
+		})
 		expect(persisted?.toJSON()).toStrictEqual({
 			firstName: 'Stable',
 			id: stable.id,
@@ -385,18 +331,15 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps physical dependencies isolated between applications', async () => {
 		const { ultimabase: primary } = getApplication()
-		const localRecord = await Person.createOne(
-			{
-				data: {
-					email: 'application-isolation@example.com',
-					firstName: 'Primary',
-					lastName: 'Application',
-					secret: 'local-only',
-				},
-				select: { displayName: true },
+		const localRecord = await Person.createOne({
+			data: {
+				email: 'application-isolation@example.com',
+				firstName: 'Primary',
+				lastName: 'Application',
+				secret: 'local-only',
 			},
-			{ ultimabase: primary },
-		)
+			select: { displayName: true },
+		})
 		const isolatedFixture = await createPostgresWorkerFixture({
 			prefix: 'virtual_fields_isolated',
 		})
@@ -410,18 +353,15 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		try {
 			await primary.dispose()
 			await isolated.start()
-			const foreign = await Person.createOne(
-				{
-					data: {
-						email: 'ada@example.com',
-						firstName: 'Isolated',
-						lastName: 'Application',
-						secret: 'foreign-only',
-					},
-					select: { displayName: true },
+			const foreign = await Person.createOne({
+				data: {
+					email: 'ada@example.com',
+					firstName: 'Isolated',
+					lastName: 'Application',
+					secret: 'foreign-only',
 				},
-				{ ultimabase: isolated },
-			)
+				select: { displayName: true },
+			})
 			await isolated.dispose()
 			ultimabase = new (UltimaBase.use(
 				postgresPlugin({
@@ -430,13 +370,10 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 				}),
 			))({ schemas })
 			await ultimabase.start()
-			const local = await Person.findOne(
-				{
-					select: { displayName: true },
-					where: { id: { eq: localRecord.id } },
-				},
-				{ ultimabase },
-			)
+			const local = await Person.findOne({
+				select: { displayName: true },
+				where: { id: { eq: localRecord.id } },
+			})
 
 			expect(foreign.toJSON()).toStrictEqual({
 				displayName: 'Isolated Application',

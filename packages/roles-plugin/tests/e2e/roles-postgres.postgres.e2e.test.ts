@@ -120,10 +120,7 @@ const createMemberContext = (memberId: string, requestId: string) =>
 const createExternalReference = async (
 	reference: RoleReference,
 ): Promise<void> => {
-	await ExternalRoleReference.createOne(
-		{ data: { subject: reference.value } },
-		{ ultimabase: getApplication() },
-	)
+	await ExternalRoleReference.createOne({ data: { subject: reference.value } })
 }
 
 beforeAll(async () => {
@@ -131,50 +128,48 @@ beforeAll(async () => {
 	ultimabase = createRoleApplication(fixture.connectionUri)
 	await ultimabase.start()
 
-	const app = getApplication()
-	;[alice, bob] = await RoleMember.createMany(
-		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
-		{ ultimabase: app },
-	)
+	;[alice, bob] = await RoleMember.createMany({
+		data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
+	})
 
 	editor = await new AppRole({
 		description: 'Can edit content',
 		name: '  EDITOR  ',
 		priority: 10,
-	}).create({}, { ultimabase: app, useMasterKey: true })
+	}).create({}, { useMasterKey: true })
 	publisher = await new AppRole({ name: 'publisher', priority: 20 }).create(
 		{},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	reviewer = await new AppRole({ name: 'reviewer', priority: 30 }).create(
 		{},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	administrator = await new AppRole({
 		description: 'Inherited administration',
 		name: 'administrator',
 		priority: 40,
-	}).create({}, { ultimabase: app, useMasterKey: true })
+	}).create({}, { useMasterKey: true })
 
 	await requireRole(editor, 'editor').addMember(
 		RoleMember.pointer(requireMember(alice, 'Alice').id),
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	await requireRole(publisher, 'publisher').addRole(
 		requireRole(editor, 'editor'),
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	await requireRole(reviewer, 'reviewer').addRole(
 		requireRole(editor, 'editor'),
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	await requireRole(administrator, 'administrator').addRole(
 		requireRole(publisher, 'publisher'),
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	await requireRole(administrator, 'administrator').addRole(
 		requireRole(reviewer, 'reviewer'),
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 	const posts = await ProtectedPost.createMany(
@@ -192,7 +187,7 @@ beforeAll(async () => {
 				},
 			],
 		},
-		{ ultimabase: app, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	publishedPostId = posts[0]?.id ?? ''
 	privatePostId = posts[1]?.id ?? ''
@@ -205,7 +200,6 @@ afterAll(async () => {
 
 describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	it('preserves ordinary schema, model, Query, relation, hook, and event behavior', async () => {
-		const app = getApplication()
 		const currentEditor = requireRole(editor, 'editor')
 		const currentBob = requireMember(bob, 'Bob')
 
@@ -219,7 +213,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				orderBy: { priority: 'asc' },
 				select: { id: true, name: true, priority: true },
 			},
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 
 		expect(selected.map((role) => role.toJSON())).toStrictEqual([
@@ -244,51 +238,38 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		roleDeveloperHookTrace.length = 0
 		const updated = await currentEditor.update(
 			{ data: { description: 'Edits published content' } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		expect(updated.description).toBe('Edits published content')
 		expect(roleDeveloperHookTrace).toContain('update-one')
 
 		const eventCount = committedRoleEvents.length
 		await currentEditor.addMember(currentBob, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		await currentEditor.addMember(RoleMember.pointer(currentBob.id), {
-			ultimabase: app,
 			useMasterKey: true,
 		})
-		expect(
-			await currentEditor
-				.relation('members')
-				.count(undefined, { ultimabase: app }),
-		).toBe(2)
+		expect(await currentEditor.relation('members').count(undefined)).toBe(2)
 		await currentEditor.removeMember(currentBob, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
-		expect(
-			await currentEditor
-				.relation('members')
-				.count(undefined, { ultimabase: app }),
-		).toBe(1)
+		expect(await currentEditor.relation('members').count(undefined)).toBe(1)
 
 		const temporaryChild = await new AppRole({
 			name: 'temporary-child',
-		}).create({}, { ultimabase: app, useMasterKey: true })
+		}).create({}, { useMasterKey: true })
 		await currentEditor.addRole(temporaryChild, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		await expect(
-			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
+			currentEditor.relation('roles').count(undefined),
 		).resolves.toBe(1)
 		await currentEditor.removeRole(temporaryChild, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		await expect(
-			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
+			currentEditor.relation('roles').count(undefined),
 		).resolves.toBe(0)
 		expect(committedRoleEvents.slice(eventCount)).toContain(
 			'ultimabase.roles.membership.changed',
@@ -300,7 +281,6 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('resolves direct and diamond-inherited roles once per request', async () => {
-		const app = getApplication()
 		const aliceContext = createMemberContext(
 			requireMember(alice, 'Alice').id,
 			'roles-e2e-alice-update',
@@ -316,7 +296,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				where: { id: { eq: publishedPostId } },
 				data: { title: 'Updated through inherited roles' },
 			},
-			{ context: aliceContext, ultimabase: app },
+			{ context: aliceContext },
 		)
 
 		expect(updated?.internalNote).toBe('visible to administrators')
@@ -328,31 +308,31 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 					where: { id: { eq: publishedPostId } },
 					data: { title: 'Bob must not update' },
 				},
-				{ context: bobContext, ultimabase: app },
+				{ context: bobContext },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		const visible = await ProtectedPost.findMany(
 			{ select: { id: true, internalNote: true, title: true } },
-			{ context: aliceContext, ultimabase: app },
+			{ context: aliceContext },
 		)
 		expect(visible).toHaveLength(1)
 		expect(visible[0]?.id).toBe(publishedPostId)
 		await expect(
 			ProtectedPost.exists(
 				{ where: { id: { eq: privatePostId } } },
-				{ context: aliceContext, ultimabase: app },
+				{ context: aliceContext },
 			),
 		).resolves.toBe(false)
 
 		const deletable = await ProtectedPost.createOne(
 			{ data: { published: true, title: 'Role-protected deletion' } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		await expect(
 			ProtectedPost.deleteOne(
 				{ where: { id: { eq: deletable.id } } },
-				{ context: aliceContext, ultimabase: app },
+				{ context: aliceContext },
 			),
 		).resolves.toMatchObject({ id: deletable.id })
 
@@ -364,24 +344,22 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 					title: 'A second terminal gets a fresh role snapshot',
 				},
 			},
-			{ context: aliceContext, ultimabase: app },
+			{ context: aliceContext },
 		)
 		expect(roleResolutionTrace).toStrictEqual(['resolve-current'])
 	})
 
 	it('rolls back indirect hierarchy cycles without publishing an event', async () => {
-		const app = getApplication()
 		const currentEditor = requireRole(editor, 'editor')
 		const eventCount = committedRoleEvents.length
 
 		await expect(
 			currentEditor.addRole(requireRole(administrator, 'administrator'), {
-				ultimabase: app,
 				useMasterKey: true,
 			}),
 		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
 		await expect(
-			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
+			currentEditor.relation('roles').count(undefined),
 		).resolves.toBe(0)
 		expect(committedRoleEvents).toHaveLength(eventCount)
 	})
@@ -394,16 +372,17 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(modelReference.value).toBe(stableReference.value)
 		const renamed = await currentEditor.update(
 			{ data: { name: 'content-editor' } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 
 		expect(renamed.name).toBe('content-editor')
-		await expect(
-			resolveRoleReference(stableReference, { ultimabase: app }),
-		).resolves.toMatchObject({ id: currentEditor.id, name: 'content-editor' })
-		await expect(
-			resolveRoleReference(EditorReference, { ultimabase: app }),
-		).rejects.toMatchObject({ code: 'ROLE_REFERENCE_UNKNOWN' })
+		await expect(resolveRoleReference(stableReference)).resolves.toMatchObject({
+			id: currentEditor.id,
+			name: 'content-editor',
+		})
+		await expect(resolveRoleReference(EditorReference)).rejects.toMatchObject({
+			code: 'ROLE_REFERENCE_UNKNOWN',
+		})
 
 		const context = createMemberContext(
 			requireMember(alice, 'Alice').id,
@@ -422,21 +401,18 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('enforces fail, preserve, and cascade deletion policies atomically', async () => {
-		const app = getApplication()
 		const currentAlice = requireMember(alice, 'Alice')
 		const failRole = await new FailRole({ name: 'fail-policy' }).create(
 			{},
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 		await failRole.addMember(currentAlice, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		await expect(
-			failRole.delete({}, { ultimabase: app, useMasterKey: true }),
+			failRole.delete({}, { useMasterKey: true }),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
 		await failRole.removeMember(currentAlice, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		const failReference = FailRole.role({ id: failRole.id })
@@ -444,107 +420,91 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			FailRole.deleteOne(
 				{ where: { id: { eq: failRole.id } } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
-		const externalReferences = await ExternalRoleReference.findMany(
-			{
-				where: { subject: { eq: failReference.value } },
-				select: { id: true },
-			},
-			{ ultimabase: app },
-		)
-		await ExternalRoleReference.deleteMany(
-			{ where: externalReferences.map(({ id }) => ({ id: { eq: id } })) },
-			{ ultimabase: app },
-		)
+		const externalReferences = await ExternalRoleReference.findMany({
+			where: { subject: { eq: failReference.value } },
+			select: { id: true },
+		})
+		await ExternalRoleReference.deleteMany({
+			where: externalReferences.map(({ id }) => ({ id: { eq: id } })),
+		})
 		await expect(
-			failRole.delete({}, { ultimabase: app, useMasterKey: true }),
+			failRole.delete({}, { useMasterKey: true }),
 		).resolves.toMatchObject({ id: failRole.id })
 
 		const preserveRole = await new PreserveRole({
 			name: 'preserve-policy',
-		}).create({}, { ultimabase: app, useMasterKey: true })
+		}).create({}, { useMasterKey: true })
 		const preserveReference = PreserveRole.role({
 			id: preserveRole.id,
 		})
 		await createExternalReference(preserveReference)
 		await expect(
-			PreserveRole.deleteOne(
-				{ where: { id: { eq: preserveRole.id } } },
-				{ ultimabase: app },
-			),
+			PreserveRole.deleteOne({ where: { id: { eq: preserveRole.id } } }),
 		).resolves.toMatchObject({ id: preserveRole.id })
 		await expect(
-			ExternalRoleReference.exists(
-				{ where: { subject: { eq: preserveReference.value } } },
-				{ ultimabase: app },
-			),
+			ExternalRoleReference.exists({
+				where: { subject: { eq: preserveReference.value } },
+			}),
 		).resolves.toBe(true)
 
 		const cascadeChild = await new CascadeRole({
 			name: 'cascade-child',
-		}).create({}, { ultimabase: app, useMasterKey: true })
+		}).create({}, { useMasterKey: true })
 		const cascadeParent = await new CascadeRole({
 			name: 'cascade-parent',
-		}).create({}, { ultimabase: app, useMasterKey: true })
+		}).create({}, { useMasterKey: true })
 		await cascadeChild.addMember(currentAlice, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		await cascadeParent.addRole(cascadeChild, {
-			ultimabase: app,
 			useMasterKey: true,
 		})
 		const cascadeReference = CascadeRole.role({
 			id: cascadeChild.id,
 		})
 		await createExternalReference(cascadeReference)
+		await expect(cascadeChild.delete({})).rejects.toMatchObject({
+			code: 'ROLE_DELETE_CASCADE_MASTER_REQUIRED',
+		})
 		await expect(
-			cascadeChild.delete({}, { ultimabase: app }),
-		).rejects.toMatchObject({ code: 'ROLE_DELETE_CASCADE_MASTER_REQUIRED' })
-		await expect(
-			cascadeChild.delete({}, { ultimabase: app, useMasterKey: true }),
+			cascadeChild.delete({}, { useMasterKey: true }),
 		).resolves.toMatchObject({ id: cascadeChild.id })
 		await expect(
-			cascadeParent.relation('roles').count(undefined, { ultimabase: app }),
+			cascadeParent.relation('roles').count(undefined),
 		).resolves.toBe(0)
 		await expect(
-			ExternalRoleReference.exists(
-				{ where: { subject: { eq: cascadeReference.value } } },
-				{ ultimabase: app },
-			),
+			ExternalRoleReference.exists({
+				where: { subject: { eq: cascadeReference.value } },
+			}),
 		).resolves.toBe(false)
 
 		const rollbackRole = await new CascadeRole({
 			name: 'cascade-rollback',
-		}).create({}, { ultimabase: app, useMasterKey: true })
+		}).create({}, { useMasterKey: true })
 		const rollbackReference = CascadeRole.role({
 			id: rollbackRole.id,
 		})
 		await createExternalReference(rollbackReference)
 		rejectNextRoleReferenceCleanup()
 		await expect(
-			rollbackRole.delete({}, { ultimabase: app, useMasterKey: true }),
+			rollbackRole.delete({}, { useMasterKey: true }),
 		).rejects.toThrow('external role cleanup rollback fixture')
 		await expect(
-			CascadeRole.exists(
-				{ where: { id: { eq: rollbackRole.id } } },
-				{ ultimabase: app },
-			),
+			CascadeRole.exists({ where: { id: { eq: rollbackRole.id } } }),
 		).resolves.toBe(true)
 		await expect(
-			ExternalRoleReference.exists(
-				{ where: { subject: { eq: rollbackReference.value } } },
-				{ ultimabase: app },
-			),
+			ExternalRoleReference.exists({
+				where: { subject: { eq: rollbackReference.value } },
+			}),
 		).resolves.toBe(true)
 		expect(committedRoleEvents).toContain('ultimabase.roles.deleted')
 	})
 
 	it('applies each role deletion policy and rolls back the complete collection', async () => {
-		const app = getApplication()
-		const options: OperationOptions = { ultimabase: app, useMasterKey: true }
+		const options: OperationOptions = { useMasterKey: true }
 		const first = await FailRole.createOne(
 			{ data: { name: 'batch-first' } },
 			options,
@@ -583,10 +543,9 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps the neutral provider boundary fail-closed and community-extensible', async () => {
 		const app = getApplication()
-		const row = await MissingProviderPost.createOne(
-			{ data: { title: 'Provider boundary' } },
-			{ ultimabase: app },
-		)
+		const row = await MissingProviderPost.createOne({
+			data: { title: 'Provider boundary' },
+		})
 		await app.dispose()
 		const missing = createProviderBoundaryApplication(
 			getFixture().connectionUri,
@@ -597,13 +556,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			await expect(
-				MissingProviderPost.updateOne(
-					{
-						where: { id: { eq: row.id } },
-						data: { title: 'Must fail before hooks' },
-					},
-					{ ultimabase: missing },
-				),
+				MissingProviderPost.updateOne({
+					where: { id: { eq: row.id } },
+					data: { title: 'Must fail before hooks' },
+				}),
 			).rejects.toMatchObject({ code: 'PLUGIN_CAPABILITY_MISSING' })
 			expect(missingProviderHookCalls).toBe(0)
 		} finally {
@@ -619,13 +575,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			await expect(
-				MissingProviderPost.updateOne(
-					{
-						where: { id: { eq: row.id } },
-						data: { title: 'Community provider allowed' },
-					},
-					{ ultimabase: community },
-				),
+				MissingProviderPost.updateOne({
+					where: { id: { eq: row.id } },
+					data: { title: 'Community provider allowed' },
+				}),
 			).resolves.toMatchObject({ title: 'Community provider allowed' })
 			expect(missingProviderHookCalls).toBe(1)
 		} finally {
@@ -647,7 +600,6 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			)
 			await expect(
 				AppRole.count(undefined, {
-					ultimabase: second,
 					useMasterKey: true,
 				}),
 			).resolves.toBeGreaterThan(0)

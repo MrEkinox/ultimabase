@@ -27,16 +27,17 @@ export const assertUserAuthLanguageService = (
 	const fileName = path.join(import.meta.dirname, 'user-auth-editor.virtual.ts')
 	const source = `${generated.contents}
 import { PasswordUserSchema } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
-import { getCurrentUltimaBase } from '@ultimabase/core'
 const AppUser = PasswordUserSchema.define({ className: 'User', fields: (field) => ({ displayName: field.string({ required: true }) }) })
 const credentials = { username: 'Ada', password: 'correct horse battery staple' }
 AppUser./* methods */signUp({ ...credentials, displayName: 'Ada Lovelace' })
 // @ts-expect-error -- The editor fixture intentionally requests completions in an unfinished input.
 AppUser.signUp({ /* signup fields */ })
 const result = await AppUser./* hover */login(credentials)
+// @ts-expect-error -- User commands resolve the sole active application.
+AppUser.login(credentials, { ultimabase: {} })
 const displayName: string = result.user./* fields */displayName
 const token: string = result.session.token
-await AppUser.refresh(token, { ultimabase: getCurrentUltimaBase() })
+await AppUser.refresh(token)
 const logout = await AppUser.logout(token)
 const revoked: true = logout.revoked
 `

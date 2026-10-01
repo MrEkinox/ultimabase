@@ -48,8 +48,8 @@ export type CreatePostInput = InferCreateInput<typeof PostSchema>
 loads one bounded target explicitly, while to-many collections use the separate
 `relationField` declaration shown in the relations example.
 
-After the application starts, `author.findOne(undefined, { ultimabase })` reads
+After the application starts, `author.findOne(undefined)` reads
 that exact User under the active policy. It returns `null` when the target is
-missing or filtered out; `author.exists({}, { ultimabase })` returns `false`
+missing or filtered out; `author.exists({})` returns `false`
 in those cases. Neither read grants access. Explicit policy denials and unexpected errors
 propagate and abort an active transaction.

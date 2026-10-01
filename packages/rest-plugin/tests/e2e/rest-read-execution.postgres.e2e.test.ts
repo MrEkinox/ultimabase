@@ -200,13 +200,6 @@ let visiblePostId = ''
 let hiddenByAccessId = ''
 let hiddenByAclId = ''
 
-const getApplication = (): ReturnType<typeof createApplication> => {
-	if (application === undefined) {
-		throw new TypeError('REST PostgreSQL application is unavailable')
-	}
-	return application
-}
-
 const getAnonymous = (): RequestContext => {
 	if (anonymous === undefined) {
 		throw new TypeError('REST anonymous context is unavailable')
@@ -247,7 +240,7 @@ beforeAll(async () => {
 				{ acl: publicAcl, name: 'Hidden Author', visible: false },
 			],
 		},
-		{ context: master, ultimabase: application },
+		{ context: master },
 	)
 	if (visibleAuthor === undefined || hiddenAuthor === undefined) {
 		throw new TypeError('REST author fixtures are incomplete')
@@ -279,7 +272,7 @@ beforeAll(async () => {
 				},
 			],
 		},
-		{ context: master, ultimabase: application },
+		{ context: master },
 	)
 	if (
 		visible === undefined ||
@@ -295,7 +288,6 @@ beforeAll(async () => {
 		.relation('contributors')
 		.connect([visibleAuthor.id, hiddenAuthor.id], {
 			context: master,
-			ultimabase: application,
 		})
 }, 30_000)
 
@@ -306,7 +298,6 @@ afterAll(async () => {
 
 describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 	it('matches direct Query for filters, relations, inclusions, projections, and offsets', async () => {
-		const app = getApplication()
 		const context = getAnonymous()
 		const input = {
 			include: {
@@ -334,7 +325,6 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 		)
 		const direct = await RestPost.findMany(input, {
 			context,
-			ultimabase: app,
 		})
 
 		expect(rest.map((post) => post.toJSON())).toStrictEqual(

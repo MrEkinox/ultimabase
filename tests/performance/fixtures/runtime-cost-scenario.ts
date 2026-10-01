@@ -89,12 +89,9 @@ export const runRuntimeCostScenario = async (
 		await ultimabase.start()
 		const startup = probe.snapshot()
 		const beforeRead = probe.snapshot()
-		await MeasuredPost.findMany(undefined, { ultimabase })
+		await MeasuredPost.findMany()
 		const afterRead = probe.snapshot()
-		await MeasuredPost.createOne(
-			{ data: { title: 'Measured mutation' } },
-			{ ultimabase },
-		)
+		await MeasuredPost.createOne({ data: { title: 'Measured mutation' } })
 		const afterMutation = probe.snapshot()
 		await ultimabase.dispose()
 

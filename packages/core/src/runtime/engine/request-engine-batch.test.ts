@@ -53,7 +53,6 @@ describe('request engine batch boundary', () => {
 			const result = await runWithQueryExecution(application, request, () =>
 				executeOperationBatch([], {
 					context: undefined,
-					ultimabase: undefined,
 					useMasterKey: false,
 				}),
 			)

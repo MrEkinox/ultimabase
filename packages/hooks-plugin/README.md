@@ -98,7 +98,7 @@ const Post = UltimaBase.Schema.define({
 
 const ultimabase = new UltimaBase({ schemas: [Post] })
 await ultimabase.start()
-await Post.findMany(undefined, { ultimabase })
+await Post.findMany(undefined)
 ```
 
 Adding a `hooks` option without `hooksPlugin()` is an unknown-option application
@@ -211,7 +211,7 @@ const suite = definePluginConformanceSuite({
 }).check('middleware', async ({ createUltimaBase }) => {
 	const { ultimabase } = createUltimaBase()
 	await ultimabase.start()
-	await Post.createOne({ data: { title: 'Published' } }, { ultimabase })
+	await Post.createOne({ data: { title: 'Published' } })
 	// Assert the provider's observable ordering and rollback contract here.
 })
 

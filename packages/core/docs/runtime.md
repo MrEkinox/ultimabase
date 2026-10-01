@@ -36,11 +36,11 @@ const ultimabase = new Application({
 
 await ultimabase.start()
 
-const articles = await ArticleSchema.findMany({ limit: 20 }, { ultimabase })
+const articles = await ArticleSchema.findMany({ limit: 20 })
 ```
 
-Outside an active request scope, `{ ultimabase }` creates a fresh anonymous
-internal request. Inside a request or transaction, terminals omit that option
+Outside an active request scope, the sole initialized application creates a fresh anonymous
+internal request. Inside a request or transaction, terminals
 and reuse the exact engine and authority. Source `internal` never grants master
 access. A terminal may also receive one already-derived `context`, or trusted
 backend code may request audited `{ useMasterKey: true }`. These server-only
@@ -486,13 +486,11 @@ key is retained or verified again:
 
 ```ts
 const allArticles = await ArticleSchema.findMany(undefined, {
-	ultimabase,
 	useMasterKey: true,
 })
 
 const scopedMaster = await ArticleSchema.findMany(undefined, {
 	context: contextCreatedByAPlugin,
-	ultimabase,
 	useMasterKey: true,
 })
 ```

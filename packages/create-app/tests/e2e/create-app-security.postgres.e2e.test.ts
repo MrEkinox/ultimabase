@@ -98,7 +98,7 @@ try {
   const bob = await signUp('profile-bob')
   assert.equal(alice.user.username, 'profile-alice')
   assert.equal(bob.user.username, 'profile-bob')
-  assert.deepEqual(await AppUser.findMany(undefined, { ultimabase }), [])
+  assert.deepEqual(await AppUser.findMany(), [])
   await auth.runWithSession(alice.session.token, async () => {
     const users = await AppUser.findMany()
     assert.deepEqual(users.map(user => user.id), [alice.user.id])
@@ -143,17 +143,17 @@ try {
   const signed = await ultimabase.operation(passwordAuthOperations.signUp).execute({
     username: 'alice', password: 'correct horse battery staple',
   })
-  const role = await AppRole.createOne({ data: { name: 'editor' } }, { ultimabase, useMasterKey: true })
-  await role.addMember(signed.principal.user, { ultimabase, useMasterKey: true })
+  const role = await AppRole.createOne({ data: { name: 'editor' } }, { useMasterKey: true })
+  await role.addMember(signed.principal.user, { useMasterKey: true })
   const task = await Task.createOne({ data: {
     title: 'Role-owned task',
     acl: new ACL().grantRole(AppRole.role({ id: role.id }), 'read'),
-  } }, { ultimabase, useMasterKey: true })
+  } }, { useMasterKey: true })
   const input = { where: { id: { eq: task.id } }, select: { title: true } }
-  const anonymous = await Task.findOne(input, { ultimabase })
+  const anonymous = await Task.findOne(input)
   if (anonymous !== null) throw new Error('Anonymous read unexpectedly succeeded')
   const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
-  const member = await auth.runWithSession(signed.session.token, () => Task.findOne(input, { ultimabase }))
+  const member = await auth.runWithSession(signed.session.token, () => Task.findOne(input))
   if (member?.title !== 'Role-owned task') throw new Error('Role-backed ACL did not grant read')
   console.log('ROLE_ACL_PASS')
 } finally {
@@ -189,11 +189,11 @@ const originalInfo = console.info
 console.info = (label, metadata) => audit.push({ label, metadata })
 await ultimabase.start()
 try {
-  await Task.createOne({ data: { title: 'Private task' } }, { ultimabase, useMasterKey: true })
+  await Task.createOne({ data: { title: 'Private task' } }, { useMasterKey: true })
   for (const operation of [
-    () => Task.findOne({ select: { title: true } }, { ultimabase }),
-    () => AppRole.findMany(undefined, { ultimabase }),
-    () => Task.createOne({ data: { title: 'Denied task' } }, { ultimabase }),
+    () => Task.findOne({ select: { title: true } }),
+    () => AppRole.findMany(),
+    () => Task.createOne({ data: { title: 'Denied task' } }),
   ]) {
     let denied = false
     try { await operation() } catch (error) { denied = error?.code === 'PERMISSION_DENIED' }

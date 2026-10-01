@@ -112,13 +112,6 @@ let ultimabase:
 	  >
 	| undefined
 
-const getUltimaBase = () => {
-	if (ultimabase === undefined) {
-		throw new TypeError('Nested-update PostgreSQL application has not started')
-	}
-	return ultimabase
-}
-
 const readIncludedId = (value: object): string => {
 	const id: unknown = Reflect.get(value, 'id')
 	if (typeof id !== 'string') {
@@ -178,18 +171,14 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('runs pointer updates before the source and relation commands in fixed order', async () => {
-			const app = getUltimaBase()
-			const [author, current, removed, added] = await Child.createMany(
-				{
-					data: [
-						{ name: 'Author' },
-						{ name: 'Current' },
-						{ name: 'Removed' },
-						{ name: 'Added' },
-					],
-				},
-				{ ultimabase: app },
-			)
+			const [author, current, removed, added] = await Child.createMany({
+				data: [
+					{ name: 'Author' },
+					{ name: 'Current' },
+					{ name: 'Removed' },
+					{ name: 'Added' },
+				],
+			})
 			if (
 				author === undefined ||
 				current === undefined ||
@@ -198,35 +187,29 @@ describe(
 			) {
 				throw new TypeError('Nested-update seed children are incomplete')
 			}
-			const parent = await Parent.createOne(
-				{
-					data: {
-						child: { connect: author.id },
-						children: { connect: [current.id, removed.id] },
-						name: 'Before',
-					},
+			const parent = await Parent.createOne({
+				data: {
+					child: { connect: author.id },
+					children: { connect: [current.id, removed.id] },
+					name: 'Before',
 				},
-				{ ultimabase: app },
-			)
+			})
 			trace.length = 0
 
-			const updated = await Parent.updateOne(
-				{
-					where: { id: { eq: parent.id } },
-					data: {
-						child: { update: { name: 'Author updated' } },
-						children: {
-							create: [{ name: 'Created' }],
-							connect: [added.id],
-							update: [{ id: current.id, data: { name: 'Current updated' } }],
-							disconnect: [removed.id],
-						},
-						name: 'After',
+			const updated = await Parent.updateOne({
+				where: { id: { eq: parent.id } },
+				data: {
+					child: { update: { name: 'Author updated' } },
+					children: {
+						create: [{ name: 'Created' }],
+						connect: [added.id],
+						update: [{ id: current.id, data: { name: 'Current updated' } }],
+						disconnect: [removed.id],
 					},
-					include: { child: {}, children: {} },
+					name: 'After',
 				},
-				{ ultimabase: app },
-			)
+				include: { child: {}, children: {} },
+			})
 
 			if (updated === null || !(updated.child instanceof Child)) {
 				throw new TypeError('Expected the included nested pointer target')
@@ -255,40 +238,29 @@ describe(
 				'child:update:after',
 				'parent:update:after',
 			])
-			expect(
-				await Child.get({ id: removed.id }, { ultimabase: app }),
-			).toMatchObject({
+			expect(await Child.get({ id: removed.id })).toMatchObject({
 				name: 'Removed',
 			})
 
-			const disconnected = await Parent.updateOne(
-				{
-					where: { id: { eq: parent.id } },
-					data: { child: { disconnect: true } },
-					include: { child: {} },
-				},
-				{ ultimabase: app },
-			)
+			const disconnected = await Parent.updateOne({
+				where: { id: { eq: parent.id } },
+				data: { child: { disconnect: true } },
+				include: { child: {} },
+			})
 			expect(disconnected).toMatchObject({ child: null })
-			expect(
-				await Child.get({ id: author.id }, { ultimabase: app }),
-			).toMatchObject({
+			expect(await Child.get({ id: author.id })).toMatchObject({
 				name: 'Author updated',
 			})
 		})
 
 		it('replaces only visible owning membership and preserves hidden edges', async () => {
-			const app = getUltimaBase()
-			const [visible, hidden, replacement] = await Child.createMany(
-				{
-					data: [
-						{ name: 'Visible' },
-						{ name: 'Hidden' },
-						{ name: 'Replacement' },
-					],
-				},
-				{ ultimabase: app },
-			)
+			const [visible, hidden, replacement] = await Child.createMany({
+				data: [
+					{ name: 'Visible' },
+					{ name: 'Hidden' },
+					{ name: 'Replacement' },
+				],
+			})
 			if (
 				visible === undefined ||
 				hidden === undefined ||
@@ -296,27 +268,21 @@ describe(
 			) {
 				throw new TypeError('Nested set seed children are incomplete')
 			}
-			const parent = await Parent.createOne(
-				{
-					data: {
-						children: { connect: [visible.id, hidden.id] },
-						name: 'Visibility',
-					},
+			const parent = await Parent.createOne({
+				data: {
+					children: { connect: [visible.id, hidden.id] },
+					name: 'Visibility',
 				},
-				{ ultimabase: app },
-			)
-			await hidden.update({ data: { visible: false } }, { ultimabase: app })
+			})
+			await hidden.update({ data: { visible: false } })
 
-			await Parent.updateOne(
-				{
-					where: { id: { eq: parent.id } },
-					data: { children: { set: [replacement.id] } },
-				},
-				{ ultimabase: app },
-			)
+			await Parent.updateOne({
+				where: { id: { eq: parent.id } },
+				data: { children: { set: [replacement.id] } },
+			})
 			const afterSet = await Parent.get(
 				{ id: parent.id, include: { children: {} } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			expect(
 				// The retained Typegen graph owns exact cross-schema include identities.
@@ -325,16 +291,13 @@ describe(
 					.sort(),
 			).toEqual([hidden.id, replacement.id].sort())
 
-			await Parent.updateOne(
-				{
-					where: { id: { eq: parent.id } },
-					data: { children: { clear: true } },
-				},
-				{ ultimabase: app },
-			)
+			await Parent.updateOne({
+				where: { id: { eq: parent.id } },
+				data: { children: { clear: true } },
+			})
 			const afterClear = await Parent.get(
 				{ id: parent.id, include: { children: {} } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			expect(
 				requireChildren(afterClear.children).map((child) =>
@@ -344,207 +307,158 @@ describe(
 		})
 
 		it('updates inverse-pointer membership without deleting either target', async () => {
-			const app = getUltimaBase()
-			const parent = await Parent.createOne(
-				{ data: { name: 'Inverse parent' } },
-				{ ultimabase: app },
-			)
-			const [current, replacement] = await Note.createMany(
-				{
-					data: [
-						{ body: 'Current', parent: new Pointer(Parent, parent.id) },
-						{ body: 'Replacement' },
-					],
-				},
-				{ ultimabase: app },
-			)
+			const parent = await Parent.createOne({
+				data: { name: 'Inverse parent' },
+			})
+			const [current, replacement] = await Note.createMany({
+				data: [
+					{ body: 'Current', parent: new Pointer(Parent, parent.id) },
+					{ body: 'Replacement' },
+				],
+			})
 			if (current === undefined || replacement === undefined) {
 				throw new TypeError('Nested inverse seed notes are incomplete')
 			}
 
-			const updated = await Parent.updateOne(
-				{
-					where: { id: { eq: parent.id } },
-					data: { notes: { set: [replacement.id] } },
-					include: { notes: {} },
-				},
-				{ ultimabase: app },
-			)
+			const updated = await Parent.updateOne({
+				where: { id: { eq: parent.id } },
+				data: { notes: { set: [replacement.id] } },
+				include: { notes: {} },
+			})
 			if (updated === null || !Array.isArray(updated.notes)) {
 				throw new TypeError('Expected included inverse notes')
 			}
 			expect(updated.notes).toMatchObject([{ id: replacement.id }])
-			expect(
-				await Note.get({ id: current.id }, { ultimabase: app }),
-			).toMatchObject({
+			expect(await Note.get({ id: current.id })).toMatchObject({
 				parent: null,
 			})
-			expect(
-				await Note.get({ id: replacement.id }, { ultimabase: app }),
-			).toMatchObject({
+			expect(await Note.get({ id: replacement.id })).toMatchObject({
 				parent: new Pointer(Parent, parent.id),
 			})
 		})
 
 		it('updates and disconnects inverse-relation targets through the same edge', async () => {
-			const app = getUltimaBase()
-			const child = await Child.createOne(
-				{ data: { name: 'Inverse relation child' } },
-				{ ultimabase: app },
-			)
+			const child = await Child.createOne({
+				data: { name: 'Inverse relation child' },
+			})
 			const [updatedParent, disconnectedParent] = await Promise.all([
-				Parent.createOne(
-					{
-						data: { children: { connect: [child.id] }, name: 'Updated target' },
+				Parent.createOne({
+					data: { children: { connect: [child.id] }, name: 'Updated target' },
+				}),
+				Parent.createOne({
+					data: {
+						children: { connect: [child.id] },
+						name: 'Disconnected target',
 					},
-					{ ultimabase: app },
-				),
-				Parent.createOne(
-					{
-						data: {
-							children: { connect: [child.id] },
-							name: 'Disconnected target',
-						},
-					},
-					{ ultimabase: app },
-				),
+				}),
 			])
 
-			await Child.updateOne(
-				{
-					where: { id: { eq: child.id } },
-					data: {
-						parents: {
-							update: [
-								{ id: updatedParent.id, data: { name: 'Updated inverse' } },
-							],
-							disconnect: [disconnectedParent.id],
-						},
+			await Child.updateOne({
+				where: { id: { eq: child.id } },
+				data: {
+					parents: {
+						update: [
+							{ id: updatedParent.id, data: { name: 'Updated inverse' } },
+						],
+						disconnect: [disconnectedParent.id],
 					},
 				},
-				{ ultimabase: app },
-			)
+			})
 
-			expect(
-				await Parent.get({ id: updatedParent.id }, { ultimabase: app }),
-			).toMatchObject({ name: 'Updated inverse' })
-			const reloaded = await Child.get(
-				{ id: child.id, include: { parents: {} } },
-				{ ultimabase: app },
-			)
+			expect(await Parent.get({ id: updatedParent.id })).toMatchObject({
+				name: 'Updated inverse',
+			})
+			const reloaded = await Child.get({
+				id: child.id,
+				include: { parents: {} },
+			})
 			expect(reloaded.parents).toMatchObject([{ id: updatedParent.id }])
 		})
 
 		it('rolls descendants and membership back when the root after Hook fails', async () => {
-			const app = getUltimaBase()
-			const [pointerTarget, related] = await Child.createMany(
-				{ data: [{ name: 'Rollback pointer' }, { name: 'Rollback relation' }] },
-				{ ultimabase: app },
-			)
+			const [pointerTarget, related] = await Child.createMany({
+				data: [{ name: 'Rollback pointer' }, { name: 'Rollback relation' }],
+			})
 			if (pointerTarget === undefined || related === undefined) {
 				throw new TypeError('Nested rollback seed children are incomplete')
 			}
-			const parent = await Parent.createOne(
-				{
-					data: {
-						child: { connect: pointerTarget.id },
-						children: { connect: [related.id] },
-						name: 'Rollback parent',
-					},
+			const parent = await Parent.createOne({
+				data: {
+					child: { connect: pointerTarget.id },
+					children: { connect: [related.id] },
+					name: 'Rollback parent',
 				},
-				{ ultimabase: app },
-			)
+			})
 			rejectParentAfterUpdate = true
 
 			await expect(
-				Parent.updateOne(
-					{
-						where: { id: { eq: parent.id } },
-						data: {
-							child: { update: { name: 'Must roll back' } },
-							children: { disconnect: [related.id] },
-							name: 'Must roll back',
-						},
+				Parent.updateOne({
+					where: { id: { eq: parent.id } },
+					data: {
+						child: { update: { name: 'Must roll back' } },
+						children: { disconnect: [related.id] },
+						name: 'Must roll back',
 					},
-					{ ultimabase: app },
-				),
+				}),
 			).rejects.toBe(rollbackError)
 			rejectParentAfterUpdate = false
 
 			expect(
-				await Parent.get(
-					{ id: parent.id, include: { children: {} } },
-					{ ultimabase: app },
-				),
+				await Parent.get({ id: parent.id, include: { children: {} } }),
 			).toMatchObject({
 				children: [{ id: related.id }],
 				name: 'Rollback parent',
 			})
-			expect(
-				await Child.get({ id: pointerTarget.id }, { ultimabase: app }),
-			).toMatchObject({ name: 'Rollback pointer' })
+			expect(await Child.get({ id: pointerTarget.id })).toMatchObject({
+				name: 'Rollback pointer',
+			})
 		})
 
 		it('fails hidden and unrelated relation updates before business hooks or writes', async () => {
-			const app = getUltimaBase()
-			const [related, unrelated] = await Child.createMany(
-				{ data: [{ name: 'Related' }, { name: 'Unrelated' }] },
-				{ ultimabase: app },
-			)
+			const [related, unrelated] = await Child.createMany({
+				data: [{ name: 'Related' }, { name: 'Unrelated' }],
+			})
 			if (related === undefined || unrelated === undefined) {
 				throw new TypeError('Nested protected seed children are incomplete')
 			}
-			const parent = await Parent.createOne(
-				{
-					data: {
-						children: { connect: [related.id] },
-						name: 'Protected parent',
-					},
+			const parent = await Parent.createOne({
+				data: {
+					children: { connect: [related.id] },
+					name: 'Protected parent',
 				},
-				{ ultimabase: app },
-			)
-			await related.update({ data: { visible: false } }, { ultimabase: app })
+			})
+			await related.update({ data: { visible: false } })
 
 			for (const id of [related.id, unrelated.id]) {
 				trace.length = 0
 				await expect(
-					Parent.updateOne(
-						{
-							where: { id: { eq: parent.id } },
-							data: {
-								children: {
-									update: [{ id, data: { name: 'Forbidden' } }],
-								},
+					Parent.updateOne({
+						where: { id: { eq: parent.id } },
+						data: {
+							children: {
+								update: [{ id, data: { name: 'Forbidden' } }],
 							},
 						},
-						{ ultimabase: app },
-					),
+					}),
 				).rejects.toMatchObject({ code: 'NOT_FOUND' })
 				expect(trace).toEqual(['parent:children:update'])
 			}
 		})
 
 		it('returns null for a missing root without executing descendants', async () => {
-			const app = getUltimaBase()
-			const missing = await Parent.updateOne(
-				{
-					where: {
-						id: { eq: '0199c2d0-0000-7000-8000-000000000099' },
-					},
-					data: {
-						child: { create: { name: 'Must not exist' } },
-						name: 'Missing root',
-					},
+			const missing = await Parent.updateOne({
+				where: {
+					id: { eq: '0199c2d0-0000-7000-8000-000000000099' },
 				},
-				{ ultimabase: app },
-			)
+				data: {
+					child: { create: { name: 'Must not exist' } },
+					name: 'Missing root',
+				},
+			})
 
 			expect(missing).toBeNull()
 			expect(
-				await Child.findMany(
-					{ where: { name: { eq: 'Must not exist' } } },
-					{ ultimabase: app },
-				),
+				await Child.findMany({ where: { name: { eq: 'Must not exist' } } }),
 			).toEqual([])
 		})
 	},

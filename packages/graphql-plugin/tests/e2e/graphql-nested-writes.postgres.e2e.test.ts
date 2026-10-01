@@ -166,7 +166,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 	it('executes recursive pointer and owning-relation commands networklessly', async () => {
 		const [first, second, removed] = await Target.createMany(
 			{ data: [{ name: 'First' }, { name: 'Second' }, { name: 'Removed' }] },
-			{ context: context(), ultimabase: app() },
+			{ context: context() },
 		)
 		if (first === undefined || second === undefined || removed === undefined) {
 			throw new TypeError('GraphQL nested-write seed is incomplete')
@@ -283,7 +283,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 				id: createdPost.id,
 				include: { primary: {}, targets: {} },
 			},
-			{ context: context(), ultimabase: app() },
+			{ context: context() },
 		)
 		expect(final.primary).toMatchObject({ name: 'Pointer replaced' })
 		expect(final.targets).toEqual([])
@@ -292,7 +292,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 	it('keeps Yoga parity and reports Core graph failures safely', async () => {
 		const target = await Target.createOne(
 			{ data: { name: 'Yoga target' } },
-			{ context: context(), ultimabase: app() },
+			{ context: context() },
 		)
 		const created = await executeYoga(
 			`mutation Create($input: GraphqlNestedPostCreateInput!) {
@@ -352,10 +352,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			).toBe('string')
 		}
 		expect(
-			await Post.get(
-				{ id: post.id },
-				{ context: context(), ultimabase: app() },
-			),
+			await Post.get({ id: post.id }, { context: context() }),
 		).toMatchObject({ title: 'Yoga created' })
 
 		let nested: unknown = { name: 'Depth 6' }
@@ -372,14 +369,9 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			code: 'VALIDATION_ERROR',
 			requestId: 'graphql-nested-writes',
 		})
-		expect(
-			await Node.count({}, { context: context(), ultimabase: app() }),
-		).toBe(0)
+		expect(await Node.count({}, { context: context() })).toBe(0)
 
-		const targetCount = await Target.count(
-			{},
-			{ context: context(), ultimabase: app() },
-		)
+		const targetCount = await Target.count({}, { context: context() })
 		const operationFailure = await execute(
 			`mutation Create($input: GraphqlNestedPostCreateInput!) {
 				createGraphqlNestedPost(input: $input) { id }
@@ -398,8 +390,6 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		expect(operationFailure.errors?.[0]?.extensions).toMatchObject({
 			code: 'VALIDATION_ERROR',
 		})
-		expect(
-			await Target.count({}, { context: context(), ultimabase: app() }),
-		).toBe(targetCount)
+		expect(await Target.count({}, { context: context() })).toBe(targetCount)
 	}, 30_000)
 })

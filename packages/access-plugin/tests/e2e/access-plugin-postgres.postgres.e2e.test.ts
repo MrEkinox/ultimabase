@@ -148,14 +148,6 @@ let privateId = ''
 let lockedId = ''
 let visibleDocumentIds: readonly string[] = []
 
-const getUltimaBase = () => {
-	if (ultimabase === undefined) {
-		throw new TypeError('Native Access PostgreSQL application has not started')
-	}
-
-	return ultimabase
-}
-
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = new (UltimaBase.use(
@@ -206,7 +198,7 @@ beforeAll(async () => {
 				},
 			],
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	publicId = articles[0]?.id ?? ''
 	privateId = articles[1]?.id ?? ''
@@ -220,7 +212,7 @@ beforeAll(async () => {
 				{ key: 'visible-b', value: 3, visible: true },
 			],
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 	visibleDocumentIds = documents
 		.filter(({ visible }) => visible)
@@ -234,83 +226,58 @@ afterAll(async () => {
 
 describe('Access plugin with PostgreSQL', () => {
 	it('composes native, plugin, and developer predicates in SQL', async () => {
-		const app = getUltimaBase()
-		const rows = await AccessArticle.findMany(
-			{ where: { rank: { gt: 0 } }, orderBy: { rank: 'asc' } },
-			{ ultimabase: app },
-		)
+		const rows = await AccessArticle.findMany({
+			where: { rank: { gt: 0 } },
+			orderBy: { rank: 'asc' },
+		})
 
 		expect(rows.map(({ title }) => title)).toStrictEqual(['public', 'locked'])
-		await expect(AccessArticle.count({}, { ultimabase: app })).resolves.toBe(2)
-		await expect(AccessArticle.exists({}, { ultimabase: app })).resolves.toBe(
-			true,
-		)
+		await expect(AccessArticle.count({})).resolves.toBe(2)
+		await expect(AccessArticle.exists({})).resolves.toBe(true)
 		await expect(
-			AccessArticle.findOne(
-				{ where: { id: { eq: privateId } } },
-				{ ultimabase: app },
-			),
+			AccessArticle.findOne({ where: { id: { eq: privateId } } }),
 		).resolves.toBeNull()
 		await expect(
-			AccessArticle.exists(
-				{ where: { id: { eq: privateId } } },
-				{ ultimabase: app },
-			),
+			AccessArticle.exists({ where: { id: { eq: privateId } } }),
 		).resolves.toBe(false)
-		await expect(
-			AccessArticle.get({ id: publicId }, { ultimabase: app }),
-		).resolves.toMatchObject({ title: 'public' })
+		await expect(AccessArticle.get({ id: publicId })).resolves.toMatchObject({
+			title: 'public',
+		})
 	})
 
 	it('omits forbidden output and rejects every indirect field disclosure path', async () => {
-		const app = getUltimaBase()
-		const article = await AccessArticle.findOne(
-			{ where: { id: { eq: publicId } } },
-			{ ultimabase: app },
-		)
+		const article = await AccessArticle.findOne({
+			where: { id: { eq: publicId } },
+		})
 
 		expect(article).not.toBeNull()
 		expect(article).not.toHaveProperty('secret')
 		await expect(
-			AccessArticle.findMany({ select: { secret: true } }, { ultimabase: app }),
+			AccessArticle.findMany({ select: { secret: true } }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.findMany(
-				{ where: { secret: { eq: 'public-secret' } } },
-				{ ultimabase: app },
-			),
+			AccessArticle.findMany({ where: { secret: { eq: 'public-secret' } } }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.findMany(
-				{ orderBy: { secret: 'asc' } },
-				{ ultimabase: app },
-			),
+			AccessArticle.findMany({ orderBy: { secret: 'asc' } }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.updateOne(
-				{
-					where: { id: { eq: publicId } },
-					data: { secret: 'changed' },
-				},
-				{ ultimabase: app },
-			),
+			AccessArticle.updateOne({
+				where: { id: { eq: publicId } },
+				data: { secret: 'changed' },
+			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 
 	it('bypasses every Access declaration for audited master', async () => {
-		const app = getUltimaBase()
-
 		await expect(
-			AccessArticle.createOne(
-				{
-					data: {
-						published: true,
-						secret: 'anonymous-secret',
-						title: 'anonymous',
-					},
+			AccessArticle.createOne({
+				data: {
+					published: true,
+					secret: 'anonymous-secret',
+					title: 'anonymous',
 				},
-				{ ultimabase: app },
-			),
+			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		const masterCreated = await AccessArticle.createOne(
 			{
@@ -321,7 +288,7 @@ describe('Access plugin with PostgreSQL', () => {
 					title: 'master-created',
 				},
 			},
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 
 		expect(masterCreated).toMatchObject({ secret: 'master-secret' })
@@ -331,146 +298,108 @@ describe('Access plugin with PostgreSQL', () => {
 					data: { secret: 'master-updated', title: 'master-updated' },
 					where: { id: { eq: masterCreated.id } },
 				},
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			),
 		).resolves.toMatchObject({
 			secret: 'master-updated',
 			title: 'master-updated',
 		})
 		await expect(
-			AccessArticle.get(
-				{ id: privateId },
-				{ ultimabase: app, useMasterKey: true },
-			),
+			AccessArticle.get({ id: privateId }, { useMasterKey: true }),
 		).resolves.toMatchObject({ secret: 'private-secret', title: 'private' })
 		await expect(
 			AccessArticle.exists(
 				{ where: { title: { eq: 'plugin-hidden' } } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			),
 		).resolves.toBe(true)
 	})
 
 	it('filters mutation targets and rolls nested writes back after item denial', async () => {
-		const app = getUltimaBase()
 		await expect(
-			AccessArticle.deleteOne(
-				{ where: { id: { eq: privateId } } },
-				{ ultimabase: app },
-			),
+			AccessArticle.deleteOne({ where: { id: { eq: privateId } } }),
 		).resolves.toBeNull()
-		const publicModel = await AccessArticle.findOne(
-			{ where: { id: { eq: publicId } } },
-			{ ultimabase: app },
-		)
+		const publicModel = await AccessArticle.findOne({
+			where: { id: { eq: publicId } },
+		})
 
 		if (publicModel === null) {
 			throw new TypeError('Access model-command fixture is missing')
 		}
 
 		await expect(
-			publicModel.update(
-				{ data: { title: 'public-updated' } },
-				{ ultimabase: app },
-			),
+			publicModel.update({ data: { title: 'public-updated' } }),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
-		const auditCount = await AccessAudit.count({}, { ultimabase: app })
+		const auditCount = await AccessAudit.count({})
 		await expect(
-			AccessArticle.updateOne(
-				{
-					where: { id: { eq: lockedId } },
-					data: { title: 'must-rollback' },
-				},
-				{ ultimabase: app },
-			),
+			AccessArticle.updateOne({
+				where: { id: { eq: lockedId } },
+				data: { title: 'must-rollback' },
+			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-		await expect(AccessAudit.count({}, { ultimabase: app })).resolves.toBe(
-			auditCount,
-		)
+		await expect(AccessAudit.count({})).resolves.toBe(auditCount)
 		await expect(
-			AccessArticle.findOne(
-				{ where: { id: { eq: lockedId } } },
-				{ ultimabase: app },
-			),
+			AccessArticle.findOne({ where: { id: { eq: lockedId } } }),
 		).resolves.toMatchObject({ title: 'locked' })
 	})
 
 	it('applies row filters to set-based reads, updates, deletes, and upserts', async () => {
-		const app = getUltimaBase()
-
 		await expect(
-			BulkDocument.updateMany(
-				{
-					data: visibleDocumentIds.map((id) => ({
-						where: { id: { eq: id } },
-						data: { value: increment(10) },
-					})),
-				},
-				{ ultimabase: app },
-			),
+			BulkDocument.updateMany({
+				data: visibleDocumentIds.map((id) => ({
+					where: { id: { eq: id } },
+					data: { value: increment(10) },
+				})),
+			}),
 		).resolves.toHaveLength(2)
 		await expect(
-			BulkDocument.upsertOne(
-				{
-					where: { key: { eq: 'visible-a' } },
-					create: { key: 'visible-a', value: 0, visible: true },
-					update: { value: increment(1) },
-				},
-				{ ultimabase: app },
-			),
+			BulkDocument.upsertOne({
+				where: { key: { eq: 'visible-a' } },
+				create: { key: 'visible-a', value: 0, visible: true },
+				update: { value: increment(1) },
+			}),
 		).resolves.toMatchObject({ value: 12 })
-		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(2)
+		await expect(BulkDocument.count({})).resolves.toBe(2)
 		await expect(
-			BulkDocument.deleteMany(
-				{ where: visibleDocumentIds.map((id) => ({ id: { eq: id } })) },
-				{ ultimabase: app },
-			),
+			BulkDocument.deleteMany({
+				where: visibleDocumentIds.map((id) => ({ id: { eq: id } })),
+			}),
 		).resolves.toHaveLength(2)
-		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(0)
+		await expect(BulkDocument.count({})).resolves.toBe(0)
 		await expect(
-			BulkDocument.exists(
-				{ where: { key: { eq: 'private-a' } } },
-				{ ultimabase: app },
-			),
+			BulkDocument.exists({ where: { key: { eq: 'private-a' } } }),
 		).resolves.toBe(false)
 	})
 
 	it('rolls back a bulk upsert when an item rule rejects its create branch', async () => {
-		const app = getUltimaBase()
 		const existing = await UpsertDecisionDocument.createOne(
 			{ data: { key: 'existing', score: 1 } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
 
 		// The earlier update must not commit if a later create is denied.
 		await expect(
-			UpsertDecisionDocument.upsertMany(
-				{
-					data: [
-						{
-							where: { key: { eq: 'existing' } },
-							create: { key: 'existing', score: 1 },
-							update: { score: 3 },
-						},
-						{
-							where: { key: { eq: 'denied' } },
-							create: { key: 'denied', score: 9 },
-							update: { score: 9 },
-						},
-					],
-				},
-				{ ultimabase: app },
-			),
+			UpsertDecisionDocument.upsertMany({
+				data: [
+					{
+						where: { key: { eq: 'existing' } },
+						create: { key: 'existing', score: 1 },
+						update: { score: 3 },
+					},
+					{
+						where: { key: { eq: 'denied' } },
+						create: { key: 'denied', score: 9 },
+						update: { score: 9 },
+					},
+				],
+			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			UpsertDecisionDocument.get({ id: existing.id }, { ultimabase: app }),
+			UpsertDecisionDocument.get({ id: existing.id }),
 		).resolves.toMatchObject({ score: 1 })
 		await expect(
-			UpsertDecisionDocument.findOne(
-				{ where: { key: { eq: 'denied' } } },
-				{ ultimabase: app },
-			),
+			UpsertDecisionDocument.findOne({ where: { key: { eq: 'denied' } } }),
 		).resolves.toBeNull()
 	})
 })

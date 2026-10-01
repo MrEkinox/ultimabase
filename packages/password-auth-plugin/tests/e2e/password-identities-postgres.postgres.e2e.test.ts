@@ -116,15 +116,12 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				expect.objectContaining({ schema: 'User' }),
 			)
 			await expect(
-				new PasswordUser({ username: 'Ada' }).create({}, { ultimabase }),
+				new PasswordUser({ username: 'Ada' }).create({}),
 			).rejects.toThrow('canonical representation')
-			const user = await new PasswordUser({ username: 'ada' }).create(
-				{},
-				{ ultimabase },
-			)
+			const user = await new PasswordUser({ username: 'ada' }).create({})
 			expect(user.username).toBe('ada')
 			await expect(
-				new PasswordUser({ username: 'ada' }).create({}, { ultimabase }),
+				new PasswordUser({ username: 'ada' }).create({}),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		} finally {
 			await ultimabase.dispose()
@@ -150,38 +147,32 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				User.createMany(
-					{
-						data: [
-							{ username: 'grace', displayName: 'Grace' },
-							{ username: 'Ada', displayName: 'Ada' },
-						],
-					},
-					{ ultimabase },
-				),
+				User.createMany({
+					data: [
+						{ username: 'grace', displayName: 'Grace' },
+						{ username: 'Ada', displayName: 'Ada' },
+					],
+				}),
 			).rejects.toThrow('canonical representation')
 			// A later invalid item must roll back the earlier valid identity.
-			expect(await User.count({}, { ultimabase })).toBe(0)
+			expect(await User.count({})).toBe(0)
 			const input = {
 				where: { username: { eq: 'ada' } },
 				create: { username: 'ada', displayName: 'Ada' },
 				update: { displayName: 'Ada Lovelace' },
 			}
-			const created = await User.upsertOne(input, { ultimabase })
-			const updated = await User.upsertMany({ data: [input] }, { ultimabase })
+			const created = await User.upsertOne(input)
+			const updated = await User.upsertMany({ data: [input] })
 			expect(updated[0]?.id).toBe(created.id)
 			expect(updated[0]?.displayName).toBe('Ada Lovelace')
 			await expect(
-				User.upsertOne(
-					{
-						where: { username: { eq: 'Grace' } },
-						create: { username: 'Grace', displayName: 'Grace' },
-						update: { displayName: 'Grace Hopper' },
-					},
-					{ ultimabase },
-				),
+				User.upsertOne({
+					where: { username: { eq: 'Grace' } },
+					create: { username: 'Grace', displayName: 'Grace' },
+					update: { displayName: 'Grace Hopper' },
+				}),
 			).rejects.toThrow('canonical representation')
-			expect(await User.count({}, { ultimabase })).toBe(1)
+			expect(await User.count({})).toBe(1)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -283,10 +274,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 		try {
 			const username = 'grace'
 			const password = 'another correct horse battery staple'
-			const user = await new PasswordUser({ username }).create(
-				{},
-				{ ultimabase },
-			)
+			const user = await new PasswordUser({ username }).create({})
 			const execute = (action: string, selectedPassword = password) =>
 				ultimabase.operation(credentialOperation).execute({
 					action,
@@ -322,7 +310,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			expect(storedVerifier).toMatch(/^\$argon2id\$v=19\$/u)
 			expect(storedVerifier).not.toContain(password)
 
-			await user.delete({}, { ultimabase })
+			await user.delete({})
 			expect(await execute('verify')).toBe('missing')
 		} finally {
 			await ultimabase.dispose()

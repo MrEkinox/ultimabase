@@ -85,7 +85,9 @@ test('preserves exact operation descriptors and bootstrap handles', () => {
 	const post = ultimabase.schema(Post)
 	expectTypeOf(post).toEqualTypeOf<ApplicationSchemaHandle<typeof Post>>()
 	expectTypeOf(post.schema).toEqualTypeOf<typeof Post>()
-	expectTypeOf(post.findMany).toEqualTypeOf<typeof Post.findMany>()
+	// Native commands have one ordinary entry point on the schema class.
+	// @ts-expect-error -- Application handles retain only advanced surfaces.
+	void post.findMany
 	expectTypeOf(
 		ultimabase.schema('UnknownAtBootstrap').schema.className,
 	).toEqualTypeOf<'UnknownAtBootstrap'>()

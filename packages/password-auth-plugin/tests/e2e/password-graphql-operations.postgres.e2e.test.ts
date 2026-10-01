@@ -279,7 +279,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 					where: { username: { eq: 'graphql-user' } },
 					data: { displayName: 'Updated' },
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const auth = ultimabase.plugin('@ultimabase/password-auth-plugin')
 			profileVisible = false

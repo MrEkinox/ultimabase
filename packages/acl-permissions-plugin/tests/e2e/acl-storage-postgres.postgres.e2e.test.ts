@@ -77,7 +77,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 		try {
 			const created = await StoredPost.createOne(
 				{ data: { title: 'Protected' } },
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const createdACL = requireACLValue(
 				created.acl,
@@ -102,7 +102,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 					where: { id: { eq: created.id } },
 					data: { acl: replacement },
 				},
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const updatedACL = requireACLValue(
 				updated?.acl,
@@ -144,7 +144,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 
 			await StoredPost.deleteOne(
 				{ where: { id: { eq: created.id } } },
-				{ ultimabase, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 			const remaining = await getFixture().pool.query<{
 				readonly count: string

@@ -173,14 +173,16 @@ const StaticPost = UltimaBase.Schema.define({
 	className: 'SemanticDynamicPost',
 	fields: (field) => ({ title: field.string() }),
 })
-const staticMutation = StaticPost.softDelete({ id: 'post-1' }, { ultimabase })
-const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } }, { ultimabase })
+const staticMutation = StaticPost.softDelete({ id: 'post-1' })
+const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
 const schema = ultimabase.schema('SemanticDynamicPost')
 const envelope = ultimabase.operation('fixture.semantic.publish').prepare({ id: 'post-1' })
 const archiveExecution = schema.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
 const softDeleteExecution = schema.softDelete({ id: 'post-1' })
 const exactId: string = envelope.payload.id
-const query = schema.findMany({ where: { id: { eq: "post-1" } } })
+const query = StaticPost.findMany({ where: { id: { eq: "post-1" } } })
+// @ts-expect-error -- Ordinary terminals no longer select an application.
+StaticPost.findMany(undefined, { ultimabase })
 const operation = ultimabase.operation('fixture.semantic.publish')
 operation.prepare({ id: 'post-2' })
 const operationExecution: Promise<Core.BaseItem> = operation.execute({ id: 'post-2' })
@@ -193,23 +195,20 @@ const useModelCommands = async () => {
 	archived.createdAt
 	const deleted = await schema.softDelete({ id: 'post-1' }, { useMasterKey: true })
 	const deletedTitle: string | null = deleted.title
-	const fromHandle = await schema.findOne()
-	const fromSchema = await directSchema.findOne(undefined, { ultimabase })
-	if (fromHandle !== null) {
-		const archiveResult = fromHandle.archive({ input: { id: 'reason-2' }, select: { title: true } })
-		const softDeleteResult = fromHandle.softDelete()
+	const fromSchema = await directSchema.findOne()
+	// @ts-expect-error -- The advanced handle does not duplicate ordinary CRUD.
+	schema.findOne()
+	if (fromSchema !== null) {
+		const archiveResult = fromSchema.archive({ input: { id: 'reason-2' }, select: { title: true } })
+		const softDeleteResult = fromSchema.softDelete()
 		// @ts-expect-error -- Arbitrary operation commands are no longer generated.
-		fromHandle.publish({ missing: true })
+		fromSchema.publish({ missing: true })
 		// @ts-expect-error -- Payload-bearing mutations require their input property.
-		fromHandle.archive({ select: { title: true } })
+		fromSchema.archive({ select: { title: true } })
 		// @ts-expect-error -- Payload-free model mutations omit the input property.
-		fromHandle.softDelete({ input: undefined })
+		fromSchema.softDelete({ input: undefined })
 		void archiveResult
 		void softDeleteResult
-	}
-	if (fromSchema !== null) {
-		const schemaResult = fromSchema.softDelete()
-		void schemaResult
 	}
 	void archivedTitle
 	void deletedTitle
@@ -217,9 +216,9 @@ const useModelCommands = async () => {
 // @ts-expect-error -- Generated dynamic handles reject unknown plugin aliases.
 schema.unknownPluginSurface
 // @ts-expect-error -- Arbitrary schema commands do not become class-level mutations.
-StaticPost.publish({ id: 'post-1' }, { ultimabase })
+StaticPost.publish({ id: 'post-1' })
 // @ts-expect-error -- Class-level mutations retain exact target input.
-StaticPost.softDelete({ missing: 'post-1' }, { ultimabase })
+StaticPost.softDelete({ missing: 'post-1' })
 // @ts-expect-error -- Exact generated operation input requires id.
 operation.prepare({ missing: true })
 // @ts-expect-error -- Schema mutations require one exact target id.

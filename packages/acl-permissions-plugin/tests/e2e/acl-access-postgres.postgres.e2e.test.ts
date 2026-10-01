@@ -111,14 +111,6 @@ let ultimabase:
 	| undefined
 let rowIds: Readonly<Record<string, string>> = immutableRecord({})
 
-const getApplication = (): NonNullable<typeof ultimabase> => {
-	if (ultimabase === undefined) {
-		throw new TypeError('ACL Access application is missing')
-	}
-
-	return ultimabase
-}
-
 const request = (requestId: string) =>
 	RequestContext.anonymous({
 		requestId,
@@ -188,7 +180,7 @@ beforeAll(async () => {
 				{ acl: new ACL(), title: 'denied' },
 			],
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 	rowIds = immutableRecord(
@@ -203,7 +195,6 @@ afterAll(async () => {
 
 describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 	it('filters public, authenticated, principal, and role reads in SQL', async () => {
-		const app = getApplication()
 		const anonymous = request('acl-anonymous')
 		const alice = request('acl-alice').withValue(currentPrincipalId, aliceId)
 		const bob = request('acl-bob').withValue(currentPrincipalId, bobId)
@@ -216,7 +207,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const visibleTitles = (context: RequestContext) =>
 			ProtectedPost.findMany(
 				{ orderBy: { title: 'asc' }, select: { title: true } },
-				{ context, ultimabase: app },
+				{ context },
 			).then((rows) => rows.map(({ title }) => title))
 
 		await expect(visibleTitles(anonymous)).resolves.toStrictEqual(['public'])
@@ -241,19 +232,16 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			'public',
 			'shared',
 		])
-		await expect(
-			ProtectedPost.count({}, { context: alice, ultimabase: app }),
-		).resolves.toBe(4)
+		await expect(ProtectedPost.count({}, { context: alice })).resolves.toBe(4)
 		await expect(
 			ProtectedPost.exists(
 				{ where: { title: { eq: 'denied' } } },
-				{ context: alice, ultimabase: app },
+				{ context: alice },
 			),
 		).resolves.toBe(false)
 	})
 
 	it('combines ACL with developer filters for singular and bulk mutations', async () => {
-		const app = getApplication()
 		const alice = request('acl-alice-mutations').withValue(
 			currentPrincipalId,
 			aliceId,
@@ -270,21 +258,21 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 					},
 				],
 			},
-			{ context: alice, ultimabase: app },
+			{ context: alice },
 		)
 		const deniedUpdate = await ProtectedPost.updateOne(
 			{
 				where: { id: { eq: requireRowId('bob') } },
 				data: { marker: 'forbidden' },
 			},
-			{ context: alice, ultimabase: app },
+			{ context: alice },
 		)
 		const editorUpdated = await ProtectedPost.updateOne(
 			{
 				where: { id: { eq: requireRowId('editor') } },
 				data: { marker: 'editor-updated' },
 			},
-			{ context: editor, ultimabase: app },
+			{ context: editor },
 		)
 
 		expect(aliceUpdated).toHaveLength(1)
@@ -294,25 +282,24 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		await expect(
 			ProtectedPost.deleteMany(
 				{ where: [{ id: { eq: requireRowId('alice') } }] },
-				{ context: alice, ultimabase: app },
+				{ context: alice },
 			),
 		).resolves.toHaveLength(1)
 		await expect(
 			ProtectedPost.deleteOne(
 				{ where: { id: { eq: requireRowId('editor') } } },
-				{ context: editor, ultimabase: app },
+				{ context: editor },
 			),
 		).resolves.toMatchObject({ title: 'editor' })
-		await expect(
-			ProtectedPost.count({}, { ultimabase: app, useMasterKey: true }),
-		).resolves.toBe(5)
+		await expect(ProtectedPost.count({}, { useMasterKey: true })).resolves.toBe(
+			5,
+		)
 	})
 
 	it('allows itemized master updates while rejecting ACL upserts', async () => {
-		const app = getApplication()
 		const deniedId = requireRowId('denied')
 		const replacement = new ACL().grantPublic('read', 'update')
-		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+		const masterOptions = { useMasterKey: true } as const
 		const attempts = [
 			() =>
 				ProtectedPost.updateMany(

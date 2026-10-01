@@ -30,10 +30,7 @@ describe('official Hooks capability conformance', () => {
 			const successSchema = requireSchema(success.schemas[0], 'Hooks success')
 			const successEvidence = getOfficialHooksConformanceEvidence(successSchema)
 			await success.ultimabase.start()
-			await successSchema.createOne(
-				{ data: { title: '  published  ' } },
-				{ ultimabase: success.ultimabase },
-			)
+			await successSchema.createOne({ data: { title: '  published  ' } })
 			expect(successEvidence.trace).toStrictEqual([
 				'developer:field',
 				'provider:before',
@@ -55,10 +52,7 @@ describe('official Hooks capability conformance', () => {
 				getOfficialHooksConformanceEvidence(rollbackSchema)
 			await rollback.ultimabase.start()
 			await expect(
-				rollbackSchema.createOne(
-					{ data: { title: 'rollback' } },
-					{ ultimabase: rollback.ultimabase },
-				),
+				rollbackSchema.createOne({ data: { title: 'rollback' } }),
 			).rejects.toThrow('Hooks conformance requested rollback')
 			expect(rollbackEvidence.database.rollbacks).toBe(1)
 			expect(rollbackEvidence.trace).not.toContain(
@@ -73,10 +67,7 @@ describe('official Hooks capability conformance', () => {
 			const firstEvidence = getOfficialHooksConformanceEvidence(firstSchema)
 			const secondEvidence = getOfficialHooksConformanceEvidence(secondSchema)
 			await first.ultimabase.start()
-			await firstSchema.createOne(
-				{ data: { title: 'first' } },
-				{ ultimabase: first.ultimabase },
-			)
+			await firstSchema.createOne({ data: { title: 'first' } })
 			expect(firstEvidence.trace).not.toStrictEqual([])
 			await first.ultimabase.dispose()
 			await second.ultimabase.start()

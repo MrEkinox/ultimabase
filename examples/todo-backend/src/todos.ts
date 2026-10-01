@@ -1,4 +1,3 @@
-import { ultimabase } from './application.ts'
 import { Todo } from './schema.ts'
 import type { TodoNestedCreateInput } from '../.ultimabase/schema.generated.js'
 
@@ -15,28 +14,25 @@ export const createTodo = (data: TodoNestedCreateInput) =>
 				title: true,
 			},
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 /** Lists incomplete tasks in deadline order for the application dashboard. */
 export const listPendingTodos = () =>
-	Todo.findMany(
-		{
-			include: {
-				assignee: { select: { displayName: true } },
-			},
-			orderBy: { dueAt: 'asc', createdAt: 'asc' },
-			select: {
-				completed: true,
-				dueAt: true,
-				id: true,
-				priority: true,
-				title: true,
-			},
-			where: { completed: { eq: false } },
+	Todo.findMany({
+		include: {
+			assignee: { select: { displayName: true } },
 		},
-		{ ultimabase },
-	)
+		orderBy: { dueAt: 'asc', createdAt: 'asc' },
+		select: {
+			completed: true,
+			dueAt: true,
+			id: true,
+			priority: true,
+			title: true,
+		},
+		where: { completed: { eq: false } },
+	})
 
 /** Marks exactly one task as completed and returns its selected public state. */
 export const completeTodo = (id: string) =>
@@ -46,7 +42,7 @@ export const completeTodo = (id: string) =>
 			select: { completed: true, id: true, updatedAt: true },
 			where: { id: { eq: id } },
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)
 
 /** Deletes exactly one task by its immutable identifier. */
@@ -56,5 +52,5 @@ export const deleteTodo = (id: string) =>
 			select: { id: true, title: true },
 			where: { id: { eq: id } },
 		},
-		{ ultimabase, useMasterKey: true },
+		{ useMasterKey: true },
 	)

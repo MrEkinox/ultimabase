@@ -407,8 +407,8 @@ describe('plugin conformance suite', () => {
 			const { schemas, ultimabase } = context.createUltimaBase()
 			const [Source, Target] = schemas
 			await ultimabase.start()
-			const source = await Source.get({ id: sourceId }, { ultimabase })
-			await source.relation('targets').count({}, { ultimabase })
+			const source = await Source.get({ id: sourceId })
+			await source.relation('targets').count({})
 
 			if (latestAdapter === undefined) {
 				throw new TypeError('Relation read conformance adapter is unavailable')

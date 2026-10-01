@@ -80,9 +80,7 @@ describe('soft-delete visibility', () => {
 
 		try {
 			await ultimabase.start()
-			await Document.findMany({ where: { isDeleted: { eq: true } } } as never, {
-				ultimabase,
-			})
+			await Document.findMany({ where: { isDeleted: { eq: true } } } as never)
 
 			expect(adapter.requests).toHaveLength(1)
 			expect(adapter.requests[0]).toMatchObject({
@@ -135,12 +133,11 @@ describe('soft-delete visibility', () => {
 		try {
 			await enabled.start()
 			await Enabled.findMany(undefined, {
-				ultimabase: enabled,
 				useMasterKey: true,
 			})
 			await enabled.dispose()
 			await disabled.start()
-			await Disabled.findMany(undefined, { ultimabase: disabled })
+			await Disabled.findMany(undefined)
 
 			expect(enabledAdapter.requests[0]?.rowFilter).toEqual({
 				field: 'isDeleted',

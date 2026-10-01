@@ -45,64 +45,51 @@ test('preserves schema selection across every root read terminal', () => {
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id' | 'title'>>>()
 	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()
-	expectTypeOf(articleSchema.findMany(input, { ultimabase })).toEqualTypeOf<
+	expectTypeOf(articleSchema.findMany(input)).toEqualTypeOf<
 		Promise<readonly QueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(
-		articleSchema.createOne({ data: { title: 'Created' } }, { ultimabase }),
+		articleSchema.createOne({ data: { title: 'Created' } }),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		articleSchema.createMany({ data: [{ title: 'Created' }] }, { ultimabase }),
+		articleSchema.createMany({ data: [{ title: 'Created' }] }),
 	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(
-		articleSchema.upsertMany(
-			{
-				data: [
-					{
-						create: { title: 'Unique' },
-						where: { title: { eq: 'Unique' } },
-						update: { views: increment(1) },
-					},
-				],
-			},
-			{ ultimabase },
-		),
+		articleSchema.upsertMany({
+			data: [
+				{
+					create: { title: 'Unique' },
+					where: { title: { eq: 'Unique' } },
+					update: { views: increment(1) },
+				},
+			],
+		}),
 	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(
-		articleSchema.updateMany(
-			{
-				data: [
-					{
-						where: { title: { eq: 'Unique' } },
-						data: { views: increment(1) },
-					},
-				],
-			},
-			{ ultimabase },
-		),
+		articleSchema.updateMany({
+			data: [
+				{
+					where: { title: { eq: 'Unique' } },
+					data: { views: increment(1) },
+				},
+			],
+		}),
 	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 	expectTypeOf(
-		articleSchema.upsertOne(
-			{
-				where: { title: { eq: 'Unique' } },
-				create: { title: 'Unique' },
-				update: { views: increment(1) },
-			},
-			{ ultimabase },
-		),
+		articleSchema.upsertOne({
+			where: { title: { eq: 'Unique' } },
+			create: { title: 'Unique' },
+			update: { views: increment(1) },
+		}),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		articleSchema.deleteMany(
-			{ where: [{ id: { eq: 'article-1' } }] },
-			{ ultimabase },
-		),
+		articleSchema.deleteMany({ where: [{ id: { eq: 'article-1' } }] }),
 	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 
 	const masterOptions = { useMasterKey: true } as const
-	const contextOptions = { context, ultimabase } as const
+	const contextOptions = { context } as const
 	const contextualMasterOptions = {
 		context,
-		ultimabase,
 		useMasterKey: true,
 	} as const satisfies OperationOptions
 

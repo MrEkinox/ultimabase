@@ -246,24 +246,22 @@ role schema denies ordinary mutations, as in the configuration above:
 ```ts title="src/seed-roles.ts"
 import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { AppRole } from './roles.js'
-import { ultimabase } from './ultimabase.js'
 
 const editor = await new AppRole({ name: 'editor' }).create(
 	{},
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 const administrator = await new AppRole({ name: 'administrator' }).create(
 	{},
-	{ ultimabase, useMasterKey: true },
+	{ useMasterKey: true },
 )
 
 export const addEditor = (userId: string) =>
 	editor.addMember(PasswordUser.pointer(userId), {
-		ultimabase,
 		useMasterKey: true,
 	})
 
-await administrator.addRole(editor, { ultimabase, useMasterKey: true })
+await administrator.addRole(editor, { useMasterKey: true })
 ```
 
 Run the role creation once as setup, not on every request. `addMember()` and

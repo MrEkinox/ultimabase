@@ -178,22 +178,15 @@ describe('PostgreSQL adapter bridges', { concurrent: false }, () => {
 
 		await ultimabase.start()
 		try {
-			const created = await BridgeItem.createOne(
-				{ data: { value: 'logical-value' } },
-				{ ultimabase },
-			)
+			const created = await BridgeItem.createOne({
+				data: { value: 'logical-value' },
+			})
 			expect(created.value).toBe('logical-value')
-			await BridgeItem.createOne(
-				{ data: { value: 'unrelated-value' } },
-				{ ultimabase },
-			)
-			const contained = await BridgeItem.findMany(
-				{
-					select: { id: true, value: true },
-					where: { value: { contains: { value: 'logical-value' } } },
-				},
-				{ ultimabase },
-			)
+			await BridgeItem.createOne({ data: { value: 'unrelated-value' } })
+			const contained = await BridgeItem.findMany({
+				select: { id: true, value: true },
+				where: { value: { contains: { value: 'logical-value' } } },
+			})
 			expect(contained).toHaveLength(1)
 			expect(contained[0]).toMatchObject({
 				id: created.id,

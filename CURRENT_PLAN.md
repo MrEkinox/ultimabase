@@ -3,9 +3,16 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318
-- Active issue: none; awaiting review of issue 6318's handoff
-- Next issue: 6314
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314
+- Active issue: none; issue 6314 is complete
+- Next issue: 6313
+
+Issue 6314 resumed from clean revision `33ea7809` after the user's approval on
+2026-10-01. The ordinary duplicate schema commands and migration-only public
+application selector are removed; dynamic/advanced handles remain. The full
+validation, two complete built E2E passes, locked TypeScript benchmark, and
+diff audit pass. Its issue handoff records exact intermediate code metrics and
+the remaining final-milestone ceilings. No push is authorized.
 
 Current checkpoint: issue 6318 is complete. Executable ordinary schema consumers
 across the repository, starter, examples, and website now use `App.Schema.define()` or the portable

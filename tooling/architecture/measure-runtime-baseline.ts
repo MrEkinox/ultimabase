@@ -41,14 +41,11 @@ const measure = async (): Promise<RuntimeSample> => {
 		const heapAfterStartup = process.memoryUsage().heapUsed
 
 		const readStart = performance.now()
-		await MeasuredPost.findMany(undefined, { ultimabase })
+		await MeasuredPost.findMany()
 		const readMs = performance.now() - readStart
 
 		const mutationStart = performance.now()
-		await MeasuredPost.createOne(
-			{ data: { title: 'Measured mutation' } },
-			{ ultimabase },
-		)
+		await MeasuredPost.createOne({ data: { title: 'Measured mutation' } })
 		const mutationMs = performance.now() - mutationStart
 
 		return {

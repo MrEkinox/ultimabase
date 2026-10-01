@@ -1,6 +1,5 @@
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 
-import type { CompiledApplicationSchemaSurface } from '../plugins/application-surface-registry.js'
 import {
 	executeActiveModelSchemaMutation,
 	type OperationExecutionOwnerToken,
@@ -8,36 +7,11 @@ import {
 import type { OperationOptions } from '../query/operations/options.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import {
-	isSchemaModelInstance,
 	findSchemaModelRecord,
 	readSchemaModelRecord,
 	retainSchemaModelAlias,
 	retainSchemaModelOwner,
 } from '../schema/schema/model-state.js'
-import type { UltimaBaseGeneratedModelSurface } from '../schema/type-info.js'
-import {
-	createApplicationSchemaMutationMethod,
-	type ApplicationSchemaMutationExecutor,
-} from './application-schema-mutations.js'
-
-/** Preserves one schema model while adding the selected application's generated surface. */
-export type ApplicationBoundModel<
-	TSchema extends SchemaDefinition,
-	TModel extends object,
-> = TModel & UltimaBaseGeneratedModelSurface<TSchema>
-
-/** @internal Holds the application-local state shared by raw and proxied handles. */
-export interface ApplicationSchemaModelViewState {
-	readonly mergeOptions: (options: unknown) => OperationOptions
-	readonly modelViews: WeakMap<object, object>
-	readonly executeSchemaMutation: ApplicationSchemaMutationExecutor
-	readonly surface: CompiledApplicationSchemaSurface
-}
-
-const applicationSchemaModelViewStates = new WeakMap<
-	object,
-	ApplicationSchemaModelViewState
->()
 const applicationModelViewTargets = new WeakMap<object, object>()
 const directApplicationModelViews = new WeakMap<object, object>()
 const directApplicationCollectionViews = new WeakMap<
@@ -54,45 +28,6 @@ const directApplicationRecordViews = new WeakMap<
 		value: object
 	}>
 >()
-const boundModelInputCommands: ReadonlySet<string> = new Set([
-	'delete',
-	'fetch',
-	'update',
-])
-
-/** @internal Shares one model-view state with a raw or proxied schema handle. */
-export const registerApplicationSchemaModelViewHost = (
-	handle: object,
-	state: ApplicationSchemaModelViewState,
-): void => {
-	applicationSchemaModelViewStates.set(handle, state)
-}
-
-const bindBuiltInModelCommand =
-	(
-		property: 'delete' | 'exists' | 'fetch' | 'update',
-		method: (...arguments_: readonly unknown[]) => unknown,
-		model: object,
-		state: ApplicationSchemaModelViewState,
-	): ((...arguments_: readonly unknown[]) => unknown) =>
-	(...arguments_: readonly unknown[]): unknown => {
-		if (property === 'exists') {
-			if (arguments_.length > 1) {
-				throw new TypeError('Schema model exists accepts at most one argument')
-			}
-			return Reflect.apply(method, model, [state.mergeOptions(arguments_[0])])
-		}
-		if (arguments_.length > 2) {
-			throw new TypeError(
-				`Schema model ${property} accepts at most two arguments`,
-			)
-		}
-		return Reflect.apply(method, model, [
-			arguments_[0],
-			state.mergeOptions(arguments_[1]),
-		])
-	}
-
 /**
  * Retains only inert command names and an opaque lifecycle token. Execution
  * resolves and verifies the current active application at each call boundary.
@@ -289,83 +224,3 @@ export const bindDirectApplicationValue = (
 		modelMutationsFor,
 		new Set<object>(),
 	)
-
-/** @internal Adds callable plugin commands without mutating a schema model or prototype. */
-export const bindApplicationSchemaModel = <
-	TSchema extends SchemaDefinition,
-	TModel extends object,
->(
-	handle: object,
-	model: TModel,
-): ApplicationBoundModel<TSchema, TModel> => {
-	const state = applicationSchemaModelViewStates.get(handle)
-	if (state === undefined) {
-		throw new TypeError('Unknown application schema handle')
-	}
-	const target = applicationModelViewTargets.get(model) ?? model
-	if (!isSchemaModelInstance(state.surface.schema, target)) {
-		throw new TypeError(
-			`Application model binding requires an exact ${state.surface.schema.className} model`,
-		)
-	}
-	const existing = state.modelViews.get(target)
-	if (existing !== undefined) {
-		return existing as ApplicationBoundModel<TSchema, TModel>
-	}
-	const methodViews = new Map<PropertyKey, unknown>()
-	const view: object = new Proxy(target, {
-		get: (current, property, receiver): unknown => {
-			if (
-				typeof property === 'string' &&
-				state.surface.modelMutations.has(property)
-			) {
-				let mutation = methodViews.get(property)
-				if (mutation === undefined) {
-					const command = state.surface.modelMutations.get(property)
-					if (command === undefined) {
-						throw new TypeError(`Unknown model mutation: ${property}`)
-					}
-					mutation = createApplicationSchemaMutationMethod({
-						assertAvailable: () => undefined,
-						command,
-						execute: state.executeSchemaMutation,
-						model: view,
-						name: property,
-						schema: state.surface.schema,
-					})
-					methodViews.set(property, mutation)
-				}
-				return mutation
-			}
-
-			const value: unknown = Reflect.get(current, property, receiver)
-			if (
-				typeof property === 'string' &&
-				typeof value === 'function' &&
-				(property === 'exists' || boundModelInputCommands.has(property))
-			) {
-				let method = methodViews.get(property)
-				if (method === undefined) {
-					method = bindBuiltInModelCommand(
-						property as 'delete' | 'exists' | 'fetch' | 'update',
-						value as (...arguments_: readonly unknown[]) => unknown,
-						view,
-						state,
-					)
-					methodViews.set(property, method)
-				}
-				return method
-			}
-
-			return value
-		},
-		has: (current, property): boolean =>
-			(typeof property === 'string' &&
-				state.surface.modelMutations.has(property)) ||
-			Reflect.has(current, property),
-	})
-	retainSchemaModelAlias(view, target)
-	applicationModelViewTargets.set(view, target)
-	state.modelViews.set(target, view)
-	return view as ApplicationBoundModel<TSchema, TModel>
-}

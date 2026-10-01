@@ -255,25 +255,21 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('rejects caller tombstones and filters every ordinary read including Master', async () => {
-		const { database, ultimabase: app } = getFixture()
+		const { database } = getFixture()
 		const createUntrustedVisibleRecord = VisibleRecord.createOne.bind(
 			VisibleRecord,
-		) as unknown as (
-			input: unknown,
-			options: Readonly<{ ultimabase: typeof app }>,
-		) => Promise<unknown>
+		) as unknown as (input: unknown) => Promise<unknown>
 
 		await expect(
-			createUntrustedVisibleRecord(
-				{ data: { isDeleted: true, title: 'forbidden' } },
-				{ ultimabase: app },
-			),
+			createUntrustedVisibleRecord({
+				data: { isDeleted: true, title: 'forbidden' },
+			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 
-		const active = await VisibleRecord.createOne(
-			{ data: { title: 'active' }, select: { isDeleted: true, title: true } },
-			{ ultimabase: app },
-		)
+		const active = await VisibleRecord.createOne({
+			data: { title: 'active' },
+			select: { isDeleted: true, title: true },
+		})
 		expect(active.toJSON()).toMatchObject({ isDeleted: false, title: 'active' })
 
 		await database.pool.query(
@@ -281,52 +277,33 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			[active.id],
 		)
 
+		await expect(VisibleRecord.findMany(undefined)).resolves.toEqual([])
+		await expect(VisibleRecord.count(undefined)).resolves.toBe(0)
 		await expect(
-			VisibleRecord.findMany(undefined, { ultimabase: app }),
-		).resolves.toEqual([])
-		await expect(
-			VisibleRecord.count(undefined, { ultimabase: app }),
-		).resolves.toBe(0)
-		await expect(
-			VisibleRecord.exists(
-				{ where: { id: { eq: active.id } } },
-				{ ultimabase: app },
-			),
+			VisibleRecord.exists({ where: { id: { eq: active.id } } }),
 		).resolves.toBe(false)
 		await expect(
 			VisibleRecord.findMany(undefined, {
-				ultimabase: app,
 				useMasterKey: true,
 			}),
 		).resolves.toEqual([])
 		await expect(
-			VisibleRecord.findMany(
-				{ where: { isDeleted: { eq: true } } },
-				{ ultimabase: app },
-			),
+			VisibleRecord.findMany({ where: { isDeleted: { eq: true } } }),
 		).resolves.toEqual([])
 	})
 
 	it('cannot target a tombstoned row through ordinary update or delete', async () => {
-		const { database, ultimabase: app } = getFixture()
-		const row = await VisibleRecord.createOne(
-			{ data: { title: 'target' } },
-			{ ultimabase: app },
-		)
+		const { database } = getFixture()
+		const row = await VisibleRecord.createOne({ data: { title: 'target' } })
 		await database.pool.query(
 			`update soft_delete_visible_records set "isDeleted" = true where id = $1`,
 			[row.id],
 		)
 
 		await expect(
-			VisibleRecord.updateOne(
-				{ data: { title: 'changed' }, id: row.id },
-				{ ultimabase: app },
-			),
+			VisibleRecord.updateOne({ data: { title: 'changed' }, id: row.id }),
 		).resolves.toBeNull()
-		await expect(
-			VisibleRecord.deleteOne({ id: row.id }, { ultimabase: app }),
-		).resolves.toBeNull()
+		await expect(VisibleRecord.deleteOne({ id: row.id })).resolves.toBeNull()
 
 		const stored = await database.pool.query<{
 			isDeleted: boolean
@@ -339,21 +316,18 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('rewrites native delete while preserving logical Access, Hooks, results, and Master visibility', async () => {
-		const { database, ultimabase: app } = getFixture()
+		const { database } = getFixture()
 		replaceDeleteTrace.length = 0
 		rejectedDeleteTitle = undefined
-		const row = await ReplaceRecord.createOne(
-			{
-				data: { title: 'logical delete' },
-				select: { isDeleted: true, title: true },
-			},
-			{ ultimabase: app },
-		)
+		const row = await ReplaceRecord.createOne({
+			data: { title: 'logical delete' },
+			select: { isDeleted: true, title: true },
+		})
 
-		const deleted = await ReplaceRecord.deleteOne(
-			{ id: row.id, select: { id: true, isDeleted: true, title: true } },
-			{ ultimabase: app },
-		)
+		const deleted = await ReplaceRecord.deleteOne({
+			id: row.id,
+			select: { id: true, isDeleted: true, title: true },
+		})
 
 		expect(deleted?.toJSON()).toStrictEqual({
 			id: row.id,
@@ -378,18 +352,16 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		await expect(
 			ReplaceRecord.findOne(
 				{ where: { id: { eq: row.id } } },
-				{ ultimabase: app, useMasterKey: true },
+				{ useMasterKey: true },
 			),
 		).resolves.toBeNull()
-		await expect(
-			ReplaceRecord.deleteOne({ id: row.id }, { ultimabase: app }),
-		).resolves.toBeNull()
+		await expect(ReplaceRecord.deleteOne({ id: row.id })).resolves.toBeNull()
 
 		const masterRow = await ReplaceRecord.createOne(
 			{ data: { title: 'master logical delete' } },
-			{ ultimabase: app, useMasterKey: true },
+			{ useMasterKey: true },
 		)
-		await masterRow.delete({}, { ultimabase: app, useMasterKey: true })
+		await masterRow.delete({}, { useMasterKey: true })
 		const masterStored = await database.pool.query<{ isDeleted: boolean }>(
 			`select "isDeleted" from soft_delete_replace_records where id = $1`,
 			[masterRow.id],
@@ -398,26 +370,20 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('rolls back an ordered itemized delete batch without replaying update policy or hooks', async () => {
-		const { database, ultimabase: app } = getFixture()
+		const { database } = getFixture()
 		replaceDeleteTrace.length = 0
-		const [first, second] = await ReplaceRecord.createMany(
-			{
-				data: [{ title: 'batch first' }, { title: 'batch rejected' }],
-			},
-			{ ultimabase: app },
-		)
+		const [first, second] = await ReplaceRecord.createMany({
+			data: [{ title: 'batch first' }, { title: 'batch rejected' }],
+		})
 		if (first === undefined || second === undefined) {
 			throw new TypeError('Expected both replace-delete batch records')
 		}
 		rejectedDeleteTitle = 'batch rejected'
 
 		await expect(
-			ReplaceRecord.deleteMany(
-				{
-					where: [{ id: { eq: first.id } }, { id: { eq: second.id } }],
-				},
-				{ ultimabase: app },
-			),
+			ReplaceRecord.deleteMany({
+				where: [{ id: { eq: first.id } }, { id: { eq: second.id } }],
+			}),
 		).rejects.toThrow('replace-delete batch rejected')
 		expect(replaceDeleteTrace).toStrictEqual([
 			'before:delete:batch first',
@@ -438,18 +404,16 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('retains native hard-delete persistence for explicit and disabled schemas', async () => {
-		const { database, ultimabase: app } = getFixture()
-		const explicit = await VisibleRecord.createOne(
-			{ data: { title: 'explicit hard delete' } },
-			{ ultimabase: app },
-		)
-		const disabled = await PlainRecord.createOne(
-			{ data: { title: 'disabled hard delete' } },
-			{ ultimabase: app },
-		)
+		const { database } = getFixture()
+		const explicit = await VisibleRecord.createOne({
+			data: { title: 'explicit hard delete' },
+		})
+		const disabled = await PlainRecord.createOne({
+			data: { title: 'disabled hard delete' },
+		})
 
-		await VisibleRecord.deleteOne({ id: explicit.id }, { ultimabase: app })
-		await PlainRecord.deleteOne({ id: disabled.id }, { ultimabase: app })
+		await VisibleRecord.deleteOne({ id: explicit.id })
+		await PlainRecord.deleteOne({ id: disabled.id })
 
 		const rows = await database.pool.query<{ remaining: number }>(
 			`select (
@@ -463,17 +427,16 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('rejects a later middleware attempt to write the protected tombstone', async () => {
-		const { database, ultimabase: app } = getFixture()
-		const row = await VisibleRecord.createOne(
-			{ data: { title: 'middleware target' } },
-			{ ultimabase: app },
-		)
+		const { database } = getFixture()
+		const row = await VisibleRecord.createOne({
+			data: { title: 'middleware target' },
+		})
 
 		await expect(
-			VisibleRecord.updateOne(
-				{ data: { title: 'middleware changed' }, id: row.id },
-				{ ultimabase: app },
-			),
+			VisibleRecord.updateOne({
+				data: { title: 'middleware changed' },
+				id: row.id,
+			}),
 		).rejects.toThrow(
 			'prepared-operation contribution must preserve the normalized update shape',
 		)
@@ -491,22 +454,13 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 	})
 
 	it('hides tombstones from pointer, relation, eager, and nested target paths', async () => {
-		const { database, ultimabase: app } = getFixture()
-		const author = await Author.createOne(
-			{ data: { name: 'Ada' } },
-			{ ultimabase: app },
-		)
-		const tag = await Tag.createOne(
-			{ data: { label: 'hidden' } },
-			{ ultimabase: app },
-		)
-		const article = await Article.createOne(
-			{
-				data: { author: { connect: author.id }, title: 'relations' },
-			},
-			{ ultimabase: app },
-		)
-		await article.relation('tags').connect(tag.id, { ultimabase: app })
+		const { database } = getFixture()
+		const author = await Author.createOne({ data: { name: 'Ada' } })
+		const tag = await Tag.createOne({ data: { label: 'hidden' } })
+		const article = await Article.createOne({
+			data: { author: { connect: author.id }, title: 'relations' },
+		})
+		await article.relation('tags').connect(tag.id)
 
 		await database.pool.query(
 			`update soft_delete_visibility_authors set "isDeleted" = true where id = $1`,
@@ -517,32 +471,26 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			[tag.id],
 		)
 
-		const [loaded] = await Article.findMany(
-			{ include: { author: {}, tags: {} } },
-			{ ultimabase: app },
-		)
+		const [loaded] = await Article.findMany({
+			include: { author: {}, tags: {} },
+		})
 		if (loaded === undefined) throw new TypeError('Expected the active article')
 		expect(loaded.author).toBeNull()
 		expect(loaded.tags).toStrictEqual([])
+		await expect(article.relation('tags').count(undefined)).resolves.toBe(0)
+		await expect(article.relation('tags').exists(undefined)).resolves.toBe(
+			false,
+		)
 		await expect(
-			article.relation('tags').count(undefined, { ultimabase: app }),
-		).resolves.toBe(0)
-		await expect(
-			article.relation('tags').exists(undefined, { ultimabase: app }),
-		).resolves.toBe(false)
-		await expect(
-			Author.pointer(author.id).findOne(undefined, { ultimabase: app }),
+			Author.pointer(author.id).findOne(undefined),
 		).resolves.toBeNull()
 		await expect(
-			Article.createOne(
-				{
-					data: {
-						author: { connect: author.id },
-						title: 'cannot reconnect',
-					},
+			Article.createOne({
+				data: {
+					author: { connect: author.id },
+					title: 'cannot reconnect',
 				},
-				{ ultimabase: app },
-			),
+			}),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 	})
 })

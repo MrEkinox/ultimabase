@@ -138,7 +138,7 @@ beforeAll(async () => {
 			],
 			select: { id: true, label: true, rank: true },
 		},
-		{ context, ultimabase: application },
+		{ context },
 	)
 	const sortable = created.map(({ id, label, rank }) => {
 		if (typeof label !== 'string' || typeof rank !== 'number') {

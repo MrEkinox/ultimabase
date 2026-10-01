@@ -5,10 +5,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
-import {
-	assertOperationExecutionOwner,
-	type NormalizedOperationOptions,
-} from '../../query/operations/execution.js'
+import type { NormalizedOperationOptions } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import {
@@ -64,7 +61,6 @@ interface RequestSchemaMutationHostOptions {
 const executors = new WeakMap<RequestEngine, RequestSchemaMutationExecutor>()
 const noAuthorityOptions: NormalizedOperationOptions = immutableRecord({
 	context: undefined,
-	ultimabase: undefined,
 	useMasterKey: false,
 })
 
@@ -202,7 +198,6 @@ export const executeSchemaMutationRequest = async (
 ): Promise<unknown> => {
 	const application = readRequestEngineApplication(host.engine)
 	assertApplicationEngineAvailable(application)
-	assertOperationExecutionOwner(options.ultimabase, application)
 	assertEnvelope(host, command, schema, envelope)
 	const context = await resolveRequestContext(host, command, schema, options)
 	if (context !== host.engine.context) {

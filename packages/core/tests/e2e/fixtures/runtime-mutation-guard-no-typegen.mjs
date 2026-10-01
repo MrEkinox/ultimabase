@@ -83,7 +83,7 @@ let message
 
 try {
 	await ultimabase.start()
-	await Note.createOne({ data: { title: 'blocked' } }, { ultimabase })
+	await Note.createOne({ data: { title: 'blocked' } })
 	throw new Error('JavaScript mutation guard unexpectedly allowed persistence')
 } catch (error) {
 	message = error?.message

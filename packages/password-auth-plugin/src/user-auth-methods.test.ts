@@ -1,4 +1,4 @@
-import { UltimaBase, Schema } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { PasswordUser, PasswordUserSchema } from './index.js'
 
@@ -36,37 +36,46 @@ describe('Password User static authentication boundary', () => {
 			}
 		}
 	})
-	it('requires an active or explicit started application before credential work', async () => {
+	it('requires the sole active started application before credential work', async () => {
 		await expect(PasswordUser.signUp(credentials)).rejects.toMatchObject({
 			code: 'MISSING_EXECUTION_CONTEXT',
 		})
-		await using ultimabase = new UltimaBase({ schemas: [] })
-		{
-			await expect(
-				PasswordUser.login(credentials, { ultimabase }),
-			).rejects.toThrow('started UltimaBase')
-		}
-		await expect(PasswordUser.refresh('token', { ultimabase })).rejects.toThrow(
-			'started UltimaBase',
-		)
+		await expect(PasswordUser.login(credentials)).rejects.toMatchObject({
+			code: 'MISSING_EXECUTION_CONTEXT',
+		})
+		await expect(PasswordUser.refresh('token')).rejects.toMatchObject({
+			code: 'MISSING_EXECUTION_CONTEXT',
+		})
 	})
-	it('rejects malformed JavaScript options and forged application identities', async () => {
+	it('rejects removed JavaScript application-selection options', async () => {
+		const signUpWithOptions = PasswordUser.signUp.bind(PasswordUser) as (
+			input: typeof credentials,
+			options: unknown,
+		) => Promise<unknown>
 		for (const options of [
 			null,
 			[],
 			{ useMasterKey: true },
 			{ context: {} },
+			{ ultimabase: {} },
 			{ [Symbol('option')]: true },
 		]) {
-			await expect(
-				PasswordUser.signUp(credentials, options as never),
-			).rejects.toThrow('accept only ultimabase')
+			await expect(signUpWithOptions(credentials, options)).rejects.toThrow(
+				'do not accept application options',
+			)
 		}
+		const logoutWithOptions = PasswordUser.logout.bind(PasswordUser) as (
+			token: string,
+			options: unknown,
+		) => Promise<unknown>
 		await expect(
-			PasswordUser.logout('token', { ultimabase: {} as never }),
-		).rejects.toThrow('UltimaBase instance')
+			logoutWithOptions('token', { ultimabase: {} }),
+		).rejects.toThrow('do not accept application options')
+		const logoutEverywhereWithOptions = PasswordUser.logoutEverywhere.bind(
+			PasswordUser,
+		) as (options: unknown) => Promise<unknown>
 		await expect(
-			PasswordUser.logoutEverywhere({ ultimabase: {} as never }),
-		).rejects.toThrow('UltimaBase instance')
+			logoutEverywhereWithOptions({ ultimabase: {} }),
+		).rejects.toThrow('do not accept application options')
 	})
 })

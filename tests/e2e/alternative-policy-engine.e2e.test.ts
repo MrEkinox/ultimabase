@@ -164,7 +164,7 @@ describe('independent protected policy engine', () => {
 		}).check('middleware', async ({ createUltimaBase }) => {
 			const { ultimabase, schemas } = createUltimaBase()
 			await ultimabase.start()
-			const result = await schemas[0].findMany(undefined, { ultimabase })
+			const result = await schemas[0].findMany(undefined)
 
 			expect(result[0]).not.toHaveProperty('secret')
 			expect(
@@ -223,7 +223,7 @@ describe('independent protected policy engine', () => {
 
 		try {
 			await first.start()
-			await Document.findMany(undefined, { ultimabase: first })
+			await Document.findMany(undefined)
 			expect(
 				first.plugin(alternativePolicyPluginId).diagnostics(),
 			).toHaveLength(1)
@@ -253,9 +253,7 @@ describe('independent protected policy engine', () => {
 
 		try {
 			await composed.start()
-			const result = await Document.findMany(undefined, {
-				ultimabase: composed,
-			})
+			const result = await Document.findMany(undefined)
 			expect(result[0]).not.toHaveProperty('secret')
 			expect(JSON.stringify(adapter.requests[0]?.rowFilter)).toContain(
 				'community',
@@ -342,24 +340,20 @@ describe('independent protected policy engine', () => {
 		try {
 			await noAccess.start()
 			const plainMaster = await Plain.findMany(undefined, {
-				ultimabase: noAccess,
 				useMasterKey: true,
 			})
 			await noAccess.dispose()
 			await official.start()
 			const officialMaster = await Plain.findMany(undefined, {
-				ultimabase: official,
 				useMasterKey: true,
 			})
 			await official.dispose()
 			await alternative.start()
-			const anonymousAlternative = await alternativeFixture.Document.findMany(
-				undefined,
-				{ ultimabase: alternative },
-			)
+			const anonymousAlternative =
+				await alternativeFixture.Document.findMany(undefined)
 			const alternativeMaster = await alternativeFixture.Document.findMany(
 				undefined,
-				{ ultimabase: alternative, useMasterKey: true },
+				{ useMasterKey: true },
 			)
 
 			expect(plainMaster[0]).toHaveProperty('secret', 'visible-to-core')

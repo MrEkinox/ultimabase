@@ -36,24 +36,20 @@ Include a to-one author and a filtered, ordered, bounded comment collection:
 
 ```ts title="src/post-context.ts"
 import { Post } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readPostsWithContext = () =>
-	Post.findMany(
-		{
-			include: {
-				author: { select: { name: true } },
-				comments: {
-					limit: 3,
-					orderBy: { createdAt: 'desc', id: 'asc' },
-					select: { body: true },
-					where: { published: { eq: true } },
-				},
+	Post.findMany({
+		include: {
+			author: { select: { name: true } },
+			comments: {
+				limit: 3,
+				orderBy: { createdAt: 'desc', id: 'asc' },
+				select: { body: true },
+				where: { published: { eq: true } },
 			},
-			select: { title: true },
 		},
-		{ ultimabase },
-	)
+		select: { title: true },
+	})
 ```
 
 Pointer and relation cardinality deliberately expose different nested clauses:
@@ -111,20 +107,16 @@ collection. This example assumes `Author.posts` is a to-many relation and
 
 ```ts title="src/relation-filters.ts"
 import { Author } from './schemas.js'
-import { ultimabase } from './ultimabase.js'
 
 export const readEstablishedAuthors = () =>
-	Author.findMany(
-		{
-			where: {
-				posts: {
-					count: { gte: 3, where: { published: { eq: true } } },
-					some: { published: { eq: true }, score: { gte: 80 } },
-				},
+	Author.findMany({
+		where: {
+			posts: {
+				count: { gte: 3, where: { published: { eq: true } } },
+				some: { published: { eq: true }, score: { gte: 80 } },
 			},
 		},
-		{ ultimabase },
-	)
+	})
 ```
 
 The result contains authors, not their posts. `some` requires a visible match,
