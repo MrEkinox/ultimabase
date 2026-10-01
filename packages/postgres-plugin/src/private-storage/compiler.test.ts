@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	stringField,
 	uuidField,
 	type GenericField,
@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import { compilePostgresPrivateCollection } from './compiler.js'
 
-const Account = Schema.define({
+const Account = UltimaBase.Schema.define({
 	className: 'PrivateStorageAccount',
 	fields: (field) => ({ name: field.string() }),
 })

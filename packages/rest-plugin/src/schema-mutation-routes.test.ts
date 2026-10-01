@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	plugin,
 	provideCapability,
 	type ApplicationSchemaMutationTransportPlan,
@@ -40,7 +40,7 @@ const descriptor = (
 })
 
 const compile = async (
-	schemas: readonly ReturnType<typeof Schema.define>[],
+	schemas: readonly ReturnType<typeof UltimaBase.Schema.define>[],
 	mutations: ApplicationSchemaMutationTransportPlan<
 		typeof restProtocol
 	>['mutations'],
@@ -67,19 +67,20 @@ const compile = async (
 
 describe('REST schema mutation route compilation', () => {
 	it('applies schema-local enablement and never emits Master routes', async () => {
+		const RestSchemaApplication = UltimaBase.use(restPlugin())
 		const explicitRoutes = { rest: { mutations: true } }
-		const Explicit = Schema.define({
+		const Explicit = RestSchemaApplication.Schema.define({
 			...explicitRoutes,
 			className: 'RestMutationExplicit',
 			fields: () => ({}),
 		})
 		const disabledRoutes = { rest: { mutations: false } }
-		const Disabled = Schema.define({
+		const Disabled = RestSchemaApplication.Schema.define({
 			...disabledRoutes,
 			className: 'RestMutationDisabled',
 			fields: () => ({}),
 		})
-		const Inherited = Schema.define({
+		const Inherited = RestSchemaApplication.Schema.define({
 			className: 'RestMutationInherited',
 			fields: () => ({}),
 		})
@@ -112,7 +113,7 @@ describe('REST schema mutation route compilation', () => {
 	})
 
 	it('rejects commands without one canonical REST path segment', async () => {
-		const Invalid = Schema.define({
+		const Invalid = UltimaBase.Schema.define({
 			className: 'RestMutationInvalidPath',
 			fields: () => ({}),
 		})
@@ -122,7 +123,7 @@ describe('REST schema mutation route compilation', () => {
 	})
 
 	it('lets the shared route graph reject canonical command collisions', async () => {
-		const Collision = Schema.define({
+		const Collision = UltimaBase.Schema.define({
 			className: 'RestMutationCollision',
 			fields: () => ({}),
 		})

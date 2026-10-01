@@ -5,7 +5,7 @@ product vocabulary to Core or mutating an exported schema class.
 
 ```ts
 import {
-	Schema,
+	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
 	contributeSchemaMutation,
@@ -18,7 +18,7 @@ import {
 	stringField,
 } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -156,9 +156,10 @@ mutation available as a schema option:
 
 ```ts
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const SecuredPost = Schema.define({
+const SecuredApplication = UltimaBase.use(accessPlugin())
+const SecuredPost = SecuredApplication.Schema.define({
 	className: 'Post',
 	access: {
 		archive: {
@@ -172,8 +173,6 @@ const SecuredPost = Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 
-const SecuredApplication = UltimaBase.use(accessPlugin())
-
 const securedApplication = new SecuredApplication({
 	schemas: [SecuredPost],
 })
@@ -185,7 +184,8 @@ The same identity is available to the optional official Hooks engine:
 ```ts
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const ObservedPost = Schema.define({
+const ObservedApplication = UltimaBase.use(hooksPlugin())
+const ObservedPost = ObservedApplication.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	hooks: {
@@ -201,8 +201,6 @@ const ObservedPost = Schema.define({
 		},
 	},
 })
-
-const ObservedApplication = UltimaBase.use(hooksPlugin())
 
 const observedApplication = new ObservedApplication({
 	schemas: [ObservedPost],

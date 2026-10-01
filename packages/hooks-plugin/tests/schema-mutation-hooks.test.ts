@@ -2,7 +2,6 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContext,
-	Schema,
 	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
@@ -47,6 +46,7 @@ interface RuntimeMutationHookInput {
 }
 
 let fixtureIndex = 0
+const HookSchemaApplication = UltimaBase.use(hooksPlugin())
 
 const databasePlugin = (adapter: DatabaseAdapter, id: number) =>
 	plugin({
@@ -78,7 +78,7 @@ const createArchiveParts = (trace: string[], hooks?: unknown) => {
 		select: { title: true },
 		version: '1.0.0',
 	})
-	const Document = Schema.define({
+	const Document = HookSchemaApplication.Schema.define({
 		className: `SchemaMutationHookDocument${String(id)}`,
 		fields: (field) => ({ title: field.string() }),
 		...(hooks === undefined ? {} : { hooks: hooks as never }),
@@ -203,7 +203,7 @@ describe('schema mutation Hooks', () => {
 			},
 		}
 		const parts = createArchiveParts(trace, inlineHooks)
-		const Audit = Schema.define({
+		const Audit = HookSchemaApplication.Schema.define({
 			className: `SchemaMutationHookAudit${String(parts.id)}`,
 			fields: (field) => ({ action: field.string({ required: true }) }),
 		})

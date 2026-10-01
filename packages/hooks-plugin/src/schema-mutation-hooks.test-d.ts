@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	defineOperationValue,
 	defineSchemaMutation,
 	type PluginSchemaMutationDefinition,
@@ -58,7 +58,7 @@ declare module '@ultimabase/core' {
 }
 
 test('types exact request and Master schema mutation Hook branches', () => {
-	const Document = Schema.define({
+	const Document = UltimaBase.Schema.define({
 		className: 'HookSchemaMutationTypeDocument',
 		fields: (field) => ({ title: field.string() }),
 	})

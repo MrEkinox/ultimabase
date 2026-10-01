@@ -1,4 +1,4 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type { SoftDeleteSchemaOption } from './contracts.js'
@@ -6,9 +6,11 @@ import {
 	normalizeSoftDeletePluginOptions,
 	resolveSoftDeleteMode,
 } from './options.js'
+import { softDeletePlugin } from './plugin.js'
 
+const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 const schemaWith = (className: string, softDelete?: SoftDeleteSchemaOption) =>
-	Schema.define({
+	SoftDeleteSchemaApplication.Schema.define({
 		className,
 		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string() }),

@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	type EmbeddedFieldBuilder,
 	type EmbeddedObjectFieldBuilderOptions,
 	type FieldValue,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('declares circular relationships by schema name without local annotations', () => {
-	const User = Schema.define({
+	const User = UltimaBase.Schema.define({
 		className: 'NamedCircularUser',
 		fields: (field) => ({
 			posts: field.relation({
@@ -17,7 +17,7 @@ test('declares circular relationships by schema name without local annotations',
 			}),
 		}),
 	})
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: 'NamedCircularPost',
 		fields: (field) => ({
 			author: field.pointer({
@@ -32,12 +32,12 @@ test('declares circular relationships by schema name without local annotations',
 })
 
 test('rejects value-level target callbacks from the application FieldBuilder', () => {
-	const Target = Schema.define({
+	const Target = UltimaBase.Schema.define({
 		className: 'CallbackTarget',
 		fields: () => ({}),
 	})
 
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'CallbackSource',
 		fields: (field) => ({
 			// @ts-expect-error -- Application relationships use stable schema names.

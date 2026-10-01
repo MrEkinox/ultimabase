@@ -3,7 +3,9 @@
 Schemas are explicit TypeScript classes registered in application configuration. There is no file discovery.
 
 ```ts
-const UserSchema = Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+
+const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -13,13 +15,16 @@ const UserSchema = Schema.define({
 
 `className` is unique within an application. Registration fails on duplicates.
 
-`Schema.define()` returns the registered model class. `new UserSchema(input)`
-creates an immutable draft without I/O, schema-root methods execute object-input
+`UltimaBase.Schema.define()` returns an inert model class. Registration in an
+application is explicit. `new UserSchema(input)` creates an immutable draft
+without I/O, schema-root methods execute object-input
 reads, and Runtime results are `UserSchema` instances whose direct properties
 and `toJSON()` contain only visible fields.
 
-Static schema declarations own runtime metadata. The generated application
-registry owns precise public item, input, query, Access, and hook types. Plugins
+Static schema declarations own runtime metadata. The configured application
+factory infers local fields, items, inputs, and plugin surfaces from source;
+Typegen retains the application-wide named-schema graph, complete `WhereInput`,
+and callbacks that require the complete schema graph. Plugins
 add namespaced direct schema options, plugin-defined fields, immutable patches,
 or application capabilities while Core remains independent from their
 implementations. An option is accepted only when its plugin registers the
@@ -96,7 +101,7 @@ registration never replaces the previously registered definition.
 ## Indexes
 
 Fields use `indexed: true` or `indexed: "unique"` for single-field indexes.
-`Schema.define({ indexes })` adds composite indexes with at least two distinct
+`App.Schema.define({ indexes })` adds composite indexes with at least two distinct
 top-level fields. Composite declarations may reference `id`, `createdAt`, and
 `updatedAt` in addition to developer fields.
 

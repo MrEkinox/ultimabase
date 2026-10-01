@@ -7,7 +7,7 @@ import type {
 	PluginOperationEnvelope,
 } from '../application/application-handles.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
-import { Schema } from '../schema/schema/definition.js'
+
 import { plugin as createPlugin } from './plugin.js'
 import { contributeDeclarations } from './plugin-contributions.js'
 import {
@@ -35,7 +35,7 @@ const inspect = defineOperation({
 	transaction: 'optional',
 	version: '1.2.3',
 })
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'ApplicationSurfaceTypePost',
 	fields: (field) => ({ title: field.string() }),
 })

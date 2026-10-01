@@ -6,8 +6,6 @@ import {
 	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
-	Schema,
-	type FieldBuilder,
 } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 
@@ -17,17 +15,11 @@ import { generateApplicationTypes } from '@ultimabase/typegen'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import {
 	pgVectorPlugin,
-	type VectorFieldBuilderMethod,
 	type VectorFieldOptions,
 	type VectorValue,
 } from '@ultimabase/pg-vector-plugin'
 
 import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
-
-type PackedFieldBuilder = FieldBuilder & {
-	readonly contained: VectorFieldBuilderMethod
-	readonly vector: VectorFieldBuilderMethod
-}
 
 export const selectMarker = '/* packed-generated-select */'
 export const publicSelectMarker = '/* packed-public-select */'
@@ -116,43 +108,41 @@ export const containedVectorPlugin = plugin({
 	],
 })
 
-export const Owner = Schema.define({
+const PackedApplication = UltimaBase.use(
+	accessPlugin(),
+	containedVectorPlugin,
+	hooksPlugin(),
+	pgVectorPlugin(),
+	validationPlugin(),
+)
+export const Owner = PackedApplication.Schema.define({
 	className: 'PackedGeneratedOwner',
 	fields: (field) => ({
 		documents: field.relation({ target: 'PackedGeneratedDocument' }),
 		name: field.string({ required: true }),
 	}),
 })
-export const Document = Schema.define({
+export const Document = PackedApplication.Schema.define({
 	className: 'PackedGeneratedDocument',
-	fields: (field) => {
-		const generatedField = field as PackedFieldBuilder
-		return {
-			contained: containedVectorField({ dimensions: 3 }),
-			embedding: generatedField.vector({ dimensions: 3 }),
-			owner: field.pointer({
-				target: 'PackedGeneratedOwner',
-				required: true,
-			}),
-			related: field.relation({
-				target: 'PackedGeneratedDocument',
-			}),
-			status: field.enum({
-				typeName: 'PackedDocumentStatus',
-				values: ['draft', 'published'],
-			}),
-			summary: field.string(),
-			title: field.string({ required: true }),
-		}
-	},
+	fields: (field) => ({
+		contained: containedVectorField({ dimensions: 3 }),
+		embedding: field.vector({ dimensions: 3 }),
+		owner: field.pointer({
+			target: 'PackedGeneratedOwner',
+			required: true,
+		}),
+		related: field.relation({
+			target: 'PackedGeneratedDocument',
+		}),
+		status: field.enum({
+			typeName: 'PackedDocumentStatus',
+			values: ['draft', 'published'],
+		}),
+		summary: field.string(),
+		title: field.string({ required: true }),
+	}),
 })
-export const application = new (UltimaBase.use(
-	accessPlugin(),
-	containedVectorPlugin,
-	hooksPlugin(),
-	pgVectorPlugin(),
-	validationPlugin(),
-))({ schemas: [Owner, Document] })
+export const application = new PackedApplication({ schemas: [Owner, Document] })
 export const generated = generateApplicationTypes({
 	ultimabase: application,
 	applicationId: 'fixture.packed-typegen',

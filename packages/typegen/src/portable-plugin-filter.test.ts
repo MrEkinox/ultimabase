@@ -4,7 +4,6 @@ import {
 	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
-	Schema,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -60,7 +59,8 @@ describe('portable plugin field filters', () => {
 				}),
 			],
 		})
-		const Portable = Schema.define({
+		const Application = UltimaBase.use(plugin)
+		const Portable = Application.Schema.define({
 			className: 'TypegenPortablePluginField',
 			fields: (field) => ({
 				nested: field.object({ fields: () => ({ value: portableField() }) }),
@@ -68,7 +68,7 @@ describe('portable plugin field filters', () => {
 			}),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new (UltimaBase.use(plugin))({ schemas: [Portable] }),
+			ultimabase: new Application({ schemas: [Portable] }),
 			applicationId: 'fixture.portable',
 		})
 		const field = generated.snapshot.schemas[0]?.fields.find(

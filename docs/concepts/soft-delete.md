@@ -6,18 +6,18 @@ means. The source schema selects behavior; Typegen only describes the resulting
 application handles.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+)
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: 'explicit',
 })
 
-const Application = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'disabled' }),
-)
 const ultimabase = new Application({
 	schemas: [Post],
 })

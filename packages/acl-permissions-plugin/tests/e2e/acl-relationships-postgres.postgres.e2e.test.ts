@@ -3,7 +3,6 @@ import {
 	MasterAuthority,
 	RequestContext,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	plugin,
 	requestSources,
@@ -29,7 +28,7 @@ const currentMemberId = new RequestContextValue<string>(
 		return value
 	},
 )
-const Member = Schema.define({
+const Member = UltimaBase.Schema.define({
 	className: 'ACLRelationshipMember',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -51,7 +50,8 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const Author = Schema.define({
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+const Author = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -63,7 +63,7 @@ const Author = Schema.define({
 	},
 	postgres: { table: 'acl_relationship_authors' },
 })
-const Tag = Schema.define({
+const Tag = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipTag',
 	fields: (field) => ({
 		label: field.string({ required: true }),
@@ -75,7 +75,7 @@ const Tag = Schema.define({
 	},
 	postgres: { table: 'acl_relationship_tags' },
 })
-const Article = Schema.define({
+const Article = ACLSchemaApplication.Schema.define({
 	className: 'ACLRelationshipArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'ACLRelationshipAuthor' }),

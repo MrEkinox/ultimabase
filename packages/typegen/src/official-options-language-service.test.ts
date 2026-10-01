@@ -1,6 +1,8 @@
 import path from 'node:path'
 
+import ts from 'typescript'
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	UltimaBase,
 	contributeDeclarations,
@@ -22,8 +24,9 @@ const schemaOptionsMarker = '/* official-schema-options */'
 const mutationAccessMarker = '/* schema-mutation-access */'
 const mutationBeforeHookMarker = '/* schema-mutation-before-hook */'
 const mutationAfterHookMarker = '/* schema-mutation-after-hook */'
+const aclDataMarker = '/* acl-sibling-fields */'
 
-it('composes installed Access, Hooks, and Validation authoring contracts', () => {
+it('composes installed Access, Hooks, Validation, and ACL authoring contracts', () => {
 	const inputReference = defineTypegenReference({
 		exportName: 'BaseItem',
 		module: '@ultimabase/core',
@@ -83,9 +86,14 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 		.use(accessPlugin())
 		.use(hooksPlugin())
 		.use(validationPlugin())
+		.use(aclPlugin())
 	const Document = OfficialApplication.Schema.define({
 		className: 'OfficialOptionDocument',
-		fields: (field) => ({ title: field.string() }),
+		fields: (field) => ({
+			title: field.string(),
+			visibility: field.string(),
+		}),
+		acl: { default: new ACL() },
 	})
 	const generated = generateApplicationTypes({
 		ultimabase: new OfficialApplication({
@@ -107,6 +115,7 @@ it('composes installed Access, Hooks, and Validation authoring contracts', () =>
 	})
 	const sourceWithMarkers = `${generated.contents}
 import { accessPlugin } from '@ultimabase/access-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
   UltimaBase,
   contributeDeclarations,
@@ -180,9 +189,38 @@ const SourceApplication = UltimaBase.use(sourceMutationOwner)
   .use(accessPlugin())
   .use(hooksPlugin())
   .use(validationPlugin())
+  .use(aclPlugin())
 
 const TypedDocument = SourceApplication.Schema.define({
   className: 'OfficialOptionDocument',
+  acl: {
+    default: ({ data }) => {
+      data.${aclDataMarker}
+      const title: string | null = data.title
+      const visibility: string | null = data.visibility
+      void title
+      void visibility
+      // @ts-expect-error -- ACL callbacks expose only exact sibling fields.
+      void data.notDeclared
+      return new ACL()
+    },
+    resolveInput: (input) => {
+      const title: string | null = input.data.title
+      void title
+      if (input.operation === 'create') {
+        const current: undefined = input.currentData
+        const update: undefined = input.update
+        void current
+        void update
+        return input.inputAcl
+      }
+      const currentTitle: string | null = input.currentData.title
+      const updateKind: 'update-expression' = input.update.kind
+      void currentTitle
+      void updateKind
+      return input.inputAcl ?? input.currentAcl
+    },
+  },
   access: {
     archive: {
       allow: ({ input, mutation }) => input.id.length > 0 && mutation.authority === 'request',
@@ -214,6 +252,7 @@ const TypedDocument = SourceApplication.Schema.define({
   },
   fields: (field) => ({
     summary: field.string({ ${fieldOptionsMarker} }),
+    visibility: field.string(),
     title: field.string({
       access: { read: true, write: true },
       hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
@@ -274,6 +313,7 @@ void TypedDocument
 	const mutationAfterHookPosition = sourceWithMarkers.indexOf(
 		mutationAfterHookMarker,
 	)
+	const aclDataPosition = sourceWithMarkers.indexOf(aclDataMarker)
 	const source = sourceWithMarkers
 		.replace(fieldOptionsMarker, ' '.repeat(fieldOptionsMarker.length))
 		.replace(schemaOptionsMarker, ' '.repeat(schemaOptionsMarker.length))
@@ -286,6 +326,7 @@ void TypedDocument
 			mutationAfterHookMarker,
 			' '.repeat(mutationAfterHookMarker.length),
 		)
+		.replace(aclDataMarker, ' '.repeat(aclDataMarker.length))
 	const fileName = path.join(
 		import.meta.dirname,
 		'official-options.semantic.fixture.ts',
@@ -302,13 +343,20 @@ void TypedDocument
 			?.displayParts?.map(({ text }) => text)
 			.join('') ?? ''
 
-	expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+	expect(
+		service.getSemanticDiagnostics(fileName).map((diagnostic) => ({
+			code: diagnostic.code,
+			message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+		})),
+	).toStrictEqual([])
 	expect(completionNames(fieldOptionsPosition)).toEqual(
 		expect.arrayContaining(['access', 'hooks', 'required', 'validation']),
 	)
 	expect(completionNames(schemaOptionsPosition)).toEqual(
-		expect.arrayContaining(['access', 'hooks']),
+		expect.arrayContaining(['access', 'acl', 'hooks']),
 	)
+	expect(completionNames(aclDataPosition)).toContain('title')
+	expect(completionNames(aclDataPosition)).not.toContain('acl')
 	expect(completionNames(mutationAccessPosition)).toEqual(
 		expect.arrayContaining(['archive', 'create', 'delete', 'read', 'update']),
 	)
@@ -333,6 +381,7 @@ void TypedDocument
 		generated.snapshot.options.map(({ name, scope }) => ({ name, scope })),
 	).toStrictEqual([
 		{ name: 'access', scope: 'schema' },
+		{ name: 'acl', scope: 'schema' },
 		{ name: 'hooks', scope: 'schema' },
 	])
 	expect(generated.contents).not.toContain('FieldValidationCompatibility')
@@ -340,6 +389,7 @@ void TypedDocument
 	expect(generated.contents).not.toContain('FieldAccessOption')
 	expect(generated.contents).not.toContain('FieldHooksOption')
 	expect(generated.contents).toContain('SchemaAccessOption')
+	expect(generated.contents).toContain('ACLSchemaOption')
 	expect(generated.contents).toContain('SchemaHooksOption')
 	expect(generated.contents).not.toContain('titleValidator')
 	expect(generated.contents).toContain('readonly schemaMutations: {')
@@ -348,7 +398,7 @@ void TypedDocument
 	)
 	expect(withoutOfficialPlugins.snapshot.options).toStrictEqual([])
 	expect(withoutOfficialPlugins.fingerprint).not.toBe(generated.fingerprint)
-	for (const option of ['access', 'hooks', 'validation']) {
+	for (const option of ['access', 'acl', 'hooks', 'validation']) {
 		expect(withoutOfficialPlugins.contents).not.toContain(
 			`readonly ${option}?:`,
 		)

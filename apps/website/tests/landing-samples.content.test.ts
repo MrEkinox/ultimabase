@@ -28,10 +28,9 @@ describe('landing page examples', () => {
 			// Compile the displayed excerpts themselves, so copy cannot drift from the API.
 			const source = [
 				schemaExample,
-				applicationExample.replace(
-					"import { Article } from './article.js'",
-					'',
-				),
+				applicationExample
+					.replace("import { Article } from './article.js'", '')
+					.replace("import { UltimaBase } from '@ultimabase/core'", ''),
 				readExample,
 				writeExample,
 				`const title: string = article.title
@@ -51,6 +50,7 @@ await app.dispose()`,
 					'\n' +
 					applicationExample
 						.replace("import { Article } from './article.js'", '')
+						.replace("import { UltimaBase } from '@ultimabase/core'", '')
 						.replace('const app =', 'export const app =')
 						.replace(
 							'process.env.DATABASE_URL',

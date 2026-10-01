@@ -182,7 +182,7 @@ export class SchemaRegistry<
 		}
 
 		if (!Schema.is(schema)) {
-			throw new TypeError('schema must be a class created by Schema.define')
+			throw new TypeError('schema must be a class created by App.Schema.define')
 		}
 
 		if (state.schemasByClassName.has(schema.className)) {

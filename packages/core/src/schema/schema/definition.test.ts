@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 import { Schema, SchemaRegistry, stringField } from '../index.js'
 import {
 	reservedQueryLogicalFieldNames,
@@ -10,18 +11,20 @@ import { reservedSystemFieldNames } from './system-fields.js'
 type EmptyCapabilities = Readonly<Record<never, never>>
 
 describe('schema definitions', () => {
-	it('keeps Schema itself as a non-constructible static declaration facade', () => {
+	it('keeps Schema itself as a non-constructible specialization facade', () => {
 		expect((): void => {
 			Reflect.construct(Schema, [])
 		}).toThrow(
-			new TypeError('Use Schema.define() to declare a schema model class'),
+			new TypeError(
+				'Use UltimaBase.Schema.define() to declare a schema model class',
+			),
 		)
 	})
 
 	it('copies and freezes developer-owned declaration containers', () => {
 		const title = stringField()
 		const fields: Record<string, typeof title> = { title }
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Post',
 			fields: () => fields,
 		})
@@ -111,7 +114,7 @@ describe('schema definitions', () => {
 			}
 
 			expect(() => {
-				const schema = Schema.define({
+				const schema = UltimaBase.Schema.define({
 					className: 'Invalid',
 					fields: () => fields,
 				})
@@ -124,7 +127,7 @@ describe('schema definitions', () => {
 		'rejects the reserved model member %s',
 		(name) => {
 			expect(() => {
-				const schema = Schema.define({
+				const schema = UltimaBase.Schema.define({
 					className: 'InvalidModel',
 					fields: (field) => ({ [name]: field.string() }),
 				})

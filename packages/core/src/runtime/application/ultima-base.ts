@@ -40,6 +40,7 @@ import {
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { Schema } from '../../schema/index.js'
+import { defineOrdinarySchemaModel } from '../../schema/schema/definition.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
@@ -112,6 +113,12 @@ export type {
  * const posts = await PostSchema.findMany()
  * ```
  */
+const configuredSchemaNamespace = Object.freeze({
+	define: defineOrdinarySchemaModel,
+	defineSpecialized: Schema.defineSpecialized.bind(Schema),
+	is: Schema.is.bind(Schema),
+})
+
 export class UltimaBase<
 	const TSchemas extends readonly SchemaDefinition[] =
 		readonly SchemaDefinition[],
@@ -120,7 +127,7 @@ export class UltimaBase<
 > {
 	/** Declares portable schemas through the zero-plugin source factory. */
 	static readonly Schema: ConfiguredSchemaNamespace =
-		Schema as unknown as ConfiguredSchemaNamespace
+		configuredSchemaNamespace as unknown as ConfiguredSchemaNamespace
 
 	/**
 	 * Returns a new immutable factory with plugins appended to its flat graph.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
 	DatabaseOperationAst,
@@ -11,8 +11,9 @@ import type {
 } from '../database/contracts.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'PersistenceAdapterSupport',
 	fields: (field) => ({ title: field.string() }),
 })

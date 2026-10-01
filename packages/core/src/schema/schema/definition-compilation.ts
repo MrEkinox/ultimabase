@@ -238,7 +238,7 @@ export const prepareSchemaCompilation = (
 	const declaration = getSchemaDeclaration(schema)
 
 	if (declaration === undefined) {
-		throw new TypeError('schema must be a class created by Schema.define')
+		throw new TypeError('schema must be a class created by App.Schema.define')
 	}
 
 	const candidate = compileSchemaRecord(

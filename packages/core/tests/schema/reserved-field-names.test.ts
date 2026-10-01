@@ -19,7 +19,7 @@ const schemaCases = reservedFieldNames
 	.map(
 		(name, index) => `
 // @ts-expect-error -- ${name} is reserved by the public schema contract.
-Schema.define({
+UltimaBase.Schema.define({
   className: 'ReservedSchema${String(index)}',
   fields: (field) => ({ ${JSON.stringify(name)}: field.string() }),
 })`,
@@ -27,7 +27,7 @@ Schema.define({
 	.join('\n')
 
 const source = `
-import { Schema, stringField } from '../../src/index.js'
+import { UltimaBase, stringField } from '../../src/index.js'
 
 ${schemaCases}
 
@@ -35,7 +35,7 @@ const dynamicField = stringField()
 const dynamicFields: Record<string, typeof dynamicField> = {
   create: dynamicField,
 }
-Schema.define({
+UltimaBase.Schema.define({
   className: 'DynamicReservedFields',
   fields: () => dynamicFields,
 })

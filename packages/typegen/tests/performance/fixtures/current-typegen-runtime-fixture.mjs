@@ -1,5 +1,5 @@
 import { accessPlugin } from '../../../../access-plugin/dist/index.js'
-import { Schema, UltimaBase } from '../../../../core/dist/index.js'
+import { UltimaBase } from '../../../../core/dist/index.js'
 import { hooksPlugin } from '../../../../hooks-plugin/dist/index.js'
 import {
 	PasswordUserSchema,
@@ -53,15 +53,6 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 			}),
 		)
 	}
-	for (let index = 2; index < schemaCount; index += 1) {
-		schemas.push(
-			Schema.define({
-				className: schemaName(index),
-				fields: runtimeFields,
-			}),
-		)
-	}
-
 	const Application = UltimaBase.use(
 		accessPlugin(),
 		hooksPlugin(),
@@ -71,6 +62,15 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 		softDeletePlugin({ defaultMode: 'explicit' }),
 		validationPlugin(),
 	)
+	for (let index = 2; index < schemaCount; index += 1) {
+		schemas.push(
+			Application.Schema.define({
+				className: schemaName(index),
+				fields: runtimeFields,
+			}),
+		)
+	}
+
 	return new Application({
 		pluginPrivileges: { logger: false },
 		schemas,

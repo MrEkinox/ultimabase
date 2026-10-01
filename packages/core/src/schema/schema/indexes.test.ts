@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	Schema,
 	SchemaRegistry,
 	type FieldDefinition,
 	type SchemaIndexOptions,
 } from '../index.js'
 import { normalizeSchemaIndexes } from './indexes.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('schema indexes', () => {
 	it('normalizes field and composite indexes in deterministic order', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Post',
 			fields: (field) => ({
 				title: field.string({ indexed: true }),
@@ -46,7 +46,7 @@ describe('schema indexes', () => {
 		const indexes: SchemaIndexOptions<'category' | 'createdAt' | 'title'>[] = [
 			{ fields },
 		]
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Post',
 			fields: (field) => ({
 				category: field.string(),
@@ -64,7 +64,7 @@ describe('schema indexes', () => {
 	})
 
 	it('normalizes omitted declarations to one immutable empty list', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Post',
 			fields: (field) => ({
 				title: field.string(),
@@ -76,26 +76,24 @@ describe('schema indexes', () => {
 	})
 
 	it('rejects unknown and repeated composite fields', () => {
-		const relationTarget = Schema.define({
+		const relationTarget = UltimaBase.Schema.define({
 			className: 'RuntimeIndexRelationTarget',
 			fields: () => ({}),
 		})
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'UnknownIndexField',
 				fields: (field) => ({
 					title: field.string(),
 				}),
-				indexes: [
-					// @ts-expect-error -- Runtime validation also protects JavaScript callers.
-					{ fields: ['title', 'missing'] },
-				],
+				// @ts-expect-error -- Runtime validation also protects JavaScript callers.
+				indexes: [{ fields: ['title', 'missing'] }],
 			}),
 		).toThrow(new TypeError('Unknown index field: missing'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'RepeatedIndexField',
 				fields: (field) => ({
 					title: field.string(),
@@ -104,16 +102,14 @@ describe('schema indexes', () => {
 			}),
 		).toThrow(new TypeError('Duplicate index field: title'))
 
-		const relationIndexSchema = Schema.define({
+		const relationIndexSchema = UltimaBase.Schema.define({
 			className: 'RelationIndexField',
 			fields: (field) => ({
 				title: field.string(),
 				targets: field.relation({ target: 'RuntimeIndexRelationTarget' }),
 			}),
-			indexes: [
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				{ fields: ['title', 'targets'] },
-			],
+			// @ts-expect-error -- Runtime validation protects JavaScript callers.
+			indexes: [{ fields: ['title', 'targets'] }],
 		})
 
 		expect(() =>
@@ -126,7 +122,7 @@ describe('schema indexes', () => {
 
 	it('rejects malformed composite options at runtime', () => {
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidIndexesContainer',
 				fields: () => ({}),
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
@@ -135,7 +131,7 @@ describe('schema indexes', () => {
 		).toThrow(new TypeError('indexes must be a list'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidIndexEntry',
 				fields: () => ({}),
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
@@ -144,7 +140,7 @@ describe('schema indexes', () => {
 		).toThrow(new TypeError('indexes[0] must be an object'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidIndexFields',
 				fields: (field) => ({ idPart: field.string() }),
 				indexes: [
@@ -157,7 +153,7 @@ describe('schema indexes', () => {
 		).toThrow(new TypeError('indexes[0].fields must be a list'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidIndexFieldName',
 				fields: (field) => ({ idPart: field.string(), tenant: field.string() }),
 				indexes: [
@@ -170,7 +166,7 @@ describe('schema indexes', () => {
 		).toThrow(new TypeError('indexes[0].fields[1] must be a string'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'ShortIndex',
 				fields: (field) => ({
 					title: field.string(),
@@ -183,7 +179,7 @@ describe('schema indexes', () => {
 		).toThrow(new TypeError('Composite index must contain at least two fields'))
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidUnique',
 				fields: (field) => ({
 					slug: field.string(),
@@ -208,7 +204,7 @@ describe('schema indexes', () => {
 
 		// Forged JavaScript metadata must not silently disable an invalid index.
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'InvalidFieldIndex',
 				fields: () => ({ title: invalidIndexedField }),
 			}),

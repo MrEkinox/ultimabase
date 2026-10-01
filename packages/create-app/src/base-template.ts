@@ -156,7 +156,7 @@ ${includes(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => 
   }),
 })
 `
-		: `// Add your first Schema.define() declaration here.
+		: `// Add your first SchemaApplication.Schema.define() declaration here.
 export {}
 `
 

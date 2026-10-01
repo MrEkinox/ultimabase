@@ -1,7 +1,6 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	FrameworkError,
-	Schema,
 	UltimaBase,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -15,7 +14,7 @@ import { RecordingPostgresPool } from '../../../../tests/fixtures/recording-post
 
 const resolverFailure = new Error('virtual resolver rejected the mutation')
 
-const Person = Schema.define({
+const Person = UltimaBase.Schema.define({
 	className: 'VirtualPostgresPerson',
 	fields: (field) => ({
 		email: field.string({ indexed: 'unique', required: true }),
@@ -40,7 +39,7 @@ const Person = Schema.define({
 	}),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'VirtualPostgresPost',
 	fields: (field) => ({
 		author: field.pointer({ required: true, target: 'VirtualPostgresPerson' }),
@@ -295,9 +294,13 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		if (!(author instanceof Person)) {
 			throw new TypeError('Expected the included virtual author')
 		}
+		const authorId: unknown = Reflect.get(author, 'id')
+		if (typeof authorId !== 'string') {
+			throw new TypeError('Expected a persisted id for the included author')
+		}
 		expect(author.toJSON()).toStrictEqual({
 			displayName: 'Katherine Johnson',
-			id: author.id,
+			id: authorId,
 			initials: 'KJ',
 		})
 
@@ -316,7 +319,7 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		}
 		expect(reloadedAuthor.toJSON()).toStrictEqual({
 			displayName: 'Katherine Johnson',
-			id: author.id,
+			id: authorId,
 		})
 	})
 

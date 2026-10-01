@@ -1,6 +1,6 @@
 import {
 	RequestSubjectReference,
-	Schema,
+	UltimaBase,
 	type RequestRoleReferenceCarrier,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
@@ -19,7 +19,10 @@ import {
 	type ACLRoleJSON,
 } from './index.js'
 
-const User = Schema.define({ className: 'TypedACLUser', fields: () => ({}) })
+const User = UltimaBase.Schema.define({
+	className: 'TypedACLUser',
+	fields: () => ({}),
+})
 const principal = User.pointer('principal-id')
 const role = new RequestSubjectReference('role', 'role:editor')
 const persistedRole: RequestRoleReferenceCarrier = {

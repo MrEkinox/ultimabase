@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { Schema } from '../../schema/schema/definition.js'
+
 import { stringField } from '../../schema/fields/builtins/string.js'
 import { plugin as createPlugin } from '../plugin.js'
 import { contributeDeclarations } from '../plugin-contributions.js'
@@ -13,13 +13,14 @@ import {
 	addSchemaField,
 	setSchemaFieldOption,
 } from '../schema-field-patch-operations.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 // Record-based compilation must preserve the former lists' own-name lookup semantics.
 describe.each(['constructor', 'toString', 'valueOf'])(
 	'inherited field name %s',
 	(name) => {
 		it('does not match an undeclared field in a public selector', () => {
-			const Target = Schema.define({
+			const Target = UltimaBase.Schema.define({
 				className: 'OwnFieldSelector',
 				fields: () => ({}),
 			})
@@ -62,7 +63,10 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 		it('rejects option patches targeting an undeclared inherited name', () => {
 			const application = new FrameworkApplication({
 				schemas: [
-					Schema.define({ className: 'OwnFieldPatch', fields: () => ({}) }),
+					UltimaBase.Schema.define({
+						className: 'OwnFieldPatch',
+						fields: () => ({}),
+					}),
 				],
 				pluginPrivileges: { logger: false },
 				plugins: [
@@ -110,7 +114,7 @@ describe.each(['constructor', 'toString', 'valueOf'])(
 		})
 
 		it('rejects mutation selections targeting an undeclared inherited name', () => {
-			const Target = Schema.define({
+			const Target = UltimaBase.Schema.define({
 				className: 'OwnMutationSelection',
 				fields: () => ({}),
 			})

@@ -2,13 +2,12 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import { plugin as createPlugin } from '../plugins/plugin.js'
 import { contributeApplication } from '../plugins/plugin-contributions.js'
-import { Schema } from '../schema/index.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { runWithRequestEngine } from '../runtime/context/active-framework-context.js'
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'DrainingPost',
 	fields: (field) => ({ title: field.string() }),
 })

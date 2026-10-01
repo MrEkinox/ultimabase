@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { transformQueryFilterInput } from './input-transformation.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Person = Schema.define({
+const Person = UltimaBase.Schema.define({
 	className: 'FilterTransformationPerson',
 	fields: (field) => ({ age: field.int(), name: field.string() }),
 })
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'FilterTransformationArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'FilterTransformationPerson' }),

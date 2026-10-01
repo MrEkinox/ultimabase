@@ -338,7 +338,7 @@ export const normalizeACLSchemaOption = (
 	return normalized
 }
 
-/** Owns the direct `acl` schema namespace as an opaque callback artifact. */
+/** Keeps ACL available from source and resolves exact sibling fields through the generated graph. */
 export const aclSchemaOption: SchemaOptionDefinition<
 	NormalizedACLSchemaOption,
 	SchemaOptionRuntimeRequirement,
@@ -346,7 +346,11 @@ export const aclSchemaOption: SchemaOptionDefinition<
 > = defineSchemaOption({
 	normalize: normalizeACLSchemaOption,
 	protocolVersion: 1,
-	typegen: false,
+	typegen: {
+		generic: 'self',
+		module: '@ultimabase/acl-permissions-plugin',
+		type: 'ACLSchemaOption',
+	},
 	valueKind: 'opaque',
 })
 

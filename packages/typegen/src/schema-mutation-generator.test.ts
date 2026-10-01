@@ -1,6 +1,5 @@
 import {
 	UltimaBase,
-	Schema,
 	contributeDeclarations,
 	defineOperationValue,
 	plugin as createPlugin,
@@ -18,7 +17,7 @@ describe('schema mutation Typegen', () => {
 			exportName: 'BaseItem',
 			module: '@ultimabase/core',
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'TypegenSchemaMutationPost',
 			fields: (field) => ({
 				title: field.string(),

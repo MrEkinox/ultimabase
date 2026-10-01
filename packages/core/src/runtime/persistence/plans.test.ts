@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { normalizeUpdateExpression } from '../../query/index.js'
 import {
 	acceptDatabasePersistenceRewrite,
 	createDatabasePersistencePlan,
 	rewriteDeletePersistencePlan,
 } from './plans.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistencePlanArticle',
 	fields: (field) => ({ deleted: field.boolean(), title: field.string() }),
 })
@@ -75,7 +76,7 @@ describe('database persistence plans', () => {
 
 	it('rejects changed targets, result contracts, and same-kind data rewrites', () => {
 		const canonical = createDatabasePersistencePlan(deleteOperation)
-		const otherSchema = Schema.define({
+		const otherSchema = UltimaBase.Schema.define({
 			className: 'PersistencePlanOther',
 			fields: (field) => ({ deleted: field.boolean() }),
 		})

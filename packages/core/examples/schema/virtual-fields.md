@@ -4,9 +4,9 @@ A virtual field computes a selectable result from persisted values without
 creating a column, mutation input, filter, order key, index, or migration:
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const User = Schema.define({
+export const User = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		firstName: field.string({ required: true }),
@@ -38,7 +38,7 @@ The output descriptor controls the complete returned value. Nullability applies
 to the value or list container; list elements remain non-null:
 
 ```ts
-const Profile = Schema.define({
+const Profile = UltimaBase.Schema.define({
 	className: 'Profile',
 	fields: (field) => ({
 		firstName: field.string({ required: true }),
@@ -87,7 +87,7 @@ Resolvers receive the real immutable `RequestContext` and may return either a
 value or a promise of that value:
 
 ```ts
-const Account = Schema.define({
+const Account = UltimaBase.Schema.define({
 	className: 'Account',
 	fields: (field) => ({
 		email: field.string({ required: true }),

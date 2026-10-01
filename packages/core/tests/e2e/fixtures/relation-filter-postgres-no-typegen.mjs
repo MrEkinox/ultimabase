@@ -3,7 +3,6 @@ import process from 'node:process'
 import {
 	MasterAuthority,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -21,7 +20,10 @@ const authenticatedViewer = new RequestContextValue(
 	},
 )
 
-const Target = Schema.define({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const Target = Application.Schema.define({
 	className: 'JavaScriptRelationFilterTarget',
 	fields: (field) => ({
 		audience: field.string({ required: true }),
@@ -30,7 +32,7 @@ const Target = Schema.define({
 	}),
 })
 
-const Source = Schema.define({
+const Source = Application.Schema.define({
 	className: 'JavaScriptRelationFilterSource',
 	fields: (field) => ({
 		contextualTargets: field.relation({
@@ -48,9 +50,6 @@ const Source = Schema.define({
 	}),
 })
 
-const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [

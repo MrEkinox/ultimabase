@@ -5,20 +5,20 @@ import {
 	FrameworkApplication,
 } from '../application/framework-application.js'
 import {
-	Schema,
 	addSchemaField,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaOption,
 	stringField,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '../index.js'
 
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema field transformations', () => {
 	it('materializes implicit indexes carried by added field options', async () => {
-		const Document = Schema.define({
+		const Document = UltimaBase.Schema.define({
 			className: 'PatchedFieldIndexDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -81,11 +81,11 @@ describe('plugin schema field transformations', () => {
 	})
 
 	it('keeps the public registry atomic across registration, option, patch, and final validation failures', () => {
-		const Existing = Schema.define({
+		const Existing = UltimaBase.Schema.define({
 			className: 'AtomicRegistrationCollision',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Colliding = Schema.define({
+		const Colliding = UltimaBase.Schema.define({
 			className: 'AtomicRegistrationCollision',
 			fields: (field) => ({ other: field.string() }),
 		})
@@ -126,17 +126,16 @@ describe('plugin schema field transformations', () => {
 				type: 'AtomicOption',
 			},
 		})
-		const ValidAddition = Schema.define({
+		const ValidAddition = UltimaBase.Schema.define({
 			className: 'AtomicOptionValidAddition',
 			fields: () => ({}),
 		})
-		const InvalidAddition = Schema.define({
+		// The invalid plugin option must reach the Runtime rollback check.
+		const InvalidAddition = UltimaBase.Schema.define({
 			broken: true,
 			className: 'AtomicOptionInvalidAddition',
 			fields: () => ({}),
-		} as SchemaOptions<'AtomicOptionInvalidAddition'> & {
-			readonly broken: boolean
-		})
+		} as never)
 		const optionFailurePlugin = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.atomic-option',
@@ -169,11 +168,11 @@ describe('plugin schema field transformations', () => {
 		)
 		expect(optionApplication.schemas.values()).toStrictEqual([])
 
-		const PatchTarget = Schema.define({
+		const PatchTarget = UltimaBase.Schema.define({
 			className: 'AtomicPatchTarget',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const PatchAddition = Schema.define({
+		const PatchAddition = UltimaBase.Schema.define({
 			className: 'AtomicPatchAddition',
 			fields: () => ({}),
 		})
@@ -214,7 +213,7 @@ describe('plugin schema field transformations', () => {
 		)
 		expect(patchApplication.schemas.values()).toStrictEqual([PatchTarget])
 
-		const InvalidTarget = Schema.define({
+		const InvalidTarget = UltimaBase.Schema.define({
 			className: 'AtomicInvalidTarget',
 			fields: (field) => ({
 				missing: field.pointer({ target: 'AtomicMissingTarget' }),
@@ -250,7 +249,7 @@ describe('plugin schema field transformations', () => {
 		)
 		expect(finalValidationApplication.schemas.values()).toStrictEqual([])
 
-		const SelectorAddition = Schema.define({
+		const SelectorAddition = UltimaBase.Schema.define({
 			className: 'AtomicSelectorAddition',
 			fields: () => ({}),
 		})
@@ -303,26 +302,16 @@ describe('plugin schema field transformations', () => {
 	})
 
 	it('matches structurally equal option objects while preserving array order', async () => {
-		const Content = Schema.define({
+		const Content = UltimaBase.Schema.define({
 			className: 'WorkflowContent',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			workflow: { enabled: true, stages: ['draft', 'published'] },
-		} as SchemaOptions<'WorkflowContent'> & {
-			readonly workflow: Readonly<{
-				readonly enabled: boolean
-				readonly stages: readonly string[]
-			}>
-		})
-		const Audit = Schema.define({
+		} as never)
+		const Audit = UltimaBase.Schema.define({
 			className: 'WorkflowAudit',
-			fields: (field) => ({ message: field.string() }),
+			fields: (field: FieldBuilder) => ({ message: field.string() }),
 			workflow: { enabled: true, stages: ['draft', 'published'] },
-		} as SchemaOptions<'WorkflowAudit'> & {
-			readonly workflow: Readonly<{
-				readonly enabled: boolean
-				readonly stages: readonly string[]
-			}>
-		})
+		} as never)
 		const provider = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.workflow-schema-provider',

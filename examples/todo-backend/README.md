@@ -180,16 +180,17 @@ are immutable, so an update replaces the value with a newly granted ACL.
 The complete committed output is
 [`schema.generated.d.ts`](.ultimabase/schema.generated.d.ts). It is generated
 from the compiled application graph and is never Runtime truth. Field Access,
-field Hooks, Validation, ACL schema options, and locally decidable plugin
-contracts come directly from `TodoSchemaApplication`. Schema Access and Hooks
-remain generated references because their callbacks require the complete graph.
-The generated file therefore imports those two public contracts, value types,
-and the remaining non-migrated PostgreSQL options:
+field Hooks, Validation, and locally decidable plugin contracts come directly
+from `TodoSchemaApplication`. Schema Access, Hooks, and exact ACL schema
+callbacks remain generated references because they require the complete graph.
+The generated file therefore imports those three public contracts, value
+types, and the remaining non-migrated PostgreSQL options:
 
 ```ts
 import type {
 	ACL,
 	ACLContainmentOperand,
+	ACLSchemaOption,
 } from '@ultimabase/acl-permissions-plugin'
 import type { SchemaAccessOption } from '@ultimabase/access-plugin'
 import type { SchemaHooksOption } from '@ultimabase/hooks-plugin'

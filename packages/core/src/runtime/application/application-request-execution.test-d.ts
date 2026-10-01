@@ -10,18 +10,19 @@ import type {
 	FindManyOperationAst,
 } from '../../query/operations/contracts.js'
 import type { OperationResult } from '../../query/operations/results.js'
-import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import { type SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	applicationRequestExecutionCapability,
 	type ApplicationRequestExecutor,
 } from './application-request-execution.js'
+import { UltimaBase } from './ultima-base.js'
 
 declare const executor: ApplicationRequestExecutor
 declare const read: FindManyOperationAst<SchemaDefinition>
 declare const mutation: CreateOneOperationAst<SchemaDefinition>
 
-const MutationSchema = Schema.define({
+const MutationSchema = UltimaBase.Schema.define({
 	className: 'ApplicationRequestMutationType',
 	fields: (field) => ({
 		title: field.string({ required: true }),

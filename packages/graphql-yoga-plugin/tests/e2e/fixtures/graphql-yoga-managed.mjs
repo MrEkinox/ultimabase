@@ -1,5 +1,4 @@
 import {
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -117,21 +116,6 @@ const reservePort = () =>
 	})
 
 const port = await reservePort()
-const ManagedVirtual = Schema.define({
-	className: 'ManagedVirtual',
-	fields: (field) => ({
-		title: field.string(),
-		summary: field.virtual({
-			output: (output) => output.string({ nullable: false }),
-			resolve: async ({ item }) => {
-				await Promise.resolve()
-				return String(item.title).toUpperCase()
-			},
-			select: { title: true },
-		}),
-	}),
-	graphql: true,
-})
 const archiveInput = defineOperationValue((value, path) => {
 	if (value !== undefined) throw new TypeError(`${path} must be undefined`)
 	return undefined
@@ -223,6 +207,21 @@ const Application = UltimaBase.use(
 	graphqlYogaPlugin(),
 	honoServerPlugin({ host: '127.0.0.1', port }),
 )
+const ManagedVirtual = Application.Schema.define({
+	className: 'ManagedVirtual',
+	fields: (field) => ({
+		title: field.string(),
+		summary: field.virtual({
+			output: (output) => output.string({ nullable: false }),
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return String(item.title).toUpperCase()
+			},
+			select: { title: true },
+		}),
+	}),
+	graphql: true,
+})
 const application = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [ManagedVirtual],

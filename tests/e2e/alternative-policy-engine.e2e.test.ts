@@ -5,7 +5,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -17,6 +16,7 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
+	type FieldBuilder,
 } from '@ultimabase/core'
 import {
 	createPluginConformanceFixture,
@@ -82,19 +82,22 @@ const createSupportPlugin = (adapter: DatabaseAdapter) =>
 const publicRead = new ACL().grantPublic('read')
 
 const createAlternativeFixture = (withAcl = false) => {
-	const Document = Schema.define({
+	const engine = createAlternativePolicyEngine({ instanceId: 'typed' })
+	const Application = UltimaBase.use(engine.plugin)
+	// The optional ACL branch is a Runtime fixture; ACL's exact option is tested by its package.
+	const Document = Application.Schema.define({
 		className: 'AlternativePolicyDocument',
 		alternativePolicy: alternativeTenantPolicy({
 			hiddenFields: ['secret'],
 			tenant: 'community',
 		}),
 		...(withAcl ? { acl: { default: publicRead } } : {}),
-		fields: (field) => ({
+		fields: (field: FieldBuilder) => ({
 			secret: field.string(),
 			tenant: field.string(),
 			title: field.string(),
 		}),
-	})
+	} as never)
 	const adapter = new AlternativeReadAdapter([
 		{
 			...(withAcl ? { acl: publicRead } : {}),
@@ -106,14 +109,12 @@ const createAlternativeFixture = (withAcl = false) => {
 			updatedAt: '2026-08-20T10:00:00.000Z',
 		},
 	])
-	const engine = createAlternativePolicyEngine({ instanceId: 'typed' })
-
 	return { adapter, Document, engine }
 }
 
 describe('independent protected policy engine', () => {
 	it('keeps no-Access and alternative declarations free of official vocabulary', async () => {
-		const Plain = Schema.define({
+		const Plain = UltimaBase.Schema.define({
 			className: 'NoAccessGeneratedDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -202,13 +203,13 @@ describe('independent protected policy engine', () => {
 
 	it('isolates diagnostics and cleans up each application lifetime', async () => {
 		const disposed: string[] = []
-		const Document = Schema.define({
+		const engine = createAlternativePolicyEngine({
+			onDispose: () => disposed.push('disposed'),
+		})
+		const Document = UltimaBase.use(engine.plugin).Schema.define({
 			className: 'AlternativePolicyIsolationDocument',
 			alternativePolicy: alternativeTenantPolicy({ tenant: 'isolated' }),
 			fields: (field) => ({ tenant: field.string(), title: field.string() }),
-		})
-		const engine = createAlternativePolicyEngine({
-			onDispose: () => disposed.push('disposed'),
 		})
 		const support = createSupportPlugin(new AlternativeReadAdapter())
 		const first = new (UltimaBase.use(support, engine.plugin))({
@@ -281,7 +282,7 @@ describe('independent protected policy engine', () => {
 			}).contents
 
 			expect(generated).toContain('@ultimabase/acl-permissions-plugin')
-			expect(generated).not.toContain('ACLSchemaOption<this>')
+			expect(generated).toContain('ACLSchemaOption<this>')
 			expect(generated).toContain('readonly acl: Plugin1_ACL')
 			expect(
 				application.compile().schemas.get(Document.className)?.fields.acl?.kind,
@@ -300,7 +301,7 @@ describe('independent protected policy engine', () => {
 					audit.push(`${label}:${reason}`)
 				},
 			})
-		const Plain = Schema.define({
+		const Plain = UltimaBase.Schema.define({
 			className: 'MasterPolicyMatrixPlain',
 			fields: (field) => ({ secret: field.string(), title: field.string() }),
 		})

@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../../src/query/index.js'
-import { Schema, SchemaRegistry } from '../../src/schema/index.js'
+import { SchemaRegistry } from '../../src/schema/index.js'
 import { vi } from 'vitest'
 import {
 	RequestContext,
@@ -7,10 +7,11 @@ import {
 } from '../../src/runtime/context/request-context.js'
 import type { DatabaseOperationAst } from '../../src/runtime/database/contracts.js'
 import type { createRuntimeValidationStage } from '../../src/runtime/validation/runtime-validation.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
 export const runtimeDefault = vi.fn(() => 42)
 export const binaryDefault = new Uint8Array([1, 2, 3])
-export const validationSchema = Schema.define({
+export const validationSchema = UltimaBase.Schema.define({
 	className: 'RuntimeValidation',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -49,11 +50,11 @@ export const validationSchema = Schema.define({
 	}),
 })
 export const schemaNode = new QueryBuilder(validationSchema).ast.schema
-export const relationValidationTarget = Schema.define({
+export const relationValidationTarget = UltimaBase.Schema.define({
 	className: 'RuntimeRelationValidationTarget',
 	fields: () => ({}),
 })
-export const relationValidationSource = Schema.define({
+export const relationValidationSource = UltimaBase.Schema.define({
 	className: 'RuntimeRelationValidationSource',
 	fields: (field) => ({
 		targets: field.relation({ target: 'RuntimeRelationValidationTarget' }),

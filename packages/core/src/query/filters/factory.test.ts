@@ -1,4 +1,4 @@
-import { definePluginField, Schema } from '../../schema/index.js'
+import { definePluginField } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -14,8 +14,9 @@ import {
 	createQueryValueFilter,
 	fieldPath,
 } from './factory.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const fixtureSchema = Schema.define({
+const fixtureSchema = UltimaBase.Schema.define({
 	className: 'Fixture',
 	fields: (field) => ({
 		title: field.string(),
@@ -84,7 +85,7 @@ const runtimeOnlyCodeField = definePluginField(
 	{ required: true },
 	{ snapshotValue: snapshotCode },
 )
-const pluginFieldSchema = Schema.define({
+const pluginFieldSchema = UltimaBase.Schema.define({
 	className: 'PluginFilterFixture',
 	fields: (field) => ({
 		containedCodeField,

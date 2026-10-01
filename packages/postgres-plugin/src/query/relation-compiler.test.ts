@@ -8,7 +8,7 @@ import {
 	PostgresRelationAuthor,
 	PostgresRelationPost,
 	PostgresRelationTag,
-} from '../schema/relation-fixture.test-support.js'
+} from '../../tests/fixtures/relation-fixture.js'
 import { compilePostgresRelationPredicate } from './relation-compiler.js'
 
 const schemas = [

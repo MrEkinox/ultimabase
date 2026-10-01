@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -8,8 +7,9 @@ import {
 	readUniqueUpsertTargetValues,
 	normalizeUpsertInput,
 } from './upsert.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const accountSchema = Schema.define({
+const accountSchema = UltimaBase.Schema.define({
 	className: 'UpsertAccount',
 	fields: (field) => ({
 		email: field.string({ indexed: 'unique' }),
@@ -20,7 +20,7 @@ const accountSchema = Schema.define({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
-const foreignSchema = Schema.define({
+const foreignSchema = UltimaBase.Schema.define({
 	className: 'ForeignAccount',
 	fields: (field) => ({ email: field.string({ indexed: 'unique' }) }),
 })

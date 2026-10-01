@@ -1,9 +1,10 @@
 import { plugin } from '../../src/foundation.js'
-import { Schema } from '../../src/schema/index.js'
+
 import type { DatabaseAdapter } from '../../src/runtime/database/contracts.js'
 import { provideTestDatabaseAdapter } from '../runtime/fixtures/database-adapter-capability.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-export const articleSchema = Schema.define({
+export const articleSchema = UltimaBase.Schema.define({
 	className: 'AssembledArticle',
 	fields: (field) => ({
 		title: field.string({

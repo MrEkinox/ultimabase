@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { applicationFixture } from '../../tests/application-fixture.js'
 import { FrameworkApplication } from '../application/framework-application.js'
-import { Schema } from '../schema/schema/definition.js'
+
 import {
 	defineOperationTransport,
 	operationTransportBinding,
@@ -29,6 +29,7 @@ import {
 
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 // Runtime readers accept only canonical graph records; source tokens bind once.
 const requireCommand = (
@@ -41,7 +42,7 @@ const requireCommand = (
 	return command
 }
 
-const Document = Schema.define({
+const Document = UltimaBase.Schema.define({
 	className: 'CommandGraphDocument',
 	fields: (field) => ({ title: field.string() }),
 })

@@ -19,7 +19,7 @@ sources:
   - docs/adr/0181-implicit-result-identifiers.md
 ---
 
-`Schema.define()` returns a class that represents both a new record draft and a
+`App.Schema.define()` returns a class that represents both a new record draft and a
 persisted result. Each instance is an immutable snapshot, not a mutable row or
 an open database connection.
 

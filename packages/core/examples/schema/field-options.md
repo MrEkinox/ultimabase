@@ -8,9 +8,9 @@ editor suggests both common options and kind-specific options such as
 shows its value semantics, important restrictions, and a focused example.
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const ProductSchema = Schema.define({
+export const ProductSchema = UltimaBase.Schema.define({
 	className: 'Product',
 	fields: (field) => ({
 		supportEmail: field.string({

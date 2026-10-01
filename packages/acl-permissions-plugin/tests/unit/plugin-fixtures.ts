@@ -1,7 +1,6 @@
 import {
 	RequestSubjectReference,
 	QueryBuilder,
-	Schema,
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	databaseAdapterCapability,
@@ -50,7 +49,8 @@ export const masterContext = Object.freeze({
 	access: { mode: 'master' },
 	requestId: 'acl-master-test',
 }) as unknown as RequestSubjectContext
-export const ProtectedPost = Schema.define({
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+export const ProtectedPost = ACLSchemaApplication.Schema.define({
 	className: 'ProtectedPluginPost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

@@ -1,15 +1,15 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	transformQueryFilterInput,
 	type GenericField,
 	type QueryFilterOperandInput,
 	type QueryFilterOperandSource,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('exports one precisely typed transport operand boundary', () => {
-	const Article = Schema.define({
+	const Article = UltimaBase.Schema.define({
 		className: 'FilterTransformationTypeArticle',
 		fields: (field) => ({ title: field.string() }),
 	})

@@ -1,6 +1,6 @@
 import {
 	RequestContext,
-	Schema,
+	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 } from '@ultimabase/core'
@@ -14,13 +14,13 @@ import { GraphqlOperationExecution } from './operation-execution.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 
-const Parent = Schema.define({
+const Parent = UltimaBase.Schema.define({
 	className: 'QueryCountParent',
 	fields: (field) => ({
 		children: field.relation({ target: 'QueryCountChild' }),
 	}),
 })
-const Child = Schema.define({
+const Child = UltimaBase.Schema.define({
 	className: 'QueryCountChild',
 	fields: (field) => ({ label: field.string() }),
 })

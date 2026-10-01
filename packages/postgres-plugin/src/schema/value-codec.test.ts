@@ -1,4 +1,4 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -15,7 +15,7 @@ import {
 
 describe('PostgreSQL Drizzle column value mapping', () => {
 	it('round-trips schema-guided JSONB values without losing native scalars', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'CodecFixture',
 			fields: (field) => ({
 				profile: field.object({
@@ -65,7 +65,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	})
 
 	it('delegates top-level binary values to Drizzle bytea mapping', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'BinaryCodecFixture',
 			fields: (field) => ({ payload: field.binary() }),
 		})
@@ -85,7 +85,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	})
 
 	it('snapshots top-level JSON values before exposing driver data', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'JsonCodecFixture',
 			fields: (field) => ({ metadata: field.json() }),
 		})
@@ -110,7 +110,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	})
 
 	it('round-trips portable plugin codecs through top-level JSONB columns', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'PluginCodecFixture',
 			fields: () => ({ protectedValue: createStoredPluginField() }),
 		})
@@ -163,7 +163,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	})
 
 	it('rejects corrupted JSONB structures instead of returning partial values', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'CorruptCodecFixture',
 			fields: (field) => ({
 				profile: field.object({

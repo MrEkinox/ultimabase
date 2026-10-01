@@ -1,6 +1,6 @@
 import { stdout } from 'node:process'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const pool = {
@@ -12,14 +12,14 @@ const pool = {
 }
 
 const compile = async (className, table) => {
-	const Post = Schema.define({
+	const Application = UltimaBase.use(postgresPlugin({ pool }))
+	const Post = Application.Schema.define({
 		className,
 		fields: (field) => ({
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
 		postgres: { table },
 	})
-	const Application = UltimaBase.use(postgresPlugin({ pool }))
 	const application = new Application({
 		pluginPrivileges: { logger: false },
 		schemas: [Post],
@@ -45,7 +45,7 @@ const compile = async (className, table) => {
 
 const first = await compile('JavaScriptPostgresFirst', 'first_posts')
 const second = await compile('JavaScriptPostgresSecond', 'second_posts')
-const MissingPlugin = Schema.define({
+const MissingPlugin = UltimaBase.Schema.define({
 	className: 'JavaScriptPostgresMissingPlugin',
 	fields: () => ({}),
 	postgres: { table: 'missing_posts' },

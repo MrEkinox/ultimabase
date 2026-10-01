@@ -1,20 +1,20 @@
 import { stdout } from 'node:process'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-const ExplicitPost = Schema.define({
+const Application = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'replace-delete' }),
+)
+const ExplicitPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteExplicitPost',
 	fields: (field) => ({ title: field.string() }),
 	softDelete: 'explicit',
 })
-const OmittedPost = Schema.define({
+const OmittedPost = Application.Schema.define({
 	className: 'JavaScriptSoftDeleteOmittedPost',
 	fields: (field) => ({ title: field.string() }),
 })
-const Application = UltimaBase.use(
-	softDeletePlugin({ defaultMode: 'replace-delete' }),
-)
 const application = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [ExplicitPost, OmittedPost],

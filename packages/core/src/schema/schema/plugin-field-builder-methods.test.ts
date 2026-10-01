@@ -9,7 +9,7 @@ import {
 	contributeDeclarations,
 	withPluginPrivileges,
 	definePluginField,
-	Schema,
+	UltimaBase,
 	type FieldBuilder,
 	type FieldOptions,
 	type PluginFieldFamilyDefinition,
@@ -149,7 +149,7 @@ describe('plugin FieldBuilder methods', () => {
 				}),
 			],
 		})
-		const Contextual = Schema.define({
+		const Contextual = UltimaBase.Schema.define({
 			className: 'ContextualPluginMethod',
 			fields: (field) => ({
 				root: (
@@ -190,7 +190,7 @@ describe('plugin FieldBuilder methods', () => {
 	})
 
 	it('rejects a configured method used outside its declared context', async () => {
-		const InvalidEmbedded = Schema.define({
+		const InvalidEmbedded = UltimaBase.Schema.define({
 			className: 'InvalidEmbeddedPluginMethod',
 			fields: (field) => ({
 				value: field.object({
@@ -252,7 +252,7 @@ describe('plugin FieldBuilder methods', () => {
 				),
 			],
 		})
-		const Document = Schema.define({
+		const Document = UltimaBase.Schema.define({
 			className: 'PluginMethodDocument',
 			fields: (field) => {
 				trace.push('fields')
@@ -303,7 +303,7 @@ describe('plugin FieldBuilder methods', () => {
 	})
 
 	it('fails precisely when no configured plugin declares a used method', async () => {
-		const Missing = Schema.define({
+		const Missing = UltimaBase.Schema.define({
 			className: 'MissingPluginMethod',
 			fields: (field) => ({
 				// The generated-like cast simulates stale output after plugin removal.
@@ -327,18 +327,18 @@ describe('plugin FieldBuilder methods', () => {
 
 	it('keeps two application method graphs isolated', async () => {
 		let sharedDeclarations = 0
-		const Shared = Schema.define({
+		const Shared = UltimaBase.Schema.define({
 			className: 'SharedPluginMethod',
 			fields: (field) => {
 				sharedDeclarations += 1
 				return { value: fixtureBuilder(field).alpha() }
 			},
 		})
-		const Alpha = Schema.define({
+		const Alpha = UltimaBase.Schema.define({
 			className: 'IsolatedAlphaMethod',
 			fields: (field) => ({ value: fixtureBuilder(field).alpha() }),
 		})
-		const Beta = Schema.define({
+		const Beta = UltimaBase.Schema.define({
 			className: 'IsolatedBetaMethod',
 			fields: (field) => ({ value: fixtureBuilder(field).beta() }),
 		})
@@ -393,7 +393,7 @@ describe('plugin FieldBuilder methods', () => {
 			marker: 'declared',
 			nested: { label: 'declared' },
 		}
-		const Snapshot = Schema.define({
+		const Snapshot = UltimaBase.Schema.define({
 			className: 'PluginMethodOptionSnapshot',
 			fields: (field) => ({
 				value: fixtureBuilder(field).alpha(options),
@@ -428,7 +428,7 @@ describe('plugin FieldBuilder methods', () => {
 
 	it('rejects built-in overrides and duplicate owners before fields resolve', async () => {
 		let declarations = 0
-		const Unresolved = Schema.define({
+		const Unresolved = UltimaBase.Schema.define({
 			className: 'ConflictingPluginMethod',
 			fields: () => {
 				declarations += 1
@@ -504,7 +504,7 @@ describe('plugin FieldBuilder methods', () => {
 	})
 
 	it('rejects incompatible factories and asynchronous declarations', async () => {
-		const WrongKind = Schema.define({
+		const WrongKind = UltimaBase.Schema.define({
 			className: 'WrongPluginMethodKind',
 			fields: (field) => ({ value: fixtureBuilder(field).alpha() }),
 		})

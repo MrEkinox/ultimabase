@@ -7,7 +7,6 @@ import {
 import {
 	MasterAuthority,
 	plugin,
-	Schema,
 	UltimaBase,
 	getCurrentRequest,
 	type PluginDefinition,
@@ -37,7 +36,7 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
 const password = 'correct horse battery staple'
-const GraphqlAuthRecord = Schema.define({
+const GraphqlAuthRecord = UltimaBase.Schema.define({
 	className: 'GraphqlAuthRecord',
 	fields: (field) => ({ value: field.string() }),
 })

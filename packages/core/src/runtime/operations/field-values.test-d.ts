@@ -1,13 +1,13 @@
 import {
 	QueryBuilder,
-	Schema,
 	transformOperationFieldInputs,
 	type CreateOneOperationAst,
 	type RuntimeFieldInputVisitor,
 } from '../../index.js'
 import { expectTypeOf, test } from 'vitest'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const FieldInputRecord = Schema.define({
+const FieldInputRecord = UltimaBase.Schema.define({
 	className: 'FieldInputTypeContract',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })

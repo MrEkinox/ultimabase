@@ -5,9 +5,9 @@ owns logical field names, while every method accepts the existing field-factory
 options:
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const UserSchema = Schema.define({
+export const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		username: field.string({
@@ -39,14 +39,14 @@ integer `autoIncrement` options.
 Literal field names cannot shadow framework system fields (`id`, `createdAt`,
 `updatedAt`), Query logical keys (`AND`, `OR`, `NOT`), or model capabilities
 such as `create`, `get`, `relation`, `then`, and `toJSON`. TypeScript rejects
-these names directly in `Schema.define()`, and the same runtime guard protects
+these names directly in `App.Schema.define()`, and the same runtime guard protects
 dynamically assembled field maps and plugin contributions.
 
 Relationship targets use stable schema names and resolve to exact registered
 classes during application compilation:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),

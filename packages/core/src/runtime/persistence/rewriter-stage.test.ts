@@ -8,7 +8,7 @@ import {
 import { provideCapability } from '../../plugins/capabilities.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { QueryBuilder, normalizeUpdateExpression } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import {
 	persistencePlanRewriter,
 	persistencePlanRewriterCapability,
@@ -20,8 +20,9 @@ import {
 } from './plans.js'
 import type { DatabasePersistenceRewriteInput } from './contracts.js'
 import { createPersistencePlanRewriteStage } from './rewriter-stage.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistenceStageArticle',
 	fields: (field) => ({ deleted: field.boolean() }),
 })
@@ -154,7 +155,7 @@ describe('persistence plan rewriter capability', () => {
 	})
 
 	it('targets an immutable application schema collection without touching other plans', async () => {
-		const otherSchema = Schema.define({
+		const otherSchema = UltimaBase.Schema.define({
 			className: 'PersistenceStageUntargeted',
 			fields: (field) => ({ deleted: field.boolean() }),
 		})
@@ -214,7 +215,7 @@ describe('persistence plan rewriter capability', () => {
 	})
 
 	it('wraps a malformed cross-schema result with contribution ownership', async () => {
-		const otherSchema = Schema.define({
+		const otherSchema = UltimaBase.Schema.define({
 			className: 'PersistenceStageOther',
 			fields: (field) => ({ deleted: field.boolean() }),
 		})

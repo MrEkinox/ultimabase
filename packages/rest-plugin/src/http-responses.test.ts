@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	PluginError,
-	Schema,
 	UltimaBase,
 	contributeOperation,
 	databaseAdapterCapability,
@@ -41,7 +40,8 @@ const row = {
 }
 const countRouteOption = { rest: { count: true } }
 
-const HttpRecord = Schema.define({
+const RestSchemaApplication = UltimaBase.use(restPlugin())
+const HttpRecord = RestSchemaApplication.Schema.define({
 	...countRouteOption,
 	className: 'RestHttpRecord',
 	fields: (field) => ({ title: field.string() }),

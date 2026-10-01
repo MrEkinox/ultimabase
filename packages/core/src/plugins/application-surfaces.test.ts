@@ -4,7 +4,7 @@ import { provideTestRuntimeInterceptor } from '../../tests/runtime/fixtures/runt
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { beforeOperation } from '../runtime/contributions/definitions.js'
-import { Schema } from '../schema/schema/definition.js'
+
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { plugin as createPlugin } from './plugin.js'
 import { contributeDeclarations } from './plugin-contributions.js'
@@ -32,13 +32,13 @@ const applicationOperation = defineOperation({
 	version: '1.0.0',
 })
 
-const StablePost = Schema.define({
+const StablePost = UltimaBase.Schema.define({
 	className: 'ApplicationSurfaceStablePost',
 	fields: (field) => ({ title: field.string() }),
 })
 
 const createSurfacePlugin = (dynamicName: string) => {
-	const DynamicSchema = Schema.define({
+	const DynamicSchema = UltimaBase.Schema.define({
 		className: dynamicName,
 		fields: (field) => ({ title: field.string() }),
 	})
@@ -181,7 +181,7 @@ describe('application-owned plugin surfaces', () => {
 	})
 
 	it('does not let model privileges intercept Runtime implicitly', () => {
-		const LocalSchema = Schema.define({
+		const LocalSchema = UltimaBase.Schema.define({
 			className: 'ApplicationSurfaceNoRuntimePrivilege',
 			fields: (field) => ({ title: field.string() }),
 		})

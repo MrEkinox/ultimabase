@@ -1,4 +1,4 @@
-import { RequestSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -7,7 +7,7 @@ import {
 	removeACLReference,
 } from './acl-reference-cleanup.js'
 
-const Principal = Schema.define({
+const Principal = UltimaBase.Schema.define({
 	className: 'ACLReferenceCleanupPrincipal',
 	fields: () => ({}),
 })

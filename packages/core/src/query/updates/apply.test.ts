@@ -1,11 +1,11 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { applyUpdateExpressionToRecord } from './apply.js'
 import { normalizeUpdateExpression } from './normalize.js'
 import { decrement, increment } from './operators.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Account = Schema.define({
+const Account = UltimaBase.Schema.define({
 	className: 'AppliedUpdateAccount',
 	fields: (field) => ({
 		balance: field.decimal(),

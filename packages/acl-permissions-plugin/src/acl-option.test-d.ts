@@ -1,9 +1,14 @@
-import { type PluginExports, type PointerValue, Schema } from '@ultimabase/core'
+import {
+	type PluginExports,
+	type PointerValue,
+	UltimaBase,
+} from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
-import type { ACLSchemaOption } from './acl-option.js'
 import { ACL } from './acl.js'
-import type { aclPlugin } from './plugin.js'
+import { aclPlugin } from './plugin.js'
+
+const Application = UltimaBase.use(aclPlugin())
 
 test('does not expose a redundant application-local setup value', () => {
 	expectTypeOf<
@@ -11,14 +16,8 @@ test('does not expose a redundant application-local setup value', () => {
 	>().toEqualTypeOf<undefined>()
 })
 
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly acl?: ACLSchemaOption<this>
-	}
-}
-
-test('infers exact sibling data for direct ACL callbacks', () => {
-	const Post = Schema.define({
+test('keeps ACL callback inputs available before the named graph is generated', () => {
+	const Post = Application.Schema.define({
 		className: 'DirectACLTypePost',
 		fields: (field) => ({
 			title: field.string({ required: true }),
@@ -26,21 +25,21 @@ test('infers exact sibling data for direct ACL callbacks', () => {
 		}),
 		acl: {
 			default: ({ data, principal, context }) => {
-				expectTypeOf(data.title).toBeString()
-				expectTypeOf(data.visibility).toEqualTypeOf<string | null>()
+				// Exact sibling fields are checked against generated declarations in Typegen's editor suite.
+				expectTypeOf(data.title).toEqualTypeOf<unknown>()
 				expectTypeOf(principal).toEqualTypeOf<PointerValue | undefined>()
 				expectTypeOf(context.requestId).toBeString()
 				return new ACL()
 			},
 			resolveInput: (input) => {
-				expectTypeOf(input.data.title).toBeString()
+				expectTypeOf(input.data.title).toEqualTypeOf<unknown>()
 				if (input.operation === 'create') {
 					expectTypeOf(input.currentData).toEqualTypeOf<undefined>()
 					expectTypeOf(input.update).toEqualTypeOf<undefined>()
 					return input.inputAcl
 				}
 
-				expectTypeOf(input.currentData.title).toBeString()
+				expectTypeOf(input.currentData.title).toEqualTypeOf<unknown>()
 				expectTypeOf(input.update.kind).toEqualTypeOf<'update-expression'>()
 				return input.inputAcl ?? input.currentAcl
 			},
@@ -51,19 +50,19 @@ test('infers exact sibling data for direct ACL callbacks', () => {
 })
 
 test('rejects incompatible public ACL configuration', () => {
-	Schema.define({
+	Application.Schema.define({
 		className: 'InvalidDirectACLTypePost',
 		fields: (field) => ({ title: field.string() }),
 		// @ts-expect-error -- Static defaults must be immutable ACL values.
 		acl: { default: { public: ['read'] } },
 	})
-	Schema.define({
+	Application.Schema.define({
 		className: 'InvalidDirectACLResolverPost',
 		fields: (field) => ({ title: field.string() }),
 		// @ts-expect-error -- Input resolution must return an ACL or undefined.
 		acl: { resolveInput: () => true },
 	})
-	Schema.define({
+	Application.Schema.define({
 		className: 'InvalidDirectACLLimitsPost',
 		fields: (field) => ({ title: field.string() }),
 		// @ts-expect-error -- Schema limits accept only documented keys.

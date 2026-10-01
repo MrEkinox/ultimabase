@@ -9,7 +9,7 @@ import {
 	type UpdateExpression,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { createDatabasePersistencePlan } from '../persistence/plans.js'
@@ -31,8 +31,9 @@ import {
 	type DatabaseTransactionAdapter,
 	type PreparedDatabaseOperation,
 } from './contracts.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),

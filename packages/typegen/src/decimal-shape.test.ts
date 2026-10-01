@@ -1,10 +1,10 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
 
 const generateDecimal = (shaped: boolean) => {
-	const DecimalSchema = Schema.define({
+	const DecimalSchema = UltimaBase.Schema.define({
 		className: 'TypegenDecimalShape',
 		fields: (field) => ({
 			amount: shaped

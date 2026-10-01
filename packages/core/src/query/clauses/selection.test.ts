@@ -1,9 +1,9 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQuerySelection } from './selection.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),
@@ -66,6 +66,7 @@ describe('normalizeQuerySelection', () => {
 			normalizeQuerySelection(postSchema, { title: 'yes' })
 		}).toThrow(new TypeError('selection.title must be a boolean'))
 		expect(() => {
+			// @ts-expect-error -- Source typing rejects unknown fields; Runtime also protects JavaScript callers.
 			normalizeQuerySelection(postSchema, { missing: true })
 		}).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>

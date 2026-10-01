@@ -381,7 +381,7 @@ export const createRelationHandle = (
 	ownerToken?: OperationExecutionOwnerToken,
 ): Relation => {
 	if (!Schema.is(source)) {
-		throw new TypeError('Relation source must be created by Schema.define')
+		throw new TypeError('Relation source must be created by App.Schema.define')
 	}
 
 	assertNonEmptyString(fieldName, 'Relation field name')

@@ -208,9 +208,9 @@ Define the data model. Field factories preserve the exact TypeScript shape and
 Core validates the same structure at Runtime.
 
 ```ts title="src/schema.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Task = Schema.define({
+export const Task = UltimaBase.Schema.define({
 	className: 'Task',
 	fields: (f) => ({
 		done: f.boolean({ default: false }),

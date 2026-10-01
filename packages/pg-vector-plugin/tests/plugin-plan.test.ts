@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	compileValidationPlans,
 	UltimaBase,
-	Schema,
 	SchemaRegistry,
 } from '@ultimabase/core'
 
@@ -29,7 +28,7 @@ describe('pgVectorPlugin field plans', () => {
 
 		options.dimensions = 3
 
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'DetachedVectorOptions',
 			fields: () => ({ embedding: field }),
 		})
@@ -48,7 +47,7 @@ describe('pgVectorPlugin field plans', () => {
 			dimensions: 3,
 			required: true,
 		})
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Document',
 			fields: () => ({ embedding: field }),
 		})

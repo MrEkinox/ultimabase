@@ -7,7 +7,7 @@ import type {
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { RequestContext, requestSources } from '../context/request-context.js'
 import {
 	databasePersistencePlanCapability,
@@ -25,8 +25,9 @@ import type {
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'FinalMutationGuardArticle',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })

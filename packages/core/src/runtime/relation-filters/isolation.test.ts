@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
-import { plugin, Schema, type RelationWhereResolver } from '../../index.js'
+import { plugin } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
@@ -10,6 +10,7 @@ import { materializeSchemaModel } from '../../schema/schema/model.js'
 import { createFrameworkEngine } from '../application/create-framework-engine.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { requestSources } from '../context/request-context.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const sourceId = '0198f090-2a50-7000-8000-000000000094'
 
@@ -24,19 +25,19 @@ const databasePlugin = (pluginId: string, adapter: RecordingDatabaseAdapter) =>
 describe('Runtime relation filter isolation', () => {
 	it('rejects a foreign context before invoking a shared schema declaration', async () => {
 		let invocations = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'IsolatedRuntimeRelationTarget',
 			fields: (field) => ({ visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'IsolatedRuntimeRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'IsolatedRuntimeRelationTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						invocations += 1
 						return where.eq('visible', true)
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -89,20 +90,20 @@ describe('Runtime relation filter isolation', () => {
 	it('attributes application callbacks and observes cancellation after invocation', async () => {
 		const controller = new AbortController()
 		let owner: unknown = 'not-invoked'
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'CancelledRuntimeRelationTarget',
 			fields: (field) => ({ visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'CancelledRuntimeRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'CancelledRuntimeRelationTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						owner = readApplicationPluginOwner(application)
 						controller.abort()
 						return where.eq('visible', true)
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})

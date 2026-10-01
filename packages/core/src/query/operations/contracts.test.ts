@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,8 +5,9 @@ import {
 	type OperationAst,
 	type UpdateExpressionNode,
 } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),

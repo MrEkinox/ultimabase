@@ -149,14 +149,14 @@ when that subset depends on the request. Register both schemas below in the
 same application:
 
 ```ts title="src/channel.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Message = Schema.define({
+export const Message = UltimaBase.Schema.define({
 	className: 'DocsMessage',
 	fields: (f) => ({ published: f.boolean({ required: true }) }),
 })
 
-export const Channel = Schema.define({
+export const Channel = UltimaBase.Schema.define({
 	className: 'DocsChannel',
 	fields: (f) => ({
 		messages: f.relation({

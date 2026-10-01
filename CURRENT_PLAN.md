@@ -3,14 +3,60 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317
-- Active issue: none; resume at 6318
-- Next issue: 6318
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318
+- Active issue: none; awaiting review of issue 6318's handoff
+- Next issue: 6314
+
+Current checkpoint: issue 6318 is complete. Executable ordinary schema consumers
+across the repository, starter, examples, and website now use `App.Schema.define()` or the portable
+`UltimaBase.Schema.define()`. The standalone ordinary `Schema.define()` method
+is removed; `Schema.is()` and `Schema.defineSpecialized()` remain. The first
+permission-correct `yarn validate:full` initially exposed migration-related
+lint errors; the final full run passed 557 ordinary files/2,650 tests and 636
+coverage files/2,912 tests. The complete built E2E passes 102 files/406 tests
+after regenerating both committed example declarations and updating two packed
+hover expectations. The `SchemaResult.update()` hover-verbosity change is
+recorded for issue 6316. Issue 6318's dedicated local commit records this
+checkpoint; no push is authorized. Earlier progress notes follow for history.
+
+Issue 6318's first 23-file Query probe was reverted after a focused typecheck
+showed old Runtime-negative fixtures rejected earlier and one direct internal
+normalizer fixture incompatible with the exact configured AST. The same group
+has now been migrated in smaller verified batches. Public
+`QueryBuilder.include()` retains its typed target callback and Runtime identity
+check; the direct internal normalizer test explicitly exercises its Runtime
+boundary without widening the API. Core executable authoring calls have been
+migrated, and its ordinary suite passes (273 files, 1,383 tests). Validation,
+pg-vector, Roles, and Soft Delete package suites also pass; Soft Delete's built
+E2E suite passes (4 files, 19 tests). Continue with remaining packages, prose,
+website, examples, old API removal, and full validation. ACL's exact
+sibling-field callback typing is a newly exposed blocker: a bounded
+`App.Schema.define()` test yielded `unknown` for local `data.title` and
+`data.visibility` with both builder and direct field declarations. The failing
+probe was reverted; the ACL package typecheck and ordinary suite pass. ADR-0280
+already retains complete-schema Access/Hooks callbacks in Typegen after failed
+source inference, but ACL was classified as source-typed. Its exact callback
+test uses a test-only augmentation; Typegen emits no ACL descriptor today.
+The user approved the existing Typegen fallback on 2026-10-01. ADR-0283
+refines ADR-0280 without a second graph: ACL's option remains available from
+source, while Typegen emits one public descriptor for exact sibling-field
+callbacks. The generated source-editor proof passes, and the package-local
+type fixture now represents the pre-generation contract. Continue issue 6318;
+do not retry the same inference class. No local 6318 commit or push exists.
+
+Issue 6318's PostgreSQL pass exposed a source bootstrap mismatch for custom
+field `contains`: Runtime accepts developer input `{ code }` and normalizes it
+to an internal `{ partial }` operand, but source typing mistakenly used that
+normalized result as the input. ADR-0281 already retains exact complete
+`WhereInput` in Typegen, so the pre-generation source type now advertises the
+operator with an unknown operand. The unchanged valid Runtime input and the
+generated containment editor test pass; no cast or new graph was added.
+Continue PostgreSQL and remaining consumers. Full validation is pending.
 
 The user approved reordering issues 6314 and 6313 on 2026-09-30. Issue 6314
-first removes the still-valid standalone `Schema.define()` and old application
-handle paths that consume generated plugin projections. Issue 6313 then removes
-only projections proven superseded, preserving the named schema graph and
+first removes old application handle paths that consume generated plugin
+projections, after issue 6318 removes standalone `Schema.define()`. Issue 6313
+then removes only projections proven superseded, preserving the named schema graph and
 every complete generated `WhereInput`. The earlier 6313 deletion experiment
 was fully reverted before this dependency correction.
 

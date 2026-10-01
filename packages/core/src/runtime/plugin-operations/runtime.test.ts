@@ -22,7 +22,7 @@ import {
 	defineOperation,
 	defineOperationValue,
 } from '../../plugins/plugin-operations.js'
-import { Schema } from '../../schema/schema/definition.js'
+
 import {
 	defineAdapterRawCapability,
 	provideAdapterRawCapability,
@@ -72,7 +72,7 @@ const forbiddenOperation = defineOperation({
 	transaction: 'forbidden',
 	version: '1.0.0',
 })
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'PluginOperationRuntimePost',
 	fields: (field) => ({ title: field.string() }),
 })

@@ -2,14 +2,15 @@ import {
 	QueryBuilder,
 	type CreateOneOperationAst,
 } from '../../src/query/index.js'
-import { Schema } from '../../src/schema/index.js'
+
 import {
 	RequestContext,
 	requestSources,
 } from '../../src/runtime/context/request-context.js'
 import type { RuntimeEnforcementStages } from '../../src/runtime/pipeline/contracts.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-export const articleSchema = Schema.define({
+export const articleSchema = UltimaBase.Schema.define({
 	className: 'EnforcedArticle',
 	fields: (field) => ({
 		secret: field.string(),
@@ -17,7 +18,7 @@ export const articleSchema = Schema.define({
 	}),
 })
 
-export const foreignSchema = Schema.define({
+export const foreignSchema = UltimaBase.Schema.define({
 	className: 'ForeignEnforcedArticle',
 	fields: (field) => ({ title: field.string() }),
 })

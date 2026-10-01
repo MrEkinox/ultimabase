@@ -1,18 +1,23 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
+import { postgresPlugin } from '../plugin/postgres-plugin.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
+
+const PostgresSchemaApplication = UltimaBase.use(
+	postgresPlugin({ url: 'postgresql://fixture' }),
+)
 
 describe('desired PostgreSQL schema', () => {
 	it('keeps schema synchronization unchanged when only virtual fields change', () => {
-		const persisted = Schema.define({
+		const persisted = UltimaBase.Schema.define({
 			className: 'VirtualDesiredFixture',
 			fields: (field) => ({ title: field.string({ required: true }) }),
 		})
-		const withVirtual = Schema.define({
+		const withVirtual = UltimaBase.Schema.define({
 			className: 'VirtualDesiredFixture',
 			fields: (field) => ({
 				title: field.string({ required: true }),
@@ -53,7 +58,7 @@ describe('desired PostgreSQL schema', () => {
 
 	it('detaches columns, defaults, identities, renames, and indexes', () => {
 		const schema = compilePostgresSchema(
-			Schema.define({
+			PostgresSchemaApplication.Schema.define({
 				className: 'Article',
 				fields: (field) => ({
 					budget: field.decimal({ precision: 12, scale: 2 }),

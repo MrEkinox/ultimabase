@@ -1,7 +1,7 @@
 import {
 	definePluginField,
 	pointerField,
-	Schema,
+	UltimaBase,
 	Pointer,
 	SchemaRegistry,
 } from '@ultimabase/core'
@@ -15,6 +15,11 @@ import {
 } from './column-value.test-support.js'
 import { compilePostgresSchema } from './schema-compiler.test-support.js'
 import { createPostgresPointerFixture } from './pointer-fixture.test-support.js'
+import { postgresPlugin } from '../plugin/postgres-plugin.js'
+
+const PostgresSchemaApplication = UltimaBase.use(
+	postgresPlugin({ url: 'postgresql://fixture' }),
+)
 
 const indexColumns = (
 	columns: readonly PgColumn[],
@@ -27,7 +32,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 			({ item }: { readonly item: { readonly title: unknown } }) =>
 				String(item.title),
 		)
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'VirtualFieldFixture',
 			fields: (field) => ({
 				title: field.string({ required: true }),
@@ -88,11 +93,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects pointer compilation without a closed application graph', () => {
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'DetachedUser',
 			fields: () => ({}),
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'DetachedPost',
 			fields: () => ({
 				author: pointerField({ target: () => User }),
@@ -107,14 +112,14 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('resolves circular pointer tables before Drizzle evaluates foreign keys', () => {
-		const Left = Schema.define({
+		const Left = UltimaBase.Schema.define({
 			className: 'CircularLeft',
 			fields: (field) => ({
 				right: field.pointer({ target: 'CircularRight' }),
 			}),
 		})
 
-		const Right = Schema.define({
+		const Right = UltimaBase.Schema.define({
 			className: 'CircularRight',
 			fields: (field) => ({
 				left: field.pointer({ target: 'CircularLeft' }),
@@ -133,7 +138,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 
 	it('maps every built-in scalar and structured value to explicit metadata', () => {
 		const runtimeDefault = vi.fn(() => 'runtime')
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'PrimitiveFixture',
 			fields: (field) => ({
 				active: field.boolean({ default: true }),
@@ -227,7 +232,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('keeps optional nullable fields physically nullable', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'NullableFixture',
 			fields: (field) => ({
 				nullable: field.string({
@@ -247,7 +252,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('keeps structured defaults logical and lets the Drizzle column encode them', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'StructuredDefaultFixture',
 			fields: (field) => ({
 				profile: field.object({
@@ -298,11 +303,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 				},
 			},
 		)
-		const pluginSchema = Schema.define({
+		const pluginSchema = UltimaBase.Schema.define({
 			className: 'PluginFieldFixture',
 			fields: () => ({ custom: pluginField }),
 		})
-		const invalidSequenceSchema = Schema.define({
+		const invalidSequenceSchema = UltimaBase.Schema.define({
 			className: 'InvalidSequenceFixture',
 			fields: (field) => ({
 				sequence: field.int({ autoIncrement: true, default: 1 }),
@@ -322,21 +327,21 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects ambiguous or nested PostgreSQL rename metadata', () => {
-		const duplicateSource = Schema.define({
+		const duplicateSource = PostgresSchemaApplication.Schema.define({
 			className: 'DuplicateRenameFixture',
 			fields: (field) => ({
 				first: field.string({ postgres: { renamedFrom: 'legacy' } }),
 				second: field.string({ postgres: { renamedFrom: 'legacy' } }),
 			}),
 		})
-		const declaredSource = Schema.define({
+		const declaredSource = PostgresSchemaApplication.Schema.define({
 			className: 'DeclaredRenameFixture',
 			fields: (field) => ({
 				legacy: field.string(),
 				title: field.string({ postgres: { renamedFrom: 'legacy' } }),
 			}),
 		})
-		const nestedRename = Schema.define({
+		const nestedRename = PostgresSchemaApplication.Schema.define({
 			className: 'NestedRenameFixture',
 			fields: (field) => ({
 				profile: field.object({

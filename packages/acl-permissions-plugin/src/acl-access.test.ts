@@ -2,7 +2,7 @@ import {
 	RequestSubjectReference,
 	Pointer,
 	QueryBuilder,
-	Schema,
+	UltimaBase,
 	type RequestSubjectContext,
 	type RequestPrincipalResolver,
 	type RequestRoleResolver,
@@ -17,11 +17,11 @@ import {
 	resolveACLAccessSubjects,
 } from './acl-access.js'
 
-const Principal = Schema.define({
+const Principal = UltimaBase.Schema.define({
 	className: 'ACLAccessPrincipal',
 	fields: (field) => ({ name: field.string() }),
 })
-const ProtectedRecord = Schema.define({
+const ProtectedRecord = UltimaBase.Schema.define({
 	className: 'ACLAccessProtectedRecord',
 	fields: (field) => ({ name: field.string() }),
 })

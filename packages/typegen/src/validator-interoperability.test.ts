@@ -1,4 +1,4 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import * as v from 'valibot'
 import { expect, it } from 'vitest'
@@ -7,7 +7,8 @@ import { z } from 'zod'
 import { generateApplicationTypes } from './generator.js'
 
 it('omits opaque validators from declarations and deterministic fingerprints', () => {
-	const ZodSchema = Schema.define({
+	const Application = UltimaBase.use(validationPlugin())
+	const ZodSchema = Application.Schema.define({
 		className: 'ValidatorNeutralTypegen',
 		fields: (field) => ({
 			tags: field.string({
@@ -17,7 +18,7 @@ it('omits opaque validators from declarations and deterministic fingerprints', (
 			} as never),
 		}),
 	})
-	const ValibotSchema = Schema.define({
+	const ValibotSchema = Application.Schema.define({
 		className: 'ValidatorNeutralTypegen',
 		fields: (field) => ({
 			tags: field.string({
@@ -28,13 +29,13 @@ it('omits opaque validators from declarations and deterministic fingerprints', (
 		}),
 	})
 	const zod = generateApplicationTypes({
-		ultimabase: new (UltimaBase.use(validationPlugin()))({
+		ultimabase: new Application({
 			schemas: [ZodSchema],
 		}),
 		applicationId: 'validator-neutral',
 	})
 	const valibot = generateApplicationTypes({
-		ultimabase: new (UltimaBase.use(validationPlugin()))({
+		ultimabase: new Application({
 			schemas: [ValibotSchema],
 		}),
 		applicationId: 'validator-neutral',

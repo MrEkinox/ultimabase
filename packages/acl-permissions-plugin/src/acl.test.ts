@@ -1,6 +1,6 @@
 import {
 	RequestSubjectReference,
-	Schema,
+	UltimaBase,
 	type RequestRoleReferenceCarrier,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -8,8 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { ACL } from './acl.js'
 import { aclPermissions } from './acl-contracts.js'
 
-const User = Schema.define({ className: 'ACLUser', fields: () => ({}) })
-const ServiceAccount = Schema.define({
+const User = UltimaBase.Schema.define({
+	className: 'ACLUser',
+	fields: () => ({}),
+})
+const ServiceAccount = UltimaBase.Schema.define({
 	className: 'ACLServiceAccount',
 	fields: () => ({}),
 })

@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -26,7 +25,7 @@ const viewer = new RequestContextValue<string>(
 	},
 )
 
-const VirtualRecord = Schema.define({
+const VirtualRecord = UltimaBase.Schema.define({
 	className: 'GraphqlVirtualRecord',
 	fields: (field) => ({
 		title: field.string(),

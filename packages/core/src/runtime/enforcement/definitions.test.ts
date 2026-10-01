@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { Schema } from '../../schema/index.js'
 import {
 	constraint,
 	databaseConstraint,
@@ -11,8 +10,9 @@ import {
 	restrictOutput,
 	restrictSelection,
 } from './definitions.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'EnforcementPost',
 	fields: (field) => ({
 		title: field.string(),

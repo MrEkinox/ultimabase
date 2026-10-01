@@ -14,15 +14,15 @@ import {
 	objectField,
 	pointerField,
 	relationField,
-	Schema,
 	stringField,
 	timeField,
 	uuidField,
 } from '../../index.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
 type UntypedFieldFactory = (options: never) => unknown
 
-const TargetSchema = Schema.define({
+const TargetSchema = UltimaBase.Schema.define({
 	className: 'FieldOptionsTarget',
 	fields: () => ({}),
 })

@@ -1,4 +1,4 @@
-import { Schema, stringField, UltimaBase } from '@ultimabase/core'
+import { stringField, UltimaBase } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -88,7 +88,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 	})
 
 	it('rejects arbitrary User schemas and reserved custom fields', () => {
-		const ForeignUser = Schema.define({
+		const ForeignUser = UltimaBase.Schema.define({
 			className: 'User',
 			fields: () => ({}),
 		})

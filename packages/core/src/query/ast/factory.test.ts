@@ -1,9 +1,9 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createQueryAst } from './factory.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),

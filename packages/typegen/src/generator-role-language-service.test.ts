@@ -12,9 +12,9 @@ describe('generated RoleSchema TypeScript contracts', () => {
 		const registry = createGeneratedRoleRegistry()
 		expect(registry).not.toContain('ultimabase.roles.identity')
 		const source = `${registry}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { RoleSchema } from '@ultimabase/roles-plugin'
-const Member = Schema.define({
+const Member = UltimaBase.Schema.define({
   className: 'SemanticRoleMember',
   fields: (field) => ({
     name: field.string({ required: true }),

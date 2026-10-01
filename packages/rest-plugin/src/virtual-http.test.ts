@@ -1,7 +1,6 @@
 import {
 	MasterAuthority,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -38,7 +37,8 @@ const viewer = new RequestContextValue<string>(
 	},
 )
 
-const VirtualHttpRecord = Schema.define({
+const RestSchemaApplication = UltimaBase.use(restPlugin())
+const VirtualHttpRecord = RestSchemaApplication.Schema.define({
 	...upsertRouteOption,
 	className: 'RestHttpVirtualRecord',
 	fields: (field) => ({
@@ -66,7 +66,7 @@ const VirtualHttpRecord = Schema.define({
 	}),
 })
 
-const VirtualFailureRecord = Schema.define({
+const VirtualFailureRecord = RestSchemaApplication.Schema.define({
 	className: 'RestHttpVirtualFailure',
 	fields: (field) => ({
 		title: field.string(),

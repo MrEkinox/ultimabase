@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
 import { readWhereBuilderState } from './where-builder-state.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Tag = Schema.define({
+const Tag = UltimaBase.Schema.define({
 	className: 'RuntimeWhereTag',
 	fields: (field) => ({
 		archived: field.boolean(),
@@ -14,7 +15,7 @@ const Tag = Schema.define({
 	}),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'RuntimeWherePost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'RuntimeWhereTag' }),
@@ -75,13 +76,28 @@ describe('WhereInput', () => {
 
 	it('rejects list operators on scalars and malformed list operands', () => {
 		expect(() =>
-			normalizeWhereInput(Post, { title: { has: 'typed' } }),
+			normalizeWhereInput(Post, {
+				title: {
+					// @ts-expect-error -- Source typing rejects list operators on scalars.
+					has: 'typed',
+				},
+			}),
 		).toThrow('requires a list field')
 		expect(() =>
-			normalizeWhereInput(Post, { labels: { hasSome: 'typed' } }),
+			normalizeWhereInput(Post, {
+				labels: {
+					// @ts-expect-error -- Source typing requires an array operand.
+					hasSome: 'typed',
+				},
+			}),
 		).toThrow('where.labels.hasSome must be an array')
 		expect(() =>
-			normalizeWhereInput(Post, { labels: { isEmpty: false } }),
+			normalizeWhereInput(Post, {
+				labels: {
+					// @ts-expect-error -- Only the true list-empty predicate is valid.
+					isEmpty: false,
+				},
+			}),
 		).toThrow('where.labels.isEmpty must be true')
 	})
 
@@ -136,7 +152,10 @@ describe('WhereInput', () => {
 		})
 		expect(() =>
 			normalizeWhereInput(Post, {
-				author: { eq: Tag.pointer('author-id') },
+				author: {
+					// @ts-expect-error -- The source filter accepts a target id, not a pointer object.
+					eq: Tag.pointer('author-id'),
+				},
 			}),
 		).toThrow('must be a target object id')
 		expect(() => normalizeWhereInput(Post, { author: { eq: null } })).toThrow(
@@ -227,23 +246,49 @@ describe('WhereInput', () => {
 	it('rejects malformed, unsupported, and circular objects', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
-				published: { gte: false },
+				published: {
+					// @ts-expect-error -- Ordered comparisons do not accept booleans.
+					gte: false,
+				},
 			}),
 		).toThrow('does not support boolean fields')
-		expect(() => normalizeWhereInput(Post, { missing: { eq: true } })).toThrow(
-			'must reference a schema field',
-		)
-		expect(() => normalizeWhereInput(Post, { tags: { isNull: true } })).toThrow(
-			'query operator null does not support relation fields',
-		)
 		expect(() =>
-			normalizeWhereInput(Post, { tags: { isNotNull: true } }),
+			normalizeWhereInput(Post, {
+				// @ts-expect-error -- Unknown fields are rejected by source and Runtime.
+				missing: { eq: true },
+			}),
+		).toThrow('must reference a schema field')
+		expect(() =>
+			normalizeWhereInput(Post, {
+				tags: {
+					// @ts-expect-error -- Relations do not support null predicates.
+					isNull: true,
+				},
+			}),
 		).toThrow('query operator null does not support relation fields')
 		expect(() =>
-			normalizeWhereInput(Post, { tags: { isEmpty: false } }),
+			normalizeWhereInput(Post, {
+				tags: {
+					// @ts-expect-error -- Relations do not support null predicates.
+					isNotNull: true,
+				},
+			}),
+		).toThrow('query operator null does not support relation fields')
+		expect(() =>
+			normalizeWhereInput(Post, {
+				tags: {
+					// @ts-expect-error -- Only the true list-empty predicate is valid.
+					isEmpty: false,
+				},
+			}),
 		).toThrow('where.tags.isEmpty must be true')
 		expect(() =>
-			normalizeWhereInput(Post, { title: { isEmpty: true } }),
+			normalizeWhereInput(Post, {
+				title: {
+					// @ts-expect-error -- Scalar strings do not support list-empty predicates.
+					isEmpty: true,
+				},
+			}),
 		).toThrow('query operator list-empty requires a list field')
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { count: { gte: -1 } } }),
@@ -259,7 +304,12 @@ describe('WhereInput', () => {
 		).toThrow('must contain an operator')
 		expect(() =>
 			normalizeWhereInput(Post, {
-				tags: { count: { missing: 1 } },
+				tags: {
+					count: {
+						// @ts-expect-error -- Unknown count operators are rejected in source.
+						missing: 1,
+					},
+				},
 			}),
 		).toThrow('is not a supported where operator')
 

@@ -1,4 +1,4 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createRoleReference } from './role-reference.js'
@@ -8,7 +8,7 @@ import {
 } from './role-resolution.js'
 import type { RoleReferenceResolutionError } from './role-resolution.js'
 
-const RoleFixture = Schema.define({
+const RoleFixture = UltimaBase.Schema.define({
 	className: 'ResolvedRoleFixture',
 	fields: () => ({}),
 })

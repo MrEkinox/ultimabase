@@ -1,4 +1,4 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -6,7 +6,7 @@ import {
 	type SchemaAccessContributionDefinition,
 } from './index.js'
 
-const Document = Schema.define({
+const Document = UltimaBase.Schema.define({
 	className: 'AccessContributionPublicTypeDocument',
 	fields: (field) => ({ title: field.string() }),
 })

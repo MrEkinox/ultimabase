@@ -1,9 +1,4 @@
-import {
-	plugin,
-	RequestContextValue,
-	Schema,
-	type RelationWhereResolver,
-} from '../../index.js'
+import { plugin, RequestContextValue } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
 
@@ -15,6 +10,7 @@ import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { normalizeWhereInput } from '../../query/filters/where.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const now = '2026-09-11T12:00:00.000Z'
 const firstSourceId = '0198f090-2a50-7000-8000-000000000201'
@@ -45,7 +41,7 @@ describe('Runtime relation-filter inclusions', () => {
 		const trace: string[] = []
 		let roomResolverCalls = 0
 		let memberResolverCalls = 0
-		const Member = Schema.define({
+		const Member = UltimaBase.Schema.define({
 			className: 'FilteredIncludedMember',
 			fields: (field) => ({
 				name: field.string(),
@@ -53,35 +49,35 @@ describe('Runtime relation-filter inclusions', () => {
 				visible: field.boolean(),
 			}),
 		})
-		const Room = Schema.define({
+		const Room = UltimaBase.Schema.define({
 			className: 'FilteredIncludedRoom',
 			fields: (field) => ({
 				active: field.boolean(),
 				members: field.relation({
 					target: 'FilteredIncludedMember',
-					where: (({ context, where }) => {
+					where: ({ context, where }) => {
 						memberResolverCalls += 1
 						trace.push(`member-filter:${context.requestId}`)
 						return where
 							.eq('visible', true)
 							.ne('id', context.getValue(principalId) ?? 'anonymous')
-					}) as RelationWhereResolver<typeof Member>,
+					},
 				}),
 				name: field.string(),
 				tenant: field.string(),
 			}),
 		})
-		const Workspace = Schema.define({
+		const Workspace = UltimaBase.Schema.define({
 			className: 'FilteredIncludedWorkspace',
 			fields: (field) => ({
 				name: field.string(),
 				rooms: field.relation({
 					target: 'FilteredIncludedRoom',
-					where: (({ context, where }) => {
+					where: ({ context, where }) => {
 						roomResolverCalls += 1
 						trace.push(`room-filter:${context.requestId}`)
 						return where.eq('active', true)
-					}) as RelationWhereResolver<typeof Room>,
+					},
 				}),
 			}),
 		})
@@ -185,6 +181,7 @@ describe('Runtime relation-filter inclusions', () => {
 
 		try {
 			const result = await runWithRequestEngine(request, () =>
+				// This Runtime fixture has no generated named relation graph for its nested input.
 				Workspace.findMany({
 					include: {
 						rooms: {
@@ -197,7 +194,7 @@ describe('Runtime relation-filter inclusions', () => {
 						},
 					},
 					select: { name: true },
-				}),
+				} as never),
 			)
 
 			expect(result).toHaveLength(2)
@@ -288,20 +285,20 @@ describe('Runtime relation-filter inclusions', () => {
 
 	it('keeps pointer projection independent from a neighboring relation filter', async () => {
 		let resolverCalls = 0
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'PointerIsolationUser',
 			fields: (field) => ({ name: field.string(), visible: field.boolean() }),
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'PointerIsolationPost',
 			fields: (field) => ({
 				author: field.pointer({ target: 'PointerIsolationUser' }),
 				reviewers: field.relation({
 					target: 'PointerIsolationUser',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
-					}) as RelationWhereResolver<typeof User>,
+					},
 				}),
 				title: field.string(),
 			}),
@@ -377,20 +374,20 @@ describe('Runtime relation-filter inclusions', () => {
 
 	it('reuses one relation plan and resolver for grouped mutation results', async () => {
 		let resolverCalls = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'MutationIncludedTarget',
 			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'MutationIncludedSource',
 			fields: (field) => ({
 				name: field.string({ required: true }),
 				targets: field.relation({
 					target: 'MutationIncludedTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -478,20 +475,20 @@ describe('Runtime relation-filter inclusions', () => {
 
 	it('applies the same prepared filter to a singular mutation projection', async () => {
 		let resolverCalls = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'SingularMutationIncludedTarget',
 			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'SingularMutationIncludedSource',
 			fields: (field) => ({
 				name: field.string({ required: true }),
 				targets: field.relation({
 					target: 'SingularMutationIncludedTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						resolverCalls += 1
 						return where.eq('visible', true)
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})

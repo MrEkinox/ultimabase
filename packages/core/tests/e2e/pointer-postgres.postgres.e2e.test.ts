@@ -3,7 +3,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
 	Pointer,
-	Schema,
 	UltimaBase,
 	requestSources,
 	runWithRequestEngine,
@@ -22,7 +21,8 @@ import { generatePointerId, queuedPointerIds } from './pointer-id-fixture.js'
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')
-const User = Schema.define({
+const PointerSchemaApplication = UltimaBase.use(hooksPlugin())
+const User = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EUser',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -40,7 +40,7 @@ const isUpdatableIncludedUser = (
 	}> =>
 	value instanceof User && typeof Reflect.get(value, 'update') === 'function'
 
-const Post = Schema.define({
+const Post = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPost',
 	fields: (field) => ({
 		author: field.pointer({
@@ -78,13 +78,13 @@ const Post = Schema.define({
 	},
 })
 
-const UniqueTarget = Schema.define({
+const UniqueTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EUniqueTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 })
-const UniqueSource = Schema.define({
+const UniqueSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EUniqueSource',
 	fields: (field) => ({
 		target: field.pointer({
@@ -95,13 +95,13 @@ const UniqueSource = Schema.define({
 	}),
 })
 
-const RestrictedTarget = Schema.define({
+const RestrictedTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ERestrictedTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 })
-const RestrictedSource = Schema.define({
+const RestrictedSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ERestrictedSource',
 	fields: (field) => ({
 		target: field.pointer({
@@ -112,13 +112,13 @@ const RestrictedSource = Schema.define({
 	}),
 })
 
-const CascadeTarget = Schema.define({
+const CascadeTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ECascadeTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 })
-const CascadeSource = Schema.define({
+const CascadeSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ECascadeSource',
 	fields: (field) => ({
 		target: field.pointer({
@@ -129,13 +129,13 @@ const CascadeSource = Schema.define({
 	}),
 })
 
-const NullableTarget = Schema.define({
+const NullableTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ENullableTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),
 	}),
 })
-const NullableSource = Schema.define({
+const NullableSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ENullableSource',
 	fields: (field) => ({
 		target: field.pointer({
@@ -145,7 +145,7 @@ const NullableSource = Schema.define({
 	}),
 })
 
-const PrivateTarget = Schema.define({
+const PrivateTarget = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPrivateTarget',
 	fields: (field) => ({
 		label: field.string({ required: true }),
@@ -154,7 +154,7 @@ const PrivateTarget = Schema.define({
 		read: false,
 	},
 })
-const PrivateSource = Schema.define({
+const PrivateSource = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPrivateSource',
 	fields: (field) => ({
 		target: field.pointer({
@@ -164,7 +164,7 @@ const PrivateSource = Schema.define({
 	}),
 })
 
-const CircularLeft = Schema.define({
+const CircularLeft = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ECircularLeft',
 	fields: (field) => ({
 		right: field.pointer({
@@ -173,7 +173,7 @@ const CircularLeft = Schema.define({
 		}),
 	}),
 })
-const CircularRight = Schema.define({
+const CircularRight = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2ECircularRight',
 	fields: (field) => ({
 		left: field.pointer({
@@ -219,8 +219,7 @@ const getUltimaBase = () => {
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
-	ultimabase = new (UltimaBase.use(
-		hooksPlugin(),
+	ultimabase = new (PointerSchemaApplication.use(
 		accessPlugin({ default: true }),
 		postgresPlugin({
 			schemaPolicy: 'override',
@@ -368,7 +367,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		pointerTrace.length = 0
 		const updated = await created.update(
-			{ data: { author: secondPointer, title: 'Updated pointer' } },
+			// This E2E fixture has no generated name-to-schema type graph.
+			{ data: { author: secondPointer as never, title: 'Updated pointer' } },
 			{ ultimabase: app },
 		)
 		if (!Pointer.is(updated.author)) {
@@ -387,7 +387,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: { eq: created.id } },
 					data: {
-						author: firstPointer,
+						author: firstPointer as never,
 						title: 'rollback-pointer',
 					},
 				},
@@ -649,7 +649,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const updatedLeft = await CircularLeft.updateOne(
 			{
 				where: { id: { eq: left.id } },
-				data: { right: new Pointer(CircularRight, right.id) },
+				data: { right: new Pointer(CircularRight, right.id) as never },
 			},
 			{ ultimabase: app },
 		)
@@ -678,8 +678,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	it('uses one closed application-local target graph in the worker namespace', async () => {
 		const app = getUltimaBase()
 		const graph = app.compile().schemas.schemaTargets
-		const independentApp = new (UltimaBase.use(
-			hooksPlugin(),
+		const independentApp = new (PointerSchemaApplication.use(
 			accessPlugin({ default: true }),
 		))({ schemas: pointerSchemas })
 

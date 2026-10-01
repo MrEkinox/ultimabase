@@ -8,7 +8,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { Schema, type SchemaItem } from '@ultimabase/core'
+import { UltimaBase, type SchemaItem } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -18,7 +18,7 @@ import {
 	collectMutationBeforeItems,
 } from './materializations.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'MutationItemPairs',
 	fields: (field) => ({
 		title: field.string({ required: true }),

@@ -21,7 +21,9 @@ const readRuntimeSchemaModelConstructor = (
 	schema: SchemaDefinition,
 ): RuntimeSchemaModelConstructor => {
 	if (!isSchemaModelClassRegistered(schema)) {
-		throw new TypeError('Schema model class was not created by Schema.define')
+		throw new TypeError(
+			'Schema model class was not created by App.Schema.define',
+		)
 	}
 
 	// Registration proves the private constructor protocol that SchemaDefinition

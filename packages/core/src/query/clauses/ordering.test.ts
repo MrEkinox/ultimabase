@@ -1,9 +1,9 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQueryOrdering } from './ordering.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),
@@ -59,6 +59,7 @@ describe('normalizeQueryOrdering', () => {
 		}).toThrow(new TypeError('query.orders[0] must be an object'))
 		expect(() => {
 			normalizeQueryOrdering(postSchema, [
+				// @ts-expect-error -- Source typing rejects unknown fields; Runtime also protects JavaScript callers.
 				{ field: 'missing', direction: 'ascending' },
 			])
 		}).toThrow(

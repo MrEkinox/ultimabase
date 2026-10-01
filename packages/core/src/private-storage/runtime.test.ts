@@ -31,7 +31,6 @@ import { stringField } from '../schema/fields/builtins/string.js'
 import { uuidField } from '../schema/fields/builtins/uuid.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { QueryBuilder, type CreateOneOperationAst } from '../query/index.js'
-import { Schema } from '../schema/schema/definition.js'
 
 import { createPreparedOperationFixture } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import type { PrivateCollectionHandle } from './contracts.js'
@@ -243,7 +242,7 @@ class MemoryPrivateAdapter implements DatabaseAdapter {
 	}
 }
 
-const PublicRecord = Schema.define({
+const PublicRecord = UltimaBase.Schema.define({
 	className: 'PrivateStoragePublicRecord',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })

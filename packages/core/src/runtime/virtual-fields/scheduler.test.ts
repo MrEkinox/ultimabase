@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../../query/index.js'
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
 	DatabaseOperationAst,
@@ -13,6 +13,7 @@ import type {
 import { databasePersistencePlanCapability } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { bindRuntimeVirtualFields } from './binding.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'virtual-scheduler',
@@ -66,7 +67,7 @@ describe('Runtime virtual field scheduler', () => {
 		let active = 0
 		let maximumActive = 0
 		const starts: string[] = []
-		const Collection = Schema.define({
+		const Collection = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeCollection',
 			fields: (field) => ({
 				value: field.int({ required: true }),
@@ -124,7 +125,7 @@ describe('Runtime virtual field scheduler', () => {
 
 	it('selects the lowest failing ordinal and starts no later batch', async () => {
 		const started: number[] = []
-		const Failure = Schema.define({
+		const Failure = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeFailure',
 			fields: (field) => ({
 				value: field.int({ required: true }),
@@ -167,7 +168,7 @@ describe('Runtime virtual field scheduler', () => {
 	it('settles a cancelled batch and starts no later resolver', async () => {
 		const controller = new AbortController()
 		const started: number[] = []
-		const Cancelled = Schema.define({
+		const Cancelled = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeCancelled',
 			fields: (field) => ({
 				value: field.int({ required: true }),

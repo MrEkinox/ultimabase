@@ -3,18 +3,18 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	DuplicateSchemaError,
 	SchemaRegistry,
-	Schema,
 	type SchemaDefinition,
 } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const userSchema = Schema.define({
+const userSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string(),
 	}),
 })
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),

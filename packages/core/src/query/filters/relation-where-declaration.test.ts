@@ -2,16 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
-import { Schema } from '../../schema/schema/definition.js'
+
 import {
 	getCompiledStaticRelationWhere,
 	normalizeContextualRelationWhereResult,
 } from './relation-where-declaration.js'
 import { WhereBuilder } from './where.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('relation where declarations', () => {
 	it('compiles circular target filters after the complete graph resolves', () => {
-		const Left = Schema.define({
+		const Left = UltimaBase.Schema.define({
 			className: 'CircularRelationWhereLeft',
 			fields: (field) => ({
 				enabled: field.boolean(),
@@ -21,7 +22,7 @@ describe('relation where declarations', () => {
 				}),
 			}),
 		})
-		const Right = Schema.define({
+		const Right = UltimaBase.Schema.define({
 			className: 'CircularRelationWhereRight',
 			fields: (field) => ({
 				enabled: field.boolean(),
@@ -54,7 +55,7 @@ describe('relation where declarations', () => {
 
 	it('keeps one contextual source definition private across applications', () => {
 		const resolver = () => ({})
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'IsolatedRelationWhereUser',
 			fields: (field) => ({
 				peers: field.relation({
@@ -82,11 +83,11 @@ describe('relation where declarations', () => {
 	})
 
 	it('rejects malformed contextual results before they reach Runtime', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'ContextualRelationWhereTarget',
 			fields: (field) => ({ active: field.boolean() }),
 		})
-		const Foreign = Schema.define({
+		const Foreign = UltimaBase.Schema.define({
 			className: 'ContextualRelationWhereForeign',
 			fields: (field) => ({ active: field.boolean() }),
 		})

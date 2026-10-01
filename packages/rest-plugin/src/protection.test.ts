@@ -1,6 +1,5 @@
 import { onTestFinished, afterEach, describe, expect, it, vi } from 'vitest'
 import {
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	plugin,
@@ -32,7 +31,7 @@ const databasePlugin = plugin({
 	],
 })
 
-const PublicSchema = Schema.define({
+const PublicSchema = UltimaBase.Schema.define({
 	className: 'PublicProtectionDocument',
 	fields: () => ({}),
 })

@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { Schema, type SchemaOptions } from '../../schema/schema/definition.js'
+import type { FieldBuilder } from '../../schema/index.js'
 import { plugin as createPlugin } from '../plugin.js'
 import { contributeDeclarations } from '../plugin-contributions.js'
 import { defineSchemaOption } from '../schema-option-definitions.js'
 import { addSchemaField } from '../schema-field-patch-operations.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('opaque option selection boundary', () => {
 	it('preserves presence while rejecting marker and opaque-content matching', () => {
@@ -16,11 +17,13 @@ describe('opaque option selection boundary', () => {
 		const callback = () => {
 			callbacks += 1
 		}
-		const Target = Schema.define({
+		// Opaque options deliberately enter before their plugin declaration;
+		// this test checks the Runtime selector boundary, not source authorization.
+		const Target = UltimaBase.Schema.define({
 			className: 'OpaqueDirectSelector',
 			opaque: { enabled: true, callback },
 			portable: { enabled: true, nested: { tag: 'ready' } },
-			fields: (field) => ({
+			fields: (field: FieldBuilder) => ({
 				title: field.string({
 					default: () => {
 						callbacks += 1
@@ -28,10 +31,7 @@ describe('opaque option selection boundary', () => {
 					},
 				}),
 			}),
-		} as SchemaOptions<'OpaqueDirectSelector'> & {
-			readonly opaque: unknown
-			readonly portable: unknown
-		})
+		} as never)
 		const selectors: Readonly<Record<string, SchemaSelectorOptions>> = {
 			present: { option: { name: 'opaque' } },
 			absent: { option: { name: 'opaque', present: false } },

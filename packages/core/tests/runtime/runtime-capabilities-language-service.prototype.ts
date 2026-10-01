@@ -9,13 +9,13 @@ import {
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
-	Schema,
+	UltimaBase,
 	type RuntimeFinalMutationGuardStage,
 	type ApplicationOperationTransportPlanner,
 	type ApplicationRequestExecutor,
 } from '../../src/index.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'PackedRuntimeCapability',
 	fields: (field) => ({ title: field.string() }),
 })

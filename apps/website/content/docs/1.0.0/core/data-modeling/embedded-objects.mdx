@@ -25,7 +25,7 @@ when the nested data has a known shape but no independent identity or lifecycle.
 ## Define the shape
 
 ```ts title="src/customer.ts"
-import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
+import { UltimaBase, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
 const addressFields = (f: EmbeddedFieldBuilder) => ({
 	city: f.string({ required: true }),
@@ -34,7 +34,7 @@ const addressFields = (f: EmbeddedFieldBuilder) => ({
 	line2: f.string(),
 })
 
-export const Customer = Schema.define({
+export const Customer = UltimaBase.Schema.define({
 	className: 'DocsCustomer',
 	fields: (f) => ({
 		name: f.string({ required: true }),

@@ -1,10 +1,13 @@
-import { RequestSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
 
-const User = Schema.define({ className: 'ACLJSONUser', fields: () => ({}) })
-const Service = Schema.define({
+const User = UltimaBase.Schema.define({
+	className: 'ACLJSONUser',
+	fields: () => ({}),
+})
+const Service = UltimaBase.Schema.define({
 	className: 'ACLJSONService',
 	fields: () => ({}),
 })

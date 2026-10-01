@@ -35,7 +35,7 @@ be denied. Keep the code on the server, never in a browser bundle.
 
 ```ts title="src/maintenance.ts"
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -45,7 +45,7 @@ if (!databaseUrl || !masterKey) {
 	throw new TypeError('DATABASE_URL and ULTIMABASE_MASTER_KEY are required')
 }
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 })

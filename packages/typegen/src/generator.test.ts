@@ -10,27 +10,14 @@ import {
 	defineSchemaOption,
 	defineTypegenReference,
 	UltimaBase,
-	Schema,
 	stringField,
-	type FieldBuilder,
-	type SchemaOptions,
 } from '@ultimabase/core'
-import {
-	pgVectorPlugin,
-	type VectorFieldBuilderMethod,
-} from '@ultimabase/pg-vector-plugin'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import type { SchemaTypegenError } from './errors.js'
 import { generateApplicationTypes } from './generator.js'
-
-type FixtureFieldBuilder = FieldBuilder & {
-	readonly vector: VectorFieldBuilderMethod
-}
-
-const fixtureFieldBuilder = (field: FieldBuilder): FixtureFieldBuilder =>
-	field as FixtureFieldBuilder
 
 const createFixture = (reverseOrder = false) => {
 	let setupCalls = 0
@@ -45,69 +32,66 @@ const createFixture = (reverseOrder = false) => {
 			}),
 		],
 	})
-	const Author = Schema.define({
+	const plugins = reverseOrder
+		? ([setupGuard, pgVectorPlugin()] as const)
+		: ([pgVectorPlugin(), setupGuard] as const)
+	const Application = UltimaBase.use(...plugins)
+	const Author = Application.Schema.define({
 		className: 'TypegenAuthor',
 		fields: (field) => ({
 			name: field.string({ required: true }),
 			articles: field.relation({ target: 'TypegenArticle' }),
 		}),
 	})
-	const Article = Schema.define({
+	const Article = Application.Schema.define({
 		className: 'TypegenArticle',
-		fields: (field) => {
-			const generatedField = fixtureFieldBuilder(field)
-			return {
-				title: field.string({
-					description: 'The public title.',
-					indexed: true,
-					required: true,
-				}),
-				slug: field.string({ default: 'draft', immutable: true }),
-				matrix: field.int({ list: true }),
-				status: field.enum({
-					typeName: 'PublicationStatus',
-					required: true,
-					values: ['published', 'draft'],
-				}),
-				billingAddress: field.object({
-					fields: (field) => ({
-						city: field.string({ required: true }),
-						country: field.enum({
-							typeName: 'CountryCode',
-							values: ['FR', 'US'],
-						}),
+		fields: (field) => ({
+			title: field.string({
+				description: 'The public title.',
+				indexed: true,
+				required: true,
+			}),
+			slug: field.string({ default: 'draft', immutable: true }),
+			matrix: field.int({ list: true }),
+			status: field.enum({
+				typeName: 'PublicationStatus',
+				required: true,
+				values: ['published', 'draft'],
+			}),
+			billingAddress: field.object({
+				fields: (field) => ({
+					city: field.string({ required: true }),
+					country: field.enum({
+						typeName: 'CountryCode',
+						values: ['FR', 'US'],
 					}),
-					typeName: 'PostalAddress',
 				}),
-				shippingAddress: field.object({
-					fields: (field) => ({
-						city: field.string({ required: true }),
-						country: field.enum({
-							typeName: 'CountryCode',
-							values: ['US', 'FR'],
-						}),
+				typeName: 'PostalAddress',
+			}),
+			shippingAddress: field.object({
+				fields: (field) => ({
+					city: field.string({ required: true }),
+					country: field.enum({
+						typeName: 'CountryCode',
+						values: ['US', 'FR'],
 					}),
-					typeName: 'PostalAddress',
 				}),
-				metadata: field.json(),
-				author: field.pointer({
-					target: 'TypegenAuthor',
-					required: true,
-				}),
-				related: field.relation({
-					target: 'TypegenArticle',
-				}),
-				embedding: generatedField.vector({ dimensions: 3 }),
-			}
-		},
+				typeName: 'PostalAddress',
+			}),
+			metadata: field.json(),
+			author: field.pointer({
+				target: 'TypegenAuthor',
+				required: true,
+			}),
+			related: field.relation({
+				target: 'TypegenArticle',
+			}),
+			embedding: field.vector({ dimensions: 3 }),
+		}),
 	})
 	const schemas = reverseOrder
 		? ([Article, Author] as const)
 		: ([Author, Article] as const)
-	const plugins = reverseOrder
-		? ([setupGuard, pgVectorPlugin()] as const)
-		: ([pgVectorPlugin(), setupGuard] as const)
-	const Application = UltimaBase.use(...plugins)
 	const application = new Application({ schemas })
 
 	return { application, getSetupCalls: () => setupCalls }
@@ -115,7 +99,7 @@ const createFixture = (reverseOrder = false) => {
 
 describe('generateApplicationTypes', () => {
 	it('uses the same compiled logical graph as the JavaScript application', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'CompiledTypegenTarget',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -368,8 +352,14 @@ describe('generateApplicationTypes', () => {
 	})
 
 	it('reports normalized schema and incompatible named identity collisions', () => {
-		const First = Schema.define({ className: 'Typegen-A', fields: () => ({}) })
-		const Second = Schema.define({ className: 'Typegen_A', fields: () => ({}) })
+		const First = UltimaBase.Schema.define({
+			className: 'Typegen-A',
+			fields: () => ({}),
+		})
+		const Second = UltimaBase.Schema.define({
+			className: 'Typegen_A',
+			fields: () => ({}),
+		})
 		const schemaCollision = new UltimaBase({ schemas: [First, Second] })
 
 		expect(() =>
@@ -386,7 +376,7 @@ describe('generateApplicationTypes', () => {
 			}),
 		)
 
-		const Compatible = Schema.define({
+		const Compatible = UltimaBase.Schema.define({
 			className: 'TypegenCompatibleIdentity',
 			fields: (field) => ({
 				first: field.object({
@@ -427,7 +417,7 @@ describe('generateApplicationTypes', () => {
 				snapshotValue: (value: unknown) => value,
 			},
 		)
-		const Orphan = Schema.define({
+		const Orphan = UltimaBase.Schema.define({
 			className: 'TypegenOrphanPluginField',
 			fields: () => ({
 				value: orphan,
@@ -523,7 +513,7 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const Empty = Schema.define({
+		const Empty = UltimaBase.Schema.define({
 			className: 'TypegenPluginContributionConflict',
 			fields: () => ({}),
 		})
@@ -580,11 +570,6 @@ describe('generateApplicationTypes', () => {
 				type: 'WorkflowName',
 			},
 		})
-		const Post = Schema.define({
-			className: 'TypegenWorkflowPost',
-			fields: (field) => ({ title: field.string() }),
-			workflow: 'editorial',
-		} as SchemaOptions<'TypegenWorkflowPost'> & { readonly workflow: string })
 		const plugin = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.workflow-typegen',
@@ -596,12 +581,11 @@ describe('generateApplicationTypes', () => {
 			},
 			contributions: [
 				contributeDeclarations({
-					schema: ({ schemas }) => {
+					schema: ({ schemas }) =>
 						schemas.defineOptions({
 							contributionId: 'workflow-options',
 							schema: { workflow: workflowOption },
-						})
-					},
+						}),
 					operations: ({ operations }) => {
 						operations.declare(publish)
 					},
@@ -612,7 +596,13 @@ describe('generateApplicationTypes', () => {
 				}),
 			],
 		})
-		const application = new (UltimaBase.use(plugin))({ schemas: [Post] })
+		const Application = UltimaBase.use(plugin)
+		const Post = Application.Schema.define({
+			className: 'TypegenWorkflowPost',
+			fields: (field) => ({ title: field.string() }),
+			workflow: 'editorial',
+		})
+		const application = new Application({ schemas: [Post] })
 
 		const first = generateApplicationTypes({
 			ultimabase: application,

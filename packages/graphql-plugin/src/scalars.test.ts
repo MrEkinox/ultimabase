@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pointerField, Schema } from '@ultimabase/core'
+import { pointerField, UltimaBase } from '@ultimabase/core'
 import { GraphQLID } from 'graphql'
 
 import {
@@ -63,7 +63,7 @@ describe('GraphQL scalar contracts', () => {
 	})
 
 	it('uses GraphQL ID for pointer scalar inputs', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'GraphqlScalarPointerTarget',
 			fields: () => ({}),
 		})

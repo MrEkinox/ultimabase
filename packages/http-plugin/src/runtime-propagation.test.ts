@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	afterOperation,
 	beforeOperation,
@@ -31,7 +30,7 @@ import {
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
 
-const RuntimeProbe = Schema.define({
+const RuntimeProbe = UltimaBase.Schema.define({
 	className: 'HttpRuntimeSecretProbe',
 	fields: (field) => ({ title: field.string() }),
 })

@@ -4,7 +4,6 @@ import {
 	definePluginField,
 	definePluginFieldFamily,
 	UltimaBase,
-	Schema,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -52,12 +51,13 @@ describe('plugin field type declarations', () => {
 				}),
 			],
 		})
-		const Document = Schema.define({
+		const Application = UltimaBase.use(plugin)
+		const Document = Application.Schema.define({
 			className: 'TypegenSecretDocument',
 			fields: () => ({ secret: secretField }),
 		})
 		const generated = generateApplicationTypes({
-			ultimabase: new (UltimaBase.use(plugin))({ schemas: [Document] }),
+			ultimabase: new Application({ schemas: [Document] }),
 			applicationId: 'fixture.secret',
 		})
 

@@ -5,16 +5,16 @@ import {
 	compileValidationPlans,
 	definePluginField,
 	readFieldTypegenState,
-	Schema,
 	objectField,
 	stringField,
 	type FieldDefinition,
 } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('validation plans', () => {
 	it('compiles operation rules while retaining scalar field identity', () => {
 		const runtimeDefault = vi.fn(() => 'generated')
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'ScalarPlan',
 			fields: (field) => ({
 				name: field.string({
@@ -71,7 +71,7 @@ describe('validation plans', () => {
 	})
 
 	it('compiles system fields and structured children recursively', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'StructuredPlan',
 			fields: (field) => ({
 				profile: field.object({
@@ -150,7 +150,7 @@ describe('validation plans', () => {
 				snapshotValue: (value: unknown): string => String(value),
 			},
 		)
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'DeferredPlan',
 			fields: () => ({ generated }),
 		})
@@ -168,7 +168,7 @@ describe('validation plans', () => {
 				name: stringField({ required: true }),
 			},
 		})
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'ListedObjectPlan',
 			fields: () => ({ listedObject }),
 		})
@@ -191,7 +191,7 @@ describe('validation plans', () => {
 			fields: { payload: binaryField() },
 			default: { payload: binaryDefault },
 		})
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'FrozenPlan',
 			fields: () => ({ structured: structuredField }),
 		})
@@ -220,7 +220,7 @@ describe('validation plans', () => {
 				snapshotValue: (value: unknown): string => String(value),
 			},
 		)
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'PluginPlan',
 			fields: () => ({ custom: customField }),
 		})
@@ -241,7 +241,7 @@ describe('validation plans', () => {
 
 		// Schema composition rejects JavaScript callers that bypass field factories.
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'MalformedListPlan',
 				fields: () => ({ value: malformedListField }),
 			}),

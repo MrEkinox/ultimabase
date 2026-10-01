@@ -3,7 +3,6 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 	requireCapability,
-	Schema,
 	UltimaBase,
 	QueryBuilder,
 	type RequestContext,
@@ -172,7 +171,7 @@ export const allFieldValues = {
 
 // These side-effect-free values also exercise packed constructor and QueryBuilder declarations.
 export const packedDraft = new PostSchema({ title: 'Packed draft' })
-export const PackedModelSchema = Schema.define({
+export const PackedModelSchema = UltimaBase.Schema.define({
 	className: 'PackedModel',
 	fields: (field) => ({ title: field.string() }),
 })

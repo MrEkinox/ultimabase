@@ -3,7 +3,6 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	compileValidationPlans,
 	definePluginField,
-	Schema,
 	type ArrayValidationPlan,
 	type FieldOptions,
 	type FieldValidationPlan,
@@ -17,9 +16,10 @@ import {
 	type ValidationOperation,
 	type ValidationPresence,
 } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('exports structural operation and field plans', () => {
-	const schema = Schema.define({
+	const schema = UltimaBase.Schema.define({
 		className: 'User',
 		fields: (field) => ({
 			name: field.string({ required: true }),

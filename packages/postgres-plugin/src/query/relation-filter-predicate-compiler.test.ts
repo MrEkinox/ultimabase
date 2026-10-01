@@ -13,7 +13,7 @@ import {
 	PostgresRelationAuthor,
 	PostgresRelationPost,
 	PostgresRelationTag,
-} from '../schema/relation-fixture.test-support.js'
+} from '../../tests/fixtures/relation-fixture.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
 

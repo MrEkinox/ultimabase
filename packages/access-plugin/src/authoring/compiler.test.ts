@@ -1,6 +1,6 @@
 import {
 	definePluginField,
-	Schema,
+	UltimaBase,
 	SchemaRegistry,
 	type GenericField,
 	type SchemaDefinition,
@@ -50,7 +50,7 @@ const secureTextTarget = defineFieldKindAccessTarget(
 	'fixture.secure-text' as never,
 )
 
-const Secured = Schema.define({
+const Secured = UltimaBase.Schema.define({
 	className: 'CompiledAccessSecurityBoundary',
 	fields: (field) => ({
 		custom: secureText,
@@ -119,7 +119,7 @@ describe('compileAccessPlan plugin contributions', () => {
 	})
 
 	it('rejects empty expanded declarations and unavailable exact targets', () => {
-		const Outside = Schema.define({
+		const Outside = UltimaBase.Schema.define({
 			className: 'OutsideAccessSecurityBoundary',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -151,7 +151,7 @@ describe('compileAccessPlan plugin contributions', () => {
 	})
 
 	it('returns empty immutable lookups for schemas and fields outside the plan', () => {
-		const Outside = Schema.define({
+		const Outside = UltimaBase.Schema.define({
 			className: 'OutsideAccessLookup',
 			fields: (field) => ({ title: field.string() }),
 		})

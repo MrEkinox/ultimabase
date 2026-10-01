@@ -6,7 +6,7 @@ application resource at this boundary.
 
 ```ts
 import {
-	Schema,
+	UltimaBase,
 	addSchemaField,
 	addSchemaIndex,
 	contributeDeclarations,
@@ -35,7 +35,7 @@ const workflowOption = defineSchemaOption({
 	},
 })
 
-const AuditLog = Schema.define({
+const AuditLog = UltimaBase.Schema.define({
 	className: 'WorkflowAuditLog',
 	fields: (field) => ({ message: field.string() }),
 })

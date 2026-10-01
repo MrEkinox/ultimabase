@@ -1,5 +1,4 @@
 import {
-	Schema,
 	UltimaBase,
 	plugin,
 	RequestContext,
@@ -23,7 +22,7 @@ import { composeGraphqlSchemas } from './schema-composition.js'
 import { provideGraphqlSchemas } from './schema-contributions.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 
-const Hidden = Schema.define({
+const Hidden = UltimaBase.Schema.define({
 	className: 'CompositionHidden',
 	fields: (field) => ({ value: field.string() }),
 })
@@ -116,7 +115,7 @@ describe('GraphQL schema composition', () => {
 	})
 
 	it('clones and extends generated types with application-owned schemas', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'CompositionPost',
 			fields: (field) => ({ title: field.string() }),
 		})

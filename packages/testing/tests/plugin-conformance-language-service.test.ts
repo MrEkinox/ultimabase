@@ -5,13 +5,13 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 
 const fileName = path.join(import.meta.dirname, 'plugin-conformance.fixture.ts')
 const source = `
-import { plugin, Schema } from '@ultimabase/core'
+import { plugin, UltimaBase } from '@ultimabase/core'
 import {
   createPluginConformanceFixture,
   definePluginConformanceSuite,
 } from '../src/index.js'
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
   className: 'ConformanceArticle',
   fields: (field) => ({ title: field.string() }),
 })
@@ -61,7 +61,9 @@ describe('@ultimabase/testing plugin conformance language service', () => {
 		expect(display).toContain('PluginConformanceContext')
 		expect(display).toContain('PluginInstance<{')
 		expect(display).toContain('readonly id: "community.search"')
-		expect(display).toContain('readonly [SchemaReference<"ConformanceArticle"')
+		expect(display).toContain(
+			'readonly [ConfiguredSchemaResult<EmptyPluginSourceState, "ConformanceArticle"',
+		)
 		expect(
 			quickInfo('suite.check', 'suite.'.length)
 				?.documentation?.map(({ text }) => text)

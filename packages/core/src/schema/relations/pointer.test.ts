@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
-import { Pointer, Schema, snapshotPointerValue } from '../../index.js'
+import { Pointer, snapshotPointerValue } from '../../index.js'
 import {
 	registerOperationExecutionHandler,
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
 	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const userSchema = Schema.define({
+const userSchema = UltimaBase.Schema.define({
 	className: 'PointerUser',
 	fields: () => ({}),
 })
-const otherSchema = Schema.define({
+const otherSchema = UltimaBase.Schema.define({
 	className: 'PointerOther',
 	fields: () => ({}),
 })
@@ -110,7 +111,9 @@ describe('Pointer', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime construction protects JavaScript callers.
 			new Pointer({}, targetId)
-		}).toThrow(new TypeError('Pointer schema must be created by Schema.define'))
+		}).toThrow(
+			new TypeError('Pointer schema must be created by App.Schema.define'),
+		)
 		expect(() => new Pointer(userSchema, '')).toThrow()
 
 		class ExtendedPointer extends Pointer<typeof userSchema> {}

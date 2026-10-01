@@ -3,7 +3,7 @@ import {
 	type FindManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema, type SchemaItem } from '../../schema/index.js'
+import { type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -26,8 +26,9 @@ import type {
 } from './contracts.js'
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),

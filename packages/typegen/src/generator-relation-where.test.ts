@@ -1,4 +1,4 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
@@ -6,11 +6,11 @@ import { generateApplicationTypes } from './generator.js'
 describe('relation where Typegen declarations', () => {
 	it('keeps contextual callbacks out of snapshots and generated files', () => {
 		const secretResolverText = 'private-relation-where-resolver-body'
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'TypegenRelationWhereTarget',
 			fields: (field) => ({ visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'TypegenRelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({

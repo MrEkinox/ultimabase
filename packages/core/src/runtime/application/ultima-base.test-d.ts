@@ -3,18 +3,18 @@ import {
 	contributeApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
-import { Schema, type SchemaItem } from '../../schema/index.js'
+import { type SchemaItem } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { type DatabaseAdapter, UltimaBase } from '../index.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import type { QueryResult } from '../../query/index.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'TypedUltimaBaseArticle',
 	fields: (field) => ({ title: field.string() }),
 })
-const otherSchema = Schema.define({
+const otherSchema = UltimaBase.Schema.define({
 	className: 'TypedOtherUltimaBaseArticle',
 	fields: (field) => ({ name: field.string() }),
 })

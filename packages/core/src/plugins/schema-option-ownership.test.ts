@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 import {
-	Schema,
 	plugin as createPlugin,
 	contributeDeclarations,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '../index.js'
 import {
 	jsonObjectFieldOption,
 	jsonObjectOption,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema option ownership rejection', () => {
 	it('rejects an actually used option when no exact owner can be selected', async () => {
-		const Ambiguous = Schema.define({
+		// Two independently configured owners are deliberately ambiguous here;
+		// Runtime must reject this untrusted schema option.
+		const Ambiguous = UltimaBase.Schema.define({
 			className: 'AmbiguousOptionOwner',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			workflow: { enabled: true },
-		} as SchemaOptions<'AmbiguousOptionOwner'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
-		})
+		} as never)
 
 		await expect(
 			createApplication({

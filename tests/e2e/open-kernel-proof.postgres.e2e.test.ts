@@ -1,4 +1,4 @@
-import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase, requestSources } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -47,7 +47,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 		})
 		const PostgresHookApplication =
 			UltimaBase.use(postgresDefinition).use(hooksPlugin())
-		const WorkflowPost = Schema.define({
+		const WorkflowPost = PostgresHookApplication.Schema.define({
 			className: 'OpenKernelPostgresWorkflowPost',
 			fields: (field) => ({ title: field.string() }),
 		})

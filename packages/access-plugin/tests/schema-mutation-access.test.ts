@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
@@ -189,17 +188,17 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 	},
 })
 
-const GranularDeniedDocument = Schema.define({
+const GranularDeniedDocument = UltimaBase.Schema.define({
 	className: 'AccessSchemaMutationGranularDeniedDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })
 
-const GranularAllowedDocument = Schema.define({
+const GranularAllowedDocument = UltimaBase.Schema.define({
 	className: 'AccessSchemaMutationGranularAllowedDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })
 
-const BooleanDefaultDocument = Schema.define({
+const BooleanDefaultDocument = UltimaBase.Schema.define({
 	className: 'AccessSchemaMutationBooleanDefaultDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })
@@ -212,12 +211,12 @@ const ProviderDocument = AccessMutationApplication.Schema.define({
 	},
 })
 
-const MasterDocument = Schema.define({
+const MasterDocument = UltimaBase.Schema.define({
 	className: 'AccessSchemaMutationMasterDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })
 
-const NoAccessDocument = Schema.define({
+const NoAccessDocument = UltimaBase.Schema.define({
 	className: 'AccessSchemaMutationNoEngineDocument',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })

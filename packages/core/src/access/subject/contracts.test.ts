@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../../schema/schema/definition.js'
 import { RequestContext } from '../../runtime/context/request-context.js'
 import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import { RequestContextValue } from '../request/context-value.js'
@@ -11,12 +10,13 @@ import {
 	resolveRequestPrincipal,
 	resolveRequestRoleReference,
 } from './contracts.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Principal = Schema.define({
+const Principal = UltimaBase.Schema.define({
 	className: 'AccessPrincipal',
 	fields: () => ({}),
 })
-const ForeignPrincipal = Schema.define({
+const ForeignPrincipal = UltimaBase.Schema.define({
 	className: 'AccessPrincipal',
 	fields: () => ({}),
 })

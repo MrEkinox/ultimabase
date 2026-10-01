@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { Schema } from '../../schema/schema/definition.js'
 import { SchemaRegistry } from '../../schema/schema/registry.js'
 import { normalizeNestedWriteGraph } from '../../schema/nested-writes/normalization.js'
 import type { RuntimeNestedWriteHost } from './execution.js'
 import { RuntimeNestedWritePreflight } from './preflight.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const Parent = Schema.define({
+const Parent = UltimaBase.Schema.define({
 	className: 'NestedPreflightParent',
 	fields: (field) => ({
 		first: field.relation({
@@ -21,7 +21,7 @@ const Parent = Schema.define({
 	}),
 })
 
-const Child = Schema.define({
+const Child = UltimaBase.Schema.define({
 	className: 'NestedPreflightChild',
 	fields: (field) => ({
 		firstParent: field.pointer({ target: 'NestedPreflightParent' }),

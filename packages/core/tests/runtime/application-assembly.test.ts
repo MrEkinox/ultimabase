@@ -1,11 +1,11 @@
-import { plugin as createPlugin, Schema, UltimaBase } from '../../src/index.js'
+import { plugin as createPlugin, UltimaBase } from '../../src/index.js'
 
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from './fixtures/database-adapter-capability.js'
 
-const publicArticleSchema = Schema.define({
+const publicArticleSchema = UltimaBase.Schema.define({
 	className: 'PublicAssembledArticle',
 	fields: (field) => ({ title: field.string() }),
 })

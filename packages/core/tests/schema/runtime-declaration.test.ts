@@ -5,7 +5,6 @@ import {
 	booleanField,
 	dateTimeField,
 	definePluginField,
-	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -15,6 +14,7 @@ import {
 	uuidField,
 } from '../../src/schema/index.js'
 import { getFieldListDepth } from '../../src/schema/fields/base/options.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
 describe('runtime declaration boundaries', () => {
 	it.each([
@@ -102,17 +102,17 @@ describe('runtime declaration boundaries', () => {
 	it('rejects malformed schemas before copying their metadata', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects null schema options.
-			Schema.define(null)
+			UltimaBase.Schema.define(null)
 		}).toThrow(new TypeError('schema options must be an object'))
-		expect(() => Schema.define({ className: '', fields: () => ({}) })).toThrow(
-			new TypeError('className must be a non-empty string'),
-		)
+		expect(() =>
+			UltimaBase.Schema.define({ className: '', fields: () => ({}) }),
+		).toThrow(new TypeError('className must be a non-empty string'))
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects non-record field maps.
-			Schema.define({ className: 'Invalid', fields: () => [] })
+			UltimaBase.Schema.define({ className: 'Invalid', fields: () => [] })
 		}).toThrow(new TypeError('Invalid.fields must return a field map'))
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'Invalid',
 				fields: (field) => ({ '': field.string() }),
 			}),
@@ -121,7 +121,7 @@ describe('runtime declaration boundaries', () => {
 		)
 		expect(() => {
 			// Runtime validation rejects structural definitions without a namespace.
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'Invalid',
 				fields: () => ({ custom: { kind: 'custom', options: {} } }),
 			})
@@ -131,7 +131,7 @@ describe('runtime declaration boundaries', () => {
 			),
 		)
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'Forged',
 				fields: () => ({ custom: { kind: 'fixture.custom', options: {} } }),
 			}),

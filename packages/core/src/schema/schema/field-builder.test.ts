@@ -10,6 +10,7 @@ import {
 	type SchemaFieldBuilderDeclaration,
 } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 interface InvalidEmbeddedFieldCase {
 	readonly build: (field: EmbeddedFieldBuilder) => GenericField
@@ -39,7 +40,7 @@ describe('FieldBuilder', () => {
 			indexed: 'unique',
 			required: true,
 		})
-		const SchemaWithFields = Schema.define({
+		const SchemaWithFields = UltimaBase.Schema.define({
 			className: 'MetadataFromFieldBuilder',
 			fields: (field) => ({
 				published: field.boolean({ default: false }),
@@ -63,14 +64,14 @@ describe('FieldBuilder', () => {
 	})
 
 	it('delegates every built-in method to the existing immutable factories', async () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'BuilderTarget',
 			fields: () => ({}),
 		})
 		const reusable = stringField({ required: true })
 		let rootBuilder: FieldBuilder | undefined
 		let nestedBuilder: EmbeddedFieldBuilder | undefined
-		const Built = Schema.define({
+		const Built = UltimaBase.Schema.define({
 			className: 'BuiltWithFields',
 			fields: (field) => {
 				rootBuilder = field
@@ -258,7 +259,7 @@ describe('FieldBuilder', () => {
 
 			expect(
 				captureCauseMessage(() =>
-					Schema.define({
+					UltimaBase.Schema.define({
 						className,
 						fields: (field) => ({
 							profile: field.object({
@@ -313,7 +314,7 @@ describe('FieldBuilder', () => {
 
 			expect(
 				captureCauseMessage(() =>
-					Schema.define({
+					UltimaBase.Schema.define({
 						className,
 						fields: (field) => ({
 							profile: field.object({
@@ -331,7 +332,7 @@ describe('FieldBuilder', () => {
 	})
 
 	it('retains embedded occurrence and value-shape behavior recursively', () => {
-		const EmbeddedBehavior = Schema.define({
+		const EmbeddedBehavior = UltimaBase.Schema.define({
 			className: 'EmbeddedBehavior',
 			fields: (field) => ({
 				profile: field.object({
@@ -384,7 +385,7 @@ describe('FieldBuilder', () => {
 
 	it('reports complete paths for malformed returned maps', () => {
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'EmptyBuilderFieldName',
 				fields: (field) => ({ '': field.string() }),
 			}),
@@ -397,7 +398,7 @@ describe('FieldBuilder', () => {
 			forged: { kind: 'string' },
 		})) as unknown as SchemaFieldBuilderDeclaration
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'ForgedBuilderField',
 				fields: forgedDeclaration,
 			}),
@@ -412,7 +413,7 @@ describe('FieldBuilder', () => {
 		const missingReturnDeclaration = (() => () =>
 			undefined) as unknown as SchemaFieldBuilderDeclaration
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'MissingBuilderReturn',
 				fields: missingReturnDeclaration,
 			}),

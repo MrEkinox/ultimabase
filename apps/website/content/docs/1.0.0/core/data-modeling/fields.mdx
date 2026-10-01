@@ -25,9 +25,9 @@ field for the shape and behavior you need; the installed database plugin decides
 how to store it.
 
 ```ts title="src/product.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Product = Schema.define({
+export const Product = UltimaBase.Schema.define({
 	className: 'DocsProduct',
 	fields: (f) => ({
 		name: f.string({ required: true }),

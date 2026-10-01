@@ -1,7 +1,7 @@
 /** Complete schema examples are checked against the compiled application and Typegen. */
-export const virtualFieldExample = `import { Schema } from '@ultimabase/core'
+export const virtualFieldExample = `import { UltimaBase } from '@ultimabase/core'
 
-export const Profile = Schema.define({
+export const Profile = UltimaBase.Schema.define({
   className: 'Profile',
   fields: (f) => ({
     firstName: f.string({ required: true }),
@@ -91,9 +91,11 @@ export const accessRuleExample = `access: {
   },
 }`
 
-export const accessSchemaExample = `import { Schema } from '@ultimabase/core'
+export const accessSchemaExample = `import { UltimaBase } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 
-export const PublicArticle = Schema.define({
+const Application = UltimaBase.use(accessPlugin())
+export const PublicArticle = Application.Schema.define({
   className: 'PublicArticle',
   fields: (f) => ({
     title: f.string({ required: true }),

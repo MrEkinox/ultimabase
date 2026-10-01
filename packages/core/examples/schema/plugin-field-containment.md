@@ -115,6 +115,11 @@ export const searchDocumentPlugin = () =>
 Once Typegen has emitted the application declaration, developers receive the
 exact partial operand on the ordinary Query surface:
 
+Before generation, configured source typing only exposes that `contains` is
+available; it does not treat the snapshot callback's normalized return value
+as the accepted developer input. The generated `WhereInput` uses the field
+family's public `structuralContainsType` reference for the exact input shape.
+
 ```ts
 const Posts = ultimabase.schema(PostSchema)
 

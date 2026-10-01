@@ -11,10 +11,10 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-const traversalSchema = Schema.define({
+const traversalSchema = UltimaBase.Schema.define({
 	className: 'FieldInputTraversal',
 	fields: (field) => ({
 		'literal.name': field.string(),

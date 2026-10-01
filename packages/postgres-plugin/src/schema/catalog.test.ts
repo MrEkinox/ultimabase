@@ -1,15 +1,20 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
+import { postgresPlugin } from '../plugin/postgres-plugin.js'
 import { PostgresSchemaCatalog } from './catalog.js'
+
+const PostgresSchemaApplication = UltimaBase.use(
+	postgresPlugin({ url: 'postgresql://fixture' }),
+)
 
 describe('PostgreSQL schema catalog', () => {
 	it('returns an immutable managed table-name snapshot in schema order', () => {
-		const article = Schema.define({
+		const article = UltimaBase.Schema.define({
 			className: 'Article',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const audit = Schema.define({
+		const audit = PostgresSchemaApplication.Schema.define({
 			className: 'Audit',
 			fields: () => ({}),
 			postgres: { table: 'Exact-Audit' },

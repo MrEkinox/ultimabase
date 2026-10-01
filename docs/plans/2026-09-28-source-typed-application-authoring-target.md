@@ -145,14 +145,14 @@ example.
 
 ## One public path per concern
 
-| Concern                                      | Canonical target                                    |
-| -------------------------------------------- | --------------------------------------------------- |
-| Install and order a plugin                   | `UltimaBase.use(plugin())`                          |
-| Declare a schema                             | `App.Schema.define({ className, fields, ... })`     |
-| Configure one schema for an installed plugin | the plugin-owned direct option in `Schema.define()` |
-| Register application schemas                 | explicit `new App({ schemas: [...] })`              |
-| Execute schema and model commands            | the exact schema class or returned immutable model  |
-| Start and dispose resources                  | the configured application instance                 |
+| Concern                                      | Canonical target                                        |
+| -------------------------------------------- | ------------------------------------------------------- |
+| Install and order a plugin                   | `UltimaBase.use(plugin())`                              |
+| Declare a schema                             | `App.Schema.define({ className, fields, ... })`         |
+| Configure one schema for an installed plugin | the plugin-owned direct option in `App.Schema.define()` |
+| Register application schemas                 | explicit `new App({ schemas: [...] })`                  |
+| Execute schema and model commands            | the exact schema class or returned immutable model      |
+| Start and dispose resources                  | the configured application instance                     |
 
 The final public API has no `Schema.use()`, plugin map, plugin set, nested
 plugin installation, automatic schema registration, required

@@ -2,22 +2,22 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 import {
-	Schema,
 	addSchemaConstraint,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaConstraint,
 } from '../index.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema artifact transformations', () => {
 	it('registers all plugin schemas before resolving circular targets', async () => {
-		const Left = Schema.define({
+		const Left = UltimaBase.Schema.define({
 			className: 'PluginCircularLeft',
 			fields: (field) => ({
 				right: field.pointer({ target: 'PluginCircularRight' }),
 			}),
 		})
-		const Right = Schema.define({
+		const Right = UltimaBase.Schema.define({
 			className: 'PluginCircularRight',
 			fields: (field) => ({
 				left: field.pointer({ target: 'PluginCircularLeft' }),
@@ -58,7 +58,7 @@ describe('plugin schema artifact transformations', () => {
 			value: { fields: ['title'] },
 			version: 1,
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'ConstraintTransformPost',
 			fields: (field) => ({
 				summary: field.string(),

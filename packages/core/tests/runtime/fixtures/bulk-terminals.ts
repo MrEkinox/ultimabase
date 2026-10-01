@@ -1,6 +1,6 @@
 import { expect } from 'vitest'
 import { applicationFixture } from '../../application-fixture.js'
-import { Schema } from '../../../src/index.js'
+
 import { FrameworkApplication } from '../../../src/application/framework-application.js'
 
 import {
@@ -15,15 +15,16 @@ import {
 	type QueuedAdapterResult,
 	type RecordingPipelineBehaviorStages,
 } from './recording-database-adapter.js'
+import { UltimaBase } from '../../../src/runtime/application/ultima-base.js'
 
-export const managerSchema = Schema.define({
+export const managerSchema = UltimaBase.Schema.define({
 	className: 'BulkManager',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
 
-export const accountSchema = Schema.define({
+export const accountSchema = UltimaBase.Schema.define({
 	className: 'BulkAccount',
 	fields: (field) => ({
 		email: field.string({

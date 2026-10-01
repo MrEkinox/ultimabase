@@ -30,9 +30,9 @@ const completionNames = (
 describe('Hooks option IntelliSense', () => {
 	it('rejects Hooks options when the generated contract omits the plugin', () => {
 		const completionSource = `
-import { Schema } from '@ultimabase/core'
-Schema.define({ /* schema-options */ })
-Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+UltimaBase.Schema.define({ /* schema-options */ })
+UltimaBase.Schema.define({
   className: 'CoreOnlyHooks',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
@@ -53,8 +53,8 @@ Schema.define({
 		).not.toContain('hooks')
 
 		const invalidSource = `
-import { Schema } from '@ultimabase/core'
-Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+UltimaBase.Schema.define({
   className: 'CoreOnlyHooksFailure',
   fields: (field) => ({ value: field.string({ hooks: {} }) }),
   hooks: {},

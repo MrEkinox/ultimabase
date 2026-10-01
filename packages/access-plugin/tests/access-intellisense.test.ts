@@ -30,9 +30,9 @@ const completionNames = (
 describe('Access option IntelliSense', () => {
 	it('keeps Core-only schema and field options free of Access vocabulary', () => {
 		const source = `
-import { Schema } from '@ultimabase/core'
-Schema.define({ /* schema-options */ })
-Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+UltimaBase.Schema.define({ /* schema-options */ })
+UltimaBase.Schema.define({
   className: 'CoreOnly',
   fields: (field) => ({ value: field.string({ /* field-options */ }) }),
 })
@@ -52,8 +52,8 @@ Schema.define({
 			completionNames(fixture, completionFile, '/* field-options */'),
 		).not.toContain('access')
 		const invalidSource = `
-import { Schema } from '@ultimabase/core'
-Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+UltimaBase.Schema.define({
   className: 'CoreOnlyAccessFailure',
   fields: (field) => ({ value: field.string({ access: {} }) }),
   access: {},

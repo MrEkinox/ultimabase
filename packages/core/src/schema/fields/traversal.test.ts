@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../index.js'
 import { collectFieldTraversalEntries } from './traversal.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('field traversal', () => {
 	it('collects immutable paths in parent-first depth-first declaration order', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'TraversalFixture',
 			fields: (field) => ({
 				'display.name': field.string(),

@@ -1,9 +1,9 @@
-import { Schema, type SchemaDefinition } from '@ultimabase/core'
+import { UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { PluginConformanceError } from '@ultimabase/testing'
 import { expect } from 'vitest'
 
 export const createProofSchema = () =>
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'OfficialCapabilityConformancePost',
 		fields: (field) => ({ title: field.string() }),
 	})

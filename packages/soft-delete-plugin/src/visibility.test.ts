@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -51,11 +50,12 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		],
 	})
 
+const VisibilitySchemaApplication = UltimaBase.use(softDeletePlugin())
 const documentSchema = (
 	className: string,
 	softDelete?: SoftDeleteSchemaOption,
 ) =>
-	Schema.define({
+	VisibilitySchemaApplication.Schema.define({
 		className,
 		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string({ required: true }) }),
@@ -73,8 +73,7 @@ describe('soft-delete visibility', () => {
 	it('keeps the active-row predicate private from contradictory developer filters', async () => {
 		const Document = documentSchema('SoftDeleteVisibleDocument', 'explicit')
 		const adapter = new VisibilityReadAdapter([])
-		const ultimabase = new (UltimaBase.use(
-			softDeletePlugin(),
+		const ultimabase = new (VisibilitySchemaApplication.use(
 			databasePlugin(adapter),
 		))({ pluginPrivileges: { logger: false }, schemas: [Document] })
 		onTestFinished(() => ultimabase.dispose())
@@ -109,8 +108,7 @@ describe('soft-delete visibility', () => {
 		const Enabled = documentSchema('SoftDeleteMasterDocument', 'replace-delete')
 		const Disabled = documentSchema('SoftDeletePlainDocument', false)
 		const enabledAdapter = new VisibilityReadAdapter([activeRow])
-		const enabled = new (UltimaBase.use(
-			softDeletePlugin(),
+		const enabled = new (VisibilitySchemaApplication.use(
 			databasePlugin(enabledAdapter),
 		))({
 			masterAuthority: new MasterAuthority({
@@ -129,8 +127,7 @@ describe('soft-delete visibility', () => {
 				updatedAt: activeRow.updatedAt,
 			},
 		])
-		const disabled = new (UltimaBase.use(
-			softDeletePlugin(),
+		const disabled = new (VisibilitySchemaApplication.use(
 			databasePlugin(disabledAdapter),
 		))({ pluginPrivileges: { logger: false }, schemas: [Disabled] })
 		onTestFinished(() => disabled.dispose())

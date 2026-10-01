@@ -2,7 +2,6 @@ import path from 'node:path'
 
 import {
 	UltimaBase,
-	Schema,
 	contributeDeclarations,
 	defineOperation,
 	defineOperationValue,
@@ -28,7 +27,7 @@ const createGeneratedRegistry = (): string => {
 		exportName: 'PluginSchemaMutationNoInput',
 		module: '@ultimabase/core',
 	})
-	const Dynamic = Schema.define({
+	const Dynamic = UltimaBase.Schema.define({
 		className: 'SemanticDynamicPost',
 		fields: (field) => ({ title: field.string() }),
 	})
@@ -168,9 +167,9 @@ describe('generated plugin surface declarations', () => {
 		'typechecks exact dynamic handles through %s Core exports',
 		(_, corePath) => {
 			const source = `${createGeneratedRegistry()}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 declare const ultimabase: Core.UltimaBase<readonly []>
-const StaticPost = Schema.define({
+const StaticPost = UltimaBase.Schema.define({
 	className: 'SemanticDynamicPost',
 	fields: (field) => ({ title: field.string() }),
 })

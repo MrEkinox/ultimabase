@@ -3,7 +3,6 @@ import { isPlainRecord } from '@ultimabase/shared'
 import {
 	plugin as createPlugin,
 	type PluginDefinition,
-	Schema,
 	type SchemaDefinition,
 } from '../../src/index.js'
 import {
@@ -32,6 +31,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 import { provideTestRuntimeInterceptor } from './fixtures/runtime-capabilities.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
 const createTestRuntimeContributions = (
 	declare: (
@@ -59,14 +59,14 @@ const createTestRuntimeContributions = (
 	return provides
 }
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'ContributionArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 })
 
-const foreignSchema = Schema.define({
+const foreignSchema = UltimaBase.Schema.define({
 	className: 'ContributionForeign',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -122,7 +122,7 @@ const createOrderedPlugins = (trace: string[]) => {
 						return {
 							result: {
 								...input.result,
-								title: `${String(input.result.title)}:dependency`,
+								title: `${input.result.title}:dependency`,
 							},
 						}
 					},
@@ -200,9 +200,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(
-							`schema-before:consumer:${String(input.operation.input.title)}`,
-						)
+						trace.push(`schema-before:consumer:${input.operation.input.title}`)
 					},
 				}),
 			)
@@ -212,7 +210,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(`schema-after:consumer:${String(input.result.title)}`)
+						trace.push(`schema-after:consumer:${input.result.title}`)
 
 						return { result: input.result }
 					},

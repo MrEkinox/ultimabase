@@ -8,7 +8,7 @@ order: 6
 outcome: Protect individual objects with public, principal, and role permissions.
 owner: '2811'
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-01
 sources:
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
@@ -17,6 +17,7 @@ sources:
   - docs/adr/0123-master-only-acl-management.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
+  - docs/adr/0283-acl-callbacks-use-retained-typegen-graph.md
 ---
 
 ## Overview
@@ -118,6 +119,12 @@ The schema option also accepts `resolveInput` for deriving a replacement
 ACL from proposed data, the current ACL, and trusted input. Explicit ACL input
 requires Master authority and a schema input resolver; ordinary callers cannot
 replace the ACL directly.
+
+The configured factory exposes `acl` before Typegen runs. For exact sibling
+field completion and diagnostics inside `acl.default` or `acl.resolveInput`,
+generate the application's Typegen declarations after defining its schemas.
+This uses the same generated schema graph as cross-schema relations; it does
+not create a Runtime client. JavaScript applications need no generation.
 
 ## Behavior and limitations
 

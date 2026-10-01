@@ -1,5 +1,4 @@
 import {
-	Schema,
 	SchemaRegistry,
 	stringField,
 	type SchemaDefinition,
@@ -17,8 +16,9 @@ import {
 } from './relation.js'
 import { WhereBuilder } from './where.js'
 import { QueryBuilder } from '../query/query.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Member = Schema.define({
+const Member = UltimaBase.Schema.define({
 	className: 'RelationPredicateMember',
 	fields: (field) => ({
 		active: field.boolean(),
@@ -27,14 +27,14 @@ const Member = Schema.define({
 		score: field.int(),
 	}),
 })
-const Team = Schema.define({
+const Team = UltimaBase.Schema.define({
 	className: 'RelationPredicateTeam',
 	fields: (field) => ({
 		members: field.relation({ target: 'RelationPredicateMember' }),
 		name: field.string(),
 	}),
 })
-const Company = Schema.define({
+const Company = UltimaBase.Schema.define({
 	className: 'RelationPredicateCompany',
 	fields: (field) => ({
 		lead: field.pointer({ target: 'RelationPredicateTeam' }),
@@ -44,7 +44,7 @@ const Company = Schema.define({
 })
 
 const recursiveNameField = stringField()
-const Recursive = Schema.define({
+const Recursive = UltimaBase.Schema.define({
 	className: 'RecursiveRelationPredicate',
 	fields: (field) => ({
 		children: field.relation({ target: 'RecursiveRelationPredicate' }),
@@ -315,7 +315,8 @@ describe('relation predicates', () => {
 				Company,
 				'name' as 'teams',
 				{ eq: 1 },
-				targetExpression,
+				// The internal helper rechecks the target AST at Runtime.
+				targetExpression as never,
 			),
 		).toThrow('relation count field must reference a relation')
 		expect(() =>
@@ -323,11 +324,11 @@ describe('relation predicates', () => {
 				Company,
 				'teams',
 				{ median: 1 } as never,
-				targetExpression,
+				targetExpression as never,
 			),
 		).toThrow('relation count operator is unsupported: median')
 		expect(() =>
-			createQueryRelationCount(Company, 'teams', {}, targetExpression),
+			createQueryRelationCount(Company, 'teams', {}, targetExpression as never),
 		).toThrow('relation count must contain an operator')
 
 		const malformedInputs: readonly {
@@ -536,7 +537,15 @@ describe('relation predicates', () => {
 	it('fails with a typed framework error above the portable depth limit', () => {
 		expect(() =>
 			new QueryBuilder(Recursive).where((where) =>
-				where.some('children', (child) => nestRecursivePredicate(child, 8)),
+				where.some(
+					'children',
+					(child) =>
+						// The depth-limit fixture deliberately bypasses the named target graph.
+						nestRecursivePredicate(
+							child as unknown as WhereBuilder<SchemaDefinition>,
+							8,
+						) as unknown as typeof child,
+				),
 			),
 		).toThrow(
 			expect.objectContaining({

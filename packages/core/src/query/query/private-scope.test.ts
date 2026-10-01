@@ -1,10 +1,10 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { readQueryPrivateScope, scopeQueryToObjectId } from './private-scope.js'
 import { hydrateQueryFromAst, QueryBuilder } from './query.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'PrivateScopeArticle',
 	fields: (field) => ({ title: field.string() }),
 })

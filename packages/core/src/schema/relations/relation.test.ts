@@ -10,7 +10,7 @@ import {
 import {
 	RelationArticle,
 	RelationTag,
-} from '../fields/builtins/relation-fixture.test-support.js'
+} from '../../../tests/fixtures/relation-fixture.js'
 import { materializeSchemaModel } from '../schema/model.js'
 import { Relation } from './relation.js'
 

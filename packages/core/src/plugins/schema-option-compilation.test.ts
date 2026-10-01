@@ -2,7 +2,6 @@ import { applicationFixture } from '../../tests/application-fixture.js'
 import { describe, expect, it } from 'vitest'
 import * as application from '../application/framework-application.js'
 import {
-	Schema,
 	defineCapability,
 	defineFieldOption,
 	plugin as createPlugin,
@@ -14,12 +13,13 @@ import {
 	requireCapability,
 	stringField,
 	type SchemaOptionRuntimeCompilationContext,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '../index.js'
 import {
 	requireField,
 	optionPlugin,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 const { createApplication, FrameworkApplication } = application
 describe('plugin schema option compilation', () => {
 	it('normalizes closed field contexts and rejects contextual reuse before setup', async () => {
@@ -84,7 +84,7 @@ describe('plugin schema option compilation', () => {
 			],
 		})
 		const shared = stringField({ contextual: true } as never)
-		const Reused = Schema.define({
+		const Reused = UltimaBase.Schema.define({
 			className: 'ContextualOptionReuse',
 			fields: (field) => ({
 				root: shared,
@@ -277,18 +277,16 @@ describe('plugin schema option compilation', () => {
 				),
 			],
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'RuntimeOptionPost',
-			fields: (field) => ({
+			fields: (field: FieldBuilder) => ({
 				title: field.string({
 					// @ts-expect-error -- Typegen owns the installed direct option type.
 					runtimeTag: 'field',
 				}),
 			}),
 			runtimeTag: 'schema',
-		} as SchemaOptions<'RuntimeOptionPost'> & {
-			readonly runtimeTag: string
-		})
+		} as never)
 
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -386,13 +384,11 @@ describe('plugin schema option compilation', () => {
 				}),
 			],
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'FailingRuntimeOptionPost',
 			fields: () => ({}),
 			runtimeTag: 'fail',
-		} as SchemaOptions<'FailingRuntimeOptionPost'> & {
-			readonly runtimeTag: string
-		})
+		} as never)
 
 		const application = applicationFixture(
 			new FrameworkApplication({
@@ -429,18 +425,16 @@ describe('plugin schema option compilation', () => {
 	it('resolves direct schema and field options through their exact installed owner', async () => {
 		const workflow = { enabled: true }
 		const search = { weight: 10 }
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'OwnedOptionPost',
-			fields: (field) => ({
+			fields: (field: FieldBuilder) => ({
 				title: field.string({
 					// @ts-expect-error -- Typegen owns the installed direct option type.
 					search,
 				}),
 			}),
 			workflow,
-		} as SchemaOptions<'OwnedOptionPost'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
-		})
+		} as never)
 
 		applicationFixture(
 			await createApplication({ plugins: [optionPlugin()], schemas: [Post] }),
@@ -475,14 +469,12 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('keeps the existing unknown-option failures when no plugin owns a used key', async () => {
-		const UnknownSchemaOption = Schema.define({
+		const UnknownSchemaOption = UltimaBase.Schema.define({
 			className: 'UnknownSchemaOption',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			workflow: { enabled: true },
-		} as SchemaOptions<'UnknownSchemaOption'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
-		})
-		const UnknownFieldOption = Schema.define({
+		} as never)
+		const UnknownFieldOption = UltimaBase.Schema.define({
 			className: 'UnknownFieldOption',
 			fields: (field) => ({
 				title: field.string({
@@ -568,21 +560,17 @@ describe('plugin schema option compilation', () => {
 	})
 
 	it('uses the exact contributing owner when duplicate option names are plugin-owned', async () => {
-		const First = Schema.define({
+		const First = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerFirst',
 			fields: () => ({}),
 			shared: 'value',
-		} as SchemaOptions<'ExactOptionOwnerFirst'> & { readonly shared: string })
-		const Second = Schema.define({
+		} as never)
+		const Second = UltimaBase.Schema.define({
 			className: 'ExactOptionOwnerSecond',
 			fields: () => ({}),
 			shared: 'value',
-		} as SchemaOptions<'ExactOptionOwnerSecond'> & { readonly shared: string })
-		const plugin = (
-			pluginId: string,
-			schema: typeof First | typeof Second,
-			prefix: string,
-		) =>
+		} as never)
+		const plugin = (pluginId: string, schema: typeof First, prefix: string) =>
 			createPlugin({
 				core: '^0.0.0',
 				id: pluginId,
@@ -638,11 +626,11 @@ describe('plugin schema option compilation', () => {
 			// @ts-expect-error -- Typegen owns the installed direct option type.
 			shared: 'value',
 		})
-		const First = Schema.define({
+		const First = UltimaBase.Schema.define({
 			className: 'ExactFieldOptionOwnerFirst',
 			fields: () => ({ title: sharedField }),
 		})
-		const Second = Schema.define({
+		const Second = UltimaBase.Schema.define({
 			className: 'ExactFieldOptionOwnerSecond',
 			fields: () => ({ title: sharedField }),
 		})

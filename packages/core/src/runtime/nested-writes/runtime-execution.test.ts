@@ -3,7 +3,7 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import { plugin } from '../../plugins/plugin.js'
 import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
-import { Schema } from '../../schema/schema/definition.js'
+
 import { Pointer } from '../../schema/relations/pointer.js'
 import { provideRuntimeBehavior } from '../capabilities.js'
 import { UltimaBase } from '../application/ultima-base.js'
@@ -23,12 +23,12 @@ const tagId = '0199c2d0-0000-7000-8000-000000000003'
 const redirectedId = '0199c2d0-0000-7000-8000-000000000004'
 let relationWhereInvocations = 0
 
-const Author = Schema.define({
+const Author = UltimaBase.Schema.define({
 	className: 'NestedRuntimeAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'NestedRuntimePost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'NestedRuntimeAuthor' }),
@@ -43,7 +43,7 @@ const Post = Schema.define({
 	}),
 })
 
-const Tag = Schema.define({
+const Tag = UltimaBase.Schema.define({
 	className: 'NestedRuntimeTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
 })

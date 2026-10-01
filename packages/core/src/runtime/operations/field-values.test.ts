@@ -11,7 +11,7 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 import { expect, it } from 'vitest'
 
@@ -22,6 +22,7 @@ import {
 	replaceRuntimeFieldValuePath,
 	transformOperationFieldInputs,
 } from './field-values.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 it('keeps the Runtime-specific malformed update diagnostic', () => {
 	expect(() => collectUpdateExpressionFieldNames({ kind: 'unknown' })).toThrow(
@@ -29,7 +30,7 @@ it('keeps the Runtime-specific malformed update diagnostic', () => {
 	)
 })
 
-const TraversalRecord = Schema.define({
+const TraversalRecord = UltimaBase.Schema.define({
 	className: 'RuntimeFieldTraversal',
 	fields: (field) => ({
 		count: field.int(),

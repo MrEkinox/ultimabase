@@ -9,7 +9,7 @@ const optionMarker = '/* string-options */'
 const hoverMarker = '/* string-hover */'
 const pointerDeleteMarker = '/* pointer-on-delete */'
 const sourceWithMarkers = `
-import { Schema, type BaseSchemaTypeInfo } from '../../src/index.js'
+import { UltimaBase, type BaseSchemaTypeInfo } from '../../src/index.js'
 
 declare module '../../src/index.js' {
   interface UltimaBaseGeneratedRegistryState {
@@ -20,7 +20,7 @@ declare module '../../src/index.js' {
   }
 }
 
-Schema.define({
+UltimaBase.Schema.define({
   className: 'FieldBuilderAutocomplete',
   fields: (field) => ({
 	root: field.${rootMarker}string(),

@@ -8,7 +8,6 @@ import {
 	providePersistencePlanRewriter,
 	provideRuntimeInterceptor,
 	rewriteDeletePersistencePlan,
-	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -18,7 +17,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const SoftDeletePost = Schema.define({
+const SoftDeletePost = UltimaBase.Schema.define({
 	className: 'PersistenceRewritePost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

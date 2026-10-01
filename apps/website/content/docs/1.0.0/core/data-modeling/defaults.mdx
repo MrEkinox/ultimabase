@@ -31,9 +31,9 @@ This schema has one required field, one defaulted field, one plain optional
 field, and one automatically dated field:
 
 ```ts title="src/publication.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Publication = Schema.define({
+export const Publication = UltimaBase.Schema.define({
 	className: 'DocsPublication',
 	fields: (f) => ({
 		publishedAt: f.dateTime({ autoNow: true }),

@@ -9,23 +9,23 @@ import {
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { contributeApplication } from '../../plugins/plugin-contributions.js'
 import { objectField } from '../fields/builtins/object.js'
-import { Schema } from './definition.js'
 import type { SchemaDefinition } from './definition.js'
 import { SchemaRegistry } from './registry.js'
 import { SchemaTargetResolutionError } from './targets.js'
 import type { SchemaTarget } from './targets.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 /** Keeps graph fixtures focused on target behavior through the public field API. */
 const targetField = (target: SchemaTarget) => pointerField({ target })
 
 describe('lazy schema targets', () => {
 	it('resolves direct targets lazily into one immutable graph', () => {
-		const target = Schema.define({
+		const target = UltimaBase.Schema.define({
 			className: 'Target',
 			fields: (field) => ({ name: field.string() }),
 		})
 		let invocationCount = 0
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'Source',
 			fields: () => ({
 				target: targetField(() => {
@@ -73,11 +73,11 @@ describe('lazy schema targets', () => {
 			return second
 		}
 
-		const first: SchemaDefinition = Schema.define({
+		const first: SchemaDefinition = UltimaBase.Schema.define({
 			className: 'First',
 			fields: () => ({ second: targetField(resolveSecondTarget) }),
 		})
-		const second: SchemaDefinition = Schema.define({
+		const second: SchemaDefinition = UltimaBase.Schema.define({
 			className: 'Second',
 			fields: () => ({ first: targetField((): SchemaDefinition => first) }),
 		})
@@ -94,7 +94,7 @@ describe('lazy schema targets', () => {
 	})
 
 	it('rejects schema pointers inside embedded objects', () => {
-		const target = Schema.define({
+		const target = UltimaBase.Schema.define({
 			className: 'NestedTarget',
 			fields: () => ({}),
 		})
@@ -121,12 +121,12 @@ describe('lazy schema targets', () => {
 		},
 		{
 			expectedMessage:
-				'Schema target at InvalidSource.target must return a class created by Schema.define',
+				'Schema target at InvalidSource.target must return a class created by App.Schema.define',
 			reason: 'invalid-target' as const,
 			target: (): string => 'not-a-schema',
 		},
 	])('reports $reason with the exact field path', (fixture) => {
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'InvalidSource',
 			fields: () => ({
 				// @ts-expect-error -- Runtime resolution protects JavaScript callers.
@@ -153,23 +153,23 @@ describe('lazy schema targets', () => {
 	})
 
 	it('distinguishes unregistered and foreign schema identities', () => {
-		const unregistered = Schema.define({
+		const unregistered = UltimaBase.Schema.define({
 			className: 'UnregisteredTarget',
 			fields: () => ({}),
 		})
-		const missingSource = Schema.define({
+		const missingSource = UltimaBase.Schema.define({
 			className: 'MissingSource',
 			fields: () => ({ target: targetField(() => unregistered) }),
 		})
-		const foreign = Schema.define({
+		const foreign = UltimaBase.Schema.define({
 			className: 'SharedTarget',
 			fields: (field) => ({ foreign: field.string() }),
 		})
-		const local = Schema.define({
+		const local = UltimaBase.Schema.define({
 			className: 'SharedTarget',
 			fields: (field) => ({ local: field.string() }),
 		})
-		const foreignSource = Schema.define({
+		const foreignSource = UltimaBase.Schema.define({
 			className: 'ForeignSource',
 			fields: () => ({ target: targetField(() => foreign) }),
 		})
@@ -193,7 +193,7 @@ describe('lazy schema targets', () => {
 	})
 
 	it('guards malformed target declarations and graph lookups', () => {
-		const invalidSource = Schema.define({
+		const invalidSource = UltimaBase.Schema.define({
 			className: 'InvalidCallbackSource',
 			fields: () => ({
 				// @ts-expect-error -- Runtime resolution protects JavaScript callers.
@@ -211,7 +211,7 @@ describe('lazy schema targets', () => {
 			}),
 		)
 
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'EmptyGraph',
 			fields: () => ({}),
 		})
@@ -223,7 +223,9 @@ describe('lazy schema targets', () => {
 			// @ts-expect-error -- Runtime graph reads reject forged schema identities.
 			graph.get({}, ['target'])
 		}).toThrow(
-			new TypeError('Schema target source must be created by Schema.define'),
+			new TypeError(
+				'Schema target source must be created by App.Schema.define',
+			),
 		)
 		expect(() => graph.get(schema, [])).toThrow(
 			new TypeError('Schema target fieldPath must contain field names'),
@@ -235,11 +237,11 @@ describe('lazy schema targets', () => {
 
 	it('resolves configured schemas before plugin setup and infrastructure', async () => {
 		const events: string[] = []
-		const target = Schema.define({
+		const target = UltimaBase.Schema.define({
 			className: 'PluginTarget',
 			fields: () => ({}),
 		})
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'PluginSource',
 			fields: () => ({ target: targetField(() => target) }),
 		})
@@ -281,11 +283,11 @@ describe('lazy schema targets', () => {
 
 	it('fails target resolution before infrastructure and cleans setup', async () => {
 		const events: string[] = []
-		const missing = Schema.define({
+		const missing = UltimaBase.Schema.define({
 			className: 'MissingTarget',
 			fields: () => ({}),
 		})
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'FailingSource',
 			fields: () => ({ target: targetField(() => missing) }),
 		})
@@ -335,16 +337,16 @@ describe('lazy schema targets', () => {
 	it.concurrent(
 		'rejects one shared schema class when its target changes between applications',
 		async () => {
-			const firstTarget = Schema.define({
+			const firstTarget = UltimaBase.Schema.define({
 				className: 'IsolatedTarget',
 				fields: (field) => ({ first: field.string() }),
 			})
-			const secondTarget = Schema.define({
+			const secondTarget = UltimaBase.Schema.define({
 				className: 'IsolatedTarget',
 				fields: (field) => ({ second: field.string() }),
 			})
 			let currentTarget: SchemaDefinition = firstTarget
-			const source = Schema.define({
+			const source = UltimaBase.Schema.define({
 				className: 'IsolatedSource',
 				fields: () => ({ target: targetField(() => currentTarget) }),
 			})

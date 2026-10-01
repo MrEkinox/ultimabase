@@ -6,13 +6,14 @@ import {
 	QueryBuilder,
 	type FindManyOperationAst,
 } from '../../query/index.js'
-import { definePluginField, Schema } from '../../schema/index.js'
+import { definePluginField } from '../../schema/index.js'
 import type {
 	DatabaseAdapterCapabilities,
 	DatabaseOperationExecutor,
 } from '../database/contracts.js'
 import { databasePluginFieldStructuralContainsCapability } from '../database/contracts.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const containedField = definePluginField(
 	'fixture.capability.contained',
@@ -31,7 +32,7 @@ const containedField = definePluginField(
 	},
 )
 
-const fixtureSchema = Schema.define({
+const fixtureSchema = UltimaBase.Schema.define({
 	className: 'PluginContainmentCapabilityFixture',
 	fields: (field) => ({
 		nested: field.object({ fields: () => ({ containedField }) }),

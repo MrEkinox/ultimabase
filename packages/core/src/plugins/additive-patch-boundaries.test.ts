@@ -3,18 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { optionPlugin } from '../../tests/plugins/schema-declarations.fixtures.js'
 import { FrameworkApplication } from '../application/framework-application.js'
 import {
-	Schema,
 	plugin as createPlugin,
 	contributeDeclarations,
 	setSchemaFieldOption,
 	setSchemaOption,
 } from '../index.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('additive option patch boundaries', () => {
 	it.each(['schema', 'field'] as const)(
 		'rejects duplicate %s option values atomically',
 		(scope) => {
-			const Post = Schema.define({
+			const Post = UltimaBase.Schema.define({
 				className: `DuplicateOption${scope}`,
 				fields: (field) => ({ title: field.string() }),
 			})

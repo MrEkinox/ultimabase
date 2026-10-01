@@ -1,4 +1,3 @@
-import { Schema } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 import {
 	createApplication,
@@ -14,9 +13,10 @@ import {
 	type ConfiguredPluginIdentityExports,
 	type PluginDefinition,
 } from '../index.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 test('infers schemas and top-level plugin exports from application options', async () => {
-	const schema = Schema.define({
+	const schema = UltimaBase.Schema.define({
 		className: 'TypedApplication',
 		fields: (field) => ({ name: field.string() }),
 	})

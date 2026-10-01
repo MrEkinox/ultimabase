@@ -14,7 +14,7 @@ import {
 } from '../../foundation.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { normalizeOperationOptions } from '../../query/operations/execution.js'
-import { Schema } from '../../schema/index.js'
+
 import { UltimaBase } from '../application/ultima-base.js'
 import {
 	readUltimaBaseEngine,
@@ -34,11 +34,11 @@ const protocol = defineOperationTransport({
 	version: '1.0.0',
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'CanonicalMutationPost',
 	fields: (field) => ({ title: field.string() }),
 })
-const Other = Schema.define({
+const Other = UltimaBase.Schema.define({
 	className: 'CanonicalMutationOther',
 	fields: (field) => ({ title: field.string() }),
 })

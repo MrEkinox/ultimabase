@@ -16,7 +16,6 @@ import {
 	objectField,
 	pointerField,
 	relationField,
-	Schema,
 	stringField,
 	timeField,
 	uuidField,
@@ -28,6 +27,7 @@ import {
 	requireDefined,
 	requireRecord,
 } from '../../../../tests/schema/test-assertions.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
 describe('object fields and list metadata', () => {
 	it('adds immutable list metadata without changing the field kind', () => {
@@ -339,7 +339,7 @@ describe('object fields and list metadata', () => {
 	})
 
 	it('rejects pointer and relation fields inside embedded objects', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'EmbeddedObjectRuntimeTarget',
 			fields: () => ({}),
 		})

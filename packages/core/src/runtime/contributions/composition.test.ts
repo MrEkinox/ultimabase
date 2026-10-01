@@ -5,7 +5,7 @@ import {
 	FrameworkApplication,
 } from '../../application/framework-application.js'
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it, vi } from 'vitest'
 import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
@@ -24,15 +24,16 @@ import {
 	preparedOperation,
 } from './definitions.js'
 import { composeRuntimeContributionBehavior } from './composition.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'ContributionStageArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 })
 
-const foreignSchema = Schema.define({
+const foreignSchema = UltimaBase.Schema.define({
 	className: 'ContributionStageForeign',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -433,6 +434,7 @@ describe('composeRuntimeContributionBehavior', () => {
 						'fixture.invalid-prepared',
 						preparedOperation({
 							schema: articleSchema,
+							// @ts-expect-error -- Runtime rejects deliberately invalid interceptor replacements.
 							handler: () => ({ operation: replacement }),
 						}),
 					),

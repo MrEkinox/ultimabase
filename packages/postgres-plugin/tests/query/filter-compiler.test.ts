@@ -2,8 +2,9 @@ import {
 	collectQueryRelationPredicates,
 	fieldPath,
 	QueryBuilder,
+	UltimaBase,
 } from '@ultimabase/core'
-import { Schema, SchemaRegistry } from '@ultimabase/core'
+import { SchemaRegistry } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import {
 	FilterSchema,
@@ -23,7 +24,7 @@ import {
 	PostgresRelationAuthor,
 	PostgresRelationPost,
 	PostgresRelationTag,
-} from '../../src/schema/relation-fixture.test-support.js'
+} from '../fixtures/relation-fixture.js'
 
 describe('PostgreSQL filter compiler', () => {
 	it('compiles one-dimensional list filters through parameterized JSONB operators', () => {
@@ -54,11 +55,11 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('compiles relation predicates owned by a private Runtime row filter', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'FilterAccessRelationTarget',
 			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'FilterAccessRelationSource',
 			fields: (field) => ({
 				targets: field.relation({ target: 'FilterAccessRelationTarget' }),
@@ -103,11 +104,11 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('parameterizes correlated relation predicates and private target Access', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'FilterRelationTarget',
 			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'FilterRelationSource',
 			fields: (field) => ({
 				targets: field.relation({ target: 'FilterRelationTarget' }),
@@ -152,11 +153,11 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('compiles pointer target traversal with target Access through Drizzle relations', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'FilterPointerPredicateTarget',
 			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'FilterPointerPredicateSource',
 			fields: (field) => ({
 				target: field.pointer({ target: 'FilterPointerPredicateTarget' }),
@@ -315,11 +316,11 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('parameterizes pointer predicates as target UUIDs', () => {
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'FilterPointerUser',
 			fields: () => ({}),
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'FilterPointerPost',
 			fields: (field) => ({
 				author: field.pointer({ target: 'FilterPointerUser' }),

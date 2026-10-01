@@ -5,7 +5,6 @@ import {
 	definePluginField,
 	UltimaBase,
 	QueryBuilder,
-	Schema,
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
@@ -66,12 +65,13 @@ const createFixture = (suffix: 'Alpha' | 'Beta', operandKey: string) => {
 			}),
 		],
 	})
-	const Document = Schema.define({
+	const Application = UltimaBase.use(plugin)
+	const Document = Application.Schema.define({
 		className: `Isolated${suffix}Document`,
 		fields: () => ({ value: containedField() }),
 	})
 	const generated = generateApplicationTypes({
-		ultimabase: new (UltimaBase.use(plugin))({ schemas: [Document] }),
+		ultimabase: new Application({ schemas: [Document] }),
 		applicationId: `fixture.isolated-${suffix.toLowerCase()}`,
 	})
 

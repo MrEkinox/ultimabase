@@ -1,4 +1,4 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
@@ -20,7 +20,7 @@ const readIndexColumnName = (column: unknown): string => {
 
 describe('PostgreSQL index compiler', () => {
 	it('uses GIN for non-unique codec-backed JSONB fields', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'IndexedPluginValue',
 			fields: () => ({ value: createStoredPluginField() }),
 		})
@@ -36,7 +36,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Article',
 			fields: (field) => ({
 				authorId: field.string(),
@@ -71,7 +71,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('retains unique composite columns as a future upsert conflict target', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'Membership',
 			fields: (field) => ({
 				organizationId: field.string(),
@@ -91,7 +91,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('rejects duplicate normalized definitions instead of creating duplicate DDL', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'DuplicateIndex',
 			fields: (field) => ({
 				organizationId: field.string(),

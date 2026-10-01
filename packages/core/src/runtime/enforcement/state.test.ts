@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveWhereInput } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { databaseConstraint } from './definitions.js'
 import {
 	appendEnforcementConstraints,
@@ -10,8 +10,9 @@ import {
 	getEnforcementStateSnapshot,
 	narrowEnforcementFields,
 } from './state.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const rowSchema = Schema.define({
+const rowSchema = UltimaBase.Schema.define({
 	className: 'EnforcementRows',
 	fields: (field) => ({ published: field.boolean() }),
 })

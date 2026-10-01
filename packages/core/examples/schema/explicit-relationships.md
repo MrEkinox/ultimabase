@@ -5,23 +5,23 @@ This keeps the edge queryable, hookable, and permission-aware without exposing
 database join tables.
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Member = Schema.define({
+export const Member = UltimaBase.Schema.define({
 	className: 'Member',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
 
-export const Project = Schema.define({
+export const Project = UltimaBase.Schema.define({
 	className: 'Project',
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 })
 
-export const Membership = Schema.define({
+export const Membership = UltimaBase.Schema.define({
 	className: 'Membership',
 	fields: (field) => ({
 		member: field.pointer({

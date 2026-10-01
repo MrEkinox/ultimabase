@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import { Pointer, Schema } from '@ultimabase/core'
+import { Pointer, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
@@ -12,7 +12,7 @@ import {
 import { preparePostgresRecord, readPostgresRecord } from './record.js'
 
 const recordSchema = compilePostgresSchema(
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'RecordFixture',
 		fields: (field) => ({
 			alias: field.string(),

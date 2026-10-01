@@ -1,7 +1,7 @@
 import {
 	Pointer,
-	Schema,
 	SchemaRegistry,
+	UltimaBase,
 	definePluginField,
 	normalizeReadOperation,
 } from '@ultimabase/core'
@@ -61,12 +61,12 @@ const portableCode = definePluginField(
 	},
 )
 
-const Author = Schema.define({
+const Author = UltimaBase.Schema.define({
 	className: 'RestReadAuthor',
 	fields: (field) => ({ name: field.string(), rank: field.bigint() }),
 })
 
-const RecordSchema = Schema.define({
+const RecordSchema = UltimaBase.Schema.define({
 	className: 'RestReadRecord',
 	fields: (field) => ({
 		active: field.boolean(),

@@ -1,15 +1,14 @@
 import {
 	increment,
 	QueryBuilder,
-	Schema,
 	type QueryResult,
 	type OperationOptions,
 	type RequestContext,
-	type UltimaBase,
+	UltimaBase,
 } from '../../src/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'TypedTerminalArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -17,11 +16,11 @@ const articleSchema = Schema.define({
 	}),
 })
 
-const bootstrapAuthorSchema = Schema.define({
+const bootstrapAuthorSchema = UltimaBase.Schema.define({
 	className: 'BootstrapTerminalAuthor',
 	fields: (field) => ({ name: field.string() }),
 })
-const bootstrapPostSchema = Schema.define({
+const bootstrapPostSchema = UltimaBase.Schema.define({
 	className: 'BootstrapTerminalPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'BootstrapTerminalAuthor' }),

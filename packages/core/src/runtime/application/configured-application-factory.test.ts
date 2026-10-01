@@ -105,8 +105,12 @@ describe('configured UltimaBase factories', () => {
 		expect(FirstApplication).not.toBe(BothApplication)
 		expect(Object.isFrozen(FirstApplication)).toBe(true)
 		expect(Object.isFrozen(BothApplication)).toBe(true)
-		expect(FirstApplication.Schema).toBe(Schema)
-		expect(BothApplication.Schema).toBe(Schema)
+		expect(FirstApplication.Schema).toBe(UltimaBase.Schema)
+		expect(BothApplication.Schema).toBe(UltimaBase.Schema)
+		expect(Object.isFrozen(UltimaBase.Schema)).toBe(true)
+		expect(FirstApplication.Schema.is(Portable)).toBe(true)
+		expect(typeof FirstApplication.Schema.defineSpecialized).toBe('function')
+		expect(Object.hasOwn(Schema, 'define')).toBe(false)
 
 		const firstApplication = new FirstApplication({
 			pluginPrivileges: { logger: false },

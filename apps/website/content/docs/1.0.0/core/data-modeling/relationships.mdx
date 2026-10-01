@@ -35,16 +35,16 @@ one record ID. It does not load the target and does not expose a mutable target
 object.
 
 ```ts title="src/session.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Account = Schema.define({
+export const Account = UltimaBase.Schema.define({
 	className: 'DocsAccount',
 	fields: (f) => ({
 		email: f.string({ required: true }),
 	}),
 })
 
-export const Session = Schema.define({
+export const Session = UltimaBase.Schema.define({
 	className: 'DocsSession',
 	fields: (f) => ({
 		account: f.pointer({
@@ -126,9 +126,9 @@ does not contain a target array. The database adapter stores membership, while
 Runtime provides explicit reads and mutations through the relationship.
 
 ```ts title="src/post.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Author = Schema.define({
+export const Author = UltimaBase.Schema.define({
 	className: 'DocsAuthor',
 	fields: (f) => ({
 		name: f.string({ required: true }),
@@ -136,7 +136,7 @@ export const Author = Schema.define({
 	}),
 })
 
-export const Post = Schema.define({
+export const Post = UltimaBase.Schema.define({
 	className: 'DocsPost',
 	fields: (f) => ({
 		author: f.pointer({

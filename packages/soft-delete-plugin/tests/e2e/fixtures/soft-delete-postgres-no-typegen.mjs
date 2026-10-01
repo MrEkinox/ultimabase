@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
@@ -9,25 +9,25 @@ if (databaseUrl === undefined) {
 	throw new TypeError('ULTIMABASE_TEST_DATABASE_URL is required')
 }
 
-const Explicit = Schema.define({
-	className: 'JavaScriptSoftDeleteExplicit',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'explicit',
-})
-const Replace = Schema.define({
-	className: 'JavaScriptSoftDeleteReplace',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-	softDelete: 'replace-delete',
-})
-const Disabled = Schema.define({
-	className: 'JavaScriptSoftDeleteDisabled',
-	fields: (field) => ({ title: field.string({ required: true }) }),
-})
-const audits = []
 const Application = UltimaBase.use(
 	softDeletePlugin({ defaultMode: 'disabled' }),
 	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
 )
+const Explicit = Application.Schema.define({
+	className: 'JavaScriptSoftDeleteExplicit',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	softDelete: 'explicit',
+})
+const Replace = Application.Schema.define({
+	className: 'JavaScriptSoftDeleteReplace',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+	softDelete: 'replace-delete',
+})
+const Disabled = Application.Schema.define({
+	className: 'JavaScriptSoftDeleteDisabled',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+})
+const audits = []
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'javascript-soft-delete', value: 'javascript-master-key' }],

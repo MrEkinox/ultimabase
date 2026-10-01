@@ -5,7 +5,6 @@ import {
 	MasterAuthority,
 	Pointer,
 	QueryBuilder,
-	Schema,
 	plugin,
 	contributeApplication,
 	UltimaBase,
@@ -30,6 +29,8 @@ import {
 	ACLRejectedWriteAdapter,
 	createRoleProviderFixture,
 } from './plugin-fixtures.js'
+
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
 
 describe('aclPlugin create input resolution', () => {
 	it('normalizes finite application defaults without complicating zero-option setup', () => {
@@ -69,7 +70,7 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('adds a private row filter, hides ACL output, and resolves the principal once', async () => {
-		const Principal = Schema.define({
+		const Principal = UltimaBase.Schema.define({
 			className: 'ACLPluginPrincipal',
 			fields: () => ({}),
 		})
@@ -172,7 +173,7 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('requires a provider during setup for statically declared role grants', async () => {
-		const StaticRolePost = Schema.define({
+		const StaticRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLStaticRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
 			acl: {
@@ -234,7 +235,7 @@ describe('aclPlugin create input resolution', () => {
 			'role',
 			'fixture-dynamic-role',
 		)
-		const DynamicRolePost = Schema.define({
+		const DynamicRolePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLDynamicRoleRequirementPost',
 			fields: (field) => ({ title: field.string() }),
 			acl: {
@@ -335,7 +336,7 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('checks static and asynchronous defaults before persistence', async () => {
-		const Principal = Schema.define({
+		const Principal = UltimaBase.Schema.define({
 			className: 'ACLDefaultLimitPrincipal',
 			fields: () => ({}),
 		})
@@ -376,14 +377,14 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('rolls back oversized batches and honors a wider schema override', async () => {
-		const Principal = Schema.define({
+		const Principal = UltimaBase.Schema.define({
 			className: 'ACLBatchLimitPrincipal',
 			fields: () => ({}),
 		})
 		const twoPrincipals = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')
 			.grantPrincipal(Principal.pointer('second'), 'read')
-		const BatchPost = Schema.define({
+		const BatchPost = ACLSchemaApplication.Schema.define({
 			className: 'ACLBatchLimitPost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
@@ -401,7 +402,7 @@ describe('aclPlugin create input resolution', () => {
 				},
 			},
 		})
-		const OverridePost = Schema.define({
+		const OverridePost = ACLSchemaApplication.Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
 			fields: (field) => ({
 				title: field.string({ required: true }),

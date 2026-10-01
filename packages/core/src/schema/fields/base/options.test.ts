@@ -4,9 +4,9 @@ import {
 	intField,
 	readFieldTypegenState,
 	relationField,
-	Schema,
 	stringField,
 } from '../../../index.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
 describe('readFieldTypegenState', () => {
 	it('describes required, defaulted, immutable, and listed scalar fields', () => {
@@ -38,7 +38,7 @@ describe('readFieldTypegenState', () => {
 	})
 
 	it('describes generated and relation fields without inventing values', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'InferenceStateTarget',
 			fields: () => ({}),
 		})

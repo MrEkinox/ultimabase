@@ -16,7 +16,7 @@ import {
 } from '../../foundation.js'
 import { createApplication } from '../../application/framework-application.js'
 import { addSchemaField } from '../../plugins/schema-field-patch-operations.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { stringField } from '../../schema/index.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
 	schemaMutationTransportBinding,
@@ -26,8 +26,9 @@ import {
 	applicationOperationTransportPlanningCapability,
 	type ApplicationOperationTransportPlanner,
 } from './application-operation-transport-planning.js'
+import { UltimaBase } from './ultima-base.js'
 
-const Document = Schema.define({
+const Document = UltimaBase.Schema.define({
 	className: 'SchemaMutationTransportPlanningDocument',
 	fields: (field) => ({ title: field.string() }),
 })

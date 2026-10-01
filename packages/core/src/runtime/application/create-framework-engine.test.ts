@@ -7,7 +7,7 @@ import {
 	createApplication,
 	FrameworkApplication,
 } from '../../application/framework-application.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -33,6 +33,7 @@ import {
 	articleSchema,
 	databasePlugin,
 } from '../../../tests/fixtures/create-framework-engine.js'
+import { UltimaBase } from './ultima-base.js'
 
 describe('createFrameworkEngine', () => {
 	it('assembles validation, ordered middleware, enforcement, and events', async () => {
@@ -265,7 +266,7 @@ describe('createFrameworkEngine', () => {
 
 	it('shares one protected read pipeline without opening an automatic transaction', async () => {
 		const trace: string[] = []
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'AssembledReadArticle',
 			fields: (field) => ({
 				secret: field.string(),
@@ -304,7 +305,7 @@ describe('createFrameworkEngine', () => {
 				provideTestRuntimeConstraint(
 					'fixture.read-selection',
 					restrictSelection({
-						handler: () => ['title'],
+						handler: () => ['title'] as const,
 						operations: ['find-many'],
 						schema,
 					}),

@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	type ApplicationRequestExecutor,
 	type RequestContext,
 } from '@ultimabase/core'
@@ -11,7 +11,7 @@ import {
 	type RestMutationCommand,
 } from './index.js'
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'RestMutationTypeArticle',
 	fields: (field) => ({
 		slug: field.string({ indexed: 'unique' }),

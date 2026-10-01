@@ -1,13 +1,12 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	UltimaBase,
-	Schema,
 	compileValidationPlans,
 	contributeApplication,
 	plugin,
 	readFieldTypegenState,
 	type CompiledApplication,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 
@@ -15,11 +14,13 @@ import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
 import { createSoftDeletePersistenceRewriter } from './replace-delete.js'
 
+const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
+
 const documentSchema = (
 	className: string,
-	softDelete?: SoftDeleteSchemaOption | 'disabled',
+	softDelete?: SoftDeleteSchemaOption,
 ) =>
-	Schema.define({
+	SoftDeleteSchemaApplication.Schema.define({
 		className,
 		...(softDelete === undefined ? {} : { softDelete }),
 		fields: (field) => ({ title: field.string() }),
@@ -252,7 +253,12 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('does not install the direct option through import side effects', async () => {
-		const Document = documentSchema('MissingSoftDeletePlugin', 'explicit')
+		// The stale runtime definition deliberately bypasses source diagnostics.
+		const Document = UltimaBase.Schema.define({
+			className: 'MissingSoftDeletePlugin',
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
+			softDelete: 'explicit',
+		} as never)
 		const application = new UltimaBase({ schemas: [Document] })
 		onTestFinished(() => application.dispose())
 
@@ -310,14 +316,12 @@ describe('softDeletePlugin', () => {
 	})
 
 	it('rejects an enabled schema tombstone collision deterministically', async () => {
-		const Document = Schema.define({
+		const Document = SoftDeleteSchemaApplication.Schema.define({
 			className: 'SoftDeleteCollisionDocument',
 			fields: (field) => ({
 				isDeleted: field.boolean({ default: false, required: true }),
 			}),
 			softDelete: 'explicit',
-		} as SchemaOptions<'SoftDeleteCollisionDocument'> & {
-			readonly softDelete: SoftDeleteSchemaOption
 		})
 		const application = new (UltimaBase.use(softDeletePlugin()))({
 			pluginPrivileges: { logger: false },
@@ -343,7 +347,12 @@ describe('softDeletePlugin', () => {
 				}),
 			],
 		})
-		const Invalid = documentSchema('InvalidSoftDeleteDocument', 'disabled')
+		// A persisted stale value must still fail before plugin setup effects.
+		const Invalid = SoftDeleteSchemaApplication.Schema.define({
+			className: 'InvalidSoftDeleteDocument',
+			fields: (field) => ({ title: field.string() }),
+			softDelete: 'disabled' as never,
+		})
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
 			pluginPrivileges: { logger: false },
 			schemas: [Invalid],

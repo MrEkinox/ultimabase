@@ -1,25 +1,11 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
-import {
-	postgresPlugin,
-	type PostgresFieldOption,
-	type PostgresSchemaOption,
-} from '@ultimabase/postgres-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
 import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
-
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly postgres?: PostgresFieldOption
-	}
-
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly postgres?: PostgresSchemaOption
-	}
-}
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -40,19 +26,23 @@ afterAll(async () => {
 })
 
 it('preserves data while applying a direct field rename to an explicit table', async () => {
-	const LegacyArticle = Schema.define({
+	const LegacyApplication = UltimaBase.use(
+		postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		}),
+	)
+	const LegacyArticle = LegacyApplication.Schema.define({
 		className: 'DirectOptionArticle',
 		fields: (field) => ({
 			headline: field.string({ required: true }),
 		}),
 		postgres: { table: 'direct_option_articles' },
 	})
-	const legacy = new (UltimaBase.use(
-		postgresPlugin({
-			pool: getFixture().pool,
-			schemaPolicy: 'override',
-		}),
-	))({ pluginPrivileges: { logger: false }, schemas: [LegacyArticle] })
+	const legacy = new LegacyApplication({
+		pluginPrivileges: { logger: false },
+		schemas: [LegacyArticle],
+	})
 	await legacy.start()
 	const created = await LegacyArticle.createOne(
 		{ data: { headline: 'Preserved headline' } },
@@ -60,7 +50,13 @@ it('preserves data while applying a direct field rename to an explicit table', a
 	)
 	await legacy.dispose()
 
-	const Article = Schema.define({
+	const RenamedApplication = UltimaBase.use(
+		postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		}),
+	)
+	const Article = RenamedApplication.Schema.define({
 		className: 'DirectOptionArticle',
 		fields: (field) => ({
 			title: field.string({
@@ -70,12 +66,10 @@ it('preserves data while applying a direct field rename to an explicit table', a
 		}),
 		postgres: { table: 'direct_option_articles' },
 	})
-	const renamed = new (UltimaBase.use(
-		postgresPlugin({
-			pool: getFixture().pool,
-			schemaPolicy: 'override',
-		}),
-	))({ pluginPrivileges: { logger: false }, schemas: [Article] })
+	const renamed = new RenamedApplication({
+		pluginPrivileges: { logger: false },
+		schemas: [Article],
+	})
 	await renamed.start()
 
 	try {

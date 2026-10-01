@@ -1,7 +1,6 @@
 import {
 	binaryField,
 	booleanField,
-	Schema,
 	SchemaRegistry,
 	enumField,
 	intField,
@@ -15,6 +14,7 @@ import { hydrateQueryFromAst, QueryBuilder } from './query.js'
 import { fieldPath } from '../filters/factory.js'
 import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const postFields = {
 	title: stringField(),
@@ -28,22 +28,22 @@ const postFields = {
 	attachment: binaryField(),
 }
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: () => postFields,
 })
-const includedUserSchema = Schema.define({
+const includedUserSchema = UltimaBase.Schema.define({
 	className: 'QueryIncludedUser',
 	fields: (field) => ({ name: field.string(), active: field.boolean() }),
 })
-const includedPostSchema = Schema.define({
+const includedPostSchema = UltimaBase.Schema.define({
 	className: 'QueryIncludedPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'QueryIncludedUser' }),
 		title: field.string(),
 	}),
 })
-const includedFeedSchema = Schema.define({
+const includedFeedSchema = UltimaBase.Schema.define({
 	className: 'QueryIncludedFeed',
 	fields: (field) => ({
 		posts: field.relation({ target: 'QueryIncludedPost' }),
@@ -263,9 +263,17 @@ describe('QueryBuilder', () => {
 		expect(JSON.stringify(selected.ast)).toContain('"field":"author"')
 		expect(JSON.stringify(selected.ast)).not.toContain('authorId')
 		expect(() =>
-			new QueryBuilder(includedPostSchema).include('author', (query) =>
-				query.where({ active: { eq: true } }),
-			),
+			new QueryBuilder(includedPostSchema).include('author', (query) => {
+				// JavaScript may still pass a target filter despite the source contract.
+				const where: unknown = Reflect.get(query, 'where')
+				if (typeof where !== 'function') {
+					throw new TypeError('QueryBuilder.where must be callable')
+				}
+				const filtered: unknown = Reflect.apply(where, query, [
+					{ active: { eq: true } },
+				])
+				return filtered as typeof query
+			}),
 		).toThrow(
 			new TypeError('pointer-target input contains an unknown clause: where'),
 		)
@@ -281,6 +289,7 @@ describe('QueryBuilder', () => {
 			),
 		)
 		expect(() =>
+			// @ts-expect-error -- Only relationship fields can be included.
 			new QueryBuilder(includedPostSchema).include('title', (query) => query),
 		).toThrow(
 			new TypeError(
@@ -532,7 +541,7 @@ describe('QueryBuilder', () => {
 	})
 
 	it('rejects malformed scope results at the JavaScript boundary', () => {
-		const commentSchema = Schema.define({
+		const commentSchema = UltimaBase.Schema.define({
 			className: 'Comment',
 			fields: (field) => ({ body: field.string() }),
 		})
@@ -555,7 +564,7 @@ describe('QueryBuilder', () => {
 
 	it('rejects incompatible schemas, fields, operators, and values', () => {
 		// The same shape but a different definition proves that identity is enforced.
-		const otherPostSchema = Schema.define({
+		const otherPostSchema = UltimaBase.Schema.define({
 			className: 'Post',
 			fields: () => postFields,
 		})
@@ -566,16 +575,19 @@ describe('QueryBuilder', () => {
 				.where(new WhereBuilder(otherPostSchema).eq('title', 'Post')),
 		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 		expect(() => {
+			// @ts-expect-error -- Source typing rejects unknown filter fields.
 			new QueryBuilder(postSchema).where((where) => where.eq('missing', true))
 		}).toThrow(new TypeError('where.missing must reference a schema field'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- Ordered comparisons reject list fields.
 				where.gt('aliases', ['alias']),
 			)
 		}).toThrow(
 			new TypeError('query operator greater-than does not support list fields'),
 		)
 		expect(() => {
+			// @ts-expect-error -- Ordered comparisons reject boolean fields.
 			new QueryBuilder(postSchema).where((where) => where.gt('published', true))
 		}).toThrow(
 			new TypeError(
@@ -592,6 +604,7 @@ describe('QueryBuilder', () => {
 		}).toThrow(new TypeError('query range lower bound must not be null'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- String containment rejects integer fields.
 				where.contains('views', '10'),
 			)
 		}).toThrow(
@@ -599,10 +612,12 @@ describe('QueryBuilder', () => {
 		)
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- Boolean filters reject string values.
 				where.eq('published', 'true'),
 			)
 		}).toThrow(TypeError)
 		expect(() => {
+			// @ts-expect-error -- Id filters require strings.
 			new QueryBuilder(postSchema).where({ id: { eq: 42 } })
 		}).toThrow(new TypeError('query filter value must be a string'))
 	})

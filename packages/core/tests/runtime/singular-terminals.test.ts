@@ -1,7 +1,7 @@
 import { applicationFixture } from '../application-fixture.js'
 import { increment, type ExecutableOperationAst } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
-import { Schema } from '../../src/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import { requestSources } from '../../src/runtime/context/request-context.js'
@@ -12,8 +12,9 @@ import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'TerminalArticle',
 	fields: (field) => ({
 		title: field.string({

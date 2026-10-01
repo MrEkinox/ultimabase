@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { bindApplicationSchemaModel } from '../application/application-model-views.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
-import { Schema } from '../schema/schema/definition.js'
+
 import { plugin as createPlugin } from './plugin.js'
 import { contributeDeclarations } from './plugin-contributions.js'
 
 import { defineOperationValue } from './plugin-operations.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
-const WorkflowPost = Schema.define({
+const WorkflowPost = UltimaBase.Schema.define({
 	className: 'SchemaMutationWorkflowPost',
 	fields: (field) => ({
 		title: field.string(),
@@ -127,11 +127,11 @@ describe('application-owned schema mutations', () => {
 	})
 
 	it('compiles selected model mutations before relationship metadata is published', () => {
-		const Related = Schema.define({
+		const Related = UltimaBase.Schema.define({
 			className: 'SchemaMutationCompilationOrderRelated',
 			fields: () => ({}),
 		})
-		const Document = Schema.define({
+		const Document = UltimaBase.Schema.define({
 			className: 'SchemaMutationCompilationOrderDocument',
 			fields: (field) => ({
 				related: field.relation({ target: Related.className }),

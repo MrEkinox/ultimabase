@@ -1,6 +1,5 @@
 import {
 	UltimaBase,
-	Schema,
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
@@ -56,7 +55,7 @@ describe('packed @ultimabase/plugin-kit', () => {
 			execute: ({ input }) => input,
 			operation: echo,
 		})
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'PackedPluginKitTarget',
 			fields: (field) => ({ title: field.string() }),
 		})

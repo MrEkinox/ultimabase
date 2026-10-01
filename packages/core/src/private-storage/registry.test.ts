@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../schema/schema/definition.js'
 import { SchemaRegistry } from '../schema/schema/registry.js'
 import { stringField } from '../schema/fields/builtins/string.js'
 import { uuidField } from '../schema/fields/builtins/uuid.js'
 import { definePrivateCollection } from './definition.js'
 import { PrivateStorageRegistry } from './registry.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 const owner = (instanceId: string) => ({
 	instanceId,
@@ -73,11 +73,11 @@ describe('PrivateStorageRegistry', () => {
 	})
 
 	it('accepts only references to exact schemas compiled by the application', () => {
-		const Account = Schema.define({
+		const Account = UltimaBase.Schema.define({
 			className: 'PrivateRegistryAccount',
 			fields: () => ({}),
 		})
-		const Foreign = Schema.define({
+		const Foreign = UltimaBase.Schema.define({
 			className: 'PrivateRegistryForeign',
 			fields: () => ({}),
 		})

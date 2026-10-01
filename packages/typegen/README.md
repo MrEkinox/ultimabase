@@ -96,8 +96,10 @@ options, fields, and command surfaces directly from each installed plugin.
 Typegen remains the sole application-wide mapping from literal schema names to
 exact schema contracts, including circular and cross-file relationships. It
 also retains schema-level Access and Hooks option descriptors because those
-callbacks consume the completed schema graph. Field Access, field Hooks,
-Validation, ACL, and other locally decidable option contracts are not copied.
+callbacks consume the completed schema graph. ACL's schema-local `default` and
+`resolveInput` callbacks also retain one generated descriptor so sibling-field
+values stay exact. Field Access, field Hooks, Validation, and other locally
+decidable option contracts are not copied.
 ADR-0281 additionally retains the complete generated `WhereInput` for every
 schema during milestone 63. Source-only filter inference before generation is
 a bootstrap shape, not complete custom-plugin operator typing; the final audit
@@ -151,8 +153,8 @@ targets, and then emits exact models,
 operation inputs, filters, projections, includes, embedded objects, and
 context-specific builder methods. Migrated plugin builders and field-context
 options come from the configured factory instead of generated interface
-augmentation. Schema Access and Hooks remain generated references to their
-public package contracts; Typegen never copies callbacks, factories, validators,
+augmentation. Schema Access, Hooks, and exact ACL callbacks remain generated
+references to their public package contracts; Typegen never copies callbacks, factories, validators,
 resolvers, or other executable implementation code. Compatible object and enum `typeName` identities are
 reused; incompatible identities and normalized TypeScript name collisions
 report both owners.
@@ -183,9 +185,10 @@ bottom. It adds only logical field kind, list, and relationship metadata that
 cannot be recovered safely from the public value types.
 
 Field Access and Hook contracts are derived from the configured source graph.
-Schema Access and Hook contracts remain two public-type references in the
+Schema Access and Hook contracts remain public-type references in the
 generated registry so their items, filters, relationships, operations, and
-mutation keys resolve from the same completed schema-name graph. Typegen does
+mutation keys resolve from the same completed schema-name graph. ACL keeps a
+schema-local descriptor for exact sibling-field callback inputs. Typegen does
 not emit standalone `TodoAccess` or `TodoHooks` wrappers.
 
 Each schema also receives a concrete object-shaped `TodoOrderByInput` whose

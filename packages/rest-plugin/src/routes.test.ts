@@ -1,6 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
-	Schema,
+	UltimaBase,
 	plugin,
 	contributeDeclarations,
 	definePluginField,
@@ -8,14 +8,28 @@ import {
 } from '@ultimabase/core'
 import { initializeRestTestApplication as createApplication } from './application.test-support.js'
 
-import { restFieldCodec, restPlugin, type RestPluginExports } from './index.js'
+import {
+	restFieldCodec,
+	restPlugin,
+	type RestPluginExports,
+	type RestSchemaRoutesOption,
+} from './index.js'
 
-const defineRestSchema = (className: string, rest?: unknown) =>
-	Schema.define({
+const RestSchemaApplication = UltimaBase.use(restPlugin())
+const defineRestSchema = (className: string, rest?: RestSchemaRoutesOption) =>
+	RestSchemaApplication.Schema.define({
 		className,
 		...(rest === undefined ? {} : { rest }),
 		fields: () => ({}),
 	})
+
+// Runtime-negative fixtures bypass only the static option check under test.
+const defineInvalidRestSchema = (className: string, rest: unknown) =>
+	RestSchemaApplication.Schema.define({
+		className,
+		fields: () => ({}),
+		rest,
+	} as never)
 
 const readRest = (
 	application: Awaited<ReturnType<typeof createApplication>>,
@@ -246,7 +260,7 @@ describe('REST route metadata', () => {
 			createApplication({
 				pluginPrivileges: { logger: false },
 				plugins: [restPlugin()],
-				schemas: [defineRestSchema('MalformedRestRoutes', rest)],
+				schemas: [defineInvalidRestSchema('MalformedRestRoutes', rest)],
 			}),
 		).rejects.toSatisfy((error: unknown) =>
 			hasErrorCauseMessage(error, message),
@@ -427,7 +441,7 @@ describe('REST route metadata', () => {
 				},
 			)
 		const define = (withCodec: boolean) =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'PluginFieldRoute',
 				fields: (builder) => ({
 					embedded: builder.object({
@@ -455,7 +469,7 @@ describe('REST route metadata', () => {
 	})
 
 	it('advertises exact virtual outputs without private resolver dependencies', async () => {
-		const Virtual = Schema.define({
+		const Virtual = UltimaBase.Schema.define({
 			className: 'VirtualRoute',
 			fields: (field) => ({
 				name: field.string(),
@@ -505,7 +519,7 @@ describe('REST route metadata', () => {
 				return value
 			},
 		)
-		const Virtual = Schema.define({
+		const Virtual = UltimaBase.Schema.define({
 			className: 'UnsupportedVirtualRoute',
 			fields: (field) => ({
 				value: field.string(),

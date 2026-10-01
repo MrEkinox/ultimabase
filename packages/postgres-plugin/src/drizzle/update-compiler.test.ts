@@ -4,7 +4,7 @@ import {
 	increment,
 	normalizeUpdateExpression,
 } from '@ultimabase/core'
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
@@ -13,7 +13,7 @@ import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 
-const updateSchemaDefinition = Schema.define({
+const updateSchemaDefinition = UltimaBase.Schema.define({
 	className: 'UpdateFixture',
 	fields: (field) => ({
 		balance: field.decimal(),

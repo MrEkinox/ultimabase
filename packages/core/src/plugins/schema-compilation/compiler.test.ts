@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
-import {
-	prepareSchemaCompilation,
-	Schema,
-} from '../../schema/schema/definition.js'
+import { prepareSchemaCompilation } from '../../schema/schema/definition.js'
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
 import {
 	addSchemaField,
@@ -17,6 +14,7 @@ import {
 	defineSchemaOption,
 } from '../schema-option-definitions.js'
 import { compileSchemaDeclarations } from '../compiled-schema-declarations.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const owner = immutableRecord({
 	kind: 'plugin' as const,
@@ -44,7 +42,7 @@ describe('direct canonical schema compilation', () => {
 			protocolVersion: 1,
 			typegen: portableOption.typegen,
 		})
-		const Existing = Schema.define({
+		const Existing = UltimaBase.Schema.define({
 			className: 'CanonicalCompilerExisting',
 			fields: (field) => ({
 				title: field.string(),
@@ -55,7 +53,7 @@ describe('direct canonical schema compilation', () => {
 				}),
 			}),
 		})
-		const Added = Schema.define({
+		const Added = UltimaBase.Schema.define({
 			className: 'CanonicalCompilerAdded',
 			fields: (field) => ({ title: field.string() }),
 		})

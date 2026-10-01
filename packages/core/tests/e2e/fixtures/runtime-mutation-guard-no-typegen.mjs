@@ -4,7 +4,6 @@ import {
 	plugin,
 	provideCapability,
 	provideRuntimeBehavior,
-	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
 import process from 'node:process'
@@ -70,11 +69,11 @@ const databasePlugin = plugin({
 	version: '1.0.0',
 })
 
-const Note = Schema.define({
+const Application = UltimaBase.use(behaviorPlugin, databasePlugin)
+const Note = Application.Schema.define({
 	className: 'JavaScriptRuntimeGuardNote',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
-const Application = UltimaBase.use(behaviorPlugin, databasePlugin)
 const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [Note],

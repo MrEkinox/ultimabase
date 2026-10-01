@@ -177,7 +177,7 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 	): SchemaDefinition | undefined {
 		if (!Schema.is(source)) {
 			throw new TypeError(
-				'Schema target source must be created by Schema.define',
+				'Schema target source must be created by App.Schema.define',
 			)
 		}
 
@@ -202,7 +202,7 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 	): ResolvedSchemaRelation | undefined {
 		if (!Schema.is(source)) {
 			throw new TypeError(
-				'Schema relation source must be created by Schema.define',
+				'Schema relation source must be created by App.Schema.define',
 			)
 		}
 
@@ -277,7 +277,7 @@ const resolveTarget = (
 			'invalid-target',
 			source.className,
 			fieldPath,
-			`Schema target at ${location} must return a class created by Schema.define`,
+			`Schema target at ${location} must return a class created by App.Schema.define`,
 		)
 	}
 

@@ -53,6 +53,7 @@ describe('landing plugin stacks', () => {
 					'\n' +
 					example.code
 						.replace("import { Article } from './article.js'", '')
+						.replace("import { UltimaBase } from '@ultimabase/core'", '')
 						.replace('const app =', 'export const app =')
 				await writeFile(
 					filename,

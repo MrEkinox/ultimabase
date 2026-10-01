@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -12,7 +12,7 @@ const builderMarker = '/* relation-where-builder */'
 const hoverMarker = '/* relation-where-hover */'
 
 const createGeneratedRegistry = (): string => {
-	const Target = Schema.define({
+	const Target = UltimaBase.Schema.define({
 		className: 'SemanticRelationWhereTarget',
 		fields: (field) => ({
 			related: field.relation({ target: 'SemanticRelationWhereTarget' }),
@@ -20,7 +20,7 @@ const createGeneratedRegistry = (): string => {
 			title: field.string(),
 		}),
 	})
-	const Source = Schema.define({
+	const Source = UltimaBase.Schema.define({
 		className: 'SemanticRelationWhereSource',
 		fields: (field) => ({
 			targets: field.relation({ target: 'SemanticRelationWhereTarget' }),
@@ -35,9 +35,9 @@ const createGeneratedRegistry = (): string => {
 
 const registry = createGeneratedRegistry()
 const sourceWithMarkers = `${registry}
-import { Schema } from '../../core/src/index.js'
+import { UltimaBase } from '../../core/src/index.js'
 
-Schema.define({
+UltimaBase.Schema.define({
   className: 'SemanticRelationWhereTarget',
   fields: (field) => ({
     related: field.relation({ target: 'SemanticRelationWhereTarget' }),
@@ -46,7 +46,7 @@ Schema.define({
   }),
 })
 
-Schema.define({
+UltimaBase.Schema.define({
   className: 'SemanticRelationWhereSource',
   fields: (field) => ({
     targets: field.relation({

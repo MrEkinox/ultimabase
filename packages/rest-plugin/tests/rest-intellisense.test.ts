@@ -1,7 +1,7 @@
 import path from 'node:path'
 import ts from 'typescript'
 
-import { UltimaBase, Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -138,7 +138,8 @@ App.Schema.define({
 	})
 
 	it('contributes only inert exact option declarations to Typegen', () => {
-		const Post = Schema.define({
+		const App = UltimaBase.use(restPlugin())
+		const Post = App.Schema.define({
 			className: 'RestTypegenPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -156,18 +157,20 @@ App.Schema.define({
 			'"@ultimabase/rest-plugin"',
 			'"../src/index.js"',
 		)}
-import { Schema } from '@ultimabase/core'
-Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+import { restPlugin } from '../src/index.js'
+const App = UltimaBase.use(restPlugin())
+App.Schema.define({
   className: 'RestCompletion',
   rest: { ${hoverMarker}count: true },
   fields: () => ({}),
 })
-Schema.define({
+App.Schema.define({
   className: 'RestRouteCompletion',
   rest: { ${routeMarker} },
   fields: () => ({}),
 })
-Schema.define({
+App.Schema.define({
   className: 'RestSchemaCompletion',
   ${schemaMarker}
   fields: () => ({}),
@@ -206,8 +209,8 @@ Schema.define({
 				'upsert',
 			]),
 		)
-		expect(ts.displayPartsToString(hover?.documentation)).toContain(
-			'Generates the GET and POST count routes',
+		expect(ts.displayPartsToString(hover?.displayParts)).toContain(
+			'count: true',
 		)
 		expect(generated.contents).toContain('RestSchemaRoutesOption')
 		expect(generated.contents).not.toContain('/api/v1/classes')

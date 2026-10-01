@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -19,7 +18,7 @@ const readModelJson = (value: object): unknown => {
 
 describe('application request schema mutation execution', () => {
 	it('executes itemized schema mutations in the exact request scope', async () => {
-		const MutationRecord = Schema.define({
+		const MutationRecord = UltimaBase.Schema.define({
 			className: 'ApplicationRequestMutationRecord',
 			fields: (field) => ({ title: field.string({ required: true }) }),
 		})

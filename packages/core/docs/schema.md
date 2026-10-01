@@ -196,7 +196,7 @@ schema and a framework-owned string ID, performs no I/O, and never hides an
 automatic target load:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
@@ -232,7 +232,7 @@ the source row. Omitting `mappedBy` creates the owning side. Supplying it create
 an inverse backed by one exact pointer or owning relation on the target:
 
 ```ts
-const UserSchema = Schema.define({
+const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		posts: field.relation({
@@ -260,7 +260,7 @@ relation. It accepts an ordinary target `WhereInput` or one synchronous
 contextual resolver:
 
 ```ts
-const ConversationSchema = Schema.define({
+const ConversationSchema = UltimaBase.Schema.define({
 	className: 'Conversation',
 	fields: (field) => ({
 		activeParticipants: field.relation({
@@ -523,7 +523,7 @@ responsibility of the plugin factory.
 Dependent rules such as `autoNow` with a default or list are checked outside
 the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
-`Schema.define()`, its top-level options, and nested composite-index
+`App.Schema.define()`, its top-level options, and nested composite-index
 options expose the same contextual documentation through completion and hover
 popups.
 
@@ -554,7 +554,7 @@ Schema-level declarations represent composite indexes and require at least two
 distinct top-level fields:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		authorId: field.string(),

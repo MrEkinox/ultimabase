@@ -1,13 +1,13 @@
 import path from 'node:path'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
 
 const createNestedWriteRegistry = (): string => {
-	const Author = Schema.define({
+	const Author = UltimaBase.Schema.define({
 		className: 'GeneratedNestedAuthor',
 		fields: (field) => ({
 			name: field.string({ required: true }),
@@ -17,7 +17,7 @@ const createNestedWriteRegistry = (): string => {
 			}),
 		}),
 	})
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: 'GeneratedNestedPost',
 		fields: (field) => ({
 			author: field.pointer({
@@ -30,7 +30,7 @@ const createNestedWriteRegistry = (): string => {
 			views: field.int(),
 		}),
 	})
-	const Tag = Schema.define({
+	const Tag = UltimaBase.Schema.define({
 		className: 'GeneratedNestedTag',
 		fields: (field) => ({ label: field.string({ required: true }) }),
 	})
@@ -112,9 +112,9 @@ describe('generated nested-write contracts', () => {
 	it('provides exact recursive autocomplete and rejects superseded inputs', () => {
 		const registry = createNestedWriteRegistry()
 		const source = `${registry}
-import { Schema, increment } from '@ultimabase/core'
+import { UltimaBase, increment } from '@ultimabase/core'
 
-const GeneratedNestedAuthor = Schema.define({
+const GeneratedNestedAuthor = UltimaBase.Schema.define({
   className: 'GeneratedNestedAuthor',
   fields: (field) => ({
     name: field.string({ required: true }),
@@ -124,7 +124,7 @@ const GeneratedNestedAuthor = Schema.define({
     }),
   }),
 })
-const GeneratedNestedPost = Schema.define({
+const GeneratedNestedPost = UltimaBase.Schema.define({
   className: 'GeneratedNestedPost',
   fields: (field) => ({
     author: field.pointer({
@@ -137,7 +137,7 @@ const GeneratedNestedPost = Schema.define({
     views: field.int(),
   }),
 })
-const GeneratedNestedTag = Schema.define({
+const GeneratedNestedTag = UltimaBase.Schema.define({
   className: 'GeneratedNestedTag',
   fields: (field) => ({ label: field.string({ required: true }) }),
 })

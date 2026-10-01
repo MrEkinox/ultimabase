@@ -29,9 +29,9 @@ Declare the result shape, the persisted values the resolver needs, and the
 resolver itself:
 
 ```ts title="src/profile.ts"
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-export const Profile = Schema.define({
+export const Profile = UltimaBase.Schema.define({
 	className: 'DocsProfile',
 	fields: (f) => ({
 		firstName: f.string({ required: true }),

@@ -2,7 +2,6 @@ import type { FrameworkError } from '@ultimabase/core'
 import {
 	MasterAuthority,
 	QueryBuilder,
-	Schema,
 	plugin,
 	UltimaBase,
 } from '@ultimabase/core'
@@ -35,7 +34,7 @@ describe('aclPlugin prepared input resolution', () => {
 	})
 
 	it('applies entry limits to master create and update resolution', async () => {
-		const Principal = Schema.define({
+		const Principal = UltimaBase.Schema.define({
 			className: 'ACLMasterLimitPrincipal',
 			fields: () => ({}),
 		})

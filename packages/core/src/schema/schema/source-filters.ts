@@ -105,13 +105,16 @@ type SourceScalarFilter<TField extends GenericField> =
 						NullFilter
 				: TField['kind'] extends 'binary' | 'boolean' | 'enum' | 'uuid'
 					? EqualityFilter<FieldValue<TField> | null> & NullFilter
-					: [FieldStructuralContainsOperand<TField>] extends [never]
-						? NullFilter
-						: EqualityFilter<SourceFieldObjectValue<TField>> &
-								Readonly<{
-									readonly contains?: FieldStructuralContainsOperand<TField>
-								}> &
-								NullFilter
+					: SourcePluginContainmentFilter<TField>
+
+/** A snapshot's output is internal; Typegen owns the exact developer operand. */
+type SourcePluginContainmentFilter<TField extends GenericField> = [
+	FieldStructuralContainsOperand<TField>,
+] extends [never]
+	? NullFilter
+	: EqualityFilter<SourceFieldObjectValue<TField>> &
+			Readonly<{ readonly contains?: unknown }> &
+			NullFilter
 
 type SourcePathScalarFilter<TField extends GenericField> =
 	FieldTypegenStateOf<TField>['list'] extends FieldList
@@ -138,13 +141,7 @@ type SourcePathScalarFilter<TField extends GenericField> =
 								| 'time'
 								| 'uuid'
 						? EqualityFilter<FieldValue<TField> | null> & NullFilter
-						: [FieldStructuralContainsOperand<TField>] extends [never]
-							? NullFilter
-							: EqualityFilter<SourceFieldObjectValue<TField>> &
-									Readonly<{
-										readonly contains?: FieldStructuralContainsOperand<TField>
-									}> &
-									NullFilter
+						: SourcePluginContainmentFilter<TField>
 
 type SourceObjectPath<
 	TFields extends ObjectFields,

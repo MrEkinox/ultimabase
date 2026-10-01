@@ -1,17 +1,17 @@
 /* global Request, process */
 
-import { Schema, SchemaRegistry } from '@ultimabase/core'
+import { UltimaBase, SchemaRegistry } from '@ultimabase/core'
 import {
 	normalizeRestMutationRequest,
 	restMutationErrorCodes,
 } from '@ultimabase/rest-plugin'
 
-const Target = Schema.define({
+const Target = UltimaBase.Schema.define({
 	className: 'JavaScriptRestNestedTarget',
 	fields: (field) => ({ score: field.bigint() }),
 })
 
-const Source = Schema.define({
+const Source = UltimaBase.Schema.define({
 	className: 'JavaScriptRestNestedSource',
 	fields: (field) => ({
 		primary: field.pointer({ target: 'JavaScriptRestNestedTarget' }),

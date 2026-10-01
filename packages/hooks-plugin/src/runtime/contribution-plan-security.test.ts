@@ -1,6 +1,6 @@
 import {
 	objectField,
-	Schema,
+	UltimaBase,
 	SchemaRegistry,
 	stringField,
 	type GenericField,
@@ -39,7 +39,7 @@ const owned = (
 	pluginVersion: '1.0.0',
 })
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'HookContributionSecurityBoundary',
 	fields: (field) => ({ title: field.string() }),
 })
@@ -49,7 +49,7 @@ describe('Hook contribution security plan', () => {
 	it('keeps listed object paths, dotted names and system fields distinct', () => {
 		const email = stringField()
 		const dotted = stringField()
-		const Nested = Schema.define({
+		const Nested = UltimaBase.Schema.define({
 			className: 'HookNestedPathBoundary',
 			fields: () => ({
 				profile: objectField({ fields: { email }, list: true }),
@@ -152,7 +152,7 @@ describe('Hook contribution security plan', () => {
 	})
 
 	it('rejects empty declarations and exact targets outside the application', () => {
-		const Outside = Schema.define({
+		const Outside = UltimaBase.Schema.define({
 			className: 'HookContributionOutside',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -190,7 +190,7 @@ describe('Hook contribution security plan', () => {
 	})
 
 	it('keeps absent schema and field lookups application-local', () => {
-		const Outside = Schema.define({
+		const Outside = UltimaBase.Schema.define({
 			className: 'HookContributionAbsentLookup',
 			fields: (field) => ({ title: field.string() }),
 		})

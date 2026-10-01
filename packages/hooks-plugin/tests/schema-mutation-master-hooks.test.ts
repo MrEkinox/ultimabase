@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	contributeSchemaMutation,
 	databaseAdapterCapability,
@@ -58,7 +57,8 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 			},
 		},
 	}
-	const Document = Schema.define({
+	const HookSchemaApplication = UltimaBase.use(hooksPlugin())
+	const Document = HookSchemaApplication.Schema.define({
 		className: 'SchemaMutationPurgeHookDocument',
 		fields: (field) => ({
 			title: field.string(),
@@ -110,7 +110,7 @@ it('runs Master-only delete mutations through their custom branch', async () => 
 		],
 	})
 	const audit = vi.fn()
-	const ultimabase = new (UltimaBase.use(hooksPlugin(), owner, database))({
+	const ultimabase = new (HookSchemaApplication.use(owner, database))({
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'schema-mutation-purge-master', value: 'unused' }],
 			onUse: audit,

@@ -1,7 +1,6 @@
 /* global Request, process */
 
 import {
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -12,31 +11,6 @@ import {
 } from '@ultimabase/core'
 import { httpApplicationCapability, httpPlugin } from '@ultimabase/http-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
-
-const Note = Schema.define({
-	className: 'JavaScriptRestNote',
-	fields: (field) => ({
-		title: field.string(),
-		summary: field.virtual({
-			output: (output) =>
-				output.object({
-					nullable: false,
-					fields: (nested) => ({
-						bytes: nested.binary({ nullable: false }),
-						label: nested.string({ nullable: false }),
-						total: nested.bigint({ nullable: false }),
-					}),
-				}),
-			resolve: async ({ item }) => ({
-				bytes: Uint8Array.from([1, 2, 3]),
-				label: String(item.title).toUpperCase(),
-				total: 9_007_199_254_740_993n,
-			}),
-			select: { title: true },
-		}),
-	}),
-	rest: { find: true },
-})
 
 const adapter = {
 	capabilities: { persistencePlans: databasePersistencePlanCapability },
@@ -94,6 +68,30 @@ const Application = UltimaBase.use(
 	httpPlugin({ appId: 'javascript-rest' }),
 	capturePlugin,
 )
+const Note = Application.Schema.define({
+	className: 'JavaScriptRestNote',
+	fields: (field) => ({
+		title: field.string(),
+		summary: field.virtual({
+			output: (output) =>
+				output.object({
+					nullable: false,
+					fields: (nested) => ({
+						bytes: nested.binary({ nullable: false }),
+						label: nested.string({ nullable: false }),
+						total: nested.bigint({ nullable: false }),
+					}),
+				}),
+			resolve: async ({ item }) => ({
+				bytes: Uint8Array.from([1, 2, 3]),
+				label: String(item.title).toUpperCase(),
+				total: 9_007_199_254_740_993n,
+			}),
+			select: { title: true },
+		}),
+	}),
+	rest: { find: true },
+})
 const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [Note],

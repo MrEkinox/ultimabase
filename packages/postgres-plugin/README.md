@@ -281,21 +281,24 @@ handler may therefore start another typed query without receiving a pool,
 Drizzle client, or explicit transaction:
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 
-const AuditSchema = Schema.define({
+const Application = UltimaBase.use(hooksPlugin()).use(
+	postgresPlugin({ url: databaseUrl }),
+)
+const AuditSchema = Application.Schema.define({
 	className: 'Audit',
 	fields: (field) => ({
 		action: field.string({ required: true }),
 	}),
 })
 
-const ArticleSchema = Schema.define({
+const ArticleSchema = Application.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -312,9 +315,6 @@ const ArticleSchema = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(hooksPlugin()).use(
-	postgresPlugin({ url: databaseUrl }),
-)
 const ultimabase = new Application({
 	schemas: [ArticleSchema, AuditSchema],
 })
@@ -417,9 +417,8 @@ Runtime-owned and are never executed by the compiler.
 ```ts
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { Schema } from '@ultimabase/core'
 
-const EventSchema = Schema.define({
+const EventSchema = UltimaBase.Schema.define({
 	className: 'Event',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -487,7 +486,7 @@ or domain-specific operator is inferred from JSONB storage.
 Field and composite indexes use the storage-neutral Schema API:
 
 ```ts
-const ArticleSchema = Schema.define({
+const ArticleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		authorId: field.string(),
@@ -591,16 +590,16 @@ limit. Optional pointers use nullable columns, while `required`, `indexed`, and
 `RESTRICT`, `CASCADE`, or `SET NULL`.
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string(),
 	}),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
@@ -776,7 +775,7 @@ Relationships with business data remain ordinary schemas. For example, two
 required pointers plus a composite unique index model a membership edge:
 
 ```ts
-const Membership = Schema.define({
+const Membership = UltimaBase.Schema.define({
 	className: 'Membership',
 	fields: (field) => ({
 		member: field.pointer({
@@ -927,9 +926,14 @@ Category → categories
 Use the direct schema option when the database needs an exact identifier:
 
 ```ts
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const ArticleSchema = Schema.define({
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const ArticleSchema = Application.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string(),

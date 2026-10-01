@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	contributeApplication,
 	contributeDeclarations,
 	defineCapability,
@@ -197,7 +197,7 @@ export const createAlternativeBehaviorEngine = (
 	options: AlternativeBehaviorEngineOptions = {},
 ) => {
 	const suffix = (options.instanceId ?? 'default').replace(/[^A-Za-z0-9]/gu, '')
-	const Audit = Schema.define({
+	const Audit = UltimaBase.Schema.define({
 		className: `AlternativeBehaviorAudit${suffix}`,
 		fields: (field) => ({
 			action: field.string({ required: true }),

@@ -3,7 +3,6 @@ import path from 'node:path'
 import {
 	FrameworkError,
 	RequestContext,
-	Schema,
 	UltimaBase,
 	adapterPersistencePlanCapability,
 	adapterValueStorageCapability,
@@ -82,7 +81,7 @@ const createKernelSupportPlugin = () =>
 	})
 
 const createWorkflowFixture = () => {
-	const Stable = Schema.define({
+	const Stable = UltimaBase.Schema.define({
 		className: 'OpenKernelWorkflowPost',
 		fields: (field) => ({ title: field.string() }),
 	})
@@ -237,7 +236,7 @@ describe('open-kernel workflow proof', () => {
 		)
 		await Promise.all([firstApp.dispose(), secondApp.dispose()])
 
-		const Shared = Schema.define({
+		const Shared = UltimaBase.Schema.define({
 			className: 'OpenKernelIncompatibleShared',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -334,7 +333,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 		})
 
 		const createSoftFixture = () => {
-			const Post = Schema.define({
+			const Post = UltimaBase.Schema.define({
 				className: 'OpenKernelConformanceSoftPost',
 				fields: (field) => ({ title: field.string() }),
 			})
@@ -467,12 +466,15 @@ void invalidWhere
 	})
 
 	it('preserves physical provenance across configured provider changes', async () => {
-		const First = Schema.define({
+		const PostgresSchemaApplication = UltimaBase.use(
+			postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
+		)
+		const First = PostgresSchemaApplication.Schema.define({
 			className: 'OpenKernelMigrationFirst',
 			postgres: { table: 'open_kernel_migration_first' },
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Second = Schema.define({
+		const Second = PostgresSchemaApplication.Schema.define({
 			className: 'OpenKernelMigrationSecond',
 			postgres: { table: 'open_kernel_migration_second' },
 			fields: (field) => ({ title: field.string() }),

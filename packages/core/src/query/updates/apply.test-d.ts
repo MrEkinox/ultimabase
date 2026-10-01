@@ -1,12 +1,12 @@
 import { expectTypeOf, test } from 'vitest'
 
-import { Schema } from '../../schema/index.js'
 import { applyUpdateExpressionToRecord } from './apply.js'
 import { normalizeUpdateExpression } from './normalize.js'
 import { increment } from './operators.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('preserves the exact logical record type', () => {
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: 'AppliedUpdateTypePost',
 		fields: (field) => ({ title: field.string(), views: field.int() }),
 	})

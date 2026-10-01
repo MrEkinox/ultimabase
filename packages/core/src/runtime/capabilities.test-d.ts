@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
-import { Schema } from '../schema/index.js'
 import { guard } from './enforcement/definitions.js'
 import { afterOperation, beforeOperation } from './contributions/definitions.js'
 import {
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
 } from './capabilities.js'
+import { UltimaBase } from './application/ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'RuntimeCapabilityTypes',
 	fields: (field) => ({ title: field.string() }),
 })

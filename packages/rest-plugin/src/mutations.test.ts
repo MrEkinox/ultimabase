@@ -1,4 +1,4 @@
-import { Schema, SchemaRegistry, definePluginField } from '@ultimabase/core'
+import { UltimaBase, SchemaRegistry, definePluginField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -39,7 +39,7 @@ const portableCode = definePluginField(
 	},
 )
 
-const Author = Schema.define({
+const Author = UltimaBase.Schema.define({
 	className: 'RestMutationAuthor',
 	fields: (field) => ({
 		code: portableCode,
@@ -56,7 +56,7 @@ const Author = Schema.define({
 	}),
 })
 
-const RecordSchema = Schema.define({
+const RecordSchema = UltimaBase.Schema.define({
 	className: 'RestMutationRecord',
 	fields: (field) => ({
 		author: field.pointer({ target: 'RestMutationAuthor' }),

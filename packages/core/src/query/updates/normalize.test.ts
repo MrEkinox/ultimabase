@@ -1,10 +1,10 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { decrement, increment, unset } from './operators.js'
 import { normalizeUpdateExpression } from './normalize.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const accountSchema = Schema.define({
+const accountSchema = UltimaBase.Schema.define({
 	className: 'Account',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -86,18 +86,21 @@ describe('normalizeUpdateExpression', () => {
 		}).toThrow(new TypeError('update expression must be an object'))
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects unknown update fields.
 				multiply: increment(2),
 			})
 		}).toThrow(
 			new TypeError('update increment field must reference a schema field'),
 		)
 		expect(() => {
+			// @ts-expect-error -- A required field is missing; Runtime still rejects empty input.
 			normalizeUpdateExpression(accountSchema, {})
 		}).toThrow(
 			new TypeError('update expression must contain at least one operation'),
 		)
 		expect(() => {
 			// This assertion simulates an untyped JavaScript boundary.
+			// @ts-expect-error -- Source typing rejects undefined required values.
 			normalizeUpdateExpression(accountSchema, {
 				name: undefined,
 			})
@@ -107,11 +110,13 @@ describe('normalizeUpdateExpression', () => {
 	it('rejects unknown, immutable, and system fields', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects unknown update fields.
 				missing: true,
 			})
 		}).toThrow(new TypeError('update field must reference a schema field'))
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects immutable update fields.
 				lockedCounter: 1,
 			})
 		}).toThrow(
@@ -119,6 +124,7 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects system update fields.
 				updatedAt: '2026-07-31T12:00:00.000Z',
 			})
 		}).toThrow(
@@ -129,6 +135,7 @@ describe('normalizeUpdateExpression', () => {
 	it('restricts arithmetic to scalar numeric fields and exact deltas', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects numeric deltas on strings.
 				name: increment(1),
 			})
 		}).toThrow(
@@ -138,6 +145,7 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects numeric deltas on lists.
 				scores: increment(1),
 			})
 		}).toThrow(
@@ -147,6 +155,7 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Source typing rejects string deltas on integers.
 				visits: increment('1'),
 			})
 		}).toThrow(new TypeError('update increment value must be a safe integer'))

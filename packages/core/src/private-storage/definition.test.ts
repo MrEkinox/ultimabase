@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../schema/schema/definition.js'
 import { stringField } from '../schema/fields/builtins/string.js'
 import { uuidField } from '../schema/fields/builtins/uuid.js'
 import {
 	definePrivateCollection,
 	readPrivateCollectionDefinition,
 } from './definition.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('definePrivateCollection', () => {
 	it('retains one callback-free immutable descriptor behind a nominal token', () => {
-		const Account = Schema.define({
+		const Account = UltimaBase.Schema.define({
 			className: 'PrivateReferenceAccount',
 			fields: (field) => ({ name: field.string() }),
 		})

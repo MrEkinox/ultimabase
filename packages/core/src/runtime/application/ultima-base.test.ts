@@ -5,7 +5,7 @@ import {
 	withPluginPrivileges,
 } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
@@ -19,7 +19,7 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { UltimaBase } from './ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'UltimaBaseArticle',
 	fields: (field) => ({
 		title: field.string({
@@ -277,7 +277,7 @@ describe('UltimaBase', () => {
 			code: 'VALIDATION_ERROR',
 		})
 
-		const ForeignArticle = Schema.define({
+		const ForeignArticle = UltimaBase.Schema.define({
 			className: articleSchema.className,
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -536,7 +536,7 @@ describe('UltimaBase', () => {
 			],
 			[],
 		)
-		const otherSchema = Schema.define({
+		const otherSchema = UltimaBase.Schema.define({
 			className: 'OtherUltimaBaseArticle',
 			fields: (field) => ({ title: field.string() }),
 		})

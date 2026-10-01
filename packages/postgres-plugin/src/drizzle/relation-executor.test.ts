@@ -5,7 +5,7 @@ import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import {
 	PostgresRelationArticle,
 	PostgresRelationTag,
-} from '../schema/relation-fixture.test-support.js'
+} from '../../tests/fixtures/relation-fixture.js'
 import {
 	createPostgresDrizzleClient,
 	type PostgresDriverQueryClient,

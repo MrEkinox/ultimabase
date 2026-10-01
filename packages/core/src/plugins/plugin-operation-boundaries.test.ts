@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	Schema,
-	SchemaRegistry,
-	materializeSchemaModel,
-} from '../schema/index.js'
+import { SchemaRegistry, materializeSchemaModel } from '../schema/index.js'
 import { assertImmutableOperationValue } from './plugin-operation-boundaries.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin operation snapshot boundaries', () => {
 	it('accepts persisted schema snapshots with native binary values', () => {
-		const Record = Schema.define({
+		const Record = UltimaBase.Schema.define({
 			className: 'OperationBinaryRecord',
 			fields: (field) => ({ bytes: field.binary(), metadata: field.json() }),
 		})

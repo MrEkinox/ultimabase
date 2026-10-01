@@ -1,12 +1,11 @@
 import {
-	Schema,
 	SchemaTargetResolutionError,
+	UltimaBase,
 	type SchemaTarget,
 	type SchemaTargetGraph,
 } from '../../src/index.js'
-import { UltimaBase } from '../../src/index.js'
 
-const TargetUserSchema = Schema.define({
+const TargetUserSchema = UltimaBase.Schema.define({
 	className: 'TargetUser',
 	fields: (field) => ({ name: field.string() }),
 })

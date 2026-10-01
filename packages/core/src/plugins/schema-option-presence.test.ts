@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { createApplication } from '../application/framework-application.js'
 
 import {
-	Schema,
 	addSchemaField,
 	addSchemaIndex,
 	plugin as createPlugin,
@@ -13,9 +12,10 @@ import {
 	stringField,
 	type SchemaSelectorOptions,
 	type SchemaSelection,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '../index.js'
 import { jsonObjectOption } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('schema option-presence selection', () => {
 	it('applies isolated field and index patches without executing opaque values', async () => {
@@ -87,18 +87,17 @@ describe('schema option-presence selection', () => {
 				}),
 			],
 		})
-		const Document = Schema.define({
+		// This Runtime selector fixture supplies the plugin option before installation.
+		const Document = UltimaBase.Schema.define({
 			className: 'OpaqueOptionDocument',
 			document: transform,
-			fields: (field) => ({ title: field.string() }),
-		} as SchemaOptions<'OpaqueOptionDocument'> & {
-			readonly document: (value: string) => string
-		})
-		const Plain = Schema.define({
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
+		} as never)
+		const Plain = UltimaBase.Schema.define({
 			className: 'OpaqueOptionPlain',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Isolated = Schema.define({
+		const Isolated = UltimaBase.Schema.define({
 			className: 'OpaqueOptionIsolated',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -190,22 +189,21 @@ describe('schema option-presence selection', () => {
 				}),
 			],
 		})
-		const Omitted = Schema.define({
+		const Omitted = UltimaBase.Schema.define({
 			className: 'AbsentOptionOmitted',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Disabled = Schema.define({
+		// Presence checks exercise untrusted option values at Runtime.
+		const Disabled = UltimaBase.Schema.define({
 			className: 'AbsentOptionDisabled',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			mode: false,
-		} as SchemaOptions<'AbsentOptionDisabled'> & { readonly mode: false })
-		const Explicit = Schema.define({
+		} as never)
+		const Explicit = UltimaBase.Schema.define({
 			className: 'AbsentOptionExplicit',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			mode: 'explicit',
-		} as SchemaOptions<'AbsentOptionExplicit'> & {
-			readonly mode: 'explicit'
-		})
+		} as never)
 
 		await (
 			await createApplication({

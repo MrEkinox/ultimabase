@@ -1,5 +1,5 @@
 import { applicationFixture } from '../../tests/application-fixture.js'
-import { SchemaRegistry, Schema } from '../schema/index.js'
+import { SchemaRegistry } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { plugin as createPlugin } from '../plugins/plugin.js'
@@ -8,8 +8,9 @@ import {
 	createApplication,
 	FrameworkApplication,
 } from './framework-application.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
-const applicationSchema = Schema.define({
+const applicationSchema = UltimaBase.Schema.define({
 	className: 'ApplicationFixture',
 	fields: (field) => ({ name: field.string() }),
 })
@@ -17,7 +18,7 @@ const applicationSchema = Schema.define({
 describe('FrameworkApplication', () => {
 	it('compiles static schemas without running plugin setup', () => {
 		let setupCalls = 0
-		const StaticSchema = Schema.define({
+		const StaticSchema = UltimaBase.Schema.define({
 			className: 'StaticCompilationOnly',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -54,7 +55,7 @@ describe('FrameworkApplication', () => {
 		let declarationCalls = 0
 
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'FailedStaticCompilation',
 				fields() {
 					declarationCalls += 1
@@ -234,11 +235,11 @@ describe('FrameworkApplication', () => {
 	})
 
 	it('checks schema ownership by exact application identity', () => {
-		const matchingClassSchema = Schema.define({
+		const matchingClassSchema = UltimaBase.Schema.define({
 			className: 'ApplicationFixture',
 			fields: (field) => ({ name: field.string() }),
 		})
-		const unknownClassSchema = Schema.define({
+		const unknownClassSchema = UltimaBase.Schema.define({
 			className: 'UnknownFixture',
 			fields: (field) => ({ name: field.string() }),
 		})

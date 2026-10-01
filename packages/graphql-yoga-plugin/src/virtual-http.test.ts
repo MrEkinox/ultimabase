@@ -1,7 +1,6 @@
 import {
 	MasterAuthority,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -39,7 +38,7 @@ const viewer = new RequestContextValue<string>(
 	},
 )
 
-const VirtualYogaRecord = Schema.define({
+const VirtualYogaRecord = UltimaBase.Schema.define({
 	className: 'GraphqlYogaVirtualRecord',
 	fields: (field) => ({
 		title: field.string(),

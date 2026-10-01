@@ -1,4 +1,4 @@
-import { Schema, type PluginExports } from '@ultimabase/core'
+import { UltimaBase, type PluginExports } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import { RoleSchema, hasRole } from './index.js'
@@ -10,7 +10,7 @@ test('does not expose the application-local setup value', () => {
 	>()
 })
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
 	className: 'TypedRoleUser',
 	fields: (field) => ({
 		email: field.string({ required: true }),

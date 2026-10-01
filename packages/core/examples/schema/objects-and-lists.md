@@ -16,7 +16,7 @@ embedded property has neither schema index identity nor a dedicated database
 sequence.
 
 ```ts
-import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
+import { UltimaBase, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
 const addressFields = (field: EmbeddedFieldBuilder) => ({
 	line1: field.string({ required: true }),
@@ -29,7 +29,7 @@ const addressFields = (field: EmbeddedFieldBuilder) => ({
 	}),
 })
 
-export const CustomerSchema = Schema.define({
+export const CustomerSchema = UltimaBase.Schema.define({
 	className: 'Customer',
 	fields: (field) => ({
 		name: field.string({ required: true }),

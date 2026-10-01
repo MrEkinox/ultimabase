@@ -1,5 +1,4 @@
 import {
-	Schema,
 	UltimaBase,
 	contributeOperation,
 	defineOperation,
@@ -36,7 +35,7 @@ afterAll(async () => {
 	await fixture?.dispose()
 })
 
-const Account = Schema.define({
+const Account = UltimaBase.Schema.define({
 	className: 'PrivateStoragePostgresAccount',
 	fields: (field) => ({ name: field.string({ required: true }) }),
 })

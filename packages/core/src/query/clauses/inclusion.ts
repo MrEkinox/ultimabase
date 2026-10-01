@@ -156,7 +156,7 @@ export const resolveQueryInclusionTarget = (
 
 	if (!Schema.is(target)) {
 		throw new TypeError(
-			'query inclusion target must be created by Schema.define',
+			'query inclusion target must be created by App.Schema.define',
 		)
 	}
 

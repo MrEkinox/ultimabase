@@ -4,10 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
-import {
-	prepareSchemaCompilation,
-	Schema,
-} from '../../schema/schema/definition.js'
+import { prepareSchemaCompilation } from '../../schema/schema/definition.js'
 import { addSchemaConstraint } from '../schema-artifact-patch-operations.js'
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
 import {
@@ -21,6 +18,7 @@ import {
 	defineSchemaOption,
 } from '../schema-option-definitions.js'
 import { compileSchemaDeclarations } from '../compiled-schema-declarations.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const owner = immutableRecord({
 	kind: 'plugin' as const,
@@ -35,14 +33,14 @@ describe('direct schema compilation provenance', () => {
 			value: { enabled: true },
 			version: 1,
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'CompilerIrDeclarationPost',
 			fields: (field) => ({
 				title: field.string({ description: 'Title' }),
 			}),
 			indexes: [{ fields: ['title', 'createdAt'] }],
 		})
-		const Added = Schema.define({
+		const Added = UltimaBase.Schema.define({
 			className: 'CompilerIrAddedPost',
 			fields: (field) => ({ title: field.string() }),
 		})

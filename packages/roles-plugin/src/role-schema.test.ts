@@ -6,7 +6,6 @@ import {
 	plugin,
 	contributeApplication,
 	stringField,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import type { FrameworkError } from '@ultimabase/core'
 
@@ -14,7 +13,7 @@ import { rolesPlugin } from './plugin.js'
 import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
 	className: 'RoleUser',
 	fields: (field) => ({
 		email: field.string({ required: true }),
@@ -57,6 +56,17 @@ describe('RoleSchema', () => {
 					fields: () => ({}),
 				},
 			),
+		).toThrow(
+			new TypeError(
+				'RoleSchema configured declarations require an UltimaBase Schema namespace',
+			),
+		)
+		expect(() =>
+			RoleSchema.define(Schema as unknown as typeof Application.Schema, {
+				className: 'BareClassRole',
+				members: { schema: User },
+				fields: () => ({}),
+			}),
 		).toThrow(
 			new TypeError(
 				'RoleSchema configured declarations require an UltimaBase Schema namespace',
@@ -175,7 +185,7 @@ describe('RoleSchema', () => {
 	})
 
 	it('requires its plugin only when a role schema is registered', async () => {
-		const Plain = Schema.define({
+		const Plain = UltimaBase.Schema.define({
 			className: 'PlainRoleFixture',
 			fields: () => ({}),
 		})
@@ -227,18 +237,16 @@ describe('RoleSchema', () => {
 			typeof identity === 'object' && identity !== null
 				? { ...identity }
 				: identity
-		const CopiedRole = Schema.define({
+		const CopiedRole = UltimaBase.Schema.define({
 			className: 'CopiedIdentityRole',
 			fields: () => ({}),
 			[roleSchemaIdentityOptionName]: copiedIdentity,
-		} as SchemaOptions<'CopiedIdentityRole'> &
-			Readonly<Record<typeof roleSchemaIdentityOptionName, unknown>>)
-		const ForeignRole = Schema.define({
+		} as never)
+		const ForeignRole = UltimaBase.Schema.define({
 			className: 'ForeignIdentityRole',
 			fields: () => ({}),
 			[roleSchemaIdentityOptionName]: identity,
-		} as SchemaOptions<'ForeignIdentityRole'> &
-			Readonly<Record<typeof roleSchemaIdentityOptionName, unknown>>)
+		} as never)
 
 		for (const [index, schema] of [CopiedRole, ForeignRole].entries()) {
 			let infrastructureStarted = false
@@ -264,7 +272,7 @@ describe('RoleSchema', () => {
 	})
 
 	it('ignores similarly shaped schemas and rejects duplicate role domains', async () => {
-		const Similar = Schema.define({
+		const Similar = UltimaBase.Schema.define({
 			className: 'SimilarRoleShape',
 			fields: (field) => ({
 				members: field.relation({ target: 'RoleUser' }),
@@ -314,7 +322,7 @@ describe('RoleSchema', () => {
 	})
 
 	it('discovers role domains independently for each application', async () => {
-		const SecondUser = Schema.define({
+		const SecondUser = UltimaBase.Schema.define({
 			className: 'SecondRoleUser',
 			fields: (field) => ({ email: field.string() }),
 		})

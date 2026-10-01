@@ -1,7 +1,7 @@
 import { onTestFinished } from 'vitest'
 import { describe, expect, it } from 'vitest'
 
-import { UltimaBase, Schema, type FieldBuilder } from '@ultimabase/core'
+import { UltimaBase, type FieldBuilder } from '@ultimabase/core'
 
 import {
 	pgVectorPlugin,
@@ -20,12 +20,13 @@ const vectorBuilder = (field: FieldBuilder): VectorFieldBuilder =>
 describe('pg-vector FieldBuilder method', () => {
 	it('creates the same immutable logical field as vectorField', async () => {
 		let declarations = 0
-		const Document = Schema.define({
+		const Application = UltimaBase.use(pgVectorPlugin())
+		const Document = Application.Schema.define({
 			className: 'VectorBuilderDocument',
 			fields: (field) => {
 				declarations += 1
 				return {
-					embedding: vectorBuilder(field).vector({
+					embedding: field.vector({
 						dimensions: 3,
 						required: true,
 					}),
@@ -34,7 +35,7 @@ describe('pg-vector FieldBuilder method', () => {
 		})
 
 		expect(declarations).toBe(1)
-		const application = await new (UltimaBase.use(pgVectorPlugin()))({
+		const application = await new Application({
 			schemas: [Document],
 		}).initialize()
 		onTestFinished(() => application.dispose())
@@ -71,7 +72,7 @@ describe('pg-vector FieldBuilder method', () => {
 	})
 
 	it('reports a missing plugin before the schema can compile', async () => {
-		const Missing = Schema.define({
+		const Missing = UltimaBase.Schema.define({
 			className: 'MissingVectorBuilderPlugin',
 			fields: (field) => ({
 				// The generated-like cast simulates stale output after plugin removal.
@@ -94,7 +95,7 @@ describe('pg-vector FieldBuilder method', () => {
 	})
 
 	it('keeps vector option validation on the existing factory', async () => {
-		const Invalid = Schema.define({
+		const Invalid = UltimaBase.Schema.define({
 			className: 'InvalidVectorBuilderOptions',
 			fields: (field) => ({
 				embedding: vectorBuilder(field).vector({ dimensions: 0 }),
@@ -116,7 +117,7 @@ describe('pg-vector FieldBuilder method', () => {
 	})
 
 	it('removes the runtime method from an application without the plugin', async () => {
-		const Empty = Schema.define({
+		const Empty = UltimaBase.Schema.define({
 			className: 'VectorlessBuilderApplication',
 			fields: (field) => ({
 				title: field.string(),

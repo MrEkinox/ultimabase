@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../schema/definition.js'
 import { SchemaRegistry } from '../schema/registry.js'
 import { transformSchemaMutationDataInput } from './input-transformation.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Person = Schema.define({
+const Person = UltimaBase.Schema.define({
 	className: 'MutationTransformationPerson',
 	fields: (field) => ({
 		label: field.virtual({
@@ -16,7 +16,7 @@ const Person = Schema.define({
 	}),
 })
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'MutationTransformationArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'MutationTransformationPerson' }),

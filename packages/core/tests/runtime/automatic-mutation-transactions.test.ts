@@ -1,6 +1,6 @@
 import { applicationFixture } from '../application-fixture.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
-import { Schema } from '../../src/index.js'
+
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -20,8 +20,9 @@ import {
 	type QueuedAdapterResult,
 	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'AutomaticTransactionArticle',
 	fields: (field) => ({
 		title: field.string({

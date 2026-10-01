@@ -1,7 +1,7 @@
 import {
 	collectOperationFieldInputs,
 	QueryBuilder,
-	Schema,
+	UltimaBase,
 	SchemaRegistry,
 	increment,
 	normalizeUpdateExpression,
@@ -26,7 +26,7 @@ import {
 import { requiresAccessPreparedMutationItems } from './item-access.js'
 import { collectUpdateFieldValues } from './mutation-transitions.js'
 
-const Document = Schema.define({
+const Document = UltimaBase.Schema.define({
 	className: 'AccessPreparedSetDecision',
 	fields: (field) => ({ score: field.int() }),
 })

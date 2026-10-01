@@ -103,10 +103,11 @@ acl: {
 },
 ```
 
-The configured factory supplies exact sibling-field autocomplete directly;
-there is no binder, duplicated data interface, generated option copy, or
-generated Runtime client. Typegen remains the sole application-wide named
-schema graph.
+The configured factory exposes the ACL option and its local shape immediately.
+Exact sibling-field autocomplete inside `acl.default` and `acl.resolveInput`
+comes from the completed application Typegen graph; regenerate it after schema
+changes. Typegen references the public `ACLSchemaOption` type without copying
+callbacks or producing a Runtime client. JavaScript needs no generation.
 
 The update candidate includes unchanged fields and applies `set` (including
 `null` clears) and numeric operations before the callback. Framework-generated timestamps remain

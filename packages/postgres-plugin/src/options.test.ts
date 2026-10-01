@@ -1,4 +1,4 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
@@ -28,7 +28,10 @@ class FixturePool implements PostgresPool {
 }
 
 const schemaNamed = (className: string) =>
-	Schema.define({ className, fields: () => ({}) })
+	UltimaBase.Schema.define({ className, fields: () => ({}) })
+const PostgresSchemaApplication = UltimaBase.use(
+	postgresPlugin({ pool: new FixturePool() }),
+)
 
 const hasErrorCauseMessage = (error: unknown, message: string): boolean => {
 	let candidate = error
@@ -53,14 +56,12 @@ describe('direct PostgreSQL options', () => {
 
 	it('preserves and escapes an unrestricted table identifier exactly', async () => {
 		const name = 'Tenant.Logs "archive"'
-		const schema = Schema.define({
+		const schema = PostgresSchemaApplication.Schema.define({
 			className: 'PostgresExactTable',
 			fields: () => ({}),
 			postgres: { table: name },
 		})
-		const application = new (UltimaBase.use(
-			postgresPlugin({ pool: new FixturePool() }),
-		))({ schemas: [schema] })
+		const application = new PostgresSchemaApplication({ schemas: [schema] })
 		await application.initialize()
 		const table = pgTable(resolvePostgresTableName(schema), { id: text('id') })
 		const query = drizzle.mock().select({ id: table.id }).from(table).toSQL()
@@ -78,7 +79,7 @@ describe('direct PostgreSQL options', () => {
 	})
 
 	it('preserves exact column rename intent', async () => {
-		const schema = Schema.define({
+		const schema = PostgresSchemaApplication.Schema.define({
 			className: 'PostgresExactRename',
 			fields: (field) => ({
 				title: field.string({
@@ -86,9 +87,7 @@ describe('direct PostgreSQL options', () => {
 				}),
 			}),
 		})
-		const application = new (UltimaBase.use(
-			postgresPlugin({ pool: new FixturePool() }),
-		))({ schemas: [schema] })
+		const application = new PostgresSchemaApplication({ schemas: [schema] })
 		await application.initialize()
 		const title = schema.fields.title
 
@@ -118,14 +117,14 @@ describe('direct PostgreSQL options', () => {
 	])(
 		'rejects malformed schema option $postgres',
 		async ({ message, postgres }) => {
-			const schema = Schema.define({
+			const schema = PostgresSchemaApplication.Schema.define({
 				className: 'PostgresMalformed',
 				fields: () => ({}),
 				postgres,
 			} as never)
 
 			await expect(
-				new (UltimaBase.use(postgresPlugin({ pool: new FixturePool() })))({
+				new PostgresSchemaApplication({
 					pluginPrivileges: { logger: false },
 					schemas: [schema],
 				}).initialize(),
@@ -154,7 +153,7 @@ describe('direct PostgreSQL options', () => {
 	])(
 		'rejects malformed field option $postgres',
 		async ({ message, postgres }) => {
-			const schema = Schema.define({
+			const schema = PostgresSchemaApplication.Schema.define({
 				className: 'PostgresMalformedField',
 				fields: (field) => ({
 					title: field.string({ postgres } as never),
@@ -162,7 +161,7 @@ describe('direct PostgreSQL options', () => {
 			})
 
 			await expect(
-				new (UltimaBase.use(postgresPlugin({ pool: new FixturePool() })))({
+				new PostgresSchemaApplication({
 					pluginPrivileges: { logger: false },
 					schemas: [schema],
 				}).initialize(),
@@ -173,11 +172,11 @@ describe('direct PostgreSQL options', () => {
 	)
 
 	it('rejects a direct option when the PostgreSQL plugin is missing', async () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'PostgresMissingPlugin',
 			fields: () => ({}),
 			postgres: { table: 'missing_plugin' },
-		})
+		} as never)
 
 		await expect(
 			new UltimaBase({ schemas: [schema] }).initialize(),

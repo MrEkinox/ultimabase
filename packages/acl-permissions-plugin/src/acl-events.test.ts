@@ -1,4 +1,4 @@
-import { RequestSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -10,7 +10,10 @@ import {
 	onACLChange,
 } from './acl-events.js'
 
-const User = Schema.define({ className: 'ACLChangeUser', fields: () => ({}) })
+const User = UltimaBase.Schema.define({
+	className: 'ACLChangeUser',
+	fields: () => ({}),
+})
 const alice = User.pointer('alice')
 const bob = User.pointer('bob')
 const editor = new RequestSubjectReference('role', 'role-editor')

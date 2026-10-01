@@ -6,7 +6,7 @@ import { RequestContextValue } from '../../access/index.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { FindManyOperationAst, QueryResult } from '../../query/index.js'
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { expectTypeOf, test } from 'vitest'
 
 import { MasterAuthority } from '../master/master-authority.js'
@@ -14,12 +14,13 @@ import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'TypedArticle',
 	fields: (field) => ({ title: field.string() }),
 })
-const authorSchema = Schema.define({
+const authorSchema = UltimaBase.Schema.define({
 	className: 'TypedAuthor',
 	fields: (field) => ({ name: field.string() }),
 })

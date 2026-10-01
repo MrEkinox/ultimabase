@@ -5,8 +5,6 @@ import {
 	normalizeWhereInput,
 	QueryBuilder,
 	RequestContextValue,
-	Schema,
-	type RelationWhereResolver,
 } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
@@ -20,6 +18,7 @@ import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { RuntimeRelationFilterResolver } from './execution.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const tenant = new RequestContextValue<string>(
 	'fixture.relation-predicate-tenant',
@@ -42,22 +41,22 @@ const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 describe('Runtime relation-filter predicates', () => {
 	it('applies one contextual filter to quantifiers, emptiness, and count', async () => {
 		let resolverCalls = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'FilteredPredicateTarget',
 			fields: (field) => ({
 				label: field.string(),
 				tenant: field.string(),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'FilteredPredicateSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'FilteredPredicateTarget',
-					where: (({ context, where }) => {
+					where: ({ context, where }) => {
 						resolverCalls += 1
 						return where.eq('tenant', context.getValue(tenant) ?? 'public')
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -118,18 +117,18 @@ describe('Runtime relation-filter predicates', () => {
 	})
 
 	it('composes nested relation declarations with target policy and Master', async () => {
-		const Owner = Schema.define({
+		const Owner = UltimaBase.Schema.define({
 			className: 'FilteredPredicateOwner',
 			fields: (field) => ({ active: field.boolean() }),
 		})
-		const Group = Schema.define({
+		const Group = UltimaBase.Schema.define({
 			className: 'FilteredPredicateGroup',
 			fields: (field) => ({
 				label: field.string(),
 				published: field.boolean(),
 			}),
 		})
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'NestedFilteredPredicateTarget',
 			fields: (field) => ({
 				groups: field.relation({
@@ -141,7 +140,7 @@ describe('Runtime relation-filter predicates', () => {
 				visible: field.boolean(),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'NestedFilteredPredicateSource',
 			fields: (field) => ({
 				targets: field.relation({
@@ -250,7 +249,7 @@ describe('Runtime relation-filter predicates', () => {
 	})
 
 	it('rejects cyclic declaration expansion before adapter work', async () => {
-		const Node = Schema.define({
+		const Node = UltimaBase.Schema.define({
 			className: 'CyclicFilteredPredicateNode',
 			fields: (field) => ({
 				children: field.relation({
@@ -286,7 +285,7 @@ describe('Runtime relation-filter predicates', () => {
 	})
 
 	it('counts private declaration predicates in the operation complexity budget', async () => {
-		const Node = Schema.define({
+		const Node = UltimaBase.Schema.define({
 			className: 'ComplexFilteredPredicateNode',
 			fields: (field) => ({
 				active: field.boolean(),
@@ -295,12 +294,12 @@ describe('Runtime relation-filter predicates', () => {
 				}),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'ComplexFilteredPredicateSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'ComplexFilteredPredicateNode',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						let result = where
 
 						for (
@@ -312,7 +311,7 @@ describe('Runtime relation-filter predicates', () => {
 						}
 
 						return result
-					}) as RelationWhereResolver<typeof Node>,
+					},
 				}),
 			}),
 		})
@@ -343,7 +342,7 @@ describe('Runtime relation-filter predicates', () => {
 	})
 
 	it('shares the complexity budget across preparation phases of one operation', async () => {
-		const Node = Schema.define({
+		const Node = UltimaBase.Schema.define({
 			className: 'PhasedComplexityRelationNode',
 			fields: (field) => ({
 				children: field.relation({ target: 'PhasedComplexityRelationNode' }),

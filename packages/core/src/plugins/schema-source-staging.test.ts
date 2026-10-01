@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../application/framework-application.js'
-import { Schema } from '../schema/schema/definition.js'
+
 import { contributeDeclarations } from './plugin-contributions.js'
 import { plugin as createPlugin } from './plugin.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema source staging', () => {
 	it.each([
@@ -11,7 +12,7 @@ describe('plugin schema source staging', () => {
 		{ kind: 'claim', method: 'claim' as const },
 	])('preserves the distinct Schema $kind diagnostics', ({ kind, method }) => {
 		const label = `Schema ${kind}`
-		const Record = Schema.define({
+		const Record = UltimaBase.Schema.define({
 			className: `Invalid${kind === 'addition' ? 'Addition' : 'Claim'}Record`,
 			fields: () => ({}),
 		})

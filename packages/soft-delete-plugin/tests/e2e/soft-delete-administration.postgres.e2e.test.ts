@@ -3,10 +3,8 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import {
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	type MasterAccessEvent,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -29,12 +27,17 @@ interface AdministrationHookInput {
 	readonly originalItem: Readonly<Record<string, unknown>>
 }
 
-const AdministrationLog = Schema.define({
+const SoftDeleteAdministrationApplication = UltimaBase.use(
+	softDeletePlugin(),
+	hooksPlugin(),
+)
+
+const AdministrationLog = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationLog',
 	fields: (field) => ({ message: field.string({ required: true }) }),
 })
 
-const Document = Schema.define({
+const Document = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationDocument',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	hooks: {
@@ -86,21 +89,19 @@ const Document = Schema.define({
 		},
 	} as never,
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteAdministrationDocument'> & {
-	readonly softDelete: 'explicit'
 })
 
-const Author = Schema.define({
+const Author = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationAuthor',
 	fields: (field) => ({ name: field.string({ required: true }) }),
 })
 
-const Tag = Schema.define({
+const Tag = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
 })
 
-const Article = Schema.define({
+const Article = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationArticle',
 	fields: (field) => ({
 		author: field.pointer({ target: 'SoftDeleteAdministrationAuthor' }),
@@ -108,16 +109,12 @@ const Article = Schema.define({
 		title: field.string({ required: true }),
 	}),
 	softDelete: 'replace-delete',
-} as SchemaOptions<'SoftDeleteAdministrationArticle'> & {
-	readonly softDelete: 'replace-delete'
 })
 
-const Disabled = Schema.define({
+const Disabled = SoftDeleteAdministrationApplication.Schema.define({
 	className: 'SoftDeleteAdministrationDisabled',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: false,
-} as SchemaOptions<'SoftDeleteAdministrationDisabled'> & {
-	readonly softDelete: false
 })
 
 const schemas = [
@@ -130,9 +127,7 @@ const schemas = [
 ] as const
 
 const createApplication = (database: PostgresWorkerFixture) =>
-	new (UltimaBase.use(
-		softDeletePlugin(),
-		hooksPlugin(),
+	new (SoftDeleteAdministrationApplication.use(
 		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
 	))({
 		masterAuthority: new MasterAuthority({
@@ -438,7 +433,8 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const article = await Article.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					// The fixture has no generated named-schema graph for this pointer.
+					author: Author.pointer(author.id) as never,
 					title: 'recoverable graph',
 				},
 			},

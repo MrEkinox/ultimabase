@@ -4,7 +4,6 @@ import { FrameworkApplication } from '../application/framework-application.js'
 
 import {
 	FrameworkError,
-	Schema,
 	addSchemaField,
 	plugin as createPlugin,
 	contributeDeclarations,
@@ -12,10 +11,11 @@ import {
 	stringField,
 } from '../index.js'
 import { replaceDeclaredFieldOptions } from '../schema/fields/base/definition.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin embedded-field transformations', () => {
 	it('rejects root-only metadata introduced inside a patched object field', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'PatchedEmbeddedMetadataTarget',
 			fields: () => ({}),
 		})

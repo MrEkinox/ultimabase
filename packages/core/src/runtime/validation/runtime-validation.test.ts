@@ -14,7 +14,6 @@ import {
 	definePluginField,
 	compileValidationPlans,
 	type FieldOptions,
-	Schema,
 	SchemaRegistry,
 } from '../../schema/index.js'
 import { createRelationUpdateExpression } from '../../schema/relations/mutation.js'
@@ -37,6 +36,7 @@ import {
 	createRuntimeValidationStage,
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
+import { UltimaBase } from '../application/ultima-base.js'
 describe('runtime validation', () => {
 	it('applies immutable defaults and one timezone-aware operation clock', async () => {
 		runtimeDefault.mockClear()
@@ -130,7 +130,7 @@ describe('runtime validation', () => {
 	})
 
 	it('canonicalizes optional fields without materializing forbidden relations', async () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'RuntimeOptionalWithoutRelation',
 			fields: (field) => ({
 				note: field.string(),
@@ -409,7 +409,8 @@ describe('runtime validation', () => {
 			typeof update
 		> = {
 			kind: 'update-one',
-			query: new QueryBuilder(relationValidationSource).ast,
+			// This Runtime fixture has no generated named relation graph.
+			query: new QueryBuilder(relationValidationSource).ast as never,
 			update,
 		}
 		const normalized = await executeStage(stage, operation)
@@ -522,7 +523,7 @@ describe('runtime validation', () => {
 	})
 
 	it('reports every scalar, null, list, and object shape through stable codes', async () => {
-		const pointerTarget = Schema.define({
+		const pointerTarget = UltimaBase.Schema.define({
 			className: 'InvalidScalarPointerTarget',
 			fields: () => ({}),
 		})
@@ -539,7 +540,7 @@ describe('runtime validation', () => {
 				},
 			},
 		)
-		const scalarSchema = Schema.define({
+		const scalarSchema = UltimaBase.Schema.define({
 			className: 'InvalidScalars',
 			fields: (field) => ({
 				bigint: field.bigint(),

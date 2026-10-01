@@ -34,7 +34,7 @@ describe('createEnforcementStages mutation boundaries', () => {
 					'fixture.title-only',
 					restrictInput({
 						schema: articleSchema,
-						handler: () => ['title'],
+						handler: () => ['title'] as const,
 					}),
 				)
 			}),

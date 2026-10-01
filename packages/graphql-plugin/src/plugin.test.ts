@@ -1,5 +1,4 @@
 import {
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -98,7 +97,7 @@ describe('graphqlPlugin', () => {
 	})
 
 	it('shares the Core public-protection diagnostic and honors acknowledgment', async () => {
-		const PublicRecord = Schema.define({
+		const PublicRecord = UltimaBase.Schema.define({
 			className: 'GraphqlProtectionRecord',
 			fields: (field) => ({ value: field.string() }),
 		})
@@ -147,7 +146,7 @@ describe('graphqlPlugin', () => {
 	})
 
 	it('rejects generated execution after application disposal', async () => {
-		const DisposableRecord = Schema.define({
+		const DisposableRecord = UltimaBase.Schema.define({
 			className: 'GraphqlDisposedRecord',
 			fields: (field) => ({ value: field.string() }),
 		})

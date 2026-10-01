@@ -3,13 +3,14 @@ import type {
 	FindManyOperationAst,
 } from '../../query/index.js'
 import { QueryBuilder } from '../../query/query/query.js'
-import { Schema } from '../../schema/index.js'
+
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import { describe, expect, it } from 'vitest'
 
 import { materializeOperationResult } from './materialize-result.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const ResultSchema = Schema.define({
+const ResultSchema = UltimaBase.Schema.define({
 	className: 'MaterializedResult',
 	fields: (field) => ({
 		title: field.string({ required: true }),

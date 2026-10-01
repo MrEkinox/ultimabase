@@ -2,7 +2,7 @@ import {
 	definePluginField,
 	fieldPath,
 	QueryBuilder,
-	Schema,
+	UltimaBase,
 	type QueryFilterNode,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -30,7 +30,7 @@ const snapshotPortableCodeFragment = (
 
 let completeValueEncodeCalls = 0
 
-const PortableFilterSchema = Schema.define({
+const PortableFilterSchema = UltimaBase.Schema.define({
 	className: 'PostgresPortableFilterFixture',
 	fields: (field) => ({
 		code: definePluginField(

@@ -1,4 +1,4 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -19,10 +19,10 @@ const passThrough = <TValue>(
 
 describe('validationPlugin', () => {
 	it('keeps validation unavailable until the plugin is configured', async () => {
-		const Document = Schema.define({
+		const Document = UltimaBase.Schema.define({
 			className: 'MissingValidationPluginDocument',
 			fields: (field) => ({
-				// Standalone declarations retain stale generated-option compatibility until issue 6314.
+				// An untyped caller can still present stale options after plugin removal.
 				title: field.string({
 					validation: passThrough<string>(),
 				} as never),

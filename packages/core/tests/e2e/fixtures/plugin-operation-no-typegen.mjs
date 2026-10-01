@@ -4,7 +4,6 @@ import {
 	addSchemaField,
 	RequestContext,
 	PluginError,
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -70,15 +69,6 @@ const opaqueDocumentOption = defineSchemaOption({
 		type: 'DocumentOption',
 	},
 	valueKind: 'opaque',
-})
-const StablePost = Schema.define({
-	className: 'JavaScriptStablePost',
-	document: (value) => value,
-	fields: (field) => ({ title: field.string() }),
-})
-const DynamicPost = Schema.define({
-	className: 'JavaScriptDynamicPost',
-	fields: (field) => ({ title: field.string() }),
 })
 const protocol = defineOperationTransport({
 	name: 'fixture.javascript.fake',
@@ -175,6 +165,15 @@ const Application = UltimaBase.use(
 	createDatabasePlugin(),
 	createOperationPlugin(),
 )
+const StablePost = Application.Schema.define({
+	className: 'JavaScriptStablePost',
+	document: (value) => value,
+	fields: (field) => ({ title: field.string() }),
+})
+const DynamicPost = Application.Schema.define({
+	className: 'JavaScriptDynamicPost',
+	fields: (field) => ({ title: field.string() }),
+})
 const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [StablePost],

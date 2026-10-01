@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	PluginError,
-	Schema,
 	UltimaBase,
 	contributeOperation,
 	contributeOperationBinding,
@@ -193,7 +192,7 @@ const createOperationPlugin = (
 	})
 }
 
-const RecordSchema = Schema.define({
+const RecordSchema = UltimaBase.Schema.define({
 	className: 'GraphqlOperationRecord',
 	fields: (field) => ({ value: field.string() }),
 })

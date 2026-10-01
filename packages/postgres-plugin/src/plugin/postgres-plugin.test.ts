@@ -1,5 +1,4 @@
 import { UltimaBase } from '@ultimabase/core'
-import { Schema } from '@ultimabase/core'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -140,7 +139,7 @@ describe('postgresPlugin', () => {
 			postgresPlugin({ pool, schemaPolicy: 'ignore' }),
 		))({
 			schemas: [
-				Schema.define({
+				UltimaBase.Schema.define({
 					className: 'IgnoredArticle',
 					fields: (field) => ({ title: field.string() }),
 				}),
@@ -174,14 +173,15 @@ describe('postgresPlugin', () => {
 	})
 
 	it('compiles the direct PostgreSQL schema option during setup', async () => {
-		const schema = Schema.define({
+		const Application = UltimaBase.use(
+			postgresPlugin({ pool: new FixturePool() }),
+		)
+		const schema = Application.Schema.define({
 			className: 'Article',
 			fields: (field) => ({ title: field.string() }),
 			postgres: { table: 'content.Articles' },
 		})
-		const application = new (UltimaBase.use(
-			postgresPlugin({ pool: new FixturePool() }),
-		))({ schemas: [schema] })
+		const application = new Application({ schemas: [schema] })
 		await application.initialize()
 
 		expect(application.state).toBe('ready')

@@ -1,6 +1,6 @@
 # Package-owned schema specialization
 
-Application schemas use `Schema.define()`. A package that exposes its own final
+Application schemas use `App.Schema.define()`. A package that exposes its own final
 schema factory can use the single lower-level specialization boundary to attach
 typed class helpers and persisted-result commands before Core freezes the same
 schema identity:

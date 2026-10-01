@@ -2,7 +2,6 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
-	Schema,
 	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
@@ -27,7 +26,7 @@ import {
 	graphqlSchemaMutationId,
 } from './schema-mutation.test-support.js'
 
-const WorkflowDocument = Schema.define({
+const WorkflowDocument = UltimaBase.Schema.define({
 	className: 'GraphqlWorkflowDocument',
 	fields: (field) => ({ title: field.string() }),
 })

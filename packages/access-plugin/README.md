@@ -69,9 +69,9 @@ application intentionally has no Access engine, so direct CRUD has no official
 Access policy stage:
 
 ```js
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 })

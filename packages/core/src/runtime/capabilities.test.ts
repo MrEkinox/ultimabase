@@ -7,7 +7,7 @@ import {
 	FrameworkApplication,
 } from '../application/framework-application.js'
 import { QueryBuilder } from '../query/index.js'
-import { Schema } from '../schema/index.js'
+
 import { plugin as createPlugin } from '../plugins/plugin.js'
 import type { PluginDefinition } from '../plugins/definition.js'
 import {
@@ -35,8 +35,9 @@ import {
 } from './capabilities.js'
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
+import { UltimaBase } from './application/ultima-base.js'
 
-const runtimeSchema = Schema.define({
+const runtimeSchema = UltimaBase.Schema.define({
 	className: 'RuntimeCapabilityArticle',
 	fields: (field) => ({ title: field.string() }),
 })

@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	type QueryBuilder,
 	type QueryFilterNode,
 } from '@ultimabase/core'
@@ -8,7 +8,7 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import { compilePostgresSchema } from '../../src/schema/schema-compiler.test-support.js'
 import { compilePostgresFilter } from '../../src/query/filter-compiler.js'
 
-export const FilterSchema = Schema.define({
+export const FilterSchema = UltimaBase.Schema.define({
 	className: 'FilterFixture',
 	fields: (field) => ({
 		active: field.boolean(),

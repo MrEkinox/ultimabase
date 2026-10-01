@@ -159,7 +159,7 @@ Package-owned schema classes use Core's sole `Schema.defineSpecialized()`
 boundary when they need immutable static helpers or persisted-result commands.
 The factory receives only the exact schema capability context and returns
 explicit `statics` and `results`; ordinary application schemas continue to use
-`Schema.define()`. Core attaches string or private symbol statics before
+`App.Schema.define()`. Core attaches string or private symbol statics before
 freezing the class and never exposes a second schema compiler, mutable
 prototype, application, adapter, or authority through this boundary.
 `graphql-plugin` compiles one application-local generated and custom schema,

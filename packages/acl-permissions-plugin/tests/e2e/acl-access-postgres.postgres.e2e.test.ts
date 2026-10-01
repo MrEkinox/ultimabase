@@ -6,7 +6,6 @@ import {
 	RequestContext,
 	RequestContextValue,
 	requestSources,
-	Schema,
 	UltimaBase,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -24,7 +23,7 @@ import {
 	provideTestRoleResolver,
 } from '../../../../tests/fixtures/access-capability-fixtures.js'
 
-const Principal = Schema.define({
+const Principal = UltimaBase.Schema.define({
 	className: 'ACLAccessPrincipal',
 	fields: () => ({}),
 })
@@ -77,7 +76,8 @@ const identityPlugin = plugin({
 	],
 })
 const emptyACL = new ACL()
-const ProtectedPost = Schema.define({
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+const ProtectedPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLAccessPost',
 	fields: (field) => ({
 		marker: field.string({ default: 'original' }),

@@ -6,7 +6,6 @@ import {
 	plugin,
 	definePluginField,
 	requireCapability,
-	Schema,
 	UltimaBase,
 } from '@ultimabase/core'
 import {
@@ -61,7 +60,10 @@ const storedValue = definePluginField(
 	},
 )
 
-const BridgeItem = Schema.define({
+const BridgeSchemaApplication = UltimaBase.use(
+	postgresPlugin({ url: 'postgresql://fixture' }),
+)
+const BridgeItem = BridgeSchemaApplication.Schema.define({
 	className: 'AdapterBridgeItem',
 	postgres: { table: 'adapter_bridge_items' },
 	fields: () => ({ value: storedValue }),

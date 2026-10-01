@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	addSchemaField,
 	addSchemaIndex,
 	defineCapability,
@@ -14,6 +13,7 @@ import {
 	type SchemaOptionAbsenceSelector,
 	type SchemaSelection,
 } from '../index.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 const workflowOption = defineSchemaOption({
 	normalize: (value: unknown) => {
@@ -197,7 +197,7 @@ test('types schema declarations from exact active privileges', () => {
 })
 
 test('requires nominal additive patch operations', () => {
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: 'TypedSchemaAddition',
 		fields: (fieldBuilder) => ({ title: fieldBuilder.string() }),
 	})
@@ -224,7 +224,7 @@ test('requires nominal additive patch operations', () => {
 })
 
 test('types exact application schema claims', () => {
-	const User = Schema.define({
+	const User = UltimaBase.Schema.define({
 		className: 'TypedClaimedUser',
 		fields: () => ({}),
 	})
@@ -248,7 +248,7 @@ test('types exact application schema claims', () => {
 })
 
 test('does not claim issue 1408 direct option augmentation', () => {
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'UngeneratedOptionSchema',
 		fields: (field) => ({
 			title: field.string({
@@ -256,7 +256,11 @@ test('does not claim issue 1408 direct option augmentation', () => {
 				search: { weight: 10 },
 			}),
 		}),
-		// @ts-expect-error -- No installed plugin contributes this schema option.
+	})
+	// @ts-expect-error -- No installed plugin contributes this schema option.
+	UltimaBase.Schema.define({
+		className: 'UngeneratedWorkflowSchema',
+		fields: (field) => ({ title: field.string() }),
 		workflow: { enabled: true },
 	})
 })

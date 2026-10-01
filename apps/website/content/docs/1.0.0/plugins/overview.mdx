@@ -34,10 +34,11 @@ definition. Add that definition to an immutable application factory with
 `.use()` to opt in:
 
 ```ts title="src/application.ts"
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const Post = Schema.define({
+const Application = UltimaBase.use(hooksPlugin())
+const Post = Application.Schema.define({
 	className: 'Post',
 	fields: (f) => ({ title: f.string() }),
 	hooks: {
@@ -46,8 +47,6 @@ const Post = Schema.define({
 		},
 	},
 })
-
-const Application = UltimaBase.use(hooksPlugin())
 
 export const application = new Application({
 	schemas: [Post],

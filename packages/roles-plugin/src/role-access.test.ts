@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it, vi, type Mock } from 'vitest'
 import {
 	RequestSubjectReference,
-	Schema,
 	requestRoleResolverCapability,
 	UltimaBase,
 	plugin,
@@ -40,7 +39,7 @@ const roleResolverConsumer = <const TPluginId extends string>(
 		],
 	})
 
-const Member = Schema.define({
+const Member = UltimaBase.Schema.define({
 	className: 'AccessRoleMember',
 	fields: () => ({}),
 })

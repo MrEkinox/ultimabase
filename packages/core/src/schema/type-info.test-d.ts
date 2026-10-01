@@ -1,14 +1,10 @@
 import { expectTypeOf, test } from 'vitest'
 
-import { Schema } from './schema/definition.js'
 import type { SchemaItem } from './schema/values.js'
-import type {
-	BaseItem,
-	BaseSchemaTypeInfo,
-	SchemaTypeInfoFor,
-} from './type-info.js'
+import type { BaseItem, SchemaTypeInfoFor } from './type-info.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
-const BootstrapTodo = Schema.define({
+const BootstrapTodo = UltimaBase.Schema.define({
 	className: 'BootstrapTodo',
 	fields: (field) => ({
 		completed: field.boolean({ default: false }),
@@ -17,14 +13,14 @@ const BootstrapTodo = Schema.define({
 })
 void BootstrapTodo
 
-test('uses only the safe BaseItem contract before code generation', () => {
-	expectTypeOf<SchemaTypeInfoFor<typeof BootstrapTodo>>().toEqualTypeOf<
-		BaseSchemaTypeInfo<'BootstrapTodo'>
-	>()
-	expectTypeOf<SchemaItem<typeof BootstrapTodo>>().toEqualTypeOf<BaseItem>()
+test('infers local Core item fields before code generation', () => {
+	expectTypeOf<
+		SchemaTypeInfoFor<typeof BootstrapTodo>['key']
+	>().toEqualTypeOf<'BootstrapTodo'>()
+	expectTypeOf<SchemaItem<typeof BootstrapTodo>>().toExtend<BaseItem>()
 
 	const item = null as unknown as SchemaItem<typeof BootstrapTodo>
 	expectTypeOf(item.id).toBeString()
-	expectTypeOf(item.title).toBeUnknown()
-	expectTypeOf(item.completed).toBeUnknown()
+	expectTypeOf(item.title).toBeString()
+	expectTypeOf(item.completed).toEqualTypeOf<boolean | null>()
 })

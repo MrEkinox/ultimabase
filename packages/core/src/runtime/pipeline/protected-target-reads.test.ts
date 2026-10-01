@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import { FrameworkError } from '../../foundation.js'
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { RequestContext } from '../context/request-context.js'
 import { createProtectedPolicyDeniedError } from '../enforcement/protected-denial.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const Target = Schema.define({
+const Target = UltimaBase.Schema.define({
 	className: 'ProtectedTargetRead',
 	fields: () => ({}),
 })

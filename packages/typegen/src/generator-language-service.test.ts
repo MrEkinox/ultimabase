@@ -616,9 +616,9 @@ void relatedRead
 
 	it('accepts a new schema before the next startup generation', () => {
 		const source = `${registry}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-Schema.define({
+UltimaBase.Schema.define({
   className: 'MissingGeneratedSchema',
   fields: (field) => ({ title: field.string() }),
 })
@@ -633,9 +633,9 @@ Schema.define({
 
 	it('rejects unknown generated sibling fields in schema indexes', () => {
 		const source = `${registry}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-Schema.define({
+UltimaBase.Schema.define({
   className: 'SemanticAuthor',
   fields: (field) => ({
     name: field.string({ required: true }),

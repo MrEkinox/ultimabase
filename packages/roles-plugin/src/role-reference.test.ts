@@ -1,4 +1,4 @@
-import { RequestSubjectReference, Schema } from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,7 +7,7 @@ import {
 	normalizeRoleName,
 } from './role-reference.js'
 
-const RoleFixture = Schema.define({
+const RoleFixture = UltimaBase.Schema.define({
 	className: 'ReferenceRole',
 	fields: () => ({}),
 })

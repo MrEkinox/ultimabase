@@ -7,8 +7,9 @@ import {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
 } from './model.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -20,6 +21,11 @@ const Post = Schema.define({
 		}),
 	}),
 })
+
+/** Exercises JavaScript constructor validation beyond TypeScript's exact input. */
+const constructUntrustedPost = (input: unknown): unknown => {
+	return Reflect.construct(Post, [input]) as unknown
+}
 
 describe('schema model classes', () => {
 	it('constructs immutable detached drafts without performing I/O', () => {
@@ -72,19 +78,21 @@ describe('schema model classes', () => {
 	})
 
 	it('rejects malformed drafts and public subclass construction', () => {
-		expect(() => new Post(null as unknown as { title: string })).toThrow(
+		expect(() => constructUntrustedPost(null)).toThrow(
 			new TypeError('Schema model input must be a plain object'),
 		)
-		expect(() => new Post({})).toThrow(
+		expect(() => constructUntrustedPost({})).toThrow(
 			new TypeError('Schema model input field is required: title'),
 		)
-		expect(() => new Post({ title: 'Hello', unknown: true })).toThrow(
+		expect(() =>
+			constructUntrustedPost({ title: 'Hello', unknown: true }),
+		).toThrow(
 			new TypeError('Schema model input contains an unknown field: unknown'),
 		)
 		const symbolField = Symbol('unknown')
 		const symbolInput = { [symbolField]: true, title: 'Hello' }
 
-		expect(() => new Post(symbolInput as { title: string })).toThrow(
+		expect(() => constructUntrustedPost(symbolInput)).toThrow(
 			new TypeError(
 				'Schema model input contains an unknown field: Symbol(unknown)',
 			),
@@ -181,7 +189,7 @@ describe('schema model classes', () => {
 		const foreignSchema = (() => undefined) as unknown as typeof Post
 
 		expect(() => materializeSchemaModel(foreignSchema, {})).toThrow(
-			new TypeError('Schema model class was not created by Schema.define'),
+			new TypeError('Schema model class was not created by App.Schema.define'),
 		)
 	})
 
@@ -346,7 +354,7 @@ describe('schema model classes', () => {
 				selectedFields: ['title'],
 			},
 		)
-		const Other = Schema.define({
+		const Other = UltimaBase.Schema.define({
 			className: 'OtherIdentity',
 			fields: () => ({}),
 		})
@@ -389,7 +397,7 @@ describe('schema model classes', () => {
 	})
 
 	it('attaches specialization commands only to trusted persisted models', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'CapabilityTarget',
 			fields: () => ({}),
 		})

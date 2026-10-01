@@ -1,9 +1,9 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeEnforcementRestrictedFields } from './contribution-evaluation.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'EnforcementVirtualField',
 	fields: (field) => ({
 		label: field.virtual({

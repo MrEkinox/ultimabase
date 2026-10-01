@@ -6,7 +6,6 @@ import {
 	FrameworkApplication,
 } from '../application/framework-application.js'
 import {
-	Schema,
 	addSchemaField,
 	addSchemaIndex,
 	compileValidationPlans,
@@ -18,7 +17,7 @@ import {
 	setSchemaFieldOption,
 	setSchemaOption,
 	stringField,
-	type SchemaOptions,
+	type FieldBuilder,
 } from '../index.js'
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
@@ -26,10 +25,11 @@ import {
 	optionPlugin,
 	requireField,
 } from '../../tests/plugins/schema-declarations.fixtures.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin schema declaration registry', () => {
 	it('lets one plugin claim an exact application-registered schema', async () => {
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'ClaimedApplicationUser',
 			fields: (field) => ({ name: field.string() }),
 		})
@@ -65,7 +65,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('rejects a claim for a schema absent from the application list', async () => {
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'MissingClaimedApplicationUser',
 			fields: () => ({}),
 		})
@@ -95,7 +95,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('lets a plugin contribute selectable stored fields outside mutation inputs', async () => {
-		const Document = Schema.define({
+		const Document = UltimaBase.Schema.define({
 			className: 'PluginManagedFieldDocument',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -148,7 +148,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('rejects duplicate additions across ordered plugins', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'AdditionPrivilegePost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -232,13 +232,12 @@ describe('plugin schema declaration registry', () => {
 				],
 			})
 		const owner = plugin('fixture.stable-option-owner')
-		const Shared = Schema.define({
+		// This fixture resolves the plugin-owned option only during application compilation.
+		const Shared = UltimaBase.Schema.define({
 			className: 'StableReusePost',
-			fields: (field) => ({ title: field.string() }),
+			fields: (field: FieldBuilder) => ({ title: field.string() }),
 			stable: { enabled: true },
-		} as SchemaOptions<'StableReusePost'> & {
-			readonly stable: Readonly<{ readonly enabled: boolean }>
-		})
+		} as never)
 		const first = applicationFixture(
 			new FrameworkApplication({
 				pluginPrivileges: { logger: false },
@@ -275,7 +274,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('never treats a removed plugin contribution as automatic schema cleanup', async () => {
-		const Shared = Schema.define({
+		const Shared = UltimaBase.Schema.define({
 			className: 'RemovedContributionPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -328,7 +327,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('adds option values and indexes without replacing existing facts', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'OptionAndIndexAdditionPost',
 			fields: (field) => ({ title: field.string(), summary: field.string() }),
 		})
@@ -394,15 +393,15 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('adds stable schemas and freezes selectors before later plugin additions', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'SelectedPost',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Author = Schema.define({
+		const Author = UltimaBase.Schema.define({
 			className: 'SelectedAuthor',
 			fields: (field) => ({ name: field.string() }),
 		})
-		const AuditLog = Schema.define({
+		const AuditLog = UltimaBase.Schema.define({
 			className: 'LaterAuditLog',
 			fields: (field) => ({ message: field.string() }),
 		})
@@ -511,7 +510,7 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('does not let one plugin self-expand a selector with its own schema addition', async () => {
-		const Owned = Schema.define({
+		const Owned = UltimaBase.Schema.define({
 			className: 'SelfExpansionGuard',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -550,11 +549,11 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('scopes schema contribution IDs to the complete plugin instance identity', async () => {
-		const Primary = Schema.define({
+		const Primary = UltimaBase.Schema.define({
 			className: 'RepeatedPluginPrimarySchema',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Analytics = Schema.define({
+		const Analytics = UltimaBase.Schema.define({
 			className: 'RepeatedPluginAnalyticsSchema',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -608,11 +607,11 @@ describe('plugin schema declaration registry', () => {
 	})
 
 	it('publishes no plugin schema and permanently closes compilation after a duplicate contribution', async () => {
-		const First = Schema.define({
+		const First = UltimaBase.Schema.define({
 			className: 'AtomicDuplicateFirst',
 			fields: (field) => ({ title: field.string() }),
 		})
-		const Second = Schema.define({
+		const Second = UltimaBase.Schema.define({
 			className: 'AtomicDuplicateSecond',
 			fields: (field) => ({ title: field.string() }),
 		})

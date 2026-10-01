@@ -4,7 +4,7 @@ import {
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../src/query/index.js'
-import { Schema, SchemaRegistry } from '../../src/schema/index.js'
+import { SchemaRegistry } from '../../src/schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { expect } from 'vitest'
 
@@ -35,8 +35,9 @@ import type {
 	RuntimeResultEffectStage,
 	RuntimeResultTransformStage,
 } from '../../src/runtime/pipeline/contracts.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-export const articleSchema = Schema.define({
+export const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -68,11 +69,11 @@ export const articleUpdateManyOperation = {
 	},
 } satisfies UpdateManyOperationAst<typeof articleSchema>
 
-export const relationPredicateTarget = Schema.define({
+export const relationPredicateTarget = UltimaBase.Schema.define({
 	className: 'RuntimeRelationPredicateTarget',
 	fields: (field) => ({ label: field.string() }),
 })
-export const relationPredicateSource = Schema.define({
+export const relationPredicateSource = UltimaBase.Schema.define({
 	className: 'RuntimeRelationPredicateSource',
 	fields: (field) => ({
 		targets: field.relation({ target: 'RuntimeRelationPredicateTarget' }),
@@ -84,9 +85,10 @@ new SchemaRegistry([
 ]).resolveSchemaTargets()
 export const relationPredicateOperation = {
 	kind: 'find-many',
+	// This Runtime fixture has no generated named relation graph.
 	query: new QueryBuilder(relationPredicateSource).where((where) =>
 		where.some('targets', (target) => target.eq('label', 'portable')),
-	).ast,
+	).ast as never,
 } satisfies FindManyOperationAst<typeof relationPredicateSource>
 
 export const requestContext = RequestContext.anonymous({

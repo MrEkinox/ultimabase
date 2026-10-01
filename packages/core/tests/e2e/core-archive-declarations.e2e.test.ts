@@ -273,7 +273,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(query.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('preserves compact immutable model persistence commands', () => {
+	it('preserves documented immutable model persistence commands', () => {
 		const create = readFixtureQuickInfo('create({}, { useMasterKey: true })')
 		const update = readFixtureQuickInfo(
 			"update({ data: { title: 'Packed update' } })",
@@ -284,15 +284,17 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(create.display).toContain('create(input:')
 		expect(create.display).toContain('Promise<{')
 		expect(create.documentation).toContain('complete model')
+		// The configured source input is exact but its packed QuickInfo is more verbose.
 		expect(update.display).toContain('update(input:')
-		expect(update.display).toContain('Promise<{')
+		expect(update.display).toContain('SchemaModelUpdateCommandInput<')
+		expect(update.display).toContain('Promise<')
+		expect(update.display).not.toContain('any')
 		expect(update.documentation).toContain('protected object identity')
 		expect(fetch.display).toContain('fetch<')
 		expect(fetch.documentation).toContain('selected fresh fields')
 		expect(toPointer.display).toContain('Pointer<')
 		expect(toPointer.documentation).toContain('without performing database I/O')
 		expect(create.display).not.toContain('NonDefaultedStringField<')
-		expect(update.display).not.toContain('NonDefaultedStringField<')
 		expect(fetch.display).not.toContain('NonDefaultedStringField<')
 	})
 

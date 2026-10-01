@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 import {
 	DeterministicDatabaseAdapter,
@@ -21,7 +21,7 @@ type NumericSampleKey = keyof RuntimeSample
 
 const iterations = 20
 const workspaceRoot = process.cwd()
-const MeasuredPost = Schema.define({
+const MeasuredPost = UltimaBase.Schema.define({
 	className: 'ArchitectureBaselinePost',
 	fields: (field) => ({ title: field.string() }),
 })

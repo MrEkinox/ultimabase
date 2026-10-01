@@ -13,12 +13,10 @@ import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 import {
-	Schema,
 	UltimaBase,
 	contributeApplication,
 	plugin,
 	requireCapability,
-	type SchemaOptions,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -30,7 +28,12 @@ import {
 const explicitSoftDeleteTrace: string[] = []
 let rejectedSoftDeleteTitle: string | undefined
 
-const Explicit = Schema.define({
+const SchemaApplication = UltimaBase.use(
+	softDeletePlugin(),
+	hooksPlugin(),
+	accessPlugin(),
+)
+const Explicit = SchemaApplication.Schema.define({
 	access: {
 		create: true,
 		delete: true,
@@ -69,24 +72,18 @@ const Explicit = Schema.define({
 		},
 	} as never,
 	softDelete: 'explicit',
-} as SchemaOptions<'SoftDeleteTransportExplicit'> & {
-	readonly softDelete: 'explicit'
 })
 
-const Replace = Schema.define({
+const Replace = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportReplace',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: 'replace-delete',
-} as SchemaOptions<'SoftDeleteTransportReplace'> & {
-	readonly softDelete: 'replace-delete'
 })
 
-const Disabled = Schema.define({
+const Disabled = SchemaApplication.Schema.define({
 	className: 'SoftDeleteTransportDisabled',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 	softDelete: false,
-} as SchemaOptions<'SoftDeleteTransportDisabled'> & {
-	readonly softDelete: false
 })
 
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {

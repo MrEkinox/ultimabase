@@ -2,7 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	compileValidationPlans,
-	Schema,
+	UltimaBase,
 	snapshotScalarFieldValue,
 	type FieldValidationPlan,
 } from '@ultimabase/core'
@@ -16,7 +16,7 @@ import {
 } from '../src/index.js'
 
 test('narrows shared scalar plans through the public guard', () => {
-	const schema = Schema.define({
+	const schema = UltimaBase.Schema.define({
 		className: 'Document',
 		fields: () => ({ embedding: vectorField({ dimensions: 3 }) }),
 	})

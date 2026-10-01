@@ -1,13 +1,13 @@
 import path from 'node:path'
 
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
 
 const createGeneratedVirtualRegistry = (): string => {
-	const User = Schema.define({
+	const User = UltimaBase.Schema.define({
 		className: 'SemanticVirtualUser',
 		fields: (field) => ({
 			firstName: field.string({ required: true }),
@@ -87,9 +87,9 @@ const createSourceLanguageService = (
 it('types virtual dependencies and separates persisted items from outputs', () => {
 	const registry = createGeneratedVirtualRegistry()
 	const source = `${registry}
-import { Schema, type SchemaItem, type SchemaOutput } from '@ultimabase/core'
+import { UltimaBase, type SchemaItem, type SchemaOutput } from '@ultimabase/core'
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
   className: 'SemanticVirtualUser',
   fields: (field) => ({
     firstName: field.string({ required: true }),

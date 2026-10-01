@@ -89,9 +89,9 @@ JavaScript uses the same compiled graph and does not require Typegen. Omitting
 the plugin means ordinary CRUD has no official Hooks lifecycle:
 
 ```js
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string() }),
 })

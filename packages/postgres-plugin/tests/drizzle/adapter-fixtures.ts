@@ -1,4 +1,4 @@
-import { Schema, SchemaRegistry } from '@ultimabase/core'
+import { SchemaRegistry, UltimaBase } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { createPostgresDatabaseAdapter } from '../../src/drizzle/adapter.js'
@@ -14,7 +14,7 @@ import {
 	FixturePool,
 } from '../../src/drizzle/database-adapter.test-fixture.js'
 
-export const articleSchema = Schema.define({
+export const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		note: field.string(),
@@ -23,11 +23,11 @@ export const articleSchema = Schema.define({
 	}),
 })
 
-export const pointerUserSchema = Schema.define({
+export const pointerUserSchema = UltimaBase.Schema.define({
 	className: 'AdapterPointerUser',
 	fields: (field) => ({ name: field.string() }),
 })
-export const pointerPostSchema = Schema.define({
+export const pointerPostSchema = UltimaBase.Schema.define({
 	className: 'AdapterPointerPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'AdapterPointerUser' }),
@@ -42,14 +42,14 @@ export const pointerCatalog = new PostgresSchemaCatalog(
 	pointerRegistry.resolveSchemaTargets(),
 )
 
-export const relationTargetSchema = Schema.define({
+export const relationTargetSchema = UltimaBase.Schema.define({
 	className: 'AdapterRelationTarget',
 	fields: (field) => ({
 		label: field.string(),
 		visible: field.boolean(),
 	}),
 })
-export const relationSourceSchema = Schema.define({
+export const relationSourceSchema = UltimaBase.Schema.define({
 	className: 'AdapterRelationSource',
 	fields: (field) => ({
 		targets: field.relation({ target: 'AdapterRelationTarget' }),

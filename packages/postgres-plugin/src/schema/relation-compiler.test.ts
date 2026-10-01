@@ -9,7 +9,7 @@ import {
 	PostgresRelationAuthor,
 	PostgresRelationPost,
 	PostgresRelationTag,
-} from './relation-fixture.test-support.js'
+} from '../../tests/fixtures/relation-fixture.js'
 
 const createCatalog = (): PostgresSchemaCatalog => {
 	const schemas = [

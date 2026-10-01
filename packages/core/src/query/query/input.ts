@@ -274,7 +274,9 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 	const untrustedSchema: unknown = schema
 
 	if (!Schema.is(untrustedSchema)) {
-		throw new TypeError('read input schema must be created by Schema.define')
+		throw new TypeError(
+			'read input schema must be created by App.Schema.define',
+		)
 	}
 
 	assertQueryInput(input, kind)

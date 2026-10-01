@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	Pointer,
-	Schema,
 	SchemaRegistry,
 	pointerField,
 	snapshotScalarFieldValue,
 } from '../../index.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
-const userSchema = Schema.define({
+const userSchema = UltimaBase.Schema.define({
 	className: 'PointerFieldUser',
 	fields: () => ({}),
 })
@@ -17,7 +17,7 @@ describe('pointerField', () => {
 	it('keeps its lazy target private and normalizes the safe delete policy', () => {
 		const target = (): typeof userSchema => userSchema
 		const field = pointerField({ target })
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'PointerFieldPost',
 			fields: () => ({ author: field }),
 		})
@@ -59,7 +59,7 @@ describe('pointerField', () => {
 			snapshotScalarFieldValue(
 				field,
 				new Pointer(
-					Schema.define({
+					UltimaBase.Schema.define({
 						className: 'WrongPointerTarget',
 						fields: () => ({}),
 					}),
@@ -117,7 +117,7 @@ describe('pointerField', () => {
 				'input.author',
 			),
 		).toThrow(
-			new TypeError('input.author target must be created by Schema.define'),
+			new TypeError('input.author target must be created by App.Schema.define'),
 		)
 	})
 })

@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	type SchemaItem,
 	type SchemaOutput,
 	type VirtualFieldResolver,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('types bootstrap virtual declarations without executable Typegen', () => {
-	const Virtual = Schema.define({
+	const Virtual = UltimaBase.Schema.define({
 		className: 'BootstrapVirtualType',
 		fields: (field) => ({
 			name: field.string({ required: true }),
@@ -30,7 +30,7 @@ test('types bootstrap virtual declarations without executable Typegen', () => {
 })
 
 test('rejects stored options and incompatible resolver results', () => {
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'InvalidBootstrapVirtualType',
 		fields: (field) => ({
 			invalidOptions: field.virtual({

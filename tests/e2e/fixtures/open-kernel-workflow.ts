@@ -1,5 +1,5 @@
 import {
-	Schema,
+	UltimaBase,
 	contributeDeclarations,
 	contributeOperation,
 	defineOperation,
@@ -130,7 +130,7 @@ export interface WorkflowPluginOptions {
 /** Builds one complete workflow proof without using a private framework import. */
 export const createWorkflowPlugin = (options: WorkflowPluginOptions) => {
 	const dynamicName = `WorkflowAudit${options.instanceId.replace(/[^A-Za-z0-9]/gu, '')}`
-	const DynamicAudit = Schema.define({
+	const DynamicAudit = UltimaBase.Schema.define({
 		className: dynamicName,
 		fields: (field) => ({
 			action: field.string({ required: true }),

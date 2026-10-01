@@ -1,6 +1,6 @@
 import {
 	RequestContext,
-	Schema,
+	UltimaBase,
 	type ApplicationCallbackExecutor,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { AccessExecutionRuntime } from './execution-runtime.js'
 import type { AccessExecutionDescriptor } from './execution-runtime.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'AttributedAccessRule',
 	fields: (field) => ({ title: field.string() }),
 })

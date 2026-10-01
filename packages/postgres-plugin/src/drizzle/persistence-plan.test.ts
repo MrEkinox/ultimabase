@@ -4,7 +4,7 @@ import {
 	normalizeUpdateExpression,
 	QueryBuilder,
 	rewriteDeletePersistencePlan,
-	Schema,
+	UltimaBase,
 	type CreateOneOperationAst,
 	type DatabasePersistencePlan,
 	type DeleteOneOperationAst,
@@ -92,13 +92,13 @@ class PersistencePool implements PostgresPool {
 	}
 }
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'PostgresPersistencePlan',
 	fields: (field) => ({ title: field.string() }),
 })
 const id = '0198c3d4-1000-7000-8000-000000000001'
 const timestamp = '2026-08-19T10:00:00.000Z'
-const virtualSchema = Schema.define({
+const virtualSchema = UltimaBase.Schema.define({
 	className: 'PostgresVirtualPersistencePlan',
 	fields: (field) => ({
 		secret: field.string({ required: true }),

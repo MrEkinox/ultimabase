@@ -9,12 +9,13 @@ import {
 	provideCapability,
 	requireCapability,
 } from '../../foundation.js'
-import { Schema } from '../../schema/index.js'
+
 import { FrameworkApplication } from '../../application/framework-application.js'
 import {
 	applicationSchemaMutationSurfaceCapability,
 	type ApplicationSchemaMutationDescriptor,
 } from './application-schema-mutation-surface.js'
+import { UltimaBase } from './ultima-base.js'
 
 const inspectedSurfaceCapability = defineCapability<
 	readonly ApplicationSchemaMutationDescriptor[]
@@ -34,7 +35,7 @@ const mutationSurfaceRequirement = requireCapability(
 
 const defineFixture = (suffix: string) => {
 	let inspected: readonly ApplicationSchemaMutationDescriptor[] = []
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: `SchemaMutationSurface${suffix}`,
 		fields: (field) => ({ title: field.string() }),
 	})

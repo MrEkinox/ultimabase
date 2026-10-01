@@ -1,9 +1,9 @@
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPasswordPrincipal, isPasswordPrincipal } from './principal.js'
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
 	className: 'PasswordPrincipalUser',
 	fields: () => ({}),
 })

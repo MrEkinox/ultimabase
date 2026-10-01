@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizeRuntimeValidationOptions } from '../../runtime/validation/runtime-validation.js'
-import { Schema } from '../schema/definition.js'
 import { SchemaRegistry } from '../schema/registry.js'
 import { normalizeNestedWriteGraph } from './normalization.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Author = Schema.define({
+const Author = UltimaBase.Schema.define({
 	className: 'NestedAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -16,7 +16,7 @@ const Author = Schema.define({
 	}),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'NestedPost',
 	fields: (field) => ({
 		author: field.pointer({ required: true, target: 'NestedAuthor' }),
@@ -26,13 +26,29 @@ const Post = Schema.define({
 	}),
 })
 
-const Tag = Schema.define({
+const Tag = UltimaBase.Schema.define({
 	className: 'NestedTag',
 	fields: (field) => ({ label: field.string({ required: true }) }),
 })
 
 const schemas = new SchemaRegistry([Author, Post, Tag])
 schemas.resolveSchemaTargets()
+
+/** Keeps malformed JavaScript inputs on the Runtime validation path. */
+const normalizeUntrustedGraph = (
+	schema: typeof Author | typeof Post,
+	command: 'create' | 'update',
+	input: unknown,
+	options?: { readonly maxDepth?: number; readonly maxOperations?: number },
+): unknown => {
+	return Reflect.apply(normalizeNestedWriteGraph, undefined, [
+		schemas,
+		schema,
+		command,
+		input,
+		options,
+	]) as unknown
+}
 
 describe('normalizeNestedWriteGraph', () => {
 	it('normalizes application limits and rejects unsafe values', () => {
@@ -172,33 +188,33 @@ describe('normalizeNestedWriteGraph', () => {
 
 	it('rejects unavailable, exclusive, duplicate, and contradictory commands', () => {
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'create', {
+			normalizeUntrustedGraph(Post, 'create', {
 				author: { disconnect: true },
 				title: 'Invalid',
 			}),
 		).toThrow('data.author.disconnect is not available')
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'update', {
+			normalizeUntrustedGraph(Post, 'update', {
 				author: { connect: 'one', update: { name: 'Ada' } },
 			}),
 		).toThrow('data.author must contain one pointer command')
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'update', {
+			normalizeUntrustedGraph(Post, 'update', {
 				tags: { clear: true, connect: ['tag-1'] },
 			}),
 		).toThrow('data.tags replacement command must be exclusive')
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'update', {
+			normalizeUntrustedGraph(Post, 'update', {
 				tags: { set: ['tag-1', 'tag-1'] },
 			}),
 		).toThrow('data.tags.set contains duplicate object IDs')
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'update', {
+			normalizeUntrustedGraph(Post, 'update', {
 				tags: { connect: ['tag-1'], disconnect: ['tag-1'] },
 			}),
 		).toThrow('contradicts another command for object ID "tag-1"')
 		expect(() =>
-			normalizeNestedWriteGraph(schemas, Author, 'update', {
+			normalizeUntrustedGraph(Author, 'update', {
 				posts: { disconnect: ['post-1'] },
 			}),
 		).toThrow('data.posts.disconnect is not available')
@@ -206,25 +222,24 @@ describe('normalizeNestedWriteGraph', () => {
 
 	it('rejects malformed, cyclic, too-deep, and oversized inputs', () => {
 		const unknown = { title: 'Hello', unknown: true }
-		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'create', unknown as never),
-		).toThrow('data.unknown is unknown')
+		expect(() => normalizeUntrustedGraph(Post, 'create', unknown)).toThrow(
+			'data.unknown is unknown',
+		)
 
 		const symbol = Symbol('hidden')
 		const symbolic = { title: 'Hello', [symbol]: true }
-		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'create', symbolic as never),
-		).toThrow('data cannot contain symbol keys')
+		expect(() => normalizeUntrustedGraph(Post, 'create', symbolic)).toThrow(
+			'data cannot contain symbol keys',
+		)
 
 		const cyclic: Record<string, unknown> = { title: 'Root' }
 		cyclic.parent = { create: cyclic }
-		expect(() =>
-			normalizeNestedWriteGraph(schemas, Post, 'create', cyclic),
-		).toThrow('data.parent.create contains cyclic input')
+		expect(() => normalizeUntrustedGraph(Post, 'create', cyclic)).toThrow(
+			'data.parent.create contains cyclic input',
+		)
 
 		expect(() =>
-			normalizeNestedWriteGraph(
-				schemas,
+			normalizeUntrustedGraph(
 				Post,
 				'create',
 				{
@@ -241,8 +256,7 @@ describe('normalizeNestedWriteGraph', () => {
 		).toThrow('Nested write exceeds maxDepth 1')
 
 		expect(() =>
-			normalizeNestedWriteGraph(
-				schemas,
+			normalizeUntrustedGraph(
 				Post,
 				'create',
 				{ author: { connect: 'author-1' }, title: 'Root' },
@@ -256,9 +270,12 @@ describe('normalizeNestedWriteGraph', () => {
 		otherSchemas.resolveSchemaTargets()
 
 		expect(() =>
-			normalizeNestedWriteGraph(otherSchemas, Post, 'create', {
-				title: 'Foreign',
-			}),
+			Reflect.apply(normalizeNestedWriteGraph, undefined, [
+				otherSchemas,
+				Post,
+				'create',
+				{ title: 'Foreign' },
+			]),
 		).toThrow('Nested-write root schema must belong to the application')
 	})
 })

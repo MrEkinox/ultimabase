@@ -2,7 +2,6 @@ import { onTestFinished } from 'vitest'
 import {
 	FrameworkError,
 	RequestContext,
-	Schema,
 	UltimaBase,
 	getCurrentRequest,
 } from '@ultimabase/core'
@@ -20,7 +19,7 @@ import type { GraphqlExecutionLimits } from './connection-limits.js'
 import type { GraphqlApplication } from './application.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
 
-const Hidden = Schema.define({
+const Hidden = UltimaBase.Schema.define({
 	className: 'NetworklessHidden',
 	fields: (field) => ({ value: field.string() }),
 })

@@ -2,7 +2,7 @@ import { applicationFixture } from '../application-fixture.js'
 import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
 import { FrameworkError } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
-import { Schema } from '../../src/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -19,8 +19,9 @@ import {
 	type QueuedAdapterResult,
 	type TransactionFailureOptions,
 } from './fixtures/recording-database-adapter.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'TransactionArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),

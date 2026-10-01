@@ -1,5 +1,5 @@
 import { FrameworkError } from '../../foundation.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -12,8 +12,9 @@ import {
 	protectedPolicy,
 } from './protected-policy.js'
 import { validateProtectedPolicyResultSubset } from './protected-result.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'ProtectedPolicyPost',
 	fields: (field) => ({ secret: field.string(), title: field.string() }),
 })

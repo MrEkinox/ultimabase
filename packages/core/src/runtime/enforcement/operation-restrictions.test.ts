@@ -1,12 +1,13 @@
 import { QueryBuilder } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { enforceOperationRestrictions } from './operation-restrictions.js'
 import { createEnforcementState, narrowEnforcementFields } from './state.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'ScalarSelectionRestriction',
 	fields: (field) => ({ title: field.string() }),
 })

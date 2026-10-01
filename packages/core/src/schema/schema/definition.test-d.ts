@@ -42,4 +42,6 @@ test('keeps the canonical package specialization boundary exact', () => {
 	void Schema.defineWithStatics
 	// @ts-expect-error -- One specialization primitive replaces the former capabilities path.
 	void Schema.defineWithCapabilities
+	// @ts-expect-error -- Ordinary authoring belongs only to a configured application factory.
+	void Schema.define
 })

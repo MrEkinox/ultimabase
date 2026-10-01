@@ -19,9 +19,9 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const SoftDeleteSchemaApplication = UltimaBase.use(accessPlugin())
+const SoftDeleteSchemaApplication = UltimaBase.use(softDeletePlugin())
 	.use(hooksPlugin())
-	.use(softDeletePlugin())
+	.use(accessPlugin({ default: true }))
 
 const VisibleRecord = SoftDeleteSchemaApplication.Schema.define({
 	className: 'SoftDeleteVisibleRecord',
@@ -197,10 +197,7 @@ const getFixture = (): Readonly<{
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture({ prefix: 'soft_delete' })
-	ultimabase = new (UltimaBase.use(
-		softDeletePlugin(),
-		hooksPlugin(),
-		accessPlugin({ default: true }),
+	ultimabase = new (SoftDeleteSchemaApplication.use(
 		staleTombstoneWriter,
 		replaceDeleteObserver,
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),

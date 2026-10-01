@@ -1,7 +1,6 @@
 import {
 	createDatabasePersistencePlan,
 	QueryBuilder,
-	Schema,
 } from '../../../src/index.js'
 import type { DeleteOneOperationAst } from '../../../src/query/index.js'
 import { describe, expect, it } from 'vitest'
@@ -10,8 +9,9 @@ import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from './recording-database-adapter.js'
+import { UltimaBase } from '../../../src/runtime/application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'RecordingAdapterArticle',
 	fields: (field) => ({ title: field.string() }),
 })

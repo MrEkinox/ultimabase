@@ -18,7 +18,7 @@ import {
 	defineSchemaMutation,
 } from '../../src/foundation.js'
 import type { SchemaDefinition } from '../../src/schema/index.js'
-import { Schema, stringField } from '../../src/schema/index.js'
+import { stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 import { provideRuntimeConstraint } from '../../src/runtime/capabilities.js'
 import {
@@ -62,7 +62,7 @@ export const createUpdateFixture = async (options: {
 	readonly start?: boolean
 }) => {
 	fixtureIndex += 1
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: `SchemaMutationRuntimePost${String(fixtureIndex)}`,
 		fields: (field) => ({ title: field.string() }),
 	})
@@ -235,7 +235,7 @@ export const createMasterDeleteFixture = async (
 	result: QueuedAdapterResult,
 ) => {
 	fixtureIndex += 1
-	const Post = Schema.define({
+	const Post = UltimaBase.Schema.define({
 		className: `SchemaMutationMasterPost${String(fixtureIndex)}`,
 		fields: (field) => ({ title: field.string() }),
 	})

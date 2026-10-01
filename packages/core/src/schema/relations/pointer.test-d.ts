@@ -2,17 +2,17 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	Pointer,
-	Schema,
 	type PointerJSON,
 	type PointerValue,
 	type QueryResult,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const userSchema = Schema.define({
+const userSchema = UltimaBase.Schema.define({
 	className: 'PointerUser',
 	fields: () => ({}),
 })
-const otherSchema = Schema.define({
+const otherSchema = UltimaBase.Schema.define({
 	className: 'PointerOther',
 	fields: () => ({}),
 })

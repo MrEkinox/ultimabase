@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { WhereBuilder, type WhereInput } from '../filters/where.js'
@@ -12,8 +11,9 @@ import {
 	upsertSchemaRecord,
 	upsertSchemaRecords,
 } from './schema-command-execution.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'SchemaCommandPost',
 	fields: (field) => ({
 		published: field.boolean(),
@@ -22,7 +22,7 @@ const Post = Schema.define({
 	}),
 })
 
-const ForeignPost = Schema.define({
+const ForeignPost = UltimaBase.Schema.define({
 	className: 'ForeignSchemaCommandPost',
 	fields: (field) => ({ title: field.string() }),
 })
@@ -133,6 +133,7 @@ describe('schema command execution boundaries', () => {
 				where: { id: { eq: 'post-1' } },
 				data: { title: 'Updated' },
 				// This assertion models an untyped transport returning an unknown field.
+				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -147,6 +148,7 @@ describe('schema command execution boundaries', () => {
 			createSchemaRecord(Post, {
 				data: { title: 'Created' },
 				// This assertion models an untyped transport returning an unknown field.
+				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -154,6 +156,7 @@ describe('schema command execution boundaries', () => {
 			deleteSchemaRecord(Post, {
 				where: { id: { eq: 'post-1' } },
 				// This assertion models an untyped transport returning an unknown field.
+				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -161,6 +164,7 @@ describe('schema command execution boundaries', () => {
 			updateSchemaRecords(Post, {
 				data: [{ where: { id: { eq: 'post-1' } }, data: { title: 'Updated' } }],
 				// This assertion models an untyped transport returning an unknown field.
+				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -168,12 +172,14 @@ describe('schema command execution boundaries', () => {
 			deleteSchemaRecords(Post, {
 				where: [{ id: { eq: 'post-1' } }],
 				// This assertion models an untyped transport returning an unknown field.
+				// @ts-expect-error -- Source typing also rejects the unknown selection.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			createSchemaRecords(Post, {
 				data: [{ title: 'Created' }],
+				// @ts-expect-error -- Runtime still rejects selections from untyped callers.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -182,6 +188,7 @@ describe('schema command execution boundaries', () => {
 				where: { id: { eq: 'post-1' } },
 				create: { title: 'Created' },
 				update: { title: 'Updated' },
+				// @ts-expect-error -- Runtime still rejects selections from untyped callers.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
@@ -194,6 +201,7 @@ describe('schema command execution boundaries', () => {
 						update: { title: 'Updated' },
 					},
 				],
+				// @ts-expect-error -- Runtime still rejects selections from untyped callers.
 				select: { missing: true },
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))

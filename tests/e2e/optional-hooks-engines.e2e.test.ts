@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
-	Schema,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -72,14 +71,14 @@ const createBehaviorSupportPlugin = () =>
 	})
 
 const createAlternativeFixture = () => {
-	const Post = Schema.define({
+	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })
+	const Post = UltimaBase.use(engine.plugin).Schema.define({
 		className: 'AlternativeBehaviorPost',
 		alternativeBehavior: alternativeBehavior({ label: 'editorial' }),
 		fields: (field) => ({
 			title: field.string({ required: true }),
 		}),
 	})
-	const engine = createAlternativeBehaviorEngine({ instanceId: 'typed' })
 	const observer = createAlternativeBehaviorDiagnosticObserver(() => undefined)
 
 	return { engine, observer, Post }
@@ -87,7 +86,7 @@ const createAlternativeFixture = () => {
 
 describe('optional Hooks engine proof', () => {
 	it('keeps no-Hooks inspection and generated contracts free of official vocabulary', async () => {
-		const Plain = Schema.define({
+		const Plain = UltimaBase.Schema.define({
 			className: 'NoHooksGeneratedPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -170,13 +169,13 @@ describe('optional Hooks engine proof', () => {
 
 	it('keeps alternative Runtime state isolated and disposes each application', async () => {
 		const disposed: string[] = []
-		const Post = Schema.define({
+		const engine = createAlternativeBehaviorEngine({
+			onDispose: () => disposed.push('disposed'),
+		})
+		const Post = UltimaBase.use(engine.plugin).Schema.define({
 			className: 'AlternativeBehaviorIsolationPost',
 			alternativeBehavior: alternativeBehavior({ label: 'isolated' }),
 			fields: (field) => ({ title: field.string() }),
-		})
-		const engine = createAlternativeBehaviorEngine({
-			onDispose: () => disposed.push('disposed'),
 		})
 		const database = createBehaviorSupportPlugin()
 		const first = new (UltimaBase.use(database, engine.plugin))({
@@ -207,7 +206,7 @@ describe('optional Hooks engine proof', () => {
 	})
 
 	it('separates official-compatible providers from independent alternatives', async () => {
-		const OfficialPost = Schema.define({
+		const OfficialPost = UltimaBase.Schema.define({
 			className: 'OfficialCompatiblePost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -292,7 +291,7 @@ describe('optional Hooks engine proof', () => {
 
 	it('composes shared low-level middleware without either lifecycle engine', async () => {
 		const trace: string[] = []
-		const Plain = Schema.define({
+		const Plain = UltimaBase.Schema.define({
 			className: 'SharedMiddlewareNoHooksPost',
 			fields: (field) => ({ title: field.string() }),
 		})

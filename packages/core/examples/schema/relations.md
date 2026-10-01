@@ -5,7 +5,7 @@ array to ordinary model values.
 
 ```ts
 import {
-	Schema,
+	UltimaBase,
 	type InferCreateInput,
 	type InferObject,
 	type RequestContextValue,
@@ -14,7 +14,7 @@ import {
 
 declare const currentUserId: RequestContextValue<string>
 
-export const UserSchema = Schema.define({
+export const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string({ required: true }),
@@ -25,7 +25,7 @@ export const UserSchema = Schema.define({
 	}),
 })
 
-export const PostSchema = Schema.define({
+export const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
@@ -36,7 +36,7 @@ export const PostSchema = Schema.define({
 	}),
 })
 
-export const ConversationSchema = Schema.define({
+export const ConversationSchema = UltimaBase.Schema.define({
 	className: 'Conversation',
 	fields: (field) => ({
 		participants: field.relation({ target: 'User' }),

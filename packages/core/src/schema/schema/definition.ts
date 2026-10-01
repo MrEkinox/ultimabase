@@ -91,7 +91,7 @@ export type SchemaVirtualFields = Readonly<Record<string, GenericVirtualField>>
  * Collects schema-scoped plugin metadata in deterministic declaration order.
  */
 /**
- * Describes the developer input accepted by `Schema.define()`.
+ * Describes the developer input accepted by `App.Schema.define()`.
  */
 export interface SchemaOptions<
 	TClassName extends string = string,
@@ -128,7 +128,7 @@ export interface SchemaMetadata<
 	TClassName extends string = string,
 	TFields extends SchemaDeclaredFields = SchemaDeclaredFields,
 > {
-	/** The exact logical class name supplied to `Schema.define()`. */
+	/** The exact logical class name supplied to `App.Schema.define()`. */
 	readonly className: TClassName
 	/** The ordered adapter-neutral constraints contributed during compilation. */
 	readonly constraints: readonly SchemaConstraintDefinition[]
@@ -367,7 +367,7 @@ const defineSchemaModel = <
  *
  * @example
  * ```ts
- * const Post = Schema.define({
+ * const Post = UltimaBase.Schema.define({
  *   className: "Post",
  *   fields: (field) => ({
  *     title: field.string({ required: true }),
@@ -379,15 +379,17 @@ const defineSchemaModel = <
  * const posts = await Post.findMany({ select: { id: true, title: true } })
  * ```
  */
-// A static class deliberately provides the class-first `Schema.define()` namespace.
+// The low-level class retains specialization and identity checks, not ordinary authoring.
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class Schema {
 	private constructor() {
-		throw new TypeError('Use Schema.define() to declare a schema model class')
+		throw new TypeError(
+			'Use UltimaBase.Schema.define() to declare a schema model class',
+		)
 	}
 
 	/**
-	 * Checks whether an untrusted value was created through `Schema.define()`.
+	 * Checks whether an untrusted value is a declared schema model class.
 	 *
 	 * @example `if (Schema.is(value)) console.log(value.className)`
 	 */
@@ -400,39 +402,12 @@ export class Schema {
 	}
 
 	/**
-	 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
-	 *
-	 * @example
-	 * ```ts
-	 * const Post = Schema.define({
-	 *   className: "Post",
-	 *   fields: (field) => ({ title: field.string() }),
-	 * })
-	 * ```
-	 */
-	static define<
-		const TClassName extends string,
-		const TFields extends SchemaFields,
-	>(
-		options: SchemaOptions<TClassName, TFields> &
-			ReservedSchemaFieldCollision<NoInfer<TFields>>,
-	): SchemaReference<TClassName> {
-		const schema = defineSchemaModel<TClassName, TFields>(options)
-		finalizeSchemaModelClass(schema)
-		Object.freeze(schema)
-
-		// Standalone declarations retain their generated-or-bootstrap compatibility
-		// contract until issue 6314 removes this migration entry point.
-		return schema as unknown as SchemaReference<TClassName>
-	}
-
-	/**
 	 * Defines one package-specialized schema with static helpers and persisted commands.
 	 *
 	 * Result commands are absent from drafts at the type level and validate trusted
 	 * persisted identity at runtime. Packages retain ordinary QueryBuilder and relation
 	 * execution rather than receiving an adapter or application escape hatch. Ordinary
-	 * application schemas should continue to use `Schema.define()`.
+	 * application schemas should use `App.Schema.define()`.
 	 *
 	 * @example
 	 * `Schema.defineSpecialized(options, ({ schema }) => ({ statics: { byId: schema.pointer }, results: {} }))`
@@ -487,4 +462,18 @@ export class Schema {
 		return specializedSchema as typeof specializedSchema &
 			SchemaResultCapabilityCarrier<TResults>
 	}
+}
+
+/** @internal Builds ordinary configured schemas through the same Core compiler. */
+export const defineOrdinarySchemaModel = <
+	const TClassName extends string,
+	const TFields extends SchemaFields,
+>(
+	options: SchemaOptions<TClassName, TFields> &
+		ReservedSchemaFieldCollision<NoInfer<TFields>>,
+): SchemaReference<TClassName> => {
+	const schema = defineSchemaModel<TClassName, TFields>(options)
+	finalizeSchemaModelClass(schema)
+	Object.freeze(schema)
+	return schema as unknown as SchemaReference<TClassName>
 }

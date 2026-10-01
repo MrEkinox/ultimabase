@@ -1,13 +1,13 @@
-import { Schema, SchemaRegistry } from '@ultimabase/core'
+import { SchemaRegistry, UltimaBase } from '@ultimabase/core'
 import type { SchemaDefinition, SchemaTargetGraph } from '@ultimabase/core'
 
 import { PostgresSchemaCatalog } from './catalog.js'
 
-const User: SchemaDefinition = Schema.define({
+const User: SchemaDefinition = UltimaBase.Schema.define({
 	className: 'PointerUser',
 	fields: (field) => ({ name: field.string() }),
 })
-const Post: SchemaDefinition = Schema.define({
+const Post: SchemaDefinition = UltimaBase.Schema.define({
 	className: 'PointerPost',
 	fields: (field) => ({
 		author: field.pointer({

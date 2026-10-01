@@ -2,7 +2,6 @@ import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
 	RequestContextValue,
-	Schema,
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	databaseAdapterCapability,
@@ -45,7 +44,7 @@ const record = {
 	updatedAt: '2026-09-05T10:00:00.000Z',
 }
 
-const RecordSchema = Schema.define({
+const RecordSchema = UltimaBase.Schema.define({
 	className: 'RestExecutedRecord',
 	fields: (field) => ({ title: field.string() }),
 })

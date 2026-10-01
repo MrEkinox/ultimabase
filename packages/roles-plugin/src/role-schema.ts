@@ -1,5 +1,6 @@
 import {
 	Schema,
+	UltimaBase,
 	relationField,
 	stringField,
 	type RequestRoleReferenceCarrier,
@@ -294,7 +295,7 @@ export const getRoleSchemaDeclaration = (
 ): RoleSchemaDeclaration | undefined => roleSchemaDeclarations.get(schema)
 
 /** Declares role-specialized schema model classes without owning persistence. */
-// A static class keeps role schema declaration aligned with `Schema.define()`.
+// A static class keeps role schema declaration aligned with configured schema factories.
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class RoleSchema {
 	private constructor() {
@@ -374,9 +375,11 @@ export class RoleSchema {
 				TMemberSchema,
 				TCustomFields
 			>)
+		// Configured factories inherit this one frozen namespace; the bare Schema
+		// class is no longer an authoring namespace.
 		if (
 			configuredOptions !== undefined &&
-			!Object.is(optionsOrSchema, Schema)
+			!Object.is(optionsOrSchema, UltimaBase.Schema)
 		) {
 			throw new TypeError(
 				'RoleSchema configured declarations require an UltimaBase Schema namespace',
@@ -392,7 +395,7 @@ export class RoleSchema {
 			...generatedOptions
 		} = options
 		if (!Schema.is(members.schema)) {
-			throw new TypeError('members.schema must be created by Schema.define')
+			throw new TypeError('members.schema must be created by App.Schema.define')
 		}
 
 		const configuredDeletionPolicy: unknown =

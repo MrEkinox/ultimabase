@@ -1,6 +1,5 @@
 import {
 	UltimaBase,
-	Schema,
 	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -19,7 +18,7 @@ import {
 	type TypegenApplicationSnapshot,
 } from './index.js'
 
-const Document = Schema.define({
+const Document = UltimaBase.Schema.define({
 	className: 'TypegenPublicTypeDocument',
 	fields: (field) => ({
 		title: field.string(),

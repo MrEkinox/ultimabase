@@ -1,7 +1,7 @@
 import { applicationFixture } from '../../../tests/application-fixture.js'
 import { FrameworkError } from '../../foundation.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import type { DatabaseOperationExecutor } from '../database/contracts.js'
@@ -15,8 +15,9 @@ import {
 } from './active-framework-context.js'
 import { requestSources } from './request-context.js'
 import { getCurrentUltimaBase } from './current-ultima-base.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'ScopedArticle',
 	fields: (field) => ({ title: field.string() }),
 })

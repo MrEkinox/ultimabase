@@ -243,7 +243,7 @@ const createPointerSnapshot =
 		const expectedTarget = target()
 
 		if (!Schema.is(expectedTarget)) {
-			throw new TypeError(`${path} target must be created by Schema.define`)
+			throw new TypeError(`${path} target must be created by App.Schema.define`)
 		}
 
 		if (pointer.schema !== expectedTarget) {

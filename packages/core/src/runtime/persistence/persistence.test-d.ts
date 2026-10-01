@@ -7,16 +7,16 @@ import {
 	providePersistencePlanRewriter,
 	QueryBuilder,
 	rewriteDeletePersistencePlan,
-	Schema,
 	type DatabasePersistencePlan,
 	type PersistencePlanOperationKind,
 } from '../../index.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistenceTypeArticle',
 	fields: (field) => ({ deleted: field.boolean() }),
 })
-const noteSchema = Schema.define({
+const noteSchema = UltimaBase.Schema.define({
 	className: 'PersistenceTypeNote',
 	fields: (field) => ({ deleted: field.boolean() }),
 })

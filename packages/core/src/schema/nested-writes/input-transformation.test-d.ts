@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	transformSchemaMutationDataInput,
 	type GenericField,
 	type SchemaMutationDataFieldInput,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 test('exports one precisely typed mutation field boundary', () => {
-	const Article = Schema.define({
+	const Article = UltimaBase.Schema.define({
 		className: 'MutationTransformationTypeArticle',
 		fields: (field) => ({ title: field.string() }),
 	})

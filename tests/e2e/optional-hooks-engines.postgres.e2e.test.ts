@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 
-import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase, requestSources } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -46,20 +46,24 @@ afterAll(async () => {
 describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 	it('executes TypeScript CRUD with no lifecycle or policy engine', async () => {
 		const middlewareTrace: string[] = []
-		const Post = Schema.define({
+		const Application = UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			createSharedRuntimeMiddleware((schema) => middlewareTrace.push(schema)),
+		)
+		const Post = Application.Schema.define({
 			className: 'TypeScriptNoEnginePost',
 			fields: (field) => ({
 				title: field.string({ required: true }),
 			}),
 			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
-		const ultimabase = new (UltimaBase.use(
-			postgresPlugin({
-				pool: getFixture().pool,
-				schemaPolicy: 'override',
-			}),
-			createSharedRuntimeMiddleware((schema) => middlewareTrace.push(schema)),
-		))({ pluginPrivileges: { logger: false }, schemas: [Post] })
+		const ultimabase = new Application({
+			pluginPrivileges: { logger: false },
+			schemas: [Post],
+		})
 		await ultimabase.start()
 
 		try {
@@ -165,14 +169,6 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			readonly payload: AlternativeBehaviorDiagnosticPayload
 			readonly transactionId: string
 		}>[] = []
-		const Post = Schema.define({
-			className: 'AlternativePostgresPost',
-			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
-			fields: (field) => ({
-				title: field.string({ required: true }),
-			}),
-			postgres: { table: 'optional_hooks_alternative_posts' },
-		})
 		const engine = createAlternativeBehaviorEngine({ instanceId: 'postgres' })
 		const observer = createAlternativeBehaviorDiagnosticObserver(
 			({ event }) => {
@@ -182,14 +178,23 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				})
 			},
 		)
-		const ultimabase = new (UltimaBase.use(
+		const Application = UltimaBase.use(
 			postgresPlugin({
 				pool: getFixture().pool,
 				schemaPolicy: 'override',
 			}),
 			observer,
 			engine.plugin,
-		))({
+		)
+		const Post = Application.Schema.define({
+			className: 'AlternativePostgresPost',
+			alternativeBehavior: alternativeBehavior({ label: 'publishing' }),
+			fields: (field) => ({
+				title: field.string({ required: true }),
+			}),
+			postgres: { table: 'optional_hooks_alternative_posts' },
+		})
+		const ultimabase = new Application({
 			pluginPrivileges: { logger: false },
 			schemas: [Post],
 		})

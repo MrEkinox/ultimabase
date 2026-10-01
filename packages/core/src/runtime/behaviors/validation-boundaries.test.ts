@@ -13,7 +13,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 } from '../../query/index.js'
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
 	immutableArray,
@@ -31,6 +31,7 @@ import {
 } from '../operations/model-metadata.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
 import { createRuntimeBehaviorBoundaries } from './validation-boundaries.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const fixedInstant = new Date('2026-08-02T12:34:56.000Z')
 const generatedId = '00000000-0000-7000-8000-000000000001'
@@ -40,7 +41,7 @@ const requestContext = RequestContext.anonymous({
 })
 
 const createFixtureSchema = (defaultTitle: () => string) =>
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'BoundaryArticle',
 		fields: (field) => ({
 			metadata: field.json(),
@@ -293,6 +294,7 @@ describe('runtime behavior boundaries', () => {
 		const current = immutableRecord({ ...completeRecord, published: true })
 		const sourceOutcome = {
 			materializations: [{ current, kind: 'update', previous: completeRecord }],
+			// @ts-expect-error -- Runtime must reject adapter fields outside the selected result.
 			result: { id: generatedId, title: 'Private dependency' },
 		} satisfies DatabaseOperationOutcome<typeof operation>
 		const boundaries = createRuntimeBehaviorBoundaries()
@@ -309,7 +311,7 @@ describe('runtime behavior boundaries', () => {
 	})
 
 	it('keeps arithmetic outcome snapshots structural-only', () => {
-		const schema = Schema.define({
+		const schema = UltimaBase.Schema.define({
 			className: 'ArithmeticOutcome',
 			fields: (field) => ({
 				score: field.int({ required: true }),
@@ -480,14 +482,14 @@ describe('runtime behavior boundaries', () => {
 
 	it('preserves the effective protected target projection across included-result snapshots', () => {
 		const targetId = '00000000-0000-7000-8000-000000000002'
-		const target = Schema.define({
+		const target = UltimaBase.Schema.define({
 			className: 'BoundaryIncludedTarget',
 			fields: (field) => ({
 				name: field.string(),
 				secret: field.string({ required: true }),
 			}),
 		})
-		const source = Schema.define({
+		const source = UltimaBase.Schema.define({
 			className: 'BoundaryIncludedSource',
 			fields: (field) => ({
 				target: field.pointer({ target: 'BoundaryIncludedTarget' }),

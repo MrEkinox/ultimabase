@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	plugin,
 	provideRuntimeBehavior,
-	Schema,
 	UltimaBase,
 	type PluginDefinition,
 } from '@ultimabase/core'
@@ -19,7 +18,7 @@ import {
 	type DeterministicDatabaseCounts,
 } from './deterministic-database.js'
 
-const MeasuredPost = Schema.define({
+const MeasuredPost = UltimaBase.Schema.define({
 	className: 'RuntimeCostMeasuredPost',
 	fields: (field) => ({ title: field.string() }),
 })

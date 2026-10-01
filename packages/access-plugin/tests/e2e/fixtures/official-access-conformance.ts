@@ -4,12 +4,7 @@ import {
 	provideAccessContributions,
 	schemaAccess,
 } from '@ultimabase/access-plugin'
-import {
-	plugin,
-	Schema,
-	UltimaBase,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { plugin, UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -130,11 +125,11 @@ export const getOfficialAccessConformanceEvidence = (
 
 /** Builds one malformed Access provider whose field identity cannot resolve. */
 export const createInvalidAccessProviderFixture = () => {
-	const Inside = Schema.define({
+	const Inside = UltimaBase.Schema.define({
 		className: 'InvalidAccessConformanceInside',
 		fields: (field) => ({ title: field.string() }),
 	})
-	const Outside = Schema.define({
+	const Outside = UltimaBase.Schema.define({
 		className: 'InvalidAccessConformanceOutside',
 		fields: (field) => ({ title: field.string() }),
 	})

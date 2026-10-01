@@ -7,7 +7,6 @@ import {
 	decrement,
 	increment,
 	MasterAuthority,
-	Schema,
 	UltimaBase,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -39,7 +38,8 @@ let updateResolution: CapturedUpdateResolution | undefined
 let rollbackResolution: CapturedUpdateResolution | undefined
 let resolutionCount = 0
 
-const ResolutionPost = Schema.define({
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+const ResolutionPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLInputResolutionPost',
 	fields: (field) => ({
 		balance: field.decimal({ default: '10.00' }),

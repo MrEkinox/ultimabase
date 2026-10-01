@@ -7,11 +7,11 @@ import {
 	compilePostgresConstraintPredicate,
 	postgresConstraintCompiler,
 } from './definition.js'
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 
 const schema = compilePostgresSchema(
-	Schema.define({
+	UltimaBase.Schema.define({
 		className: 'ConstraintArticle',
 		fields: (field) => ({ tenantId: field.string() }),
 	}),

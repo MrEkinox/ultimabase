@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import {
 	queryFromCountInput,
 	queryFromFindManyInput,
@@ -8,15 +8,16 @@ import {
 	queryFromGetInput,
 } from './input.js'
 import { QueryBuilder } from './query.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Author = Schema.define({
+const Author = UltimaBase.Schema.define({
 	className: 'ReadInputAuthor',
 	fields: (field) => ({
 		name: field.string({ required: true }),
 	}),
 })
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'ReadInputPost',
 	fields: (field) => ({
 		author: field.pointer({
@@ -27,7 +28,7 @@ const Post = Schema.define({
 	}),
 })
 
-const Feed = Schema.define({
+const Feed = UltimaBase.Schema.define({
 	className: 'ReadInputFeed',
 	fields: (field) => ({
 		name: field.string(),

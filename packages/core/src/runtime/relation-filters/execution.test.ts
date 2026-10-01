@@ -5,7 +5,6 @@ import {
 	contributeDeclarations,
 	relationField,
 	type RelationWhereResolver,
-	Schema,
 } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { describe, expect, it } from 'vitest'
@@ -23,6 +22,7 @@ import { createFrameworkEngine } from '../application/create-framework-engine.js
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { RuntimeRelationFilterResolver } from './execution.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const sourceId = '0198f090-2a50-7000-8000-000000000091'
 const targetId = '0198f090-2a50-7000-8000-000000000092'
@@ -50,11 +50,11 @@ const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 
 describe('Runtime relation filters', () => {
 	it('applies a precompiled static declaration without a caller predicate', async () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'StaticRelationTarget',
 			fields: (field) => ({ visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'StaticRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
@@ -95,25 +95,25 @@ describe('Runtime relation filters', () => {
 
 	it('resolves every direct terminal under its exact context and keeps caller syntax separate', async () => {
 		const contexts: RequestContext[] = []
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'FilteredRelationTarget',
 			fields: (field) => ({
 				label: field.string(),
 				visibility: field.string(),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'FilteredRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'FilteredRelationTarget',
-					where: (({ context, where }) => {
+					where: ({ context, where }) => {
 						contexts.push(context)
 						const principal = context.getValue(principalValue)
 						return context.access.mode === 'master'
 							? where.eq('visibility', 'master')
 							: where.ne('id', principal?.id ?? 'anonymous')
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -215,22 +215,21 @@ describe('Runtime relation filters', () => {
 
 	it('fails invalid synchronous results and cancellation before adapter work', async () => {
 		let invocations = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'InvalidRelationTarget',
 			fields: (field) => ({ label: field.string() }),
 		})
-		const asyncResolver = (({
-			where,
-		}: Parameters<RelationWhereResolver<typeof Target>>[0]) => {
+		const asyncResolver = ({ where }: Parameters<RelationWhereResolver>[0]) => {
 			invocations += 1
 			return Promise.resolve(where.eq('label', 'invalid'))
-		}) as unknown as RelationWhereResolver<typeof Target>
-		const Source = Schema.define({
+		}
+		const Source = UltimaBase.Schema.define({
 			className: 'InvalidRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'InvalidRelationTarget',
-					where: asyncResolver,
+					// The asynchronous result is deliberately invalid for the Runtime guard.
+					where: asyncResolver as never,
 				}),
 			}),
 		})
@@ -274,22 +273,22 @@ describe('Runtime relation filters', () => {
 
 	it('runs traversal and target policy before shaping, then ANDs protected row scope', async () => {
 		const trace: string[] = []
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'OrderedRelationTarget',
 			fields: (field) => ({
 				label: field.string(),
 				visibility: field.string(),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'OrderedRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'OrderedRelationTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						trace.push('relation-where')
 						return where.eq('visibility', 'declared')
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -362,19 +361,19 @@ describe('Runtime relation filters', () => {
 
 	it('reuses one normalized expression within an operation and isolates application lifetimes', async () => {
 		let invocations = 0
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'CachedRelationTarget',
 			fields: (field) => ({ label: field.string() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'CachedRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'CachedRelationTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						invocations += 1
 						return where.eq('label', 'cached')
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -415,19 +414,19 @@ describe('Runtime relation filters', () => {
 	it('never evaluates read shaping for physical membership commands', async () => {
 		let invocations = 0
 		const now = '2026-09-11T10:00:00.000Z'
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'MutationRelationTarget',
 			fields: (field) => ({ label: field.string() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'MutationRelationSource',
 			fields: (field) => ({
 				targets: field.relation({
 					target: 'MutationRelationTarget',
-					where: (({ where }) => {
+					where: ({ where }) => {
 						invocations += 1
 						return where.eq('label', 'visible')
-					}) as RelationWhereResolver<typeof Target>,
+					},
 				}),
 			}),
 		})
@@ -501,11 +500,11 @@ describe('Runtime relation filters', () => {
 	})
 
 	it('attributes a plugin-contributed relation resolver to its exact instance', async () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'AttributedRelationTarget',
 			fields: (field) => ({ visible: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'AttributedRelationSource',
 			fields: () => ({}),
 		})
@@ -556,11 +555,18 @@ describe('Runtime relation filters', () => {
 			requestId: 'attributed-relation-filter',
 			source: requestSources.internal,
 		})
-		const source = materializeSchemaModel(Source, { id: sourceId })
+		const source = materializeSchemaModel(Source, {
+			id: sourceId,
+		}) as unknown as {
+			// The plugin contributes this relation only during Runtime compilation.
+			readonly relation: (fieldName: string) => {
+				readonly count: () => Promise<number>
+			}
+		}
 
 		try {
 			await runWithRequestEngine(request, () =>
-				source.relation('targets' as never).count(),
+				source.relation('targets').count(),
 			)
 			expect(observedOwner).toStrictEqual({
 				instanceId: 'primary',

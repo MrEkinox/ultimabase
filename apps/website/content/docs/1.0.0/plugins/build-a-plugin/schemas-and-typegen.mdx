@@ -77,7 +77,7 @@ boundary: `Schema.defineSpecialized()`. The capability factory returns
 class. Result commands are available only on trusted persisted models, never on
 drafts.
 
-Keep `Schema.define()` as the application-facing path. A specialization does
+Keep `App.Schema.define()` as the ordinary application-facing path. A specialization does
 not receive an application, adapter, authority, or mutable prototype, and it
 does not register its class automatically. The former separate statics-only
 and class-capability methods are removed rather than retained as aliases.

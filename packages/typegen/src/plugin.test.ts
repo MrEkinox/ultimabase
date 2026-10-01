@@ -4,7 +4,6 @@ import path from 'node:path'
 
 import {
 	UltimaBase,
-	Schema,
 	PluginGraph,
 	plugin,
 	contributeApplication,
@@ -82,7 +81,7 @@ describe('typegenPlugin', () => {
 			'.ultimabase',
 			'schema.generated.d.ts',
 		)
-		const Todo = Schema.define({
+		const Todo = UltimaBase.Schema.define({
 			className: 'GeneratedTodo',
 			fields: (field) => ({
 				title: field.string({ required: true }),

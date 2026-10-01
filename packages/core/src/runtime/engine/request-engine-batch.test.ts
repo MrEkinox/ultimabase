@@ -6,12 +6,13 @@ import {
 	executeOperationBatch,
 	runWithQueryExecution,
 } from '../../query/operations/execution.js'
-import { Schema } from '../../schema/index.js'
+
 import type { DatabaseAdapter } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine } from './framework-engine.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const BatchItem = Schema.define({
+const BatchItem = UltimaBase.Schema.define({
 	className: 'BatchItem',
 	fields: (field) => ({ value: field.string() }),
 })

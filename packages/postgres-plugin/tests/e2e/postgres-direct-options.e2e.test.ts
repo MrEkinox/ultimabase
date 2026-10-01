@@ -2,29 +2,17 @@ import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { UltimaBase, Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import {
 	postgresPlugin,
-	type PostgresFieldOption,
 	type PostgresPool,
 	type PostgresPoolClient,
-	type PostgresSchemaOption,
 } from '@ultimabase/postgres-plugin'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
-
-declare module '@ultimabase/core' {
-	interface UltimaBaseGeneratedFieldOptions {
-		readonly postgres?: PostgresFieldOption
-	}
-
-	interface UltimaBaseGeneratedSchemaOptions {
-		readonly postgres?: PostgresSchemaOption
-	}
-}
 
 const pool: PostgresPool = {
 	connect: (): Promise<PostgresPoolClient> =>
@@ -86,14 +74,15 @@ Other.Schema.define({
 })
 
 it('generates and packs exact PostgreSQL option autocomplete', async () => {
-	const Post = Schema.define({
+	const Application = UltimaBase.use(postgresPlugin({ pool }))
+	const Post = Application.Schema.define({
 		className: 'GeneratedPostgresOptionPost',
 		fields: (field) => ({
 			title: field.string({ postgres: { renamedFrom: 'headline' } }),
 		}),
 		postgres: { table: 'generated_posts' },
 	})
-	const ultimabase = new (UltimaBase.use(postgresPlugin({ pool })))({
+	const ultimabase = new Application({
 		pluginPrivileges: { logger: false },
 		schemas: [Post],
 	})
@@ -108,13 +97,15 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 	const schemaMarker = '/* postgres-schema */'
 	const fieldMarker = '/* postgres-field */'
 	const sourceWithMarkers = `${generated.contents}
-import { Schema } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import type { PostgresAdapterMetadata } from '@ultimabase/postgres-plugin'
 // @ts-expect-error Migration metadata was removed by ADR-0266.
 void (undefined as unknown as PostgresAdapterMetadata).migrations
 declare const postgresField: Plugin0_PostgresFieldOption
 declare const postgresSchema: Plugin0_PostgresSchemaOption
-const GeneratedPost = Schema.define({
+const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture' }))
+const GeneratedPost = App.Schema.define({
   className: 'GeneratedPostgresOptionPost',
   fields: (field) => ({
     title: field.string({ postgres: { ${fieldMarker}...postgresField } }),
@@ -193,8 +184,8 @@ it('keeps PostgreSQL options unknown without generated plugin declarations', () 
 		import.meta.dirname,
 		'postgres-direct-options.missing-plugin.fixture.ts',
 	)
-	const source = `import { Schema } from '@ultimabase/core'
-Schema.define({
+	const source = `import { UltimaBase } from '@ultimabase/core'
+UltimaBase.Schema.define({
   className: 'MissingPostgresPlugin',
   fields: (field) => ({
     title: field.string({ postgres: { renamedFrom: 'headline' } }),

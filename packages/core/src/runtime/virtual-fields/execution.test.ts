@@ -8,7 +8,7 @@ import {
 import { plugin as createPlugin, contributeDeclarations } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
-import { Pointer, Schema, SchemaRegistry } from '../../schema/index.js'
+import { Pointer, SchemaRegistry } from '../../schema/index.js'
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -28,6 +28,7 @@ import { RequestContext, requestSources } from '../context/request-context.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { bindRuntimeVirtualFields } from './binding.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'virtual-runtime',
@@ -103,7 +104,7 @@ describe('Runtime virtual fields', () => {
 		let resolverItem: Readonly<Record<string, unknown>> | undefined
 		let resolverContext: RequestContext | undefined
 		let resolverOwner: unknown
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeUser',
 			fields: (field) => ({
 				firstName: field.string({ required: true }),
@@ -177,7 +178,7 @@ describe('Runtime virtual fields', () => {
 
 	it('attributes a plugin-owned schema resolver to its exact instance', async () => {
 		let owner: unknown
-		const Audit = Schema.define({
+		const Audit = UltimaBase.Schema.define({
 			className: 'VirtualPluginAudit',
 			fields: (field) => ({
 				message: field.string({ required: true }),
@@ -243,7 +244,7 @@ describe('Runtime virtual fields', () => {
 
 	it('honors complete and excluded virtual selections', async () => {
 		let resolutions = 0
-		const Entry = Schema.define({
+		const Entry = UltimaBase.Schema.define({
 			className: 'VirtualSelectionEntry',
 			fields: (field) => ({
 				label: field.string({ required: true }),
@@ -289,7 +290,7 @@ describe('Runtime virtual fields', () => {
 	})
 
 	it('resolves eager pointer and relation targets from independent private views', async () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'VirtualIncludedTarget',
 			fields: (field) => ({
 				name: field.string({ required: true }),
@@ -302,7 +303,7 @@ describe('Runtime virtual fields', () => {
 				}),
 			}),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'VirtualIncludedSource',
 			fields: (field) => ({
 				author: field.pointer({ target: 'VirtualIncludedTarget' }),
@@ -377,7 +378,7 @@ describe('Runtime virtual fields', () => {
 	it('rejects invalid output before commit and preserves cancellation', async () => {
 		const controller = new AbortController()
 		let commits = 0
-		const Invalid = Schema.define({
+		const Invalid = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeInvalid',
 			fields: (field) => ({
 				value: field.int({ required: true }),
@@ -424,7 +425,7 @@ describe('Runtime virtual fields', () => {
 
 	it('resolves mutation outputs before the commit stage', async () => {
 		const trace: string[] = []
-		const Mutation = Schema.define({
+		const Mutation = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeMutation',
 			fields: (field) => ({
 				value: field.int({ required: true }),
@@ -490,7 +491,7 @@ describe('Runtime virtual fields', () => {
 	})
 
 	it('rejects recursive resolution through the shared callback boundary', async () => {
-		const Recursive = Schema.define({
+		const Recursive = UltimaBase.Schema.define({
 			className: 'VirtualRuntimeRecursive',
 			fields: (field) => ({
 				value: field.int({ required: true }),

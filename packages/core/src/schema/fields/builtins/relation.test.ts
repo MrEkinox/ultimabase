@@ -4,10 +4,10 @@ import { FrameworkApplication } from '../../../application/framework-application
 import { plugin as createPlugin } from '../../../plugins/plugin.js'
 import { contributeApplication } from '../../../plugins/plugin-contributions.js'
 import { getCompiledStaticRelationWhere } from '../../../query/filters/relation-where-declaration.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 import {
 	compileValidationPlans,
 	relationField,
-	Schema,
 	SchemaRegistry,
 	snapshotScalarFieldValue,
 	type SchemaDefinition,
@@ -17,7 +17,7 @@ import {
 	RelationAuthor,
 	RelationPost,
 	RelationTag,
-} from './relation-fixture.test-support.js'
+} from '../../../../tests/fixtures/relation-fixture.js'
 import { getRelationWhereDeclaration } from './relation.js'
 
 describe('relationField', () => {
@@ -99,17 +99,17 @@ describe('relationField', () => {
 	})
 
 	it('snapshots static where input without exposing it as field metadata', () => {
-		const where = { label: { eq: 'initial' } }
+		const where = { id: { eq: 'initial' } }
 		const field = relationField({
 			target: () => RelationTag,
 			where,
 		})
-		where.label.eq = 'mutated'
+		where.id.eq = 'mutated'
 		const declaration = getRelationWhereDeclaration(field)
 
 		expect(field.options).toStrictEqual({})
 		expect(declaration).toStrictEqual({
-			input: { label: { eq: 'initial' } },
+			input: { id: { eq: 'initial' } },
 			kind: 'static',
 		})
 		expect(
@@ -120,7 +120,7 @@ describe('relationField', () => {
 	})
 
 	it('retains contextual resolvers privately and rejects malformed declarations', () => {
-		const resolver = () => ({ label: { eq: 'visible' } })
+		const resolver = () => ({ id: { eq: 'visible' } })
 		const field = relationField({
 			target: () => RelationTag,
 			where: resolver,
@@ -154,11 +154,11 @@ describe('relationField', () => {
 	})
 
 	it('normalizes static filters only after the exact target resolves', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'RelationWhereTarget',
 			fields: (field) => ({ active: field.boolean() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'RelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({
@@ -183,11 +183,11 @@ describe('relationField', () => {
 	})
 
 	it('rejects invalid static target filters during application compilation', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'InvalidRelationWhereTarget',
 			fields: (field) => ({ active: field.boolean() }),
 		})
-		const unknownField = Schema.define({
+		const unknownField = UltimaBase.Schema.define({
 			className: 'UnknownRelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({
@@ -196,7 +196,7 @@ describe('relationField', () => {
 				}),
 			}),
 		})
-		const invalidOperator = Schema.define({
+		const invalidOperator = UltimaBase.Schema.define({
 			className: 'OperatorRelationWhereSource',
 			fields: (field) => ({
 				targets: field.relation({
@@ -233,11 +233,11 @@ describe('relationField', () => {
 	})
 
 	it('rejects missing and incompatible inverse mappings', () => {
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'InvalidRelationTarget',
 			fields: (field) => ({ scalar: field.string() }),
 		})
-		const MissingSource = Schema.define({
+		const MissingSource = UltimaBase.Schema.define({
 			className: 'MissingRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
@@ -246,7 +246,7 @@ describe('relationField', () => {
 				}),
 			}),
 		})
-		const IncompatibleSource = Schema.define({
+		const IncompatibleSource = UltimaBase.Schema.define({
 			className: 'IncompatibleRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
@@ -272,21 +272,21 @@ describe('relationField', () => {
 	})
 
 	it('rejects wrong targets and inverse-to-inverse cycles', () => {
-		const ExpectedSource = Schema.define({
+		const ExpectedSource = UltimaBase.Schema.define({
 			className: 'ExpectedRelationSource',
 			fields: () => ({}),
 		})
-		const OtherSource = Schema.define({
+		const OtherSource = UltimaBase.Schema.define({
 			className: 'OtherRelationSource',
 			fields: () => ({}),
 		})
-		const PointerTarget = Schema.define({
+		const PointerTarget = UltimaBase.Schema.define({
 			className: 'WrongRelationPointerTarget',
 			fields: (field) => ({
 				owner: field.pointer({ target: 'OtherRelationSource' }),
 			}),
 		})
-		const WrongSource = Schema.define({
+		const WrongSource = UltimaBase.Schema.define({
 			className: 'WrongRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
@@ -305,7 +305,7 @@ describe('relationField', () => {
 			]).resolveSchemaTargets(),
 		).toThrow(expect.objectContaining({ reason: 'incompatible-mapping' }))
 
-		const Left: SchemaDefinition = Schema.define({
+		const Left: SchemaDefinition = UltimaBase.Schema.define({
 			className: 'InverseCycleLeft',
 			fields: (field) => ({
 				left: field.relation({
@@ -314,7 +314,7 @@ describe('relationField', () => {
 				}),
 			}),
 		})
-		const Right: SchemaDefinition = Schema.define({
+		const Right: SchemaDefinition = UltimaBase.Schema.define({
 			className: 'InverseCycleRight',
 			fields: (field) => ({
 				right: field.relation({
@@ -331,11 +331,11 @@ describe('relationField', () => {
 
 	it('rejects ambiguous inverses and multiply owned field reuse', () => {
 		const owningField = relationField({ target: () => Inverse })
-		const Owner: SchemaDefinition = Schema.define({
+		const Owner: SchemaDefinition = UltimaBase.Schema.define({
 			className: 'AmbiguousRelationOwner',
 			fields: () => ({ targets: owningField }),
 		})
-		const Inverse = Schema.define({
+		const Inverse = UltimaBase.Schema.define({
 			className: 'AmbiguousRelationInverse',
 			fields: (field) => ({
 				first: field.relation({
@@ -353,12 +353,12 @@ describe('relationField', () => {
 			new SchemaRegistry([Owner, Inverse]).resolveSchemaTargets(),
 		).toThrow(expect.objectContaining({ reason: 'ambiguous-mapping' }))
 
-		const ReusedTarget = Schema.define({
+		const ReusedTarget = UltimaBase.Schema.define({
 			className: 'ReusedRelationTarget',
 			fields: () => ({}),
 		})
 		const reusedField = relationField({ target: () => ReusedTarget })
-		const ReusedSource = Schema.define({
+		const ReusedSource = UltimaBase.Schema.define({
 			className: 'ReusedRelationOwner',
 			fields: () => ({ first: reusedField, second: reusedField }),
 		})
@@ -370,11 +370,11 @@ describe('relationField', () => {
 
 	it('rejects invalid topology before infrastructure connects', async () => {
 		const events: string[] = []
-		const Target = Schema.define({
+		const Target = UltimaBase.Schema.define({
 			className: 'RelationLifecycleTarget',
 			fields: (field) => ({ scalar: field.string() }),
 		})
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'RelationLifecycleSource',
 			fields: (field) => ({
 				inverse: field.relation({

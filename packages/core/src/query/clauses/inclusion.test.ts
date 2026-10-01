@@ -1,18 +1,19 @@
-import { pointerField, Schema, SchemaRegistry } from '../../schema/index.js'
+import { pointerField, SchemaRegistry } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
 import { normalizeQueryInclusion } from './inclusion.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const userSchema = Schema.define({
+const userSchema = UltimaBase.Schema.define({
 	className: 'IncludedUser',
 	fields: (field) => ({ name: field.string(), email: field.string() }),
 })
-const otherSchema = Schema.define({
+const otherSchema = UltimaBase.Schema.define({
 	className: 'OtherTarget',
 	fields: () => ({}),
 })
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'IncludedPost',
 	fields: (field) => ({
 		author: field.pointer({ target: 'IncludedUser' }),
@@ -30,11 +31,13 @@ describe('normalizeQueryInclusion', () => {
 		const finalAuthor = new QueryBuilder(userSchema)
 			.select({ id: true, email: true })
 			.where((where) => where.endsWith('email', '@example.com'))
+		// This internal normalizer fixture checks Runtime target identity and order;
+		// the public include callback carries the exact target type separately.
 		const inclusion = normalizeQueryInclusion(postSchema, [
 			{ field: 'author', query: firstAuthor.ast },
 			{ field: 'reviewer', query: reviewer.ast },
 			{ field: 'author', query: finalAuthor.ast },
-		])
+		] as never)
 
 		expect(inclusion.fields.map(({ field }) => field)).toStrictEqual([
 			'author',
@@ -51,7 +54,7 @@ describe('normalizeQueryInclusion', () => {
 		expect(() =>
 			normalizeQueryInclusion(postSchema, [
 				{ field: 'title', query: new QueryBuilder(userSchema).ast },
-			]),
+			] as never),
 		).toThrow(
 			new TypeError(
 				'query inclusion field must reference a pointer or relation field',
@@ -63,7 +66,7 @@ describe('normalizeQueryInclusion', () => {
 					field: 'author',
 					query: new QueryBuilder(otherSchema).ast,
 				},
-			]),
+			] as never),
 		).toThrow(
 			new TypeError(
 				'query inclusion author must use target schema IncludedUser',
@@ -72,7 +75,7 @@ describe('normalizeQueryInclusion', () => {
 	})
 
 	it('rejects relationship fields without a schema target', () => {
-		const malformedSchema = Schema.define({
+		const malformedSchema = UltimaBase.Schema.define({
 			className: 'MalformedInclusionTarget',
 			fields: () => ({
 				broken: pointerField({ target: () => ({}) as never }),
@@ -87,7 +90,9 @@ describe('normalizeQueryInclusion', () => {
 				},
 			] as never),
 		).toThrow(
-			new TypeError('query inclusion target must be created by Schema.define'),
+			new TypeError(
+				'query inclusion target must be created by App.Schema.define',
+			),
 		)
 	})
 })

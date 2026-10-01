@@ -2,7 +2,6 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
-	Schema,
 	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
@@ -36,7 +35,8 @@ import {
 } from './schema-mutation-http.test-support.js'
 
 const restRoutes = { rest: { mutations: true } }
-const WorkflowDocument = Schema.define({
+const RestSchemaApplication = UltimaBase.use(restPlugin())
+const WorkflowDocument = RestSchemaApplication.Schema.define({
 	...restRoutes,
 	className: 'RestWorkflowDocument',
 	fields: (field) => ({ title: field.string() }),

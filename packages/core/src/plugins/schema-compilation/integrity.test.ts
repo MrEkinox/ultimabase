@@ -3,10 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
-import {
-	Schema,
-	type PreparedSchemaCompilation,
-} from '../../schema/schema/definition.js'
+import { type PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import { plugin as createPlugin } from '../plugin.js'
 import {
@@ -16,6 +13,7 @@ import {
 import { addSchemaIndex } from '../schema-field-patch-operations.js'
 import * as canonical from './compiler.js'
 import type { SchemaCompilationResult } from './contracts.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 afterEach(() => vi.restoreAllMocks())
 const compile = canonical.compileCanonicalSchemas
@@ -53,7 +51,7 @@ const changeDefinition = (
 const fixture = () => {
 	const defaultTitle = vi.fn(() => 'draft')
 	const resolveSummary = vi.fn(() => ({ label: 'resolved' }))
-	const Target = Schema.define({
+	const Target = UltimaBase.Schema.define({
 		className: 'DirectCompilerIntegrity',
 		fields: (field) => ({
 			title: field.string({ default: defaultTitle }),
@@ -172,7 +170,7 @@ describe('mandatory direct compilation integrity', () => {
 				changeFirst(result, (candidate) =>
 					immutableRecord({
 						...candidate,
-						schema: Schema.define({
+						schema: UltimaBase.Schema.define({
 							className: candidate.schema.className,
 							fields: () => ({}),
 						}),
@@ -537,7 +535,7 @@ describe('mandatory direct compilation integrity', () => {
 		)
 		for (const className of ['DirectFirst', 'DirectSecond']) {
 			new FrameworkApplication({
-				schemas: [Schema.define({ className, fields: () => ({}) })],
+				schemas: [UltimaBase.Schema.define({ className, fields: () => ({}) })],
 				plugins: [],
 				pluginPrivileges: { logger: false },
 			}).compileSchemas()

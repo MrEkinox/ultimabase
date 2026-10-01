@@ -1,14 +1,15 @@
 import { plugin } from '../../foundation.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import { Schema } from '../../schema/index.js'
+
 import { expectTypeOf, test } from 'vitest'
 
 import type { DatabaseAdapter } from '../database/contracts.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
+import { UltimaBase } from './ultima-base.js'
 
-const schema = Schema.define({
+const schema = UltimaBase.Schema.define({
 	className: 'AssembledTypedArticle',
 	fields: (field) => ({ title: field.string() }),
 })

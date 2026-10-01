@@ -11,7 +11,6 @@ import {
 	objectField,
 	pointerField,
 	relationField,
-	Schema,
 	stringField,
 	type FieldDefinition,
 	type FieldTypegenState,
@@ -21,6 +20,7 @@ import {
 	type ObjectField,
 	type ObjectFieldValue,
 } from '../../index.js'
+import { UltimaBase } from '../../../runtime/application/ultima-base.js'
 
 test('infers one-dimensional list values', () => {
 	const strings = stringField({
@@ -153,7 +153,7 @@ test('rejects invalid list declarations and structured defaults', () => {
 })
 
 test('rejects schema targets inside embedded objects', () => {
-	const Target = Schema.define({
+	const Target = UltimaBase.Schema.define({
 		className: 'EmbeddedObjectTarget',
 		fields: (field) => ({ name: field.string() }),
 	})

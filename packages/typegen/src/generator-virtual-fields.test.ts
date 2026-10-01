@@ -1,4 +1,4 @@
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { generateApplicationTypes } from './generator.js'
@@ -6,7 +6,7 @@ import { generateApplicationTypes } from './generator.js'
 describe('virtual field Typegen declarations', () => {
 	it('fingerprints inert metadata without retaining resolver code', () => {
 		const secretResolverText = 'private-virtual-resolver-body'
-		const Virtual = Schema.define({
+		const Virtual = UltimaBase.Schema.define({
 			className: 'TypegenVirtual',
 			fields: (field) => ({
 				name: field.string({ required: true }),

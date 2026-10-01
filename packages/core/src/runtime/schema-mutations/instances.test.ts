@@ -8,12 +8,12 @@ import {
 	plugin as createPlugin,
 	defineSchemaMutation,
 } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { stringField } from '../../schema/index.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 
-const Post = Schema.define({
+const Post = UltimaBase.Schema.define({
 	className: 'SchemaMutationInstancePost',
 	fields: (field) => ({ title: field.string() }),
 })

@@ -1,5 +1,5 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -10,11 +10,11 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { requireACLValue } from './acl-test-fixtures.js'
 
-const PrincipalA = Schema.define({
+const PrincipalA = UltimaBase.Schema.define({
 	className: 'ACLStoragePrincipalA',
 	fields: () => ({}),
 })
-const PrincipalB = Schema.define({
+const PrincipalB = UltimaBase.Schema.define({
 	className: 'ACLStoragePrincipalB',
 	fields: () => ({}),
 })
@@ -23,7 +23,8 @@ const initialACL = new ACL()
 	.grantPublic('read')
 	.grantPrincipal(PrincipalA.pointer(sharedId), 'read', 'update')
 	.grantPrincipal(PrincipalB.pointer(sharedId), 'delete')
-const StoredPost = Schema.define({
+const ACLSchemaApplication = UltimaBase.use(aclPlugin())
+const StoredPost = ACLSchemaApplication.Schema.define({
 	className: 'ACLStoragePost',
 	fields: (field) => ({
 		title: field.string({ required: true }),

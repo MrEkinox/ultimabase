@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../query/query.js'
 
@@ -10,8 +9,9 @@ import {
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
 } from './execution.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'ContextualQueryPost',
 	fields: (field) => ({ title: field.string() }),
 })

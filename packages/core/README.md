@@ -243,10 +243,10 @@ Core-native `Schema.defineSpecialized()` boundary. Its factory returns explicit
 same ordinary schema identity. Static string or private symbol keys are
 non-enumerable, and result commands never appear on drafts. This low-level API
 is for package-owned factories such as Password User or Role schemas. Ordinary
-application schemas continue to use `Schema.define()`.
+application schemas use `App.Schema.define()`.
 
 The same owner-bound `schemas` facade lets an authorized plugin add stable
-`Schema.define()` classes, declare direct schema and field option contracts, and
+schema classes, declare direct schema and field option contracts, and
 apply callback-free immutable patches. Every persisted contribution has one
 stable `contributionId`; Core injects the exact plugin ID, optional instance ID,
 package version, protocol version, and normalized static options into the final
@@ -802,7 +802,7 @@ ultimabase.compile().schemas.values()
 target class in every generated model:
 
 ```ts
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
@@ -899,7 +899,7 @@ An inverse names one exact pointer or owning relation on its target through
 `mappedBy`:
 
 ```ts
-const UserSchema = Schema.define({
+const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		posts: field.relation({
@@ -1133,7 +1133,7 @@ When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:
 
 ```ts
-const Membership = Schema.define({
+const Membership = UltimaBase.Schema.define({
 	className: 'Membership',
 	fields: (field) => ({
 		member: field.pointer({
@@ -1416,9 +1416,9 @@ terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const PostSchema = Schema.define({
+const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string({ required: true }),
@@ -1497,9 +1497,9 @@ or audited-master authority, and every behavior contributed by other plugins.
 JavaScript applications use the same compiled graph without Typegen:
 
 ```js
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
-const Note = Schema.define({
+const Note = UltimaBase.Schema.define({
 	className: 'Note',
 	fields: (field) => ({ body: field.string() }),
 })

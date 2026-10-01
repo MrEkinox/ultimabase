@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { Schema, UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase, requestSources } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const databaseUrl = process.env.ULTIMABASE_TEST_DATABASE_URL
@@ -8,16 +8,16 @@ if (databaseUrl === undefined) {
 	throw new TypeError('ULTIMABASE_TEST_DATABASE_URL is required')
 }
 
-const Post = Schema.define({
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const Post = Application.Schema.define({
 	className: 'JavaScriptNoEnginePost',
 	postgres: { table: 'optional_hooks_javascript_posts' },
 	fields: (field) => ({
 		title: field.string({ required: true }),
 	}),
 })
-const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
 const ultimabase = new Application({
 	pluginPrivileges: { logger: false },
 	schemas: [Post],

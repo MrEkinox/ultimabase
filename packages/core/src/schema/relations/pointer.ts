@@ -92,7 +92,7 @@ export class Pointer<
 		}
 
 		if (!Schema.is(schema)) {
-			throw new TypeError('Pointer schema must be created by Schema.define')
+			throw new TypeError('Pointer schema must be created by App.Schema.define')
 		}
 
 		assertNonEmptyString(id, 'Pointer id')

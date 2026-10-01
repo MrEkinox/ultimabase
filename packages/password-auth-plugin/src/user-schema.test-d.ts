@@ -1,4 +1,4 @@
-import { Schema, type Pointer, type SchemaResult } from '@ultimabase/core'
+import { UltimaBase, type Pointer, type SchemaResult } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -93,7 +93,10 @@ test('retains nominal User and principal typing', () => {
 })
 
 test('rejects arbitrary schemas and reserved custom fields', () => {
-	const ForeignUser = Schema.define({ className: 'User', fields: () => ({}) })
+	const ForeignUser = UltimaBase.Schema.define({
+		className: 'User',
+		fields: () => ({}),
+	})
 	passwordAuthPlugin({
 		// @ts-expect-error -- Password Auth accepts only its exact final composition point.
 		user: ForeignUser,
@@ -129,7 +132,7 @@ test('keeps password configuration exact and bounded at runtime', () => {
 })
 
 test('uses ordinary nested-create commands for relationship fields', () => {
-	const Team = Schema.define({
+	const Team = UltimaBase.Schema.define({
 		className: 'Team',
 		fields: (field) => ({ name: field.string() }),
 	})

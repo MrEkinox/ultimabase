@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Schema,
 	normalizeReadOperation,
 	type CountOperationAst,
 	type FindManyOperationAst,
 	type ReadOperationAst,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const Article = Schema.define({
+const Article = UltimaBase.Schema.define({
 	className: 'NormalizedReadArticle',
 	fields: (field) => ({ title: field.string() }),
 })

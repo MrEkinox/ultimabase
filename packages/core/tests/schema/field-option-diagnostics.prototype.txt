@@ -5,12 +5,12 @@ import {
 	enumField,
 	intField,
 	pointerField,
-	Schema,
+	UltimaBase,
 	stringField,
 	timeField,
 } from '../../src/index.js'
 
-const targetSchema = Schema.define({
+const targetSchema = UltimaBase.Schema.define({
 	className: 'FieldOptionDiagnosticTarget',
 	fields: () => ({}),
 })
@@ -35,7 +35,7 @@ intField({ list: true, default: 1 })
 bigintField({ list: true, default: 1n })
 stringField({ list: true, default: 'one' })
 
-Schema.define({
+UltimaBase.Schema.define({
 	className: 'FieldBuilderOptionDiagnostics',
 	fields: (field) => ({
 		generated: field.date({ autoNow: true, list: true }),

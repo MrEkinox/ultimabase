@@ -334,7 +334,7 @@ export type ConfiguredSchemaDeclarationOptions<
 /** Exposes exact source inference through the one configured application namespace. */
 export type ConfiguredSchemaNamespace<
 	TSource extends PluginSourceState = EmptyPluginSourceState,
-> = Omit<typeof Schema, 'define'> &
+> = Pick<typeof Schema, 'is' | 'defineSpecialized'> &
 	Readonly<{
 		/**
 		 * Defines one final schema-specific class with typed drafts and QueryBuilder access.

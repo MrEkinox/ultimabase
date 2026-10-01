@@ -3,7 +3,6 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	RequestSubjectReference,
 	RequestContextValue,
-	Schema,
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	createRequestPrincipalReference,
@@ -23,6 +22,7 @@ import {
 	type PointerValue,
 	type CapabilityToken,
 } from '../../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 interface FixturePrincipal {
 	readonly id: string
@@ -58,7 +58,7 @@ const editor = new RequestSubjectReference('role', 'editor')
 const editorModel: RequestRoleReferenceCarrier = {
 	toRequestRoleReference: () => editor,
 }
-const PrincipalSchema = Schema.define({
+const PrincipalSchema = UltimaBase.Schema.define({
 	className: 'TypedAccessPrincipal',
 	fields: () => ({}),
 })

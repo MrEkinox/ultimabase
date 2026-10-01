@@ -6,7 +6,6 @@ import {
 	contributeDeclarations,
 	definePluginField,
 	UltimaBase,
-	Schema,
 } from '@ultimabase/core'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -62,13 +61,14 @@ const createGeneratedRegistry = (): string => {
 			}),
 		],
 	})
-	const Document = Schema.define({
+	const Application = UltimaBase.use(plugin)
+	const Document = Application.Schema.define({
 		className: 'SemanticContainedDocument',
 		fields: () => ({ value: containedField() }),
 	})
 
 	return generateApplicationTypes({
-		ultimabase: new (UltimaBase.use(plugin))({ schemas: [Document] }),
+		ultimabase: new Application({ schemas: [Document] }),
 		applicationId: 'fixture.semantic-containment',
 	}).contents
 }

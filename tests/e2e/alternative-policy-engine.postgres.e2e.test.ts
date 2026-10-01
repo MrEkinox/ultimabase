@@ -1,4 +1,4 @@
-import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
+import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -32,7 +32,15 @@ afterAll(async () => {
 describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 	it('enforces tenant rows and hidden fields while audited Master stays independent', async () => {
 		const audit: string[] = []
-		const Document = Schema.define({
+		const engine = createAlternativePolicyEngine({ instanceId: 'postgres' })
+		const Application = UltimaBase.use(
+			postgresPlugin({
+				pool: getFixture().pool,
+				schemaPolicy: 'override',
+			}),
+			engine.plugin,
+		)
+		const Document = Application.Schema.define({
 			className: 'AlternativePolicyPostgresDocument',
 			alternativePolicy: alternativeTenantPolicy({
 				hiddenFields: ['secret'],
@@ -45,14 +53,7 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 			}),
 			postgres: { table: 'alternative_policy_documents' },
 		})
-		const engine = createAlternativePolicyEngine({ instanceId: 'postgres' })
-		const ultimabase = new (UltimaBase.use(
-			postgresPlugin({
-				pool: getFixture().pool,
-				schemaPolicy: 'override',
-			}),
-			engine.plugin,
-		))({
+		const ultimabase = new Application({
 			masterAuthority: new MasterAuthority({
 				keys: [{ id: 'postgres-master', value: 'unused-by-terminal' }],
 				onUse: ({ reason }) => {

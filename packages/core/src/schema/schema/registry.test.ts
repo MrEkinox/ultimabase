@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { DuplicateSchemaError, SchemaRegistry, Schema } from '../index.js'
+import { DuplicateSchemaError, SchemaRegistry } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const createFixtureSchema = (className: string, fieldName: string) =>
-	Schema.define({
+	UltimaBase.Schema.define({
 		className,
 		fields: (field) => ({
 			[fieldName]: field.string(),
@@ -62,7 +63,9 @@ describe('SchemaRegistry', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime registration requires constructor provenance.
 			registry.register({ className: 'Forged', fields: {} })
-		}).toThrow(new TypeError('schema must be a class created by Schema.define'))
+		}).toThrow(
+			new TypeError('schema must be a class created by App.Schema.define'),
+		)
 		expect(registry.size).toBe(0)
 	})
 

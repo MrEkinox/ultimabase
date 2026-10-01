@@ -3,13 +3,14 @@ import { createApplication } from '../../application/framework-application.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+
 import { describe, expect, it } from 'vitest'
 
 import { provideRuntimeBehavior } from '../capabilities.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type { RuntimeFinalMutationGuardStage } from '../pipeline/contracts.js'
 import { composeRuntimeBehaviors } from './composition.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'runtime-behavior-composition',
@@ -38,7 +39,7 @@ const createGuardPlugin = (
 
 describe('generic Runtime behavior composition', () => {
 	it('allocates no behavior bundle when no plugin provides one', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'NoRuntimeBehaviorPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -54,7 +55,7 @@ describe('generic Runtime behavior composition', () => {
 	})
 
 	it('runs final mutation guards in plugin order with exact attribution', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'OrderedRuntimeGuardPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -93,7 +94,7 @@ describe('generic Runtime behavior composition', () => {
 	})
 
 	it('stops composed mutation guards at the first rejection', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'RejectingRuntimeGuardPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -131,7 +132,7 @@ describe('generic Runtime behavior composition', () => {
 	})
 
 	it('isolates final mutation guard resources by application', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'IsolatedRuntimeGuardPost',
 			fields: (field) => ({ title: field.string() }),
 		})

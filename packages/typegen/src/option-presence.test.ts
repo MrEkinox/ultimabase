@@ -2,14 +2,14 @@ import path from 'node:path'
 
 import {
 	UltimaBase,
-	Schema,
 	addSchemaField,
 	defineFieldOption,
 	plugin as createPlugin,
 	contributeDeclarations,
 	defineSchemaOption,
 	stringField,
-	type SchemaOptions,
+	type FieldBuilder,
+	type SchemaOptionRuntimeRequirement,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -48,7 +48,11 @@ describe('option-presence Typegen', () => {
 			},
 			valueKind: 'opaque',
 		})
-		const internalOption = defineSchemaOption({
+		const internalOption = defineSchemaOption<
+			'factory-owned',
+			SchemaOptionRuntimeRequirement,
+			never
+		>({
 			normalize: (value, path) => {
 				if (value !== 'factory-owned') {
 					throw new TypeError(`${path} must be factory-owned`)
@@ -70,7 +74,7 @@ describe('option-presence Typegen', () => {
 			contributions: [
 				contributeDeclarations({
 					schema: ({ schemas }) => {
-						schemas.defineOptions({
+						const options = schemas.defineOptions({
 							contributionId: 'document-options',
 							field: { checked: checkedFieldOption },
 							schema: {
@@ -78,7 +82,7 @@ describe('option-presence Typegen', () => {
 								'fixture.internal-marker': internalOption,
 							},
 						})
-						schemas.patch({
+						const patch = schemas.patch({
 							operations: [
 								addSchemaField({
 									contributionId: 'document-state',
@@ -89,24 +93,25 @@ describe('option-presence Typegen', () => {
 							targets: schemas.select({ option: { name: 'document' } }),
 						})
 
-						return undefined
+						return [options, patch] as const
 					},
 				}),
 			],
 		})
-		const Document = Schema.define({
+		const Application = UltimaBase.use(plugin)
+		const internalMarker = {
+			'fixture.internal-marker': 'factory-owned',
+		} as const
+		const Document = Application.Schema.define({
 			className: 'TypegenOptionPresenceDocument',
 			document: (value: string) => value,
-			fields: (field) => ({
-				// @ts-expect-error -- Typegen owns this application-local field option.
-				title: field.string({ checked: 'enabled' }),
+			fields: (field: FieldBuilder) => ({
+				title: field.string({ checked: 'enabled' } as never),
 			}),
-			'fixture.internal-marker': 'factory-owned',
-		} as SchemaOptions<'TypegenOptionPresenceDocument'> & {
-			readonly document: (value: string) => string
-			readonly 'fixture.internal-marker': 'factory-owned'
-		})
-		const application = new (UltimaBase.use(plugin))({
+			// This test fixture injects a compiler-only marker outside the public API.
+			...internalMarker,
+		} as never)
+		const application = new Application({
 			pluginPrivileges: { logger: false },
 			schemas: [Document],
 		})
@@ -130,8 +135,28 @@ describe('option-presence Typegen', () => {
 
 		const marker = '/* schema-option-completion */'
 		const sourceWithMarker = `${generated.contents}
-import { Schema } from '@ultimabase/core'
-Schema.define({
+import { UltimaBase, contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core'
+const documentOption = defineSchemaOption({
+  normalize: (value: unknown) => {
+    if (typeof value !== 'string') throw new TypeError('document must be a string')
+    return value
+  },
+  protocolVersion: 1,
+  typegen: false,
+})
+const Application = UltimaBase.use(plugin({
+  id: 'fixture.source-document',
+  version: '1.0.0',
+  core: '^0.0.0',
+  permissions: { 'schema:declare': 'Declares the document option.' },
+  contributions: [contributeDeclarations({
+    schema: ({ schemas }) => schemas.defineOptions({
+      contributionId: 'document-options',
+      schema: { document: documentOption },
+    }),
+  })],
+}))
+Application.Schema.define({
   className: 'CompletionDocument',
   ${marker}
   fields: (field) => ({ title: field.string() }),

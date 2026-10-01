@@ -32,7 +32,7 @@ afterEach(async () => {
 describe('loadTypegenApplication', () => {
 	it('transpiles an unresolved plugin method and never runs plugin setup', async () => {
 		const sourcePath = await createTypeScriptModule(`
-import { contributeApplication, plugin, Schema, UltimaBase } from '@ultimabase/core'
+import { contributeApplication, plugin, UltimaBase } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const SetupGuard = plugin({
@@ -44,7 +44,8 @@ const SetupGuard = plugin({
   })],
 })
 
-const Document = Schema.define({
+const Application = UltimaBase.use(pgVectorPlugin(), SetupGuard)
+const Document = Application.Schema.define({
   className: 'LoadedTypegenDocument',
   fields: (field) => ({
     title: field.string({ required: true }),
@@ -52,7 +53,6 @@ const Document = Schema.define({
   }),
 })
 
-const Application = UltimaBase.use(pgVectorPlugin(), SetupGuard)
 export const ultimabase = new Application({
   schemas: [Document],
 })
@@ -92,8 +92,8 @@ export const ultimabase = new Application({
 
 	it('generates path-independent output from separate clean source trees', async () => {
 		const source = `
-import { Schema, UltimaBase } from '@ultimabase/core'
-const Document = Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+const Document = UltimaBase.Schema.define({
   className: 'PathIndependentDocument',
   fields: (field) => ({ title: field.string({ required: true }) }),
 })

@@ -13,14 +13,14 @@ shipped.
 
 ```ts
 import { typegenPlugin } from '@ultimabase/typegen'
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
-export const UserSchema = Schema.define({
+export const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		name: field.string({

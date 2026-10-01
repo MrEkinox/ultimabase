@@ -162,10 +162,10 @@ application, reads directly from TypeScript, and closes it. It assumes the
 packages and disposable database from [Manual Installation](/docs/1.0.0/manual-installation):
 
 ```ts title="src/main.ts"
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const Task = Schema.define({
+const Task = UltimaBase.Schema.define({
 	className: 'Task',
 	fields: (f) => ({ title: f.string({ required: true }) }),
 })

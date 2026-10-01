@@ -5,12 +5,7 @@ import {
 	provideHookEvent,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
-import {
-	plugin,
-	Schema,
-	UltimaBase,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import { plugin, UltimaBase, type SchemaDefinition } from '@ultimabase/core'
 import { createPluginConformanceFixture } from '@ultimabase/testing'
 import {
 	OfficialConformanceDatabase,
@@ -134,11 +129,11 @@ export const getOfficialHooksConformanceEvidence = (
 
 /** Builds one malformed provider whose exact target is outside the application. */
 export const createInvalidHooksProviderFixture = () => {
-	const Inside = Schema.define({
+	const Inside = UltimaBase.Schema.define({
 		className: 'InvalidHooksConformanceInside',
 		fields: (field) => ({ title: field.string() }),
 	})
-	const Outside = Schema.define({
+	const Outside = UltimaBase.Schema.define({
 		className: 'InvalidHooksConformanceOutside',
 		fields: (field) => ({ title: field.string() }),
 	})

@@ -1,7 +1,7 @@
 import {
 	RequestSubjectReference,
 	FrameworkError,
-	Schema,
+	UltimaBase,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -13,7 +13,10 @@ import {
 	resolveACLEntryLimits,
 } from './acl-limits.js'
 
-const User = Schema.define({ className: 'ACLLimitUser', fields: () => ({}) })
+const User = UltimaBase.Schema.define({
+	className: 'ACLLimitUser',
+	fields: () => ({}),
+})
 const alice = User.pointer('alice')
 const bob = User.pointer('bob')
 const editor = new RequestSubjectReference('role', 'role:editor')

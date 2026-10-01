@@ -15,13 +15,12 @@ import {
 	defineTypegenReference,
 	provideCapability,
 	withPluginPrivileges,
-	Schema,
+	UltimaBase,
 	stringField,
 	type DatabaseAdapter,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
-	type RelationWhereResolver,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -185,7 +184,7 @@ describe('plugin conformance suite', () => {
 			exportName: 'PublicState',
 			module: '@fixture/snapshot-surfaces',
 		})
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'ConformanceSurfacePost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -231,7 +230,7 @@ describe('plugin conformance suite', () => {
 	})
 
 	it('covers a neutral plugin-owned schema mutation without product engines', async () => {
-		const Post = Schema.define({
+		const Post = UltimaBase.Schema.define({
 			className: 'ConformanceSchemaMutationPost',
 			fields: (field) => ({ title: field.string() }),
 		})
@@ -363,19 +362,19 @@ describe('plugin conformance suite', () => {
 		let latestAdapter: RelationAdapter | undefined
 		const createFixture = () => {
 			const adapter = new RelationAdapter()
-			const Target = Schema.define({
+			const Target = UltimaBase.Schema.define({
 				className: 'ConformanceRelationTarget',
 				fields: (field) => ({ visible: field.boolean() }),
 			})
-			const Source = Schema.define({
+			const Source = UltimaBase.Schema.define({
 				className: 'ConformanceRelationSource',
 				fields: (field) => ({
 					targets: field.relation({
 						target: 'ConformanceRelationTarget',
-						where: (({ where }) => {
+						where: ({ where }) => {
 							adapter.whereInvocations += 1
 							return where.eq('visible', true)
-						}) as RelationWhereResolver<typeof Target>,
+						},
 					}),
 				}),
 			})

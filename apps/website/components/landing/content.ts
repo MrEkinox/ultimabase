@@ -1,7 +1,7 @@
 /** These excerpts share one Article schema and an explicitly started application. */
-export const schemaExample = `import { Schema } from '@ultimabase/core'
+export const schemaExample = `import { UltimaBase } from '@ultimabase/core'
 
-export const Article = Schema.define({
+export const Article = UltimaBase.Schema.define({
   className: 'Article',
   fields: (f) => ({
     title: f.string({ required: true }),

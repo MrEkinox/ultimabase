@@ -394,14 +394,14 @@ describe('createEnforcementStages', () => {
 					'fixture.selection-broad',
 					restrictSelection({
 						schema: articleSchema,
-						handler: () => ['id', 'title'],
+						handler: () => ['id', 'title'] as const,
 					}),
 				)
 				provide(
 					'fixture.selection-narrow',
 					restrictSelection({
 						schema: articleSchema,
-						handler: () => ['title'],
+						handler: () => ['title'] as const,
 					}),
 				)
 			}),

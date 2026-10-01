@@ -1,4 +1,3 @@
-import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,8 +6,9 @@ import {
 	getRuntimeContributionImplementation,
 	preparedOperation,
 } from './definitions.js'
+import { UltimaBase } from '../application/ultima-base.js'
 
-const articleSchema = Schema.define({
+const articleSchema = UltimaBase.Schema.define({
 	className: 'ContributionDefinitionArticle',
 	fields: (field) => ({
 		title: field.string({ required: true }),

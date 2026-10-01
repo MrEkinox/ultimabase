@@ -1,7 +1,7 @@
 import {
 	Pointer,
-	Schema,
 	SchemaRegistry,
+	UltimaBase,
 	definePluginField,
 	materializeSchemaModel,
 } from '@ultimabase/core'
@@ -44,12 +44,12 @@ const portableCode = definePluginField(
 	},
 )
 
-const ResponseAuthor = Schema.define({
+const ResponseAuthor = UltimaBase.Schema.define({
 	className: 'RestResponseAuthor',
 	fields: (field) => ({ name: field.string() }),
 })
 
-const ResponseRecord = Schema.define({
+const ResponseRecord = UltimaBase.Schema.define({
 	className: 'RestResponseRecord',
 	fields: (field) => ({
 		active: field.boolean(),
@@ -78,7 +78,7 @@ const ResponseRecord = Schema.define({
 	}),
 })
 
-const VirtualResponseRecord = Schema.define({
+const VirtualResponseRecord = UltimaBase.Schema.define({
 	className: 'RestVirtualResponseRecord',
 	fields: (field) => ({
 		seed: field.string(),

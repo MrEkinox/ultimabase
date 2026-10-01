@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { OperationExecutionOwnerToken } from '../query/operations/execution.js'
-import { Schema } from '../schema/index.js'
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { bindDirectApplicationValue } from './application-model-views.js'
+import { UltimaBase } from '../runtime/application/ultima-base.js'
 
-const User = Schema.define({
+const User = UltimaBase.Schema.define({
 	className: 'DirectViewUser',
 	fields: (field) => ({ name: field.string() }),
 })

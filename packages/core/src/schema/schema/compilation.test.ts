@@ -6,18 +6,14 @@ import {
 	contributeApplication,
 } from '../../foundation.js'
 import { createApplication } from '../../application/framework-application.js'
-import {
-	Schema,
-	SchemaRegistry,
-	stringField,
-	type SchemaFields,
-} from '../index.js'
+import { SchemaRegistry, stringField, type SchemaFields } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 describe('deferred schema compilation', () => {
 	it('captures field callbacks once and materializes Core fields immediately', async () => {
 		const events: string[] = []
 		let callbackCalls = 0
-		const DeferredPost = Schema.define({
+		const DeferredPost = UltimaBase.Schema.define({
 			className: 'DeferredPost',
 			fields: (field) => {
 				callbackCalls += 1
@@ -74,12 +70,12 @@ describe('deferred schema compilation', () => {
 	})
 
 	it('rejects an invalid callback without affecting prior declarations', () => {
-		const First = Schema.define({
+		const First = UltimaBase.Schema.define({
 			className: 'AtomicFirst',
 			fields: (field) => ({ title: field.string() }),
 		})
 		expect(() =>
-			Schema.define({
+			UltimaBase.Schema.define({
 				className: 'AtomicInvalid',
 				fields: () => 'invalid' as unknown as SchemaFields,
 			}),
@@ -90,7 +86,7 @@ describe('deferred schema compilation', () => {
 	it('reuses one captured declaration across applications', async () => {
 		let callbackCalls = 0
 		let incompatible = false
-		const Shared = Schema.define({
+		const Shared = UltimaBase.Schema.define({
 			className: 'SharedDeferredSchema',
 			fields: () => {
 				callbackCalls += 1
@@ -129,7 +125,7 @@ describe('deferred schema compilation', () => {
 
 	it('executes one callback once when one registry is compiled repeatedly', () => {
 		let callbackCalls = 0
-		const Deferred = Schema.define({
+		const Deferred = UltimaBase.Schema.define({
 			className: 'RepeatedDeferredSchema',
 			fields: (field) => {
 				callbackCalls += 1
@@ -149,14 +145,14 @@ describe('deferred schema compilation', () => {
 		const leftFields: Record<string, ReturnType<typeof stringField>> = {
 			label: stringField(),
 		}
-		const Left = Schema.define({
+		const Left = UltimaBase.Schema.define({
 			className: 'DeferredLeft',
 			fields: (field) => ({
 				...leftFields,
 				right: field.pointer({ target: 'DeferredRight' }),
 			}),
 		})
-		const Right = Schema.define({
+		const Right = UltimaBase.Schema.define({
 			className: 'DeferredRight',
 			fields: (field) => ({
 				left: field.pointer({ target: 'DeferredLeft' }),
@@ -178,7 +174,7 @@ describe('deferred schema compilation', () => {
 	})
 
 	it('rejects an unregistered named target with its declared schema name', () => {
-		const Source = Schema.define({
+		const Source = UltimaBase.Schema.define({
 			className: 'NamedTargetSource',
 			fields: (field) => ({
 				target: field.pointer({ target: 'MissingNamedTarget' }),
@@ -195,7 +191,7 @@ describe('deferred schema compilation', () => {
 	})
 
 	it('keeps object-shaped field maps as temporary immediate compatibility', () => {
-		const Legacy = Schema.define({
+		const Legacy = UltimaBase.Schema.define({
 			className: 'LegacyImmediateSchema',
 			fields: (field) => ({
 				title: field.string({ required: true }),

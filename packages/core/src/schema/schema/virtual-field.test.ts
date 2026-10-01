@@ -13,6 +13,7 @@ import { normalizeQuerySelection } from '../../query/clauses/selection.js'
 import { Schema, SchemaCompilationError } from './definition.js'
 import { SchemaRegistry } from './registry.js'
 import { getVirtualFieldResolver } from './virtual-field.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const compile = (schema: unknown): void => {
 	if (!Schema.is(schema)) {
@@ -80,7 +81,7 @@ describe('virtual schema fields', () => {
 					}),
 				],
 			})
-		const Shared = Schema.define({
+		const Shared = UltimaBase.Schema.define({
 			className: 'SharedPluginVirtual',
 			fields: (field) => ({
 				slug: field.virtual({
@@ -116,7 +117,7 @@ describe('virtual schema fields', () => {
 	})
 
 	it('rejects stale plugin output declarations before setup', async () => {
-		const Stale = Schema.define({
+		const Stale = UltimaBase.Schema.define({
 			className: 'StalePluginVirtual',
 			fields: (field) => ({
 				slug: field.virtual({
@@ -151,7 +152,7 @@ describe('virtual schema fields', () => {
 		let outputCalls = 0
 		const resolver = ({ item }: { readonly item: object }) =>
 			Promise.resolve('name' in item ? String(item.name) : '')
-		const User = Schema.define({
+		const User = UltimaBase.Schema.define({
 			className: 'VirtualUser',
 			fields: (field) => ({
 				name: field.string({ required: true }),
@@ -197,7 +198,7 @@ describe('virtual schema fields', () => {
 	})
 
 	it('normalizes exclusion dependencies and rejects non-persisted targets', () => {
-		const Exclusion = Schema.define({
+		const Exclusion = UltimaBase.Schema.define({
 			className: 'VirtualExclusion',
 			fields: (field) => ({
 				first: field.string(),
@@ -234,7 +235,7 @@ describe('virtual schema fields', () => {
 
 		for (const invalid of invalidCases) {
 			expect(() =>
-				Schema.define({
+				UltimaBase.Schema.define({
 					className: invalid.className,
 					fields: (field) => ({
 						summary: field.virtual({
@@ -251,7 +252,7 @@ describe('virtual schema fields', () => {
 	it('rejects relation dependencies and malformed resolver declarations', () => {
 		expect(
 			deepestMessage(() => {
-				const Invalid = Schema.define({
+				const Invalid = UltimaBase.Schema.define({
 					className: 'VirtualRelationDependency',
 					fields: (field) => ({
 						children: field.relation({ target: 'VirtualRelationDependency' }),
@@ -268,7 +269,7 @@ describe('virtual schema fields', () => {
 
 		expect(
 			deepestMessage(() =>
-				Schema.define({
+				UltimaBase.Schema.define({
 					className: 'VirtualMissingResolver',
 					fields: (field) => ({
 						summary: field.virtual({

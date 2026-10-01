@@ -7,17 +7,17 @@ declarations, while code generation restores the exact target type.
 ```ts
 import {
 	Pointer,
-	Schema,
+	UltimaBase,
 	type InferCreateInput,
 	type InferObject,
 } from '@ultimabase/core'
 
-export const UserSchema = Schema.define({
+export const UserSchema = UltimaBase.Schema.define({
 	className: 'User',
 	fields: (field) => ({}),
 })
 
-export const PostSchema = Schema.define({
+export const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({

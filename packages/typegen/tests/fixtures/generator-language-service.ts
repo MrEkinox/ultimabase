@@ -83,7 +83,7 @@ export const createGeneratedRegistry = (): string => {
 }
 
 export const createGeneratedRoleRegistry = (): string => {
-	const Member = Schema.define({
+	const Member = UltimaBase.Schema.define({
 		className: 'SemanticRoleMember',
 		fields: (field) => ({
 			name: field.string({ required: true }),

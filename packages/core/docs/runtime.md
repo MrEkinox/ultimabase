@@ -283,7 +283,7 @@ pagination, selection, and includes belong to query options; mandatory row
 restrictions come from installed protected-policy providers:
 
 ```ts
-const ArticleSchema = Schema.define({
+const ArticleSchema = UltimaBase.Schema.define({
 	className: 'Article',
 	fields: (field) => ({
 		title: field.string({ required: true }),

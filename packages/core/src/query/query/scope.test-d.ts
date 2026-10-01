@@ -1,9 +1,9 @@
-import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import { QueryBuilder, type QueryScope } from '../index.js'
+import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
-const postSchema = Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		title: field.string(),
@@ -24,7 +24,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 		QueryBuilder<typeof postSchema, 'id' | 'title'>
 	>()
 
-	const commentSchema = Schema.define({
+	const commentSchema = UltimaBase.Schema.define({
 		className: 'Comment',
 		fields: (field) => ({ body: field.string() }),
 	})

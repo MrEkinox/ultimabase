@@ -149,10 +149,11 @@ runs final structural and Standard Schema validation after their combined
 transformations:
 
 ```ts
-import { Schema, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 
-const UserSchema = Schema.define({
+const Application = UltimaBase.use(hooksPlugin())
+const UserSchema = Application.Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		email: field.string({
@@ -176,7 +177,6 @@ const UserSchema = Schema.define({
 	},
 })
 
-const Application = UltimaBase.use(hooksPlugin())
 const ultimabase = new Application({
 	schemas: [UserSchema],
 })
