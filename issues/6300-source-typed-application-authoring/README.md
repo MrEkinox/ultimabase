@@ -1,7 +1,7 @@
 # Milestone 63: Source-typed application authoring
 
 - Status: in-progress
-- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6313, 6315, 6316
+- Issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315, 6316
 
 Replace plugin-generated authoring surfaces with one source-typed configured
 application factory while preserving every current UltimaBase capability and
@@ -35,8 +35,9 @@ frozen in the
 - [x] [6311: Migrate the GraphQL stack to configured installation](6311-graphql-stack-migration.md)
 - [x] [6312: Migrate Plugin Kit, testing, and community conformance](6312-plugin-author-conformance.md)
 - [x] [6317: Migrate plugin installation consumers](6317-migrate-plugin-installation-consumers.md)
-- [ ] [6318: Migrate schema authoring consumers](6318-migrate-schema-authoring-consumers.md)
-- [ ] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)
+- [x] [6318: Migrate schema authoring consumers](6318-migrate-schema-authoring-consumers.md)
+- [x] [6314: Remove superseded authoring and application paths](6314-remove-superseded-authoring-paths.md)
+- [x] [6319: Align Password User authoring with configured Role schemas](6319-configured-password-user-schema.md)
 - [ ] [6313: Reduce Typegen to its retained graph boundary](6313-reduce-typegen-to-schema-graph.md)
 - [ ] [6315: Publish one canonical authoring journey](6315-canonical-authoring-migration.md)
 - [ ] [6316: Audit parity, DX, complexity, and TypeScript cost](6316-final-parity-and-complexity-audit.md)

@@ -1,6 +1,13 @@
 import {
 	Schema,
+	UltimaBase,
 	stringField,
+	type ConfiguredFieldDeclaration,
+	type ConfiguredSchemaDeclarationOptions,
+	type ConfiguredSchemaNamespace,
+	type PluginSourceState,
+	type ScalarFieldTypegenState,
+	type StringField,
 	type SchemaFieldBuilderDeclaration,
 	type SchemaFieldName,
 	type SchemaFields,
@@ -27,7 +34,9 @@ const reservedPasswordUserFields = new Set([
 	'username',
 ])
 
-const createUsernameField = () =>
+const createUsernameField = (): StringField<
+	ScalarFieldTypegenState<true, false, true, false>
+> =>
 	stringField({
 		immutable: true,
 		indexed: 'unique',
@@ -92,17 +101,62 @@ export class PasswordUserSchema {
 	 *
 	 * @example
 	 * ```ts
-	 * const AppUser = PasswordUserSchema.define({
+	 * const AppUser = PasswordUserSchema.define(Base.Schema, {
 	 *   className: 'User',
 	 *   fields: (field) => ({ displayName: field.string() }),
 	 * })
 	 * const result = await AppUser.signUp({ username: 'Ada', password })
 	 * ```
 	 */
+	static define<
+		TSource extends PluginSourceState,
+		const TFieldDeclaration extends ConfiguredFieldDeclaration<
+			TSource,
+			'User',
+			SchemaFields
+		>,
+		const TDeclaredOptions extends Readonly<{
+			className: 'User'
+			fields: TFieldDeclaration
+		}>,
+	>(
+		schema: ConfiguredSchemaNamespace<TSource>,
+		options: ConfiguredSchemaDeclarationOptions<
+			TSource,
+			'User',
+			TFieldDeclaration,
+			TDeclaredOptions,
+			ReturnType<TFieldDeclaration> &
+				Readonly<{ username: ReturnType<typeof createUsernameField> }>
+		> &
+			ReservedPasswordUserFieldCollision<
+				NoInfer<ReturnType<TFieldDeclaration>>
+			>,
+	): PasswordUserDefinition<ReturnType<TFieldDeclaration>>
+	/** Declares a standalone User whose complete application types remain generated. */
 	static define<const TCustomFields extends SchemaFields>(
 		options: PasswordUserSchemaOptions<TCustomFields> &
 			ReservedPasswordUserFieldCollision<NoInfer<TCustomFields>>,
-	): PasswordUserDefinition<TCustomFields> {
+	): PasswordUserDefinition<TCustomFields>
+	static define<const TCustomFields extends SchemaFields>(
+		optionsOrSchema:
+			| ConfiguredSchemaNamespace<PluginSourceState>
+			| PasswordUserSchemaOptions<TCustomFields>,
+		configuredOptions?: PasswordUserSchemaOptions<TCustomFields>,
+	): unknown {
+		// Like RoleSchema, the namespace supplies source types while the single
+		// specialization compiler retains generated User results and Runtime identity.
+		if (
+			configuredOptions !== undefined &&
+			!Object.is(optionsOrSchema, UltimaBase.Schema)
+		) {
+			throw new TypeError(
+				'Password User configured declarations require an UltimaBase Schema namespace',
+			)
+		}
+		const options =
+			configuredOptions ??
+			(optionsOrSchema as PasswordUserSchemaOptions<TCustomFields>)
 		const untrustedOptions: unknown = options
 		if (
 			!isPlainRecord(untrustedOptions) ||

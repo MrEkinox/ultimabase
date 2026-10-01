@@ -1,4 +1,5 @@
 import { stringField, UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { generateApplicationTypes } from '@ultimabase/typegen'
 import { describe, expect, it } from 'vitest'
 
@@ -6,6 +7,36 @@ import { passwordAuthPlugin } from './plugin.js'
 import { PasswordUser, PasswordUserSchema } from './user-schema.js'
 
 describe('passwordAuthPlugin identity declaration', () => {
+	it('compiles a configured User through the same immutable specialization boundary', () => {
+		const Base = UltimaBase.use(pgVectorPlugin())
+		let declarations = 0
+		const User = PasswordUserSchema.define(Base.Schema, {
+			className: 'User',
+			fields: (field) => {
+				declarations += 1
+				return { embedding: field.vector({ dimensions: 3 }) }
+			},
+		})
+		const application = new (Base.use(passwordAuthPlugin({ user: User })))({
+			pluginPrivileges: { logger: false },
+			schemas: [User],
+		}).compile()
+		expect(application.schemas.get('User')).toBe(User)
+		expect(User.fields.embedding).toMatchObject({ kind: 'pg-vector.vector' })
+		expect(User.fields.username).toMatchObject({
+			options: { immutable: true, indexed: 'unique', required: true },
+		})
+		expect(declarations).toBe(1)
+		expect(Object.isFrozen(User)).toBe(true)
+		expect(PasswordUser.fields).not.toHaveProperty('embedding')
+		expect(() =>
+			PasswordUserSchema.define({} as never, {
+				className: 'User',
+				fields: () => ({}),
+			}),
+		).toThrow('require an UltimaBase Schema namespace')
+	})
+
 	it('does not expose Password Auth operation names without the plugin', () => {
 		const application = new UltimaBase({ schemas: [] })
 		expect(() =>

@@ -38,30 +38,30 @@ const runtimeFields = (field) => {
 
 /** Builds the exact current static graph used by both benchmark forms. */
 export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
+	const Base = UltimaBase.use(
+		accessPlugin(),
+		hooksPlugin(),
+		pgVectorPlugin(),
+		rolesPlugin(),
+		softDeletePlugin({ defaultMode: 'explicit' }),
+		validationPlugin(),
+	)
 	const schemas = []
-	const User = PasswordUserSchema.define({
+	const User = PasswordUserSchema.define(Base.Schema, {
 		className: 'User',
 		fields: runtimeFields,
 	})
 	schemas.push(User)
 	if (schemaCount > 1) {
 		schemas.push(
-			RoleSchema.define({
+			RoleSchema.define(Base.Schema, {
 				className: 'Role',
 				fields: runtimeFields,
 				members: { schema: User },
 			}),
 		)
 	}
-	const Application = UltimaBase.use(
-		accessPlugin(),
-		hooksPlugin(),
-		passwordAuthPlugin({ user: User }),
-		pgVectorPlugin(),
-		rolesPlugin(),
-		softDeletePlugin({ defaultMode: 'explicit' }),
-		validationPlugin(),
-	)
+	const Application = Base.use(passwordAuthPlugin({ user: User }))
 	for (let index = 2; index < schemaCount; index += 1) {
 		schemas.push(
 			Application.Schema.define({

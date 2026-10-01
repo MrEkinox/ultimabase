@@ -42,7 +42,7 @@ const getFixture = (): PostgresWorkerFixture => {
 }
 
 const createUser = () =>
-	PasswordUserSchema.define({
+	PasswordUserSchema.define(UltimaBase.Schema, {
 		className: 'User',
 		fields: (field) => ({
 			displayName: field.string({ default: 'Ada Lovelace' }),

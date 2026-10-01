@@ -1,10 +1,10 @@
 # 6313: Reduce Typegen to its retained graph boundary
 
-- Status: planned
+- Status: ready
 - Milestone: 63
 - Packages: `@ultimabase/typegen`, `@ultimabase/core`, repository tooling and consumers
-- Depends on: 6314
-- ADR: ADR-0279, ADR-0281
+- Depends on: 6319
+- ADR: ADR-0279, ADR-0281, ADR-0284
 - Execution contract: [milestone 63 DX and audit contract](../../docs/plans/2026-09-28-source-typed-application-authoring-target.md)
 
 ## Goal
@@ -17,12 +17,44 @@ source-owned replacement.
 
 ## Baseline
 
+- The user approved the configured Password User form on 2026-10-01. Issue
+  6319 delivered that bounded prerequisite with complete validation and audit;
+  resume this inventory from its local commit. Standalone specialized declarations still need explicit
+  classification before deleting any generated builder projection.
+
+- Resumed implementation revision: `d7a507f6` (issue 6314's validated local
+  commit; working tree clean). No push is authorized. Inventory and bounded
+  source/packed deletion probes are underway; the generated relationship graph,
+  all complete `WhereInput` contracts, and complete-schema callbacks remain
+  protected.
 - Initial inventory revision: `b48effa0`. The user approved executing 6314
   first; record a fresh implementation baseline after 6314 completes. No push
   is authorized.
 - Inventory and classification are in progress before deletion. In particular,
   generated schema surfaces still have Access/Hooks and Core consumers; their
   removal cannot be inferred merely from source-typed plugin commands.
+- Architecture stop (2026-10-01, after 6314): a bounded attempt removed only
+  generated field-builder methods, their `methodType` registration metadata,
+  and the corresponding Core merge interfaces. The root typecheck and focused
+  Typegen unit/type checks passed, but the locked current-authoring benchmark
+  exposed one cold diagnostic: `Property 'vector' does not exist on type
+'FieldBuilder<...>'`. Its `User` is created by the still-public
+  `PasswordUserSchema.define({ fields: (field) => ({ embedding:
+field.vector(...) }) })`, which has no configured `App.Schema` input.
+  Typegen currently supplies that method through the generated builder merge;
+  the source-only configured factory cannot type this authoring path. The same
+  probe reported two edit diagnostics instead of one. The entire experiment,
+  including tests and documentation changes, was reverted; a clean rebuild and
+  the one-schema benchmark again report zero cold diagnostics and exactly one
+  edit diagnostic. The restored Typegen suite then passed 30 files/60 tests,
+  including the locked 1/10/50-schema performance gate, with no type errors.
+  No product code was committed or pushed. This is a real
+  public-API dependency, not a stale fixture or a TypeScript timing fluctuation.
+  Stop here for an architecture decision before another deletion attempt:
+  either retain this generated builder projection as an explicit exception,
+  or redesign specialized schema authoring to accept a configured factory
+  while preserving the existing standalone capability. Neither choice is
+  implicit in the current acceptance criteria.
 - Architecture stop (2026-09-30): generated builder methods and direct plugin
   options still type the public standalone `Schema.define()` entry point, while
   issue 6314 removes that entry point.

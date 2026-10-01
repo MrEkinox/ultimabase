@@ -263,6 +263,7 @@ Current records (accepted or still active in part):
 - [ADR-0281: Retain generated Where contracts for the source-authoring milestone](0281-retain-generated-where-contracts.md)
 - [ADR-0282: Configure plugin lists through variadic use](0282-variadic-configured-plugin-installation.md)
 - [ADR-0283: Exact ACL schema callbacks use the retained Typegen graph](0283-acl-callbacks-use-retained-typegen-graph.md)
+- [ADR-0284: Password User declarations accept the configured schema namespace](0284-configured-password-user-authoring.md)
 
 Superseded records:
 

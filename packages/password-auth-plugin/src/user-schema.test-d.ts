@@ -1,4 +1,5 @@
 import { UltimaBase, type Pointer, type SchemaResult } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -21,6 +22,45 @@ const AppUser = PasswordUserSchema.define({
 		locale: field.string({ required: true, default: 'fr' }),
 	}),
 	indexes: [{ fields: ['displayName', 'username'] }],
+})
+
+test('infers configured plugin builders and signup fields without a generated registry', () => {
+	const Base = UltimaBase.use(pgVectorPlugin())
+	const User = PasswordUserSchema.define(Base.Schema, {
+		className: 'User',
+		fields: (field) => ({
+			displayName: field.string({ required: true }),
+			embedding: field.vector({ dimensions: 3 }),
+		}),
+		indexes: [{ fields: ['displayName', 'username'] }],
+	})
+	const credentials = { username: 'Ada', password: 'secret' }
+	void User.signUp({ ...credentials, displayName: 'Ada', embedding: [1, 2, 3] })
+	expectTypeOf(User).toExtend<PasswordUserReference>()
+	// @ts-expect-error -- Configured declaration preserves required profile inputs.
+	void User.signUp(credentials)
+	// @ts-expect-error -- Plugin values retain their source-defined input type.
+	void User.signUp({ ...credentials, displayName: 'Ada', embedding: 'invalid' })
+	PasswordUserSchema.define(UltimaBase.Schema, {
+		className: 'User',
+		fields: (field) => {
+			// @ts-expect-error -- A plugin method belongs only to its configured factory.
+			void field.vector
+			return {}
+		},
+	})
+	PasswordUserSchema.define(Base.Schema, {
+		className: 'User',
+		fields: (field) => ({
+			// @ts-expect-error -- Plugin builder options preserve exact value types.
+			embedding: field.vector({ dimensions: 'three' }),
+		}),
+	})
+	// @ts-expect-error -- Configured users cannot replace package-owned fields.
+	PasswordUserSchema.define(Base.Schema, {
+		className: 'User',
+		fields: (field) => ({ passwordHash: field.string() }),
+	})
 })
 
 test('types class authentication results against the exact User and rejects extra options', () => {

@@ -13,7 +13,7 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 export const assertUserAuthLanguageService = (
 	mode: 'source' | 'built',
 ): void => {
-	const User = PasswordUserSchema.define({
+	const User = PasswordUserSchema.define(UltimaBase.Schema, {
 		className: 'User',
 		fields: (field) => ({ displayName: field.string({ required: true }) }),
 	})
@@ -26,8 +26,9 @@ export const assertUserAuthLanguageService = (
 	})
 	const fileName = path.join(import.meta.dirname, 'user-auth-editor.virtual.ts')
 	const source = `${generated.contents}
+import { UltimaBase } from '@ultimabase/core'
 import { PasswordUserSchema } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
-const AppUser = PasswordUserSchema.define({ className: 'User', fields: (field) => ({ displayName: field.string({ required: true }) }) })
+const AppUser = PasswordUserSchema.define(UltimaBase.Schema, { className: 'User', fields: (field) => ({ displayName: field.string({ required: true }) }) })
 const credentials = { username: 'Ada', password: 'correct horse battery staple' }
 AppUser./* methods */signUp({ ...credentials, displayName: 'Ada Lovelace' })
 // @ts-expect-error -- The editor fixture intentionally requests completions in an unfinished input.
@@ -37,6 +38,12 @@ const result = await AppUser./* hover */login(credentials)
 AppUser.login(credentials, { ultimabase: {} })
 const displayName: string = result.user./* fields */displayName
 const token: string = result.session.token
+const users = await AppUser.findMany({ select: { displayName: true } })
+const profileName: string | undefined = users[0]?.displayName
+// @ts-expect-error -- Generated selected User results retain exact fields.
+users[0]?.username
+const currentName: string = (await AppUser.current()).displayName
+const signupName: string = (await AppUser.signUp({ ...credentials, displayName: 'Ada' })).user.displayName
 await AppUser.refresh(token)
 const logout = await AppUser.logout(token)
 const revoked: true = logout.revoked
@@ -81,15 +88,57 @@ const revoked: true = logout.revoked
 		service.dispose()
 	}
 
-	// This second project has no generated registry: installed operations must
-	// retain their exact public contracts through source and packed exports.
+	// This second project has no generated registry: configured builders, options,
+	// and operations retain their exact contracts through source and built exports.
 	const operationFile = path.join(
 		import.meta.dirname,
 		`user-auth-operations-${mode}.virtual.ts`,
 	)
 	const operationSource = `
-import { UltimaBase } from '@ultimabase/core'
-import { passwordAuthPlugin } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
+import { UltimaBase, contributeDeclarations, defineSchemaOption, plugin } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+import { PasswordUserSchema, passwordAuthPlugin } from '${mode === 'source' ? '../src/index.js' : '@ultimabase/password-auth-plugin'}'
+const profileOptions = plugin({
+  id: 'fixture.profile-options', core: '^0.0.0', version: '1.0.0',
+  permissions: { 'schema:declare': 'Declares the profile option used by this source-only check.' },
+  contributions: [contributeDeclarations({
+    schema: ({ schemas }) => schemas.defineOptions({
+      contributionId: 'profile-options',
+      schema: { profile: defineSchemaOption<boolean>({
+        normalize: (value): boolean => value === true,
+        protocolVersion: 1, typegen: false,
+      }) },
+    }),
+  })],
+})
+const Base = UltimaBase.use(pgVectorPlugin(), profileOptions)
+const User = PasswordUserSchema.define(Base.Schema, {
+  className: 'User',
+  profile: true,
+  fields: (field) => ({
+    displayName: field.string({ required: true }),
+    embedding: field./* configured builder */vector({ dimensions: 3 }),
+  }),
+})
+User.signUp({ username: 'Ada', password: 'secret', displayName: 'Ada', embedding: [1, 2, 3] })
+// @ts-expect-error -- Source signup inputs require the exact local profile fields.
+User.signUp({ username: 'Ada', password: 'secret' })
+// @ts-expect-error -- Plugin field values stay exact without generated declarations.
+User.signUp({ username: 'Ada', password: 'secret', displayName: 'Ada', embedding: 'wrong' })
+// @ts-expect-error -- Local plugin options retain exact source input types.
+PasswordUserSchema.define(Base.Schema, { className: 'User', fields: () => ({}), profile: 'invalid' })
+// @ts-expect-error -- A schema option is unavailable without its plugin.
+PasswordUserSchema.define(UltimaBase.Schema, {
+  className: 'User', fields: () => ({}),
+  profile: true,
+})
+PasswordUserSchema.define(UltimaBase.Schema, {
+  className: 'User',
+  fields: (field) => ({
+    // @ts-expect-error -- Plugin builders are absent from the earlier unconfigured factory.
+    embedding: field.vector({ dimensions: 3 }),
+  }),
+})
 const Application = UltimaBase.use(passwordAuthPlugin())
 const application = new Application({ schemas: [] })
 const withoutAuth = new UltimaBase({ schemas: [] })
@@ -121,6 +170,16 @@ void dynamicToken
 					ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
 				),
 		).toEqual([])
+		expect(
+			operationService
+				.getCompletionsAtPosition(
+					operationFile,
+					operationSource.indexOf('/* configured builder */') +
+						'/* configured builder */'.length,
+					{},
+				)
+				?.entries.map(({ name }) => name),
+		).toContain('vector')
 		const inputHover = operationService.getQuickInfoAtPosition(
 			operationFile,
 			operationSource.indexOf('credentials:') + 1,

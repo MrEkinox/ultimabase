@@ -15,7 +15,9 @@ import {
 } from '@ultimabase/password-auth-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const AppUser = PasswordUserSchema.define({
+const Base = UltimaBase.use(postgresPlugin({ url: env.DATABASE_URL }))
+
+const AppUser = PasswordUserSchema.define(Base.Schema, {
 	className: 'User',
 	fields: (field) => ({
 		displayName: field.string({ required: true }),
@@ -24,9 +26,7 @@ const AppUser = PasswordUserSchema.define({
 
 const authPlugin = passwordAuthPlugin({ user: AppUser })
 
-const Application = UltimaBase.use(authPlugin).use(
-	postgresPlugin({ url: env.DATABASE_URL }),
-)
+const Application = Base.use(authPlugin)
 const ultimabase = new Application({
 	masterAuthority: new MasterAuthority({
 		keys: [{ id: 'server', value: env.ULTIMABASE_MASTER_KEY }],
@@ -83,6 +83,14 @@ administrative session-revocation API is intentionally not exposed.
 `logoutEverywhere()` execute the corresponding application operations.
 `AppUser.current()` reads the authenticated profile through ordinary Query.
 The default `PasswordUser` exposes the same methods.
+`PasswordUserSchema.define(Base.Schema, options)` receives the configured
+factory's field builders and local plugin options directly from source, like
+`RoleSchema.define(Base.Schema, options)`. Declare the base before User, then
+install Password Auth with that User; separate schema files can import the base
+without importing the final application. Exact User query and authentication
+results still use the generated User contract. The standalone
+`PasswordUserSchema.define(options)` form remains supported and retains its
+generated plugin-builder and option contracts.
 Outside a request, these methods resolve the sole started application. Inside a
 request, they retain that request's exact application, subject, transaction,
 cancellation, and authority. A foreign User class is rejected before credential

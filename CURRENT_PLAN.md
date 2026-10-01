@@ -3,9 +3,36 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314
-- Active issue: none; issue 6314 is complete
-- Next issue: 6313
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319
+- Active issue: none; 6319's implementation and audit are complete
+- Next issue: 6313; resume from 6319's validated local commit
+
+Issue 6313 resumes after 6319's validated local commit, building on `d7a507f6`.
+Classify every Typegen output and consumer before deletion; remove only
+proven-superseded plugin projections. The one cross-schema name graph, complete
+schema `WhereInput`, and exact Access/Hooks/ACL callback descriptors remain.
+No push is authorized.
+
+The user approved matching RoleSchema's configured form on 2026-10-01.
+Issue 6319 delivered `PasswordUserSchema.define(Base.Schema, options)` while
+preserving generated User results and the existing standalone form. The source
+builder proof, generated-result regression checks, built integration tests,
+locked benchmarks, full validation, and complete audit pass. Coverage passes
+636 files/2,914 tests with no regression. Issue 6313 resumes next; standalone specialized consumers remain in its
+inventory and are not silently removed by this approval.
+
+Earlier architecture stop on 6313 (2026-10-01), now addressed by issue 6319:
+a bounded removal of generated builder
+methods passed root typecheck and focused Typegen checks but broke the locked
+authoring benchmark for the valid `PasswordUserSchema.define()` path using
+`field.vector`. That specialized definition has no configured `App.Schema`
+input, so source projection cannot replace its generated builder merge. The
+experiment was fully reverted; rebuilt one-schema benchmark returned to zero
+cold diagnostics and one edit diagnostic, and the restored Typegen suite passed
+30 files/60 tests including the locked performance gate. The approved configured
+overload supplies a source-owned authoring path; the standalone path still
+requires generated builder metadata until separately reviewed in 6313. No
+6313 product change or commit was made; do not advance to 6315 yet.
 
 Issue 6314 resumed from clean revision `33ea7809` after the user's approval on
 2026-10-01. The ordinary duplicate schema commands and migration-only public

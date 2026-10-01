@@ -3473,6 +3473,7 @@ __metadata:
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/http-plugin": "workspace:^"
+    "@ultimabase/pg-vector-plugin": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     "@ultimabase/testing": "workspace:^"

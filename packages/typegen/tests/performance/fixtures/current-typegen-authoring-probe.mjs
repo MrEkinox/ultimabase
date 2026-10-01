@@ -44,7 +44,7 @@ const defineSourceSchema = (index) => {
 	const target = 'User'
 	const definition =
 		index === 0
-			? 'PasswordUserSchema.define('
+			? 'PasswordUserSchema.define(Authoring.Schema, '
 			: index === 1
 				? 'RoleSchema.define(Authoring.Schema, '
 				: 'Authoring.Schema.define('
