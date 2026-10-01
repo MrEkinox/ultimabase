@@ -25,8 +25,9 @@ transport parity. Using several plugins alone does not make a suite root-owned.
 
 Vitest runs these conventions as distinct projects named `unit`, `e2e`,
 `postgres-e2e`, `performance`, and `types`. Runtime files use isolated fork
-workers and may execute in parallel. Performance budgets run serially and use
-structural counters rather than elapsed-time thresholds. The PostgreSQL project starts one global Testcontainer,
+workers and may execute in parallel. Performance budgets run serially: Runtime
+checks use structural counters, while compiler/editor checks retain their measured
+timing budgets. The PostgreSQL project starts one global Testcontainer,
 shares only its connection URI, and assigns a reset schema to every worker
 slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
@@ -91,7 +92,10 @@ Docker.
 - `yarn test:performance`: run deterministic performance regression budgets.
 - `yarn test:coverage`: run unit, type, performance, ordinary E2E, and PostgreSQL
   E2E projects with V8 coverage. Local execution uses four workers; the GitHub
-  coverage job overrides Vitest to the proven memory-safe two-worker bound.
+  coverage job sets `ULTIMABASE_COVERAGE_WORKERS=2` for the proven memory-safe
+  bound. Yarn passes this value as Vitest's CLI `maxWorkers`, preserving one
+  worker for the serial performance project. Do not use `VITEST_MAX_WORKERS`:
+  its native override also changes serial projects' resolved worker limit.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
 

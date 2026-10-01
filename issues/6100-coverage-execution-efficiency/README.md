@@ -14,6 +14,12 @@ proven memory-safe worker bound and every existing validation capability.
 
 ## Current outcome
 
+Issue 6101's user-approved post-milestone-63 CI worker correction is complete
+on 2026-10-02. Full validation passes with two ordinary coverage workers and
+one performance worker: 637 files, 2,922 tests, identical production coverage.
+No check or budget changed. Hosted confirmation awaits an authorized push.
+The original measurements below remain historical.
+
 Local complete coverage is now 45.5% to 49.6% faster than the original
 two-worker baseline. GitHub remains fixed at its proven two-worker safety
 bound, while compatible editor checks reuse versioned multi-file

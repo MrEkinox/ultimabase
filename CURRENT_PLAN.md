@@ -7,6 +7,14 @@
 - Active issue: none
 - Next issue: none; debt reduction deferred, no new implementation selected
 
+The user-approved 2026-10-02 CI follow-up in issue 6101 is complete: local
+four-worker and hosted two-worker coverage bounds now preserve actual serial
+performance scheduling. Full validation with CI worker settings passes 558
+ordinary files/2,658 tests and 637 coverage files/2,922 tests, with identical
+production coverage and no changed budget. Milestone 63 remains completed.
+Hosted confirmation awaits an explicitly authorized push. No product refactor,
+new debt task, or additional push is authorized.
+
 On 2026-10-02 the user explicitly accepted the final costs and deferred debt
 reduction. [ADR-0286](docs/adr/0286-accept-source-authoring-milestone-costs.md)
 records one-time cost and historical measurement exceptions, not passed original

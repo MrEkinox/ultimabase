@@ -12,6 +12,58 @@ interface DiscoveredFile {
 	readonly projectName: string
 }
 
+// Resolve the real Yarn command and Vitest projects without executing their suites.
+const coverageWorkers = async (
+	workers: string | undefined,
+): Promise<unknown> => {
+	const manifest: unknown = JSON.parse(
+		readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'),
+	)
+	if (
+		typeof manifest !== 'object' ||
+		manifest === null ||
+		!('scripts' in manifest) ||
+		typeof manifest.scripts !== 'object' ||
+		manifest.scripts === null ||
+		!('test:coverage' in manifest.scripts) ||
+		typeof manifest.scripts['test:coverage'] !== 'string' ||
+		!manifest.scripts['test:coverage'].startsWith('vitest run ')
+	) {
+		throw new TypeError('Expected the canonical Vitest coverage command')
+	}
+	const probe = `
+		import { createVitest, parseCLI } from 'vitest/node';
+		const { options } = parseCLI(['vitest', 'run', ...process.argv.slice(1)]);
+		const context = await createVitest('test', {
+			...options, api: false, watch: false, coverage: { enabled: false }
+		});
+		try {
+			console.log(JSON.stringify({
+				maxWorkers: context.config.maxWorkers,
+				projects: context.projects.map(project => ({
+					name: project.name,
+					maxWorkers: project.config.maxWorkers ?? context.config.maxWorkers,
+					fileParallelism: project.config.fileParallelism
+				}))
+			}));
+		} finally { await context.close(); }
+	`
+	const environment = { ...process.env }
+	delete environment.VITEST_MAX_WORKERS
+	delete environment.ULTIMABASE_COVERAGE_WORKERS
+	if (workers !== undefined) environment.ULTIMABASE_COVERAGE_WORKERS = workers
+	const { stdout } = await execute(
+		'yarn',
+		[
+			'exec',
+			`${JSON.stringify(process.execPath)} --input-type=module -e ${JSON.stringify(probe.replace(/\s+/gu, ' ').trim())} -- ${manifest.scripts['test:coverage'].slice('vitest run '.length)}`,
+		],
+		{ cwd: repositoryRoot, env: environment, maxBuffer: 2 * 1024 * 1024 },
+	)
+	const result: unknown = JSON.parse(stdout)
+	return result
+}
+
 // Ask Vitest itself: matching a copied glob would miss config inheritance regressions.
 const discover = async (
 	directory: string,
@@ -57,23 +109,40 @@ const e2eFiles = globSync(
 )
 
 describe('test ownership and discovery', () => {
-	it('keeps local coverage parallelism fast while retaining the hosted CI safety bound', () => {
-		const packageManifest = readFileSync(
-			path.join(repositoryRoot, 'package.json'),
-			'utf8',
-		)
-		const workflow = readFileSync(
-			path.join(repositoryRoot, '.github/workflows/ci.yml'),
-			'utf8',
-		)
-		const coverageJob = workflow.slice(
-			workflow.indexOf('\n  coverage:'),
-			workflow.indexOf('\n  website:'),
-		)
+	it.each([
+		{ environment: 'local', workers: undefined, expected: 4 },
+		{ environment: 'hosted CI', workers: '2', expected: 2 },
+	])(
+		'resolves $environment coverage workers without parallelizing performance',
+		async ({ workers, expected }) => {
+			expect(await coverageWorkers(workers)).toEqual({
+				maxWorkers: expected,
+				projects: [
+					{ name: 'unit', maxWorkers: expected, fileParallelism: true },
+					{ name: 'coverage-e2e', maxWorkers: expected, fileParallelism: true },
+					{
+						name: 'coverage-postgres-e2e',
+						maxWorkers: expected,
+						fileParallelism: true,
+					},
+					{ name: 'performance', maxWorkers: 1, fileParallelism: false },
+					{ name: 'types', maxWorkers: expected, fileParallelism: true },
+				],
+			})
+			const workflow = readFileSync(
+				path.join(repositoryRoot, '.github/workflows/ci.yml'),
+				'utf8',
+			)
+			const coverageJob = workflow.slice(
+				workflow.indexOf('\n  coverage:'),
+				workflow.indexOf('\n  website:'),
+			)
 
-		expect(packageManifest).toContain('--coverage --maxWorkers=4')
-		expect(coverageJob).toContain('VITEST_MAX_WORKERS: 2')
-	})
+			// Vitest's native environment override defeats its serial-project limit.
+			expect(coverageJob).toContain('ULTIMABASE_COVERAGE_WORKERS: 2')
+			expect(coverageJob).not.toContain('VITEST_MAX_WORKERS:')
+		},
+	)
 
 	it('runs every E2E exactly once through its built-export project, never as a unit', () => {
 		for (const file of e2eFiles) {

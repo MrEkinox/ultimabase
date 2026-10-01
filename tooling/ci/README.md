@@ -30,6 +30,14 @@ For a local read-only simulation, set `CI_BASE_SHA` to a full commit SHA and
 checkout for an exact simulation. `node tooling/ci/plan.ts --full` shows every check.
 On GitHub, **Run workflow** requests complete validation including global coverage.
 
+The complete coverage job sets `ULTIMABASE_COVERAGE_WORKERS=2`. The root Yarn
+script expands this into the CLI worker bound, defaulting to four locally.
+Performance projects retain their one-worker limit and Vitest's isolated serial
+scheduling. Do not replace this with `VITEST_MAX_WORKERS`: Vitest applies that
+native override after resolving `fileParallelism: false`, allowing benchmarks
+to compete with other suites. The discovery regression resolves the real Yarn
+command and Vitest projects for both environments without executing their tests.
+
 Use `yarn validate` for the ordinary local format, type, test, lint, and build
 contract. Use `yarn validate:full` before completing a debt reduction or
 behavior-preserving refactor; it extends that contract with complete coverage,
