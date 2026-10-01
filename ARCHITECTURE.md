@@ -47,9 +47,10 @@ defines the current authoring target. `UltimaBase.use(plugin())` builds one
 immutable configured application factory, `App.Schema.define()` projects its
 exact source-owned plugin surface, and `new App({ schemas: [...] })` remains the
 explicit Runtime registration root. Typegen remains the sole application-local
-literal-name graph for circular and cross-file schema relationships; plugins do
-not repeat source-derivable fields, options, methods, mutations, commands, or
-operations in generated declarations. Direct class and immutable-model commands
+literal-name graph for circular and cross-file schema relationships. Configured
+local fields, options and command surfaces infer from plugin source definitions;
+retained standalone, advanced-handle and complete-graph consumers still use
+generated descriptors. Direct class and immutable-model commands
 resolve and verify the sole active application without storing resources or
 authority on the class.
 
@@ -61,6 +62,11 @@ the same installation entry point to fixed or dynamic plugin lists through
 the complete generated `WhereInput` for every schema through this milestone.
 Source filters before generation are a bootstrap shape, not a claim that
 custom plugin operators have complete Typegen-free editor typing.
+
+ADR-0280 and ADR-0283 retain complete schema Access/Hooks/ACL callback contexts.
+ADR-0284 supplies configured Password User authoring while retaining exact User
+results and standalone specialized builders. The [Typegen contract](packages/typegen/README.md)
+records the final consumer boundary; generation is not limited to relationships.
 
 ```text
 developer declarations + pure authorized plugin declarations
@@ -299,8 +305,10 @@ plugin. Core has no direct dependency on it.
 `@ultimabase/typegen` is optional development tooling. It snapshots the final
 compiled application graph and retains the sole exact mapping from literal
 relationship targets to application schema contracts. Plugin-added builders,
-options, methods, mutations, commands, and operations instead project from the
-installed plugin source definitions. Typegen emits one replaceable `.d.ts`
+options, methods, mutations, commands, and operations project from the
+installed plugin source definitions on configured factories. Retained standalone
+and advanced consumers still use generated descriptors from this same graph.
+Typegen emits one replaceable `.d.ts`
 contract before infrastructure connection; it never generates JavaScript or a
 Runtime client. Core never imports Typegen, and JavaScript applications execute
 the same compiled graph without generated artifacts.

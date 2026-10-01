@@ -3,9 +3,19 @@
 - Status: in-progress
 - Milestone: 63
 - Baseline: `3c130475`
-- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313
-- Active issue: 6315, after the reviewed 6313 commit
-- Next issue: 6316, the final capability, DX and complexity audit
+- Completed issues: 6301, 6302, 6303, 6304, 6305, 6306, 6307, 6308, 6309, 6310, 6311, 6312, 6317, 6318, 6314, 6319, 6313, 6315
+- Active issue: 6316, after the reviewed 6315 commit
+- Next issue: none; final capability, DX and complexity audit
+
+Issue 6315 aligns the complete root journey, initializer User declaration,
+retained Typegen documentation and public migration notes. Its full gate passes
+557 ordinary files/2,654 tests and 636 coverage files/2,916 tests; the corrected
+package-local built starter suite passes three files/16 tests. Coverage is
+90.98/84.51/96.09/91.55 with no percentage regression. Production line count,
+exports and declaration bytes are unchanged. Continue directly to 6316 after
+committed-diff inspection; compare actual production against the pre-migration
+baseline, not the synthetic hybrid proof. Final complexity ceilings remain
+unmet and cannot be waived without user review. No push is authorized.
 
 Issue 6313 removes only proven duplicate Typegen output: four emitted builder
 aliases and repeated mutation definitions. Production decreases by 48 lines,

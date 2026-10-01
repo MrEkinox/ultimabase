@@ -404,9 +404,11 @@ attempt. `@ultimabase/typegen` uses it as the sole application-wide literal
 `className` graph, so named pointer and relation targets remain exact across
 circular and cross-module relationships. Local Core fields and installed plugin
 builders, options, fields, commands, mutations, and operations remain exact
-from source without a generated plugin-surface copy. During this bounded
-migration, other generated contracts remain until their dedicated issues prove
-them redundant, so applications can move without hover or declaration churn.
+from the configured source factory. Typegen retains complete filters and schema
+Access/Hooks/ACL callbacks, exact Password User results, standalone specialized
+builders, and advanced handles whose source receipts are unavailable. These
+consumers share one generated graph; configured local inference does not make
+their descriptors redundant. See the [Typegen contract](../typegen/README.md).
 
 Core compiles developer schemas and authorized plugin contributions directly.
 Its private immutable prepared schemas retain exact contribution owners,

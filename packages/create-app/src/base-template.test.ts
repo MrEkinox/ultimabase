@@ -199,7 +199,9 @@ describe('base project templates', () => {
 				if (id === 'acl-permissions-plugin')
 					expect(schema).toContain('default: () => new ACL()')
 				if (id === 'password-auth-plugin') {
-					expect(schema).toContain('PasswordUserSchema.define(')
+					expect(schema).toContain(
+						'PasswordUserSchema.define(SchemaApplication.Schema, {',
+					)
 					expect(application).toContain('schemas: [Task, AppUser]')
 				}
 				if (id === 'roles-plugin') {

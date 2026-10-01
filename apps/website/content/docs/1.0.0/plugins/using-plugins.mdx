@@ -9,7 +9,7 @@ order: 2
 outcome: Add the smallest compatible plugin set and verify its application-local behavior.
 owner: '2824'
 releaseStatus: pre-release
-reviewedAt: 2026-09-30
+reviewedAt: 2026-10-01
 sources:
   - packages/core/README.md
   - packages/plugin-kit/README.md
@@ -23,6 +23,7 @@ sources:
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0282-variadic-configured-plugin-installation.md
+  - docs/adr/0284-configured-password-user-authoring.md
 ---
 
 ## Outcome
@@ -185,7 +186,8 @@ try {
 ```
 
 Run the updated scripts. Typecheck and build regenerate Typegen after the
-plugin and schema changes, before TypeScript checks the new options:
+plugin and schema changes to refresh retained graph contracts. The configured
+factory already supplies the new local field options:
 
 ```bash tab="npm" tab-group="package-manager"
 npm run typecheck
@@ -207,10 +209,31 @@ pnpm start
 
 Expect the trimmed title and then `VALIDATION_ERROR`. The second write is
 rejected before persistence. If TypeScript does not recognize `hooks` or
-`validation`, check that `.ultimabase/schema.generated.d.ts` was regenerated
-and included in `tsconfig.json`. If startup fails instead, inspect the default
+`validation`, check that Task uses the factory on which Hooks and Validation
+were installed, not the zero-plugin `UltimaBase.Schema`. Regenerate Typegen for
+complete filters, named relationships and complete schema callbacks. If startup fails instead, inspect the default
 plugin report and compatibility diagnostics before changing privileges or
 infrastructure settings.
+
+## Migrate pre-release authoring
+
+Use one replacement for each removed form; these are migrations, not compatibility aliases:
+
+| Removed form                                             | Current form                                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Constructor `plugins` option                             | Install once with chained `UltimaBase.use()` calls; a plugin list can use the same `.use(...plugins)` entry point. |
+| Standalone ordinary `Schema.define(options)`             | `App.Schema.define(options)`; portable Core-only schemas use `UltimaBase.Schema.define(options)`.                  |
+| Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                |
+| Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.          |
+| Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                   |
+
+No schema is registered by being declared: keep `new App({ schemas: [...] })`.
+Advanced dynamically named handles remain for capabilities that need them; they
+are not the ordinary CRUD journey. Specialized User and Role declarations use
+`PasswordUserSchema.define(App.Schema, options)` and
+`RoleSchema.define(App.Schema, options)` to inherit the same plugin configuration.
+Their supported standalone forms retain generated builder contracts; no
+additional plugin installation is required per schema.
 
 ## Next steps
 

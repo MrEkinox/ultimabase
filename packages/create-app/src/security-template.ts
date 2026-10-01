@@ -55,7 +55,7 @@ export const securitySchemaDeclarations = (plan: InitializerPlan): string => {
 	const declarations: string[] = []
 	if (has(plan, 'password-auth-plugin')) {
 		declarations.push(`// Password Auth claims this exact application User schema; credentials stay in private storage.
-export const AppUser = PasswordUserSchema.define({
+export const AppUser = PasswordUserSchema.define(SchemaApplication.Schema, {
   className: 'User',
   fields: (f) => ({ displayName: f.string() }),
 })`)

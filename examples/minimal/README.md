@@ -75,7 +75,7 @@ then makes each schema's intent explicit:
   separately authorized `softDelete` command is added.
 - `ExamplePrivateNote` omits the option and therefore inherits `disabled`.
 
-An authenticated direct call can use the generated application schema handle or
+An authenticated direct call uses the configured schema class or
 the same command on a loaded model. The example helper validates a real Password
 Auth session before entering the ambient request context:
 
@@ -383,8 +383,10 @@ hooks, transactions, constraints, or integrity maintenance.
 
 ## Generated declarations and current boundary
 
-The committed `.ultimabase/schema.generated.d.ts` provides exact editor types
-for both REST and GraphQL schema options. Regenerate and verify it with:
+REST and GraphQL schema options infer from the configured source factory.
+The committed `.ultimabase/schema.generated.d.ts` supplies named relationships,
+complete filters, exact schema callbacks and the other retained graph contracts.
+Regenerate and verify it with:
 
 ```sh
 corepack yarn workspace @ultimabase/example-minimal generate-types

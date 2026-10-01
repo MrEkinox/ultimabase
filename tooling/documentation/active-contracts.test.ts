@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { describe, expect, it } from 'vitest'
+import * as ts from 'typescript'
+import { createLanguageServiceWorkspace } from '../vitest/typescript-language-service.js'
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const historicalRoots = ['docs/adr', 'docs/plans', 'issues'] as const
@@ -20,7 +22,7 @@ const collectMarkdown = (relativePath: string): readonly string[] => {
 	const absolutePath = path.join(repositoryRoot, relativePath)
 	if (!fs.existsSync(absolutePath)) return []
 	const stat = fs.statSync(absolutePath)
-	if (stat.isFile()) return relativePath.endsWith('.md') ? [relativePath] : []
+	if (stat.isFile()) return /\.mdx?$/u.test(relativePath) ? [relativePath] : []
 
 	return fs
 		.readdirSync(absolutePath, { withFileTypes: true })
@@ -30,7 +32,11 @@ const collectMarkdown = (relativePath: string): readonly string[] => {
 		})
 }
 
-const activeDocuments = activeRoots.flatMap(collectMarkdown)
+const maintainedDocuments = activeRoots.flatMap(collectMarkdown)
+// Public MDX owns its link/option checks; canonical syntax is shared with Markdown.
+const activeDocuments = maintainedDocuments.filter((file) =>
+	file.endsWith('.md'),
+)
 const readDocument = (relativePath: string): string =>
 	fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 
@@ -57,11 +63,63 @@ const workspacePackageNames = new Set(
 )
 
 const codeFences = (contents: string): readonly string[] =>
-	[...contents.matchAll(/```(?:ts|tsx|js|javascript)\n([\s\S]*?)```/gu)].map(
-		(match) => match[1] ?? '',
-	)
+	[
+		...contents.matchAll(
+			/```(?:ts|tsx|js|javascript)(?:[^\S\n][^\n]*)?\n([\s\S]*?)```/gu,
+		),
+	].map((match) => match[1] ?? '')
 
 describe('active documentation contracts', () => {
+	it('teaches only canonical authoring forms in maintained Markdown and MDX', () => {
+		const removedForms = [
+			/(?<![\w.])Schema\.define\(/u,
+			/\bSchema\.use\(/u,
+			/\bnew\s+UltimaBase\s*\(\s*\{[^}]*\bplugins\s*:/su,
+			/\b(?:const|let)\s*\{[^}\n]*\bSchema\b[^}\n]*\}\s*=/u,
+			/\b(?:application|ultimabase)\.schemas\./u,
+			/generateApplicationTypes\(\{\s*application\s*[,}]/u,
+		]
+		const violations = maintainedDocuments.flatMap((document) =>
+			codeFences(readDocument(document)).flatMap((code) =>
+				removedForms
+					.filter((pattern) => pattern.test(code))
+					.map((pattern) => `${document}: ${String(pattern)}`),
+			),
+		)
+		expect(violations).toStrictEqual([])
+	})
+
+	it('typechecks the complete root journey through public package exports', () => {
+		const [source] = codeFences(readDocument('README.md'))
+		if (source === undefined)
+			throw new TypeError('Missing canonical application example')
+		const fileName = path.join(repositoryRoot, 'canonical-authoring.fixture.ts')
+		// Model the documented Node project, not an editor with ambient types disabled.
+		const workspace = createLanguageServiceWorkspace({
+			compilerOptions: {
+				exactOptionalPropertyTypes: true,
+				module: ts.ModuleKind.NodeNext,
+				moduleResolution: ts.ModuleResolutionKind.NodeNext,
+				strict: true,
+				target: ts.ScriptTarget.ESNext,
+				types: ['node'],
+			},
+		})
+		workspace.addFile(fileName, source)
+		const { service } = workspace
+		try {
+			expect(
+				service
+					.getSemanticDiagnostics(fileName)
+					.map(({ messageText }) =>
+						ts.flattenDiagnosticMessageText(messageText, '\n'),
+					),
+			).toStrictEqual([])
+		} finally {
+			service.dispose()
+		}
+	})
+
 	it('classifies historical records outside the active contract', () => {
 		for (const historicalRoot of historicalRoots) {
 			expect(

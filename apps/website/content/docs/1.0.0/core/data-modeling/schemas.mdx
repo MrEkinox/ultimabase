@@ -9,7 +9,7 @@ order: 1
 outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 owner: '2807'
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-01
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -19,6 +19,9 @@ sources:
   - docs/adr/0080-postgres-index-compilation.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
   - docs/adr/0248-application-selected-schema-class-mutations.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0281-retain-generated-where-contracts.md
+  - packages/typegen/README.md
 ---
 
 A schema declares one kind of stored record: its stable `className` and the
@@ -54,7 +57,9 @@ export const Article = UltimaBase.Schema.define({
 Installed plugins may add direct schema options, such as `access`, `hooks`,
 `rest`, `graphql`, or `postgres`. Those are not Core defaults: an option must
 have one exact installed plugin owner, and each plugin documents its own
-configuration. Importing a plugin package alone does not install it. See
+configuration. Use that configured factory's `App.Schema.define()` to obtain
+its local plugin options and builders; the examples above use the portable
+zero-plugin root. Importing a plugin package alone does not install it. See
 [Using Plugins](/docs/1.0.0/plugins/using-plugins).
 
 ## Indexes
@@ -147,8 +152,8 @@ do not need an entry in the application's `schemas` array.
 ## Schema classes and application handles
 
 `UltimaBase.Schema.define()` returns the final schema class. Its local fields,
-drafts, Core operation inputs, filters, selections, and results are exact from
-source before Typegen. Core-only declarations can construct immutable drafts
+drafts, Core operation inputs, selections, and results infer from source before
+Typegen; complete filters still use the generated contract. Core-only declarations can construct immutable drafts
 immediately; configured plugin builder calls resolve when a compatible
 application compiles them. Ordinary schema commands execute against an owning
 application. Use
@@ -156,7 +161,7 @@ application. Use
 model binding. Ordinary CRUD uses `Article` directly. The handle also accepts
 the registered name of a plugin-contributed schema; its `.schema` is the
 runtime class and can run ordinary commands. A plugin schema mutation can also
-appear directly on the frozen class after an owning application starts; the call
+be declared directly on the frozen configured class before startup; execution
 resolves the sole active application and verifies that application's compiled plugin graph. See
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
 for an example and [Models](./models) for draft and persisted instances.
@@ -197,9 +202,10 @@ database connection, not on the first request. See
 ## Optional generated types
 
 The compiled schema graph is Runtime truth. Local Core schema contracts infer
-from source. Optional Typegen retains the application-wide literal-name graph
-needed to resolve pointers, relations, circular schemas, and current
-application-specific plugin declarations; it does not change what the
+from source, as do locally decidable plugin surfaces on configured factories.
+Typegen retains named pointers/relations and circular schemas, every complete
+filter, complete schema Access/Hooks/ACL callbacks, exact Password User results,
+and the supported standalone/advanced consumers. It does not change what the
 application executes. See
 [Generate TypeScript Types](/docs/1.0.0/guides/generate-types) for setup.
 

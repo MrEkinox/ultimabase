@@ -38,9 +38,9 @@ const setupProject = async (
 			parent,
 		)
 		await createProject(plan)
-		// The generated project uses built public packages without a registry install.
+		// Resolve workspace packages independently of root or package-local invocation.
 		await symlink(
-			path.resolve('node_modules'),
+			path.resolve(import.meta.dirname, '../../../../node_modules'),
 			path.join(plan.destination, 'node_modules'),
 		)
 		await writeFile(

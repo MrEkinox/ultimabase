@@ -201,8 +201,9 @@ logger; the detached report remains available through
 
 ## Use the installed surface
 
-Typegen derives the application operation's exact input and result from its
-owned references. Execute the installed token through the application:
+The installed operation token carries its exact input and result from source.
+Typegen retains its owned public references for dynamically named handles whose
+source receipts are unavailable. Execute the token through the application:
 
 ```ts
 await ultimabase

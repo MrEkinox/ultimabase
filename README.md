@@ -8,58 +8,61 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 
 ## Intended developer experience
 
-The schema, Query, network-independent GraphQL, and Yoga HTTP APIs below are
-shipped.
+Configure plugins once, declare schemas from that factory, and register them
+explicitly. This example uses a disposable development PostgreSQL database;
+`override` may change its physical schema. The [minimal application](examples/minimal/README.md)
+adds REST, GraphQL, authentication and policies to the same authoring path.
 
 ```ts
+import process from 'node:process'
+
 import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase } from '@ultimabase/core'
-import { graphqlPlugin } from '@ultimabase/graphql-plugin'
-import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
-import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
-export const UserSchema = UltimaBase.Schema.define({
-	className: 'User',
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Blog = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ url: databaseUrl, schemaPolicy: 'override' }))
+	.use(softDeletePlugin({ defaultMode: 'explicit' }))
+
+export const Post = Blog.Schema.define({
+	className: 'Post',
 	fields: (field) => ({
-		name: field.string({
-			required: true,
-		}),
-		isActive: field.boolean({
-			default: true,
-		}),
+		title: field.string({ required: true }),
+		published: field.boolean({ default: false }),
 	}),
 })
 
-const activeUsersInput = { where: { isActive: { eq: true } } } as const
-```
-
-```ts
-const Application = UltimaBase.use(
-	typegenPlugin(),
-	postgresPlugin({ url: env.DATABASE_URL }),
-	httpPlugin({ appId: 'main' }),
-	graphqlPlugin(),
-	graphqlYogaPlugin(),
-	honoServerPlugin(),
-)
-
-const ultimabase = new Application({
-	schemas: [UserSchema],
+// One local exception; no repeated installation or schema auto-registration.
+export const AuditLog = Blog.Schema.define({
+	className: 'AuditLog',
+	softDelete: false,
+	fields: (field) => ({ message: field.string({ required: true }) }),
 })
 
-await ultimabase.start()
+const application = new Blog({ schemas: [Post, AuditLog] })
 
-const draft = new UserSchema({ name: 'Ada' })
+try {
+	await application.start()
+	const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
+	await Post.softDelete({ id: post.id })
+	const posts = await Post.findMany({
+		where: { published: { eq: true } },
+		limit: 25,
+	})
+	console.log(posts[0]?.toJSON()) // A detached immutable snapshot.
+} finally {
+	await application.dispose()
+}
 ```
 
-```ts
-const users = await UserSchema.findMany({ ...activeUsersInput, limit: 25 })
-
-users[0] instanceof UserSchema // true
-users[0]?.toJSON() // A detached immutable object.
-```
+Local plugin fields, options and commands infer from the configured factory.
+[Typegen](packages/typegen/README.md) still supplies named relationships,
+complete filters and the other retained graph contracts; run generation before
+the first TypeScript build. JavaScript executes the same graph without Typegen.
 
 ## Principles
 
@@ -92,8 +95,8 @@ users[0]?.toJSON() // A detached immutable object.
   JavaScript applications run without Typegen or a generated client.
 - Stable plugin operations and application-specific model surfaces execute
   through application-owned handles. Plugin schema mutations can also be
-  called on a frozen schema class with an explicit or active application; the
-  class only dispatches to that application's compiled handle.
+  called directly on a frozen configured schema class; the class resolves the
+  sole active owner and dispatches through its compiled handle.
 - The official soft-delete plugin can preserve native delete as a tombstone
   rewrite or add an independently authorized `softDelete` mutation. Ordinary
   reads stay tombstone-blind, while audited `restore` and `purge` commands remain

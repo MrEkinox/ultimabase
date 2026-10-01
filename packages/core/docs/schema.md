@@ -83,9 +83,10 @@ cannot receive requests, services, adapters, transactions, or lifecycle state.
 Core derives local model, create, update, filter, selection, nested-write, and
 result contracts from the captured field map. The deterministic registry emitted
 by `@ultimabase/typegen` remains the application-wide literal-name graph for
-pointers, relations, circular schemas, and current generated plugin contracts.
-An existing registry continues to provide its compact Core aliases during the
-bounded migration.
+pointers, relations and circular schemas. It also supplies complete filters,
+schema Access/Hooks/ACL callbacks, exact Password User results and retained
+standalone/advanced contracts. Configured local plugin surfaces infer from
+`App.Schema` without regeneration; see the [Typegen contract](../../typegen/README.md).
 
 The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder with a named option type for every built-in factory.
@@ -99,9 +100,10 @@ plugin-transformed schemas.
 
 Plugin-owned methods and direct field options declare a non-empty subset of the
 closed `stored`, `embedded`, `virtual`, and `output` contexts. Each supported
-method context has its own factory and Typegen callable reference; one stored
+method context has its own factory; one stored
 field factory is never converted into an embedded field or output descriptor.
-Typegen augments only the matching contextual interface, while Core repeats the
+Configured builders infer their methods from those factories. Public Typegen
+references retain only the matching standalone contextual interface. Core repeats the
 same checks for JavaScript and stale generated declarations before setup.
 
 Framework and plugin authors may reuse the immutable low-level field factories
@@ -649,7 +651,7 @@ and repeatable structural snapshots.
 Install [`@ultimabase/validation-plugin`](../../validation-plugin/README.md) to
 add the direct `validation` option and synchronous Standard Schema V1 rules.
 That plugin owns validator typing, execution, diagnostics, projected arithmetic,
-and the stable `field.validation` issue code. Without it, Typegen omits the
+and the stable `field.validation` issue code. Without it, the configured factory omits the
 option and application compilation rejects a stale or untyped declaration that
 uses it.
 
