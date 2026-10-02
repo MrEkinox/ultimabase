@@ -102,6 +102,7 @@ consistent without rewriting historical issue prose.
 - [`6200-future-complexity-reduction/`](6200-future-complexity-reduction/README.md)
 - [`6300-source-typed-application-authoring/`](6300-source-typed-application-authoring/README.md)
 - [`6400-scoped-agent-context/`](6400-scoped-agent-context/README.md)
+- [`6500-standard-package-simplification/`](6500-standard-package-simplification/README.md)
 
 ## Assignment prompt
 

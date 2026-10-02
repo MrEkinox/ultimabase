@@ -8,7 +8,9 @@ belongs here or in issue evidence, not in startup instructions.
 
 ## Active
 
-None. See [CURRENT_PLAN.md](../../CURRENT_PLAN.md) before selecting new work.
+- [Standard package simplification](../../issues/6500-standard-package-simplification/README.md),
+  milestone 65; Valibot, GraphQL Tools, then atomic writing. See
+  [CURRENT_PLAN.md](../../CURRENT_PLAN.md) for the selected issue.
 
 ## Paused
 
