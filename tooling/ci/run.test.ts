@@ -193,7 +193,8 @@ describe('GitHub selected command execution', () => {
 					'run',
 					'--project',
 					'unit',
-					'tooling/documentation/active-contracts.test.ts',
+					'tooling/documentation/',
+					'tooling/issues/',
 				],
 			},
 			{
@@ -207,6 +208,28 @@ describe('GitHub selected command execution', () => {
 				],
 			},
 		])
+	})
+	it('does not repeat backlog checks when documentation also selects checkpoint guards', () => {
+		const { result, commands, directory } = execute('repository', {
+			...selected,
+			documentation: true,
+			issues: true,
+			packages: [],
+			build: false,
+		})
+		expect(result.status, result.stderr).toBe(0)
+		expect(commands).toHaveLength(2)
+		expect(commands[0]).toEqual({
+			cwd: directory,
+			args: [
+				'vitest',
+				'run',
+				'--project',
+				'unit',
+				'tooling/documentation/',
+				'tooling/issues/',
+			],
+		})
 	})
 	it('starts the PostgreSQL project only when a selected suite requires it', () => {
 		const file = 'tests/e2e/application.postgres.e2e.test.ts'

@@ -94,6 +94,8 @@ const resolveDocumentationTarget = (
 	const fragmentIndex = target.indexOf('#')
 	const targetPath = fragmentIndex < 0 ? target : target.slice(0, fragmentIndex)
 
+	// A fragment-only route stays in the source document, not its directory.
+	if (targetPath === '') return sourceFile
 	return path.resolve(path.dirname(sourceFile), targetPath)
 }
 
@@ -124,6 +126,38 @@ const readCatalogTargets = (
 }
 
 describe('current architecture documentation', () => {
+	it('resolves scoped agent routes, conformance paths and historical handoff links', async () => {
+		for (const relative of [
+			'AGENTS.md',
+			'CURRENT_PLAN.md',
+			'docs/current-architecture.md',
+			'docs/engineering/agent-domain-rules.md',
+			'docs/plans/README.md',
+			'docs/plans/completed/source-typed-application-authoring-execution-log.md',
+		]) {
+			const source = path.join(repositoryRoot, relative)
+			for (const target of readLinks(await readFile(source, 'utf8'))) {
+				if (/^https?:/u.test(target)) continue
+				const resolved = resolveDocumentationTarget(source, target)
+				await expect(
+					stat(resolved),
+					`${relative}: ${target}`,
+				).resolves.toBeDefined()
+				const fragment = target.split('#')[1]
+				if (fragment === undefined) continue
+				const contents = await readFile(resolved, 'utf8')
+				const anchors = [...contents.matchAll(/^#+ (.+)$/gmu)].map(
+					([, heading]) =>
+						(heading ?? '')
+							.toLowerCase()
+							.replace(/[^\p{L}\p{N} _-]/gu, '')
+							.replace(/ /gu, '-'),
+				)
+				expect(anchors, `${relative}: ${target}`).toContain(fragment)
+			}
+		}
+	})
+
 	it('indexes every maintained architectural concept with valid targets', async () => {
 		const contents = await readFile(indexPath, 'utf8')
 		const rows = readIndexRows(contents)

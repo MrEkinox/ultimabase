@@ -12,6 +12,8 @@ ordinary local Yarn commands.
   generated applications. Keep additional computed fixture dependencies here.
 - `run.ts` validates the plan and invokes the selected formatting, documentation,
   lint, type, and runtime commands with argument arrays rather than shell strings.
+  Documentation-only runs include architecture routing and checkpoint/backlog
+  guards once, even when no package build or complete coverage is selected.
   Complete selection invokes the same repository-wide `yarn format:check` gate
   as local validation; affected selection retains the narrower changed-file check.
 - Every package must re-export `tooling/vitest/package.config.ts` from its local

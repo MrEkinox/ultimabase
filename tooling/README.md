@@ -26,3 +26,9 @@ commands retain complete discovery.
 - `issues/backlog-metadata.ts` validates canonical issue and milestone status,
   dependencies, milestone ownership, and explicit merged-issue targets. Run it
   through `yarn check:issues`; CI executes the same focused test suite.
+- `issues/current-plan.test.ts` keeps the short root checkpoint aligned with the
+  issue/milestone tree and plan catalog. New/resumed active work must contain
+  Working context; historical completed issues are not bulk-retrofitted.
+- `documentation/current-architecture-index.test.ts` protects architecture
+  routing and ADR status. Applicable detailed agent rules live under
+  `docs/engineering`; these are active contracts, not archived execution logs.

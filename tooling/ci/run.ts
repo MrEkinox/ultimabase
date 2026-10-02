@@ -100,7 +100,8 @@ switch (process.argv[2]) {
 		if (plan.full) run(['format:check'])
 		else if (formatted.length > 0)
 			run(['prettier', '--check', '--ignore-unknown', '--', ...formatted])
-		if (plan.issues && !plan.tooling && !plan.coverage) run(['check:issues'])
+		if (plan.issues && !plan.documentation && !plan.tooling && !plan.coverage)
+			run(['check:issues'])
 		if (plan.documentation) {
 			// The complete tooling selection below already includes the documentation guards.
 			if (!plan.tooling && !plan.coverage)
@@ -109,7 +110,8 @@ switch (process.argv[2]) {
 					'run',
 					'--project',
 					'unit',
-					'tooling/documentation/active-contracts.test.ts',
+					'tooling/documentation/',
+					'tooling/issues/',
 				])
 			// Landing example compilation depends on built exports, not documentation prose.
 			run(

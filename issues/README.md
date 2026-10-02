@@ -101,6 +101,7 @@ consistent without rewriting historical issue prose.
 - [`6100-coverage-execution-efficiency/`](6100-coverage-execution-efficiency/README.md)
 - [`6200-future-complexity-reduction/`](6200-future-complexity-reduction/README.md)
 - [`6300-source-typed-application-authoring/`](6300-source-typed-application-authoring/README.md)
+- [`6400-scoped-agent-context/`](6400-scoped-agent-context/README.md)
 
 ## Assignment prompt
 
@@ -118,3 +119,30 @@ Read AGENTS.md and all referenced ADRs first.
 - Implement acceptance criteria, tests, and documentation together.
 - Add a new issue when discovered work is independently valuable.
 - Update ADRs only when a durable decision changes.
+
+## Working context
+
+New or resumed implementation work must have one `## Working context` before
+editing. Do not bulk-retrofit completed historical issues. Keep it small and
+update the next action at each meaningful checkpoint or interruption:
+
+- Scope: exact files/domains, explicit exclusions and acceptance criteria.
+- Current contracts: maintained contract links, relevant accepted ADRs and tests.
+- Locked decisions: approved form, capability/security boundaries and known limits.
+- Rejected approaches: failed variants with diagnostics/evidence and the concrete
+  condition for reopening; explicitly say `none` if none exist.
+- Proof commands: narrow runnable checks, then the unchanged completion gate.
+- Exploration budget: two comparable failures or 30 minutes without verifiable
+  progress, excluding validation waiting; stop and explain before expanding.
+- Next action: one verifiable step, plus blocker/decision needed if applicable.
+
+Save detailed experiments and validation output in the issue or its evidence
+directory, not the root plan. After two failed variants of the same inference
+class, changing spelling alone is not new evidence. A representative canary must
+cover the real affected consumers before broad edits; a synthetic timing fixture
+alone cannot establish API correctness or delivered performance.
+
+Before completion: audit criteria and the whole diff, fix findings, rerun
+invalidated checks and re-audit. Required failing/skipped/flaky/interrupted checks
+keep the issue open. Mark criteria/status and milestone checkboxes only after
+the full required gate; inspect the dedicated local commit before advancing.

@@ -15,6 +15,58 @@ Use the sources in this order:
 Historical ADRs remain immutable evidence. A superseding ADR changes which
 record is current; it does not erase the older record.
 
+## Task routing
+
+Start with the root guide, current checkpoint and selected issue. Read only the
+concept rows relevant to the change, then their maintained contract sections
+and current decisions in full. Read package READMEs and applicable nested agent
+guides before editing. Cross-domain redesign requires the full architecture.
+The [domain instructions](engineering/agent-domain-rules.md) are mandatory for
+the affected sections. A contract/code disagreement is a finding to investigate,
+not permission to silently treat either as obsolete.
+
+Use existing conformance entry points before expanding a change:
+
+| Work                             | First proof                                                                                                                                                                                                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application ownership/lifecycle  | [Single active application](../packages/core/src/application/single-active-application.test.ts), [packed configured factory](../packages/core/tests/e2e/core-configured-application.e2e.test.ts)                                                                                               |
+| Plugin order/privileges/commands | [Graph](../packages/core/src/plugins/graph.test.ts), [privilege policy](../packages/core/src/application/plugin-privilege-policy.test.ts), [removed powers](../packages/core/tests/plugins/removed-kernel-powers.test.ts), [command graph](../packages/core/src/plugins/command-graph.test.ts) |
+| Schema/plugin source inference   | [Production source/packed projections](../packages/core/tests/e2e/core-plugin-source-projection.e2e.test.ts), [source/packed profiles](../packages/core/tests/e2e/core-source-schema-profiles.e2e.test.ts)                                                                                     |
+| Runtime/policy/transactions      | [Final guard](../packages/core/src/runtime/pipeline/final-mutation-guard.test.ts), [automatic transactions](../packages/core/tests/runtime/automatic-mutation-transactions.test.ts), affected policy package tests                                                                             |
+| Transport parity                 | [Shared public vertical](../tests/e2e/graphql-cross-transport-parity.postgres.e2e.test.ts); run affected transport package tests first                                                                                                                                                         |
+| Typegen/circular relationships   | [Source graph editor](../packages/typegen/src/source-schema-graph-language-service.test.ts), [packed generated types](../packages/typegen/tests/e2e/typegen-generated-types.e2e.test.ts), [retained boundary](#retained-typing-boundaries)                                                     |
+| Repository workflow/CI/docs      | [Architecture index guard](../tooling/documentation/current-architecture-index.test.ts), [checkpoint guard](../tooling/issues/current-plan.test.ts), [CI guide](../tooling/ci/README.md)                                                                                                       |
+
+Run focused unit checks with `yarn vitest run --project unit <test-path>`.
+Packed checks need built dependencies and `--project e2e`; PostgreSQL verticals
+use `--project postgres-e2e` with Docker and listener permissions. See
+[test ownership/commands](../tests/README.md). These entry points do not replace
+the complete validation gate or the affected package's full conformance matrix.
+
+## Retained typing boundaries
+
+These are accepted limits, not fresh experiments to repeat on each task:
+
+- Named/circular/cross-file schema graph: [ADR-0279](adr/0279-source-typed-configured-application-authoring.md).
+  No parallel source registry or export-name-equals-className restriction.
+- Complete schema Access/Hooks callbacks: [ADR-0280](adr/0280-complete-schema-callbacks-use-typegen-graph.md).
+  Exact items and relationship filters remain in the same generated graph.
+- All complete WHERE contracts: [ADR-0281](adr/0281-retain-generated-where-contracts.md);
+  pre-generation filters are a bootstrap shape, not an exact custom-operator promise.
+- Complete ACL sibling-field callbacks: [ADR-0283](adr/0283-acl-callbacks-use-retained-typegen-graph.md).
+- Exact Password User results and standalone specialized consumers:
+  [ADR-0284](adr/0284-configured-password-user-authoring.md).
+- Nested plugin-option JSDoc hover can be missing while completion, diagnostics
+  and exact types remain: [6310](../issues/6300-source-typed-application-authoring/6310-http-rest-plugin-migration.md).
+  Core must not hard-code plugin option names to recover documentation.
+- Readable item hovers take priority over discarded flattening optimizations:
+  [failed experiment evidence](../issues/6300-source-typed-application-authoring/evidence/6316-bounded-overlap-experiment.md).
+
+The [final audit](../issues/6300-source-typed-application-authoring/evidence/6316-final-audit.md)
+and [Typegen contract](../packages/typegen/README.md) contain the complete output
+inventory, not a relationships-only promise. Reopening requires new concrete
+compiler/consumer evidence and explicit approval; do not revive removed bridges.
+
 ## Concept index
 
 <!-- current-architecture:start -->
@@ -49,5 +101,6 @@ record is current; it does not erase the older record.
 
 Update this index in the same issue whenever an accepted ADR changes one of
 these concepts, moves its responsible package, or supersedes a listed decision.
-The repository documentation test validates every target and rejects a listed
-ADR whose status is no longer current.
+The repository documentation tests validate routes and reject a listed ADR whose
+status is no longer current. The checkpoint guard checks active issue/milestone
+status and the plan catalog, without interpreting old execution prose as metadata.

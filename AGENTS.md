@@ -1,366 +1,148 @@
 # UltimaBase agent guide
 
-This file is the operational contract for any coding agent working in this repository.
+This is the operational contract for coding agents. Domain rules are mandatory
+but loaded only for the work in scope; history is evidence, never authorization.
 
-Milestone 30's accepted ADR-0258 and ADR-0259 define the approved migration
-target. ADR-0258 permits one initialized application per JavaScript realm and
-isolated parallel workers. ADR-0259 removes exactly R-001–R-010, preserves used
-plugin behavior and internal performance measurements, and keeps one private
-command graph with application operations and schema mutations. Issues
-3004/3005 remove generic decoration/replacement, compiler/Runtime substitution,
-the Core observer protocol, Query extensions, destructive patches, arbitrary
-schema/model operations, and manual Typegen declarations/extra outputs.
-Their used product counterparts remain intact. Do not add substitute public
-APIs or remove another capability without following the architecture stop rule.
+## Start and resume
 
-Milestone 31's accepted ADR-0266 removes only migration support, upgrade intent,
-planning/history helpers and PostgreSQL preparation claims. Physical metadata,
-all owner/version/options/payload snapshot fields, direct synchronization and
-`renamedFrom`, private storage and transaction-bound raw access remain. No
-migration privilege or replacement protocol exists; future migrations require
-an explicit architecture decision before implementation.
+1. Inspect Git status; preserve unrelated changes. Check remote state before
+   selecting a next issue; do not push without explicit user confirmation.
+2. Read `README.md`, `CURRENT_PLAN.md`, the selected issue and its dependencies.
+   Pick one issue unless the user explicitly defines a narrower task.
+3. Use [the current architecture index](docs/current-architecture.md#task-routing)
+   to read the applicable maintained contracts, package READMEs, accepted ADRs
+   and [domain rules](docs/engineering/agent-domain-rules.md). Read selected
+   sections completely; full `ARCHITECTURE.md` is required for cross-domain
+   redesign, not for every narrow edit. Read applicable nested `AGENTS.md` too.
+4. Add or refresh the issue's [Working context](issues/README.md#working-context)
+   before implementation. Record exact scope, proof commands, locked decisions,
+   rejected approaches and the next verifiable action. Read historical records
+   only when that context or a new finding requires them.
+5. On resumption, verify the checkpoint against the tree and evidence. Never
+   infer completion from an earlier summary or restart an accepted limitation
+   merely because its failed experiment is no longer in conversation context.
 
-## Read first
+`CURRENT_PLAN.md` stays at most 80 lines: objective, active issue, locked
+decisions, blocker and next action. Put detailed evidence in the issue; archive
+completed execution logs under `docs/plans/completed/`. Keep the plan catalog,
+issue status, milestone status and checkboxes aligned in the same change.
+A fresh chat may help an independent task after a durable handoff; it is not a
+replacement for the checkpoint and is not required for every issue.
 
-Before changing code:
+## Scope, evidence and stop rules
 
-1. Read `README.md`, `ARCHITECTURE.md`, and the README of every package in scope.
-2. Read `CURRENT_PLAN.md` when it exists; it records the active or explicitly
-   paused multi-issue objective and its resume point.
-3. Read the relevant ADRs under `docs/adr/`.
-4. Pick one issue from `issues/` unless the user explicitly defines a narrower task.
-5. Check the issue dependencies and do not silently implement blocked work.
-6. Inspect the working tree and preserve unrelated user changes.
+- Implement only the selected criteria, a failing test, an existing documented
+  contract or the user's explicit request. No speculative APIs, empty future
+  packages, infrastructure or options. Do not combine unrelated nearby work.
+- Reuse standard/native/library solutions and existing concepts. A shared
+  abstraction needs one current invariant or two concrete current usages;
+  hypothetical consumers do not count. Do not generalize for future flexibility.
+- An unapproved architectural change requires a stop: explain the proven need,
+  minimal solution, impact and what will not be anticipated; await approval.
+  An accepted ADR or explicit criterion counts as approval. Stop if scope grows.
+- Before a broad migration, prove one representative vertical slice against the
+  actual affected consumers, including compiled declarations and editor behavior
+  when relevant. Do not substitute a simplified synthetic fixture for that proof.
+- Exploration stops after two comparable failed variants without new evidence,
+  or 30 minutes without verifiable progress (validation wait time excluded).
+  Save failures, rollback only your experiment, explain the blocker/options and
+  request direction. This never waives a test, budget or accepted constraint.
+- Do not retry a rejected approach without its recorded reopening condition.
+  A recent user `stop` overrides every older autonomous continuation.
+- Temporary compromises must be explicit in comments, issue notes or an ADR.
+  Report any necessary work beyond the original criteria in the handoff.
 
-## Agent coordination
+## Global product and security invariants
 
-- Use sub-agents only when the task divides into independent workstreams that can make useful progress in parallel.
-- Give each sub-agent a bounded, non-overlapping scope and avoid concurrent edits to the same files.
-- Keep small changes, central architectural decisions, and tightly coupled implementation work with the primary agent.
-- The primary agent owns integration, resolves inconsistencies, verifies the complete result, and remains accountable for every delivered change.
+- UltimaBase is a modern TypeScript backend framework inspired by Parse Server,
+  not a compatible clone. Developer declarations and authorized deterministic
+  plugin contributions are Runtime truth; generated declarations are replaceable.
+- Core depends toward foundations, never concrete plugins, Plugin Kit or
+  infrastructure. Packages import other packages through public exports only.
+  The developer never writes Drizzle. Transports never issue SQL or bypass Runtime.
+  Read [dependency direction](docs/engineering/agent-domain-rules.md#dependency-direction)
+  for every package integration; run/update `yarn constraints`.
+- One initialized application per JavaScript realm; parallel workers are isolated.
+  Preserve used capabilities, immutable models/builders and explicit registration.
+  No mutable Active Record, dirty tracking, direct adapter persistence or promised
+  subclass extension mechanism; prefer composition and plugins.
+  Schema model commands delegate through Query and RequestEngine; non-schema
+  values such as Role and ACL never gain persistence methods.
+- Hooks, Access, ACL, authentication and sessions are optional plugins, not Core
+  products or placeholder stages. Roles/identity grant nothing by themselves.
+  Read [product rules](docs/engineering/agent-domain-rules.md#product-rules) and
+  [plugin rules](docs/engineering/agent-domain-rules.md#plugins) for these domains.
+- Authority is `anonymous` or `master`, never `user` or `system`. Master is
+  trusted server-side authority, unforgeable from transport input. It bypasses
+  authorization, not validation, hooks, transactions, constraints or integrity.
+- Protected constraints only narrow; rewritable physical plans never own them.
+  Preserve the [Runtime order](docs/engineering/agent-domain-rules.md#runtime-order),
+  automatic mutation transactions, itemized collection mutations and post-commit
+  delivery. No general `skipHooks` or permission-specific Runtime stages.
+- Do not restore [removed extension/migration powers](docs/engineering/agent-domain-rules.md#removed-extension-and-migration-powers)
+  or remove another capability without architecture approval.
+- Typegen is the sole named-schema graph. Read the
+  [retained typing boundaries](docs/current-architecture.md#retained-typing-boundaries)
+  before inference/generation work; no parallel registry or weaker exact types.
 
-## Product rules
+## Code and public API quality
 
-- UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.
-- Developer TypeScript declarations plus authorized deterministic plugin
-  contributions form the authoritative compiled application graph. Generated
-  Typegen files are replaceable declarations, never Runtime truth.
-- The developer never writes Drizzle directly.
-- Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
-- Plugin identity is structured as a stable plugin ID plus an optional explicit
-  instance ID. Multiple configurations of one plugin are legal only when their
-  instance identities and capability contracts make composition unambiguous.
-- REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
-- ADR-0189 is delivered: Hooks and Access are optional official plugins built
-  on the same public kernel as community alternatives. Do not reintroduce
-  Core-specific Hooks or Access extension paths.
-- ACL contributes its independent monotonic policy through Core's generic
-  protected constraint capability and never depends on the official Access
-  package. Roles and authentication provide optional request subjects but grant
-  nothing by themselves. Core Runtime must not name, configure, bypass, or
-  install neutral stages for concrete providers.
-- Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
-- Master access is trusted server-side authority that bypasses authorization
-  policies while retaining validation, hooks, transactions, database
-  constraints, and integrity maintenance. It must never be forgeable from
-  transport input.
+- Never use `any`, implicit, asserted or public. Validate `unknown` at untrusted
+  boundaries; keep precise, verifiable inference.
+- Prefer classes for domain objects and immutable builders; builder methods
+  return new instances. Prefer arrow functions for stateless factories/utilities.
+- Treat completion, hover documentation and useful errors as API contracts.
+  Prefer named option interfaces and English JSDoc with focused examples; test
+  important editor behavior against both source and compiled package exports.
+- API replacement includes removal of superseded implementations and barrel
+  exports unless an accepted ADR preserves compatibility; protect the replacement.
+- Write English comments explaining intent, invariants and non-obvious boundaries.
+  Avoid duplication without abstracting coincidental similarities.
+- Handwritten TypeScript: production warns above 400 lines/fails above 600;
+  tests warn above 600/fail above 700. No local exceptions or disables.
+  Generated artifacts are excluded by path patterns, not inline suppressions.
 
-## Dependency direction
+## Validation and completion
 
-Dependencies point toward foundations. In the diagram, `A -> B` means that A may import B:
-
-```text
-core -> shared
-plugin-kit -> core/shared
-hooks-plugin -> plugin-kit/core/shared
-official Hooks extensions -> hooks-plugin/plugin-kit/core/shared
-access-plugin -> plugin-kit/core/shared
-official Access providers -> access-plugin/plugin-kit/core/shared
-ACL providers -> plugin-kit/core/shared
-soft-delete-plugin -> plugin-kit/core/shared
-other official plugins -> plugin-kit/core/shared
-http-plugin -> plugin-kit/core/shared
-server-hono-plugin -> http-plugin/plugin-kit/core/shared
-rest-plugin -> http-plugin/plugin-kit/core/shared
-password-auth-plugin -> http-plugin/plugin-kit/core/shared
-graphql-plugin -> plugin-kit/core/shared
-graphql-http -> core/shared
-graphql-yoga-plugin -> graphql-http/http-plugin/graphql-plugin/plugin-kit/core/shared
-graphiql-plugin -> graphql-http/http-plugin/plugin-kit/core/shared
-apollo-sandbox-plugin -> graphql-http/http-plugin/plugin-kit/core/shared
-```
-
-Schema, Query, application orchestration, protected constraints, persistence
-plans, and Runtime are internal Core domains rather than separate packages.
-Their source folders preserve the same logical direction without creating
-published-package cycles. `plugin-kit` is a public convenience layer for plugin
-authors; Core must never import it. Official Hooks and Access contracts live in
-their respective plugin packages; importing either package installs no
-behavior. Independent behavior and policy engines own their contracts.
-
-Key prohibitions:
-
-- `core` must not import a concrete plugin or infrastructure library.
-- `core` must not import `plugin-kit`, `hooks-plugin`, or `access-plugin`;
-  those packages depend toward foundations.
-- Core's Runtime domain must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
-- transport packages must not issue SQL or bypass the runtime.
-- REST and GraphQL are sibling transports. GraphQL Core remains
-  network-independent; Yoga, REST, Hono, and HTTP authentication integrations
-  meet only through the optional official HTTP plugin.
-- Transports enter Runtime only through Core's narrow versioned application
-  request execution capability. They never receive a `FrameworkEngine`,
-  `RequestEngine`, `FrameworkApplication`, `UltimaBase`, adapter, pipeline,
-  authority, grant, or lifecycle mutation facade.
-- Every public HTTP application request identifies the sole active
-  application. Explicitly configured infrastructure-only browser preflight is
-  the sole exception and invokes no application behavior. An explicitly
-  enabled raw Master key is verified and audited only by that application's
-  Core authority; headers, flags, shaped contexts, grants, and foreign
-  credentials never manufacture authority.
-- Browser-origin policy is disabled by default. The sole active application
-  owns one effective policy; preflight invokes no application behavior.
-  Server providers retain one optional HTTP owner and use the safe HTTP
-  dispatch boundary after shutdown, without shared-server application maps.
-- Application-identity and credential failures before route dispatch use the
-  HTTP plugin's protocol-neutral safe error boundary. REST and GraphQL own
-  errors only after their selected handler begins.
-- database-specific migration logic stays in a database-specific migration plugin.
-- packages must import another package through its public export, never through `src/`.
-
-Run or update `yarn constraints` when dependency constraints exist. If a requested change would violate the graph, stop and propose an ADR instead.
-
-## Public API style
-
-- Prefer classes for public domain objects and immutable builders: `Query`, `ACL`, `Role`, framework errors, and application objects.
-- Every builder method returns a new instance. Never mutate a previous `Query` or `ACL`.
-- Prefer arrow functions for stateless factories, hooks, scopes, permission rules, and utilities.
-- Do not implement mutable Active Record, dirty tracking, or direct adapter persistence. Schema model instance commands accepted by ADR-0109 remain immutable and must delegate through Query and `RequestEngine`; `Role`, `ACL`, and other non-schema values do not gain persistence methods.
-- Never use `any`, whether explicit, implicit, hidden behind an assertion, or exposed through a public API. Use `unknown` plus validation at untrusted boundaries.
-- Type variables and boundaries as precisely as possible. Keep inference when it already produces a precise, verifiable type.
-- Treat autocomplete and hover documentation as part of every public TypeScript API. Prefer named option interfaces, add English JSDoc with focused examples, and protect important editor behavior through TypeScript language-service tests against source and compiled package exports.
-- Replacing a public API requires a removal audit in the same change: delete every superseded implementation and barrel export unless an accepted ADR explicitly preserves compatibility, then protect the canonical replacement with focused runtime or type tests.
-- Every code contribution must include comments written in English. Explain intent, invariants, security boundaries, and non-obvious decisions rather than restating the implementation.
-- Avoid code duplication whenever practical. Reuse focused functions, variables, types, and modules for shared behavior or invariants without abstracting coincidental similarities.
-- Prefer a suitable standard, native, or established-library solution over custom code. Add code only when existing alternatives cannot correctly satisfy the requirement.
-- Do not promise subclassing as an extension mechanism; prefer composition and plugins.
-
-## Plugins
-
-- Every publishable plugin package must end with `-plugin` in both its
-  `packages/<name>-plugin` directory and its `@ultimabase/<name>-plugin` package
-  name. Packages that are not plugins must not use this suffix.
-- A plugin factory returns a static typed definition.
-- A manifest declares structured plugin and optional instance identity,
-  compatibility ranges, requested privileges with reasons, environmental
-  claims, dependencies, and capabilities.
-- Every requested privilege from ADR-0191's closed vocabulary is validated and
-  reported before any plugin static declaration, Typegen, setup, connection,
-  Runtime, or transport effect.
-- Privileges are denied globally, by plugin ID, or by exact instance. Unknown
-  policy targets are configuration errors. The default console logger reports
-  installed plugins, privileges, reasons, severity, and claims unless the
-  developer explicitly replaces or silences that diagnostic sink.
-- Environmental claims describe direct filesystem, network, process, and native
-  behavior that in-process JavaScript cannot be forced to declare. Privileges
-  and claims are inspectable policy, not an operating-system sandbox.
-- Plugins declare versioned application-local capabilities and may provide,
-  require, or optionally consume them only with the matching privilege and
-  deterministic conflict rules.
-- Capability cardinality and composition are fixed: `single` has one provider,
-  `multiple` has ordered independent providers, and `pipeline` has ordered
-  handlers. ADR-0259 removes generic decoration and replacement; competing
-  single providers remain errors. Tokens declare `declaration` or `application` lifetime;
-  resource-backed application values are materialized and disposed by Core.
-- Plugins are installed through one flat application `plugins` list. Use explicit
-  dependencies, peers, or capabilities for relationships; plugin definitions do
-  not contain nested plugins.
-- Plugin `peers` validate exact identity and semantic compatibility without
-  adding declaration, lifecycle, materialization, or teardown order. Use a
-  dependency whenever ordering is required.
-- Parent setup precedes child setup; child teardown precedes parent teardown.
-- Dependencies and configuration order determine deterministic plugin and hook ordering.
-- Duplicate plugin IDs without explicit distinct instances are errors.
-- Authorized plugins may contribute schemas, field kinds, namespaced options,
-  immutable patches, model surfaces, operations, Typegen declarations, Runtime
-  middleware, protected constraints, and persistence-plan rewrites. Static
-  contributions remain pure, synchronous, deterministic, and infrastructure-free.
-- Product-owned Runtime observation and filesystem claims
-  retain their exact privilege or claim boundaries; broader neighboring powers
-  never imply them. Query extension registrars and destructive schema patches
-  are removed. Typegen derives declarations from the graph and registered public
-  type references; plugins cannot append manual declarations or extra outputs.
-- `@ultimabase/plugin-kit` contains reusable authoring helpers only. Official
-  plugins use it when suitable, and its helpers must not bypass ownership,
-  privilege, validation, or provenance checks enforced by Core.
-- Versioned capabilities are the only public cross-plugin integration host.
-  Milestone 14 removes public string slots, service lookup, named setup
-  registries, and generic contribution registries instead of preserving parallel
-  escape hatches.
-- Plugin-created schemas, operations, and application-specific model commands
-  are reached through application-owned handles. A plugin may claim exact
-  ownership of a developer schema already listed at the application root, but
-  plugins never mutate an exported schema class or prototype.
-- Typegen may consume the compiled graph and owner-scoped plugin contributions,
-  but may emit only declarations and deterministic inert metadata. JavaScript
-  applications execute the same graph without Typegen or a generated client.
-- Hooks and Access are optional official plugins. Their ordering, typing,
-  transactional, and monotonic security semantics remain requirements, while
-  community alternatives may expose a different developer experience through
-  the same public kernel.
-- Policy capabilities use generic deny-only guards, AND-only row filters,
-  append-only adapter constraints, narrowing field restrictions, and
-  Core-validated structural output subsets. Later middleware must never broaden
-  accumulated enforcement. ACL targets this generic boundary directly and does
-  not depend on access-plugin.
-
-## Runtime order
-
-Preserve this logical pipeline through the public capability kernel and the
-optional official engines:
-
-```text
-normalization
-→ initial Core structural validation without application validators
-→ initial operation and mutation-field Access
-→ load and lock the visible target when one may exist
-→ item Access
-→ field resolveInput
-→ schema resolveInput with originalItem
-→ target-aware preparedOperation transforms
-→ mandatory Core structural validation without replaying defaults or generators
-→ optional rejection-only final mutation-input guards
-→ value-dependent Access re-evaluation
-→ plugin/global before observers
-→ schema before observers
-→ database operation
-→ schema after hooks
-→ plugin/global after hooks
-→ final monotonic output restrictions
-→ beforeCommit
-→ commit
-→ afterCommit and post-commit events
-```
-
-The optional Validation plugin runs Standard Schema field validators only through
-the final mutation-input guard. Result, materialization, inclusion, and read
-boundaries repeat Core structural snapshots without application validation.
-Numeric deltas validate their complete projected value from prepared locked
-targets and remain atomic adapter operations; a targetless validated arithmetic
-branch fails before persistence.
-
-Keep the logical operation separate from its physical persistence plan. A
-privileged plugin may rewrite the physical plan, but logical Access, hooks,
-audit, result, and relationship semantics still observe the original operation.
-Protected constraints never enter the replaceable plan and can only narrow.
-
-Every mutation and its hook-started database work use one automatic transaction;
-reads do not unless the developer opens one explicitly. Hooks are ordered by
-plugin dependencies, then plugin position, then registration order. Business
-after-hooks run before commit and may abort the transaction. Realtime and
-asynchronous audit delivery happen after commit. Do not add a general
-`skipHooks` escape hatch. Generated-schema collection mutations are ordered
-itemized singular operations; do not reintroduce public set-based or
-partial-success variants without an ADR. Low-level set-based adapter operations
-must not manufacture item hooks implicitly.
-Do not add permission-specific stage names or neutral permission handlers to
-Runtime; an absent policy plugin contributes nothing.
-
-## File size budgets
-
-- Handwritten production TypeScript files warn above 400 lines and fail above
-  600 lines.
-- Handwritten test TypeScript files warn above 600 lines and fail above 700
-  lines.
-- Generated artifacts are excluded by repository path patterns rather than
-  inline lint suppressions.
-- There are no per-file exceptions or local disables for the line-budget rules.
-
-## Testing requirements
-
-- Use Vitest.
-- Add runtime tests and compile-time type tests for every public generic API.
-- PostgreSQL integration tests use Testcontainers and one PostgreSQL schema per worker.
-- Applications must remain isolated so tests can run in parallel.
-- Test builders for immutability.
-- Test public package exports and prohibit deep imports.
-- Test capability ownership, deterministic order, two explicit instances of one
-  plugin, provider conflicts, rejection of removed powers, lifecycle cleanup, upgrades,
-  orphaned contributions, and the absence of legacy registry bypasses.
-- Every bug fix includes a regression test.
-
-Before finishing an issue, run the narrowest relevant commands, then run the
-canonical ordinary validation contract:
-
-```text
-yarn validate
-```
-
-Every debt-reduction or behavior-preserving refactor must pass
-`yarn validate:full` before its issue is marked complete or committed. That
-command includes formatting, typecheck, ordinary tests, lint, build, complete
-`yarn test:coverage`, issue metadata, dependency constraints, and public
-documentation validation. The ordinary `yarn test` command does not include the
-source-mode E2E projects and therefore cannot replace this gate.
-
-Document anything that could not be run.
-
-Create a dedicated commit after an issue is complete, but never push it without the user's explicit confirmation.
+- Use Vitest. Every bug fix needs a regression; public generic APIs need runtime
+  and compile-time tests. Test immutable builders, public exports, no deep imports,
+  capability ownership/order, distinct plugin instances, conflicts, removed powers,
+  cleanup, upgrades, orphaned contributions and no legacy registry bypasses.
+- PostgreSQL tests use Testcontainers and one schema per worker; preserve isolation.
+- Run focused checks, then `yarn validate`. Every debt reduction or
+  behavior-preserving refactor must pass **`yarn validate:full` before completion
+  or commit**. Ordinary `yarn test` excludes source E2E and cannot replace it.
+  [ADR-0275](docs/adr/0275-canonical-repository-validation.md) defines the gate.
+- Launch infrastructure/listener checks with the required permissions from the
+  first run. Run build and lint sequentially; preserve CI worker bounds and budgets.
+  Report failed, skipped, flaky, interrupted or unavailable required checks;
+  the issue remains open. Never describe a partial gate as complete validation.
+- Audit the whole diff against criteria, invariants and saved developer form.
+  Fix findings, rerun invalidated checks and re-audit until no finding remains.
+  Record exact commands, results, coverage and any limitations.
+- Update issue status/criteria and current checkpoint only after this gate.
+  Create one dedicated local commit, inspect it, and correct new findings before
+  advancing. Never push without explicit user confirmation.
 
 ## Documentation and decisions
 
-- Before completing every implementation issue, record exactly one
-  `Documentation impact` classification in the issue handoff: `none`,
-  `internal engineering documentation`, `public website documentation`, or
-  `both`. A `none` classification must include a concrete reason.
-- Changes to public behavior, exports, configuration, installation, examples,
-  errors, security semantics, or supported integrations must review and update
-  the affected pages under `apps/website/content/docs` in the same issue. When
-  no public edit is necessary, record why the existing public contract remains
-  accurate.
-- Use `apps/website/content/documentation-ownership.json` to locate the likely
-  public sections for a package. Its mapping narrows review; it does not replace
-  judgment or the page-level `sources` metadata.
-- Update the package README when its public contract changes.
-- Every change under `packages/core/src/schema` must review the schema examples. Update
-  `packages/core/examples/schema` in the same issue whenever field behavior, schema
-  composition, inference, registry behavior, or validation plans change.
-- Add or update an ADR for architectural decisions, dependency-boundary changes, storage formats, public API conventions, or security semantics.
-- Keep issue status and acceptance criteria current.
-- Do not rewrite an accepted ADR to hide history; supersede it with a new ADR.
-- Root specifications, package contracts, and ADRs remain authoritative
-  engineering sources. Generated declarations and website prose never become
-  Runtime truth.
+- Record exactly one `Documentation impact`: `none`, `internal engineering
+documentation`, `public website documentation` or `both`. Explain `none`.
+- Public behavior, exports, configuration, installation, examples, errors, security
+  and integrations require same-issue review/update of `apps/website/content/docs`.
+  Use `apps/website/content/documentation-ownership.json` and page `sources`;
+  record why no public edit is needed if the contract remains accurate.
+- Update changed package contracts in their README. Schema-domain changes require
+  review of `packages/core/examples/schema` and updates when behavior/composition/
+  inference/registry/validation plans change.
+- Add/supersede an ADR for architecture, dependency, storage, API or security
+  decisions. Never rewrite accepted history to hide a superseded decision.
+  Update the current architecture index when its routing changes.
+- Root specifications, package contracts and ADRs remain engineering authority;
+  website prose and generated declarations never become Runtime truth.
 
-## Scope discipline
+## Coordination
 
-- Implement the selected issue, its required tests, and necessary documentation.
-- Do not create empty future packages as placeholders.
-- Do not combine unrelated issues merely because they touch nearby files.
-- Temporary compromises must be explicit in code comments, issue notes, or ADRs.
-
-## Evidence-first implementation
-
-- Implement only behavior required by the current issue acceptance criteria, a
-  failing test, an existing documented contract, or the user's explicit request.
-- Treat plausible future use cases as out of scope. Present them separately as
-  proposals; do not add code, APIs, options, extension points, storage, or
-  infrastructure for them without explicit approval.
-- Prefer the smallest correct solution that reuses existing concepts and a
-  suitable standard, native, or established-library capability.
-- Introduce a shared abstraction only when it protects one current invariant or
-  removes duplication across at least two current concrete usages. A
-  hypothetical future consumer is not a second usage.
-- Do not widen a public API or generalize an internal contract merely to keep
-  future options open.
-- Before an unapproved architectural change, summarize the proven need, the
-  minimal solution, and what will deliberately not be anticipated. Then wait
-  for user validation. An accepted ADR or explicit issue criterion already
-  counts as approval.
-- If implementation starts expanding beyond the selected issue, stop and ask
-  for direction instead of silently absorbing the extra scope.
-- In the issue handoff, identify any implementation that exceeds the original
-  acceptance criteria and explain why it was necessary.
-- A recent explicit user instruction such as `stop` overrides an older plan,
-  autonomous objective, or automatic continuation until the user explicitly
-  resumes it.
+Use sub-agents only when delegation is authorized and scopes are independent,
+bounded and non-overlapping. Keep small changes and central architecture with
+the primary agent, who owns integration and full verification.

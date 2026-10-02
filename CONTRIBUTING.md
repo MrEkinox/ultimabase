@@ -4,10 +4,11 @@
 
 1. Read `README.md` and the README of each package you will change. Coding
    agents must also follow `AGENTS.md`.
-2. Select one ready issue from `issues/`.
+2. Select one ready issue from `issues/`, checking `CURRENT_PLAN.md` first.
 3. Confirm all listed dependencies are complete.
 4. Create a focused branch.
-5. Implement code, runtime tests, type tests, and documentation together.
+5. Refresh the issue's [Working context](issues/README.md#working-context), then
+   implement code, runtime tests, type tests, and documentation together.
 6. Record one documentation-impact classification: `none`, `internal
 engineering documentation`, `public website documentation`, or `both`.
    Explain `none`; otherwise update the affected documentation in the issue.

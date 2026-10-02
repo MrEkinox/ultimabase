@@ -3,14 +3,12 @@
 `CURRENT_PLAN.md`, when present at the repository root, owns the active
 multi-issue objective. This directory preserves paused and completed plans so
 architectural context and verified developer flows are not lost when execution
-priority changes.
+priority changes. The root checkpoint stays at most 80 lines; execution history
+belongs here or in issue evidence, not in startup instructions.
 
 ## Active
 
-- [Source-typed application authoring target](2026-09-28-source-typed-application-authoring-target.md),
-  milestone 63, issues 6301–6316. The approved DX is frozen, but production
-  migration starts only after issue 6301 proves source inference and locks
-  TypeScript editor, compiler, memory, and complexity budgets.
+None. See [CURRENT_PLAN.md](../../CURRENT_PLAN.md) before selecting new work.
 
 ## Paused
 
@@ -19,6 +17,12 @@ priority changes.
 
 ## Completed
 
+- [Scoped agent context](../../issues/6400-scoped-agent-context/README.md),
+  milestone 64, issue 6401.
+- [Source-typed application authoring target](2026-09-28-source-typed-application-authoring-target.md),
+  milestone 63, accepted with explicit costs in ADR-0286. See the
+  [final audit](../../issues/6300-source-typed-application-authoring/evidence/6316-final-audit.md)
+  and [historical execution log](completed/source-typed-application-authoring-execution-log.md).
 - [Future complexity reduction](2026-09-28-future-complexity-reduction-final-audit.md),
   milestone 62, issues 6201–6207.
 - [Residual complexity simplification](2026-09-21-residual-complexity-simplification.md),
