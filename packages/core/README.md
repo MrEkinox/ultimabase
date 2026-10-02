@@ -46,7 +46,11 @@ adapter, or lifecycle state. `UltimaBase.compile()` first runs the pure,
 synchronous `declare` callback of every plugin in dependency order, then
 resolves every configured schema atomically before plugin setup or infrastructure
 lifecycle work. Setup receives the resulting read-only schema registry; plugins
-cannot register late schemas or field methods:
+cannot register late schemas or field methods.
+
+The complete candidate graph is validated before canonical metadata is published.
+Publication retains compatible compiled records without repeating their validation;
+an incompatible reused schema prevents publication of every new candidate.
 
 ```ts
 const PostSchema = UltimaBase.Schema.define({

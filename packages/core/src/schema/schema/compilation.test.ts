@@ -190,6 +190,51 @@ describe('deferred schema compilation', () => {
 		)
 	})
 
+	it('publishes no new schema when a later reused schema has incompatible targets', () => {
+		const Target = UltimaBase.Schema.define({
+			className: 'AtomicPublicationTarget',
+			fields: (field) => ({ label: field.string() }),
+		})
+		const Shared = UltimaBase.Schema.define({
+			className: 'AtomicPublicationShared',
+			fields: (field) => ({
+				target: field.pointer({ target: 'AtomicPublicationTarget' }),
+			}),
+		})
+		new SchemaRegistry([Shared, Target]).compileSchemas()
+		const original = Shared.definition
+		const OtherTarget = UltimaBase.Schema.define({
+			className: 'AtomicPublicationTarget',
+			fields: (field) => ({ label: field.string() }),
+		})
+		const Fresh = UltimaBase.Schema.define({
+			className: 'AtomicPublicationFresh',
+			fields: (field) => ({
+				target: field.pointer({ target: 'AtomicPublicationTarget' }),
+			}),
+		})
+		const rejected = new SchemaRegistry([Fresh, Shared, OtherTarget])
+
+		expect(() => rejected.compileSchemas()).toThrow(
+			expect.objectContaining({ reason: 'incompatible-definition' }),
+		)
+		expect(() => Fresh.fields).toThrow(
+			expect.objectContaining({ reason: 'not-compiled' }),
+		)
+		expect(() => rejected.schemaTargets).toThrow(
+			'Schema targets have not been resolved',
+		)
+		expect(Shared.definition).toBe(original)
+
+		const accepted = new SchemaRegistry([
+			Fresh,
+			Shared,
+			Target,
+		]).compileSchemas()
+		expect(accepted.get(Fresh, ['target'])).toBe(Target)
+		expect(Shared.definition).toBe(original)
+	})
+
 	it('keeps object-shaped field maps as temporary immediate compatibility', () => {
 		const Legacy = UltimaBase.Schema.define({
 			className: 'LegacyImmediateSchema',

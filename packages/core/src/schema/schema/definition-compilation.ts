@@ -253,7 +253,7 @@ export const prepareSchemaCompilation = (
 	})
 }
 
-/** Publishes one candidate only after the complete application graph validates. */
+/** Checks compatibility without publishing any candidate in the application graph. */
 export const validateSchemaCompilation = (
 	prepared: PreparedSchemaCompilation,
 	targets: readonly SchemaCompiledTargetIdentity[],
@@ -295,13 +295,14 @@ export const validateSchemaCompilation = (
 	}
 }
 
-/** Publishes one candidate only after the complete application graph validates. */
+/** @internal Publishes a candidate after the registry validates the complete graph. */
 export const finalizeSchemaCompilation = (
 	prepared: PreparedSchemaCompilation,
 	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
-	validateSchemaCompilation(prepared, targets)
 	const existingRecord = getCompiledSchemaRecord(prepared.schema)
+	if (existingRecord?.targets !== undefined) return
+
 	const immutableTargets = immutableArray(
 		targets.map((target) =>
 			immutableRecord({
@@ -311,15 +312,12 @@ export const finalizeSchemaCompilation = (
 		),
 	)
 
-	if (existingRecord?.targets === undefined) {
-		storeCompiledSchemaRecord(
-			prepared.schema,
-			immutableRecord({
-				definition: prepared.definition,
-				developerFields: prepared.developerFields,
-				targets: immutableTargets,
-			}),
-		)
-		return
-	}
+	storeCompiledSchemaRecord(
+		prepared.schema,
+		immutableRecord({
+			definition: prepared.definition,
+			developerFields: prepared.developerFields,
+			targets: immutableTargets,
+		}),
+	)
 }

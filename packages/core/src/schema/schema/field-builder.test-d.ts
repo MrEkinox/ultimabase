@@ -4,6 +4,8 @@ import {
 	type EmbeddedFieldBuilder,
 	type EmbeddedObjectFieldBuilderOptions,
 	type FieldValue,
+	type FieldBuilder,
+	type FieldTypegenStateOf,
 } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
@@ -103,4 +105,47 @@ test('rejects every Core option without embedded occurrence semantics', () => {
 	embedded.object({ fields: () => ({}), indexed: 'unique' })
 	// @ts-expect-error -- System generation is never developer embedded metadata.
 	embedded.dateTime({ generatedOn: 'create' })
+})
+
+test('preserves enum domains, defaults and immutability in both builder contexts', () => {
+	const root = undefined as unknown as FieldBuilder
+	const embedded = undefined as unknown as EmbeddedFieldBuilder
+	const list = root.enum({
+		values: ['draft', 'published'],
+		default: ['draft'],
+		list: true,
+		immutable: true,
+		indexed: 'unique',
+	})
+	const nested = embedded.enum({
+		values: { Draft: 'draft', Published: 'published' },
+		required: true,
+	})
+
+	expectTypeOf(list.kind).toEqualTypeOf<'enum'>()
+	expectTypeOf(nested.kind).toEqualTypeOf<'enum'>()
+	expectTypeOf<FieldValue<typeof list>>().toEqualTypeOf<
+		readonly ('draft' | 'published')[]
+	>()
+	expectTypeOf<
+		FieldTypegenStateOf<typeof list>['create']
+	>().toEqualTypeOf<'optional'>()
+	expectTypeOf<
+		FieldTypegenStateOf<typeof list>['update']
+	>().toEqualTypeOf<'forbidden'>()
+	expectTypeOf<FieldValue<typeof nested>>().toEqualTypeOf<
+		'draft' | 'published'
+	>()
+	expectTypeOf<
+		FieldTypegenStateOf<typeof nested>['create']
+	>().toEqualTypeOf<'required'>()
+
+	// @ts-expect-error -- Enum defaults must remain inside the inferred domain.
+	root.enum({ values: ['draft', 'published'], default: 'unknown' })
+	// @ts-expect-error -- A list default must be a list of exact enum values.
+	embedded.enum({ values: ['draft'], list: true, default: 'draft' })
+	// @ts-expect-error -- Embedded enum options must never acquire root indexes.
+	embedded.enum({ values: ['draft'], indexed: false })
+	// @ts-expect-error -- Empty embedded domains fail at the values option.
+	embedded.enum({ values: [] })
 })

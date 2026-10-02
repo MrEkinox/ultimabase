@@ -1,17 +1,10 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
+import type { EnumFieldBuilderFactory } from './enum-field-builder.js'
+export type { EmbeddedEnumFieldOptions } from './enum-field-builder.js'
 import type {
-	CompatibleFieldOptionsExtension,
-	FieldListOption,
-	FieldListValue,
-	ResolveFieldSourceTemplate,
-} from '../fields/base/contract.js'
-import type {
-	CompactScalarFieldDefinition,
 	CompactScalarFieldFactory,
-	DefaultedCompactScalarFieldOptions,
 	GeneratedCompactScalarFieldFactory,
-	NonDefaultedCompactScalarFieldOptions,
 } from '../fields/base/factory.js'
 import type { BigintFieldOptions } from '../fields/builtins/bigint.js'
 import type { BinaryFieldOptions } from '../fields/builtins/binary.js'
@@ -19,12 +12,6 @@ import type { BooleanFieldOptions } from '../fields/builtins/boolean.js'
 import type { DateTimeFieldOptions } from '../fields/builtins/date-time.js'
 import type { DateFieldOptions } from '../fields/builtins/date.js'
 import type { DecimalFieldOptions } from '../fields/builtins/decimal.js'
-import type {
-	CompatibleEnumFieldOptions,
-	EnumFieldOptions,
-	EnumValue,
-	EnumValues,
-} from '../fields/builtins/enum.js'
 import type { FloatFieldOptions } from '../fields/builtins/float.js'
 import type { IntFieldOptions } from '../fields/builtins/int.js'
 import type { JsonDocument, JsonFieldOptions } from '../fields/builtins/json.js'
@@ -67,9 +54,6 @@ export type EmbeddedBinaryFieldOptions =
 	EmbeddedValueOptions<BinaryFieldOptions>
 /** Describes JSON behavior available at one embedded object property. */
 export type EmbeddedJsonFieldOptions = EmbeddedValueOptions<JsonFieldOptions>
-/** Describes enum behavior available at one embedded object property. */
-export type EmbeddedEnumFieldOptions<TValues extends EnumValues = EnumValues> =
-	EmbeddedValueOptions<EnumFieldOptions<TValues>>
 /** Describes integer behavior without a dedicated embedded sequence. */
 export type EmbeddedIntFieldOptions = Omit<
 	Omit<IntFieldOptions, 'autoIncrement' | 'indexed'>,
@@ -186,106 +170,10 @@ export type EmbeddedBigintFieldFactory<
 	TSourceTemplate
 >
 
-type DefaultedEmbeddedEnumFieldOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	EmbeddedEnumFieldOptions<TValues>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
-type NonDefaultedEmbeddedEnumFieldOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	EmbeddedEnumFieldOptions<TValues>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
 /** Preserves an embedded enum's exact domain while excluding root metadata. */
-export interface EmbeddedEnumFieldFactory<
+export type EmbeddedEnumFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
-> {
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			DefaultedEmbeddedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>,
-					TRequired extends true
-						? FieldListValue<EnumValue<TValues>, TList>
-						: FieldListValue<EnumValue<TValues>, TList> | null
-				>,
-				object
-			>
-		>,
-	): CompactScalarFieldDefinition<
-		'enum',
-		EnumValue<TValues>,
-		EmbeddedEnumFieldOptions<TValues>,
-		TRequired,
-		TList,
-		TImmutable,
-		true
-	>
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			NonDefaultedEmbeddedEnumFieldOptions<
-				TValues,
-				TRequired,
-				TList,
-				TImmutable
-			>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>,
-					TRequired extends true
-						? FieldListValue<EnumValue<TValues>, TList>
-						: FieldListValue<EnumValue<TValues>, TList> | null
-				>,
-				object
-			>
-		>,
-	): CompactScalarFieldDefinition<
-		'enum',
-		EnumValue<TValues>,
-		EmbeddedEnumFieldOptions<TValues>,
-		TRequired,
-		TList,
-		TImmutable,
-		false
-	>
-}
+> = EnumFieldBuilderFactory<TSourceTemplate, 'embedded'>
 
 /** Rejects Core options that cannot execute for one embedded occurrence. */
 export const assertEmbeddedBuiltInFieldOptions = (

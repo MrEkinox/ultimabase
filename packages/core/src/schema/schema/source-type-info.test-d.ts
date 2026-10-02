@@ -228,3 +228,32 @@ test('keeps direct relationship targets exact without a generated registry', () 
 		},
 	})
 })
+
+test('retains distinct root, nested and list filter capabilities before Typegen', () => {
+	void SourceContract.findMany({
+		where: {
+			birthday: { between: { lower: '2000-01-01', upper: '2020-01-01' } },
+			largeCount: { gt: 1n },
+			price: { gte: '1.00' },
+			status: { in: ['draft', 'published'] },
+			labels: { hasEvery: ['one', 'two'] },
+			profile: { at: [{ path: ['score'], eq: 1 }] },
+		},
+	})
+	void SourceContract.findMany({
+		// @ts-expect-error -- Boolean equality does not imply scalar ordering.
+		where: { active: { gt: false } },
+	})
+	void SourceContract.findMany({
+		// @ts-expect-error -- Enum domains support equality, not scalar ordering.
+		where: { status: { gt: 'draft' } },
+	})
+	void SourceContract.findMany({
+		// @ts-expect-error -- Listed scalar fields do not gain root range operators.
+		where: { labels: { gt: 'one' } },
+	})
+	void SourceContract.findMany({
+		// @ts-expect-error -- Nested numeric paths deliberately exclude root ordering.
+		where: { profile: { at: [{ path: ['score'], gt: 1 }] } },
+	})
+})

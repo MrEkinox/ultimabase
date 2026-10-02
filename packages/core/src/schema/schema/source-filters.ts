@@ -6,6 +6,10 @@ import type {
 	GenericField,
 } from '../fields/base/contract.js'
 import type { JsonDocument, JsonValue } from '../fields/base/portable-json.js'
+import type {
+	EqualityFieldKind,
+	OrderedFieldKind,
+} from '../fields/base/filter-kinds.js'
 import type { ObjectFields } from '../fields/builtins/object.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { RelationField } from '../fields/builtins/relation.js'
@@ -92,18 +96,14 @@ type SourceScalarFilter<TField extends GenericField> =
 		? ArrayFilter<SourceListItem<TField>>
 		: TField['kind'] extends 'string'
 			? StringFilter
-			: TField['kind'] extends
-						| 'bigint'
-						| 'date'
-						| 'dateTime'
-						| 'decimal'
-						| 'float'
-						| 'int'
-						| 'time'
+			: TField['kind'] extends OrderedFieldKind
 				? EqualityFilter<FieldValue<TField> | null> &
 						OrderedFilter<FieldValue<TField> | null> &
 						NullFilter
-				: TField['kind'] extends 'binary' | 'boolean' | 'enum' | 'uuid'
+				: TField['kind'] extends Exclude<
+							EqualityFieldKind,
+							OrderedFieldKind | 'json' | 'pointer'
+					  >
 					? EqualityFilter<FieldValue<TField> | null> & NullFilter
 					: SourcePluginContainmentFilter<TField>
 
@@ -128,18 +128,10 @@ type SourcePathScalarFilter<TField extends GenericField> =
 							SourceFieldModeValue<TField, 'update'> | null,
 							Extract<keyof NonNullable<SourceFieldObjectValue<TField>>, string>
 						>
-					: TField['kind'] extends
-								| 'bigint'
-								| 'binary'
-								| 'boolean'
-								| 'date'
-								| 'dateTime'
-								| 'decimal'
-								| 'enum'
-								| 'float'
-								| 'int'
-								| 'time'
-								| 'uuid'
+					: TField['kind'] extends Exclude<
+								EqualityFieldKind,
+								'json' | 'pointer'
+						  >
 						? EqualityFilter<FieldValue<TField> | null> & NullFilter
 						: SourcePluginContainmentFilter<TField>
 

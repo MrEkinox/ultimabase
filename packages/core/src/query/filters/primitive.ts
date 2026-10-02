@@ -6,35 +6,10 @@ import type {
 
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 
-/** Keeps runtime checks and type-level equality capabilities from drifting apart. */
-export const queryEqualityFieldKinds = [
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'pointer',
-	'string',
-	'time',
-	'uuid',
-] as const
-
-/** Keeps runtime checks and type-level ordering capabilities from drifting apart. */
-export const queryOrderedFieldKinds = [
-	'bigint',
-	'date',
-	'dateTime',
-	'decimal',
-	'float',
-	'int',
-	'string',
-	'time',
-] as const
+export {
+	equalityFieldKinds as queryEqualityFieldKinds,
+	orderedFieldKinds as queryOrderedFieldKinds,
+} from '../../schema/fields/base/filter-kinds.js'
 
 export type QueryEqualityFilterOperator = 'equal' | 'not-equal'
 

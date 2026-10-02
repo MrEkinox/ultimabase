@@ -480,6 +480,8 @@ ast.limit // undefined
 Read terminals and schema commands normalize into the same discriminated
 `OperationAst` union. Reads use `find-one`, `find-many`, `get`, `count`, and
 `exists`.
+Schema mutations retain normalized query data directly instead of constructing
+temporary read builders; protected model and relation scopes stay outside the AST.
 Writes distinguish `create-one`/`create-many`, `update-one`/`update-many`,
 `upsert-one`/`upsert-many`, and `delete-one`/`delete-many`. Runtime and adapters
 therefore retain exhaustive internal operation matching. After collection

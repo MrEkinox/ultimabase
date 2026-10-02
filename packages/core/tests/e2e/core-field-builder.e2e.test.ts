@@ -139,6 +139,27 @@ describe('packed @ultimabase/core FieldBuilder contract', () => {
 		).toContain('validation')
 	})
 
+	it('retains named enum options and exact domains in both field hovers', () => {
+		for (const marker of ['enum-field', 'embedded-enum-field']) {
+			const hover = languageFixture.readHover(marker)
+			expect(hover.display).toContain('EnumFieldOptions<')
+			expect(hover.display).toContain('"draft" | "published"')
+			expect(hover.display).not.toContain('TContext extends')
+		}
+		for (const marker of ['enum-builder', 'embedded-enum-builder']) {
+			expect(languageFixture.readHover(marker).display).toContain(
+				'CompactScalarFieldDefinition',
+			)
+		}
+	})
+
+	it('keeps the value type and hover independent from its validator', () => {
+		const validated = languageFixture.readHover('enum-value').display
+		const plain = languageFixture.readHover('plain-enum-value').display
+		expect(validated.split(' = ')[1]).toBe('"draft" | "published"')
+		expect(plain.split(' = ')[1]).toBe('"draft" | "published"')
+	})
+
 	it('exposes direct documented decimal shape options', () => {
 		expect(
 			languageFixture

@@ -8,8 +8,10 @@ const nestedMarker = '/* nested-builder */'
 const optionMarker = '/* string-options */'
 const hoverMarker = '/* string-hover */'
 const pointerDeleteMarker = '/* pointer-on-delete */'
+const enumFieldMarker = '/* enum-field */'
+const embeddedEnumFieldMarker = '/* embedded-enum-field */'
 const sourceWithMarkers = `
-import { UltimaBase, type BaseSchemaTypeInfo } from '../../src/index.js'
+import { UltimaBase, type BaseSchemaTypeInfo, type FieldBuilder, type EmbeddedFieldBuilder } from '../../src/index.js'
 
 declare module '../../src/index.js' {
   interface UltimaBaseGeneratedRegistryState {
@@ -36,6 +38,10 @@ UltimaBase.Schema.define({
     }),
   }),
 })
+declare const enumRoot: FieldBuilder
+declare const enumEmbedded: EmbeddedFieldBuilder
+const ${enumFieldMarker}rootEnum = enumRoot.enum({ values: ['draft', 'published'], list: true, default: ['draft'] })
+const ${embeddedEnumFieldMarker}embeddedEnum = enumEmbedded.enum({ values: { Draft: 'draft', Published: 'published' }, required: true })
 `
 const markers = [
 	rootMarker,
@@ -43,6 +49,8 @@ const markers = [
 	optionMarker,
 	hoverMarker,
 	pointerDeleteMarker,
+	enumFieldMarker,
+	embeddedEnumFieldMarker,
 ] as const
 const positions = new Map<string, number>()
 let source = sourceWithMarkers
@@ -325,6 +333,19 @@ describe('FieldBuilder IntelliSense', () => {
 		expect(optionEntries.map(({ name }) => name)).not.toContain('validation')
 		for (const entry of optionEntries) {
 			expectDocumented(entry, readPosition(optionMarker))
+		}
+	})
+
+	it('shows exact enum domains with named root and embedded option contracts', () => {
+		for (const marker of [enumFieldMarker, embeddedEnumFieldMarker]) {
+			const hover = service.getQuickInfoAtPosition(
+				fileName,
+				readPosition(marker) + marker.length,
+			)
+			const display = ts.displayPartsToString(hover?.displayParts)
+			expect(display).toContain('EnumFieldOptions<')
+			expect(display).toContain('"draft" | "published"')
+			expect(display).not.toContain('TContext extends')
 		}
 	})
 

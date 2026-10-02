@@ -1,26 +1,10 @@
-import type {
-	CompactScalarFieldDefinition,
-	DefaultedCompactScalarFieldOptions,
-	NonDefaultedCompactScalarFieldOptions,
-} from '../fields/base/factory.js'
-import type {
-	CompatibleFieldOptionsExtension,
-	FieldListOption,
-	FieldListValue,
-	ResolveFieldSourceTemplate,
-} from '../fields/base/contract.js'
+import type { EnumFieldBuilderFactory } from './enum-field-builder.js'
 import type { BigintFieldFactory } from '../fields/builtins/bigint.js'
 import type { BinaryFieldFactory } from '../fields/builtins/binary.js'
 import type { BooleanFieldFactory } from '../fields/builtins/boolean.js'
 import type { DateTimeFieldFactory } from '../fields/builtins/date-time.js'
 import type { DateFieldFactory } from '../fields/builtins/date.js'
 import type { DecimalFieldFactory } from '../fields/builtins/decimal.js'
-import type {
-	CompatibleEnumFieldOptions,
-	EnumFieldOptions,
-	EnumValue,
-	EnumValues,
-} from '../fields/builtins/enum.js'
 import type { FloatFieldFactory } from '../fields/builtins/float.js'
 import type { IntFieldFactory } from '../fields/builtins/int.js'
 import type { JsonFieldFactory } from '../fields/builtins/json.js'
@@ -104,105 +88,9 @@ export interface ScalarFieldBuilderMethods<
 	readonly object: ObjectFieldBuilderMethod<TSourceTemplate, TEmbeddedBuilder>
 }
 
-type DefaultedEnumFieldBuilderOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	EnumFieldOptions<TValues>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
-type NonDefaultedEnumFieldBuilderOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	EnumFieldOptions<TValues>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
-interface EnumFieldBuilderMethod<
+type EnumFieldBuilderMethod<
 	TSourceTemplate extends object = EmptyFieldSourceTemplate,
-> {
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			DefaultedEnumFieldBuilderOptions<TValues, TRequired, TList, TImmutable>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>,
-					TRequired extends true
-						? FieldListValue<EnumValue<TValues>, TList>
-						: FieldListValue<EnumValue<TValues>, TList> | null
-				>,
-				object
-			>
-		>,
-	): CompactScalarFieldDefinition<
-		'enum',
-		EnumValue<TValues>,
-		EnumFieldOptions<TValues> & TExtensionOptions,
-		TRequired,
-		TList,
-		TImmutable,
-		true
-	>
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			NonDefaultedEnumFieldBuilderOptions<
-				TValues,
-				TRequired,
-				TList,
-				TImmutable
-			>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<EnumValue<TValues>, TList>,
-					TRequired extends true
-						? FieldListValue<EnumValue<TValues>, TList>
-						: FieldListValue<EnumValue<TValues>, TList> | null
-				>,
-				object
-			>
-		>,
-	): CompactScalarFieldDefinition<
-		'enum',
-		EnumValue<TValues>,
-		EnumFieldOptions<TValues> & TExtensionOptions,
-		TRequired,
-		TList,
-		TImmutable,
-		false
-	>
-}
+> = EnumFieldBuilderFactory<TSourceTemplate, 'stored'>
 
 /** Provides top-level factories while the returned object owns field names. */
 export type FieldBuilder<

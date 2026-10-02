@@ -29,8 +29,9 @@ export const UserSchema = UltimaBase.Schema.define({
 })
 ```
 
-The callback runs once during application static compilation. Builder calls
-reuse the existing immutable field factories. The embedded builder has its own
+The callback runs once at schema definition; its captured calls resolve before
+application setup. Builder calls reuse the existing immutable field factories.
+The embedded builder has its own
 context-specific option types: it keeps value behavior such as `required`,
 `default`, `list`, `immutable`, and temporal `autoNow`, but has no `pointer` or
 `relation` method and does not expose portable `indexed`, system generation, or

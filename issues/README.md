@@ -104,6 +104,7 @@ consistent without rewriting historical issue prose.
 - [`6400-scoped-agent-context/`](6400-scoped-agent-context/README.md)
 - [`6500-standard-package-simplification/`](6500-standard-package-simplification/README.md)
 - [`6600-standard-mechanics-canaries/`](6600-standard-mechanics-canaries/README.md)
+- [`6700-core-path-simplification/`](6700-core-path-simplification/README.md)
 
 ## Assignment prompt
 

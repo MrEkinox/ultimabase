@@ -41,7 +41,6 @@ import {
 	readQueryPrivateScope,
 	type QueryExecutionInput,
 } from './private-scope.js'
-import type { QueryBuilder } from './query.js'
 import type { QueryResult } from './result.js'
 
 /** Distinguishes nested command objects from already normalized Pointer values. */
@@ -240,7 +239,7 @@ export const executeQueryUpsertOne = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpsertInput<TSchema> & {},
 	options?: OperationOptions,
 ): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {

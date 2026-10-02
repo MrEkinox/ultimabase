@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
 	definePluginField,
 	type FieldOptions,
+	type FieldValue,
 	type JsonDocument,
 	Pointer,
 	type RelationWhereResolver,
@@ -80,101 +81,129 @@ definePluginField<
 
 Application.Schema.define({
 	className: 'PackedFieldBuilder',
-	fields: (field) => ({
-		root: field./* completion:root-builder */ string(),
-		title: field./* hover:string-builder */ string({
-			/* completion:string-options */
-		}),
-		budget: field.decimal({/* completion:decimal-options */}),
-		shapedBudget: field.decimal({
-			/* hover:decimal-precision */ precision: 12,
-			/* hover:decimal-scale */ scale: 2,
-		}),
-		requiredTitle: field.string({
-			/* hover:field-required */ required: true,
-			validation: z.string().min(1),
-		}),
-		zodList: field.string({
-			list: true,
-			validation: z.array(z.string().min(1)),
-		}),
-		valibotList: field.string({
-			list: true,
-			validation: v.array(v.pipe(v.string(), v.minLength(1))),
-		}),
-		zodObject: field.object({
-			fields: (nested) => ({ label: nested.string({ required: true }) }),
-			validation: z.object({ label: z.string().min(1) }),
-		}),
-		valibotObject: field.object({
-			fields: (nested) => ({ label: nested.string({ required: true }) }),
-			validation: v.object({
-				label: v.pipe(v.string(), v.minLength(1)),
+	fields: (field) => {
+		const /* hover:enum-field */ rootEnum = field./* hover:enum-builder */ enum(
+				{
+					validation: z.enum(['draft', 'published']),
+					values: ['draft', 'published'],
+				},
+			)
+		const plainEnum = field.enum({ values: ['draft', 'published'] })
+		void plainEnum
+		type /* hover:enum-value */ ValidatedValue = FieldValue<typeof rootEnum>
+		type /* hover:plain-enum-value */ PlainValue = FieldValue<typeof plainEnum>
+		const sameValue: ValidatedValue = 'published'
+		const samePlainValue: PlainValue = sameValue
+		void samePlainValue
+		// @ts-expect-error -- Installing a validator must not widen the enum domain.
+		const invalidEnumValue: ValidatedValue = 'unknown'
+		void invalidEnumValue
+		return {
+			root: field./* completion:root-builder */ string(),
+			title: field./* hover:string-builder */ string({
+				/* completion:string-options */
 			}),
-		}),
-		zodTemporal: field.dateTime({ validation: z.iso.datetime() }),
-		valibotTemporal: field.dateTime({
-			validation: v.pipe(v.string(), v.isoTimestamp()),
-		}),
-		zodDecimal: field.decimal({
-			validation: z.string().regex(/^\d+\.\d{2}$/u),
-		}),
-		valibotDecimal: field.decimal({
-			validation: v.pipe(v.string(), v.regex(/^\d+\.\d{2}$/u)),
-		}),
-		zodEnum: field.enum({
-			validation: z.enum(['draft', 'published']),
-			values: ['draft', 'published'],
-		}),
-		valibotEnum: field.enum({
-			validation: v.picklist(['draft', 'published']),
-			values: ['draft', 'published'],
-		}),
-		zodJson: field.json({
-			validation: z.custom<JsonDocument>(
-				(value) => typeof value === 'object' && value !== null,
-			),
-		}),
-		valibotJson: field.json({
-			validation: v.custom<JsonDocument>(
-				(value) => typeof value === 'object' && value !== null,
-			),
-		}),
-		zodBinary: field.binary({
-			validation: z.custom<Uint8Array>((value) => value instanceof Uint8Array),
-		}),
-		valibotBinary: field.binary({
-			validation: v.custom<Uint8Array>((value) => value instanceof Uint8Array),
-		}),
-		zodPointer: field.pointer({
-			target: 'PackedValidatorTarget',
-			validation: z.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
-				(value) => value instanceof Pointer,
-			),
-		}),
-		valibotPointer: field.pointer({
-			target: 'PackedValidatorTarget',
-			validation: v.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
-				(value) => value instanceof Pointer,
-			),
-		}),
-		assignee: field.pointer({
-			target: 'PackedFieldBuilder',
-			onDelete: /* completion:pointer-on-delete */ 'restrict',
-		}),
-		// @ts-expect-error -- Completion intentionally omits the required target.
-		relationOptions: field.relation({/* completion:relation-options */}),
-		filteredTargets: field.relation({
-			target: 'PackedValidatorTarget',
-			where: packedRelationWhere,
-		}),
-		signatureName: field.string(),
-		profile: field.object({
-			fields: (field) => ({
-				nested: field./* completion:nested-builder */ string(),
+			budget: field.decimal({/* completion:decimal-options */}),
+			shapedBudget: field.decimal({
+				/* hover:decimal-precision */ precision: 12,
+				/* hover:decimal-scale */ scale: 2,
 			}),
-		}),
-	}),
+			requiredTitle: field.string({
+				/* hover:field-required */ required: true,
+				validation: z.string().min(1),
+			}),
+			zodList: field.string({
+				list: true,
+				validation: z.array(z.string().min(1)),
+			}),
+			valibotList: field.string({
+				list: true,
+				validation: v.array(v.pipe(v.string(), v.minLength(1))),
+			}),
+			zodObject: field.object({
+				fields: (nested) => ({ label: nested.string({ required: true }) }),
+				validation: z.object({ label: z.string().min(1) }),
+			}),
+			valibotObject: field.object({
+				fields: (nested) => ({ label: nested.string({ required: true }) }),
+				validation: v.object({
+					label: v.pipe(v.string(), v.minLength(1)),
+				}),
+			}),
+			zodTemporal: field.dateTime({ validation: z.iso.datetime() }),
+			valibotTemporal: field.dateTime({
+				validation: v.pipe(v.string(), v.isoTimestamp()),
+			}),
+			zodDecimal: field.decimal({
+				validation: z.string().regex(/^\d+\.\d{2}$/u),
+			}),
+			valibotDecimal: field.decimal({
+				validation: v.pipe(v.string(), v.regex(/^\d+\.\d{2}$/u)),
+			}),
+			zodEnum: rootEnum,
+			valibotEnum: field.enum({
+				validation: v.picklist(['draft', 'published']),
+				values: ['draft', 'published'],
+			}),
+			zodJson: field.json({
+				validation: z.custom<JsonDocument>(
+					(value) => typeof value === 'object' && value !== null,
+				),
+			}),
+			valibotJson: field.json({
+				validation: v.custom<JsonDocument>(
+					(value) => typeof value === 'object' && value !== null,
+				),
+			}),
+			zodBinary: field.binary({
+				validation: z.custom<Uint8Array>(
+					(value) => value instanceof Uint8Array,
+				),
+			}),
+			valibotBinary: field.binary({
+				validation: v.custom<Uint8Array>(
+					(value) => value instanceof Uint8Array,
+				),
+			}),
+			zodPointer: field.pointer({
+				target: 'PackedValidatorTarget',
+				validation: z.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
+					(value) => value instanceof Pointer,
+				),
+			}),
+			valibotPointer: field.pointer({
+				target: 'PackedValidatorTarget',
+				validation: v.custom<Pointer<SchemaReference<'PackedValidatorTarget'>>>(
+					(value) => value instanceof Pointer,
+				),
+			}),
+			assignee: field.pointer({
+				target: 'PackedFieldBuilder',
+				onDelete: /* completion:pointer-on-delete */ 'restrict',
+			}),
+			// @ts-expect-error -- Completion intentionally omits the required target.
+			relationOptions: field.relation({/* completion:relation-options */}),
+			filteredTargets: field.relation({
+				target: 'PackedValidatorTarget',
+				where: packedRelationWhere,
+			}),
+			signatureName: field.string(),
+			profile: field.object({
+				fields: (field) => {
+					const /* hover:embedded-enum-field */ embeddedEnum =
+							field./* hover:embedded-enum-builder */ enum({
+								values: ['draft', 'published'],
+								default: 'draft',
+								validation: z.enum(['draft', 'published']),
+							})
+					return {
+						nested: field./* completion:nested-builder */ string(),
+						status: embeddedEnum,
+					}
+				},
+			}),
+		}
+	},
 })
 
 Application.Schema.define({

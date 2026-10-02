@@ -7,22 +7,19 @@ import {
 } from '@ultimabase/shared'
 
 import { createQueryAst } from '../ast/factory.js'
-import type {
-	QueryAst,
-	QuerySelectionNode,
-	QueryWhereNode,
-} from '../ast/contracts.js'
+import type { QueryAst, QuerySelectionNode } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import { resolveWhereInput } from '../filters/where.js'
-import type { QueryBuilder } from '../query/query.js'
 import {
 	executeQueryDeleteOne,
 	executeQueryUpdateOne,
 	executeQueryUpsertOne,
 	executeSchemaCreateOne,
 } from '../query/operation-execution.js'
-import { hydrateQueryFromAst } from '../query/query.js'
-import { queryFromFindOneInput } from '../query/input.js'
+import {
+	queryFromFindOneInput,
+	type NormalizedQueryInput,
+} from '../query/input.js'
 import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
 import {
 	executeOperationBatch,
@@ -155,11 +152,11 @@ const normalizeSchemaSingularTarget = <const TSchema extends SchemaDefinition>(
 	return createSchemaObjectIdWhere<TSchema>(id as OperationObjectId<TSchema>)
 }
 
-/** Converts one canonical where source into the ordinary immutable QueryBuilder AST. */
+/** Normalizes a schema target directly without allocating a read builder. */
 const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaWhereInput<TSchema>,
-): QueryBuilder<TSchema> => {
+): NormalizedQueryInput<TSchema> => {
 	const expression = resolveWhereInput(schema, where)
 
 	if (isEmptyWhereExpression(expression)) {
@@ -168,41 +165,45 @@ const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 		)
 	}
 
-	const initial = createQueryAst(schema)
-	const whereNode: QueryWhereNode<QueryFilterNode<TSchema>> = immutableRecord({
-		kind: 'where',
-		expression,
-	})
 	const ast = immutableRecord({
-		...initial,
-		where: whereNode,
+		...createQueryAst(schema),
+		where: immutableRecord({ kind: 'where' as const, expression }),
 	})
 
-	return hydrateQueryFromAst<TSchema, never>(ast)
+	return immutableRecord({ ast, schema })
 }
 
 const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	query: QueryBuilder<TSchema>,
+	query: NormalizedQueryInput<TSchema>,
 	path: string,
 ): void => {
 	// The existing upsert target validator is the single source of truth for unique targeting.
 	void normalizeUniqueUpsertTarget(schema, query.ast, path)
 }
 
+/** Keeps schema projection changes on the same inert normalized input. */
+const projectSchemaQuery = <const TSchema extends SchemaDefinition>(
+	query: NormalizedQueryInput<TSchema>,
+	selection: QuerySelectionNode<QueryFieldName<TSchema>>,
+	inclusion = query.ast.inclusion,
+): NormalizedQueryInput<TSchema, QueryFieldName<TSchema>> =>
+	immutableRecord({
+		ast: immutableRecord({ ...query.ast, inclusion, selection }),
+		schema: query.schema,
+	})
+
 /** Applies one batch projection to an exact unique target. */
 const createSchemaBatchResultQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaWhereInput<TSchema>,
 	selection: QuerySelectionNode<QueryFieldName<TSchema>>,
-): QueryBuilder<TSchema, QueryFieldName<TSchema>> => {
+): NormalizedQueryInput<TSchema, QueryFieldName<TSchema>> => {
 	const query = createSchemaWhereQuery(schema, where)
 
 	assertUniqueSchemaWhere(schema, query, 'schema batch item where')
 
-	return hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
-		immutableRecord({ ...query.ast, selection }),
-	)
+	return projectSchemaQuery(query, selection)
 }
 
 /** Retains one common nested projection outside itemized mutation operations. */
@@ -311,12 +312,10 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 		...(input.select === undefined ? {} : { select: input.select }),
 	})
 
-	const selectedQuery = hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
-		immutableRecord({
-			...query.ast,
-			inclusion: projection.ast.inclusion,
-			selection: projection.ast.selection,
-		}),
+	const selectedQuery = projectSchemaQuery(
+		query,
+		projection.ast.selection,
+		projection.ast.inclusion,
 	)
 
 	return executeQueryUpdateOne(selectedQuery, input.data, options)
@@ -404,11 +403,9 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 		)
 	}
 
-	const selectedQuery = hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
-		immutableRecord({
-			...query.ast,
-			selection: normalizeQuerySelection(schema, input.select),
-		}),
+	const selectedQuery = projectSchemaQuery(
+		query,
+		normalizeQuerySelection(schema, input.select),
 	)
 
 	return executeQueryUpsertOne(
@@ -490,11 +487,9 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 		return executeQueryDeleteOne(query, options)
 	}
 
-	const selectedQuery = hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
-		immutableRecord({
-			...query.ast,
-			selection: normalizeQuerySelection(schema, input.select),
-		}),
+	const selectedQuery = projectSchemaQuery(
+		query,
+		normalizeQuerySelection(schema, input.select),
 	)
 
 	return executeQueryDeleteOne(selectedQuery, options)

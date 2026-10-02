@@ -44,6 +44,9 @@ Dependencies flow from Shared runtime guards and `fields/base`, through
 constraints and built-in fields, into schema composition, inference, and
 validation plans. Scalar factories and ordered ranges reuse internal typed
 construction helpers so each concrete field owns only its specialized rules.
+Root and embedded enum builders share one callable inference contract while
+retaining named return types and context-specific restrictions. Built-in filter
+kind facts live in `fields/base` and serve source filters and Query validation.
 Internal folders deliberately have no barrel files or published subpath
 exports. Focused runtime and compile-time tests are colocated with the source
 they protect and use the root source entry unless they specifically verify an
