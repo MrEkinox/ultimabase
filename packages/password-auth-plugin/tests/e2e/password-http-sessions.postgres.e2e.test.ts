@@ -382,6 +382,35 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 			const firstCookie = readCookiePair(signUp)
 			const signUpBody = await readJson(signUp)
 			expect(JSON.stringify(signUpBody)).not.toContain('ub_s1.')
+			const stringMatcher: unknown = expect.any(String)
+			expect(signUpBody).toMatchObject({
+				result: {
+					principal: { user: { className: 'User' } },
+					session: {
+						absoluteExpiresAt: stringMatcher,
+						expiresAt: stringMatcher,
+						id: stringMatcher,
+					},
+				},
+			})
+			for (const [path, status, code] of [
+				['sign-up', 400, 'PASSWORD_AUTH_SIGN_UP_REJECTED'],
+				['login', 401, 'PASSWORD_AUTH_INVALID_CREDENTIALS'],
+				['change-password', 400, 'PASSWORD_AUTH_PASSWORD_CHANGE_REJECTED'],
+			] as const) {
+				const rejected = await http.fetch(
+					directRequest('password-cookie', `/auth/v1/${path}`, {
+						body: '{',
+						headers: [...proofHeaders, ['Cookie', firstCookie]],
+						method: 'POST',
+					}),
+				)
+				expect(rejected.status).toBe(status)
+				expect(rejected.headers.has('Set-Cookie')).toBe(false)
+				expect(await readJson(rejected)).toMatchObject({
+					error: { code, requestId: stringMatcher, retryable: false },
+				})
+			}
 
 			const authenticated = await http.fetch(
 				directRequest('password-cookie', '/context', {
@@ -414,6 +443,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 
 			const refresh = await http.fetch(
 				directRequest('password-cookie', '/auth/v1/refresh', {
+					body: '{', // Refresh consumes only the session, even with an invalid body.
 					headers: [...proofHeaders, ['Cookie', firstCookie]],
 					method: 'POST',
 				}),
@@ -464,6 +494,7 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 				}),
 			)
 			expect(changePassword.status).toBe(200)
+			expect(changePassword.headers.has('Set-Cookie')).toBe(false)
 			expect(await readJson(changePassword)).toStrictEqual({
 				result: { changed: true },
 			})

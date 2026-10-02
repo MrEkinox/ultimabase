@@ -172,11 +172,15 @@ const errorResponse = (error: unknown): Response => {
 	)
 }
 
-const readCredentials = async (
+const readAuthenticationInput = async (
 	request: Request,
 	operation:
-		typeof passwordAuthOperations.login | typeof passwordAuthOperations.signUp,
+		| typeof passwordAuthOperations.login
+		| typeof passwordAuthOperations.signUp
+		| typeof passwordAuthOperations.refresh,
 ): Promise<unknown> => {
+	// Refresh consumes the resolved session and never reads a request body.
+	if (operation === passwordAuthOperations.refresh) return null
 	try {
 		return operation.input.snapshot(
 			await request.json(),
@@ -189,33 +193,15 @@ const readCredentials = async (
 	}
 }
 
-const authenticationRoute = (
+/** Keeps the cookie protocol and safe failure envelope identical for every route. */
+const cookieRoute = (
 	path: string,
-	operation:
-		typeof passwordAuthOperations.login | typeof passwordAuthOperations.signUp,
-	executor: PasswordHttpOperationExecutor,
-	cookie: ResolvedPasswordAuthCookieOptions,
+	handle: (request: Request) => Promise<Response>,
 ): HttpEndpointDefinition =>
 	httpRoute({
 		handle: async (request) => {
 			try {
-				const input = await readCredentials(request, operation)
-				const result = operation.result.snapshot(
-					await executor.execute(operation, input),
-					`${operation.name}.http-result`,
-				)
-				return Response.json(
-					{ result: authenticationBody(result) },
-					{
-						headers: {
-							'Set-Cookie': serializeSessionCookie(
-								cookie,
-								result.session.token,
-								result.session.expiresAt,
-							),
-						},
-					},
-				)
+				return await handle(request)
 			} catch (error: unknown) {
 				return errorResponse(error)
 			}
@@ -225,67 +211,54 @@ const authenticationRoute = (
 		protocol: passwordAuthHttpEndpointProtocol,
 	})
 
-const refreshRoute = (
+const authenticationRoute = (
+	path: string,
+	operation:
+		| typeof passwordAuthOperations.login
+		| typeof passwordAuthOperations.signUp
+		| typeof passwordAuthOperations.refresh,
 	executor: PasswordHttpOperationExecutor,
 	cookie: ResolvedPasswordAuthCookieOptions,
 ): HttpEndpointDefinition =>
-	httpRoute({
-		handle: async () => {
-			try {
-				const operation = passwordAuthOperations.refresh
-				const result: PasswordAuthenticationResult = operation.result.snapshot(
-					await executor.execute(operation, null),
-					`${operation.name}.http-result`,
-				)
-				return Response.json(
-					{ result: authenticationBody(result) },
-					{
-						headers: {
-							'Set-Cookie': serializeSessionCookie(
-								cookie,
-								result.session.token,
-								result.session.expiresAt,
-							),
-						},
-					},
-				)
-			} catch (error: unknown) {
-				return errorResponse(error)
-			}
-		},
-		method: 'POST',
-		path: passwordAuthCookiePaths.refresh,
-		protocol: passwordAuthHttpEndpointProtocol,
+	cookieRoute(path, async (request) => {
+		const input = await readAuthenticationInput(request, operation)
+		const result = operation.result.snapshot(
+			await executor.execute(operation, input),
+			`${operation.name}.http-result`,
+		)
+		return Response.json(
+			{ result: authenticationBody(result) },
+			{
+				headers: {
+					'Set-Cookie': serializeSessionCookie(
+						cookie,
+						result.session.token,
+						result.session.expiresAt,
+					),
+				},
+			},
+		)
 	})
 
 const changePasswordRoute = (
 	executor: PasswordHttpOperationExecutor,
 ): HttpEndpointDefinition =>
-	httpRoute({
-		handle: async (request) => {
-			try {
-				const operation = passwordAuthOperations.changePassword
-				let input: unknown
-				try {
-					input = operation.input.snapshot(
-						await request.json(),
-						`${operation.name}.http-input`,
-					)
-				} catch {
-					return rejectPasswordChange()
-				}
-				const result: PasswordChangeResult = operation.result.snapshot(
-					await executor.execute(operation, input),
-					`${operation.name}.http-result`,
-				)
-				return Response.json({ result })
-			} catch (error: unknown) {
-				return errorResponse(error)
-			}
-		},
-		method: 'POST',
-		path: passwordAuthCookiePaths.changePassword,
-		protocol: passwordAuthHttpEndpointProtocol,
+	cookieRoute(passwordAuthCookiePaths.changePassword, async (request) => {
+		const operation = passwordAuthOperations.changePassword
+		let input: unknown
+		try {
+			input = operation.input.snapshot(
+				await request.json(),
+				`${operation.name}.http-input`,
+			)
+		} catch {
+			return rejectPasswordChange()
+		}
+		const result: PasswordChangeResult = operation.result.snapshot(
+			await executor.execute(operation, input),
+			`${operation.name}.http-result`,
+		)
+		return Response.json({ result })
 	})
 
 const logoutRoute = (
@@ -298,24 +271,15 @@ const logoutRoute = (
 	executor: PasswordHttpOperationExecutor,
 	cookie: ResolvedPasswordAuthCookieOptions,
 ): HttpEndpointDefinition =>
-	httpRoute({
-		handle: async () => {
-			try {
-				const result: PasswordLogoutResult = operation.result.snapshot(
-					await executor.execute(operation, null),
-					`${operation.name}.http-result`,
-				)
-				return Response.json(
-					{ result },
-					{ headers: { 'Set-Cookie': serializeExpiredCookie(cookie) } },
-				)
-			} catch (error: unknown) {
-				return errorResponse(error)
-			}
-		},
-		method: 'POST',
-		path,
-		protocol: passwordAuthHttpEndpointProtocol,
+	cookieRoute(path, async () => {
+		const result: PasswordLogoutResult = operation.result.snapshot(
+			await executor.execute(operation, null),
+			`${operation.name}.http-result`,
+		)
+		return Response.json(
+			{ result },
+			{ headers: { 'Set-Cookie': serializeExpiredCookie(cookie) } },
+		)
 	})
 
 /** Carries conditional declarations plus their one-time lifecycle binding. */
@@ -359,7 +323,12 @@ export const createPasswordHttpCookieIntegration = (
 					executor,
 					cookie,
 				),
-				refreshRoute(executor, cookie),
+				authenticationRoute(
+					passwordAuthCookiePaths.refresh,
+					passwordAuthOperations.refresh,
+					executor,
+					cookie,
+				),
 			]),
 	})
 	return immutableRecord({

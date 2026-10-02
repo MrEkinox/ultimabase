@@ -7,9 +7,9 @@
 
 ## Objective
 
-Test GraphQL field collection, native file globbing and workspace inventory.
+Test fdir discovery, then simplify duplicated Password Auth cookie responses.
 Retain only behavior-preserving replacements that reduce net complexity.
-The [issue](issues/6600-standard-mechanics-canaries/6601-standard-mechanics.md) owns evidence.
+[Issue 6602](issues/6600-standard-mechanics-canaries/6602-discovery-and-cookie-canaries.md) owns evidence.
 
 ## Locked decisions
 
@@ -24,5 +24,5 @@ None.
 
 ## Next verifiable action
 
-None scheduled. GraphQL collector retained and fully validated; native discovery
-and Manypkg rejected. Issue 6601 owns the final audit and exact coverage evidence.
+None scheduled. Cookie-route simplification is fully validated; fdir is rejected
+on ordering/adaptation cost. Issue 6602 owns the final audit and coverage evidence.

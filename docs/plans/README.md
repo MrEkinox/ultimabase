@@ -18,7 +18,8 @@ None.
 ## Completed
 
 - [Standard mechanics canaries](../../issues/6600-standard-mechanics-canaries/README.md),
-  milestone 66; GraphQL field collection retained, discovery replacements rejected.
+  milestone 66; GraphQL collection and cookie-route simplification retained,
+  native discovery, fdir and Manypkg rejected.
 - [Standard package simplification](completed/standard-package-simplification.md),
   milestone 65; GraphQL Tools retained, Valibot and atomic writer rejected.
 - [Scoped agent context](../../issues/6400-scoped-agent-context/README.md),
