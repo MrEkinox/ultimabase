@@ -205,11 +205,10 @@ const normalizeObjectNode = (
 		const dataEntries: [string, unknown][] = []
 		const relationships: NestedWriteRelationshipNode[] = []
 
-		for (const [fieldName, field] of fieldEntries) {
+		for (const [fieldIndex, [fieldName, field]] of fieldEntries.entries()) {
 			if (!Object.hasOwn(input, fieldName)) continue
 			const fieldPath = [...inputPath, fieldName]
 			const nextSourcePath = [...sourcePath, fieldName]
-			const fieldIndex = fieldEntries.findIndex(([name]) => name === fieldName)
 
 			if (field.kind === 'pointer') {
 				relationships.push(

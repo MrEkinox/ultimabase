@@ -56,8 +56,10 @@ export const normalizeQueryOrdering = <const TSchema extends SchemaDefinition>(
 		return emptyQueryOrdering
 	}
 
-	const normalizedOrders: QueryOrderNode<QueryFieldName<TSchema>>[] = []
-	const fieldPositions = new Map<string, number>()
+	const normalizedOrders = new Map<
+		string,
+		QueryOrderNode<QueryFieldName<TSchema>>
+	>()
 
 	for (const [index, order] of untrustedOrders.entries()) {
 		if (!isPlainRecord(order)) {
@@ -80,18 +82,12 @@ export const normalizeQueryOrdering = <const TSchema extends SchemaDefinition>(
 				field: fieldName,
 				direction: order.direction,
 			})
-		const existingPosition = fieldPositions.get(fieldName)
-
-		if (existingPosition === undefined) {
-			fieldPositions.set(fieldName, normalizedOrders.length)
-			normalizedOrders.push(normalizedOrder)
-		} else {
-			normalizedOrders[existingPosition] = normalizedOrder
-		}
+		// Replacing a value retains the field's first ordering priority.
+		normalizedOrders.set(fieldName, normalizedOrder)
 	}
 
 	return immutableRecord({
 		kind: 'ordering',
-		orders: immutableArray(normalizedOrders),
+		orders: immutableArray([...normalizedOrders.values()]),
 	})
 }

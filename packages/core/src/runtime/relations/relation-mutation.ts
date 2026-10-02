@@ -16,7 +16,7 @@ import type {
 import { FrameworkError } from '../../foundation.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'
-import { QueryBuilder } from '../../query/query/query.js'
+import { createQueryAst } from '../../query/ast/factory.js'
 import {
 	Pointer,
 	Schema,
@@ -129,7 +129,7 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	operation: FindOneOperationAst<TSchema>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new QueryBuilder(pointer.schema)
+	const query = createQueryAst(pointer.schema)
 	const rowFilter = createQueryValueFilter(
 		pointer.schema,
 		'equal',
@@ -138,7 +138,7 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	) as DatabaseRowFilterNode
 
 	return immutableRecord({
-		operation: immutableRecord({ kind: 'find-one' as const, query: query.ast }),
+		operation: immutableRecord({ kind: 'find-one' as const, query }),
 		rowFilter,
 	})
 }
@@ -162,7 +162,7 @@ export const createInversePointerTargetLookup = <
 	operation: FindManyOperationAst<TTarget>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new QueryBuilder(target)
+	const query = createQueryAst(target)
 	const rowFilter = createQueryValueFilter(
 		target,
 		'equal',
@@ -173,7 +173,7 @@ export const createInversePointerTargetLookup = <
 	return immutableRecord({
 		operation: immutableRecord({
 			kind: 'find-many' as const,
-			query: query.ast,
+			query,
 		}),
 		rowFilter,
 	})
@@ -192,7 +192,7 @@ export const createInversePointerUpdate = <
 	operation: UpdateOneOperationAst<TTarget, UpdateExpressionNode>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new QueryBuilder(target.schema)
+	const query = createQueryAst(target.schema)
 	const idFilter = createQueryValueFilter(
 		target.schema,
 		'equal',
@@ -233,7 +233,7 @@ export const createInversePointerUpdate = <
 	return immutableRecord({
 		operation: immutableRecord({
 			kind: 'update-one' as const,
-			query: query.ast,
+			query,
 			update,
 		}),
 		rowFilter:

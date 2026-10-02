@@ -218,7 +218,7 @@ function collectObjectChildLocations(
 export const collectUpdateExpressionFieldNames = (
 	update: UpdateExpressionNode,
 ): readonly string[] => {
-	const names: string[] = []
+	const names = new Set<string>()
 
 	for (const operation of readUpdateExpressionOperations(
 		update,
@@ -230,17 +230,15 @@ export const collectUpdateExpressionFieldNames = (
 			)
 		}
 
-		if (!names.includes(operation.field)) {
-			names.push(operation.field)
-		}
+		names.add(operation.field)
 	}
 
-	return immutableArray(names)
+	return immutableArray([...names])
 }
 
 const readUpdateOperationValue = (
 	operation: Readonly<Record<string, unknown>>,
-): UpdateOperationValue | undefined => {
+): UpdateOperationValue => {
 	if (
 		(operation.kind !== 'relation' &&
 			operation.kind !== 'decrement' &&
@@ -268,10 +266,6 @@ const collectUpdateLocations = (
 		'Runtime field inputs require an update expression',
 	).entries()) {
 		const updateValue = readUpdateOperationValue(operation)
-
-		if (updateValue === undefined) {
-			continue
-		}
 
 		const field = fields[updateValue.field]
 

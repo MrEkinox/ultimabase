@@ -340,10 +340,10 @@ await user.relation('posts').set([firstPostId, secondPostId])
 await user.relation('posts').clear()
 ```
 
-`connect` and `disconnect` require one pointer or a non-empty pointer tuple;
-`set` replaces the complete set and accepts an empty array; `clear` expresses
-that empty replacement directly. Duplicate or foreign pointers fail before a
-transaction starts. Once execution begins, installed source-field policy,
+`connect` and `disconnect` require one target ID or a non-empty readonly ID tuple;
+`set` replaces the complete set and accepts an empty ID array; `clear` expresses
+that empty replacement directly. Duplicate IDs and invalid target input shapes
+fail before a transaction starts. Once execution begins, installed source-field policy,
 plugin-owned schema behavior, target visibility, nested writes, and adapter
 execution share one automatic or inherited transaction. Missing and inaccessible
 sources or targets both surface as `NOT_FOUND`.

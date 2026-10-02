@@ -23,7 +23,6 @@ import {
 	scopeQueryToObjectId,
 	scopeQueryToRelation,
 } from '../../query/query/private-scope.js'
-import { QueryBuilder } from '../../query/query/query.js'
 import {
 	queryFromCountInput,
 	queryFromExistsInput,
@@ -94,7 +93,7 @@ const executeRelationMutation = async <
 	options: RelationMutationOptions | undefined,
 ): Promise<void> => {
 	const sourceQuery = scopeQueryToObjectId(
-		new QueryBuilder(state.source),
+		queryFromFindOneInput(state.source, {}),
 		state.sourceObjectId as OperationObjectId<TSource>,
 		{ protectedPolicyDeniedAsMissing: true },
 	)

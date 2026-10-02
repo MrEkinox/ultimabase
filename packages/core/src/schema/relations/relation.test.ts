@@ -13,6 +13,8 @@ import {
 } from '../../../tests/fixtures/relation-fixture.js'
 import { materializeSchemaModel } from '../schema/model.js'
 import { Relation } from './relation.js'
+import { QueryBuilder } from '../../query/query/query.js'
+import { createQueryValueFilter } from '../../query/filters/factory.js'
 
 interface ScopedExecution {
 	readonly kind: string
@@ -215,9 +217,20 @@ describe('Relation handles', () => {
 		expect(dispatcher.executions[1]?.options.useMasterKey).toBe(true)
 
 		for (const execution of dispatcher.executions) {
+			expect(execution.operation).toHaveProperty(
+				'query',
+				new QueryBuilder(RelationArticle).ast,
+			)
 			expect(execution.scope).toMatchObject({
 				kind: 'row-filter',
 				protectedPolicyDeniedAsMissing: true,
+				objectId: articleId,
+				rowFilter: createQueryValueFilter(
+					RelationArticle,
+					'equal',
+					'id',
+					articleId,
+				),
 			})
 			expect(JSON.stringify(execution.operation)).not.toContain(articleId)
 			expect(Object.isFrozen(execution.operation)).toBe(true)

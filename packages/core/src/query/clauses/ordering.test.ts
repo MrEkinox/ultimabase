@@ -76,4 +76,19 @@ describe('normalizeQueryOrdering', () => {
 			),
 		)
 	})
+
+	it('validates duplicate directions before a later valid replacement', () => {
+		expect(() =>
+			normalizeQueryOrdering(postSchema, [
+				{ field: 'title', direction: 'ascending' },
+				// @ts-expect-error -- Invalid overwritten duplicates must still fail.
+				{ field: 'title', direction: 'sideways' },
+				{ field: 'title', direction: 'descending' },
+			]),
+		).toThrow(
+			new TypeError(
+				'query.orders[1].direction must be ascending or descending',
+			),
+		)
+	})
 })

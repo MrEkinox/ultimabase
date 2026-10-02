@@ -44,6 +44,49 @@ const TraversalRecord = UltimaBase.Schema.define({
 
 const query = new QueryBuilder(TraversalRecord).ast
 
+it('deduplicates affected fields in first-occurrence order without mutating input', () => {
+	const update = {
+		kind: 'update-expression',
+		operations: [
+			{ kind: 'increment', field: 'count', value: 1 },
+			{ kind: 'set', field: 'title', value: 'changed' },
+			{ kind: 'decrement', field: 'count', value: 2 },
+		],
+	}
+	const names = collectUpdateExpressionFieldNames(update)
+
+	expect(names).toStrictEqual(['count', 'title'])
+	expect(Object.isFrozen(names)).toBe(true)
+	expect(update.operations).toHaveLength(3)
+	const malformed = {
+		...update,
+		operations: [...update.operations, { kind: 'set', field: 1, value: 0 }],
+	}
+	expect(() => collectUpdateExpressionFieldNames(malformed)).toThrow(
+		'Runtime field inputs contain an update without a field name',
+	)
+})
+
+it.each([
+	{ kind: 'unknown', field: 'count', value: 1 },
+	{ kind: 'set', field: 'count' },
+	{ kind: 'set', field: 1, value: 1 },
+])(
+	'rejects malformed update values instead of skipping them: %j',
+	(candidate) => {
+		const update = { kind: 'update-expression', operations: [candidate] }
+		const operation = {
+			kind: 'update-one',
+			query,
+			update,
+		} satisfies UpdateOneOperationAst<typeof TraversalRecord, typeof update>
+
+		expect(() =>
+			collectOperationFieldInputs(operation, 'parent-first'),
+		).toThrow('Runtime field inputs contain an invalid update operation')
+	},
+)
+
 it('keeps collection item and nested list paths distinct', () => {
 	const operation = {
 		kind: 'create-many',

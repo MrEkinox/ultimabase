@@ -7,15 +7,15 @@
 
 ## Objective
 
-Direct persisted-model commands, simpler inclusion normalization and shared
-result classification are retained without changing capabilities or public DX.
-[Issue 6702](issues/6700-core-path-simplification/6702-model-inclusion-result-canaries.md)
-owns the three trials and evidence; issue 6701's completed changes remain intact.
+Direct neutral relation queries, nested-write declaration indexes, one-Map
+ordering and update-field traversal cleanup are retained without changing DX.
+[Issue 6703](issues/6700-core-path-simplification/6703-relation-ordering-traversal-canaries.md)
+owns the four trials and evidence; issues 6701 and 6702 remain complete.
 
 ## Locked decisions
 
 - No public API, diagnostic, security, Typegen or Runtime capability regression.
-- Reuse existing normalized Query input; no new executor or graph.
+- Reuse existing Query AST/input primitives; no new executor or graph.
 - Count shared types and adapters, not gross deletions; preserve editor contracts.
 - Reject and remove an experiment if parity or worthwhile simplification fails.
 - One issue at a time; full validation before retention/commit; no push authorized.

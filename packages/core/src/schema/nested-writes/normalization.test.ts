@@ -160,6 +160,23 @@ describe('normalizeNestedWriteGraph', () => {
 		})
 	})
 
+	it('keeps schema declaration indexes when earlier fields are omitted', () => {
+		const graph = normalizeNestedWriteGraph(schemas, Post, 'update', {
+			tags: { connect: ['tag-1'] },
+			parent: { connect: 'post-1' },
+		})
+
+		expect(
+			graph.root.relationships.map(({ fieldName, provenance }) => [
+				fieldName,
+				provenance.declarationIndex,
+			]),
+		).toStrictEqual([
+			['parent', 1],
+			['tags', 2],
+		])
+	})
+
 	it('supports inverse contextual creates but rejects caller ownership injection', () => {
 		const graph = normalizeNestedWriteGraph(schemas, Author, 'create', {
 			name: 'Ada',
