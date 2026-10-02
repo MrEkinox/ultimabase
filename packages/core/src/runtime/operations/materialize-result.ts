@@ -15,6 +15,11 @@ import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
 import {
+	isCollectionOperationResult,
+	isNullableOperationResult,
+	isRecordOperationResult,
+} from './characteristics.js'
+import {
 	createInclusionOperation,
 	readInclusions,
 } from '../relations/inclusion.js'
@@ -93,74 +98,41 @@ export const materializeOperationResult = <
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 ): OperationResult<TOperation> => {
-	switch (operation.kind) {
-		case 'count':
-		case 'exists':
-			return result as unknown as OperationResult<TOperation>
-		case 'create-many':
-		case 'delete-many':
-		case 'update-many':
-		case 'upsert-many': {
-			const schema = readOperationSchema(operation)
-
-			if (!isUnknownArray(result)) {
-				throw new TypeError('Runtime collection result must be an array')
-			}
-
-			return immutableArray(
-				result.map((record, index) =>
-					materializeRecord(
-						schema,
-						record,
-						`Runtime result[${String(index)}]`,
-						operation,
-					),
-				),
-			) as OperationResult<TOperation>
-		}
-		case 'find-many': {
-			if (!isUnknownArray(result)) {
-				throw new TypeError('Runtime collection result must be an array')
-			}
-
-			const schema = readOperationSchema(operation)
-
-			return immutableArray(
-				result.map((record, index) =>
-					materializeRecord(
-						schema,
-						record,
-						`Runtime result[${String(index)}]`,
-						operation,
-					),
-				),
-			) as OperationResult<TOperation>
-		}
-		case 'delete-one':
-		case 'find-one':
-		case 'get':
-		case 'update-one':
-			if (result === null) {
-				return null as OperationResult<TOperation>
-			}
-			return materializeRecord(
-				readOperationSchema(operation),
-				result,
-				'Runtime result',
-				operation,
-			) as OperationResult<TOperation>
-		case 'create-one':
-			return materializeRecord(
-				readOperationSchema(operation),
-				result,
-				'Runtime result',
-				operation,
-			) as OperationResult<TOperation>
-		case 'upsert-one':
-			return materializeRecord(
-				readOperationSchema(operation),
-				result,
-				'Runtime result',
-			) as OperationResult<TOperation>
+	if (!isRecordOperationResult(operation.kind)) {
+		return result as unknown as OperationResult<TOperation>
 	}
+
+	if (result === null && isNullableOperationResult(operation.kind)) {
+		return null as OperationResult<TOperation>
+	}
+
+	// Preserve schema-first mutation errors and collection-first find-many errors.
+	const schema =
+		operation.kind === 'find-many' ? undefined : readOperationSchema(operation)
+
+	if (isCollectionOperationResult(operation.kind)) {
+		if (!isUnknownArray(result)) {
+			throw new TypeError('Runtime collection result must be an array')
+		}
+
+		const targetSchema = schema ?? readOperationSchema(operation)
+
+		return immutableArray(
+			result.map((record, index) =>
+				materializeRecord(
+					targetSchema,
+					record,
+					`Runtime result[${String(index)}]`,
+					operation,
+				),
+			),
+		) as OperationResult<TOperation>
+	}
+
+	return materializeRecord(
+		schema ?? readOperationSchema(operation),
+		result,
+		'Runtime result',
+		operation,
+	) as OperationResult<TOperation>
 }

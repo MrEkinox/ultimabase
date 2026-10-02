@@ -7,9 +7,10 @@
 
 ## Objective
 
-Direct mutation normalization, schema publication, enum factory contracts,
-and shared filter compatibility are retained after full and compiled validation.
-[Issue 6701](issues/6700-core-path-simplification/6701-core-canaries.md) owns evidence.
+Direct persisted-model commands, simpler inclusion normalization and shared
+result classification are retained without changing capabilities or public DX.
+[Issue 6702](issues/6700-core-path-simplification/6702-model-inclusion-result-canaries.md)
+owns the three trials and evidence; issue 6701's completed changes remain intact.
 
 ## Locked decisions
 
@@ -25,5 +26,5 @@ None.
 
 ## Next verifiable action
 
-No remaining issue in milestone 67. Await the user's next direction;
-no push is authorized.
+No remaining issue in milestone 67. Full and compiled validation passed.
+Await the user's next direction; no push is authorized.

@@ -177,7 +177,7 @@ export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 		return emptyQueryInclusion
 	}
 
-	const nodes: QueryFieldInclusionNode<TSchema>[] = []
+	const nodes = new Map<string, QueryFieldInclusionNode<TSchema>>()
 
 	for (const input of inputs) {
 		const { field, target } = resolveQueryInclusionTarget(schema, input.field)
@@ -196,19 +196,12 @@ export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 			field: input.field,
 			query: input.query,
 		}) as unknown as QueryFieldInclusionNode<TSchema>
-		const existingIndex = nodes.findIndex(
-			(candidate) => candidate.field === input.field,
-		)
-
-		if (existingIndex === -1) {
-			nodes.push(node)
-		} else {
-			nodes[existingIndex] = node
-		}
+		// Updating a Map value retains the relationship's first insertion position.
+		nodes.set(input.field, node)
 	}
 
 	return immutableRecord({
-		fields: immutableArray(nodes),
+		fields: immutableArray([...nodes.values()]),
 		kind: 'inclusion',
 	})
 }

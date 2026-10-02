@@ -74,6 +74,32 @@ describe('normalizeQueryInclusion', () => {
 		)
 	})
 
+	it('reuses normalized inputs without mutating branches or hiding invalid duplicates', () => {
+		const firstQuery = new QueryBuilder(userSchema).select({ name: true })
+		const replacement = new QueryBuilder(userSchema).select({ email: true })
+		const first = normalizeQueryInclusion(postSchema, [
+			{ field: 'author', query: firstQuery.ast },
+			{ field: 'reviewer', query: firstQuery.ast },
+		] as never)
+		const second = normalizeQueryInclusion(postSchema, [
+			...first.fields,
+			{ field: 'author', query: replacement.ast },
+		] as never)
+
+		expect(first.fields[0]?.query).toBe(firstQuery.ast)
+		expect(second.fields.map(({ field }) => field)).toStrictEqual([
+			'author',
+			'reviewer',
+		])
+		expect(second.fields[0]?.query).toBe(replacement.ast)
+		expect(() =>
+			normalizeQueryInclusion(postSchema, [
+				{ field: 'author', query: new QueryBuilder(otherSchema).ast },
+				...second.fields,
+			] as never),
+		).toThrow('query inclusion author must use target schema IncludedUser')
+	})
+
 	it('rejects relationship fields without a schema target', () => {
 		const malformedSchema = UltimaBase.Schema.define({
 			className: 'MalformedInclusionTarget',

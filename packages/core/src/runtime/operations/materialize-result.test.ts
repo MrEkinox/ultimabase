@@ -1,5 +1,6 @@
 import type {
 	CreateOneOperationAst,
+	ExecutableOperationAst,
 	FindManyOperationAst,
 } from '../../query/index.js'
 import { QueryBuilder } from '../../query/query/query.js'
@@ -16,6 +17,32 @@ const ResultSchema = UltimaBase.Schema.define({
 		title: field.string({ required: true }),
 	}),
 })
+
+const query = new QueryBuilder(ResultSchema).ast
+const update = { kind: 'update-expression', operations: [] } as const
+const collectionOperations = [
+	{
+		kind: 'create-many',
+		schema: query.schema,
+		selection: query.selection,
+		inputs: [],
+	},
+	{ kind: 'delete-many', query },
+	{ kind: 'find-many', query },
+	{ kind: 'update-many', query, update },
+	{
+		kind: 'upsert-many',
+		schema: query.schema,
+		selection: query.selection,
+		items: [],
+	},
+] as const satisfies readonly ExecutableOperationAst[]
+const nullableOperations = [
+	{ kind: 'delete-one', query },
+	{ kind: 'find-one', query },
+	{ kind: 'get', query, id: '0198f090-2a50-7000-8000-000000000032' },
+	{ kind: 'update-one', query, update },
+] as const satisfies readonly ExecutableOperationAst[]
 
 describe('Runtime result materialization', () => {
 	it('rejects malformed collection and record outputs', () => {
@@ -59,6 +86,54 @@ describe('Runtime result materialization', () => {
 
 		expect(() => materializeOperationResult(operation, result)).toThrow(
 			new TypeError('Runtime result references an invalid schema model class'),
+		)
+	})
+
+	it.each(collectionOperations)(
+		'materializes immutable $kind collections as the exact schema class',
+		(operation) => {
+			const records = [
+				{
+					id: '0198f090-2a50-7000-8000-000000000032',
+					createdAt: '2026-08-02T00:00:00.000Z',
+					updatedAt: '2026-08-02T00:00:00.000Z',
+					title: 'Persisted',
+				},
+			]
+			const result = materializeOperationResult(operation, records)
+
+			expect(result).toHaveLength(1)
+			expect(result[0]).toBeInstanceOf(ResultSchema)
+			expect(result[0]?.toJSON()).toStrictEqual(records[0])
+			expect(Object.isFrozen(result)).toBe(true)
+			expect(Object.isFrozen(result[0])).toBe(true)
+			expect(records[0]).not.toBeInstanceOf(ResultSchema)
+		},
+	)
+
+	it.each(nullableOperations)(
+		'preserves null for $kind without reading invalid schema metadata',
+		(operation) => {
+			const forged = {
+				...operation,
+				query: undefined,
+			} as unknown as typeof operation
+			expect(materializeOperationResult(forged, null)).toBeNull()
+		},
+	)
+
+	it.each([
+		['find-many', 'Runtime collection result must be an array'],
+		['create-many', 'Runtime result references an invalid schema model class'],
+		['delete-many', 'Runtime result references an invalid schema model class'],
+		['update-many', 'Runtime result references an invalid schema model class'],
+		['upsert-many', 'Runtime result references an invalid schema model class'],
+	] as const)('preserves %s error precedence', (kind, message) => {
+		const operation = { kind, schema: { definition: {}, kind: 'schema' } }
+		const malformed = 1 as unknown as DatabaseOperationResult<typeof operation>
+
+		expect(() => materializeOperationResult(operation, malformed)).toThrow(
+			new TypeError(message),
 		)
 	})
 })

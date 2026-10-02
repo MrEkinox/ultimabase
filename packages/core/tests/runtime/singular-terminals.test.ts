@@ -1,5 +1,9 @@
 import { applicationFixture } from '../application-fixture.js'
-import { increment, type ExecutableOperationAst } from '../../src/index.js'
+import {
+	increment,
+	QueryBuilder,
+	type ExecutableOperationAst,
+} from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 
 import { describe, expect, it } from 'vitest'
@@ -160,6 +164,26 @@ describe('read terminals and singular schema commands', () => {
 			'prepare:delete-one',
 			'adapter:rollback',
 		])
+
+		const expectedQuery = new QueryBuilder(articleSchema).where({
+			id: { eq: persisted.id },
+		}).ast
+		const requests = [
+			...adapter.rootRequests,
+			...adapter.transactions.flatMap(({ requests }) => requests),
+		].filter(({ operation }) => operation.kind !== 'create-one')
+
+		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
+			'exists',
+			'get',
+			'update-one',
+			'delete-one',
+		])
+		for (const request of requests) {
+			const operation = request.operation as ExecutableOperationAst
+			expect(operation).toHaveProperty('query', expectedQuery)
+			expect(request.rowFilter).toStrictEqual(expectedQuery.where?.expression)
+		}
 	})
 
 	it('executes reads and writes through the RequestEngine pipeline', async () => {

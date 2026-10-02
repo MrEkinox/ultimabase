@@ -311,10 +311,8 @@ export class QueryBuilder<
 			)
 		}
 
-		const inclusions = this.ast.inclusion.fields.map((inclusion) => ({
-			field: inclusion.field,
-			query: inclusion.query,
-		})) as unknown as readonly QueryInclusionInput<TSchema>[]
+		const inclusions = this.ast.inclusion
+			.fields as unknown as readonly QueryInclusionInput<TSchema>[]
 		const selectionFields = this.ast.selection.fields.map(
 			(selection) => selection.field,
 		)

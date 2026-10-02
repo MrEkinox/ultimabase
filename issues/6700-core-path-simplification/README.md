@@ -6,6 +6,7 @@
 ## Execution order
 
 - [x] [6701: Test the four Core audit candidates](6701-core-canaries.md)
+- [x] [6702: Simplify model commands, inclusions and result materialization](6702-model-inclusion-result-canaries.md)
 
 ## Boundary
 
@@ -14,3 +15,6 @@ single schema validation before atomic publication, shared enum factory typing,
 and shared field/filter compatibility facts. Reuse existing concepts; retain
 Typegen boundaries, protected identities, transaction ordering and editor checks.
 Reject a trial if preserving parity adds more complexity. No push authorized.
+
+The user approved the follow-up model-command, inclusion and result trials on
+2026-10-02. They retain the same boundaries and validation gate.

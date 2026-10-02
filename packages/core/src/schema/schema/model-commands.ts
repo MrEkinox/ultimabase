@@ -7,11 +7,7 @@ import {
 import { assertOperationExecutionOwnerToken } from '../../query/operations/execution.js'
 import type { SchemaWhereInput } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
-import type { WhereInput } from '../../query/filters/where.js'
-import {
-	normalizeQuerySelection,
-	type QuerySelection,
-} from '../../query/clauses/selection.js'
+import type { QuerySelection } from '../../query/clauses/selection.js'
 import {
 	executeQueryDeleteOne,
 	executeQueryExists,
@@ -19,7 +15,10 @@ import {
 	executeQueryUpdateOne,
 } from '../../query/query/operation-execution.js'
 import { scopeQueryToObjectId } from '../../query/query/private-scope.js'
-import { hydrateQueryFromAst, QueryBuilder } from '../../query/query/query.js'
+import {
+	queryFromFindOneInput,
+	type NormalizedQueryInput,
+} from '../../query/query/input.js'
 import type { UpdateExpressionInput } from '../../query/updates/contracts.js'
 import { Pointer } from '../relations/pointer.js'
 import { createRelationHandle, type Relation } from '../relations/relation.js'
@@ -46,34 +45,6 @@ interface NormalizedSchemaModelSelectionInput {
 
 interface NormalizedSchemaModelUpdateInput extends NormalizedSchemaModelSelectionInput {
 	readonly data: UpdateExpressionInput<SchemaDefinition> & {}
-}
-
-/** Erases schema variance only inside the private model-to-QueryBuilder delegation. */
-interface SchemaModelQuery {
-	readonly ast: QueryBuilder<SchemaDefinition>['ast']
-	readonly schema: SchemaDefinition
-}
-
-const createSchemaModelQuery = (
-	schema: SchemaDefinition,
-): QueryBuilder<SchemaDefinition> =>
-	// Public model types validate exact fields before this private variance boundary.
-	new QueryBuilder(schema)
-
-const selectSchemaModelQuery = (
-	query: SchemaModelQuery,
-	selection?: QuerySelection<SchemaDefinition>,
-): SchemaModelQuery => {
-	if (selection === undefined) {
-		return query
-	}
-
-	return hydrateQueryFromAst<SchemaDefinition, never>(
-		immutableRecord({
-			...query.ast,
-			selection: normalizeQuerySelection(query.schema, selection),
-		}),
-	)
 }
 
 const readSchemaModelSelectionInput = (
@@ -166,18 +137,16 @@ const readSchemaDraftUpsertInput = (
 const createPersistedModelQuery = (
 	record: SchemaModelRecord & { readonly objectId: unknown },
 	selection?: QuerySelection<SchemaDefinition>,
-): SchemaModelQuery => {
+): NormalizedQueryInput<SchemaDefinition> => {
 	if (typeof record.objectId !== 'string') {
 		throw new TypeError('Persisted schema model has an invalid object identity')
 	}
 
 	// Mutation results intentionally ignore the receiver's read projection.
-	const query = selectSchemaModelQuery(
-		createSchemaModelQuery(record.schema).where({
-			id: { eq: record.objectId },
-		} as unknown as WhereInput<typeof record.schema>),
-		selection,
-	)
+	const query = queryFromFindOneInput(record.schema, {
+		where: { id: { eq: record.objectId } },
+		...(selection === undefined ? {} : { select: selection }),
+	})
 
 	return scopeQueryToObjectId(query, record.objectId, {
 		protectedPolicyDeniedAsMissing: true,
@@ -267,11 +236,7 @@ export class SchemaModelPrototype {
 		const normalized = readSchemaModelSelectionInput(input, 'fetch')
 		const query = createPersistedModelQuery(record, normalized.select)
 
-		return executeQueryGet(
-			query as QueryBuilder<SchemaDefinition>,
-			record.objectId,
-			options,
-		)
+		return executeQueryGet(query, record.objectId, options)
 	}
 
 	/** Tests one trusted identity through the ordinary read pipeline. */
@@ -279,10 +244,7 @@ export class SchemaModelPrototype {
 		const record = readPersistedSchemaModelRecord(this, 'exists')
 		assertOperationExecutionOwnerToken(record.ownerToken, options)
 
-		return executeQueryExists(
-			createPersistedModelQuery(record) as QueryBuilder<SchemaDefinition>,
-			options,
-		)
+		return executeQueryExists(createPersistedModelQuery(record), options)
 	}
 
 	/** Detaches one exact pointer from protected identity without performing I/O. */
@@ -370,7 +332,7 @@ export class SchemaModelPrototype {
 		)
 	}
 
-	/** Deletes only Runtime-issued object identity through QueryBuilder's singular alias. */
+	/** Deletes only Runtime-issued object identity through the ordinary Query executor. */
 	async delete(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
 		assertOperationExecutionOwnerToken(record.ownerToken, options)
