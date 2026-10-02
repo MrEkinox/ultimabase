@@ -1,11 +1,9 @@
 import { getFieldSchemaTarget, type SchemaDefinition } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
+import { collectFields as collectGraphqlFields } from '@graphql-tools/utils'
 import {
 	getArgumentValues,
-	getDirectiveValues,
 	getNamedType,
-	GraphQLIncludeDirective,
-	GraphQLSkipDirective,
 	isObjectType,
 	Kind,
 	type FieldNode,
@@ -13,7 +11,6 @@ import {
 	type GraphQLField,
 	type GraphQLObjectType,
 	type GraphQLResolveInfo,
-	type SelectionNode,
 	type SelectionSetNode,
 } from 'graphql'
 
@@ -44,85 +41,28 @@ export type GraphqlRelationArgumentNormalizer = (
 
 export type GraphqlRelationshipSelectionMode = 'include' | 'stored-pointer-only'
 
-const shouldInclude = (
-	node: SelectionNode | FragmentDefinitionNode,
-	info: GraphQLResolveInfo,
-): boolean => {
-	const skipped = getDirectiveValues(
-		GraphQLSkipDirective,
-		node,
-		info.variableValues,
-	)
-	if (skipped?.if === true) return false
-	const included = getDirectiveValues(
-		GraphQLIncludeDirective,
-		node,
-		info.variableValues,
-	)
-	return included?.if !== false
-}
-
-const collectSelection = (
-	selections: readonly SelectionNode[],
-	context: SelectionContext,
-	fields: Map<string, CollectedField>,
-	fragmentStack: Set<string>,
-): void => {
-	for (const selection of selections) {
-		if (!shouldInclude(selection, context.info)) continue
-		if (selection.kind === Kind.FIELD) {
-			const responseName = selection.alias?.value ?? selection.name.value
-			const existing = fields.get(responseName)
-			if (existing !== undefined && existing.name !== selection.name.value) {
-				throw new TypeError(
-					`GraphQL response field ${responseName} has contradictory selections`,
-				)
-			}
-			fields.set(responseName, {
-				name: selection.name.value,
-				nodes: [...(existing?.nodes ?? []), selection],
-				responseName,
-			})
-			continue
-		}
-		if (selection.kind === Kind.INLINE_FRAGMENT) {
-			collectSelection(
-				selection.selectionSet.selections,
-				context,
-				fields,
-				fragmentStack,
-			)
-			continue
-		}
-		const name = selection.name.value
-		if (fragmentStack.has(name)) {
-			throw new TypeError(`GraphQL fragment cycle detected at ${name}`)
-		}
-		const fragment = context.fragments[name]
-		if (fragment === undefined) {
-			throw new TypeError(`Unknown GraphQL fragment ${name}`)
-		}
-		if (!shouldInclude(fragment, context.info)) continue
-		fragmentStack.add(name)
-		collectSelection(
-			fragment.selectionSet.selections,
-			context,
-			fields,
-			fragmentStack,
-		)
-		fragmentStack.delete(name)
-	}
-}
-
 const collectFields = (
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
+	type: GraphQLObjectType,
 ): readonly CollectedField[] => {
-	const fields = new Map<string, CollectedField>()
-	for (const selectionSet of selectionSets) {
-		collectSelection(selectionSet.selections, context, fields, new Set())
-	}
-	return [...fields.values()]
+	// Request validation rejects unknown/cyclic fragments and contradictory
+	// response fields before this standard collector sees resolver selections.
+	const { fields } = collectGraphqlFields<Readonly<Record<string, unknown>>>(
+		context.info.schema,
+		context.fragments,
+		context.info.variableValues,
+		type,
+		{
+			kind: Kind.SELECTION_SET,
+			selections: selectionSets.flatMap((set) => set.selections),
+		},
+	)
+	return [...fields].map(([responseName, nodes]) => ({
+		name: nodes[0]?.name.value ?? responseName,
+		nodes,
+		responseName,
+	}))
 }
 
 const childSelectionSets = (
@@ -149,7 +89,11 @@ const relationNodeSelectionSets = (
 	connectionType: GraphQLObjectType,
 	context: SelectionContext,
 ): readonly SelectionSetNode[] => {
-	const selected = collectFields(childSelectionSets(field), context)
+	const selected = collectFields(
+		childSelectionSets(field),
+		context,
+		connectionType,
+	)
 	const result: SelectionSetNode[] = []
 	for (const connectionField of selected) {
 		if (connectionField.name === 'nodes') {
@@ -165,6 +109,7 @@ const relationNodeSelectionSets = (
 		for (const edgeField of collectFields(
 			childSelectionSets(connectionField),
 			context,
+			edgeType,
 		)) {
 			if (edgeField.name === 'node') {
 				result.push(...childSelectionSets(edgeField))
@@ -185,7 +130,7 @@ const modelProjection = (
 	const select: Record<string, true> = {}
 	const include: Record<string, unknown> = {}
 	const relationshipResponseNames = new Map<string, string>()
-	for (const selected of collectFields(selectionSets, context)) {
+	for (const selected of collectFields(selectionSets, context, type)) {
 		if (selected.name === '__typename') continue
 		const field = schema.fields[selected.name]
 		const definition = type.getFields()[selected.name]
@@ -204,7 +149,17 @@ const modelProjection = (
 					`GraphQL ${schema.className}.${selected.name} cannot be selected from delete or upsert results`,
 				)
 			}
-			const pointerFields = collectFields(childSelectionSets(selected), context)
+			const pointerType = getNamedType(definition.type)
+			if (!isObjectType(pointerType)) {
+				throw new TypeError(
+					`GraphQL relationship ${schema.className}.${selected.name} is malformed`,
+				)
+			}
+			const pointerFields = collectFields(
+				childSelectionSets(selected),
+				context,
+				pointerType,
+			)
 			if (
 				pointerFields.some(
 					(pointerField) =>

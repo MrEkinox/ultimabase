@@ -9,7 +9,7 @@ import {
 } from '@ultimabase/core'
 import { initializeGraphqlTestApplication as createApplication } from './application.test-support.js'
 import { graphql, type GraphQLResolveInfo } from 'graphql'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { graphqlFieldProtocol, graphqlPlugin } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
@@ -131,6 +131,74 @@ const createFixture = async () => {
 }
 
 describe('GraphQL read normalization', () => {
+	it.each([true, false])(
+		'merges repeated fragments and connection paths with conditional fields: %s',
+		async (withAuthor) => {
+			const { application, connections, schema } = await createFixture()
+			onTestFinished(() => application.dispose())
+			let normalized: ReadOperationAst | undefined
+			const result = await graphql({
+				schema,
+				source: `
+					query Read($withAuthor: Boolean!, $skipName: Boolean!) {
+						findManyGraphqlReadRecord(first: 2) {
+							nodes {
+								...Basics
+								...Basics
+								label: name @skip(if: $skipName)
+								author @include(if: $withAuthor) { ...AuthorName }
+								... on GraphqlReadRecord {
+									author @include(if: $withAuthor) { rank }
+								}
+								related(first: 2) {
+									nodes { ...AuthorName }
+									edges { node { rank } }
+								}
+							}
+							edges { node { id } }
+						}
+					}
+					fragment Basics on GraphqlReadRecord { huge }
+					fragment AuthorName on GraphqlReadAuthor { name }
+				`,
+				variableValues: { withAuthor, skipName: !withAuthor },
+				rootValue: {
+					findManyGraphqlReadRecord: (
+						args: unknown,
+						_context: unknown,
+						info: GraphQLResolveInfo,
+					) => {
+						normalized = normalizeGraphqlReadOperation(
+							RecordSchema,
+							'findMany',
+							args,
+							info,
+							{ connections },
+						)
+						return { nodes: [], edges: [], pageInfo: {} }
+					},
+				},
+			})
+			const direct = normalizeReadOperation(RecordSchema, 'find-many', {
+				include: {
+					...(withAuthor
+						? { author: { select: { name: true, rank: true } } }
+						: {}),
+					related: {
+						limit: 3,
+						orderBy: { id: 'asc' },
+						select: { name: true, rank: true },
+					},
+				},
+				limit: 3,
+				orderBy: { id: 'asc' },
+				select: { huge: true, ...(withAuthor ? { name: true } : {}), id: true },
+			})
+			expect(result.errors).toBeUndefined()
+			expect(normalized).toStrictEqual(direct)
+		},
+	)
+
 	it('matches direct Core ASTs across wire values, fragments, directives, aliases, and inclusions', async () => {
 		const { application, connections, schema } = await createFixture()
 		let normalized: ReadOperationAst | undefined

@@ -152,6 +152,11 @@ Ordering is an explicit ordered list. Model selections, fragments, directives,
 pointers, and relation selections normalize into Core's immutable Query and
 Operation AST without retaining GraphQL or HTTP objects.
 
+Internally, the existing GraphQL Tools dependency collects validated selections
+with their runtime object type. UltimaBase retains relationship projection,
+pagination and flat mutation-result restrictions. Document validation still
+rejects conflicting selections and unknown or cyclic fragments before resolvers.
+
 GraphQL scalar and plugin-field codecs run through Core's shared filter-input
 traversal before canonical Query normalization. Nested logic, relationship
 predicates, filtered counts, and structured paths therefore use one Core shape

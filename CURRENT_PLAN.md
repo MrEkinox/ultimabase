@@ -1,15 +1,15 @@
-# Current plan: Standard package simplification
+# Current plan: Standard mechanics canaries
 
 - Status: completed
-- Milestone: 65
+- Milestone: 66
 - Active issue: none
 - Next issue: none
 
 ## Objective
 
-Test Valibot, GraphQL Tools and atomic writing in that order. Retain only
-behavior-preserving replacements that reduce maintenance or net complexity.
-The [milestone](issues/6500-standard-package-simplification/README.md) owns evidence.
+Test GraphQL field collection, native file globbing and workspace inventory.
+Retain only behavior-preserving replacements that reduce net complexity.
+The [issue](issues/6600-standard-mechanics-canaries/6601-standard-mechanics.md) owns evidence.
 
 ## Locked decisions
 
@@ -24,5 +24,5 @@ None.
 
 ## Next verifiable action
 
-None scheduled. GraphQL Tools retained and fully validated; Valibot and atomic
-writer replacements rejected with no product changes. See the milestone audit.
+None scheduled. GraphQL collector retained and fully validated; native discovery
+and Manypkg rejected. Issue 6601 owns the final audit and exact coverage evidence.

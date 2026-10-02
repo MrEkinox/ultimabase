@@ -101,6 +101,42 @@ const createFixture = (limits: GraphqlExecutionLimits = {}) => {
 }
 
 describe('GraphQL networkless execution', () => {
+	it.each([
+		['{ ...Missing }', 'Unknown fragment'],
+		[
+			'{ ...Cycle } fragment Cycle on Query { ...Cycle }',
+			'Cannot spread fragment',
+		],
+		['{ value: context value: echo }', 'conflict'],
+	] as const)(
+		'rejects invalid field collection before resolvers: %s',
+		async (source, message) => {
+			const application = createFixture()
+			await application.start()
+			const graphql = application.plugin(
+				'@ultimabase/graphql-plugin',
+			) as GraphqlApplication
+			const context = application.anonymous({
+				requestId: 'invalid-collection',
+				source: 'test',
+			}).context
+			let called = false
+			const contextField = graphql.schema.getQueryType()?.getFields().context
+			if (contextField === undefined)
+				throw new TypeError('Missing fixture field')
+			contextField.resolve = () => {
+				called = true
+				return 'unexpected'
+			}
+			for (const document of [source, parse(source)]) {
+				const result = await graphql.execute({ context, document })
+				expect(result).not.toHaveProperty('data')
+				expect(result.errors?.[0]?.message).toContain(message)
+			}
+			expect(called).toBe(false)
+		},
+	)
+
 	it('executes string and parsed documents in one exact request scope', async () => {
 		const application = createFixture()
 		await application.start()
