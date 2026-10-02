@@ -31,10 +31,6 @@ export interface GraphqlCompositionTypeGroup {
 export interface GraphqlCompositionPreflight {
 	readonly directives: readonly GraphQLDirective[]
 	readonly groups: ReadonlyMap<string, GraphqlCompositionTypeGroup>
-	readonly sourceGroups: ReadonlyMap<
-		GraphQLNamedType,
-		GraphqlCompositionTypeGroup
-	>
 }
 
 const kindOf = (type: GraphQLNamedType): string => {
@@ -140,7 +136,6 @@ export const preflightGraphqlSchemas = (
 	const directives: GraphQLDirective[] = []
 	const directiveOwners = new Map<string, OwnedGraphqlSchema>()
 	const groups = new Map<string, GraphqlCompositionTypeGroup>()
-	const sourceGroups = new Map<GraphQLNamedType, GraphqlCompositionTypeGroup>()
 	for (const source of schemas) {
 		if (source.schema.getSubscriptionType() != null) {
 			throw new GraphqlSchemaCompilationError(
@@ -171,7 +166,6 @@ export const preflightGraphqlSchemas = (
 			}
 			group.entries.push({ source, type })
 			groups.set(key, group)
-			sourceGroups.set(type, group)
 		}
 		for (const directive of source.schema.getDirectives()) {
 			if (isSpecifiedDirective(directive)) continue
@@ -205,5 +199,5 @@ export const preflightGraphqlSchemas = (
 		}
 		names.set(group.name, group)
 	}
-	return { directives, groups, sourceGroups }
+	return { directives, groups }
 }

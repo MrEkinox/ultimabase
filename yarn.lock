@@ -3404,6 +3404,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql-plugin@workspace:packages/graphql-plugin"
   dependencies:
+    "@graphql-tools/utils": "npm:^12.0.1"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/plugin-kit": "workspace:^"
     "@ultimabase/shared": "workspace:^"

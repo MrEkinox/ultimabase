@@ -266,6 +266,7 @@ Current records (accepted or still active in part):
 - [ADR-0284: Password User declarations accept the configured schema namespace](0284-configured-password-user-authoring.md)
 - [ADR-0285: Sparse generated mutation surfaces derive class methods](0285-sparse-generated-mutation-surfaces.md)
 - [ADR-0286: Accept Milestone 63 with explicit measured costs](0286-accept-source-authoring-milestone-costs.md)
+- [ADR-0287: GraphQL Tools owns standard type rewiring](0287-graphql-tools-type-rewiring.md)
 
 Superseded records:
 

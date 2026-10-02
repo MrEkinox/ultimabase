@@ -1,6 +1,8 @@
 import type { ApplicationCallbackExecutor } from '@ultimabase/core'
+import { rewireTypes } from '@graphql-tools/utils'
 import {
-	GraphQLDirective,
+	assertNamedType,
+	assertObjectType,
 	GraphQLEnumType,
 	GraphQLInputObjectType,
 	GraphQLInterfaceType,
@@ -20,11 +22,10 @@ import {
 	isUnionType,
 	specifiedDirectives,
 	validateSchema,
-	type GraphQLInputType,
-	type GraphQLNullableInputType,
-	type GraphQLNullableOutputType,
+	type GraphQLDirective,
+	type GraphQLFieldConfigMap,
 	type GraphQLNamedType,
-	type GraphQLOutputType,
+	type GraphQLType,
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
@@ -47,249 +48,156 @@ class GraphqlSchemaComposer {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #directives: readonly GraphQLDirective[]
 	readonly #groups: ReadonlyMap<string, TypeGroup>
-	readonly #mapped = new Map<GraphQLNamedType, GraphQLNamedType>()
-	readonly #sourceGroups: ReadonlyMap<GraphQLNamedType, TypeGroup>
+	readonly #roots = new Map<GraphQLNamedType, GraphQLObjectType>()
 
 	constructor(context: GraphqlSchemaCompositionContext) {
 		this.#callbacks = context.callbacks
 		const preflight = preflightGraphqlSchemas(context.schemas)
 		this.#directives = preflight.directives
 		this.#groups = preflight.groups
-		this.#sourceGroups = preflight.sourceGroups
+		for (const group of this.#groups.values()) {
+			if (!group.key.startsWith('@')) continue
+			// Root aliases are identity-based: another schema may own a named type
+			// with the same original name. Tools rewires these inert references later.
+			const root = new GraphQLObjectType({ name: group.name, fields: {} })
+			for (const entry of group.entries) this.#roots.set(entry.type, root)
+		}
 	}
 
-	#type(type: GraphQLNamedType): GraphQLNamedType {
-		const existing = this.#mapped.get(type)
-		if (existing !== undefined) return existing
-		const group = this.#sourceGroups.get(type)
-		if (group === undefined) return type
-		return this.#create(group)
-	}
-
-	#input(type: GraphQLInputType): GraphQLInputType {
+	#reference<TType extends GraphQLType>(type: TType): TType {
 		if (isNonNullType(type))
-			return new GraphQLNonNull(
-				this.#input(type.ofType) as GraphQLNullableInputType,
-			)
-		if (isListType(type)) return new GraphQLList(this.#input(type.ofType))
-		return this.#type(type) as GraphQLInputType
+			return new GraphQLNonNull(this.#reference(type.ofType)) as TType
+		if (isListType(type))
+			return new GraphQLList(this.#reference(type.ofType)) as TType
+		return (this.#roots.get(type) ?? type) as TType
 	}
 
-	#output(type: GraphQLOutputType): GraphQLOutputType {
-		if (isNonNullType(type))
-			return new GraphQLNonNull(
-				this.#output(type.ofType) as GraphQLNullableOutputType,
-			)
-		if (isListType(type)) return new GraphQLList(this.#output(type.ofType))
-		return this.#type(type) as GraphQLOutputType
+	#fields(group: TypeGroup): GraphQLFieldConfigMap<unknown, unknown> {
+		return Object.fromEntries(
+			group.entries.flatMap((entry) =>
+				Object.entries(
+					(entry.type as GraphQLObjectType | GraphQLInterfaceType).toConfig()
+						.fields,
+				).map(([name, field]) => [
+					name,
+					{
+						...field,
+						type: this.#reference(field.type),
+						...(field.resolve === undefined
+							? {}
+							: {
+									resolve: attributedFieldResolver(
+										field.resolve,
+										entry.source,
+										this.#callbacks,
+									),
+								}),
+						...(field.subscribe === undefined
+							? {}
+							: {
+									subscribe: attributedFieldResolver(
+										field.subscribe,
+										entry.source,
+										this.#callbacks,
+									),
+								}),
+					},
+				]),
+			),
+		)
+	}
+
+	#interfaces(group: TypeGroup): GraphQLInterfaceType[] {
+		return [
+			...new Map(
+				group.entries.flatMap((entry) =>
+					(entry.type as GraphQLObjectType | GraphQLInterfaceType)
+						.toConfig()
+						.interfaces.map((type) => [type.name, type] as const),
+				),
+			).values(),
+		]
 	}
 
 	#create(group: TypeGroup): GraphQLNamedType {
 		const first = group.entries[0]
 		if (first === undefined) throw new TypeError('GraphQL type group is empty')
-		const placeholder = this.#mapped.get(first.type)
-		if (placeholder !== undefined) return placeholder
-		let created: GraphQLNamedType
-		if (isObjectType(first.type)) created = this.#object(group, first)
-		else if (isInterfaceType(first.type))
-			created = this.#interface(group, first)
-		else if (isInputObjectType(first.type))
-			created = this.#inputObject(group, first)
-		else if (isEnumType(first.type)) created = this.#enum(group, first)
-		else if (isUnionType(first.type)) created = this.#union(group, first)
-		else if (isScalarType(first.type)) created = this.#scalar(group, first)
-		else throw new TypeError(`Unsupported GraphQL type ${group.name}`)
-		for (const entry of group.entries) this.#mapped.set(entry.type, created)
-		return created
-	}
-
-	#object(group: TypeGroup, first: TypeEntry): GraphQLObjectType {
-		const initial = first.type as GraphQLObjectType
-		const config = initial.toConfig()
-		return new GraphQLObjectType({
-			...config,
-			name: group.name,
-			interfaces: () => {
-				const found = new Map<string, GraphQLInterfaceType>()
-				for (const entry of group.entries) {
-					for (const item of (entry.type as GraphQLObjectType).toConfig()
-						.interfaces) {
-						const mapped = this.#type(item) as GraphQLInterfaceType
-						found.set(mapped.name, mapped)
-					}
-				}
-				return [...found.values()]
-			},
-			fields: () =>
-				Object.fromEntries(
-					group.entries.flatMap((entry) =>
-						Object.entries(
-							(entry.type as GraphQLObjectType).toConfig().fields,
-						).map(
-							([name, field]) =>
-								[
-									name,
-									{
-										...field,
-										type: this.#output(field.type),
-										args: Object.fromEntries(
-											Object.entries(field.args).map(
-												([argumentName, argument]) => [
-													argumentName,
-													{ ...argument, type: this.#input(argument.type) },
-												],
-											),
-										),
-										...(field.resolve === undefined
-											? {}
-											: {
-													resolve: attributedFieldResolver(
-														field.resolve,
-														entry.source,
-														this.#callbacks,
-													),
-												}),
-										...(field.subscribe === undefined
-											? {}
-											: {
-													subscribe: attributedFieldResolver(
-														field.subscribe,
-														entry.source,
-														this.#callbacks,
-													),
-												}),
-									},
-								] as const,
+		if (isObjectType(first.type)) {
+			const config = first.type.toConfig()
+			return new GraphQLObjectType({
+				...config,
+				name: group.name,
+				interfaces: () => this.#interfaces(group),
+				fields: () => this.#fields(group),
+				...(config.isTypeOf == null
+					? {}
+					: {
+							isTypeOf: attributedIsTypeOf(
+								config.isTypeOf,
+								first.source,
+								this.#callbacks,
+							),
+						}),
+			})
+		}
+		if (isInterfaceType(first.type) || isUnionType(first.type)) {
+			const config = first.type.toConfig()
+			const attribution = {
+				...(config.resolveType == null
+					? {}
+					: {
+							resolveType: attributedTypeResolver(
+								config.resolveType,
+								first.source,
+								this.#callbacks,
+							),
+						}),
+			}
+			return isInterfaceType(first.type)
+				? new GraphQLInterfaceType({
+						...first.type.toConfig(),
+						...attribution,
+						name: group.name,
+						interfaces: () => this.#interfaces(group),
+						fields: () => this.#fields(group),
+					})
+				: new GraphQLUnionType({
+						...first.type.toConfig(),
+						...attribution,
+						name: group.name,
+						types: () =>
+							group.entries.flatMap((entry) =>
+								(entry.type as GraphQLUnionType)
+									.toConfig()
+									.types.map((type) => this.#reference(type)),
+							),
+					})
+		}
+		if (isInputObjectType(first.type))
+			return new GraphQLInputObjectType({
+				...first.type.toConfig(),
+				name: group.name,
+				fields: () =>
+					Object.fromEntries(
+						group.entries.flatMap((entry) =>
+							Object.entries(
+								(entry.type as GraphQLInputObjectType).toConfig().fields,
+							),
 						),
 					),
-				),
-			...(config.isTypeOf == null
-				? {}
-				: {
-						isTypeOf: attributedIsTypeOf(
-							config.isTypeOf,
-							first.source,
-							this.#callbacks,
-						),
-					}),
-		})
-	}
-
-	#interface(group: TypeGroup, first: TypeEntry): GraphQLInterfaceType {
-		const config = (first.type as GraphQLInterfaceType).toConfig()
-		return new GraphQLInterfaceType({
-			...config,
-			name: group.name,
-			interfaces: () => {
-				const found = new Map<string, GraphQLInterfaceType>()
-				for (const entry of group.entries) {
-					for (const item of (entry.type as GraphQLInterfaceType).toConfig()
-						.interfaces) {
-						const mapped = this.#type(item) as GraphQLInterfaceType
-						found.set(mapped.name, mapped)
-					}
-				}
-				return [...found.values()]
-			},
-			fields: () =>
-				Object.fromEntries(
+			})
+		if (isEnumType(first.type))
+			return new GraphQLEnumType({
+				...first.type.toConfig(),
+				name: group.name,
+				values: Object.fromEntries(
 					group.entries.flatMap((entry) =>
-						Object.entries(
-							(entry.type as GraphQLInterfaceType).toConfig().fields,
-						).map(
-							([name, field]) =>
-								[
-									name,
-									{
-										...field,
-										type: this.#output(field.type),
-										args: Object.fromEntries(
-											Object.entries(field.args).map(
-												([argumentName, argument]) => [
-													argumentName,
-													{ ...argument, type: this.#input(argument.type) },
-												],
-											),
-										),
-										...(field.resolve === undefined
-											? {}
-											: {
-													resolve: attributedFieldResolver(
-														field.resolve,
-														entry.source,
-														this.#callbacks,
-													),
-												}),
-									},
-								] as const,
-						),
+						Object.entries((entry.type as GraphQLEnumType).toConfig().values),
 					),
 				),
-			...(config.resolveType == null
-				? {}
-				: {
-						resolveType: attributedTypeResolver(
-							config.resolveType,
-							first.source,
-							this.#callbacks,
-						),
-					}),
-		})
-	}
-
-	#inputObject(group: TypeGroup, first: TypeEntry): GraphQLInputObjectType {
-		const config = (first.type as GraphQLInputObjectType).toConfig()
-		return new GraphQLInputObjectType({
-			...config,
-			name: group.name,
-			fields: () =>
-				Object.fromEntries(
-					group.entries.flatMap((entry) =>
-						Object.entries(
-							(entry.type as GraphQLInputObjectType).toConfig().fields,
-						).map(
-							([name, field]) =>
-								[name, { ...field, type: this.#input(field.type) }] as const,
-						),
-					),
-				),
-		})
-	}
-
-	#enum(group: TypeGroup, first: TypeEntry): GraphQLEnumType {
-		const config = (first.type as GraphQLEnumType).toConfig()
-		return new GraphQLEnumType({
-			...config,
-			name: group.name,
-			values: Object.fromEntries(
-				group.entries.flatMap((entry) =>
-					Object.entries((entry.type as GraphQLEnumType).toConfig().values),
-				),
-			),
-		})
-	}
-
-	#union(group: TypeGroup, first: TypeEntry): GraphQLUnionType {
-		const config = (first.type as GraphQLUnionType).toConfig()
-		return new GraphQLUnionType({
-			...config,
-			name: group.name,
-			types: () =>
-				group.entries.flatMap((entry) =>
-					(entry.type as GraphQLUnionType)
-						.toConfig()
-						.types.map((type) => this.#type(type) as GraphQLObjectType),
-				),
-			...(config.resolveType == null
-				? {}
-				: {
-						resolveType: attributedTypeResolver(
-							config.resolveType,
-							first.source,
-							this.#callbacks,
-						),
-					}),
-		})
+			})
+		if (isScalarType(first.type)) return this.#scalar(group, first)
+		throw new TypeError(`Unsupported GraphQL type ${group.name}`)
 	}
 
 	#scalar(group: TypeGroup, first: TypeEntry): GraphQLScalarType {
@@ -320,33 +228,32 @@ class GraphqlSchemaComposer {
 	}
 
 	compose(): GraphQLSchema {
-		const type = (key: string): GraphQLObjectType | undefined => {
+		// Preserve ownership/metadata ourselves; Tools only clones and rewires.
+		// No intermediate serialization/reparsing of scalar defaults is needed.
+		const { typeMap, directives } = rewireTypes(
+			Object.fromEntries(
+				[...this.#groups.values()].map((group) => [
+					group.name,
+					this.#create(group),
+				]),
+			),
+			[...specifiedDirectives, ...this.#directives],
+		)
+		const root = (key: string): GraphQLObjectType | undefined => {
 			const group = this.#groups.get(key)
 			return group === undefined
 				? undefined
-				: (this.#create(group) as GraphQLObjectType)
+				: assertObjectType(typeMap[group.name])
 		}
-		const directives = this.#directives.map((directive) => {
-			const config = directive.toConfig()
-			return new GraphQLDirective({
-				...config,
-				args: Object.fromEntries(
-					Object.entries(config.args).map(([name, argument]) => [
-						name,
-						{ ...argument, type: this.#input(argument.type) },
-					]),
-				),
-			})
-		})
 		const roots = new Set(['@query', '@mutation', '@subscription'])
 		const schema = new GraphQLSchema({
-			query: type('@query'),
-			mutation: type('@mutation'),
-			subscription: type('@subscription'),
-			directives: [...specifiedDirectives, ...directives],
+			query: root('@query'),
+			mutation: root('@mutation'),
+			subscription: root('@subscription'),
+			directives,
 			types: [...this.#groups.values()]
 				.filter(({ key }) => !roots.has(key))
-				.map((group) => this.#create(group)),
+				.map((group) => assertNamedType(typeMap[group.name])),
 		})
 		if (Object.keys(schema.getQueryType()?.getFields() ?? {}).length === 0) {
 			throw new GraphqlSchemaCompilationError(

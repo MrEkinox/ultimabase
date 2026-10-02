@@ -100,6 +100,11 @@ scalars, directives, type-kind mismatches, and resolver overwrites fail startup
 with provenance instead of using last-writer-wins behavior. Mutating an input
 schema after startup cannot change the application schema.
 
+Internally, `@graphql-tools/utils` rewires the detached type graph. UltimaBase
+still owns strict conflict preflight, root normalization, contribution order,
+first-source metadata, and callback attribution; no permissive SDL merge or
+last-writer-wins resolver merge is used. See [ADR-0287](../../docs/adr/0287-graphql-tools-type-rewiring.md).
+
 Custom resolver context is exactly `{ request: RequestContext }`. Application
 schemas run under application attribution, while plugin schemas retain their
 provider attribution. Neither receives an application object, executor,

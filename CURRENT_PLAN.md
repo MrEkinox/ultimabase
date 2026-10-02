@@ -2,8 +2,8 @@
 
 - Status: in-progress
 - Milestone: 65
-- Active issue: 6502
-- Next issue: 6503
+- Active issue: 6503
+- Next issue: none
 
 ## Objective
 
@@ -24,5 +24,5 @@ None.
 
 ## Next verifiable action
 
-Valibot canary rejected with no production/dependency change; full baseline is
-green. Prove GraphQL Tools reference rewiring against actual composition consumers.
+GraphQL Tools retained: production -99 lines; full validation and packed GraphQL/
+Yoga checks green. Prove atomic writer parity in an isolated temporary canary.

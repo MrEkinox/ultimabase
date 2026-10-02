@@ -6,7 +6,7 @@
 ## Execution order
 
 - [x] [6501: Test Valibot option normalization](6501-valibot-options.md)
-- [ ] [6502: Delegate GraphQL schema composition](6502-graphql-tools-composition.md)
+- [x] [6502: Delegate GraphQL schema composition](6502-graphql-tools-composition.md)
 - [ ] [6503: Test atomic generated-file writing](6503-atomic-writing.md)
 
 ## Boundary

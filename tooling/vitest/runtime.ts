@@ -3,6 +3,6 @@ export const graphqlRuntimeDependencies: (string | RegExp)[] = [
 	'graphql',
 	'graphql-yoga',
 	/^@envelop\//u,
-	/^@graphql-tools\//u,
+	/@graphql-tools\//u,
 	/^@graphql-yoga\//u,
 ]

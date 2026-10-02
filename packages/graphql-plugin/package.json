@@ -28,6 +28,7 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
+		"@graphql-tools/utils": "^12.0.1",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
