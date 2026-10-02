@@ -8,9 +8,7 @@ belongs here or in issue evidence, not in startup instructions.
 
 ## Active
 
-- [Standard package simplification](../../issues/6500-standard-package-simplification/README.md),
-  milestone 65; Valibot, GraphQL Tools, then atomic writing. See
-  [CURRENT_PLAN.md](../../CURRENT_PLAN.md) for the selected issue.
+None.
 
 ## Paused
 
@@ -19,6 +17,8 @@ belongs here or in issue evidence, not in startup instructions.
 
 ## Completed
 
+- [Standard package simplification](completed/standard-package-simplification.md),
+  milestone 65; GraphQL Tools retained, Valibot and atomic writer rejected.
 - [Scoped agent context](../../issues/6400-scoped-agent-context/README.md),
   milestone 64, issue 6401.
 - [Source-typed application authoring target](2026-09-28-source-typed-application-authoring-target.md),

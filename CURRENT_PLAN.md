@@ -1,8 +1,8 @@
 # Current plan: Standard package simplification
 
-- Status: in-progress
+- Status: completed
 - Milestone: 65
-- Active issue: 6503
+- Active issue: none
 - Next issue: none
 
 ## Objective
@@ -24,5 +24,5 @@ None.
 
 ## Next verifiable action
 
-GraphQL Tools retained: production -99 lines; full validation and packed GraphQL/
-Yoga checks green. Prove atomic writer parity in an isolated temporary canary.
+None scheduled. GraphQL Tools retained and fully validated; Valibot and atomic
+writer replacements rejected with no product changes. See the milestone audit.
