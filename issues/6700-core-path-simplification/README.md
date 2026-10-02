@@ -8,6 +8,7 @@
 - [x] [6701: Test the four Core audit candidates](6701-core-canaries.md)
 - [x] [6702: Simplify model commands, inclusions and result materialization](6702-model-inclusion-result-canaries.md)
 - [x] [6703: Simplify relation construction, ordering and field traversal](6703-relation-ordering-traversal-canaries.md)
+- [x] [6704: Test standard type utilities against real Core consumers](6704-type-utility-library-canary.md)
 
 ## Boundary
 
@@ -22,3 +23,7 @@ The user approved the follow-up model-command, inclusion and result trials on
 
 The user also approved the relation, nested-write index, ordering and update
 field traversal trials on 2026-10-02, with the same preservation constraints.
+
+On 2026-10-02 the user approved a bounded `type-fest` trial. The earlier eleven
+trials remain complete. Issue 6704 rejected and rolled back its dependency:
+six production lines saved did not justify the added type-resolution cost.

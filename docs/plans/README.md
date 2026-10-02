@@ -18,8 +18,9 @@ None.
 ## Completed
 
 - [Core path simplification canaries](../../issues/6700-core-path-simplification/README.md),
-  milestone 67, issues 6701–6703; all eleven trials retained, net 161 production
+  milestone 67, issues 6701–6704; eleven trials retained, net 161 production
   lines removed across three passes, full and compiled validation passed.
+  Follow-up type-fest trial rejected and fully rolled back.
 - [Standard mechanics canaries](../../issues/6600-standard-mechanics-canaries/README.md),
   milestone 66; GraphQL collection and cookie-route simplification retained,
   native discovery, fdir and Manypkg rejected.
