@@ -17,10 +17,14 @@ under "WIP review fixes", plus 9 ESLint errors; all were fixed.
 
 ## Production lines (scope only, non-blank lines, same rule as `tooling/measure-rebuild.mjs`)
 
-|        | Files | Lines     |
-| ------ | ----- | --------- |
-| Before | 71    | 10914     |
-| After  | 60    | SEE_AFTER |
+|        | Files | Lines              |
+| ------ | ----- | ------------------ |
+| Before | 71    | 10914              |
+| After  | 60    | 9998 (−916, −8.4%) |
+
+`node tooling/measure-rebuild.mjs`: Core production 63660 → 62744 lines;
+repository production 112893 → 111977 lines (709 → 698 files); tests unchanged
+(127476 lines, 764 files).
 
 The emitted `packages/core/dist/index.d.ts` was compared with a build of `main`
 (declarations sorted line by line, region comments ignored): identical.
@@ -107,9 +111,9 @@ test outside the scope changed. Internal tests changed only import specifiers:
 One, not in `docs/rebuild/DIFFERENCES.md` yet (outside this scope; the
 coordinator should add it):
 
-| Area                                                             | Reference                                                                                                                                                                                                                                                                                                                                                                         | Rebuild                                                                     | Reason                                                                             | Coverage                           |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------- |
-| Objects returned by `exposeOperations` / `exposeSchemaMutations` | Instances of internal classes whose TypeScript `private readonly` constructor parameters are real enumerable own properties: `exposed`/`#exposed`, `runtime` (with `execute`/`decode`/`encode`) and `createEngine`. Any holder of a transport could call the plugin runtime directly, skipping envelope, transaction-policy and exposure checks. `execute` is a prototype method. | Frozen records with exactly `operations`, `transport` and an own `execute`. | Reproducing the leak would require knowingly exposing unchecked execution handles. | No test inspects these properties. |
+| Area                                                             | Reference                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Rebuild                                                                     | Reason                                                                             | Coverage                           |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------- |
+| Objects returned by `exposeOperations` / `exposeSchemaMutations` | Instances of internal classes whose TypeScript `private readonly` constructor parameters are real enumerable own properties. The operation transport exposes `exposed` (a Map of compiled commands), `runtime` (`PluginOperationRuntime` with `execute`/`decode`/`encode`) and `createEngine`. The schema-mutation transport exposes `runtime` (`resolve`/`decodeTransportInput`) and `createEngine`. A holder of a transport could call `runtime.execute` directly and skip the envelope, cancellation and transaction-policy checks. `execute` is a prototype method. | Frozen records with exactly `operations`, `transport` and an own `execute`. | Reproducing the leak would require knowingly exposing unchecked execution handles. | No test inspects these properties. |
 
 ## Reference bugs found (documented, not fixed)
 
@@ -123,8 +127,34 @@ coordinator should add it):
 
 ## Pre-existing failures (baseline = `main`, built in a separate worktree)
 
-SEE_BASELINE
+- `yarn vitest run --project e2e packages/core tests/e2e`: 1 failed of 219.
+  `packages/core/tests/e2e/core-archive-declarations.e2e.test.ts > exposes the
+documented configured Schema definition factory` timed out at 10000 ms under
+  load. Rerun in isolation on the baseline: 1 file, 22 tests passed. It also
+  passed in the rebuilt run.
+
+All other baseline suites passed (see the table below).
 
 ## Validation commands and results
 
-SEE_RESULTS
+All commands were run in the worktree on the final code (rebuilt column) and on
+a detached `main` worktree (baseline column).
+
+| Command                                                                                   | Baseline                                            | Rebuilt                                                     |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| `yarn build`                                                                              | pass                                                | pass (run before every suite and again after `tsc --build`) |
+| `yarn vitest run --project unit --project types packages/core`                            | 274 files, 1414 tests passed                        | 274 files, 1414 tests passed, no type errors                |
+| `yarn vitest run --project unit --project types` (whole repo)                             | 558 files, 2709 tests passed                        | 558 files, 2709 tests passed, no type errors                |
+| `yarn vitest run --project e2e packages/core tests/e2e`                                   | 1 failed, 218 passed (47 files), load timeout above | 47 files, 219 tests passed                                  |
+| `yarn vitest run --project postgres-e2e packages/core tests/e2e packages/postgres-plugin` | 55 files, 191 tests passed                          | 55 files, 191 tests passed                                  |
+| `yarn eslint packages/core`                                                               | 0 errors, 53 warnings                               | 0 errors, 53 warnings (same files: `max-lines` only)        |
+| `yarn prettier --check packages/core`                                                     | not run                                             | pass                                                        |
+| `yarn tsc --build packages/core`                                                          | not run                                             | pass                                                        |
+| `yarn tsc -p packages/core/tsconfig.test.json`                                            | not run                                             | pass                                                        |
+| `node tooling/measure-rebuild.mjs .`                                                      | see production lines above                          | see production lines above                                  |
+
+Scope files above the 400-line ESLint warning threshold (all under the
+600-line budget): `application/ultima-base.ts`, `context/request-context.ts`,
+`database/contracts.ts`, `engine/request-engine.ts`,
+`schema-mutations/pipeline-execution.ts`. All five were already above 400 in
+the reference.
