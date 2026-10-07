@@ -80,6 +80,9 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | graphiql-plugin         |         188 |         183 | Déjà minimal ; HTML/CSP identiques.                                                                                                                                                    |
 | graphql-http            |          76 |          72 | 1 écart TOCTOU sur `path` (DIFFERENCES.md).                                                                                                                                            |
 | shared                  |          74 |          74 | Inchangé (déjà minimal).                                                                                                                                                               |
+| graphql-yoga-plugin     |         731 |         726 | Constructeur d’échec unique ; déjà minimal.                                                                                                                                            |
+| soft-delete-plugin      |         710 |         709 | `plugin.ts` gardé de la référence pour préserver les hovers ; visibilité inchangée.                                                                                                    |
+| validation-plugin       |         663 |         622 | Projection arithmétique aplatie ; 3 000 comparaisons aléatoires identiques.                                                                                                            |
 
 Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
 inchangés (127 476 lignes).
