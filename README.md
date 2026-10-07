@@ -4,7 +4,11 @@ UltimaBase is an open-source, Node.js-first backend framework for building typed
 
 It takes inspiration from the simplicity of Parse Server while deliberately replacing its limitations with stronger inference, explicit plugin boundaries, a single operation engine, immutable class-based builders, and first-class PostgreSQL support.
 
-> Status: active pre-release development. The implementation is tracked as small issues under [`issues/`](issues/README.md).
+> Status: pre-release. This repository is a package-by-package rebuild of the
+> reference implementation with an unchanged public contract; see
+> [the reconstruction summary](ARCHITECTURE.md#reconstruction) and
+> [`docs/rebuild/`](docs/rebuild/PROTOCOL.md). The issue backlog under
+> [`issues/`](issues/README.md) is the frozen archive of the reference's development.
 
 ## Intended developer experience
 
@@ -106,11 +110,10 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
   surfaces, generated transport routes, or application behavior inputs.
 - PostgreSQL synchronization is available today. Migration support is not shipped;
   a future migration product would own reviewed DDL and history separately.
-- Milestone 23 delivers HTTP application identity,
-  Fetch-compatible route composition, and request context resolution in an
-  optional HTTP plugin. Hono only provides the server, REST and GraphQL remain
-  sibling transports, and Password Auth adds identity without granting
-  authorization.
+- An optional HTTP plugin delivers HTTP application identity,
+  Fetch-compatible route composition, and request context resolution. Hono
+  only provides the server, REST and GraphQL remain sibling transports, and
+  Password Auth adds identity without granting authorization.
 - That target enters Runtime through a narrow Core request-execution capability
   rather than giving HTTP the application engine. Cross-origin access is
   explicit and disabled by default. One initialized application owns resources
@@ -129,13 +132,16 @@ Sandbox remain separate development plugins.
 
 ## Repository map
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries and dependency graph.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries, dependency graph,
+  rebuilt module layout, and rebuild simplifications.
 - [`docs/current-architecture.md`](docs/current-architecture.md): current
   contracts, responsible packages, and accepted decisions by concept.
-- [`ROADMAP.md`](ROADMAP.md): milestone order.
+- [`ROADMAP.md`](ROADMAP.md): milestone history and planned product directions.
 - [`docs/`](docs/README.md): concepts, specifications, and ADRs.
 - [`docs/concepts/open-plugin-authoring.md`](docs/concepts/open-plugin-authoring.md): accepted open-plugin authoring and consumption target.
-- [`issues/`](issues/README.md): atomic implementation backlog.
+- [`docs/rebuild/`](docs/rebuild/PROTOCOL.md): rebuild protocol, behavior
+  differences, editor-visible parity audit, and validation correspondence.
+- [`issues/`](issues/README.md): frozen implementation backlog of the reference (archive).
 - [`packages/`](packages/README.md): publishable `@ultimabase/*` packages.
 - [`apps/`](apps/README.md): development playground and benchmarks.
 - [`examples/`](examples/README.md): user-facing examples.
@@ -148,14 +154,18 @@ UltimaBase requires Node.js 24 and the Yarn version declared by `packageManager`
 ```sh
 corepack enable
 yarn install --immutable
+yarn build
 yarn test
 ```
+
+Built-export E2E suites and source tests that import another workspace package
+read its built `dist` output, so run `yarn build` again after changing a package.
 
 Corepack ensures that `yarn` uses the repository's pinned Yarn version instead of a globally installed Yarn Classic binary.
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes. Work should normally start from one issue file and respect its dependencies.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes. Rebuild work follows the [rebuild protocol](docs/rebuild/PROTOCOL.md).
 
 ## License
 

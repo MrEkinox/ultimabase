@@ -2,25 +2,33 @@
 
 ## Workflow
 
+This repository rebuilds the reference implementation package by package with
+an unchanged public contract. The issue backlog in `issues/`, `docs/plans/`
+and `CURRENT_PLAN.md` are the frozen archive of the reference's development:
+they explain past decisions but are not a source of new work.
+
 1. Read `README.md` and the README of each package you will change. Coding
    agents must also follow `AGENTS.md`.
-2. Select one ready issue from `issues/`, checking `CURRENT_PLAN.md` first.
-3. Confirm all listed dependencies are complete.
-4. Create a focused branch.
-5. Refresh the issue's [Working context](issues/README.md#working-context), then
-   implement code, runtime tests, type tests, and documentation together.
-6. Record one documentation-impact classification: `none`, `internal
+2. Read [the rebuild protocol](docs/rebuild/PROTOCOL.md) and the `REBUILD*.md`
+   of the packages in scope. Take one scope agreed with the maintainer.
+3. Create a focused branch, for example with `tooling/rebuild-worktree.sh <name>`.
+4. Implement code, runtime tests, type tests, and documentation together. Keep
+   public tests unchanged; record the module mapping, removed checks and
+   parity evidence in the package `REBUILD.md`.
+5. Record one documentation-impact classification: `none`, `internal
 engineering documentation`, `public website documentation`, or `both`.
-   Explain `none`; otherwise update the affected documentation in the issue.
-7. Run `yarn validate` for ordinary work and `yarn validate:full` before
-   completing a debt reduction or behavior-preserving refactor.
-8. Add a Changeset when a public package contract changes.
+   Explain `none`; otherwise update the affected documentation in the change.
+6. Run `yarn validate` for ordinary work and `yarn validate:full` before
+   completing a debt reduction or behavior-preserving refactor. The
+   [validation correspondence](docs/rebuild/VALIDATIONS.md) maps every command
+   to what it covers.
+7. Add a Changeset when a public package contract changes.
 
 ## Definition of done
 
-An issue is complete only when:
+A change is complete only when:
 
-- every acceptance criterion is satisfied;
+- every agreed criterion is satisfied;
 - package boundaries remain valid;
 - public exports are deliberate;
 - runtime and type-level tests pass;
@@ -53,8 +61,9 @@ test(query): cover immutable branching
 
 ## Pull requests
 
-Describe the issue, architectural impact, documentation-impact classification,
-tests run, and any temporary compromise. Link the issue file and ADRs. Internal
+Describe the change, architectural impact, documentation-impact classification,
+tests run, and any temporary compromise. Link the affected `REBUILD*.md` files
+and ADRs. Internal
 refactors may classify documentation impact as `none` with a reason; they do not
 need meaningless prose changes.
 
