@@ -54,9 +54,9 @@ export type SchemaFilterAccessFamily =
 	(typeof schemaFilterAccessFamilies)[number]
 export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
 
-/** Names the private channels for field-level read and write rules. */
 export const fieldReadAccessChannels = ['item', 'filter', 'order'] as const
 export const fieldWriteAccessTransitions = ['fill', 'replace', 'clear'] as const
+/** Names the private channels for field-level read and write rules. */
 export type FieldReadAccessChannel = (typeof fieldReadAccessChannels)[number]
 export type FieldWriteAccessTransition =
 	(typeof fieldWriteAccessTransitions)[number]
@@ -78,7 +78,7 @@ export interface SchemaMutationAccessDeclarations {
 	readonly operation?: NormalizedAccessRule
 }
 
-/** Retains normalized rules in the private monotonic lifecycle. */
+/** Retains normalized rules in the existing private monotonic lifecycle. */
 export interface SchemaAccessDeclarations {
 	readonly operation?: SchemaOperationAccessDeclarations
 	readonly filter?: NormalizedAccessRuleMap<SchemaFilterAccessFamily>
