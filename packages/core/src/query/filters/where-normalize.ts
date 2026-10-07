@@ -228,6 +228,15 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 	}
 }
 
+const nestedContext = <TTarget extends SchemaDefinition>(
+	context: WhereContext<SchemaDefinition>,
+	target: TTarget,
+): WhereContext<TTarget> => ({
+	schema: target,
+	relationDepth: context.relationDepth + 1,
+	ancestors: context.ancestors,
+})
+
 const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 	context: WhereContext<TSchema>,
 	fieldName: QueryFieldName<TSchema>,
@@ -252,6 +261,8 @@ const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 		)
 	}
 
+	const expression = normalizeWhereRecord(nestedContext(context, target), input)
+
 	// Relation leaves are schema-correlated only through their runtime field and
 	// target nodes, which this function derives from the same declaration.
 	return immutableRecord({
@@ -260,18 +271,9 @@ const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 		field: fieldName,
 		source: createQueryAst(context.schema).schema,
 		target: createQueryAst(target).schema,
-		expression: normalizeWhereRecord(nestedContext(context, target), input),
+		expression,
 	}) as unknown as QueryFilterNode<TSchema>
 }
-
-const nestedContext = <TTarget extends SchemaDefinition>(
-	context: WhereContext<SchemaDefinition>,
-	target: TTarget,
-): WhereContext<TTarget> => ({
-	schema: target,
-	relationDepth: context.relationDepth + 1,
-	ancestors: context.ancestors,
-})
 
 const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
 	context: WhereContext<TSchema>,

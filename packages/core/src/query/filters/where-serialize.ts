@@ -1,15 +1,23 @@
 import { Pointer, type SchemaDefinition } from '../../schema/index.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { QueryFilterNode } from './logical.js'
 import {
 	readWhereOperatorKey,
-	type QueryPrimitiveFilterNode,
+	type QueryComparisonFilterNode,
+	type QueryEqualityFilterNode,
+	type QueryJsonPathFilterNode,
+	type QueryKeyFilterNode,
+	type QueryKeysFilterNode,
+	type QueryListEmptyFilterNode,
+	type QueryListHasFilterNode,
+	type QueryListMembershipFilterNode,
+	type QueryMembershipFilterNode,
+	type QueryNullFilterNode,
+	type QueryRangeFilterNode,
+	type QueryRegexFilterNode,
+	type QueryStringFilterNode,
+	type QueryStructuralContainmentFilterNode,
 } from './primitive.js'
 import {
 	isQueryRelationCountNode,
@@ -39,9 +47,25 @@ const serializeCountComparison = (
 			: serializeRange(comparison),
 ]
 
+type SerializableWherePrimitive =
+	| QueryComparisonFilterNode
+	| QueryEqualityFilterNode
+	| QueryJsonPathFilterNode
+	| QueryKeyFilterNode
+	| QueryKeysFilterNode
+	| QueryListEmptyFilterNode
+	| QueryListHasFilterNode
+	| QueryListMembershipFilterNode
+	| QueryMembershipFilterNode
+	| QueryNullFilterNode
+	| QueryRangeFilterNode
+	| QueryRegexFilterNode
+	| QueryStringFilterNode
+	| QueryStructuralContainmentFilterNode
+
 /** Restores the canonical operand of one primitive leaf. */
 const serializePrimitiveOperand = (
-	node: QueryPrimitiveFilterNode<SchemaDefinition>,
+	node: SerializableWherePrimitive,
 ): unknown => {
 	switch (node.kind) {
 		case 'between':
@@ -51,7 +75,7 @@ const serializePrimitiveOperand = (
 		case 'not-in':
 		case 'list-has-every':
 		case 'list-has-some':
-			return immutableArray((node.values ?? []).map(serializeIdentity))
+			return immutableArray(node.values.map(serializeIdentity))
 		case 'has-all-keys':
 		case 'has-any-keys':
 			return node.keys
@@ -105,10 +129,10 @@ const serializeWhereLeaf = (expression: unknown): WhereRecord => {
 	}
 
 	// Every other leaf was produced by the primitive factories.
-	const node = expression as QueryPrimitiveFilterNode<SchemaDefinition>
+	const node = expression as SerializableWherePrimitive
 	const operator =
 		node.kind === 'null'
-			? node.isNull === true
+			? node.isNull
 				? 'isNull'
 				: 'isNotNull'
 			: readWhereOperatorKey(node.kind)
@@ -116,46 +140,15 @@ const serializeWhereLeaf = (expression: unknown): WhereRecord => {
 		[operator]: serializePrimitiveOperand(node),
 	})
 
-	return immutableRecord({
-		[node.field]:
-			node.path === undefined
-				? operatorInput
-				: immutableRecord({
-						at: immutableArray([
-							immutableRecord({ path: node.path, ...operatorInput }),
-						]),
-					}),
-	})
-}
-
-/** Places one operator under a root field or under one structured `at` path. */
-export const createWhereTargetInput = (
-	target: unknown,
-	operator: string,
-	operand: unknown,
-): Readonly<Record<string, unknown>> => {
-	if (typeof target === 'string') {
-		return immutableRecord({
-			[target]: immutableRecord({ [operator]: operand }),
-		})
-	}
-
-	if (
-		!isPlainRecord(target) ||
-		target.kind !== 'field-path' ||
-		typeof target.field !== 'string' ||
-		!isUnknownArray(target.path)
-	) {
-		throw new TypeError('WhereBuilder target must be a field or field path')
-	}
-
-	return immutableRecord({
-		[target.field]: immutableRecord({
-			at: immutableArray([
-				immutableRecord({ path: target.path, [operator]: operand }),
-			]),
-		}),
-	})
+	return 'path' in node
+		? immutableRecord({
+				[node.field]: immutableRecord({
+					at: immutableArray([
+						immutableRecord({ path: node.path, ...operatorInput }),
+					]),
+				}),
+			})
+		: immutableRecord({ [node.field]: operatorInput })
 }
 
 /** Restores the canonical object filter of one normalized expression tree. */

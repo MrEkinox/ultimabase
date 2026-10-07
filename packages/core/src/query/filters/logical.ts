@@ -66,15 +66,18 @@ export type QuerySchemaFilterLeaf<TSchema extends SchemaDefinition> =
 export type QueryFilterNode<TSchema extends SchemaDefinition> =
 	QueryFilterExpression<QuerySchemaFilterLeaf<TSchema>>
 
-const constantFilters: Readonly<
-	Record<'false' | 'true', QueryConstantFilterNode>
-> = immutableRecord({
-	false: immutableRecord({ kind: 'constant', value: false }),
-	true: immutableRecord({ kind: 'constant', value: true }),
+const trueFilter: QueryConstantFilterNode = immutableRecord({
+	kind: 'constant',
+	value: true,
+})
+
+const falseFilter: QueryConstantFilterNode = immutableRecord({
+	kind: 'constant',
+	value: false,
 })
 
 const constantFilter = (value: boolean): QueryConstantFilterNode =>
-	constantFilters[value ? 'true' : 'false']
+	value ? trueFilter : falseFilter
 
 /** Flattens one and/or group while folding its identity and absorbing constants. */
 const normalizeLogicalGroup = (

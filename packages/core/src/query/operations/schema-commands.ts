@@ -78,8 +78,10 @@ type SchemaExecutionSelection<TSchema extends SchemaTypeInfoSource> = Readonly<{
 
 /** Erases literal projection inference only at the execution boundary. */
 type SchemaExecutionProjection<TSchema extends SchemaTypeInfoSource> =
-	SchemaExecutionSelection<TSchema> &
-		Readonly<{ include?: SchemaTypeInfoFor<TSchema>['inputs']['include'] }>
+	Readonly<{
+		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+		select?: QuerySelection<TSchema>
+	}>
 
 /** Creates one row with an optional exact result projection. */
 export type SchemaCreateOneInput<

@@ -19,56 +19,51 @@ export type {
 	QuerySelectionNode,
 	QueryWhereNode,
 } from './ast/contracts.js'
-export {
-	normalizeQueryOrdering,
-	type QueryOrderInput,
-} from './clauses/ordering.js'
+export { normalizeQueryOrdering } from './clauses/ordering.js'
+export type { QueryOrderInput } from './clauses/ordering.js'
 export {
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
-	type QueryOffsetPaginationInput,
 } from './clauses/pagination.js'
-export {
-	normalizeQuerySelection,
-	type QuerySelectedField,
-	type QuerySelection,
-} from './clauses/selection.js'
-export {
-	normalizeQueryInclusion,
-	type QueryPointerFieldName,
-	type QueryIncludableFieldName,
-	type QueryInclusionAst,
-	type QueryInclusionInput,
-	type QueryInclusionTargetSchema,
-	type QueryPointerInclusionAst,
-	type QueryPointerInclusionInput,
-	type QueryPointerInclusionNode,
-	type QueryPointerTargetSchema,
-	type QueryRelationFieldName,
-	type QueryRelationInclusionInput,
-	type QueryRelationInclusionNode,
-	type QueryRelationTargetSchema,
+export type { QueryOffsetPaginationInput } from './clauses/pagination.js'
+export { normalizeQuerySelection } from './clauses/selection.js'
+export type { QuerySelectedField, QuerySelection } from './clauses/selection.js'
+export { normalizeQueryInclusion } from './clauses/inclusion.js'
+export type {
+	QueryPointerFieldName,
+	QueryIncludableFieldName,
+	QueryInclusionAst,
+	QueryInclusionInput,
+	QueryInclusionTargetSchema,
+	QueryPointerInclusionAst,
+	QueryPointerInclusionInput,
+	QueryPointerInclusionNode,
+	QueryPointerTargetSchema,
+	QueryRelationFieldName,
+	QueryRelationInclusionInput,
+	QueryRelationInclusionNode,
+	QueryRelationTargetSchema,
 } from './clauses/inclusion.js'
-export {
-	normalizeLogicalFilter,
-	type QueryAndFilterNode,
-	type QueryConstantFilterNode,
-	type QueryFilterExpression,
-	type QueryFilterNode,
-	type QueryLogicalFilterKind,
-	type QueryLogicalFilterNode,
-	type QueryNotFilterNode,
-	type QueryOrFilterNode,
-	type QuerySchemaFilterLeaf,
-} from './filters/logical.js'
+export { normalizeLogicalFilter } from './filters/logical.js'
 export { traverseQueryExpression } from './filters/traversal.js'
-export {
-	transformQueryFilterInput,
-	type QueryFilterOperandInput,
-	type QueryFilterOperandSource,
-	type QueryFilterOperandTransformer,
+export { transformQueryFilterInput } from './filters/input-transformation.js'
+export type {
+	QueryFilterOperandInput,
+	QueryFilterOperandSource,
+	QueryFilterOperandTransformer,
 } from './filters/input-transformation.js'
 export { fieldPath } from './filters/factory.js'
+export type {
+	QueryAndFilterNode,
+	QueryConstantFilterNode,
+	QueryFilterExpression,
+	QueryFilterNode,
+	QueryLogicalFilterKind,
+	QueryLogicalFilterNode,
+	QueryNotFilterNode,
+	QueryOrFilterNode,
+	QuerySchemaFilterLeaf,
+} from './filters/logical.js'
 export type {
 	QueryComparisonFilterNode,
 	QueryComparisonFilterOperator,
@@ -109,31 +104,35 @@ export {
 	normalizeWhereInput,
 	resolveWhereInput,
 	WhereBuilder,
-	type WhereCallback,
-	type WhereInput,
-	type WhereLogicalKey,
-	type WhereSource,
+} from './filters/where.js'
+export type {
+	WhereCallback,
+	WhereInput,
+	WhereLogicalKey,
+	WhereSource,
 } from './filters/where.js'
 export {
 	collectQueryRelationPredicates,
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 	queryRelationPredicateMaxDepth,
-	type QueryRelationCountForSchema,
-	type QueryRelationCountComparison,
-	type QueryRelationCountInput,
-	type QueryRelationCountNode,
-	type QueryRelationCountOperator,
-	type QueryRelationFilterForSchema,
-	type QueryRelationFilterNode,
-	type QueryRelationPredicateForSchema,
-	type QueryRelationPredicateNode,
-	type QueryRelationPredicateOperator,
-	type QueryRelationQuantifierOperator,
-	type QueryPointerPredicateForSchema,
-	type QueryPointerPredicateNode,
-	type QueryPointerPredicateOperator,
-	type QueryRelationshipPredicateNode,
+} from './filters/relation.js'
+export type {
+	QueryRelationCountForSchema,
+	QueryRelationCountComparison,
+	QueryRelationCountInput,
+	QueryRelationCountNode,
+	QueryRelationCountOperator,
+	QueryRelationFilterForSchema,
+	QueryRelationFilterNode,
+	QueryRelationPredicateForSchema,
+	QueryRelationPredicateNode,
+	QueryRelationPredicateOperator,
+	QueryRelationQuantifierOperator,
+	QueryPointerPredicateForSchema,
+	QueryPointerPredicateNode,
+	QueryPointerPredicateOperator,
+	QueryRelationshipPredicateNode,
 } from './filters/relation.js'
 export type {
 	CountOperationAst,
@@ -158,28 +157,26 @@ export type {
 	UpsertOperationItem,
 	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
-export {
-	type QueryOperationExecutor,
-	runWithQueryExecutionGuard,
-	type QueryExecutionGuard,
-} from './operations/execution.js'
-export {
-	normalizeReadOperation,
-	type ReadOperationAst,
-	type ReadOperationAstForKind,
-	type ReadOperationKind,
+export type { QueryOperationExecutor } from './operations/execution.js'
+export { normalizeReadOperation } from './operations/read-normalization.js'
+export type {
+	ReadOperationAst,
+	ReadOperationAstForKind,
+	ReadOperationKind,
 } from './operations/read-normalization.js'
+export { runWithQueryExecutionGuard } from './operations/execution.js'
+export type { QueryExecutionGuard } from './operations/execution.js'
 export type { OperationOptions } from './operations/options.js'
 export type {
 	OperationRecordResult,
 	OperationResult,
 	OperationSourceRecordResult,
 } from './operations/results.js'
-export {
-	normalizeUniqueUpsertTarget,
-	type UpsertInput,
-	type UpsertManyItemInput,
-	type UpsertTargetQuery,
+export { normalizeUniqueUpsertTarget } from './operations/upsert.js'
+export type {
+	UpsertInput,
+	UpsertManyItemInput,
+	UpsertTargetQuery,
 } from './operations/upsert.js'
 export type {
 	SchemaCreateManyInput,
@@ -218,16 +215,15 @@ export type {
 	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
-export { QueryBuilder, type QueryPointerTargetBuilder } from './query/query.js'
+export { QueryBuilder } from './query/query.js'
+export type { QueryPointerTargetBuilder } from './query/query.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export { applyUpdateExpressionToRecord } from './updates/apply.js'
-export {
-	decrement,
-	increment,
-	unset,
-	type DecrementUpdateValue,
-	type IncrementUpdateValue,
+export { decrement, increment, unset } from './updates/operators.js'
+export type {
+	DecrementUpdateValue,
+	IncrementUpdateValue,
 } from './updates/operators.js'
 export type {
 	DecrementUpdateOperationNode,

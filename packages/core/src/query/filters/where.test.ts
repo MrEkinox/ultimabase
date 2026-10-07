@@ -4,7 +4,7 @@ import { SchemaRegistry } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
-import { readWhereBuilderState } from './where-builder.js'
+import { readWhereBuilderState } from './where-builder-state.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const Tag = UltimaBase.Schema.define({

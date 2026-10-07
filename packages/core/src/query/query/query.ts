@@ -62,13 +62,29 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	QueryBuilderInclusion<TSchema>
 >
 
-let hydrate: <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
+// QueryBuilder state stays outside the frozen public shell so internal hydration does
+// not need a public constructor overload or an externally callable static API.
+const queryAsts = new WeakMap<object, unknown>()
+
+const readQueryAst = <const TSchema extends SchemaDefinition>(
+	query: object,
+): QueryBuilderAst<TSchema> => {
+	const ast: unknown = queryAsts.get(query)
+
+	if (ast === undefined) {
+		throw new TypeError('QueryBuilder instance has no internal AST')
+	}
+
+	// Only this module stores ASTs, always beside the matching QueryBuilder schema type.
+	return ast as QueryBuilderAst<TSchema>
+}
+
+const storeQueryAst = <const TSchema extends SchemaDefinition>(
+	query: object,
 	ast: QueryBuilderAst<TSchema>,
-) => QueryBuilder<TSchema, TSelectedField, TIncludedPointer>
+): void => {
+	queryAsts.set(query, ast)
+}
 
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	Pick<
@@ -175,30 +191,8 @@ export class QueryBuilder<
 		readonly write: (inclusion: TIncludedPointer) => void
 	}
 
-	// Assigned only while hydrating a new frozen branch; never after it escapes.
-	#ast: QueryBuilderAst<TSchema>
-
-	static {
-		hydrate = <
-			const TAstSchema extends SchemaDefinition,
-			TAstSelectedField extends QueryFieldName<TAstSchema>,
-			TAstIncludedPointer,
-		>(
-			ast: QueryBuilderAst<TAstSchema>,
-		) => {
-			const query = new QueryBuilder<
-				TAstSchema,
-				TAstSelectedField,
-				TAstIncludedPointer
-			>(ast.schema.definition)
-
-			query.#ast = ast
-			return query
-		}
-	}
-
 	constructor(schema: TSchema) {
-		this.#ast = createQueryAst(schema)
+		storeQueryAst(this, createQueryAst(schema))
 
 		// Public instances cannot acquire mutable ad-hoc state between branches.
 		Object.freeze(this)
@@ -206,7 +200,7 @@ export class QueryBuilder<
 
 	/** Exposes the immutable representation consumed by transports and Runtime. */
 	get ast(): QueryBuilderAst<TSchema> {
-		return this.#ast
+		return readQueryAst<TSchema>(this)
 	}
 
 	/** Returns the exact schema retained by the QueryBuilder AST. */
@@ -301,8 +295,13 @@ export class QueryBuilder<
 				'query inclusion callback must return a QueryBuilder for the relationship target',
 			)
 		}
+		const targetQuery = untrustedTarget as QueryBuilder<
+			QueryInclusionTargetSchema<TSchema, TFieldName>,
+			TTargetSelectedField,
+			TTargetIncludedPointer
+		>
 
-		if (field.kind === 'pointer' && untrustedTarget.ast.where !== undefined) {
+		if (field.kind === 'pointer' && targetQuery.ast.where !== undefined) {
 			throw new TypeError(
 				'pointer-target input contains an unknown clause: where',
 			)
@@ -338,7 +337,7 @@ export class QueryBuilder<
 				...inclusions,
 				{
 					field: fieldName,
-					query: untrustedTarget.ast,
+					query: targetQuery.ast,
 				} as unknown as QueryInclusionInput<TSchema>,
 			]),
 			selection,
@@ -370,9 +369,15 @@ export class QueryBuilder<
 	offset(
 		value: number,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#with({
-			pagination: normalizeQueryOffsetPagination({ offset: value }),
-		})
+		const pagination = normalizeQueryOffsetPagination({ offset: value })
+
+		if (pagination === undefined) {
+			return this.ast.pagination === undefined
+				? this.#with({})
+				: this.#with({ pagination: undefined })
+		}
+
+		return this.#with({ pagination })
 	}
 
 	/**
@@ -486,8 +491,11 @@ export const hydrateQueryFromAst = <
 	ast: QueryBuilderAst<TSchema>,
 	privateScope?: OperationPrivateScope,
 ): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> => {
-	const query = hydrate<TSchema, TSelectedField, TIncludedPointer>(ast)
+	const query = new QueryBuilder<TSchema, TSelectedField, TIncludedPointer>(
+		ast.schema.definition,
+	)
 
+	storeQueryAst(query, ast)
 	storeQueryPrivateScope(query, privateScope)
 
 	return query
