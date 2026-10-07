@@ -11,6 +11,7 @@ import {
 	type CapabilityRequirement,
 	type CapabilityToken,
 } from './capabilities.js'
+import { capabilityFamilyRule } from './capability-rules.js'
 import {
 	assertNormalizedPlugin,
 	type NormalizedPlugin,
@@ -18,16 +19,25 @@ import {
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	snapshotPluginIdentity,
 	type PluginIdentity,
+	type PluginPrivilege,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
-import { planCapabilityProviders } from './capability-provider-planning.js'
 import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
 import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
-import { canonicalApplicationRequestExecutionFoundation } from '../runtime/application/application-request-execution.js'
-import { canonicalApplicationOperationTransportPlanningFoundation } from '../runtime/application/application-operation-transport-planning.js'
-import { canonicalApplicationSchemaMutationSurfaceFoundation } from '../runtime/application/application-schema-mutation-surface.js'
-import { throwCapabilityConflict } from './capability-conflict.js'
+import {
+	canonicalApplicationRequestExecutionFoundation,
+	isApplicationRequestExecutionCapability,
+} from '../runtime/application/application-request-execution.js'
+import {
+	canonicalApplicationOperationTransportPlanningFoundation,
+	isApplicationOperationTransportPlanningCapability,
+} from '../runtime/application/application-operation-transport-planning.js'
+import {
+	canonicalApplicationSchemaMutationSurfaceFoundation,
+	isApplicationSchemaMutationSurfaceCapability,
+} from '../runtime/application/application-schema-mutation-surface.js'
 
 /** Reports one provider without exposing its value or factory. */
 export interface CapabilityProviderInspection {
@@ -50,30 +60,25 @@ export interface CapabilityInventoryEntry {
 	readonly requirements: readonly CapabilityRequirementInspection[]
 }
 
+/** Retains one provider with its owner; Core foundations have no plugin. */
 export interface OwnedProvider {
-	readonly kind: 'provider'
 	readonly owner: PluginIdentity
 	readonly plugin?: NormalizedPlugin
 	readonly version: string
 	readonly declaration: CapabilityProviderDeclaration
 }
 
-export interface OwnedRequirement {
+interface OwnedRequirement {
 	readonly owner: PluginIdentity
 	readonly plugin: NormalizedPlugin
 	readonly requirement: CapabilityRequirement
 }
 
-export interface MutableCapabilityEntry {
+interface CapabilityPlan {
 	readonly token: CapabilityToken
 	readonly firstOwner: PluginIdentity
 	readonly providers: OwnedProvider[]
 	readonly requirements: OwnedRequirement[]
-}
-
-interface CapabilityPlan {
-	readonly entry: MutableCapabilityEntry
-	readonly providers: readonly OwnedProvider[]
 }
 
 interface CapabilityInventoryState {
@@ -86,21 +91,44 @@ const inventoryStates = new WeakMap<
 	CapabilityInventoryState
 >()
 
-const throwDuplicateTokenIdentity = (
-	entry: MutableCapabilityEntry,
-	owner: PluginIdentity,
+const coreFoundations = [
+	canonicalApplicationRequestExecutionFoundation,
+	canonicalApplicationOperationTransportPlanningFoundation,
+	canonicalApplicationSchemaMutationSurfaceFoundation,
+]
+
+/** Names Core-owned execution protocols that plugins may consume but never provide. */
+const coreCapabilityDescription = (
 	token: CapabilityToken,
+): Readonly<{ readonly kind: string; readonly name: string }> | undefined => {
+	if (isApplicationRequestExecutionCapability(token)) {
+		return {
+			kind: 'application-request',
+			name: 'Application request execution',
+		}
+	}
+	if (isApplicationOperationTransportPlanningCapability(token)) {
+		return {
+			kind: 'application-operation-transport-planning',
+			name: 'Application operation transport planning',
+		}
+	}
+	if (isApplicationSchemaMutationSurfaceCapability(token)) {
+		return {
+			kind: 'application-schema-mutation-surface',
+			name: 'Application schema mutation surface',
+		}
+	}
+	return undefined
+}
+
+const throwCapabilityConflict = (
+	message: string,
+	internalDetails: Readonly<Record<string, unknown>>,
 ): never => {
-	return throwCapabilityConflict(
-		`Capability "${token.capabilityId}@${token.version}" uses distinct nominal tokens in plugins "${formatPluginIdentity(entry.firstOwner)}" and "${formatPluginIdentity(owner)}".`,
-		{
-			kind: 'duplicate-capability-token',
-			capabilityId: token.capabilityId,
-			version: token.version,
-			firstOwner: formatPluginIdentity(entry.firstOwner),
-			secondOwner: formatPluginIdentity(owner),
-		},
-	)
+	throw new FrameworkError('PLUGIN_CAPABILITY_CONFLICT', message, {
+		internalDetails,
+	})
 }
 
 const throwMissingCapability = (
@@ -126,50 +154,151 @@ const throwMissingCapability = (
 	)
 }
 
-const registerToken = (
-	entriesById: Map<string, Map<string, MutableCapabilityEntry>>,
-	orderedEntries: MutableCapabilityEntry[],
-	owner: PluginIdentity,
-	token: CapabilityToken,
-): MutableCapabilityEntry => {
-	const versions =
-		entriesById.get(token.capabilityId) ??
-		new Map<string, MutableCapabilityEntry>()
-	const existing = versions.get(token.version)
+/** Validates one token's providers against every ownership and privilege rule. */
+const validatePlan = (
+	plans: ReadonlyMap<CapabilityToken, CapabilityPlan>,
+	plan: CapabilityPlan,
+): void => {
+	const { token } = plan
+	// A conditional request is active only when its optional protocol has a provider.
+	const isConditionActive = (
+		owner: PluginIdentity,
+		when: CapabilityRequirement,
+	): boolean => {
+		const condition = plans.get(when.token)
+		return (
+			condition !== undefined &&
+			condition.providers.length > 0 &&
+			condition.requirements.some(
+				(candidate) =>
+					candidate.requirement === when &&
+					isSamePluginIdentity(candidate.owner, owner),
+			)
+		)
+	}
+	const hasActivePrivilege = (
+		{ owner, plugin }: OwnedProvider | OwnedRequirement,
+		privilege: PluginPrivilege,
+	): boolean =>
+		plugin?.definition.manifest.privileges.some(
+			({ name, when }) =>
+				name === privilege &&
+				(when === undefined || isConditionActive(owner, when)),
+		) ?? false
+	const assertProviderPrivilege = (
+		provider: OwnedProvider,
+		privilege: PluginPrivilege,
+	): void => {
+		if (hasActivePrivilege(provider, privilege)) return
+		throwCapabilityConflict(
+			`Plugin "${formatPluginIdentity(provider.owner)}" must declare active privilege "${privilege}" for capability contribution "${provider.declaration.contributionId}".`,
+			{
+				kind: 'capability-privilege-missing',
+				plugin: formatPluginIdentity(provider.owner),
+				capabilityId: token.capabilityId,
+				contributionId: provider.declaration.contributionId,
+				privilege,
+			},
+		)
+	}
 
-	if (existing !== undefined) {
-		if (existing.token !== token) {
-			throwDuplicateTokenIdentity(existing, owner, token)
+	for (const [index, provider] of plan.providers.entries()) {
+		const duplicate = plan.providers
+			.slice(index + 1)
+			.some(
+				(candidate) =>
+					candidate.declaration.contributionId ===
+						provider.declaration.contributionId &&
+					isSamePluginIdentity(candidate.owner, provider.owner),
+			)
+		if (duplicate) {
+			throwCapabilityConflict(
+				`Plugin "${formatPluginIdentity(provider.owner)}" declares duplicate contribution "${provider.declaration.contributionId}" for capability "${token.capabilityId}".`,
+				{
+					kind: 'duplicate-capability-contribution',
+					plugin: formatPluginIdentity(provider.owner),
+					capabilityId: token.capabilityId,
+					contributionId: provider.declaration.contributionId,
+				},
+			)
 		}
-
-		return existing
+	}
+	if (token.providerPrivilege !== undefined) {
+		for (const provider of plan.providers) {
+			assertProviderPrivilege(provider, token.providerPrivilege)
+		}
 	}
 
-	const entry: MutableCapabilityEntry = {
-		token,
-		firstOwner: owner,
-		providers: [],
-		requirements: [],
+	const rule = capabilityFamilyRule(token)
+	const requirementRule = rule?.requirement
+	for (const requirement of plan.requirements) {
+		if (requirementRule === undefined) break
+		const plugin = formatPluginIdentity(requirement.owner)
+		if ('forbidden' in requirementRule) {
+			throwCapabilityConflict(requirementRule.forbidden, {
+				kind: requirementRule.kind,
+				plugin,
+				capabilityId: token.capabilityId,
+			})
+		} else if (!hasActivePrivilege(requirement, requirementRule.privilege)) {
+			throwCapabilityConflict(
+				`Plugin "${plugin}" must declare active privilege "${requirementRule.privilege}" ${requirementRule.purpose}.`,
+				{
+					kind: requirementRule.kind,
+					plugin,
+					capabilityId: token.capabilityId,
+					privilege: requirementRule.privilege,
+				},
+			)
+		}
 	}
-	versions.set(token.version, entry)
-	entriesById.set(token.capabilityId, versions)
-	orderedEntries.push(entry)
-	return entry
+
+	const core = coreCapabilityDescription(token)
+	const providerRule =
+		core === undefined
+			? rule?.provider
+			: {
+					authorized: () => false,
+					kind: `${core.kind}-provider-forbidden`,
+					message: `${core.name} is provided only by Core.`,
+					reportsCapability: false,
+				}
+	for (const provider of plan.providers) {
+		// Core foundations satisfy their own protocols before plugins are inspected.
+		if (providerRule === undefined || provider.plugin === undefined) continue
+		if (!providerRule.authorized(provider.declaration)) {
+			throwCapabilityConflict(providerRule.message, {
+				kind: providerRule.kind,
+				plugin: formatPluginIdentity(provider.owner),
+				...(providerRule.reportsCapability
+					? { capabilityId: token.capabilityId }
+					: {}),
+				contributionId: provider.declaration.contributionId,
+			})
+		}
+		if (providerRule.privilege !== undefined) {
+			assertProviderPrivilege(provider, providerRule.privilege)
+		}
+	}
+
+	if (token.cardinality === 'single' && plan.providers.length > 1) {
+		throwCapabilityConflict(
+			`Single capability "${token.capabilityId}" has ${String(plan.providers.length)} competing providers.`,
+			{
+				kind: 'single-capability-provider-conflict',
+				capabilityId: token.capabilityId,
+				providers: immutableArray(
+					plan.providers.map(({ owner, declaration }) =>
+						immutableRecord({
+							owner: formatPluginIdentity(owner),
+							contributionId: declaration.contributionId,
+						}),
+					),
+				),
+			},
+		)
+	}
 }
-
-const inspectProvider = (
-	contribution: OwnedProvider,
-): CapabilityProviderInspection =>
-	immutableRecord({
-		kind: contribution.kind,
-		owner: immutableRecord({
-			pluginId: contribution.owner.pluginId,
-			...(contribution.owner.instanceId === undefined
-				? {}
-				: { instanceId: contribution.owner.instanceId }),
-		}),
-		contributionId: contribution.declaration.contributionId,
-	})
 
 const getInventoryState = (
 	inventory: CapabilityInventory,
@@ -197,50 +326,60 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 			assertNormalizedPlugin(plugin, `plugins[${String(index)}]`)
 		}
 
-		const entriesById = new Map<string, Map<string, MutableCapabilityEntry>>()
-		const orderedEntries: MutableCapabilityEntry[] = []
+		const plans = new Map<CapabilityToken, CapabilityPlan>()
+		const plansById = new Map<string, CapabilityPlan>()
+		const planFor = (
+			owner: PluginIdentity,
+			token: CapabilityToken,
+		): CapabilityPlan => {
+			const key = `${token.capabilityId}@${token.version}`
+			const existing = plansById.get(key)
+			if (existing !== undefined) {
+				if (existing.token === token) return existing
+				return throwCapabilityConflict(
+					`Capability "${token.capabilityId}@${token.version}" uses distinct nominal tokens in plugins "${formatPluginIdentity(existing.firstOwner)}" and "${formatPluginIdentity(owner)}".`,
+					{
+						kind: 'duplicate-capability-token',
+						capabilityId: token.capabilityId,
+						version: token.version,
+						firstOwner: formatPluginIdentity(existing.firstOwner),
+						secondOwner: formatPluginIdentity(owner),
+					},
+				)
+			}
+			const plan = { token, firstOwner: owner, providers: [], requirements: [] }
+			plansById.set(key, plan)
+			plans.set(token, plan)
+			return plan
+		}
 
 		// One requirement inventory selects only the Core foundations a plugin consumes.
 		const consumedTokens = new Set(
-			plugins.flatMap((plugin) => {
-				const capabilities = plugin.definition.manifest.capabilities
-				return [...capabilities.requires, ...capabilities.optional].map(
-					({ token }) => token,
-				)
-			}),
+			plugins.flatMap(({ definition }) =>
+				[
+					...definition.manifest.capabilities.requires,
+					...definition.manifest.capabilities.optional,
+				].map(({ token }) => token),
+			),
 		)
-		for (const foundation of [
-			canonicalApplicationRequestExecutionFoundation,
-			canonicalApplicationOperationTransportPlanningFoundation,
-			canonicalApplicationSchemaMutationSurfaceFoundation,
-		]) {
-			if (!consumedTokens.has(foundation.declaration.token)) continue
-			registerToken(
-				entriesById,
-				orderedEntries,
-				foundation.owner,
-				foundation.declaration.token,
-			).providers.push({
-				kind: 'provider',
-				owner: foundation.owner,
-				version: foundation.version,
-				declaration: foundation.declaration,
+		for (const foundation of coreFoundations) {
+			const { owner, version, declaration } = foundation
+			if (!consumedTokens.has(declaration.token)) continue
+			planFor(owner, declaration.token).providers.push({
+				owner,
+				version,
+				declaration,
 			})
 		}
 
 		for (const plugin of plugins) {
-			const owner = plugin.definition.manifest.identity
-			const version = plugin.definition.manifest.version
-			const declarations = plugin.definition.manifest.capabilities
-
-			for (const declaration of declarations.provides) {
-				registerToken(
-					entriesById,
-					orderedEntries,
-					owner,
-					declaration.token,
-				).providers.push({
-					kind: 'provider',
+			const {
+				identity: owner,
+				version,
+				capabilities,
+			} = plugin.definition.manifest
+			for (const declaration of capabilities.provides) {
+				planFor(owner, declaration.token).providers.push({
 					owner,
 					plugin,
 					version,
@@ -248,39 +387,41 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 				})
 			}
 			for (const requirement of [
-				...declarations.requires,
-				...declarations.optional,
+				...capabilities.requires,
+				...capabilities.optional,
 			]) {
-				registerToken(
-					entriesById,
-					orderedEntries,
+				planFor(owner, requirement.token).requirements.push({
 					owner,
-					requirement.token,
-				).requirements.push({ owner, plugin, requirement })
+					plugin,
+					requirement,
+				})
 			}
 		}
 
-		const plans = orderedEntries.map((entry) =>
-			immutableRecord({
-				entry,
-				providers: planCapabilityProviders(orderedEntries, entry),
-			}),
-		)
+		for (const plan of plans.values()) validatePlan(plans, plan)
 
 		this.entries = immutableArray(
-			plans.map(({ entry, providers }) => {
-				const active = providers.length > 0
-				for (const { owner, requirement } of entry.requirements) {
+			[...plans.values()].map((plan) => {
+				const active = plan.providers.length > 0
+				for (const { owner, requirement } of plan.requirements) {
 					if (!requirement.optional && !active) {
 						throwMissingCapability(owner, requirement)
 					}
 				}
 
 				return immutableRecord({
-					token: entry.token,
-					providers: immutableArray(entry.providers.map(inspectProvider)),
+					token: plan.token,
+					providers: immutableArray(
+						plan.providers.map(({ owner, declaration }) =>
+							immutableRecord({
+								kind: 'provider' as const,
+								owner: snapshotPluginIdentity(owner),
+								contributionId: declaration.contributionId,
+							}),
+						),
+					),
 					requirements: immutableArray(
-						entry.requirements.map(({ owner, requirement }) =>
+						plan.requirements.map(({ owner, requirement }) =>
 							immutableRecord({ owner, requirement, active }),
 						),
 					),
@@ -289,7 +430,7 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		)
 
 		inventoryStates.set(this, {
-			plansByToken: new Map(plans.map((plan) => [plan.entry.token, plan])),
+			plansByToken: plans,
 			declarationConsumers: new Map(),
 		})
 		Object.freeze(this)
@@ -327,13 +468,25 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 	}
 }
 
+/** Finds one plugin's privilege request only while its capability condition holds. */
+export const findActivePrivilegeRequest = (
+	inventory: CapabilityInventory,
+	plugin: NormalizedPlugin | undefined,
+	privilege: PluginPrivilege,
+): PluginPrivilegeRequest | undefined =>
+	plugin?.definition.manifest.privileges.find(
+		(request) =>
+			request.name === privilege &&
+			inventory.isPrivilegeActive(plugin.definition.manifest.identity, request),
+	)
+
 /** Executes pure declaration composition only after privilege policy succeeds. */
 export const composeDeclarationCapabilities = (
 	inventory: CapabilityInventory,
 ): void => {
 	const state = getInventoryState(inventory)
-	for (const { entry, providers } of state.plansByToken.values()) {
-		if (entry.token.lifetime !== 'declaration') continue
+	for (const { token, providers } of state.plansByToken.values()) {
+		if (token.lifetime !== 'declaration') continue
 		// An absent optional capability has no consumer view. In particular, a
 		// single-capability composer must never receive an impossible empty tuple.
 		if (providers.length === 0) continue
@@ -344,8 +497,8 @@ export const composeDeclarationCapabilities = (
 			}
 			return declaration.value
 		})
-		const consumer: unknown = composeCapability(entry.token, values)
-		state.declarationConsumers.set(entry.token, consumer)
+		const consumer: unknown = composeCapability(token, values)
+		state.declarationConsumers.set(token, consumer)
 	}
 }
 
@@ -356,8 +509,10 @@ export const readDeclarationCapability = (
 ): unknown =>
 	getInventoryState(inventory).declarationConsumers.get(requirement.token)
 
-/** Supplies application materialization with final static contribution plans. */
+/** Supplies application materialization with final static provider plans. */
 export const readCapabilityPlans = (
 	inventory: CapabilityInventory,
-): ReadonlyMap<CapabilityToken, CapabilityPlan> =>
-	getInventoryState(inventory).plansByToken
+): ReadonlyMap<
+	CapabilityToken,
+	Readonly<{ providers: readonly OwnedProvider[] }>
+> => getInventoryState(inventory).plansByToken

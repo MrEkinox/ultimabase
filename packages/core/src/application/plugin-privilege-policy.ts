@@ -2,7 +2,6 @@ import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	isUnknownArray,
 } from '@ultimabase/shared'
 
 import { assertExactObjectKeys } from '../exact-object-validation.js'
@@ -12,6 +11,9 @@ import {
 	pluginEnvironmentClaimMetadata,
 	pluginEnvironmentClaims,
 	pluginPrivilegeMetadata,
+	pluginPrivilegeNames,
+	snapshotPluginIdentity,
+	snapshotVocabularyList,
 	type PluginEnvironmentClaim,
 	type PluginIdentity,
 	type PluginPrivilege,
@@ -150,39 +152,19 @@ const rootPolicyKeys = new Set(['deny', 'denyClaims', 'logger', 'plugins'])
 
 const normalizeDeniedValues = <TValue extends string>(
 	values: unknown,
-	accepted: ReadonlySet<TValue>,
+	accepted: readonly TValue[],
 	path: string,
-): ReadonlySet<TValue> => {
-	if (values === undefined) return new Set()
-
-	const untrustedValues: unknown = values
-	if (!isUnknownArray(untrustedValues)) {
-		throw new TypeError(`${path} must be an array`)
-	}
-
-	const normalized = new Set<TValue>()
-	for (const [index, value] of untrustedValues.entries()) {
-		if (typeof value !== 'string' || !accepted.has(value as TValue)) {
-			throw new TypeError(
-				`${path}[${String(index)}] is unknown: ${String(value)}`,
-			)
-		}
-
-		const deniedValue = value as TValue
-		if (normalized.has(deniedValue)) {
-			throw new TypeError(`Duplicate ${path} entry: ${deniedValue}`)
-		}
-
-		normalized.add(deniedValue)
-	}
-
-	return normalized
-}
-
-const privileges = new Set<PluginPrivilege>(
-	Object.keys(pluginPrivilegeMetadata) as PluginPrivilege[],
-)
-const environmentClaims = new Set(pluginEnvironmentClaims)
+): ReadonlySet<TValue> =>
+	new Set(
+		values === undefined
+			? []
+			: snapshotVocabularyList(values, accepted, {
+					notArray: `${path} must be an array`,
+					unknown: (index, value) =>
+						`${path}[${String(index)}] is unknown: ${String(value)}`,
+					duplicate: (value) => `Duplicate ${path} entry: ${value}`,
+				}),
+	)
 
 const normalizeScope = (
 	value: unknown,
@@ -200,10 +182,14 @@ const normalizeScope = (
 	)
 
 	return {
-		deny: normalizeDeniedValues(value.deny, privileges, `${path}.deny`),
+		deny: normalizeDeniedValues(
+			value.deny,
+			pluginPrivilegeNames,
+			`${path}.deny`,
+		),
 		denyClaims: normalizeDeniedValues(
 			value.denyClaims,
-			environmentClaims,
+			pluginEnvironmentClaims,
 			`${path}.denyClaims`,
 		),
 	}
@@ -396,12 +382,7 @@ const createPluginReport = (
 
 		return immutableRecord({
 			order,
-			identity: immutableRecord({
-				pluginId: identity.pluginId,
-				...(identity.instanceId === undefined
-					? {}
-					: { instanceId: identity.instanceId }),
-			}),
+			identity: snapshotPluginIdentity(identity),
 			version: manifest.version,
 			privileges: immutableArray(privilegeReports),
 			environment: immutableArray(environmentReports),

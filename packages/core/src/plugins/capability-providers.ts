@@ -1,8 +1,11 @@
 import {
+	assertNonEmptyString,
 	immutableRecord,
 	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
+
+import { assertExactObjectKeys } from '../exact-object-validation.js'
 
 import {
 	snapshotJsonValue,
@@ -10,14 +13,10 @@ import {
 } from '../schema/fields/builtins/json.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { ApplicationCallbackExecutor } from './callback-execution.js'
-import {
-	assertCapabilityContributionId,
-	assertCapabilityOptions,
-} from './capability-declaration-validation.js'
 import type {
 	CapabilityRequirement,
 	CapabilityRequirementPhase,
-} from './capability-requirements.js'
+} from './capabilities.js'
 import {
 	assertCapabilityToken,
 	type CapabilityCardinality,
@@ -158,26 +157,22 @@ export const provideCapability = <const TToken extends CapabilityToken>(
 	}
 
 	if (options.contributionId !== undefined) {
-		assertCapabilityContributionId(options.contributionId, 'contributionId')
+		assertNonEmptyString(options.contributionId, 'contributionId')
 	}
 
-	if (token.lifetime === 'declaration') {
-		assertCapabilityOptions(
-			untrustedOptions,
-			new Set(['contributionId', 'value']),
-			'capability provider options',
+	const factoryKey = token.lifetime === 'declaration' ? 'value' : 'create'
+	assertExactObjectKeys(
+		untrustedOptions,
+		new Set(['contributionId', factoryKey]),
+		'capability provider options contains unknown option: ',
+	)
+	if (
+		token.lifetime !== 'declaration' &&
+		typeof untrustedOptions.create !== 'function'
+	) {
+		throw new TypeError(
+			'application capability provider create must be a function',
 		)
-	} else {
-		assertCapabilityOptions(
-			untrustedOptions,
-			new Set(['contributionId', 'create']),
-			'capability provider options',
-		)
-		if (typeof untrustedOptions.create !== 'function') {
-			throw new TypeError(
-				'application capability provider create must be a function',
-			)
-		}
 	}
 
 	const provider = immutableRecord({

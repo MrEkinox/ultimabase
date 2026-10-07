@@ -10,7 +10,6 @@ import {
 	immutableRecord,
 } from '@ultimabase/shared'
 
-import { FrameworkError } from '../errors/framework-error.js'
 import type { PluginCapabilityReader } from './capabilities.js'
 import {
 	createDatabaseConstraintCompilerReader,
@@ -19,7 +18,7 @@ import {
 	type PluginConstraintCompilerRegistry,
 } from './constraint-compilers.js'
 import {
-	formatPluginIdentity,
+	snapshotPluginIdentity,
 	type PluginIdentity,
 	type PluginPrivilege,
 } from './manifest.js'
@@ -51,17 +50,12 @@ const emptyTypegenGraph: CompiledTypegenGraph = immutableRecord({
 })
 
 const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
-	if (typeof owner === 'string') {
-		assertNonEmptyString(owner, 'pluginId')
-		return immutableRecord({ pluginId: owner })
+	const identity = typeof owner === 'string' ? { pluginId: owner } : owner
+	assertNonEmptyString(identity.pluginId, 'pluginId')
+	if (identity.instanceId !== undefined) {
+		assertNonEmptyString(identity.instanceId, 'instanceId')
 	}
-
-	assertNonEmptyString(owner.pluginId, 'pluginId')
-	if (owner.instanceId !== undefined) {
-		assertNonEmptyString(owner.instanceId, 'instanceId')
-	}
-
-	return owner
+	return typeof owner === 'string' ? snapshotPluginIdentity(identity) : owner
 }
 
 /** @internal Records immutable setup metadata with its structured owner. */
@@ -70,117 +64,6 @@ export interface OwnedPluginContribution {
 	readonly ownerPlugin: string
 	readonly ownerInstanceId?: string
 	readonly value: unknown
-}
-
-/** @internal Stores one exact contribution protocol for one application. */
-class OwnedContributionStore {
-	readonly #contributions = new Map<string, OwnedPluginContribution>()
-	readonly #orderedContributions: OwnedPluginContribution[] = []
-	readonly #ownerLocalNames = new PluginIdentityMap<Set<string>>()
-
-	get size(): number {
-		return this.#orderedContributions.length
-	}
-
-	has(name: string): boolean {
-		assertNonEmptyString(name, 'contribution name')
-
-		return this.#contributions.has(name)
-	}
-
-	get(name: string): OwnedPluginContribution | undefined {
-		assertNonEmptyString(name, 'contribution name')
-
-		return this.#contributions.get(name)
-	}
-
-	values(): readonly OwnedPluginContribution[] {
-		return immutableArray(this.#orderedContributions)
-	}
-
-	registerLocal(owner: PluginIdentity, name: string, value: unknown): void {
-		assertNonEmptyString(name, 'contribution name')
-		const names = this.#ownerLocalContributionNames(owner)
-
-		this.#assertOwnerLocalIdentityAvailable(owner, name, names)
-		this.#orderedContributions.push(
-			immutableRecord({
-				name,
-				ownerPlugin: owner.pluginId,
-				...(owner.instanceId === undefined
-					? {}
-					: { ownerInstanceId: owner.instanceId }),
-				value,
-			}),
-		)
-		names.add(name)
-	}
-
-	registerUnique(owner: PluginIdentity, name: string, value: unknown): void {
-		assertNonEmptyString(name, 'contribution name')
-		const names = this.#ownerLocalContributionNames(owner)
-		this.#assertOwnerLocalIdentityAvailable(owner, name, names)
-
-		const existingContribution = this.#contributions.get(name)
-
-		if (existingContribution !== undefined) {
-			throw new FrameworkError(
-				'PLUGIN_CONFLICT',
-				`Contribution "${name}" is already owned by plugin "${existingContribution.ownerPlugin}".`,
-				{
-					internalDetails: {
-						kind: 'duplicate-contribution',
-						contributionName: name,
-						pluginNames: immutableArray([
-							existingContribution.ownerPlugin,
-							owner.pluginId,
-						]),
-					},
-				},
-			)
-		}
-
-		const contribution = immutableRecord({
-			name,
-			ownerPlugin: owner.pluginId,
-			...(owner.instanceId === undefined
-				? {}
-				: { ownerInstanceId: owner.instanceId }),
-			value,
-		})
-		this.#contributions.set(name, contribution)
-		this.#orderedContributions.push(contribution)
-		names.add(name)
-	}
-
-	#ownerLocalContributionNames(owner: PluginIdentity): Set<string> {
-		return this.#ownerLocalNames.getOrCreate(owner, () => new Set())
-	}
-
-	#assertOwnerLocalIdentityAvailable(
-		owner: PluginIdentity,
-		name: string,
-		names: ReadonlySet<string>,
-	): void {
-		if (!names.has(name)) {
-			return
-		}
-
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Plugin "${formatPluginIdentity(owner)}" already registered contribution "${name}".`,
-			{
-				internalDetails: {
-					kind: 'duplicate-plugin-local-contribution',
-					contributionName: name,
-					ownerPlugin: owner.pluginId,
-					...(owner.instanceId === undefined
-						? {}
-						: { ownerInstanceId: owner.instanceId }),
-				},
-			},
-		)
-	}
 }
 
 /** Supplies one plugin with application state and owner-bound contribution views. */
@@ -202,10 +85,13 @@ export interface PluginSetupContext {
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
-	readonly #constraintCompilers = new OwnedContributionStore()
+	readonly #constraintCompilers: OwnedPluginContribution[] = []
 	readonly #contexts = new PluginIdentityMap<PluginSetupContext>()
 	#setupOpen = true
-	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader
+	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader =
+		createDatabaseConstraintCompilerReader(() =>
+			immutableArray(this.#constraintCompilers),
+		)
 
 	constructor(
 		readonly schemas: SchemaRegistry,
@@ -221,33 +107,18 @@ export class PluginSetupRegistries {
 			privilege: PluginPrivilege,
 		) => void = () => undefined,
 		readonly typegenGraph: () => CompiledTypegenGraph = () => emptyTypegenGraph,
-	) {
-		this.#constraintCompilerReader = createDatabaseConstraintCompilerReader(
-			() => this.#constraintCompilers.values(),
-		)
-	}
+	) {}
 
 	/** Supplies capability factories with live compilers but no registration method. */
 	getConstraintCompilerReader(): DatabaseConstraintCompilerReader {
 		return this.#constraintCompilerReader
 	}
 
-	/** @internal Enforces one active privilege for a later Core-owned facade. */
-	assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {
-		this.assertPrivilegeForPlugin(owner, privilege)
-	}
-
-	/** Closes typed setup-only facades before any infrastructure lifecycle phase. */
+	/**
+	 * Closes typed setup-only facades before any infrastructure lifecycle phase,
+	 * or after a plugin failure without masking the original error.
+	 */
 	closeSetup(): void {
-		if (!this.#setupOpen) {
-			return
-		}
-
-		this.#setupOpen = false
-	}
-
-	/** Closes setup after a plugin failure without masking the original error. */
-	abortSetup(): void {
 		this.#setupOpen = false
 	}
 
@@ -256,6 +127,7 @@ export class PluginSetupRegistries {
 		const owner = toPluginIdentity(ownerInput)
 		return this.#contexts.getOrCreate(owner, () => {
 			const capabilities = this.capabilitiesForPlugin(owner)
+			const isOpen = (): boolean => this.#setupOpen
 			return immutableRecord({
 				schemas: this.schemas,
 				fieldBuilderMethods: this.fieldBuilderMethods(),
@@ -267,19 +139,29 @@ export class PluginSetupRegistries {
 						this.assertPrivilegeForPlugin(owner, privilege)
 					},
 					capabilities,
-					isOpen: (): boolean => this.#setupOpen,
+					isOpen,
 					scope: () => immutableRecord({ kind: 'setup' as const }),
 				}),
 				constraintCompilers: createPluginConstraintCompilerRegistry({
 					assertPrivilege: () => {
 						this.assertPrivilegeForPlugin(owner, 'adapter:consume')
 					},
-					isOpen: (): boolean => this.#setupOpen,
+					isOpen,
 					ownerPlugin: owner.pluginId,
+					// Compiler identities are unique application-wide, so ownership is the only key.
 					register: (name: string, value: unknown): void => {
-						this.#constraintCompilers.registerLocal(owner, name, value)
+						this.#constraintCompilers.push(
+							immutableRecord({
+								name,
+								ownerPlugin: owner.pluginId,
+								...(owner.instanceId === undefined
+									? {}
+									: { ownerInstanceId: owner.instanceId }),
+								value,
+							}),
+						)
 					},
-					values: () => this.#constraintCompilers.values(),
+					values: () => this.#constraintCompilers,
 				}),
 			})
 		})

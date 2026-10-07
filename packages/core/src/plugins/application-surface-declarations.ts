@@ -5,6 +5,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import { Schema, type SchemaDefinition } from '../schema/schema/definition.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
@@ -198,15 +200,11 @@ export const createApplicationSurfaceRegistrars = (
 					throw new TypeError('model surface must be a plain object')
 				}
 				// Removed command maps must fail for JavaScript callers instead of becoming inert options.
-				for (const key of Object.keys(options)) {
-					if (
-						key !== 'contributionId' &&
-						key !== 'schemaMutations' &&
-						key !== 'staticOptions'
-					) {
-						throw new TypeError(`model surface contains unknown option: ${key}`)
-					}
-				}
+				assertExactEnumerableKeys(
+					options,
+					new Set(['contributionId', 'schemaMutations', 'staticOptions']),
+					'model surface contains unknown option: ',
+				)
 				assertNonEmptyString(
 					options.contributionId,
 					'model surface contributionId',

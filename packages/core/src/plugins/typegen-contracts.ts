@@ -4,6 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+
 const typegenReferenceBrand: unique symbol = Symbol('TypegenReference')
 const typegenReferences = new WeakSet<object>()
 const identifierPattern = /^[$A-Z_a-z][$\w]*$/u
@@ -29,11 +31,11 @@ export const defineTypegenReference = <
 	if (!isPlainRecord(options)) {
 		throw new TypeError('Typegen reference must be a plain object')
 	}
-	for (const key of Object.keys(options)) {
-		if (key !== 'exportName' && key !== 'module') {
-			throw new TypeError(`Typegen reference contains unknown option: ${key}`)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		new Set(['exportName', 'module']),
+		'Typegen reference contains unknown option: ',
+	)
 	assertNonEmptyString(options.module, 'Typegen reference module')
 	assertNonEmptyString(options.exportName, 'Typegen reference exportName')
 	if (options.module.trim() !== options.module || /\s/u.test(options.module)) {

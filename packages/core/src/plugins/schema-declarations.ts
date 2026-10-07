@@ -1,5 +1,3 @@
-export { addSchemaConstraint } from './schema-artifact-patch-operations.js'
-
 export { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
 
 export type {
@@ -12,6 +10,7 @@ export type {
 export { SchemaDeclarationRegistry } from './schema-declaration-registry.js'
 
 export {
+	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,

@@ -1,11 +1,11 @@
 import { assertNonEmptyString } from '@ultimabase/shared'
 
-import type {
-	FrameworkErrorDetails,
-	FrameworkErrorOptions,
+import {
+	PublicError,
+	type FrameworkErrorDetails,
+	type FrameworkErrorOptions,
+	type PublicErrorPayload,
 } from './framework-error.js'
-import { PublicError } from './public-error-state.js'
-import type { PublicErrorPayload } from './public-error-state.js'
 
 /** Defines the safe payload a transport may serialize for one plugin domain failure. */
 export interface PluginErrorPayload<

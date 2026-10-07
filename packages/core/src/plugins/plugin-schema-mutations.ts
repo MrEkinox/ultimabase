@@ -1,5 +1,7 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+
 import {
 	assertOperationIdentity,
 	assertOperationValueContract,
@@ -184,22 +186,20 @@ export const defineSchemaMutation = <
 	if (!isPlainRecord(untrusted)) {
 		throw new TypeError('schema mutation definition must be a plain object')
 	}
-	for (const key of Object.keys(untrusted)) {
-		if (
-			key !== 'authority' &&
-			key !== 'effect' &&
-			key !== 'errors' &&
-			key !== 'input' &&
-			key !== 'name' &&
-			key !== 'returning' &&
-			key !== 'select' &&
-			key !== 'version'
-		) {
-			throw new TypeError(
-				`schema mutation definition contains unknown option: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerableKeys(
+		untrusted,
+		new Set([
+			'authority',
+			'effect',
+			'errors',
+			'input',
+			'name',
+			'returning',
+			'select',
+			'version',
+		]),
+		'schema mutation definition contains unknown option: ',
+	)
 
 	assertOperationIdentity(options.name, options.version, 'schema mutation')
 	assertOperationValueContract(options.input, 'schema mutation input')

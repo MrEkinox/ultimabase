@@ -1,6 +1,5 @@
 import { ApplicationCapabilityHost } from './capability-host.js'
 import { runWithApplicationPluginOwner } from './callback-execution.js'
-import type { NormalizedPlugin } from './normalization.js'
 import { createPluginApplication, type PluginDefinition } from './definition.js'
 import type { PluginGraph } from './graph.js'
 import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
@@ -30,7 +29,7 @@ export type PluginLifecycleState =
 	| 'disposed'
 
 interface InitializedPlugin {
-	readonly plugin: NormalizedPlugin
+	readonly definition: PluginDefinition
 	readonly resource: PluginApplicationResource<unknown> | undefined
 }
 
@@ -49,15 +48,8 @@ const throwCleanupErrors = (
 	errors: readonly unknown[],
 	message: string,
 ): void => {
-	if (errors.length === 0) {
-		return
-	}
-
-	if (errors.length === 1) {
-		throw errors[0]
-	}
-
-	throw new AggregateError(errors, message)
+	if (errors.length === 1) throw errors[0]
+	if (errors.length > 1) throw new AggregateError(errors, message)
 }
 
 const throwLifecycleFailure = (
@@ -210,18 +202,16 @@ export class PluginLifecycleManager {
 
 		try {
 			await this.#capabilities.materialize()
-			for (const plugin of this.#graph) {
+			for (const { definition } of this.#graph) {
 				const setupContext = this.#registries.forPlugin(
-					plugin.definition.manifest.identity,
+					definition.manifest.identity,
 				)
-				const resource = await runWithApplicationPluginOwner(
-					this.#application,
-					plugin.definition.manifest.identity,
-					() => createPluginApplication(plugin.definition, setupContext),
+				const resource = await this.#runAs(definition, () =>
+					createPluginApplication(definition, setupContext),
 				)
 
-				this.#exportsByDefinition.set(plugin.definition, resource?.exports)
-				this.#initializedPlugins.push({ plugin, resource })
+				this.#exportsByDefinition.set(definition, resource?.exports)
+				this.#initializedPlugins.push({ definition, resource })
 			}
 
 			// Setup-only typed registries close before any infrastructure hook can run.
@@ -229,7 +219,7 @@ export class PluginLifecycleManager {
 			this.#state = 'ready'
 		} catch (error: unknown) {
 			// Missing requirements must not replace the plugin error that prevented setup.
-			this.#registries.abortSetup()
+			this.#registries.closeSetup()
 			const cleanupErrors = await this.#releaseResources()
 
 			throwLifecycleFailure(error, cleanupErrors)
@@ -242,13 +232,9 @@ export class PluginLifecycleManager {
 			this.#state = 'starting'
 
 			for (const phase of startupPhases) {
-				for (const initializedPlugin of this.#initializedPlugins) {
-					await runWithApplicationPluginOwner(
-						this.#application,
-						initializedPlugin.plugin.definition.manifest.identity,
-						() => initializedPlugin.resource?.[phase]?.(),
-					)
-					this.#activePlugins.add(initializedPlugin.plugin.definition)
+				for (const { definition, resource } of this.#initializedPlugins) {
+					await this.#runAs(definition, () => resource?.[phase]?.())
+					this.#activePlugins.add(definition)
 				}
 			}
 
@@ -317,20 +303,13 @@ export class PluginLifecycleManager {
 	async #stopActivePlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const initializedPlugin of this.#initializedPlugins.toReversed()) {
-			const plugin = initializedPlugin.plugin.definition
-
-			if (!this.#activePlugins.has(plugin)) {
-				continue
-			}
-
+		for (const {
+			definition,
+			resource,
+		} of this.#initializedPlugins.toReversed()) {
+			if (!this.#activePlugins.has(definition)) continue
 			await collectFailure(
-				() =>
-					runWithApplicationPluginOwner(
-						this.#application,
-						initializedPlugin.plugin.definition.manifest.identity,
-						() => initializedPlugin.resource?.stop?.(),
-					),
+				() => this.#runAs(definition, () => resource?.stop?.()),
 				errors,
 			)
 		}
@@ -344,21 +323,16 @@ export class PluginLifecycleManager {
 	async #disposeInitializedPlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const initializedPlugin of this.#initializedPlugins.toReversed()) {
+		for (const {
+			definition,
+			resource,
+		} of this.#initializedPlugins.toReversed()) {
 			await collectFailure(
-				() =>
-					runWithApplicationPluginOwner(
-						this.#application,
-						initializedPlugin.plugin.definition.manifest.identity,
-						() => initializedPlugin.resource?.dispose?.(),
-					),
+				() => this.#runAs(definition, () => resource?.dispose?.()),
 				errors,
 			)
 			await collectFailure(
-				() =>
-					this.#capabilities.disposeOwner(
-						initializedPlugin.plugin.definition.manifest.identity,
-					),
+				() => this.#capabilities.disposeOwner(definition.manifest.identity),
 				errors,
 			)
 		}
@@ -368,6 +342,14 @@ export class PluginLifecycleManager {
 		this.#cleanupErrors.push(...errors)
 
 		return errors
+	}
+
+	#runAs<TResult>(plugin: PluginDefinition, callback: () => TResult): TResult {
+		return runWithApplicationPluginOwner(
+			this.#application,
+			plugin.manifest.identity,
+			callback,
+		)
 	}
 
 	async #disposeCapabilities(): Promise<void> {

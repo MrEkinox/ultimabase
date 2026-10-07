@@ -29,10 +29,10 @@ import {
 	PluginDeclarationDiagnosticError,
 	type PluginDeclarationFailureDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
-	samePluginOwner,
 	type SchemaDeclarationBatch,
 	snapshotStaticOptions,
 } from './schema-declaration-contracts.js'
+import { isSamePluginIdentity } from './manifest.js'
 
 import {
 	fieldOptionDefinitions,
@@ -55,11 +55,11 @@ import {
 import { compileCommandGraph } from './application-surface-registry.js'
 import type { CompiledCommandGraph } from './command-graph.js'
 import { compileSchemaDeclarations } from './compiled-schema-declarations.js'
-import { createCompiledTypegenGraph } from './compiled-typegen-graph.js'
 import { executeRuntimeCompilations } from './schema-runtime-options.js'
 import { normalizeSelector } from './schema-selectors.js'
 import {
 	type CompiledTypegenGraph,
+	createCompiledTypegenGraph,
 	createTypegenReferenceRegistrar,
 	snapshotTypegenDeclarations,
 	type TypegenReferenceRegistrar,
@@ -342,7 +342,9 @@ export class SchemaDeclarationRegistry {
 		for (const batch of this.#batches) {
 			for (const addition of batch.additions) {
 				const prior = contributionIds.get(addition.contributionId) ?? []
-				if (prior.some((owner) => samePluginOwner(owner, addition.owner))) {
+				if (
+					prior.some((owner) => isSamePluginIdentity(owner, addition.owner))
+				) {
 					throw new PluginDeclarationDiagnosticError(
 						`Duplicate schema contributionId: ${addition.contributionId}`,
 						pluginDeclarationDiagnostic(

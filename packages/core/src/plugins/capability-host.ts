@@ -1,4 +1,7 @@
-import type { CommandBindings } from '../runtime/commands/bindings.js'
+import type {
+	CommandBindings,
+	OwnedCommandHandlerPlan,
+} from '../runtime/commands/bindings.js'
 import type { CompiledCommandGraph } from './command-graph.js'
 import {
 	immutableArray,
@@ -18,8 +21,8 @@ import {
 import {
 	composeCapability,
 	runApplicationCapabilityFactory,
-	type ApplicationCapabilityResource,
 	type ApplicationCapabilityFactoryContext,
+	type ApplicationCapabilityResource,
 	type CapabilityConsumerValue,
 	type CapabilityProviderContribution,
 	type CapabilityRequirement,
@@ -27,16 +30,17 @@ import {
 	type PluginCapabilityReader,
 } from './capabilities.js'
 import {
+	findActivePrivilegeRequest,
 	readCapabilityPlans,
 	readDeclarationCapability,
 	type CapabilityInventory,
 } from './capability-inventory.js'
+import { readPluginCommandPlan } from './definition.js'
 import type { PluginGraph } from './graph.js'
-import type { NormalizedPlugin } from './normalization.js'
-import { PluginCommandMaterializer } from './plugin-command-materializer.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	pluginContributionOwner,
 	type PluginIdentity,
 	type PluginPrivilege,
 } from './manifest.js'
@@ -47,6 +51,7 @@ import {
 	isApplicationOperationTransportPlanningCapability,
 } from '../runtime/application/application-operation-transport-planning.js'
 import * as mutation from '../runtime/application/application-schema-mutation-surface.js'
+
 interface MaterializedCapabilityResource {
 	readonly owner: PluginIdentity
 	readonly dispose: () => MaybePromise<void>
@@ -59,30 +64,11 @@ interface MaterializedCapability {
 	readonly consumer: unknown
 	readonly contributions: readonly MaterializedCapabilityContribution[]
 }
-const noMaterializedContributions: readonly MaterializedCapabilityContribution[] =
-	immutableArray([])
-const throwCapabilityCycle = (
-	token: CapabilityToken,
-	resolutionStack: readonly CapabilityToken[],
-): never => {
-	const cycleStart = resolutionStack.findIndex(
-		(candidate) => candidate === token,
-	)
-	const cycle = [...resolutionStack.slice(cycleStart), token].map(
-		(candidate) => `${candidate.capabilityId}@${candidate.version}`,
-	)
-
-	throw new FrameworkError(
-		'PLUGIN_CAPABILITY_CONFLICT',
-		`Application capability dependency cycle detected: ${cycle.join(' -> ')}.`,
-		{
-			internalDetails: {
-				kind: 'application-capability-cycle',
-				cycle,
-			},
-		},
-	)
-}
+type ReaderPhase = 'factory' | 'setup'
+const unresolvedCapability: MaterializedCapability = immutableRecord({
+	consumer: undefined,
+	contributions: immutableArray([]),
+})
 const assertApplicationResource: (
 	value: unknown,
 	capabilityId: string,
@@ -108,37 +94,32 @@ const assertApplicationResource: (
 	}
 }
 const throwCleanupErrors = (errors: readonly unknown[]): void => {
-	if (errors.length === 0) return
 	if (errors.length === 1) throw errors[0]
-	throw new AggregateError(
-		errors,
-		'Multiple application capabilities failed to dispose.',
-	)
-}
-const createDeniedConstraintCompilerReader = (
-	owner: PluginIdentity,
-): DatabaseConstraintCompilerReader => {
-	const throwDenied = (): never => {
-		throw new FrameworkError(
-			'PLUGIN_PRIVILEGE_DENIED',
-			`Plugin "${formatPluginIdentity(owner)}" requires active privilege "adapter:consume" to read database constraint compilers.`,
-			{
-				internalDetails: {
-					kind: 'capability-factory-privilege-missing',
-					plugin: formatPluginIdentity(owner),
-					privilege: 'adapter:consume',
-				},
-			},
+	if (errors.length > 1) {
+		throw new AggregateError(
+			errors,
+			'Multiple application capabilities failed to dispose.',
 		)
 	}
-
-	return Object.freeze({
-		get size(): number {
-			return throwDenied()
-		},
-		values: throwDenied,
-	})
 }
+const throwFactoryPrivilegeDenied = (
+	owner: PluginIdentity,
+	privilege: PluginPrivilege,
+	purpose: string,
+): never => {
+	throw new FrameworkError(
+		'PLUGIN_PRIVILEGE_DENIED',
+		`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" ${purpose}.`,
+		{
+			internalDetails: {
+				kind: 'capability-factory-privilege-missing',
+				plugin: formatPluginIdentity(owner),
+				privilege,
+			},
+		},
+	)
+}
+
 /** Materializes application values and creates exact owner-bound consumer readers. */
 export class ApplicationCapabilityHost {
 	readonly #commands: (() => CompiledCommandGraph | undefined) | undefined
@@ -192,32 +173,6 @@ export class ApplicationCapabilityHost {
 		)
 	}
 
-	#assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {
-		const plugin = this.#graph.get(owner)
-		const request = plugin?.definition.manifest.privileges.find(
-			(candidate) => candidate.name === privilege,
-		)
-		if (
-			plugin !== undefined &&
-			request !== undefined &&
-			this.#inventory.isPrivilegeActive(owner, request)
-		) {
-			return
-		}
-
-		throw new FrameworkError(
-			'PLUGIN_PRIVILEGE_DENIED',
-			`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this capability effect.`,
-			{
-				internalDetails: {
-					kind: 'capability-factory-privilege-missing',
-					plugin: formatPluginIdentity(owner),
-					privilege,
-				},
-			},
-		)
-	}
-
 	/** Materializes every active application capability exactly once before setup. */
 	materialize(): Promise<void> {
 		if (this.#disposed) {
@@ -231,20 +186,20 @@ export class ApplicationCapabilityHost {
 	read<const TToken extends CapabilityToken>(
 		token: TToken,
 	): CapabilityConsumerValue<TToken> | undefined {
-		this.#assertMaterialized()
-		return this.#resolved.get(token)?.consumer
+		return this.#materializedCapability(token)?.consumer
 	}
 
 	/** Reads Core-owned provider provenance without opening generic plugin lookup. */
 	readContributions<const TToken extends CapabilityToken>(
 		token: TToken,
 	): readonly MaterializedCapabilityContribution<TToken>[] {
-		this.#assertMaterialized()
-		return (this.#resolved.get(token)?.contributions ??
-			noMaterializedContributions) as readonly MaterializedCapabilityContribution<TToken>[]
+		return (this.#materializedCapability(token) ?? unresolvedCapability)
+			.contributions as readonly MaterializedCapabilityContribution<TToken>[]
 	}
 
-	#assertMaterialized(): void {
+	#materializedCapability(
+		token: CapabilityToken,
+	): MaterializedCapability | undefined {
 		if (this.#disposed) {
 			throw new TypeError('Application capabilities are no longer available')
 		}
@@ -253,26 +208,38 @@ export class ApplicationCapabilityHost {
 				'Application capabilities require completed materialization',
 			)
 		}
+		return this.#resolved.get(token)
 	}
 
 	/** Returns one stable reader whose requirement objects are fixed to its owner. */
 	forPlugin(owner: PluginIdentity): PluginCapabilityReader {
-		return this.#readerFor(owner, 'setup', this.#readers)
+		return this.#readerFor(owner, 'setup')
 	}
 
 	#readerFor(
 		owner: PluginIdentity,
-		phase: 'factory' | 'setup',
-		readers: PluginIdentityMap<PluginCapabilityReader>,
+		phase: ReaderPhase,
 	): PluginCapabilityReader {
+		const readers = phase === 'setup' ? this.#readers : this.#factoryReaders
 		return readers.getOrCreate(
 			owner,
 			() =>
 				immutableRecord({
-					contributions: (requirement: CapabilityRequirement) =>
-						this.#readProviderContributions(owner, requirement, phase),
+					contributions: (requirement: CapabilityRequirement) => {
+						if (requirement.token.lifetime !== 'application') {
+							this.#assertDeclaredRequirementRead(owner, requirement, phase)
+							throw new TypeError(
+								'Provider contributions require an application capability',
+							)
+						}
+						return (
+							this.#read(owner, requirement, phase) ?? unresolvedCapability
+						).contributions
+					},
 					get: (requirement: CapabilityRequirement): unknown =>
-						this.#read(owner, requirement, phase),
+						requirement.token.lifetime === 'declaration'
+							? this.#readDeclaration(owner, requirement, phase)
+							: this.#read(owner, requirement, phase)?.consumer,
 				}) as PluginCapabilityReader,
 		)
 	}
@@ -313,20 +280,72 @@ export class ApplicationCapabilityHost {
 		return errors
 	}
 
-	async #performMaterialization(): Promise<void> {
-		const commands = new PluginCommandMaterializer({
-			application: this.#application,
-			context: (plugin, owner) => this.#factoryContext(plugin, owner),
-			graph: this.#graph,
-			retain: (resource) => this.#resources.push(resource),
+	/** Retains one cleanup callback, attributed to its plugin owner when it has one. */
+	#retain(
+		owner: PluginIdentity,
+		dispose: (() => MaybePromise<void>) | undefined,
+		attributed: boolean,
+	): void {
+		if (dispose === undefined) return
+		this.#resources.push({
+			owner,
+			dispose: attributed
+				? () => runWithApplicationPluginOwner(this.#application, owner, dispose)
+				: dispose,
 		})
-		this.#commandBindings = commands.bindTransports(this.#commands?.())
-		for (const { entry } of readCapabilityPlans(this.#inventory).values()) {
-			if (entry.token.lifetime === 'application') {
-				await this.#resolve(entry.token, [])
+	}
+
+	async #performMaterialization(): Promise<void> {
+		const plans = this.#graph.plugins.map((plugin) => ({
+			owner: pluginContributionOwner(plugin.definition.manifest),
+			plan: readPluginCommandPlan(plugin.definition),
+		}))
+		const graph = this.#commands?.()
+		// Inert transport facts are bound before capability factories can plan them.
+		if (graph === undefined) {
+			if (
+				plans.some(
+					({ plan }) => plan.handlers.length > 0 || plan.transports.length > 0,
+				)
+			) {
+				throw new TypeError(
+					'Plugin commands require a compiled application command graph',
+				)
 			}
+		} else {
+			graph.bindings.bindTransports(
+				plans.flatMap(({ owner, plan }) =>
+					plan.transports.map((transport) => ({ ...transport, owner })),
+				),
+			)
+			this.#commandBindings = graph.bindings
 		}
-		await commands.bindHandlers(this.#commandBindings)
+
+		for (const [token] of readCapabilityPlans(this.#inventory)) {
+			if (token.lifetime === 'application') await this.#resolve(token, [])
+		}
+
+		// Owner-attributed handlers are created after their capability dependencies.
+		if (this.#commandBindings !== undefined) {
+			const handlers: OwnedCommandHandlerPlan[] = []
+			for (const { owner, plan } of plans) {
+				for (const handler of plan.handlers) {
+					const resource = await runWithApplicationPluginOwner(
+						this.#application,
+						owner,
+						() => handler.create(this.#factoryContext(owner, true)),
+					)
+					handlers.push({
+						contributionId: handler.contributionId,
+						owner,
+						resource,
+						source: handler.source,
+					})
+					this.#retain(owner, resource.dispose, true)
+				}
+			}
+			this.#commandBindings.bindHandlers(handlers)
+		}
 		this.#materialized = true
 	}
 
@@ -337,32 +356,31 @@ export class ApplicationCapabilityHost {
 		const resolved = this.#resolved.get(token)
 		if (resolved !== undefined) return resolved.consumer
 		if (resolutionStack.includes(token)) {
-			throwCapabilityCycle(token, resolutionStack)
+			const cycle = [
+				...resolutionStack.slice(resolutionStack.indexOf(token)),
+				token,
+			].map((candidate) => `${candidate.capabilityId}@${candidate.version}`)
+			throw new FrameworkError(
+				'PLUGIN_CAPABILITY_CONFLICT',
+				`Application capability dependency cycle detected: ${cycle.join(' -> ')}.`,
+				{ internalDetails: { kind: 'application-capability-cycle', cycle } },
+			)
 		}
 
-		const plan = readCapabilityPlans(this.#inventory).get(token)
-		if (plan === undefined || plan.providers.length === 0) {
-			this.#resolved.set(token, {
-				consumer: undefined,
-				contributions: noMaterializedContributions,
-			})
+		const providers = readCapabilityPlans(this.#inventory).get(token)?.providers
+		if (providers === undefined || providers.length === 0) {
+			this.#resolved.set(token, unresolvedCapability)
 			return undefined
 		}
 
 		const nextStack = [...resolutionStack, token]
-		const providers: unknown[] = []
-		const materializedContributions: MaterializedCapabilityContribution[] = []
-		for (const contribution of plan.providers) {
-			const plugin = contribution.plugin
-
-			const requirements =
-				plugin === undefined
-					? []
-					: [
-							...plugin.definition.manifest.capabilities.requires,
-							...plugin.definition.manifest.capabilities.optional,
-						]
-			for (const requirement of requirements) {
+		const contributions: MaterializedCapabilityContribution[] = []
+		for (const { declaration, owner, plugin, version } of providers) {
+			const capabilities = plugin?.definition.manifest.capabilities
+			for (const requirement of [
+				...(capabilities?.requires ?? []),
+				...(capabilities?.optional ?? []),
+			]) {
 				if (
 					requirement.phase === 'materialization' &&
 					requirement.token !== token &&
@@ -372,55 +390,40 @@ export class ApplicationCapabilityHost {
 				}
 			}
 
+			const attributed = plugin !== undefined
 			const createResource = () =>
 				runApplicationCapabilityFactory(
-					contribution.declaration,
-					this.#factoryContext(plugin, contribution.owner),
+					declaration,
+					this.#factoryContext(owner, attributed),
 				)
-			const resource = await (plugin === undefined
-				? createResource()
-				: runWithApplicationPluginOwner(
+			const resource: unknown = await (attributed
+				? runWithApplicationPluginOwner(
 						this.#application,
-						contribution.owner,
+						owner,
 						createResource,
-					))
+					)
+				: createResource())
 			assertApplicationResource(resource, token.capabilityId)
-			const providerValue = materializeAdapterContribution(
-				token,
-				resource.value,
-				{
-					contributionId: contribution.declaration.contributionId,
-					owner: contribution.owner,
-					packageVersion: contribution.version,
-				},
-			)
-			providers.push(providerValue)
-			materializedContributions.push(
+			const value = materializeAdapterContribution(token, resource.value, {
+				contributionId: declaration.contributionId,
+				owner,
+				packageVersion: version,
+			})
+			contributions.push(
 				immutableRecord({
-					contributionId: contribution.declaration.contributionId,
-					owner: contribution.owner,
-					pluginVersion: contribution.version,
-					value: providerValue,
+					contributionId: declaration.contributionId,
+					owner,
+					pluginVersion: version,
+					value,
 				}),
 			)
-			if (resource.dispose !== undefined) {
-				const dispose = resource.dispose
-				this.#resources.push({
-					owner: contribution.owner,
-					dispose:
-						plugin === undefined
-							? resource.dispose
-							: () =>
-									runWithApplicationPluginOwner(
-										this.#application,
-										contribution.owner,
-										dispose,
-									),
-				})
-			}
+			this.#retain(owner, resource.dispose, attributed)
 		}
 
-		const consumer: unknown = composeCapability(token, providers)
+		const consumer: unknown = composeCapability(
+			token,
+			contributions.map(({ value }) => value),
+		)
 		if (isApplicationOperationTransportPlanningCapability(token)) {
 			bindApplicationOperationTransportPlanner(consumer, this.#application)
 		}
@@ -432,79 +435,92 @@ export class ApplicationCapabilityHost {
 		}
 		this.#resolved.set(token, {
 			consumer,
-			contributions: immutableArray(materializedContributions),
+			contributions: immutableArray(contributions),
 		})
 		return consumer
 	}
 
 	#factoryContext(
-		plugin: NormalizedPlugin | undefined,
 		owner: PluginIdentity,
+		isPlugin: boolean,
 	): ApplicationCapabilityFactoryContext {
+		const canConsumeAdapter =
+			isPlugin &&
+			findActivePrivilegeRequest(
+				this.#inventory,
+				this.#graph.get(owner),
+				'adapter:consume',
+			) !== undefined
+		const deny = (): never =>
+			throwFactoryPrivilegeDenied(
+				owner,
+				'adapter:consume',
+				'to read database constraint compilers',
+			)
 		return immutableRecord({
 			assertPrivilege: (privilege: PluginPrivilege): void => {
-				this.#assertPrivilege(owner, privilege)
+				if (
+					findActivePrivilegeRequest(
+						this.#inventory,
+						this.#graph.get(owner),
+						privilege,
+					) === undefined
+				) {
+					throwFactoryPrivilegeDenied(
+						owner,
+						privilege,
+						'for this capability effect',
+					)
+				}
 			},
 			callbacks: this.#callbacks,
-			capabilities: this.#readerFor(owner, 'factory', this.#factoryReaders),
-			constraintCompilers:
-				plugin !== undefined && this.#canConsumeAdapter(owner, plugin)
-					? this.#constraintCompilers
-					: createDeniedConstraintCompilerReader(owner),
+			capabilities: this.#readerFor(owner, 'factory'),
+			constraintCompilers: canConsumeAdapter
+				? this.#constraintCompilers
+				: Object.freeze({
+						get size(): number {
+							return deny()
+						},
+						values: deny,
+					}),
 			owner,
 			schemas: this.#schemas,
 		})
 	}
 
+	#readDeclaration(
+		owner: PluginIdentity,
+		requirement: CapabilityRequirement,
+		phase: ReaderPhase,
+	): unknown {
+		this.#assertDeclaredRequirementRead(owner, requirement, phase)
+		return this.#inventory.isRequirementActive(owner, requirement)
+			? readDeclarationCapability(this.#inventory, requirement)
+			: undefined
+	}
+
 	#read(
 		owner: PluginIdentity,
 		requirement: CapabilityRequirement,
-		readerPhase: 'factory' | 'setup',
-	): unknown {
-		this.#assertDeclaredRequirementRead(owner, requirement, readerPhase)
-
+		phase: ReaderPhase,
+	): MaterializedCapability | undefined {
+		this.#assertDeclaredRequirementRead(owner, requirement, phase)
 		if (!this.#inventory.isRequirementActive(owner, requirement)) {
 			return undefined
 		}
-		if (requirement.token.lifetime === 'declaration') {
-			return readDeclarationCapability(this.#inventory, requirement)
-		}
 		const resolved = this.#resolved.get(requirement.token)
 		if (resolved === undefined) {
 			throw new TypeError(
 				`Application capability "${requirement.token.capabilityId}" was read before materialization`,
 			)
 		}
-		return resolved.consumer
-	}
-
-	#readProviderContributions(
-		owner: PluginIdentity,
-		requirement: CapabilityRequirement,
-		readerPhase: 'factory' | 'setup',
-	): readonly MaterializedCapabilityContribution[] {
-		this.#assertDeclaredRequirementRead(owner, requirement, readerPhase)
-		if (requirement.token.lifetime !== 'application') {
-			throw new TypeError(
-				'Provider contributions require an application capability',
-			)
-		}
-		if (!this.#inventory.isRequirementActive(owner, requirement)) {
-			return immutableArray([])
-		}
-		const resolved = this.#resolved.get(requirement.token)
-		if (resolved === undefined) {
-			throw new TypeError(
-				`Application capability "${requirement.token.capabilityId}" was read before materialization`,
-			)
-		}
-		return resolved.contributions
+		return resolved
 	}
 
 	#assertDeclaredRequirementRead(
 		owner: PluginIdentity,
 		requirement: CapabilityRequirement,
-		readerPhase: 'factory' | 'setup',
+		phase: ReaderPhase,
 	): void {
 		const plugin = this.#graph.get(owner)
 		if (plugin === undefined) {
@@ -512,43 +528,30 @@ export class ApplicationCapabilityHost {
 				`Unknown capability reader owner: ${formatPluginIdentity(owner)}`,
 			)
 		}
-		const declarations = plugin.definition.manifest.capabilities
-		const declared = [...declarations.requires, ...declarations.optional].some(
-			(candidate) => candidate === requirement,
-		)
-		if (!declared) {
-			throw new FrameworkError(
-				'PLUGIN_CAPABILITY_MISSING',
-				`Plugin "${formatPluginIdentity(owner)}" attempted to read an undeclared capability requirement.`,
-				{
-					internalDetails: {
-						kind: 'undeclared-capability-read',
-						plugin: formatPluginIdentity(owner),
-						capabilityId: requirement.token.capabilityId,
-					},
-				},
-			)
-		}
-		if (readerPhase === 'factory' && requirement.phase === 'setup') {
-			throw new FrameworkError(
-				'PLUGIN_CAPABILITY_MISSING',
-				`Plugin "${formatPluginIdentity(owner)}" attempted to read a setup-phase capability from an application factory.`,
-				{
-					internalDetails: {
+		const { requires, optional } = plugin.definition.manifest.capabilities
+		const violation = ![...requires, ...optional].includes(requirement)
+			? {
+					kind: 'undeclared-capability-read',
+					message: 'attempted to read an undeclared capability requirement',
+				}
+			: phase === 'factory' && requirement.phase === 'setup'
+				? {
 						kind: 'setup-capability-factory-read',
-						plugin: formatPluginIdentity(owner),
-						capabilityId: requirement.token.capabilityId,
-					},
+						message:
+							'attempted to read a setup-phase capability from an application factory',
+					}
+				: undefined
+		if (violation === undefined) return
+		throw new FrameworkError(
+			'PLUGIN_CAPABILITY_MISSING',
+			`Plugin "${formatPluginIdentity(owner)}" ${violation.message}.`,
+			{
+				internalDetails: {
+					kind: violation.kind,
+					plugin: formatPluginIdentity(owner),
+					capabilityId: requirement.token.capabilityId,
 				},
-			)
-		}
-	}
-
-	#canConsumeAdapter(owner: PluginIdentity, plugin: NormalizedPlugin): boolean {
-		return plugin.definition.manifest.privileges.some(
-			(request) =>
-				request.name === 'adapter:consume' &&
-				this.#inventory.isPrivilegeActive(owner, request),
+			},
 		)
 	}
 }

@@ -17,10 +17,8 @@ import {
 } from './plugin-schema-mutations.js'
 import type { SchemaMetadata } from '../schema/schema/definition.js'
 import type { SchemaCompilationResult } from './schema-compilation/contracts.js'
-import {
-	attachPluginDeclarationDiagnostic,
-	samePluginOwner,
-} from './schema-declaration-contracts.js'
+import { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
+import { isSamePluginIdentity } from './manifest.js'
 export type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
@@ -162,7 +160,7 @@ export const compileCommandGraph = (
 								`Schema mutation ${name} references an undeclared mutation`,
 							)
 						}
-						if (!samePluginOwner(compiled.owner, surface.owner)) {
+						if (!isSamePluginIdentity(compiled.owner, surface.owner)) {
 							throw new TypeError(
 								`Schema mutation ${name} must be attached by its declaring owner`,
 							)

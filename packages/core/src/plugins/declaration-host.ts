@@ -21,6 +21,7 @@ import { runPluginDeclaration } from './definition.js'
 import type { PluginGraph } from './graph.js'
 import {
 	formatPluginIdentity,
+	pluginContributionOwner,
 	type PluginIdentity,
 	type PluginPrivilege,
 	type PluginPrivilegeRequest,
@@ -69,41 +70,15 @@ export interface PluginDeclarationCapabilityReader<
 	): CapabilityConsumerValue<RequirementToken<TRequirement>> | undefined
 }
 
-type PrivilegeUnion<TPrivileges> =
-	TPrivileges extends readonly PluginPrivilegeRequest[]
-		? TPrivileges[number]
-		: never
-type SchemaDeclareRequest<TPrivileges> = Extract<
-	PrivilegeUnion<TPrivileges>,
-	Readonly<{ name: 'schema:declare' }>
->
-type UnconditionalSchemaDeclareRequest<TPrivileges> =
-	SchemaDeclareRequest<TPrivileges> extends infer TRequest
-		? TRequest extends Readonly<{ when: CapabilityRequirement }>
-			? never
-			: TRequest
-		: never
-
-type PluginFieldDeclarationContext<TPrivileges> = [
-	SchemaDeclareRequest<TPrivileges>,
-] extends [never]
-	? Readonly<Record<never, never>>
-	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
-		? Readonly<{ fields?: PluginFieldFamilyRegistrar }>
-		: Readonly<{ fields: PluginFieldFamilyRegistrar }>
-
-type PluginSchemaDeclarationContext<TPrivileges> = [
-	SchemaDeclareRequest<TPrivileges>,
-] extends [never]
-	? Readonly<Record<never, never>>
-	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
-		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
-		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
-
 type PrivilegeRequest<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
-> = Extract<PrivilegeUnion<TPrivileges>, Readonly<{ name: TName }>>
+> = Extract<
+	TPrivileges extends readonly PluginPrivilegeRequest[]
+		? TPrivileges[number]
+		: never,
+	Readonly<{ name: TName }>
+>
 type UnconditionalPrivilegeRequest<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
@@ -113,6 +88,7 @@ type UnconditionalPrivilegeRequest<
 			? never
 			: TRequest
 		: never
+/** Exposes one facade as required, optional (conditional privilege) or absent. */
 type PrivilegedDeclarationContext<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
@@ -124,6 +100,18 @@ type PrivilegedDeclarationContext<
 		? Readonly<Partial<Record<TProperty, TValue>>>
 		: Readonly<Record<TProperty, TValue>>
 
+type PluginFieldDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'schema:declare',
+	'fields',
+	PluginFieldFamilyRegistrar
+>
+type PluginSchemaDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'schema:declare',
+	'schemas',
+	PluginSchemaDeclarationRegistrar
+>
 type PluginModelDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
 	TPrivileges,
 	'model:extend',
@@ -181,16 +169,18 @@ export type PluginDeclaration<
 		PluginCapabilityDeclarationOptions | undefined,
 > = (context: PluginDeclarationContext<TPrivileges, TCapabilities>) => undefined
 
-const throwUndeclaredCapabilityRead = (
+const throwStaticCapabilityRead = (
 	owner: PluginIdentity,
 	requirement: CapabilityRequirement,
+	kind: string,
+	message: string,
 ): never => {
 	throw new FrameworkError(
 		'PLUGIN_CAPABILITY_MISSING',
-		`Plugin "${formatPluginIdentity(owner)}" attempted to read an undeclared capability requirement during static declaration.`,
+		`Plugin "${formatPluginIdentity(owner)}" ${message} during static declaration.`,
 		{
 			internalDetails: {
-				kind: 'undeclared-static-capability-read',
+				kind,
 				plugin: formatPluginIdentity(owner),
 				capabilityId: requirement.token.capabilityId,
 			},
@@ -222,36 +212,28 @@ export class PluginDeclarationHost {
 			throw new TypeError('Plugin static declaration is already complete')
 		}
 
-		for (const plugin of this.graph) {
-			const definition = plugin.definition
-			const owner = definition.manifest.identity
-			const activePrivileges = new Set<PluginPrivilege>()
-			for (const request of definition.manifest.privileges) {
-				if (
-					declarationPrivileges.has(request.name) &&
-					this.graph.capabilities.isPrivilegeActive(owner, request)
-				) {
-					activePrivileges.add(request.name)
-				}
-			}
-			const canDeclare = activePrivileges.has('schema:declare')
-			const canExtendModels = activePrivileges.has('model:extend')
-			const canDeclareOperations = activePrivileges.has('operation:declare')
-			const canReferenceTypegen = activePrivileges.has('typegen:reference')
-			const canUsePrivateStorage = activePrivileges.has('storage:private')
+		for (const { definition } of this.graph) {
+			const { identity: owner, capabilities: declared } = definition.manifest
+			const active = new Set(
+				definition.manifest.privileges
+					.filter(
+						(request) =>
+							declarationPrivileges.has(request.name) &&
+							this.graph.capabilities.isPrivilegeActive(owner, request),
+					)
+					.map(({ name }) => name),
+			)
+			const canDeclare = active.has('schema:declare')
+			const canExtendModels = active.has('model:extend')
+			const canDeclareOperations = active.has('operation:declare')
+			const canReferenceTypegen = active.has('typegen:reference')
+			const requirements = [...declared.requires, ...declared.optional]
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
 						formatPluginIdentity(owner),
 					)
 				: undefined
-			const schemaOwner = immutableRecord({
-				kind: 'plugin' as const,
-				pluginId: owner.pluginId,
-				...(owner.instanceId === undefined
-					? {}
-					: { instanceId: owner.instanceId }),
-				version: definition.manifest.version,
-			})
+			const schemaOwner = pluginContributionOwner(definition.manifest)
 			const schemaSession =
 				canDeclare ||
 				canExtendModels ||
@@ -263,15 +245,12 @@ export class PluginDeclarationHost {
 								declare: canDeclare,
 								modelExtend: canExtendModels,
 								operationDeclare: canDeclareOperations,
-								requirements: immutableArray([
-									...definition.manifest.capabilities.requires,
-									...definition.manifest.capabilities.optional,
-								]),
+								requirements: immutableArray(requirements),
 								typegenReference: canReferenceTypegen,
 							}),
 						)
 					: undefined
-			const privateStorageSession = canUsePrivateStorage
+			const privateStorageSession = active.has('storage:private')
 				? this.privateStorage.beginDeclaration(
 						owner,
 						definition.manifest.version,
@@ -290,51 +269,42 @@ export class PluginDeclarationHost {
 						requirement,
 						'static declaration capability requirement',
 					)
-					const declarations = definition.manifest.capabilities
-					const declared = [
-						...declarations.requires,
-						...declarations.optional,
-					].some((candidate) => candidate === requirement)
-					if (!declared) {
-						return throwUndeclaredCapabilityRead(owner, requirement)
-					}
-					if (requirement.token.lifetime !== 'declaration') {
-						throw new FrameworkError(
-							'PLUGIN_CAPABILITY_MISSING',
-							`Plugin "${formatPluginIdentity(owner)}" attempted to read application capability "${requirement.token.capabilityId}" during static declaration.`,
-							{
-								internalDetails: {
-									kind: 'application-capability-static-read',
-									plugin: formatPluginIdentity(owner),
-									capabilityId: requirement.token.capabilityId,
-								},
-							},
+					if (!requirements.includes(requirement)) {
+						return throwStaticCapabilityRead(
+							owner,
+							requirement,
+							'undeclared-static-capability-read',
+							'attempted to read an undeclared capability requirement',
 						)
 					}
-					if (
-						!this.graph.capabilities.isRequirementActive(owner, requirement)
-					) {
-						return undefined
+					if (requirement.token.lifetime !== 'declaration') {
+						return throwStaticCapabilityRead(
+							owner,
+							requirement,
+							'application-capability-static-read',
+							`attempted to read application capability "${requirement.token.capabilityId}"`,
+						)
 					}
-
-					return readDeclarationCapability(this.graph.capabilities, requirement)
+					return this.graph.capabilities.isRequirementActive(owner, requirement)
+						? readDeclarationCapability(this.graph.capabilities, requirement)
+						: undefined
 				},
 			}) as PluginDeclarationCapabilityReader
 			const context = immutableRecord({
 				capabilities,
 				...(fieldSession === undefined ? {} : { fields: fieldSession.fields }),
-				...(schemaSession !== undefined && canDeclare
-					? { schemas: schemaSession.registrar }
-					: {}),
-				...(canExtendModels && schemaSession !== undefined
-					? { models: schemaSession.models }
-					: {}),
-				...(canDeclareOperations && schemaSession !== undefined
-					? { operations: schemaSession.operations }
-					: {}),
-				...(canReferenceTypegen && schemaSession !== undefined
-					? { typegenReferences: schemaSession.typegenReferences }
-					: {}),
+				...(schemaSession === undefined
+					? {}
+					: {
+							...(canDeclare ? { schemas: schemaSession.registrar } : {}),
+							...(canExtendModels ? { models: schemaSession.models } : {}),
+							...(canDeclareOperations
+								? { operations: schemaSession.operations }
+								: {}),
+							...(canReferenceTypegen
+								? { typegenReferences: schemaSession.typegenReferences }
+								: {}),
+						}),
 				...(privateStorageSession === undefined
 					? {}
 					: { privateStorage: privateStorageSession.registrar }),

@@ -7,6 +7,8 @@ import {
 } from '@ultimabase/shared'
 import { validRange } from 'semver'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+
 import type { PluginOperationDeclarationRegistrar } from './application-surface-declarations.js'
 import type {
 	NormalizedPluginCapabilityDeclarations,
@@ -209,13 +211,11 @@ const normalizePluginDependencies = (
 			if (!isPlainRecord(dependency)) {
 				throw new TypeError(`${dependencyPath} must be a plain object`)
 			}
-			for (const key of Object.keys(dependency)) {
-				if (key !== 'pluginId' && key !== 'version' && key !== 'instanceId') {
-					throw new TypeError(
-						`${dependencyPath} contains unknown option: ${key}`,
-					)
-				}
-			}
+			assertExactEnumerableKeys(
+				dependency,
+				new Set(['pluginId', 'version', 'instanceId']),
+				`${dependencyPath} contains unknown option: `,
+			)
 
 			assertPluginId(dependency.pluginId, `${dependencyPath}.pluginId`)
 			assertNonEmptyString(dependency.version, `${dependencyPath}.version`)
