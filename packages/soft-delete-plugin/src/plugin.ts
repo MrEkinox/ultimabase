@@ -10,6 +10,7 @@ import {
 	type PluginSchemaOptionSource,
 	type PluginSchemaPatchSource,
 	type SchemaSelection,
+	type SchemaSelectorOptions,
 	type AddSchemaFieldOperation,
 	type BooleanField,
 	type ForbiddenMutationInputField,
@@ -138,53 +139,40 @@ type SoftDeleteOptionSource = PluginSchemaOptionSource<{
 		softDelete: typeof softDeleteSchemaOption
 	}>
 }>
-type ExplicitSoftDeleteFieldSource = PluginSchemaPatchSource<
-	typeof tombstonePatch.operations,
-	SchemaSelection<typeof explicitSoftDeleteSelector>
->
-type ReplaceSoftDeleteFieldSource = PluginSchemaPatchSource<
-	typeof tombstonePatch.operations,
-	SchemaSelection<typeof replaceSoftDeleteSelector>
->
-type ExplicitSoftDeleteMutationSource = PluginModelSurfaceSource<
-	typeof explicitSoftDeleteSelector,
-	typeof explicitSoftDeleteSurface.schemaMutations
->
-type ExplicitSoftDeleteAdministrationSource = PluginModelSurfaceSource<
-	typeof explicitSoftDeleteSelector,
-	typeof softDeleteAdministrationSurface.schemaMutations
->
-type ReplaceSoftDeleteAdministrationSource = PluginModelSurfaceSource<
-	typeof replaceSoftDeleteSelector,
-	typeof softDeleteAdministrationSurface.schemaMutations
->
+// Each source projects the tombstone field or one mutation surface onto the
+// schemas matched by one selector.
+type TombstoneSource<TSelector extends SchemaSelectorOptions> =
+	PluginSchemaPatchSource<
+		typeof tombstonePatch.operations,
+		SchemaSelection<TSelector>
+	>
+type SurfaceSource<
+	TSelector,
+	TSurface extends ExplicitSoftDeleteSurface | SoftDeleteAdministrationSurface,
+> = PluginModelSurfaceSource<TSelector, TSurface['schemaMutations']>
+
+type ExplicitSelector = typeof explicitSoftDeleteSelector
+type ReplaceSelector = typeof replaceSoftDeleteSelector
+type DefaultSelector = typeof defaultSoftDeleteSelector
+
 type ExplicitSoftDeleteSource =
 	| SoftDeleteOptionSource
-	| ExplicitSoftDeleteFieldSource
-	| ReplaceSoftDeleteFieldSource
-	| ExplicitSoftDeleteMutationSource
-	| ExplicitSoftDeleteAdministrationSource
-	| ReplaceSoftDeleteAdministrationSource
+	| TombstoneSource<ExplicitSelector>
+	| TombstoneSource<ReplaceSelector>
+	| SurfaceSource<ExplicitSelector, ExplicitSoftDeleteSurface>
+	| SurfaceSource<ExplicitSelector, SoftDeleteAdministrationSurface>
+	| SurfaceSource<ReplaceSelector, SoftDeleteAdministrationSurface>
 
-type DefaultSoftDeleteFieldSource = PluginSchemaPatchSource<
-	typeof tombstonePatch.operations,
-	SchemaSelection<typeof defaultSoftDeleteSelector>
->
-type DefaultSoftDeleteMutationSource = PluginModelSurfaceSource<
-	typeof defaultSoftDeleteSelector,
-	typeof explicitSoftDeleteSurface.schemaMutations
->
-type DefaultSoftDeleteAdministrationSource = PluginModelSurfaceSource<
-	typeof defaultSoftDeleteSelector,
-	typeof softDeleteAdministrationSurface.schemaMutations
->
 // Widened modes expose only commands guaranteed for every possible default.
 type SoftDeleteSource<TMode extends SoftDeleteMode> =
 	| ExplicitSoftDeleteSource
 	| ([TMode] extends ['explicit' | 'replace-delete']
-			? DefaultSoftDeleteFieldSource | DefaultSoftDeleteAdministrationSource
+			? | TombstoneSource<DefaultSelector>
+				| SurfaceSource<DefaultSelector, SoftDeleteAdministrationSurface>
 			: never)
-	| ([TMode] extends ['explicit'] ? DefaultSoftDeleteMutationSource : never)
+	| ([TMode] extends ['explicit']
+			? SurfaceSource<DefaultSelector, ExplicitSoftDeleteSurface>
+			: never)
 
 const createSoftDeleteDeclarations = (
 	normalized: ReturnType<typeof normalizeSoftDeletePluginOptions>,
@@ -284,26 +272,6 @@ export const softDeletePlugin = <
 	options: SoftDeletePluginOptions & { readonly defaultMode?: TMode } = {},
 ): SoftDeletePlugin<TMode> => {
 	const normalized = normalizeSoftDeletePluginOptions(options)
-	const visibilityProvider = provideRuntimeConstraint({
-		contributionId: 'official-soft-delete-visibility',
-		create: ({ owner, schemas }) => ({
-			value: createSoftDeleteVisibilityPolicy(schemas, owner),
-		}),
-	})
-	const replaceDeleteProvider = providePersistencePlanRewriter({
-		contributionId: 'official-soft-delete-replace-delete',
-		create: ({ owner, schemas }) => ({
-			value: createSoftDeletePersistenceRewriter(
-				schemas,
-				owner,
-				normalized.defaultMode,
-			),
-		}),
-	})
-	const explicitContribution = createExplicitSoftDeleteContribution()
-	const administrationContributions =
-		createSoftDeleteAdministrationContributions()
-	const declarations = createSoftDeleteDeclarations(normalized)
 
 	// The parser validates the same mode captured by TMode before Core receives
 	// this immutable definition; no default surface is added at Runtime by typing.
@@ -316,11 +284,25 @@ export const softDeletePlugin = <
 			: { instanceId: normalized.instanceId }),
 		permissions: softDeletePluginPermissions,
 		contributions: [
-			visibilityProvider,
-			replaceDeleteProvider,
-			explicitContribution,
-			...administrationContributions,
-			declarations,
+			provideRuntimeConstraint({
+				contributionId: 'official-soft-delete-visibility',
+				create: ({ owner, schemas }) => ({
+					value: createSoftDeleteVisibilityPolicy(schemas, owner),
+				}),
+			}),
+			providePersistencePlanRewriter({
+				contributionId: 'official-soft-delete-replace-delete',
+				create: ({ owner, schemas }) => ({
+					value: createSoftDeletePersistenceRewriter(
+						schemas,
+						owner,
+						normalized.defaultMode,
+					),
+				}),
+			}),
+			createExplicitSoftDeleteContribution(),
+			...createSoftDeleteAdministrationContributions(),
+			createSoftDeleteDeclarations(normalized),
 		],
 	})
 }
