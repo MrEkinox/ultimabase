@@ -61,6 +61,7 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | hooks-plugin | 4 145 | 3 421 | Un seul dispatcher. Un écart documenté dans [DIFFERENCES.md](DIFFERENCES.md) (`__proto__`). |
 | rest-plugin | 4 320 | 3 696 | Erreurs, transports et routes unifiés. |
 | core / schema | 16 616 | 15 267 | WIP repris puis relu ; 2 écarts sur entrées non typées (DIFFERENCES.md). Voir `packages/core/REBUILD-core-schema.md`. |
+| core / runtime-app | 10 914 | 9 998 | WIP repris ; régression de rollback du WIP corrigée ; 1 écart (handles internes non exposés). Voir `packages/core/REBUILD-core-runtime-app.md`. |
 
 Total de la production (script de mesure) : **114 742 → 112 893 lignes**. Les tests sont
 inchangés (127 476 lignes).
