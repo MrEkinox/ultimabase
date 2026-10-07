@@ -79,15 +79,19 @@ coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
 `packages/core tests/e2e` 219/219 ; postgres-e2e 191/191 ; `yarn test:pack:built`
 173/173. La passe d'intégration transversale de Core reste à faire.
 
-**À requalifier sur machine calme (2)** : pendant la validation d'http-plugin (charge
-élevée), `tests/e2e/virtual-field-public-vertical.postgres.e2e.test.ts` a échoué une fois
-(3 tests) avec `SchemaCompilationError: Schema ExampleArticle has not been compiled by an
-application`. Le coordinateur l'a ensuite passé 8/8 seul sur main `edbbcf1`, et le projet
-postgres-e2e complet passe à 191/191 à chaque exécution sur main. Les enregistrements de
-compilation ne sont jamais supprimés, ce qui évoque deux instances du module Core
-(chargement `vi.importActual` parallèle, ou `dist` réécrits pendant le test) plutôt
-qu'une course logique. À la validation finale : rejouer postgres-e2e au moins 3 fois sur
-la référence et sur la reconstruction.
+**Qualifié (échec intermittent `not-compiled`)** : l'erreur
+`SchemaCompilationError: Schema ExampleArticle has not been compiled by an application`,
+vue dans des exécutions complètes de postgres-e2e sous charge, est **préexistante dans la
+référence** (1 exécution complète sur 8 sur chaque arbre, clone de référence
+`/Users/mrekinox/Desktop/claude-test/ub-ref`). Cause prouvée par injection de délai
+(3/3 sur les deux arbres) : course du module runner Vitest 4.1 / Vite 8.1. Les
+`vi.importActual` parallèles de `loadMinimalExample` (`tests/e2e/rest-public-vertical-support.ts`)
+et `invalidate: !cached` font évaluer `examples/minimal/src/schema.ts` deux fois dans un
+worker ; le test garde une copie de `ExampleArticle`, l'application compile l'autre. Les
+tests restent inchangés (règle du protocole). Atténuations possibles hors périmètre :
+importer `schema.ts` avant les trois autres modules, ou donner un `testTimeout` explicite
+au projet postgres-e2e (les cascades « Another UltimaBase application is active » viennent
+du timeout de 5 s par défaut, sur les deux arbres).
 
 **À requalifier sur machine calme (1)** : après la fusion d'access-plugin (main `fcc7d82`,
 charge ≈ 60), `create-app-packed.e2e.test.ts` › « writes a valid graph for each official
