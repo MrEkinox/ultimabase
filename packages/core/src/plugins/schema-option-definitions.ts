@@ -1,9 +1,5 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
-import {
-	assertTypeExportName,
-	isStableModuleSpecifier,
-	typeScriptIdentifierPattern,
-} from './typegen-contracts.js'
+import { typeScriptIdentifierPattern } from './typegen-contracts.js'
 
 import { assertExactPlainObject } from '../exact-object-validation.js'
 
@@ -168,7 +164,7 @@ const normalizeTypegenDescriptor = (
 	assertNonEmptyString(value.module, 'Schema option typegen.module')
 	assertNonEmptyString(value.type, 'Schema option typegen.type')
 
-	if (!isStableModuleSpecifier(value.module)) {
+	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
 		throw new TypeError(
 			'Schema option typegen.module must be a stable module specifier',
 		)
@@ -180,20 +176,26 @@ const normalizeTypegenDescriptor = (
 		)
 	}
 
-	const compatibilityType =
-		value.compatibilityType === undefined
-			? undefined
-			: assertTypeExportName(
-					value.compatibilityType,
-					'Schema option typegen.compatibilityType',
-				)
+	if (value.compatibilityType !== undefined) {
+		assertNonEmptyString(
+			value.compatibilityType,
+			'Schema option typegen.compatibilityType',
+		)
+		if (!typeScriptIdentifierPattern.test(value.compatibilityType)) {
+			throw new TypeError(
+				'Schema option typegen.compatibilityType must be a TypeScript export identifier',
+			)
+		}
+	}
 
 	if (value.generic !== undefined && value.generic !== 'self') {
 		throw new TypeError('Schema option typegen.generic must be self')
 	}
 
 	return immutableRecord({
-		...(compatibilityType === undefined ? {} : { compatibilityType }),
+		...(value.compatibilityType === undefined
+			? {}
+			: { compatibilityType: value.compatibilityType }),
 		...(value.generic === undefined ? {} : { generic: value.generic }),
 		module: value.module,
 		type: value.type,

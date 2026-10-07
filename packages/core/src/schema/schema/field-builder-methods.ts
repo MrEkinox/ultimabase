@@ -4,11 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
-import {
-	assertTypeExportName,
-	isStableModuleSpecifier,
-	typeScriptIdentifierPattern,
-} from '../../plugins/typegen-contracts.js'
+import { typeScriptIdentifierPattern } from '../../plugins/typegen-contracts.js'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
@@ -179,10 +175,18 @@ const assertDeclarationRecord: (
 	)
 }
 
+const assertTypeExportName = (value: unknown, path: string): string => {
+	assertNonEmptyString(value, path)
+	if (!typeScriptIdentifierPattern.test(value)) {
+		throw new TypeError(`${path} must be a TypeScript export identifier`)
+	}
+	return value
+}
+
 const normalizeTypegen = (value: unknown, path: string): PluginFieldTypegen => {
 	assertDeclarationRecord(value, typegenKeys, path)
 	assertNonEmptyString(value.module, `${path}.module`)
-	if (!isStableModuleSpecifier(value.module)) {
+	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
 		throw new TypeError(`${path}.module must be a stable module specifier`)
 	}
 

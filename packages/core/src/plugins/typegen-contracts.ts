@@ -8,19 +8,6 @@ const typegenReferences = new WeakSet<object>()
 /** TypeScript identifiers accepted for generated type and property names. */
 export const typeScriptIdentifierPattern = /^[$A-Z_a-z][$\w]*$/u
 
-/** Rejects module specifiers with surrounding or embedded whitespace. */
-export const isStableModuleSpecifier = (value: string): boolean =>
-	value.trim() === value && !/\s/u.test(value)
-
-/** Validates one non-empty TypeScript export identifier at a declaration path. */
-export const assertTypeExportName = (value: unknown, path: string): string => {
-	assertNonEmptyString(value, path)
-	if (!typeScriptIdentifierPattern.test(value)) {
-		throw new TypeError(`${path} must be a TypeScript export identifier`)
-	}
-	return value
-}
-
 /** Names one public exported TypeScript type without importing executable code. */
 export interface TypegenReference<
 	TModule extends string = string,
@@ -47,7 +34,7 @@ export const defineTypegenReference = <
 	)
 	assertNonEmptyString(options.module, 'Typegen reference module')
 	assertNonEmptyString(options.exportName, 'Typegen reference exportName')
-	if (!isStableModuleSpecifier(options.module)) {
+	if (options.module.trim() !== options.module || /\s/u.test(options.module)) {
 		throw new TypeError('Typegen reference module must be a stable specifier')
 	}
 	if (!typeScriptIdentifierPattern.test(options.exportName)) {
