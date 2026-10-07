@@ -3,19 +3,21 @@ import type {
 	CompiledSchemaRegistry,
 	PluginIdentity,
 } from '@ultimabase/core'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { readRestSchemaRoutes, type RestSchemaRoutesOption } from './options.js'
 import {
 	createRestRouteFragment,
+	createRestRoutePlugin,
 	encodeRestPathSegment,
+	restClassPath,
 	restProtocol,
+	type RestRouteCandidate,
 	type RestRouteFragmentValue,
-	type RestSchemaMutationRouteCandidate,
 } from './routes.js'
 import {
-	areRestSchemaMutationsEnabled,
 	assertRestSchemaResultCodecs,
+	isRestRouteEnabled,
 	readRestVirtualFields,
 } from './schema-routes.js'
 
@@ -41,13 +43,10 @@ export const compileRestSchemaMutationRouteFragment = (options: {
 	readonly pluginVersion: string
 	readonly schemas: CompiledSchemaRegistry
 }): RestRouteFragmentValue => {
-	const plugin = immutableRecord({
-		...options.owner,
-		version: options.pluginVersion,
-	})
-	const routes: RestSchemaMutationRouteCandidate[] = []
-
+	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
+	const routes: RestRouteCandidate[] = []
 	for (const descriptor of options.plan.mutations) {
+		// Master-only mutations are never generated as public routes.
 		if (descriptor.authority !== 'request') continue
 		const schema = options.schemas.get(descriptor.schema)
 		if (schema === undefined) {
@@ -55,34 +54,52 @@ export const compileRestSchemaMutationRouteFragment = (options: {
 				`REST schema mutation ${descriptor.command} targets an unavailable schema`,
 			)
 		}
-		const configuredRoutes = readRestSchemaRoutes(schema)
 		if (
 			schema.provenance.schema.owner.kind !== 'application' ||
-			!areRestSchemaMutationsEnabled(configuredRoutes, options.defaultRoutes)
+			!isRestRouteEnabled(
+				readRestSchemaRoutes(schema),
+				options.defaultRoutes,
+				'mutations',
+			)
 		) {
 			continue
 		}
 		assertRestSchemaResultCodecs(schema)
-		const classPath = `${options.basePath}/classes/${encodeRestPathSegment(schema.className, `REST schema className ${schema.className}`)}`
+		const path = `${restClassPath(options.basePath, schema.className)}/{id}/${commandPath(descriptor.command)}`
 		routes.push(
 			immutableRecord({
 				command: descriptor.command,
-				errors: descriptor.errors,
+				errors: immutableArray(descriptor.errors),
 				kind: 'rest-schema-mutation-route' as const,
 				method: 'POST' as const,
 				mutation: descriptor.mutation,
-				mutationOwner: descriptor.owner,
 				mutationVersion: descriptor.version,
 				operation: 'schemaMutation' as const,
-				path: `${classPath}/{id}/${commandPath(descriptor.command)}`,
-				plugin,
+				path,
 				protocol: restProtocol,
+				provenance: immutableRecord({
+					method: 'POST' as const,
+					mutation: immutableRecord({
+						command: descriptor.command,
+						name: descriptor.mutation,
+						owner: immutableRecord({
+							...(descriptor.owner.instanceId === undefined
+								? {}
+								: { instanceId: descriptor.owner.instanceId }),
+							pluginId: descriptor.owner.pluginId,
+							version: descriptor.owner.version,
+						}),
+						version: descriptor.version,
+					}),
+					path,
+					plugin,
+					protocolVersion: restProtocol.version,
+					schema: schema.provenance.schema,
+				}),
 				schema: schema.className,
-				schemaProvenance: schema.provenance.schema,
 				virtualFields: readRestVirtualFields(schema),
 			}),
 		)
 	}
-
 	return createRestRouteFragment(routes)
 }
