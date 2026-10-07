@@ -141,7 +141,7 @@ Pour reprendre une branche WIP :
 Si le WIP est trop cassé, `git reset --hard main` sur la branche et repartir proprement.
 Les `REBUILD-core-*.md` n'avaient pas encore été écrits.
 
-### Pas encore commencé
+### Pas encore commencé (historique : tous les packages sont désormais fusionnés)
 
 Packages : postgres-plugin (9 307), graphql-plugin (7 620), access-plugin (4 438),
 password-auth-plugin (3 567), typegen (3 018), http-plugin (2 338), roles-plugin (2 192),
@@ -197,6 +197,12 @@ yarn validate:full && yarn test:e2e && yarn test:pack
 Ils passent quand on les relance isolément.
 
 ## Enseignements
+
+- Des `dist/index.d.ts` « identiques sauf alias privés » peuvent changer le texte des
+  hovers sans qu'aucun test échoue (cas de soft-delete-plugin, dont `plugin.ts` a été
+  gardé de la référence). Étape prévue après l'intégration de Core : **audit des hovers**
+  (quickinfo de chaque export public et des usages de `examples/`, référence contre
+  reconstruction), puis correction ou consignation de chaque différence.
 
 - `apps/website/content/**` liste des fichiers sources (`sources:`) ; le projet
   `website-content` échoue si une réécriture supprime l'un d'eux. Toujours lancer
