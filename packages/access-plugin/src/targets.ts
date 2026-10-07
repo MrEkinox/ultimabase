@@ -37,13 +37,9 @@ export const defineFieldKindAccessTarget = <TField extends GenericField>(
 	return target
 }
 
+/** Accepts only selectors created above, never structural lookalikes. */
 export const readFieldKindAccessTarget = (target: unknown): string => {
-	if (!isPlainRecord(target)) {
-		throw new TypeError(
-			'Access field-kind target must be created by defineFieldKindAccessTarget()',
-		)
-	}
-	const kind = fieldKindTargets.get(target)
+	const kind = isPlainRecord(target) ? fieldKindTargets.get(target) : undefined
 	if (kind === undefined) {
 		throw new TypeError(
 			'Access field-kind target must be created by defineFieldKindAccessTarget()',
