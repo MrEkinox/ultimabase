@@ -1,7 +1,6 @@
 import {
 	defineCapability,
 	provideCapability,
-	type ApplicationCapabilityFactoryContext,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 	type CompiledSchemaRegistry,
@@ -11,12 +10,11 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import { httpMethods } from './constants.js'
+import { isHttpMethod, isReservedHttpPath } from './constants.js'
+import { HttpDefinitionRegistry, assertExactOptions } from './definitions.js'
 
 /** Names one protocol whose handler owns response and post-dispatch errors. */
 export interface HttpEndpointProtocol<
@@ -108,51 +106,39 @@ export interface HttpBrowserBootstrapRouteOptions<
 	readonly handle: HttpRequestHandler
 }
 
-const endpointDefinitions = new WeakSet<object>()
-const routeOptionKeys = new Set(['handle', 'method', 'path', 'protocol'])
-const mountOptionKeys = new Set(['handle', 'path', 'protocol'])
-const browserBootstrapOptionKeys = new Set(['handle', 'path', 'protocol'])
-
-const assertExactOptions: (
-	value: unknown,
-	allowedKeys: ReadonlySet<string>,
-	path: string,
-) => asserts value is Readonly<Record<string, unknown>> = (
-	value,
-	allowedKeys,
-	path,
-) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !allowedKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
-}
-
-const snapshotProtocol = <const TProtocol extends HttpEndpointProtocol>(
-	protocol: TProtocol,
-): Readonly<TProtocol> => {
-	assertExactOptions(
-		protocol,
-		new Set(['name', 'version']),
-		'HTTP endpoint protocol',
+/** @internal Remembers the endpoints created by the three factories below. */
+export const endpointDefinitions: HttpDefinitionRegistry<HttpEndpointDefinition> =
+	new HttpDefinitionRegistry<HttpEndpointDefinition>(
+		'httpRoute, httpMount, or httpBrowserBootstrapRoute',
 	)
-	assertNonEmptyString(protocol.name, 'HTTP endpoint protocol name')
-	assertNonEmptyString(protocol.version, 'HTTP endpoint protocol version')
-	return immutableRecord({
-		name: protocol.name,
-		version: protocol.version,
-	}) as Readonly<TProtocol>
-}
 
-const assertAbsolutePath: (
-	path: unknown,
-	label: string,
-) => asserts path is string = (path, label) => {
-	assertNonEmptyString(path, label)
+const endpointLabels = {
+	route: 'HTTP route',
+	mount: 'HTTP mount',
+	'browser-bootstrap': 'HTTP browser bootstrap route',
+} as const
+
+// Validates in the public error order: options, method, path, handle; the
+// protocol is snapshotted last while the definition is built.
+const assertEndpointOptions = (
+	options: unknown,
+	kind: HttpEndpointDefinition['kind'],
+): void => {
+	const label = endpointLabels[kind]
+	assertExactOptions(
+		options,
+		kind === 'route'
+			? ['handle', 'method', 'path', 'protocol']
+			: ['handle', 'path', 'protocol'],
+		`${label} options`,
+	)
+	if (kind === 'route' && !isHttpMethod(options.method)) {
+		throw new TypeError(
+			'HTTP route method must be a supported uppercase method',
+		)
+	}
+	const path = options.path
+	assertNonEmptyString(path, `${label} path`)
 	if (
 		!path.startsWith('/') ||
 		path.includes('?') ||
@@ -160,17 +146,35 @@ const assertAbsolutePath: (
 		(path.length > 1 && path.endsWith('/'))
 	) {
 		throw new TypeError(
-			`${label} must be an absolute path without a query, fragment, or trailing slash`,
+			`${label} path must be an absolute path without a query, fragment, or trailing slash`,
 		)
+	}
+	if (isReservedHttpPath(path)) {
+		throw new TypeError(
+			`${label} path cannot use the reserved browser bootstrap namespace`,
+		)
+	}
+	if (kind === 'browser-bootstrap' && path === '/') {
+		throw new TypeError(
+			'HTTP browser bootstrap route path must have at least one segment',
+		)
+	}
+	if (typeof options.handle !== 'function') {
+		throw new TypeError(`${label} handle must be a function`)
 	}
 }
 
-const assertUnreservedPath = (path: string, label: string): void => {
-	if (path === '/__ultimabase/apps' || path.startsWith('/__ultimabase/apps/')) {
-		throw new TypeError(
-			`${label} cannot use the reserved browser bootstrap namespace`,
-		)
-	}
+const snapshotProtocol = <const TProtocol extends HttpEndpointProtocol>(
+	protocol: TProtocol,
+): Readonly<TProtocol> => {
+	assertExactOptions(protocol, ['name', 'version'], 'HTTP endpoint protocol')
+	assertNonEmptyString(protocol.name, 'HTTP endpoint protocol name')
+	assertNonEmptyString(protocol.version, 'HTTP endpoint protocol version')
+	// The exact-key check above proves the copy has the caller's literal shape.
+	return immutableRecord({
+		name: protocol.name,
+		version: protocol.version,
+	}) as Readonly<TProtocol>
 }
 
 /** Creates one immutable exact route without registering it globally. */
@@ -181,27 +185,16 @@ export const httpRoute = <
 >(
 	options: HttpRouteOptions<TMethod, TPath, TProtocol>,
 ): HttpRouteDefinition<TMethod, TPath, TProtocol> => {
-	assertExactOptions(options, routeOptionKeys, 'HTTP route options')
-	if (!httpMethods.has(options.method)) {
-		throw new TypeError(
-			'HTTP route method must be a supported uppercase method',
-		)
-	}
-	assertAbsolutePath(options.path, 'HTTP route path')
-	assertUnreservedPath(options.path, 'HTTP route path')
-	if (typeof options.handle !== 'function') {
-		throw new TypeError('HTTP route handle must be a function')
-	}
-
-	const definition = immutableRecord({
-		kind: 'route' as const,
-		method: options.method,
-		path: options.path,
-		protocol: snapshotProtocol(options.protocol),
-		handle: options.handle,
-	})
-	endpointDefinitions.add(definition)
-	return definition
+	assertEndpointOptions(options, 'route')
+	return endpointDefinitions.register(
+		immutableRecord({
+			kind: 'route' as const,
+			method: options.method,
+			path: options.path,
+			protocol: snapshotProtocol(options.protocol),
+			handle: options.handle,
+		}),
+	)
 }
 
 /** Creates one immutable path mount without selecting a concrete server. */
@@ -211,21 +204,15 @@ export const httpMount = <
 >(
 	options: HttpMountOptions<TPath, TProtocol>,
 ): HttpMountDefinition<TPath, TProtocol> => {
-	assertExactOptions(options, mountOptionKeys, 'HTTP mount options')
-	assertAbsolutePath(options.path, 'HTTP mount path')
-	assertUnreservedPath(options.path, 'HTTP mount path')
-	if (typeof options.handle !== 'function') {
-		throw new TypeError('HTTP mount handle must be a function')
-	}
-
-	const definition = immutableRecord({
-		kind: 'mount' as const,
-		path: options.path,
-		protocol: snapshotProtocol(options.protocol),
-		handle: options.handle,
-	})
-	endpointDefinitions.add(definition)
-	return definition
+	assertEndpointOptions(options, 'mount')
+	return endpointDefinitions.register(
+		immutableRecord({
+			kind: 'mount' as const,
+			path: options.path,
+			protocol: snapshotProtocol(options.protocol),
+			handle: options.handle,
+		}),
+	)
 }
 
 /** Creates one immutable browser bootstrap route without selecting an app. */
@@ -235,60 +222,16 @@ export const httpBrowserBootstrapRoute = <
 >(
 	options: HttpBrowserBootstrapRouteOptions<TPath, TProtocol>,
 ): HttpBrowserBootstrapRouteDefinition<TPath, TProtocol> => {
-	assertExactOptions(
-		options,
-		browserBootstrapOptionKeys,
-		'HTTP browser bootstrap route options',
+	assertEndpointOptions(options, 'browser-bootstrap')
+	return endpointDefinitions.register(
+		immutableRecord({
+			handle: options.handle,
+			kind: 'browser-bootstrap' as const,
+			method: 'GET' as const,
+			path: options.path,
+			protocol: snapshotProtocol(options.protocol),
+		}),
 	)
-	assertAbsolutePath(options.path, 'HTTP browser bootstrap route path')
-	assertUnreservedPath(options.path, 'HTTP browser bootstrap route path')
-	if (options.path === '/') {
-		throw new TypeError(
-			'HTTP browser bootstrap route path must have at least one segment',
-		)
-	}
-	if (typeof options.handle !== 'function') {
-		throw new TypeError(
-			'HTTP browser bootstrap route handle must be a function',
-		)
-	}
-
-	const definition = immutableRecord({
-		handle: options.handle,
-		kind: 'browser-bootstrap' as const,
-		method: 'GET' as const,
-		path: options.path,
-		protocol: snapshotProtocol(options.protocol),
-	})
-	endpointDefinitions.add(definition)
-	return definition
-}
-
-const assertEndpointDefinition: (
-	definition: unknown,
-	path: string,
-) => asserts definition is HttpEndpointDefinition = (definition, path) => {
-	if (!isPlainRecord(definition) || !endpointDefinitions.has(definition)) {
-		throw new TypeError(
-			`${path} must be created by httpRoute, httpMount, or httpBrowserBootstrapRoute`,
-		)
-	}
-}
-
-/** @internal Validates every materialized provider before route composition. */
-export const assertHttpEndpointDefinitions: (
-	definitions: unknown,
-	path: string,
-) => asserts definitions is readonly HttpEndpointDefinition[] = (
-	definitions,
-	path,
-) => {
-	if (!isUnknownArray(definitions)) {
-		throw new TypeError(`${path} must be an array`)
-	}
-	for (const [index, definition] of definitions.entries()) {
-		assertEndpointDefinition(definition, `${path}[${String(index)}]`)
-	}
 }
 
 /** Composes every endpoint declaration in plugin graph and registration order. */
@@ -333,33 +276,8 @@ export interface ProvideHttpEndpointsOptions {
 /** Provides owned endpoints while leaving application assembly to httpPlugin(). */
 export const provideHttpEndpoints = (
 	options: ProvideHttpEndpointsOptions,
-): CapabilityProviderDeclaration<
-	typeof httpEndpointContributionsCapability
-> => {
-	assertExactOptions(
-		options,
-		new Set(['contributionId', 'create']),
-		'HTTP endpoint provider options',
+): CapabilityProviderDeclaration<typeof httpEndpointContributionsCapability> =>
+	provideCapability(
+		httpEndpointContributionsCapability,
+		endpointDefinitions.contribution(options, 'HTTP endpoint'),
 	)
-	assertNonEmptyString(options.contributionId, 'HTTP endpoint contributionId')
-	if (typeof options.create !== 'function') {
-		throw new TypeError('HTTP endpoint provider create must be a function')
-	}
-
-	return provideCapability(httpEndpointContributionsCapability, {
-		contributionId: options.contributionId,
-		create: async (
-			context: ApplicationCapabilityFactoryContext,
-		): Promise<
-			Readonly<{ readonly value: readonly HttpEndpointDefinition[] }>
-		> => {
-			const created = await options.create({
-				capabilities: context.capabilities,
-				schemas: context.schemas,
-			})
-			const definitions = isUnknownArray(created) ? created : [created]
-			assertHttpEndpointDefinitions(definitions, 'HTTP endpoint contribution')
-			return immutableRecord({ value: immutableArray(definitions) })
-		},
-	})
-}

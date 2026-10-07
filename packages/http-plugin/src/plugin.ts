@@ -6,7 +6,6 @@ import {
 	provideCapability,
 	requireCapability,
 	withPluginPrivileges,
-	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
@@ -20,8 +19,8 @@ import {
 	createHttpApplicationResource,
 	httpApplicationCapability,
 } from './application.js'
-import { httpBrowserPolicyCapability } from './browser-policy-capability.js'
 import {
+	httpBrowserPolicyCapability,
 	normalizeHttpBrowserPolicy,
 	type HttpBrowserPolicy,
 	type HttpBrowserPolicyOptions,
@@ -29,24 +28,18 @@ import {
 import { httpContextResolverContributionsCapability } from './context.js'
 import { httpEndpointContributionsCapability } from './endpoints.js'
 
-const requestExecutionRequirement: CapabilityRequirement<
-	typeof applicationRequestExecutionCapability,
-	false,
+const requestExecutionRequirement = requireCapability(
+	applicationRequestExecutionCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(applicationRequestExecutionCapability, '^1.0.0')
-const optionalEndpointContributions: CapabilityRequirement<
-	typeof httpEndpointContributionsCapability,
-	true,
+)
+const optionalEndpointContributions = optionalCapability(
+	httpEndpointContributionsCapability,
 	'^1.0.0',
-	'materialization'
-> = optionalCapability(httpEndpointContributionsCapability, '^1.0.0')
-const optionalContextResolverContributions: CapabilityRequirement<
-	typeof httpContextResolverContributionsCapability,
-	true,
+)
+const optionalContextResolverContributions = optionalCapability(
+	httpContextResolverContributionsCapability,
 	'^1.0.0',
-	'materialization'
-> = optionalCapability(httpContextResolverContributionsCapability, '^1.0.0')
+)
 
 /** Enables the exact audited Master credential pair for one HTTP application. */
 export interface HttpMasterTransportOptions {
@@ -142,35 +135,31 @@ export const httpPlugin = (options: HttpPluginOptions): HttpPlugin => {
 				requestTimeoutMs: normalized.requestTimeoutMs,
 			}),
 	})
-	const browserPolicyProvider = provideCapability(httpBrowserPolicyCapability, {
-		contributionId: 'official-http-browser-policy',
-		create: () => ({ value: normalized.browser }),
-	})
-	const application = contributeApplication(() => ({
-		exports: immutableRecord({
-			appId: normalized.appId,
-			browser: normalized.browser,
-			master: immutableRecord({ enabled: normalized.masterEnabled }),
-			requestTimeoutMs: normalized.requestTimeoutMs,
-		}),
-	}))
-	const configuredApplicationProvider = normalized.masterEnabled
-		? withPluginPrivileges(applicationProvider, ['authority:elevate'])
-		: applicationProvider
-	const permissions = normalized.masterEnabled ? masterPermissions : undefined
-	const instance = plugin({
+	return plugin({
 		id: '@ultimabase/http-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
 		contributions: [
 			optionalContextResolverContributions,
 			optionalEndpointContributions,
-			configuredApplicationProvider,
-			browserPolicyProvider,
+			// Only an explicitly enabled Master transport may elevate authority.
+			normalized.masterEnabled
+				? withPluginPrivileges(applicationProvider, ['authority:elevate'])
+				: applicationProvider,
+			provideCapability(httpBrowserPolicyCapability, {
+				contributionId: 'official-http-browser-policy',
+				create: () => ({ value: normalized.browser }),
+			}),
 			requestExecutionRequirement,
-			application,
+			contributeApplication(() => ({
+				exports: immutableRecord({
+					appId: normalized.appId,
+					browser: normalized.browser,
+					master: immutableRecord({ enabled: normalized.masterEnabled }),
+					requestTimeoutMs: normalized.requestTimeoutMs,
+				}),
+			})),
 		],
-		permissions,
+		permissions: normalized.masterEnabled ? masterPermissions : undefined,
 	})
-	return instance
 }

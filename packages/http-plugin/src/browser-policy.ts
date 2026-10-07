@@ -1,3 +1,4 @@
+import { defineCapability, type CapabilityToken } from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,
@@ -8,14 +9,14 @@ import {
 import {
 	httpApplicationIdHeader,
 	httpMasterKeyHeader,
-	httpMethods,
+	isHttpMethod,
 } from './constants.js'
+import { assertExactOptions } from './definitions.js'
 import type { HttpMethod } from './endpoints.js'
 import {
-	HttpPreDispatchFailure,
 	createHttpPreDispatchErrorResponse,
 	httpPreDispatchErrorCodes,
-	prepareHttpServerRequest,
+	prepareHttpServerRequestOrReject,
 	readPreparedHeader,
 	type HttpServerRequest,
 } from './request-boundary.js'
@@ -57,6 +58,7 @@ const corsResponseHeaderNames = [
 	'Access-Control-Expose-Headers',
 	'Access-Control-Max-Age',
 ] as const
+const appIdHeader = httpApplicationIdHeader.toLowerCase()
 const wildcardCredentialHeaders = new Set([
 	'authorization',
 	'cookie',
@@ -67,114 +69,50 @@ const disabledPolicy: DisabledHttpBrowserPolicy = immutableRecord({
 	enabled: false as const,
 })
 
-const assertExactKeys = (
-	value: Readonly<Record<PropertyKey, unknown>>,
-	keys: ReadonlySet<string>,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !keys.has(key)) {
+// Snapshots one non-empty list, rejecting invalid items and duplicate keys.
+const snapshotList = <TItem extends string>(
+	value: unknown,
+	field: 'allowedHeaders' | 'allowedMethods' | 'allowedOrigins',
+	messages: readonly [notList: string, invalidItem: string],
+	isValid: (item: unknown) => item is TItem,
+	key: (item: TItem) => string,
+): readonly TItem[] => {
+	if (!isUnknownArray(value) || value.length === 0) {
+		throw new TypeError(`HTTP browser policy ${field} ${messages[0]}`)
+	}
+	const items: TItem[] = []
+	const keys = new Set<string>()
+	for (const item of value) {
+		if (!isValid(item)) {
+			throw new TypeError(`HTTP browser policy ${field} ${messages[1]}`)
+		}
+		if (keys.has(key(item))) {
 			throw new TypeError(
-				`HTTP browser policy contains unknown option: ${String(key)}`,
+				`HTTP browser policy ${field} must not contain duplicates`,
 			)
 		}
+		keys.add(key(item))
+		items.push(item)
+	}
+	return immutableArray(items)
+}
+
+const isHeaderName = (value: unknown): value is string =>
+	typeof value === 'string' && headerNamePattern.test(value)
+
+// Only an exact serialized, non-opaque origin compares equal to Origin headers.
+const isSerializedOrigin = (value: unknown): value is string => {
+	if (typeof value !== 'string') return false
+	try {
+		const { origin } = new URL(value)
+		return origin === value && origin !== 'null'
+	} catch {
+		return false
 	}
 }
 
-const snapshotHeaderNames = (value: unknown): readonly string[] => {
-	if (!isUnknownArray(value) || value.length === 0) {
-		throw new TypeError(
-			'HTTP browser policy allowedHeaders must be a non-empty array',
-		)
-	}
-	const headers: string[] = []
-	const normalized = new Set<string>()
-	for (const header of value) {
-		if (typeof header !== 'string' || !headerNamePattern.test(header)) {
-			throw new TypeError(
-				'HTTP browser policy allowedHeaders must contain HTTP header names',
-			)
-		}
-		const name = header.toLowerCase()
-		if (normalized.has(name)) {
-			throw new TypeError(
-				'HTTP browser policy allowedHeaders must not contain duplicates',
-			)
-		}
-		normalized.add(name)
-		headers.push(header)
-	}
-	if (!normalized.has(httpApplicationIdHeader.toLowerCase())) {
-		throw new TypeError(
-			`HTTP browser policy allowedHeaders must include ${httpApplicationIdHeader}`,
-		)
-	}
-	return immutableArray(headers)
-}
-
-const snapshotMethods = (value: unknown): readonly HttpMethod[] => {
-	if (!isUnknownArray(value) || value.length === 0) {
-		throw new TypeError(
-			'HTTP browser policy allowedMethods must be a non-empty array',
-		)
-	}
-	const methods: HttpMethod[] = []
-	const unique = new Set<HttpMethod>()
-	for (const method of value) {
-		if (typeof method !== 'string' || !httpMethods.has(method as HttpMethod)) {
-			throw new TypeError(
-				'HTTP browser policy allowedMethods contains an unsupported method',
-			)
-		}
-		const supportedMethod = method as HttpMethod
-		if (unique.has(supportedMethod)) {
-			throw new TypeError(
-				'HTTP browser policy allowedMethods must not contain duplicates',
-			)
-		}
-		unique.add(supportedMethod)
-		methods.push(supportedMethod)
-	}
-	return immutableArray(methods)
-}
-
-const snapshotOrigins = (value: unknown): '*' | readonly string[] => {
-	if (value === '*') return '*'
-	if (!isUnknownArray(value) || value.length === 0) {
-		throw new TypeError(
-			'HTTP browser policy allowedOrigins must be * or a non-empty array',
-		)
-	}
-	const origins: string[] = []
-	const unique = new Set<string>()
-	for (const origin of value) {
-		if (typeof origin !== 'string') {
-			throw new TypeError(
-				'HTTP browser policy allowedOrigins must contain serialized origins',
-			)
-		}
-		let parsed: URL
-		try {
-			parsed = new URL(origin)
-		} catch {
-			throw new TypeError(
-				'HTTP browser policy allowedOrigins must contain serialized origins',
-			)
-		}
-		if (parsed.origin !== origin || parsed.origin === 'null') {
-			throw new TypeError(
-				'HTTP browser policy allowedOrigins must contain serialized origins',
-			)
-		}
-		if (unique.has(origin)) {
-			throw new TypeError(
-				'HTTP browser policy allowedOrigins must not contain duplicates',
-			)
-		}
-		unique.add(origin)
-		origins.push(origin)
-	}
-	return immutableArray(origins)
-}
+const identity = (value: string): string => value
+const lowerCase = (value: string): string => value.toLowerCase()
 
 /** @internal Validates and snapshots browser policy before plugin effects. */
 export const normalizeHttpBrowserPolicy = (
@@ -182,22 +120,47 @@ export const normalizeHttpBrowserPolicy = (
 	masterEnabled: boolean,
 ): HttpBrowserPolicy => {
 	if (value === undefined) return disabledPolicy
-	if (!isPlainRecord(value)) {
-		throw new TypeError('HTTP browser policy must be a plain object')
-	}
-	assertExactKeys(
+	assertExactOptions(
 		value,
-		new Set([
+		[
 			'allowedHeaders',
 			'allowedMethods',
 			'allowedOrigins',
 			'credentials',
 			'maxAgeSeconds',
-		]),
+		],
+		'HTTP browser policy',
 	)
-	const allowedOrigins = snapshotOrigins(value.allowedOrigins)
-	const allowedMethods = snapshotMethods(value.allowedMethods)
-	const allowedHeaders = snapshotHeaderNames(value.allowedHeaders)
+	const allowedOrigins =
+		value.allowedOrigins === '*'
+			? '*'
+			: snapshotList(
+					value.allowedOrigins,
+					'allowedOrigins',
+					['must be * or a non-empty array', 'must contain serialized origins'],
+					isSerializedOrigin,
+					identity,
+				)
+	const allowedMethods = snapshotList(
+		value.allowedMethods,
+		'allowedMethods',
+		['must be a non-empty array', 'contains an unsupported method'],
+		isHttpMethod,
+		identity,
+	)
+	const allowedHeaders = snapshotList(
+		value.allowedHeaders,
+		'allowedHeaders',
+		['must be a non-empty array', 'must contain HTTP header names'],
+		isHeaderName,
+		lowerCase,
+	)
+	// Every real browser request must still identify its application.
+	if (!allowedHeaders.some((header) => lowerCase(header) === appIdHeader)) {
+		throw new TypeError(
+			`HTTP browser policy allowedHeaders must include ${httpApplicationIdHeader}`,
+		)
+	}
 	if (typeof value.credentials !== 'boolean') {
 		throw new TypeError('HTTP browser policy credentials must be a boolean')
 	}
@@ -215,7 +178,7 @@ export const normalizeHttpBrowserPolicy = (
 		(value.credentials ||
 			masterEnabled ||
 			allowedHeaders.some((header) =>
-				wildcardCredentialHeaders.has(header.toLowerCase()),
+				wildcardCredentialHeaders.has(lowerCase(header)),
 			))
 	) {
 		throw new TypeError(
@@ -250,11 +213,6 @@ const isAllowedOrigin = (
 ): boolean =>
 	policy.allowedOrigins === '*' || policy.allowedOrigins.includes(origin)
 
-const hasCredentialHeader = (
-	headers: readonly (readonly [string, string])[],
-): boolean =>
-	headers.some(([name]) => wildcardCredentialHeaders.has(name.toLowerCase()))
-
 const applyAllowedOrigin = (
 	headers: Headers,
 	policy: EnabledHttpBrowserPolicy,
@@ -269,20 +227,14 @@ const applyAllowedOrigin = (
 	}
 }
 
+// An empty list is valid; any malformed name rejects the whole preflight.
 const parseRequestedHeaders = (
 	value: string | undefined,
-): readonly string[] => {
-	if (value === undefined || value.trim().length === 0)
-		return immutableArray([])
+): readonly string[] | undefined => {
+	if (value === undefined || value.trim().length === 0) return []
 	const headers = value.split(',').map((header) => header.trim())
-	if (headers.some((header) => !headerNamePattern.test(header))) {
-		throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
-	}
-	return immutableArray(headers)
+	return headers.every(isHeaderName) ? headers : undefined
 }
-
-const hasCorsResponseHeaders = (headers: Headers): boolean =>
-	corsResponseHeaderNames.some((name) => headers.has(name))
 
 /**
  * Enforces one server-owned browser policy before application identity validation and
@@ -295,53 +247,34 @@ export const dispatchHttpBrowserRequest = async (
 ): Promise<Response> => {
 	if (!policy.enabled) return next()
 
-	let prepared: ReturnType<typeof prepareHttpServerRequest>
-	try {
-		prepared = prepareHttpServerRequest(input)
-	} catch (error: unknown) {
-		const code =
-			error instanceof HttpPreDispatchFailure
-				? error.code
-				: httpPreDispatchErrorCodes.internalError
-		return createHttpPreDispatchErrorResponse(
-			code,
-			globalThis.crypto.randomUUID(),
-		)
-	}
-	const origin = readPreparedHeader(prepared.originalHeaders, 'Origin')
+	const prepared = prepareHttpServerRequestOrReject(input)
+	if (prepared instanceof Response) return prepared
+	const header = (name: string): string | undefined =>
+		readPreparedHeader(prepared.originalHeaders, name)
+	const origin = header('Origin')
 	if (origin === undefined) return next()
 
-	const requestedMethod = readPreparedHeader(
-		prepared.originalHeaders,
-		'Access-Control-Request-Method',
-	)
-	const isPreflight =
-		prepared.input.request.method === 'OPTIONS' && requestedMethod !== undefined
-	if (isPreflight) {
-		let requestedHeaders: readonly string[]
-		try {
-			requestedHeaders = parseRequestedHeaders(
-				readPreparedHeader(
-					prepared.originalHeaders,
-					'Access-Control-Request-Headers',
-				),
-			)
-		} catch {
+	const requestedMethod = header('Access-Control-Request-Method')
+	if (
+		prepared.input.request.method === 'OPTIONS' &&
+		requestedMethod !== undefined
+	) {
+		// A preflight is answered here and never reaches application behavior.
+		const requestedHeaders = parseRequestedHeaders(
+			header('Access-Control-Request-Headers'),
+		)
+		if (requestedHeaders === undefined) {
 			return createHttpPreDispatchErrorResponse(
 				httpPreDispatchErrorCodes.badRequest,
 				prepared.requestId,
 			)
 		}
-		const allowedHeaderNames = new Set(
-			policy.allowedHeaders.map((header) => header.toLowerCase()),
-		)
+		const allowedHeaderNames = new Set(policy.allowedHeaders.map(lowerCase))
 		const accepted =
 			isAllowedOrigin(policy, origin) &&
-			httpMethods.has(requestedMethod as HttpMethod) &&
-			policy.allowedMethods.includes(requestedMethod as HttpMethod) &&
-			requestedHeaders.every((header) =>
-				allowedHeaderNames.has(header.toLowerCase()),
-			)
+			isHttpMethod(requestedMethod) &&
+			policy.allowedMethods.includes(requestedMethod) &&
+			requestedHeaders.every((name) => allowedHeaderNames.has(lowerCase(name)))
 		const headers = new Headers()
 		addVary(headers, [
 			'Origin',
@@ -365,17 +298,21 @@ export const dispatchHttpBrowserRequest = async (
 
 	const response = await next()
 	const headers = new Headers(response.headers)
-	if (hasCorsResponseHeaders(headers)) {
+	// One layer must own CORS: a handler emitting it fails safely.
+	if (corsResponseHeaderNames.some((name) => headers.has(name))) {
 		return createHttpPreDispatchErrorResponse(
 			httpPreDispatchErrorCodes.internalError,
 			prepared.requestId,
 		)
 	}
 	addVary(headers, ['Origin'])
+	// A wildcard never answers a request that carried credentials.
 	if (
 		isAllowedOrigin(policy, origin) &&
 		(policy.allowedOrigins !== '*' ||
-			!hasCredentialHeader(prepared.originalHeaders))
+			!prepared.originalHeaders.some(([name]) =>
+				wildcardCredentialHeaders.has(lowerCase(name)),
+			))
 	) {
 		applyAllowedOrigin(headers, policy, origin)
 	}
@@ -385,3 +322,40 @@ export const dispatchHttpBrowserRequest = async (
 		statusText: response.statusText,
 	})
 }
+
+const assertHttpBrowserPolicy: (
+	policy: unknown,
+) => asserts policy is HttpBrowserPolicy = (policy) => {
+	if (!isPlainRecord(policy) || typeof policy.enabled !== 'boolean') {
+		throw new TypeError('HTTP browser policy capability is malformed')
+	}
+	if (!policy.enabled) return
+	if (
+		(policy.allowedOrigins !== '*' && !Array.isArray(policy.allowedOrigins)) ||
+		!Array.isArray(policy.allowedMethods) ||
+		!Array.isArray(policy.allowedHeaders) ||
+		typeof policy.credentials !== 'boolean' ||
+		typeof policy.maxAgeSeconds !== 'number'
+	) {
+		throw new TypeError('HTTP browser policy capability is malformed')
+	}
+}
+
+/** Carries one application policy to its concrete HTTP server provider. */
+export const httpBrowserPolicyCapability: CapabilityToken<
+	HttpBrowserPolicy,
+	HttpBrowserPolicy,
+	'ultimabase.http.browser-policy',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<HttpBrowserPolicy>()({
+	capabilityId: 'ultimabase.http.browser-policy',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([policy]) => {
+		assertHttpBrowserPolicy(policy)
+		return policy
+	},
+})

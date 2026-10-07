@@ -5,7 +5,6 @@ import {
 	provideCapability,
 	type AnonymousRequestAccess,
 	type ApplicationCallbackExecutor,
-	type ApplicationCapabilityFactoryContext,
 	type ApplicationRequestExecutor,
 	type CapabilityProviderContribution,
 	type CapabilityProviderDeclaration,
@@ -15,15 +14,14 @@ import {
 	type PluginIdentity,
 } from '@ultimabase/core'
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
 import type { HttpBrowserPolicy } from './browser-policy.js'
+import { HttpDefinitionRegistry, assertExactOptions } from './definitions.js'
 
 /** Supplies one resolver with the current safe context and credential request view. */
 export interface HttpContextResolverInput<TSource extends string = string> {
@@ -56,66 +54,40 @@ export interface HttpContextResolverOptions {
 	readonly validateBrowserPolicy?: HttpContextResolverBrowserPolicyValidator
 }
 
-const contextResolverDefinitions = new WeakSet<object>()
-const resolverOptionKeys = new Set(['resolve', 'validateBrowserPolicy'])
+const contextResolverDefinitions =
+	new HttpDefinitionRegistry<HttpContextResolverDefinition>(
+		'httpContextResolver',
+	)
 
 /** Creates one context resolver without registering global transport behavior. */
 export const httpContextResolver = (
 	options: HttpContextResolverOptions,
 ): HttpContextResolverDefinition => {
-	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('HTTP context resolver options must be a plain object')
-	}
-	for (const key of Reflect.ownKeys(untrustedOptions)) {
-		if (typeof key !== 'string' || !resolverOptionKeys.has(key)) {
-			throw new TypeError(
-				`HTTP context resolver options contains unknown option: ${String(key)}`,
-			)
-		}
-	}
-	if (typeof untrustedOptions.resolve !== 'function') {
+	assertExactOptions(
+		options,
+		['resolve', 'validateBrowserPolicy'],
+		'HTTP context resolver options',
+	)
+	if (typeof options.resolve !== 'function') {
 		throw new TypeError('HTTP context resolver must be a function')
 	}
 	if (
-		untrustedOptions.validateBrowserPolicy !== undefined &&
-		typeof untrustedOptions.validateBrowserPolicy !== 'function'
+		options.validateBrowserPolicy !== undefined &&
+		typeof options.validateBrowserPolicy !== 'function'
 	) {
 		throw new TypeError(
 			'HTTP context resolver validateBrowserPolicy must be a function',
 		)
 	}
 
-	const definition = immutableRecord({
-		resolve: options.resolve,
-		...(options.validateBrowserPolicy === undefined
-			? {}
-			: { validateBrowserPolicy: options.validateBrowserPolicy }),
-	})
-	contextResolverDefinitions.add(definition)
-	return definition
-}
-
-const assertHttpContextResolverDefinitions: (
-	definitions: unknown,
-	path: string,
-) => asserts definitions is readonly HttpContextResolverDefinition[] = (
-	definitions,
-	path,
-) => {
-	if (!isUnknownArray(definitions)) {
-		throw new TypeError(`${path} must be an array`)
-	}
-	for (const [index, definition] of definitions.entries()) {
-		if (
-			!isPlainRecord(definition) ||
-			!contextResolverDefinitions.has(definition)
-		) {
-			throw new TypeError(
-				`${path}[${String(index)}] must be created by httpContextResolver`,
-			)
-		}
-	}
+	return contextResolverDefinitions.register(
+		immutableRecord({
+			resolve: options.resolve,
+			...(options.validateBrowserPolicy === undefined
+				? {}
+				: { validateBrowserPolicy: options.validateBrowserPolicy }),
+		}),
+	)
 }
 
 /** Composes credential resolvers in plugin graph and registration order. */
@@ -158,57 +130,16 @@ export interface ProvideHttpContextResolversOptions {
 	readonly create: HttpContextResolverFactory
 }
 
-const providerOptionKeys = new Set(['contributionId', 'create'])
-
 /** Provides ordered context resolvers while keeping their credentials request-local. */
 export const provideHttpContextResolvers = (
 	options: ProvideHttpContextResolversOptions,
 ): CapabilityProviderDeclaration<
 	typeof httpContextResolverContributionsCapability
-> => {
-	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError(
-			'HTTP context resolver provider options must be a plain object',
-		)
-	}
-	for (const key of Reflect.ownKeys(untrustedOptions)) {
-		if (typeof key !== 'string' || !providerOptionKeys.has(key)) {
-			throw new TypeError(
-				`HTTP context resolver provider options contains unknown option: ${String(key)}`,
-			)
-		}
-	}
-	assertNonEmptyString(
-		options.contributionId,
-		'HTTP context resolver contributionId',
+> =>
+	provideCapability(
+		httpContextResolverContributionsCapability,
+		contextResolverDefinitions.contribution(options, 'HTTP context resolver'),
 	)
-	if (typeof options.create !== 'function') {
-		throw new TypeError(
-			'HTTP context resolver provider create must be a function',
-		)
-	}
-
-	return provideCapability(httpContextResolverContributionsCapability, {
-		contributionId: options.contributionId,
-		create: async (
-			context: ApplicationCapabilityFactoryContext,
-		): Promise<
-			Readonly<{ readonly value: readonly HttpContextResolverDefinition[] }>
-		> => {
-			const created = await options.create({
-				capabilities: context.capabilities,
-				schemas: context.schemas,
-			})
-			const definitions = isUnknownArray(created) ? created : [created]
-			assertHttpContextResolverDefinitions(
-				definitions,
-				'HTTP context resolver contribution',
-			)
-			return immutableRecord({ value: immutableArray(definitions) })
-		},
-	})
-}
 
 interface OwnedHttpContextResolver {
 	readonly owner: PluginIdentity
@@ -237,11 +168,11 @@ export const compileHttpContextResolvers = (
 ): readonly OwnedHttpContextResolver[] => {
 	const resolvers: OwnedHttpContextResolver[] = []
 	for (const contribution of contributions) {
-		assertHttpContextResolverDefinitions(
+		const definitions = contextResolverDefinitions.validate(
 			contribution.value,
 			`HTTP context resolver capability ${contribution.owner.pluginId}/${contribution.contributionId}`,
 		)
-		for (const definition of contribution.value) {
+		for (const definition of definitions) {
 			const validationResult = callbacks.runPlugin(contribution.owner, () =>
 				definition.validateBrowserPolicy?.(browserPolicy),
 			)
