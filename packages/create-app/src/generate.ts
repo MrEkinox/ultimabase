@@ -13,27 +13,9 @@ import {
 import path from 'node:path'
 
 import { renderBaseFiles } from './base-template.js'
+import { isPluginId } from './catalog.js'
 import type { InitializerPlan, PackageManager } from './config.js'
 import { needsMasterKey } from './security-template.js'
-
-const implementedPlugins = new Set([
-	'postgres-plugin',
-	'hooks-plugin',
-	'pg-vector-plugin',
-	'soft-delete-plugin',
-	'validation-plugin',
-	'access-plugin',
-	'acl-permissions-plugin',
-	'password-auth-plugin',
-	'roles-plugin',
-	'http-plugin',
-	'server-hono-plugin',
-	'rest-plugin',
-	'graphql-plugin',
-	'graphql-yoga-plugin',
-	'graphiql-plugin',
-	'apollo-sandbox-plugin',
-])
 
 export interface ProjectGenerationOptions {
 	readonly installDependencies?: (
@@ -43,11 +25,11 @@ export interface ProjectGenerationOptions {
 	readonly onProgress?: (message: string) => void
 }
 
-const installDependencies = async (
+const installDependencies = (
 	directory: string,
 	manager: PackageManager,
-): Promise<void> => {
-	await new Promise<void>((resolve, reject) => {
+): Promise<void> =>
+	new Promise((resolve, reject) => {
 		const child = spawn(manager, ['install'], {
 			cwd: directory,
 			stdio: 'inherit',
@@ -66,7 +48,6 @@ const installDependencies = async (
 				)
 		})
 	})
-}
 
 /**
  * Work stays in an owned sibling until every file and optional install succeeds.
@@ -76,7 +57,9 @@ export const createProject = async (
 	plan: InitializerPlan,
 	options: ProjectGenerationOptions = {},
 ): Promise<void> => {
-	const unsupported = plan.plugins.filter((id) => !implementedPlugins.has(id))
+	// Every catalog plugin has a template; hand-built JavaScript plans may list others.
+	const planned: readonly string[] = plan.plugins
+	const unsupported = planned.filter((id) => !isPluginId(id))
 	if (unsupported.length > 0) {
 		throw new Error(
 			`Templates for ${unsupported.map((id) => `@ultimabase/${id}`).join(', ')} are not implemented yet. Choose currently supported plugins for now.`,
@@ -89,13 +72,14 @@ export const createProject = async (
 	const temporary = await mkdtemp(path.join(parent, '.ultimabase-create-'))
 	let reserved = false
 	try {
-		const password =
-			plan.database === 'docker' ? randomBytes(24).toString('hex') : undefined
-		const masterKey =
-			plan.database === 'docker' && needsMasterKey(plan)
+		const docker = plan.database === 'docker'
+		const files = renderBaseFiles(
+			plan,
+			docker ? randomBytes(24).toString('hex') : undefined,
+			docker && needsMasterKey(plan)
 				? randomBytes(32).toString('hex')
-				: undefined
-		const files = renderBaseFiles(plan, password, masterKey)
+				: undefined,
+		)
 		options.onProgress?.('Writing project files')
 		for (const [relative, contents] of files) {
 			if (relative === '.env') continue

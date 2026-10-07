@@ -2,21 +2,25 @@ import path from 'node:path'
 
 import {
 	apiApplicationImports,
-	apiDependencies,
 	apiNextCommands,
 	apiPluginEntries,
 	apiReadmeNotes,
 	apiSchemaPluginEntries,
 	apiSchemaPluginImports,
 	hasHttpListener,
+	pluginImports,
 } from './api-template.js'
 import type { PluginId } from './catalog.js'
-import type { InitializerPlan, PackageManager } from './config.js'
+import {
+	hasPlugin as has,
+	included,
+	type InitializerPlan,
+	type PackageManager,
+} from './config.js'
 import {
 	needsMasterKey,
 	securityApplicationImports,
 	securityApplicationOption,
-	securityDependencies,
 	securityMasterSource,
 	securityPluginEntries,
 	securityPolicySource,
@@ -30,18 +34,41 @@ import {
 
 export type ProjectFiles = ReadonlyMap<string, string>
 
-const includes = (plan: InitializerPlan, id: PluginId): boolean =>
-	plan.plugins.includes(id)
+/** Optional plugins in generated package.json dependency order. */
+const dependencyOrder: readonly PluginId[] = [
+	'access-plugin',
+	'acl-permissions-plugin',
+	'password-auth-plugin',
+	'roles-plugin',
+	'http-plugin',
+	'server-hono-plugin',
+	'rest-plugin',
+	'graphql-plugin',
+	'graphql-yoga-plugin',
+	'graphiql-plugin',
+	'apollo-sandbox-plugin',
+	'hooks-plugin',
+	'pg-vector-plugin',
+	'soft-delete-plugin',
+	'validation-plugin',
+]
+
+/** Data and behavior plugins installed on the schema factory: [plugin, factory, entry]. */
+const behaviorPlugins: readonly (readonly [PluginId, string, string])[] = [
+	['hooks-plugin', 'hooksPlugin', 'hooksPlugin()'],
+	['pg-vector-plugin', 'pgVectorPlugin', 'pgVectorPlugin()'],
+	[
+		'soft-delete-plugin',
+		'softDeletePlugin',
+		"softDeletePlugin({ defaultMode: 'disabled' })",
+	],
+	['validation-plugin', 'validationPlugin', 'validationPlugin()'],
+]
 
 const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
 	...(plan.starter === 'task' ? ['Task'] : []),
 	...securitySchemaNames(plan),
 ]
-
-const applicationSchemaImport = (plan: InitializerPlan): string => {
-	const names = applicationSchemaNames(plan)
-	return `import { SchemaApplication${names.length === 0 ? '' : `, ${names.join(', ')}`} } from './schema.js'\n`
-}
 
 const scriptCommand = (
 	manager: PackageManager,
@@ -52,8 +79,9 @@ const scriptCommand = (
 	return `${manager} ${script}`
 }
 
-const installCommand = (manager: PackageManager): string =>
-	manager === 'npm' ? 'npm install' : `${manager} install`
+/** One `.use(entry)` line per plugin entry, appended to a factory expression. */
+const useChain = (entries: readonly string[]): string =>
+	entries.map((entry) => `\n  .use(${entry})`).join('')
 
 /** These commands come from the same scripts written into package.json. */
 export const nextCommands = (plan: InitializerPlan): readonly string[] => [
@@ -63,7 +91,7 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 		: [
 				`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
 			]),
-	...(!plan.install ? [installCommand(plan.packageManager)] : []),
+	...(!plan.install ? [`${plan.packageManager} install`] : []),
 	...(plan.typegen
 		? [
 				scriptCommand(plan.packageManager, 'typecheck'),
@@ -79,19 +107,18 @@ const applicationSource = (
 ): string => `import { postgresPlugin } from '@ultimabase/postgres-plugin'
 ${securityApplicationImports(plan).join('\n')}
 ${apiApplicationImports(plan).join('\n')}
-${applicationSchemaImport(plan)}
+import { ${['SchemaApplication', ...applicationSchemaNames(plan)].join(', ')} } from './schema.js'
+
 const databaseUrl = process.env.DATABASE_URL
 if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
 ${securityMasterSource(plan)}
 ${securityPolicySource(plan)}
 
-const Application = SchemaApplication${[
+const Application = SchemaApplication${useChain([
 	...securityPluginEntries(plan),
 	"postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })",
 	...apiPluginEntries(plan),
-]
-	.map((entry) => `\n  .use(${entry})`)
-	.join('')}
+])}
 
 // Override synchronization is only suitable for this disposable development database.
 export const ultimabase = new Application({
@@ -100,58 +127,19 @@ ${securityApplicationOption(plan)}
 })
 `
 
-const schemaPluginImports = (plan: InitializerPlan): readonly string[] => [
-	...(plan.typegen
-		? ["import { typegenPlugin } from '@ultimabase/typegen'"]
-		: []),
-	...(includes(plan, 'hooks-plugin')
-		? ["import { hooksPlugin } from '@ultimabase/hooks-plugin'"]
-		: []),
-	...(includes(plan, 'pg-vector-plugin')
-		? ["import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'"]
-		: []),
-	...(includes(plan, 'soft-delete-plugin')
-		? ["import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'"]
-		: []),
-	...(includes(plan, 'validation-plugin')
-		? ["import { validationPlugin } from '@ultimabase/validation-plugin'"]
-		: []),
-	...securitySchemaImports(plan),
-	...apiSchemaPluginImports(plan),
-]
-
-const schemaPluginEntries = (plan: InitializerPlan): readonly string[] => [
-	...(plan.typegen ? ['typegenPlugin()'] : []),
-	...(includes(plan, 'hooks-plugin') ? ['hooksPlugin()'] : []),
-	...(includes(plan, 'pg-vector-plugin') ? ['pgVectorPlugin()'] : []),
-	...(includes(plan, 'soft-delete-plugin')
-		? ["softDeletePlugin({ defaultMode: 'disabled' })"]
-		: []),
-	...(includes(plan, 'validation-plugin') ? ['validationPlugin()'] : []),
-	...securitySchemaPluginEntries(plan),
-	...apiSchemaPluginEntries(plan),
-]
-
-const schemaApplicationSource = (plan: InitializerPlan): string => {
-	const entries = schemaPluginEntries(plan)
-	return `export const SchemaApplication = UltimaBase${entries
-		.map((entry) => `\n  .use(${entry})`)
-		.join('')}`
-}
-
 const baseSchemaSource = (plan: InitializerPlan): string =>
 	plan.starter === 'task'
-		? `${includes(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
+		? `${has(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
 
 // The same declaration drives TypeScript inference and Runtime validation.
 export const Task = SchemaApplication.Schema.define({
   className: 'Task',
-${includes(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete',\n" : ''}
+${has(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete',\n" : ''}
 ${taskSecurityOptions(plan)}
   fields: (f) => ({
     title: f.string({
       required: true,
-${includes(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },\n' : ''}${includes(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
+${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
   }),
 })
@@ -163,10 +151,22 @@ export {}
 const schemaSource = (plan: InitializerPlan): string => {
 	const imports = [
 		"import { UltimaBase } from '@ultimabase/core'",
-		...schemaPluginImports(plan),
+		...(plan.typegen
+			? ["import { typegenPlugin } from '@ultimabase/typegen'"]
+			: []),
+		...pluginImports(plan, behaviorPlugins),
+		...securitySchemaImports(plan),
+		...apiSchemaPluginImports(plan),
 	]
-	const declarations = securitySchemaDeclarations(plan)
-	return `${imports.join('\n')}\n\n${schemaApplicationSource(plan)}\n\n${baseSchemaSource(plan)}\n${declarations}\n`
+	const entries = [
+		...(plan.typegen ? ['typegenPlugin()'] : []),
+		...behaviorPlugins
+			.filter(([id]) => has(plan, id))
+			.map(([, , entry]) => entry),
+		...securitySchemaPluginEntries(plan),
+		...apiSchemaPluginEntries(plan),
+	]
+	return `${imports.join('\n')}\n\nexport const SchemaApplication = UltimaBase${useChain(entries)}\n\n${baseSchemaSource(plan)}\n${securitySchemaDeclarations(plan)}\n`
 }
 
 const taskCommand = (plan: InitializerPlan): string =>
@@ -239,6 +239,32 @@ volumes:
   ultimabase-data:
 `
 
+const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
+	const task = plan.starter === 'task'
+	return included([
+		[
+			has(plan, 'hooks-plugin') && task,
+			'Hooks normalize Task titles before the database mutation.',
+		],
+		[
+			has(plan, 'validation-plugin') && task,
+			'Validation rejects Task titles outside 1–200 characters after input resolution.',
+		],
+		[
+			has(plan, 'soft-delete-plugin') && task,
+			`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
+		],
+		[
+			has(plan, 'pg-vector-plugin'),
+			'PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.',
+		],
+		[
+			plan.starter === 'empty' && plan.plugins.length > 1,
+			'Optional plugins are configured, but this empty application has no schema for schema-local behavior.',
+		],
+	])
+}
+
 const projectReadme = (plan: InitializerPlan): string => `# ${plan.name}
 
 Generated UltimaBase ${plan.language === 'ts' ? 'TypeScript' : 'JavaScript'} application.
@@ -250,7 +276,9 @@ ${plan.starter === 'task' ? 'The Task starter writes one record on each run.' : 
 ${plan.database === 'docker' ? '- Docker Compose. Run docker compose up -d to start the disposable local PostgreSQL 17 service. Its credentials live only in the ignored .env file.' : '- A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.'}
 - The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.
 ${plan.typegen ? '- Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.' : '- JavaScript runs the same application graph without Typegen or generated declarations.'}
-${includes(plan, 'hooks-plugin') && plan.starter === 'task' ? '- Hooks normalize Task titles before the database mutation.\n' : ''}${includes(plan, 'validation-plugin') && plan.starter === 'task' ? '- Validation rejects Task titles outside 1–200 characters after input resolution.\n' : ''}${includes(plan, 'soft-delete-plugin') && plan.starter === 'task' ? `- Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}\n` : ''}${includes(plan, 'pg-vector-plugin') ? '- PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.\n' : ''}${plan.starter === 'empty' && plan.plugins.length > 1 ? '- Optional plugins are configured, but this empty application has no schema for schema-local behavior.\n' : ''}
+${behaviorReadmeNotes(plan)
+	.map((note) => `- ${note}\n`)
+	.join('')}
 ${securityReadmeNotes(plan)
 	.map((note) => `- ${note}`)
 	.join('\n')}
@@ -280,25 +308,12 @@ export const renderBaseFiles = (
 	const dependencies: Record<string, string> = {
 		'@ultimabase/core': '^0.0.0',
 		'@ultimabase/postgres-plugin': '^0.0.0',
-		...securityDependencies(plan),
-		...apiDependencies(plan),
-		...(includes(plan, 'hooks-plugin')
-			? { '@ultimabase/hooks-plugin': '^0.0.0' }
-			: {}),
-		...(includes(plan, 'pg-vector-plugin')
-			? { '@ultimabase/pg-vector-plugin': '^0.0.0' }
-			: {}),
-		...(includes(plan, 'soft-delete-plugin')
-			? { '@ultimabase/soft-delete-plugin': '^0.0.0' }
-			: {}),
-		...(includes(plan, 'validation-plugin')
-			? { '@ultimabase/validation-plugin': '^0.0.0' }
-			: {}),
-		...(includes(plan, 'validation-plugin') && plan.starter === 'task'
-			? { zod: '^4.4.3' }
-			: {}),
-		...(plan.typegen ? { '@ultimabase/typegen': '^0.0.0' } : {}),
 	}
+	for (const id of dependencyOrder)
+		if (has(plan, id)) dependencies[`@ultimabase/${id}`] = '^0.0.0'
+	if (has(plan, 'validation-plugin') && plan.starter === 'task')
+		dependencies.zod = '^4.4.3'
+	if (plan.typegen) dependencies['@ultimabase/typegen'] = '^0.0.0'
 	const packageJson = {
 		name: plan.name,
 		version: '0.0.0',
