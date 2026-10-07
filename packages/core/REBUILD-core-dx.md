@@ -18,7 +18,7 @@ Audit baseline (`--only core`, `f0e68cf`): 335 differences (149 declarations,
 
 ### 1. Field option contracts and compact scalar aliases
 
-Audit 335 → 101; +69 lines.
+Audit 335 → 101; +223 lines (`enum-field-builder.ts` re-added).
 
 - Cause: `FieldMetadataOptions` was merged into `FieldOptionsBase`, so every
   `*FieldOptions` member (124 member hovers, plus `VectorFieldOptions` in
@@ -38,6 +38,8 @@ Audit 335 → 101; +69 lines.
 
 ### 2. Operation result dispatch
 
++107 lines.
+
 - Cause: `OperationResultFor` dispatched on `{ readonly kind: … }` with new
   `OperationSchema`/`OperationSelectedField`/`OperationObjectResult`/
   `BulkObjectResult` helpers, changing the `OperationResult`,
@@ -48,6 +50,8 @@ Audit 335 → 101; +69 lines.
 
 ### 3. Plugin declaration context
 
++10 lines.
+
 - Cause: `PluginFieldDeclarationContext`/`PluginSchemaDeclarationContext` were
   expressed through `PrivilegedDeclarationContext`, so `PluginDeclarationContext`
   hovered as `PrivilegedDeclarationContext<…>`; `PrivilegeUnion`,
@@ -57,6 +61,8 @@ Audit 335 → 101; +69 lines.
 
 ### 4. Query inclusion target builder
 
++7 lines.
+
 - Cause: `QueryInclusionTargetBuilder` was redefined as
   `QueryInclusionTargetResult<…, never, never>`, so the `include` shape
   parameter of `QueryBuilder`/`QueryPointerTargetBuilder` printed the result
@@ -64,6 +70,8 @@ Audit 335 → 101; +69 lines.
 - Restored: `query/query/query-contracts.ts` verbatim.
 
 ### 5. Remaining declarations and JSDoc
+
++49 lines.
 
 - Restored: `getFieldListDepth` JSDoc (the validation note moved into the
   body); the reference stray JSDoc blocks above `SchemaOptions` and
@@ -76,11 +84,13 @@ Audit 335 → 101; +69 lines.
   `createSchemaMutationMethod` members are part of the class declarations and
   member listing).
 
-Steps 2–5 together: audit 101 → 43; +140 lines with step 6.
+Steps 2–5 were audited together: 101 → 43 (the 43 left were all the
+`Simplify$1` naming below).
 
 ### 6. `Simplify` printed as `Simplify$1`
 
-Audit 43 → 0.
+Audit 43 → 0; +36 lines (`source-fields.ts` and `source-nested-writes.ts`
+re-added, `source-type-info.ts` shrinks).
 
 - Cause: rolldown-plugin-dts deconflicts the four private `Simplify` aliases by
   declaration module order; the latest module keeps the bare name. The
@@ -99,6 +109,33 @@ Audit 43 → 0.
 
 ## Result
 
+- Full audit (no `--only`): `f0e68cf` 383 differences (232 editor-visible:
+  core 335, typegen 23, hooks-plugin 8, pg-vector-plugin 4, roles-plugin 4,
+  tests 4, plugin-kit 2, rest-plugin 2, access-plugin 1) → 2 (0
+  editor-visible, see Validation).
 - `--only core`: 0 differences (17856 reference / 17856 rebuild records).
-- `packages/core` production: 58694 → 58903 (+209). No `any`, no casts added.
+- `packages/core` production: 58694 → 59126 (+432, +0.7%); 323 → 326
+  production files. No `any`, no casts added; every production file stays
+  under 600 lines (largest touched: `contract.ts` 505).
 - Tests: none edited.
+
+## Validation (final tree)
+
+- `yarn build`: passed.
+- `yarn vitest run --project unit --project types`: 558 files, 2709 tests
+  passed, no type errors.
+- `yarn vitest run --project performance`: 3 files, 4 tests passed.
+- `yarn vitest run --project e2e`: 47 files, 219 tests passed.
+- `yarn vitest run --project postgres-e2e`: 55 files, 191 tests passed.
+- `yarn vitest run --project website-content`: 17 files, 66 tests passed.
+- `yarn test:pack:built`: 32 files, 173 tests passed.
+- `yarn eslint packages/core`: 0 errors, 54 `max-lines` warnings (all on test
+  files, identical to `main`); `yarn prettier --check packages/core
+docs/rebuild`, `yarn tsc --build packages/core` and
+  `yarn tsc -p packages/core/tsconfig.test.json`: passed.
+- `yarn build` again, then the full audit (no `--only`): 2 differences, 0 in
+  editor-visible sections. Both are the private `import … from
+"@ultimabase/core"` statement of another package's bundled declarations:
+  the reference access-plugin imports an unused `FrameworkError`, the rebuilt
+  roles-plugin imports an unused `Relation`. They come from those packages'
+  sources, not from Core, and change no hover, completion or diagnostic.
