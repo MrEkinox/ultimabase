@@ -1,9 +1,4 @@
-import type {
-	QueryAst,
-	QueryFilterNode,
-	QuerySelectionNode,
-	SchemaDefinition,
-} from '@ultimabase/core'
+import type { QueryAst, QuerySelectionNode } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { asc, desc, sql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
@@ -14,7 +9,7 @@ import {
 	type CompiledPostgresSchema,
 } from '../schema/contracts.js'
 import {
-	compilePostgresFilter,
+	compilePostgresRowFilter,
 	type PostgresRelationPredicateCompiler,
 } from './filter-compiler.js'
 
@@ -45,15 +40,19 @@ export const selectPostgresFieldNames = (
 }
 
 /** Compiles projection, ordering, limit, offset, and portable filters. */
-export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
-	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
+export const compilePostgresQueryClauses = (
+	query: QueryAst,
 	schema: CompiledPostgresSchema,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): CompiledPostgresQueryClauses => {
 	const filter =
 		query.where === undefined
 			? undefined
-			: compilePostgresFilter(query.where.expression, schema, relationCompiler)
+			: compilePostgresRowFilter(
+					query.where.expression,
+					schema,
+					relationCompiler,
+				)
 	const orderBy = query.ordering.orders.map(({ direction, field }) => {
 		const column = resolveCompiledPostgresField(schema, field).column
 
