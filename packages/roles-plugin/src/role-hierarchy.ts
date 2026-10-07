@@ -4,7 +4,6 @@ import {
 	type Pointer,
 	type OperationOptions,
 	type SchemaDefinition,
-	type SchemaModelCapabilityContext,
 } from '@ultimabase/core'
 
 /** Bounds graph work when storage is corrupted or adversarial. */
@@ -48,26 +47,6 @@ export interface RoleHierarchyCommands<
 		options?: OperationOptions,
 	): Promise<void>
 }
-
-/** Creates relation-backed hierarchy aliases without retaining execution state. */
-export const createRoleHierarchyCommands = <
-	const TRoleSchema extends SchemaDefinition,
->(
-	context: SchemaModelCapabilityContext<TRoleSchema>,
-): RoleHierarchyCommands<TRoleSchema> => ({
-	addRole(role, options): Promise<void> {
-		context.assertPersisted(this, 'addRole')
-		const pointer = context.toPointer(context.schema, role, 'addRole')
-
-		return this.relation('roles').connect(pointer.id, options)
-	},
-	removeRole(role, options): Promise<void> {
-		context.assertPersisted(this, 'removeRole')
-		const pointer = context.toPointer(context.schema, role, 'removeRole')
-
-		return this.relation('roles').disconnect(pointer.id, options)
-	},
-})
 
 /** Reports deterministic hierarchy failures without adding vocabulary to Core. */
 export class RoleHierarchyError extends Error {

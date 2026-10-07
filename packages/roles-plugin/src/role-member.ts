@@ -6,6 +6,8 @@ import type {
 	SchemaModelCapabilityContext,
 } from '@ultimabase/core'
 
+import type { RoleHierarchyCommands } from './role-hierarchy.js'
+
 /** Accepts either a detached Pointer or any persisted projection of the member. */
 export type RoleMemberTarget<TMemberSchema extends SchemaDefinition> =
 	Pointer<TMemberSchema> | PersistedSchemaReference<TMemberSchema>
@@ -44,14 +46,21 @@ export interface RoleMemberCommands<
 	): Promise<void>
 }
 
-/** Creates thin model aliases without retaining an application or adapter. */
-export const createRoleMemberCommands = <
+/**
+ * Creates the member and child-role aliases of one role schema.
+ *
+ * Each command rejects drafts, converts its argument through Core's exact
+ * Pointer conversion and delegates to the generated relation lifecycle, so
+ * no application or adapter is retained.
+ */
+export const createRoleRelationCommands = <
 	const TRoleSchema extends SchemaDefinition,
 	const TMemberSchema extends SchemaDefinition,
 >(
 	context: SchemaModelCapabilityContext<TRoleSchema>,
 	memberSchema: TMemberSchema,
-): RoleMemberCommands<TRoleSchema, TMemberSchema> => ({
+): RoleMemberCommands<TRoleSchema, TMemberSchema> &
+	RoleHierarchyCommands<TRoleSchema> => ({
 	addMember(member, options): Promise<void> {
 		context.assertPersisted(this, 'addMember')
 		const pointer = context.toPointer(memberSchema, member, 'addMember')
@@ -63,5 +72,17 @@ export const createRoleMemberCommands = <
 		const pointer = context.toPointer(memberSchema, member, 'removeMember')
 
 		return this.relation('members').disconnect(pointer.id, options)
+	},
+	addRole(role, options): Promise<void> {
+		context.assertPersisted(this, 'addRole')
+		const pointer = context.toPointer(context.schema, role, 'addRole')
+
+		return this.relation('roles').connect(pointer.id, options)
+	},
+	removeRole(role, options): Promise<void> {
+		context.assertPersisted(this, 'removeRole')
+		const pointer = context.toPointer(context.schema, role, 'removeRole')
+
+		return this.relation('roles').disconnect(pointer.id, options)
 	},
 })

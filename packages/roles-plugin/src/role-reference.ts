@@ -113,48 +113,42 @@ export const normalizeRoleOperation = <
 	operation: TOperation,
 ): TOperation => {
 	const executable = operation as unknown as ExecutableOperationAst
-	const normalized: unknown = (() => {
-		switch (executable.kind) {
-			case 'create-one':
-				return immutableRecord({
-					...executable,
-					input: normalizeRoleRecord(executable.input),
-				})
-			case 'create-many':
-				return immutableRecord({
-					...executable,
-					inputs: immutableArray(executable.inputs.map(normalizeRoleRecord)),
-				})
-			case 'update-one':
-			case 'update-many':
-				return immutableRecord({
-					...executable,
-					update: normalizeRoleUpdate(executable.update),
-				})
-			case 'upsert-one':
-				return immutableRecord({
-					...executable,
-					create: normalizeRoleRecord(executable.create),
-					update: normalizeRoleUpdate(executable.update),
-				})
-			case 'upsert-many':
-				return immutableRecord({
-					...executable,
-					items: immutableArray(
-						executable.items.map((item) =>
-							immutableRecord({
-								...item,
-								create: normalizeRoleRecord(item.create),
-								update: normalizeRoleUpdate(item.update),
-							}),
-						),
+	// Only role-name values change; every other operation property is kept.
+	const replace = (changes: object): TOperation => {
+		const normalized: unknown = immutableRecord({ ...executable, ...changes })
+		return normalized as TOperation
+	}
+
+	switch (executable.kind) {
+		case 'create-one':
+			return replace({ input: normalizeRoleRecord(executable.input) })
+		case 'create-many':
+			return replace({
+				inputs: immutableArray(executable.inputs.map(normalizeRoleRecord)),
+			})
+		case 'update-one':
+		case 'update-many':
+			return replace({ update: normalizeRoleUpdate(executable.update) })
+		case 'upsert-one':
+			return replace({
+				create: normalizeRoleRecord(executable.create),
+				update: normalizeRoleUpdate(executable.update),
+			})
+		case 'upsert-many':
+			return replace({
+				items: immutableArray(
+					executable.items.map((item) =>
+						immutableRecord({
+							...item,
+							create: normalizeRoleRecord(item.create),
+							update: normalizeRoleUpdate(item.update),
+						}),
 					),
-				})
-			default:
-				return executable
-		}
-	})()
-	return normalized as TOperation
+				),
+			})
+		default:
+			return operation
+	}
 }
 
 const normalizeRoleSelector = (selector: RoleSelector): RoleSelector => {

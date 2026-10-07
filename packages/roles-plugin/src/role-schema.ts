@@ -34,13 +34,10 @@ import {
 	type RoleReference,
 } from './role-reference.js'
 import {
-	createRoleMemberCommands,
+	createRoleRelationCommands,
 	type RoleMemberCommands,
 } from './role-member.js'
-import {
-	createRoleHierarchyCommands,
-	type RoleHierarchyCommands,
-} from './role-hierarchy.js'
+import type { RoleHierarchyCommands } from './role-hierarchy.js'
 import {
 	createRoleSchemaIdentity,
 	roleSchemaIdentityOptionName,
@@ -465,8 +462,7 @@ export class RoleSchema {
 					// The neutral reference keeps ACL and other consumers independent from roles.
 					return createRoleReference(context.schema, { id: this.id })
 				},
-				...createRoleMemberCommands(context, members.schema),
-				...createRoleHierarchyCommands(context),
+				...createRoleRelationCommands(context, members.schema),
 			}
 
 			return {

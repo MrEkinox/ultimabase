@@ -32,16 +32,6 @@ const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 
-/** Describes the persisted role being deleted and its stable UUID reference. */
-interface RoleDeletionTarget {
-	readonly context: RequestSubjectContext
-	readonly role: object
-	readonly roleId: string
-	readonly schema: SchemaDefinition
-	readonly reference: RoleReference
-	readonly cleanups: readonly NamedRequestSubjectReferenceCleanup[]
-}
-
 const readRelation = (role: object, fieldName: 'members' | 'roles') =>
 	readRoleRelation(
 		role,
@@ -49,6 +39,16 @@ const readRelation = (role: object, fieldName: 'members' | 'roles') =>
 		'Persisted role must expose generated relations',
 		`Persisted role returned an invalid ${fieldName} relation`,
 	)
+
+const readRoleId = (role: object): string => {
+	const roleId: unknown = Reflect.get(role, 'id')
+
+	if (typeof roleId !== 'string') {
+		throw new TypeError('Persisted role must expose its stable id')
+	}
+
+	return roleId
+}
 
 /** Reads parents through the public relation predicate API inside the transaction. */
 const readParentRoles = (
@@ -62,14 +62,14 @@ const readParentRoles = (
 	)
 
 /** Rejects deletion while any role-owned edge or external reference remains. */
-const assertUnreferenced = async ({
-	cleanups,
-	context,
-	reference,
-	role,
-	roleId,
-	schema,
-}: RoleDeletionTarget): Promise<void> => {
+const assertUnreferenced = async (
+	context: RequestSubjectContext,
+	role: object,
+	schema: SchemaDefinition,
+	reference: RoleReference,
+	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
+): Promise<void> => {
+	const roleId = readRoleId(role)
 	const memberCount = await readRelation(role, 'members').count(
 		{},
 		masterOptions,
@@ -102,14 +102,13 @@ const assertUnreferenced = async ({
 }
 
 /** Clears role-owned edges, then lets every cleanup owner remove its references. */
-const cascadeReferences = async ({
-	cleanups,
-	context,
-	reference,
-	role,
-	roleId,
-	schema,
-}: RoleDeletionTarget): Promise<readonly string[]> => {
+const cascadeReferences = async (
+	context: RequestSubjectContext,
+	role: object,
+	schema: SchemaDefinition,
+	reference: RoleReference,
+	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
+): Promise<readonly string[]> => {
 	if (context.access.mode !== 'master') {
 		throw new RoleDeletionError(
 			'ROLE_DELETE_CASCADE_MASTER_REQUIRED',
@@ -117,7 +116,7 @@ const cascadeReferences = async ({
 		)
 	}
 
-	const rolePointer = new Pointer(schema, roleId)
+	const rolePointer = new Pointer(schema, readRoleId(role))
 	const parentRoles = await readParentRoles(schema, rolePointer.id)
 
 	await readRelation(role, 'members').clear(masterOptions)
@@ -152,27 +151,21 @@ export const applyRoleDeletionPolicy = async (
 		createRoleReference(schema, { name: roleName }),
 		masterOptions,
 	)
-	const roleId: unknown = Reflect.get(role, 'id')
-
-	if (typeof roleId !== 'string') {
-		throw new TypeError('Persisted role must expose its stable id')
-	}
-
-	const target: RoleDeletionTarget = {
-		cleanups,
-		context,
-		reference: createRoleReference(schema, { id: roleId }),
-		role,
-		roleId,
-		schema,
-	}
+	const roleId = readRoleId(role)
+	const reference = createRoleReference(schema, { id: roleId })
 	const policy = declaration.deletionPolicy
 	let cleanupContributions: readonly string[] = immutableArray([])
 
 	if (policy === 'fail') {
-		await assertUnreferenced(target)
+		await assertUnreferenced(context, role, schema, reference, cleanups)
 	} else if (policy === 'cascade') {
-		cleanupContributions = await cascadeReferences(target)
+		cleanupContributions = await cascadeReferences(
+			context,
+			role,
+			schema,
+			reference,
+			cleanups,
+		)
 	}
 
 	return immutableRecord({ cleanupContributions, policy, roleId })

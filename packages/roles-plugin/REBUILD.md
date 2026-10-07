@@ -13,4 +13,4 @@ Work in progress on branch `rebuild/roles-plugin` (base `8c8bf6e`), following
   `RoleSchemaCapabilities` aliases instead of repeating the same intersections.
 - Role-name operation normalization moved next to `normalizeRoleName`.
 
-Production lines: 2192 before, 2033 at this checkpoint.
+Production lines: 2192 before, 2015 at checkpoint 2 (one relation-command factory, table-free operation normalization).
