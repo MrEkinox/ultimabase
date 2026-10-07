@@ -421,6 +421,6 @@ const boundaryMethods: RuntimeBehaviorBoundaries = {
 		) as unknown as RuntimeOperationResult<TOperation>,
 }
 
-/** Creates immutable boundaries; compiled validation plans are cached per schema. */
+// Creates immutable boundaries; compiled validation plans are cached per schema.
 export const createRuntimeBehaviorBoundaries = (): RuntimeBehaviorBoundaries =>
 	immutableRecord({ ...boundaryMethods })

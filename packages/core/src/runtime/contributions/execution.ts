@@ -24,6 +24,12 @@ import {
 } from '../../application/application-kernel-state.js'
 import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
 
+/** Lets cancellation and recursion failures cross resolver error wrapping unchanged. */
+export const isFrameworkControlFailure = (error: unknown): boolean =>
+	error instanceof FrameworkError &&
+	(error.code === 'OPERATION_CANCELLED' ||
+		error.code === 'RUNTIME_CALLBACK_RECURSION')
+
 /** Identifies one callback without retaining request values or callback inputs. */
 export interface RuntimeCallbackDescriptor {
 	readonly key: string

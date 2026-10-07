@@ -25,6 +25,7 @@ import type { RequestContext } from '../context/request-context.js'
 import {
 	createRuntimeCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
+	isFrameworkControlFailure,
 } from '../contributions/execution.js'
 import { createSchemaRuntimeCallbackOwner } from '../contributions/schema-callback-owner.js'
 import {
@@ -36,11 +37,6 @@ type RelationFilterApplication = FrameworkApplication<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 >
-
-const preserveFrameworkControlFailure = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	(error.code === 'OPERATION_CANCELLED' ||
-		error.code === 'RUNTIME_CALLBACK_RECURSION')
 
 const omitIdentityFilter = (
 	filter: QueryFilterNode<SchemaDefinition>,
@@ -154,7 +150,7 @@ export class RuntimeRelationFilterResolver {
 					),
 				)
 			} catch (error: unknown) {
-				if (preserveFrameworkControlFailure(error)) throw error
+				if (isFrameworkControlFailure(error)) throw error
 				throw new FrameworkError(
 					'INTERNAL_ERROR',
 					`Relation filter resolver failed: ${relation.source.className}.${relation.fieldPath.join('.')}`,
