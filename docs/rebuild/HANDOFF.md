@@ -84,8 +84,9 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | soft-delete-plugin      |         710 |         709 | `plugin.ts` gardé de la référence pour préserver les hovers ; visibilité inchangée.                                                                                                    |
 | validation-plugin       |         663 |         622 | Projection arithmétique aplatie ; 3 000 comparaisons aléatoires identiques.                                                                                                            |
 | core / intégration      |      58 973 |      58 694 | Vérifications d’objets exacts, grammaires d’identifiants, snapshots d’identité et bindings de pipeline unifiés ; shims d’interfaces gelées retirés.                                    |
+| core / parité DX        |      58 694 |      59 126 | Déclarations de types de la référence restaurées (options de champs, résultats d’opérations, contextes de déclaration, ordre des modules pour `Simplify`) : audit DX 335 → 0.          |
 
-Total de la production (script de mesure) : **114 742 → 103 702 lignes** (main après intégration de Core). Les tests sont
+Total de la production (script de mesure) : **114 742 → 104 134 lignes** (main après la parité DX). Les tests sont
 inchangés (127 476 lignes).
 
 Les 5 périmètres de Core sont fusionnés (2026-10-07). Main intégré, validé par le
@@ -205,7 +206,10 @@ Premier passage (main `86294af` contre `ub-ref`) : 16 packages identiques ; **29
 différences de hovers visibles** dans 7 packages (password-auth, hooks, rest, roles,
 Core, et par propagation typegen, plugin-kit, pg-vector) ; aucune différence de
 complétion, de diagnostic ni de liste d'exports. Corrections : agent `dx-fix-plugins`
-pour password-auth, hooks, rest et roles ; Core après la passe d'intégration. Les
+pour password-auth, hooks, rest et roles ; Core après la passe d'intégration. **Résultat (2026-10-08)** : après corrections, audit complet 383 → 2 différences, 0 visible.
+Les 2 restantes sont des noms importés inutilisés dans des `.d.ts` (access-plugin
+n'importe plus `FrameworkError` inutilisé ; roles-plugin importe `Relation` inutilisé) :
+aucun effet sur hovers, complétions ni diagnostics. Les
 suites de tests ne détectaient pas ces écarts : l'audit fait désormais partie des
 validations finales.
 
