@@ -303,7 +303,10 @@ export class PluginLifecycleManager {
 	async #stopActivePlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const { definition, resource } of this.#initializedPlugins.toReversed()) {
+		for (const {
+			definition,
+			resource,
+		} of this.#initializedPlugins.toReversed()) {
 			if (!this.#activePlugins.has(definition)) continue
 			await collectFailure(
 				() => this.#runAs(definition, () => resource?.stop?.()),
@@ -320,7 +323,10 @@ export class PluginLifecycleManager {
 	async #disposeInitializedPlugins(): Promise<unknown[]> {
 		const errors: unknown[] = []
 
-		for (const { definition, resource } of this.#initializedPlugins.toReversed()) {
+		for (const {
+			definition,
+			resource,
+		} of this.#initializedPlugins.toReversed()) {
 			await collectFailure(
 				() => this.#runAs(definition, () => resource?.dispose?.()),
 				errors,

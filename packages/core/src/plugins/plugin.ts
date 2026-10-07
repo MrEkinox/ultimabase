@@ -1,5 +1,6 @@
 import {
 	immutableArray,
+	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
@@ -281,11 +282,11 @@ const compilePluginContributions = (
 	return {
 		applicationFactory: applicationFactories[0],
 		capabilities,
-		commands: {
+		commands: immutableRecord({
 			declarations: immutableArray(commandSources),
 			handlers: immutableArray(handlers),
 			transports: immutableArray(transports),
-		},
+		}),
 		declare:
 			declarations.length === 0
 				? undefined

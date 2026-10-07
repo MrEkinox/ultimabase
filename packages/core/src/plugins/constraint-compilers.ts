@@ -211,11 +211,12 @@ export const createDatabaseConstraintCompilerReader = (
 export const createPluginConstraintCompilerRegistry = (
 	options: CreatePluginConstraintCompilerRegistryOptions,
 ): PluginConstraintCompilerRegistry => {
-	const reader = createDatabaseConstraintCompilerReader(options.values)
+	const readValues = (): readonly DatabaseConstraintCompilerContribution[] =>
+		readContributions(options.values())
 
 	return Object.freeze({
 		get size(): number {
-			return reader.size
+			return readValues().length
 		},
 		register: (definition: DatabaseConstraintCompilerDefinition): void => {
 			if (!options.isOpen()) {
@@ -233,14 +234,12 @@ export const createPluginConstraintCompilerRegistry = (
 			}
 
 			const { adapter, kind, version } = definition
-			const existing = reader
-				.values()
-				.find(
-					({ definition: candidate }) =>
-						candidate.adapter === adapter &&
-						candidate.kind === kind &&
-						candidate.version === version,
-				)
+			const existing = readValues().find(
+				({ definition: candidate }) =>
+					candidate.adapter === adapter &&
+					candidate.kind === kind &&
+					candidate.version === version,
+			)
 			if (existing !== undefined) {
 				throw new FrameworkError(
 					'PLUGIN_CONFLICT',
@@ -263,6 +262,6 @@ export const createPluginConstraintCompilerRegistry = (
 			// The semantic identity is private storage metadata, never caller provenance.
 			options.register(`${adapter}:${kind}@${String(version)}`, definition)
 		},
-		values: reader.values,
+		values: readValues,
 	})
 }

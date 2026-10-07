@@ -22,6 +22,7 @@ import {
 	composeCapability,
 	runApplicationCapabilityFactory,
 	type ApplicationCapabilityFactoryContext,
+	type ApplicationCapabilityResource,
 	type CapabilityConsumerValue,
 	type CapabilityProviderContribution,
 	type CapabilityRequirement,
@@ -68,6 +69,30 @@ const unresolvedCapability: MaterializedCapability = immutableRecord({
 	consumer: undefined,
 	contributions: immutableArray([]),
 })
+const assertApplicationResource: (
+	value: unknown,
+	capabilityId: string,
+) => asserts value is ApplicationCapabilityResource<unknown> = (
+	value,
+	capabilityId,
+) => {
+	assertExactPlainObject(
+		value,
+		new Set(['dispose', 'value']),
+		`Application capability "${capabilityId}" factory must return a plain resource object`,
+		`Application capability "${capabilityId}" resource contains unknown option: `,
+	)
+	if (!Object.hasOwn(value, 'value')) {
+		throw new TypeError(
+			`Application capability "${capabilityId}" resource must contain value`,
+		)
+	}
+	if (value.dispose !== undefined && typeof value.dispose !== 'function') {
+		throw new TypeError(
+			`Application capability "${capabilityId}" resource dispose must be a function`,
+		)
+	}
+}
 const throwCleanupErrors = (errors: readonly unknown[]): void => {
 	if (errors.length === 1) throw errors[0]
 	if (errors.length > 1) {
@@ -191,7 +216,10 @@ export class ApplicationCapabilityHost {
 		return this.#readerFor(owner, 'setup')
 	}
 
-	#readerFor(owner: PluginIdentity, phase: ReaderPhase): PluginCapabilityReader {
+	#readerFor(
+		owner: PluginIdentity,
+		phase: ReaderPhase,
+	): PluginCapabilityReader {
 		const readers = phase === 'setup' ? this.#readers : this.#factoryReaders
 		return readers.getOrCreate(
 			owner,
@@ -204,7 +232,9 @@ export class ApplicationCapabilityHost {
 								'Provider contributions require an application capability',
 							)
 						}
-						return this.#read(owner, requirement, phase)?.contributions ?? []
+						return (
+							this.#read(owner, requirement, phase) ?? unresolvedCapability
+						).contributions
 					},
 					get: (requirement: CapabilityRequirement): unknown =>
 						requirement.token.lifetime === 'declaration'
@@ -373,23 +403,7 @@ export class ApplicationCapabilityHost {
 						createResource,
 					)
 				: createResource())
-			assertExactPlainObject(
-				resource,
-				new Set(['dispose', 'value']),
-				`Application capability "${token.capabilityId}" factory must return a plain resource object`,
-				`Application capability "${token.capabilityId}" resource contains unknown option: `,
-			)
-			if (!Object.hasOwn(resource, 'value')) {
-				throw new TypeError(
-					`Application capability "${token.capabilityId}" resource must contain value`,
-				)
-			}
-			const { dispose } = resource
-			if (dispose !== undefined && typeof dispose !== 'function') {
-				throw new TypeError(
-					`Application capability "${token.capabilityId}" resource dispose must be a function`,
-				)
-			}
+			assertApplicationResource(resource, token.capabilityId)
 			const value = materializeAdapterContribution(token, resource.value, {
 				contributionId: declaration.contributionId,
 				owner,
@@ -403,11 +417,7 @@ export class ApplicationCapabilityHost {
 					value,
 				}),
 			)
-			this.#retain(
-				owner,
-				dispose === undefined ? undefined : () => dispose(),
-				attributed,
-			)
+			this.#retain(owner, resource.dispose, attributed)
 		}
 
 		const consumer: unknown = composeCapability(

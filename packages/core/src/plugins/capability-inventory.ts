@@ -102,7 +102,10 @@ const coreCapabilityDescription = (
 	token: CapabilityToken,
 ): Readonly<{ readonly kind: string; readonly name: string }> | undefined => {
 	if (isApplicationRequestExecutionCapability(token)) {
-		return { kind: 'application-request', name: 'Application request execution' }
+		return {
+			kind: 'application-request',
+			name: 'Application request execution',
+		}
 	}
 	if (isApplicationOperationTransportPlanningCapability(token)) {
 		return {
@@ -370,8 +373,11 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		}
 
 		for (const plugin of plugins) {
-			const { identity: owner, version, capabilities } =
-				plugin.definition.manifest
+			const {
+				identity: owner,
+				version,
+				capabilities,
+			} = plugin.definition.manifest
 			for (const declaration of capabilities.provides) {
 				planFor(owner, declaration.token).providers.push({
 					owner,
@@ -506,5 +512,7 @@ export const readDeclarationCapability = (
 /** Supplies application materialization with final static provider plans. */
 export const readCapabilityPlans = (
 	inventory: CapabilityInventory,
-): ReadonlyMap<CapabilityToken, Readonly<{ providers: readonly OwnedProvider[] }>> =>
-	getInventoryState(inventory).plansByToken
+): ReadonlyMap<
+	CapabilityToken,
+	Readonly<{ providers: readonly OwnedProvider[] }>
+> => getInventoryState(inventory).plansByToken

@@ -231,9 +231,8 @@ const connectGraphNodes = (graph: GraphNodes): void => {
 			...node.plugin.dependencies.map((dependency) =>
 				resolveNamedDependency(graph.byPluginId, identity, dependency, true),
 			),
-			...(node.plugin.definition.optionalDependencies ?? []).map(
-				(dependency) =>
-					resolveNamedDependency(graph.byPluginId, identity, dependency, false),
+			...(node.plugin.definition.optionalDependencies ?? []).map((dependency) =>
+				resolveNamedDependency(graph.byPluginId, identity, dependency, false),
 			),
 		]
 		for (const dependency of dependencies) {

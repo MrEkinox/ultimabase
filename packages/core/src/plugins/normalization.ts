@@ -69,7 +69,9 @@ export const normalizePlugins = (
 		const identity = plugin.manifest.identity
 		const instances = normalizedPlugins
 			.map(({ definition }) => definition)
-			.filter(({ manifest }) => manifest.identity.pluginId === identity.pluginId)
+			.filter(
+				({ manifest }) => manifest.identity.pluginId === identity.pluginId,
+			)
 		const existing = instances.find(({ manifest }) =>
 			isSamePluginIdentity(manifest.identity, identity),
 		)
