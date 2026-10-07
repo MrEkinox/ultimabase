@@ -169,6 +169,35 @@ const normalizeMutationOperation = <
 			: undefined
 	let normalized: Readonly<Record<string, unknown>> = untrustedOperation
 
+	/** Validates one create candidate, then its update branch, in reference order. */
+	const validateUpsert = (
+		item: Readonly<Record<string, unknown>>,
+		path: ValidationIssuePath,
+		previousUpdate: unknown,
+	): Readonly<Record<string, unknown>> | undefined => {
+		const create = validateUpsertCreateInput(
+			item.create,
+			item.query,
+			item.target,
+			[...path, 'create'],
+			execution,
+			options.createPlan,
+			options.allowDefaults,
+		)
+		const update = validateUpdateExpression(
+			options.updatePlan,
+			item.update,
+			[...path, 'update'],
+			execution,
+			options.appendGeneratedValues,
+			previousUpdate,
+		)
+
+		return create === undefined || update === undefined
+			? undefined
+			: immutableRecord({ ...item, create, update })
+	}
+
 	switch (untrustedOperation.kind) {
 		case 'create-one': {
 			const reservedId = readReservedCreateId(operation)
@@ -232,27 +261,13 @@ const normalizeMutationOperation = <
 			break
 		}
 		case 'upsert-one': {
-			const create = validateUpsertCreateInput(
-				untrustedOperation.create,
-				untrustedOperation.query,
-				untrustedOperation.target,
-				['create'],
-				execution,
-				options.createPlan,
-				options.allowDefaults,
-			)
-			const update = validateUpdateExpression(
-				options.updatePlan,
-				untrustedOperation.update,
-				['update'],
-				execution,
-				options.appendGeneratedValues,
+			const upsert = validateUpsert(
+				untrustedOperation,
+				[],
 				previousOperation?.update,
 			)
 
-			if (create !== undefined && update !== undefined) {
-				normalized = immutableRecord({ ...untrustedOperation, create, update })
-			}
+			if (upsert !== undefined) normalized = upsert
 			break
 		}
 		case 'upsert-many': {
@@ -281,29 +296,15 @@ const normalizeMutationOperation = <
 					return item
 				}
 
-				const create = validateUpsertCreateInput(
-					item.create,
-					item.query,
-					item.target,
-					['items', index, 'create'],
-					execution,
-					options.createPlan,
-					options.allowDefaults,
+				return (
+					validateUpsert(
+						item,
+						['items', index],
+						isPlainRecord(previousItems[index])
+							? previousItems[index].update
+							: undefined,
+					) ?? item
 				)
-				const update = validateUpdateExpression(
-					options.updatePlan,
-					item.update,
-					['items', index, 'update'],
-					execution,
-					options.appendGeneratedValues,
-					isPlainRecord(previousItems[index])
-						? previousItems[index].update
-						: undefined,
-				)
-
-				return create === undefined || update === undefined
-					? item
-					: immutableRecord({ ...item, create, update })
 			})
 
 			normalized = immutableRecord({

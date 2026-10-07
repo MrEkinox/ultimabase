@@ -237,45 +237,42 @@ export const validateFieldValue = (
 		appendIssue(execution, 'field.null', path, 'Field cannot be null')
 		return { valid: false }
 	}
-	const result: ValueValidationResult = (() => {
-		switch (plan.kind) {
-			case 'scalar':
-				return snapshotScalarValue(plan.field, value, path, execution, true)
-			case 'array': {
-				if (!isUnknownArray(value)) {
-					appendIssue(execution, 'array.type', path, 'Field must be an array')
-					return { valid: false }
-				}
-				const items: unknown[] = []
-				let valid = true
-				for (const [index, item] of value.entries()) {
-					const itemResult = validateFieldValue(
-						plan.items,
-						item,
-						[...path, index],
-						execution,
-						allowDefaults,
-					)
-					valid = valid && itemResult.valid
-					if (itemResult.valid) {
-						items.push(itemResult.value)
-					}
-				}
-				return valid
-					? { valid: true, value: immutableArray(items) }
-					: { valid: false }
+	switch (plan.kind) {
+		case 'scalar':
+			return snapshotScalarValue(plan.field, value, path, execution, true)
+		case 'array': {
+			if (!isUnknownArray(value)) {
+				appendIssue(execution, 'array.type', path, 'Field must be an array')
+				return { valid: false }
 			}
-			case 'object':
-				return validateObjectValue(
-					plan.fields,
-					value,
-					path,
+			const items: unknown[] = []
+			let valid = true
+			for (const [index, item] of value.entries()) {
+				const itemResult = validateFieldValue(
+					plan.items,
+					item,
+					[...path, index],
 					execution,
 					allowDefaults,
 				)
+				valid = valid && itemResult.valid
+				if (itemResult.valid) {
+					items.push(itemResult.value)
+				}
+			}
+			return valid
+				? { valid: true, value: immutableArray(items) }
+				: { valid: false }
 		}
-	})()
-	return result
+		case 'object':
+			return validateObjectValue(
+				plan.fields,
+				value,
+				path,
+				execution,
+				allowDefaults,
+			)
+	}
 }
 
 const validateObjectValue = (
@@ -308,9 +305,8 @@ const validateObjectValue = (
 
 	for (const [fieldName, plan] of Object.entries(fields)) {
 		const fieldPath: ValidationIssuePath = [...path, fieldName]
-		const supplied = Object.hasOwn(value, fieldName)
-
-		if (supplied) {
+		let candidate: MissingValueResolution
+		if (Object.hasOwn(value, fieldName)) {
 			if (plan.presence === 'forbidden') {
 				valid = false
 				appendIssue(
@@ -321,34 +317,19 @@ const validateObjectValue = (
 				)
 				continue
 			}
-
-			const fieldResult = validateFieldValue(
-				plan,
-				value[fieldName],
-				fieldPath,
-				execution,
-				allowDefaults,
-			)
-
-			valid = valid && fieldResult.valid
-
-			if (fieldResult.valid) {
-				entries.push([fieldName, fieldResult.value])
-			}
-
-			continue
+			candidate = { found: true, value: value[fieldName] }
+		} else if (Object.hasOwn(resolvedValues ?? {}, fieldName)) {
+			candidate = { found: true, value: resolvedValues?.[fieldName] }
+		} else {
+			candidate = allowDefaults
+				? resolveMissingValue(plan.field, execution)
+				: { found: false }
 		}
 
-		const resolved = Object.hasOwn(resolvedValues ?? {}, fieldName)
-			? { found: true as const, value: resolvedValues?.[fieldName] }
-			: allowDefaults
-				? resolveMissingValue(plan.field, execution)
-				: { found: false as const }
-
-		if (resolved.found) {
+		if (candidate.found) {
 			const fieldResult = validateFieldValue(
 				plan,
-				resolved.value,
+				candidate.value,
 				fieldPath,
 				execution,
 				allowDefaults,
