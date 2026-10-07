@@ -63,8 +63,15 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | core / runtime-app      |      10 914 |       9 998 | WIP repris ; régression de rollback du WIP corrigée ; 1 écart (handles internes non exposés). Voir `packages/core/REBUILD-core-runtime-app.md`.                                        |
 | core / plugins          |      14 525 |      13 822 | WIP repris ; 4 régressions du WIP corrigées ; 3 contrôles inatteignables retirés (preuve dans le REBUILD, vérifiée par le coordinateur). Voir `packages/core/REBUILD-core-plugins.md`. |
 | core / runtime-pipeline |      12 290 |      11 261 | WIP repris ; 3 écarts du WIP corrigés. Voir `packages/core/REBUILD-core-runtime-pipeline.md`.                                                                                          |
+| core / query            |       9 276 |       8 586 | WIP repris ; parité vérifiée par sonde runtime (303 cas) et identité de types. Voir `packages/core/REBUILD-core-query.md`.                                                             |
+| graphql-plugin          |       7 620 |       6 661 | Contexte de compilation partagé ; SDL imprimée identique sur 85 applications de test.                                                                                                  |
+| postgres-plugin         |       9 307 |       7 966 | `dist/index.d.ts` identique ; 1 écart `__proto__` (DIFFERENCES.md).                                                                                                                    |
+| access-plugin           |       4 438 |       3 653 | Une seule `AccessScope` ; 2 défauts fail-open de la référence corrigés (DIFFERENCES.md).                                                                                               |
+| password-auth-plugin    |       3 567 |       3 359 | Modules épinglés par les tests et la doc ; parité vérifiée par comparaison runtime des deux bundles.                                                                                   |
+| http-plugin             |       2 338 |       2 080 | Registre de définitions partagé ; 1 écart TOCTOU sur les en-têtes (DIFFERENCES.md).                                                                                                    |
+| roles-plugin            |       2 192 |       2 015 | Helpers de résolution partagés ; 8 622 comparaisons aléatoires identiques à la référence.                                                                                              |
 
-Total de la production (script de mesure) : **114 742 → 112 893 lignes**. Les tests sont
+Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
 inchangés (127 476 lignes).
 
 Les 5 périmètres de Core sont fusionnés (2026-10-07). Main intégré, validé par le
