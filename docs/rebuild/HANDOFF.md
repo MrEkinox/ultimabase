@@ -74,6 +74,12 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | plugin-kit              |         778 |         722 | Contrats d’événements en `WeakSet` ; `dist/index.d.ts` identique.                                                                                                                      |
 | create-app              |       1 656 |       1 557 | Tables de conditions partagées ; oracle de parité sur 196 608 rendus de projets, 0 différence.                                                                                         |
 | typegen                 |       3 018 |       2 733 | Filtres et identifiants unifiés ; sorties générées identiques (80 sorties distinctes) ; budgets de performance à requalifier au calme.                                                 |
+| server-hono-plugin      |         431 |         424 | Déjà minimal ; un cast retiré.                                                                                                                                                         |
+| pg-vector-plugin        |         202 |         201 | Déjà minimal.                                                                                                                                                                          |
+| apollo-sandbox-plugin   |         197 |         192 | Déjà minimal ; HTML/CSP identiques.                                                                                                                                                    |
+| graphiql-plugin         |         188 |         183 | Déjà minimal ; HTML/CSP identiques.                                                                                                                                                    |
+| graphql-http            |          76 |          72 | 1 écart TOCTOU sur `path` (DIFFERENCES.md).                                                                                                                                            |
+| shared                  |          74 |          74 | Inchangé (déjà minimal).                                                                                                                                                               |
 
 Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
 inchangés (127 476 lignes).
