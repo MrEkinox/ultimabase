@@ -67,7 +67,12 @@ packages. Le détail figure dans leur `REBUILD.md`.
 Total de la production (script de mesure) : **114 742 → 112 893 lignes**. Les tests sont
 inchangés (127 476 lignes).
 
-### Branches WIP interrompues (NON validées)
+Les 5 périmètres de Core sont fusionnés (2026-10-07). Main intégré, validé par le
+coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
+`packages/core tests/e2e` 219/219 ; postgres-e2e 191/191 ; `yarn test:pack:built`
+173/173. La passe d'intégration transversale de Core reste à faire.
+
+### Branches WIP interrompues (historique : toutes reprises et fusionnées)
 
 La limite d'usage a interrompu ces cinq agents en pleine réécriture. Leur travail non
 committé a été sauvegardé tel quel. Il peut ne pas compiler.
