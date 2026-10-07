@@ -16,20 +16,22 @@ import {
 import type { OwnedAccessContribution } from '../contributions.js'
 import { readFieldKindAccessTarget } from '../targets.js'
 import {
-	fieldReadAccessChannels,
-	fieldWriteAccessTransitions,
 	isAccessRule,
-	normalizeFieldAccessDeclarations,
 	schemaFilterAccessFamilies,
 	schemaItemAccessFamilies,
-	type FieldAccessDeclarations,
-	type FieldReadAccessChannel,
-	type FieldWriteAccessTransition,
 	type NormalizedAccessRule,
 	type SchemaAccessDeclarations,
 	type SchemaFilterAccessFamily,
 	type SchemaItemAccessFamily,
 } from './declarations.js'
+import {
+	fieldReadAccessChannels,
+	fieldWriteAccessTransitions,
+	normalizeFieldAccessDeclarations,
+	type FieldAccessDeclarations,
+	type FieldReadAccessChannel,
+	type FieldWriteAccessTransition,
+} from './field-declarations.js'
 import {
 	accessOperationKinds,
 	encodeFieldPath,

@@ -16,10 +16,8 @@ import type { MaybePromise } from '@ultimabase/shared'
 
 import type { AccessContext } from './context.js'
 import type { SchemaAccess } from './authoring/contracts.js'
-import {
-	normalizeFieldAccessDeclarations,
-	normalizeSchemaAccessDeclarations,
-} from './authoring/declarations.js'
+import { normalizeSchemaAccessDeclarations } from './authoring/declarations.js'
+import { normalizeFieldAccessDeclarations } from './authoring/field-declarations.js'
 
 type SourceAccessDecision<TInput> =
 	boolean | ((input: TInput) => MaybePromise<boolean>)

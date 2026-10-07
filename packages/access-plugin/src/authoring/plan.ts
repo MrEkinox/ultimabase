@@ -7,13 +7,15 @@ import type {
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
-	FieldReadAccessChannel,
-	FieldWriteAccessTransition,
 	NormalizedAccessRule,
 	SchemaFilterAccessFamily,
 	SchemaItemAccessFamily,
 	SchemaReadAccessBranch,
 } from './declarations.js'
+import type {
+	FieldReadAccessChannel,
+	FieldWriteAccessTransition,
+} from './field-declarations.js'
 
 export type AccessOperationFamily =
 	'create' | 'delete' | 'read' | 'update' | 'upsert'

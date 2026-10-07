@@ -12,7 +12,7 @@ import {
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { FieldWriteAccessTransition } from '../authoring/declarations.js'
+import type { FieldWriteAccessTransition } from '../authoring/field-declarations.js'
 import type { FieldAccessPlan } from '../authoring/plan.js'
 import {
 	assertAccessRules,

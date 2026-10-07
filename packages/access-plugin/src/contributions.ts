@@ -17,11 +17,13 @@ import {
 
 import type { FieldAccess, SchemaAccess } from './authoring/contracts.js'
 import {
-	normalizeFieldAccessDeclarations,
 	normalizeSchemaAccessDeclarations,
-	type FieldAccessDeclarations,
 	type SchemaAccessDeclarations,
 } from './authoring/declarations.js'
+import {
+	normalizeFieldAccessDeclarations,
+	type FieldAccessDeclarations,
+} from './authoring/field-declarations.js'
 import type {
 	AccessTargetContributionDefinition,
 	FieldKindAccessContributionDefinition,

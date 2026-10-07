@@ -54,13 +54,6 @@ export type SchemaFilterAccessFamily =
 	(typeof schemaFilterAccessFamilies)[number]
 export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
 
-export const fieldReadAccessChannels = ['item', 'filter', 'order'] as const
-export const fieldWriteAccessTransitions = ['fill', 'replace', 'clear'] as const
-/** Names the private channels for field-level read and write rules. */
-export type FieldReadAccessChannel = (typeof fieldReadAccessChannels)[number]
-export type FieldWriteAccessTransition =
-	(typeof fieldWriteAccessTransitions)[number]
-
 /** Retains operation rules in the private stage-oriented compiler format. */
 export interface SchemaOperationAccessDeclarations {
 	readonly read?:
@@ -88,16 +81,7 @@ export interface SchemaAccessDeclarations {
 	>
 }
 
-/** Retains only validated field rules inside private field capabilities. */
-export interface FieldAccessDeclarations {
-	readonly read?:
-		| NormalizedAccessRule
-		| NormalizedRequiredAccessRuleMap<FieldReadAccessChannel>
-	readonly write?: NormalizedRequiredAccessRuleMap<FieldWriteAccessTransition>
-	readonly relationWrite?: NormalizedAccessRule
-}
-
-const isRuleCallback = (value: unknown): value is ErasedAccessRule =>
+export const isRuleCallback = (value: unknown): value is ErasedAccessRule =>
 	typeof value === 'function'
 
 export const isAccessRule = (value: unknown): value is NormalizedAccessRule =>
@@ -115,7 +99,7 @@ const normalizeAccessRule = (
 }
 
 /** Visits own keys in order, rejecting symbols and vocabulary outside `allowed`. */
-const forEachKnownKey = (
+export const forEachKnownKey = (
 	value: Readonly<Record<string, unknown>>,
 	path: string,
 	allowed: ReadonlySet<string>,
@@ -155,7 +139,7 @@ const hasEveryRule = <TKey extends string>(
 	keys.every((key) => Object.hasOwn(rules, key))
 
 /** Copies one grouped rule map and rejects the first omitted branch. */
-const normalizeRequiredAccessRuleMap = <TKey extends string>(
+export const normalizeRequiredAccessRuleMap = <TKey extends string>(
 	value: unknown,
 	keys: readonly TKey[],
 	path: string,
@@ -331,64 +315,6 @@ export const normalizeSchemaAccessDeclarations = (
 			? {}
 			: { mutations: immutableRecord(Object.fromEntries(mutations)) }),
 	}
-	return Object.keys(declarations).length === 0
-		? undefined
-		: immutableRecord(declarations)
-}
-
-const publicFieldReadAccessChannels = ['output', 'where', 'orderBy'] as const
-const fieldAccessCapabilities = new Set(['read', 'write'])
-
-/** Copies and validates one inline declaration without executing policy code. */
-export const normalizeFieldAccessDeclarations = (
-	access: unknown,
-): FieldAccessDeclarations | undefined => {
-	if (access === undefined) return undefined
-	if (!isPlainRecord(access)) {
-		throw new TypeError('access must be a plain object')
-	}
-
-	const declarations: {
-		-readonly [
-			TKey in keyof FieldAccessDeclarations
-		]?: FieldAccessDeclarations[TKey]
-	} = {}
-	forEachKnownKey(access, 'access', fieldAccessCapabilities, (key) => {
-		const value = access[key]
-		if (key === 'read') {
-			if (isAccessRule(value)) {
-				declarations.read = value
-				return
-			}
-			const read = normalizeRequiredAccessRuleMap(
-				value,
-				publicFieldReadAccessChannels,
-				'access.read',
-			)
-			declarations.read = immutableRecord({
-				filter: read.where,
-				item: read.output,
-				order: read.orderBy,
-			})
-		} else if (isRuleCallback(value)) {
-			// A write callback is only meaningful as a relation edge decision.
-			declarations.relationWrite = value
-		} else if (typeof value === 'boolean') {
-			declarations.write = immutableRecord({
-				clear: value,
-				fill: value,
-				replace: value,
-			})
-			declarations.relationWrite = value
-		} else {
-			declarations.write = normalizeRequiredAccessRuleMap(
-				value,
-				fieldWriteAccessTransitions,
-				'access.write',
-			)
-		}
-	})
-
 	return Object.keys(declarations).length === 0
 		? undefined
 		: immutableRecord(declarations)
