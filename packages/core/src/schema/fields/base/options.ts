@@ -101,10 +101,10 @@ export const assertValidTypeName = (typeName: unknown): void => {
 }
 
 /**
- * Returns the number of homogeneous list wrappers declared by field metadata,
- * validating the flag identically at declaration time and on later reads.
+ * Returns the number of homogeneous list wrappers declared by field metadata.
  */
 export const getFieldListDepth = (options: object): number => {
+	// The flag is validated identically at declaration time and on later reads.
 	const list = 'list' in options ? options.list : undefined
 
 	if (list !== undefined && typeof list !== 'boolean') {

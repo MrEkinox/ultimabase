@@ -21,10 +21,9 @@ import type {
 	FieldOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
+	type CompactScalarFieldDefinition,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
-	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
@@ -119,10 +118,20 @@ type NonDefaultedEnumFieldOptions<
 > &
 	CompatibleEnumFieldOptions<TValues>
 
-type EnumScalar<TValues extends EnumValues> = ScalarFieldDescriptor<
+type ResolvedEnumField<
+	TValues extends EnumValues,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
 	'enum',
 	EnumValue<TValues>,
-	EnumFieldOptions<TValues>
+	EnumFieldOptions<TValues>,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
 >
 
 type DefaultedEnumField<
@@ -130,14 +139,14 @@ type DefaultedEnumField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<EnumScalar<TValues>, TRequired, TList, TImmutable, true>
+> = ResolvedEnumField<TValues, TRequired, TList, TImmutable, true>
 
 type NonDefaultedEnumField<
 	TValues extends EnumValues,
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<EnumScalar<TValues>, TRequired, TList, TImmutable, false>
+> = ResolvedEnumField<TValues, TRequired, TList, TImmutable, false>
 
 interface NormalizedEnumSource {
 	readonly metadata: EnumValues

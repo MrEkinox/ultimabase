@@ -7,14 +7,16 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeNumberValue } from '../base/value.js'
 
+/**
+ * Defines declarative boundaries for floating-point values.
+ */
 /**
  * Describes floating-point metadata without promising decimal precision.
  */
@@ -26,31 +28,56 @@ export type FloatFieldOptions = FieldOptions<number>
 export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'float', number, FloatFieldOptions, TTypegen>
 
-type FloatScalar = ScalarFieldDescriptor<'float', number, FloatFieldOptions>
-
 type DefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<FloatScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	FloatFieldOptions,
+	number,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedFloatFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<FloatScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	FloatFieldOptions,
+	number,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedFloatField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'float',
+	number,
+	FloatFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedFloatField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<FloatScalar, TRequired, TList, TImmutable, true>
+> = ResolvedFloatField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedFloatField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<FloatScalar, TRequired, TList, TImmutable, false>
+> = ResolvedFloatField<TRequired, TList, TImmutable, false>
 
 export interface FloatFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

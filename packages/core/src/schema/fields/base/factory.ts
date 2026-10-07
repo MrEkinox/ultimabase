@@ -6,11 +6,14 @@ import type {
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
-	ResolvedFieldSourceOptions,
+	ResolveFieldSourceTemplate,
 	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
-import { createFieldDefinition } from './definition.js'
+import {
+	createFieldDefinition,
+	type ScalarValueSnapshot,
+} from './definition.js'
 import {
 	assertFieldOptions,
 	emptyFieldOptions,
@@ -142,7 +145,7 @@ export type CompatibleGeneratedScalarOptions<
 		: object
 
 /** Names a generated scalar input with a default so editor signatures stay compact. */
-export type DefaultedGeneratedScalarFieldOptions<
+type DefaultedGeneratedScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
@@ -168,7 +171,7 @@ export type DefaultedGeneratedScalarFieldOptions<
 	>
 
 /** Names a generated scalar input without a default for concise editor signatures. */
-export type NonDefaultedGeneratedScalarFieldOptions<
+type NonDefaultedGeneratedScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
@@ -219,7 +222,16 @@ export interface CompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
+				>,
+				object
+			>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -243,7 +255,16 @@ export interface CompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
+				>,
+				object
+			>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -282,7 +303,16 @@ export interface GeneratedCompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -314,7 +344,16 @@ export interface GeneratedCompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<TValue, TList>,
+					TRequired extends true
+						? FieldListValue<TValue, TList>
+						: FieldListValue<TValue, TList> | null
+				>,
+				object
+			>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -328,67 +367,13 @@ export interface GeneratedCompactScalarFieldFactory<
 	>
 }
 
-/** Names one built-in scalar's kind, logical value and options exactly once. */
-export interface ScalarFieldDescriptor<
-	TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-> {
-	readonly kind: TKind
-	readonly options: TOptions
-	readonly value: TValue
-}
-
-/** Resolves one described scalar's compact state for field-specific editor aliases. */
-export type CompactScalarField<
-	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-	THasGeneratedValue extends boolean = false,
-> = FieldDefinition<
-	TScalar['kind'],
-	TScalar['value'],
-	TScalar['options'],
-	ScalarFieldTypegenState<
-		TRequired,
-		TList,
-		TImmutable,
-		THasDefault,
-		THasGeneratedValue
-	>
->
-
-/** Names one described scalar's input with a default for concise editor signatures. */
-export type DefaultedScalarFieldOptions<
-	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	TScalar['options'],
-	TScalar['value'],
-	TRequired,
-	TList,
-	TImmutable
->
-
-/** Names one described scalar's default-free input for concise editor signatures. */
-export type NonDefaultedScalarFieldOptions<
-	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-> = CompactScalarFieldOptions<
-	TScalar['options'],
-	TRequired,
-	TList,
-	TImmutable
-> &
-	object & { readonly default?: never }
-
-type ScalarValueSnapshot<TValue> = (value: unknown, path: string) => TValue
+/**
+ * Narrows the shared snapshot boundary to one scalar's logical value. Reusing
+ * the definition contract also keeps the bundled declaration module order (and
+ * so the reference's private alias names) unchanged.
+ */
+type TypedScalarValueSnapshot<TValue> = ScalarValueSnapshot &
+	((value: unknown, path: string) => TValue)
 
 /** Describes how one compact built-in scalar validates options beyond common metadata. */
 export interface ScalarFieldSpec<TValue> {
@@ -399,7 +384,7 @@ export interface ScalarFieldSpec<TValue> {
 	/** Derives an option-dependent snapshot, such as a timezone-aware normalizer. */
 	readonly resolveSnapshot?: (
 		options: Readonly<Record<string, unknown>>,
-	) => ScalarValueSnapshot<TValue>
+	) => TypedScalarValueSnapshot<TValue>
 }
 
 /**
@@ -409,7 +394,7 @@ export interface ScalarFieldSpec<TValue> {
  */
 export const createScalarFieldFactory = <const TKind extends string, TValue>(
 	kind: TKind,
-	snapshotValue: ScalarValueSnapshot<TValue>,
+	snapshotValue: TypedScalarValueSnapshot<TValue>,
 	{
 		optionKeys = [],
 		assertOptions,

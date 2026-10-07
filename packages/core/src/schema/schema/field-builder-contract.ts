@@ -1,4 +1,4 @@
-import type { EnumFieldBuilderFactory } from './embedded-field-options.js'
+import type { EnumFieldBuilderFactory } from './enum-field-builder.js'
 import type {
 	FieldTypegenStateOf,
 	FieldValue,

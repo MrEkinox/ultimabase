@@ -7,16 +7,20 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedGeneratedScalarFieldOptions,
 	type GeneratedScalarFieldOptions,
-	type NonDefaultedGeneratedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeSafeIntegerValue } from '../base/value.js'
 
+/**
+ * Defines declarative boundaries for safe JavaScript integers.
+ */
 /**
  * Adds integer-only sequence metadata to the common field contract.
  */
@@ -41,37 +45,58 @@ type DefaultedIntFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = DefaultedGeneratedScalarFieldOptions<
+> = DefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoIncrement',
-	TAutoIncrement,
-	false
->
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		true,
+		false
+	>
 
 type NonDefaultedIntFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = NonDefaultedGeneratedScalarFieldOptions<
+> = NonDefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoIncrement',
-	TAutoIncrement,
-	false
->
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		false,
+		false
+	>
 
-type IntScalar<TAutoIncrement extends boolean> = ScalarFieldDescriptor<
+type ResolvedIntField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoIncrement extends boolean,
+> = CompactScalarFieldDefinition<
 	'int',
 	number,
-	GeneratedScalarFieldOptions<IntFieldOptions, 'autoIncrement', TAutoIncrement>
+	GeneratedScalarFieldOptions<IntFieldOptions, 'autoIncrement', TAutoIncrement>,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoIncrement
 >
 
 type DefaultedIntField<
@@ -79,28 +104,14 @@ type DefaultedIntField<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = CompactScalarField<
-	IntScalar<TAutoIncrement>,
-	TRequired,
-	TList,
-	TImmutable,
-	true,
-	TAutoIncrement
->
+> = ResolvedIntField<TRequired, TList, TImmutable, true, TAutoIncrement>
 
 type NonDefaultedIntField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = CompactScalarField<
-	IntScalar<TAutoIncrement>,
-	TRequired,
-	TList,
-	TImmutable,
-	false,
-	TAutoIncrement
->
+> = ResolvedIntField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
 export interface IntFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

@@ -32,12 +32,6 @@ export type OperationIncludedField<TOperation extends OperationAstNode> =
 		? Exclude<TOperation[typeof operationInclusionType], undefined>
 		: never
 
-/** Reads the type-only selected field union without coupling it to runtime AST data. */
-export type OperationSelectedField<TOperation extends OperationAstNode> =
-	TOperation extends { readonly [operationSelectionType]?: unknown }
-		? Exclude<TOperation[typeof operationSelectionType], undefined>
-		: never
-
 /** Identifies the declared key an adapter must use for conflict detection. */
 export interface UniqueUpsertTargetNode<
 	TSchema extends SchemaDefinition = SchemaDefinition,

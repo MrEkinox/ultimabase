@@ -6,11 +6,12 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedGeneratedScalarFieldOptions,
-	type NonDefaultedGeneratedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	assertTemporalAutoNow,
@@ -36,55 +37,61 @@ type DefaultedTimeFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = DefaultedGeneratedScalarFieldOptions<
+> = DefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoNow',
-	TAutoNow,
-	true
->
+	GeneratedScalarOption<'autoNow', TAutoNow>
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
 type NonDefaultedTimeFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = NonDefaultedGeneratedScalarFieldOptions<
+> = NonDefaultedCompactScalarFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoNow',
-	TAutoNow,
-	true
->
+	GeneratedScalarOption<'autoNow', TAutoNow>
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
-type TimeScalar = ScalarFieldDescriptor<'time', string, TimeFieldOptions>
+type ResolvedTimeField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoNow extends boolean,
+> = CompactScalarFieldDefinition<
+	'time',
+	string,
+	TimeFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoNow
+>
 
 type DefaultedTimeField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = CompactScalarField<TimeScalar, TRequired, TList, TImmutable, true, TAutoNow>
+> = ResolvedTimeField<TRequired, TList, TImmutable, true, TAutoNow>
 
 type NonDefaultedTimeField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = CompactScalarField<
-	TimeScalar,
-	TRequired,
-	TList,
-	TImmutable,
-	false,
-	TAutoNow
->
+> = ResolvedTimeField<TRequired, TList, TImmutable, false, TAutoNow>
 
 export interface TimeFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

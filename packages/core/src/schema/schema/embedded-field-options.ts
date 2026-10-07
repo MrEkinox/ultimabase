@@ -1,16 +1,10 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
+import type { EnumFieldBuilderFactory } from './enum-field-builder.js'
+export type { EmbeddedEnumFieldOptions } from './enum-field-builder.js'
 import type {
-	CompatibleFieldOptionsExtension,
-	FieldListOption,
-	ResolvedFieldSourceOptions,
-} from '../fields/base/contract.js'
-import type {
-	CompactScalarFieldDefinition,
 	CompactScalarFieldFactory,
-	DefaultedCompactScalarFieldOptions,
 	GeneratedCompactScalarFieldFactory,
-	NonDefaultedCompactScalarFieldOptions,
 } from '../fields/base/factory.js'
 import type { BigintFieldOptions } from '../fields/builtins/bigint.js'
 import type { BinaryFieldOptions } from '../fields/builtins/binary.js'
@@ -18,12 +12,6 @@ import type { BooleanFieldOptions } from '../fields/builtins/boolean.js'
 import type { DateTimeFieldOptions } from '../fields/builtins/date-time.js'
 import type { DateFieldOptions } from '../fields/builtins/date.js'
 import type { DecimalFieldOptions } from '../fields/builtins/decimal.js'
-import type {
-	CompatibleEnumFieldOptions,
-	EnumFieldOptions,
-	EnumValue,
-	EnumValues,
-} from '../fields/builtins/enum.js'
 import type { FloatFieldOptions } from '../fields/builtins/float.js'
 import type { IntFieldOptions } from '../fields/builtins/int.js'
 import type { JsonDocument, JsonFieldOptions } from '../fields/builtins/json.js'
@@ -35,15 +23,8 @@ import type {
 	UltimaBaseGeneratedFieldOptions,
 } from '../type-info.js'
 
-/**
- * Removes root-only options (portable indexes, plus any extra root-only key)
- * and swaps generated stored plugin options for their embedded counterparts.
- */
-type EmbeddedValueOptions<
-	TOptions,
-	TRootOnlyOption extends PropertyKey = never,
-> = Omit<
-	Omit<TOptions, 'indexed' | TRootOnlyOption>,
+type EmbeddedValueOptions<TOptions> = Omit<
+	Omit<TOptions, 'indexed'>,
 	keyof UltimaBaseGeneratedFieldOptions
 > &
 	UltimaBaseGeneratedEmbeddedFieldOptions
@@ -74,18 +55,17 @@ export type EmbeddedBinaryFieldOptions =
 /** Describes JSON behavior available at one embedded object property. */
 export type EmbeddedJsonFieldOptions = EmbeddedValueOptions<JsonFieldOptions>
 /** Describes integer behavior without a dedicated embedded sequence. */
-export type EmbeddedIntFieldOptions = EmbeddedValueOptions<
-	IntFieldOptions,
-	'autoIncrement'
->
+export type EmbeddedIntFieldOptions = Omit<
+	Omit<IntFieldOptions, 'autoIncrement' | 'indexed'>,
+	keyof UltimaBaseGeneratedFieldOptions
+> &
+	UltimaBaseGeneratedEmbeddedFieldOptions
 /** Describes bigint behavior without a dedicated embedded sequence. */
-export type EmbeddedBigintFieldOptions = EmbeddedValueOptions<
-	BigintFieldOptions,
-	'autoIncrement'
->
-/** Describes enum behavior available at one embedded object property. */
-export type EmbeddedEnumFieldOptions<TValues extends EnumValues = EnumValues> =
-	EmbeddedValueOptions<EnumFieldOptions<TValues>>
+export type EmbeddedBigintFieldOptions = Omit<
+	Omit<BigintFieldOptions, 'autoIncrement' | 'indexed'>,
+	keyof UltimaBaseGeneratedFieldOptions
+> &
+	UltimaBaseGeneratedEmbeddedFieldOptions
 
 export type EmbeddedStringFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -189,137 +169,6 @@ export type EmbeddedBigintFieldFactory<
 	EmbeddedBigintFieldOptions,
 	TSourceTemplate
 >
-
-type EnumBuilderContext = 'stored' | 'embedded'
-type EnumBuilderOptions<
-	TValues extends EnumValues,
-	TContext extends EnumBuilderContext,
-> = TContext extends 'stored'
-	? EnumFieldOptions<TValues>
-	: EmbeddedEnumFieldOptions<TValues>
-
-type DefaultedEnumFieldBuilderOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	TContext extends EnumBuilderContext,
-> = DefaultedCompactScalarFieldOptions<
-	EnumBuilderOptions<TValues, TContext>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
-type NonDefaultedEnumFieldBuilderOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	TContext extends EnumBuilderContext,
-> = NonDefaultedCompactScalarFieldOptions<
-	EnumBuilderOptions<TValues, TContext>,
-	EnumValue<TValues>,
-	TRequired,
-	TList,
-	TImmutable
-> &
-	CompatibleEnumFieldOptions<TValues>
-
-/** Shares enum inference while retaining context-specific options and return aliases. */
-export interface EnumFieldBuilderFactory<
-	TSourceTemplate extends object,
-	TContext extends EnumBuilderContext,
-> {
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			DefaultedEnumFieldBuilderOptions<
-				TValues,
-				TRequired,
-				TList,
-				TImmutable,
-				TContext
-			>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				EnumValue<TValues>,
-				TList,
-				TRequired
-			>
-		>,
-	): TContext extends 'stored'
-		? CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EnumFieldOptions<TValues> & TExtensionOptions,
-				TRequired,
-				TList,
-				TImmutable,
-				true
-			>
-		: CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EmbeddedEnumFieldOptions<TValues>,
-				TRequired,
-				TList,
-				TImmutable,
-				true
-			>
-	<
-		const TValues extends EnumValues,
-		const TRequired extends boolean = false,
-		const TList extends FieldListOption = false,
-		const TImmutable extends boolean = false,
-		const TExtensionOptions extends object = object,
-	>(
-		options: CompatibleFieldOptionsExtension<
-			NonDefaultedEnumFieldBuilderOptions<
-				TValues,
-				TRequired,
-				TList,
-				TImmutable,
-				TContext
-			>,
-			TExtensionOptions,
-			EnumValue<TValues>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				EnumValue<TValues>,
-				TList,
-				TRequired
-			>
-		>,
-	): TContext extends 'stored'
-		? CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EnumFieldOptions<TValues> & TExtensionOptions,
-				TRequired,
-				TList,
-				TImmutable,
-				false
-			>
-		: CompactScalarFieldDefinition<
-				'enum',
-				EnumValue<TValues>,
-				EmbeddedEnumFieldOptions<TValues>,
-				TRequired,
-				TList,
-				TImmutable,
-				false
-			>
-}
 
 /** Preserves an embedded enum's exact domain while excluding root metadata. */
 export type EmbeddedEnumFieldFactory<

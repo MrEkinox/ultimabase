@@ -7,11 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
 
@@ -26,31 +25,56 @@ export type UuidFieldOptions = FieldOptions<string>
 export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'uuid', string, UuidFieldOptions, TTypegen>
 
-type UuidScalar = ScalarFieldDescriptor<'uuid', string, UuidFieldOptions>
-
 type DefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<UuidScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	UuidFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedUuidFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<UuidScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	UuidFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedUuidField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'uuid',
+	string,
+	UuidFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedUuidField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<UuidScalar, TRequired, TList, TImmutable, true>
+> = ResolvedUuidField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedUuidField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<UuidScalar, TRequired, TList, TImmutable, false>
+> = ResolvedUuidField<TRequired, TList, TImmutable, false>
 
 export interface UuidFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

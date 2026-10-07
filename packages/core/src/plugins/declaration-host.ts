@@ -70,15 +70,41 @@ export interface PluginDeclarationCapabilityReader<
 	): CapabilityConsumerValue<RequirementToken<TRequirement>> | undefined
 }
 
+type PrivilegeUnion<TPrivileges> =
+	TPrivileges extends readonly PluginPrivilegeRequest[]
+		? TPrivileges[number]
+		: never
+type SchemaDeclareRequest<TPrivileges> = Extract<
+	PrivilegeUnion<TPrivileges>,
+	Readonly<{ name: 'schema:declare' }>
+>
+type UnconditionalSchemaDeclareRequest<TPrivileges> =
+	SchemaDeclareRequest<TPrivileges> extends infer TRequest
+		? TRequest extends Readonly<{ when: CapabilityRequirement }>
+			? never
+			: TRequest
+		: never
+
+type PluginFieldDeclarationContext<TPrivileges> = [
+	SchemaDeclareRequest<TPrivileges>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
+		? Readonly<{ fields?: PluginFieldFamilyRegistrar }>
+		: Readonly<{ fields: PluginFieldFamilyRegistrar }>
+
+type PluginSchemaDeclarationContext<TPrivileges> = [
+	SchemaDeclareRequest<TPrivileges>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
+		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
+		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
+
 type PrivilegeRequest<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
-> = Extract<
-	TPrivileges extends readonly PluginPrivilegeRequest[]
-		? TPrivileges[number]
-		: never,
-	Readonly<{ name: TName }>
->
+> = Extract<PrivilegeUnion<TPrivileges>, Readonly<{ name: TName }>>
 type UnconditionalPrivilegeRequest<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
@@ -88,7 +114,6 @@ type UnconditionalPrivilegeRequest<
 			? never
 			: TRequest
 		: never
-/** Exposes one facade as required, optional (conditional privilege) or absent. */
 type PrivilegedDeclarationContext<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
@@ -100,18 +125,6 @@ type PrivilegedDeclarationContext<
 		? Readonly<Partial<Record<TProperty, TValue>>>
 		: Readonly<Record<TProperty, TValue>>
 
-type PluginFieldDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
-	TPrivileges,
-	'schema:declare',
-	'fields',
-	PluginFieldFamilyRegistrar
->
-type PluginSchemaDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
-	TPrivileges,
-	'schema:declare',
-	'schemas',
-	PluginSchemaDeclarationRegistrar
->
 type PluginModelDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
 	TPrivileges,
 	'model:extend',

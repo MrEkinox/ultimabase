@@ -7,12 +7,12 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
+
 /**
  * Describes storage-neutral binary metadata through native byte sequences.
  */
@@ -25,35 +25,56 @@ export type BinaryField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
 
-type BinaryScalar = ScalarFieldDescriptor<
-	'binary',
-	Uint8Array,
-	BinaryFieldOptions
->
-
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<BinaryScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	BinaryFieldOptions,
+	Uint8Array,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<BinaryScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	BinaryFieldOptions,
+	Uint8Array,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedBinaryField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'binary',
+	Uint8Array,
+	BinaryFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedBinaryField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<BinaryScalar, TRequired, TList, TImmutable, true>
+> = ResolvedBinaryField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedBinaryField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<BinaryScalar, TRequired, TList, TImmutable, false>
+> = ResolvedBinaryField<TRequired, TList, TImmutable, false>
 
 export interface BinaryFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

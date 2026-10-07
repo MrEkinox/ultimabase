@@ -61,42 +61,6 @@ const assertHandleAvailable = (lifetime: ApplicationHandleLifetime): void => {
 		throw new TypeError('Application handle cannot be used after disposal')
 	}
 }
-/** Exposes compiled mutation commands as dynamic methods of one frozen handle. */
-const withMutationMethods = <THandle extends object>(
-	handle: THandle,
-	options: Readonly<{
-		readonly commands: ReadonlyMap<string, CompiledSchemaMutationCommand>
-		readonly lifetime: ApplicationHandleLifetime
-		readonly model?: object
-		readonly schema: SchemaDefinition
-		readonly execute: ApplicationSchemaMutationExecutor
-	}>,
-): THandle => {
-	const { commands, lifetime, ...method } = options
-	const has = (property: PropertyKey): property is string =>
-		typeof property === 'string' && commands.has(property)
-	return new Proxy(handle, {
-		get: (target, property, receiver): unknown => {
-			if (!has(property)) return Reflect.get(target, property, receiver)
-			const command = commands.get(property)
-			if (command === undefined) {
-				throw new TypeError(
-					`Unknown ${method.schema.className} mutation: ${property}`,
-				)
-			}
-			return createApplicationSchemaMutationMethod({
-				...method,
-				assertAvailable: () => {
-					assertHandleAvailable(lifetime)
-				},
-				command,
-				name: property,
-			})
-		},
-		has: (target, property): boolean =>
-			has(property) || Reflect.has(target, property),
-	})
-}
 /** Resolves one declared operation and prepares immutable envelopes only. */
 export class ApplicationOperationHandle<
 	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
@@ -188,12 +152,21 @@ export class ApplicationSchemaHandleBase<
 	) {
 		this.schema = surface.schema as TSchema
 		Object.freeze(this)
-		return withMutationMethods(this, {
-			commands: this.surface.schemaMutations,
-			execute: this.executeSchemaMutation,
-			lifetime: this.lifetime,
-			schema: this.schema,
+		const handle = new Proxy(this, {
+			get: (target, property, receiver): unknown => {
+				if (typeof property === 'string') {
+					if (target.surface.schemaMutations.has(property)) {
+						return target.createSchemaMutationMethod(property)
+					}
+				}
+				return Reflect.get(target, property, receiver)
+			},
+			has: (target, property): boolean =>
+				(typeof property === 'string' &&
+					target.surface.schemaMutations.has(property)) ||
+				Reflect.has(target, property),
 		})
+		return handle
 	}
 
 	/** Binds one trusted draft or persisted model without copying its identity. */
@@ -219,6 +192,22 @@ export class ApplicationSchemaHandleBase<
 			this.executeSchemaMutation,
 		) as ApplicationModelHandleFor<TSchema>
 	}
+
+	private createSchemaMutationMethod(name: string) {
+		const command = this.surface.schemaMutations.get(name)
+		if (command === undefined) {
+			throw new TypeError(`Unknown ${this.schema.className} mutation: ${name}`)
+		}
+		return createApplicationSchemaMutationMethod({
+			assertAvailable: () => {
+				assertHandleAvailable(this.lifetime)
+			},
+			command,
+			execute: this.executeSchemaMutation,
+			name,
+			schema: this.schema,
+		})
+	}
 }
 
 /** Binds plugin commands to one exact immutable draft or persisted model. */
@@ -234,12 +223,38 @@ export class ApplicationModelHandle<
 		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
 	) {
 		Object.freeze(this)
-		return withMutationMethods(this, {
-			commands: this.surface.modelMutations,
+		return new Proxy(this, {
+			get: (target, property, receiver): unknown => {
+				if (
+					typeof property === 'string' &&
+					target.surface.modelMutations.has(property)
+				) {
+					return target.createSchemaMutationMethod(property)
+				}
+				return Reflect.get(target, property, receiver)
+			},
+			has: (target, property): boolean =>
+				(typeof property === 'string' &&
+					target.surface.modelMutations.has(property)) ||
+				Reflect.has(target, property),
+		})
+	}
+
+	private createSchemaMutationMethod(name: string) {
+		const command: CompiledSchemaMutationCommand | undefined =
+			this.surface.modelMutations.get(name)
+		if (command === undefined) {
+			throw new TypeError(`Unknown ${this.schema.className} mutation: ${name}`)
+		}
+		return createApplicationSchemaMutationMethod({
+			assertAvailable: () => {
+				assertHandleAvailable(this.lifetime)
+			},
+			command,
 			execute: this.executeSchemaMutation,
-			lifetime: this.lifetime,
-			model,
-			schema,
+			model: this.model,
+			name,
+			schema: this.schema,
 		})
 	}
 }

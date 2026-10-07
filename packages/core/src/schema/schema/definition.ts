@@ -80,6 +80,9 @@ export type SchemaDeclaredFields = Readonly<
 export type SchemaVirtualFields = Readonly<Record<string, GenericVirtualField>>
 
 /**
+ * Collects schema-scoped plugin metadata in deterministic declaration order.
+ */
+/**
  * Describes the developer input accepted by `App.Schema.define()`.
  */
 export interface SchemaOptions<
