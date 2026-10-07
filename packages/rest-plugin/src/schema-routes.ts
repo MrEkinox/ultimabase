@@ -11,6 +11,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
 import { readRestSchemaRoutes, type RestSchemaRoutesOption } from './options.js'
+import { isRestOutputKind } from './response-values.js'
 import {
 	createRestRouteFragment,
 	createRestRoutePlugin,
@@ -99,23 +100,6 @@ const routeTemplates: readonly Readonly<{
 	{ method: 'DELETE', operation: 'delete', suffix: '/{id}' },
 ]
 
-const builtInOutputKinds = new Set([
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'object',
-	'string',
-	'time',
-	'uuid',
-])
-
 // Embedded object metadata is compiled by Core; REST only walks its children.
 const readNestedFields = (options: unknown): unknown =>
 	isPlainRecord(options) ? options.fields : undefined
@@ -152,7 +136,7 @@ const assertRestOutputDescriptors = (
 ): void => {
 	for (const [name, output] of Object.entries(fields)) {
 		const outputPath = `${path}.${name}`
-		if (!builtInOutputKinds.has(output.kind)) {
+		if (!isRestOutputKind(output.kind)) {
 			throw new TypeError(
 				`${outputPath} uses output kind ${output.kind} without an exact REST v1 representation`,
 			)

@@ -27,6 +27,7 @@ import {
 	restProtocol,
 	restRouteGraphCapability,
 	type RestPluginOperationRouteDefinition,
+	type RestRouteFragmentValue,
 	type RestRouteGraph,
 	type RestSchemaMutationRouteDefinition,
 } from './routes.js'
@@ -62,6 +63,12 @@ const transportPlanningRequirement = requireCapability(
 	'^1.0.0',
 	{ phase: 'materialization' },
 )
+
+type RestRouteCompiler = (
+	owner: PluginIdentity,
+	schemas: CompiledSchemaRegistry,
+	planner: () => ApplicationOperationTransportPlanner,
+) => RestRouteFragmentValue
 
 /** Exposes normalized routes plus the optional narrow operation executor. */
 export interface RestPluginExports {
@@ -110,91 +117,65 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		{ configuration?: RestHttpConfiguration }
 	>()
 
-	const compileSchemaRoutes = (
-		owner: PluginIdentity,
-		schemas: CompiledSchemaRegistry,
-	) =>
-		compileRestRouteFragment({
-			basePath,
-			defaultRoutes,
-			owner,
-			pluginVersion: restPluginVersion,
-			schemas,
-		})
-	const compileOperationRoutes = (
-		owner: PluginIdentity,
-		planner: ApplicationOperationTransportPlanner,
-		schemas: CompiledSchemaRegistry,
-	) =>
-		compileRestOperationRouteFragment({
-			basePath,
-			plan: planner.plan({
-				operations: normalized.operations,
-				transport: restProtocol,
-			}),
-			owner,
-			pluginVersion: restPluginVersion,
-			schemas,
-		})
-	const compileSchemaMutationRoutes = (
-		owner: PluginIdentity,
-		planner: ApplicationOperationTransportPlanner,
-		schemas: CompiledSchemaRegistry,
-	) =>
-		compileRestSchemaMutationRouteFragment({
-			basePath,
-			defaultRoutes,
-			owner,
-			plan: planner.planSchemaMutations({ transport: restProtocol }),
-			pluginVersion: restPluginVersion,
-			schemas,
-		})
-
-	const routeProviders = [
-		provideCapability(restRouteGraphCapability, {
-			contributionId: 'official-rest-schema-routes',
-			create: ({ owner, schemas }) => ({
-				value: compileSchemaRoutes(owner, schemas),
-			}),
-		}),
-		provideCapability(restRouteGraphCapability, {
-			contributionId: 'official-rest-operation-routes',
-			create: ({ capabilities, owner, schemas }) => ({
-				value: compileOperationRoutes(
+	// Each compiler sees the same configuration; planning is read only when needed.
+	const routeConfig = {
+		basePath,
+		defaultRoutes,
+		pluginVersion: restPluginVersion,
+	}
+	const compilers: readonly [string, RestRouteCompiler][] = [
+		[
+			'official-rest-schema-routes',
+			(owner, schemas) =>
+				compileRestRouteFragment({ ...routeConfig, owner, schemas }),
+		],
+		[
+			'official-rest-operation-routes',
+			(owner, schemas, planner) =>
+				compileRestOperationRouteFragment({
+					...routeConfig,
 					owner,
-					capabilities.get(transportPlanningRequirement),
+					plan: planner().plan({
+						operations: normalized.operations,
+						transport: restProtocol,
+					}),
 					schemas,
+				}),
+		],
+		[
+			'official-rest-schema-mutation-routes',
+			(owner, schemas, planner) =>
+				compileRestSchemaMutationRouteFragment({
+					...routeConfig,
+					owner,
+					plan: planner().planSchemaMutations({ transport: restProtocol }),
+					schemas,
+				}),
+		],
+	]
+	const routeProviders = compilers.map(([contributionId, compile]) =>
+		provideCapability(restRouteGraphCapability, {
+			contributionId,
+			create: ({ capabilities, owner, schemas }) => ({
+				value: compile(owner, schemas, () =>
+					capabilities.get(transportPlanningRequirement),
 				),
 			}),
 		}),
-		provideCapability(restRouteGraphCapability, {
-			contributionId: 'official-rest-schema-mutation-routes',
-			create: ({ capabilities, owner, schemas }) => ({
-				value: compileSchemaMutationRoutes(
-					owner,
-					capabilities.get(transportPlanningRequirement),
-					schemas,
-				),
-			}),
-		}),
-	] as const
+	)
 	const httpEndpointProvider = provideCapability(
 		httpEndpointContributionsCapability,
 		{
 			contributionId: 'official-rest-http-dispatcher',
 			create: ({ capabilities, owner, schemas }) => {
-				const routeCount =
-					compileSchemaRoutes(owner, schemas).routes.length +
-					compileOperationRoutes(
-						owner,
-						capabilities.get(transportPlanningRequirement),
-						schemas,
-					).routes.length +
-					compileSchemaMutationRoutes(
-						owner,
-						capabilities.get(transportPlanningRequirement),
-						schemas,
-					).routes.length
+				const routeCount = compilers.reduce(
+					(count, [, compile]) =>
+						count +
+						compile(owner, schemas, () =>
+							capabilities.get(transportPlanningRequirement),
+						).routes.length,
+					0,
+				)
 				const executor = capabilities.get(requestExecutionRequirement)
 				const slot: { configuration?: RestHttpConfiguration } = {}
 				httpSlots.set(executor, slot)

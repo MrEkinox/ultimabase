@@ -196,22 +196,16 @@ const executeSchemaRoute = async (
 	const { operation } = route
 	switch (operation) {
 		case 'get':
+		case 'find':
+		case 'first':
+		case 'count':
+		case 'exists':
+			// Only `get` reads the captured item identifier.
 			return executeRestReadRequest(
 				executor,
 				context,
 				schema,
 				{ id, operation, request },
-				limits,
-			)
-		case 'find':
-		case 'first':
-		case 'count':
-		case 'exists':
-			return executeRestReadRequest(
-				executor,
-				context,
-				schema,
-				{ operation, request },
 				limits,
 			)
 		case 'update':

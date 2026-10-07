@@ -49,26 +49,23 @@ interface RestPublicFailure {
 const responseContracts: Readonly<
 	Record<RestResponseErrorCode, Readonly<{ message: string; status: number }>>
 > = immutableRecord({
-	REST_BAD_REQUEST: immutableRecord({
-		message: 'The REST request is malformed.',
-		status: 400,
-	}),
-	REST_INTERNAL_ERROR: immutableRecord({
+	REST_BAD_REQUEST: { message: 'The REST request is malformed.', status: 400 },
+	REST_INTERNAL_ERROR: {
 		message: 'The REST request could not be completed.',
 		status: 500,
-	}),
-	REST_NOT_ACCEPTABLE: immutableRecord({
+	},
+	REST_NOT_ACCEPTABLE: {
 		message: 'The requested REST response media type is not available.',
 		status: 406,
-	}),
-	REST_NOT_FOUND: immutableRecord({
+	},
+	REST_NOT_FOUND: {
 		message: 'The requested REST route was not found.',
 		status: 404,
-	}),
-	REST_UNSUPPORTED_VERSION: immutableRecord({
+	},
+	REST_UNSUPPORTED_VERSION: {
 		message: 'The requested REST protocol version is not supported.',
 		status: 400,
-	}),
+	},
 })
 
 const frameworkStatuses: ReadonlyMap<string, number> = new Map([
@@ -81,9 +78,8 @@ const frameworkStatuses: ReadonlyMap<string, number> = new Map([
 const internalFailure = (): RestPublicFailure =>
 	immutableRecord({
 		code: restResponseErrorCodes.internalError,
-		message: responseContracts.REST_INTERNAL_ERROR.message,
 		retryable: false,
-		status: responseContracts.REST_INTERNAL_ERROR.status,
+		...responseContracts.REST_INTERNAL_ERROR,
 	})
 
 // Public details must stay representable JSON, or the whole failure is withheld.

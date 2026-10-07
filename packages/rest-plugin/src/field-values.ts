@@ -138,20 +138,18 @@ const decodeScalar = (
 	}
 }
 
-const decodeAtDepth = (
-	field: GenericField,
+/** @internal Walks declared list levels, keeping `null`, before one leaf codec. */
+export const mapRestListDepth = (
 	value: unknown,
 	depth: number,
 	invalid: InvalidRestValue,
-	pointerMode: PointerMode,
+	leaf: (item: unknown) => unknown,
 ): unknown => {
 	if (value === null) return null
-	if (depth <= 0) return decodeScalar(field, value, invalid, pointerMode)
+	if (depth <= 0) return leaf(value)
 	if (!isUnknownArray(value)) throw invalid()
 	return immutableArray(
-		value.map((item) =>
-			decodeAtDepth(field, item, depth - 1, invalid, pointerMode),
-		),
+		value.map((item) => mapRestListDepth(item, depth - 1, invalid, leaf)),
 	)
 }
 
@@ -162,12 +160,8 @@ export const decodeRestFieldValue = (
 	invalid: InvalidRestValue,
 	pointerMode: PointerMode = 'identity',
 ): unknown =>
-	decodeAtDepth(
-		field,
-		value,
-		getFieldListDepth(field.options),
-		invalid,
-		pointerMode,
+	mapRestListDepth(value, getFieldListDepth(field.options), invalid, (item) =>
+		decodeScalar(field, item, invalid, pointerMode),
 	)
 
 /** Decodes one element operand for a list field without erasing nested depth. */
@@ -176,12 +170,11 @@ export const decodeRestListElement = (
 	value: unknown,
 	invalid: InvalidRestValue,
 ): unknown =>
-	decodeAtDepth(
-		field,
+	mapRestListDepth(
 		value,
 		getFieldListDepth(field.options) - 1,
 		invalid,
-		'identity',
+		(item) => decodeScalar(field, item, invalid, 'identity'),
 	)
 
 const untouchedOperators = new Set([

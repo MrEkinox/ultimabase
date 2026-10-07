@@ -17,6 +17,7 @@ import {
 
 import { restFieldProtocol } from './field-codecs.js'
 import {
+	mapRestListDepth,
 	mapRestRecord,
 	readRestObjectFields,
 	type InvalidRestValue,
@@ -41,6 +42,12 @@ const passThroughScalars: ReadonlyMap<string, (value: unknown) => boolean> =
 		['time', isString],
 		['uuid', isString],
 	])
+
+const encodedKinds = new Set(['bigint', 'binary', 'json', 'object'])
+
+/** @internal Lists the built-in output kinds that have an exact REST v1 encoding. */
+export const isRestOutputKind = (kind: string): boolean =>
+	passThroughScalars.has(kind) || encodedKinds.has(kind)
 
 const readModelValues = (
 	schema: SchemaDefinition,
@@ -165,10 +172,12 @@ export const encodeRestOutputValue = (
 				)
 			})
 		})
-	if (value === null) return null
-	if (!descriptor.options.list) return encodeItem(value)
-	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(value.map(encodeItem))
+	return mapRestListDepth(
+		value,
+		descriptor.options.list ? 1 : 0,
+		invalid,
+		encodeItem,
+	)
 }
 
 const encodeScalar = (
@@ -209,27 +218,15 @@ const encodeScalar = (
 	})
 }
 
-const encodeAtDepth = (
-	field: GenericField,
-	value: unknown,
-	depth: number,
-	invalid: InvalidRestValue,
-): unknown => {
-	if (value === null) return null
-	if (depth === 0) return encodeScalar(field, value, invalid)
-	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(
-		value.map((item) => encodeAtDepth(field, item, depth - 1, invalid)),
-	)
-}
-
 /** Encodes one complete schema field value using its exact REST v1 contract. */
 export const encodeRestFieldValue = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,
 ): unknown =>
-	encodeAtDepth(field, value, getFieldListDepth(field.options), invalid)
+	mapRestListDepth(value, getFieldListDepth(field.options), invalid, (item) =>
+		encodeScalar(field, item, invalid),
+	)
 
 /** Encodes one trusted Runtime model without inventing fields for absent values. */
 export const encodeRestSchemaResult = (
