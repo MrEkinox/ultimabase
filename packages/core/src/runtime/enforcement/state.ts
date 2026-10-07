@@ -6,10 +6,8 @@ import {
 } from '@ultimabase/shared'
 import { isDeepStrictEqual } from 'node:util'
 
-import type {
-	DatabaseConstraintNode,
-	EnforcementFieldBoundary,
-} from './contracts.js'
+import type { EnforcementFieldBoundary } from './contracts.js'
+import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type {
 	DatabaseRelationPredicateScope,
 	DatabaseRowFilterNode,

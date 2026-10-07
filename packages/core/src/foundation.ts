@@ -115,9 +115,11 @@ export type {
 	PluginModelSurfaceRegistrar,
 	PluginModelSurfaceSource,
 	PluginOperationDeclarationRegistrar,
+} from './plugins/application-surface-declarations.js'
+export type {
 	PluginSchemaMutationSurface,
 	PluginSchemaMutationSurfaceBinding,
-} from './plugins/application-surface-declarations.js'
+} from './plugins/schema-mutation-surface-declarations.js'
 export {
 	defineCapability,
 	optionalCapability,
@@ -159,19 +161,21 @@ export type {
 	FrameworkPluginContract,
 	PluginDefinition,
 	PluginExports,
-	PluginSetupContext,
 } from './plugins/definition.js'
+export type { PluginSetupContext } from './plugins/setup-registries.js'
 export type {
 	PluginSourceFieldObjectValue,
 	PluginSourceFieldOptionByKind,
 	PluginSourceFieldValue,
 	PluginSourceOpaque,
 	PluginSourceRelationChange,
+	PluginSourceState,
+} from './plugins/source-projections.js'
+export type {
 	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,
-	PluginSourceState,
-} from './plugins/source-projections.js'
+} from './plugins/source-schema-templates.js'
 export type {
 	PluginDeclaration,
 	PluginDeclarationCapabilityReader,

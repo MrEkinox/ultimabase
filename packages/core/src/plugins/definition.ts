@@ -35,8 +35,6 @@ import type { PluginSetupContext } from './setup-registries.js'
 import type { PluginCommandPlan } from './plugin-command-plan.js'
 import type { PluginSourceProjection } from './source-projections.js'
 
-export type { PluginSetupContext } from './setup-registries.js'
-
 interface PluginNativePlan {
 	readonly applicationFactory: PluginApplicationResourceFactory | undefined
 	readonly commands: PluginCommandPlan

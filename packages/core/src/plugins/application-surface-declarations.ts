@@ -21,20 +21,18 @@ import {
 	type PluginSchemaMutationSurfaceBinding,
 } from './schema-mutation-surface-declarations.js'
 import type {
-	PluginSourceMutationMethod,
 	PluginSourceReceipt,
-	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaProjection,
 } from './source-projections.js'
+import type {
+	PluginSourceMutationMethod,
+	PluginSourceSchemaMutationCarrier,
+} from './source-schema-templates.js'
 import { pluginSourceReceipt } from './source-projections.js'
 import type {
 	SchemaSelection,
 	SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
-export type {
-	PluginSchemaMutationSurface,
-	PluginSchemaMutationSurfaceBinding,
-} from './schema-mutation-surface-declarations.js'
 
 export interface PluginOperationDeclarationRegistrar {
 	/** Declares one operation or schema-mutation token without installing a handler. */

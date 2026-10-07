@@ -1,10 +1,12 @@
 import type {
 	EmptyPluginSourceState,
 	PluginSourceState,
-	PluginSourceSchemaMutationCarrier,
-	PluginSourceSchemaMutations,
 	ResolvePluginSchemaProjection,
 } from '../../plugins/source-projections.js'
+import type {
+	PluginSourceSchemaMutationCarrier,
+	PluginSourceSchemaMutations,
+} from '../../plugins/source-schema-templates.js'
 import type {
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoCarrier,

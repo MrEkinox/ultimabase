@@ -14,8 +14,6 @@ import type {
 } from '../pipeline/contracts.js'
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
 
-export type { DatabaseConstraintNode } from '../database/contracts.js'
-
 /** Names every monotonic effect accepted at Runtime's policy-neutral boundary. */
 export type EnforcementContributionKind =
 	| 'constraint'

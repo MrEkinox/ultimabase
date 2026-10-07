@@ -27,11 +27,6 @@ import type {
 } from './base/definition.js'
 import { snapshotJsonValue } from './base/portable-json.js'
 
-export type {
-	AvailablePluginFieldKind,
-	ReservedFieldKind,
-} from './base/kinds.js'
-
 /** Retains plugin-owned and installed option metadata for application compilation. */
 type PluginFieldMetadata<TOptions extends object> = TOptions
 

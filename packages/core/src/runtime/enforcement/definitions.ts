@@ -11,7 +11,6 @@ import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compil
 import { assertConstraintKind } from '../../schema/schema/constraints.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
-	DatabaseConstraintNode,
 	EnforcementConstraintHandler,
 	EnforcementContributionKind,
 	EnforcementFieldRestrictionHandler,
@@ -20,6 +19,7 @@ import type {
 	EnforcementOutputInput,
 	EnforcementOutputRestrictionHandler,
 } from './contracts.js'
+import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type {
 	DatabaseConstraintPayload,
 	ImmutableDatabaseConstraintPayload,

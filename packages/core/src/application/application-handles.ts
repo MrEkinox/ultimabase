@@ -12,7 +12,7 @@ import {
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
 	type CompiledSchemaMutationCommand,
-} from '../plugins/application-surface-registry.js'
+} from '../plugins/application-surface-contracts.js'
 import {
 	readOperationCommand,
 	type CompiledCommandGraph,

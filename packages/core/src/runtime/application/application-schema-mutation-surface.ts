@@ -3,7 +3,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledSchemaMutationCommand,
-} from '../../plugins/application-surface-registry.js'
+} from '../../plugins/application-surface-contracts.js'
 import {
 	defineCapability,
 	provideCapability,

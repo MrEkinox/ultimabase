@@ -47,8 +47,6 @@ import {
 	type RuntimeQueryField,
 } from './target.js'
 
-export { fieldPath } from './target.js'
-
 type QueryValueFilterOperator =
 	| QueryComparisonFilterOperator
 	| QueryEqualityFilterOperator

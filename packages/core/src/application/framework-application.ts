@@ -51,7 +51,7 @@ import * as diagnostics from './plugin-privilege-diagnostics.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
-} from '../plugins/application-surface-registry.js'
+} from '../plugins/application-surface-contracts.js'
 import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
 import { PrivateStorageRegistry } from '../private-storage/registry.js'
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'

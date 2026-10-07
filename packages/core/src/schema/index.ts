@@ -66,9 +66,11 @@ export type {
 	PluginFieldDefinition,
 	PluginFieldNormalizers,
 	PluginFieldStructuralContains,
+} from './fields/plugin.js'
+export type {
 	AvailablePluginFieldKind,
 	ReservedFieldKind,
-} from './fields/plugin.js'
+} from './fields/base/kinds.js'
 export { dateField } from './fields/builtins/date.js'
 export type { DateField, DateFieldOptions } from './fields/builtins/date.js'
 export { decimalField } from './fields/builtins/decimal.js'

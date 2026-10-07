@@ -5,7 +5,7 @@ import { readApplicationKernelState } from '../../application/application-kernel
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-contracts.js'
 import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
