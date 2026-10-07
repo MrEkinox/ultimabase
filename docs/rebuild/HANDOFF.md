@@ -72,7 +72,17 @@ coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
 `packages/core tests/e2e` 219/219 ; postgres-e2e 191/191 ; `yarn test:pack:built`
 173/173. La passe d'intégration transversale de Core reste à faire.
 
-**À requalifier sur machine calme** : après la fusion d'access-plugin (main `fcc7d82`,
+**À requalifier sur machine calme (2)** : pendant la validation d'http-plugin (charge
+élevée), `tests/e2e/virtual-field-public-vertical.postgres.e2e.test.ts` a échoué une fois
+(3 tests) avec `SchemaCompilationError: Schema ExampleArticle has not been compiled by an
+application`. Le coordinateur l'a ensuite passé 8/8 seul sur main `edbbcf1`, et le projet
+postgres-e2e complet passe à 191/191 à chaque exécution sur main. Les enregistrements de
+compilation ne sont jamais supprimés, ce qui évoque deux instances du module Core
+(chargement `vi.importActual` parallèle, ou `dist` réécrits pendant le test) plutôt
+qu'une course logique. À la validation finale : rejouer postgres-e2e au moins 3 fois sur
+la référence et sur la reconstruction.
+
+**À requalifier sur machine calme (1)** : après la fusion d'access-plugin (main `fcc7d82`,
 charge ≈ 60), `create-app-packed.e2e.test.ts` › « writes a valid graph for each official
 plugin selected alone » dépasse 120 s, y compris relancé seul. Même symptôme que sur
 la référence sous charge. Un agent l'a vu passer seul à charge ≈ 26 (6/6, 58,7 s) ; non qualifié tant qu'il n'a pas été rejoué au calme, sur la
