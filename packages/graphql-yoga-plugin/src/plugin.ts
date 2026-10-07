@@ -2,7 +2,6 @@ import {
 	plugin,
 	provideCapability,
 	requireCapability,
-	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
 import { graphqlApplicationCapability } from '@ultimabase/graphql-plugin'
@@ -16,22 +15,15 @@ import {
 	type GraphqlYogaPluginOptions,
 } from './options.js'
 
-const graphqlApplicationRequirement: CapabilityRequirement<
-	typeof graphqlApplicationCapability,
-	false,
+const graphqlApplicationRequirement = requireCapability(
+	graphqlApplicationCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(graphqlApplicationCapability, '^1.0.0')
+)
 
 const graphqlYogaPeers = [
 	{ pluginId: '@ultimabase/graphql-plugin', version: '^0.0.0' },
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
-
-const graphqlYogaPermissions = {
-	'transport:expose':
-		'Mounts the selected application GraphQL schema over HTTP.',
-} as const
 
 /** Names the single official GraphQL-over-HTTP adapter. */
 export type GraphqlYogaPlugin = PluginInstance<{
@@ -81,6 +73,9 @@ export const graphqlYogaPlugin = (
 			graphqlApplicationRequirement,
 		],
 		peers: graphqlYogaPeers,
-		permissions: graphqlYogaPermissions,
+		permissions: {
+			'transport:expose':
+				'Mounts the selected application GraphQL schema over HTTP.',
+		},
 	})
 }
