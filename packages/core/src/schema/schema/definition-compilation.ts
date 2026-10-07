@@ -171,9 +171,9 @@ const assertDeveloperFields = (
 
 	assertNoReservedFieldCollision(fields)
 
-	const declared: Record<string, GenericField | GenericVirtualField> = {}
-	const persisted: Record<string, GenericField> = {}
-	const virtual: Record<string, GenericVirtualField> = {}
+	const declared: [string, GenericField | GenericVirtualField][] = []
+	const persisted: [string, GenericField][] = []
+	const virtual: [string, GenericVirtualField][] = []
 
 	for (const [name, field] of Object.entries(fields)) {
 		const path = `${className}.fields.${name}`
@@ -186,18 +186,19 @@ const assertDeveloperFields = (
 			field.kind === 'virtual'
 		) {
 			assertVirtualFieldDefinition(field, path)
-			virtual[name] = field
+			virtual.push([name, field])
 		} else {
 			assertFieldDefinition(field, path)
-			persisted[name] = field
+			persisted.push([name, field])
 		}
-		declared[name] = field
+		declared.push([name, field])
 	}
 
+	// Entry lists keep every validated name, including `__proto__`, as an own key.
 	return {
-		declared: immutableRecord(declared),
-		persisted: immutableRecord(persisted),
-		virtual: immutableRecord(virtual),
+		declared: immutableRecord(Object.fromEntries(declared)),
+		persisted: immutableRecord(Object.fromEntries(persisted)),
+		virtual: immutableRecord(Object.fromEntries(virtual)),
 	}
 }
 

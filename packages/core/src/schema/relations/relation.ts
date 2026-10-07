@@ -97,6 +97,13 @@ const executeRelationMutation = async <
 		state.sourceObjectId as OperationObjectId<TSource>,
 		{ protectedPolicyDeniedAsMissing: true },
 	)
+	const update = createRelationUpdateExpression(
+		state.source,
+		state.fieldName as SchemaRelationFieldName<TSource>,
+		state.target,
+		action,
+		targets,
+	)
 	const operation: UpdateOneOperationAst<
 		TSource,
 		RelationUpdateExpression<
@@ -108,19 +115,15 @@ const executeRelationMutation = async <
 	> = immutableRecord({
 		kind: 'update-one',
 		query: sourceQuery.ast,
-		update: createRelationUpdateExpression(
-			state.source,
-			state.fieldName as SchemaRelationFieldName<TSource>,
-			state.target,
-			action,
-			targets,
-		),
+		update,
 	})
+	const result = await executeQueryWithPrivateScope(
+		sourceQuery,
+		operation,
+		options,
+	)
 
-	if (
-		(await executeQueryWithPrivateScope(sourceQuery, operation, options)) ===
-		null
-	) {
+	if (result === null) {
 		throw new FrameworkError(
 			'NOT_FOUND',
 			`Relation source ${state.source.className} object was missing or inaccessible.`,
@@ -290,7 +293,12 @@ export class Relation<
 		targets: RelationMutationTargets,
 		options?: RelationMutationOptions,
 	): Promise<void> {
-		return this.mutate('connect', targets, options)
+		return executeRelationMutation(
+			this.getState(options),
+			'connect',
+			targets,
+			options,
+		)
 	}
 
 	/**
@@ -302,7 +310,12 @@ export class Relation<
 		targets: RelationMutationTargets,
 		options?: RelationMutationOptions,
 	): Promise<void> {
-		return this.mutate('disconnect', targets, options)
+		return executeRelationMutation(
+			this.getState(options),
+			'disconnect',
+			targets,
+			options,
+		)
 	}
 
 	/**
@@ -314,7 +327,12 @@ export class Relation<
 		targets: readonly string[],
 		options?: RelationMutationOptions,
 	): Promise<void> {
-		return this.mutate('set', targets, options)
+		return executeRelationMutation(
+			this.getState(options),
+			'set',
+			targets,
+			options,
+		)
 	}
 
 	/**
@@ -323,21 +341,7 @@ export class Relation<
 	 * @example `await post.relation('tags').clear()`
 	 */
 	clear(options?: RelationMutationOptions): Promise<void> {
-		return this.mutate('clear', [], options)
-	}
-
-	/** Verifies the trusted state synchronously, as public read methods do, then mutates. */
-	private mutate(
-		action: RelationMutationAction,
-		targets: string | readonly string[],
-		options: RelationMutationOptions | undefined,
-	): Promise<void> {
-		return executeRelationMutation(
-			this.getState(options),
-			action,
-			targets,
-			options,
-		)
+		return executeRelationMutation(this.getState(options), 'clear', [], options)
 	}
 
 	/** Recovers the trusted state retained only by framework-created handles. */

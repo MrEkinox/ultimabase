@@ -174,6 +174,7 @@ const snapshotSchemaModelMaterialization = (
 /** Tests whether the sole active compiled application exposes one class mutation. */
 const resolveStaticMutation = (
 	schema: SchemaDefinition,
+	className: string,
 	name: string,
 ): boolean | undefined => {
 	const application = readActiveApplicationOwner()
@@ -182,9 +183,8 @@ const resolveStaticMutation = (
 		!['started', 'stopping', 'stopped', 'disposing'].includes(application.state)
 	)
 		return undefined
-	const surface = readApplicationKernelState(
-		application,
-	).commands.schemaSurface(schema.className)
+	const surface =
+		readApplicationKernelState(application).commands.schemaSurface(className)
 	return surface?.schema === schema && surface.schemaMutations.has(name)
 }
 
@@ -193,6 +193,7 @@ const createStaticSchemaMutationView = <
 	TSchema extends new (input: unknown) => object,
 >(
 	target: TSchema,
+	className: string,
 	readSchema: () => SchemaDefinition,
 ): TSchema => {
 	const view: TSchema = new Proxy(target, {
@@ -206,7 +207,7 @@ const createStaticSchemaMutationView = <
 			if (
 				typeof property === 'string' &&
 				!Reflect.has(constructor, property) &&
-				resolveStaticMutation(readSchema(), property) === true
+				resolveStaticMutation(readSchema(), className, property) === true
 			)
 				return (input: unknown, options?: OperationOptions) =>
 					executeStaticSchemaMutation(readSchema(), property, input, options)
@@ -215,7 +216,7 @@ const createStaticSchemaMutationView = <
 		has: (constructor, property): boolean =>
 			Reflect.has(constructor, property) ||
 			(typeof property === 'string' &&
-				resolveStaticMutation(readSchema(), property) !== undefined),
+				resolveStaticMutation(readSchema(), className, property) !== undefined),
 	})
 	return view
 }
@@ -353,6 +354,7 @@ export const createSchemaModelClass = <
 	// signature deliberately remains private to this composition boundary.
 	const schema = createStaticSchemaMutationView(
 		DefinedSchemaModel,
+		reader.className,
 		() => schema,
 	) as unknown as SchemaReference<TClassName>
 	const readDefinedSchema = (): SchemaReference<TClassName> => schema
