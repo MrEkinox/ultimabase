@@ -4,9 +4,10 @@ import {
 	type ExecutableOperationAst,
 	type QueryAst,
 	type UniqueUpsertTargetNode,
+	type UpdateExpressionNode,
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
-import { and, asc, count, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, type SQL } from 'drizzle-orm'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 
 import {
@@ -34,6 +35,13 @@ import { compilePostgresUpdate } from './update-compiler.js'
 export type PostgresOperation<TKind extends ExecutableOperationAst['kind']> =
 	Extract<ExecutableOperationAst, { readonly kind: TKind }>
 
+/** Binds one compiled schema to the client and relation compiler of a request. */
+export interface PostgresStatementContext {
+	readonly client: PostgresDrizzleClient
+	readonly relationCompiler: PostgresRelationPredicateCompiler | undefined
+	readonly schema: CompiledPostgresSchema
+}
+
 type TargetedMutation = PostgresOperation<
 	'delete-many' | 'delete-one' | 'update-many' | 'update-one'
 >
@@ -44,17 +52,16 @@ type TargetedMutationResult<TOperation extends TargetedMutation> =
 		: readonly DatabaseLogicalRecord[]
 
 interface SelectOptions {
-	readonly constraint?: SQL | undefined
+	readonly constraint: SQL | undefined
 	readonly limit?: number
 	readonly stableOrdering?: true
 }
 
 const buildSelect = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	selection: Readonly<Record<string, PgColumn>>,
 	clauses: CompiledPostgresQueryClauses,
-	{ constraint, limit = clauses.limit, stableOrdering }: SelectOptions = {},
+	{ constraint, limit = clauses.limit, stableOrdering }: SelectOptions,
 ) => {
 	const where = and(clauses.where, constraint)
 	const orderBy =
@@ -82,26 +89,20 @@ const decodeRows = (
 
 /** Selects only target identities for aggregate reads and set-based writes. */
 const selectTargetIds = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	query: QueryAst,
 	options: SelectOptions,
-	relationCompiler: PostgresRelationPredicateCompiler | undefined,
 ) => {
+	const { relationCompiler, schema } = context
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
 
-	return {
-		clauses,
-		id,
-		select: buildSelect(client, schema, { id }, clauses, options),
-	}
+	return { clauses, id, select: buildSelect(context, { id }, clauses, options) }
 }
 
 /** Persists one already normalized create candidate and decodes the complete row. */
 export const executeCreateInput = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	input: unknown,
 ): Promise<DatabaseLogicalRecord> => {
 	const [row] = await client
@@ -117,8 +118,7 @@ export const executeCreateInput = async (
 
 /** Inserts one validated collection in one statement and preserves RETURNING order. */
 export const executeCreateMany = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	operation: PostgresOperation<'create-many'>,
 ): Promise<readonly DatabaseLogicalRecord[]> => {
 	if (operation.inputs.length === 0) {
@@ -166,21 +166,17 @@ export const executeCreateMany = async (
 export const executePostgresTargetedMutation = async <
 	const TOperation extends TargetedMutation,
 >(
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	operation: TOperation,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<TargetedMutationResult<TOperation>> => {
+	const { client, schema } = context
 	const singular =
 		operation.kind === 'delete-one' || operation.kind === 'update-one'
-	const { clauses, id, select } = selectTargetIds(
-		client,
-		schema,
-		operation.query,
-		{ constraint, ...(singular ? { limit: 1 } : {}) },
-		relationCompiler,
-	)
+	const { clauses, id, select } = selectTargetIds(context, operation.query, {
+		constraint,
+		...(singular ? { limit: 1 } : {}),
+	})
 	const selectedTarget = inArray(id, select)
 	// Set-based writes reapply protected constraints at the final statement.
 	const where = required(
@@ -208,61 +204,94 @@ export const executePostgresTargetedMutation = async <
 
 /** Locks matching complete targets for prepared mutations and upserts. */
 const lockTargets = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	query: QueryAst,
 	options: SelectOptions,
-	relationCompiler: PostgresRelationPredicateCompiler | undefined,
-): Promise<readonly DatabaseLogicalRecord[]> =>
-	decodeRows(
+): Promise<readonly DatabaseLogicalRecord[]> => {
+	const { relationCompiler, schema } = context
+
+	return decodeRows(
 		schema,
 		await buildSelect(
-			client,
-			schema,
+			context,
 			compilePostgresSelection(schema),
 			compilePostgresQueryClauses(query, schema, relationCompiler),
 			options,
 		).for('update'),
 	)
+}
 
 /** Locks one complete target for singular mutation and upsert preparation. */
 export const lockPostgresMutationTarget = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	query: QueryAst,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<DatabaseLogicalRecord | null> =>
-	(
-		await lockTargets(
-			client,
-			schema,
-			query,
-			{ constraint, limit: 1 },
-			relationCompiler,
-		)
-	)[0] ?? null
+	(await lockTargets(context, query, { constraint, limit: 1 }))[0] ?? null
 
 /** Locks complete set-based targets in one stable order for item hooks. */
 export const lockPostgresSetBasedMutationTargets = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	operation: PostgresOperation<'delete-many' | 'update-many'>,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<readonly DatabaseLogicalRecord[]> =>
-	lockTargets(
-		client,
-		schema,
-		operation.query,
-		{ constraint, stableOrdering: true },
-		relationCompiler,
+	lockTargets(context, operation.query, { constraint, stableOrdering: true })
+
+/** Reads one retained logical identity only after verifying schema support. */
+export const readPreparedRecordId = (
+	schema: CompiledPostgresSchema,
+	record: DatabaseLogicalRecord,
+): unknown => {
+	if (!Object.hasOwn(record, 'id')) {
+		throw new TypeError('PostgreSQL prepared mutation target is missing its id')
+	}
+
+	resolveCompiledPostgresField(schema, 'id')
+	return record.id
+}
+
+/** Reuses one retained identifier while preserving every accumulated constraint. */
+export const createRetainedMutationTarget = (
+	schema: CompiledPostgresSchema,
+	previous: DatabaseLogicalRecord,
+	constraint: SQL | undefined,
+): SQL =>
+	required(
+		and(
+			eq(
+				resolveCompiledPostgresField(schema, 'id').column,
+				readPreparedRecordId(schema, previous),
+			),
+			constraint,
+		),
+		'PostgreSQL prepared mutation predicate could not be combined',
 	)
+
+/** Applies an update to one locked row and returns its complete current state. */
+export const executeRetainedUpdate = async (
+	{ client, schema }: PostgresStatementContext,
+	update: UpdateExpressionNode,
+	previous: DatabaseLogicalRecord,
+	constraint: SQL | undefined,
+): Promise<DatabaseLogicalRecord> => {
+	const [row] = await client
+		.update(schema.table)
+		.set(compilePostgresUpdate(schema, update))
+		.where(createRetainedMutationTarget(schema, previous, constraint))
+		.returning(compilePostgresSelection(schema))
+
+	return readPostgresRecord(
+		schema,
+		required(
+			row,
+			'PostgreSQL prepared update target disappeared before execution',
+		),
+	)
+}
 
 /** Attempts insertion; the caller resolves every conflict against the declared key. */
 export const tryCreatePostgresUpsert = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	create: unknown,
 	target: UniqueUpsertTargetNode,
 ): Promise<DatabaseLogicalRecord | null> => {
@@ -299,58 +328,49 @@ export const tryCreatePostgresUpsert = async (
 
 /** Executes aggregate reads and mutations; object reads use the relational executor. */
 export const executePostgresOperation = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	operation: Exclude<
 		ExecutableOperationAst,
 		{ readonly kind: 'find-many' | 'find-one' | 'get' }
 	>,
-	constraint?: SQL,
-	relationCompiler?: PostgresRelationPredicateCompiler,
+	constraint: SQL | undefined,
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
 			case 'count': {
-				const target = selectTargetIds(
-					client,
-					schema,
-					operation.query,
-					{ constraint },
-					relationCompiler,
-				).select.as('ultimabase_count_target')
-				const [row] = await client.select({ value: count() }).from(target)
+				const { select } = selectTargetIds(context, operation.query, {
+					constraint,
+				})
+				const [row] = await context.client
+					.select({ value: count() })
+					.from(select.as('ultimabase_count_target'))
 
 				return required(row, 'PostgreSQL count query returned no aggregate row')
 					.value
 			}
 			case 'exists': {
-				const { select } = selectTargetIds(
-					client,
-					schema,
-					operation.query,
-					{ constraint, limit: 1 },
-					relationCompiler,
-				)
+				const { select } = selectTargetIds(context, operation.query, {
+					constraint,
+					limit: 1,
+				})
 
 				return (await select).length > 0
 			}
 			case 'create-one':
 				return projectPostgresRecord(
-					await executeCreateInput(client, schema, operation.input),
+					await executeCreateInput(context, operation.input),
 					operation.selection,
 				)
 			case 'create-many':
-				return await executeCreateMany(client, schema, operation)
+				return await executeCreateMany(context, operation)
 			case 'update-one':
 			case 'update-many':
 			case 'delete-one':
 			case 'delete-many':
 				return await executePostgresTargetedMutation(
-					client,
-					schema,
+					context,
 					operation,
 					constraint,
-					relationCompiler,
 				)
 			case 'upsert-one':
 			case 'upsert-many':

@@ -188,11 +188,9 @@ const executePostgresRequest = async <
 		}
 
 		result = await executePostgresOperation(
-			client,
-			schema,
+			{ client, relationCompiler, schema },
 			operation,
 			and(constraint, relationPredicate),
-			relationCompiler,
 		)
 	}
 
