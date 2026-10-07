@@ -83,14 +83,15 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | graphql-yoga-plugin     |         731 |         726 | Constructeur d’échec unique ; déjà minimal.                                                                                                                                            |
 | soft-delete-plugin      |         710 |         709 | `plugin.ts` gardé de la référence pour préserver les hovers ; visibilité inchangée.                                                                                                    |
 | validation-plugin       |         663 |         622 | Projection arithmétique aplatie ; 3 000 comparaisons aléatoires identiques.                                                                                                            |
+| core / intégration      |      58 973 |      58 694 | Vérifications d’objets exacts, grammaires d’identifiants, snapshots d’identité et bindings de pipeline unifiés ; shims d’interfaces gelées retirés.                                    |
 
-Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
+Total de la production (script de mesure) : **114 742 → 103 702 lignes** (main après intégration de Core). Les tests sont
 inchangés (127 476 lignes).
 
 Les 5 périmètres de Core sont fusionnés (2026-10-07). Main intégré, validé par le
 coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
 `packages/core tests/e2e` 219/219 ; postgres-e2e 191/191 ; `yarn test:pack:built`
-173/173. La passe d'intégration transversale de Core reste à faire.
+173/173. La passe d'intégration transversale de Core est fusionnée (voir `packages/core/REBUILD-core-integration.md`).
 
 **Qualifié (échec intermittent `not-compiled`)** : l'erreur
 `SchemaCompilationError: Schema ExampleArticle has not been compiled by an application`,
