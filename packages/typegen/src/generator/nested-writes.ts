@@ -25,44 +25,35 @@ const requireTarget = (
 	return target
 }
 
+/** Finds the target pointer that owns an inverse relation, if there is one. */
+const owningPointer = (
+	field: TypegenFieldSnapshot,
+	target: TypegenSchemaSnapshot,
+): TypegenFieldSnapshot | undefined => {
+	if (field.value.kind !== 'relation' || field.value.mappedBy === undefined) {
+		return undefined
+	}
+
+	const { mappedBy } = field.value
+
+	return target.fields.find(
+		(candidate) =>
+			candidate.name === mappedBy && candidate.value.kind === 'pointer',
+	)
+}
+
+/** A nested inverse create omits the owning pointer, which the parent sets. */
 const targetNestedCreate = (
 	field: TypegenFieldSnapshot,
 	context: RenderContext,
 ): string => {
 	const target = requireTarget(field, context)
 	const targetType = `${context.identifiers.schema(target)}NestedCreateInput`
+	const pointer = owningPointer(field, target)
 
-	if (field.value.kind !== 'relation') {
-		return targetType
-	}
-	const relation = field.value
-	const mappedBy = relation.mappedBy
-	if (mappedBy === undefined) return targetType
-
-	const mappedField = target.fields.find(
-		(candidate) => candidate.name === mappedBy,
-	)
-
-	return mappedField?.value.kind === 'pointer'
-		? `Omit<${targetType}, ${quote(mappedBy)}>`
-		: targetType
-}
-
-const relationCanDisconnect = (
-	field: TypegenFieldSnapshot,
-	context: RenderContext,
-): boolean => {
-	if (field.value.kind !== 'relation' || field.value.mappedBy === undefined) {
-		return true
-	}
-	const relation = field.value
-
-	const target = requireTarget(field, context)
-	const mappedField = target.fields.find(
-		(candidate) => candidate.name === relation.mappedBy,
-	)
-
-	return mappedField?.value.kind !== 'pointer' || mappedField.typegen.nullable
+	return pointer === undefined
+		? targetType
+		: `Omit<${targetType}, ${quote(pointer.name)}>`
 }
 
 const renderCreateField = (
@@ -90,24 +81,27 @@ const renderUpdateField = (
 	context: RenderContext,
 ): string | undefined => {
 	const documentation = renderDocumentation(field.description)
+	const property = `${documentation}\treadonly ${propertyName(field.name)}?`
 
 	if (field.value.kind === 'relation') {
 		const target = requireTarget(field, context)
 		const targetUpdate = `${context.identifiers.schema(target)}NestedUpdateInput`
-		return `${documentation}\treadonly ${propertyName(field.name)}?: Core.NestedRelationUpdateInput<${targetNestedCreate(field, context)}, ${targetUpdate}, ${String(relationCanDisconnect(field, context))}>`
+		// A required owning pointer cannot be cleared by disconnecting its item.
+		const pointer = owningPointer(field, target)
+		const canDisconnect = pointer === undefined || pointer.typegen.nullable
+
+		return `${property}: Core.NestedRelationUpdateInput<${targetNestedCreate(field, context)}, ${targetUpdate}, ${String(canDisconnect)}>`
 	}
 
 	if (field.typegen.update === 'forbidden') return undefined
-	const value =
-		field.value.kind === 'pointer'
-			? (() => {
-					const target = requireTarget(field, context)
-					const alias = context.identifiers.schema(target)
-					return `Core.NestedPointerUpdateInput<${alias}NestedCreateInput, ${alias}NestedUpdateInput, ${String(field.typegen.nullable)}>`
-				})()
-			: renderFieldValue(field, 'update', context)
 
-	return `${documentation}\treadonly ${propertyName(field.name)}?: ${value}`
+	if (field.value.kind === 'pointer') {
+		const alias = context.identifiers.schema(requireTarget(field, context))
+
+		return `${property}: Core.NestedPointerUpdateInput<${alias}NestedCreateInput, ${alias}NestedUpdateInput, ${String(field.typegen.nullable)}>`
+	}
+
+	return `${property}: ${renderFieldValue(field, 'update', context)}`
 }
 
 const renderFields = (
@@ -118,10 +112,7 @@ const renderFields = (
 	) => string | undefined,
 	context: RenderContext,
 ): string => {
-	const properties = fields.flatMap((field) => {
-		const property = render(field, context)
-		return property === undefined ? [] : [property]
-	})
+	const properties = fields.flatMap((field) => render(field, context) ?? [])
 
 	return properties.length === 0
 		? 'Record<never, never>'

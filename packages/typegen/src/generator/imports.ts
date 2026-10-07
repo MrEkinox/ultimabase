@@ -1,5 +1,3 @@
-import { immutableRecord } from '@ultimabase/shared'
-
 import type {
 	TypegenApplicationSnapshot,
 	TypegenFieldSnapshot,
@@ -7,120 +5,86 @@ import type {
 } from '../snapshot.js'
 import { quote, typeIdentifier } from './syntax.js'
 
-interface ReferenceImport {
-	readonly alias: string
-	readonly exportName: string
-	readonly module: string
-}
+const referenceKey = (reference: TypegenReference): string =>
+	`${reference.module}\u0000${reference.exportName}`
+
+/** Lists every external type a field tree references, depth first. */
+const fieldReferences = (
+	fields: readonly TypegenFieldSnapshot[],
+): TypegenReference[] =>
+	fields.flatMap((field) => [
+		...(field.structuralContains === undefined
+			? []
+			: [field.structuralContains]),
+		...(field.value.kind === 'plugin' ? [field.value.reference] : []),
+		...(field.value.kind === 'object'
+			? fieldReferences(field.value.fields)
+			: []),
+	])
 
 /** Collects stable aliases for every external type referenced by the output. */
 export class ReferenceImports {
 	readonly #aliases = new Map<string, string>()
-	readonly #imports: ReferenceImport[]
+	/** Import specifiers grouped by module, both in rendering order. */
+	readonly #modules = new Map<string, string[]>()
 
 	constructor(snapshot: TypegenApplicationSnapshot) {
-		const references = new Map<string, TypegenReference>()
-
-		for (const method of snapshot.fieldMethods) {
-			for (const reference of [
+		const candidates = [
+			...snapshot.fieldMethods.flatMap((method) => [
 				method.method,
 				method.value,
 				...(method.structuralContains === undefined
 					? []
 					: [method.structuralContains]),
-			]) {
-				references.set(
-					`${reference.module}\u0000${reference.exportName}`,
-					reference,
-				)
+			]),
+			...snapshot.schemas.flatMap((schema) => [
+				...fieldReferences(schema.fields),
+				...fieldReferences(schema.virtualFields),
+			]),
+			...snapshot.options.flatMap((option) =>
+				option.compatibility === undefined
+					? [option.reference]
+					: [option.reference, option.compatibility],
+			),
+			...snapshot.operations.flatMap(({ input, result }) => [input, result]),
+			...snapshot.surfaces.flatMap((surface) =>
+				[...surface.schemaMutations, ...surface.modelMutations].map(
+					({ input }) => input,
+				),
+			),
+		]
+		// The last occurrence of a module and export pair wins, as in a keyed map.
+		const references = new Map<string, TypegenReference>()
+
+		for (const reference of candidates) {
+			if (reference !== undefined) {
+				references.set(referenceKey(reference), reference)
 			}
 		}
 
-		for (const schema of snapshot.schemas) {
-			this.#collectFieldReferences(schema.fields, references)
-			this.#collectFieldReferences(schema.virtualFields, references)
-		}
-		for (const option of snapshot.options) {
-			this.#addReference(option.reference, references)
-			if (option.compatibility !== undefined) {
-				this.#addReference(option.compatibility, references)
-			}
-		}
-		for (const operation of snapshot.operations) {
-			if (operation.input !== undefined)
-				this.#addReference(operation.input, references)
-			if (operation.result !== undefined)
-				this.#addReference(operation.result, references)
-		}
-		for (const surface of snapshot.surfaces) {
-			for (const mutation of [
-				...surface.schemaMutations,
-				...surface.modelMutations,
-			]) {
-				if (mutation.input !== undefined) {
-					this.#addReference(mutation.input, references)
-				}
-			}
-		}
-
-		const modules = [
-			...new Set([...references.values()].map(({ module }) => module)),
-		].sort()
-		this.#imports = [...references.values()]
-			.sort((left, right) =>
-				left.module === right.module
-					? left.exportName.localeCompare(right.exportName)
-					: left.module.localeCompare(right.module),
-			)
-			.map((reference) => {
-				const moduleIndex = modules.indexOf(reference.module)
-				const alias = `Plugin${String(moduleIndex)}_${typeIdentifier(reference.exportName)}`
-
-				this.#aliases.set(
-					`${reference.module}\u0000${reference.exportName}`,
-					alias,
-				)
-
-				return immutableRecord({ ...reference, alias })
-			})
-	}
-
-	#addReference(
-		reference: TypegenReference,
-		references: Map<string, TypegenReference>,
-	): void {
-		references.set(
-			`${reference.module}\u0000${reference.exportName}`,
-			reference,
+		const ordered = [...references.values()].sort((left, right) =>
+			left.module === right.module
+				? left.exportName.localeCompare(right.exportName)
+				: left.module.localeCompare(right.module),
 		)
-	}
+		const moduleIndexes = new Map(
+			[...new Set(ordered.map(({ module }) => module))]
+				.sort()
+				.map((module, index) => [module, index]),
+		)
 
-	#collectFieldReferences(
-		fields: readonly TypegenFieldSnapshot[],
-		references: Map<string, TypegenReference>,
-	): void {
-		for (const field of fields) {
-			if (field.structuralContains !== undefined) {
-				this.#addReference(field.structuralContains, references)
-			}
+		for (const reference of ordered) {
+			const alias = `Plugin${String(moduleIndexes.get(reference.module))}_${typeIdentifier(reference.exportName)}`
+			const specifiers = this.#modules.get(reference.module) ?? []
 
-			if (field.value.kind === 'plugin') {
-				references.set(
-					`${field.value.reference.module}\u0000${field.value.reference.exportName}`,
-					field.value.reference,
-				)
-			}
-
-			if (field.value.kind === 'object') {
-				this.#collectFieldReferences(field.value.fields, references)
-			}
+			this.#aliases.set(referenceKey(reference), alias)
+			specifiers.push(`\t${reference.exportName} as ${alias},`)
+			this.#modules.set(reference.module, specifiers)
 		}
 	}
 
 	alias(reference: TypegenReference): string {
-		const alias = this.#aliases.get(
-			`${reference.module}\u0000${reference.exportName}`,
-		)
+		const alias = this.#aliases.get(referenceKey(reference))
 
 		if (alias === undefined) {
 			throw new TypeError(
@@ -132,23 +96,11 @@ export class ReferenceImports {
 	}
 
 	render(): string {
-		const byModule = new Map<string, ReferenceImport[]>()
-
-		for (const entry of this.#imports) {
-			const entries = byModule.get(entry.module) ?? []
-
-			entries.push(entry)
-			byModule.set(entry.module, entries)
-		}
-
-		return [...byModule.entries()]
-			.map(([module, entries]) => {
-				const specifiers = entries
-					.map(({ alias, exportName }) => `\t${exportName} as ${alias},`)
-					.join('\n')
-
-				return `import type {\n${specifiers}\n} from ${quote(module)}`
-			})
+		return [...this.#modules]
+			.map(
+				([module, specifiers]) =>
+					`import type {\n${specifiers.join('\n')}\n} from ${quote(module)}`,
+			)
 			.join('\n')
 	}
 }

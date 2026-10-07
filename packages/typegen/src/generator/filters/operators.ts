@@ -1,30 +1,4 @@
-export const equalityKinds: ReadonlySet<string> = new Set([
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'pointer',
-	'string',
-	'time',
-	'uuid',
-])
-
-export const orderedKinds: ReadonlySet<string> = new Set([
-	'bigint',
-	'date',
-	'dateTime',
-	'decimal',
-	'float',
-	'int',
-	'string',
-	'time',
-])
+/** Renders the operator members shared by generated filter declarations. */
 
 export const renderEqualityProperties = (value: string): string =>
 	`\treadonly eq?: ${value}
@@ -59,3 +33,24 @@ export const renderNamedFilter = (
 	name: string,
 	properties: readonly string[],
 ): string => `export type ${name} = {\n${properties.join('\n')}\n}`
+
+/**
+ * Names the filter family of each built-in scalar kind: `<Name>Filter` at the
+ * root, `<Name>PathFilter` inside embedded objects and `Array<Name>Filter` for
+ * lists. `json` only names its array filter; its other filters follow the
+ * value kind.
+ */
+export const scalarFilterNames: ReadonlyMap<string, string> = new Map([
+	['bigint', 'BigInt'],
+	['binary', 'Binary'],
+	['boolean', 'Boolean'],
+	['date', 'DateTime'],
+	['dateTime', 'DateTime'],
+	['decimal', 'Decimal'],
+	['float', 'Float'],
+	['int', 'Int'],
+	['json', 'Json'],
+	['string', 'String'],
+	['time', 'DateTime'],
+	['uuid', 'ID'],
+])

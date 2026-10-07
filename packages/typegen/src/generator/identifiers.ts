@@ -5,59 +5,87 @@ import type {
 	TypegenApplicationSnapshot,
 	TypegenFieldSnapshot,
 	TypegenSchemaSnapshot,
+	TypegenValueNode,
 } from '../snapshot.js'
 import { fieldIdentifier, typeIdentifier } from './syntax.js'
-import type {
-	EnumDescriptor,
-	ObjectDescriptor,
-	ObjectOccurrence,
-} from './types.js'
+import type { NamedDescriptor } from './types.js'
+
+type NamedValue = Extract<
+	TypegenValueNode,
+	{ readonly kind: 'enum' | 'object' }
+>
+
+const schemaSuffixes = [
+	'Access',
+	'CreateInput',
+	'DependencySelect',
+	'Hooks',
+	'Include',
+	'Item',
+	'OrderByInput',
+	'Output',
+	'Select',
+	'UpdateInput',
+	'WhereInput',
+]
+const privateSchemaSuffixes = [
+	'Contract',
+	'Fields',
+	'Objects',
+	'Pointers',
+	'Relations',
+]
+const namedSuffixes = {
+	enum: ['Filter'],
+	object: [
+		'CreateInput',
+		'Filter',
+		'PathFilter',
+		'PathValueFilter',
+		'UpdateInput',
+	],
+} as const
+
+const isNamedValue = (value: TypegenValueNode): value is NamedValue =>
+	value.kind === 'enum' || value.kind === 'object'
+
+/** Describes a named value structurally, ignoring descriptions and type names. */
+const namedShape = (value: NamedValue): object =>
+	value.kind === 'enum'
+		? { kind: value.kind, values: value.values }
+		: { fields: value.fields.map(fieldSignature), kind: value.kind }
+
+const fieldSignature = (field: TypegenFieldSnapshot): string =>
+	JSON.stringify({
+		typegen: field.typegen,
+		kind: field.kind,
+		name: field.name,
+		value: isNamedValue(field.value) ? namedShape(field.value) : field.value,
+	})
 
 /** Assigns and validates every generated schema, enum, and object identity. */
 export class GeneratedIdentifiers {
 	readonly #owners = new Map<string, string>()
-	readonly #objectsByField = new Map<TypegenFieldSnapshot, ObjectDescriptor>()
-	readonly #objects: ObjectDescriptor[] = []
-	readonly #objectOccurrences: ObjectOccurrence[] = []
-	readonly #enumsByField = new Map<TypegenFieldSnapshot, EnumDescriptor>()
-	readonly #enums: EnumDescriptor[] = []
+	readonly #descriptors = new Map<TypegenFieldSnapshot, NamedDescriptor>()
+	readonly #definitions: NamedDescriptor[] = []
+	/** Explicit type names shared by structurally identical declarations. */
 	readonly #namedIdentities = new Map<
 		string,
-		Readonly<{
-			descriptor: EnumDescriptor | ObjectDescriptor
-			signature: string
-		}>
+		Readonly<{ descriptor: NamedDescriptor; signature: string }>
 	>()
 	readonly #schemas = new Map<TypegenSchemaSnapshot, string>()
 
 	constructor(snapshot: TypegenApplicationSnapshot) {
 		for (const schema of snapshot.schemas) {
 			const alias = typeIdentifier(schema.className)
+			const owner = `schema ${schema.className}`
 
-			for (const suffix of [
-				'Access',
-				'CreateInput',
-				'DependencySelect',
-				'Hooks',
-				'Include',
-				'Item',
-				'OrderByInput',
-				'Output',
-				'Select',
-				'UpdateInput',
-				'WhereInput',
-			]) {
-				this.#claim(`${alias}${suffix}`, `schema ${schema.className}`)
+			for (const suffix of schemaSuffixes) {
+				this.#claim(`${alias}${suffix}`, owner)
 			}
 
-			for (const suffix of [
-				'Contract',
-				'Fields',
-				'Objects',
-				'Pointers',
-				'Relations',
-			]) {
-				this.#claim(`__${alias}${suffix}`, `schema ${schema.className}`)
+			for (const suffix of privateSchemaSuffixes) {
+				this.#claim(`__${alias}${suffix}`, owner)
 			}
 
 			this.#schemas.set(schema, alias)
@@ -80,56 +108,19 @@ export class GeneratedIdentifiers {
 		this.#owners.set(identifier, owner)
 	}
 
-	#fieldSignature(field: TypegenFieldSnapshot): string {
-		const value =
-			field.value.kind === 'object'
-				? {
-						fields: field.value.fields.map((child) =>
-							this.#fieldSignature(child),
-						),
-						kind: field.value.kind,
-					}
-				: field.value.kind === 'enum'
-					? { kind: field.value.kind, values: field.value.values }
-					: field.value
-
-		return JSON.stringify({
-			typegen: field.typegen,
-			kind: field.kind,
-			name: field.name,
-			value,
-		})
-	}
-
-	#namedSignature(field: TypegenFieldSnapshot): string {
-		if (field.value.kind === 'enum') {
-			return JSON.stringify({ kind: 'enum', values: field.value.values })
-		}
-
-		if (field.value.kind === 'object') {
-			return JSON.stringify({
-				fields: field.value.fields.map((child) => this.#fieldSignature(child)),
-				kind: 'object',
-			})
-		}
-
-		throw new TypeError(
-			`Field ${field.path.join('.')} has no generated named identity`,
-		)
-	}
-
+	/** Returns the descriptor already declared under one explicit type name. */
 	#reuseNamedDescriptor(
 		base: string,
-		field: TypegenFieldSnapshot,
+		value: NamedValue,
 		ownerPath: string,
-	): EnumDescriptor | ObjectDescriptor | undefined {
+	): NamedDescriptor | undefined {
 		const existing = this.#namedIdentities.get(base)
 
 		if (existing === undefined) {
 			return undefined
 		}
 
-		if (existing.signature !== this.#namedSignature(field)) {
+		if (existing.signature !== JSON.stringify(namedShape(value))) {
 			throw new SchemaTypegenError(
 				'generated-identity-conflict',
 				`Generated identity "${base}" from ${ownerPath} conflicts with ${existing.descriptor.ownerPath}`,
@@ -140,32 +131,20 @@ export class GeneratedIdentifiers {
 		return existing.descriptor
 	}
 
-	#rememberNamedDescriptor(
-		base: string,
-		field: TypegenFieldSnapshot,
-		descriptor: EnumDescriptor | ObjectDescriptor,
-	): void {
-		this.#namedIdentities.set(
-			base,
-			immutableRecord({
-				descriptor,
-				signature: this.#namedSignature(field),
-			}),
-		)
-	}
-
 	#collectNamedFields(
 		schema: TypegenSchemaSnapshot,
 		fields: readonly TypegenFieldSnapshot[],
 		schemaAlias: string,
 	): void {
 		for (const field of fields) {
-			if (field.value.kind !== 'enum' && field.value.kind !== 'object') {
+			const value = field.value
+
+			if (!isNamedValue(value)) {
 				continue
 			}
 
 			const ownerPath = `${schema.className}.${field.path.join('.')}`
-			const explicitTypeName = field.value.typeName
+			const explicitTypeName = value.typeName
 			const base =
 				explicitTypeName === undefined
 					? `${schemaAlias}${field.path.map(fieldIdentifier).join('')}`
@@ -173,108 +152,84 @@ export class GeneratedIdentifiers {
 			const reused =
 				explicitTypeName === undefined
 					? undefined
-					: this.#reuseNamedDescriptor(base, field, ownerPath)
+					: this.#reuseNamedDescriptor(base, value, ownerPath)
 
-			if (field.value.kind === 'enum') {
-				if (reused !== undefined) {
-					const descriptor = reused
+			if (reused === undefined) {
+				this.#claim(base, ownerPath)
 
-					this.#enumsByField.set(field, descriptor)
-					continue
+				for (const suffix of namedSuffixes[value.kind]) {
+					this.#claim(`${base}${suffix}`, ownerPath)
 				}
 
-				const alias = base
+				const descriptor = immutableRecord({
+					alias: base,
+					field,
+					ownerPath,
+					schema,
+				})
 
-				this.#claim(alias, ownerPath)
-				this.#claim(`${alias}Filter`, ownerPath)
-
-				const descriptor = immutableRecord({ alias, field, ownerPath, schema })
-
-				this.#enumsByField.set(field, descriptor)
-				this.#enums.push(descriptor)
+				this.#descriptors.set(field, descriptor)
+				this.#definitions.push(descriptor)
 
 				if (explicitTypeName !== undefined) {
-					this.#rememberNamedDescriptor(base, field, descriptor)
+					this.#namedIdentities.set(
+						base,
+						immutableRecord({
+							descriptor,
+							signature: JSON.stringify(namedShape(value)),
+						}),
+					)
 				}
-
-				continue
+			} else {
+				this.#descriptors.set(field, reused)
 			}
 
-			if (reused !== undefined) {
-				const descriptor = reused
-
-				this.#objectsByField.set(field, descriptor)
-				this.#objectOccurrences.push(
-					immutableRecord({ descriptor, field, schema }),
-				)
-				this.#collectNamedFields(schema, field.value.fields, schemaAlias)
-				continue
+			if (value.kind === 'object') {
+				this.#collectNamedFields(schema, value.fields, schemaAlias)
 			}
+		}
+	}
 
-			const alias = base
+	#descriptor(field: TypegenFieldSnapshot, label: string): NamedDescriptor {
+		const descriptor = this.#descriptors.get(field)
 
-			this.#claim(alias, ownerPath)
-
-			for (const suffix of [
-				'CreateInput',
-				'Filter',
-				'PathFilter',
-				'PathValueFilter',
-				'UpdateInput',
-			]) {
-				this.#claim(`${alias}${suffix}`, ownerPath)
-			}
-
-			const descriptor = immutableRecord({ alias, field, ownerPath, schema })
-
-			this.#objectsByField.set(field, descriptor)
-			this.#objects.push(descriptor)
-			this.#objectOccurrences.push(
-				immutableRecord({ descriptor, field, schema }),
+		if (descriptor === undefined) {
+			throw new TypeError(
+				`Missing ${label} identity for ${field.path.join('.')}`,
 			)
-
-			if (explicitTypeName !== undefined) {
-				this.#rememberNamedDescriptor(base, field, descriptor)
-			}
-
-			this.#collectNamedFields(schema, field.value.fields, schemaAlias)
-		}
-	}
-
-	enum(field: TypegenFieldSnapshot): EnumDescriptor {
-		const descriptor = this.#enumsByField.get(field)
-
-		if (descriptor === undefined) {
-			throw new TypeError(`Missing enum identity for ${field.path.join('.')}`)
 		}
 
 		return descriptor
 	}
 
-	enumDefinitionsFor(schema: TypegenSchemaSnapshot): readonly EnumDescriptor[] {
-		return this.#enums.filter((descriptor) => descriptor.schema === schema)
+	#definitionsFor(
+		schema: TypegenSchemaSnapshot,
+		kind: NamedValue['kind'],
+	): readonly NamedDescriptor[] {
+		return this.#definitions.filter(
+			(descriptor) =>
+				descriptor.schema === schema && descriptor.field.value.kind === kind,
+		)
 	}
 
-	object(field: TypegenFieldSnapshot): ObjectDescriptor {
-		const descriptor = this.#objectsByField.get(field)
+	enum(field: TypegenFieldSnapshot): NamedDescriptor {
+		return this.#descriptor(field, 'enum')
+	}
 
-		if (descriptor === undefined) {
-			throw new TypeError(`Missing object identity for ${field.path.join('.')}`)
-		}
+	enumDefinitionsFor(
+		schema: TypegenSchemaSnapshot,
+	): readonly NamedDescriptor[] {
+		return this.#definitionsFor(schema, 'enum')
+	}
 
-		return descriptor
+	object(field: TypegenFieldSnapshot): NamedDescriptor {
+		return this.#descriptor(field, 'object')
 	}
 
 	objectDefinitionsFor(
 		schema: TypegenSchemaSnapshot,
-	): readonly ObjectDescriptor[] {
-		return this.#objects.filter((descriptor) => descriptor.schema === schema)
-	}
-
-	objectFieldsFor(schema: TypegenSchemaSnapshot): readonly ObjectOccurrence[] {
-		return this.#objectOccurrences.filter(
-			(occurrence) => occurrence.schema === schema,
-		)
+	): readonly NamedDescriptor[] {
+		return this.#definitionsFor(schema, 'object')
 	}
 
 	schema(schema: TypegenSchemaSnapshot): string {
