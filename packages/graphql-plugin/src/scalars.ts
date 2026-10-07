@@ -4,7 +4,6 @@ import {
 	GraphQLError,
 	GraphQLScalarType,
 	Kind,
-	type ValueNode,
 	valueFromASTUntyped,
 } from 'graphql'
 
@@ -18,15 +17,6 @@ const parseString = (
 ): string => {
 	if (typeof value !== 'string' || !accept(value)) throw scalarFailure(name)
 	return value
-}
-
-const stringLiteral = (
-	name: string,
-	node: ValueNode,
-	accept: (value: string) => boolean,
-): string => {
-	if (node.kind !== Kind.STRING) throw scalarFailure(name)
-	return parseString(name, node.value, accept)
 }
 
 const canonicalIntegerPattern = /^(?:0|-[1-9]\d*|[1-9]\d*)$/u
@@ -67,10 +57,22 @@ const stringScalar = (
 	new GraphQLScalarType({
 		name,
 		description,
-		parseLiteral: (node) => stringLiteral(name, node, accept),
+		parseLiteral: (node) =>
+			parseString(
+				name,
+				node.kind === Kind.STRING ? node.value : undefined,
+				accept,
+			),
 		parseValue: (value) => parseString(name, value, accept),
 		serialize: (value) => parseString(name, value, accept),
 	})
+
+const readSafeInt = (value: unknown): number => {
+	if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
+		throw scalarFailure('SafeInt')
+	}
+	return value
+}
 
 /** JavaScript-safe integral GraphQL number. */
 export const GraphqlSafeInt: GraphQLScalarType<number, number> =
@@ -79,22 +81,10 @@ export const GraphqlSafeInt: GraphQLScalarType<number, number> =
 		description: 'A JavaScript safe integer.',
 		parseLiteral: (node) => {
 			if (node.kind !== Kind.INT) throw scalarFailure('SafeInt')
-			const value = Number(node.value)
-			if (!Number.isSafeInteger(value)) throw scalarFailure('SafeInt')
-			return value
+			return readSafeInt(Number(node.value))
 		},
-		parseValue: (value) => {
-			if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-				throw scalarFailure('SafeInt')
-			}
-			return value
-		},
-		serialize: (value) => {
-			if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-				throw scalarFailure('SafeInt')
-			}
-			return value
-		},
+		parseValue: readSafeInt,
+		serialize: readSafeInt,
 	})
 
 const parseBigInt = (value: unknown): bigint =>
@@ -108,10 +98,8 @@ export const GraphqlBigInt: GraphQLScalarType<bigint, string> =
 	new GraphQLScalarType<bigint, string>({
 		name: 'BigInt',
 		description: 'A canonical base-10 integer string.',
-		parseLiteral: (node) => {
-			if (node.kind !== Kind.STRING) throw scalarFailure('BigInt')
-			return parseBigInt(node.value)
-		},
+		parseLiteral: (node) =>
+			parseBigInt(node.kind === Kind.STRING ? node.value : undefined),
 		parseValue: parseBigInt,
 		serialize: (value) => {
 			if (typeof value !== 'bigint') throw scalarFailure('BigInt')
@@ -158,10 +146,8 @@ export const GraphqlBase64: GraphQLScalarType<Uint8Array, string> =
 	new GraphQLScalarType<Uint8Array, string>({
 		name: 'Base64',
 		description: 'A canonical padded base64 string.',
-		parseLiteral: (node) => {
-			if (node.kind !== Kind.STRING) throw scalarFailure('Base64')
-			return parseBase64(node.value)
-		},
+		parseLiteral: (node) =>
+			parseBase64(node.kind === Kind.STRING ? node.value : undefined),
 		parseValue: parseBase64,
 		serialize: (value) => {
 			if (!(value instanceof Uint8Array)) throw scalarFailure('Base64')

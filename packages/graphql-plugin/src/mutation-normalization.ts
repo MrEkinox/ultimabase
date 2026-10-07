@@ -11,7 +11,6 @@ import {
 import type { GraphQLResolveInfo } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
-import { normalizeGraphqlCollectionArguments } from './read-normalization.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
 import { decodeGraphqlMutationData, decodeGraphqlWhere } from './wire-values.js'
 
@@ -176,13 +175,7 @@ export const normalizeGraphqlMutation = <
 		schema,
 		info,
 		false,
-		(target, relationArgs, scope) =>
-			normalizeGraphqlCollectionArguments(
-				target,
-				relationArgs,
-				connections,
-				scope,
-			),
+		connections,
 		relationships,
 	)
 	const commandInput = immutableRecord({

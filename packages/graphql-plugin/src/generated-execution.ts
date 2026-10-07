@@ -17,7 +17,6 @@ import {
 	type GraphqlMutationOperation,
 } from './mutation-normalization.js'
 import {
-	normalizeGraphqlCollectionArguments,
 	prepareGraphqlReadOperation,
 	type GraphqlReadOperation,
 } from './read-normalization.js'
@@ -165,13 +164,7 @@ export class GraphqlGeneratedExecution {
 					schema,
 					info,
 					false,
-					(target, relationArgs, scope) =>
-						normalizeGraphqlCollectionArguments(
-							target,
-							relationArgs,
-							this.#connections,
-							scope,
-						),
+					this.#connections,
 					descriptor.effect === 'delete' ? 'stored-pointer-only' : 'include',
 				)
 				return this.#schemaMutations.execute({

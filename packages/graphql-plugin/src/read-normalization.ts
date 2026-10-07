@@ -15,6 +15,11 @@ import type {
 	GraphqlConnectionRuntime,
 } from './connection-runtime.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
+
+export {
+	normalizeGraphqlCollectionArguments,
+	type GraphqlConnectionScope,
+} from './selection-normalization.js'
 import { decodeGraphqlWhere } from './wire-values.js'
 
 /** Names generated reads independently from GraphQL root field spelling. */
@@ -55,11 +60,6 @@ const readContracts: Readonly<
 
 export interface GraphqlReadNormalizationContext {
 	readonly connections: GraphqlConnectionRuntime
-}
-
-export interface GraphqlConnectionScope {
-	readonly relationPath: readonly string[]
-	readonly typeName: string
 }
 
 /** Retains transport page metadata beside, never inside, the Core read AST. */
@@ -109,20 +109,6 @@ export const effectiveGraphqlConnectionOrdering = (
 		? order
 		: immutableRecord({ ...order, id: 'asc' })
 }
-
-/** Converts collection arguments into existing Core query clauses. */
-export const normalizeGraphqlCollectionArguments = (
-	schema: SchemaDefinition,
-	args: Readonly<Record<string, unknown>>,
-	connections: GraphqlConnectionRuntime,
-	scope: GraphqlConnectionScope,
-): Readonly<Record<string, unknown>> =>
-	connections.prepare({
-		arguments: args,
-		relationPath: scope.relationPath,
-		schema,
-		typeName: scope.typeName,
-	}).clauses
 
 const requireInfo = (
 	info: GraphQLResolveInfo | undefined,
@@ -201,13 +187,7 @@ export const prepareGraphqlReadOperation = <
 					schema,
 					requireInfo(info, operation),
 					operation === 'findMany',
-					(relationSchema, relationArgs, scope) =>
-						normalizeGraphqlCollectionArguments(
-							relationSchema,
-							relationArgs,
-							context.connections,
-							scope,
-						),
+					context.connections,
 				)
 	const normalized = normalizeReadOperation(
 		schema,

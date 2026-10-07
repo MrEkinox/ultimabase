@@ -14,6 +14,8 @@ import {
 	type SelectionSetNode,
 } from 'graphql'
 
+import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+
 interface CollectedField {
 	readonly name: string
 	readonly nodes: readonly FieldNode[]
@@ -30,14 +32,25 @@ export interface GraphqlReadProjection {
 	readonly select: Readonly<Record<string, true>>
 }
 
-export type GraphqlRelationArgumentNormalizer = (
+/** Identifies the declared relationship a nested cursor belongs to. */
+export interface GraphqlConnectionScope {
+	readonly relationPath: readonly string[]
+	readonly typeName: string
+}
+
+/** Converts collection arguments into existing Core query clauses. */
+export const normalizeGraphqlCollectionArguments = (
 	schema: SchemaDefinition,
 	args: Readonly<Record<string, unknown>>,
-	scope: Readonly<{
-		readonly relationPath: readonly string[]
-		readonly typeName: string
-	}>,
-) => Readonly<Record<string, unknown>>
+	connections: GraphqlConnectionRuntime,
+	scope: GraphqlConnectionScope,
+): Readonly<Record<string, unknown>> =>
+	connections.prepare({
+		arguments: args,
+		relationPath: scope.relationPath,
+		schema,
+		typeName: scope.typeName,
+	}).clauses
 
 export type GraphqlRelationshipSelectionMode = 'include' | 'stored-pointer-only'
 
@@ -124,7 +137,7 @@ const modelProjection = (
 	type: GraphQLObjectType,
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
-	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
+	connections: GraphqlConnectionRuntime,
 	relationshipMode: GraphqlRelationshipSelectionMode,
 ): GraphqlReadProjection => {
 	const select: Record<string, true> = {}
@@ -214,14 +227,15 @@ const modelProjection = (
 			modelType,
 			targetSelectionSets,
 			context,
-			normalizeRelationArguments,
+			connections,
 			relationshipMode,
 		)
 		include[selected.name] = immutableRecord({
 			...(field.kind === 'relation'
-				? normalizeRelationArguments(
+				? normalizeGraphqlCollectionArguments(
 						target,
 						fieldArguments(selected, definition, context),
+						connections,
 						{
 							relationPath: targetRelationPath,
 							typeName: modelType.name,
@@ -245,7 +259,7 @@ export const normalizeGraphqlSelection = (
 	schema: SchemaDefinition,
 	info: GraphQLResolveInfo,
 	connectionRoot: boolean,
-	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
+	connections: GraphqlConnectionRuntime,
 	relationshipMode: GraphqlRelationshipSelectionMode = 'include',
 ): GraphqlReadProjection => {
 	const context: SelectionContext = { fragments: info.fragments, info }
@@ -262,7 +276,7 @@ export const normalizeGraphqlSelection = (
 			root,
 			rootSelectionSets,
 			context,
-			normalizeRelationArguments,
+			connections,
 			relationshipMode,
 		)
 	}
@@ -280,7 +294,7 @@ export const normalizeGraphqlSelection = (
 		model,
 		relationNodeSelectionSets(synthetic, root, context),
 		context,
-		normalizeRelationArguments,
+		connections,
 		relationshipMode,
 	)
 }
