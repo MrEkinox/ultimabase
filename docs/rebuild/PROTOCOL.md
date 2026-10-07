@@ -74,7 +74,9 @@ English comments that explain intent and invariants, immutable domain objects.
    and run their unit/e2e/postgres-e2e suites, plus `tests/e2e` in both e2e projects.
 7. `yarn eslint packages/<pkg>`, `yarn prettier --check packages/<pkg>`,
    `yarn tsc --build packages/<pkg>` and `yarn tsc -p packages/<pkg>/tsconfig.test.json`.
-8. `node tooling/measure-rebuild.mjs .` before and after; report the
+8. `tsc --build` writes declarations into referenced packages' `dist`: always
+   run `yarn build` again after it and before any suite that reads `dist`.
+9. `node tooling/measure-rebuild.mjs .` before and after; report the
    production lines of the scope.
 
 ## Deliverable
