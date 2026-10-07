@@ -10,6 +10,8 @@ import {
 } from '@ultimabase/shared'
 import { createHash, timingSafeEqual } from 'node:crypto'
 
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+
 import {
 	createTrustedMasterRequestContext,
 	type RequestContext,
@@ -109,18 +111,6 @@ const createPermissionDeniedError = (): FrameworkError<'PERMISSION_DENIED'> =>
 		{ publicMessage: 'Master authority is not available.' },
 	)
 
-const assertExactKeys = (
-	record: Readonly<Record<string, unknown>>,
-	allowedKeys: ReadonlySet<string>,
-	label: string,
-): void => {
-	for (const key of Object.keys(record)) {
-		if (!allowedKeys.has(key)) {
-			throw new TypeError(`${label} contains unknown key: ${key}`)
-		}
-	}
-}
-
 const normalizeMasterKeys = (
 	value: unknown,
 ): readonly NormalizedMasterKey[] => {
@@ -139,7 +129,11 @@ const normalizeMasterKeys = (
 			)
 		}
 
-		assertExactKeys(candidate, keyDefinitionKeys, 'Master key definition')
+		assertExactEnumerableKeys(
+			candidate,
+			keyDefinitionKeys,
+			'Master key definition contains unknown key: ',
+		)
 		assertNonEmptyString(candidate.id, 'Master key id')
 		assertNonEmptyString(candidate.value, 'Master key value')
 
@@ -181,7 +175,11 @@ export class MasterAuthority {
 			throw new TypeError('Master authority options must be a plain object')
 		}
 
-		assertExactKeys(untrustedOptions, authorityOptionKeys, 'Master authority')
+		assertExactEnumerableKeys(
+			untrustedOptions,
+			authorityOptionKeys,
+			'Master authority contains unknown key: ',
+		)
 
 		if (typeof untrustedOptions.onUse !== 'function') {
 			throw new TypeError('Master authority onUse must be a function')

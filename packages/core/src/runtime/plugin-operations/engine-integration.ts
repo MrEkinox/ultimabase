@@ -24,7 +24,10 @@ import {
 	isOperationTransportProtocol,
 } from './capabilities.js'
 import type { OperationTransportProtocol } from './contracts.js'
-import { commandFailure, executeRequestPluginOperation } from './request-execution.js'
+import {
+	commandFailure,
+	executeRequestPluginOperation,
+} from './request-execution.js'
 import type {
 	ApplicationOperationTransport,
 	OperationTransportExposureOptions,
@@ -112,7 +115,9 @@ export const reportFrameworkPublicTransportProtection = <
 const runOwnedCodec = <TResult>(
 	application: object,
 	binding: OperationTransportImplementation,
-	run: (codec: NonNullable<ReturnType<typeof getOperationWireCodec>>) => TResult,
+	run: (
+		codec: NonNullable<ReturnType<typeof getOperationWireCodec>>,
+	) => TResult,
 ): TResult => {
 	const codec = getOperationWireCodec(binding.binding.codec)
 	if (codec === undefined) {

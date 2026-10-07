@@ -67,6 +67,11 @@ const createFrameworkEngineOptionKeys = new Set([
 const emptyCreateFrameworkEngineOptions: CreateFrameworkEngineOptions =
 	immutableRecord({})
 
+type AnyFrameworkApplication = FrameworkApplication<
+	readonly SchemaDefinition[],
+	readonly PluginDefinition[]
+>
+
 const neutralNormalization: RuntimeOperationTransformStage = (input) =>
 	input.operation
 const neutralCommit: RuntimeResultEffectStage = () => undefined
@@ -110,10 +115,7 @@ export const normalizeCreateFrameworkEngineOptions = (
 }
 
 const assertApplicationIsUsable = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): void => {
 	if (application.state !== 'ready' && application.state !== 'started') {
 		throw new TypeError(
@@ -124,10 +126,7 @@ const assertApplicationIsUsable = (
 
 /** Detects whether static schemas require the portable pointer adapter protocol. */
 const applicationUsesPointers = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): boolean =>
 	application.schemas
 		.values()
@@ -138,10 +137,7 @@ const applicationUsesPointers = (
 		)
 
 const readRequiredSchemaMutationPlans = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): ReadonlySet<DatabasePersistencePlanKind> => {
 	const required = new Set<DatabasePersistencePlanKind>()
 	for (const schema of application.schemas.values()) {
@@ -163,10 +159,7 @@ const readRequiredSchemaMutationPlans = (
 
 /** Fails during assembly instead of letting a database mis-store logical pointers. */
 const assertRequiredAdapterCapabilities = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 	adapter: DatabaseAdapter,
 ): void => {
 	if (applicationUsesPointers(application)) {

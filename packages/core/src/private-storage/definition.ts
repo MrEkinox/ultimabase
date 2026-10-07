@@ -33,8 +33,8 @@ export interface PrivateCollectionDefinition {
 	>[]
 }
 
+// Only nominal tokens minted by definePrivateCollection resolve to a descriptor.
 const collectionDefinitions = new WeakMap<object, PrivateCollectionDefinition>()
-const collectionIdentities = new WeakSet<object>()
 const forbiddenFieldOptions = new Set([
 	'autoIncrement',
 	'autoNow',
@@ -237,7 +237,6 @@ export const definePrivateCollection = <
 		kind: 'private-collection' as const,
 	}) as PrivateCollection<TFields, TIndexes>
 	collectionDefinitions.set(collection, definition)
-	collectionIdentities.add(collection)
 	return collection
 }
 
@@ -245,17 +244,14 @@ export const definePrivateCollection = <
 export const readPrivateCollectionDefinition = (
 	collection: unknown,
 ): PrivateCollectionDefinition => {
-	if (
-		typeof collection !== 'object' ||
-		collection === null ||
-		!collectionIdentities.has(collection)
-	) {
+	const definition =
+		typeof collection === 'object' && collection !== null
+			? collectionDefinitions.get(collection)
+			: undefined
+	if (definition === undefined) {
 		throw new TypeError(
 			'private collection must be created by definePrivateCollection',
 		)
 	}
-	const definition = collectionDefinitions.get(collection)
-	if (definition === undefined)
-		throw new TypeError('private collection definition is unavailable')
 	return definition
 }

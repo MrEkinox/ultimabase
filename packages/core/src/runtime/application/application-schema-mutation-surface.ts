@@ -36,10 +36,7 @@ export type SchemaMutationSurfaceResolver = (
 	className: string,
 ) => CompiledApplicationSchemaSurface | undefined
 
-const surfaceStates = new WeakMap<
-	ApplicationSchemaMutationSurface,
-	SurfaceState
->()
+const surfaceStates = new WeakMap<object, SurfaceState>()
 
 const descriptorsFor = (
 	surface: CompiledApplicationSchemaSurface,
@@ -156,7 +153,7 @@ export const bindApplicationSchemaMutationSurface = (
 	if (typeof surface !== 'object' || surface === null) {
 		throw new TypeError('Unknown application schema mutation surface')
 	}
-	const state = surfaceStates.get(surface as ApplicationSchemaMutationSurface)
+	const state = surfaceStates.get(surface)
 	if (state === undefined || state.disposed) {
 		throw new TypeError('Unknown application schema mutation surface')
 	}

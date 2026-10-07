@@ -41,6 +41,53 @@ const readLogicalOperationSchema = (operation: ExecutableOperationAst) => {
 	}
 }
 
+/** Copies only the statement facts each physical plan kind carries. */
+const readPersistenceData = (
+	operation: ExecutableOperationAst,
+): Readonly<Record<string, unknown>> => {
+	switch (operation.kind) {
+		case 'count':
+		case 'delete-many':
+		case 'delete-one':
+		case 'exists':
+		case 'find-many':
+		case 'find-one':
+			return immutableRecord({ query: operation.query })
+		case 'get':
+			return immutableRecord({ id: operation.id, query: operation.query })
+		case 'create-one':
+			return immutableRecord({ input: operation.input })
+		case 'create-many':
+			return immutableRecord({ inputs: immutableArray(operation.inputs) })
+		case 'update-many':
+		case 'update-one':
+			return immutableRecord({
+				query: operation.query,
+				update: operation.update,
+			})
+		case 'upsert-one':
+			return immutableRecord({
+				create: operation.create,
+				query: operation.query,
+				uniqueTarget: operation.target,
+				update: operation.update,
+			})
+		case 'upsert-many':
+			return immutableRecord({
+				items: immutableArray(
+					operation.items.map((item) =>
+						immutableRecord({
+							create: item.create,
+							query: item.query,
+							uniqueTarget: item.target,
+							update: item.update,
+						}),
+					),
+				),
+			})
+	}
+}
+
 const createDatabasePersistencePlanInternal = <
 	const TOperation extends DatabaseOperationAst,
 >(
@@ -48,7 +95,7 @@ const createDatabasePersistencePlanInternal = <
 	returningSelection?: ReturnType<typeof readOperationResultSelection>,
 ): DatabasePersistencePlan<TOperation> => {
 	const executable = operation as unknown as ExecutableOperationAst
-	const base = {
+	const plan: unknown = immutableRecord({
 		provenance: immutableArray([canonicalPersistenceProvenance]),
 		returning: immutableRecord({
 			inclusion: readOperationResultInclusion(executable),
@@ -57,86 +104,10 @@ const createDatabasePersistencePlanInternal = <
 		}),
 		target: immutableRecord({ schema: readLogicalOperationSchema(executable) }),
 		version: databasePersistencePlanVersion,
-	}
-	let plan: unknown
-
-	switch (executable.kind) {
-		case 'count':
-		case 'delete-many':
-		case 'delete-one':
-		case 'exists':
-		case 'find-many':
-		case 'find-one':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({ query: executable.query }),
-				kind: executable.kind,
-			})
-			break
-		case 'get':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({ id: executable.id, query: executable.query }),
-				kind: executable.kind,
-			})
-			break
-		case 'create-one':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({ input: executable.input }),
-				kind: executable.kind,
-			})
-			break
-		case 'create-many':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({ inputs: immutableArray(executable.inputs) }),
-				kind: executable.kind,
-			})
-			break
-		case 'update-many':
-		case 'update-one':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({
-					query: executable.query,
-					update: executable.update,
-				}),
-				kind: executable.kind,
-			})
-			break
-		case 'upsert-one':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({
-					create: executable.create,
-					query: executable.query,
-					uniqueTarget: executable.target,
-					update: executable.update,
-				}),
-				kind: executable.kind,
-			})
-			break
-		case 'upsert-many':
-			plan = immutableRecord({
-				...base,
-				data: immutableRecord({
-					items: immutableArray(
-						executable.items.map((item) =>
-							immutableRecord({
-								create: item.create,
-								query: item.query,
-								uniqueTarget: item.target,
-								update: item.update,
-							}),
-						),
-					),
-				}),
-				kind: executable.kind,
-			})
-			break
-	}
-
+		data: readPersistenceData(executable),
+		kind: executable.kind,
+	})
+	// The operation kind selects the matching data shape built above.
 	return plan as DatabasePersistencePlan<TOperation>
 }
 
