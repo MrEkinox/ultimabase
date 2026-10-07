@@ -84,11 +84,13 @@ non-ACL value, including `null`, still fails with
 - No file under `tests/`, no `*.test-d.ts` and no test outside the package
   was edited. Deep imports from `tests/unit` (`src/acl.js`, `src/plugin.js`,
   `src/acl-option.test-support.js`) still resolve to the same exports.
-- `src/acl-limits.test.ts`: in `rejects malformed finite limit declarations`,
-  the input `{ extra: 1 } as never` became `{ extra: 1 }`.
-  `normalizeACLEntryLimits` now accepts `unknown` because it validates
-  untrusted input, so ESLint flagged the cast as unnecessary. The input value
-  and the expected error `Unknown acl limits option: extra` are unchanged.
+- `src/acl-limits.test.ts`: **byte-identical to the reference.** The first
+  rebuild widened `normalizeACLEntryLimits` to `unknown` and dropped the
+  test's `{ extra: 1 } as never` (ESLint then flagged it as unnecessary). That
+  edited a test body, which the protocol forbids, so the coordinator restored
+  the test, the reference parameter type `ACLEntryLimits | undefined` and the
+  reference's two call-site casts (`as ACLEntryLimits | undefined` in
+  `acl-option.ts` and `plugin.ts`). Runtime validation is unchanged.
 - All other `src/*.test.ts` files are unchanged and import the same internal
   exports, which still exist in the same modules (`acl-access`, `acl-events`,
   `acl-limits`, `acl-option`, `acl-reference-cleanup`, `acl-containment`,

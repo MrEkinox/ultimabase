@@ -50,6 +50,7 @@ import {
 	defaultACLEntryLimits,
 	normalizeACLEntryLimits,
 	resolveACLEntryLimits,
+	type ACLEntryLimits,
 	type ACLPluginOptions,
 } from './acl-limits.js'
 import {
@@ -150,7 +151,10 @@ const normalizeACLPluginOptions = definePluginOptionsParser({
 	keys: ['limits'] as const,
 	name: 'aclPlugin options',
 	normalize: (options): ACLPluginOptions => {
-		const limits = normalizeACLEntryLimits(options.limits, 'aclPlugin limits')
+		const limits = normalizeACLEntryLimits(
+			options.limits as ACLEntryLimits | undefined,
+			'aclPlugin limits',
+		)
 
 		return limits === undefined ? {} : { limits }
 	},

@@ -41,7 +41,7 @@ export const defaultACLEntryLimits: ResolvedACLEntryLimits = immutableRecord({
 
 /** Snapshots one untrusted limit object without applying inherited defaults. */
 export const normalizeACLEntryLimits = (
-	limits: unknown,
+	limits: ACLEntryLimits | undefined,
 	path: string,
 ): Readonly<ACLEntryLimits> | undefined => {
 	if (limits === undefined) return undefined

@@ -324,7 +324,10 @@ export const normalizeACLSchemaOption = (
 				? new ACL()
 				: (declaredDefault as ACL | ACLDefaultFactory),
 		resolveInput: declaredResolver as ACLInputResolver | undefined,
-		limits: normalizeACLEntryLimits(value.limits, `${path}.limits`),
+		limits: normalizeACLEntryLimits(
+			value.limits as ACLEntryLimits | undefined,
+			`${path}.limits`,
+		),
 	})
 	normalizedOptions.set(normalized, normalized)
 	return normalized
