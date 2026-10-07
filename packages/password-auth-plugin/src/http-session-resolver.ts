@@ -48,30 +48,28 @@ const credentialIssuancePaths = new Set<string>([
 ])
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-interface CookieCredential {
-	readonly present: boolean
-	readonly values: readonly string[]
-}
-
-const readCookieCredential = (
+/**
+ * Returns every value of the named cookie, or `undefined` when it is absent.
+ * A bare name without `=` still counts as present so it cannot be ignored.
+ */
+const readCookieValues = (
 	header: string | null,
 	name: string,
-): CookieCredential => {
-	if (header === null) return immutableRecord({ present: false, values: [] })
-	const values: string[] = []
-	let present = false
+): readonly string[] | undefined => {
+	if (header === null) return undefined
+	let values: string[] | undefined
 	for (const rawPart of header.split(';')) {
 		const part = rawPart.trim()
 		const separator = part.indexOf('=')
 		if (separator < 0) {
-			if (part === name) present = true
+			if (part === name) values ??= []
 			continue
 		}
 		if (part.slice(0, separator).trim() !== name) continue
-		present = true
+		values ??= []
 		values.push(part.slice(separator + 1).trim())
 	}
-	return immutableRecord({ present, values: Object.freeze(values) })
+	return values
 }
 
 const readBearerCredential = (header: string): string => {
@@ -154,14 +152,15 @@ export const providePasswordHttpSessionResolver = (options: {
 							: assertCookieBrowserPolicy(effectiveBrowserPolicy)
 					const path = new URL(request.url).pathname
 					const authorization = request.headers.get('Authorization')
-					const cookieCredential =
+					const cookieValues =
 						options.cookie === undefined
-							? immutableRecord({ present: false, values: [] })
-							: readCookieCredential(
+							? undefined
+							: readCookieValues(
 									request.headers.get('Cookie'),
 									options.cookie.name,
 								)
-					if (authorization !== null && cookieCredential.present) {
+					// Bearer plus the configured cookie is always ambiguous.
+					if (authorization !== null && cookieValues !== undefined) {
 						return rejectPasswordSession()
 					}
 
@@ -170,16 +169,15 @@ export const providePasswordHttpSessionResolver = (options: {
 					if (authorization !== null) {
 						token = readBearerCredential(authorization)
 					} else if (
-						cookieCredential.present &&
+						cookieValues !== undefined &&
+						// A stale cookie must never block credential recovery.
 						!credentialIssuancePaths.has(path)
 					) {
-						if (
-							cookieCredential.values.length !== 1 ||
-							!isPasswordSessionToken(cookieCredential.values[0])
-						) {
+						const [value] = cookieValues
+						if (cookieValues.length !== 1 || !isPasswordSessionToken(value)) {
 							return rejectPasswordSession()
 						}
-						token = cookieCredential.values[0]
+						token = value
 						usesCookieCredential = true
 					}
 

@@ -1,18 +1,15 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 import { RequestContextValue, type SchemaResult } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import {
-	createPasswordPrincipal,
-	isPasswordPrincipal,
-	type PasswordPrincipal,
-} from './principal.js'
+import { isPasswordPrincipal, type PasswordPrincipal } from './principal.js'
 import type { PasswordUserReference } from './user-schema.js'
 
 declare const passwordSessionBrand: unique symbol
 
-const passwordSessions = new WeakSet<object>()
+// Membership marks package-created context sessions; the value is the private
+// account generation each one was issued under.
 const passwordSessionGenerations = new WeakMap<object, number>()
 const rawTokenPattern = /^ub_s1\.[A-Za-z0-9_-]{43}$/u
 
@@ -99,19 +96,19 @@ export const digestPasswordSessionToken = (token: string): string =>
 export const isPasswordSessionToken = (value: unknown): value is string =>
 	typeof value === 'string' && rawTokenPattern.test(value)
 
-/** Creates an RFC UUID for one stable session identity. */
-export const createPasswordSessionId = (): string => randomUUID()
-
 /** Creates one immutable package-owned context session. */
 export const createPasswordSession = (
 	value: Omit<PasswordSession, typeof passwordSessionBrand>,
 	sessionGeneration: number,
 ): PasswordSession => {
 	const session = immutableRecord(value) as PasswordSession
-	passwordSessions.add(session)
 	passwordSessionGenerations.set(session, sessionGeneration)
 	return session
 }
+
+/** Recognizes only package-created context session values. */
+export const isPasswordSession = (value: unknown): value is PasswordSession =>
+	isPlainRecord(value) && passwordSessionGenerations.has(value)
 
 /** Reads package-private account invalidation state from one nominal session. */
 export const readPasswordSessionGeneration = (
@@ -123,20 +120,3 @@ export const readPasswordSessionGeneration = (
 	}
 	return generation
 }
-
-/** Creates one immutable principal and session pair from validated state. */
-export const createPasswordAuthenticationResult = (
-	user: PasswordUserReference,
-	userId: string,
-	session: IssuedPasswordSession,
-	profile: SchemaResult<PasswordUserReference>,
-): PasswordAuthenticationResult =>
-	immutableRecord({
-		principal: createPasswordPrincipal(user.pointer(userId)),
-		session: immutableRecord(session),
-		user: profile,
-	})
-
-/** Recognizes only package-created context session values. */
-export const isPasswordSession = (value: unknown): value is PasswordSession =>
-	isPlainRecord(value) && passwordSessions.has(value)

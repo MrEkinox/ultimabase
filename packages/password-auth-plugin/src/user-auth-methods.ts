@@ -8,18 +8,19 @@ import {
 } from '@ultimabase/core'
 
 import type { PasswordAuthPluginExports } from './application-api.js'
+import { readPasswordProfile } from './authentication-result.js'
 import {
 	passwordAuthOperations,
 	rejectPasswordSession,
 	type PasswordChangeInput,
 	type PasswordCredentialsInput,
 } from './operations.js'
-import type {
-	PasswordAuthenticationResult,
-	PasswordChangeResult,
-	PasswordLogoutResult,
+import {
+	passwordPrincipal,
+	type PasswordAuthenticationResult,
+	type PasswordChangeResult,
+	type PasswordLogoutResult,
 } from './session.js'
-import { passwordPrincipal } from './session.js'
 import type { PasswordUserDefinition } from './user-schema.js'
 import type { PasswordSignUpInput } from './sign-up-input.js'
 
@@ -71,10 +72,13 @@ export interface PasswordUserAuthMethods<
 	logoutEverywhere(): Promise<PasswordLogoutResult>
 }
 
+type Application = ReturnType<typeof getCurrentUltimaBase>
+
+/** Resolves the sole started application that owns this exact User class. */
 const selectApplication = (
 	schema: SchemaReference<'User'>,
 	options: unknown,
-): ReturnType<typeof getCurrentUltimaBase> => {
+): Application => {
 	if (options !== undefined) {
 		throw new TypeError(
 			'Password User methods do not accept application options',
@@ -91,33 +95,36 @@ const selectApplication = (
 	return ultimabase
 }
 
-const readCurrentProfile = async <TSchema extends SchemaReference<'User'>>(
-	schema: TSchema,
-	userId: string,
-): Promise<SchemaResult<TSchema>> => {
-	const profile = await schema.pointer(userId).findOne()
-	if (profile === null) {
-		throw new FrameworkError(
-			'NOT_FOUND',
-			'Password Auth User is not readable.',
-			{
-				publicMessage: 'The requested object was not found.',
-			},
-		)
+/** Reads the ambient principal, treating code outside any request as anonymous. */
+const readCurrentPrincipal = () => {
+	try {
+		return getCurrentRequest().getValue(passwordPrincipal)
+	} catch (error: unknown) {
+		if (
+			error instanceof FrameworkError &&
+			error.code === 'MISSING_EXECUTION_CONTEXT'
+		) {
+			return undefined
+		}
+		throw error
 	}
-	return profile as unknown as SchemaResult<TSchema>
 }
 
 /** Creates inert dispatchers before Core freezes the exact schema class. */
 export const createPasswordUserAuthMethods = <TFields extends SchemaFields>(
 	schema: SchemaReference<'User'>,
 ): PasswordUserAuthMethods<TFields> => {
+	type User = PasswordUserDefinition<TFields>
+	// Operation results are typed against the installed default User contract;
+	// this class method was installed on exactly the configured User.
+	const asUserResult = (
+		result: Promise<PasswordAuthenticationResult>,
+	): Promise<PasswordAuthenticationResult<User>> =>
+		result as Promise<PasswordAuthenticationResult<User>>
 	const withSession = <TResult>(
 		token: string,
 		options: unknown,
-		execute: (
-			ultimabase: ReturnType<typeof getCurrentUltimaBase>,
-		) => Promise<TResult>,
+		execute: (ultimabase: Application) => Promise<TResult>,
 	): Promise<TResult> => {
 		const ultimabase = selectApplication(schema, options)
 		const auth = ultimabase.plugin(
@@ -126,33 +133,18 @@ export const createPasswordUserAuthMethods = <TFields extends SchemaFields>(
 		// The existing session helper validates ownership and installs anonymous authority.
 		return auth.runWithSession(token, () => execute(ultimabase))
 	}
-	const currentPrincipal = () => {
-		try {
-			return getCurrentRequest().getValue(passwordPrincipal)
-		} catch (error: unknown) {
-			if (
-				error instanceof FrameworkError &&
-				error.code === 'MISSING_EXECUTION_CONTEXT'
-			) {
-				return undefined
-			}
-			throw error
-		}
-	}
 	return {
-		current: async (
-			options?: unknown,
-		): Promise<SchemaResult<PasswordUserDefinition<TFields>>> => {
+		current: async (options?: unknown): Promise<SchemaResult<User>> => {
 			selectApplication(schema, options)
-			const principal = currentPrincipal()
-			if (principal === undefined) {
+			const principal = readCurrentPrincipal()
+			if (
+				principal === undefined ||
+				!Object.is(principal.user.schema, schema)
+			) {
 				return rejectPasswordSession()
 			}
-			if (!Object.is(principal.user.schema, schema)) {
-				return rejectPasswordSession()
-			}
-			return readCurrentProfile(schema, principal.user.id) as Promise<
-				SchemaResult<PasswordUserDefinition<TFields>>
+			return readPasswordProfile(schema, principal.user.id) as Promise<
+				SchemaResult<User>
 			>
 		},
 		changePassword: async (
@@ -165,30 +157,30 @@ export const createPasswordUserAuthMethods = <TFields extends SchemaFields>(
 		signUp: async (
 			input: PasswordSignUpInput,
 			options?: unknown,
-		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
-			selectApplication(schema, options)
-				.operation(passwordAuthOperations.signUp)
-				.execute(input) as Promise<
-				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
-			>,
+		): Promise<PasswordAuthenticationResult<User>> =>
+			asUserResult(
+				selectApplication(schema, options)
+					.operation(passwordAuthOperations.signUp)
+					.execute(input),
+			),
 		login: async (
 			input: PasswordCredentialsInput,
 			options?: unknown,
-		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
-			selectApplication(schema, options)
-				.operation(passwordAuthOperations.login)
-				.execute(input) as Promise<
-				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
-			>,
+		): Promise<PasswordAuthenticationResult<User>> =>
+			asUserResult(
+				selectApplication(schema, options)
+					.operation(passwordAuthOperations.login)
+					.execute(input),
+			),
 		refresh: async (
 			token: string,
 			options?: unknown,
-		): Promise<PasswordAuthenticationResult<PasswordUserDefinition<TFields>>> =>
-			withSession(token, options, (ultimabase) =>
-				ultimabase.operation(passwordAuthOperations.refresh).execute(null),
-			) as Promise<
-				PasswordAuthenticationResult<PasswordUserDefinition<TFields>>
-			>,
+		): Promise<PasswordAuthenticationResult<User>> =>
+			asUserResult(
+				withSession(token, options, (ultimabase) =>
+					ultimabase.operation(passwordAuthOperations.refresh).execute(null),
+				),
+			),
 		logout: async (
 			token: string,
 			options?: unknown,

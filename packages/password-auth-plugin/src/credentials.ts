@@ -31,22 +31,17 @@ type PasswordCredentialFields = Readonly<{
 	readonly username: StringField<RequiredFieldState<true>>
 }>
 
-const createCredentialFields = (): PasswordCredentialFields => ({
-	passwordVerifier: stringField({ required: true }),
-	policyVersion: intField({ required: true }),
-	sessionGeneration: intField({ required: true }),
-	userId: uuidField({ immutable: true, required: true }),
-	username: stringField({ immutable: true, required: true }),
-})
-
 /** Represents the exact package-private credential collection token. */
 export type PasswordCredentialCollection = PrivateCollection<
-	ReturnType<typeof createCredentialFields>,
+	PasswordCredentialFields,
 	readonly [
 		Readonly<{ readonly fields: readonly ['username'] }>,
 		Readonly<{ readonly fields: readonly ['userId'] }>,
 	]
 >
+
+type PasswordCredentialRecord =
+	PrivateCollectionRecord<PasswordCredentialCollection>
 
 /** Carries the private verifier and identity needed to create one credential record. */
 export interface CreatePasswordCredentialInput {
@@ -57,6 +52,12 @@ export interface CreatePasswordCredentialInput {
 	readonly username: string
 }
 
+/** Carries one replacement verifier and the policy that produced it. */
+interface PasswordVerifierUpdate {
+	readonly passwordVerifier: string
+	readonly policyVersion: number
+}
+
 /** Builds one descriptor after the exact configured User schema is known. */
 export const createPasswordCredentialCollection = (
 	user: SchemaDefinition,
@@ -64,7 +65,13 @@ export const createPasswordCredentialCollection = (
 ): PasswordCredentialCollection =>
 	definePrivateCollection({
 		contributionId: 'credentials',
-		fields: createCredentialFields(),
+		fields: {
+			passwordVerifier: stringField({ required: true }),
+			policyVersion: intField({ required: true }),
+			sessionGeneration: intField({ required: true }),
+			userId: uuidField({ immutable: true, required: true }),
+			username: stringField({ immutable: true, required: true }),
+		},
 		indexes: [{ fields: ['username'] }, { fields: ['userId'] }] as const,
 		normalizedStaticOptions: {
 			passwordPolicy: {
@@ -85,90 +92,61 @@ export const createPasswordCredentialCollection = (
 export const insertPasswordCredential = (
 	collection: PasswordCredentialCollection,
 	input: CreatePasswordCredentialInput,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection>> =>
+): Promise<PasswordCredentialRecord> =>
 	privateStore(collection).insert({ data: immutableRecord(input) })
 
 /** Finds one verifier without revealing arbitrary private query access. */
 export const findPasswordCredentialByUsername = (
 	collection: PasswordCredentialCollection,
 	username: string,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+): Promise<PasswordCredentialRecord | null> =>
 	privateStore(collection).findUnique({ where: { username } })
 
 /** Finds one verifier by its exact Password User identity. */
 export const findPasswordCredentialByUserId = (
 	collection: PasswordCredentialCollection,
 	userId: string,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
+): Promise<PasswordCredentialRecord | null> =>
 	privateStore(collection).findUnique({ where: { userId } })
+
+/**
+ * Writes `data` only while the verifier, policy, and session generation still
+ * match `current`, so every credential transition rejects concurrent updates.
+ * Resolves `null` when the compare-and-swap lost.
+ */
+export const swapPasswordCredential = (
+	collection: PasswordCredentialCollection,
+	current: CreatePasswordCredentialInput,
+	data: Partial<
+		Pick<
+			CreatePasswordCredentialInput,
+			'passwordVerifier' | 'policyVersion' | 'sessionGeneration'
+		>
+	>,
+): Promise<PasswordCredentialRecord | null> =>
+	privateStore(collection).compareAndSwap({
+		data,
+		expected: {
+			passwordVerifier: current.passwordVerifier,
+			policyVersion: current.policyVersion,
+			sessionGeneration: current.sessionGeneration,
+		},
+		where: { userId: current.userId },
+	})
 
 /** Replaces an unchanged verifier while rejecting concurrent credential updates. */
 export const upgradePasswordCredential = (
 	collection: PasswordCredentialCollection,
 	current: CreatePasswordCredentialInput,
-	next: Readonly<{
-		readonly passwordVerifier: string
-		readonly policyVersion: number
-	}>,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
-	privateStore(collection).compareAndSwap({
-		data: next,
-		expected: {
-			passwordVerifier: current.passwordVerifier,
-			policyVersion: current.policyVersion,
-			sessionGeneration: current.sessionGeneration,
-		},
-		where: { userId: current.userId },
-	})
+	next: PasswordVerifierUpdate,
+): Promise<PasswordCredentialRecord | null> =>
+	swapPasswordCredential(collection, current, next)
 
 /** Serializes a session transition against the current account generation. */
 export const retainPasswordSessionGeneration = (
 	collection: PasswordCredentialCollection,
 	current: CreatePasswordCredentialInput,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
-	privateStore(collection).compareAndSwap({
-		data: { sessionGeneration: current.sessionGeneration },
-		expected: {
-			passwordVerifier: current.passwordVerifier,
-			policyVersion: current.policyVersion,
-			sessionGeneration: current.sessionGeneration,
-		},
-		where: { userId: current.userId },
-	})
-
-/** Invalidates every session issued under the current account generation. */
-export const advancePasswordSessionGeneration = (
-	collection: PasswordCredentialCollection,
-	current: CreatePasswordCredentialInput,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
-	privateStore(collection).compareAndSwap({
-		data: { sessionGeneration: current.sessionGeneration + 1 },
-		expected: {
-			passwordVerifier: current.passwordVerifier,
-			policyVersion: current.policyVersion,
-			sessionGeneration: current.sessionGeneration,
-		},
-		where: { userId: current.userId },
-	})
-
-/** Replaces one unchanged verifier and advances its session generation atomically. */
-export const changePasswordCredential = (
-	collection: PasswordCredentialCollection,
-	current: CreatePasswordCredentialInput,
-	next: Readonly<{
-		readonly passwordVerifier: string
-		readonly policyVersion: number
-	}>,
-): Promise<PrivateCollectionRecord<PasswordCredentialCollection> | null> =>
-	privateStore(collection).compareAndSwap({
-		data: {
-			...next,
-			sessionGeneration: current.sessionGeneration + 1,
-		},
-		expected: {
-			passwordVerifier: current.passwordVerifier,
-			policyVersion: current.policyVersion,
-			sessionGeneration: current.sessionGeneration,
-		},
-		where: { userId: current.userId },
+): Promise<PasswordCredentialRecord | null> =>
+	swapPasswordCredential(collection, current, {
+		sessionGeneration: current.sessionGeneration,
 	})
