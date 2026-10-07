@@ -2,6 +2,9 @@ import { FrameworkError, type OperationKind } from '@ultimabase/core'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 
+const isFrameworkError = (value: unknown): value is FrameworkError =>
+	value instanceof FrameworkError
+
 const isSerializationFailure = (driverCode: string | undefined): boolean =>
 	driverCode === '40001' || driverCode === '40P01'
 
@@ -10,7 +13,7 @@ export const mapPostgresOperationError = (
 	error: unknown,
 	operation: OperationKind,
 ): FrameworkError => {
-	if (error instanceof FrameworkError) {
+	if (isFrameworkError(error)) {
 		return error
 	}
 
