@@ -13,8 +13,8 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 |        | Lines         |
 | ------ | ------------- |
 | Before | 4438          |
-| After  | 3639          |
-| Change | -799 (-18.0%) |
+| After  | 3653          |
+| Change | -785 (-17.7%) |
 
 About 1100 of the remaining lines are public contract: the authoring types and
 their JSDoc (`authoring/contracts.ts`, `authoring/schema-mutations.ts`,
@@ -157,7 +157,7 @@ and the recursion stack is stored as an array instead of `{ stack }`.
 
 ## Pre-existing failures (untouched tree)
 
-None. Baseline results on `aa8a98a`:
+None in the focused suites. Baseline results on `aa8a98a`:
 
 | Command                                                                       | Result                     |
 | ----------------------------------------------------------------------------- | -------------------------- |
@@ -175,4 +175,40 @@ None. Baseline results on `aa8a98a`:
 
 ## Validation (final tree)
 
-Pending.
+| Command                                                                 | Result                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn build`                                                            | pass                                                                                                                                                                                                                                                  |
+| `yarn vitest run --project unit --project types packages/access-plugin` | 12 files, 38 tests passed, no type errors                                                                                                                                                                                                             |
+| `yarn vitest run --project e2e packages/access-plugin`                  | 1 file, 2 tests passed                                                                                                                                                                                                                                |
+| `yarn vitest run --project postgres-e2e packages/access-plugin`         | 1 file, 6 tests passed                                                                                                                                                                                                                                |
+| consumers, `--project unit`                                             | 42 files, 142 tests passed                                                                                                                                                                                                                            |
+| consumers, `--project types`                                            | 2 files, 6 tests passed                                                                                                                                                                                                                               |
+| consumers, `--project e2e`                                              | 2 files, 10 tests passed                                                                                                                                                                                                                              |
+| consumers, `--project postgres-e2e`                                     | 19 files, 90 tests passed                                                                                                                                                                                                                             |
+| `yarn vitest run --project e2e tests/e2e`                               | 47 files, 219 tests passed                                                                                                                                                                                                                            |
+| `yarn vitest run --project postgres-e2e tests/e2e`                      | 55 files, 191 tests passed                                                                                                                                                                                                                            |
+| `yarn vitest run --project website-content`                             | 15 files passed, 2 failed (1)                                                                                                                                                                                                                         |
+| `yarn test:pack:built`                                                  | 31 files passed, 1 failed: `core-archive-declarations` timed out at 10 s (known flaky); rerun alone: 1 file, 22 tests passed. `official-access-conformance` passed (also rerun alone with `official-capability-conformance`: 2 files, 5 tests passed) |
+| `yarn eslint packages/access-plugin`                                    | 0 errors, 1 `max-lines` warning (the unchanged `tests/schema-mutation-access.test.ts`)                                                                                                                                                                |
+| `yarn prettier --check packages/access-plugin`                          | pass                                                                                                                                                                                                                                                  |
+| `yarn tsc --build packages/access-plugin`                               | pass                                                                                                                                                                                                                                                  |
+| `yarn tsc -p packages/access-plugin/tsconfig.test.json`                 | pass                                                                                                                                                                                                                                                  |
+| `yarn build` (after `tsc --build`)                                      | pass                                                                                                                                                                                                                                                  |
+
+Consumers are `packages/roles-plugin`, `packages/create-app`, `packages/typegen`,
+`examples`, and the files importing `@ultimabase/access-plugin` in
+`acl-permissions-plugin`, `core` (7 relation/pointer/nested-write PostgreSQL
+e2e files), `graphql-plugin`, `hooks-plugin`, `password-auth-plugin` (3),
+`rest-plugin` (3) and `soft-delete-plugin`, plus
+`apps/website/tests/landing-stacks.content.test.ts` (1 file, 7 tests passed).
+At checkpoint 1, `create-app-packed` timed out once in `tests/e2e` (known
+flaky); it passed in the final run.
+
+(1) Both failures are caused by sources deleted by earlier rebuilds and are
+already present on `aa8a98a`: `concepts.content.test.ts` reads
+`packages/core/src/runtime/validation/runtime-validation-options.ts` and
+`plugins.content.test.ts` reads `packages/rest-plugin/src/operation-execution.ts`,
+neither of which exists at the base commit. Every `packages/access-plugin`
+path listed in website `sources` exists on this branch (deleting
+`field-declarations.ts` had made `plugins.content.test.ts` fail on it, which
+is why that module was kept).
