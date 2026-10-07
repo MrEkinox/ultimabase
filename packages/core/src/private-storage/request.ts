@@ -186,6 +186,16 @@ const snapshotInsert = (
 	)
 }
 
+const operationKeys: Readonly<
+	Record<PrivateStorageOperationKind, ReadonlySet<string>>
+> = {
+	'find-unique': new Set(['where']),
+	insert: new Set(['data']),
+	update: new Set(['data', 'where']),
+	delete: new Set(['where']),
+	'compare-and-swap': new Set(['data', 'expected', 'where']),
+}
+
 /** @internal Snapshots one owner request before it reaches an adapter. */
 export const normalizePrivateStorageRequest = (
 	collection: PrivateStorageAdapterCollection,
@@ -193,22 +203,14 @@ export const normalizePrivateStorageRequest = (
 	options: unknown,
 ): PrivateStorageOperationRequest => {
 	const input = assertPlainOperationValue(options, `private storage ${kind}`)
-	const keys: Readonly<
-		Record<PrivateStorageOperationKind, ReadonlySet<string>>
-	> = {
-		'find-unique': new Set(['where']),
-		insert: new Set(['data']),
-		update: new Set(['data', 'where']),
-		delete: new Set(['where']),
-		'compare-and-swap': new Set(['data', 'expected', 'where']),
-	}
 	assertExactEnumerableKeys(
 		input,
-		keys[kind],
+		operationKeys[kind],
 		`private storage ${kind} contains unknown option: `,
 	)
 	switch (kind) {
 		case 'find-unique':
+		case 'delete':
 			return immutableRecord({
 				collection,
 				kind,
@@ -230,12 +232,6 @@ export const normalizePrivateStorageRequest = (
 					false,
 					'update',
 				),
-				kind,
-				where: snapshotWhere(collection, input.where),
-			})
-		case 'delete':
-			return immutableRecord({
-				collection,
 				kind,
 				where: snapshotWhere(collection, input.where),
 			})
