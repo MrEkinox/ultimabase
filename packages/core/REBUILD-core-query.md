@@ -26,8 +26,8 @@ excluded), same rule as `tooling/measure-rebuild.mjs`:
 | Before |    55 |               9276 |
 | After  |    50 | 8586 (−690, −7.4%) |
 
-`node tooling/measure-rebuild.mjs .`: Core production 60692 → 60002 lines;
-repository production 109925 → 109235 lines (678 → 673 files). Test lines are
+`node tooling/measure-rebuild.mjs .`: Core production 59663 → 58973 lines;
+repository production 108896 → 108206 lines (668 → 663 files). Test lines are
 unchanged (127476 lines, 764 files). `access/**` is unchanged: its files are
 public contracts and JSDoc with no duplicated logic.
 
@@ -103,6 +103,9 @@ The public contract is unchanged:
 
 ### Parity checks beyond the test suites
 
+The `main` snapshot used below was `10af3ab`; the query scope is identical in
+every later `main` commit.
+
 - `OperationResult`, `OperationRecordResult` and `OperationSourceRecordResult`:
   a temporary type file compared the new and reference definitions with a
   strict identity check (`<T>() => T extends A ? 1 : 2`) for every operation
@@ -162,8 +165,8 @@ QueryFilterNode<TSchema>` in `normalizeWhereRelationCount`. The internal
   (where-normalize.ts).
 - Removed outright: two factory return casts
   (`as QueryPrimitiveFilterNode<TSchema, TFieldName>`), two `target as
-QueryFilterTarget<…>`, four `(value as number)` in relation count guards, one
-  `as QueryFilterNode<TSchema>` pair on `AND`/`OR`/`NOT`, five `input as unknown
+QueryFilterTarget<…>`, six `as number` in relation count guards, two
+  `as QueryFilterNode<TSchema>` on `AND`/`OR` and `NOT`, five `input as unknown
 as Readonly<Record<string, unknown>>` in `input.ts`, the per-call `as Promise<…>`
   in `executeOperation` / `executeOperationBatch`, `id as
 OperationObjectId<TSchema>`, `fieldName as QueryIncludableFieldName<TSchema>`
@@ -202,8 +205,34 @@ probe.
 
 ## Pre-existing failures
 
-PENDING
+None observed. On the rebased WIP, before any review change, Core unit and
+types passed (274 files, 1414 tests, no type errors). Every suite below passed
+on its first run on the final tree, so no file needed an isolated rerun. The
+known load-related flakes (`core-archive-declarations` e2e timeout, typegen
+hybrid-authoring performance budget, port 1337 conflicts) did not occur.
+
+`yarn eslint packages/core` reports only `max-lines` warnings (400-line
+threshold). In this scope there are 9 (reference: 8): `where-normalize.ts`
+now holds the former `where-operators.ts` switch. Every production file stays
+under the 600-line limit (largest: `where-builder.ts` 595 and `factory.ts` 587
+physical lines).
 
 ## Validation commands and results
 
-PENDING
+All commands ran in `../claude-ultimabase-worktrees/core-query` on the final
+tree (rebased on `main` at `aa8a98a`). `yarn build` was run again after
+`tsc --build`.
+
+| Command                                                                                                          | Result                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `yarn build`                                                                                                     | pass                                                                                                             |
+| `yarn vitest run --project unit --project types packages/core`                                                   | 274 files, 1414 tests passed, no type errors                                                                     |
+| `yarn vitest run --project unit --project types` (whole repository)                                              | 558 files, 2709 tests passed, no type errors                                                                     |
+| `yarn vitest run --project e2e packages/core tests/e2e packages/access-plugin packages/acl-permissions-plugin`   | 47 files, 219 tests passed (the `tests/e2e` filter also matches every `packages/*/tests/e2e`)                    |
+| `yarn vitest run --project postgres-e2e packages/core tests/e2e packages/postgres-plugin packages/access-plugin` | 55 files, 191 tests passed                                                                                       |
+| `yarn eslint packages/core`                                                                                      | 0 errors, 55 warnings, all `max-lines`                                                                           |
+| `yarn prettier --check packages/core`                                                                            | pass                                                                                                             |
+| `yarn tsc --build packages/core`                                                                                 | pass                                                                                                             |
+| `yarn tsc -p packages/core/tsconfig.test.json`                                                                   | pass                                                                                                             |
+| `yarn build` (after `tsc --build`)                                                                               | pass                                                                                                             |
+| `node tooling/measure-rebuild.mjs .`                                                                             | Core production 59663 → 58973; repository production 108896 → 108206 (668 → 663 files); tests 127476 (unchanged) |
