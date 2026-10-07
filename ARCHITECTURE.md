@@ -30,8 +30,10 @@ whole rebuild. The rebuild rewrote internal implementations only:
   ([DX-AUDIT.md](docs/rebuild/DX-AUDIT.md)), and the validation correspondence
   is in [`docs/rebuild/VALIDATIONS.md`](docs/rebuild/VALIDATIONS.md).
 - Production code went from 114,742 to 103,702 non-blank lines (731 to 619
-  files, `node tooling/measure-rebuild.mjs`). Tests are unchanged (127,477
-  lines), and the published runtime dependencies are the same 16 packages.
+  files, `node tooling/measure-rebuild.mjs`). Test code keeps its size (127,477
+  lines): public tests are unchanged, and internal tests beside the source only
+  had import specifiers updated. The published runtime dependencies are the
+  same 16 packages.
 
 Accepted ADRs remain in force: the rebuild preserves every decision they
 record. The issue backlog (`issues/`), `docs/plans/`, `CURRENT_PLAN.md`, and
