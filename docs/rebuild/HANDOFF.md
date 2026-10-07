@@ -143,7 +143,14 @@ shared (74).
 Reste également :
 
 - la passe d'intégration de Core ;
-- la décision sur la documentation historique (`issues/`, ADR, plans, `CURRENT_PLAN.md`,
+- **décision de l'utilisateur (2026-10-07) sur la documentation historique : archiver en
+  place.** `issues/`, `docs/plans/`, `CURRENT_PLAN.md` et `HISTORIQUE_SUPPRESSIONS.md` restent
+  comme archive figée de la référence, marquée comme telle (README / bandeau compatibles avec
+  les tests de processus), avec `tooling/issues` et `yarn check:issues` intacts : aucune
+  assertion supprimée. Les ADR restent (95 sont cités comme sources par le site).
+  `ARCHITECTURE.md` et `docs/current-architecture.md` sont réécrits pour la reconstruction,
+  et `docs/rebuild/VALIDATIONS.md` documente la correspondance des validations ;
+- (énoncé d'origine) la décision sur la documentation historique (`issues/`, ADR, plans, `CURRENT_PLAN.md`,
   `HISTORIQUE_SUPPRESSIONS.md`) et sur l'outillage de processus (`tooling/issues`,
   `tooling/documentation`). Ces éléments décrivent l'architecture de la référence. Ils
   doivent être remplacés par une architecture décrivant la reconstruction, et la
