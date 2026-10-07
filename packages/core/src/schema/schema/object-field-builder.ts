@@ -1,7 +1,8 @@
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldListOption,
-	ResolvedFieldSourceOptions,
+	FieldListValue,
+	ResolveFieldSourceTemplate,
 } from '../fields/base/contract.js'
 import type {
 	DefaultedObjectField,
@@ -96,11 +97,15 @@ export interface ObjectFieldBuilderMethod<
 			>,
 			TExtensionOptions,
 			ObjectFieldValue<TFields>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				ObjectFieldValue<TFields>,
-				TList,
-				TRequired
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+				>,
+				object
 			>
 		>,
 	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
@@ -121,11 +126,15 @@ export interface ObjectFieldBuilderMethod<
 			>,
 			TExtensionOptions,
 			ObjectFieldValue<TFields>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				ObjectFieldValue<TFields>,
-				TList,
-				TRequired
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+				>,
+				object
 			>
 		>,
 	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
@@ -153,11 +162,15 @@ export interface EmbeddedObjectFieldBuilderMethod<
 			>,
 			TExtensionOptions,
 			ObjectFieldValue<TFields>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				ObjectFieldValue<TFields>,
-				TList,
-				TRequired
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+				>,
+				object
 			>
 		>,
 	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
@@ -178,11 +191,15 @@ export interface EmbeddedObjectFieldBuilderMethod<
 			>,
 			TExtensionOptions,
 			ObjectFieldValue<TFields>,
-			ResolvedFieldSourceOptions<
-				TSourceTemplate,
-				ObjectFieldValue<TFields>,
-				TList,
-				TRequired
+			Extract<
+				ResolveFieldSourceTemplate<
+					TSourceTemplate,
+					FieldListValue<ObjectFieldValue<TFields>, TList>,
+					TRequired extends true
+						? FieldListValue<ObjectFieldValue<TFields>, TList>
+						: FieldListValue<ObjectFieldValue<TFields>, TList> | null
+				>,
+				object
 			>
 		>,
 	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>

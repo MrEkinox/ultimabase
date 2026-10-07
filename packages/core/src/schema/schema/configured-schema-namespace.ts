@@ -36,7 +36,6 @@ export type ConfiguredFieldDeclaration<
 	>,
 ) => TFields
 
-/** Reads the declaration-time selector option of each projection in a union. */
 type SchemaFieldOptionSelector<TProjection> =
 	TProjection extends Readonly<{
 		selector: Readonly<{ option: infer TOption }>
@@ -44,21 +43,26 @@ type SchemaFieldOptionSelector<TProjection> =
 		? TOption
 		: never
 
-type SchemaFieldSelectorOption<TSource extends PluginSourceState> =
+type SchemaFieldSelectorOptionName<TSource extends PluginSourceState> =
 	SchemaFieldOptionSelector<
 		TSource['model'] | TSource['schemaClass'] | TSource['schemaFields']
-	>
+	> extends infer TOption
+		? TOption extends Readonly<{ name: infer TName extends PropertyKey }>
+			? TName
+			: never
+		: never
 
-type SchemaFieldSelectorOptionName<TSource extends PluginSourceState> = Extract<
-	SchemaFieldSelectorOption<TSource>,
-	Readonly<{ name: PropertyKey }>
->['name']
-
-/** Equality selectors forward their exact declared value instead of `unknown`. */
-type SchemaFieldEqualityOptionName<TSource extends PluginSourceState> = Extract<
-	SchemaFieldSelectorOption<TSource>,
-	Readonly<{ equals: unknown; name: PropertyKey }>
->['name']
+type SchemaFieldEqualityOptionName<TSource extends PluginSourceState> =
+	SchemaFieldOptionSelector<
+		TSource['model'] | TSource['schemaClass'] | TSource['schemaFields']
+	> extends infer TOption
+		? TOption extends Readonly<{
+				equals: unknown
+				name: infer TName extends PropertyKey
+			}>
+			? TName
+			: never
+		: never
 
 type ConfiguredSchemaSelectorOptions<
 	TSource extends PluginSourceState,

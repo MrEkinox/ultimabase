@@ -37,6 +37,7 @@ import type {
 	SchemaVirtualFields,
 } from './definition.js'
 
+/** Reports deferred and incompatible schema declarations without publishing partial metadata. */
 /** Explains why a deferred schema cannot expose its final runtime definition. */
 export type SchemaCompilationFailureReason =
 	| 'callback-threw'
