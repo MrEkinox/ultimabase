@@ -1,30 +1,33 @@
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
+	type MaybePromise,
 } from '@ultimabase/shared'
 
 import { isOperationTransportBinding } from '../runtime/plugin-operations/capabilities.js'
-import type { OperationTransportBindingDefinition } from '../runtime/plugin-operations/contracts.js'
+import type {
+	OperationTransportBindingDefinition,
+	PluginOperationHandler,
+} from '../runtime/plugin-operations/contracts.js'
+import type { PluginSchemaMutationHandler } from '../runtime/schema-mutations/contracts.js'
 import { isSchemaMutationTransportBinding } from '../runtime/schema-mutations/transport-capabilities.js'
 import type { SchemaMutationTransportBindingDefinition } from '../runtime/schema-mutations/transport-contracts.js'
 import { assertExactPlainObject } from '../exact-object-validation.js'
+import type { ApplicationCapabilityFactoryContext } from './capabilities.js'
 import type {
-	PluginOperationAuthoringContribution,
 	PluginOperationBindingContribution,
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
+	PluginOperationHandlerResource,
 	PluginSchemaMutationBindingContribution,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
+	PluginSchemaMutationResource,
 } from './plugin-command-contribution-contracts.js'
-import {
-	planPluginCommandBinding,
-	planPluginCommandHandler,
-	type PluginCommandContributionRuntime,
-	type PluginCommandHandlerPlan,
-	type PluginCommandTransportPlan,
+import type {
+	PluginCommandHandlerPlan,
+	PluginCommandTransportPlan,
 } from './plugin-command-plan.js'
 import {
 	isPluginOperationDefinition,
@@ -35,54 +38,191 @@ import {
 	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
 
-interface CompiledPluginCommandContributions {
-	readonly handlers: readonly PluginCommandHandlerPlan[]
-	readonly operations: readonly (
-		PluginOperationDefinition | PluginSchemaMutationDefinition
-	)[]
+/** Retains the implementation paired with one nominal command. */
+type PluginCommandContributionRuntime =
+	| Readonly<{
+			create?: (
+				context: ApplicationCapabilityFactoryContext,
+			) => MaybePromise<
+				PluginOperationHandlerResource<PluginOperationDefinition>
+			>
+			execute?: PluginOperationHandler
+			kind: 'operation'
+			source: PluginOperationDefinition
+	  }>
+	| Readonly<{
+			create?: (
+				context: ApplicationCapabilityFactoryContext,
+			) => MaybePromise<
+				PluginSchemaMutationResource<PluginSchemaMutationDefinition>
+			>
+			kind: 'mutation'
+			resolve?: PluginSchemaMutationHandler
+			source: PluginSchemaMutationDefinition
+	  }>
+
+/** Core-native facts planned once when a command contribution is created. */
+export interface PluginCommandContributionPlan {
+	readonly handler?: PluginCommandHandlerPlan
 	readonly transports: readonly PluginCommandTransportPlan[]
 }
 
 const commandContributions = new WeakMap<
 	object,
-	PluginCommandContributionRuntime
+	PluginCommandContributionPlan
 >()
-const bindingContributions = new WeakSet<object>()
-const operationOptionKeys = new Set([
-	'bindings',
-	'create',
-	'execute',
-	'operation',
-])
-const schemaMutationOptionKeys = new Set([
-	'bindings',
-	'create',
-	'mutation',
-	'resolve',
-])
 
-const assertContributionOptions: (
+/** @internal Resolves only command contributions created by Core factories. */
+export const readPluginCommandContribution = (
+	value: object,
+): PluginCommandContributionPlan | undefined => commandContributions.get(value)
+
+type CommandResource<TKey extends 'execute' | 'resolve'> = Readonly<{
+	readonly dispose?: () => MaybePromise<void>
+}> &
+	Readonly<Record<TKey, (...arguments_: never[]) => unknown>>
+
+const assertCommandResource: <TKey extends 'execute' | 'resolve'>(
 	value: unknown,
-	keys: ReadonlySet<string>,
+	handlerKey: TKey,
 	label: string,
-) => asserts value is Readonly<Record<PropertyKey, unknown>> = (
-	value,
-	keys,
-	label,
-) => {
+) => asserts value is CommandResource<TKey> = (value, handlerKey, label) => {
 	assertExactPlainObject(
 		value,
-		keys,
+		new Set(['dispose', handlerKey]),
+		`${label} resource must be a plain object`,
+		`Unknown ${label} resource option: `,
+	)
+	if (typeof value[handlerKey] !== 'function') {
+		throw new TypeError(`${label} resource ${handlerKey} must be a function`)
+	}
+	if (value.dispose !== undefined && typeof value.dispose !== 'function') {
+		throw new TypeError(`${label} resource dispose must be a function`)
+	}
+}
+
+const commandContributionId = (
+	kind: PluginCommandContributionRuntime['kind'],
+	sourceName: string,
+	transportName?: string,
+): string =>
+	`${kind === 'operation' ? 'operation' : 'schema-mutation'}:${sourceName}${
+		transportName === undefined ? '' : `:transport:${transportName}`
+	}`
+
+/** Creates the one lifecycle-aware plan for either command kind. */
+const planPluginCommandHandler = (
+	runtime: PluginCommandContributionRuntime,
+): PluginCommandHandlerPlan =>
+	immutableRecord({
+		contributionId: commandContributionId(runtime.kind, runtime.source.name),
+		create: async (context: ApplicationCapabilityFactoryContext) => {
+			if (runtime.kind === 'operation') {
+				if (runtime.execute !== undefined) {
+					return immutableRecord({
+						execute: runtime.execute,
+						kind: 'operation' as const,
+					})
+				}
+				const resource = await runtime.create?.(context)
+				assertCommandResource(resource, 'execute', 'plugin operation')
+				return immutableRecord({
+					execute: resource.execute,
+					kind: 'operation' as const,
+					...(resource.dispose === undefined
+						? {}
+						: { dispose: resource.dispose }),
+				})
+			}
+
+			if (runtime.resolve !== undefined) {
+				return immutableRecord({
+					kind: 'mutation' as const,
+					resolve: runtime.resolve,
+				})
+			}
+			const resource = await runtime.create?.(context)
+			assertCommandResource(resource, 'resolve', 'plugin schema mutation')
+			return immutableRecord({
+				kind: 'mutation' as const,
+				resolve: resource.resolve,
+				...(resource.dispose === undefined
+					? {}
+					: { dispose: resource.dispose }),
+			})
+		},
+		source: runtime.source,
+	})
+
+/** Projects either nominal wire binding into the canonical graph. */
+const planPluginCommandBinding = (
+	binding:
+		| OperationTransportBindingDefinition
+		| SchemaMutationTransportBindingDefinition,
+): PluginCommandTransportPlan =>
+	isOperationTransportBinding(binding)
+		? immutableRecord({
+				binding,
+				contributionId: commandContributionId(
+					'operation',
+					binding.operation.name,
+					binding.transport.name,
+				),
+				kind: 'operation' as const,
+				source: binding.operation,
+			})
+		: immutableRecord({
+				binding,
+				contributionId: commandContributionId(
+					'mutation',
+					binding.mutation.name,
+					binding.transport.name,
+				),
+				kind: 'mutation' as const,
+				source: binding.mutation,
+			})
+
+/** Validates the options shared by operation and schema-mutation contributions. */
+const assertCommandOptions = <TBinding>(
+	options: unknown,
+	spec: Readonly<{
+		readonly label: string
+		readonly sourceKey: 'mutation' | 'operation'
+		readonly sourceDescription: string
+		readonly handlerKey: 'execute' | 'resolve'
+		readonly isSource: (value: unknown) => boolean
+		readonly bindingFactory: string
+		readonly isBinding: (candidate: unknown) => candidate is TBinding
+		readonly bindingSource: (binding: TBinding) => unknown
+	}>,
+): readonly TBinding[] => {
+	const { label, sourceKey, handlerKey } = spec
+	assertExactPlainObject(
+		options,
+		new Set(['bindings', 'create', handlerKey, sourceKey]),
 		`${label} must be a plain object`,
 		`Unknown ${label} option: `,
 	)
-}
+	if (!spec.isSource(options[sourceKey])) {
+		throw new TypeError(`${label} requires ${spec.sourceDescription}`)
+	}
+	const bindings: unknown = options.bindings ?? []
+	if (!isUnknownArray(bindings)) {
+		throw new TypeError(`${label} bindings must be an array`)
+	}
+	for (const [index, binding] of bindings.entries()) {
+		if (!spec.isBinding(binding)) {
+			throw new TypeError(
+				`${label} bindings[${String(index)}] must be created by ${spec.bindingFactory}`,
+			)
+		}
+		if (spec.bindingSource(binding) !== options[sourceKey]) {
+			throw new TypeError(
+				`${label} bindings[${String(index)}] targets another ${sourceKey}`,
+			)
+		}
+	}
 
-const assertExclusiveImplementation = (
-	options: Readonly<Record<PropertyKey, unknown>>,
-	handlerKey: 'execute' | 'resolve',
-	label: string,
-): void => {
 	const hasCreate = Object.hasOwn(options, 'create')
 	const hasHandler = Object.hasOwn(options, handlerKey)
 	if (hasCreate === hasHandler) {
@@ -96,58 +236,16 @@ const assertExclusiveImplementation = (
 	if (hasHandler && typeof options[handlerKey] !== 'function') {
 		throw new TypeError(`${label} ${handlerKey} must be a function`)
 	}
+	return immutableArray(bindings.filter(spec.isBinding))
 }
 
-const normalizeBindings = <TBinding>(
-	value: unknown,
-	label: string,
-	factory: string,
-	isBinding: (candidate: unknown) => candidate is TBinding,
-	targetsSource: (binding: TBinding) => boolean,
-	sourceLabel: string,
-): readonly TBinding[] => {
-	const bindings: unknown = value ?? []
-	if (!isUnknownArray(bindings)) {
-		throw new TypeError(`${label} bindings must be an array`)
-	}
-	for (const [index, binding] of bindings.entries()) {
-		if (!isBinding(binding)) {
-			throw new TypeError(
-				`${label} bindings[${String(index)}] must be created by ${factory}`,
-			)
-		}
-		if (!targetsSource(binding)) {
-			throw new TypeError(
-				`${label} bindings[${String(index)}] targets another ${sourceLabel}`,
-			)
-		}
-	}
-	return immutableArray(bindings) as readonly TBinding[]
+const registerCommand = <TContribution extends object>(
+	contribution: TContribution,
+	plan: PluginCommandContributionPlan,
+): TContribution => {
+	commandContributions.set(contribution, immutableRecord(plan))
+	return contribution
 }
-
-const isPluginOperationContribution = (
-	value: unknown,
-): value is PluginOperationContribution =>
-	isPlainRecord(value) && commandContributions.get(value)?.kind === 'operation'
-
-const isPluginSchemaMutationContribution = (
-	value: unknown,
-): value is PluginSchemaMutationContribution =>
-	isPlainRecord(value) && commandContributions.get(value)?.kind === 'mutation'
-
-const isPluginOperationBindingContribution = (
-	value: unknown,
-): value is PluginOperationBindingContribution =>
-	isPlainRecord(value) &&
-	value.kind === 'plugin-operation-binding-contribution' &&
-	bindingContributions.has(value)
-
-const isPluginSchemaMutationBindingContribution = (
-	value: unknown,
-): value is PluginSchemaMutationBindingContribution =>
-	isPlainRecord(value) &&
-	value.kind === 'plugin-schema-mutation-binding-contribution' &&
-	bindingContributions.has(value)
 
 /** Defines one owned operation contribution without repeating Core registries. */
 export const contributeOperation = <
@@ -157,33 +255,34 @@ export const contributeOperation = <
 >(
 	options: PluginOperationContributionOptions<TOperation, TBindings>,
 ): PluginOperationContribution<TOperation, TBindings> => {
-	const label = 'plugin operation contribution'
-	assertContributionOptions(options, operationOptionKeys, label)
-	if (!isPluginOperationDefinition(options.operation)) {
-		throw new TypeError(`${label} requires an operation`)
-	}
-	const bindings = normalizeBindings(
-		options.bindings,
-		label,
-		'operationTransportBinding',
-		isOperationTransportBinding,
-		(binding) => binding.operation === options.operation,
-		'operation',
+	const bindings = assertCommandOptions(options, {
+		label: 'plugin operation contribution',
+		sourceKey: 'operation',
+		sourceDescription: 'an operation',
+		handlerKey: 'execute',
+		isSource: isPluginOperationDefinition,
+		bindingFactory: 'operationTransportBinding',
+		isBinding: isOperationTransportBinding,
+		bindingSource: (binding) => binding.operation,
+	})
+	return registerCommand(
+		immutableRecord({
+			bindings: bindings as TBindings,
+			kind: 'plugin-operation-contribution' as const,
+			operation: options.operation,
+		}),
+		{
+			handler: planPluginCommandHandler({
+				...(Object.hasOwn(options, 'create') ? { create: options.create } : {}),
+				...(Object.hasOwn(options, 'execute')
+					? { execute: options.execute }
+					: {}),
+				kind: 'operation',
+				source: options.operation,
+			}),
+			transports: immutableArray(bindings.map(planPluginCommandBinding)),
+		},
 	)
-	assertExclusiveImplementation(options, 'execute', label)
-
-	const contribution = immutableRecord({
-		bindings: bindings as TBindings,
-		kind: 'plugin-operation-contribution' as const,
-		operation: options.operation,
-	})
-	commandContributions.set(contribution, {
-		...(Object.hasOwn(options, 'create') ? { create: options.create } : {}),
-		...(Object.hasOwn(options, 'execute') ? { execute: options.execute } : {}),
-		kind: 'operation',
-		source: options.operation,
-	})
-	return contribution
 }
 
 /** Contributes only one binding while preserving exact operation ownership. */
@@ -197,12 +296,13 @@ export const contributeOperationBinding = <
 			'plugin operation binding contribution requires an operationTransportBinding',
 		)
 	}
-	const contribution = immutableRecord({
-		binding,
-		kind: 'plugin-operation-binding-contribution' as const,
-	})
-	bindingContributions.add(contribution)
-	return contribution
+	return registerCommand(
+		immutableRecord({
+			binding,
+			kind: 'plugin-operation-binding-contribution' as const,
+		}),
+		{ transports: immutableArray([planPluginCommandBinding(binding)]) },
+	)
 }
 
 /** Defines one owned schema mutation without repeating Core registries. */
@@ -214,33 +314,34 @@ export const contributeSchemaMutation = <
 >(
 	options: PluginSchemaMutationContributionOptions<TMutation, TBindings>,
 ): PluginSchemaMutationContribution<TMutation, TBindings> => {
-	const label = 'plugin schema mutation contribution'
-	assertContributionOptions(options, schemaMutationOptionKeys, label)
-	if (!isPluginSchemaMutationDefinition(options.mutation)) {
-		throw new TypeError(`${label} requires a mutation`)
-	}
-	const bindings = normalizeBindings(
-		options.bindings,
-		label,
-		'schemaMutationTransportBinding',
-		isSchemaMutationTransportBinding,
-		(binding) => binding.mutation === options.mutation,
-		'mutation',
+	const bindings = assertCommandOptions(options, {
+		label: 'plugin schema mutation contribution',
+		sourceKey: 'mutation',
+		sourceDescription: 'a mutation',
+		handlerKey: 'resolve',
+		isSource: isPluginSchemaMutationDefinition,
+		bindingFactory: 'schemaMutationTransportBinding',
+		isBinding: isSchemaMutationTransportBinding,
+		bindingSource: (binding) => binding.mutation,
+	})
+	return registerCommand(
+		immutableRecord({
+			bindings: bindings as TBindings,
+			kind: 'plugin-schema-mutation-contribution' as const,
+			mutation: options.mutation,
+		}),
+		{
+			handler: planPluginCommandHandler({
+				...(Object.hasOwn(options, 'create') ? { create: options.create } : {}),
+				...(Object.hasOwn(options, 'resolve')
+					? { resolve: options.resolve }
+					: {}),
+				kind: 'mutation',
+				source: options.mutation,
+			}),
+			transports: immutableArray(bindings.map(planPluginCommandBinding)),
+		},
 	)
-	assertExclusiveImplementation(options, 'resolve', label)
-
-	const contribution = immutableRecord({
-		bindings: bindings as TBindings,
-		kind: 'plugin-schema-mutation-contribution' as const,
-		mutation: options.mutation,
-	})
-	commandContributions.set(contribution, {
-		...(Object.hasOwn(options, 'create') ? { create: options.create } : {}),
-		...(Object.hasOwn(options, 'resolve') ? { resolve: options.resolve } : {}),
-		kind: 'mutation',
-		source: options.mutation,
-	})
-	return contribution
 }
 
 /** Contributes only one binding under the schema mutation's exact owner. */
@@ -254,70 +355,11 @@ export const contributeSchemaMutationBinding = <
 			'plugin schema mutation binding contribution requires a schemaMutationTransportBinding',
 		)
 	}
-	const contribution = immutableRecord({
-		binding,
-		kind: 'plugin-schema-mutation-binding-contribution' as const,
-	})
-	bindingContributions.add(contribution)
-	return contribution
-}
-
-export const compilePluginCommandContributions = (
-	contributions: readonly PluginOperationAuthoringContribution[],
-): CompiledPluginCommandContributions => {
-	const untrustedContributions: unknown = contributions
-	if (!isUnknownArray(untrustedContributions)) {
-		throw new TypeError('plugin operation contributions must be an array')
-	}
-
-	const handlers: PluginCommandHandlerPlan[] = []
-	const operations: (
-		PluginOperationDefinition | PluginSchemaMutationDefinition
-	)[] = []
-	const transports: PluginCommandTransportPlan[] = []
-	for (const [index, contribution] of untrustedContributions.entries()) {
-		if (!isPlainRecord(contribution)) {
-			throw new TypeError(
-				`plugin operation contributions[${String(index)}] must be created by a Core contribution factory`,
-			)
-		}
-
-		if (
-			isPluginOperationContribution(contribution) ||
-			isPluginSchemaMutationContribution(contribution)
-		) {
-			const runtime = commandContributions.get(contribution)
-			if (runtime === undefined) {
-				throw new TypeError(
-					contribution.kind === 'plugin-operation-contribution'
-						? 'plugin operation contribution lost its runtime'
-						: 'plugin schema mutation contribution lost its runtime',
-				)
-			}
-			operations.push(runtime.source)
-			handlers.push(planPluginCommandHandler(runtime))
-			for (const binding of contribution.bindings) {
-				transports.push(planPluginCommandBinding(binding))
-			}
-			continue
-		}
-
-		if (
-			isPluginOperationBindingContribution(contribution) ||
-			isPluginSchemaMutationBindingContribution(contribution)
-		) {
-			transports.push(planPluginCommandBinding(contribution.binding))
-			continue
-		}
-
-		throw new TypeError(
-			`plugin operation contributions[${String(index)}] must be created by a Core contribution factory`,
-		)
-	}
-
-	return immutableRecord({
-		handlers: immutableArray(handlers),
-		operations: immutableArray(operations),
-		transports: immutableArray(transports),
-	})
+	return registerCommand(
+		immutableRecord({
+			binding,
+			kind: 'plugin-schema-mutation-binding-contribution' as const,
+		}),
+		{ transports: immutableArray([planPluginCommandBinding(binding)]) },
+	)
 }

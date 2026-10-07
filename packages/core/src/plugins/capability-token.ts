@@ -5,6 +5,7 @@ import {
 } from '@ultimabase/shared'
 import { valid } from 'semver'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 import { pluginPrivilegeMetadata, type PluginPrivilege } from './manifest.js'
 
 /** Determines how compatible provider declarations compose in one application. */
@@ -153,16 +154,14 @@ export const defineCapability =
 		TLifetime
 	> => {
 		const untrustedOptions: unknown = options
-
 		if (!isPlainRecord(untrustedOptions)) {
 			throw new TypeError('defineCapability options must be a plain object')
 		}
-
-		for (const key of Object.keys(untrustedOptions)) {
-			if (!defineCapabilityOptionKeys.has(key)) {
-				throw new TypeError(`defineCapability contains unknown option: ${key}`)
-			}
-		}
+		assertExactEnumerableKeys(
+			untrustedOptions,
+			defineCapabilityOptionKeys,
+			'defineCapability contains unknown option: ',
+		)
 
 		assertNonEmptyString(options.capabilityId, 'capabilityId')
 		if (!capabilityIdPattern.test(options.capabilityId)) {

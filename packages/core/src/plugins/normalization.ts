@@ -5,13 +5,14 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { FrameworkError } from '../errors/framework-error.js'
 import { assertPluginDefinition, type PluginDefinition } from './definition.js'
 import {
+	formatPluginIdentity,
 	isSamePluginIdentity,
 	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
-import { createDuplicatePluginError } from './plugin-errors.js'
 
 declare const normalizedPluginBrand: unique symbol
 
@@ -21,12 +22,6 @@ export interface NormalizedPlugin {
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
 	readonly dependencies: readonly PluginDependency[]
-}
-
-interface MutableNormalizedPlugin {
-	readonly definition: PluginDefinition
-	readonly configurationIndex: number
-	readonly dependencies: PluginDependency[]
 }
 
 const declaredNormalizedPlugins = new WeakSet<object>()
@@ -40,78 +35,66 @@ export const assertNormalizedPlugin: (
 	}
 }
 
-const throwDuplicateDefinition = (identity: PluginIdentity): never => {
-	throw createDuplicatePluginError(identity, 'definition')
-}
-
-const snapshotNormalizedPlugin = (
-	plugin: MutableNormalizedPlugin,
-): NormalizedPlugin => {
-	const snapshot = immutableRecord({
-		definition: plugin.definition,
-		configurationIndex: plugin.configurationIndex,
-		dependencies: immutableArray(plugin.dependencies),
-	})
-
-	declaredNormalizedPlugins.add(snapshot)
-
-	// The private brand mirrors the provenance recorded above without leaking runtime metadata.
-	return snapshot as NormalizedPlugin
-}
+/** Creates one stable duplicate diagnostic shared by both graph boundaries. */
+export const createDuplicatePluginError = (
+	identity: PluginIdentity,
+	source: 'definition' | 'graph',
+): FrameworkError<'PLUGIN_DUPLICATE'> =>
+	new FrameworkError(
+		'PLUGIN_DUPLICATE',
+		`Plugin "${formatPluginIdentity(identity)}" was declared more than once.`,
+		{
+			internalDetails: {
+				pluginId: identity.pluginId,
+				...(identity.instanceId === undefined
+					? {}
+					: { instanceId: identity.instanceId }),
+				source,
+			},
+		},
+	)
 
 /** Snapshots one flat plugin list without initializing definitions. */
 export const normalizePlugins = (
 	plugins: readonly PluginDefinition[],
 ): readonly NormalizedPlugin[] => {
 	const untrustedPlugins: unknown = plugins
-
 	if (!isUnknownArray(untrustedPlugins)) {
 		throw new TypeError('plugins must be an array')
 	}
 
-	const normalizedPlugins: MutableNormalizedPlugin[] = []
-	const pluginsById = new Map<string, MutableNormalizedPlugin[]>()
-
-	const visitPlugin = (untrustedPlugin: unknown, path: string): void => {
-		assertPluginDefinition(untrustedPlugin, path)
-		const identity = untrustedPlugin.manifest.identity
-		const configuredInstances = pluginsById.get(identity.pluginId) ?? []
-		const existingPlugin = configuredInstances.find(({ definition }) =>
-			isSamePluginIdentity(definition.manifest.identity, identity),
+	const normalizedPlugins: NormalizedPlugin[] = []
+	for (const [index, plugin] of untrustedPlugins.entries()) {
+		assertPluginDefinition(plugin, `plugins[${String(index)}]`)
+		const identity = plugin.manifest.identity
+		const instances = normalizedPlugins
+			.map(({ definition }) => definition)
+			.filter(({ manifest }) => manifest.identity.pluginId === identity.pluginId)
+		const existing = instances.find(({ manifest }) =>
+			isSamePluginIdentity(manifest.identity, identity),
 		)
-
-		if (existingPlugin !== undefined) {
-			if (existingPlugin.definition !== untrustedPlugin) {
-				throwDuplicateDefinition(identity)
-			}
-			return
-		}
-
+		// Repeating the exact same definition is idempotent; any other repeat is ambiguous.
+		if (existing === plugin) continue
 		if (
-			configuredInstances.length > 0 &&
-			(identity.instanceId === undefined ||
-				configuredInstances.some(
-					({ definition }) =>
-						definition.manifest.identity.instanceId === undefined,
-				))
+			existing !== undefined ||
+			(instances.length > 0 &&
+				(identity.instanceId === undefined ||
+					instances.some(
+						({ manifest }) => manifest.identity.instanceId === undefined,
+					)))
 		) {
-			throwDuplicateDefinition(identity)
+			throw createDuplicatePluginError(identity, 'definition')
 		}
 
-		const normalizedPlugin: MutableNormalizedPlugin = {
-			definition: untrustedPlugin,
+		const snapshot = immutableRecord({
+			definition: plugin,
 			configurationIndex: normalizedPlugins.length,
-			dependencies: [...(untrustedPlugin.dependencies ?? [])],
-		}
-
-		normalizedPlugins.push(normalizedPlugin)
-		configuredInstances.push(normalizedPlugin)
-		pluginsById.set(identity.pluginId, configuredInstances)
+			dependencies: immutableArray([...(plugin.dependencies ?? [])]),
+		})
+		declaredNormalizedPlugins.add(snapshot)
+		// The private brand mirrors the provenance recorded above without leaking runtime metadata.
+		normalizedPlugins.push(snapshot as NormalizedPlugin)
 	}
 
-	for (const [pluginIndex, plugin] of untrustedPlugins.entries()) {
-		visitPlugin(plugin, `plugins[${String(pluginIndex)}]`)
-	}
-
-	return immutableArray(normalizedPlugins.map(snapshotNormalizedPlugin))
+	return immutableArray(normalizedPlugins)
 }

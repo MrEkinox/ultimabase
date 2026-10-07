@@ -207,44 +207,15 @@ export const createDatabaseConstraintCompilerReader = (
 	})
 }
 
-const sameIdentity = (
-	left: DatabaseConstraintCompilerDefinition,
-	right: DatabaseConstraintCompilerDefinition,
-): boolean =>
-	left.adapter === right.adapter &&
-	left.kind === right.kind &&
-	left.version === right.version
-
-const throwDuplicateCompiler = (
-	definition: DatabaseConstraintCompilerDefinition,
-	existingOwner: string,
-	ownerPlugin: string,
-): never => {
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Database constraint compiler "${definition.kind}" version ${String(definition.version)} for adapter "${definition.adapter}" is already owned by plugin "${existingOwner}".`,
-		{
-			internalDetails: {
-				adapter: definition.adapter,
-				constraintKind: definition.kind,
-				kind: 'duplicate-database-constraint-compiler',
-				pluginNames: immutableArray([existingOwner, ownerPlugin]),
-				version: definition.version,
-			},
-		},
-	)
-}
-
 /** Builds the concise plugin facade over one application's shared contribution storage. */
 export const createPluginConstraintCompilerRegistry = (
 	options: CreatePluginConstraintCompilerRegistryOptions,
 ): PluginConstraintCompilerRegistry => {
-	const readValues = (): readonly DatabaseConstraintCompilerContribution[] =>
-		readContributions(options.values())
+	const reader = createDatabaseConstraintCompilerReader(options.values)
 
 	return Object.freeze({
 		get size(): number {
-			return readValues().length
+			return reader.size
 		},
 		register: (definition: DatabaseConstraintCompilerDefinition): void => {
 			if (!options.isOpen()) {
@@ -261,24 +232,37 @@ export const createPluginConstraintCompilerRegistry = (
 				)
 			}
 
-			const existing = readValues().find(({ definition: candidate }) =>
-				sameIdentity(candidate, definition),
-			)
-
+			const { adapter, kind, version } = definition
+			const existing = reader
+				.values()
+				.find(
+					({ definition: candidate }) =>
+						candidate.adapter === adapter &&
+						candidate.kind === kind &&
+						candidate.version === version,
+				)
 			if (existing !== undefined) {
-				throwDuplicateCompiler(
-					definition,
-					existing.ownerPlugin,
-					options.ownerPlugin,
+				throw new FrameworkError(
+					'PLUGIN_CONFLICT',
+					`Database constraint compiler "${kind}" version ${String(version)} for adapter "${adapter}" is already owned by plugin "${existing.ownerPlugin}".`,
+					{
+						internalDetails: {
+							adapter,
+							constraintKind: kind,
+							kind: 'duplicate-database-constraint-compiler',
+							pluginNames: immutableArray([
+								existing.ownerPlugin,
+								options.ownerPlugin,
+							]),
+							version,
+						},
+					},
 				)
 			}
 
 			// The semantic identity is private storage metadata, never caller provenance.
-			options.register(
-				`${definition.adapter}:${definition.kind}@${String(definition.version)}`,
-				definition,
-			)
+			options.register(`${adapter}:${kind}@${String(version)}`, definition)
 		},
-		values: readValues,
+		values: reader.values,
 	})
 }

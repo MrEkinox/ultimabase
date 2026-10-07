@@ -167,26 +167,28 @@ type DeclarationCallback = (context: PluginDeclarationContext) => unknown
 interface DeclarationContributionRuntime {
 	readonly callbacks: readonly DeclarationCallback[]
 	readonly privileges: readonly PluginPrivilege[]
+	readonly requires: readonly CapabilityRequirement[]
 }
 
 const declarationContributions = new WeakMap<
 	object,
 	DeclarationContributionRuntime
 >()
+/** Maps each static declaration surface to the privilege it implies, in run order. */
+const declarationSurfaces = [
+	['schema', 'schema:declare'],
+	['models', 'model:extend'],
+	['operations', 'operation:declare'],
+	['privateStorage', 'storage:private'],
+	['typegen', 'typegen:reference'],
+] as const satisfies readonly (readonly [string, PluginPrivilege])[]
 const declarationOptionKeys = new Set([
-	'models',
-	'operations',
-	'privateStorage',
 	'requires',
-	'schema',
-	'typegen',
+	...declarationSurfaces.map(([surface]) => surface),
 ])
 
-const assertCallback = (value: unknown, path: string): void => {
-	if (value !== undefined && typeof value !== 'function') {
-		throw new TypeError(`${path} must be a function`)
-	}
-}
+const isDeclarationCallback = (value: unknown): value is DeclarationCallback =>
+	typeof value === 'function'
 
 const isInertDeclarationResult = (value: unknown): boolean =>
 	value === undefined ||
@@ -224,6 +226,7 @@ export const contributeDeclarations = <
 			'plugin declaration contribution requires must be an array',
 		)
 	}
+	const requires: CapabilityRequirement[] = []
 	for (const [index, requirement] of untrustedRequirements.entries()) {
 		assertCapabilityRequirement(
 			requirement,
@@ -234,46 +237,22 @@ export const contributeDeclarations = <
 				'plugin declaration contributions may require only declaration capabilities',
 			)
 		}
+		requires.push(requirement)
 	}
-
-	assertCallback(options.schema, 'plugin declaration contribution schema')
-	assertCallback(options.models, 'plugin declaration contribution models')
-	assertCallback(
-		options.operations,
-		'plugin declaration contribution operations',
-	)
-	assertCallback(
-		options.privateStorage,
-		'plugin declaration contribution privateStorage',
-	)
-	assertCallback(options.typegen, 'plugin declaration contribution typegen')
 
 	const callbacks: DeclarationCallback[] = []
 	const privileges: PluginPrivilege[] = []
-	const append = (
-		privilege: PluginPrivilege,
-		callback: DeclarationCallback | undefined,
-	): void => {
-		if (callback === undefined) return
+	for (const [surface, privilege] of declarationSurfaces) {
+		const callback: unknown = options[surface]
+		if (callback === undefined) continue
+		if (!isDeclarationCallback(callback)) {
+			throw new TypeError(
+				`plugin declaration contribution ${surface} must be a function`,
+			)
+		}
 		callbacks.push(callback)
-		if (!privileges.includes(privilege)) privileges.push(privilege)
+		privileges.push(privilege)
 	}
-
-	append('schema:declare', options.schema as DeclarationCallback | undefined)
-	append('model:extend', options.models as DeclarationCallback | undefined)
-	append(
-		'operation:declare',
-		options.operations as DeclarationCallback | undefined,
-	)
-	append(
-		'storage:private',
-		options.privateStorage as DeclarationCallback | undefined,
-	)
-	append(
-		'typegen:reference',
-		options.typegen as DeclarationCallback | undefined,
-	)
-
 	if (callbacks.length === 0) {
 		throw new TypeError(
 			'plugin declaration contribution must declare at least one static surface',
@@ -282,13 +261,14 @@ export const contributeDeclarations = <
 
 	const contribution = immutableRecord({
 		kind: 'plugin-declaration-contribution' as const,
-		requires: immutableArray(untrustedRequirements) as TRequirements,
+		requires: immutableArray(requires) as TRequirements,
 	})
 	declarationContributions.set(
 		contribution,
 		immutableRecord({
 			callbacks: immutableArray(callbacks),
 			privileges: immutableArray(privileges),
+			requires: contribution.requires,
 		}),
 	)
 	return contribution as PluginDeclarationContribution<
@@ -299,24 +279,17 @@ export const contributeDeclarations = <
 
 /** @internal Resolves only nominal static contributions. */
 export const getPluginDeclarationContribution = (
-	value: unknown,
+	value: object,
 ): DeclarationContributionRuntime | undefined =>
-	isPlainRecord(value) ? declarationContributions.get(value) : undefined
+	declarationContributions.get(value)
 
-/** @internal Runs one contribution through the already privilege-scoped host. */
+/** @internal Runs one contribution's callbacks through the privilege-scoped host. */
 export const runPluginDeclarationContribution = (
-	contribution: PluginDeclarationContribution,
+	runtime: DeclarationContributionRuntime,
 	context: PluginDeclarationContext,
 ): void => {
-	const runtime = declarationContributions.get(contribution)
-	if (runtime === undefined) {
-		throw new TypeError(
-			'plugin declaration contribution must be created by contributeDeclarations',
-		)
-	}
 	for (const callback of runtime.callbacks) {
-		const result = callback(context)
-		if (!isInertDeclarationResult(result)) {
+		if (!isInertDeclarationResult(callback(context))) {
 			throw new TypeError(
 				'plugin declaration contribution callbacks may return only Core declaration receipts',
 			)
@@ -414,9 +387,9 @@ export const contributeApplication =
 
 /** @internal Resolves only nominal application contributions. */
 export const getPluginApplicationFactory = (
-	value: unknown,
+	value: object,
 ): PluginApplicationResourceFactory | undefined =>
-	isPlainRecord(value) ? applicationContributions.get(value) : undefined
+	applicationContributions.get(value)
 
 /** @internal Validates and snapshots the resource created for one application. */
 export const normalizePluginApplicationResource = (

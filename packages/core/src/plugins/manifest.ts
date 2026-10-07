@@ -6,10 +6,11 @@ import {
 } from '@ultimabase/shared'
 import { valid, validRange } from 'semver'
 
-import {
-	type CapabilityRequirement,
-	type CapabilityToken,
-	type PluginCapabilityDeclarations,
+import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
+import type {
+	CapabilityRequirement,
+	CapabilityToken,
+	PluginCapabilityDeclarations,
 } from './capabilities.js'
 
 /** Identifies one installed plugin definition without constructing a string key. */
@@ -212,10 +213,6 @@ export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =
 		Object.keys(pluginEnvironmentClaimMetadata) as PluginEnvironmentClaim[],
 	)
 
-const environmentClaims = new Set<PluginEnvironmentClaim>(
-	pluginEnvironmentClaims,
-)
-
 /** Compares structured plugin identities without relying on serialized keys. */
 export const isSamePluginIdentity = (
 	left: PluginIdentity,
@@ -240,36 +237,54 @@ export const assertPluginId: (
 	}
 }
 
-const normalizeEnvironmentClaims = (
-	claims: readonly PluginEnvironmentClaim[] | undefined,
-): readonly PluginEnvironmentClaim[] => {
-	if (claims === undefined) return immutableArray([])
-
-	const untrustedClaims: unknown = claims
-	if (!isUnknownArray(untrustedClaims)) {
-		throw new TypeError('environment must be an array')
-	}
-
-	const normalized = new Set<PluginEnvironmentClaim>()
-	for (const [index, claim] of untrustedClaims.entries()) {
-		if (
-			typeof claim !== 'string' ||
-			!environmentClaims.has(claim as PluginEnvironmentClaim)
-		) {
-			throw new TypeError(
-				`environment[${String(index)}] must be a concrete PluginEnvironmentClaim`,
-			)
+/** @internal Snapshots one duplicate-free list drawn from a closed vocabulary. */
+export const snapshotVocabularyList = <TValue extends string>(
+	values: unknown,
+	vocabulary: readonly TValue[],
+	messages: Readonly<{
+		notArray: string
+		unknown: (index: number, value: unknown) => string
+		duplicate: (value: TValue) => string
+	}>,
+): readonly TValue[] => {
+	if (!isUnknownArray(values)) throw new TypeError(messages.notArray)
+	const normalized = new Set<TValue>()
+	for (const [index, value] of values.entries()) {
+		const known = vocabulary.find((candidate) => candidate === value)
+		if (known === undefined) {
+			throw new TypeError(messages.unknown(index, value))
 		}
-
-		if (normalized.has(claim as PluginEnvironmentClaim)) {
-			throw new TypeError(`Duplicate plugin environment claim: ${claim}`)
-		}
-
-		normalized.add(claim as PluginEnvironmentClaim)
+		if (normalized.has(known)) throw new TypeError(messages.duplicate(known))
+		normalized.add(known)
 	}
-
 	return immutableArray([...normalized])
 }
+
+/** Lists every concrete privilege in Core's closed vocabulary. */
+export const pluginPrivilegeNames: readonly PluginPrivilege[] = immutableArray(
+	Object.keys(pluginPrivilegeMetadata) as PluginPrivilege[],
+)
+
+/** @internal Detaches one structured identity without optional-key noise. */
+export const snapshotPluginIdentity = (
+	identity: PluginIdentity,
+): PluginIdentity =>
+	immutableRecord({
+		pluginId: identity.pluginId,
+		...(identity.instanceId === undefined
+			? {}
+			: { instanceId: identity.instanceId }),
+	})
+
+/** @internal Attributes schema and command contributions to one manifest. */
+export const pluginContributionOwner = (
+	manifest: PluginManifest,
+): PluginSchemaContributionOwner =>
+	immutableRecord({
+		kind: 'plugin' as const,
+		...snapshotPluginIdentity(manifest.identity),
+		version: manifest.version,
+	})
 
 /** Validates and snapshots one inert plugin manifest without invoking plugin code. */
 export const createPluginManifest = (
@@ -292,16 +307,20 @@ export const createPluginManifest = (
 	}
 
 	return immutableRecord({
-		identity: immutableRecord({
-			pluginId: options.pluginId,
-			...(options.instanceId === undefined
-				? {}
-				: { instanceId: options.instanceId }),
-		}),
+		identity: snapshotPluginIdentity(options),
 		version: options.version,
 		core: options.core,
 		privileges: immutableArray(options.privileges ?? []),
-		environment: normalizeEnvironmentClaims(options.environment),
+		environment: snapshotVocabularyList(
+			options.environment ?? [],
+			pluginEnvironmentClaims,
+			{
+				notArray: 'environment must be an array',
+				unknown: (index) =>
+					`environment[${String(index)}] must be a concrete PluginEnvironmentClaim`,
+				duplicate: (claim) => `Duplicate plugin environment claim: ${claim}`,
+			},
+		),
 		capabilities: options.capabilities,
 	})
 }
