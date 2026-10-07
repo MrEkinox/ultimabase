@@ -304,19 +304,20 @@ export class RequestEngine<
 			scope.deniedAsMissing === true && isStrictObjectOperation(operation)
 
 		if (this.#lifetime === undefined && isRuntimeMutationOperation(operation)) {
-			// Every root mutation reuses the exact public transaction lifecycle.
-			let result: RuntimeOperationResult<TOperation>
-			try {
-				result = await this.transaction((transaction) =>
-					transaction.#executeRuntimeOperation(operation, scope),
-				)
-			} catch (error: unknown) {
-				throw asMissing(error, strictMissing)
-			}
-			if (strictMissing && result === null) {
-				throw createProtectedObjectNotFoundError()
-			}
-			return result
+			// Every root mutation reuses the exact public transaction lifecycle, and
+			// a hidden strict target fails inside it so the transaction rolls back.
+			return this.transaction(async (transaction) => {
+				let result: RuntimeOperationResult<TOperation>
+				try {
+					result = await transaction.#executeRuntimeOperation(operation, scope)
+				} catch (error: unknown) {
+					throw asMissing(error, strictMissing)
+				}
+				if (strictMissing && result === null) {
+					throw createProtectedObjectNotFoundError()
+				}
+				return result
+			})
 		}
 
 		const relation =
@@ -415,14 +416,20 @@ export class RequestEngine<
 	}
 
 	static {
+		readFramework = (engine) => {
+			// A forged prototype passes `instanceof` but owns no private state.
+			if (!(#framework in engine)) {
+				throw new TypeError('Request engine owner is unavailable')
+			}
+			return engine.#framework
+		}
 		readInternals = (engine) => ({
-			application: engine.#application,
+			application: readFramework(engine).application,
 			framework: engine.#framework,
 			lifetime: engine.#lifetime,
 			pipeline: engine.#pipeline,
 			derive: (context) => engine.#derive(context),
 		})
-		readFramework = (engine) => engine.#framework
 	}
 }
 
@@ -457,5 +464,4 @@ export const readRequestEngineApplication = <
 	const TPlugins extends readonly PluginDefinition[],
 >(
 	engine: RequestEngine<TSchemas, TPlugins>,
-): FrameworkApplication<TSchemas, TPlugins> =>
-	readFramework(engine).application
+): FrameworkApplication<TSchemas, TPlugins> => readFramework(engine).application

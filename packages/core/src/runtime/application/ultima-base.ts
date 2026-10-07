@@ -109,6 +109,12 @@ export type {
  * const posts = await PostSchema.findMany()
  * ```
  */
+const configuredSchemaNamespace = Object.freeze({
+	define: defineOrdinarySchemaModel,
+	defineSpecialized: Schema.defineSpecialized.bind(Schema),
+	is: Schema.is.bind(Schema),
+})
+
 let readKernel: <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
@@ -123,12 +129,6 @@ let readEngine: <
 >(
 	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ) => FrameworkEngine<TSchemas, TPlugins>
-
-const configuredSchemaNamespace = Object.freeze({
-	define: defineOrdinarySchemaModel,
-	defineSpecialized: Schema.defineSpecialized.bind(Schema),
-	is: Schema.is.bind(Schema),
-})
 
 export class UltimaBase<
 	const TSchemas extends readonly SchemaDefinition[] =

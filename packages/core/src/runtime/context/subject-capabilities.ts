@@ -44,7 +44,7 @@ export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {
 	const resolvePersistentRole = resolver.resolvePersistentRole?.bind(resolver)
 	const resolveCurrentRoles = resolver.resolveCurrentRoles?.bind(resolver)
 	const attributed: RequestRoleResolver = immutableRecord({
-		hasRole: attribute(resolver.hasRole.bind(resolver)),
+		hasRole: attribute((input) => resolver.hasRole(input)),
 		...(resolvePersistentRole === undefined
 			? {}
 			: { resolvePersistentRole: attribute(resolvePersistentRole) }),
