@@ -213,23 +213,12 @@ export class PluginConformanceSuite<
 		contract: OptionalPluginConformanceContract,
 		verify: PluginConformanceVerifier<TSubject, TSupport, TSchemas>,
 	): PluginConformanceSuite<TSubject, TSupport, TSchemas> {
-		if (!optionalContracts.has(contract)) {
-			throw new TypeError(`Unknown optional conformance contract: ${contract}`)
-		}
-		if (typeof verify !== 'function') {
-			throw new TypeError('plugin conformance verifier must be a function')
-		}
-		if (this.checks.some((check) => check.contract === contract)) {
-			throw new TypeError(
-				`Duplicate optional conformance contract: ${contract}`,
-			)
-		}
-
+		// The constructor validates the appended check exactly like the initial ones.
 		return new PluginConformanceSuite(
 			this.createFixture,
 			this.expected,
 			this.instances,
-			[...this.checks, immutableRecord({ contract, verify })],
+			[...this.checks, { contract, verify }],
 		)
 	}
 }
@@ -266,11 +255,7 @@ export const definePluginConformanceSuite = <
 	if (!isPlainRecord(untrustedOptions)) {
 		throw new TypeError('plugin conformance suite must be a plain object')
 	}
-	if (typeof options.createFixture !== 'function') {
-		throw new TypeError('plugin conformance createFixture must be a function')
-	}
-	assertExpected(options.expected)
-
+	// The constructor validates createFixture, expected facts, and instances in order.
 	return new PluginConformanceSuite(
 		options.createFixture,
 		options.expected,

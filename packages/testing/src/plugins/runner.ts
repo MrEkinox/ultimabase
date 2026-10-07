@@ -1,7 +1,6 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	type ConfiguredUltimaBaseFactory,
 	type PluginDefinition,
 	type PluginEnvironmentClaim,
 	type PluginPrivilege,
@@ -12,10 +11,11 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	PluginConformanceError,
 	type PluginConformanceContract,
+	type PluginConformanceExpected,
 	type PluginConformanceReport,
 } from './contracts.js'
 import {
-	normalizePluginConformanceFixture,
+	createPluginConformanceFixture,
 	type PluginConformanceFixture,
 } from './fixture.js'
 import {
@@ -42,14 +42,9 @@ const assertFrozen = (value: object, label: string): void => {
 }
 
 const assertManifest = (
-	plugin: PluginDefinition,
-	expected: PluginConformanceSuite<
-		PluginDefinition,
-		readonly PluginDefinition[],
-		readonly SchemaDefinition[]
-	>['expected'],
+	{ manifest }: PluginDefinition,
+	expected: PluginConformanceExpected,
 ): void => {
-	const { manifest } = plugin
 	assertEqual(manifest.identity.pluginId, expected.pluginId, 'plugin ID')
 	assertEqual(manifest.version, expected.version, 'plugin version')
 	assertEqual(manifest.core, expected.core, 'Core compatibility range')
@@ -80,17 +75,9 @@ const assertManifest = (
 	}
 }
 
-const assertCapabilities = (plugin: PluginDefinition): void => {
-	const capabilities = plugin.manifest.capabilities
-	const groups: readonly Readonly<{
-		readonly name: string
-		readonly declarations: readonly Readonly<{ readonly token: object }>[]
-	}>[] = [
-		{ declarations: capabilities.provides, name: 'provides' },
-		{ declarations: capabilities.requires, name: 'requires' },
-		{ declarations: capabilities.optional, name: 'optional' },
-	]
-	for (const { declarations, name } of groups) {
+const assertCapabilities = ({ manifest }: PluginDefinition): void => {
+	for (const name of ['provides', 'requires', 'optional'] as const) {
+		const declarations = manifest.capabilities[name]
 		assertFrozen(declarations, `capabilities.${name}`)
 		for (const declaration of declarations) {
 			assertFrozen(declaration, `capabilities.${name} declaration`)
@@ -99,18 +86,31 @@ const assertCapabilities = (plugin: PluginDefinition): void => {
 	}
 }
 
-/** Replays a conformance fixture through Core's sole installation path. */
-const configurePlugins = (
+/**
+ * Creates one unstarted application through Core's sole installation path,
+ * `UltimaBase.use()`, with the startup logger silenced.
+ */
+const createUltimaBase = <TSchemas extends readonly SchemaDefinition[]>(
 	plugins: readonly PluginDefinition[],
-): ConfiguredUltimaBaseFactory<readonly PluginDefinition[]> => {
-	let factory: unknown = UltimaBase
-	for (const definition of plugins) {
-		factory = (
-			factory as ConfiguredUltimaBaseFactory<readonly PluginDefinition[]>
-		).use(definition)
+	schemas: TSchemas,
+) =>
+	new (UltimaBase.use(...plugins))({
+		pluginPrivileges: { logger: false },
+		schemas,
+	})
+
+type Disposable = Readonly<{ dispose(): Promise<void> }>
+
+/** Disposes every application after `use`, including after a failed assertion. */
+const disposeAfter = async (
+	applications: readonly Disposable[],
+	use: () => unknown,
+): Promise<void> => {
+	try {
+		await use()
+	} finally {
+		await Promise.all(applications.map((application) => application.dispose()))
 	}
-	// The runner only needs the broad constructor contract after ordered replay.
-	return factory as ConfiguredUltimaBaseFactory<readonly PluginDefinition[]>
 }
 
 const assertDenied = async (
@@ -126,8 +126,7 @@ const assertDenied = async (
 			? denial
 			: { instances: { [identity.instanceId]: denial } }
 	try {
-		const Application = configurePlugins(fixture.plugins)
-		const application = new Application({
+		const application = new (UltimaBase.use(...fixture.plugins))({
 			pluginPrivileges: {
 				logger: false,
 				plugins: { [identity.pluginId]: pluginPolicy },
@@ -146,20 +145,6 @@ const assertDenied = async (
 	}
 	throw new TypeError('Core accepted a plugin policy that should be denied')
 }
-
-type Disposable = Readonly<{ dispose(): Promise<void> }>
-
-const createUltimaBase = <
-	TSubject extends PluginDefinition,
-	TSupport extends readonly PluginDefinition[],
-	TSchemas extends readonly SchemaDefinition[],
->(
-	fixture: PluginConformanceFixture<TSubject, TSupport, TSchemas>,
-) =>
-	new (configurePlugins(fixture.plugins))({
-		pluginPrivileges: { logger: false },
-		schemas: fixture.schemas,
-	})
 
 /**
  * Runs every common and selected plugin invariant through public package APIs.
@@ -182,6 +167,7 @@ export const runPluginConformance = async <
 		throw new TypeError('runPluginConformance expects a conformance suite')
 	}
 
+	const { expected } = suite
 	const checks: PluginConformanceReport['checks'][number][] = []
 	const run = async (
 		contract: PluginConformanceContract,
@@ -191,17 +177,29 @@ export const runPluginConformance = async <
 			await verify()
 			checks.push(immutableRecord({ contract, status: 'passed' as const }))
 		} catch (cause: unknown) {
-			throw new PluginConformanceError(contract, suite.expected.pluginId, cause)
+			throw new PluginConformanceError(contract, expected.pluginId, cause)
 		}
 	}
+	// Re-snapshots every fixture: untyped JavaScript factories may return any value.
 	const freshFixture = (): PluginConformanceFixture<
 		TSubject,
 		TSupport,
 		TSchemas
-	> => normalizePluginConformanceFixture(suite.createFixture())
+	> => {
+		const fixture = suite.createFixture()
+		return createPluginConformanceFixture({
+			schemas: fixture.schemas,
+			subject: fixture.subject,
+			supportPlugins: fixture.supportPlugins,
+		})
+	}
+	const freshApplication = () => {
+		const fixture = freshFixture()
+		return createUltimaBase(fixture.plugins, fixture.schemas)
+	}
 
 	await run('manifest', () => {
-		assertManifest(freshFixture().subject, suite.expected)
+		assertManifest(freshFixture().subject, expected)
 	})
 
 	const instances = suite.instances
@@ -217,7 +215,7 @@ export const runPluginConformance = async <
 			] as const) {
 				assertEqual(
 					plugin.manifest.identity.pluginId,
-					suite.expected.pluginId,
+					expected.pluginId,
 					'instance plugin ID',
 				)
 				assertEqual(
@@ -227,22 +225,17 @@ export const runPluginConformance = async <
 				)
 				assertEqual(
 					plugin.manifest.version,
-					suite.expected.version,
+					expected.version,
 					'instance version',
 				)
 			}
-			const Application = configurePlugins([
-				...fixture.supportPlugins,
-				first,
-				second,
-			] as const)
-			const application = new Application({
-				pluginPrivileges: { logger: false },
-				schemas: fixture.schemas,
-			})
-			try {
+			const application = createUltimaBase(
+				[...fixture.supportPlugins, first, second],
+				fixture.schemas,
+			)
+			await disposeAfter([application], async () => {
 				const installed = application.pluginPrivilegeReport.plugins.filter(
-					({ identity }) => identity.pluginId === suite.expected.pluginId,
+					({ identity }) => identity.pluginId === expected.pluginId,
 				)
 				assertEqual(
 					installed.map(({ identity }) => identity.instanceId),
@@ -250,37 +243,34 @@ export const runPluginConformance = async <
 					'configured plugin instances',
 				)
 				await application.initialize()
-			} finally {
-				await application.dispose()
-			}
+			})
 		})
 	}
 
 	const privilegeFixture = freshFixture()
 	if (privilegeFixture.subject.manifest.privileges.length > 0) {
-		await run('privilege-denial', async () => {
-			const application = createUltimaBase(privilegeFixture)
-			const identity = privilegeFixture.subject.manifest.identity
-			try {
-				const subject = application.pluginPrivilegeReport.plugins.find(
+		await run('privilege-denial', () => {
+			const { plugins, schemas, subject } = privilegeFixture
+			const application = createUltimaBase(plugins, schemas)
+			return disposeAfter([application], async () => {
+				const identity = subject.manifest.identity
+				const report = application.pluginPrivilegeReport.plugins.find(
 					(plugin) =>
 						plugin.identity.pluginId === identity.pluginId &&
 						plugin.identity.instanceId === identity.instanceId,
 				)
-				if (subject === undefined) {
+				if (report === undefined) {
 					throw new TypeError(
 						'Subject plugin is absent from the privilege report',
 					)
 				}
-				const active = subject.privileges
+				const active = report.privileges
 					.filter(({ active }) => active)
 					.map(({ name }) => name)
 				if (active.length > 0) {
 					await assertDenied(privilegeFixture, { deny: active })
 				}
-			} finally {
-				await application.dispose()
-			}
+			})
 		})
 	}
 	const environmentFixture = freshFixture()
@@ -292,55 +282,43 @@ export const runPluginConformance = async <
 		)
 	}
 
-	await run('capability-contracts', async () => {
+	await run('capability-contracts', () => {
 		const fixture = freshFixture()
 		assertCapabilities(fixture.subject)
-		const application = createUltimaBase(fixture)
-		try {
-			await application.initialize()
-		} finally {
-			await application.dispose()
-		}
+		const application = createUltimaBase(fixture.plugins, fixture.schemas)
+		return disposeAfter([application], () => application.initialize())
 	})
-	await run('static-determinism', async () => {
-		const first = freshFixture()
-		const second = freshFixture()
-		const firstApplication = createUltimaBase(first)
-		const secondApplication = createUltimaBase(second)
-		try {
+	await run('static-determinism', () => {
+		const firstFixture = freshFixture()
+		const secondFixture = freshFixture()
+		const first = createUltimaBase(firstFixture.plugins, firstFixture.schemas)
+		const second = createUltimaBase(
+			secondFixture.plugins,
+			secondFixture.schemas,
+		)
+		return disposeAfter([first, second], () => {
 			assertEqual(
-				createPluginStaticConformanceSnapshot(firstApplication),
-				createPluginStaticConformanceSnapshot(secondApplication),
+				createPluginStaticConformanceSnapshot(first),
+				createPluginStaticConformanceSnapshot(second),
 				'plugin static graph',
 			)
-		} finally {
-			await Promise.all([
-				firstApplication.dispose(),
-				secondApplication.dispose(),
-			])
-		}
+		})
 	})
-	await run('provenance', async () => {
-		const application = createUltimaBase(freshFixture())
-		try {
+	await run('provenance', () => {
+		const application = freshApplication()
+		return disposeAfter([application], () => {
 			assertPublicPluginProvenance(application)
-		} finally {
-			await application.dispose()
-		}
+		})
 	})
 	await run('lifecycle-cleanup', async () => {
-		const application = createUltimaBase(freshFixture())
-		try {
-			await application.initialize()
-		} finally {
-			await application.dispose()
-		}
+		const application = freshApplication()
+		await disposeAfter([application], () => application.initialize())
 		assertEqual(application.state, 'disposed', 'application lifecycle state')
 	})
-	await run('application-isolation', async () => {
-		const first = createUltimaBase(freshFixture())
-		const second = createUltimaBase(freshFixture())
-		try {
+	await run('application-isolation', () => {
+		const first = freshApplication()
+		const second = freshApplication()
+		return disposeAfter([first, second], async () => {
 			await first.initialize()
 			let rejected = false
 			try {
@@ -362,27 +340,26 @@ export const runPluginConformance = async <
 				'ready',
 				'replacement application lifecycle state',
 			)
-		} finally {
-			await Promise.all([first.dispose(), second.dispose()])
-		}
+		})
 	})
 
 	for (const check of suite.checks) {
 		await run(check.contract, async () => {
-			const disposables: Disposable[] = []
+			const created: Disposable[] = []
 			const context: PluginConformanceContext<TSubject, TSupport, TSchemas> = {
 				createUltimaBase: () => {
 					const fixture = freshFixture()
-					const ultimabase = createUltimaBase(fixture)
-					disposables.push(ultimabase)
+					const ultimabase = createUltimaBase(fixture.plugins, fixture.schemas)
+					created.push(ultimabase)
 					return immutableRecord({ ...fixture, ultimabase })
 				},
 			}
 			try {
 				await check.verify(immutableRecord(context))
 			} finally {
+				// Created applications are disposed in reverse creation order.
 				await Promise.all(
-					disposables.reverse().map((disposable) => disposable.dispose()),
+					created.reverse().map((application) => application.dispose()),
 				)
 			}
 		})
@@ -390,6 +367,6 @@ export const runPluginConformance = async <
 
 	return immutableRecord({
 		checks: immutableArray(checks),
-		pluginId: suite.expected.pluginId,
+		pluginId: expected.pluginId,
 	})
 }
