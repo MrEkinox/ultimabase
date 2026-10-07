@@ -7,11 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeBooleanValue } from '../base/value.js'
 
@@ -27,35 +26,56 @@ export type BooleanField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
 
-type BooleanScalar = ScalarFieldDescriptor<
-	'boolean',
-	boolean,
-	BooleanFieldOptions
->
-
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<BooleanScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	BooleanFieldOptions,
+	boolean,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<BooleanScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	BooleanFieldOptions,
+	boolean,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedBooleanField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'boolean',
+	boolean,
+	BooleanFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedBooleanField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<BooleanScalar, TRequired, TList, TImmutable, true>
+> = ResolvedBooleanField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedBooleanField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<BooleanScalar, TRequired, TList, TImmutable, false>
+> = ResolvedBooleanField<TRequired, TList, TImmutable, false>
 
 export interface BooleanFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

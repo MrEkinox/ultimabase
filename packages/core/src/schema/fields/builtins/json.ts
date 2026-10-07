@@ -7,11 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { snapshotJsonValue, type JsonDocument } from '../base/portable-json.js'
 
@@ -35,31 +34,56 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
 export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
 
-type JsonScalar = ScalarFieldDescriptor<'json', JsonDocument, JsonFieldOptions>
-
 type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<JsonScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	JsonFieldOptions,
+	JsonDocument,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<JsonScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	JsonFieldOptions,
+	JsonDocument,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedJsonField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'json',
+	JsonDocument,
+	JsonFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedJsonField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<JsonScalar, TRequired, TList, TImmutable, true>
+> = ResolvedJsonField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedJsonField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<JsonScalar, TRequired, TList, TImmutable, false>
+> = ResolvedJsonField<TRequired, TList, TImmutable, false>
 
 export interface JsonFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

@@ -7,11 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 
 /** Describes exact decimal metadata through lossless strings. */
@@ -43,35 +42,56 @@ export type DecimalField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'decimal', string, DecimalFieldOptions, TTypegen>
 
-type DecimalScalar = ScalarFieldDescriptor<
-	'decimal',
-	string,
-	DecimalFieldOptions
->
-
 type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<DecimalScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	DecimalFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedDecimalFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<DecimalScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	DecimalFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedDecimalField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'decimal',
+	string,
+	DecimalFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedDecimalField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<DecimalScalar, TRequired, TList, TImmutable, true>
+> = ResolvedDecimalField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedDecimalField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<DecimalScalar, TRequired, TList, TImmutable, false>
+> = ResolvedDecimalField<TRequired, TList, TImmutable, false>
 
 export interface DecimalFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

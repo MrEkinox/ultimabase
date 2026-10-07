@@ -7,11 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedScalarFieldOptions,
-	type NonDefaultedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
 
@@ -27,31 +26,56 @@ export type StringField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
 
-type StringScalar = ScalarFieldDescriptor<'string', string, StringFieldOptions>
-
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedScalarFieldOptions<StringScalar, TRequired, TList, TImmutable>
+> = DefaultedCompactScalarFieldOptions<
+	StringFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
 
 type NonDefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedScalarFieldOptions<StringScalar, TRequired, TList, TImmutable>
+> = NonDefaultedCompactScalarFieldOptions<
+	StringFieldOptions,
+	string,
+	TRequired,
+	TList,
+	TImmutable
+>
+
+type ResolvedStringField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'string',
+	string,
+	StringFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault
+>
 
 type DefaultedStringField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<StringScalar, TRequired, TList, TImmutable, true>
+> = ResolvedStringField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedStringField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = CompactScalarField<StringScalar, TRequired, TList, TImmutable, false>
+> = ResolvedStringField<TRequired, TList, TImmutable, false>
 
 export interface StringFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

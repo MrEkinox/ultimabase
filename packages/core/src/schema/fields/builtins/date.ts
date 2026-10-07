@@ -6,11 +6,12 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedGeneratedScalarFieldOptions,
-	type NonDefaultedGeneratedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	assertTemporalAutoNow,
@@ -34,55 +35,61 @@ type DefaultedDateFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = DefaultedGeneratedScalarFieldOptions<
+> = DefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoNow',
-	TAutoNow,
-	true
->
+	GeneratedScalarOption<'autoNow', TAutoNow>
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
 type NonDefaultedDateFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = NonDefaultedGeneratedScalarFieldOptions<
+> = NonDefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoNow',
-	TAutoNow,
-	true
->
+	GeneratedScalarOption<'autoNow', TAutoNow>
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
-type DateScalar = ScalarFieldDescriptor<'date', string, DateFieldOptions>
+type ResolvedDateField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoNow extends boolean,
+> = CompactScalarFieldDefinition<
+	'date',
+	string,
+	DateFieldOptions,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoNow
+>
 
 type DefaultedDateField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = CompactScalarField<DateScalar, TRequired, TList, TImmutable, true, TAutoNow>
+> = ResolvedDateField<TRequired, TList, TImmutable, true, TAutoNow>
 
 type NonDefaultedDateField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = CompactScalarField<
-	DateScalar,
-	TRequired,
-	TList,
-	TImmutable,
-	false,
-	TAutoNow
->
+> = ResolvedDateField<TRequired, TList, TImmutable, false, TAutoNow>
 
 export interface DateFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,

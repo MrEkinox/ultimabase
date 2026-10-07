@@ -7,16 +7,20 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarField,
 	createScalarFieldFactory,
-	type DefaultedGeneratedScalarFieldOptions,
 	type GeneratedScalarFieldOptions,
-	type NonDefaultedGeneratedScalarFieldOptions,
-	type ScalarFieldDescriptor,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { assertAutoIncrementOption } from '../constraints/numeric.js'
 import { normalizeBigintValue } from '../base/value.js'
 
+/**
+ * Defines declarative boundaries for native JavaScript bigint values.
+ */
 /**
  * Adds sequence metadata to the exact bigint field contract.
  */
@@ -42,41 +46,62 @@ type DefaultedBigintFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = DefaultedGeneratedScalarFieldOptions<
+> = DefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoIncrement',
-	TAutoIncrement,
-	false
->
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		true,
+		false
+	>
 
 type NonDefaultedBigintFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = NonDefaultedGeneratedScalarFieldOptions<
+> = NonDefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
 	TList,
 	TImmutable,
-	'autoIncrement',
-	TAutoIncrement,
-	false
->
+	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		false,
+		false
+	>
 
-type BigintScalar<TAutoIncrement extends boolean> = ScalarFieldDescriptor<
+type ResolvedBigintField<
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoIncrement extends boolean,
+> = CompactScalarFieldDefinition<
 	'bigint',
 	bigint,
 	GeneratedScalarFieldOptions<
 		BigintFieldOptions,
 		'autoIncrement',
 		TAutoIncrement
-	>
+	>,
+	TRequired,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoIncrement
 >
 
 type DefaultedBigintField<
@@ -84,28 +109,14 @@ type DefaultedBigintField<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = CompactScalarField<
-	BigintScalar<TAutoIncrement>,
-	TRequired,
-	TList,
-	TImmutable,
-	true,
-	TAutoIncrement
->
+> = ResolvedBigintField<TRequired, TList, TImmutable, true, TAutoIncrement>
 
 type NonDefaultedBigintField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = CompactScalarField<
-	BigintScalar<TAutoIncrement>,
-	TRequired,
-	TList,
-	TImmutable,
-	false,
-	TAutoIncrement
->
+> = ResolvedBigintField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
 export interface BigintFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
