@@ -1,5 +1,10 @@
 # Current plan: Core path simplification canaries
 
+> **Archive of the reference.** This is the last checkpoint of the reference
+> implementation, kept unchanged as part of the frozen
+> [plan archive](docs/plans/README.md). The rebuild of this repository is
+> tracked in [`docs/rebuild/HANDOFF.md`](docs/rebuild/HANDOFF.md), not here.
+
 - Status: completed
 - Milestone: 67
 - Active issue: none

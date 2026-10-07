@@ -2,6 +2,16 @@
 
 Status values are `proposed`, `accepted`, `deprecated`, and `superseded`.
 
+These records were written while the reference implementation (commit
+`0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`) was developed. The rebuild of this
+repository preserves its public contract and behavior, so every decision keeps
+the status listed here and accepted decisions remain in force. When an ADR names
+an internal module, file, or helper, it describes the reference implementation;
+the rebuilt module layout is documented in
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md#module-layout), the
+[current architecture index](../current-architecture.md), and each package's
+`REBUILD*.md` file.
+
 Current records (accepted or still active in part):
 
 - [ADR-0001: Monorepo and package direction](0001-monorepo-and-package-direction.md)

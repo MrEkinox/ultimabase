@@ -228,3 +228,27 @@ validations finales.
   public lui-même (types, JSDoc, ordre des validations).
 - Les agents doivent écrire leurs fichiers `REBUILD*.md` et committer **au fil de l'eau**
   (checkpoints), pour qu'une interruption ne laisse pas un WIP non documenté.
+
+## Documentation : archivage en place (branche `rebuild/docs`, 2026-10-07)
+
+La décision de l'utilisateur sur la documentation historique est appliquée :
+
+- `issues/README.md`, `docs/plans/README.md`, `CURRENT_PLAN.md` et
+  `HISTORIQUE_SUPPRESSIONS.md` portent un bandeau « Archive of the reference ».
+  Aucun fichier d'archive n'est supprimé ; `yarn check:issues` et les tests de
+  `tooling/documentation` passent sans modification de test.
+- `docs/adr/README.md` précise que les décisions restent en vigueur et que les ADR
+  qui nomment des modules internes décrivent la référence.
+- `ARCHITECTURE.md` est réécrit : résumé de la reconstruction, disposition des
+  modules reconstruits (domaines de Core et packages officiels), simplifications
+  transversales ; le récit par jalons et issues est retiré, le contenu produit est
+  conservé. `docs/current-architecture.md` garde ses 21 concepts et pointe vers les
+  modules reconstruits.
+- `AGENTS.md`, `CONTRIBUTING.md`, `README.md`, `ROADMAP.md`, `docs/README.md`,
+  `tooling/README.md` et `tests/README.md` décrivent la méthode de reconstruction
+  et `docs/rebuild/`.
+- `docs/rebuild/VALIDATIONS.md` documente la correspondance des validations ; son
+  tableau final (machine calme) reste à remplir par le coordinateur.
+- Site public : aucune page modifiée (les pages contribution et feuille de route
+  renvoient au dépôt GitHub de la référence, où elles restent exactes ; toutes
+  les `sources` existent).

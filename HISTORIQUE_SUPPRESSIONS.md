@@ -1,5 +1,13 @@
 # Historique des suppressions — simplification d’UltimaBase
 
+> **Archive of the reference.** This log records the removals made while the
+> reference implementation (commit `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`)
+> was developed, and is kept unchanged as a frozen record. The later rebuild of
+> this repository removed no capability; its simplifications are listed in
+> [`ARCHITECTURE.md`](ARCHITECTURE.md#rebuild-simplifications) and the
+> per-package `REBUILD*.md` files, and its observable differences in
+> [`docs/rebuild/DIFFERENCES.md`](docs/rebuild/DIFFERENCES.md).
+
 Ce fichier conserve les suppressions livrées au jalon 30 et, dans une section
 séparée, les candidats du jalon 31. Il indique leur raison, leur impact et leur
 livraison effective. Il sera mis à jour dans le commit de

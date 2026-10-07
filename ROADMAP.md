@@ -1,8 +1,23 @@
 # Roadmap
 
-The issue backlog is the executable roadmap. This document only describes milestone intent.
+This document describes milestone intent. The milestones below were delivered
+by the reference implementation; its issue backlog under `issues/` is kept as
+a frozen archive, and its planned issues remain the record of proposed product
+directions.
 
 ## Current execution priority
+
+The current work is a package-by-package rebuild of the reference
+implementation (commit `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`). It keeps
+every public contract, behavior and editor-visible type, and simplifies only
+the internal implementation; no capability is added or removed. The method and
+state are in [`docs/rebuild/`](docs/rebuild/PROTOCOL.md), the result in
+[the reconstruction summary](ARCHITECTURE.md#reconstruction), and the
+validation correspondence in
+[`docs/rebuild/VALIDATIONS.md`](docs/rebuild/VALIDATIONS.md). New product
+milestones are not scheduled until the user decides the next direction.
+
+The remainder of this section is the reference's execution history.
 
 The Runtime-to-PostgreSQL vertical, official Hooks lifecycle, official Access,
 transport-neutral relations, developer-defined stored roles, persisted object

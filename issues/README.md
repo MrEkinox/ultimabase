@@ -1,5 +1,17 @@
 # Implementation issues
 
+> **Archive of the reference.** This directory is the frozen backlog of the
+> reference implementation (commit `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`),
+> imported unchanged in this repository's first commit. The repository was then
+> rebuilt package by package under the
+> [rebuild protocol](../docs/rebuild/PROTOCOL.md); that work is tracked in
+> [`docs/rebuild/`](../docs/rebuild/HANDOFF.md) and the per-package `REBUILD*.md`
+> files, not in new issues. Issue texts that name internal modules describe the
+> reference code layout; see [`ARCHITECTURE.md`](../ARCHITECTURE.md) for the
+> current one. Planned and deferred issues remain the record of proposed product
+> work. `yarn check:issues` still validates the metadata below, so the archive
+> stays internally consistent.
+
 This directory is the implementation backlog. Each Markdown file is intentionally small enough to assign to one agent.
 
 When a cross-milestone objective is active, its exact resume order lives in
