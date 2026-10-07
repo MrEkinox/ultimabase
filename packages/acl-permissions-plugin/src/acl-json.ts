@@ -45,192 +45,41 @@ export interface ACLJSON {
 	readonly roles: readonly ACLRoleJSON[]
 }
 
-const aclJSONKeys = immutableArray([
-	'authenticated',
-	'principals',
-	'public',
-	'roles',
-	'version',
-])
-const principalJSONKeys = immutableArray(['className', 'id', 'permissions'])
-const roleJSONKeys = immutableArray(['kind', 'permissions', 'value'])
+/** Identifies one principal entry; the same key orders entries canonically. */
+export const principalEntryKey = (entry: {
+	readonly className: string
+	readonly id: string
+}): string => JSON.stringify([entry.className, entry.id])
 
-const compareText = (left: string, right: string): number =>
-	left < right ? -1 : left > right ? 1 : 0
-
-/** Rejects missing, additional, symbol, and non-enumerable boundary keys. */
-const assertExactKeys = (
-	record: Readonly<Record<string, unknown>>,
-	expected: readonly string[],
-	path: string,
-): void => {
-	const actual = Reflect.ownKeys(record)
-
-	if (
-		actual.length !== expected.length ||
-		actual.some((key) => {
-			if (typeof key !== 'string' || !expected.includes(key)) {
-				return true
-			}
-
-			const descriptor = Reflect.getOwnPropertyDescriptor(record, key)
-
-			if (descriptor?.enumerable !== true) return true
-
-			return !('value' in descriptor)
-		})
-	) {
-		throw new TypeError(`${path} contains unknown or missing keys`)
-	}
-}
-
-/** Validates and canonicalizes one untrusted right array. */
-const parsePermissions = (
-	value: unknown,
-	path: string,
-	allowEmpty: boolean,
-): readonly ACLPermission[] => {
-	if (!isUnknownArray(value)) {
-		throw new TypeError(`${path} must be an array`)
-	}
-
-	const permissions: ACLPermission[] = []
-
-	for (const [index, permission] of value.entries()) {
-		if (!isACLPermission(permission)) {
-			throw new TypeError(`${path}[${String(index)}] is not an ACL permission`)
-		}
-
-		permissions.push(permission)
-	}
-
-	const normalized = normalizeACLPermissions(permissions)
-
-	if (!allowEmpty && normalized.length === 0) {
-		throw new TypeError(`${path} must contain at least one ACL permission`)
-	}
-
-	return normalized
-}
-
-/** Reads one principal entry without resolving its schema or object. */
-const parsePrincipalEntry = (
-	value: unknown,
-	path: string,
-): ACLPrincipalJSON => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	assertExactKeys(value, principalJSONKeys, path)
-	assertNonEmptyString(value.className, `${path}.className`)
-	assertNonEmptyString(value.id, `${path}.id`)
-
-	return immutableRecord({
-		className: value.className,
-		id: value.id,
-		permissions: parsePermissions(
-			value.permissions,
-			`${path}.permissions`,
-			false,
-		),
-	})
-}
-
-/** Reads one role entry while preserving its complete neutral identity. */
-const parseRoleEntry = (value: unknown, path: string): ACLRoleJSON => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	assertExactKeys(value, roleJSONKeys, path)
-
-	if (value.kind !== 'role') {
-		throw new TypeError(`${path}.kind must be "role"`)
-	}
-
-	assertNonEmptyString(value.value, `${path}.value`)
-
-	return immutableRecord({
-		kind: 'role' as const,
-		permissions: parsePermissions(
-			value.permissions,
-			`${path}.permissions`,
-			false,
-		),
-		value: value.value,
-	})
-}
-
-/** Unions duplicate entries and sorts principal identities canonically. */
-const normalizePrincipalEntries = (
-	entries: readonly ACLPrincipalJSON[],
-): readonly ACLPrincipalJSON[] => {
-	const merged = new Map<
-		string,
-		Readonly<{
-			className: string
-			id: string
-			permissions: readonly ACLPermission[]
-		}>
-	>()
+/**
+ * Unions entries sharing one subject key, rebuilds each entry through `build`,
+ * and sorts the result by key so equal ACLs always serialize identically.
+ */
+const mergeEntries = <
+	TEntry extends { readonly permissions: readonly ACLPermission[] },
+>(
+	entries: readonly TEntry[],
+	keyOf: (entry: TEntry) => string,
+	build: (entry: TEntry, permissions: readonly ACLPermission[]) => TEntry,
+): readonly TEntry[] => {
+	const merged = new Map<string, TEntry>()
 
 	for (const entry of entries) {
-		const key = JSON.stringify([entry.className, entry.id])
-		const existing = merged.get(key)
-
+		const key = keyOf(entry)
+		const existing = merged.get(key)?.permissions ?? []
 		merged.set(
 			key,
-			immutableRecord({
-				className: entry.className,
-				id: entry.id,
-				permissions: normalizeACLPermissions([
-					...(existing?.permissions ?? []),
-					...entry.permissions,
-				]),
-			}),
+			build(
+				entry,
+				normalizeACLPermissions([...existing, ...entry.permissions]),
+			),
 		)
 	}
 
 	return immutableArray(
-		[...merged.entries()]
-			.sort(([left], [right]) => compareText(left, right))
-			.map(([, entry]) =>
-				immutableRecord({
-					className: entry.className,
-					id: entry.id,
-					permissions: immutableArray(entry.permissions),
-				}),
-			),
-	)
-}
-
-/** Unions duplicate entries and sorts neutral role identities canonically. */
-const normalizeRoleEntries = (
-	entries: readonly ACLRoleJSON[],
-): readonly ACLRoleJSON[] => {
-	const merged = new Map<string, readonly ACLPermission[]>()
-
-	for (const entry of entries) {
-		merged.set(
-			entry.value,
-			normalizeACLPermissions([
-				...(merged.get(entry.value) ?? []),
-				...entry.permissions,
-			]),
-		)
-	}
-
-	return immutableArray(
-		[...merged.entries()]
-			.sort(([left], [right]) => compareText(left, right))
-			.map(([value, permissions]) =>
-				immutableRecord({
-					kind: 'role' as const,
-					permissions: immutableArray(permissions),
-					value,
-				}),
-			),
+		[...merged]
+			.sort(([left], [right]) => (left < right ? -1 : 1))
+			.map(([, entry]) => entry),
 	)
 }
 
@@ -240,26 +89,122 @@ export const createACLJSON = (input: ACLJSON): ACLJSON =>
 		version: 1 as const,
 		public: normalizeACLPermissions(input.public),
 		authenticated: normalizeACLPermissions(input.authenticated),
-		principals: normalizePrincipalEntries(input.principals),
-		roles: normalizeRoleEntries(input.roles),
+		principals: mergeEntries(
+			input.principals,
+			principalEntryKey,
+			({ className, id }, permissions) =>
+				immutableRecord({ className, id, permissions }),
+		),
+		roles: mergeEntries(
+			input.roles,
+			(entry) => entry.value,
+			({ value }, permissions) =>
+				immutableRecord({ kind: 'role' as const, permissions, value }),
+		),
 	})
+
+/** Rejects missing, additional, symbol, non-enumerable, and accessor keys. */
+const assertExactKeys = (
+	record: Readonly<Record<string, unknown>>,
+	expected: readonly string[],
+	path: string,
+): void => {
+	const actual = Reflect.ownKeys(record)
+	const valid =
+		actual.length === expected.length &&
+		actual.every((key) => {
+			if (typeof key !== 'string' || !expected.includes(key)) return false
+			const descriptor = Reflect.getOwnPropertyDescriptor(record, key)
+			return descriptor?.enumerable === true && 'value' in descriptor
+		})
+
+	if (!valid) throw new TypeError(`${path} contains unknown or missing keys`)
+}
+
+/** Validates and canonicalizes one untrusted right array. */
+const parsePermissions = (
+	value: unknown,
+	path: string,
+	allowEmpty: boolean,
+): readonly ACLPermission[] => {
+	if (!isUnknownArray(value)) throw new TypeError(`${path} must be an array`)
+
+	const permissions = value.map((permission, index) => {
+		if (!isACLPermission(permission)) {
+			throw new TypeError(`${path}[${String(index)}] is not an ACL permission`)
+		}
+		return permission
+	})
+	const normalized = normalizeACLPermissions(permissions)
+
+	if (!allowEmpty && normalized.length === 0) {
+		throw new TypeError(`${path} must contain at least one ACL permission`)
+	}
+	return normalized
+}
+
+/** Checks that one subject entry is a plain object with exactly `keys`. */
+const parseEntry = (
+	value: unknown,
+	keys: readonly string[],
+	path: string,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+	assertExactKeys(value, keys, path)
+	return value
+}
+
+const parsePrincipalEntry = (
+	value: unknown,
+	path: string,
+): ACLPrincipalJSON => {
+	const entry = parseEntry(value, ['className', 'id', 'permissions'], path)
+	assertNonEmptyString(entry.className, `${path}.className`)
+	assertNonEmptyString(entry.id, `${path}.id`)
+
+	return {
+		className: entry.className,
+		id: entry.id,
+		permissions: parsePermissions(
+			entry.permissions,
+			`${path}.permissions`,
+			false,
+		),
+	}
+}
+
+const parseRoleEntry = (value: unknown, path: string): ACLRoleJSON => {
+	const entry = parseEntry(value, ['kind', 'permissions', 'value'], path)
+	if (entry.kind !== 'role') throw new TypeError(`${path}.kind must be "role"`)
+	assertNonEmptyString(entry.value, `${path}.value`)
+
+	return {
+		kind: 'role',
+		permissions: parsePermissions(
+			entry.permissions,
+			`${path}.permissions`,
+			false,
+		),
+		value: entry.value,
+	}
+}
 
 /** Validates one complete untrusted ACL document without performing I/O. */
 export const parseACLJSON = (value: unknown): ACLJSON => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError('ACL JSON must be a plain object')
 	}
-
-	assertExactKeys(value, aclJSONKeys, 'ACL JSON')
-
-	if (value.version !== 1) {
-		throw new TypeError('ACL JSON version must be 1')
-	}
-
+	assertExactKeys(
+		value,
+		['authenticated', 'principals', 'public', 'roles', 'version'],
+		'ACL JSON',
+	)
+	if (value.version !== 1) throw new TypeError('ACL JSON version must be 1')
 	if (!isUnknownArray(value.principals)) {
 		throw new TypeError('ACL JSON principals must be an array')
 	}
-
 	if (!isUnknownArray(value.roles)) {
 		throw new TypeError('ACL JSON roles must be an array')
 	}

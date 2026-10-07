@@ -95,8 +95,8 @@ describe('ACL entry limits', () => {
 		expect(() =>
 			normalizeACLEntryLimits({ maxRoles: 1.5 }, 'acl limits'),
 		).toThrow('acl limits.maxRoles must be a non-negative safe integer')
-		expect(() =>
-			normalizeACLEntryLimits({ extra: 1 } as never, 'acl limits'),
-		).toThrow('Unknown acl limits option: extra')
+		expect(() => normalizeACLEntryLimits({ extra: 1 }, 'acl limits')).toThrow(
+			'Unknown acl limits option: extra',
+		)
 	})
 })
