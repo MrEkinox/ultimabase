@@ -1,0 +1,147 @@
+import type {
+	FieldTypegenStateOf,
+	FieldValue,
+	GenericField,
+} from '../fields/base/contract.js'
+import type { FieldValueMap } from '../fields/base/value-map.js'
+import type { OutputValue } from '../output/contracts.js'
+import type { PointerValue } from '../relations/pointer.js'
+import type { SchemaDeclaredFields } from './definition.js'
+import type { SystemFields } from './system-fields.js'
+import type { GenericVirtualField } from './virtual-field.js'
+
+export type Simplify<TValue> = {
+	readonly [TKey in keyof TValue]: TValue[TKey]
+}
+
+type DeveloperStoredSourceFields<TFields extends SchemaDeclaredFields> = {
+	readonly [
+		TKey in keyof TFields as TFields[TKey] extends GenericVirtualField
+			? never
+			: TFields[TKey] extends GenericField
+				? TKey
+				: never
+	]: TFields[TKey]
+}
+
+export type StoredSourceFields<TFields extends SchemaDeclaredFields> = Simplify<
+	Omit<DeveloperStoredSourceFields<TFields>, keyof SystemFields> & SystemFields
+>
+
+export type VirtualSourceFields<TFields extends SchemaDeclaredFields> = {
+	readonly [
+		TKey in keyof TFields as TFields[TKey] extends GenericVirtualField
+			? TKey
+			: never
+	]: TFields[TKey]
+}
+
+export type SourceItem<TFields extends SchemaDeclaredFields> = Simplify<
+	Omit<
+		FieldValueMap<StoredSourceFields<TFields>, 'object'>,
+		keyof SystemFields
+	> &
+		Readonly<{
+			readonly createdAt: string
+			readonly id: string
+			readonly updatedAt: string
+		}>
+>
+
+type SourceVirtualValues<TFields extends SchemaDeclaredFields> = {
+	readonly [
+		TKey in keyof VirtualSourceFields<TFields>
+	]: VirtualSourceFields<TFields>[TKey] extends GenericVirtualField
+		? OutputValue<VirtualSourceFields<TFields>[TKey]['output']>
+		: never
+}
+
+export type SourceOutput<TFields extends SchemaDeclaredFields> = Simplify<
+	SourceItem<TFields> & SourceVirtualValues<TFields>
+>
+
+type FieldIsPresent<
+	TField,
+	TMode extends 'create' | 'object' | 'update',
+> = TField extends GenericField
+	? FieldTypegenStateOf<TField>[TMode] extends 'forbidden'
+		? false
+		: true
+	: false
+
+export type SourceSelectableFieldName<TFields extends SchemaDeclaredFields> =
+	| {
+			[TKey in keyof StoredSourceFields<TFields>]: FieldIsPresent<
+				StoredSourceFields<TFields>[TKey],
+				'object'
+			> extends true
+				? TKey
+				: never
+	  }[keyof StoredSourceFields<TFields>]
+	| keyof VirtualSourceFields<TFields>
+
+export type SourceSelect<TFields extends SchemaDeclaredFields> = Readonly<{
+	[
+		TKey in Extract<SourceSelectableFieldName<TFields>, string>
+	]?: TKey extends 'id' ? true : boolean
+}>
+
+export type SourceDependencySelect<TFields extends SchemaDeclaredFields> =
+	Readonly<{
+		[
+			TKey in keyof StoredSourceFields<TFields> as StoredSourceFields<TFields>[TKey] extends {
+				readonly kind: 'relation'
+			}
+				? never
+				: TKey
+		]?: TKey extends 'id' ? true : boolean
+	}>
+
+export type SourceOrderBy<TFields extends SchemaDeclaredFields> = Readonly<{
+	[TKey in keyof StoredSourceFields<TFields>]?: 'asc' | 'desc' | null
+}>
+
+export type SourceFieldObjectValue<TField extends GenericField> =
+	FieldValueMap<
+		Readonly<{ readonly value: TField }>,
+		'object'
+	> extends Readonly<{ readonly value: infer TValue }>
+		? TValue
+		: never
+
+export type SourceFieldModeValue<
+	TField extends GenericField,
+	TMode extends 'create' | 'object' | 'update',
+> =
+	FieldValueMap<Readonly<{ readonly value: TField }>, TMode> extends Readonly<{
+		readonly value?: infer TValue
+	}>
+		? TValue
+		: never
+
+type SourceMutationFieldValue<
+	TField extends GenericField,
+	TValue,
+> = TField extends { readonly kind: 'pointer' }
+	? FieldTypegenStateOf<TField>['nullable'] extends true
+		? PointerValue | null
+		: PointerValue
+	: TValue
+
+/** Reuses Core presence rules while projecting pointer writes to portable values. */
+export type SourceFieldValueMap<
+	TFields extends SchemaDeclaredFields,
+	TMode extends 'create' | 'update',
+> = {
+	[
+		TKey in keyof FieldValueMap<StoredSourceFields<TFields>, TMode>
+	]: TKey extends keyof StoredSourceFields<TFields>
+		? SourceMutationFieldValue<
+				StoredSourceFields<TFields>[TKey],
+				FieldValueMap<StoredSourceFields<TFields>, TMode>[TKey]
+			>
+		: never
+}
+
+export type SourceListItem<TField extends GenericField> =
+	FieldValue<TField> extends readonly (infer TValue)[] ? TValue : never

@@ -20,7 +20,7 @@ import type {
 	SourceFieldObjectValue,
 	SourceListItem,
 	StoredSourceFields,
-} from './source-type-info.js'
+} from './source-fields.js'
 
 interface NullFilter {
 	readonly isNotNull?: true

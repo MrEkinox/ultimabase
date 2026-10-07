@@ -10,7 +10,10 @@ import type {
 	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
-import { createFieldDefinition } from './definition.js'
+import {
+	createFieldDefinition,
+	type ScalarValueSnapshot,
+} from './definition.js'
 import {
 	assertFieldOptions,
 	emptyFieldOptions,
@@ -364,7 +367,13 @@ export interface GeneratedCompactScalarFieldFactory<
 	>
 }
 
-type ScalarValueSnapshot<TValue> = (value: unknown, path: string) => TValue
+/**
+ * Narrows the shared snapshot boundary to one scalar's logical value. Reusing
+ * the definition contract also keeps the bundled declaration module order (and
+ * so the reference's private alias names) unchanged.
+ */
+type TypedScalarValueSnapshot<TValue> = ScalarValueSnapshot &
+	((value: unknown, path: string) => TValue)
 
 /** Describes how one compact built-in scalar validates options beyond common metadata. */
 export interface ScalarFieldSpec<TValue> {
@@ -375,7 +384,7 @@ export interface ScalarFieldSpec<TValue> {
 	/** Derives an option-dependent snapshot, such as a timezone-aware normalizer. */
 	readonly resolveSnapshot?: (
 		options: Readonly<Record<string, unknown>>,
-	) => ScalarValueSnapshot<TValue>
+	) => TypedScalarValueSnapshot<TValue>
 }
 
 /**
@@ -385,7 +394,7 @@ export interface ScalarFieldSpec<TValue> {
  */
 export const createScalarFieldFactory = <const TKind extends string, TValue>(
 	kind: TKind,
-	snapshotValue: ScalarValueSnapshot<TValue>,
+	snapshotValue: TypedScalarValueSnapshot<TValue>,
 	{
 		optionKeys = [],
 		assertOptions,
