@@ -40,12 +40,9 @@ export interface PluginEventContract<
 	readonly [pluginEventContractType]?: Readonly<{ payload: TPayload }>
 }
 
-interface PluginEventContractImplementation {
-	readonly delivery: PluginEventDelivery
-	readonly name: string
-}
-
-const eventContracts = new WeakMap<object, PluginEventContractImplementation>()
+// Only contracts created here are trusted; they are frozen, so their name and
+// delivery can be read back directly.
+const eventContracts = new WeakSet<object>()
 const eventPayloadField = jsonField()
 
 /** Defines one trusted event name and its zero-observer behavior. */
@@ -68,14 +65,9 @@ export const definePluginEvent =
 			throw new TypeError('plugin event delivery must be optional or required')
 		}
 
-		const contract = immutableRecord({
-			delivery: options.delivery,
-			name,
-		}) as PluginEventContract<TName, TPayload, TDelivery>
-		eventContracts.set(
-			contract,
-			immutableRecord({ delivery: options.delivery, name }),
-		)
+		const contract: PluginEventContract<TName, TPayload, TDelivery> =
+			immutableRecord({ delivery: options.delivery, name })
+		eventContracts.add(contract)
 		return contract
 	}
 
@@ -136,8 +128,7 @@ export const observePluginEvent = <
 	contract: PluginEventContract<TName, TPayload>,
 	handler: PluginEventHandler<TName, TPayload>,
 ): PluginEventObserver<TName, TPayload> => {
-	const implementation = eventContracts.get(contract)
-	if (implementation === undefined) {
+	if (!eventContracts.has(contract)) {
 		throw new TypeError('Invalid plugin event contract')
 	}
 	if (typeof handler !== 'function') {
@@ -146,13 +137,13 @@ export const observePluginEvent = <
 
 	const observer: PluginEventObserver<TName, TPayload> = immutableRecord({
 		kind: 'plugin-event-observer' as const,
-		name: implementation.name as TName,
+		name: contract.name,
 	})
 	eventObservers.set(
 		observer,
 		immutableRecord({
 			handler: handler as PluginEventHandler,
-			name: implementation.name,
+			name: contract.name,
 		}),
 	)
 	return observer
@@ -191,7 +182,7 @@ export const providePluginEvent = <const TToken extends PluginEventCapability>(
 	contributionId: string,
 	observer: PluginEventObserver,
 ): CapabilityProviderDeclaration<TToken> => {
-	if (eventObservers.get(observer) === undefined) {
+	if (!eventObservers.has(observer)) {
 		throw new TypeError('Invalid plugin event observer')
 	}
 
@@ -241,29 +232,20 @@ export const createPluginEventDispatcher = <
 			return implementation
 		})
 
-	return immutableRecord({
-		emit: <
-			const TName extends string,
-			TPayload extends JsonDocument,
-			TDelivery extends PluginEventDelivery,
-		>(
-			context: RequestContext,
-			contract: PluginEventContract<TName, TPayload, TDelivery>,
-			payload: TPayload,
-		): void => {
+	const dispatcher: PluginEventDispatcher = {
+		emit: (context, contract, payload) => {
 			options.assertPrivilege('event:publish')
-			const eventContract = eventContracts.get(contract)
-			if (eventContract === undefined) {
+			if (!eventContracts.has(contract)) {
 				throw new TypeError('Invalid plugin event contract')
 			}
 			const handlers = observers.filter(
-				(observer) => observer.name === eventContract.name,
+				(observer) => observer.name === contract.name,
 			)
 			if (handlers.length === 0) {
-				if (eventContract.delivery === 'optional') return
+				if (contract.delivery === 'optional') return
 				throw new FrameworkError(
 					'SERVICE_NOT_FOUND',
-					`No plugin event observer is registered for "${eventContract.name}".`,
+					`No plugin event observer is registered for "${contract.name}".`,
 				)
 			}
 
@@ -276,7 +258,7 @@ export const createPluginEventDispatcher = <
 			}
 			const event: PluginEvent = immutableRecord({
 				emittedBy: options.owner,
-				name: eventContract.name,
+				name: contract.name,
 				payload: snapshotScalarFieldValue(
 					eventPayloadField,
 					payload,
@@ -299,12 +281,13 @@ export const createPluginEventDispatcher = <
 				if (failures.length > 1) {
 					throw new AggregateError(
 						failures,
-						`Plugin event "${eventContract.name}" observers failed.`,
+						`Plugin event "${contract.name}" observers failed.`,
 					)
 				}
 			})
 		},
-	})
+	}
+	return immutableRecord(dispatcher)
 }
 
 /** Creates the exact optional requirement paired with one event channel. */
