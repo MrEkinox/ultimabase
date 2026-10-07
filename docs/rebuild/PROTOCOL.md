@@ -37,6 +37,12 @@ maintainability > code reduction > performance.
   delete an assertion to obtain a green suite. If an internal-only invariant no
   longer exists because the mechanism is gone, write down what it protected
   and which remaining test proves the equivalent guarantee.
+- Some files under a package `tests/` directory deep-import internal modules.
+  When a rewrite removes or moves such a module, only the import specifiers (and,
+  if strictly necessary, the imported internal helper name) may change so the
+  file reaches the equivalent new internal. Assertions, inputs and expectations
+  never change. Prefer keeping a small internal module with the same export.
+  List every such edit explicitly.
 - Record the mapping in the scope's `REBUILD.md`.
 
 ## What counts as simplification
