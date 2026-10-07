@@ -1,14 +1,13 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../foundation.js'
-import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
 import {
+	collectQueryRelationPredicates,
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 } from '../../query/filters/relation.js'
 import type { QueryFilterExpression } from '../../query/filters/logical.js'
 import { resolveQueryTarget } from '../../query/filters/target.js'
-import type { ExecutableOperationAst } from '../../query/index.js'
 import {
 	getPluginFieldStructuralContains,
 	Schema,
@@ -28,7 +27,7 @@ import {
 } from '../database/contracts.js'
 import { readOperationQueries } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
-import { assertDatabaseInclusionCapability } from './inclusion-projection.js'
+import { assertDatabaseInclusionCapability } from './mutation-inclusion-source.js'
 
 interface DatabaseCapabilityRequest {
 	readonly inclusions?: readonly DatabaseInclusionPlan[]
@@ -88,15 +87,63 @@ const containsPluginFieldOperand = (
 	)
 }
 
-const assertPluginFieldStructuralContainsCapability = (
+/** Requires one exact versioned adapter capability before the first adapter effect. */
+const assertCapability = (
+	executor: DatabaseOperationExecutor,
+	key: 'pluginFieldStructuralContains' | 'relationPredicates' | 'relations',
+	kind: string,
+	version: number,
+	name: string,
+	publicMessage: string,
+): void => {
+	const capability: unknown = executor.capabilities?.[key]
+
+	if (
+		!isPlainRecord(capability) ||
+		capability.kind !== kind ||
+		capability.version !== version
+	) {
+		throw new FrameworkError(
+			'INTERNAL_ERROR',
+			`Database adapter must implement ${name} capability version ${String(version)}.`,
+			{ publicMessage },
+		)
+	}
+}
+
+const assertRelationCapability = (
+	executor: DatabaseOperationExecutor,
+	publicMessage: string,
+): void => {
+	assertCapability(
+		executor,
+		'relations',
+		'relations',
+		databaseRelationCapabilityVersion,
+		'relation',
+		publicMessage,
+	)
+}
+
+/** Rejects every unsupported request feature before the first adapter effect. */
+export const assertDatabaseRequestCapabilities = (
 	executor: DatabaseOperationExecutor,
 	request: DatabaseCapabilityRequest,
 ): void => {
-	const executable = request.operation as unknown as ExecutableOperationAst
-	const queries = readOperationQueries(executable)
-	const operationSchema = getOperationSchema(executable)
+	const { operation, rowFilter } = request
+
+	if (
+		operation.kind === 'update-one' &&
+		'update' in operation &&
+		isRelationUpdateExpression(operation.update)
+	) {
+		assertRelationCapability(executor, 'Relation mutations are not available.')
+	}
+
+	const queries = readOperationQueries(operation)
+	const operationSchema = getOperationSchema(operation)
 	const rootSchema = Schema.is(operationSchema) ? operationSchema : undefined
-	const requiresCapability =
+	if (
 		queries.some(
 			(query) =>
 				query.where !== undefined &&
@@ -105,111 +152,49 @@ const assertPluginFieldStructuralContainsCapability = (
 					query.where.expression,
 				),
 		) ||
-		(request.rowFilter !== undefined &&
+		(rowFilter !== undefined &&
 			rootSchema !== undefined &&
-			containsPluginFieldOperand(rootSchema, request.rowFilter))
-
-	if (!requiresCapability) return
-
-	const capability: unknown =
-		executor.capabilities?.pluginFieldStructuralContains
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'plugin-field-structural-contains' ||
-		capability.version !==
-			databasePluginFieldStructuralContainsCapabilityVersion
+			containsPluginFieldOperand(rootSchema, rowFilter))
 	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement plugin field structural containment capability version ${String(databasePluginFieldStructuralContainsCapabilityVersion)}.`,
-			{ publicMessage: 'Plugin field containment filters are not available.' },
+		assertCapability(
+			executor,
+			'pluginFieldStructuralContains',
+			'plugin-field-structural-contains',
+			databasePluginFieldStructuralContainsCapabilityVersion,
+			'plugin field structural containment',
+			'Plugin field containment filters are not available.',
 		)
 	}
-}
-
-const assertRelationMutationCapability = (
-	executor: DatabaseOperationExecutor,
-	operation: DatabaseOperationAst,
-): void => {
-	if (
-		operation.kind !== 'update-one' ||
-		!('update' in operation) ||
-		!isRelationUpdateExpression(operation.update)
-	) {
-		return
-	}
-
-	const capability: unknown = executor.capabilities?.relations
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'relations' ||
-		capability.version !== databaseRelationCapabilityVersion
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
-			{ publicMessage: 'Relation mutations are not available.' },
-		)
-	}
-}
-
-/** Rejects every unsupported request feature before the first adapter effect. */
-export const assertDatabaseRequestCapabilities = (
-	executor: DatabaseOperationExecutor,
-	request: DatabaseCapabilityRequest,
-): void => {
-	assertRelationMutationCapability(executor, request.operation)
-	assertPluginFieldStructuralContainsCapability(executor, request)
 
 	if (request.inclusions !== undefined) {
 		assertDatabaseInclusionCapability(executor)
 	}
 
 	if (request.relation !== undefined) {
-		const capability: unknown = executor.capabilities?.relations
-
-		if (
-			!isPlainRecord(capability) ||
-			capability.kind !== 'relations' ||
-			capability.version !== databaseRelationCapabilityVersion
-		) {
-			throw new FrameworkError(
-				'INTERNAL_ERROR',
-				`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
-				{ publicMessage: 'Relation queries are not available.' },
-			)
-		}
+		assertRelationCapability(executor, 'Relation queries are not available.')
 	}
 
-	const executable = request.operation as unknown as ExecutableOperationAst
 	const predicates = [
-		...readOperationQueries(executable).flatMap((query) =>
+		...queries.flatMap((query) =>
 			query.where === undefined
 				? []
 				: [...collectQueryRelationPredicates(query.where.expression)],
 		),
-		...(request.rowFilter === undefined
+		...(rowFilter === undefined
 			? []
-			: [...collectQueryRelationPredicates(request.rowFilter)]),
+			: [...collectQueryRelationPredicates(rowFilter)]),
 	]
 
 	if (predicates.length === 0) return
 
-	const capability: unknown = executor.capabilities?.relationPredicates
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'relation-predicates' ||
-		capability.version !== databaseRelationPredicateCapabilityVersion
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement relation predicate capability version ${String(databaseRelationPredicateCapabilityVersion)}.`,
-			{ publicMessage: 'Relation filters are not available.' },
-		)
-	}
+	assertCapability(
+		executor,
+		'relationPredicates',
+		'relation-predicates',
+		databaseRelationPredicateCapabilityVersion,
+		'relation predicate',
+		'Relation filters are not available.',
+	)
 
 	if (
 		predicates.some(

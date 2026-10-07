@@ -30,11 +30,11 @@ import {
 	createRelationPredicateTargetOperation,
 } from '../enforcement/relation-enforcement.js'
 import {
+	combineDatabaseRowFilters,
 	createEnforcementState,
 	getEnforcementStateSnapshot,
 } from '../enforcement/state.js'
 import { readOperationQueries } from '../operations/queries.js'
-import { combineDatabaseRowFilters } from '../pipeline/private-execution.js'
 import type { RuntimeRelationFilterResolver } from './execution.js'
 
 type RelationFilterApplication = FrameworkApplication<

@@ -9,16 +9,15 @@ import type {
 	CreateOneOperationAst,
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
+import type { NestedWriteObjectNode } from '../../schema/nested-writes/contracts.js'
 import { readNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import { RequestContext } from '../context/request-context.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseOperationAst,
-	DatabaseRelationPredicateScope,
+	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
-import type { EnforcementState } from '../enforcement/state.js'
 import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
@@ -59,7 +58,6 @@ import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipel
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import type {
-	RuntimeEnforcementOperationResult,
 	RuntimeOperationResult,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
@@ -67,27 +65,169 @@ import type {
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import {
-	retainRuntimeMutationBatchProjector,
 	RuntimeInclusionProjector,
+	type RuntimeMutationBatchProjectionRequest,
 } from './inclusion-projection.js'
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
-import { assertRuntimePipelineStages } from './stage-validation.js'
 import {
-	combineDatabaseRowFilters,
-	retainExecutionOperation,
-	type ActiveNestedWrite,
-	type RuntimePipelineExecutionState,
-} from './private-execution.js'
-import {
-	createRuntimeEnforcementInput,
 	createRuntimeOperationInput,
-	emptyRuntimeConstraints,
-	snapshotRuntimeConstraints,
+	enforceRuntimeOperation,
 } from './stage-inputs.js'
 import { finalizeRuntimeOperationResult } from './result-finalization.js'
 
-export { projectRuntimeMutationBatch } from './inclusion-projection.js'
 export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
+
+/** Identifies one Core-owned nested mutation while it uses the ordinary pipeline. */
+interface ActiveNestedWrite {
+	readonly coordinator: RuntimeNestedWriteCoordinator
+	readonly node: NestedWriteObjectNode
+}
+
+/** Shares one bounded virtual scheduler and relation cache across a root operation. */
+interface RuntimeOperationScope {
+	readonly nested: ActiveNestedWrite | undefined
+	readonly relationFilters: RuntimeRelationFilterResolver | undefined
+	readonly virtualFields: RuntimeVirtualFieldScheduler | undefined
+}
+
+type RuntimeMutationBatchProjector = (
+	request: RuntimeMutationBatchProjectionRequest,
+) => Promise<readonly Readonly<Record<string, unknown>>[]>
+
+const mutationBatchProjectors = new WeakMap<
+	RuntimePipeline,
+	RuntimeMutationBatchProjector
+>()
+
+/** Executes one Runtime-owned grouped projection without widening the class API. */
+export const projectRuntimeMutationBatch = (
+	pipeline: RuntimePipeline,
+	request: RuntimeMutationBatchProjectionRequest,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	const projector = mutationBatchProjectors.get(pipeline)
+
+	if (projector === undefined) {
+		throw new TypeError('Runtime mutation batch projector is unavailable')
+	}
+
+	return projector(request)
+}
+
+/** Requires every listed member to be a function, or only present ones when optional. */
+const assertStageFunctions = (
+	stages: Readonly<Record<string, unknown>>,
+	names: readonly string[],
+	label: string,
+	optional = false,
+): void => {
+	for (const name of names) {
+		const stage = stages[name]
+		if ((!optional || stage !== undefined) && typeof stage !== 'function') {
+			throw new TypeError(`${label} ${name} must be a function`)
+		}
+	}
+}
+
+/** Rejects incomplete JavaScript assembly before an operation can start. */
+const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
+	const untrustedStages: unknown = stages
+
+	if (!isPlainRecord(untrustedStages)) {
+		throw new TypeError('Runtime pipeline stages must be a plain object')
+	}
+
+	assertStageFunctions(
+		untrustedStages,
+		[
+			'normalization',
+			'structuralValidation',
+			'finalMutationValidation',
+			'commit',
+		],
+		'Runtime pipeline stage',
+	)
+
+	const { behaviors, enforcement }: Record<string, unknown> = untrustedStages
+
+	if (behaviors !== undefined) {
+		if (!isPlainRecord(behaviors)) {
+			throw new TypeError('Runtime pipeline behaviors must be a plain object')
+		}
+		assertStageFunctions(
+			behaviors,
+			[
+				'beforeOperation',
+				'guardMutationInput',
+				'observePreparedMutation',
+				'postCommit',
+				'requiresPreparedMutationItems',
+				'transformDatabaseResult',
+				'transformInput',
+				'transformMutationOutcome',
+				'transformPreparedInput',
+				'transformPreparedOperation',
+				'transformResult',
+			],
+			'Runtime behavior stage',
+			true,
+		)
+	}
+
+	if (enforcement !== undefined) {
+		if (!isPlainRecord(enforcement)) {
+			throw new TypeError('Runtime pipeline enforcement must be a plain object')
+		}
+		assertStageFunctions(
+			enforcement,
+			[
+				'enforceOperation',
+				'enforceResult',
+				'enforceSelectionResult',
+				'evaluate',
+				'reevaluate',
+			],
+			'Runtime enforcement stage',
+		)
+		assertStageFunctions(
+			enforcement,
+			[
+				'enforceMutationOutcome',
+				'enforcePreparedMutation',
+				'enforceRelationRead',
+			],
+			'Runtime enforcement stage',
+			true,
+		)
+	}
+
+	const databaseOperation: unknown = untrustedStages.databaseOperation
+
+	if (
+		typeof databaseOperation !== 'object' ||
+		databaseOperation === null ||
+		!('execute' in databaseOperation) ||
+		typeof databaseOperation.execute !== 'function'
+	) {
+		throw new TypeError(
+			'Runtime pipeline databaseOperation must be an operation executor',
+		)
+	}
+
+	assertStageFunctions(
+		untrustedStages,
+		['persistencePlanRewrite'],
+		'Runtime pipeline stage',
+		true,
+	)
+}
+
+const singularProtectedKinds = new Set([
+	'find-one',
+	'get',
+	'exists',
+	'update-one',
+	'delete-one',
+])
 
 /**
  * Executes every operation through one fixed security and transaction order.
@@ -100,19 +240,15 @@ export class RuntimePipeline {
 
 	constructor(stages: RuntimePipelineStages) {
 		assertRuntimePipelineStages(stages)
-		const enforcement =
-			stages.enforcement === undefined
-				? undefined
-				: immutableRecord(stages.enforcement)
-		const behaviors =
-			stages.behaviors === undefined
-				? undefined
-				: immutableRecord(stages.behaviors)
 
 		this.#stages = immutableRecord({
 			...stages,
-			...(behaviors === undefined ? {} : { behaviors }),
-			...(enforcement === undefined ? {} : { enforcement }),
+			...(stages.behaviors === undefined
+				? {}
+				: { behaviors: immutableRecord(stages.behaviors) }),
+			...(stages.enforcement === undefined
+				? {}
+				: { enforcement: immutableRecord(stages.enforcement) }),
 		})
 		this.#inclusionProjector = new RuntimeInclusionProjector(
 			this.#stages,
@@ -123,7 +259,7 @@ export class RuntimePipeline {
 			inclusions: this.#inclusionProjector,
 			stages: this.#stages,
 		})
-		retainRuntimeMutationBatchProjector(this, (request) =>
+		mutationBatchProjectors.set(this, (request) =>
 			this.#inclusionProjector.projectMutationBatch(
 				request,
 				createRuntimeVirtualFieldScheduler(this),
@@ -163,264 +299,191 @@ export class RuntimePipeline {
 			throw new TypeError('Runtime pipeline context must be a RequestContext')
 		}
 
+		const { context, operation } = request
 		if (
 			request.protectedPolicyDeniedAsMissing === true &&
-			request.operation.kind !== 'find-one' &&
-			request.operation.kind !== 'get' &&
-			request.operation.kind !== 'exists' &&
-			request.operation.kind !== 'update-one' &&
-			request.operation.kind !== 'delete-one'
+			!singularProtectedKinds.has(operation.kind)
 		) {
 			throw new TypeError(
 				'Runtime protectedPolicyDeniedAsMissing requires a singular protected operation',
 			)
 		}
 
-		const context: RequestContext = request.context
 		throwIfOperationCancelled(context.signal, {
-			operationKind: request.operation.kind,
+			operationKind: operation.kind,
 			phase: 'pipeline-start',
 		})
-		const execution: RuntimePipelineExecutionState = {
-			operation: request.operation,
-		}
-		const virtualScheduler = createRuntimeVirtualFieldScheduler(this)
-		const relationFilterResolver = createRuntimeRelationFilterResolver(this)
+		const virtualFields = createRuntimeVirtualFieldScheduler(this)
+		const relationFilters = createRuntimeRelationFilterResolver(this)
 
 		try {
-			const nestedMarker = readNestedWriteRootOperation(request.operation)
-			if (nestedMarker !== undefined) {
-				if (
-					(request.operation.kind !== 'create-one' ||
-						nestedMarker.command !== 'create') &&
-					(request.operation.kind !== 'update-one' ||
-						nestedMarker.command !== 'update')
-				) {
-					throw new TypeError(
-						'Runtime nested-write marker does not match its root operation',
-					)
-				}
-				const binding = readRuntimeNestedWrites(this)
-				if (binding === undefined) {
-					throw new TypeError('Runtime nested writes are not application-bound')
-				}
-				const graph = prepareRuntimeNestedWriteGraph(
-					request.operation as unknown as
-						| CreateOneOperationAst<SchemaDefinition>
-						| UpdateOneOperationAst<SchemaDefinition>,
-					nestedMarker,
-					binding,
+			const marker = readNestedWriteRootOperation(operation)
+			if (marker === undefined) {
+				return await runWithRuntimeNestedWriteStageContext(undefined, () =>
+					this.#executeOperation(request, {
+						nested: undefined,
+						relationFilters,
+						virtualFields,
+					}),
 				)
-				const rootOperation =
-					request.operation.kind === 'create-one'
-						? createRuntimeNestedCreateOperation(
-								request.operation as unknown as CreateOneOperationAst<SchemaDefinition>,
-								graph.root,
-							)
-						: createRuntimeNestedUpdateOperation(
-								request.operation as unknown as UpdateOneOperationAst<SchemaDefinition>,
-								graph.root,
-							)
-				const host = createRuntimeNestedWriteHost(
-					binding,
-					context,
-					graph,
-					this.#stages,
-					{
-						execute: async (operation, rowFilter, denied, nested, relation) => {
-							try {
-								return await this.#executeOperation(
-									immutableRecord({
-										context,
-										operation,
-										...(rowFilter === undefined ? {} : { rowFilter }),
-										...(denied === undefined
-											? {}
-											: { protectedPolicyDeniedAsMissing: denied }),
-										...(relation === undefined ? {} : { relation }),
-									}),
-									{ operation },
-									nested,
-									virtualScheduler,
-									relationFilterResolver,
-								)
-							} catch (error: unknown) {
-								if (denied === true && isProtectedPolicyDenied(error)) {
-									throw createProtectedObjectNotFoundError()
-								}
-								throw error
-							}
-						},
-					},
-					() => coordinator,
-				)
-				const coordinator = new RuntimeNestedWriteCoordinator(graph, host)
-				const nested = immutableRecord({
-					coordinator,
-					graph,
-					node: graph.root,
-				})
-
-				const result = await runWithRuntimeNestedWriteStageContext(
-					createRuntimeNestedWriteStageContext(graph, graph.root),
-					() =>
-						this.#executeOperation(
-							immutableRecord({ ...request, operation: rootOperation }),
-							execution,
-							nested,
-							virtualScheduler,
-							relationFilterResolver,
-						),
-				)
-
-				return result as unknown as RuntimeOperationResult<TOperation>
 			}
 
-			return await runWithRuntimeNestedWriteStageContext(undefined, () =>
-				this.#executeOperation(
-					request,
-					execution,
-					undefined,
-					virtualScheduler,
-					relationFilterResolver,
-				),
+			if (
+				(operation.kind !== 'create-one' || marker.command !== 'create') &&
+				(operation.kind !== 'update-one' || marker.command !== 'update')
+			) {
+				throw new TypeError(
+					'Runtime nested-write marker does not match its root operation',
+				)
+			}
+			const binding = readRuntimeNestedWrites(this)
+			if (binding === undefined) {
+				throw new TypeError('Runtime nested writes are not application-bound')
+			}
+			// The marker check above proves the exact singular root terminal.
+			const root = operation as unknown as
+				| CreateOneOperationAst<SchemaDefinition>
+				| UpdateOneOperationAst<SchemaDefinition>
+			const graph = prepareRuntimeNestedWriteGraph(root, marker, binding)
+			const rootOperation =
+				root.kind === 'create-one'
+					? createRuntimeNestedCreateOperation(root, graph.root)
+					: createRuntimeNestedUpdateOperation(root, graph.root)
+			const execute = async (
+				child: DatabaseOperationAst,
+				rowFilter?: DatabaseRowFilterNode,
+				denied?: true,
+				nested?: ActiveNestedWrite,
+				relation?: DatabaseRelationScope,
+			): Promise<unknown> => {
+				try {
+					return await this.#executeOperation(
+						immutableRecord({
+							context,
+							operation: child,
+							...(rowFilter === undefined ? {} : { rowFilter }),
+							...(denied === undefined
+								? {}
+								: { protectedPolicyDeniedAsMissing: denied }),
+							...(relation === undefined ? {} : { relation }),
+						}),
+						{ nested, relationFilters, virtualFields },
+					)
+				} catch (error: unknown) {
+					if (denied === true && isProtectedPolicyDenied(error)) {
+						throw createProtectedObjectNotFoundError()
+					}
+					throw error
+				}
+			}
+			const coordinator: RuntimeNestedWriteCoordinator =
+				new RuntimeNestedWriteCoordinator(
+					graph,
+					createRuntimeNestedWriteHost(
+						binding,
+						context,
+						graph,
+						this.#stages,
+						{ execute },
+						() => coordinator,
+					),
+				)
+
+			const result = await runWithRuntimeNestedWriteStageContext(
+				createRuntimeNestedWriteStageContext(graph, graph.root),
+				() =>
+					this.#executeOperation(
+						immutableRecord({ ...request, operation: rootOperation }),
+						{
+							nested: immutableRecord({ coordinator, node: graph.root }),
+							relationFilters,
+							virtualFields,
+						},
+					),
 			)
+
+			return result as unknown as RuntimeOperationResult<TOperation>
 		} catch (error: unknown) {
 			if (
-				request.protectedPolicyDeniedAsMissing === true &&
-				isProtectedPolicyDenied(error)
+				request.protectedPolicyDeniedAsMissing !== true ||
+				!isProtectedPolicyDenied(error)
 			) {
-				if (
-					request.operation.kind !== 'find-one' &&
-					request.operation.kind !== 'exists'
-				) {
-					throw createProtectedObjectNotFoundError()
-				}
-
-				const missingResult = request.operation.kind === 'exists' ? false : null
-
-				return missingResult as RuntimeOperationResult<TOperation>
+				throw error
+			}
+			if (operation.kind !== 'find-one' && operation.kind !== 'exists') {
+				throw createProtectedObjectNotFoundError()
 			}
 
-			throw error
+			const missingResult = operation.kind === 'exists' ? false : null
+
+			return missingResult as RuntimeOperationResult<TOperation>
 		}
 	}
 
 	/** Executes a structurally trusted request while the public method owns failures. */
 	async #executeOperation<const TOperation extends DatabaseOperationAst>(
 		request: RuntimePipelineRequest<TOperation>,
-		execution: RuntimePipelineExecutionState,
-		nested?: ActiveNestedWrite,
-		virtualScheduler?: RuntimeVirtualFieldScheduler,
-		relationFilterResolver?: RuntimeRelationFilterResolver,
+		scope: RuntimeOperationScope,
 	): Promise<RuntimeOperationResult<TOperation>> {
-		const context: RequestContext = request.context
+		const stages = this.#stages
+		const { context, relation } = request
+		const { nested, relationFilters, virtualFields } = scope
 		const privateRowFilter =
 			request.rowFilter === undefined
 				? undefined
 				: normalizeLogicalFilter(request.rowFilter)
-		const privateRelation = request.relation
-		let operation: TOperation = request.operation
-		const reservedCreateId = readReservedCreateId(operation)
-		operation = await this.#stages.normalization(
-			createRuntimeOperationInput(context, operation),
+		const reservedCreateId = readReservedCreateId(request.operation)
+		let operation = await stages.normalization(
+			createRuntimeOperationInput(context, request.operation),
 		)
 		if (reservedCreateId !== undefined) {
 			operation = retainReservedCreateId(operation, reservedCreateId)
 		}
-		operation = retainExecutionOperation(
-			execution,
-			await this.#stages.structuralValidation(
-				createRuntimeOperationInput(context, operation),
-			),
+		operation = await stages.structuralValidation(
+			createRuntimeOperationInput(context, operation),
 		)
-		let enforcement: EnforcementState | undefined
-		let constraints: readonly DatabaseConstraintNode[] = emptyRuntimeConstraints
-		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
-		let relationPredicates:
-			readonly DatabaseRelationPredicateScope[] | undefined
-		if (this.#stages.enforcement !== undefined) {
-			if (
-				privateRelation !== undefined &&
-				!isRuntimeMutationOperation(operation) &&
-				this.#stages.enforcement.enforceRelationRead !== undefined
-			) {
-				await this.#stages.enforcement.enforceRelationRead(
-					immutableRecord({
-						context,
-						operation,
-						relation: privateRelation,
-					}),
-				)
-			}
 
-			enforcement = await this.#stages.enforcement.evaluate(
-				createRuntimeOperationInput(context, operation),
+		const relationRead =
+			relation !== undefined && !isRuntimeMutationOperation(operation)
+		if (relationRead && stages.enforcement?.enforceRelationRead !== undefined) {
+			await stages.enforcement.enforceRelationRead(
+				immutableRecord({ context, operation, relation }),
 			)
-			const enforced: RuntimeEnforcementOperationResult<TOperation> =
-				await this.#stages.enforcement.enforceOperation(
-					createRuntimeEnforcementInput(context, operation, enforcement),
-				)
-
-			operation = retainExecutionOperation(execution, enforced.operation)
-			const relationFilter =
-				privateRelation !== undefined &&
-				nested === undefined &&
-				!isRuntimeMutationOperation(operation)
-					? await relationFilterResolver?.resolve(
-							context,
-							operation,
-							privateRelation,
-						)
-					: undefined
-			constraints = snapshotRuntimeConstraints(enforced.constraints)
-			rowFilter = combineDatabaseRowFilters(
-				combineDatabaseRowFilters(privateRowFilter, relationFilter),
-				enforced.rowFilter,
-			)
-			relationPredicates = enforced.relationPredicates
-		} else if (
-			privateRelation !== undefined &&
-			nested === undefined &&
-			!isRuntimeMutationOperation(operation)
-		) {
-			const relationFilter = await relationFilterResolver?.resolve(
-				context,
-				operation,
-				privateRelation,
-			)
-			rowFilter = combineDatabaseRowFilters(privateRowFilter, relationFilter)
 		}
-		relationPredicates =
-			(await relationFilterResolver?.preparePredicates({
-				context,
-				operation,
-				relationPredicates,
-				rowFilter,
-			})) ?? relationPredicates
+		const enforced = await enforceRuntimeOperation(
+			stages,
+			context,
+			operation,
+			// Nested graph reads already carry their exact private relation scope.
+			relationRead && nested === undefined ? relation : undefined,
+			privateRowFilter,
+			relationFilters,
+		)
+		operation = enforced.operation
 
 		const virtualProjection = prepareBoundRuntimeVirtualFieldProjection(
 			operation,
-			virtualScheduler,
+			virtualFields,
 		)
 		const inclusions = await this.#inclusionProjector.prepare(
 			context,
 			operation,
-			relationFilterResolver,
+			relationFilters,
 		)
-
-		throwIfOperationCancelled(context.signal, {
+		const cancellation = {
 			operationKind: operation.kind,
 			phase: 'database-operation',
-		})
+		}
+
+		throwIfOperationCancelled(context.signal, cancellation)
 
 		const databaseExecution = await executeRuntimeDatabaseOperation(
-			this.#stages.databaseOperation,
+			stages.databaseOperation,
 			context,
-			this.#stages.behaviors,
-			this.#stages.persistencePlanRewrite,
+			stages.behaviors,
+			stages.persistencePlanRewrite,
 			immutableRecord({
-				constraints,
+				constraints: enforced.constraints,
 				operation,
 				...(request.protectedPolicyDeniedAsMissing === true
 					? { strictTarget: true as const }
@@ -432,16 +495,20 @@ export class RuntimePipeline {
 								inclusions.map(({ database }) => database),
 							),
 						}),
-				...(privateRelation === undefined ? {} : { relation: privateRelation }),
-				...(relationPredicates === undefined ? {} : { relationPredicates }),
-				...(rowFilter === undefined ? {} : { rowFilter }),
+				...(relation === undefined ? {} : { relation }),
+				...(enforced.relationPredicates === undefined
+					? {}
+					: { relationPredicates: enforced.relationPredicates }),
+				...(enforced.rowFilter === undefined
+					? {}
+					: { rowFilter: enforced.rowFilter }),
 				...(virtualProjection === undefined
 					? {}
 					: { returningSelection: virtualProjection.persistedSelection }),
 			}),
-			this.#stages.finalMutationValidation,
-			this.#stages.enforcement,
-			enforcement,
+			stages.finalMutationValidation,
+			stages.enforcement,
+			enforced.enforcement,
 			nested === undefined
 				? undefined
 				: {
@@ -464,40 +531,34 @@ export class RuntimePipeline {
 							),
 					},
 		)
-		enforcement = databaseExecution.enforcement ?? enforcement
-		operation = retainExecutionOperation(execution, databaseExecution.operation)
-		if (operation.kind === 'get' && databaseExecution.result === null) {
+		const executedOperation = databaseExecution.operation
+		if (executedOperation.kind === 'get' && databaseExecution.result === null) {
 			throw createProtectedObjectNotFoundError()
 		}
-		throwIfOperationCancelled(context.signal, {
-			operationKind: operation.kind,
-			phase: 'database-operation',
+		throwIfOperationCancelled(context.signal, cancellation)
+
+		return finalizeRuntimeOperationResult<TOperation, TOperation>({
+			boundaries: this.#resultBoundaries,
+			databaseOperation: executedOperation,
+			databaseResult: databaseExecution.result,
+			enforcement: databaseExecution.enforcement ?? enforced.enforcement,
+			hydrate: (databaseResult) =>
+				this.#inclusionProjector.hydrate(
+					context,
+					executedOperation,
+					databaseResult,
+					databaseExecution.inclusionSource ?? databaseExecution.result,
+					inclusions,
+					virtualFields,
+				),
+			outcome: databaseExecution.outcome,
+			// Identity follows exact records through result behaviors instead of
+			// being reassociated by an unstable final collection index.
+			objectIdentities: databaseExecution.objectIdentities,
+			stageInput: createRuntimeOperationInput(context, executedOperation),
+			stages,
+			virtualProjection,
+			virtualScheduler: virtualFields,
 		})
-		const result: RuntimeOperationResult<TOperation> =
-			await finalizeRuntimeOperationResult<TOperation, TOperation>({
-				boundaries: this.#resultBoundaries,
-				databaseOperation: operation,
-				databaseResult: databaseExecution.result,
-				enforcement,
-				hydrate: (databaseResult) =>
-					this.#inclusionProjector.hydrate(
-						context,
-						operation,
-						databaseResult,
-						databaseExecution.inclusionSource ?? databaseExecution.result,
-						inclusions,
-						virtualScheduler,
-					),
-				outcome: databaseExecution.outcome,
-				// Identity follows exact records through result behaviors instead of
-				// being reassociated by an unstable final collection index.
-				objectIdentities: databaseExecution.objectIdentities,
-				stageInput: createRuntimeOperationInput(context, operation),
-				stages: this.#stages,
-				virtualProjection,
-				virtualScheduler,
-			})
-		execution.operation = operation
-		return result
 	}
 }

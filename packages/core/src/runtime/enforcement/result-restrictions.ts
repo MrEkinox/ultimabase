@@ -14,6 +14,7 @@ import type {
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
 import {
+	bypassesMaster,
 	createEnforcementExecutionDescriptor,
 	normalizeEnforcementRestrictedFields,
 	readEnforcementOperationSchema,
@@ -99,10 +100,8 @@ export const enforceOutputRestrictions = async <
 	for (const owned of contributions) {
 		const { contribution, implementation } = owned
 		if (
-			implementation.kind === 'protected-policy' ||
 			implementation.kind !== 'restrictOutput' ||
-			(input.context.access.mode === 'master' &&
-				implementation.master === 'bypass') ||
+			bypassesMaster(implementation, input.context) ||
 			!matchesEnforcementContribution(implementation, input.operation, schema)
 		) {
 			continue

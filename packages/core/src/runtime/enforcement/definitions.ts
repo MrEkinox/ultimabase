@@ -5,7 +5,7 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactPlainObject } from '../../exact-object-validation.js'
 
 import {
 	assertDatabaseConstraintKind,
@@ -27,23 +27,7 @@ import type {
 	ImmutableDatabaseConstraintPayload,
 } from '../database/contracts.js'
 import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
-
-const operationKinds = new Set<RuntimeLogicalOperationKind>([
-	'find-many',
-	'find-one',
-	'get',
-	'count',
-	'exists',
-	'create-one',
-	'create-many',
-	'update-one',
-	'update-many',
-	'upsert-one',
-	'upsert-many',
-	'delete-one',
-	'delete-many',
-	'plugin-schema-mutation',
-])
+import { normalizeRuntimeOperationKinds } from '../operations/characteristics.js'
 
 interface EnforcementOptions<
 	TSchema extends SchemaDefinition,
@@ -274,79 +258,6 @@ const snapshotDatabaseConstraintPayload = (
 	)
 }
 
-/** Normalizes shared operation targeting for protected Runtime definitions. */
-export const normalizeEnforcementOperations = (
-	operations: readonly RuntimeLogicalOperationKind[] | undefined,
-): readonly RuntimeLogicalOperationKind[] | undefined => {
-	if (operations === undefined) {
-		return undefined
-	}
-
-	const untrustedOperations: unknown = operations
-
-	if (
-		!isUnknownArray(untrustedOperations) ||
-		untrustedOperations.length === 0
-	) {
-		throw new TypeError(
-			'enforcement contribution operations must be a non-empty array',
-		)
-	}
-
-	const normalized: RuntimeLogicalOperationKind[] = []
-
-	for (const operation of untrustedOperations) {
-		if (
-			typeof operation !== 'string' ||
-			!operationKinds.has(operation as RuntimeLogicalOperationKind)
-		) {
-			throw new TypeError(
-				`Unknown enforcement operation kind: ${String(operation)}`,
-			)
-		}
-
-		if (!normalized.includes(operation as RuntimeLogicalOperationKind)) {
-			normalized.push(operation as RuntimeLogicalOperationKind)
-		}
-	}
-
-	return immutableArray(normalized)
-}
-
-const assertOptions = (options: unknown): void => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'enforcement contribution options must be a plain object',
-		)
-	}
-
-	assertExactEnumerableKeys(
-		options,
-		optionKeys,
-		'enforcement contribution contains unknown key: ',
-	)
-
-	if (typeof options.handler !== 'function') {
-		throw new TypeError('enforcement contribution handler must be a function')
-	}
-
-	if (
-		options.master !== undefined &&
-		options.master !== 'bypass' &&
-		options.master !== 'enforce'
-	) {
-		throw new TypeError(
-			'enforcement contribution master must be bypass or enforce',
-		)
-	}
-
-	if (options.schema !== undefined && !Schema.is(options.schema)) {
-		throw new TypeError(
-			'enforcement contribution schema must be a schema definition',
-		)
-	}
-}
-
 const defineEnforcement = <
 	const TKind extends EnforcementContributionKind,
 	const TSchema extends SchemaDefinition,
@@ -357,9 +268,26 @@ const defineEnforcement = <
 	options: EnforcementOptions<TSchema, TOperations, THandler>,
 ): EnforcementDefinition<TKind, TSchema, TOperations[number], THandler> => {
 	const untrustedOptions: unknown = options
-	assertOptions(untrustedOptions)
+	assertExactPlainObject(
+		untrustedOptions,
+		optionKeys,
+		'enforcement contribution options must be a plain object',
+		'enforcement contribution contains unknown key: ',
+	)
+	if (typeof untrustedOptions.handler !== 'function') {
+		throw new TypeError('enforcement contribution handler must be a function')
+	}
+	assertMasterMode(untrustedOptions.master, 'enforcement contribution')
+	if (options.schema !== undefined && !Schema.is(options.schema)) {
+		throw new TypeError(
+			'enforcement contribution schema must be a schema definition',
+		)
+	}
 
-	const operations = normalizeEnforcementOperations(options.operations)
+	const operations = normalizeRuntimeOperationKinds(
+		options.operations,
+		'enforcement',
+	)
 	const definition = immutableRecord({
 		kind,
 		operations,
@@ -460,9 +388,19 @@ export const getEnforcementContributionImplementation = (
 		? implementations.get(value)
 		: undefined
 
-/** Matches one contribution without exposing accumulated policy state. */
+/** Validates the optional per-definition master bypass declaration. */
+export const assertMasterMode = (master: unknown, subject: string): void => {
+	if (master !== undefined && master !== 'bypass' && master !== 'enforce') {
+		throw new TypeError(`${subject} master must be bypass or enforce`)
+	}
+}
+
+/** Matches inert schema and operation metadata without invoking one definition. */
 export const matchesEnforcementContribution = (
-	implementation: EnforcementContributionImplementation,
+	implementation: Readonly<{
+		operations: readonly RuntimeLogicalOperationKind[] | undefined
+		schema: SchemaDefinition | undefined
+	}>,
 	operation: { readonly kind: RuntimeLogicalOperationKind },
 	schema: SchemaDefinition,
 ): boolean =>

@@ -23,7 +23,8 @@ import type {
 	RuntimeRelationEnforcementStageInput,
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
-import { normalizeEnforcementOperations } from './definitions.js'
+import { normalizeRuntimeOperationKinds } from '../operations/characteristics.js'
+import { assertMasterMode } from './definitions.js'
 
 /** Describes only monotonic effects Core may append to protected request state. */
 export interface ProtectedPolicyEffects {
@@ -140,18 +141,6 @@ export interface ProtectedPolicyImplementation {
 }
 
 const implementations = new WeakMap<object, ProtectedPolicyImplementation>()
-const optionKeys = new Set([
-	'evaluate',
-	'master',
-	'mutationOutcome',
-	'operations',
-	'preparedMutation',
-	'reevaluate',
-	'relation',
-	'requiresPreparedMutationItems',
-	'restrictResult',
-	'schema',
-])
 const handlerKeys = [
 	'evaluate',
 	'mutationOutcome',
@@ -161,6 +150,12 @@ const handlerKeys = [
 	'requiresPreparedMutationItems',
 	'restrictResult',
 ] as const
+const optionKeys = new Set<string>([
+	...handlerKeys,
+	'master',
+	'operations',
+	'schema',
+])
 
 /** Declares a product-neutral policy whose outputs Core can only accumulate. */
 export const protectedPolicy = <
@@ -175,35 +170,31 @@ export const protectedPolicy = <
 	if (!isPlainRecord(candidate)) {
 		throw new TypeError('protected policy options must be a plain object')
 	}
-
-	for (const key of Object.keys(candidate)) {
-		if (!optionKeys.has(key)) {
-			throw new TypeError(`protected policy contains unknown key: ${key}`)
-		}
-	}
-
+	assertExactEnumerableKeys(
+		candidate,
+		optionKeys,
+		'protected policy contains unknown key: ',
+	)
 	if (options.schema !== undefined && !Schema.is(options.schema)) {
 		throw new TypeError('protected policy schema must be a schema definition')
 	}
-	const master: unknown = candidate.master
-	if (master !== undefined && master !== 'bypass' && master !== 'enforce') {
-		throw new TypeError('protected policy master must be bypass or enforce')
-	}
+	assertMasterMode(candidate.master, 'protected policy')
 
-	let handlerCount = 0
-	for (const key of handlerKeys) {
+	const handlers = handlerKeys.filter((key) => {
 		const handler: unknown = options[key]
-		if (handler === undefined) continue
-		if (typeof handler !== 'function') {
+		if (handler !== undefined && typeof handler !== 'function') {
 			throw new TypeError(`protected policy ${key} must be a function`)
 		}
-		handlerCount += 1
-	}
-	if (handlerCount === 0) {
+		return handler !== undefined
+	})
+	if (handlers.length === 0) {
 		throw new TypeError('protected policy must declare at least one handler')
 	}
 
-	const operations = normalizeEnforcementOperations(options.operations)
+	const operations = normalizeRuntimeOperationKinds(
+		options.operations,
+		'enforcement',
+	)
 	const definition = immutableRecord({
 		kind: 'protected-policy' as const,
 		operations,
@@ -294,13 +285,3 @@ export const normalizeProtectedPolicyEffects = (
 				}),
 	})
 }
-
-/** Matches inert schema and operation metadata without invoking one policy. */
-export const matchesProtectedPolicy = (
-	implementation: ProtectedPolicyImplementation,
-	operation: { readonly kind: RuntimeLogicalOperationKind },
-	schema: SchemaDefinition,
-): boolean =>
-	(implementation.operations === undefined ||
-		implementation.operations.includes(operation.kind)) &&
-	(implementation.schema === undefined || implementation.schema === schema)

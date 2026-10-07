@@ -8,7 +8,7 @@ import {
 	generateUuidV7,
 	type UuidV7Generator,
 } from '../validation/identifier-generator.js'
-import type { RuntimeValidationOptions } from '../validation/runtime-validation-options.js'
+import type { RuntimeValidationOptions } from '../validation/runtime-validation.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 
 /** Supplies only application-owned state required by the Core coordinator. */

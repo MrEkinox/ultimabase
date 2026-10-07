@@ -11,7 +11,10 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import type { DatabaseOperationAst } from '../database/contracts.js'
+import type {
+	DatabaseMutationOperationAst,
+	DatabaseOperationAst,
+} from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import {
 	throwRuntimeValidationIssues,
@@ -80,11 +83,6 @@ export const assertExactKeys = (
 		}
 	}
 }
-
-export const readOptionalOperationKeys = (
-	kind: OperationKind,
-): readonly string[] =>
-	kind === 'create-one' ? immutableArray(['inclusion']) : immutableArray([])
 
 export const readOperationSchema = (
 	operation: unknown,
@@ -293,4 +291,97 @@ export const readSelectedFields = (
 	return selectedFields.length === 0
 		? undefined
 		: immutableArray(selectedFields)
+}
+
+const materializationKeys: Readonly<
+	Record<'create' | 'delete' | 'update', readonly ('current' | 'previous')[]>
+> = immutableRecord({
+	create: immutableArray(['current'] as const),
+	delete: immutableArray(['previous'] as const),
+	update: immutableArray(['previous', 'current'] as const),
+})
+
+/** Validates one adapter materialization branch and both of its complete records. */
+export const snapshotMaterialization = (
+	operation: DatabaseMutationOperationAst,
+	value: unknown,
+	snapshotRecord: (value: unknown, path: ValidationIssuePath) => unknown,
+	path: ValidationIssuePath,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(value)) {
+		return throwBoundaryIssue(
+			path,
+			'Materialization must be a plain object',
+			adapterBoundaryErrorDescription,
+		)
+	}
+
+	const kind = value.kind
+	const allowed =
+		operation.kind === 'upsert-one' || operation.kind === 'upsert-many'
+			? kind === 'create' || kind === 'update'
+			: kind ===
+				(operation.kind === 'create-one' || operation.kind === 'create-many'
+					? 'create'
+					: operation.kind === 'delete-one' || operation.kind === 'delete-many'
+						? 'delete'
+						: 'update')
+
+	if (
+		!allowed ||
+		(kind !== 'create' && kind !== 'delete' && kind !== 'update')
+	) {
+		return throwBoundaryIssue(
+			[...path, 'kind'],
+			'Materialization branch is incompatible with the operation terminal',
+			adapterBoundaryErrorDescription,
+		)
+	}
+
+	const recordKeys = materializationKeys[kind]
+	assertExactKeys(
+		value,
+		['kind', ...recordKeys],
+		path,
+		adapterBoundaryErrorDescription,
+	)
+
+	// Update branches validate the current record before the previous one.
+	return immutableRecord({
+		kind,
+		...Object.fromEntries(
+			recordKeys
+				.toReversed()
+				.map((key) => [key, snapshotRecord(value[key], [...path, key])]),
+		),
+	})
+}
+
+/** Requires one materialization for every affected singular or collection record. */
+export const assertOutcomeCardinality = (
+	operation: DatabaseMutationOperationAst,
+	result: unknown,
+	materializations: readonly unknown[],
+): void => {
+	const collectionLength = isUnknownArray(result) ? result.length : undefined
+	const expected =
+		operation.kind === 'create-one' || operation.kind === 'upsert-one'
+			? 1
+			: operation.kind === 'delete-one' || operation.kind === 'update-one'
+				? result === null
+					? 0
+					: 1
+				: (operation.kind === 'delete-many' ||
+							operation.kind === 'update-many') &&
+					  materializations.length === 0
+					? undefined
+					: collectionLength
+
+	if (expected !== undefined && materializations.length !== expected) {
+		throwBoundaryIssue(
+			['outcome', 'materializations'],
+			`Expected ${String(expected)} materialization(s) for ${operation.kind}`,
+			adapterBoundaryErrorDescription,
+		)
+	}
 }

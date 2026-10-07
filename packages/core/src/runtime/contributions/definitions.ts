@@ -3,13 +3,9 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
+
+import { assertExactPlainObject } from '../../exact-object-validation.js'
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -22,6 +18,8 @@ import type {
 	RuntimeOperationResult,
 } from '../pipeline/contracts.js'
 import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
+import { normalizeRuntimeOperationKinds } from '../operations/characteristics.js'
+
 /** Supplies low-level interceptors with safe execution identity and one operation. */
 export interface RuntimeInterceptorOperationInput<
 	TOperation extends RuntimeLogicalOperationAst,
@@ -48,23 +46,6 @@ export interface RuntimePreparedOperationInput<
 	/** Contains the locked logical object that the mutation would update. */
 	readonly target: DatabaseMutationLogicalRecord<TOperation>
 }
-
-const runtimeOperationKinds = new Set<RuntimeLogicalOperationKind>([
-	'find-many',
-	'find-one',
-	'get',
-	'count',
-	'exists',
-	'create-one',
-	'create-many',
-	'update-one',
-	'update-many',
-	'upsert-one',
-	'upsert-many',
-	'delete-one',
-	'delete-many',
-	'plugin-schema-mutation',
-])
 
 type RuntimeInterceptorOperation<
 	TSchema extends SchemaDefinition,
@@ -224,68 +205,6 @@ const runtimeContributionImplementations = new WeakMap<
 
 const contributionOptionKeys = new Set(['handler', 'operations', 'schema'])
 
-const normalizeOperations = (
-	operations: readonly RuntimeLogicalOperationKind[] | undefined,
-): readonly RuntimeLogicalOperationKind[] | undefined => {
-	if (operations === undefined) {
-		return undefined
-	}
-
-	const untrustedOperations: unknown = operations
-
-	if (
-		!isUnknownArray(untrustedOperations) ||
-		untrustedOperations.length === 0
-	) {
-		throw new TypeError(
-			'runtime contribution operations must be a non-empty array',
-		)
-	}
-
-	const normalizedOperations: RuntimeLogicalOperationKind[] = []
-
-	for (const operation of untrustedOperations) {
-		if (
-			typeof operation !== 'string' ||
-			!runtimeOperationKinds.has(operation as RuntimeLogicalOperationKind)
-		) {
-			throw new TypeError(
-				`Unknown runtime operation kind: ${String(operation)}`,
-			)
-		}
-
-		if (
-			!normalizedOperations.includes(operation as RuntimeLogicalOperationKind)
-		) {
-			normalizedOperations.push(operation as RuntimeLogicalOperationKind)
-		}
-	}
-
-	return immutableArray(normalizedOperations)
-}
-
-const assertContributionOptions = (options: unknown): void => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('runtime contribution options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!contributionOptionKeys.has(key)) {
-			throw new TypeError(`runtime contribution contains unknown key: ${key}`)
-		}
-	}
-
-	if (typeof options.handler !== 'function') {
-		throw new TypeError('runtime contribution handler must be a function')
-	}
-
-	if (options.schema !== undefined && !Schema.is(options.schema)) {
-		throw new TypeError(
-			'runtime contribution schema must be a schema definition',
-		)
-	}
-}
-
 const defineRuntimeContribution = <
 	const TKind extends RuntimeContributionKind,
 	const TSchema extends SchemaDefinition,
@@ -301,9 +220,25 @@ const defineRuntimeContribution = <
 	THandler
 > => {
 	const untrustedOptions: unknown = options
-	assertContributionOptions(untrustedOptions)
+	assertExactPlainObject(
+		untrustedOptions,
+		contributionOptionKeys,
+		'runtime contribution options must be a plain object',
+		'runtime contribution contains unknown key: ',
+	)
+	if (typeof options.handler !== 'function') {
+		throw new TypeError('runtime contribution handler must be a function')
+	}
+	if (options.schema !== undefined && !Schema.is(options.schema)) {
+		throw new TypeError(
+			'runtime contribution schema must be a schema definition',
+		)
+	}
 
-	const operations = normalizeOperations(options.operations)
+	const operations = normalizeRuntimeOperationKinds(
+		options.operations,
+		'runtime',
+	)
 	const definition = immutableRecord({
 		kind,
 		schema: options.schema,
@@ -366,33 +301,3 @@ export const getRuntimeContributionImplementation = (
 	typeof value === 'object' && value !== null
 		? runtimeContributionImplementations.get(value)
 		: undefined
-
-/** Creates a fresh immutable envelope for every sequential callback. */
-export const createBeforeContributionInput = <
-	const TOperation extends RuntimeLogicalOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-): RuntimeInterceptorOperationInput<TOperation> =>
-	immutableRecord({ context, operation })
-
-/** Creates a fresh immutable envelope for result interceptors and observers. */
-export const createAfterContributionInput = <
-	const TOperation extends RuntimeLogicalOperationAst,
-	const TResult,
->(
-	context: RequestContext,
-	operation: TOperation,
-	result: TResult,
-): RuntimeInterceptorResultInput<TOperation, TResult> =>
-	immutableRecord({ context, operation, result })
-
-/** Creates one isolated envelope for an authorized locked-target transformer. */
-export const createPreparedContributionInput = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-	target: DatabaseMutationLogicalRecord<TOperation>,
-): RuntimePreparedOperationInput<TOperation> =>
-	immutableRecord({ context, operation, target })
