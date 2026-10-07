@@ -301,13 +301,8 @@ export class QueryBuilder<
 				'query inclusion callback must return a QueryBuilder for the relationship target',
 			)
 		}
-		const targetQuery = untrustedTarget as QueryBuilder<
-			QueryInclusionTargetSchema<TSchema, TFieldName>,
-			TTargetSelectedField,
-			TTargetIncludedPointer
-		>
 
-		if (field.kind === 'pointer' && targetQuery.ast.where !== undefined) {
+		if (field.kind === 'pointer' && untrustedTarget.ast.where !== undefined) {
 			throw new TypeError(
 				'pointer-target input contains an unknown clause: where',
 			)
@@ -343,7 +338,7 @@ export class QueryBuilder<
 				...inclusions,
 				{
 					field: fieldName,
-					query: targetQuery.ast,
+					query: untrustedTarget.ast,
 				} as unknown as QueryInclusionInput<TSchema>,
 			]),
 			selection,
