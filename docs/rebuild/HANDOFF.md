@@ -151,6 +151,10 @@ Ils passent quand on les relance isolément.
 
 ## Enseignements
 
+- `apps/website/content/**` liste des fichiers sources (`sources:`) ; le projet
+  `website-content` échoue si une réécriture supprime l'un d'eux. Toujours lancer
+  `yarn vitest run --project website-content` après une fusion.
+
 - Une réécriture de package coûte environ 300 k tokens d'agent pour 3 à 4 k lignes.
   Lancer au maximum 3 ou 4 agents à la fois, sinon la machine sature et la limite
   d'usage arrive vite.
