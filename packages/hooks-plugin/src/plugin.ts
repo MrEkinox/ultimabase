@@ -152,12 +152,15 @@ const hooksDeclarations: PluginDeclarationContribution<
 		}),
 })
 
+// The named alias keeps the reference hover (`source: HooksOptionSource`).
+type HooksSource = PluginDeclarationSource<typeof hooksDeclarations>
+
 /** Names the exact configured official Hooks engine. */
 export type HooksPlugin = PluginInstance<{
 	readonly id: '@ultimabase/hooks-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
-	readonly source: PluginDeclarationSource<typeof hooksDeclarations>
+	readonly source: HooksSource
 }>
 
 /**
