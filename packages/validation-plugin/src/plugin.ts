@@ -48,27 +48,31 @@ export type ValidationPlugin = PluginInstance<{
 }>
 
 /** Installs direct field validation and its final mutation guard explicitly. */
-export const validationPlugin = (): ValidationPlugin => {
-	const runtimeProvider = provideRuntimeBehavior({
-		contributionId: 'official-field-validation-runtime',
-		create: ({ callbacks }) => {
-			const readPlans = createValidationPlanCache()
-			return {
-				value: {
-					guardMutationInput: (input) => {
-						validateMutationInput(input, readPlans(input.operation), callbacks)
-					},
-					requiresPreparedMutationItems: requiresValidationTargets,
-				},
-			}
-		},
-	})
-
-	return plugin({
+export const validationPlugin = (): ValidationPlugin =>
+	plugin({
 		id: '@ultimabase/validation-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
 		permissions: validationPluginPermissions,
-		contributions: [runtimeProvider, validationDeclarations],
+		contributions: [
+			provideRuntimeBehavior({
+				contributionId: 'official-field-validation-runtime',
+				create: ({ callbacks }) => {
+					const readPlans = createValidationPlanCache()
+					return {
+						value: {
+							guardMutationInput: (input) => {
+								validateMutationInput(
+									input,
+									readPlans(input.operation),
+									callbacks,
+								)
+							},
+							requiresPreparedMutationItems: requiresValidationTargets,
+						},
+					}
+				},
+			}),
+			validationDeclarations,
+		],
 	})
-}
