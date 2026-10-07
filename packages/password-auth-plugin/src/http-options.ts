@@ -26,7 +26,7 @@ const cookieNamePattern = /^__Host-[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u
 
 /** Validates the exact opt-in HTTP cookie configuration. */
 export const resolvePasswordAuthHttpOptions = (
-	value: PasswordAuthHttpOptions | undefined,
+	value: unknown,
 ): ResolvedPasswordAuthCookieOptions | undefined => {
 	if (value === undefined) return undefined
 	if (
@@ -53,8 +53,7 @@ export const resolvePasswordAuthHttpOptions = (
 			'passwordAuthPlugin http.cookie.name must be a valid __Host- cookie name',
 		)
 	}
-	const untrustedSameSite: unknown = value.cookie.sameSite
-	const sameSite = untrustedSameSite ?? 'lax'
+	const sameSite = value.cookie.sameSite ?? 'lax'
 	if (sameSite !== 'lax' && sameSite !== 'none' && sameSite !== 'strict') {
 		throw new TypeError(
 			'passwordAuthPlugin http.cookie.sameSite must be lax, strict, or none',

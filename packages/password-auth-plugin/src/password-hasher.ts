@@ -16,12 +16,15 @@ export interface PasswordVerification {
 }
 
 const argon2idV19Prefix = '$argon2id$v=19$'
+// Unknown identities verify against this fixed valid verifier so that their
+// response time matches a wrong password for an existing identity.
 const dummyPasswordVerifier: PasswordVerifier = immutableRecord({
 	encoded:
 		'$argon2id$v=19$m=65536,p=4,t=3$VWx0aW1hQmFzZUR1bW15IQ$DrGfRuKZHfoRqH5kK09Up6MQ+pVBH3zt2tVOLkBa3H4',
 	policyVersion: 0,
 })
 
+/** Passes the password to Argon2 as bytes that are overwritten afterwards. */
 const withNormalizedPasswordBytes = async <TResult>(
 	password: string,
 	use: (bytes: Buffer) => Promise<TResult>,
@@ -66,11 +69,16 @@ export const createNormalizedPasswordVerifier = (
 		}),
 	)
 
-const verifyNormalizedPassword = async (
+/**
+ * Verifies an operation-normalized password. A `null` verifier still runs the
+ * full dummy verification, then always reports a mismatch.
+ */
+export const verifyNormalizedPasswordOrDummy = async (
 	password: string,
-	verifier: PasswordVerifier,
+	stored: PasswordVerifier | null,
 	policy: ResolvedPasswordHashPolicy,
 ): Promise<PasswordVerification> => {
+	const verifier = stored ?? dummyPasswordVerifier
 	if (!verifier.encoded.startsWith(argon2idV19Prefix)) {
 		throw new TypeError('Password Auth verifier must use Argon2id version 19')
 	}
@@ -91,23 +99,10 @@ const verifyNormalizedPassword = async (
 		)
 	}
 	return immutableRecord({
-		matches,
-		requiresUpgrade: matches && verifier.policyVersion < policy.policyVersion,
+		matches: stored !== null && matches,
+		requiresUpgrade:
+			stored !== null &&
+			matches &&
+			verifier.policyVersion < policy.policyVersion,
 	})
-}
-
-/** Verifies an operation-normalized password and preserves the dummy path. */
-export const verifyNormalizedPasswordOrDummy = async (
-	password: string,
-	verifier: PasswordVerifier | null,
-	policy: ResolvedPasswordHashPolicy,
-): Promise<PasswordVerification> => {
-	const result = await verifyNormalizedPassword(
-		password,
-		verifier ?? dummyPasswordVerifier,
-		policy,
-	)
-	return verifier === null
-		? immutableRecord({ matches: false, requiresUpgrade: false })
-		: result
 }

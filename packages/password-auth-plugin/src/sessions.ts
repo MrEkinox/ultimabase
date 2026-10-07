@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import {
 	dateTimeField,
 	definePrivateCollection,
@@ -23,7 +25,6 @@ import {
 import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
 	createPasswordSession,
-	createPasswordSessionId,
 	createPasswordSessionToken,
 	digestPasswordSessionToken,
 	isPasswordSessionToken,
@@ -32,51 +33,39 @@ import {
 	type PasswordSession,
 } from './session.js'
 
-type RequiredFieldState<TImmutable extends boolean> = ScalarFieldTypegenState<
-	true,
-	false,
-	TImmutable,
-	false
->
-type OptionalFieldState<TImmutable extends boolean> = ScalarFieldTypegenState<
-	false,
-	false,
-	TImmutable,
-	false
->
+type FieldState<
+	TRequired extends boolean,
+	TImmutable extends boolean,
+> = ScalarFieldTypegenState<TRequired, false, TImmutable, false>
 
 type PasswordSessionFields = Readonly<{
-	absoluteExpiresAt: DateTimeField<RequiredFieldState<true>>
-	createdAt: DateTimeField<RequiredFieldState<true>>
-	expiresAt: DateTimeField<RequiredFieldState<false>>
-	id: UuidField<RequiredFieldState<true>>
-	revokedAt: DateTimeField<OptionalFieldState<false>>
-	rotationVersion: IntField<RequiredFieldState<false>>
-	sessionGeneration: IntField<RequiredFieldState<false>>
-	tokenDigest: StringField<RequiredFieldState<false>>
-	userId: UuidField<RequiredFieldState<true>>
+	absoluteExpiresAt: DateTimeField<FieldState<true, true>>
+	createdAt: DateTimeField<FieldState<true, true>>
+	expiresAt: DateTimeField<FieldState<true, false>>
+	id: UuidField<FieldState<true, true>>
+	revokedAt: DateTimeField<FieldState<false, false>>
+	rotationVersion: IntField<FieldState<true, false>>
+	sessionGeneration: IntField<FieldState<true, false>>
+	tokenDigest: StringField<FieldState<true, false>>
+	userId: UuidField<FieldState<true, true>>
 }>
-
-const createSessionFields = (): PasswordSessionFields => ({
-	absoluteExpiresAt: dateTimeField({ immutable: true, required: true }),
-	createdAt: dateTimeField({ immutable: true, required: true }),
-	expiresAt: dateTimeField({ required: true }),
-	id: uuidField({ immutable: true, required: true }),
-	revokedAt: dateTimeField(),
-	rotationVersion: intField({ required: true }),
-	sessionGeneration: intField({ required: true }),
-	tokenDigest: stringField({ required: true }),
-	userId: uuidField({ immutable: true, required: true }),
-})
 
 /** Represents the exact package-private session collection token. */
 export type PasswordSessionCollection = PrivateCollection<
-	ReturnType<typeof createSessionFields>,
+	PasswordSessionFields,
 	readonly [
 		Readonly<{ readonly fields: readonly ['id'] }>,
 		Readonly<{ readonly fields: readonly ['tokenDigest'] }>,
 	]
 >
+
+type PasswordSessionRecord = PrivateCollectionRecord<PasswordSessionCollection>
+
+/** Pairs the request-context session with the token issued exactly once. */
+type IssuedSession = Readonly<{
+	readonly context: PasswordSession
+	readonly issued: IssuedPasswordSession
+}>
 
 /** Builds one private session descriptor for the configured User identity. */
 export const createPasswordSessionCollection = (
@@ -85,7 +74,17 @@ export const createPasswordSessionCollection = (
 ): PasswordSessionCollection =>
 	definePrivateCollection({
 		contributionId: 'sessions',
-		fields: createSessionFields(),
+		fields: {
+			absoluteExpiresAt: dateTimeField({ immutable: true, required: true }),
+			createdAt: dateTimeField({ immutable: true, required: true }),
+			expiresAt: dateTimeField({ required: true }),
+			id: uuidField({ immutable: true, required: true }),
+			revokedAt: dateTimeField(),
+			rotationVersion: intField({ required: true }),
+			sessionGeneration: intField({ required: true }),
+			tokenDigest: stringField({ required: true }),
+			userId: uuidField({ immutable: true, required: true }),
+		},
 		indexes: [{ fields: ['id'] }, { fields: ['tokenDigest'] }] as const,
 		normalizedStaticOptions: {
 			absoluteExpiresInMs: policy.absoluteExpiresInMs,
@@ -95,17 +94,12 @@ export const createPasswordSessionCollection = (
 		references: [{ field: 'userId', onDelete: 'cascade', target: user }],
 	})
 
-const isActive = (
-	record: PrivateCollectionRecord<PasswordSessionCollection>,
-	now: number,
-): boolean =>
+const isActive = (record: PasswordSessionRecord, now: number): boolean =>
 	record.revokedAt === null &&
 	Date.parse(record.expiresAt) > now &&
 	Date.parse(record.absoluteExpiresAt) > now
 
-const toContextSession = (
-	record: PrivateCollectionRecord<PasswordSessionCollection>,
-): PasswordSession =>
+const toContextSession = (record: PasswordSessionRecord): PasswordSession =>
 	createPasswordSession(
 		{
 			absoluteExpiresAt: record.absoluteExpiresAt,
@@ -117,6 +111,45 @@ const toContextSession = (
 		record.sessionGeneration,
 	)
 
+/**
+ * Reads the stored row of a context session only while it is still live and
+ * has neither rotated nor moved to another account generation since then.
+ */
+const findUnchangedSession = async (
+	collection: PasswordSessionCollection,
+	session: PasswordSession,
+	now: number,
+): Promise<PasswordSessionRecord | undefined> => {
+	const sessionGeneration = readPasswordSessionGeneration(session)
+	const record = await privateStore(collection).findUnique({
+		where: { id: session.id },
+	})
+	return record !== null &&
+		isActive(record, now) &&
+		record.rotationVersion === session.rotationVersion &&
+		record.sessionGeneration === sessionGeneration
+		? record
+		: undefined
+}
+
+/** Applies `data` only while the session row is still unrevoked and unchanged. */
+const swapUnchangedSession = async (
+	collection: PasswordSessionCollection,
+	session: PasswordSession,
+	data: Readonly<{ revokedAt: string } | { sessionGeneration: number }>,
+	now: number,
+): Promise<boolean> =>
+	(await findUnchangedSession(collection, session, now)) !== undefined &&
+	(await privateStore(collection).compareAndSwap({
+		data,
+		expected: {
+			revokedAt: null,
+			rotationVersion: session.rotationVersion,
+			sessionGeneration: readPasswordSessionGeneration(session),
+		},
+		where: { id: session.id },
+	})) !== null
+
 /** Inserts one fresh opaque session and returns its one-time token. */
 export const issuePasswordSession = async (
 	collection: PasswordSessionCollection,
@@ -124,23 +157,17 @@ export const issuePasswordSession = async (
 	sessionGeneration: number,
 	policy: ResolvedPasswordSessionPolicy,
 	now: number = Date.now(),
-): Promise<
-	Readonly<{
-		readonly context: PasswordSession
-		readonly issued: IssuedPasswordSession
-	}>
-> => {
-	const createdAt = new Date(now).toISOString()
-	const expiresAt = new Date(now + policy.expiresInMs).toISOString()
+): Promise<IssuedSession> => {
 	const absoluteExpiresAt = new Date(
 		now + policy.absoluteExpiresInMs,
 	).toISOString()
-	const id = createPasswordSessionId()
+	const expiresAt = new Date(now + policy.expiresInMs).toISOString()
+	const id = randomUUID()
 	const token = createPasswordSessionToken()
 	const record = await privateStore(collection).insert({
 		data: {
 			absoluteExpiresAt,
-			createdAt,
+			createdAt: new Date(now).toISOString(),
 			expiresAt,
 			id,
 			revokedAt: null,
@@ -193,67 +220,26 @@ export const validatePasswordSessionToken = async (
 }
 
 /** Moves only the unchanged current session to a newly issued account generation. */
-export const advanceCurrentPasswordSessionGeneration = async (
+export const advanceCurrentPasswordSessionGeneration = (
 	collection: PasswordSessionCollection,
 	session: PasswordSession,
 	sessionGeneration: number,
 	now: number = Date.now(),
-): Promise<boolean> => {
-	const currentGeneration = readPasswordSessionGeneration(session)
-	const record = await privateStore(collection).findUnique({
-		where: { id: session.id },
-	})
-	if (
-		record === null ||
-		!isActive(record, now) ||
-		record.rotationVersion !== session.rotationVersion ||
-		record.sessionGeneration !== currentGeneration
-	) {
-		return false
-	}
-	return (
-		(await privateStore(collection).compareAndSwap({
-			data: { sessionGeneration },
-			expected: {
-				revokedAt: null,
-				rotationVersion: session.rotationVersion,
-				sessionGeneration: currentGeneration,
-			},
-			where: { id: session.id },
-		})) !== null
-	)
-}
+): Promise<boolean> =>
+	swapUnchangedSession(collection, session, { sessionGeneration }, now)
 
 /** Revokes only the unchanged current session selected by its safe context. */
-export const revokePasswordSession = async (
+export const revokePasswordSession = (
 	collection: PasswordSessionCollection,
 	session: PasswordSession,
 	now: number = Date.now(),
-): Promise<boolean> => {
-	const sessionGeneration = readPasswordSessionGeneration(session)
-	const record = await privateStore(collection).findUnique({
-		where: { id: session.id },
-	})
-	if (
-		record === null ||
-		!isActive(record, now) ||
-		record.rotationVersion !== session.rotationVersion ||
-		record.sessionGeneration !== sessionGeneration
-	) {
-		return false
-	}
-	return (
-		(await privateStore(collection).compareAndSwap({
-			data: { revokedAt: new Date(now).toISOString() },
-			expected: {
-				revokedAt: null,
-				rotationVersion: session.rotationVersion,
-				sessionGeneration,
-			},
-			where: { id: session.id },
-		})) !== null
+): Promise<boolean> =>
+	swapUnchangedSession(
+		collection,
+		session,
+		{ revokedAt: new Date(now).toISOString() },
+		now,
 	)
-}
 
 /** Rotates one unchanged live session through compare-and-swap. */
 export const rotatePasswordSession = async (
@@ -261,34 +247,19 @@ export const rotatePasswordSession = async (
 	session: PasswordSession,
 	policy: ResolvedPasswordSessionPolicy,
 	now: number = Date.now(),
-): Promise<
-	| Readonly<{
-			readonly context: PasswordSession
-			readonly issued: IssuedPasswordSession
-			readonly userId: string
-	  }>
-	| undefined
-> => {
-	const sessionGeneration = readPasswordSessionGeneration(session)
-	const store = privateStore(collection)
-	const record = await store.findUnique({ where: { id: session.id } })
-	if (
-		record === null ||
-		!isActive(record, now) ||
-		record.rotationVersion !== session.rotationVersion ||
-		record.sessionGeneration !== sessionGeneration
-	) {
-		return undefined
-	}
+): Promise<(IssuedSession & Readonly<{ userId: string }>) | undefined> => {
+	const record = await findUnchangedSession(collection, session, now)
+	if (record === undefined) return undefined
 	const token = createPasswordSessionToken()
-	const expiresAt = new Date(
-		Math.min(now + policy.expiresInMs, Date.parse(record.absoluteExpiresAt)),
-	).toISOString()
-	const rotationVersion = record.rotationVersion + 1
-	const updated = await store.compareAndSwap({
+	const updated = await privateStore(collection).compareAndSwap({
 		data: {
-			expiresAt,
-			rotationVersion,
+			expiresAt: new Date(
+				Math.min(
+					now + policy.expiresInMs,
+					Date.parse(record.absoluteExpiresAt),
+				),
+			).toISOString(),
+			rotationVersion: record.rotationVersion + 1,
 			tokenDigest: token.digest,
 		},
 		expected: {
