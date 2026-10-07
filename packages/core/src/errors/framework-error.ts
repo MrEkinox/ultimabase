@@ -92,10 +92,6 @@ export abstract class PublicError<
 		})
 	}
 }
-import type {
-	PublicErrorOptions,
-	PublicErrorPayload,
-} from './public-error-state.js'
 
 const declaredFrameworkErrorCodes = [
 	'VALIDATION_ERROR',

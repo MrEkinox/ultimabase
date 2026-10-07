@@ -282,7 +282,10 @@ export const pluginContributionOwner = (
 ): PluginSchemaContributionOwner =>
 	immutableRecord({
 		kind: 'plugin' as const,
-		...snapshotPluginIdentity(manifest.identity),
+		pluginId: manifest.identity.pluginId,
+		...(manifest.identity.instanceId === undefined
+			? {}
+			: { instanceId: manifest.identity.instanceId }),
 		version: manifest.version,
 	})
 
