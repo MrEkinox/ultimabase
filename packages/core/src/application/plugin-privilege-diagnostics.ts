@@ -4,6 +4,7 @@ import { FrameworkError } from '../errors/framework-error.js'
 import {
 	formatPluginIdentity,
 	pluginPrivilegeMetadata,
+	snapshotPluginIdentity,
 	type PluginIdentity,
 	type PluginPrivilege,
 	type PluginPrivilegeSeverity,
@@ -28,14 +29,6 @@ interface InactivePluginPrivilegeDetails extends Readonly<
 	readonly severity: PluginPrivilegeSeverity
 }
 
-const snapshotIdentity = (identity: PluginIdentity): PluginIdentity =>
-	immutableRecord({
-		pluginId: identity.pluginId,
-		...(identity.instanceId === undefined
-			? {}
-			: { instanceId: identity.instanceId }),
-	})
-
 const denialDetails = (
 	plugin: PluginPrivilegePluginReport,
 	name: string,
@@ -44,7 +37,7 @@ const denialDetails = (
 ) =>
 	immutableRecord({
 		blockedPhase,
-		identity: snapshotIdentity(plugin.identity),
+		identity: snapshotPluginIdentity(plugin.identity),
 		name,
 		plugin: formatPluginIdentity(plugin.identity),
 		reason,
@@ -59,7 +52,7 @@ export const inactivePrivilegeDetails = (
 ): InactivePluginPrivilegeDetails =>
 	immutableRecord({
 		blockedPhase: 'core-facade' as const,
-		identity: snapshotIdentity(owner),
+		identity: snapshotPluginIdentity(owner),
 		kind: 'inactive-plugin-privilege' as const,
 		plugin: formatPluginIdentity(owner),
 		privilege,
