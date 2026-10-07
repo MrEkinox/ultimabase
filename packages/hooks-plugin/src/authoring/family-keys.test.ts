@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { saveHookFamilies } from './family-keys.js'
+import { saveHookFamilies } from './declarations.js'
 
 describe('hook family keys', () => {
 	it('keeps the runtime save vocabulary immutable', () => {

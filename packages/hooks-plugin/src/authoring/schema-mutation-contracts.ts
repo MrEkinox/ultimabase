@@ -87,25 +87,31 @@ type GeneratedMutationMap<TSchema extends SchemaDefinition> =
 type SchemaMutationMap<TSchema extends SchemaDefinition> =
 	GeneratedMutationMap<TSchema> & PluginSourceSchemaMutations<TSchema>
 
-/** Projects exact custom before-operation branches from the generated graph. */
-type SchemaMutationBeforeOperationHooks<TSchema extends SchemaDefinition> = {
+/** Projects exact custom operation branches from the generated graph. */
+type SchemaMutationOperationHooks<
+	TSchema extends SchemaDefinition,
+	TTiming extends 'after' | 'before',
+> = {
 	readonly [
 		TCommand in keyof SchemaMutationMap<TSchema>
 	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
 		PluginSchemaMutationDefinition
-		? HookHandlerDeclaration<SchemaMutationBeforeHook<TSchema, TMutation>>
+		? HookHandlerDeclaration<
+				TTiming extends 'before'
+					? SchemaMutationBeforeHook<TSchema, TMutation>
+					: SchemaMutationAfterHook<TSchema, TMutation>
+			>
 		: never
 }
 
-/** Projects exact custom after-operation branches from the generated graph. */
-type SchemaMutationAfterOperationHooks<TSchema extends SchemaDefinition> = {
-	readonly [
-		TCommand in keyof SchemaMutationMap<TSchema>
-	]?: SchemaMutationMap<TSchema>[TCommand] extends infer TMutation extends
-		PluginSchemaMutationDefinition
-		? HookHandlerDeclaration<SchemaMutationAfterHook<TSchema, TMutation>>
-		: never
-}
+/** Lets native lifecycle names win over same-named custom mutation branches. */
+type CombineOperationHooks<TNative, TMutations> = Readonly<{
+	[TKey in keyof TNative | keyof TMutations]?: TKey extends keyof TNative
+		? Exclude<TNative[TKey], undefined>
+		: TKey extends keyof TMutations
+			? Exclude<TMutations[TKey], undefined>
+			: never
+}>
 
 interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
 	readonly create?: HookHandlerDeclaration<SchemaBeforeCreateHook<TSchema>>
@@ -115,17 +121,10 @@ interface NativeSchemaBeforeOperationHooks<TSchema extends SchemaDefinition> {
 
 /** Combines native lifecycle names with this application's exact schema mutations. */
 export type SchemaBeforeOperationHooks<TSchema extends SchemaDefinition> =
-	Readonly<{
-		[
-			TKey in
-				| keyof NativeSchemaBeforeOperationHooks<TSchema>
-				| keyof SchemaMutationBeforeOperationHooks<TSchema>
-		]?: TKey extends keyof NativeSchemaBeforeOperationHooks<TSchema>
-			? Exclude<NativeSchemaBeforeOperationHooks<TSchema>[TKey], undefined>
-			: TKey extends keyof SchemaMutationBeforeOperationHooks<TSchema>
-				? Exclude<SchemaMutationBeforeOperationHooks<TSchema>[TKey], undefined>
-				: never
-	}>
+	CombineOperationHooks<
+		NativeSchemaBeforeOperationHooks<TSchema>,
+		SchemaMutationOperationHooks<TSchema, 'before'>
+	>
 
 interface NativeSchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
 	readonly create?: HookHandlerDeclaration<SchemaAfterCreateHook<TSchema>>
@@ -136,14 +135,7 @@ interface NativeSchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
 
 /** Combines native lifecycle names with this application's exact schema mutations. */
 export type SchemaAfterOperationHooks<TSchema extends SchemaDefinition> =
-	Readonly<{
-		[
-			TKey in
-				| keyof NativeSchemaAfterOperationHooks<TSchema>
-				| keyof SchemaMutationAfterOperationHooks<TSchema>
-		]?: TKey extends keyof NativeSchemaAfterOperationHooks<TSchema>
-			? Exclude<NativeSchemaAfterOperationHooks<TSchema>[TKey], undefined>
-			: TKey extends keyof SchemaMutationAfterOperationHooks<TSchema>
-				? Exclude<SchemaMutationAfterOperationHooks<TSchema>[TKey], undefined>
-				: never
-	}>
+	CombineOperationHooks<
+		NativeSchemaAfterOperationHooks<TSchema>,
+		SchemaMutationOperationHooks<TSchema, 'after'>
+	>

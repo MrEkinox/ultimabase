@@ -10,15 +10,15 @@ import {
 	getHookHandlerEntries,
 	normalizeHookDeclarations,
 	type NormalizedHookHandler,
-} from '../authoring/normalization.js'
+} from '../authoring/declarations.js'
 import { RequestContext, requestSources } from '@ultimabase/core'
 import type { HookDiagnosticEvent } from './diagnostics.js'
-import type { HookExecutionDescriptor } from './execution-descriptor.js'
+import type { HookExecutionDescriptor } from './execution-runtime.js'
 import {
 	applicationHookOwner,
 	createHookExecutionDescriptor,
 	createPluginHookOwner,
-} from './execution-descriptor.js'
+} from './execution-runtime.js'
 import { HookExecutionRuntime } from './execution-runtime.js'
 
 const request = RequestContext.anonymous({

@@ -16,12 +16,14 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { SchemaHookDeclarations } from './authoring/declarations.js'
 import type { SchemaHooks } from './authoring/contracts.js'
-import { normalizeSchemaHookDeclarations } from './authoring/declarations.js'
-import type { FieldHookDeclarations } from './authoring/field-declarations.js'
+import {
+	normalizeFieldHookDeclarations,
+	normalizeSchemaHookDeclarations,
+	type FieldHookDeclarations,
+	type SchemaHookDeclarations,
+} from './authoring/declarations.js'
 import type { FieldHooks } from './authoring/field-contracts.js'
-import { normalizeFieldHookDeclarations } from './authoring/field-declarations.js'
 
 /** Identifies the official declaration target selected by a compatible plugin. */
 export type HookContributionTargetKind = 'field' | 'global' | 'schema'
@@ -83,22 +85,11 @@ export const hookContributionsCapability: HookContributionsCapability =
 		compose: (providers) => immutableArray(providers.flat()),
 	})
 
-const requireSchemaHooks = (
-	hooks: unknown,
+/** Rejects contributions that would register no handler at all. */
+const requireHooks = <TDeclarations>(
+	declarations: TDeclarations | undefined,
 	path: string,
-): SchemaHookDeclarations => {
-	const declarations = normalizeSchemaHookDeclarations(hooks)
-	if (declarations === undefined) {
-		throw new TypeError(`${path} must declare at least one Hook handler`)
-	}
-	return declarations
-}
-
-const requireFieldHooks = (
-	hooks: unknown,
-	path: string,
-): FieldHookDeclarations => {
-	const declarations = normalizeFieldHookDeclarations(hooks)
+): TDeclarations => {
 	if (declarations === undefined) {
 		throw new TypeError(`${path} must declare at least one Hook handler`)
 	}
@@ -108,7 +99,10 @@ const requireFieldHooks = (
 /** Targets every application schema with one compatible contribution. */
 export const globalHooks = (hooks: unknown): GlobalHookContributionDefinition =>
 	immutableRecord({
-		declarations: requireSchemaHooks(hooks, 'global hooks'),
+		declarations: requireHooks(
+			normalizeSchemaHookDeclarations(hooks),
+			'global hooks',
+		),
 		schema: undefined,
 		targetKind: 'global' as const,
 	})
@@ -119,7 +113,10 @@ export const schemaHooks = <TSchema extends SchemaDefinition>(
 	hooks: SchemaHooks<NoInfer<TSchema>>,
 ): SchemaHookContributionDefinition =>
 	immutableRecord({
-		declarations: requireSchemaHooks(hooks, 'schema hooks'),
+		declarations: requireHooks(
+			normalizeSchemaHookDeclarations(hooks),
+			'schema hooks',
+		),
 		schema,
 		targetKind: 'schema' as const,
 	})
@@ -132,7 +129,10 @@ export const fieldHooks = <TField extends GenericField>(
 	hooks: FieldHooks<NoInfer<TField>>,
 ): FieldHookContributionDefinition =>
 	immutableRecord({
-		declarations: requireFieldHooks(hooks, 'field hooks'),
+		declarations: requireHooks(
+			normalizeFieldHookDeclarations(hooks),
+			'field hooks',
+		),
 		field,
 		path: immutableArray(path),
 		schema,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { OperationKind } from '@ultimabase/core'
-import { getMutationHookKind, getNativeHookPhaseOrder } from './phase-order.js'
+import { getMutationHookKind, getNativeHookPhaseOrder } from './lifecycle.js'
 
 const operationKinds = [
 	'count',

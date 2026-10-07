@@ -5,7 +5,7 @@ import {
 	normalizeHookDeclarations,
 	type HookPhaseDescriptor,
 	type NormalizedHookHandler,
-} from './normalization.js'
+} from './declarations.js'
 
 const phases = ['beforeSave', 'afterSave', 'beforeCreate'] as const
 type Phase = (typeof phases)[number]

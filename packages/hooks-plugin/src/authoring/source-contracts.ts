@@ -6,13 +6,7 @@ import type {
 } from '@ultimabase/core'
 
 import type { HookContext } from '../context/hook-context.js'
-
-type SourceHandler<TInput, TResult = void> = (
-	input: TInput,
-) => MaybePromise<TResult>
-
-type SourceHandlerDeclaration<THandler> =
-	THandler | readonly [THandler, ...THandler[]]
+import type { HookHandlerDeclaration } from './contracts.js'
 
 type SourceFieldInput<
 	TKind extends 'create' | 'update' | 'upsert',
@@ -29,24 +23,23 @@ type SourceFieldAllInput =
 	| SourceFieldInput<'update', 'update'>
 	| SourceFieldInput<'upsert', 'create' | 'update'>
 
-type SourceFieldHandler<TInput> = SourceHandler<
-	TInput,
-	PluginSourceFieldObjectValue | undefined
->
+type SourceFieldHandler<TInput> = (
+	input: TInput,
+) => MaybePromise<PluginSourceFieldObjectValue | undefined>
 
 /** Derives field Hooks from exact scalar, list, and nullability metadata. */
 export interface SourceFieldHooksOption {
 	readonly resolveInput?:
-		| SourceHandlerDeclaration<SourceFieldHandler<SourceFieldAllInput>>
+		| HookHandlerDeclaration<SourceFieldHandler<SourceFieldAllInput>>
 		| Readonly<{
-				all?: SourceHandlerDeclaration<SourceFieldHandler<SourceFieldAllInput>>
-				create?: SourceHandlerDeclaration<
+				all?: HookHandlerDeclaration<SourceFieldHandler<SourceFieldAllInput>>
+				create?: HookHandlerDeclaration<
 					SourceFieldHandler<SourceFieldInput<'create', 'create'>>
 				>
-				update?: SourceHandlerDeclaration<
+				update?: HookHandlerDeclaration<
 					SourceFieldHandler<SourceFieldInput<'update', 'update'>>
 				>
-				upsert?: SourceHandlerDeclaration<
+				upsert?: HookHandlerDeclaration<
 					SourceFieldHandler<SourceFieldInput<'upsert', 'create' | 'update'>>
 				>
 		  }>
