@@ -238,48 +238,40 @@ export const createPostgresRelationPredicateCompiler = (
 				.select({ value: cardinality })
 				.from(targetAlias)
 				.$dynamic()
+			const storage = relation.storage
+			let edges = aggregate
+			let sourceEdge: PgColumn
 
-			if (relation.storage.kind === 'pointer') {
-				const targetPointer = resolveAliasedColumn(
+			if (storage.kind === 'pointer') {
+				// The target row itself carries the source identity.
+				sourceEdge = resolveAliasedColumn(
 					getColumns(targetAlias),
 					'',
-					relation.storage.targetColumn.name,
+					storage.targetColumn.name,
 				)
+			} else {
+				const joinAlias = alias(
+					storage.relation.table,
+					`__ultimabase_relation_join_${String(depth)}`,
+				)
+				const joinColumns = getColumns(joinAlias)
 
-				return exists(
-					aggregate
-						.where(
-							and(
-								eq(targetPointer, sourceId),
-								targetConstraint,
-								targetAccess,
-								developerPredicate,
-							),
-						)
-						.having(comparisons),
+				sourceEdge = resolveAliasedColumn(
+					joinColumns,
+					'',
+					storage.sourceColumn.name,
+				)
+				edges = aggregate.innerJoin(
+					joinAlias,
+					eq(
+						resolveAliasedColumn(joinColumns, '', storage.targetColumn.name),
+						resolveCompiledPostgresField(target, 'id').column,
+					),
 				)
 			}
 
-			const joinAlias = alias(
-				relation.storage.relation.table,
-				`__ultimabase_relation_join_${String(depth)}`,
-			)
-			const joinColumns = getColumns(joinAlias)
-			const sourceEdge = resolveAliasedColumn(
-				joinColumns,
-				'',
-				relation.storage.sourceColumn.name,
-			)
-			const targetEdge = resolveAliasedColumn(
-				joinColumns,
-				'',
-				relation.storage.targetColumn.name,
-			)
-			const targetId = resolveCompiledPostgresField(target, 'id').column
-
 			return exists(
-				aggregate
-					.innerJoin(joinAlias, eq(targetEdge, targetId))
+				edges
 					.where(
 						and(
 							eq(sourceEdge, sourceId),

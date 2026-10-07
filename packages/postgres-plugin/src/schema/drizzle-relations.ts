@@ -67,36 +67,25 @@ const readBuilderColumn = (
 	return column
 }
 
-const createManyRelation = (
+/** Calls Drizzle's generated relation factory for one dynamic table key. */
+const createRelation = (
 	helpers: DynamicPostgresHelpers,
+	cardinality: 'many' | 'one',
 	targetTableKey: string,
-	config: ManyConfig<SchemaEntry>,
+	config: ManyConfig<SchemaEntry> & OneConfig<SchemaEntry, boolean>,
 ): Relation => {
-	const factory = helpers.many[targetTableKey]
+	const factory = helpers[cardinality][targetTableKey]
 
 	if (typeof factory !== 'function') {
 		throw new TypeError(
-			`Drizzle many-relation target is unavailable: ${targetTableKey}`,
+			`Drizzle ${cardinality}-relation target is unavailable: ${targetTableKey}`,
 		)
 	}
 
-	return (factory as ManyFn<PgTable, string>)(config)
-}
-
-const createOneRelation = (
-	helpers: DynamicPostgresHelpers,
-	targetTableKey: string,
-	config: OneConfig<SchemaEntry, boolean>,
-): Relation => {
-	const factory = helpers.one[targetTableKey]
-
-	if (typeof factory !== 'function') {
-		throw new TypeError(
-			`Drizzle one-relation target is unavailable: ${targetTableKey}`,
-		)
-	}
-
-	return (factory as OneFn<PgTable, string>)(config)
+	// Generated keys erase Drizzle's per-table factory typing.
+	return cardinality === 'many'
+		? (factory as ManyFn<PgTable, string>)(config)
+		: (factory as OneFn<PgTable, string>)(config)
 }
 
 /** Builds the forward and generated reverse relation for one logical edge. */
@@ -121,11 +110,11 @@ const createRelationPair = (
 		const pointer = readBuilderColumn(helpers, targetTableKey, pointerFieldName)
 
 		return {
-			forward: createManyRelation(helpers, targetTableKey, {
+			forward: createRelation(helpers, 'many', targetTableKey, {
 				from: sourceId,
 				to: pointer,
 			}),
-			reverse: createOneRelation(helpers, sourceTableKey, {
+			reverse: createRelation(helpers, 'one', sourceTableKey, {
 				from: pointer,
 				to: sourceId,
 			}),
@@ -141,11 +130,11 @@ const createRelationPair = (
 	const targetEdge = readBuilderColumn(helpers, joinKey, targetColumn)
 
 	return {
-		forward: createManyRelation(helpers, targetTableKey, {
+		forward: createRelation(helpers, 'many', targetTableKey, {
 			from: sourceId.through(sourceEdge),
 			to: targetId.through(targetEdge),
 		}),
-		reverse: createManyRelation(helpers, sourceTableKey, {
+		reverse: createRelation(helpers, 'many', sourceTableKey, {
 			from: targetId.through(targetEdge),
 			to: sourceId.through(sourceEdge),
 		}),
@@ -293,14 +282,14 @@ export const compilePostgresDrizzleRelations = (
 
 			sourceConfig.set(
 				relationName,
-				createOneRelation(helpers, targetTableKey, {
+				createRelation(helpers, 'one', targetTableKey, {
 					from: sourcePointer,
 					to: targetId,
 				}),
 			)
 			targetConfig.set(
 				reverseRelationName,
-				createManyRelation(helpers, sourceTableKey, {
+				createRelation(helpers, 'many', sourceTableKey, {
 					from: targetId,
 					to: sourcePointer,
 				}),

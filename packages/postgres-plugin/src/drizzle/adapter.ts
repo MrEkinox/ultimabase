@@ -211,8 +211,26 @@ const releasePostgresClient = (
 	}
 }
 
+/** Shares the identity and inclusion lookups retained by relational reads. */
+abstract class PostgresRecordReader {
+	/** Exposes only identity retained for the exact projected adapter record. */
+	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
+		return readPostgresRelationalObjectIdentity(record)
+	}
+
+	readIncludedValue(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	) {
+		return readPostgresIncludedValue(record, fieldPath)
+	}
+}
+
 /** Owns one borrowed client until exactly one finalization path releases it. */
-class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
+class DrizzlePostgresTransactionAdapter
+	extends PostgresRecordReader
+	implements DatabaseTransactionAdapter
+{
 	readonly kind = 'database-transaction-adapter' as const
 	readonly capabilities = postgresDatabaseCapabilities
 	readonly #client: PostgresPoolClient
@@ -226,6 +244,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		schemas: PostgresSchemaCatalog,
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
+		super()
 		this.#client = client
 		this.#context = {
 			client: createPostgresDrizzleClient(
@@ -249,18 +268,6 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			}),
 		)
 		postgresTransactionClients.set(this, client)
-	}
-
-	/** Exposes only identity retained for the exact projected adapter record. */
-	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
-		return readPostgresRelationalObjectIdentity(record)
-	}
-
-	readIncludedValue(
-		record: Readonly<Record<string, unknown>>,
-		fieldPath: readonly string[],
-	) {
-		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -417,7 +424,10 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 }
 
 /** Binds one private Drizzle client and transaction pool to compiled schemas. */
-class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
+class DrizzlePostgresDatabaseAdapter
+	extends PostgresRecordReader
+	implements DatabaseAdapter
+{
 	readonly kind = 'database-adapter' as const
 	readonly capabilities = postgresDatabaseCapabilities
 	readonly #context: PostgresExecutionContext
@@ -428,6 +438,7 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		schemas: PostgresSchemaCatalog,
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
+		super()
 		const client = createPostgresDrizzleClient(
 			pool,
 			schemas.drizzleRelationDefinitions(),
@@ -447,18 +458,6 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 					executePostgresPrivateStorage(client, schemas, request),
 			}),
 		)
-	}
-
-	/** Exposes only identity retained for the exact projected adapter record. */
-	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
-		return readPostgresRelationalObjectIdentity(record)
-	}
-
-	readIncludedValue(
-		record: Readonly<Record<string, unknown>>,
-		fieldPath: readonly string[],
-	) {
-		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
