@@ -72,6 +72,12 @@ coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
 `packages/core tests/e2e` 219/219 ; postgres-e2e 191/191 ; `yarn test:pack:built`
 173/173. La passe d'intégration transversale de Core reste à faire.
 
+**À requalifier sur machine calme** : après la fusion d'access-plugin (main `fcc7d82`,
+charge ≈ 60), `create-app-packed.e2e.test.ts` › « writes a valid graph for each official
+plugin selected alone » dépasse 120 s, y compris relancé seul. Même symptôme que sur
+la référence sous charge ; non qualifié tant qu'il n'a pas été rejoué au calme, sur la
+référence et sur la reconstruction.
+
 ### Branches WIP interrompues (historique : toutes reprises et fusionnées)
 
 La limite d'usage a interrompu ces cinq agents en pleine réécriture. Leur travail non
