@@ -217,7 +217,7 @@ const hasGeneratedValue = (options: object): boolean =>
 
 /** Detects a declared list option without validating its value. */
 export const hasListOption = (options: object): boolean =>
-	'list' in options && options.list !== false && options.list !== undefined
+	'list' in options && options.list !== undefined && options.list !== false
 
 /** Derives whether a selected persisted field may contain logical null. */
 export const isFieldNullable = (field: GenericField): boolean =>
