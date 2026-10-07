@@ -8,7 +8,11 @@ import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runtimeBehaviorCapability } from '../capabilities.js'
 import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
-import type { RuntimeBehaviorStages } from '../pipeline/contracts.js'
+import type { RuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
+import type {
+	RuntimeBehaviorStages,
+	RuntimePreparedMutationTransformStage,
+} from '../pipeline/contracts.js'
 
 type OwnerScope = <TResult>(callback: () => TResult) => TResult
 
@@ -20,6 +24,41 @@ interface BehaviorProvider<TStage> {
 
 // Interceptors attribute every handler through the callback executor themselves.
 const unattributed: OwnerScope = (callback) => callback()
+
+const nestedWriteOf = (
+	input: Readonly<{ nestedWrite?: RuntimeNestedWriteStageContext }>,
+): Readonly<{ nestedWrite?: RuntimeNestedWriteStageContext }> =>
+	input.nestedWrite === undefined ? {} : { nestedWrite: input.nestedWrite }
+
+const selectedFieldsOverrideOf = (
+	input: Readonly<{ selectedFieldsOverride?: readonly string[] }>,
+): Readonly<{ selectedFieldsOverride?: readonly string[] }> =>
+	input.selectedFieldsOverride === undefined
+		? {}
+		: { selectedFieldsOverride: input.selectedFieldsOverride }
+
+/** Preserves the current operation and target context across ordered transforms. */
+const composePrepared =
+	(
+		providers: readonly BehaviorProvider<RuntimePreparedMutationTransformStage>[],
+	): RuntimePreparedMutationTransformStage =>
+	async (input) => {
+		let operation = input.operation
+		for (const { run, stage } of providers) {
+			operation = await run(() =>
+				stage(
+					immutableRecord({
+						context: input.context,
+						...nestedWriteOf(input),
+						operation,
+						target: input.target,
+						...(input.targets === undefined ? {} : { targets: input.targets }),
+					}),
+				),
+			)
+		}
+		return operation
+	}
 
 /** Composes only installed behavior providers in deterministic graph order. */
 export const composeRuntimeBehaviors = (
@@ -72,8 +111,8 @@ export const composeRuntimeBehaviors = (
 	const postCommitObservers = collect('postCommit')
 	const preparationPredicates = collect('requiresPreparedMutationItems')
 
-	// Each transform receives a fresh immutable envelope carrying the latest value,
-	// and an absent capability contributes no neutral stage the pipeline invokes.
+	// Each transform receives a fresh immutable envelope with exactly the reference
+	// keys and the latest value; an absent capability contributes no neutral stage.
 	const composed: {
 		-readonly [
 			TKey in keyof RuntimeBehaviorStages
@@ -84,33 +123,25 @@ export const composeRuntimeBehaviors = (
 			let operation = input.operation
 			for (const { run, stage } of inputTransforms) {
 				operation = await run(() =>
-					stage(immutableRecord({ ...input, operation })),
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation,
+						}),
+					),
 				)
 			}
 			return operation
 		}
 	}
 	if (preparedInputTransforms.length > 0) {
-		composed.transformPreparedInput = async (input) => {
-			let operation = input.operation
-			for (const { run, stage } of preparedInputTransforms) {
-				operation = await run(() =>
-					stage(immutableRecord({ ...input, operation })),
-				)
-			}
-			return operation
-		}
+		composed.transformPreparedInput = composePrepared(preparedInputTransforms)
 	}
 	if (preparedOperationTransforms.length > 0) {
-		composed.transformPreparedOperation = async (input) => {
-			let operation = input.operation
-			for (const { run, stage } of preparedOperationTransforms) {
-				operation = await run(() =>
-					stage(immutableRecord({ ...input, operation })),
-				)
-			}
-			return operation
-		}
+		composed.transformPreparedOperation = composePrepared(
+			preparedOperationTransforms,
+		)
 	}
 	if (beforeObservers.length > 0) {
 		composed.beforeOperation = async (input) => {
@@ -134,7 +165,17 @@ export const composeRuntimeBehaviors = (
 		composed.transformMutationOutcome = async (input) => {
 			let outcome = input.outcome
 			for (const { run, stage } of outcomeTransforms) {
-				outcome = await run(() => stage(immutableRecord({ ...input, outcome })))
+				outcome = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							outcome,
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
+				)
 			}
 			return outcome
 		}
@@ -143,7 +184,17 @@ export const composeRuntimeBehaviors = (
 		composed.transformDatabaseResult = async (input) => {
 			let result = input.result
 			for (const { run, stage } of databaseResultTransforms) {
-				result = await run(() => stage(immutableRecord({ ...input, result })))
+				result = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							result,
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
+				)
 			}
 			return result
 		}
@@ -152,7 +203,20 @@ export const composeRuntimeBehaviors = (
 		composed.transformResult = async (input) => {
 			let result = input.result
 			for (const { run, stage } of resultTransforms) {
-				result = await run(() => stage(immutableRecord({ ...input, result })))
+				result = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							result,
+							...(input.outcome === undefined
+								? {}
+								: { outcome: input.outcome }),
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
+				)
 			}
 			return result
 		}

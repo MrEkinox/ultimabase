@@ -346,14 +346,16 @@ export const snapshotMaterialization = (
 		adapterBoundaryErrorDescription,
 	)
 
-	// Update branches validate the current record before the previous one.
+	const snapshot = (key: 'current' | 'previous') =>
+		recordKeys.includes(key)
+			? { [key]: snapshotRecord(value[key], [...path, key]) }
+			: {}
+
+	// Current is validated before previous; keys keep the reference order.
 	return immutableRecord({
+		...snapshot('current'),
 		kind,
-		...Object.fromEntries(
-			recordKeys
-				.toReversed()
-				.map((key) => [key, snapshotRecord(value[key], [...path, key])]),
-		),
+		...snapshot('previous'),
 	})
 }
 

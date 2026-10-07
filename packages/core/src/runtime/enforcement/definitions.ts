@@ -5,7 +5,7 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
-import { assertExactPlainObject } from '../../exact-object-validation.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import {
 	assertDatabaseConstraintKind,
@@ -268,10 +268,15 @@ const defineEnforcement = <
 	options: EnforcementOptions<TSchema, TOperations, THandler>,
 ): EnforcementDefinition<TKind, TSchema, TOperations[number], THandler> => {
 	const untrustedOptions: unknown = options
-	assertExactPlainObject(
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError(
+			'enforcement contribution options must be a plain object',
+		)
+	}
+	// Only enumerable string keys are option names; symbol keys are ignored.
+	assertExactEnumerableKeys(
 		untrustedOptions,
 		optionKeys,
-		'enforcement contribution options must be a plain object',
 		'enforcement contribution contains unknown key: ',
 	)
 	if (typeof untrustedOptions.handler !== 'function') {
