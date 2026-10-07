@@ -1,7 +1,12 @@
 import { FrameworkError, PluginError } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { RestNormalizationError } from './errors.js'
+import {
+	RestMutationNormalizationError,
+	RestOperationNormalizationError,
+	RestReadNormalizationError,
+	type RestNormalizationError,
+} from './errors.js'
 import { encodeRestJsonValue } from './response-values.js'
 import type {
 	RestPluginOperationRouteDefinition,
@@ -120,8 +125,10 @@ const publicFailure = (
 // `instanceof` widens generic error classes to `any`; these guards keep defaults.
 const isNormalizationError = (
 	error: unknown,
-): error is RestNormalizationError<string> =>
-	error instanceof RestNormalizationError
+): error is RestNormalizationError =>
+	error instanceof RestReadNormalizationError ||
+	error instanceof RestMutationNormalizationError ||
+	error instanceof RestOperationNormalizationError
 const isFrameworkError = (error: unknown): error is FrameworkError =>
 	error instanceof FrameworkError
 const isPluginError = (error: unknown): error is PluginError =>

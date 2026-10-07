@@ -10,21 +10,42 @@ contribution ids and permissions) is unchanged.
 |           | rest-plugin production lines |
 | --------- | ---------------------------- |
 | Before    | 4320                         |
-| After     | 3696                         |
-| Reduction | 624 lines (14.4%)            |
+| After     | 3728                         |
+| Reduction | 592 lines (13.7%)            |
 
 The 25% target was not reached. The remaining code is dominated by public
 interfaces with JSDoc, explicit literal annotations required for hover DX and
 `isolatedDeclarations`, and security validations that must keep their exact
 ordering and messages; compressing those further would change DX or behavior.
 
+## DX parity fixes
+
+`tooling/rebuild/dx-audit.mjs` (see `docs/rebuild/DX-AUDIT.md`) found that the
+private generic base class `RestNormalizationError<TCode>` changed the member
+hovers of the three exported error classes: `.code` showed
+`(property) RestNormalizationError<TCode extends string>.code: TCode extends string`
+instead of `(property) RestMutationNormalizationError.code: RestMutationErrorCode`
+(same for `.issue` and for the read and operation classes), and the
+declarations showed `extends RestNormalizationError<...>` instead of
+`extends Error`. Each class again extends `Error` and declares its own
+`code`/`issue` exactly as in the reference; the shared message derivation stays
+in one private `safeMessage(code, boundary)` function, so names, messages,
+codes and frozen `issue` records are unchanged. `responses.ts` recognizes the
+three classes with three `instanceof` checks (the reference did the same).
++32 production lines (3696 -> 3728).
+
+After the fix the audit reports no `rest-plugin` difference except the
+`OperationResult` usage hover in `src/plugin.test-d.ts` (2 sites), whose text
+comes from `@ultimabase/core` (Core's rebuilt `OperationResult` conditional);
+it is fixed with Core, not here.
+
 ## Design summary
 
 Module map (26 production files to 20):
 
 - `errors.ts` now owns all three normalization error families. One internal
-  abstract `RestNormalizationError<TCode>` carries the shared `code`/`issue`
-  shape and derives the safe message from the code suffix. Each boundary has a
+  private `safeMessage` helper derives the safe message from the code suffix;
+  each class keeps its own `code`/`issue` declarations (see DX parity fixes). Each boundary has a
   single `RestFailure` factory (`invalidRestRead`, `invalidRestMutation`,
   `invalidRestOperation`) taking an optional reason. This replaces
   `mutation-errors.ts`, `operation-errors.ts`, three message tables and the three
