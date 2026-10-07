@@ -10,7 +10,45 @@ module paths and internal symbols may now change, provided every Core consumer
 is updated. Core's public contract (`src/index.ts` exports, signatures,
 generics, JSDoc, `package.json` exports) is unchanged.
 
-Status: work in progress (see the commits on `rebuild/core-integration`).
+## Production lines
+
+Physical non-blank lines, `tooling/measure-rebuild.mjs` rules (`*.test.ts` and
+`*.test-d.ts` excluded):
+
+| Measure                              | Before (`541e9e5`) |  After | Delta        |
+| ------------------------------------ | -----------------: | -----: | ------------ |
+| `packages/core` production           |              58973 |  58689 | −284 (−0.5%) |
+| `packages/core/src` production files |                326 |    323 | −3           |
+| Repository production                |             104242 | 103958 | −284         |
+| Repository tests                     |             127476 | 127477 | +1           |
+
+The test line is the split import in `src/schema/schema/model.test.ts` (one
+module became two specifiers).
+
+## Design summary
+
+The partitions were rewritten independently, so the same boundary checks had
+been written several times across them. This pass keeps one implementation of
+each, removes the re-exports and forwarders that only kept the frozen partition
+paths alive, and splits the largest module that a natural seam allowed.
+
+- `src/exact-object-validation.ts`, the one module that belonged to no
+  partition, is now Core's shared exact-object boundary: `assertExactObjectKeys`
+  (own keys, symbols rejected), `assertExactEnumerableKeys` (enumerable string
+  keys), the two plain-object combinations (`assertExactPlainObject`,
+  `assertExactEnumerablePlainObject`), `assertExactCommandKeys` (required and
+  optional command keys) and `haveSameEnumerableKeys`. It stays at the `src`
+  root because every domain imports it.
+- Shared vocabularies live with their owning domain: regexes and key sets in
+  schema (`namespacedNamePattern`, `coreSchemaKeys`, constraint kinds), plugin
+  identities and error codes in plugins/errors, behavior stage names in the
+  pipeline contracts.
+- The public contract is unchanged. The emitted `packages/core/dist/index.d.ts`
+  was compared with a build of `main` (`541e9e5`'s Core sources; later `main`
+  commits do not touch `packages/core`): the 1118 exported names are identical,
+  and the declaration lines, sorted with `#region` comments removed, are
+  identical too (no hover, JSDoc or signature change).
+- No new runtime dependency, no `package.json` change.
 
 ## Unified helpers
 
@@ -38,6 +76,7 @@ Status: work in progress (see the commits on `rebuild/core-integration`).
 | `immutableRecord`                                                                                 | `Object.freeze({ ...marker })` in `schema/nested-writes/operation-markers.ts`.                                                                                                                                                                                                                                                                                                                                                                                                      | Same shallow frozen copy.                                                                                                                                                                                                                                      |
 | `assertNonEmptyString`                                                                            | Hand-written copies in `access/subject/contracts.ts` (`Request subject kind`) and `query/filters/factory.ts` (`query JSONPath source`).                                                                                                                                                                                                                                                                                                                                             | Same predicate and `${path} must be a non-empty string` message.                                                                                                                                                                                               |
 | `runtimeBehaviorStageNames` (`runtime/pipeline/contracts.ts`)                                     | The two copies of the eleven behavior stage names in `runtime/capabilities.ts` (`runtimeBehaviorKeys`) and `runtime/pipeline/runtime-pipeline.ts` (`assertRuntimePipelineStages`).                                                                                                                                                                                                                                                                                                  | Same names in the same order; each validator keeps its own loop, messages and precedence.                                                                                                                                                                      |
+| `hasListOption` (`schema/fields/base/options.ts`)                                                 | Three copies of `'list' in options && options.list !== false && options.list !== undefined`: `hasListShape` (`query/filters/factory.ts`), `isListField` (`query/updates/normalize.ts`) and the inline check of `schema/fields/constraints/temporal.ts`.                                                                                                                                                                                                                             | The helper keeps the temporal check's order (`!== undefined` first), which runs on raw developer options; the query copies run on frozen field options, where the order of the two reads cannot matter.                                                        |
 
 ## Removed shims and indirection
 
@@ -55,10 +94,9 @@ Status: work in progress (see the commits on `rebuild/core-integration`).
 
 ## Module splits
 
-| Module                                            | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `query/filters/factory.ts`                        | Was 587 physical lines. The operand snapshot helpers (`snapshotNonNullValue`, `snapshotList`, `snapshotFieldValue`, `snapshotPartialField`, `snapshotPartialObject`, `snapshotStructuralValue`) moved unchanged to the new `query/filters/operand-snapshots.ts`; the factories keep operator support and AST construction (457 lines).                                                                                                                                   |
-| `hasListOption` (`schema/fields/base/options.ts`) | Replaces three copies of `'list' in options && options.list !== false && options.list !== undefined`: `hasListShape` (`query/filters/factory.ts`), `isListField` (`query/updates/normalize.ts`) and the inline check of `schema/fields/constraints/temporal.ts`. The helper keeps the temporal check's order (`!== undefined` first), which runs on raw developer options; the query copies run on frozen field options, where the order of the two reads cannot matter. |
+| Module                     | Change                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `query/filters/factory.ts` | Was 587 physical lines. The operand snapshot helpers (`snapshotNonNullValue`, `snapshotList`, `snapshotFieldValue`, `snapshotPartialField`, `snapshotPartialObject`, `snapshotStructuralValue`) moved unchanged to the new `query/filters/operand-snapshots.ts`; the factories keep operator support and AST construction (457 lines). |
 
 ## Test files edited (import specifiers only)
 
