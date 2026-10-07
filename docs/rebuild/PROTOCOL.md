@@ -79,6 +79,12 @@ English comments that explain intent and invariants, immutable domain objects.
 9. `node tooling/measure-rebuild.mjs .` before and after; report the
    production lines of the scope.
 
+## Checkpoints
+
+Commit a checkpoint (`wip(<scope>): ...`) and update the scope's `REBUILD*.md`
+after each coherent step, so that an interruption never loses undocumented work.
+Worktrees are created with `tooling/rebuild-worktree.sh <name>`.
+
 ## Deliverable
 
 - Commits on your branch: `refactor(<pkg>): rebuild ...`, ending with
