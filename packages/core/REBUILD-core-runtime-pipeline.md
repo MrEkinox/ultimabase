@@ -137,6 +137,34 @@ None.
 None. The three differences introduced by the interrupted WIP were removed (see
 above). `docs/rebuild/DIFFERENCES.md` needs no new row.
 
-## Validation (worktree, after the final rebase)
+## Validation (worktree, on `main` `a988010` + this branch)
 
-See the final section below for exact commands and results.
+These commands were run in this order on the final tree. Docker was available.
+
+| Command                                                                                   | Result                                                                        |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `yarn build`                                                                              | pass                                                                          |
+| `yarn vitest run --project unit --project types packages/core`                            | 274 files, 1414 tests passed, no type errors                                  |
+| `yarn vitest run --project unit --project types` (whole repository)                       | 558 files, 2709 tests passed, no type errors                                  |
+| `yarn vitest run --project e2e packages/core tests/e2e`                                   | 47 files, 219 tests passed                                                    |
+| `yarn vitest run --project postgres-e2e packages/core tests/e2e packages/postgres-plugin` | 55 files, 191 tests passed                                                    |
+| `yarn eslint packages/core`                                                               | 0 errors, 53 warnings: `max-lines` only, the same count as before the rebuild |
+| `yarn prettier --check packages/core`                                                     | pass                                                                          |
+| `yarn tsc --build packages/core`                                                          | pass                                                                          |
+| `yarn tsc -p packages/core/tsconfig.test.json`                                            | pass                                                                          |
+| `yarn build` (again, after `tsc --build`)                                                 | pass                                                                          |
+| `node tooling/measure-rebuild.mjs .`                                                      | production 110 515 (core 61 282), tests 127 476                               |
+
+On the pre-rebase run of the same tree, the full e2e run had one load-related
+timeout (see "Pre-existing and load-related failures"): 1 failed and 218 passed.
+Rerun alone, that file passed 22/22. On the final run, every e2e test passed.
+
+In-scope files above the 400-line `max-lines` warning threshold:
+`behaviors/validation-boundaries.ts`, `enforcement/definitions.ts`,
+`operations/field-values.ts`, `pipeline/contracts.ts`,
+`pipeline/database-execution.ts`, `pipeline/inclusion-projection.ts`,
+`pipeline/runtime-pipeline.ts`, `relations/relation-mutation.ts`,
+`validation/runtime-mutation-validation.ts` and `validation/runtime-validation.ts`.
+`contributions/composition.ts` dropped below the threshold. The merged
+`runtime-mutation-validation.ts` (530 physical lines) is new on the list. All
+production files are under the 600-line budget.
