@@ -6,14 +6,16 @@ export interface GraphqlHttpEndpoint {
 	readonly path: string
 }
 
-const assertNormalizedPath: (
+/** Validates and snapshots untrusted provider input before consumer exposure. */
+export const normalizeGraphqlHttpEndpoint = (
 	value: unknown,
-) => asserts value is GraphqlHttpEndpoint = (value) => {
+): GraphqlHttpEndpoint => {
 	if (!isPlainRecord(value) || Reflect.ownKeys(value).length !== 1) {
 		throw new TypeError(
 			'GraphQL HTTP endpoint capability must contain only path',
 		)
 	}
+	// Read once so the snapshot is exactly the value that was validated.
 	const path = value.path
 	if (
 		typeof path !== 'string' ||
@@ -45,12 +47,5 @@ const assertNormalizedPath: (
 			throw new TypeError('GraphQL HTTP endpoint path must be normalized')
 		}
 	}
-}
-
-/** Validates and snapshots untrusted provider input before consumer exposure. */
-export const normalizeGraphqlHttpEndpoint = (
-	value: unknown,
-): GraphqlHttpEndpoint => {
-	assertNormalizedPath(value)
-	return immutableRecord({ path: value.path })
+	return immutableRecord({ path })
 }

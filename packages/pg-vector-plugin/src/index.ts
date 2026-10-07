@@ -216,12 +216,11 @@ export type PgVectorPlugin = PluginInstance<{
 
 /** Declares the vector builder method without a separate setup output. */
 export const pgVectorPlugin = (): PgVectorPlugin => {
-	const instance = plugin({
+	return plugin({
 		id: '@ultimabase/pg-vector-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
 		permissions: pgVectorPluginPermissions,
 		contributions: [vectorDeclarations],
 	})
-	return instance
 }

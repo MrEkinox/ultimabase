@@ -1,7 +1,6 @@
 import {
 	plugin,
 	requireCapability,
-	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
@@ -16,12 +15,10 @@ import {
 } from './options.js'
 import { createApolloSandboxPageResponse } from './page.js'
 
-const endpointRequirement: CapabilityRequirement<
-	typeof graphqlHttpEndpointCapability,
-	false,
+const endpointRequirement = requireCapability(
+	graphqlHttpEndpointCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(graphqlHttpEndpointCapability, '^1.0.0')
+)
 
 const permissions = {
 	'transport:expose':
@@ -52,11 +49,10 @@ export const apolloSandboxPlugin = (
 ): ApolloSandboxPlugin => {
 	const normalized = normalizeApolloSandboxPluginOptions(options)
 	if (!normalized.enabled) {
-		const disabled = plugin({
+		return plugin({
 			...apolloSandboxPluginMetadata,
 			contributions: [],
 		})
-		return disabled
 	}
 
 	const routes = provideHttpEndpoints({
@@ -73,12 +69,11 @@ export const apolloSandboxPlugin = (
 			})
 		},
 	})
-	const enabled = plugin({
+	return plugin({
 		...apolloSandboxPluginMetadata,
 		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: httpPeers,
 		permissions,
 	})
-	return enabled
 }

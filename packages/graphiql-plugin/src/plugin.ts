@@ -1,7 +1,6 @@
 import {
 	plugin,
 	requireCapability,
-	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
 import { graphqlHttpEndpointCapability } from '@ultimabase/graphql-http'
@@ -16,12 +15,10 @@ import {
 } from './options.js'
 import { createGraphiqlPageResponse } from './page.js'
 
-const endpointRequirement: CapabilityRequirement<
-	typeof graphqlHttpEndpointCapability,
-	false,
+const endpointRequirement = requireCapability(
+	graphqlHttpEndpointCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(graphqlHttpEndpointCapability, '^1.0.0')
+)
 
 const permissions = {
 	'transport:expose':
@@ -52,11 +49,10 @@ export const graphiqlPlugin = (
 ): GraphiqlPlugin => {
 	const normalized = normalizeGraphiqlPluginOptions(options)
 	if (!normalized.enabled) {
-		const disabled = plugin({
+		return plugin({
 			...graphiqlPluginMetadata,
 			contributions: [],
 		})
-		return disabled
 	}
 
 	const routes = provideHttpEndpoints({
@@ -70,12 +66,11 @@ export const graphiqlPlugin = (
 			})
 		},
 	})
-	const enabled = plugin({
+	return plugin({
 		...graphiqlPluginMetadata,
 		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: httpPeers,
 		permissions,
 	})
-	return enabled
 }
