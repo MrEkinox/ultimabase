@@ -200,8 +200,59 @@ export type NamedPointerFieldBuilderMethod<
 	>,
 ) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 
+interface PointerFieldMetadataInput extends FieldOptionsBase<false, Pointer> {
+	readonly onDelete?: PointerReferentialAction
+}
+
 const pointerReferentialActions: ReadonlySet<PointerReferentialAction> =
 	new Set(['restrict', 'cascade', 'setNull'])
+
+const normalizePointerMetadata = (
+	options: PointerFieldMetadataInput,
+): Readonly<PointerFieldMetadataOptions> => {
+	const declaredList: unknown = Reflect.get(options, 'list')
+
+	if (declaredList !== undefined && declaredList !== false) {
+		throw new TypeError('pointerField does not support list values')
+	}
+
+	const onDelete = options.onDelete ?? 'restrict'
+
+	if (!pointerReferentialActions.has(onDelete)) {
+		throw new TypeError('onDelete must be "restrict", "cascade", or "setNull"')
+	}
+
+	if (onDelete === 'setNull' && options.required === true) {
+		throw new TypeError('onDelete "setNull" requires an optional pointer')
+	}
+
+	const normalized = normalizeFieldOptions(
+		options,
+		snapshotPointerValue,
+		pointerFieldOptionsContract,
+	)
+
+	return immutableRecord({ ...normalized, onDelete })
+}
+
+/** Enforces the exact target schema whenever a pointer crosses a field boundary. */
+const createPointerSnapshot =
+	<const TTarget extends SchemaDefinition>(target: SchemaTarget<TTarget>) =>
+	(value: unknown, path: string): Pointer<TTarget> => {
+		const pointer = snapshotPointerValue(value, path)
+		const expectedTarget = target()
+
+		if (!Schema.is(expectedTarget)) {
+			throw new TypeError(`${path} target must be created by App.Schema.define`)
+		}
+
+		if (pointer.schema !== expectedTarget) {
+			throw new TypeError(`${path} must point to ${expectedTarget.className}`)
+		}
+
+		// Exact target identity is proven above at the only untyped field boundary.
+		return pointer as Pointer<TTarget>
+	}
 
 /**
  * Declares one immutable reference to an object from an exact target schema.
@@ -243,48 +294,11 @@ export function pointerField<const TTarget extends SchemaDefinition>(
 		throw new TypeError('pointerField does not support default values')
 	}
 	const { target, ...declarationOptions } = options
-	const declaredList: unknown = Reflect.get(declarationOptions, 'list')
-
-	if (declaredList !== undefined && declaredList !== false) {
-		throw new TypeError('pointerField does not support list values')
-	}
-
-	const onDelete = declarationOptions.onDelete ?? 'restrict'
-
-	if (!pointerReferentialActions.has(onDelete)) {
-		throw new TypeError('onDelete must be "restrict", "cascade", or "setNull"')
-	}
-
-	if (onDelete === 'setNull' && declarationOptions.required === true) {
-		throw new TypeError('onDelete "setNull" requires an optional pointer')
-	}
-
-	const normalized = normalizeFieldOptions(
-		declarationOptions,
-		snapshotPointerValue,
-		pointerFieldOptionsContract,
-	)
-
-	// Enforces the exact target schema whenever a pointer crosses a field boundary.
-	const snapshotValue = (value: unknown, path: string): Pointer<TTarget> => {
-		const pointer = snapshotPointerValue(value, path)
-		const expectedTarget = target()
-
-		if (!Schema.is(expectedTarget)) {
-			throw new TypeError(`${path} target must be created by App.Schema.define`)
-		}
-
-		if (pointer.schema !== expectedTarget) {
-			throw new TypeError(`${path} must point to ${expectedTarget.className}`)
-		}
-
-		// Exact target identity is proven above at the only untyped field boundary.
-		return pointer as Pointer<TTarget>
-	}
+	const snapshotValue = createPointerSnapshot(target)
 
 	return createFieldDefinition(
 		'pointer',
-		immutableRecord({ ...normalized, onDelete }),
+		normalizePointerMetadata(declarationOptions as PointerFieldMetadataInput),
 		snapshotValue,
 		{ schemaTarget: target },
 	)
