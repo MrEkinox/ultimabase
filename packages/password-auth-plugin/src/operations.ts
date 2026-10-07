@@ -381,11 +381,6 @@ export const toPasswordAuthenticationPayload = (
 		user: value.user,
 	})
 
-/** Reads the short public route name, such as `sign-up`, from an operation token. */
-export const passwordAuthOperationRoute = (
-	operation: PasswordAuthOperation,
-): string => operation.name.slice('ultimabase.password-auth.'.length)
-
 /**
  * Snapshots wire input through the operation's own contract. With `reject`,
  * malformed input fails with the declared safe error instead of HTTP 500.
@@ -421,7 +416,8 @@ const restBinding = <TOperation extends PasswordAuthOperation>(
 		}),
 		metadata: immutableRecord({
 			errors: immutableRecord(errors),
-			path: `/auth/${passwordAuthOperationRoute(operation)}`,
+			// `ultimabase.password-auth.sign-up` is served at `/auth/sign-up`.
+			path: `/auth/${operation.name.slice('ultimabase.password-auth.'.length)}`,
 			...(inputSchema === undefined ? {} : { inputSchema }),
 		}),
 		operation,

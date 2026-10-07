@@ -38,7 +38,6 @@ import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
 	passwordPrincipal,
 	passwordSession,
-	readPasswordAuthenticationResult,
 	readPasswordSessionGeneration,
 	type PasswordSession,
 } from './session.js'
@@ -50,6 +49,7 @@ import {
 	type PasswordSessionCollection,
 } from './sessions.js'
 import { restorePasswordSignUpValue } from './sign-up-input.js'
+import { readPasswordAuthenticationResult } from './authentication-result.js'
 import type { PasswordUserReference } from './user-schema.js'
 
 interface PasswordOperationHandlerOptions {

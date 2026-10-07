@@ -11,11 +11,7 @@ export type {
 	ResolvedPasswordHashPolicy,
 } from './password-policy.js'
 export { passwordAuthPlugin } from './plugin.js'
-export type {
-	PasswordAuthPlugin,
-	PasswordAuthPluginExports,
-	PasswordAuthPluginOptions,
-} from './plugin.js'
+export type { PasswordAuthPlugin, PasswordAuthPluginOptions } from './plugin.js'
 export type { PasswordPrincipal } from './principal.js'
 export {
 	passwordAuthErrorCodes,
@@ -40,6 +36,7 @@ export type {
 	PasswordSessionPolicyOptions,
 	ResolvedPasswordSessionPolicy,
 } from './session-policy.js'
+export type { PasswordAuthPluginExports } from './application-api.js'
 export type { PasswordUserAuthMethods } from './user-auth-methods.js'
 export type {
 	PasswordAuthCookieOptions,

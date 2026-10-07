@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import {
 	applicationRequestExecutionCapability,
 	contributeApplication,
@@ -10,15 +8,11 @@ import {
 	provideCapability,
 	provideRuntimeBehavior,
 	requestPrincipalResolverCapability,
-	requestSources,
 	requireCapability,
 	withPluginPrivileges,
-	type ApplicationCallbackExecutor,
-	type ApplicationRequestExecutor,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DatabaseMutationOperationAst,
-	type PluginIdentity,
 	type PluginInstance,
 	type PluginOperationDefinition,
 	type RuntimeFinalMutationGuardStage,
@@ -27,12 +21,12 @@ import {
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
-import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
+import { createPasswordCredentialCollection } from './credentials.js'
 import {
-	createPasswordCredentialCollection,
-	type PasswordCredentialCollection,
-} from './credentials.js'
+	createPasswordAuthPluginExports,
+	type PasswordAuthPluginExports,
+} from './application-api.js'
 import { passwordAuthGraphqlBindings } from './graphql-operation-bindings.js'
 import { createPasswordHttpCookieIntegration } from './http-cookie-routes.js'
 import {
@@ -42,27 +36,19 @@ import {
 import { providePasswordHttpSessionResolver } from './http-session-resolver.js'
 import { normalizePasswordUsername } from './normalization.js'
 import { createPasswordOperationHandlers } from './operation-handlers.js'
-import {
-	passwordAuthRestBindings,
-	rejectPasswordSession,
-} from './operations.js'
+import { passwordAuthRestBindings } from './operations.js'
 import { assertPasswordHashEngineAvailable } from './password-hasher.js'
 import {
 	resolvePasswordHashPolicy,
 	type PasswordHashPolicyOptions,
 } from './password-policy.js'
 import { defaultUndefinedOptions } from './policy-options.js'
-import { createPasswordPrincipal } from './principal.js'
 import {
 	resolvePasswordSessionPolicy,
 	type PasswordSessionPolicyOptions,
 } from './session-policy.js'
-import { passwordPrincipal, passwordSession } from './session.js'
-import {
-	createPasswordSessionCollection,
-	validatePasswordSessionToken,
-	type PasswordSessionCollection,
-} from './sessions.js'
+import { passwordPrincipal } from './session.js'
+import { createPasswordSessionCollection } from './sessions.js'
 import {
 	PasswordUser,
 	isPasswordUserDefinition,
@@ -94,15 +80,6 @@ const requestExecutionRequirement = requireCapability(
 	applicationRequestExecutionCapability,
 	'^1.0.0',
 )
-
-/** Exposes application-bound authenticated execution without raw Runtime access. */
-export interface PasswordAuthPluginExports {
-	/** Validates one token, then runs the callback with ambient authenticated identity. */
-	runWithSession<TResult>(
-		token: string,
-		handler: () => MaybePromise<TResult>,
-	): Promise<TResult>
-}
 
 type PasswordAuthInstalledOperation = ReturnType<
 	typeof createPasswordOperationHandlers
@@ -198,51 +175,6 @@ const createUsernameInvariant =
 		}
 	}
 
-/** Creates the setup export while retaining exact plugin callback attribution. */
-const createPluginExports = (options: {
-	readonly callbacks: ApplicationCallbackExecutor
-	readonly credentials: PasswordCredentialCollection
-	readonly executor: ApplicationRequestExecutor
-	readonly owner: PluginIdentity
-	readonly sessions: PasswordSessionCollection
-	readonly user: PasswordUserReference
-}): PasswordAuthPluginExports => {
-	const { callbacks, executor, owner } = options
-	return immutableRecord({
-		runWithSession: async <TResult>(
-			token: string,
-			handler: () => MaybePromise<TResult>,
-		): Promise<TResult> => {
-			if (typeof handler !== 'function') {
-				throw new TypeError('runWithSession handler must be a function')
-			}
-			const anonymous = callbacks.runPlugin(owner, () =>
-				executor.createAnonymousContext({
-					requestId: randomUUID(),
-					source: requestSources.internal,
-				}),
-			)
-			return callbacks.runPlugin(owner, () =>
-				executor.runWithContext(anonymous, async () => {
-					const validated = await validatePasswordSessionToken(
-						options.sessions,
-						options.credentials,
-						token,
-					)
-					if (validated === undefined) return rejectPasswordSession()
-					const context = anonymous
-						.withValue(
-							passwordPrincipal,
-							createPasswordPrincipal(options.user.pointer(validated.userId)),
-						)
-						.withValue(passwordSession, validated.context)
-					return executor.runWithContext(context, () => handler())
-				}),
-			)
-		},
-	})
-}
-
 /** Installs one application-local User schema and its private credential store. */
 export const passwordAuthPlugin = <
 	const TUser extends PasswordUserReference = typeof PasswordUser,
@@ -278,7 +210,7 @@ export const passwordAuthPlugin = <
 	const usernameInvariant = provideRuntimeBehavior({
 		contributionId: 'canonical-usernames',
 		create: ({ callbacks, capabilities, owner }) => {
-			pluginExports = createPluginExports({
+			pluginExports = createPasswordAuthPluginExports({
 				callbacks,
 				credentials,
 				executor: capabilities.get(requestExecutionRequirement),

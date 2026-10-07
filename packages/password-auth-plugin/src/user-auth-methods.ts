@@ -7,7 +7,8 @@ import {
 	type SchemaResult,
 } from '@ultimabase/core'
 
-import type { PasswordAuthPluginExports } from './plugin.js'
+import type { PasswordAuthPluginExports } from './application-api.js'
+import { readPasswordProfile } from './authentication-result.js'
 import {
 	passwordAuthOperations,
 	rejectPasswordSession,
@@ -16,7 +17,6 @@ import {
 } from './operations.js'
 import {
 	passwordPrincipal,
-	readPasswordProfile,
 	type PasswordAuthenticationResult,
 	type PasswordChangeResult,
 	type PasswordLogoutResult,
