@@ -1,0 +1,35 @@
+src/application/active-application.ts: assertApplicationExecution, isRunningApplicationWork, readActiveApplicationOwner, runApplicationWork
+src/application/application-handles.ts: ApplicationContributionOwner, ApplicationOperationHandle, ApplicationOperationHandleForName, ApplicationSchemaHandle, ApplicationSchemaHandleBase, ApplicationSchemaHandleForName, PluginOperationEnvelope, registerApplicationOperationExecutor
+src/application/application-kernel-state.ts: readApplicationKernelState, readApplicationRuntimeKernelState
+src/application/application-model-views.ts: bindDirectApplicationValue
+src/application/application-schema-mutations.ts: ApplicationSchemaMutationMethod, PluginSchemaMutationEnvelope
+src/application/framework-application.ts: FrameworkApplication, FrameworkApplicationOptions, createApplication
+src/application/operation-envelope.ts: prepareOperationEnvelope
+src/application/plugin-privilege-policy.ts: PluginPrivilegeReport
+src/application/schema-mutation-envelope.ts: prepareSchemaMutationEnvelope
+src/errors/framework-error.ts: FrameworkError
+src/errors/plugin-error.ts: PluginError
+src/foundation.ts: ApplicationCallbackExecutor, ConfiguredPluginExports, ConfiguredPluginId, ConfiguredPluginIdentity, ConfiguredPluginIdentityExports, FrameworkError, PluginDefinition, PluginExports, PluginIdentity, addSchemaField, contributeApplication, contributeDeclarations, contributeOperationBinding, contributeSchemaMutation, contributeSchemaMutationBinding, defineCapability, defineOperation, defineOperationValue, defineSchemaMutation, plugin, provideCapability, requireCapability, withPluginPrivileges
+src/plugins/application-surface-registry.ts: CompiledApplicationSchemaSurface, CompiledSchemaMutationCommand
+src/plugins/callback-execution.ts: readApplicationPluginOwner, runWithApplicationOwner, runWithApplicationPluginOwner
+src/plugins/capabilities.ts: ApplicationCapabilityFactory, ApplicationCapabilityFactoryContext, CapabilityConsumerValue, CapabilityProviderDeclaration, CapabilityProviderValue, CapabilityRequirement, CapabilityToken, PluginCapabilityReader, defineCapability, optionalCapability, provideCapability, requireCapability
+src/plugins/capability-inventory.ts: CapabilityInventory
+src/plugins/capability-providers.ts: CapabilityProviderDeclaration, provideCapability
+src/plugins/capability-token.ts: CapabilityToken, defineCapability
+src/plugins/command-graph.ts: CommandSource, CommandSurface, CompiledCommand, CompiledCommandGraph, CompiledMutationCommand, CompiledOperationCommand, readMutationCommand
+src/plugins/constraint-compilers.ts: assertDatabaseConstraintKind, assertDatabaseConstraintVersion
+src/plugins/definition.ts: PluginDefinition, PluginSource
+src/plugins/graph.ts: PluginGraph
+src/plugins/manifest.ts: PluginIdentity, PluginPrivilege, formatPluginIdentity, isSamePluginIdentity
+src/plugins/normalization.ts: normalizePlugins
+src/plugins/plugin-command-contributions.ts: contributeOperation, contributeOperationBinding
+src/plugins/plugin-command-plan.ts: PluginCommandHandlerResource, PluginCommandSource, PluginCommandTransportPlan
+src/plugins/plugin-contributions.ts: contributeApplication, contributeDeclarations, withPluginPrivileges
+src/plugins/plugin-identity-map.ts: PluginIdentityMap
+src/plugins/plugin-operations.ts: PluginOperationDefinition, PluginOperationErrorCode, PluginOperationInput, PluginOperationResult, defineOperation, defineOperationValue, isPluginOperationDefinition
+src/plugins/plugin-schema-mutations.ts: CompiledPluginSchemaMutationDefinition, PluginSchemaMutationDefinition, PluginSchemaMutationInput, isPluginSchemaMutationDefinition
+src/plugins/plugin.ts: plugin
+src/plugins/schema-field-patch-operations.ts: addSchemaField
+src/plugins/setup-registries.ts: OwnedPluginContribution
+src/plugins/source-projections.ts: ConfigurePluginSourceFactory, EmptyPluginSourceState, MergePluginSourceState, PluginSourceContextSurface, PluginSourceReceipt, PluginSourceSchemaMutationCarrier, PluginSourceSchemaMutations, PluginSourceState, ResolvePluginFieldSourceOptions, ResolvePluginRelationSourceOptions, ResolvePluginSchemaProjection, pluginSourceReceipt
+src/plugins/typegen-declarations.ts: CompiledTypegenGraph
