@@ -6,23 +6,30 @@ import {
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
+	BREAK,
 	GraphQLError,
+	Kind,
+	Lexer,
+	Source,
+	TokenKind,
 	execute,
+	parse,
 	validate,
+	visit,
 	type DocumentNode,
 	type ExecutionResult,
+	type FragmentDefinitionNode,
 	type GraphQLSchema,
+	type OperationDefinitionNode,
+	type SelectionSetNode,
 } from 'graphql'
 
 import type { NormalizedGraphqlExecutionLimits } from './connection-limits.js'
 import {
-	prepareGraphqlDocument,
-	prepareGraphqlVariables,
-} from './document-limits.js'
-import {
 	createCancelledGraphqlError,
 	createSafeGraphqlError,
 } from './execution-errors.js'
+import { assertGraphqlKnownKeys } from './options.js'
 
 /** Supplies a trusted context and one exact GraphQL operation document. */
 export interface GraphqlExecuteOptions {
@@ -45,13 +52,7 @@ const assertOptions: (
 	if (!isPlainRecord(value)) {
 		throw new TypeError('GraphQL execute options must be a plain object')
 	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !optionKeys.has(key)) {
-			throw new TypeError(
-				`GraphQL execute options contains unknown option: ${String(key)}`,
-			)
-		}
-	}
+	assertGraphqlKnownKeys(value, optionKeys, 'GraphQL execute options')
 	if (!(value.context instanceof RequestContext)) {
 		throw new TypeError('GraphQL execute context must be a real RequestContext')
 	}
@@ -71,6 +72,216 @@ const assertOptions: (
 			'GraphQL execute operationName must be a non-empty string',
 		)
 	}
+}
+
+const requestFailure = (
+	code: 'GRAPHQL_REQUEST_INVALID' | 'GRAPHQL_REQUEST_LIMIT_EXCEEDED',
+	message: string,
+	requestId: string,
+): GraphQLError =>
+	new GraphQLError(message, {
+		extensions: { code, requestId, retryable: false },
+	})
+
+const countSourceTokens = (source: string, maximum: number): boolean => {
+	const lexer = new Lexer(new Source(source))
+	let count = 0
+	while (lexer.advance().kind !== TokenKind.EOF) {
+		count += 1
+		if (count > maximum) return false
+	}
+	return true
+}
+
+const countAstNodes = (document: DocumentNode, maximum: number): boolean => {
+	let count = 0
+	visit(document, {
+		enter: () => {
+			count += 1
+			return count > maximum ? BREAK : undefined
+		},
+	})
+	return count <= maximum
+}
+
+const selectedOperation = (
+	document: DocumentNode,
+	operationName: string | undefined,
+): OperationDefinitionNode | 'ambiguous' | undefined => {
+	const operations = document.definitions.filter(
+		(definition): definition is OperationDefinitionNode =>
+			definition.kind === Kind.OPERATION_DEFINITION,
+	)
+	if (operationName !== undefined) {
+		return operations.find(({ name }) => name?.value === operationName)
+	}
+	return operations.length > 1 ? 'ambiguous' : operations[0]
+}
+
+// Counts aliases, root fields and depth through fragments, ignoring fragment cycles.
+const selectionCounts = (
+	document: DocumentNode,
+	operation: OperationDefinitionNode,
+): Readonly<{ aliases: number; depth: number; rootFields: number }> => {
+	const fragments = new Map(
+		document.definitions
+			.filter(
+				(definition): definition is FragmentDefinitionNode =>
+					definition.kind === Kind.FRAGMENT_DEFINITION,
+			)
+			.map((fragment) => [fragment.name.value, fragment]),
+	)
+	const counts = { aliases: 0, depth: 0, rootFields: 0 }
+	const walk = (
+		selectionSet: SelectionSetNode,
+		level: number,
+		root: boolean,
+		fragmentPath: ReadonlySet<string>,
+	): void => {
+		counts.depth = Math.max(counts.depth, level)
+		for (const selection of selectionSet.selections) {
+			if (selection.kind === Kind.FIELD) {
+				if (selection.alias !== undefined) counts.aliases += 1
+				if (root) counts.rootFields += 1
+				if (selection.selectionSet !== undefined) {
+					walk(selection.selectionSet, level + 1, false, fragmentPath)
+				}
+			} else if (selection.kind === Kind.INLINE_FRAGMENT) {
+				walk(selection.selectionSet, level, root, fragmentPath)
+			} else {
+				const name = selection.name.value
+				const fragment = fragments.get(name)
+				if (fragmentPath.has(name) || fragment === undefined) continue
+				walk(
+					fragment.selectionSet,
+					level,
+					root,
+					new Set([...fragmentPath, name]),
+				)
+			}
+		}
+	}
+	walk(operation.selectionSet, 1, true, new Set())
+	return counts
+}
+
+/** Parses and bounds one document before GraphQL validation or resolver work. */
+const prepareDocument = (
+	source: string | DocumentNode,
+	operationName: string | undefined,
+	limits: NormalizedGraphqlExecutionLimits,
+	requestId: string,
+): DocumentNode => {
+	const limit = (message: string) =>
+		requestFailure('GRAPHQL_REQUEST_LIMIT_EXCEEDED', message, requestId)
+	const invalid = (message: string) =>
+		requestFailure('GRAPHQL_REQUEST_INVALID', message, requestId)
+	let document: DocumentNode
+	if (typeof source === 'string') {
+		if (Buffer.byteLength(source, 'utf8') > limits.maxDocumentBytes) {
+			throw limit('GraphQL document byte limit exceeded.')
+		}
+		if (!countSourceTokens(source, limits.maxDocumentTokens)) {
+			throw limit('GraphQL document token limit exceeded.')
+		}
+		document = parse(source)
+	} else {
+		document = source
+		if (!countAstNodes(document, limits.maxDocumentTokens)) {
+			throw limit('GraphQL document node limit exceeded.')
+		}
+	}
+	const operation = selectedOperation(document, operationName)
+	if (operation === 'ambiguous') {
+		throw invalid(
+			'GraphQL operationName is required for a multi-operation document.',
+		)
+	}
+	if (operation !== undefined) {
+		if (operation.operation === 'subscription') {
+			throw invalid('GraphQL subscriptions are not supported.')
+		}
+		const counts = selectionCounts(document, operation)
+		if (counts.aliases > limits.maxAliases) {
+			throw limit('GraphQL alias limit exceeded.')
+		}
+		if (counts.depth > limits.maxDepth) {
+			throw limit('GraphQL selection depth limit exceeded.')
+		}
+		if (counts.rootFields > limits.maxRootFields) {
+			throw limit('GraphQL root field limit exceeded.')
+		}
+	}
+	visit(document, {
+		Directive: (node) => {
+			if (node.name.value === 'defer' || node.name.value === 'stream') {
+				throw invalid(`GraphQL @${node.name.value} is not supported.`)
+			}
+		},
+	})
+	return document
+}
+
+// Only acyclic plain records, arrays, strings, finite numbers, booleans and null;
+// array holes are read as `undefined` and therefore rejected.
+const isJsonValue = (value: unknown, ancestors: WeakSet<object>): boolean => {
+	if (
+		value === null ||
+		typeof value === 'string' ||
+		typeof value === 'boolean'
+	) {
+		return true
+	}
+	if (typeof value === 'number') return Number.isFinite(value)
+	const array = Array.isArray(value)
+	if (!array && !isPlainRecord(value)) return false
+	if (
+		(!array && Reflect.ownKeys(value).some((key) => typeof key !== 'string')) ||
+		ancestors.has(value)
+	) {
+		return false
+	}
+	ancestors.add(value)
+	for (const item of array ? value : Object.values(value)) {
+		if (!isJsonValue(item, ancestors)) return false
+	}
+	ancestors.delete(value)
+	return true
+}
+
+/** Snapshots an exact JSON-compatible variable map under its byte budget. */
+const prepareVariables = (
+	variables: Readonly<Record<string, unknown>> | undefined,
+	maximumBytes: number,
+	requestId: string,
+): Readonly<Record<string, unknown>> | undefined => {
+	if (variables === undefined) return undefined
+	const invalid = (message: string) =>
+		requestFailure('GRAPHQL_REQUEST_INVALID', message, requestId)
+	if (!isPlainRecord(variables)) {
+		throw invalid('GraphQL variables must be a plain object.')
+	}
+	if (!isJsonValue(variables, new WeakSet())) {
+		throw invalid('GraphQL variables must be JSON-compatible.')
+	}
+	let serialized: string
+	try {
+		serialized = JSON.stringify(variables)
+	} catch {
+		throw invalid('GraphQL variables must be JSON-compatible.')
+	}
+	const parsed: unknown = JSON.parse(serialized)
+	if (!isPlainRecord(parsed)) {
+		throw invalid('GraphQL variables must be a plain JSON object.')
+	}
+	if (Buffer.byteLength(serialized, 'utf8') > maximumBytes) {
+		throw requestFailure(
+			'GRAPHQL_REQUEST_LIMIT_EXCEEDED',
+			'GraphQL variables byte limit exceeded.',
+			requestId,
+		)
+	}
+	return parsed
 }
 
 const errorResult = (error: unknown, requestId: string): ExecutionResult => ({
@@ -112,13 +323,13 @@ export class GraphqlNetworklessExecution {
 				let document: DocumentNode
 				let variables: Readonly<Record<string, unknown>> | undefined
 				try {
-					document = prepareGraphqlDocument(
+					document = prepareDocument(
 						options.document,
 						options.operationName,
 						this.#limits,
 						context.requestId,
 					)
-					variables = prepareGraphqlVariables(
+					variables = prepareVariables(
 						options.variables,
 						this.#limits.maxVariablesBytes,
 						context.requestId,

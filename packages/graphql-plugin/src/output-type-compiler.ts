@@ -5,31 +5,34 @@ import type {
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import {
+	GraphQLBoolean,
 	GraphQLEnumType,
-	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
+	GraphQLString,
 	type GraphQLFieldConfigMap,
-	type GraphQLNamedType,
 	type GraphQLNullableOutputType,
 	type GraphQLOutputType,
 } from 'graphql'
 
-import { GraphqlSchemaCompilationError } from './errors.js'
-import { readGraphqlFieldOwner } from './field-metadata.js'
 import {
-	assertGraphqlFieldName,
+	assertSchemaFieldName,
 	graphqlEnumValueName,
+	graphqlFieldOwner,
 	graphqlFieldTypeSegment,
-} from './names.js'
-import type { GraphqlNameRegistry } from './names.js'
+	graphqlSourceDescription,
+	memoize,
+	nonNullList,
+	readGraphqlEnumValues,
+	type GraphqlCompileContext,
+} from './compile-context.js'
+import { GraphqlSchemaCompilationError } from './errors.js'
 import { readGraphqlScalarType } from './scalar-types.js'
-import { graphqlSourceDescription } from './surfaces.js'
 
-interface NamedOutputType<TType extends GraphQLNamedType> {
+interface NamedOutputType {
 	readonly signature: string
 	readonly source: string
-	readonly type: TType
+	readonly type: GraphQLEnumType | GraphQLObjectType
 }
 
 const readOutputFields = (
@@ -40,6 +43,7 @@ const readOutputFields = (
 	if (!isPlainRecord(fields)) {
 		throw new TypeError(`${path} requires output object fields`)
 	}
+	// Core validates every output object property as a descriptor.
 	return fields as OutputFields
 }
 
@@ -50,25 +54,11 @@ const readTypeName = (
 	return typeof typeName === 'string' ? typeName : undefined
 }
 
-const readEnumValues = (
-	descriptor: GenericOutputDescriptor,
-): readonly string[] => {
-	const values: unknown = Reflect.get(descriptor.options, 'values')
-	if (Array.isArray(values)) {
-		return values.filter((value): value is string => typeof value === 'string')
-	}
-	if (isPlainRecord(values)) {
-		return Object.values(values).filter(
-			(value): value is string => typeof value === 'string',
-		)
-	}
-	return []
-}
-
+// Two declarations may share one explicit name only with an identical shape.
 const outputShapeSignature = (descriptor: GenericOutputDescriptor): string => {
 	const common = `${descriptor.kind}:${String(descriptor.options.list)}:${String(descriptor.options.nullable)}`
 	if (descriptor.kind === 'enum') {
-		return `${common}:${readTypeName(descriptor) ?? ''}:${JSON.stringify(readEnumValues(descriptor))}`
+		return `${common}:${readTypeName(descriptor) ?? ''}:${JSON.stringify(readGraphqlEnumValues(descriptor.options))}`
 	}
 	if (descriptor.kind !== 'object') return common
 	const fields = Object.entries(
@@ -77,31 +67,82 @@ const outputShapeSignature = (descriptor: GenericOutputDescriptor): string => {
 	return `${common}:${readTypeName(descriptor) ?? ''}:${JSON.stringify(fields)}`
 }
 
-/** Compiles Core output-only descriptors without installing GraphQL resolvers. */
+const describe = (schema: SchemaDefinition, path: readonly string[]): string =>
+	`${schema.className}.${path.join('.')}`
+
+/** Compiles output-only virtual and Relay types without installing resolvers. */
 export class GraphqlOutputTypeCompiler {
-	readonly #names: GraphqlNameRegistry
-	readonly #types: GraphQLNamedType[] = []
-	readonly #namedEnums = new Map<string, NamedOutputType<GraphQLEnumType>>()
-	readonly #namedObjects = new Map<string, NamedOutputType<GraphQLObjectType>>()
+	readonly #ctx: GraphqlCompileContext
+	readonly #model: (schema: SchemaDefinition) => GraphQLObjectType
+	readonly #named = new Map<string, NamedOutputType>()
+	readonly #connections = new Map<SchemaDefinition, GraphQLObjectType>()
+	readonly #edges = new Map<SchemaDefinition, GraphQLObjectType>()
+	#pageInfo: GraphQLObjectType | undefined
 
-	constructor(names: GraphqlNameRegistry) {
-		this.#names = names
+	constructor(
+		ctx: GraphqlCompileContext,
+		model: (schema: SchemaDefinition) => GraphQLObjectType,
+	) {
+		this.#ctx = ctx
+		this.#model = model
 	}
 
-	get types(): readonly GraphQLNamedType[] {
-		return this.#types
-	}
-
-	#failure(
-		schema: SchemaDefinition,
-		path: readonly string[],
-		message: string,
-	): never {
-		const owner = readGraphqlFieldOwner(schema, path)
-		throw new GraphqlSchemaCompilationError('name-collision', message, {
-			owner,
-			path: `${schema.className}.${path.join('.')}`,
+	/** Builds the inert Relay connection type of one schema. */
+	connection(schema: SchemaDefinition): GraphQLObjectType {
+		return memoize(this.#connections, schema, () => {
+			const name = `${this.#ctx.typeName(schema)}Connection`
+			this.#ctx.claim(name, schema)
+			return this.#ctx.add(
+				'connections',
+				new GraphQLObjectType({
+					name,
+					fields: () => ({
+						edges: {
+							type: new GraphQLNonNull(nonNullList(this.#edge(schema))),
+						},
+						nodes: {
+							type: new GraphQLNonNull(nonNullList(this.#model(schema))),
+						},
+						pageInfo: { type: new GraphQLNonNull(this.#pageInfoType()) },
+					}),
+				}),
+			)
 		})
+	}
+
+	#edge(schema: SchemaDefinition): GraphQLObjectType {
+		return memoize(this.#edges, schema, () => {
+			const name = `${this.#ctx.typeName(schema)}Edge`
+			this.#ctx.claim(name, schema)
+			return this.#ctx.add(
+				'connections',
+				new GraphQLObjectType({
+					name,
+					fields: () => ({
+						cursor: { type: new GraphQLNonNull(GraphQLString) },
+						node: { type: new GraphQLNonNull(this.#model(schema)) },
+					}),
+				}),
+			)
+		})
+	}
+
+	#pageInfoType(): GraphQLObjectType {
+		if (this.#pageInfo !== undefined) return this.#pageInfo
+		this.#ctx.names.claimType('PageInfo', 'reserved Relay page information')
+		this.#pageInfo = this.#ctx.add(
+			'connections',
+			new GraphQLObjectType({
+				name: 'PageInfo',
+				fields: {
+					hasNextPage: { type: new GraphQLNonNull(GraphQLBoolean) },
+					hasPreviousPage: { type: new GraphQLNonNull(GraphQLBoolean) },
+					startCursor: { type: GraphQLString },
+					endCursor: { type: GraphQLString },
+				},
+			}),
+		)
+		return this.#pageInfo
 	}
 
 	#assertSupported(
@@ -116,115 +157,52 @@ export class GraphqlOutputTypeCompiler {
 		) {
 			throw new GraphqlSchemaCompilationError(
 				'missing-field-codec',
-				`Virtual output ${schema.className}.${path.join('.')} uses ${descriptor.kind} without an exact GraphQL v1 representation`,
+				`Virtual output ${describe(schema, path)} uses ${descriptor.kind} without an exact GraphQL v1 representation`,
 				{
-					owner: readGraphqlFieldOwner(schema, path),
-					path: `${schema.className}.${path.join('.')}`,
+					owner: graphqlFieldOwner(schema, path),
+					path: describe(schema, path),
 				},
 			)
 		}
 		if (descriptor.kind !== 'object') return
 		for (const [name, child] of Object.entries(
-			readOutputFields(descriptor, `${schema.className}.${path.join('.')}`),
+			readOutputFields(descriptor, describe(schema, path)),
 		)) {
 			this.#assertSupported(child, schema, [...path, name])
 		}
 	}
 
-	#claim(
-		name: string,
+	// Enum and object output names share one cache keyed by the GraphQL name.
+	#namedType(
+		descriptor: GenericOutputDescriptor,
 		schema: SchemaDefinition,
 		path: readonly string[],
-	): void {
-		this.#names.claimType(name, {
-			description: graphqlSourceDescription(schema, path),
-			owner: readGraphqlFieldOwner(schema, path),
-		})
-	}
-
-	#namedType<TType extends GraphQLNamedType>(
-		cache: Map<string, NamedOutputType<TType>>,
-		name: string,
-		signature: string,
-		schema: SchemaDefinition,
-		path: readonly string[],
-		create: () => TType,
-	): TType {
+		modelTypeName: string,
+		create: (name: string) => GraphQLEnumType | GraphQLObjectType,
+	): GraphQLEnumType | GraphQLObjectType {
+		const name =
+			readTypeName(descriptor) ??
+			`${modelTypeName}${path.map(graphqlFieldTypeSegment).join('')}`
+		const signature = outputShapeSignature(descriptor)
 		const source = graphqlSourceDescription(schema, path)
-		const existing = cache.get(name)
+		const existing = this.#named.get(`${descriptor.kind}:${name}`)
 		if (existing !== undefined) {
 			if (existing.signature !== signature) {
-				return this.#failure(
-					schema,
-					path,
+				throw new GraphqlSchemaCompilationError(
+					'name-collision',
 					`GraphQL output type "${name}" from ${source} conflicts with ${existing.source}`,
+					{
+						owner: graphqlFieldOwner(schema, path),
+						path: describe(schema, path),
+					},
 				)
 			}
 			return existing.type
 		}
-		this.#claim(name, schema, path)
-		const type = create()
-		cache.set(name, { signature, source, type })
-		this.#types.push(type)
+		this.#ctx.names.claimType(name, source, graphqlFieldOwner(schema, path))
+		const type = this.#ctx.add('outputs', create(name))
+		this.#named.set(`${descriptor.kind}:${name}`, { signature, source, type })
 		return type
-	}
-
-	#enum(
-		descriptor: GenericOutputDescriptor,
-		schema: SchemaDefinition,
-		path: readonly string[],
-		modelTypeName: string,
-	): GraphQLEnumType {
-		const explicit = readTypeName(descriptor)
-		const name =
-			explicit ??
-			`${modelTypeName}${path.map(graphqlFieldTypeSegment).join('')}`
-		const signature = outputShapeSignature(descriptor)
-		return this.#namedType(
-			this.#namedEnums,
-			name,
-			signature,
-			schema,
-			path,
-			() =>
-				new GraphQLEnumType({
-					name,
-					values: Object.fromEntries(
-						readEnumValues(descriptor).map((value) => [
-							graphqlEnumValueName(value),
-							{ value },
-						]),
-					),
-				}),
-		)
-	}
-
-	#object(
-		descriptor: GenericOutputDescriptor,
-		schema: SchemaDefinition,
-		path: readonly string[],
-		modelTypeName: string,
-	): GraphQLObjectType {
-		const explicit = readTypeName(descriptor)
-		const name =
-			explicit ??
-			`${modelTypeName}${path.map(graphqlFieldTypeSegment).join('')}`
-		const fields = readOutputFields(
-			descriptor,
-			`${schema.className}.${path.join('.')}`,
-		)
-		return this.#namedType(
-			this.#namedObjects,
-			name,
-			outputShapeSignature(descriptor),
-			schema,
-			path,
-			() =>
-				new GraphQLObjectType({
-					name,
-					fields: () => this.#objectFields(fields, schema, path, modelTypeName),
-				}),
-		)
 	}
 
 	#objectFields(
@@ -236,11 +214,7 @@ export class GraphqlOutputTypeCompiler {
 		return Object.fromEntries(
 			Object.entries(fields).map(([name, descriptor]) => {
 				const path = [...parentPath, name]
-				assertGraphqlFieldName(
-					name,
-					graphqlSourceDescription(schema, path),
-					readGraphqlFieldOwner(schema, path),
-				)
+				assertSchemaFieldName(schema, path)
 				return [
 					name,
 					{
@@ -261,11 +235,26 @@ export class GraphqlOutputTypeCompiler {
 		this.#assertSupported(descriptor, schema, path)
 		const element =
 			readGraphqlScalarType(descriptor.kind) ??
-			(descriptor.kind === 'enum'
-				? this.#enum(descriptor, schema, path, modelTypeName)
-				: this.#object(descriptor, schema, path, modelTypeName))
+			this.#namedType(descriptor, schema, path, modelTypeName, (name) => {
+				if (descriptor.kind === 'enum') {
+					return new GraphQLEnumType({
+						name,
+						values: Object.fromEntries(
+							readGraphqlEnumValues(descriptor.options).map((value) => [
+								graphqlEnumValueName(value),
+								{ value },
+							]),
+						),
+					})
+				}
+				const fields = readOutputFields(descriptor, describe(schema, path))
+				return new GraphQLObjectType({
+					name,
+					fields: () => this.#objectFields(fields, schema, path, modelTypeName),
+				})
+			})
 		const value: GraphQLNullableOutputType = descriptor.options.list
-			? new GraphQLList(new GraphQLNonNull(element))
+			? nonNullList(element)
 			: element
 		return descriptor.options.nullable ? value : new GraphQLNonNull(value)
 	}

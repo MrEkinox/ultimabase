@@ -17,7 +17,6 @@ import {
 	type GraphqlMutationOperation,
 } from './mutation-normalization.js'
 import {
-	normalizeGraphqlCollectionArguments,
 	prepareGraphqlReadOperation,
 	type GraphqlReadOperation,
 } from './read-normalization.js'
@@ -27,29 +26,27 @@ import { normalizeGraphqlSelection } from './selection-normalization.js'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 
-const assertRequestContext: (
-	value: unknown,
-) => asserts value is RequestContext = (value) => {
-	if (!(value instanceof RequestContext)) {
-		throw new TypeError(
-			'GraphQL resolver context must contain one real RequestContext',
-		)
-	}
-}
+const isRequestContext = (value: unknown): value is RequestContext =>
+	value instanceof RequestContext
 
+// Generated resolvers accept only the exact `{ request }` context built by
+// networkless execution or a network adapter.
 const requestFromContext = (value: unknown): RequestContext => {
 	const request: unknown = isPlainRecord(value) ? value.request : undefined
-	if (!isPlainRecord(value) || Reflect.ownKeys(value).length !== 1) {
+	if (
+		!isPlainRecord(value) ||
+		Reflect.ownKeys(value).length !== 1 ||
+		!isRequestContext(request)
+	) {
 		throw new TypeError(
 			'GraphQL resolver context must contain one real RequestContext',
 		)
 	}
-	assertRequestContext(request)
 	return request
 }
 
 const requestIdFromContext = (value: unknown): string =>
-	isPlainRecord(value) && value.request instanceof RequestContext
+	isPlainRecord(value) && isRequestContext(value.request)
 		? value.request.requestId
 		: 'unavailable'
 
@@ -167,13 +164,7 @@ export class GraphqlGeneratedExecution {
 					schema,
 					info,
 					false,
-					(target, relationArgs, scope) =>
-						normalizeGraphqlCollectionArguments(
-							target,
-							relationArgs,
-							this.#connections,
-							scope,
-						),
+					this.#connections,
 					descriptor.effect === 'delete' ? 'stored-pointer-only' : 'include',
 				)
 				return this.#schemaMutations.execute({

@@ -1,3 +1,8 @@
+import type {
+	ApplicationCallbackExecutor,
+	PluginIdentity,
+	SchemaContributionOwner,
+} from '@ultimabase/core'
 import {
 	isEnumType,
 	isInputObjectType,
@@ -9,13 +14,43 @@ import {
 	isUnionType,
 	type GraphQLDirective,
 	type GraphQLNamedType,
+	type GraphQLSchema,
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
-import {
-	contributionOwner,
-	type OwnedGraphqlSchema,
-} from './schema-composition-types.js'
+
+/** @internal Identifies one completed schema and its callback authority. */
+export interface OwnedGraphqlSchema {
+	readonly attribution:
+		| Readonly<{ readonly kind: 'application' }>
+		| Readonly<{
+				readonly kind: 'generated' | 'plugin'
+				readonly owner: PluginIdentity
+				readonly pluginVersion: string
+		  }>
+	readonly description: string
+	readonly schema: GraphQLSchema
+}
+
+/** @internal Supplies trusted attribution while cloning contributed callbacks. */
+export interface GraphqlSchemaCompositionContext {
+	readonly callbacks: ApplicationCallbackExecutor
+	readonly schemas: readonly OwnedGraphqlSchema[]
+}
+
+const contributionOwner = (
+	entry: OwnedGraphqlSchema,
+): SchemaContributionOwner =>
+	entry.attribution.kind === 'application'
+		? { kind: 'application' }
+		: {
+				kind: 'plugin',
+				pluginId: entry.attribution.owner.pluginId,
+				version: entry.attribution.pluginVersion,
+				...(entry.attribution.owner.instanceId === undefined
+					? {}
+					: { instanceId: entry.attribution.owner.instanceId }),
+			}
 
 export interface GraphqlCompositionTypeEntry {
 	readonly source: OwnedGraphqlSchema
@@ -33,14 +68,28 @@ export interface GraphqlCompositionPreflight {
 	readonly groups: ReadonlyMap<string, GraphqlCompositionTypeGroup>
 }
 
-const kindOf = (type: GraphQLNamedType): string => {
-	if (isObjectType(type)) return 'object'
-	if (isInterfaceType(type)) return 'interface'
-	if (isInputObjectType(type)) return 'input object'
-	if (isEnumType(type)) return 'enum'
-	if (isUnionType(type)) return 'union'
-	if (isScalarType(type)) return 'scalar'
-	return 'unsupported'
+// Names each mergeable kind and the label of the members that must stay unique.
+const kindOf = (
+	type: GraphQLNamedType,
+): Readonly<{ kind: string; members?: string }> => {
+	if (isObjectType(type)) return { kind: 'object', members: 'object field' }
+	if (isInterfaceType(type)) {
+		return { kind: 'interface', members: 'interface field' }
+	}
+	if (isInputObjectType(type)) {
+		return { kind: 'input object', members: 'input object field' }
+	}
+	if (isEnumType(type)) return { kind: 'enum', members: 'enum value' }
+	if (isUnionType(type)) return { kind: 'union', members: 'union member' }
+	return { kind: isScalarType(type) ? 'scalar' : 'unsupported' }
+}
+
+const memberNames = (type: GraphQLNamedType): readonly string[] => {
+	if (isObjectType(type) || isInterfaceType(type) || isInputObjectType(type)) {
+		return Object.keys(type.toConfig().fields)
+	}
+	if (isEnumType(type)) return Object.keys(type.toConfig().values)
+	return isUnionType(type) ? type.toConfig().types.map(({ name }) => name) : []
 }
 
 const conflict = (
@@ -48,40 +97,18 @@ const conflict = (
 	path: string,
 	detail: string,
 ): never => {
-	const owner = contributionOwner(entry.source)
 	throw new GraphqlSchemaCompilationError('name-collision', detail, {
-		...(owner === undefined ? {} : { owner }),
+		owner: contributionOwner(entry.source),
 		path,
 	})
-}
-
-const assertUnique = (
-	group: GraphqlCompositionTypeGroup,
-	values: (entry: GraphqlCompositionTypeEntry) => readonly string[],
-	label: string,
-): void => {
-	const owners = new Map<string, GraphqlCompositionTypeEntry>()
-	for (const entry of group.entries) {
-		for (const value of values(entry)) {
-			const existing = owners.get(value)
-			if (existing !== undefined) {
-				conflict(
-					entry,
-					`${group.name}.${value}`,
-					`GraphQL ${label} "${group.name}.${value}" from ${entry.source.description} conflicts with ${existing.source.description}`,
-				)
-			}
-			owners.set(value, entry)
-		}
-	}
 }
 
 const preflightGroup = (group: GraphqlCompositionTypeGroup): void => {
 	const [first] = group.entries
 	if (first === undefined) return
-	const kind = kindOf(first.type)
+	const { kind, members } = kindOf(first.type)
 	for (const entry of group.entries.slice(1)) {
-		const candidate = kindOf(entry.type)
+		const candidate = kindOf(entry.type).kind
 		if (candidate !== kind) {
 			conflict(
 				entry,
@@ -97,35 +124,21 @@ const preflightGroup = (group: GraphqlCompositionTypeGroup): void => {
 			`GraphQL scalar "${group.name}" has more than one owner`,
 		)
 	}
-	if (kind === 'object' || kind === 'interface' || kind === 'input object') {
-		assertUnique(
-			group,
-			(entry) =>
-				isObjectType(entry.type) ||
-				isInterfaceType(entry.type) ||
-				isInputObjectType(entry.type)
-					? Object.keys(entry.type.toConfig().fields)
-					: [],
-			`${kind} field`,
-		)
-	}
-	if (kind === 'enum') {
-		assertUnique(
-			group,
-			(entry) =>
-				isEnumType(entry.type) ? Object.keys(entry.type.toConfig().values) : [],
-			'enum value',
-		)
-	}
-	if (kind === 'union') {
-		assertUnique(
-			group,
-			(entry) =>
-				isUnionType(entry.type)
-					? entry.type.toConfig().types.map(({ name }) => name)
-					: [],
-			'union member',
-		)
+	if (members === undefined) return
+	// Merged object, interface, input, enum and union members need one owner each.
+	const owners = new Map<string, GraphqlCompositionTypeEntry>()
+	for (const entry of group.entries) {
+		for (const value of memberNames(entry.type)) {
+			const existing = owners.get(value)
+			if (existing !== undefined) {
+				conflict(
+					entry,
+					`${group.name}.${value}`,
+					`GraphQL ${members} "${group.name}.${value}" from ${entry.source.description} conflicts with ${existing.source.description}`,
+				)
+			}
+			owners.set(value, entry)
+		}
 	}
 }
 
@@ -148,10 +161,10 @@ export const preflightGraphqlSchemas = (
 			GraphQLNamedType,
 			Readonly<{ key: string; name: string }>
 		>()
+		// Subscription roots were rejected above, so only two roots can merge.
 		for (const [key, name, root] of [
 			['@query', 'Query', source.schema.getQueryType()],
 			['@mutation', 'Mutation', source.schema.getMutationType()],
-			['@subscription', 'Subscription', source.schema.getSubscriptionType()],
 		] as const) {
 			if (root != null) roots.set(root, { key, name })
 		}

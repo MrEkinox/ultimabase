@@ -11,33 +11,32 @@ interface PublicFailure {
 	readonly retryable: boolean
 }
 
-const internalFailure = (): PublicFailure => ({
+const internalFailure: PublicFailure = {
 	code: 'INTERNAL_SERVER_ERROR',
 	message: 'Unexpected error.',
 	retryable: false,
-})
+}
 
+// Details survive only as an exact JSON round trip of a plain record.
 const safeDetails = (
-	value: Readonly<Record<string, unknown>> | undefined,
+	value: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> | undefined => {
-	if (value === undefined) return undefined
 	try {
-		const serialized = JSON.stringify(value)
-		const parsed: unknown = JSON.parse(serialized)
+		const parsed: unknown = JSON.parse(JSON.stringify(value))
 		return isPlainRecord(parsed) ? parsed : undefined
 	} catch {
 		return undefined
 	}
 }
 
-const publicErrorFailure = (
-	error: FrameworkError | PluginError,
-): PublicFailure => {
+// Only explicitly public Core and plugin metadata ever reaches the client.
+const publicFailure = (error: FrameworkError | PluginError): PublicFailure => {
 	const payload = error.toJSON()
-	if (payload.message === undefined) return internalFailure()
-	const details = safeDetails(payload.details)
+	if (payload.message === undefined) return internalFailure
+	const details =
+		payload.details === undefined ? undefined : safeDetails(payload.details)
 	if (payload.details !== undefined && details === undefined) {
-		return internalFailure()
+		return internalFailure
 	}
 	return {
 		code: payload.code,
@@ -49,16 +48,11 @@ const publicErrorFailure = (
 
 const failureFor = (error: unknown): PublicFailure => {
 	if (error instanceof GraphqlInvalidCursorError) {
-		return {
-			code: error.code,
-			message: error.message,
-			retryable: false,
-		}
+		return { code: error.code, message: error.message, retryable: false }
 	}
-	if (error instanceof FrameworkError || error instanceof PluginError) {
-		return publicErrorFailure(error)
-	}
-	return internalFailure()
+	return error instanceof FrameworkError || error instanceof PluginError
+		? publicFailure(error)
+		: internalFailure
 }
 
 /** Masks one generated resolver failure behind GraphQL's public error contract. */

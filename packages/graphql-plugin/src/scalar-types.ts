@@ -3,6 +3,7 @@ import {
 	GraphQLBoolean,
 	GraphQLFloat,
 	GraphQLID,
+	GraphQLInt,
 	GraphQLList,
 	GraphQLNonNull,
 	GraphQLString,
@@ -38,10 +39,38 @@ const graphqlScalarTypes: ReadonlyMap<string, GraphQLScalarType> = new Map([
 	['uuid', GraphqlUUID],
 ])
 
+const builtInTypes: ReadonlyMap<string, GraphQLScalarType> = new Map(
+	[...graphqlScalarTypes.values(), GraphQLID, GraphQLInt].map((type) => [
+		type.name,
+		type,
+	]),
+)
+
+/** Names every GraphQL v1 built-in scalar, which schemas may never redefine. */
+export const graphqlBuiltInTypeNames: readonly string[] = [
+	...builtInTypes.keys(),
+]
+
+/** Resolves a GraphQL v1 built-in scalar that bindings may reference by name. */
+export const readGraphqlBuiltInType = (
+	name: string,
+): GraphQLScalarType | undefined => builtInTypes.get(name)
+
 /** Resolves the one shared GraphQL representation for a Core scalar kind. */
 export const readGraphqlScalarType = (
 	kind: string,
 ): GraphQLScalarType | undefined => graphqlScalarTypes.get(kind)
+
+const structuralFieldKinds: ReadonlySet<string> = new Set([
+	'enum',
+	'object',
+	'pointer',
+	'relation',
+])
+
+/** Separates Core field kinds from namespaced plugin kinds that need codecs. */
+export const isGraphqlBuiltInFieldKind = (kind: string): boolean =>
+	graphqlScalarTypes.has(kind) || structuralFieldKinds.has(kind)
 
 /** Applies the one-dimensional Core list shape to an input or output type. */
 export const wrapGraphqlFieldList = <

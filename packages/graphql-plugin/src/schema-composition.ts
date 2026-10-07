@@ -1,4 +1,7 @@
-import type { ApplicationCallbackExecutor } from '@ultimabase/core'
+import {
+	getCurrentRequest,
+	type ApplicationCallbackExecutor,
+} from '@ultimabase/core'
 import { rewireTypes } from '@graphql-tools/utils'
 import {
 	assertNamedType,
@@ -23,32 +26,45 @@ import {
 	specifiedDirectives,
 	validateSchema,
 	type GraphQLDirective,
+	type GraphQLFieldConfig,
 	type GraphQLFieldConfigMap,
+	type GraphQLInterfaceType as InterfaceType,
 	type GraphQLNamedType,
-	type GraphQLType,
+	type GraphQLNullableOutputType,
+	type GraphQLOutputType,
 } from 'graphql'
 
 import { GraphqlSchemaCompilationError } from './errors.js'
-import {
-	attributedFieldResolver,
-	attributedIsTypeOf,
-	attributedScalarLiteralParser,
-	attributedScalarSerializer,
-	attributedScalarValueParser,
-	attributedTypeResolver,
-} from './schema-resolver-attribution.js'
+import { createSafeGraphqlError } from './execution-errors.js'
 import {
 	preflightGraphqlSchemas,
-	type GraphqlCompositionTypeEntry as TypeEntry,
 	type GraphqlCompositionTypeGroup as TypeGroup,
+	type GraphqlSchemaCompositionContext,
+	type OwnedGraphqlSchema,
 } from './schema-composition-preflight.js'
-import type { GraphqlSchemaCompositionContext } from './schema-composition-types.js'
 
+const requestIdOf = (context: unknown): string => {
+	if (typeof context !== 'object' || context === null) return 'unavailable'
+	const request: unknown = Reflect.get(context, 'request')
+	if (typeof request !== 'object' || request === null) return 'unavailable'
+	const value: unknown = Reflect.get(request, 'requestId')
+	return typeof value === 'string' ? value : 'unavailable'
+}
+
+const currentRequestId = (): string => {
+	try {
+		return getCurrentRequest().requestId
+	} catch {
+		return 'unavailable'
+	}
+}
+
+/** Clones and deterministically merges generated and contributed schemas. */
 class GraphqlSchemaComposer {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #directives: readonly GraphQLDirective[]
 	readonly #groups: ReadonlyMap<string, TypeGroup>
-	readonly #roots = new Map<GraphQLNamedType, GraphQLObjectType>()
+	readonly #roots = new Map<GraphQLObjectType, GraphQLObjectType>()
 
 	constructor(context: GraphqlSchemaCompositionContext) {
 		this.#callbacks = context.callbacks
@@ -60,60 +76,107 @@ class GraphqlSchemaComposer {
 			// Root aliases are identity-based: another schema may own a named type
 			// with the same original name. Tools rewires these inert references later.
 			const root = new GraphQLObjectType({ name: group.name, fields: {} })
-			for (const entry of group.entries) this.#roots.set(entry.type, root)
+			for (const { type } of group.entries) {
+				if (isObjectType(type)) this.#roots.set(type, root)
+			}
 		}
 	}
 
-	#reference<TType extends GraphQLType>(type: TType): TType {
-		if (isNonNullType(type))
-			return new GraphQLNonNull(this.#reference(type.ofType)) as TType
-		if (isListType(type))
-			return new GraphQLList(this.#reference(type.ofType)) as TType
-		return (this.#roots.get(type) ?? type) as TType
+	#run<TResult>(source: OwnedGraphqlSchema, callback: () => TResult): TResult {
+		const { attribution } = source
+		return attribution.kind === 'application'
+			? this.#callbacks.runApplication(callback)
+			: attribution.kind === 'plugin'
+				? this.#callbacks.runPlugin(attribution.owner, callback)
+				: callback()
 	}
 
+	// Contributed resolvers run under their owner's authority with masked failures.
+	#resolver<TArgs extends readonly unknown[], TResult>(
+		resolver: (...args: TArgs) => TResult,
+		source: OwnedGraphqlSchema,
+		contextIndex: 1 | 2,
+	): (...args: TArgs) => TResult | Promise<Awaited<TResult>> {
+		if (source.attribution.kind === 'generated') return resolver
+		return async (...args): Promise<Awaited<TResult>> => {
+			try {
+				return await this.#run(source, () => resolver(...args))
+			} catch (error: unknown) {
+				throw createSafeGraphqlError(error, requestIdOf(args[contextIndex]))
+			}
+		}
+	}
+
+	// Scalar coercion is synchronous and has no context, so the active request names it.
+	#scalarCallback<TArgs extends readonly unknown[], TResult>(
+		callback: (...args: TArgs) => TResult,
+		source: OwnedGraphqlSchema,
+	): (...args: TArgs) => TResult {
+		if (source.attribution.kind === 'generated') return callback
+		return (...args) => {
+			try {
+				return this.#run(source, () => callback(...args))
+			} catch (error: unknown) {
+				throw createSafeGraphqlError(error, currentRequestId())
+			}
+		}
+	}
+
+	#outputType(type: GraphQLOutputType): GraphQLOutputType {
+		return isNonNullType(type)
+			? new GraphQLNonNull(this.#nullableOutputType(type.ofType))
+			: this.#nullableOutputType(type)
+	}
+
+	#nullableOutputType(
+		type: GraphQLNullableOutputType,
+	): GraphQLNullableOutputType {
+		if (isListType(type)) return new GraphQLList(this.#outputType(type.ofType))
+		return isObjectType(type) ? this.#object(type) : type
+	}
+
+	#object(type: GraphQLObjectType): GraphQLObjectType {
+		return this.#roots.get(type) ?? type
+	}
+
+	#field(
+		field: GraphQLFieldConfig<unknown, unknown>,
+		source: OwnedGraphqlSchema,
+	): GraphQLFieldConfig<unknown, unknown> {
+		return {
+			...field,
+			type: this.#outputType(field.type),
+			...(field.resolve === undefined
+				? {}
+				: { resolve: this.#resolver(field.resolve, source, 2) }),
+			...(field.subscribe === undefined
+				? {}
+				: { subscribe: this.#resolver(field.subscribe, source, 2) }),
+		}
+	}
+
+	// Preflight proved that every entry of a group has the kind of its first entry.
 	#fields(group: TypeGroup): GraphQLFieldConfigMap<unknown, unknown> {
 		return Object.fromEntries(
-			group.entries.flatMap((entry) =>
-				Object.entries(
-					(entry.type as GraphQLObjectType | GraphQLInterfaceType).toConfig()
-						.fields,
-				).map(([name, field]) => [
-					name,
-					{
-						...field,
-						type: this.#reference(field.type),
-						...(field.resolve === undefined
-							? {}
-							: {
-									resolve: attributedFieldResolver(
-										field.resolve,
-										entry.source,
-										this.#callbacks,
-									),
-								}),
-						...(field.subscribe === undefined
-							? {}
-							: {
-									subscribe: attributedFieldResolver(
-										field.subscribe,
-										entry.source,
-										this.#callbacks,
-									),
-								}),
-					},
-				]),
+			group.entries.flatMap(({ source, type }) =>
+				isObjectType(type) || isInterfaceType(type)
+					? Object.entries(type.toConfig().fields).map(
+							([name, field]) => [name, this.#field(field, source)] as const,
+						)
+					: [],
 			),
 		)
 	}
 
-	#interfaces(group: TypeGroup): GraphQLInterfaceType[] {
+	#interfaces(group: TypeGroup): InterfaceType[] {
 		return [
 			...new Map(
-				group.entries.flatMap((entry) =>
-					(entry.type as GraphQLObjectType | GraphQLInterfaceType)
-						.toConfig()
-						.interfaces.map((type) => [type.name, type] as const),
+				group.entries.flatMap(({ type }) =>
+					isObjectType(type) || isInterfaceType(type)
+						? type
+								.toConfig()
+								.interfaces.map((item) => [item.name, item] as const)
+						: [],
 				),
 			).values(),
 		]
@@ -122,109 +185,96 @@ class GraphqlSchemaComposer {
 	#create(group: TypeGroup): GraphQLNamedType {
 		const first = group.entries[0]
 		if (first === undefined) throw new TypeError('GraphQL type group is empty')
-		if (isObjectType(first.type)) {
-			const config = first.type.toConfig()
+		const { name } = group
+		const { source, type } = first
+		if (isObjectType(type)) {
+			const config = type.toConfig()
 			return new GraphQLObjectType({
 				...config,
-				name: group.name,
+				name,
 				interfaces: () => this.#interfaces(group),
 				fields: () => this.#fields(group),
 				...(config.isTypeOf == null
 					? {}
-					: {
-							isTypeOf: attributedIsTypeOf(
-								config.isTypeOf,
-								first.source,
-								this.#callbacks,
-							),
-						}),
+					: { isTypeOf: this.#resolver(config.isTypeOf, source, 1) }),
 			})
 		}
-		if (isInterfaceType(first.type) || isUnionType(first.type)) {
-			const config = first.type.toConfig()
-			const attribution = {
-				...(config.resolveType == null
+		if (isInterfaceType(type) || isUnionType(type)) {
+			const config = type.toConfig()
+			const resolveType =
+				config.resolveType == null
 					? {}
-					: {
-							resolveType: attributedTypeResolver(
-								config.resolveType,
-								first.source,
-								this.#callbacks,
-							),
-						}),
-			}
-			return isInterfaceType(first.type)
+					: { resolveType: this.#resolver(config.resolveType, source, 1) }
+			return isInterfaceType(type)
 				? new GraphQLInterfaceType({
-						...first.type.toConfig(),
-						...attribution,
-						name: group.name,
+						...type.toConfig(),
+						...resolveType,
+						name,
 						interfaces: () => this.#interfaces(group),
 						fields: () => this.#fields(group),
 					})
 				: new GraphQLUnionType({
-						...first.type.toConfig(),
-						...attribution,
-						name: group.name,
+						...type.toConfig(),
+						...resolveType,
+						name,
 						types: () =>
 							group.entries.flatMap((entry) =>
-								(entry.type as GraphQLUnionType)
-									.toConfig()
-									.types.map((type) => this.#reference(type)),
+								isUnionType(entry.type)
+									? entry.type
+											.toConfig()
+											.types.map((member) => this.#object(member))
+									: [],
 							),
 					})
 		}
-		if (isInputObjectType(first.type))
+		if (isInputObjectType(type)) {
 			return new GraphQLInputObjectType({
-				...first.type.toConfig(),
-				name: group.name,
+				...type.toConfig(),
+				name,
 				fields: () =>
 					Object.fromEntries(
 						group.entries.flatMap((entry) =>
-							Object.entries(
-								(entry.type as GraphQLInputObjectType).toConfig().fields,
-							),
+							isInputObjectType(entry.type)
+								? Object.entries(entry.type.toConfig().fields)
+								: [],
 						),
 					),
 			})
-		if (isEnumType(first.type))
+		}
+		if (isEnumType(type)) {
 			return new GraphQLEnumType({
-				...first.type.toConfig(),
-				name: group.name,
+				...type.toConfig(),
+				name,
 				values: Object.fromEntries(
 					group.entries.flatMap((entry) =>
-						Object.entries((entry.type as GraphQLEnumType).toConfig().values),
+						isEnumType(entry.type)
+							? Object.entries(entry.type.toConfig().values)
+							: [],
 					),
 				),
 			})
-		if (isScalarType(first.type)) return this.#scalar(group, first)
-		throw new TypeError(`Unsupported GraphQL type ${group.name}`)
-	}
-
-	#scalar(group: TypeGroup, first: TypeEntry): GraphQLScalarType {
-		const config = (first.type as GraphQLScalarType).toConfig()
-		return new GraphQLScalarType({
-			...config,
-			name: group.name,
-			coerceOutputValue: attributedScalarSerializer(
-				config.coerceOutputValue,
-				first.source,
-				this.#callbacks,
-			),
-			coerceInputValue: attributedScalarValueParser(
-				config.coerceInputValue,
-				first.source,
-				this.#callbacks,
-			),
-			...(config.coerceInputLiteral === undefined
-				? {}
-				: {
-						coerceInputLiteral: attributedScalarLiteralParser(
-							config.coerceInputLiteral,
-							first.source,
-							this.#callbacks,
-						),
-					}),
-		})
+		}
+		if (isScalarType(type)) {
+			const config = type.toConfig()
+			return new GraphQLScalarType({
+				...config,
+				name,
+				coerceOutputValue: this.#scalarCallback(
+					config.coerceOutputValue,
+					source,
+				),
+				coerceInputValue: this.#scalarCallback(config.coerceInputValue, source),
+				...(config.coerceInputLiteral === undefined
+					? {}
+					: {
+							coerceInputLiteral: this.#scalarCallback(
+								config.coerceInputLiteral,
+								source,
+							),
+						}),
+			})
+		}
+		throw new TypeError(`Unsupported GraphQL type ${name}`)
 	}
 
 	compose(): GraphQLSchema {
@@ -245,31 +295,30 @@ class GraphqlSchemaComposer {
 				? undefined
 				: assertObjectType(typeMap[group.name])
 		}
-		const roots = new Set(['@query', '@mutation', '@subscription'])
 		const schema = new GraphQLSchema({
 			query: root('@query'),
 			mutation: root('@mutation'),
-			subscription: root('@subscription'),
 			directives,
 			types: [...this.#groups.values()]
-				.filter(({ key }) => !roots.has(key))
+				.filter(({ key }) => !key.startsWith('@'))
 				.map((group) => assertNamedType(typeMap[group.name])),
 		})
-		if (Object.keys(schema.getQueryType()?.getFields() ?? {}).length === 0) {
+		const queryFieldCount = Object.keys(
+			schema.getQueryType()?.getFields() ?? {},
+		).length
+		if (queryFieldCount === 0) {
 			throw new GraphqlSchemaCompilationError(
 				'missing-query-root',
 				'GraphQL schema compilation requires at least one public query field',
 			)
 		}
-		const errors = validateSchema(schema)
-		if (errors.length > 0) {
+		const [error] = validateSchema(schema)
+		if (error !== undefined) {
 			throw new GraphqlSchemaCompilationError(
-				errors[0]?.message.includes('Query root type must be provided') ===
-					true ||
-					Object.keys(schema.getQueryType()?.getFields() ?? {}).length === 0
+				error.message.includes('Query root type must be provided')
 					? 'missing-query-root'
 					: 'name-collision',
-				`Invalid composed GraphQL schema: ${errors[0]?.message ?? 'unknown validation failure'}`,
+				`Invalid composed GraphQL schema: ${error.message}`,
 			)
 		}
 		return schema

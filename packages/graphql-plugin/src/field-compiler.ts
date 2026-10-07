@@ -1,7 +1,9 @@
 import {
+	getFieldListDepth,
+	getPluginFieldWireCodec,
 	readFieldTypegenState,
-	type CompiledSchemaRegistry,
 	type GenericField,
+	type PluginFieldWireCodec,
 	type SchemaDeclaredFields,
 	type SchemaDefinition,
 	type SchemaFields,
@@ -11,194 +13,185 @@ import {
 	GraphQLInputObjectType,
 	GraphQLNonNull,
 	GraphQLObjectType,
-	type GraphQLFieldConfigMap,
+	type GraphQLFieldConfig,
 	type GraphQLFieldConfigArgumentMap,
+	type GraphQLFieldConfigMap,
 	type GraphQLInputFieldConfigMap,
-	type GraphQLNamedType,
 	type GraphQLNullableInputType,
 	type GraphQLNullableOutputType,
 } from 'graphql'
 
+import {
+	assertSchemaFieldName,
+	fieldPathKey,
+	graphqlEnumValueName,
+	graphqlFieldOwner,
+	memoize,
+	readGraphqlEnumValues,
+	readGraphqlDescription,
+	readGraphqlObjectFields,
+	type GraphqlCompileContext,
+} from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
 import type { GraphqlGeneratedExecution } from './generated-execution.js'
-import { GraphqlConnectionTypeCompiler } from './connection-types.js'
-import { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
-import {
-	encodeGraphqlPluginFieldValue,
-	readGraphqlPluginFieldCodec,
-} from './field-codecs.js'
 import { GraphqlOutputTypeCompiler } from './output-type-compiler.js'
-import {
-	readGraphqlEnumValues,
-	readGraphqlFieldDescription,
-	readGraphqlFieldOwner,
-	readGraphqlObjectFields,
-} from './field-metadata.js'
-import {
-	assertGraphqlFieldName,
-	graphqlEnumValueName,
-	graphqlFieldTypeSegment,
-} from './names.js'
-import type { GraphqlNameRegistry } from './names.js'
+import { graphqlFieldProtocol } from './protocol.js'
 import { GraphqlJSON } from './scalars.js'
 import {
+	isGraphqlBuiltInFieldKind,
 	readGraphqlScalarInputType,
 	readGraphqlScalarOutputType,
 	wrapGraphqlFieldList,
 } from './scalar-types.js'
-import {
-	graphqlSourceDescription,
-	type GraphqlSchemaSurface,
-} from './surfaces.js'
 
-type GraphqlRelationArguments = (
-	target: SchemaDefinition,
-) => GraphQLFieldConfigArgumentMap
+/** Supplies the read arguments and resolver of generated relation fields. */
+export interface GraphqlRelationFields {
+	readonly arguments: (
+		target: SchemaDefinition,
+	) => GraphQLFieldConfigArgumentMap
+	readonly resolver: GraphqlGeneratedExecution['relation']
+}
+
+/** Requires the GraphQL v1 wire codec of every plugin-owned field kind. */
+export const readGraphqlPluginFieldCodec = (
+	field: GenericField,
+	schema: SchemaDefinition,
+	path: readonly string[],
+): PluginFieldWireCodec | undefined => {
+	if (isGraphqlBuiltInFieldKind(field.kind)) return undefined
+	const codec = getPluginFieldWireCodec(field, graphqlFieldProtocol)
+	if (codec === undefined) {
+		throw new GraphqlSchemaCompilationError(
+			'missing-field-codec',
+			`Plugin field ${schema.className}.${path.join('.')} has no ultimabase.graphql.field@1.0.0 JSON codec`,
+			{
+				owner: graphqlFieldOwner(schema, path),
+				path: `${schema.className}.${path.join('.')}`,
+			},
+		)
+	}
+	return codec
+}
+
+const encodePluginFieldValue = (
+	source: unknown,
+	name: string,
+	field: GenericField,
+	codec: PluginFieldWireCodec,
+): unknown => {
+	if (typeof source !== 'object' || source === null) return undefined
+	const value: unknown = Reflect.get(source, name)
+	if (value === null || value === undefined) return value
+	if (getFieldListDepth(field.options) === 0) return codec.encode(value)
+	return Array.isArray(value)
+		? value.map((entry) => codec.encode(entry))
+		: value
+}
 
 /** Compiles schema fields into reusable application-local GraphQL named types. */
 export class GraphqlFieldTypeCompiler {
-	readonly #compiled: GraphqlCompiledSchemaLookup
-	readonly #names: GraphqlNameRegistry
-	readonly #relationArguments: GraphqlRelationArguments
-	readonly #relationResolver: GraphqlGeneratedExecution['relation']
+	readonly #ctx: GraphqlCompileContext
+	readonly #relations: GraphqlRelationFields
+	readonly #outputs: GraphqlOutputTypeCompiler
 	readonly #models = new Map<SchemaDefinition, GraphQLObjectType>()
-	readonly #connectionTypes: GraphqlConnectionTypeCompiler
-	readonly #outputTypes: GraphqlOutputTypeCompiler
 	readonly #enums = new Map<string, GraphQLEnumType>()
-	readonly #embeddedInputs = new Map<string, GraphQLInputObjectType>()
-	readonly #embeddedOutputs = new Map<string, GraphQLObjectType>()
-	readonly #namedTypes: GraphQLNamedType[] = []
+	readonly #objects = new Map<string, GraphQLObjectType>()
+	readonly #inputs = new Map<string, GraphQLInputObjectType>()
 
-	constructor(
-		options: Readonly<{
-			readonly names: GraphqlNameRegistry
-			readonly schemas: CompiledSchemaRegistry
-			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
-			readonly relationArguments: GraphqlRelationArguments
-			readonly relationResolver: GraphqlGeneratedExecution['relation']
-		}>,
-	) {
-		this.#names = options.names
-		this.#compiled = new GraphqlCompiledSchemaLookup(
-			options.schemas,
-			options.surfaces,
+	constructor(ctx: GraphqlCompileContext, relations: GraphqlRelationFields) {
+		this.#ctx = ctx
+		this.#relations = relations
+		this.#outputs = new GraphqlOutputTypeCompiler(ctx, (schema) =>
+			this.model(schema),
 		)
-		this.#relationArguments = options.relationArguments
-		this.#relationResolver = options.relationResolver
-		this.#connectionTypes = new GraphqlConnectionTypeCompiler({
-			compiled: this.#compiled,
-			model: (schema) => this.model(schema),
-			names: options.names,
-		})
-		this.#outputTypes = new GraphqlOutputTypeCompiler(options.names)
-	}
-	get types(): readonly GraphQLNamedType[] {
-		return [
-			...this.#namedTypes,
-			...this.#connectionTypes.types,
-			...this.#outputTypes.types,
-		]
-	}
-	connectionType(schema: SchemaDefinition): GraphQLObjectType {
-		return this.#connectionTypes.connection(schema)
-	}
-	#claimGenerated(
-		name: string,
-		schema: SchemaDefinition,
-		path?: readonly string[],
-	): void {
-		this.#names.claimType(name, {
-			description: graphqlSourceDescription(schema, path),
-			owner: schema.definition.provenance.schema.owner,
-		})
 	}
 
 	model(schema: SchemaDefinition): GraphQLObjectType {
-		const existing = this.#models.get(schema)
-		if (existing !== undefined) return existing
-		const model = new GraphQLObjectType({
-			name: this.#compiled.surface(schema).typeName,
-			fields: () => this.#outputFields(schema, schema.definition.fields, []),
-		})
-		this.#models.set(schema, model)
-		this.#namedTypes.push(model)
-		return model
+		return memoize(this.#models, schema, () =>
+			this.#ctx.add(
+				'models',
+				new GraphQLObjectType({
+					name: this.#ctx.surface(schema).typeName,
+					fields: () =>
+						this.#outputFields(schema, schema.definition.fields, []),
+				}),
+			),
+		)
 	}
+
+	connectionType(schema: SchemaDefinition): GraphQLObjectType {
+		return this.#outputs.connection(schema)
+	}
+
 	#outputFields(
 		schema: SchemaDefinition,
 		fields: SchemaDeclaredFields,
 		parentPath: readonly string[],
 	): GraphQLFieldConfigMap<unknown, unknown> {
-		const compiled: GraphQLFieldConfigMap<unknown, unknown> = {}
-		for (const [name, field] of Object.entries(fields)) {
-			const path = [...parentPath, name]
-			assertGraphqlFieldName(
-				name,
-				graphqlSourceDescription(schema, path),
-				readGraphqlFieldOwner(schema, path),
-			)
-			if (field.kind === 'virtual') {
-				const virtual = schema.virtualFields[name]
-				if (virtual === undefined) {
-					throw new TypeError('Compiled virtual field metadata is unavailable')
-				}
-				compiled[name] = {
-					description: readGraphqlFieldDescription(virtual),
-					type: this.#outputTypes.output(
-						virtual.output,
-						schema,
-						path,
-						this.#compiled.surface(schema).typeName,
-					),
-				}
-				continue
+		return Object.fromEntries(
+			Object.entries(fields).map(([name, field]) => {
+				const path = [...parentPath, name]
+				assertSchemaFieldName(schema, path)
+				return [name, this.#outputField(schema, name, field, path)]
+			}),
+		)
+	}
+
+	#outputField(
+		schema: SchemaDefinition,
+		name: string,
+		field: SchemaDeclaredFields[string],
+		path: readonly string[],
+	): GraphQLFieldConfig<unknown, unknown> {
+		if (field.kind === 'virtual') {
+			const virtual = schema.virtualFields[name]
+			if (virtual === undefined) {
+				throw new TypeError('Compiled virtual field metadata is unavailable')
 			}
-			const stored =
-				parentPath.length === 0 ? schema.persistedFields[name] : field
-			if (stored === undefined) {
-				throw new TypeError('Compiled persisted field metadata is unavailable')
-			}
-			const codec = readGraphqlPluginFieldCodec(stored, schema, path)
-			const target =
-				stored.kind === 'relation'
-					? this.#compiled.target(schema, path)
-					: undefined
-			compiled[name] = {
-				description: readGraphqlFieldDescription(stored),
-				type: this.#outputType(stored, schema, path),
-				...(target === undefined
-					? {}
-					: {
-							args: this.#relationArguments(target),
-							resolve: this.#relationResolver(
-								schema,
-								name,
-								target,
-								this.#compiled.surface(target).typeName,
-							),
-						}),
-				...(codec === undefined
-					? {}
-					: {
-							resolve: (source: unknown) =>
-								encodeGraphqlPluginFieldValue(source, name, stored, codec),
-						}),
+			return {
+				description: readGraphqlDescription(virtual),
+				type: this.#outputs.output(
+					virtual.output,
+					schema,
+					path,
+					this.#ctx.surface(schema).typeName,
+				),
 			}
 		}
-		return compiled
-	}
-	#fieldPathKey(schema: SchemaDefinition, path: readonly string[]): string {
-		return `${schema.className}\0${path.join('\0')}`
+		const stored = path.length === 1 ? schema.persistedFields[name] : field
+		if (stored === undefined) {
+			throw new TypeError('Compiled persisted field metadata is unavailable')
+		}
+		const codec = readGraphqlPluginFieldCodec(stored, schema, path)
+		const target =
+			stored.kind === 'relation' ? this.#ctx.target(schema, path) : undefined
+		return {
+			description: readGraphqlDescription(stored),
+			type: wrapGraphqlFieldList(
+				this.#outputType(stored, schema, path),
+				stored,
+			),
+			...(target === undefined
+				? {}
+				: {
+						args: this.#relations.arguments(target),
+						resolve: this.#relations.resolver(
+							schema,
+							name,
+							target,
+							this.#ctx.surface(target).typeName,
+						),
+					}),
+			...(codec === undefined
+				? {}
+				: {
+						resolve: (source: unknown) =>
+							encodePluginFieldValue(source, name, stored, codec),
+					}),
+		}
 	}
 
 	#outputType(
-		field: GenericField,
-		schema: SchemaDefinition,
-		path: readonly string[],
-	): GraphQLNullableOutputType {
-		return wrapGraphqlFieldList(this.#outputScalar(field, schema, path), field)
-	}
-	#outputScalar(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
@@ -214,16 +207,15 @@ export class GraphqlFieldTypeCompiler {
 			case 'object':
 				return this.#embeddedOutput(field, schema, path)
 			case 'pointer':
-				return this.model(this.#compiled.target(schema, path))
+				return this.model(this.#ctx.target(schema, path))
 			case 'relation':
-				return this.#connectionTypes.connection(
-					this.#compiled.target(schema, path),
-				)
+				return this.#outputs.connection(this.#ctx.target(schema, path))
 			default:
 				readGraphqlPluginFieldCodec(field, schema, path)
 				return GraphqlJSON
 		}
 	}
+
 	inputElementType(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -241,6 +233,7 @@ export class GraphqlFieldTypeCompiler {
 				return GraphqlJSON
 		}
 	}
+
 	inputType(
 		field: GenericField,
 		schema: SchemaDefinition,
@@ -251,46 +244,46 @@ export class GraphqlFieldTypeCompiler {
 			field,
 		)
 	}
-	#enum(
-		field: GenericField,
-		schema: SchemaDefinition,
-		path: readonly string[],
-	): GraphQLEnumType {
-		const pathKey = this.#fieldPathKey(schema, path)
-		const existing = this.#enums.get(pathKey)
-		if (existing !== undefined) return existing
-		const name = this.#fieldTypeName(field, schema, path)
-		this.#claimGenerated(name, schema, path)
-		const values: Record<string, { readonly value: string }> = {}
-		for (const value of readGraphqlEnumValues(field)) {
-			const enumName = graphqlEnumValueName(value)
-			if (Object.hasOwn(values, enumName)) {
-				throw new GraphqlSchemaCompilationError(
-					'name-collision',
-					`GraphQL enum value "${enumName}" collides in ${schema.className}.${path.join('.')}`,
-					{
-						owner: readGraphqlFieldOwner(schema, path),
-						path: `${name}.${enumName}`,
-					},
-				)
-			}
-			values[enumName] = { value }
-		}
-		const result = new GraphQLEnumType({ name, values })
-		this.#enums.set(pathKey, result)
-		this.#namedTypes.push(result)
-		return result
-	}
+
 	#fieldTypeName(
 		field: GenericField,
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): string {
-		const explicit =
-			'typeName' in field.options ? field.options.typeName : undefined
+		const explicit: unknown = Reflect.get(field.options, 'typeName')
 		return typeof explicit === 'string'
 			? explicit
-			: `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+			: this.#ctx.typeName(schema, path)
+	}
+
+	#enum(
+		field: GenericField,
+		schema: SchemaDefinition,
+		path: readonly string[],
+	): GraphQLEnumType {
+		return memoize(this.#enums, fieldPathKey(schema, path), () => {
+			const name = this.#fieldTypeName(field, schema, path)
+			this.#ctx.claim(name, schema, path)
+			const values = new Map<string, { readonly value: string }>()
+			for (const value of readGraphqlEnumValues(field.options)) {
+				const enumName = graphqlEnumValueName(value)
+				if (values.has(enumName)) {
+					throw new GraphqlSchemaCompilationError(
+						'name-collision',
+						`GraphQL enum value "${enumName}" collides in ${schema.className}.${path.join('.')}`,
+						{
+							owner: graphqlFieldOwner(schema, path),
+							path: `${name}.${enumName}`,
+						},
+					)
+				}
+				values.set(enumName, { value })
+			}
+			return this.#ctx.add(
+				'models',
+				new GraphQLEnumType({ name, values: Object.fromEntries(values) }),
+			)
+		})
 	}
 
 	#embeddedOutput(
@@ -298,19 +291,18 @@ export class GraphqlFieldTypeCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLObjectType {
-		const pathKey = this.#fieldPathKey(schema, path)
-		const existing = this.#embeddedOutputs.get(pathKey)
-		if (existing !== undefined) return existing
-		const name = this.#fieldTypeName(field, schema, path)
-		this.#claimGenerated(name, schema, path)
-		const result = new GraphQLObjectType({
-			name,
-			fields: () =>
-				this.#outputFields(schema, readGraphqlObjectFields(field), path),
+		return memoize(this.#objects, fieldPathKey(schema, path), () => {
+			const name = this.#fieldTypeName(field, schema, path)
+			this.#ctx.claim(name, schema, path)
+			return this.#ctx.add(
+				'models',
+				new GraphQLObjectType({
+					name,
+					fields: () =>
+						this.#outputFields(schema, readGraphqlObjectFields(field), path),
+				}),
+			)
 		})
-		this.#embeddedOutputs.set(pathKey, result)
-		this.#namedTypes.push(result)
-		return result
 	}
 
 	#embeddedInput(
@@ -318,58 +310,40 @@ export class GraphqlFieldTypeCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const pathKey = this.#fieldPathKey(schema, path)
-		const existing = this.#embeddedInputs.get(pathKey)
-		if (existing !== undefined) return existing
-		const name = `${this.#fieldTypeName(field, schema, path)}Input`
-		this.#claimGenerated(name, schema, path)
-		const result = new GraphQLInputObjectType({
-			name,
-			fields: () =>
-				this.createFields(schema, readGraphqlObjectFields(field), path),
+		return memoize(this.#inputs, fieldPathKey(schema, path), () => {
+			const name = `${this.#fieldTypeName(field, schema, path)}Input`
+			this.#ctx.claim(name, schema, path)
+			return this.#ctx.add(
+				'models',
+				new GraphQLInputObjectType({
+					name,
+					fields: () =>
+						this.#createFields(schema, readGraphqlObjectFields(field), path),
+				}),
+			)
 		})
-		this.#embeddedInputs.set(pathKey, result)
-		this.#namedTypes.push(result)
-		return result
 	}
 
-	createFields(
+	#createFields(
 		schema: SchemaDefinition,
 		fields: SchemaFields,
 		parentPath: readonly string[],
 	): GraphQLInputFieldConfigMap {
-		const compiled: GraphQLInputFieldConfigMap = {}
+		const compiled: [string, GraphQLInputFieldConfigMap[string]][] = []
 		for (const [name, field] of Object.entries(fields)) {
 			const state = readFieldTypegenState(field)
 			if (state.create === 'forbidden') continue
 			const path = [...parentPath, name]
-			assertGraphqlFieldName(
+			assertSchemaFieldName(schema, path)
+			const type = this.inputType(field, schema, path)
+			compiled.push([
 				name,
-				graphqlSourceDescription(schema, path),
-				readGraphqlFieldOwner(schema, path),
-			)
-			const nullableType = this.inputType(field, schema, path)
-			compiled[name] = {
-				description: readGraphqlFieldDescription(field),
-				type:
-					state.create === 'required'
-						? new GraphQLNonNull(nullableType)
-						: nullableType,
-			}
+				{
+					description: readGraphqlDescription(field),
+					type: state.create === 'required' ? new GraphQLNonNull(type) : type,
+				},
+			])
 		}
-		return compiled
-	}
-
-	/** Forces every thunk once so final schema construction observes a fixed set. */
-	materialize(): void {
-		this.#connectionTypes.materialize()
-		for (const type of this.#namedTypes) {
-			if (
-				type instanceof GraphQLObjectType ||
-				type instanceof GraphQLInputObjectType
-			) {
-				type.getFields()
-			}
-		}
+		return Object.fromEntries(compiled)
 	}
 }

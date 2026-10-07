@@ -14,6 +14,8 @@ import {
 	type SelectionSetNode,
 } from 'graphql'
 
+import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+
 interface CollectedField {
 	readonly name: string
 	readonly nodes: readonly FieldNode[]
@@ -23,6 +25,8 @@ interface CollectedField {
 interface SelectionContext {
 	readonly fragments: Readonly<Record<string, FragmentDefinitionNode>>
 	readonly info: GraphQLResolveInfo
+	readonly connections: GraphqlConnectionRuntime
+	readonly relationshipMode: GraphqlRelationshipSelectionMode
 }
 
 export interface GraphqlReadProjection {
@@ -30,14 +34,25 @@ export interface GraphqlReadProjection {
 	readonly select: Readonly<Record<string, true>>
 }
 
-export type GraphqlRelationArgumentNormalizer = (
+/** Identifies the declared relationship a nested cursor belongs to. */
+export interface GraphqlConnectionScope {
+	readonly relationPath: readonly string[]
+	readonly typeName: string
+}
+
+/** Converts collection arguments into existing Core query clauses. */
+export const normalizeGraphqlCollectionArguments = (
 	schema: SchemaDefinition,
 	args: Readonly<Record<string, unknown>>,
-	scope: Readonly<{
-		readonly relationPath: readonly string[]
-		readonly typeName: string
-	}>,
-) => Readonly<Record<string, unknown>>
+	connections: GraphqlConnectionRuntime,
+	scope: GraphqlConnectionScope,
+): Readonly<Record<string, unknown>> =>
+	connections.prepare({
+		arguments: args,
+		relationPath: scope.relationPath,
+		schema,
+		typeName: scope.typeName,
+	}).clauses
 
 export type GraphqlRelationshipSelectionMode = 'include' | 'stored-pointer-only'
 
@@ -124,8 +139,6 @@ const modelProjection = (
 	type: GraphQLObjectType,
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
-	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
-	relationshipMode: GraphqlRelationshipSelectionMode,
 ): GraphqlReadProjection => {
 	const select: Record<string, true> = {}
 	const include: Record<string, unknown> = {}
@@ -143,7 +156,7 @@ const modelProjection = (
 			select[selected.name] = true
 			continue
 		}
-		if (relationshipMode === 'stored-pointer-only') {
+		if (context.relationshipMode === 'stored-pointer-only') {
 			if (field.kind === 'relation') {
 				throw new TypeError(
 					`GraphQL ${schema.className}.${selected.name} cannot be selected from delete or upsert results`,
@@ -214,14 +227,13 @@ const modelProjection = (
 			modelType,
 			targetSelectionSets,
 			context,
-			normalizeRelationArguments,
-			relationshipMode,
 		)
 		include[selected.name] = immutableRecord({
 			...(field.kind === 'relation'
-				? normalizeRelationArguments(
+				? normalizeGraphqlCollectionArguments(
 						target,
 						fieldArguments(selected, definition, context),
+						context.connections,
 						{
 							relationPath: targetRelationPath,
 							typeName: modelType.name,
@@ -245,10 +257,15 @@ export const normalizeGraphqlSelection = (
 	schema: SchemaDefinition,
 	info: GraphQLResolveInfo,
 	connectionRoot: boolean,
-	normalizeRelationArguments: GraphqlRelationArgumentNormalizer,
+	connections: GraphqlConnectionRuntime,
 	relationshipMode: GraphqlRelationshipSelectionMode = 'include',
 ): GraphqlReadProjection => {
-	const context: SelectionContext = { fragments: info.fragments, info }
+	const context: SelectionContext = {
+		connections,
+		fragments: info.fragments,
+		info,
+		relationshipMode,
+	}
 	const root = getNamedType(info.returnType)
 	if (!isObjectType(root)) {
 		throw new TypeError('GraphQL read result must be an object type')
@@ -257,14 +274,7 @@ export const normalizeGraphqlSelection = (
 		node.selectionSet === undefined ? [] : [node.selectionSet],
 	)
 	if (!connectionRoot) {
-		return modelProjection(
-			schema,
-			root,
-			rootSelectionSets,
-			context,
-			normalizeRelationArguments,
-			relationshipMode,
-		)
+		return modelProjection(schema, root, rootSelectionSets, context)
 	}
 	const model = getNamedType(root.getFields().nodes?.type)
 	if (!model || !isObjectType(model)) {
@@ -280,7 +290,5 @@ export const normalizeGraphqlSelection = (
 		model,
 		relationNodeSelectionSets(synthetic, root, context),
 		context,
-		normalizeRelationArguments,
-		relationshipMode,
 	)
 }

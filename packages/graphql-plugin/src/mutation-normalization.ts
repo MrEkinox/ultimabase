@@ -11,10 +11,8 @@ import {
 import type { GraphQLResolveInfo } from 'graphql'
 
 import type { GraphqlConnectionRuntime } from './connection-runtime.js'
-import { decodeGraphqlMutationData } from './nested-mutation-values.js'
-import { normalizeGraphqlCollectionArguments } from './read-normalization.js'
-import { decodeGraphqlWhere } from './read-values.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
+import { decodeGraphqlMutationData, decodeGraphqlWhere } from './wire-values.js'
 
 /** Names generated mutations independently from their GraphQL root spelling. */
 export type GraphqlMutationOperation =
@@ -66,13 +64,17 @@ const readInput = (args: unknown): Readonly<Record<string, unknown>> => {
 	return args.input
 }
 
-const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
-	if (!isPlainRecord(value)) return value
-	return immutableRecord({
-		...value,
-		...(Object.hasOwn(value, 'where')
-			? { where: decodeGraphqlWhere(schema, value.where) }
-			: {}),
+type Input = Readonly<Record<string, unknown>>
+
+// Keys are decoded only when present so Core still sees the exact envelope.
+const decodeWhereKey = (schema: SchemaDefinition, input: Input): Input =>
+	Object.hasOwn(input, 'where')
+		? { ...input, where: decodeGraphqlWhere(schema, input.where) }
+		: input
+
+const decodeUpsert = (schema: SchemaDefinition, value: Input): Input =>
+	immutableRecord({
+		...decodeWhereKey(schema, value),
 		...(Object.hasOwn(value, 'create')
 			? {
 					create: decodeGraphqlMutationData(
@@ -94,60 +96,59 @@ const decodeUpsert = (schema: SchemaDefinition, value: unknown): unknown => {
 				}
 			: {}),
 	})
+
+const decodeBulkItem = (
+	schema: SchemaDefinition,
+	operation: GraphqlMutationOperation,
+	item: unknown,
+): unknown => {
+	if (operation === 'bulkCreate') {
+		return decodeGraphqlMutationData(schema, item, 'create', 'flat')
+	}
+	if (!isPlainRecord(item)) return item
+	if (operation === 'bulkUpsert') return decodeUpsert(schema, item)
+	return immutableRecord({
+		...item,
+		where: decodeGraphqlWhere(schema, item.where),
+		data: decodeGraphqlMutationData(schema, item.data, 'update', 'flat'),
+	})
 }
 
 const mutationInput = (
 	schema: SchemaDefinition,
 	operation: GraphqlMutationOperation,
-	input: Readonly<Record<string, unknown>>,
-): unknown => {
-	if (operation === 'create')
-		return {
-			data: decodeGraphqlMutationData(schema, input, 'create', 'nested'),
-		}
-	if (operation === 'update') {
-		return {
-			...input,
-			...(Object.hasOwn(input, 'where')
-				? { where: decodeGraphqlWhere(schema, input.where) }
-				: {}),
-			data: decodeGraphqlMutationData(schema, input.data, 'update', 'nested'),
-		}
-	}
-	if (operation === 'delete') {
-		return {
-			...input,
-			...(Object.hasOwn(input, 'where')
-				? { where: decodeGraphqlWhere(schema, input.where) }
-				: {}),
-		}
-	}
-	if (operation === 'upsert') return decodeUpsert(schema, input)
-	if (operation === 'bulkDelete') {
-		return {
-			where: isUnknownArray(input.where)
-				? immutableArray(
-						input.where.map((where) => decodeGraphqlWhere(schema, where)),
-					)
-				: input.where,
-		}
-	}
-	if (!isUnknownArray(input.data)) return input
-	return {
-		data: immutableArray(
-			input.data.map((item) => {
-				if (operation === 'bulkCreate') {
-					return decodeGraphqlMutationData(schema, item, 'create', 'flat')
-				}
-				if (operation === 'bulkUpsert') return decodeUpsert(schema, item)
-				if (!isPlainRecord(item)) return item
-				return immutableRecord({
-					...item,
-					where: decodeGraphqlWhere(schema, item.where),
-					data: decodeGraphqlMutationData(schema, item.data, 'update', 'flat'),
-				})
-			}),
-		),
+	input: Input,
+): Input => {
+	switch (operation) {
+		case 'create':
+			return {
+				data: decodeGraphqlMutationData(schema, input, 'create', 'nested'),
+			}
+		case 'update':
+			return {
+				...decodeWhereKey(schema, input),
+				data: decodeGraphqlMutationData(schema, input.data, 'update', 'nested'),
+			}
+		case 'delete':
+			return decodeWhereKey(schema, input)
+		case 'upsert':
+			return decodeUpsert(schema, input)
+		case 'bulkDelete':
+			return {
+				where: isUnknownArray(input.where)
+					? immutableArray(
+							input.where.map((where) => decodeGraphqlWhere(schema, where)),
+						)
+					: input.where,
+			}
+		default:
+			return isUnknownArray(input.data)
+				? {
+						data: immutableArray(
+							input.data.map((item) => decodeBulkItem(schema, operation, item)),
+						),
+					}
+				: input
 	}
 }
 
@@ -174,19 +175,11 @@ export const normalizeGraphqlMutation = <
 		schema,
 		info,
 		false,
-		(target, relationArgs, scope) =>
-			normalizeGraphqlCollectionArguments(
-				target,
-				relationArgs,
-				connections,
-				scope,
-			),
+		connections,
 		relationships,
 	)
 	const commandInput = immutableRecord({
-		...(mutationInput(schema, operation, input) as Readonly<
-			Record<string, unknown>
-		>),
+		...mutationInput(schema, operation, input),
 		...projection,
 	})
 	return immutableRecord({

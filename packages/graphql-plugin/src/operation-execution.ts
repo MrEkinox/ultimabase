@@ -5,48 +5,47 @@ import type {
 	RequestContext,
 } from '@ultimabase/core'
 
-interface GraphqlOperationExecutionState {
-	core: ApplicationOperationTransport | undefined
-	operations: ReadonlyMap<string, ExposedOperationTransportBinding>
-	plan: ApplicationOperationTransportPlan
-}
-
-const executionStates = new WeakMap<
-	GraphqlOperationExecution,
-	GraphqlOperationExecutionState
->()
+/** @internal Proves Core exposed exactly the descriptors planned at setup. */
+export const matchesGraphqlPlan = <TItem>(
+	core: Readonly<{ transport: unknown; items: readonly TItem[] }>,
+	plan: Readonly<{ transport: unknown; items: readonly TItem[] }>,
+): boolean =>
+	core.transport === plan.transport &&
+	core.items.length === plan.items.length &&
+	core.items.every((item, index) => item === plan.items[index])
 
 /** Retains the static plan while Core remains the only operation executor. */
 export class GraphqlOperationExecution {
+	// Disposal clears the plan, so a disposed bridge can neither bind nor execute.
+	#plan: ApplicationOperationTransportPlan | undefined
+	#core: ApplicationOperationTransport | undefined
+	readonly #operations: ReadonlyMap<string, ExposedOperationTransportBinding>
+
 	constructor(plan: ApplicationOperationTransportPlan) {
-		executionStates.set(this, {
-			core: undefined,
-			operations: new Map(plan.operations.map((item) => [item.name, item])),
-			plan,
-		})
+		this.#plan = plan
+		this.#operations = new Map(plan.operations.map((item) => [item.name, item]))
 		Object.freeze(this)
 	}
 
 	bind(core: ApplicationOperationTransport): void {
-		const state = executionStates.get(this)
-		if (state === undefined) {
+		const plan = this.#plan
+		if (plan === undefined) {
 			throw new TypeError('GraphQL operation execution is unavailable')
 		}
-		if (state.core !== undefined) {
+		if (this.#core !== undefined) {
 			throw new TypeError('GraphQL operation execution is already bound')
 		}
 		if (
-			core.transport !== state.plan.transport ||
-			core.operations.length !== state.plan.operations.length ||
-			core.operations.some(
-				(item, index) => item !== state.plan.operations[index],
+			!matchesGraphqlPlan(
+				{ transport: core.transport, items: core.operations },
+				{ transport: plan.transport, items: plan.operations },
 			)
 		) {
 			throw new TypeError(
 				'GraphQL operation execution does not match its static plan',
 			)
 		}
-		state.core = core
+		this.#core = core
 	}
 
 	async execute(
@@ -54,14 +53,14 @@ export class GraphqlOperationExecution {
 		operation: ExposedOperationTransportBinding,
 		input: unknown,
 	): Promise<unknown> {
-		const state = executionStates.get(this)
+		const core = this.#plan === undefined ? undefined : this.#core
 		if (
-			state?.core === undefined ||
-			state.operations.get(operation.name) !== operation
+			core === undefined ||
+			this.#operations.get(operation.name) !== operation
 		) {
 			throw new TypeError('GraphQL operation execution is unavailable')
 		}
-		return state.core.execute({
+		return core.execute({
 			context,
 			input,
 			operation: operation.name,
@@ -70,7 +69,7 @@ export class GraphqlOperationExecution {
 	}
 
 	dispose(): void {
-		// A disposed bridge cannot execute or bind again, including an unbound one.
-		executionStates.delete(this)
+		this.#plan = undefined
+		this.#core = undefined
 	}
 }

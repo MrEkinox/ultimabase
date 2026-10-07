@@ -2,118 +2,156 @@ import {
 	getFieldListDepth,
 	type GenericField,
 	type SchemaDefinition,
-	type SchemaFields,
 } from '@ultimabase/core'
 import {
 	GraphQLBoolean,
+	GraphQLEnumType,
 	GraphQLInputObjectType,
-	GraphQLList,
 	GraphQLNonNull,
 	GraphQLString,
 	type GraphQLInputFieldConfigMap,
-	type GraphQLNamedType,
-	type GraphQLNullableInputType,
 } from 'graphql'
 
+import {
+	fieldPathKey,
+	memoize,
+	nonNullList,
+	readGraphqlObjectFields,
+	type GraphqlCompileContext,
+} from './compile-context.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
-import type { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
-import type { GraphqlFilterSharedTypes } from './filter-shared-types.js'
-import { graphqlFieldTypeSegment } from './names.js'
-import type { GraphqlNameRegistry } from './names.js'
 import { GraphqlJSON } from './scalars.js'
-import { graphqlSourceDescription } from './surfaces.js'
 
-/** Compiles recursive JSON paths and embedded-object partial inputs. */
+/** Compiles shared read inputs, recursive JSON paths and embedded partials. */
 export class GraphqlStructuralFilterInputCompiler {
-	readonly #compiled: GraphqlCompiledSchemaLookup
+	readonly #ctx: GraphqlCompileContext
 	readonly #fieldTypes: GraphqlFieldTypeCompiler
-	readonly #names: GraphqlNameRegistry
-	readonly #shared: GraphqlFilterSharedTypes
 	readonly #pathFilters = new Map<string, GraphQLInputObjectType>()
 	readonly #partialObjects = new Map<string, GraphQLInputObjectType>()
-	readonly #types: GraphQLNamedType[] = []
+	#regex: GraphQLInputObjectType | undefined
+	#jsonPath: GraphQLInputObjectType | undefined
+	#direction: GraphQLEnumType | undefined
 
 	constructor(
-		options: Readonly<{
-			readonly compiled: GraphqlCompiledSchemaLookup
-			readonly fieldTypes: GraphqlFieldTypeCompiler
-			readonly names: GraphqlNameRegistry
-			readonly shared: GraphqlFilterSharedTypes
-		}>,
+		ctx: GraphqlCompileContext,
+		fieldTypes: GraphqlFieldTypeCompiler,
 	) {
-		this.#compiled = options.compiled
-		this.#fieldTypes = options.fieldTypes
-		this.#names = options.names
-		this.#shared = options.shared
+		this.#ctx = ctx
+		this.#fieldTypes = fieldTypes
 	}
 
-	get types(): readonly GraphQLNamedType[] {
-		return this.#types
+	// Shared read inputs are claimed on first use and listed in creation order.
+	#shared<TType>(name: string, create: (name: string) => TType): TType {
+		this.#ctx.names.claimType(name, `shared GraphQL read input ${name}`)
+		return create(name)
 	}
 
-	#pathName(schema: SchemaDefinition, path: readonly string[]): string {
-		return `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
+	regex(): GraphQLInputObjectType {
+		if (this.#regex !== undefined) return this.#regex
+		const flag = this.#shared(
+			'GraphqlRegexFlag',
+			(name) =>
+				new GraphQLEnumType({
+					name,
+					values: {
+						CASE_INSENSITIVE: { value: 'case-insensitive' },
+						DOT_MATCHES_NEWLINE: { value: 'dot-matches-newline' },
+						MULTILINE: { value: 'multiline' },
+					},
+				}),
+		)
+		this.#regex = this.#shared(
+			'GraphqlRegexPattern',
+			(name) =>
+				new GraphQLInputObjectType({
+					name,
+					fields: {
+						flags: { type: new GraphQLNonNull(nonNullList(flag)) },
+						source: { type: new GraphQLNonNull(GraphQLString) },
+					},
+				}),
+		)
+		this.#ctx.add('filterShared', flag)
+		return this.#ctx.add('filterShared', this.#regex)
 	}
 
-	#claim(
-		name: string,
-		schema: SchemaDefinition,
-		path: readonly string[],
-	): void {
-		this.#names.claimType(name, {
-			description: graphqlSourceDescription(schema, path),
-			owner: schema.definition.provenance.schema.owner,
-		})
+	jsonPath(): GraphQLInputObjectType {
+		this.#jsonPath ??= this.#ctx.add(
+			'filterShared',
+			this.#shared(
+				'GraphqlJsonPathExpression',
+				(name) =>
+					new GraphQLInputObjectType({
+						name,
+						fields: {
+							source: { type: new GraphQLNonNull(GraphQLString) },
+							variables: { type: GraphqlJSON },
+						},
+					}),
+			),
+		)
+		return this.#jsonPath
 	}
 
-	#list(
-		type: GraphQLNullableInputType,
-	): GraphQLList<GraphQLNonNull<GraphQLNullableInputType>> {
-		return new GraphQLList(new GraphQLNonNull(type))
+	direction(): GraphQLEnumType {
+		this.#direction ??= this.#ctx.add(
+			'filterShared',
+			this.#shared(
+				'GraphqlOrderDirection',
+				(name) =>
+					new GraphQLEnumType({
+						name,
+						values: { ASC: { value: 'asc' }, DESC: { value: 'desc' } },
+					}),
+			),
+		)
+		return this.#direction
 	}
 
 	pathFilter(
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const key = `${schema.className}\0${path.join('\0')}\0path`
-		const existing = this.#pathFilters.get(key)
-		if (existing !== undefined) return existing
-		const name = `${this.#pathName(schema, path)}PathWhere`
-		this.#claim(name, schema, path)
-		const fields: GraphQLInputFieldConfigMap = {
-			path: { type: new GraphQLNonNull(this.#list(GraphQLString)) },
-			eq: { type: GraphqlJSON },
-			ne: { type: GraphqlJSON },
-			in: { type: this.#list(GraphqlJSON) },
-			notIn: { type: this.#list(GraphqlJSON) },
-			gt: { type: GraphqlJSON },
-			gte: { type: GraphqlJSON },
-			lt: { type: GraphqlJSON },
-			lte: { type: GraphqlJSON },
-			between: { type: GraphqlJSON },
-			notBetween: { type: GraphqlJSON },
-			has: { type: GraphqlJSON },
-			hasEvery: { type: this.#list(GraphqlJSON) },
-			hasSome: { type: this.#list(GraphqlJSON) },
-			isEmpty: { type: GraphQLBoolean },
-			contains: { type: GraphqlJSON },
-			startsWith: { type: GraphQLString },
-			endsWith: { type: GraphQLString },
-			matches: { type: this.#shared.regex() },
-			isNull: { type: GraphQLBoolean },
-			isNotNull: { type: GraphQLBoolean },
-			containedBy: { type: GraphqlJSON },
-			hasAllKeys: { type: this.#list(GraphQLString) },
-			hasAnyKeys: { type: this.#list(GraphQLString) },
-			hasKey: { type: GraphQLString },
-			jsonPathExists: { type: this.#shared.jsonPath() },
-			jsonPathMatches: { type: this.#shared.jsonPath() },
-		}
-		const result = new GraphQLInputObjectType({ name, fields })
-		this.#pathFilters.set(key, result)
-		this.#types.push(result)
-		return result
+		return memoize(this.#pathFilters, fieldPathKey(schema, path), () => {
+			const name = `${this.#ctx.typeName(schema, path)}PathWhere`
+			this.#ctx.claim(name, schema, path)
+			const json = { type: GraphqlJSON }
+			const jsonList = { type: nonNullList(GraphqlJSON) }
+			const strings = { type: nonNullList(GraphQLString) }
+			const fields: GraphQLInputFieldConfigMap = {
+				path: { type: new GraphQLNonNull(nonNullList(GraphQLString)) },
+				eq: json,
+				ne: json,
+				in: jsonList,
+				notIn: jsonList,
+				gt: json,
+				gte: json,
+				lt: json,
+				lte: json,
+				between: json,
+				notBetween: json,
+				has: json,
+				hasEvery: jsonList,
+				hasSome: jsonList,
+				isEmpty: { type: GraphQLBoolean },
+				contains: json,
+				startsWith: { type: GraphQLString },
+				endsWith: { type: GraphQLString },
+				matches: { type: this.regex() },
+				isNull: { type: GraphQLBoolean },
+				isNotNull: { type: GraphQLBoolean },
+				containedBy: json,
+				hasAllKeys: strings,
+				hasAnyKeys: strings,
+				hasKey: { type: GraphQLString },
+				jsonPathExists: { type: this.jsonPath() },
+				jsonPathMatches: { type: this.jsonPath() },
+			}
+			return this.#ctx.add(
+				'structural',
+				new GraphQLInputObjectType({ name, fields }),
+			)
+		})
 	}
 
 	partialObject(
@@ -121,43 +159,28 @@ export class GraphqlStructuralFilterInputCompiler {
 		field: GenericField,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const key = `${schema.className}\0${path.join('\0')}`
-		const existing = this.#partialObjects.get(key)
-		if (existing !== undefined) return existing
-		const name = `${this.#pathName(schema, path)}PartialInput`
-		this.#claim(name, schema, path)
-		const fields = 'fields' in field.options ? field.options.fields : undefined
-		if (
-			typeof fields !== 'object' ||
-			fields === null ||
-			Array.isArray(fields)
-		) {
-			throw new TypeError(
-				`Missing object fields for ${schema.className}.${path.join('.')}`,
+		return memoize(this.#partialObjects, fieldPathKey(schema, path), () => {
+			const name = `${this.#ctx.typeName(schema, path)}PartialInput`
+			this.#ctx.claim(name, schema, path)
+			const fields = readGraphqlObjectFields(field)
+			return this.#ctx.add(
+				'structural',
+				new GraphQLInputObjectType({
+					name,
+					fields: () =>
+						Object.fromEntries(
+							Object.entries(fields).map(([childName, child]) => {
+								const childPath = [...path, childName]
+								const type =
+									child.kind === 'object' &&
+									getFieldListDepth(child.options) === 0
+										? this.partialObject(schema, child, childPath)
+										: this.#fieldTypes.inputType(child, schema, childPath)
+								return [childName, { type }]
+							}),
+						),
+				}),
 			)
-		}
-		const result = new GraphQLInputObjectType({
-			name,
-			fields: () =>
-				Object.fromEntries(
-					Object.entries(fields as SchemaFields).map(([childName, child]) => {
-						const childPath = [...path, childName]
-						const type =
-							child.kind === 'object' && getFieldListDepth(child.options) === 0
-								? this.partialObject(schema, child, childPath)
-								: this.#fieldTypes.inputType(child, schema, childPath)
-						return [childName, { type }]
-					}),
-				),
 		})
-		this.#partialObjects.set(key, result)
-		this.#types.push(result)
-		return result
-	}
-
-	materialize(): void {
-		for (const type of this.#types) {
-			if (type instanceof GraphQLInputObjectType) type.getFields()
-		}
 	}
 }
