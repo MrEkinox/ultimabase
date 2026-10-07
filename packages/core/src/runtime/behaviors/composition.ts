@@ -8,114 +8,53 @@ import type { PluginIdentity } from '../../plugins/manifest.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { runtimeBehaviorCapability } from '../capabilities.js'
 import { composeRuntimeContributionBehavior } from '../contributions/composition.js'
+import type { RuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
 import type {
 	RuntimeBehaviorStages,
-	RuntimeFinalMutationGuardStage,
-	RuntimeMutationOutcomeTransformStage,
-	RuntimeProjectedDatabaseResultTransformStage,
-	RuntimeMaterializedResultTransformStage,
-	RuntimeOperationGuardStage,
-	RuntimeOperationTransformStage,
-	RuntimePreparedMutationEffectStage,
 	RuntimePreparedMutationTransformStage,
-	RuntimeResultEffectStage,
 } from '../pipeline/contracts.js'
 
-/** Wraps one behavior once so every stage restores its exact provider owner. */
-const attributeRuntimeBehavior = (
-	application: object,
-	owner: PluginIdentity,
-	behavior: RuntimeBehaviorStages,
-): RuntimeBehaviorStages => {
-	const run = <TResult>(callback: () => TResult): TResult =>
-		runWithApplicationPluginOwner(application, owner, callback)
-	const beforeOperation = behavior.beforeOperation
-	const guardMutationInput = behavior.guardMutationInput
-	const observePreparedMutation = behavior.observePreparedMutation
-	const postCommit = behavior.postCommit
-	const requiresPreparedMutationItems = behavior.requiresPreparedMutationItems
-	const transformDatabaseResult = behavior.transformDatabaseResult
-	const transformInput = behavior.transformInput
-	const transformMutationOutcome = behavior.transformMutationOutcome
-	const transformPreparedInput = behavior.transformPreparedInput
-	const transformPreparedOperation = behavior.transformPreparedOperation
-	const transformResult = behavior.transformResult
+type OwnerScope = <TResult>(callback: () => TResult) => TResult
 
-	return immutableRecord({
-		...(beforeOperation === undefined
-			? {}
-			: { beforeOperation: (input) => run(() => beforeOperation(input)) }),
-		...(guardMutationInput === undefined
-			? {}
-			: {
-					guardMutationInput: (input) => run(() => guardMutationInput(input)),
-				}),
-		...(observePreparedMutation === undefined
-			? {}
-			: {
-					observePreparedMutation: (input) =>
-						run(() => observePreparedMutation(input)),
-				}),
-		...(postCommit === undefined
-			? {}
-			: { postCommit: (input) => run(() => postCommit(input)) }),
-		...(requiresPreparedMutationItems === undefined
-			? {}
-			: {
-					requiresPreparedMutationItems: (operation) =>
-						run(() => requiresPreparedMutationItems(operation)),
-				}),
-		...(transformDatabaseResult === undefined
-			? {}
-			: {
-					transformDatabaseResult: (input) =>
-						run(() => transformDatabaseResult(input)),
-				}),
-		...(transformInput === undefined
-			? {}
-			: { transformInput: (input) => run(() => transformInput(input)) }),
-		...(transformMutationOutcome === undefined
-			? {}
-			: {
-					transformMutationOutcome: (input) =>
-						run(() => transformMutationOutcome(input)),
-				}),
-		...(transformPreparedInput === undefined
-			? {}
-			: {
-					transformPreparedInput: (input) =>
-						run(() => transformPreparedInput(input)),
-				}),
-		...(transformPreparedOperation === undefined
-			? {}
-			: {
-					transformPreparedOperation: (input) =>
-						run(() => transformPreparedOperation(input)),
-				}),
-		...(transformResult === undefined
-			? {}
-			: { transformResult: (input) => run(() => transformResult(input)) }),
-	})
+/** Pairs one installed stage with the scope restoring its exact provider owner. */
+interface BehaviorProvider<TStage> {
+	readonly run: OwnerScope
+	readonly stage: TStage
 }
 
+// Interceptors attribute every handler through the callback executor themselves.
+const unattributed: OwnerScope = (callback) => callback()
+
+const nestedWriteOf = (
+	input: Readonly<{ nestedWrite?: RuntimeNestedWriteStageContext }>,
+): Readonly<{ nestedWrite?: RuntimeNestedWriteStageContext }> =>
+	input.nestedWrite === undefined ? {} : { nestedWrite: input.nestedWrite }
+
+const selectedFieldsOverrideOf = (
+	input: Readonly<{ selectedFieldsOverride?: readonly string[] }>,
+): Readonly<{ selectedFieldsOverride?: readonly string[] }> =>
+	input.selectedFieldsOverride === undefined
+		? {}
+		: { selectedFieldsOverride: input.selectedFieldsOverride }
+
 /** Preserves the current operation and target context across ordered transforms. */
-const composePreparedMutationTransforms =
+const composePrepared =
 	(
-		transforms: readonly RuntimePreparedMutationTransformStage[],
+		providers: readonly BehaviorProvider<RuntimePreparedMutationTransformStage>[],
 	): RuntimePreparedMutationTransformStage =>
 	async (input) => {
 		let operation = input.operation
-		for (const transform of transforms) {
-			operation = await transform(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation,
-					target: input.target,
-					...(input.targets === undefined ? {} : { targets: input.targets }),
-				}),
+		for (const { run, stage } of providers) {
+			operation = await run(() =>
+				stage(
+					immutableRecord({
+						context: input.context,
+						...nestedWriteOf(input),
+						operation,
+						target: input.target,
+						...(input.targets === undefined ? {} : { targets: input.targets }),
+					}),
+				),
 			)
 		}
 		return operation
@@ -128,186 +67,172 @@ export const composeRuntimeBehaviors = (
 		readonly PluginDefinition[]
 	>,
 ): RuntimeBehaviorStages | undefined => {
-	const behaviorContributions = readApplicationKernelState(
-		application,
-	).capabilityContributions(runtimeBehaviorCapability)
-	const contributionBehavior = composeRuntimeContributionBehavior(application)
+	const ownerScope =
+		(owner: PluginIdentity): OwnerScope =>
+		(callback) =>
+			runWithApplicationPluginOwner(application, owner, callback)
+	const behaviors = readApplicationKernelState(application)
+		.capabilityContributions(runtimeBehaviorCapability)
+		.map(({ owner, value }) => ({ run: ownerScope(owner), value }))
+	const interceptors = composeRuntimeContributionBehavior(application)
 
-	if (behaviorContributions.length === 0 && contributionBehavior === undefined)
-		return undefined
+	if (behaviors.length === 0 && interceptors === undefined) return undefined
 
-	const inputTransforms: RuntimeOperationTransformStage[] = [],
-		preparedInputTransforms: RuntimePreparedMutationTransformStage[] = [],
-		preparedOperationTransforms: RuntimePreparedMutationTransformStage[] = [],
-		beforeObservers: RuntimeOperationGuardStage[] = [],
-		mutationInputGuards: RuntimeFinalMutationGuardStage[] = [],
-		preparedObservers: RuntimePreparedMutationEffectStage[] = [],
-		outcomeTransforms: RuntimeMutationOutcomeTransformStage[] = [],
-		databaseResultTransforms: RuntimeProjectedDatabaseResultTransformStage[] =
-			[],
-		resultTransforms: RuntimeMaterializedResultTransformStage[] = [],
-		postCommitObservers: RuntimeResultEffectStage[] = [],
-		preparationPredicates: NonNullable<
-			RuntimeBehaviorStages['requiresPreparedMutationItems']
-		>[] = []
-
-	for (const { owner, value } of behaviorContributions) {
-		const behavior = attributeRuntimeBehavior(application, owner, value)
-		if (behavior.transformInput !== undefined)
-			inputTransforms.push(behavior.transformInput)
-		if (behavior.transformPreparedInput !== undefined)
-			preparedInputTransforms.push(behavior.transformPreparedInput)
-		if (behavior.transformPreparedOperation !== undefined)
-			preparedOperationTransforms.push(behavior.transformPreparedOperation)
-		if (behavior.beforeOperation !== undefined)
-			beforeObservers.push(behavior.beforeOperation)
-		if (behavior.guardMutationInput !== undefined)
-			mutationInputGuards.push(behavior.guardMutationInput)
-		if (behavior.observePreparedMutation !== undefined)
-			preparedObservers.push(behavior.observePreparedMutation)
-		if (behavior.transformMutationOutcome !== undefined)
-			outcomeTransforms.push(behavior.transformMutationOutcome)
-		if (behavior.transformDatabaseResult !== undefined)
-			databaseResultTransforms.push(behavior.transformDatabaseResult)
-		if (behavior.transformResult !== undefined)
-			resultTransforms.push(behavior.transformResult)
-		if (behavior.postCommit !== undefined)
-			postCommitObservers.push(behavior.postCommit)
-		if (behavior.requiresPreparedMutationItems !== undefined)
-			preparationPredicates.push(behavior.requiresPreparedMutationItems)
+	/** Lists providers of one stage; interceptors run before or after plugin behavior. */
+	const collect = <const TKey extends keyof RuntimeBehaviorStages>(
+		key: TKey,
+		interceptorPosition?: 'first' | 'last',
+	): readonly BehaviorProvider<NonNullable<RuntimeBehaviorStages[TKey]>>[] => {
+		const providers = behaviors.flatMap(({ run, value }) => {
+			const stage = value[key]
+			return stage === undefined ? [] : [{ run, stage }]
+		})
+		const interceptor =
+			interceptorPosition === undefined ? undefined : interceptors?.[key]
+		if (interceptor === undefined) return providers
+		const entry = { run: unattributed, stage: interceptor }
+		return interceptorPosition === 'first'
+			? [entry, ...providers]
+			: [...providers, entry]
 	}
 
-	if (contributionBehavior?.transformPreparedOperation !== undefined) {
-		preparedOperationTransforms.push(
-			contributionBehavior.transformPreparedOperation,
+	const inputTransforms = collect('transformInput')
+	const preparedInputTransforms = collect('transformPreparedInput')
+	const preparedOperationTransforms = collect(
+		'transformPreparedOperation',
+		'last',
+	)
+	const beforeObservers = collect('beforeOperation', 'first')
+	const mutationInputGuards = collect('guardMutationInput')
+	const preparedObservers = collect('observePreparedMutation')
+	const outcomeTransforms = collect('transformMutationOutcome')
+	const databaseResultTransforms = collect('transformDatabaseResult')
+	const resultTransforms = collect('transformResult', 'last')
+	const postCommitObservers = collect('postCommit')
+	const preparationPredicates = collect('requiresPreparedMutationItems')
+
+	// Each transform receives a fresh immutable envelope with exactly the reference
+	// keys and the latest value; an absent capability contributes no neutral stage.
+	const composed: {
+		-readonly [
+			TKey in keyof RuntimeBehaviorStages
+		]?: RuntimeBehaviorStages[TKey]
+	} = {}
+	if (inputTransforms.length > 0) {
+		composed.transformInput = async (input) => {
+			let operation = input.operation
+			for (const { run, stage } of inputTransforms) {
+				operation = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation,
+						}),
+					),
+				)
+			}
+			return operation
+		}
+	}
+	if (preparedInputTransforms.length > 0) {
+		composed.transformPreparedInput = composePrepared(preparedInputTransforms)
+	}
+	if (preparedOperationTransforms.length > 0) {
+		composed.transformPreparedOperation = composePrepared(
+			preparedOperationTransforms,
 		)
 	}
-	if (contributionBehavior?.beforeOperation !== undefined) {
-		beforeObservers.unshift(contributionBehavior.beforeOperation)
-	}
-	if (contributionBehavior?.transformResult !== undefined) {
-		resultTransforms.push(contributionBehavior.transformResult)
-	}
-
-	const transformInput: RuntimeOperationTransformStage = async (input) => {
-		let operation = input.operation
-		for (const transform of inputTransforms) {
-			operation = await transform(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation,
-				}),
-			)
+	if (beforeObservers.length > 0) {
+		composed.beforeOperation = async (input) => {
+			for (const { run, stage } of beforeObservers)
+				await run(() => stage(input))
 		}
-		return operation
 	}
-	const transformPreparedInput = composePreparedMutationTransforms(
-		preparedInputTransforms,
-	)
-	const transformPreparedOperation = composePreparedMutationTransforms(
-		preparedOperationTransforms,
-	)
-	const beforeOperation: RuntimeOperationGuardStage = async (input) => {
-		for (const observe of beforeObservers) await observe(input)
-	}
-	const guardMutationInput: RuntimeFinalMutationGuardStage = async (input) => {
-		for (const guard of mutationInputGuards) await guard(input)
-	}
-	const observePreparedMutation: RuntimePreparedMutationEffectStage = async (
-		input,
-	) => {
-		for (const observe of preparedObservers) await observe(input)
-	}
-	const transformMutationOutcome: RuntimeMutationOutcomeTransformStage = async (
-		input,
-	) => {
-		let outcome = input.outcome
-		for (const transform of outcomeTransforms) {
-			outcome = await transform(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation: input.operation,
-					outcome,
-					...(input.selectedFieldsOverride === undefined
-						? {}
-						: { selectedFieldsOverride: input.selectedFieldsOverride }),
-				}),
-			)
+	if (mutationInputGuards.length > 0) {
+		composed.guardMutationInput = async (input) => {
+			for (const { run, stage } of mutationInputGuards)
+				await run(() => stage(input))
 		}
-		return outcome
 	}
-	const transformDatabaseResult: RuntimeProjectedDatabaseResultTransformStage =
-		async (input) => {
+	if (preparedObservers.length > 0) {
+		composed.observePreparedMutation = async (input) => {
+			for (const { run, stage } of preparedObservers)
+				await run(() => stage(input))
+		}
+	}
+	if (outcomeTransforms.length > 0) {
+		composed.transformMutationOutcome = async (input) => {
+			let outcome = input.outcome
+			for (const { run, stage } of outcomeTransforms) {
+				outcome = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							outcome,
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
+				)
+			}
+			return outcome
+		}
+	}
+	if (databaseResultTransforms.length > 0) {
+		composed.transformDatabaseResult = async (input) => {
 			let result = input.result
-			for (const transform of databaseResultTransforms) {
-				result = await transform(
-					immutableRecord({
-						context: input.context,
-						...(input.nestedWrite === undefined
-							? {}
-							: { nestedWrite: input.nestedWrite }),
-						operation: input.operation,
-						result,
-						...(input.selectedFieldsOverride === undefined
-							? {}
-							: { selectedFieldsOverride: input.selectedFieldsOverride }),
-					}),
+			for (const { run, stage } of databaseResultTransforms) {
+				result = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							result,
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
 				)
 			}
 			return result
 		}
-	const transformResult: RuntimeMaterializedResultTransformStage = async (
-		input,
-	) => {
-		let result = input.result
-		for (const transform of resultTransforms) {
-			result = await transform(
-				immutableRecord({
-					context: input.context,
-					...(input.nestedWrite === undefined
-						? {}
-						: { nestedWrite: input.nestedWrite }),
-					operation: input.operation,
-					result,
-					...(input.outcome === undefined ? {} : { outcome: input.outcome }),
-					...(input.selectedFieldsOverride === undefined
-						? {}
-						: { selectedFieldsOverride: input.selectedFieldsOverride }),
-				}),
-			)
-		}
-		return result
 	}
-	const postCommit: RuntimeResultEffectStage = async (input) => {
-		for (const observe of postCommitObservers) await observe(input)
+	if (resultTransforms.length > 0) {
+		composed.transformResult = async (input) => {
+			let result = input.result
+			for (const { run, stage } of resultTransforms) {
+				result = await run(() =>
+					stage(
+						immutableRecord({
+							context: input.context,
+							...nestedWriteOf(input),
+							operation: input.operation,
+							result,
+							...(input.outcome === undefined
+								? {}
+								: { outcome: input.outcome }),
+							...selectedFieldsOverrideOf(input),
+						}),
+					),
+				)
+			}
+			return result
+		}
+	}
+	if (postCommitObservers.length > 0) {
+		composed.postCommit = async (input) => {
+			for (const { run, stage } of postCommitObservers)
+				await run(() => stage(input))
+		}
+	}
+	if (preparationPredicates.length > 0) {
+		composed.requiresPreparedMutationItems = (operation) =>
+			preparationPredicates.some(({ run, stage }) =>
+				run(() => stage(operation)),
+			)
 	}
 
-	return immutableRecord({
-		...(inputTransforms.length === 0 ? {} : { transformInput }),
-		...(preparedInputTransforms.length === 0 ? {} : { transformPreparedInput }),
-		...(preparedOperationTransforms.length === 0
-			? {}
-			: { transformPreparedOperation }),
-		...(beforeObservers.length === 0 ? {} : { beforeOperation }),
-		...(mutationInputGuards.length === 0 ? {} : { guardMutationInput }),
-		...(preparedObservers.length === 0 ? {} : { observePreparedMutation }),
-		...(outcomeTransforms.length === 0 ? {} : { transformMutationOutcome }),
-		...(databaseResultTransforms.length === 0
-			? {}
-			: { transformDatabaseResult }),
-		...(resultTransforms.length === 0 ? {} : { transformResult }),
-		...(postCommitObservers.length === 0 ? {} : { postCommit }),
-		...(preparationPredicates.length === 0
-			? {}
-			: {
-					requiresPreparedMutationItems: (operation) =>
-						preparationPredicates.some((predicate) => predicate(operation)),
-				}),
-	})
+	return immutableRecord(composed)
 }

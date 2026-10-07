@@ -10,8 +10,10 @@ import type {
 	DatabaseConstraintNode,
 	EnforcementFieldBoundary,
 } from './contracts.js'
-import type { DatabaseRowFilterNode } from '../database/contracts.js'
-import type { DatabaseRelationPredicateScope } from '../database/contracts.js'
+import type {
+	DatabaseRelationPredicateScope,
+	DatabaseRowFilterNode,
+} from '../database/contracts.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import type { QueryExpressionNode } from '../../query/index.js'
 import { isDatabaseConstraintNode } from './definitions.js'
@@ -42,7 +44,10 @@ const createState = (snapshot: EnforcementStateSnapshot): EnforcementState => {
 	return state
 }
 
-const readSnapshot = (state: EnforcementState): EnforcementStateSnapshot => {
+/** Reads one immutable snapshot only after every contributing callback has finished. */
+export const getEnforcementStateSnapshot = (
+	state: EnforcementState,
+): EnforcementStateSnapshot => {
 	const snapshot = snapshots.get(state)
 
 	if (snapshot === undefined) {
@@ -52,37 +57,49 @@ const readSnapshot = (state: EnforcementState): EnforcementStateSnapshot => {
 	return snapshot
 }
 
-const emptyFields: readonly string[] | undefined = undefined
-
 /** Starts one request with no synthetic policy effect or placeholder handler. */
 export const createEnforcementState = (): EnforcementState =>
 	createState(
 		immutableRecord({
 			constraints: immutableArray([]),
-			inputFields: emptyFields,
-			outputFields: emptyFields,
-			selectionFields: emptyFields,
+			inputFields: undefined,
+			outputFields: undefined,
+			selectionFields: undefined,
 			rowFilter: undefined,
 			relationPredicates: immutableArray([]),
 		}),
 	)
+
+/** Combines independent private restrictions without making either transformable. */
+export const combineDatabaseRowFilters = (
+	first: DatabaseRowFilterNode | undefined,
+	second: DatabaseRowFilterNode | undefined,
+): DatabaseRowFilterNode | undefined => {
+	if (first === undefined) return second
+	if (second === undefined) return first
+
+	return normalizeLogicalFilter<QueryExpressionNode>({
+		kind: 'and',
+		expressions: [first, second],
+	})
+}
 
 /** ANDs one private row restriction without granting any later widening operation. */
 export const appendEnforcementRowFilter = (
 	state: EnforcementState,
 	rowFilter: DatabaseRowFilterNode,
 ): EnforcementState => {
-	const current = readSnapshot(state)
-	const normalized = normalizeLogicalFilter(rowFilter)
-	const combined =
-		current.rowFilter === undefined
-			? normalized
-			: normalizeLogicalFilter<QueryExpressionNode>({
-					kind: 'and',
-					expressions: [current.rowFilter, normalized],
-				})
+	const current = getEnforcementStateSnapshot(state)
 
-	return createState(immutableRecord({ ...current, rowFilter: combined }))
+	return createState(
+		immutableRecord({
+			...current,
+			rowFilter: combineDatabaseRowFilters(
+				current.rowFilter,
+				normalizeLogicalFilter(rowFilter),
+			),
+		}),
+	)
 }
 
 /** Appends target policy once for each exact immutable relation leaf. */
@@ -90,7 +107,7 @@ export const appendEnforcementRelationPredicates = (
 	state: EnforcementState,
 	scopes: readonly DatabaseRelationPredicateScope[],
 ): EnforcementState => {
-	const current = readSnapshot(state)
+	const current = getEnforcementStateSnapshot(state)
 	const additions = scopes.filter(
 		(scope) =>
 			!current.relationPredicates.some(
@@ -133,7 +150,7 @@ export const appendEnforcementConstraints = (
 	state: EnforcementState,
 	constraints: DatabaseConstraintNode | readonly DatabaseConstraintNode[],
 ): EnforcementState => {
-	const current = readSnapshot(state)
+	const current = getEnforcementStateSnapshot(state)
 	const additions = normalizeConstraints(constraints)
 	const uniqueAdditions = additions.filter(
 		(addition, index) =>
@@ -191,7 +208,7 @@ export const narrowEnforcementFields = (
 	boundary: EnforcementFieldBoundary,
 	fields: readonly string[],
 ): EnforcementState => {
-	const current = readSnapshot(state)
+	const current = getEnforcementStateSnapshot(state)
 	const permitted = normalizeFields(fields)
 	const key = `${boundary}Fields` as const
 
@@ -202,8 +219,3 @@ export const narrowEnforcementFields = (
 		}),
 	)
 }
-
-/** Reads one immutable snapshot only after every contributing callback has finished. */
-export const getEnforcementStateSnapshot = (
-	state: EnforcementState,
-): EnforcementStateSnapshot => readSnapshot(state)

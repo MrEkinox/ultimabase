@@ -9,6 +9,7 @@ import {
 } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -24,35 +25,114 @@ import {
 } from './operation-clock.js'
 import { generateUuidV7 } from './identifier-generator.js'
 import { readReservedCreateId } from '../nested-writes/reserved-create.js'
-import { mutationKinds } from './operation-kinds.js'
-import {
-	emptyRuntimeValidationOptions,
-	normalizeRuntimeValidationOptions,
-	type RuntimeValidationOptions,
-} from './runtime-validation-options.js'
+import type { UuidV7Generator } from './identifier-generator.js'
+import type { NestedWriteLimits } from '../../schema/nested-writes/contracts.js'
+import { normalizeNestedWriteLimits } from '../../schema/nested-writes/limits.js'
 
 import {
+	appendIssue,
 	isRequiredOutput,
+	throwRuntimeValidationIssues,
 	validateSchemaInput,
+	type RuntimeValidationErrorDescription,
 	type ValidationExecution,
 } from './runtime-field-validation.js'
-import { validateUpdateExpression } from './runtime-update-validation.js'
-import { validateUpsertCreateInput } from './runtime-upsert-validation.js'
 import {
-	appendIssue,
-	throwRuntimeValidationIssues,
-	type RuntimeValidationErrorDescription,
-} from './runtime-validation-errors.js'
+	validateUpdateExpression,
+	validateUpsertCreateInput,
+} from './runtime-mutation-validation.js'
+
 export {
 	throwRuntimeValidationIssues,
 	type RuntimeValidationErrorDescription,
 	type RuntimeValidationIssue,
-} from './runtime-validation-errors.js'
+} from './runtime-field-validation.js'
 
-export {
-	normalizeRuntimeValidationOptions,
-	type RuntimeValidationOptions,
-} from './runtime-validation-options.js'
+const mutationKinds: ReadonlySet<string> = new Set([
+	'create-one',
+	'create-many',
+	'update-one',
+	'update-many',
+	'upsert-one',
+	'upsert-many',
+])
+
+/** Configures one application-scoped validation stage and operation clock. */
+export interface RuntimeValidationOptions {
+	readonly clock?: () => Date
+	/** Bounds recursive nested object depth and statically declared graph work. */
+	readonly nestedWrites?: Partial<NestedWriteLimits>
+	readonly timezone?: string
+	readonly uuidV7Generator?: UuidV7Generator
+}
+
+const validationOptionKeys = new Set([
+	'clock',
+	'nestedWrites',
+	'timezone',
+	'uuidV7Generator',
+])
+
+export const emptyRuntimeValidationOptions: RuntimeValidationOptions =
+	immutableRecord({})
+
+/** Validates and snapshots caller-owned validation configuration once. */
+export const normalizeRuntimeValidationOptions = (
+	options: unknown,
+): Readonly<RuntimeValidationOptions> => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError('Runtime validation options must be a plain object')
+	}
+
+	for (const key of Object.keys(options)) {
+		if (!validationOptionKeys.has(key)) {
+			throw new TypeError(`Runtime validation contains unknown option: ${key}`)
+		}
+	}
+
+	const clock: unknown = options.clock
+	const nestedWrites: unknown = options.nestedWrites
+	const timezone: unknown = options.timezone
+	const uuidV7Generator: unknown = options.uuidV7Generator
+
+	if (clock !== undefined && typeof clock !== 'function') {
+		throw new TypeError('Runtime validation clock must be a function')
+	}
+
+	if (uuidV7Generator !== undefined && typeof uuidV7Generator !== 'function') {
+		throw new TypeError('Runtime UUID v7 generator must be a function')
+	}
+
+	if (timezone !== undefined) {
+		assertNonEmptyString(timezone, 'Runtime validation timezone')
+	}
+
+	// Callable return values remain validated when Runtime invokes their contracts.
+	return immutableRecord({
+		...(clock === undefined ? {} : { clock: clock as () => Date }),
+		...(nestedWrites === undefined
+			? {}
+			: { nestedWrites: normalizeNestedWriteLimits(nestedWrites) }),
+		...(timezone === undefined ? {} : { timezone }),
+		...(uuidV7Generator === undefined
+			? {}
+			: { uuidV7Generator: uuidV7Generator as UuidV7Generator }),
+	})
+}
+
+const validationPlans = new WeakMap<SchemaDefinition, SchemaValidationPlans>()
+
+/** Compiles one schema's structural plans once; schemas and plans are immutable. */
+export const readRuntimeValidationPlans = (
+	schema: SchemaDefinition,
+): SchemaValidationPlans => {
+	let plans = validationPlans.get(schema)
+	if (plans === undefined) {
+		plans = compileValidationPlans(schema)
+		validationPlans.set(schema, plans)
+	}
+	return plans
+}
 
 const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
 	if (!Schema.is(value)) {
@@ -88,6 +168,35 @@ const normalizeMutationOperation = <
 			? options.previousOperation
 			: undefined
 	let normalized: Readonly<Record<string, unknown>> = untrustedOperation
+
+	/** Validates one create candidate, then its update branch, in reference order. */
+	const validateUpsert = (
+		item: Readonly<Record<string, unknown>>,
+		path: ValidationIssuePath,
+		previousUpdate: unknown,
+	): Readonly<Record<string, unknown>> | undefined => {
+		const create = validateUpsertCreateInput(
+			item.create,
+			item.query,
+			item.target,
+			[...path, 'create'],
+			execution,
+			options.createPlan,
+			options.allowDefaults,
+		)
+		const update = validateUpdateExpression(
+			options.updatePlan,
+			item.update,
+			[...path, 'update'],
+			execution,
+			options.appendGeneratedValues,
+			previousUpdate,
+		)
+
+		return create === undefined || update === undefined
+			? undefined
+			: immutableRecord({ ...item, create, update })
+	}
 
 	switch (untrustedOperation.kind) {
 		case 'create-one': {
@@ -152,27 +261,13 @@ const normalizeMutationOperation = <
 			break
 		}
 		case 'upsert-one': {
-			const create = validateUpsertCreateInput(
-				untrustedOperation.create,
-				untrustedOperation.query,
-				untrustedOperation.target,
-				['create'],
-				execution,
-				options.createPlan,
-				options.allowDefaults,
-			)
-			const update = validateUpdateExpression(
-				options.updatePlan,
-				untrustedOperation.update,
-				['update'],
-				execution,
-				options.appendGeneratedValues,
+			const upsert = validateUpsert(
+				untrustedOperation,
+				[],
 				previousOperation?.update,
 			)
 
-			if (create !== undefined && update !== undefined) {
-				normalized = immutableRecord({ ...untrustedOperation, create, update })
-			}
+			if (upsert !== undefined) normalized = upsert
 			break
 		}
 		case 'upsert-many': {
@@ -201,29 +296,15 @@ const normalizeMutationOperation = <
 					return item
 				}
 
-				const create = validateUpsertCreateInput(
-					item.create,
-					item.query,
-					item.target,
-					['items', index, 'create'],
-					execution,
-					options.createPlan,
-					options.allowDefaults,
+				return (
+					validateUpsert(
+						item,
+						['items', index],
+						isPlainRecord(previousItems[index])
+							? previousItems[index].update
+							: undefined,
+					) ?? item
 				)
-				const update = validateUpdateExpression(
-					options.updatePlan,
-					item.update,
-					['items', index, 'update'],
-					execution,
-					options.appendGeneratedValues,
-					isPlainRecord(previousItems[index])
-						? previousItems[index].update
-						: undefined,
-				)
-
-				return create === undefined || update === undefined
-					? item
-					: immutableRecord({ ...item, create, update })
 			})
 
 			normalized = immutableRecord({
@@ -314,24 +395,7 @@ const createStructuralValidationExecution = (): ValidationExecution => ({
 	uuidV7Generator: unavailableGeneratedValue,
 })
 
-const normalizeResolvedMutationOperation = <
-	const TOperation extends DatabaseOperationAst,
->(
-	previousOperation: TOperation,
-	operation: TOperation,
-	plans: SchemaValidationPlans,
-	execution: ValidationExecution,
-): TOperation => {
-	return normalizeMutationOperation(operation, execution, {
-		allowDefaults: false,
-		appendGeneratedValues: false,
-		createPlan: createOutputValidationPlan(plans.create),
-		previousOperation,
-		updatePlan: plans.update,
-	})
-}
-
-/** Structurally snapshots one intermediate behavior replacement. */
+/** Structurally snapshots one replacement without replaying defaults or generators. */
 export const snapshotRuntimeMutationOperation = <
 	const TOperation extends DatabaseOperationAst,
 >(
@@ -339,27 +403,17 @@ export const snapshotRuntimeMutationOperation = <
 	operation: TOperation,
 	plans: SchemaValidationPlans,
 ): TOperation =>
-	normalizeResolvedMutationOperation(
+	normalizeMutationOperation(operation, createStructuralValidationExecution(), {
+		allowDefaults: false,
+		appendGeneratedValues: false,
+		createPlan: createOutputValidationPlan(plans.create),
 		previousOperation,
-		operation,
-		plans,
-		createStructuralValidationExecution(),
-	)
+		updatePlan: plans.update,
+	})
 
-/** Revalidates one final mutation without replaying defaults or generators. */
-export const revalidateRuntimeMutationOperation = <
-	const TOperation extends DatabaseOperationAst,
->(
-	previousOperation: TOperation,
-	operation: TOperation,
-	plans: SchemaValidationPlans,
-): TOperation =>
-	normalizeResolvedMutationOperation(
-		previousOperation,
-		operation,
-		plans,
-		createStructuralValidationExecution(),
-	)
+/** Revalidates one final mutation; it shares the intermediate replacement boundary. */
+export const revalidateRuntimeMutationOperation: typeof snapshotRuntimeMutationOperation =
+	snapshotRuntimeMutationOperation
 
 /** Validates and snapshots one complete or selected logical database record. */
 export const snapshotRuntimeResultRecord = (
@@ -402,8 +456,6 @@ export const createRuntimeValidationStage = (
 	const formatter = createApplicationTimezoneFormatter(timezone)
 	const clock = normalizedOptions.clock ?? (() => new Date())
 	const uuidV7Generator = normalizedOptions.uuidV7Generator ?? generateUuidV7
-	const plansBySchema = new WeakMap<object, SchemaValidationPlans>()
-
 	return <const TOperation extends DatabaseOperationAst>(
 		input: Readonly<{ readonly operation: TOperation }>,
 	): TOperation => {
@@ -413,14 +465,9 @@ export const createRuntimeValidationStage = (
 			return operation
 		}
 
-		const schema = assertSchemaDefinition(getOperationSchema(operation))
-		let plans = plansBySchema.get(schema)
-
-		if (plans === undefined) {
-			plans = compileValidationPlans(schema)
-			plansBySchema.set(schema, plans)
-		}
-
+		const plans = readRuntimeValidationPlans(
+			assertSchemaDefinition(getOperationSchema(operation)),
+		)
 		const instant = clock()
 		const execution: ValidationExecution = {
 			issues: [],

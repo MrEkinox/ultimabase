@@ -1,3 +1,5 @@
+import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+
 import type {
 	ExecutableOperationAst,
 	OperationKind,
@@ -6,6 +8,60 @@ import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 } from '../database/contracts.js'
+import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
+
+const runtimeOperationKinds: ReadonlySet<string> =
+	new Set<RuntimeLogicalOperationKind>([
+		'find-many',
+		'find-one',
+		'get',
+		'count',
+		'exists',
+		'create-one',
+		'create-many',
+		'update-one',
+		'update-many',
+		'upsert-one',
+		'upsert-many',
+		'delete-one',
+		'delete-many',
+		'plugin-schema-mutation',
+	])
+
+const isRuntimeLogicalOperationKind = (
+	value: unknown,
+): value is RuntimeLogicalOperationKind =>
+	typeof value === 'string' && runtimeOperationKinds.has(value)
+
+/** Validates one optional, non-empty and de-duplicated terminal filter of a definition. */
+export const normalizeRuntimeOperationKinds = (
+	operations: readonly RuntimeLogicalOperationKind[] | undefined,
+	owner: 'enforcement' | 'runtime',
+): readonly RuntimeLogicalOperationKind[] | undefined => {
+	if (operations === undefined) return undefined
+
+	const untrustedOperations: unknown = operations
+	if (
+		!isUnknownArray(untrustedOperations) ||
+		untrustedOperations.length === 0
+	) {
+		throw new TypeError(
+			`${owner} contribution operations must be a non-empty array`,
+		)
+	}
+
+	const normalized: RuntimeLogicalOperationKind[] = []
+	for (const operation of untrustedOperations) {
+		if (!isRuntimeLogicalOperationKind(operation)) {
+			throw new TypeError(
+				`Unknown ${owner} operation kind: ${String(operation)}`,
+			)
+		}
+		if (!normalized.includes(operation)) normalized.push(operation)
+	}
+
+	return immutableArray(normalized)
+}
 
 const readOperationKinds: ReadonlySet<OperationKind> = new Set([
 	'count',
