@@ -53,15 +53,19 @@ Status: work in progress (see the commits on `rebuild/core-integration`).
 
 ## Test files edited (import specifiers only)
 
-| Test file                                             | Change                                                                                                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/runtime/relation-filters/isolation.test.ts`      | `materializeSchemaModel`: `../../schema/schema/model.js` → `../../schema/schema/model-materialization.js`                               |
-| `src/runtime/relation-filters/execution.test.ts`      | same                                                                                                                                    |
-| `src/schema/relations/relation.test.ts`               | `materializeSchemaModel`: `../schema/model.js` → `../schema/model-materialization.js`                                                   |
-| `src/schema/schema/model.test.ts`                     | `materializePreparedSchemaDraft`, `materializeSchemaModel` → `./model-materialization.js`; `isSchemaModelInstance` → `./model-state.js` |
-| `src/plugins/schema-compilation/compiler.test.ts`     | `prepareSchemaCompilation`: `../../schema/schema/definition.js` → `../../schema/schema/definition-compilation.js`                       |
-| `src/plugins/schema-compilation/declarations.test.ts` | same                                                                                                                                    |
-| `src/schema/schema/virtual-field.test.ts`             | `SchemaCompilationError`: `./definition.js` → `./definition-compilation.js`                                                             |
+| Test file                                              | Change                                                                                                                                  |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/runtime/relation-filters/isolation.test.ts`       | `materializeSchemaModel`: `../../schema/schema/model.js` → `../../schema/schema/model-materialization.js`                               |
+| `src/runtime/relation-filters/execution.test.ts`       | same                                                                                                                                    |
+| `src/schema/relations/relation.test.ts`                | `materializeSchemaModel`: `../schema/model.js` → `../schema/model-materialization.js`                                                   |
+| `src/schema/schema/model.test.ts`                      | `materializePreparedSchemaDraft`, `materializeSchemaModel` → `./model-materialization.js`; `isSchemaModelInstance` → `./model-state.js` |
+| `src/plugins/schema-compilation/compiler.test.ts`      | `prepareSchemaCompilation`: `../../schema/schema/definition.js` → `../../schema/schema/definition-compilation.js`                       |
+| `src/plugins/schema-compilation/declarations.test.ts`  | same                                                                                                                                    |
+| `src/schema/schema/virtual-field.test.ts`              | `SchemaCompilationError`: `./definition.js` → `./definition-compilation.js`                                                             |
+| `src/runtime/virtual-fields/scheduler.test.ts`         | `bindRuntimeVirtualFields`: `./binding.js` → `../pipeline/application-bindings.js`                                                      |
+| `src/runtime/virtual-fields/execution.test.ts`         | same                                                                                                                                    |
+| `src/schema/fields/builtins/relation.test.ts`          | `getRelationWhereDeclaration`: `./relation.js` → `../base/definition.js`                                                                |
+| `src/query/filters/relation-where-declaration.test.ts` | `getRelationWhereDeclaration`: `../../schema/fields/builtins/relation.js` → `../../schema/fields/base/definition.js`                    |
 
 No assertion, input or expectation changed. Nothing under
 `packages/core/tests/**`, no `*.test-d.ts` and no test outside Core changed.
