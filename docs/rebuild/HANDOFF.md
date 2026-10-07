@@ -75,7 +75,7 @@ coordinateur : `yarn build` OK ; unit + types 558 fichiers / 2 709 tests ; e2e
 **À requalifier sur machine calme** : après la fusion d'access-plugin (main `fcc7d82`,
 charge ≈ 60), `create-app-packed.e2e.test.ts` › « writes a valid graph for each official
 plugin selected alone » dépasse 120 s, y compris relancé seul. Même symptôme que sur
-la référence sous charge ; non qualifié tant qu'il n'a pas été rejoué au calme, sur la
+la référence sous charge. Un agent l'a vu passer seul à charge ≈ 26 (6/6, 58,7 s) ; non qualifié tant qu'il n'a pas été rejoué au calme, sur la
 référence et sur la reconstruction.
 
 ### Branches WIP interrompues (historique : toutes reprises et fusionnées)
