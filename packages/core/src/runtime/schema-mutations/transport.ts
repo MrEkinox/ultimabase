@@ -13,7 +13,10 @@ import type { CompiledSchemaMutationCommand } from '../../plugins/application-su
 import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
-import { RequestContext } from '../context/request-context.js'
+import {
+	isRequestContext,
+	type RequestContext,
+} from '../context/request-context.js'
 import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
@@ -119,7 +122,7 @@ export const exposeFrameworkSchemaMutations = <
 				'schema mutation transport request contains unknown key: ',
 			)
 			const context: unknown = request.context
-			if (!(context instanceof RequestContext)) {
+			if (!isRequestContext(context)) {
 				throw new TypeError(
 					'schema mutation transport request context must be a RequestContext',
 				)

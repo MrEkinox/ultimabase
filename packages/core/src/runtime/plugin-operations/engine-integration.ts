@@ -15,7 +15,7 @@ import type { CompiledOperationCommand } from '../../plugins/command-graph.js'
 import { runtimeConstraintCapability } from '../capabilities.js'
 import type { OperationTransportImplementation } from '../commands/bindings.js'
 import { describeOperationTransport } from '../commands/transport-projection.js'
-import { RequestContext } from '../context/request-context.js'
+import { isRequestContext } from '../context/request-context.js'
 import { getProtectedPolicyImplementation } from '../enforcement/protected-policy.js'
 import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
@@ -214,7 +214,7 @@ export const exposeFrameworkOperations = <
 				)
 			}
 			const context: unknown = request.context
-			if (!(context instanceof RequestContext)) {
+			if (!isRequestContext(context)) {
 				throw new TypeError(
 					'operation transport request context must be a RequestContext',
 				)

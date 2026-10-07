@@ -28,7 +28,7 @@ import {
 	bindRequestContextToApplication,
 	requireMasterAuthority,
 } from './application-binding.js'
-import { createRequestEngine, RequestEngine } from './request-engine.js'
+import { createRequestEngine, type RequestEngine } from './request-engine.js'
 import { readApplicationFacade } from '../context/current-ultima-base.js'
 import type { UltimaBase } from '../application/ultima-base.js'
 

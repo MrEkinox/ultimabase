@@ -36,6 +36,9 @@ export const commandFailure = (
 		},
 	})
 
+const isPluginError = (error: unknown): error is PluginError =>
+	error instanceof PluginError
+
 /** Invokes one handler and enforces its result and public error contracts. */
 const executeOperationHandler = async (
 	engine: RequestEngine,
@@ -71,7 +74,7 @@ const executeOperationHandler = async (
 		)
 		return graph.snapshotOperationResult(compiled, candidate)
 	} catch (error: unknown) {
-		if (error instanceof PluginError) {
+		if (isPluginError(error)) {
 			if (compiled.definition.errors.includes(error.code)) throw error
 			throw commandFailure(
 				compiled,

@@ -151,6 +151,9 @@ function assertRequestContextOptions(
 const normalizeSensitiveMetadataKey = (key: string): string =>
 	key.toLowerCase().replaceAll('-', '').replaceAll('_', '')
 
+const isRequestCapability = (value: unknown): value is RequestCapability =>
+	value instanceof RequestCapability
+
 const snapshotMetadata = (metadata: unknown): RequestMetadata => {
 	if (metadata === undefined) {
 		return emptyMetadata
@@ -193,7 +196,7 @@ const snapshotCapabilities = (
 
 	return immutableArray(
 		capabilities.map((capability, index) => {
-			if (!(capability instanceof RequestCapability)) {
+			if (!isRequestCapability(capability)) {
 				throw new TypeError(
 					`Request context capabilities[${String(index)}] must be a RequestCapability`,
 				)

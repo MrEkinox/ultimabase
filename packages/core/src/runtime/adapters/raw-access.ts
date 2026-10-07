@@ -232,10 +232,15 @@ const withRawLease = async <TResult>(
 	if (provider === undefined) {
 		throw new TypeError('raw adapter capability value is not installed')
 	}
-	if (
-		(scope.kind === 'setup' ? provider.setup : provider.transaction) ===
-		undefined
+	let rawFacade: unknown
+	if (scope.kind === 'setup' && provider.setup !== undefined) {
+		rawFacade = await provider.setup()
+	} else if (
+		scope.kind === 'transaction' &&
+		provider.transaction !== undefined
 	) {
+		rawFacade = await provider.transaction(scope.adapter)
+	} else {
 		throw new FrameworkError(
 			'PLUGIN_ADAPTER_CAPABILITY_MISSING',
 			`Raw adapter capability does not support ${scope.kind} leases.`,
@@ -245,9 +250,6 @@ const withRawLease = async <TResult>(
 			},
 		)
 	}
-	const rawFacade: unknown = await (scope.kind === 'setup'
-		? provider.setup?.()
-		: provider.transaction?.(scope.adapter))
 	if (typeof rawFacade !== 'object' || rawFacade === null) {
 		throw new TypeError('raw adapter provider must return an object facade')
 	}

@@ -89,7 +89,7 @@ export interface RequestEngineInternals {
 	readonly lifetime: TransactionLifetime | undefined
 	readonly pipeline: RuntimePipeline
 	/** Derives one engine with another context and this engine's transaction lifetime. */
-	derive(context: RequestContext): RequestEngine
+	readonly derive: (context: RequestContext) => RequestEngine
 }
 
 let readInternals: (engine: RequestEngine) => RequestEngineInternals

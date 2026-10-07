@@ -45,7 +45,7 @@ export const resolveSchemaMutation = async (
 		readApplicationKernelState(application).commands.bindings.handler(command)
 	if (owned?.kind !== 'mutation') throw missingHandler(command)
 	try {
-		return await runWithApplicationPluginOwner(application, owned.owner, () =>
+		const invoke = (): Promise<unknown> =>
 			Promise.resolve(
 				owned.resolve(
 					immutableRecord({
@@ -55,8 +55,8 @@ export const resolveSchemaMutation = async (
 						target: immutableRecord({ id: envelope.id, schema }),
 					}),
 				),
-			),
-		)
+			)
+		return await runWithApplicationPluginOwner(application, owned.owner, invoke)
 	} catch (error: unknown) {
 		if (
 			(error instanceof PluginError &&
