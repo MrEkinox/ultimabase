@@ -19,6 +19,14 @@ import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
 import {
+	createPostgresRawSetupFacade,
+	createPostgresRawTransactionFacade,
+	postgresAdapterSupportProviders,
+	postgresPhysicalSchemaContributionCapability,
+	postgresRawAdapterCapability,
+	type PostgresAdapterMetadata,
+} from '../adapter-capabilities.js'
+import {
 	postgresConnectionCapability,
 	type PostgresConnectionService,
 	type PostgresPool,
@@ -28,20 +36,14 @@ import {
 	type ManagedPostgresConnection,
 } from '../connection/managed-connection.js'
 import { postgresPluginName } from '../constants.js'
+import {
+	createPostgresDatabaseAdapter,
+	readPostgresTransactionClient,
+} from '../drizzle/adapter.js'
 import { postgresFieldOption, postgresSchemaOption } from '../options.js'
-import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
-import { readPostgresTransactionClient } from '../drizzle/adapter.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
 import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
-import {
-	createPostgresRawSetupFacade,
-	createPostgresRawTransactionFacade,
-	postgresAdapterSupportProviders,
-	postgresPhysicalSchemaContributionCapability,
-	postgresRawAdapterCapability,
-	type PostgresAdapterMetadata,
-} from '../adapter-capabilities.js'
 
 /** Configures the explicit direct schema synchronization policy. */
 export interface PostgresSchemaPolicyOptions {
@@ -70,16 +72,11 @@ export interface PostgresPluginExports {
 	readonly connection: PostgresConnectionService
 }
 
-const postgresSchemaPolicies = [
-	'fail',
-	'ignore',
-	'override',
-] as const satisfies readonly PostgresSchemaPolicy[]
+const postgresSchemaPolicies: ReadonlySet<unknown> =
+	new Set<PostgresSchemaPolicy>(['fail', 'ignore', 'override'])
 const isPostgresSchemaPolicy = (
 	value: unknown,
-): value is PostgresSchemaPolicy =>
-	typeof value === 'string' &&
-	postgresSchemaPolicies.some((policy) => policy === value)
+): value is PostgresSchemaPolicy => postgresSchemaPolicies.has(value)
 
 const optionalPhysicalSchemaContributions: CapabilityRequirement<
 	typeof postgresPhysicalSchemaContributionCapability,
@@ -89,26 +86,16 @@ const optionalPhysicalSchemaContributions: CapabilityRequirement<
 > = optionalCapability(postgresPhysicalSchemaContributionCapability, '^1.0.0', {
 	phase: 'setup',
 })
-const isObjectLike = (value: unknown): value is object =>
-	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
-const assertPostgresPool: (value: unknown) => asserts value is PostgresPool = (
-	value,
-) => {
-	if (
-		!isObjectLike(value) ||
-		!('connect' in value) ||
-		typeof value.connect !== 'function' ||
-		!('end' in value) ||
-		typeof value.end !== 'function' ||
-		!('query' in value) ||
-		typeof value.query !== 'function'
-	) {
-		throw new TypeError(
-			'postgres pool must provide connect(), end(), and query()',
-		)
-	}
-}
+const isPostgresPool = (value: unknown): value is PostgresPool =>
+	((typeof value === 'object' && value !== null) ||
+		typeof value === 'function') &&
+	'connect' in value &&
+	typeof value.connect === 'function' &&
+	'end' in value &&
+	typeof value.end === 'function' &&
+	'query' in value &&
+	typeof value.query === 'function'
 
 const normalizePostgresPluginOptions = definePluginOptionsParser({
 	formatUnknownKey: (key) =>
@@ -123,9 +110,9 @@ const normalizePostgresPluginOptions = definePluginOptionsParser({
 			)
 		}
 
+		const policy = schemaPolicy === undefined ? {} : { schemaPolicy }
 		const hasUrl = Object.hasOwn(options, 'url')
-		const hasPool = Object.hasOwn(options, 'pool')
-		if (hasUrl === hasPool) {
+		if (hasUrl === Object.hasOwn(options, 'pool')) {
 			throw new TypeError('postgres plugin requires exactly one of url or pool')
 		}
 
@@ -134,42 +121,18 @@ const normalizePostgresPluginOptions = definePluginOptionsParser({
 				throw new TypeError('postgres url must be a non-empty string')
 			}
 
-			return {
-				...(schemaPolicy === undefined ? {} : { schemaPolicy }),
-				url: options.url,
-			}
+			return { ...policy, url: options.url }
 		}
 
-		assertPostgresPool(options.pool)
-		return {
-			pool: options.pool,
-			...(schemaPolicy === undefined ? {} : { schemaPolicy }),
+		if (!isPostgresPool(options.pool)) {
+			throw new TypeError(
+				'postgres pool must provide connect(), end(), and query()',
+			)
 		}
+
+		return { pool: options.pool, ...policy }
 	},
 })
-
-interface PostgresConnectionSource {
-	readonly ownsPool: boolean
-	readonly pool: PostgresPool
-}
-
-/** Captures validated options so later caller mutation cannot alter plugin setup. */
-const createConnectionSourceFactory = (
-	options: PostgresPluginOptions,
-): (() => PostgresConnectionSource) => {
-	if ('url' in options) {
-		const url = options.url
-
-		return () => ({
-			ownsPool: true,
-			pool: new Pool({ connectionString: url }),
-		})
-	}
-
-	const pool = options.pool
-
-	return () => ({ ownsPool: false, pool })
-}
 
 const connectionRequirement: CapabilityRequirement<
 	typeof postgresConnectionCapability,
@@ -220,17 +183,23 @@ export type PostgresPlugin = PluginInstance<{
 export const postgresPlugin = (
 	options: PostgresPluginOptions,
 ): PostgresPlugin => {
-	const normalizedOptions = normalizePostgresPluginOptions(options)
-	const createConnectionSource =
-		createConnectionSourceFactory(normalizedOptions)
-	const schemaPolicy = normalizedOptions.schemaPolicy ?? 'override'
+	// Validated values are captured so later caller mutation cannot alter setup.
+	const source = normalizePostgresPluginOptions(options)
+	const schemaPolicy = source.schemaPolicy ?? 'override'
+	// Application-scoped state is keyed by the schema registry of each application.
 	const connections = new WeakMap<object, ManagedPostgresConnection>()
 	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
 	const connectionProvider = provideCapability(postgresConnectionCapability, {
 		contributionId: 'connection',
 		create: ({ schemas }) => {
-			const { ownsPool, pool } = createConnectionSource()
-			const connection = createManagedPostgresConnection(pool, ownsPool)
+			// A URL creates an owned pool; an injected pool stays developer-owned.
+			const connection =
+				'url' in source
+					? createManagedPostgresConnection(
+							new Pool({ connectionString: source.url }),
+							true,
+						)
+					: createManagedPostgresConnection(source.pool, false)
 			connections.set(schemas, connection)
 
 			return {
@@ -305,13 +274,12 @@ export const postgresPlugin = (
 
 		const physicalSchema =
 			capabilities.get(optionalPhysicalSchemaContributions) ?? []
-		const exports = immutableRecord({
-			adapterMetadata: immutableRecord({ physicalSchema }),
-			connection,
-		})
 
 		return {
-			exports,
+			exports: immutableRecord({
+				adapterMetadata: immutableRecord({ physicalSchema }),
+				connection,
+			}),
 			connect: () => connection.connect(),
 			prepareSchema: () =>
 				prepareDirectPostgresSchema(
@@ -323,7 +291,8 @@ export const postgresPlugin = (
 			stop: () => connection.close(),
 		}
 	})
-	const instance = plugin({
+
+	return plugin({
 		id: postgresPluginName,
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -343,5 +312,4 @@ export const postgresPlugin = (
 			application,
 		],
 	})
-	return instance
 }
