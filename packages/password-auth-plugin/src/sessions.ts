@@ -33,26 +33,46 @@ import {
 	type PasswordSession,
 } from './session.js'
 
-type FieldState<
-	TRequired extends boolean,
-	TImmutable extends boolean,
-> = ScalarFieldTypegenState<TRequired, false, TImmutable, false>
+type RequiredFieldState<TImmutable extends boolean> = ScalarFieldTypegenState<
+	true,
+	false,
+	TImmutable,
+	false
+>
+type OptionalFieldState<TImmutable extends boolean> = ScalarFieldTypegenState<
+	false,
+	false,
+	TImmutable,
+	false
+>
 
 type PasswordSessionFields = Readonly<{
-	absoluteExpiresAt: DateTimeField<FieldState<true, true>>
-	createdAt: DateTimeField<FieldState<true, true>>
-	expiresAt: DateTimeField<FieldState<true, false>>
-	id: UuidField<FieldState<true, true>>
-	revokedAt: DateTimeField<FieldState<false, false>>
-	rotationVersion: IntField<FieldState<true, false>>
-	sessionGeneration: IntField<FieldState<true, false>>
-	tokenDigest: StringField<FieldState<true, false>>
-	userId: UuidField<FieldState<true, true>>
+	absoluteExpiresAt: DateTimeField<RequiredFieldState<true>>
+	createdAt: DateTimeField<RequiredFieldState<true>>
+	expiresAt: DateTimeField<RequiredFieldState<false>>
+	id: UuidField<RequiredFieldState<true>>
+	revokedAt: DateTimeField<OptionalFieldState<false>>
+	rotationVersion: IntField<RequiredFieldState<false>>
+	sessionGeneration: IntField<RequiredFieldState<false>>
+	tokenDigest: StringField<RequiredFieldState<false>>
+	userId: UuidField<RequiredFieldState<true>>
 }>
+
+const createSessionFields = (): PasswordSessionFields => ({
+	absoluteExpiresAt: dateTimeField({ immutable: true, required: true }),
+	createdAt: dateTimeField({ immutable: true, required: true }),
+	expiresAt: dateTimeField({ required: true }),
+	id: uuidField({ immutable: true, required: true }),
+	revokedAt: dateTimeField(),
+	rotationVersion: intField({ required: true }),
+	sessionGeneration: intField({ required: true }),
+	tokenDigest: stringField({ required: true }),
+	userId: uuidField({ immutable: true, required: true }),
+})
 
 /** Represents the exact package-private session collection token. */
 export type PasswordSessionCollection = PrivateCollection<
-	PasswordSessionFields,
+	ReturnType<typeof createSessionFields>,
 	readonly [
 		Readonly<{ readonly fields: readonly ['id'] }>,
 		Readonly<{ readonly fields: readonly ['tokenDigest'] }>,
@@ -74,17 +94,7 @@ export const createPasswordSessionCollection = (
 ): PasswordSessionCollection =>
 	definePrivateCollection({
 		contributionId: 'sessions',
-		fields: {
-			absoluteExpiresAt: dateTimeField({ immutable: true, required: true }),
-			createdAt: dateTimeField({ immutable: true, required: true }),
-			expiresAt: dateTimeField({ required: true }),
-			id: uuidField({ immutable: true, required: true }),
-			revokedAt: dateTimeField(),
-			rotationVersion: intField({ required: true }),
-			sessionGeneration: intField({ required: true }),
-			tokenDigest: stringField({ required: true }),
-			userId: uuidField({ immutable: true, required: true }),
-		},
+		fields: createSessionFields(),
 		indexes: [{ fields: ['id'] }, { fields: ['tokenDigest'] }] as const,
 		normalizedStaticOptions: {
 			absoluteExpiresInMs: policy.absoluteExpiresInMs,

@@ -13,8 +13,8 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 |        | Lines        |
 | ------ | ------------ |
 | Before | 3567         |
-| After  | 3359         |
-| Change | -208 (-5.8%) |
+| After  | 3366         |
+| Change | -201 (-5.6%) |
 
 About 40% of what remains is public contract: the operation, result and
 policy types and their JSDoc, the `PasswordUserSchema.define` overloads,
@@ -24,6 +24,31 @@ constants, and the literal error, path and permission vocabulary. Every
 production module is still pinned by a deep import from `tests/` or from a
 website page `sources` list, so modules were simplified in place instead of
 being merged away.
+
+## DX parity fixes
+
+`tooling/rebuild/dx-audit.mjs` (see `docs/rebuild/DX-AUDIT.md`) found that
+inlining the private operation constants changed the editor hover of
+`passwordAuthOperations`: the reference prints the first members in full and
+abbreviates the rest (`PluginOperationDefinition<...>`), with
+`PasswordAuthenticationResult<PasswordUserReference>` spelled out, while the
+rebuild printed all six definitions in full. Restored reference declaration
+shapes (runtime unchanged, +7 production lines, 3359 -> 3366):
+
+- `operations.ts`: the six private `*Operation` constants with their explicit
+  `PluginOperationDefinition<...>` annotations, and `passwordAuthOperations`
+  typed through `typeof` those constants. The constants are still built by
+  the single `authOperation` helper.
+- `credentials.ts` / `sessions.ts`: the private `createCredentialFields` /
+  `createSessionFields` factories, the collection tokens typed with
+  `ReturnType<typeof ...>`, and the reference `RequiredFieldState` /
+  `OptionalFieldState` aliases (instead of one two-parameter `FieldState`).
+- `operation-handlers.ts`: `PasswordOperationHandlerOptions<TUser>` and the
+  generic `createPasswordOperationHandlers<TUser>(options)` signature.
+
+After the fix the audit reports 0 differences for `password-auth-plugin`
+(declarations, exports, export and member hovers, usage hovers, completions
+and diagnostics).
 
 ## Design summary
 
