@@ -157,7 +157,7 @@ export type {
 	UpsertOperationItem,
 	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
-export type { QueryOperationExecutor } from './operations/executor.js'
+export type { QueryOperationExecutor } from './operations/execution.js'
 export { normalizeReadOperation } from './operations/read-normalization.js'
 export type {
 	ReadOperationAst,

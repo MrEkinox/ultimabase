@@ -6,80 +6,71 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import type { QueryFieldName, QuerySelectionNode } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
-import type { QueryAst, QuerySelectionNode } from '../ast/contracts.js'
+import {
+	emptyQuerySelection,
+	normalizeQuerySelection,
+	type QuerySelection,
+} from '../clauses/selection.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import { resolveWhereInput } from '../filters/where.js'
+import {
+	queryFromFindOneInput,
+	type FindOneInput,
+	type NormalizedQueryInput,
+} from '../query/input.js'
 import {
 	executeQueryDeleteOne,
 	executeQueryUpdateOne,
 	executeQueryUpsertOne,
 	executeSchemaCreateOne,
 } from '../query/operation-execution.js'
-import {
-	queryFromFindOneInput,
-	type NormalizedQueryInput,
-} from '../query/input.js'
-import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
-import {
-	executeOperationBatch,
-	normalizeOperationOptions,
-	type OperationBatchProjection,
-} from './execution.js'
-import type { OperationOptions } from './options.js'
 import type { QueryResult } from '../query/result.js'
-import type {
-	SchemaDeleteManyExecutionInput,
-	SchemaDeleteOneExecutionInput,
-	SchemaCreateManyExecutionInput,
-	SchemaCreateOneExecutionInput,
-	SchemaUpdateManyExecutionInput,
-	SchemaUpdateOneExecutionInput,
-	SchemaUpsertOneExecutionInput,
-	SchemaUpsertManyExecutionInput,
-	SchemaWhereInput,
-} from './schema-commands.js'
-import {
-	emptyQuerySelection,
-	normalizeQuerySelectedFields,
-	normalizeQuerySelection,
-} from '../clauses/selection.js'
-import type { QueryFieldName } from '../ast/contracts.js'
+import type { UpdateExpression } from '../updates/contracts.js'
+import { normalizeUpdateExpression } from '../updates/normalize.js'
 import type {
 	CreateOneOperationAst,
 	DeleteOneOperationAst,
 	FindManyOperationAst,
-	OperationObjectId,
 	UpdateOneOperationAst,
 	UpsertOneOperationAst,
 } from './contracts.js'
-import type { UpdateExpression } from '../updates/contracts.js'
-import { normalizeUpdateExpression } from '../updates/normalize.js'
+import {
+	executeOperationBatch,
+	normalizeOperationOptions,
+	type OperationBatchEntry,
+	type OperationBatchProjection,
+} from './execution.js'
+import type { OperationOptions } from './options.js'
+import type {
+	SchemaCreateManyExecutionInput,
+	SchemaCreateOneExecutionInput,
+	SchemaDeleteManyExecutionInput,
+	SchemaDeleteOneExecutionInput,
+	SchemaUpdateManyExecutionInput,
+	SchemaUpdateOneExecutionInput,
+	SchemaUpsertManyExecutionInput,
+	SchemaUpsertOneExecutionInput,
+	SchemaWhereInput,
+} from './schema-commands.js'
+import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
 
-type CommandKeyContract = readonly [
-	required: readonly string[],
-	optional?: readonly string[],
-]
-
-const commandKeyContracts = {
-	dataProjection: [['data'], ['include', 'select']],
-	deleteMany: [['where'], ['select']],
-	deleteOne: [[], ['id', 'select', 'where']],
-	updateItem: [['data', 'where']],
-	updateOne: [['data'], ['id', 'include', 'select', 'where']],
-	upsertItem: [['create', 'update', 'where']],
-	upsertMany: [['data'], ['select']],
-	upsertOne: [['create', 'update', 'where'], ['select']],
-} as const satisfies Record<string, CommandKeyContract>
+type SchemaQuery<TSchema extends SchemaDefinition> = NormalizedQueryInput<
+	TSchema,
+	QueryFieldName<TSchema>
+>
 
 const assertExactCommandKeys: (
 	input: unknown,
-	contract: CommandKeyContract,
 	path: string,
+	requiredKeys: readonly string[],
+	optionalKeys?: readonly string[],
 ) => asserts input is Readonly<Record<string, unknown>> = (
 	input,
-	[requiredKeys, optionalKeys = []],
 	path,
+	requiredKeys,
+	optionalKeys = [],
 ) => {
 	if (!isPlainRecord(input)) {
 		throw new TypeError(`${path} must be an object`)
@@ -107,40 +98,25 @@ const assertCommandArray: (
 	}
 }
 
-const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
-	expression: QueryFilterNode<TSchema>,
-): boolean => expression.kind === 'constant' && expression.value
-
-/** Creates the canonical direct filter represented by one singular identifier alias. */
-const createSchemaObjectIdWhere = <const TSchema extends SchemaDefinition>(
-	id: OperationObjectId<TSchema>,
-): SchemaWhereInput<TSchema> =>
-	immutableRecord({
-		id: immutableRecord({ eq: id }),
-	})
-
-/** Resolves one exclusive public target before constructing a Query or operation AST. */
-const normalizeSchemaSingularTarget = <const TSchema extends SchemaDefinition>(
+/** Resolves one exclusive `id` alias or `where` target into the canonical filter. */
+const readSingularTarget = <TSchema extends SchemaDefinition>(
 	input:
-		| SchemaUpdateOneExecutionInput<TSchema>
-		| SchemaDeleteOneExecutionInput<TSchema>,
+		| SchemaDeleteOneExecutionInput<TSchema>
+		| SchemaUpdateOneExecutionInput<TSchema>,
 	path: string,
 ): SchemaWhereInput<TSchema> => {
-	const hasId = Object.hasOwn(input, 'id')
 	const hasWhere = Object.hasOwn(input, 'where')
 
-	if (hasId === hasWhere) {
+	if (Object.hasOwn(input, 'id') === hasWhere) {
 		throw new TypeError(`${path} must contain exactly one of id or where`)
 	}
 
 	if (hasWhere) {
-		const where = input.where
-
-		if (where === undefined) {
+		if (input.where === undefined) {
 			throw new TypeError(`${path}.where must be an object`)
 		}
 
-		return where
+		return input.where
 	}
 
 	const id: unknown = input.id
@@ -149,17 +125,18 @@ const normalizeSchemaSingularTarget = <const TSchema extends SchemaDefinition>(
 		throw new TypeError(`${path}.id must be a string`)
 	}
 
-	return createSchemaObjectIdWhere<TSchema>(id as OperationObjectId<TSchema>)
+	return immutableRecord({ id: immutableRecord({ eq: id }) })
 }
 
-/** Normalizes a schema target directly without allocating a read builder. */
-const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
+/** Normalizes one mutation target directly, without allocating a read builder. */
+const createSchemaWhereQuery = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaWhereInput<TSchema>,
-): NormalizedQueryInput<TSchema> => {
+	uniquePath?: string,
+): SchemaQuery<TSchema> => {
 	const expression = resolveWhereInput(schema, where)
 
-	if (isEmptyWhereExpression(expression)) {
+	if (expression.kind === 'constant' && expression.value) {
 		throw new TypeError(
 			"schema command where must contain a filter; use 'all' for every row",
 		)
@@ -170,52 +147,70 @@ const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 		where: immutableRecord({ kind: 'where' as const, expression }),
 	})
 
+	if (uniquePath !== undefined) {
+		// The upsert target validator is the single source of truth for unique targeting.
+		normalizeUniqueUpsertTarget(schema, ast, uniquePath)
+	}
+
 	return immutableRecord({ ast, schema })
 }
 
-const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
+/** Normalizes `select` and `include` through the canonical read projection. */
+const normalizeProjection = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	query: NormalizedQueryInput<TSchema>,
-	path: string,
-): void => {
-	// The existing upsert target validator is the single source of truth for unique targeting.
-	void normalizeUniqueUpsertTarget(schema, query.ast, path)
-}
+	select: QuerySelection<TSchema> | undefined,
+	include?: FindOneInput<TSchema>['include'],
+): SchemaQuery<TSchema>['ast'] =>
+	queryFromFindOneInput(schema, {
+		...(include === undefined ? {} : { include }),
+		...(select === undefined ? {} : { select }),
+	}).ast
 
-/** Keeps schema projection changes on the same inert normalized input. */
-const projectSchemaQuery = <const TSchema extends SchemaDefinition>(
-	query: NormalizedQueryInput<TSchema>,
-	selection: QuerySelectionNode<QueryFieldName<TSchema>>,
-	inclusion = query.ast.inclusion,
-): NormalizedQueryInput<TSchema, QueryFieldName<TSchema>> =>
+const normalizeSelection = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	select: QuerySelection<TSchema> | undefined,
+): QuerySelectionNode<QueryFieldName<TSchema>> =>
+	select === undefined
+		? emptyQuerySelection
+		: normalizeQuerySelection(schema, select)
+
+const projectQuery = <TSchema extends SchemaDefinition>(
+	query: SchemaQuery<TSchema>,
+	projection: Pick<SchemaQuery<TSchema>['ast'], 'inclusion' | 'selection'>,
+): SchemaQuery<TSchema> =>
 	immutableRecord({
-		ast: immutableRecord({ ...query.ast, inclusion, selection }),
+		ast: immutableRecord({
+			...query.ast,
+			inclusion: projection.inclusion,
+			selection: projection.selection,
+		}),
 		schema: query.schema,
 	})
 
-/** Applies one batch projection to an exact unique target. */
-const createSchemaBatchResultQuery = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	where: SchemaWhereInput<TSchema>,
-	selection: QuerySelectionNode<QueryFieldName<TSchema>>,
-): NormalizedQueryInput<TSchema, QueryFieldName<TSchema>> => {
-	const query = createSchemaWhereQuery(schema, where)
+/** Retains one nested inclusion shared by every itemized batch result. */
+const createBatchProjection = <TSchema extends SchemaDefinition>(
+	projection: SchemaQuery<TSchema>['ast'],
+): OperationBatchProjection | undefined =>
+	projection.inclusion.fields.length === 0
+		? undefined
+		: immutableRecord({
+				// Batch projections erase the schema like every other batch item.
+				operation: immutableRecord({
+					kind: 'find-many' as const,
+					query: projection,
+				}) as unknown as FindManyOperationAst<SchemaDefinition>,
+			})
 
-	assertUniqueSchemaWhere(schema, query, 'schema batch item where')
-
-	return projectSchemaQuery(query, selection)
-}
-
-/** Retains one common nested projection outside itemized mutation operations. */
-const createBatchProjection = <const TSchema extends SchemaDefinition>(
-	query: QueryAst<TSchema>,
-): OperationBatchProjection =>
-	immutableRecord({
-		operation: immutableRecord({
-			kind: 'find-many' as const,
-			query,
-		}) as unknown as FindManyOperationAst<SchemaDefinition>,
-	})
+const executeBatch = <TOperation extends OperationBatchEntry['operation']>(
+	entries: readonly OperationBatchEntry<TOperation>[],
+	options: OperationOptions | undefined,
+	projection?: OperationBatchProjection,
+): Promise<readonly object[]> =>
+	executeOperationBatch(
+		immutableArray(entries),
+		normalizeOperationOptions(options),
+		projection,
+	) as Promise<readonly object[]>
 
 /** Creates one row through the schema class rather than a selection QueryBuilder. */
 export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
@@ -226,8 +221,9 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.dataProjection,
 		'schema create input',
+		['data'],
+		['include', 'select'],
 	)
 
 	return executeSchemaCreateOne(schema, input, options, inputMode)
@@ -241,50 +237,32 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.dataProjection,
 		'schema createMany input',
+		['data'],
+		['include', 'select'],
 	)
 	assertCommandArray(input.data, 'schema createMany data')
 
-	const projectionQuery =
-		input.include === undefined
-			? undefined
-			: queryFromFindOneInput(schema, {
-					include: input.include,
-					...(input.select === undefined ? {} : { select: input.select }),
-				})
-	const selection =
-		projectionQuery?.ast.selection ??
-		(input.select === undefined
-			? emptyQuerySelection
-			: normalizeQuerySelection(schema, input.select))
+	const projection = normalizeProjection(schema, input.select, input.include)
 	const schemaNode = createQueryAst(schema).schema
-	const entries = immutableArray(
-		input.data.map((data) => {
-			const operation: CreateOneOperationAst<
-				TSchema,
-				QueryFieldName<TSchema>
-			> = immutableRecord({
-				input: data,
-				kind: 'create-one',
-				schema: schemaNode,
-				selection,
-			})
+	const entries = input.data.map((data) => {
+		const operation: CreateOneOperationAst<
+			TSchema,
+			QueryFieldName<TSchema>
+		> = immutableRecord({
+			input: data,
+			kind: 'create-one',
+			schema: schemaNode,
+			selection: projection.selection,
+		})
 
-			return immutableRecord({ operation })
-		}),
-	)
-
-	const projection =
-		projectionQuery !== undefined &&
-		projectionQuery.ast.inclusion.fields.length > 0
-			? createBatchProjection(projectionQuery.ast)
-			: undefined
+		return immutableRecord({ operation })
+	})
 
 	return executeOperationBatch(
-		entries,
+		immutableArray(entries),
 		normalizeOperationOptions(options),
-		projection,
+		createBatchProjection(projection),
 	)
 }
 
@@ -294,31 +272,28 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 	input: SchemaUpdateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<object | null> => {
+	const path = 'schema updateOne input'
+
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.updateOne,
-		'schema updateOne input',
+		path,
+		['data'],
+		['id', 'include', 'select', 'where'],
 	)
-	const where = normalizeSchemaSingularTarget(input, 'schema updateOne input')
-	const query = createSchemaWhereQuery(schema, where)
-
-	assertUniqueSchemaWhere(schema, query, 'schema updateOne where')
-
-	if (input.select === undefined && input.include === undefined) {
-		return executeQueryUpdateOne(query, input.data, options)
-	}
-	const projection = queryFromFindOneInput(schema, {
-		...(input.include === undefined ? {} : { include: input.include }),
-		...(input.select === undefined ? {} : { select: input.select }),
-	})
-
-	const selectedQuery = projectSchemaQuery(
-		query,
-		projection.ast.selection,
-		projection.ast.inclusion,
+	const query = createSchemaWhereQuery(
+		schema,
+		readSingularTarget(input, path),
+		'schema updateOne where',
 	)
 
-	return executeQueryUpdateOne(selectedQuery, input.data, options)
+	return executeQueryUpdateOne(
+		projectQuery(
+			query,
+			normalizeProjection(schema, input.select, input.include),
+		),
+		input.data,
+		options,
+	)
 }
 
 /** Updates independently targeted rows through one atomic batch. */
@@ -329,57 +304,43 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.dataProjection,
 		'schema updateMany input',
+		['data'],
+		['include', 'select'],
 	)
 	assertCommandArray(input.data, 'schema updateMany data')
-	const projectionQuery =
-		input.include === undefined
-			? undefined
-			: queryFromFindOneInput(schema, {
-					include: input.include,
-					select: input.select ?? { id: true },
-				})
-	const selection =
-		projectionQuery?.ast.selection ??
-		(input.select === undefined
-			? normalizeQuerySelectedFields(schema, ['id'])
-			: normalizeQuerySelection(schema, input.select))
 
-	const entries = immutableArray(
-		input.data.map((item, index) => {
-			assertExactCommandKeys(
-				item,
-				commandKeyContracts.updateItem,
-				`schema updateMany data[${String(index)}]`,
-			)
-			const query = createSchemaBatchResultQuery(schema, item.where, selection)
-			const operation: UpdateOneOperationAst<
-				TSchema,
-				UpdateExpression<TSchema>,
-				QueryFilterNode<TSchema>,
-				QueryFieldName<TSchema>
-			> = immutableRecord({
-				kind: 'update-one',
-				query: query.ast,
-				update: normalizeUpdateExpression(schema, item.data),
-			})
-
-			return immutableRecord({ operation, requireResult: true as const })
-		}),
+	// Without an explicit projection, batch updates return only identities.
+	const projection = normalizeProjection(
+		schema,
+		input.select ?? { id: true },
+		input.include,
 	)
+	const entries = input.data.map((item, index) => {
+		assertExactCommandKeys(item, `schema updateMany data[${String(index)}]`, [
+			'data',
+			'where',
+		])
+		const query = createSchemaWhereQuery(
+			schema,
+			item.where,
+			'schema batch item where',
+		)
+		const operation: UpdateOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			QueryFieldName<TSchema>
+		> = immutableRecord({
+			kind: 'update-one',
+			query: immutableRecord({ ...query.ast, selection: projection.selection }),
+			update: normalizeUpdateExpression(schema, item.data),
+		})
 
-	const projection =
-		projectionQuery !== undefined &&
-		projectionQuery.ast.inclusion.fields.length > 0
-			? createBatchProjection(projectionQuery.ast)
-			: undefined
+		return immutableRecord({ operation, requireResult: true as const })
+	})
 
-	return executeOperationBatch(
-		entries,
-		normalizeOperationOptions(options),
-		projection,
-	) as unknown as Promise<readonly object[]>
+	return executeBatch(entries, options, createBatchProjection(projection))
 }
 
 /** Upserts one exact unique target through the schema class. */
@@ -390,26 +351,17 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.upsertOne,
 		'schema upsert input',
+		['create', 'update', 'where'],
+		['select'],
 	)
 	const query = createSchemaWhereQuery(schema, input.where)
 
-	if (input.select === undefined) {
-		return executeQueryUpsertOne(
-			query,
-			{ create: input.create, update: input.update },
-			options,
-		)
-	}
-
-	const selectedQuery = projectSchemaQuery(
-		query,
-		normalizeQuerySelection(schema, input.select),
-	)
-
 	return executeQueryUpsertOne(
-		selectedQuery,
+		projectQuery(query, {
+			inclusion: query.ast.inclusion,
+			selection: normalizeSelection(schema, input.select),
+		}),
 		{ create: input.create, update: input.update },
 		options,
 	)
@@ -421,50 +373,38 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 	input: SchemaUpsertManyExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
-	assertExactCommandKeys(
-		input,
-		commandKeyContracts.upsertMany,
-		'schema upsertMany input',
-	)
+	assertExactCommandKeys(input, 'schema upsertMany input', ['data'], ['select'])
 	assertCommandArray(input.data, 'schema upsertMany data')
 
-	const selection =
-		input.select === undefined
-			? emptyQuerySelection
-			: normalizeQuerySelection(schema, input.select)
-	const entries = immutableArray(
-		input.data.map((item, index) => {
-			assertExactCommandKeys(
-				item,
-				commandKeyContracts.upsertItem,
-				`schema upsertMany data[${String(index)}]`,
-			)
+	const selection = normalizeSelection(schema, input.select)
+	const entries = input.data.map((item, index) => {
+		const path = `schema upsertMany data[${String(index)}]`
 
-			const query = createSchemaWhereQuery(schema, item.where)
-			const operation: UpsertOneOperationAst<
-				TSchema,
-				UpdateExpression<TSchema>,
-				QueryFilterNode<TSchema>,
-				QueryFieldName<TSchema>
-			> = immutableRecord({
-				...normalizeUpsertInput(schema, {
-					create: item.create,
-					update: item.update,
-				}),
-				kind: 'upsert-one',
-				query: immutableRecord({ ...query.ast, selection }),
-				target: normalizeUniqueUpsertTarget(
-					schema,
-					query.ast,
-					`schema upsertMany data[${String(index)}].where`,
-				),
-			})
+		assertExactCommandKeys(item, path, ['create', 'update', 'where'])
 
-			return immutableRecord({ operation })
-		}),
+		const query = createSchemaWhereQuery(schema, item.where)
+		const operation: UpsertOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			QueryFieldName<TSchema>
+		> = immutableRecord({
+			...normalizeUpsertInput(schema, {
+				create: item.create,
+				update: item.update,
+			}),
+			kind: 'upsert-one',
+			query: immutableRecord({ ...query.ast, selection }),
+			target: normalizeUniqueUpsertTarget(schema, query.ast, `${path}.where`),
+		})
+
+		return immutableRecord({ operation })
+	})
+
+	return executeOperationBatch(
+		immutableArray(entries),
+		normalizeOperationOptions(options),
 	)
-
-	return executeOperationBatch(entries, normalizeOperationOptions(options))
 }
 
 /** Deletes one exact unique target through the schema class. */
@@ -473,26 +413,22 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 	input: SchemaDeleteOneExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<object | null> => {
-	assertExactCommandKeys(
-		input,
-		commandKeyContracts.deleteOne,
-		'schema deleteOne input',
-	)
-	const where = normalizeSchemaSingularTarget(input, 'schema deleteOne input')
-	const query = createSchemaWhereQuery(schema, where)
+	const path = 'schema deleteOne input'
 
-	assertUniqueSchemaWhere(schema, query, 'schema deleteOne where')
-
-	if (input.select === undefined) {
-		return executeQueryDeleteOne(query, options)
-	}
-
-	const selectedQuery = projectSchemaQuery(
-		query,
-		normalizeQuerySelection(schema, input.select),
+	assertExactCommandKeys(input, path, [], ['id', 'select', 'where'])
+	const query = createSchemaWhereQuery(
+		schema,
+		readSingularTarget(input, path),
+		'schema deleteOne where',
 	)
 
-	return executeQueryDeleteOne(selectedQuery, options)
+	return executeQueryDeleteOne(
+		projectQuery(query, {
+			inclusion: query.ast.inclusion,
+			selection: normalizeSelection(schema, input.select),
+		}),
+		options,
+	)
 }
 
 /** Deletes independently targeted rows through one atomic batch. */
@@ -503,30 +439,34 @@ export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
-		commandKeyContracts.deleteMany,
 		'schema deleteMany input',
+		['where'],
+		['select'],
 	)
 	assertCommandArray(input.where, 'schema deleteMany where')
 
-	const entries = immutableArray(
-		input.where.map((where) => {
-			const selection =
-				input.select === undefined
-					? normalizeQuerySelectedFields(schema, ['id'])
-					: normalizeQuerySelection(schema, input.select)
-			const query = createSchemaBatchResultQuery(schema, where, selection)
-			const operation: DeleteOneOperationAst<
-				TSchema,
-				QueryFilterNode<TSchema>,
-				QueryFieldName<TSchema>
-			> = immutableRecord({ kind: 'delete-one', query: query.ast })
+	const entries = input.where.map((where) => {
+		// Without an explicit projection, batch deletes return only identities.
+		const selection = normalizeQuerySelection(
+			schema,
+			input.select ?? { id: true },
+		)
+		const query = createSchemaWhereQuery(
+			schema,
+			where,
+			'schema batch item where',
+		)
+		const operation: DeleteOneOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			QueryFieldName<TSchema>
+		> = immutableRecord({
+			kind: 'delete-one',
+			query: immutableRecord({ ...query.ast, selection }),
+		})
 
-			return immutableRecord({ operation, requireResult: true as const })
-		}),
-	)
+		return immutableRecord({ operation, requireResult: true as const })
+	})
 
-	return executeOperationBatch(
-		entries,
-		normalizeOperationOptions(options),
-	) as unknown as Promise<readonly object[]>
+	return executeBatch(entries, options)
 }

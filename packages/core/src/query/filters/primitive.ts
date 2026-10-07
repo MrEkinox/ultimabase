@@ -6,11 +6,6 @@ import type {
 
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 
-export {
-	equalityFieldKinds as queryEqualityFieldKinds,
-	orderedFieldKinds as queryOrderedFieldKinds,
-} from '../../schema/fields/base/filter-kinds.js'
-
 export type QueryEqualityFilterOperator = 'equal' | 'not-equal'
 
 export type QueryComparisonFilterOperator =
@@ -299,3 +294,53 @@ export type QueryFilterOperand<
 	TOperator extends QueryBuiltInFilterOperator,
 	TTarget extends QueryFilterTarget<TSchema, TOperator>,
 > = TTarget extends QueryFilterTarget<TSchema, TOperator> ? unknown : never
+
+/**
+ * Maps every canonical `where` operator key to its portable AST kind.
+ *
+ * Normalization, serialization, and relation cardinality share this single
+ * vocabulary so the object contract and the AST cannot drift apart.
+ */
+const whereOperatorKinds: Readonly<Record<string, QueryBuiltInFilterOperator>> =
+	{
+		eq: 'equal',
+		ne: 'not-equal',
+		gt: 'greater-than',
+		gte: 'greater-than-or-equal',
+		lt: 'less-than',
+		lte: 'less-than-or-equal',
+		in: 'in',
+		notIn: 'not-in',
+		between: 'between',
+		notBetween: 'not-between',
+		has: 'list-has',
+		hasSome: 'list-has-some',
+		hasEvery: 'list-has-every',
+		isEmpty: 'list-empty',
+		contains: 'contains',
+		containedBy: 'contained-by',
+		startsWith: 'starts-with',
+		endsWith: 'ends-with',
+		hasKey: 'has-key',
+		hasAnyKeys: 'has-any-keys',
+		hasAllKeys: 'has-all-keys',
+		jsonPathExists: 'json-path-exists',
+		jsonPathMatches: 'json-path-matches',
+		matches: 'regex',
+	}
+
+/** @internal Reads the AST kind of one untrusted operator key, if it is canonical. */
+export const readWhereOperatorKind = (
+	operator: string,
+): QueryBuiltInFilterOperator | undefined =>
+	Object.hasOwn(whereOperatorKinds, operator)
+		? whereOperatorKinds[operator]
+		: undefined
+
+const whereOperatorKeys: ReadonlyMap<string, string> = new Map(
+	Object.entries(whereOperatorKinds).map(([key, kind]) => [kind, key]),
+)
+
+/** @internal Restores the canonical `where` key of one portable AST kind. */
+export const readWhereOperatorKey = (kind: string): string =>
+	whereOperatorKeys.get(kind) ?? kind

@@ -32,12 +32,8 @@ import {
 	type QuerySelectedField,
 	type QuerySelection,
 } from '../clauses/selection.js'
-import {
-	normalizeLogicalFilter,
-	type QueryFilterNode,
-} from '../filters/logical.js'
-import type { QueryPrimitiveFilterNode } from '../filters/primitive.js'
-import type { QueryRelationFilterForSchema } from '../filters/relation.js'
+import type { QueryFilterNode } from '../filters/logical.js'
+import { combineWhereExpressions } from '../filters/where-normalize.js'
 import {
 	resolveWhereInput,
 	whereInputFromQueryFilter,
@@ -457,20 +453,9 @@ export class QueryBuilder<
 	#appendFilter(
 		filter: QueryFilterNode<TSchema>,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		const currentExpression = this.ast.where?.expression
-		const expression =
-			currentExpression === undefined
-				? filter
-				: normalizeLogicalFilter<
-						| QueryPrimitiveFilterNode<TSchema>
-						| QueryRelationFilterForSchema<TSchema>
-					>({
-						kind: 'and',
-						expressions: [currentExpression, filter],
-					})
 		const where: QueryWhereNode<QueryFilterNode<TSchema>> = immutableRecord({
 			kind: 'where',
-			expression,
+			expression: combineWhereExpressions(this.ast.where?.expression, filter),
 		})
 
 		return this.#with({ where })
