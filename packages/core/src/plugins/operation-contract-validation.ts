@@ -5,6 +5,8 @@ import {
 } from '@ultimabase/shared'
 import { valid } from 'semver'
 
+import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+
 import {
 	isTypegenReference,
 	type TypegenReference,
@@ -44,11 +46,11 @@ export const assertOperationValueContract: (
 		throw new TypeError(`${path} must expose a snapshot function`)
 	}
 
-	for (const key of Object.keys(value)) {
-		if (key !== 'snapshot' && key !== 'typegen') {
-			throw new TypeError(`${path} contains unknown option: ${key}`)
-		}
-	}
+	assertExactEnumerableKeys(
+		value,
+		new Set(['snapshot', 'typegen']),
+		`${path} contains unknown option: `,
+	)
 	if (value.typegen !== undefined && !isTypegenReference(value.typegen)) {
 		throw new TypeError(
 			`${path}.typegen must be created by defineTypegenReference`,
