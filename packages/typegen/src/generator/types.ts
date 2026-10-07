@@ -5,23 +5,11 @@ import type {
 import type { GeneratedIdentifiers } from './identifiers.js'
 import type { ReferenceImports } from './imports.js'
 
-export interface ObjectDescriptor {
+/** Names the generated declaration of one enum or embedded object field. */
+export interface NamedDescriptor {
 	readonly alias: string
 	readonly field: TypegenFieldSnapshot
 	readonly ownerPath: string
-	readonly schema: TypegenSchemaSnapshot
-}
-
-export interface EnumDescriptor {
-	readonly alias: string
-	readonly field: TypegenFieldSnapshot
-	readonly ownerPath: string
-	readonly schema: TypegenSchemaSnapshot
-}
-
-export interface ObjectOccurrence {
-	readonly descriptor: ObjectDescriptor
-	readonly field: TypegenFieldSnapshot
 	readonly schema: TypegenSchemaSnapshot
 }
 

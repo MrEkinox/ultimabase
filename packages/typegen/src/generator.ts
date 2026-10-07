@@ -8,7 +8,7 @@ import type {
 import { generatedApplicationContractVersion } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
-import { renderSharedTypes } from './generator/filters/shared.js'
+import { renderSharedTypes } from './generator/filters/declarations.js'
 import { GeneratedIdentifiers } from './generator/identifiers.js'
 import { ReferenceImports } from './generator/imports.js'
 import { renderRegistry, renderSchemas } from './generator/registry.js'

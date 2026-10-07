@@ -28,11 +28,6 @@ export interface TypegenPluginExports {
 	readonly outputPath: string
 }
 
-interface NormalizedTypegenPluginOptions {
-	readonly applicationId: string
-	readonly outputPath: string
-}
-
 /** Represents automatic startup generation for one application registry. */
 export type TypegenPlugin = PluginInstance<{
 	readonly id: typeof typegenPluginName
@@ -42,9 +37,13 @@ export type TypegenPlugin = PluginInstance<{
 	readonly environment: readonly ['environment:filesystem']
 }>
 
-const normalizeOptions = (
-	options: TypegenPluginOptions | undefined,
-): NormalizedTypegenPluginOptions => {
+/**
+ * Regenerates the complete application declaration before infrastructure starts.
+ * A future CLI will reuse the same generator for explicit manual generation.
+ */
+export const typegenPlugin = (
+	options?: TypegenPluginOptions,
+): TypegenPlugin => {
 	if (options !== undefined && !isPlainRecord(options)) {
 		throw new TypeError('typegen options must be a plain object')
 	}
@@ -56,25 +55,20 @@ const normalizeOptions = (
 	}
 
 	const applicationId = options?.applicationId ?? defaultApplicationId
-	const outputPath = options?.outputPath ?? defaultOutputPath
+	const requestedOutputPath = options?.outputPath ?? defaultOutputPath
 
 	if (typeof applicationId !== 'string' || applicationId.trim() === '') {
 		throw new TypeError('typegen applicationId must be a non-empty string')
 	}
 
-	if (typeof outputPath !== 'string' || outputPath.trim() === '') {
+	if (
+		typeof requestedOutputPath !== 'string' ||
+		requestedOutputPath.trim() === ''
+	) {
 		throw new TypeError('typegen outputPath must be a non-empty string')
 	}
 
-	return immutableRecord({
-		applicationId,
-		outputPath: path.resolve(outputPath),
-	})
-}
-
-const createTypegenPlugin = (
-	normalized: NormalizedTypegenPluginOptions,
-): TypegenPlugin => {
+	const outputPath = path.resolve(requestedOutputPath)
 	const application = contributeApplication(
 		async ({
 			fieldBuilderMethods,
@@ -84,45 +78,29 @@ const createTypegenPlugin = (
 		}) => {
 			const generated = generateApplicationTypesFromSnapshot(
 				createCompiledTypegenSnapshot(
-					{
-						fieldBuilderMethods,
-						pluginFieldTypes,
-						schemas,
-						typegenGraph,
-					},
-					normalized.applicationId,
+					{ fieldBuilderMethods, pluginFieldTypes, schemas, typegenGraph },
+					applicationId,
 				),
 			)
 
 			await writeGeneratedTypeFiles([
-				{
-					applicationId: normalized.applicationId,
-					contents: generated.contents,
-					outputPath: normalized.outputPath,
-				},
+				{ applicationId, contents: generated.contents, outputPath },
 			])
 
 			return {
 				exports: immutableRecord({
 					fingerprint: generated.fingerprint,
-					outputPath: normalized.outputPath,
+					outputPath,
 				}) satisfies TypegenPluginExports,
 			}
 		},
 	)
-	const instance = plugin({
+
+	return plugin({
 		id: typegenPluginName,
 		version: '0.0.0',
 		core: '^0.0.0',
 		environment: ['environment:filesystem'],
 		contributions: [application],
 	})
-	return instance
 }
-
-/**
- * Regenerates the complete application declaration before infrastructure starts.
- * A future CLI will reuse the same generator for explicit manual generation.
- */
-export const typegenPlugin = (options?: TypegenPluginOptions): TypegenPlugin =>
-	createTypegenPlugin(normalizeOptions(options))

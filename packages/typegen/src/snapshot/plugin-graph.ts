@@ -8,14 +8,17 @@ import type {
 	TypegenReference,
 	TypegenSchemaMutationSnapshot,
 } from '../snapshot.js'
+import { snapshotReference } from './fields.js'
 
-const snapshotOwner = (
-	owner: Readonly<{
-		readonly instanceId?: string
-		readonly pluginId: string
-		readonly version: string
-	}>,
-): TypegenOwnerSnapshot =>
+type SchemaMutationFacts =
+	CompiledTypegenGraph['schemaSurfaces'][number]['schemaMutations'] extends ReadonlyMap<
+		string,
+		infer TValue
+	>
+		? TValue
+		: never
+
+const snapshotOwner = (owner: TypegenOwnerSnapshot): TypegenOwnerSnapshot =>
 	immutableRecord({
 		...(owner.instanceId === undefined ? {} : { instanceId: owner.instanceId }),
 		pluginId: owner.pluginId,
@@ -25,26 +28,23 @@ const snapshotOwner = (
 const ownerKey = (owner: TypegenOwnerSnapshot): string =>
 	`${owner.pluginId}\u0000${owner.instanceId ?? ''}`
 
-const snapshotReference = (
-	reference: TypegenReference | undefined,
-): TypegenReference | undefined =>
-	reference === undefined
-		? undefined
-		: immutableRecord({
-				exportName: reference.exportName,
-				module: reference.module,
-			})
-
+/**
+ * Copies command references, accepting only reference objects that the owning
+ * plugin instance registered in its declaration batch.
+ */
 const createReferenceReader = (graph: CompiledTypegenGraph) => {
-	const registered = new Map<string, ReadonlySet<object>>()
+	const registered = new Map<string, Set<object>>()
+
 	for (const declaration of graph.declarations) {
-		for (const owned of declaration.references) {
-			const key = ownerKey(snapshotOwner(owned.owner))
-			const references = new Set(registered.get(key) ?? [])
-			references.add(owned.reference)
+		for (const { owner, reference } of declaration.references) {
+			const key = ownerKey(owner)
+			const references = registered.get(key) ?? new Set<object>()
+
+			references.add(reference)
 			registered.set(key, references)
 		}
 	}
+
 	return (
 		reference: TypegenReference | undefined,
 		owner: TypegenOwnerSnapshot,
@@ -58,7 +58,7 @@ const createReferenceReader = (graph: CompiledTypegenGraph) => {
 				{ owner: owner.pluginId, path },
 			)
 		}
-		return snapshotReference(reference)
+		return snapshotReference(reference.exportName, reference.module)
 	}
 }
 
@@ -108,63 +108,61 @@ export const snapshotTypegenGraph = (
 					? left.name.localeCompare(right.name)
 					: left.scope.localeCompare(right.scope),
 			)
-			.map((option) =>
-				immutableRecord({
-					...(option.typegen.compatibilityType === undefined
+			.map((option) => {
+				const { typegen } = option
+				return immutableRecord({
+					...(typegen.compatibilityType === undefined
 						? {}
 						: {
-								compatibility: immutableRecord({
-									exportName: option.typegen.compatibilityType,
-									module: option.typegen.module,
-								}),
+								compatibility: snapshotReference(
+									typegen.compatibilityType,
+									typegen.module,
+								),
 							}),
 					contributionId: option.contributionId,
 					...(option.contexts === undefined
 						? {}
 						: { contexts: immutableArray(option.contexts) }),
-					...(option.typegen.generic === undefined
+					...(typegen.generic === undefined
 						? {}
-						: { generic: option.typegen.generic }),
+						: { generic: typegen.generic }),
 					name: option.name,
 					owner: snapshotOwner(option.owner),
-					reference: immutableRecord({
-						exportName: option.typegen.type,
-						module: option.typegen.module,
-					}),
+					reference: snapshotReference(typegen.type, typegen.module),
 					scope: option.scope,
 					staticOptions: option.staticOptions,
-				}),
-			),
+				})
+			}),
 	)
-	const mutation = (
-		name: string,
-		value: CompiledTypegenGraph['schemaSurfaces'][number]['schemaMutations'] extends ReadonlyMap<
-			string,
-			infer TValue
-		>
-			? TValue
-			: never,
-	): TypegenSchemaMutationSnapshot => {
-		const owner = snapshotOwner(value.owner)
-		return immutableRecord({
-			authority: value.mutation.authority,
-			contributionId: value.contributionId,
-			effect: value.mutation.effect,
-			errors: immutableArray(value.mutation.errors),
-			input: readReference(
-				value.mutation.input.typegen,
-				owner,
-				`${value.mutation.name}.input`,
-			),
-			mutation: value.mutation.name,
-			name,
-			owner,
-			returning: value.mutation.returning,
-			select: immutableArray(Object.keys(value.mutation.select)),
-			staticOptions: value.staticOptions,
-			version: value.mutation.version,
-		})
-	}
+	const snapshotMutations = (
+		mutations: ReadonlyMap<string, SchemaMutationFacts>,
+	): readonly TypegenSchemaMutationSnapshot[] =>
+		immutableArray(
+			[...mutations]
+				.sort(([left], [right]) => left.localeCompare(right))
+				.map(([name, value]) => {
+					const { mutation } = value
+					const owner = snapshotOwner(value.owner)
+					return immutableRecord({
+						authority: mutation.authority,
+						contributionId: value.contributionId,
+						effect: mutation.effect,
+						errors: immutableArray(mutation.errors),
+						input: readReference(
+							mutation.input.typegen,
+							owner,
+							`${mutation.name}.input`,
+						),
+						mutation: mutation.name,
+						name,
+						owner,
+						returning: mutation.returning,
+						select: immutableArray(Object.keys(mutation.select)),
+						staticOptions: value.staticOptions,
+						version: mutation.version,
+					})
+				}),
+		)
 	const surfaces = immutableArray(
 		[...graph.schemaSurfaces]
 			.sort((left, right) =>
@@ -173,22 +171,10 @@ export const snapshotTypegenGraph = (
 			.map((surface) =>
 				immutableRecord({
 					className: surface.schema.className,
-					modelMutations: immutableArray(
-						[...surface.modelMutations]
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, value]) => mutation(name, value)),
-					),
-					schemaMutations: immutableArray(
-						[...surface.schemaMutations]
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, value]) => mutation(name, value)),
-					),
+					modelMutations: snapshotMutations(surface.modelMutations),
+					schemaMutations: snapshotMutations(surface.schemaMutations),
 				}),
 			),
 	)
-	return immutableRecord({
-		operations,
-		options,
-		surfaces,
-	})
+	return immutableRecord({ operations, options, surfaces })
 }
