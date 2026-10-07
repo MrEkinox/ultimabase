@@ -51,12 +51,11 @@ export const typeIdentifier = (value: string): string => {
 	return TypeScriptKeywords.has(prefixed) ? `_${prefixed}` : prefixed
 }
 
+/** Capitalizes a type identifier, which is never empty (`''` becomes `_`). */
 export const fieldIdentifier = (value: string): string => {
 	const normalized = typeIdentifier(value)
 
-	return normalized.length === 0
-		? 'Field'
-		: `${normalized[0]?.toUpperCase() ?? ''}${normalized.slice(1)}`
+	return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`
 }
 
 export const renderDocumentation = (
