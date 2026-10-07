@@ -194,6 +194,10 @@ export const resolveSelection = (
 	})
 }
 
+/** Values whose condition holds, in declaration order. */
+export const included = <T>(entries: readonly (readonly [boolean, T])[]): T[] =>
+	entries.flatMap(([enabled, value]) => (enabled ? [value] : []))
+
 export const hasPlugin = (plan: InitializerPlan, id: PluginId): boolean =>
 	plan.plugins.includes(id)
 

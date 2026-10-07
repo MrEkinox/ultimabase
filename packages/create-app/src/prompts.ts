@@ -12,6 +12,7 @@ import {
 	detectPackageManager,
 	hasDataApi,
 	hasPlugin,
+	included,
 	resolveSelection,
 	type Database,
 	type InitializerPlan,
@@ -69,20 +70,19 @@ const missingFlags = (
 	options: ParsedOptions,
 	detectedManager: PackageManager | undefined,
 ): string[] =>
-	(
+	included([
+		[options.name === undefined, '--name'],
+		[options.language === undefined, '--language'],
+		[options.apis === undefined, '--api (or --yes for none)'],
+		[options.plugins === undefined, '--plugin (or --yes for none)'],
+		[options.starter === undefined, '--starter'],
+		[options.database === undefined, '--database'],
 		[
-			[options.name, '--name'],
-			[options.language, '--language'],
-			[options.apis, '--api (or --yes for none)'],
-			[options.plugins, '--plugin (or --yes for none)'],
-			[options.starter, '--starter'],
-			[options.database, '--database'],
-			[options.packageManager ?? detectedManager, '--package-manager'],
-			[options.install, '--install or --no-install'],
-		] as const
-	)
-		.filter(([value]) => value === undefined)
-		.map(([, flag]) => flag)
+			(options.packageManager ?? detectedManager) === undefined,
+			'--package-manager',
+		],
+		[options.install === undefined, '--install or --no-install'],
+	])
 
 /** The same flow accepts prompt answers and flags, then validates one final plan. */
 export const collectSelection = async (
@@ -161,53 +161,50 @@ export const collectSelection = async (
 	return plan
 }
 
-const fromClack = <T>(value: T | typeof clack.CANCEL_SYMBOL): T | null =>
-	value === clack.CANCEL_SYMBOL ? null : value
-
 const capabilityNotes = (plan: InitializerPlan): string[] => {
 	const has = (id: PluginId): boolean => hasPlugin(plan, id)
-	return [
-		...(has('pg-vector-plugin')
-			? [
-					'Vector values are logical only; this starter does not store or search vectors.',
-				]
-			: []),
-		...(has('password-auth-plugin')
-			? ['Password Auth adds identity and sessions, not CRUD permission.']
-			: []),
-		...(has('password-auth-plugin') && hasDataApi(plan)
-			? [
-					'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
-				]
-			: []),
-		...(has('graphiql-plugin') || has('apollo-sandbox-plugin')
-			? ['Explorers and introspection are development-only.']
-			: []),
-		...(hasDataApi(plan)
-			? [
-					'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
-				]
-			: []),
-		...(has('server-hono-plugin')
-			? ['HTTP binds to 127.0.0.1; API requests need the exact application ID.']
-			: []),
-		...(plan.starter === 'empty'
-			? [
-					'An empty application has no schema for schema-local plugins to act on.',
-				]
-			: []),
-	]
+	return included([
+		[
+			has('pg-vector-plugin'),
+			'Vector values are logical only; this starter does not store or search vectors.',
+		],
+		[
+			has('password-auth-plugin'),
+			'Password Auth adds identity and sessions, not CRUD permission.',
+		],
+		[
+			has('password-auth-plugin') && hasDataApi(plan),
+			'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
+		],
+		[
+			has('graphiql-plugin') || has('apollo-sandbox-plugin'),
+			'Explorers and introspection are development-only.',
+		],
+		[
+			hasDataApi(plan),
+			'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
+		],
+		[
+			has('server-hono-plugin'),
+			'HTTP binds to 127.0.0.1; API requests need the exact application ID.',
+		],
+		[
+			plan.starter === 'empty',
+			'An empty application has no schema for schema-local plugins to act on.',
+		],
+	])
 }
 
 const dataApis = (plan: InitializerPlan): string =>
-	[
-		...(hasPlugin(plan, 'rest-plugin') ? ['REST'] : []),
-		...(hasPlugin(plan, 'graphql-yoga-plugin')
-			? ['GraphQL over HTTP']
-			: hasPlugin(plan, 'graphql-plugin')
-				? ['direct GraphQL']
-				: []),
-	].join(', ') || 'none; direct application calls'
+	included([
+		[hasPlugin(plan, 'rest-plugin'), 'REST'],
+		[hasPlugin(plan, 'graphql-yoga-plugin'), 'GraphQL over HTTP'],
+		[
+			hasPlugin(plan, 'graphql-plugin') &&
+				!hasPlugin(plan, 'graphql-yoga-plugin'),
+			'direct GraphQL',
+		],
+	]).join(', ') || 'none; direct application calls'
 
 const formatPlan = (plan: InitializerPlan): string =>
 	[
@@ -222,37 +219,48 @@ const formatPlan = (plan: InitializerPlan): string =>
 		`Next: cd ${path.relative(process.cwd(), plan.destination) || plan.destination}`,
 	].join('\n')
 
+/** Clack resolves a cancelled prompt to its cancel symbol; adapters report null. */
+const answer = async <T>(
+	prompt: Promise<T | typeof clack.CANCEL_SYMBOL>,
+): Promise<T | null> => {
+	const value = await prompt
+	return value === clack.CANCEL_SYMBOL ? null : value
+}
+
+const select = <T>(
+	message: string,
+	options: clack.Option<T>[],
+): Promise<T | null> => answer(clack.select<T>({ message, options }))
+
+const confirm = (message: string): Promise<boolean | null> =>
+	answer(clack.confirm({ message, initialValue: true }))
+
 export const terminalPrompts: PromptAdapter = {
-	name: async () =>
-		fromClack(
-			await clack.text({
+	name: () =>
+		answer(
+			clack.text({
 				message: 'Project name',
 				placeholder: 'notes',
 				validate: (value) =>
 					value?.trim() ? undefined : 'Enter a package name.',
 			}),
 		),
-	directory: async (defaultName) =>
-		fromClack(
-			await clack.text({
+	directory: (defaultName) =>
+		answer(
+			clack.text({
 				message: 'Destination directory',
 				defaultValue: defaultName,
 				placeholder: defaultName,
 			}),
 		),
-	language: async () =>
-		fromClack(
-			await clack.select<Language>({
-				message: 'Language',
-				options: [
-					{ value: 'ts', label: 'TypeScript', hint: 'Typegen included' },
-					{ value: 'js', label: 'JavaScript', hint: 'No Typegen' },
-				],
-			}),
-		),
-	apis: async () =>
-		fromClack(
-			await clack.multiselect<ApiId>({
+	language: () =>
+		select<Language>('Language', [
+			{ value: 'ts', label: 'TypeScript', hint: 'Typegen included' },
+			{ value: 'js', label: 'JavaScript', hint: 'No Typegen' },
+		]),
+	apis: () =>
+		answer(
+			clack.multiselect<ApiId>({
 				message: 'How will clients access your data?',
 				options: [
 					{ value: 'rest', label: 'REST' },
@@ -261,79 +269,56 @@ export const terminalPrompts: PromptAdapter = {
 				required: false,
 			}),
 		),
-	plugins: async (choices) => {
-		const groups = Object.fromEntries(
-			pluginGroups.map((group) => [
-				group,
-				choices
-					.filter((choice) => choice.group === group)
-					.map((choice) => ({
-						value: choice.id,
-						label: choice.label,
-						hint: choice.required ? `${choice.hint} · included` : choice.hint,
-						disabled: choice.required,
-					})),
-			]),
-		)
-		return fromClack(
-			await clack.groupMultiselect<PluginId>({
+	plugins: (choices) =>
+		answer(
+			clack.groupMultiselect<PluginId>({
 				message: 'Official plugins',
-				options: groups,
+				options: Object.fromEntries(
+					pluginGroups.map((group) => [
+						group,
+						choices
+							.filter((choice) => choice.group === group)
+							.map((choice) => ({
+								value: choice.id,
+								label: choice.label,
+								hint: choice.required
+									? `${choice.hint} · included`
+									: choice.hint,
+								disabled: choice.required,
+							})),
+					]),
+				),
 				required: false,
 				selectableGroups: false,
 				maxItems: 16,
 			}),
-		)
-	},
-	starter: async () =>
-		fromClack(
-			await clack.select<Starter>({
-				message: 'Starter',
-				options: [
-					{ value: 'task', label: 'Runnable Task example' },
-					{ value: 'empty', label: 'Empty application' },
-				],
-			}),
 		),
-	database: async () =>
-		fromClack(
-			await clack.select<Database>({
-				message: 'PostgreSQL',
-				options: [
-					{
-						value: 'existing',
-						label: 'Existing database',
-						hint: 'Add DATABASE_URL to .env',
-					},
-					{
-						value: 'docker',
-						label: 'Local Docker Compose',
-						hint: 'Disposable development database',
-					},
-				],
-			}),
-		),
-	packageManager: async () =>
-		fromClack(
-			await clack.select<PackageManager>({
-				message: 'Package manager',
-				options: [{ value: 'npm' }, { value: 'yarn' }, { value: 'pnpm' }],
-			}),
-		),
-	install: async () =>
-		fromClack(
-			await clack.confirm({
-				message: 'Install dependencies now?',
-				initialValue: true,
-			}),
-		),
-	confirm: async () =>
-		fromClack(
-			await clack.confirm({
-				message: 'Create this project?',
-				initialValue: true,
-			}),
-		),
+	starter: () =>
+		select<Starter>('Starter', [
+			{ value: 'task', label: 'Runnable Task example' },
+			{ value: 'empty', label: 'Empty application' },
+		]),
+	database: () =>
+		select<Database>('PostgreSQL', [
+			{
+				value: 'existing',
+				label: 'Existing database',
+				hint: 'Add DATABASE_URL to .env',
+			},
+			{
+				value: 'docker',
+				label: 'Local Docker Compose',
+				hint: 'Disposable development database',
+			},
+		]),
+	packageManager: () =>
+		select<PackageManager>('Package manager', [
+			{ value: 'npm' },
+			{ value: 'yarn' },
+			{ value: 'pnpm' },
+		]),
+	install: () => confirm('Install dependencies now?'),
+	confirm: () => confirm('Create this project?'),
 	print: (plan) => {
 		clack.note(formatPlan(plan), 'Project plan')
 	},

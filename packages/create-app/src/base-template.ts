@@ -13,6 +13,7 @@ import {
 import type { PluginId } from './catalog.js'
 import {
 	hasPlugin as has,
+	included,
 	type InitializerPlan,
 	type PackageManager,
 } from './config.js'
@@ -53,7 +54,7 @@ const dependencyOrder: readonly PluginId[] = [
 ]
 
 /** Data and behavior plugins installed on the schema factory: [plugin, factory, entry]. */
-const behaviorPlugins = [
+const behaviorPlugins: readonly (readonly [PluginId, string, string])[] = [
 	['hooks-plugin', 'hooksPlugin', 'hooksPlugin()'],
 	['pg-vector-plugin', 'pgVectorPlugin', 'pgVectorPlugin()'],
 	[
@@ -62,7 +63,7 @@ const behaviorPlugins = [
 		"softDeletePlugin({ defaultMode: 'disabled' })",
 	],
 	['validation-plugin', 'validationPlugin', 'validationPlugin()'],
-] as const
+]
 
 const applicationSchemaNames = (plan: InitializerPlan): readonly string[] => [
 	...(plan.starter === 'task' ? ['Task'] : []),
@@ -237,33 +238,30 @@ volumes:
   ultimabase-data:
 `
 
-const behaviorReadmeNotes = (plan: InitializerPlan): readonly string[] => {
+const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 	const task = plan.starter === 'task'
-	return [
-		...(has(plan, 'hooks-plugin') && task
-			? ['Hooks normalize Task titles before the database mutation.']
-			: []),
-		...(has(plan, 'validation-plugin') && task
-			? [
-					'Validation rejects Task titles outside 1–200 characters after input resolution.',
-				]
-			: []),
-		...(has(plan, 'soft-delete-plugin') && task
-			? [
-					`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
-				]
-			: []),
-		...(has(plan, 'pg-vector-plugin')
-			? [
-					'PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.',
-				]
-			: []),
-		...(plan.starter === 'empty' && plan.plugins.length > 1
-			? [
-					'Optional plugins are configured, but this empty application has no schema for schema-local behavior.',
-				]
-			: []),
-	]
+	return included([
+		[
+			has(plan, 'hooks-plugin') && task,
+			'Hooks normalize Task titles before the database mutation.',
+		],
+		[
+			has(plan, 'validation-plugin') && task,
+			'Validation rejects Task titles outside 1–200 characters after input resolution.',
+		],
+		[
+			has(plan, 'soft-delete-plugin') && task,
+			`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
+		],
+		[
+			has(plan, 'pg-vector-plugin'),
+			'PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.',
+		],
+		[
+			plan.starter === 'empty' && plan.plugins.length > 1,
+			'Optional plugins are configured, but this empty application has no schema for schema-local behavior.',
+		],
+	])
 }
 
 const projectReadme = (plan: InitializerPlan): string => `# ${plan.name}

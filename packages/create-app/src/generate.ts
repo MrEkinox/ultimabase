@@ -25,11 +25,11 @@ export interface ProjectGenerationOptions {
 	readonly onProgress?: (message: string) => void
 }
 
-const installDependencies = async (
+const installDependencies = (
 	directory: string,
 	manager: PackageManager,
-): Promise<void> => {
-	await new Promise<void>((resolve, reject) => {
+): Promise<void> =>
+	new Promise((resolve, reject) => {
 		const child = spawn(manager, ['install'], {
 			cwd: directory,
 			stdio: 'inherit',
@@ -48,7 +48,6 @@ const installDependencies = async (
 				)
 		})
 	})
-}
 
 /**
  * Work stays in an owned sibling until every file and optional install succeeds.

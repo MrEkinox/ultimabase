@@ -130,11 +130,7 @@ const apiPlugins: Readonly<Record<ApiId, PluginId>> = {
 	graphql: 'graphql-yoga-plugin',
 }
 
-/**
- * PostgreSQL, the API plugins and the requested plugins with every transitive
- * prerequisite. A `Set` also visits values added while it is iterated, so one
- * pass reaches the closure.
- */
+/** PostgreSQL, API and requested plugins plus every transitive prerequisite. */
 export const selectedPluginIds = (
 	apis: readonly ApiId[],
 	requested: readonly PluginId[] = [],
@@ -144,6 +140,7 @@ export const selectedPluginIds = (
 		...requested,
 		...apis.map((api) => apiPlugins[api]),
 	])
+	// A Set also visits values added while iterating, so one pass is a closure.
 	for (const id of selected)
 		for (const dependency of pluginDependencies[id] ?? [])
 			selected.add(dependency)
