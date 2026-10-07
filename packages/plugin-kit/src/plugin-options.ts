@@ -54,59 +54,15 @@ type UnknownFunction = (...arguments_: readonly unknown[]) => unknown
 const isUnknownFunction = (value: unknown): value is UnknownFunction =>
 	typeof value === 'function'
 
-const readStandardSchemaValidator = (
-	value: unknown,
-): ((input: unknown) => unknown) | undefined => {
-	if (
-		(typeof value !== 'object' && typeof value !== 'function') ||
-		value === null
-	) {
-		return undefined
-	}
+const isObjectLike = (value: unknown): value is object =>
+	(typeof value === 'object' || typeof value === 'function') && value !== null
 
-	const properties: unknown = Reflect.get(value, '~standard')
-	const validate = isPlainRecord(properties) ? properties.validate : undefined
-	if (
-		!isPlainRecord(properties) ||
-		properties.version !== 1 ||
-		typeof properties.vendor !== 'string' ||
-		!isUnknownFunction(validate)
-	) {
-		return undefined
-	}
+const isPropertyKey = (value: unknown): value is PropertyKey =>
+	typeof value === 'string' ||
+	typeof value === 'number' ||
+	typeof value === 'symbol'
 
-	return (input: unknown): unknown => validate.call(properties, input)
-}
-
-const isPromiseLike = (value: unknown): boolean => {
-	if (
-		(typeof value !== 'object' && typeof value !== 'function') ||
-		value === null
-	) {
-		return false
-	}
-
-	return isUnknownFunction(Reflect.get(value, 'then'))
-}
-
-const readIssuePathKey = (segment: unknown): PropertyKey | undefined => {
-	if (
-		typeof segment === 'string' ||
-		typeof segment === 'number' ||
-		typeof segment === 'symbol'
-	) {
-		return segment
-	}
-	if (!isPlainRecord(segment)) return undefined
-
-	const key = segment.key
-	return typeof key === 'string' ||
-		typeof key === 'number' ||
-		typeof key === 'symbol'
-		? key
-		: undefined
-}
-
+/** Formats one issue as `path.to.key: message`; path segments may be keys or `{ key }`. */
 const formatStandardSchemaIssue = (issue: unknown): string => {
 	if (!isPlainRecord(issue) || typeof issue.message !== 'string') {
 		return 'invalid Standard Schema issue'
@@ -116,63 +72,65 @@ const formatStandardSchemaIssue = (issue: unknown): string => {
 	}
 
 	const path = issue.path
-		.map(readIssuePathKey)
-		.filter((key): key is PropertyKey => key !== undefined)
+		.map((segment: unknown) => (isPlainRecord(segment) ? segment.key : segment))
+		.filter(isPropertyKey)
 		.map(String)
 		.join('.')
 
 	return path.length === 0 ? issue.message : `${path}: ${issue.message}`
 }
 
-const parseStandardSchemaResult = (
-	name: string,
-	result: unknown,
-): Readonly<object> => {
-	if (!isPlainRecord(result)) {
-		throw new TypeError(
-			`${name} schema returned an invalid Standard Schema result`,
-		)
-	}
-	if (result.issues !== undefined) {
-		if (!Array.isArray(result.issues)) {
-			throw new TypeError(
-				`${name} schema returned an invalid Standard Schema result`,
-			)
-		}
-		const details = result.issues.map(formatStandardSchemaIssue).join('; ')
-		throw new TypeError(
-			`${name} validation failed${details.length === 0 ? '' : `: ${details}`}`,
-		)
-	}
-	if (!isPlainRecord(result.value)) {
-		throw new TypeError(`${name} schema must return a plain object`)
-	}
-
-	return immutableRecord(result.value)
-}
-
 const defineStandardSchemaParser = (
 	name: string,
 	schema: unknown,
 ): PluginOptionsParser<object> => {
-	const validate = readStandardSchemaValidator(schema)
-	if (validate === undefined) {
+	const properties: unknown = isObjectLike(schema)
+		? Reflect.get(schema, '~standard')
+		: undefined
+	const validate = isPlainRecord(properties) ? properties.validate : undefined
+	if (
+		!isPlainRecord(properties) ||
+		properties.version !== 1 ||
+		typeof properties.vendor !== 'string' ||
+		!isUnknownFunction(validate)
+	) {
 		throw new TypeError(
 			'plugin options parser schema must implement Standard Schema V1',
 		)
 	}
 
 	return (input: unknown): Readonly<object> => {
-		const result = validate(input)
-		if (isPromiseLike(result)) {
+		const result: unknown = validate.call(properties, input)
+		if (
+			isObjectLike(result) &&
+			isUnknownFunction(Reflect.get(result, 'then'))
+		) {
 			throw new TypeError(`${name} schema validation must be synchronous`)
 		}
+		if (
+			!isPlainRecord(result) ||
+			(result.issues !== undefined && !Array.isArray(result.issues))
+		) {
+			throw new TypeError(
+				`${name} schema returned an invalid Standard Schema result`,
+			)
+		}
+		if (result.issues !== undefined) {
+			const details = result.issues.map(formatStandardSchemaIssue).join('; ')
+			throw new TypeError(
+				`${name} validation failed${details.length === 0 ? '' : `: ${details}`}`,
+			)
+		}
+		if (!isPlainRecord(result.value)) {
+			throw new TypeError(`${name} schema must return a plain object`)
+		}
 
-		return parseStandardSchemaResult(name, result)
+		return immutableRecord(result.value)
 	}
 }
 
 const defineNormalizedOptionsParser = (
+	name: string,
 	options: Readonly<Record<PropertyKey, unknown>>,
 ): PluginOptionsParser<object> => {
 	if (!Array.isArray(options.keys)) {
@@ -199,8 +157,6 @@ const defineNormalizedOptionsParser = (
 		}
 		knownKeys.add(key)
 	}
-	const name = options.name
-	assertNonEmptyString(name, 'plugin options parser name')
 	const normalize = options.normalize
 	const customFormatUnknownKey = options.formatUnknownKey
 
@@ -210,10 +166,7 @@ const defineNormalizedOptionsParser = (
 		}
 		for (const key of Reflect.ownKeys(input)) {
 			if (typeof key !== 'string' || !knownKeys.has(key)) {
-				const customMessage =
-					customFormatUnknownKey === undefined
-						? undefined
-						: customFormatUnknownKey(key)
+				const customMessage = customFormatUnknownKey?.(key)
 				throw new TypeError(
 					typeof customMessage === 'string'
 						? customMessage
@@ -284,5 +237,5 @@ export function definePluginOptionsParser(
 
 	return usesStandardSchema
 		? defineStandardSchemaParser(options.name, options.schema)
-		: defineNormalizedOptionsParser(options)
+		: defineNormalizedOptionsParser(options.name, options)
 }
