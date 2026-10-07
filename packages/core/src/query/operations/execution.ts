@@ -4,19 +4,67 @@ import { readActiveApplicationOwner } from '../../application/active-application
 import { FrameworkError } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { QueryFilterExpression } from '../filters/logical.js'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { FindManyOperationAst, OperationAstNode } from './contracts.js'
+import type {
+	ExecutableOperationAst,
+	FindManyOperationAst,
+	OperationAstNode,
+} from './contracts.js'
 import type { OperationOptions } from './options.js'
 import type { OperationResult } from './results.js'
-import {
-	normalizeOperationOptions,
-	type NormalizedOperationOptions,
-} from './option-normalization.js'
-export {
-	normalizeOperationOptions,
-	type NormalizedOperationOptions,
-} from './option-normalization.js'
+
+/** Defines the neutral execution shape required by contextual operations. */
+export interface QueryOperationExecutor<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> {
+	execute<const TOperation extends ExecutableOperationAst<TSchema>>(
+		operation: TOperation,
+	): Promise<OperationResult<TOperation>>
+}
+
+/** @internal Carries validated server-only choices outside every operation AST. */
+export interface NormalizedOperationOptions {
+	readonly context: object | undefined
+	readonly useMasterKey: boolean
+}
+
+const emptyNormalizedOperationOptions: NormalizedOperationOptions =
+	immutableRecord({ context: undefined, useMasterKey: false })
+
+/** Snapshots the public terminal boundary before asynchronous execution starts. */
+export const normalizeOperationOptions = (
+	options: OperationOptions | undefined,
+): NormalizedOperationOptions => {
+	if (options === undefined) return emptyNormalizedOperationOptions
+
+	const untrustedOptions: unknown = options
+
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('operation options must be a plain object')
+	}
+
+	for (const key of Object.keys(untrustedOptions)) {
+		if (key !== 'context' && key !== 'useMasterKey') {
+			throw new TypeError(`operation options contain unknown key: ${key}`)
+		}
+	}
+
+	const { context, useMasterKey } = untrustedOptions
+
+	if (
+		context !== undefined &&
+		(typeof context !== 'object' || context === null)
+	) {
+		throw new TypeError('operation context must be a RequestContext instance')
+	}
+
+	if (useMasterKey !== undefined && useMasterKey !== true) {
+		throw new TypeError('operation useMasterKey must be true when present')
+	}
+
+	return immutableRecord({ context, useMasterKey: useMasterKey === true })
+}
 
 interface QueryExecutionOwnerRegistrationInput {
 	readonly application: object
@@ -50,11 +98,6 @@ export type OperationExecutionOwnerToken = symbol
 interface ActiveQueryExecution {
 	readonly application: object | undefined
 	readonly executor: QueryExecutionDispatcher
-}
-
-interface OperationExecutionSelection {
-	readonly active: ActiveQueryExecution | undefined
-	readonly registration: QueryExecutionOwnerRegistration | undefined
 }
 
 /** Erases schema variance only at the application-owned Runtime bridge. */
@@ -132,6 +175,23 @@ const operationBatchExecutionHandlers = new WeakMap<
 	OperationBatchExecutionHandler
 >()
 
+const missingExecutionContext = (
+	message: string,
+	publicMessage: string,
+	reason?: string,
+): FrameworkError<'MISSING_EXECUTION_CONTEXT'> =>
+	new FrameworkError('MISSING_EXECUTION_CONTEXT', message, {
+		publicMessage,
+		...(reason === undefined ? {} : { internalDetails: { reason } }),
+	})
+
+const missingOwner = (reason?: string): FrameworkError =>
+	missingExecutionContext(
+		'No initialized active application owns this schema operation.',
+		'No application execution context is available.',
+		reason,
+	)
+
 /** Registers one application-owned root executor without creating a default application. */
 export const registerQueryExecutionOwner = (
 	registration: QueryExecutionOwnerRegistrationInput,
@@ -148,54 +208,56 @@ export const registerQueryExecutionOwner = (
 	return normalized.ownerToken
 }
 
-/** Selects the ambient owner without creating execution state. */
-const resolveOperationExecutionSelection = (): OperationExecutionSelection => {
-	const active: ActiveQueryExecution | undefined =
-		activeQueryExecution.getStore()
-	const lifecycleApplication = readActiveApplicationOwner()
-	const lifecycleRegistration =
-		lifecycleApplication === undefined
-			? undefined
-			: queryExecutionApplications.get(lifecycleApplication)
-	return immutableRecord({
+/** Selects the ambient executor and its owner without creating execution state. */
+const resolveOperationExecution = (): Readonly<{
+	active: ActiveQueryExecution | undefined
+	registration: QueryExecutionOwnerRegistration | undefined
+}> => {
+	const active = activeQueryExecution.getStore()
+	const owner = active?.application ?? readActiveApplicationOwner()
+
+	return {
 		active,
 		registration:
-			active?.application === undefined
-				? lifecycleRegistration
-				: queryExecutionApplications.get(active.application),
-	})
+			owner === undefined ? undefined : queryExecutionApplications.get(owner),
+	}
 }
 
-const requireOperationExecutionRegistration =
-	(): QueryExecutionOwnerRegistration => {
-		const { registration } = resolveOperationExecutionSelection()
-		if (registration === undefined) {
-			throw new FrameworkError(
-				'MISSING_EXECUTION_CONTEXT',
-				'No initialized active application owns this operation.',
-				{
-					publicMessage: 'No application execution context is available.',
-					internalDetails: { reason: 'operation-owner-missing' },
-				},
-			)
-		}
-		return registration
+/** Verifies that an application-bound value belongs to the current owner. */
+const requireOwnerRegistration = (
+	ownerToken: OperationExecutionOwnerToken,
+	options: OperationOptions | undefined,
+	subject: 'model' | 'value',
+): QueryExecutionOwnerRegistration => {
+	normalizeOperationOptions(options)
+	const { registration } = resolveOperationExecution()
+
+	if (registration === undefined) {
+		throw missingExecutionContext(
+			'No initialized active application owns this operation.',
+			'No application execution context is available.',
+			'operation-owner-missing',
+		)
 	}
+
+	if (registration.ownerToken !== ownerToken) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			`Application-bound ${subject} belongs to another application lifecycle.`,
+			{ publicMessage: 'The requested schema is not available.' },
+		)
+	}
+
+	return registration
+}
 
 /** @internal Rejects stale application-bound values before any Runtime effect. */
 export const assertOperationExecutionOwnerToken = (
 	ownerToken: OperationExecutionOwnerToken | undefined,
 	options?: OperationOptions,
 ): void => {
-	if (ownerToken === undefined) return
-	normalizeOperationOptions(options)
-	const registration = requireOperationExecutionRegistration()
-	if (registration.ownerToken !== ownerToken) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Application-bound value belongs to another application lifecycle.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
+	if (ownerToken !== undefined) {
+		requireOwnerRegistration(ownerToken, options, 'value')
 	}
 }
 
@@ -207,24 +269,12 @@ export const executeActiveModelSchemaMutation = (
 	name: string,
 	input: unknown,
 	options?: OperationOptions,
-): Promise<unknown> => {
-	normalizeOperationOptions(options)
-	const registration = requireOperationExecutionRegistration()
-	if (registration.ownerToken !== ownerToken) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			'Application-bound model belongs to another application lifecycle.',
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
-	return registration.executeModelSchemaMutation(
-		model,
-		schema,
-		name,
-		input,
+): Promise<unknown> =>
+	requireOwnerRegistration(
+		ownerToken,
 		options,
-	)
-}
+		'model',
+	).executeModelSchemaMutation(model, schema, name, input, options)
 
 /** Dispatches one class-level plugin method through the selected application only. */
 export const executeStaticSchemaMutation = async (
@@ -234,24 +284,11 @@ export const executeStaticSchemaMutation = async (
 	options?: OperationOptions,
 ): Promise<unknown> => {
 	normalizeOperationOptions(options)
-	const { registration } = resolveOperationExecutionSelection()
-	if (registration === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
-			'No initialized active application owns this schema operation.',
-			{ publicMessage: 'No application execution context is available.' },
-		)
-	}
-	return registration.executeSchemaMutation(schema, name, input, options)
-}
+	const { registration } = resolveOperationExecution()
 
-const bindExecutionResult = async <TResult>(
-	result: Promise<TResult>,
-	registration: QueryExecutionOwnerRegistration | undefined,
-): Promise<TResult> => {
-	const value = await result
-	return (registration?.bindResult(value, registration.ownerToken) ??
-		value) as TResult
+	if (registration === undefined) throw missingOwner()
+
+	return registration.executeSchemaMutation(schema, name, input, options)
 }
 
 /** Registers one Runtime-owned authority resolver for an erased executor. */
@@ -298,13 +335,10 @@ const dispatchOperation = (
 	const handler = operationExecutionHandlers.get(executor)
 
 	if (handler === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
+		throw missingExecutionContext(
 			'The active query executor cannot apply terminal authority options.',
-			{
-				publicMessage: 'No request execution context is available.',
-				internalDetails: { reason: 'operation-authority-unavailable' },
-			},
+			'No request execution context is available.',
+			'operation-authority-unavailable',
 		)
 	}
 
@@ -321,13 +355,10 @@ const dispatchOperationBatch = (
 	const handler = operationBatchExecutionHandlers.get(executor)
 
 	if (handler === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
+		throw missingExecutionContext(
 			'The active query executor cannot execute atomic operation batches.',
-			{
-				publicMessage: 'No request execution context is available.',
-				internalDetails: { reason: 'operation-batch-unavailable' },
-			},
+			'No request execution context is available.',
+			'operation-batch-unavailable',
 		)
 	}
 
@@ -347,49 +378,73 @@ export const runWithQueryExecutionGuard = <TResult>(
 	guard: QueryExecutionGuard,
 	callback: () => TResult,
 ): TResult => {
-	const parent: ActiveQueryExecution | undefined =
-		activeQueryExecution.getStore()
-	const requireParent = (): ActiveQueryExecution => {
+	const parent = activeQueryExecution.getStore()
+	const parentExecutor = (): QueryExecutionDispatcher => {
 		if (parent === undefined) {
-			throw new FrameworkError(
-				'MISSING_EXECUTION_CONTEXT',
+			throw missingExecutionContext(
 				'Hook queries require an active operation engine.',
-				{
-					publicMessage: 'Queries are not available during this hook phase.',
-					internalDetails: { reason: 'hook-query-engine-unavailable' },
-				},
+				'Queries are not available during this hook phase.',
+				'hook-query-engine-unavailable',
 			)
 		}
 
-		return parent
+		return parent.executor
 	}
 	const executor: QueryExecutionDispatcher = immutableRecord({
 		execute: (operation) =>
-			guard.run(() => requireParent().executor.execute(operation)),
+			guard.run(() => parentExecutor().execute(operation)),
 	})
 
-	// Authority resolution stays behind the same revocable hook lease.
+	// Authority resolution and batches stay behind the same revocable hook lease.
 	registerOperationExecutionHandler(executor, (operation, options, scope) =>
 		guard.run(() =>
-			dispatchOperation(requireParent().executor, operation, options, scope),
+			dispatchOperation(parentExecutor(), operation, options, scope),
 		),
 	)
 	registerOperationBatchExecutionHandler(
 		executor,
 		(entries, options, projection) =>
 			guard.run(() =>
-				dispatchOperationBatch(
-					requireParent().executor,
-					entries,
-					options,
-					projection,
-				),
+				dispatchOperationBatch(parentExecutor(), entries, options, projection),
 			),
 	)
 
 	return activeQueryExecution.run(
 		immutableRecord({ application: parent?.application, executor }),
 		callback,
+	)
+}
+
+const bindExecutionResult = async <TResult>(
+	result: Promise<unknown>,
+	registration: QueryExecutionOwnerRegistration | undefined,
+): Promise<TResult> => {
+	const value = await result
+
+	// Runtime binds the erased dispatcher result to the exact requested shape.
+	return (registration?.bindResult(value, registration.ownerToken) ??
+		value) as TResult
+}
+
+/**
+ * Runs one dispatch on the active executor, or on a fresh root executor of the
+ * ambient application. Selection failures stay synchronous, like dispatch ones.
+ */
+const executeWithAmbientExecutor = <TResult>(
+	dispatch: (executor: QueryExecutionDispatcher) => Promise<unknown>,
+	missingReason: string,
+): Promise<TResult> => {
+	const { active, registration } = resolveOperationExecution()
+
+	if (active !== undefined) {
+		return bindExecutionResult(dispatch(active.executor), registration)
+	}
+
+	if (registration === undefined) throw missingOwner(missingReason)
+
+	return bindExecutionResult(
+		dispatch(registration.createRootExecutor()),
+		registration,
 	)
 }
 
@@ -400,75 +455,20 @@ export const executeOperationBatch = <
 	entries: readonly OperationBatchEntry<TOperation>[],
 	options: NormalizedOperationOptions,
 	projection?: OperationBatchProjection,
-): Promise<readonly OperationResult<TOperation>[]> => {
-	const { active, registration } = resolveOperationExecutionSelection()
-	if (active !== undefined) {
-		return bindExecutionResult(
-			dispatchOperationBatch(
-				active.executor,
-				entries,
-				options,
-				projection,
-			) as Promise<readonly OperationResult<TOperation>[]>,
-			registration,
-		)
-	}
-
-	if (registration === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
-			'No initialized active application owns this schema operation.',
-			{
-				publicMessage: 'No application execution context is available.',
-				internalDetails: { reason: 'query-executor-unavailable' },
-			},
-		)
-	}
-
-	const executor = registration.createRootExecutor()
-
-	return bindExecutionResult(
-		dispatchOperationBatch(executor, entries, options, projection) as Promise<
-			readonly OperationResult<TOperation>[]
-		>,
-		registration,
+): Promise<readonly OperationResult<TOperation>[]> =>
+	executeWithAmbientExecutor(
+		(executor) =>
+			dispatchOperationBatch(executor, entries, options, projection),
+		'query-executor-unavailable',
 	)
-}
 
 /** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */
 export const executeOperation = <const TOperation extends OperationAstNode>(
 	operation: TOperation,
 	options: NormalizedOperationOptions,
 	scope?: OperationPrivateScope,
-): Promise<OperationResult<TOperation>> => {
-	const { active, registration } = resolveOperationExecutionSelection()
-	if (active !== undefined) {
-		return bindExecutionResult(
-			dispatchOperation(active.executor, operation, options, scope) as Promise<
-				OperationResult<TOperation>
-			>,
-			registration,
-		)
-	}
-
-	if (registration === undefined) {
-		throw new FrameworkError(
-			'MISSING_EXECUTION_CONTEXT',
-			'No initialized active application owns this schema operation.',
-			{
-				publicMessage: 'No application execution context is available.',
-				internalDetails: { reason: 'operation-owner-missing' },
-			},
-		)
-	}
-
-	return bindExecutionResult(
-		dispatchOperation(
-			registration.createRootExecutor(),
-			operation,
-			options,
-			scope,
-		) as Promise<OperationResult<TOperation>>,
-		registration,
+): Promise<OperationResult<TOperation>> =>
+	executeWithAmbientExecutor(
+		(executor) => dispatchOperation(executor, operation, options, scope),
+		'operation-owner-missing',
 	)
-}

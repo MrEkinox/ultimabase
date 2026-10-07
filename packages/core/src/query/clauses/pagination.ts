@@ -50,20 +50,14 @@ export const normalizeQueryOffsetPagination = (
 		throw new TypeError('offset pagination must be an object')
 	}
 
-	const offset = parseOptionalPaginationInteger(
-		untrustedInput.offset,
-		'pagination.offset',
-		0,
-	)
+	const offset =
+		parseOptionalPaginationInteger(
+			untrustedInput.offset,
+			'pagination.offset',
+			0,
+		) ?? 0
 
-	const normalizedOffset = offset ?? 0
-
-	if (normalizedOffset === 0) {
-		return undefined
-	}
-
-	return immutableRecord({
-		kind: 'offset-pagination',
-		offset: normalizedOffset,
-	})
+	return offset === 0
+		? undefined
+		: immutableRecord({ kind: 'offset-pagination', offset })
 }

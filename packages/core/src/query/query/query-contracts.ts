@@ -59,18 +59,6 @@ export type QueryResultInclusionForField<
 				TTargetInclusion
 			>
 
-export type QueryInclusionTargetBuilder<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryIncludableFieldName<TSchema>,
-> =
-	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
-		? QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
-		: TFieldName extends QueryPointerFieldName<TSchema>
-			? QueryPointerTargetBuilder<
-					QueryInclusionTargetSchema<TSchema, TFieldName>
-				>
-			: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
-
 export type QueryInclusionTargetResult<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
@@ -96,6 +84,11 @@ export type QueryInclusionTargetResult<
 					TSelectedField,
 					TIncludedField
 				>
+
+export type QueryInclusionTargetBuilder<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
+> = QueryInclusionTargetResult<TSchema, TFieldName, never, never>
 
 /**
  * Shapes one singular inclusion without exposing collection filtering clauses.

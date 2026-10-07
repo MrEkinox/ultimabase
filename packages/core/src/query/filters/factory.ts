@@ -1,7 +1,18 @@
 import {
+	getPluginFieldStorageCodec,
 	getPluginFieldStructuralContains,
+	snapshotScalarFieldValue,
 	type SchemaDefinition,
 } from '../../schema/index.js'
+import { snapshotPluginFieldStructuralContainsOperand } from '../../schema/fields/base/definition.js'
+import {
+	equalityFieldKinds,
+	orderedFieldKinds,
+} from '../../schema/fields/base/filter-kinds.js'
+import {
+	getFieldListDepth,
+	isFieldNullable,
+} from '../../schema/fields/base/options.js'
 import { snapshotJsonValue } from '../../schema/fields/base/portable-json.js'
 import {
 	immutableArray,
@@ -11,51 +22,263 @@ import {
 } from '@ultimabase/shared'
 
 import type { QueryFieldName } from '../ast/contracts.js'
-import {
-	type QueryComparisonFilterOperator,
-	type QueryEqualityFilterOperator,
-	type QueryFilterTarget,
-	type QueryJsonPathExpression,
-	type QueryJsonPathFilterOperator,
-	type QueryKeyFilterOperator,
-	type QueryListFilterOperator,
-	type QueryMembershipFilterOperator,
-	type QueryPrimitiveFilterNode,
-	type QueryRangeFilterOperator,
-	type QueryRegexFlag,
-	type QueryRegexPattern,
-	type QueryStringFilterOperator,
-	type QueryStructuralContainmentFilterOperator,
+import type {
+	QueryBuiltInFilterOperator,
+	QueryComparisonFilterOperator,
+	QueryEqualityFilterOperator,
+	QueryJsonPathExpression,
+	QueryJsonPathFilterOperator,
+	QueryKeyFilterOperator,
+	QueryListFilterOperator,
+	QueryMembershipFilterOperator,
+	QueryPrimitiveFilterNode,
+	QueryRangeFilterOperator,
+	QueryRegexFlag,
+	QueryRegexPattern,
+	QueryStringFilterOperator,
+	QueryStructuralContainmentFilterOperator,
 } from './primitive.js'
-import { resolveQueryTarget } from './target.js'
+import {
+	readObjectChildFields,
+	resolveQueryTarget,
+	type ResolvedQueryTarget,
+	type RuntimeQueryField,
+} from './target.js'
 
 export { fieldPath } from './target.js'
 
-import {
-	assertOperatorSupport,
-	hasListShape,
-	isNullableValueOperator,
-	isQueryRegexFlag,
-	queryTargetProperties,
-	snapshotQueryList,
-	snapshotQueryListElement,
-	snapshotQueryNonNullValue,
-	snapshotQueryValue,
-	snapshotStructuralValue,
-} from './factory-support.js'
+type QueryValueFilterOperator =
+	| QueryComparisonFilterOperator
+	| QueryEqualityFilterOperator
+	| QueryStringFilterOperator
+
+const includesString = (values: readonly string[], value: string): boolean =>
+	values.includes(value)
+
+const hasListShape = (field: RuntimeQueryField): boolean =>
+	'list' in field.options &&
+	field.options.list !== false &&
+	field.options.list !== undefined
+
+/** Structural containment applies to JSON, typed objects, and opted-in plugin fields. */
+const hasStructuralContainment = (field: RuntimeQueryField): boolean =>
+	field.kind === 'json' ||
+	field.kind === 'object' ||
+	getPluginFieldStructuralContains(field) !== undefined
+
+const supportsScalarOperator = (
+	field: RuntimeQueryField,
+	operator: QueryBuiltInFilterOperator,
+): boolean => {
+	switch (operator) {
+		case 'equal':
+		case 'not-equal':
+		case 'in':
+		case 'not-in':
+			return (
+				includesString(equalityFieldKinds, field.kind) ||
+				getPluginFieldStorageCodec(field) !== undefined
+			)
+		case 'greater-than':
+		case 'greater-than-or-equal':
+		case 'less-than':
+		case 'less-than-or-equal':
+		case 'between':
+		case 'not-between':
+			return includesString(orderedFieldKinds, field.kind)
+		case 'contains':
+			return field.kind === 'string' || hasStructuralContainment(field)
+		case 'starts-with':
+		case 'ends-with':
+		case 'regex':
+			return field.kind === 'string'
+		default:
+			// Key, JSONPath, and contained-by predicates inspect structured values only.
+			return field.kind === 'json' || field.kind === 'object'
+	}
+}
+
+const assertOperatorSupport = (
+	field: RuntimeQueryField,
+	operator: Exclude<QueryBuiltInFilterOperator, QueryListFilterOperator>,
+): void => {
+	if (operator === 'null') {
+		if (field.kind === 'relation') {
+			throw new TypeError(
+				'query operator null does not support relation fields',
+			)
+		}
+
+		return
+	}
+
+	if (hasListShape(field)) {
+		if (operator === 'equal' || operator === 'not-equal') return
+
+		throw new TypeError(
+			`query operator ${operator} does not support list fields`,
+		)
+	}
+
+	if (!supportsScalarOperator(field, operator)) {
+		throw new TypeError(
+			`query operator ${operator} does not support ${field.kind} fields`,
+		)
+	}
+}
+
+/** Resolves one target and checks the operator against declared field metadata. */
+const resolveOperatorTarget = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	target: unknown,
+	operator: Exclude<QueryBuiltInFilterOperator, QueryListFilterOperator>,
+): ResolvedQueryTarget<QueryFieldName<TSchema>> => {
+	const resolved = resolveQueryTarget(schema, target)
+
+	if (resolved.terminalField !== undefined) {
+		assertOperatorSupport(resolved.terminalField, operator)
+	}
+
+	return resolved
+}
+
+const targetProperties = <TFieldName extends string>(
+	target: ResolvedQueryTarget<TFieldName>,
+): Readonly<{ field: TFieldName; path?: readonly [string, ...string[]] }> =>
+	target.path === undefined
+		? { field: target.fieldName }
+		: { field: target.fieldName, path: target.path }
+
+const snapshotNonNullValue = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): unknown => {
+	if (value === null) {
+		throw new TypeError(`${path} must not be null`)
+	}
+
+	return snapshotScalarFieldValue(field, value, path)
+}
+
+const snapshotList = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): readonly unknown[] => {
+	if (!isUnknownArray(value)) {
+		throw new TypeError(`${path} must be a list`)
+	}
+
+	return immutableArray(
+		value.map((item, index) =>
+			snapshotNonNullValue(field, item, `${path}[${String(index)}]`),
+		),
+	)
+}
+
+/** Snapshots one complete field value, including nullable and list shapes. */
+const snapshotFieldValue = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): unknown => {
+	if (value === null && isFieldNullable(field)) return null
+
+	return hasListShape(field)
+		? snapshotList(field, value, path)
+		: snapshotScalarFieldValue(field, value, path)
+}
+
+const snapshotPartialField = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+	listDepth = getFieldListDepth(field.options),
+	allowNull = true,
+): unknown => {
+	if (allowNull && value === null && isFieldNullable(field)) return null
+
+	if (listDepth > 0) {
+		if (!isUnknownArray(value)) {
+			throw new TypeError(`${path} must be a list`)
+		}
+
+		return immutableArray(
+			value.map((item, index) =>
+				snapshotPartialField(
+					field,
+					item,
+					`${path}[${String(index)}]`,
+					listDepth - 1,
+					false,
+				),
+			),
+		)
+	}
+
+	return field.kind === 'object'
+		? snapshotPartialObject(field, value, path)
+		: snapshotScalarFieldValue(field, value, path)
+}
+
+/** Containment operands may name any subset of declared object fields. */
+const snapshotPartialObject = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+
+	const fields = readObjectChildFields(field)
+
+	if (fields === undefined) {
+		throw new TypeError(`${path} requires object field metadata`)
+	}
+
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([name, item]) => {
+				const child = fields[name]
+
+				if (child === undefined) {
+					throw new TypeError(`${path}.${name} is not a declared field`)
+				}
+
+				return [name, snapshotPartialField(child, item, `${path}.${name}`)]
+			}),
+		),
+	)
+}
+
+const snapshotStructuralValue = (
+	field: RuntimeQueryField | undefined,
+	value: unknown,
+	path: string,
+): unknown => {
+	if (field === undefined) return snapshotJsonValue(value, path)
+
+	if (getPluginFieldStructuralContains(field) !== undefined) {
+		return snapshotPluginFieldStructuralContainsOperand(field, value, path)
+	}
+
+	return field.kind === 'object'
+		? snapshotPartialObject(field, value, path)
+		: snapshotScalarFieldValue(field, value, path)
+}
 
 /** Creates one immutable scalar value filter after checking runtime capabilities. */
 export const createQueryValueFilter = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	operator:
-		| QueryComparisonFilterOperator
-		| QueryEqualityFilterOperator
-		| QueryStringFilterOperator,
+	operator: QueryValueFilterOperator,
 	target: unknown,
 	value: unknown,
 ): QueryPrimitiveFilterNode<TSchema> => {
 	const resolved = resolveQueryTarget(schema, target)
 	const field = resolved.terminalField
+	const path = 'query filter value'
 
 	if (field === undefined) {
 		if (
@@ -71,53 +294,43 @@ export const createQueryValueFilter = <const TSchema extends SchemaDefinition>(
 		assertOperatorSupport(field, operator)
 	}
 
-	const structural =
-		operator === 'contains' &&
-		(field === undefined ||
-			field.kind === 'json' ||
-			field.kind === 'object' ||
-			getPluginFieldStructuralContains(field) !== undefined)
-	const snapshot = structural
-		? snapshotStructuralValue(field, value, 'query filter value')
-		: field === undefined
-			? snapshotJsonValue(value, 'query filter value')
-			: isNullableValueOperator(operator)
-				? snapshotQueryValue(field, value, 'query filter value')
-				: snapshotQueryNonNullValue(field, value, 'query filter value')
+	const snapshot =
+		field === undefined
+			? snapshotJsonValue(value, path)
+			: operator === 'contains' && hasStructuralContainment(field)
+				? snapshotStructuralValue(field, value, path)
+				: operator === 'equal' || operator === 'not-equal'
+					? snapshotFieldValue(field, value, path)
+					: snapshotNonNullValue(field, value, path)
 
 	return immutableRecord({
 		kind: operator,
-		...queryTargetProperties(resolved),
+		...targetProperties(resolved),
 		value: snapshot,
 	})
 }
 
 /** Creates one immutable inclusive range filter with two non-null bounds. */
-export const createQueryRangeFilter = <
-	const TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
->(
+export const createQueryRangeFilter = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	operator: QueryRangeFilterOperator,
-	fieldName: TFieldName,
+	fieldName: unknown,
 	lower: unknown,
 	upper: unknown,
-): QueryPrimitiveFilterNode<TSchema, TFieldName> => {
-	const resolved = resolveQueryTarget(schema, fieldName)
+): QueryPrimitiveFilterNode<TSchema> => {
+	const resolved = resolveOperatorTarget(schema, fieldName, operator)
 	const field = resolved.terminalField
 
 	if (field === undefined) {
 		throw new TypeError('query ranges require a declared field')
 	}
 
-	assertOperatorSupport(field, operator)
-
 	return immutableRecord({
 		kind: operator,
 		field: resolved.fieldName,
-		lower: snapshotQueryNonNullValue(field, lower, 'query range lower bound'),
-		upper: snapshotQueryNonNullValue(field, upper, 'query range upper bound'),
-	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
+		lower: snapshotNonNullValue(field, lower, 'query range lower bound'),
+		upper: snapshotNonNullValue(field, upper, 'query range upper bound'),
+	})
 }
 
 /** Copies membership operands so later caller mutations cannot change a query. */
@@ -129,34 +342,27 @@ export const createQueryMembershipFilter = <
 	target: unknown,
 	values: readonly unknown[],
 ): QueryPrimitiveFilterNode<TSchema> => {
-	const resolved = resolveQueryTarget(schema, target)
+	const resolved = resolveOperatorTarget(schema, target, operator)
 	const field = resolved.terminalField
 	const untrustedValues: unknown = values
-
-	if (field === undefined) {
-		// Dynamic JSON paths retain JSON values without inventing scalar metadata.
-	} else {
-		assertOperatorSupport(field, operator)
-	}
 
 	if (!isUnknownArray(untrustedValues)) {
 		throw new TypeError('query membership values must be an array')
 	}
 
-	const normalizedValues = untrustedValues.map((value, index) =>
-		field === undefined
-			? snapshotJsonValue(value, `query membership values[${String(index)}]`)
-			: snapshotQueryValue(
-					field,
-					value,
-					`query membership values[${String(index)}]`,
-				),
-	)
-
 	return immutableRecord({
 		kind: operator,
-		...queryTargetProperties(resolved),
-		values: immutableArray(normalizedValues),
+		...targetProperties(resolved),
+		values: immutableArray(
+			untrustedValues.map((value, index) => {
+				const path = `query membership values[${String(index)}]`
+
+				// Dynamic JSON paths retain JSON values without inventing scalar metadata.
+				return field === undefined
+					? snapshotJsonValue(value, path)
+					: snapshotFieldValue(field, value, path)
+			}),
+		),
 	})
 }
 
@@ -174,72 +380,58 @@ export const createQueryListFilter = <const TSchema extends SchemaDefinition>(
 		throw new TypeError(`query operator ${operator} requires a list field`)
 	}
 
-	if (operator === 'list-empty') {
-		return immutableRecord({
-			kind: operator,
-			...queryTargetProperties(resolved),
-		})
-	}
+	const properties = { kind: operator, ...targetProperties(resolved) }
 
-	if (operator === 'list-has') {
-		return immutableRecord({
-			kind: operator,
-			...queryTargetProperties(resolved),
-			value: snapshotQueryListElement(field, operand, 'query list value'),
-		})
+	switch (operator) {
+		case 'list-empty':
+			return immutableRecord(properties)
+		case 'list-has':
+			return immutableRecord({
+				...properties,
+				value: snapshotNonNullValue(field, operand, 'query list value'),
+			})
+		default:
+			return immutableRecord({
+				...properties,
+				values: snapshotList(field, operand, 'query list values'),
+			})
 	}
-
-	return immutableRecord({
-		kind: operator,
-		...queryTargetProperties(resolved),
-		values: snapshotQueryList(field, operand, 'query list values'),
-	})
 }
 
 /** Creates one structural containment leaf for JSON and typed object values. */
 export const createQueryStructuralFilter = <
 	const TSchema extends SchemaDefinition,
-	TOperator extends QueryStructuralContainmentFilterOperator,
 >(
 	schema: TSchema,
-	operator: TOperator,
-	target: QueryFilterTarget<TSchema, TOperator>,
+	operator: QueryStructuralContainmentFilterOperator,
+	target: unknown,
 	value: unknown,
 ): QueryPrimitiveFilterNode<TSchema> => {
 	if (operator === 'contains') {
 		return createQueryValueFilter(schema, 'contains', target, value)
 	}
 
-	const resolved = resolveQueryTarget(schema, target)
-	const field = resolved.terminalField
-
-	if (field !== undefined) {
-		assertOperatorSupport(field, operator)
-	}
+	const resolved = resolveOperatorTarget(schema, target, operator)
 
 	return immutableRecord({
 		kind: operator,
-		...queryTargetProperties(resolved),
-		value: snapshotStructuralValue(field, value, 'query filter value'),
+		...targetProperties(resolved),
+		value: snapshotStructuralValue(
+			resolved.terminalField,
+			value,
+			'query filter value',
+		),
 	})
 }
 
 /** Creates one immutable top-level key or key-collection predicate. */
-export const createQueryKeyFilter = <
-	const TSchema extends SchemaDefinition,
-	TOperator extends QueryKeyFilterOperator,
->(
+export const createQueryKeyFilter = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	operator: TOperator,
-	target: QueryFilterTarget<TSchema, TOperator>,
+	operator: QueryKeyFilterOperator,
+	target: unknown,
 	keys: string | readonly string[],
 ): QueryPrimitiveFilterNode<TSchema> => {
-	const resolved = resolveQueryTarget(schema, target)
-	const field = resolved.terminalField
-
-	if (field !== undefined) {
-		assertOperatorSupport(field, operator)
-	}
+	const resolved = resolveOperatorTarget(schema, target, operator)
 
 	if (operator === 'has-key') {
 		if (typeof keys !== 'string') {
@@ -248,7 +440,7 @@ export const createQueryKeyFilter = <
 
 		return immutableRecord({
 			kind: operator,
-			...queryTargetProperties(resolved),
+			...targetProperties(resolved),
 			value: keys,
 		})
 	}
@@ -264,7 +456,7 @@ export const createQueryKeyFilter = <
 
 	return immutableRecord({
 		kind: operator,
-		...queryTargetProperties(resolved),
+		...targetProperties(resolved),
 		keys: immutableArray(untrustedKeys),
 	})
 }
@@ -272,20 +464,13 @@ export const createQueryKeyFilter = <
 /** Creates one immutable advanced JSONPath leaf without interpreting its source. */
 export const createQueryJsonPathFilter = <
 	const TSchema extends SchemaDefinition,
-	TOperator extends QueryJsonPathFilterOperator,
 >(
 	schema: TSchema,
-	operator: TOperator,
-	target: QueryFilterTarget<TSchema, TOperator>,
+	operator: QueryJsonPathFilterOperator,
+	target: unknown,
 	expression: QueryJsonPathExpression,
 ): QueryPrimitiveFilterNode<TSchema> => {
-	const resolved = resolveQueryTarget(schema, target)
-	const field = resolved.terminalField
-
-	if (field !== undefined) {
-		assertOperatorSupport(field, operator)
-	}
-
+	const resolved = resolveOperatorTarget(schema, target, operator)
 	const untrustedExpression: unknown = expression
 
 	if (!isPlainRecord(untrustedExpression)) {
@@ -300,14 +485,11 @@ export const createQueryJsonPathFilter = <
 		}
 	}
 
-	if (
-		typeof untrustedExpression.source !== 'string' ||
-		untrustedExpression.source.length === 0
-	) {
+	const { source, variables } = untrustedExpression
+
+	if (typeof source !== 'string' || source.length === 0) {
 		throw new TypeError('query JSONPath source must be a non-empty string')
 	}
-
-	const variables: unknown = untrustedExpression.variables
 
 	if (variables !== undefined && !isPlainRecord(variables)) {
 		throw new TypeError('query JSONPath variables must be an object')
@@ -327,32 +509,31 @@ export const createQueryJsonPathFilter = <
 
 	return immutableRecord({
 		kind: operator,
-		...queryTargetProperties(resolved),
-		source: untrustedExpression.source,
+		...targetProperties(resolved),
+		source,
 		...(normalizedVariables === undefined
 			? {}
 			: { variables: normalizedVariables }),
 	})
 }
 
-/** Normalizes declarative regex data without creating executable RegExp state. */
-export const createQueryRegexFilter = <
-	const TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
->(
-	schema: TSchema,
-	fieldName: TFieldName,
-	pattern: QueryRegexPattern,
-): QueryPrimitiveFilterNode<TSchema, TFieldName> => {
-	const resolved = resolveQueryTarget(schema, fieldName)
-	const field = resolved.terminalField
+const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
+	value === 'case-insensitive' ||
+	value === 'dot-matches-newline' ||
+	value === 'multiline'
 
-	if (field === undefined) {
-		throw new TypeError('query regex requires a declared field')
-	}
+/** Normalizes declarative regex data without creating executable RegExp state. */
+export const createQueryRegexFilter = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	fieldName: unknown,
+	pattern: QueryRegexPattern,
+): QueryPrimitiveFilterNode<TSchema> => {
+	const resolved = resolveOperatorTarget(schema, fieldName, 'regex')
 	const untrustedPattern: unknown = pattern
 
-	assertOperatorSupport(field, 'regex')
+	if (resolved.terminalField === undefined) {
+		throw new TypeError('query regex requires a declared field')
+	}
 
 	if (!isPlainRecord(untrustedPattern)) {
 		throw new TypeError('query regex pattern must be an object')
@@ -366,16 +547,14 @@ export const createQueryRegexFilter = <
 		throw new TypeError('query regex flags must be an array')
 	}
 
-	const normalizedFlags: QueryRegexFlag[] = []
+	const flags = new Set<QueryRegexFlag>()
 
 	for (const flag of untrustedPattern.flags) {
 		if (!isQueryRegexFlag(flag)) {
 			throw new TypeError('query regex flag must be a declared flag')
 		}
 
-		if (!normalizedFlags.some((candidate) => candidate === flag)) {
-			normalizedFlags.push(flag)
-		}
+		flags.add(flag)
 	}
 
 	return immutableRecord({
@@ -383,9 +562,9 @@ export const createQueryRegexFilter = <
 		field: resolved.fieldName,
 		pattern: immutableRecord({
 			source: untrustedPattern.source,
-			flags: immutableArray(normalizedFlags),
+			flags: immutableArray([...flags]),
 		}),
-	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
+	})
 }
 
 /** Creates one null filter for every declared built-in or plugin field. */
@@ -394,12 +573,7 @@ export const createQueryNullFilter = <const TSchema extends SchemaDefinition>(
 	target: unknown,
 	isNull: boolean,
 ): QueryPrimitiveFilterNode<TSchema> => {
-	const resolved = resolveQueryTarget(schema, target)
-	const field = resolved.terminalField
-
-	if (field !== undefined) {
-		assertOperatorSupport(field, 'null')
-	}
+	const resolved = resolveOperatorTarget(schema, target, 'null')
 
 	if (typeof isNull !== 'boolean') {
 		throw new TypeError('query null value must be a boolean')
@@ -407,7 +581,7 @@ export const createQueryNullFilter = <const TSchema extends SchemaDefinition>(
 
 	return immutableRecord({
 		kind: 'null',
-		...queryTargetProperties(resolved),
+		...targetProperties(resolved),
 		isNull,
 	})
 }

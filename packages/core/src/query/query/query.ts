@@ -32,12 +32,8 @@ import {
 	type QuerySelectedField,
 	type QuerySelection,
 } from '../clauses/selection.js'
-import {
-	normalizeLogicalFilter,
-	type QueryFilterNode,
-} from '../filters/logical.js'
-import type { QueryPrimitiveFilterNode } from '../filters/primitive.js'
-import type { QueryRelationFilterForSchema } from '../filters/relation.js'
+import type { QueryFilterNode } from '../filters/logical.js'
+import { combineWhereExpressions } from '../filters/where-normalize.js'
 import {
 	resolveWhereInput,
 	whereInputFromQueryFilter,
@@ -66,29 +62,13 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	QueryBuilderInclusion<TSchema>
 >
 
-// QueryBuilder state stays outside the frozen public shell so internal hydration does
-// not need a public constructor overload or an externally callable static API.
-const queryAsts = new WeakMap<object, unknown>()
-
-const readQueryAst = <const TSchema extends SchemaDefinition>(
-	query: object,
-): QueryBuilderAst<TSchema> => {
-	const ast: unknown = queryAsts.get(query)
-
-	if (ast === undefined) {
-		throw new TypeError('QueryBuilder instance has no internal AST')
-	}
-
-	// Only this module stores ASTs, always beside the matching QueryBuilder schema type.
-	return ast as QueryBuilderAst<TSchema>
-}
-
-const storeQueryAst = <const TSchema extends SchemaDefinition>(
-	query: object,
+let hydrate: <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+>(
 	ast: QueryBuilderAst<TSchema>,
-): void => {
-	queryAsts.set(query, ast)
-}
+) => QueryBuilder<TSchema, TSelectedField, TIncludedPointer>
 
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	Pick<
@@ -195,8 +175,30 @@ export class QueryBuilder<
 		readonly write: (inclusion: TIncludedPointer) => void
 	}
 
+	// Assigned only while hydrating a new frozen branch; never after it escapes.
+	#ast: QueryBuilderAst<TSchema>
+
+	static {
+		hydrate = <
+			const TAstSchema extends SchemaDefinition,
+			TAstSelectedField extends QueryFieldName<TAstSchema>,
+			TAstIncludedPointer,
+		>(
+			ast: QueryBuilderAst<TAstSchema>,
+		) => {
+			const query = new QueryBuilder<
+				TAstSchema,
+				TAstSelectedField,
+				TAstIncludedPointer
+			>(ast.schema.definition)
+
+			query.#ast = ast
+			return query
+		}
+	}
+
 	constructor(schema: TSchema) {
-		storeQueryAst(this, createQueryAst(schema))
+		this.#ast = createQueryAst(schema)
 
 		// Public instances cannot acquire mutable ad-hoc state between branches.
 		Object.freeze(this)
@@ -204,7 +206,7 @@ export class QueryBuilder<
 
 	/** Exposes the immutable representation consumed by transports and Runtime. */
 	get ast(): QueryBuilderAst<TSchema> {
-		return readQueryAst<TSchema>(this)
+		return this.#ast
 	}
 
 	/** Returns the exact schema retained by the QueryBuilder AST. */
@@ -373,15 +375,9 @@ export class QueryBuilder<
 	offset(
 		value: number,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		const pagination = normalizeQueryOffsetPagination({ offset: value })
-
-		if (pagination === undefined) {
-			return this.ast.pagination === undefined
-				? this.#with({})
-				: this.#with({ pagination: undefined })
-		}
-
-		return this.#with({ pagination })
+		return this.#with({
+			pagination: normalizeQueryOffsetPagination({ offset: value }),
+		})
 	}
 
 	/**
@@ -457,20 +453,9 @@ export class QueryBuilder<
 	#appendFilter(
 		filter: QueryFilterNode<TSchema>,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		const currentExpression = this.ast.where?.expression
-		const expression =
-			currentExpression === undefined
-				? filter
-				: normalizeLogicalFilter<
-						| QueryPrimitiveFilterNode<TSchema>
-						| QueryRelationFilterForSchema<TSchema>
-					>({
-						kind: 'and',
-						expressions: [currentExpression, filter],
-					})
 		const where: QueryWhereNode<QueryFilterNode<TSchema>> = immutableRecord({
 			kind: 'where',
-			expression,
+			expression: combineWhereExpressions(this.ast.where?.expression, filter),
 		})
 
 		return this.#with({ where })
@@ -506,11 +491,8 @@ export const hydrateQueryFromAst = <
 	ast: QueryBuilderAst<TSchema>,
 	privateScope?: OperationPrivateScope,
 ): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> => {
-	const query = new QueryBuilder<TSchema, TSelectedField, TIncludedPointer>(
-		ast.schema.definition,
-	)
+	const query = hydrate<TSchema, TSelectedField, TIncludedPointer>(ast)
 
-	storeQueryAst(query, ast)
 	storeQueryPrivateScope(query, privateScope)
 
 	return query

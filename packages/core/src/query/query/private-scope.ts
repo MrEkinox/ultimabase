@@ -4,10 +4,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type { QueryFieldName } from '../ast/contracts.js'
 import { createQueryValueFilter } from '../filters/factory.js'
 import type { OperationObjectId } from '../operations/contracts.js'
-import type {
-	OperationPrivateScope,
-	QueryRelationPrivateScope,
-} from '../operations/execution.js'
+import type { OperationPrivateScope } from '../operations/execution.js'
 import type { NormalizedQueryInput } from './input.js'
 import type { QueryBuilder } from './query.js'
 
@@ -37,6 +34,20 @@ export const storeQueryPrivateScope = (
 	}
 }
 
+const withPrivateScope = <
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+>(
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
+	scope: OperationPrivateScope,
+): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
+	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
+
+	storeQueryPrivateScope(scoped, scope)
+	return scoped
+}
+
 /**
  * Applies a framework-owned object identity without exposing it to QueryBuilder hooks.
  *
@@ -51,21 +62,17 @@ export const scopeQueryToObjectId = <
 	id: OperationObjectId<TSchema>,
 	options: Readonly<{ readonly protectedPolicyDeniedAsMissing?: true }> = {},
 ): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
-	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
-	const scope: OperationPrivateScope = immutableRecord({
-		kind: 'row-filter',
-		...(options.protectedPolicyDeniedAsMissing === undefined
-			? {}
-			: { protectedPolicyDeniedAsMissing: true as const }),
-		objectId: id,
-		rowFilter,
-	})
-
-	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
-
-	storeQueryPrivateScope(scoped, scope)
-
-	return scoped
+	return withPrivateScope(
+		query,
+		immutableRecord({
+			kind: 'row-filter',
+			...(options.protectedPolicyDeniedAsMissing === undefined
+				? {}
+				: { protectedPolicyDeniedAsMissing: true as const }),
+			objectId: id,
+			rowFilter: createQueryValueFilter(query.schema, 'equal', 'id', id),
+		}),
+	)
 }
 
 /** Describes one trusted relation restriction before it enters private QueryBuilder state. */
@@ -97,17 +104,14 @@ export const scopeQueryToRelation = <
 		throw new TypeError('relation query must use its exact target schema')
 	}
 
-	const scope: QueryRelationPrivateScope = immutableRecord({
-		fieldPath: immutableArray([input.fieldName]),
-		kind: 'relation',
-		source: input.source,
-		sourceObjectId: input.sourceObjectId,
-		target: input.target,
-	})
-
-	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
-
-	storeQueryPrivateScope(scoped, scope)
-
-	return scoped
+	return withPrivateScope(
+		query,
+		immutableRecord({
+			fieldPath: immutableArray([input.fieldName]),
+			kind: 'relation',
+			source: input.source,
+			sourceObjectId: input.sourceObjectId,
+			target: input.target,
+		}),
+	)
 }

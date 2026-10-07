@@ -4,27 +4,25 @@ import type {
 	SchemaResult,
 } from '../../schema/index.js'
 
-import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
-import type { UpdateExpressionNode } from '../updates/contracts.js'
+import type { QueryFieldName, QuerySchemaNode } from '../ast/contracts.js'
 import type {
-	CreateManyOperationAst,
-	CreateOneOperationAst,
-	DeleteManyOperationAst,
-	DeleteOneOperationAst,
-	FindManyOperationAst,
-	FindOneOperationAst,
-	GetOperationAst,
 	OperationAstNode,
 	OperationIncludedField,
-	UpdateManyOperationAst,
-	UpdateOneOperationAst,
-	UpsertManyOperationAst,
-	UpsertOneOperationAst,
+	OperationSelectedField,
 } from './contracts.js'
 import type { QueryRecord, QueryResult } from '../query/result.js'
 
 type OperationResultMode = 'model' | 'record'
 type OperationInclusionMode = 'hydrated' | 'pointer'
+
+/** Reads the schema retained by a query-backed or schema-backed terminal. */
+type OperationSchema<TOperation> = TOperation extends {
+	readonly query: { readonly schema: QuerySchemaNode<infer TSchema> }
+}
+	? TSchema
+	: TOperation extends { readonly schema: QuerySchemaNode<infer TSchema> }
+		? TSchema
+		: never
 
 type QueryObjectResult<
 	TSchema extends SchemaDefinition,
@@ -40,175 +38,67 @@ type QueryObjectResult<
 			TInclusionMode extends 'hydrated' ? TIncludedPointer : never
 		>
 
-type CompleteObjectResult<
-	TSchema extends SchemaDefinition,
+/** Projects one terminal's selected (and optionally included) object shape. */
+type OperationObjectResult<
+	TOperation extends OperationAstNode,
 	TMode extends OperationResultMode,
-> = TMode extends 'model' ? SchemaResult<TSchema> : SchemaItem<TSchema>
+	TInclusionMode extends OperationInclusionMode,
+	TIncludedPointer = OperationIncludedField<TOperation>,
+> = QueryObjectResult<
+	OperationSchema<TOperation>,
+	Extract<
+		OperationSelectedField<TOperation>,
+		QueryFieldName<OperationSchema<TOperation>>
+	>,
+	TMode,
+	TIncludedPointer,
+	TInclusionMode
+>
+
+/** Bulk creates and upserts return complete objects without an explicit selection. */
+type BulkObjectResult<
+	TOperation extends OperationAstNode,
+	TMode extends OperationResultMode,
+	TInclusionMode extends OperationInclusionMode,
+> = [OperationSelectedField<TOperation>] extends [never]
+	? TMode extends 'model'
+		? SchemaResult<OperationSchema<TOperation>>
+		: SchemaItem<OperationSchema<TOperation>>
+	: OperationObjectResult<TOperation, TMode, TInclusionMode, never>
 
 /** Maps every terminal to either its neutral Runtime record or public model result. */
 type OperationResultFor<
 	TOperation extends OperationAstNode,
 	TMode extends OperationResultMode,
 	TInclusionMode extends OperationInclusionMode,
-> =
-	TOperation extends FindManyOperationAst<
-		infer TSchema,
-		QueryExpressionNode,
-		infer TSelectedField,
-		unknown
-	>
-		? readonly QueryObjectResult<
-				TSchema,
-				TSelectedField,
-				TMode,
-				OperationIncludedField<TOperation>,
-				TInclusionMode
-			>[]
-		: TOperation extends FindOneOperationAst<
-					infer TSchema,
-					QueryExpressionNode,
-					infer TSelectedField,
-					unknown
-			  >
-			? QueryObjectResult<
-					TSchema,
-					TSelectedField,
-					TMode,
-					OperationIncludedField<TOperation>,
-					TInclusionMode
-				> | null
-			: TOperation extends GetOperationAst<
-						infer TSchema,
-						QueryExpressionNode,
-						infer TSelectedField,
-						unknown
-				  >
-				? QueryObjectResult<
-						TSchema,
-						TSelectedField,
-						TMode,
-						OperationIncludedField<TOperation>,
-						TInclusionMode
-					>
-				: TOperation extends { readonly kind: 'count' }
-					? number
-					: TOperation extends { readonly kind: 'exists' }
-						? boolean
-						: TOperation extends CreateOneOperationAst<
-									infer TSchema,
-									infer TSelectedField,
-									unknown
-							  >
-							? [TSelectedField] extends [never]
-								? QueryObjectResult<
-										TSchema,
-										TSelectedField,
-										TMode,
-										OperationIncludedField<TOperation>,
-										TInclusionMode
-									>
-								: QueryObjectResult<
-										TSchema,
-										TSelectedField,
-										TMode,
-										OperationIncludedField<TOperation>,
-										TInclusionMode
-									>
-							: TOperation extends CreateManyOperationAst<
-										infer TSchema,
-										infer TSelectedField
-								  >
-								? readonly ([TSelectedField] extends [never]
-										? CompleteObjectResult<TSchema, TMode>
-										: QueryObjectResult<
-												TSchema,
-												TSelectedField,
-												TMode,
-												never,
-												TInclusionMode
-											>)[]
-								: TOperation extends UpdateOneOperationAst<
-											infer TSchema,
-											UpdateExpressionNode,
-											QueryExpressionNode,
-											infer TSelectedField,
-											unknown
-									  >
-									? QueryObjectResult<
-											TSchema,
-											TSelectedField,
-											TMode,
-											OperationIncludedField<TOperation>,
-											TInclusionMode
-										> | null
-									: TOperation extends UpdateManyOperationAst<
-												infer TSchema,
-												UpdateExpressionNode,
-												QueryExpressionNode,
-												infer TSelectedField
-										  >
-										? readonly QueryObjectResult<
-												TSchema,
-												TSelectedField,
-												TMode,
-												never,
-												TInclusionMode
-											>[]
-										: TOperation extends UpsertOneOperationAst<
-													infer TSchema,
-													UpdateExpressionNode,
-													QueryExpressionNode,
-													infer TSelectedField,
-													unknown
-											  >
-											? QueryObjectResult<
-													TSchema,
-													TSelectedField,
-													TMode,
-													OperationIncludedField<TOperation>,
-													TInclusionMode
-												>
-											: TOperation extends UpsertManyOperationAst<
-														infer TSchema,
-														UpdateExpressionNode,
-														QueryExpressionNode,
-														infer TSelectedField
-												  >
-												? readonly ([TSelectedField] extends [never]
-														? CompleteObjectResult<TSchema, TMode>
-														: QueryObjectResult<
-																TSchema,
-																TSelectedField,
-																TMode,
-																never,
-																TInclusionMode
-															>)[]
-												: TOperation extends DeleteOneOperationAst<
-															infer TSchema,
-															QueryExpressionNode,
-															infer TSelectedField,
-															unknown
-													  >
-													? QueryObjectResult<
-															TSchema,
-															TSelectedField,
-															TMode,
-															OperationIncludedField<TOperation>,
-															TInclusionMode
-														> | null
-													: TOperation extends DeleteManyOperationAst<
-																infer TSchema,
-																QueryExpressionNode,
-																infer TSelectedField
-														  >
-														? readonly QueryObjectResult<
-																TSchema,
-																TSelectedField,
-																TMode,
-																never,
-																TInclusionMode
-															>[]
-														: never
+> = TOperation extends { readonly kind: 'count' }
+	? number
+	: TOperation extends { readonly kind: 'exists' }
+		? boolean
+		: TOperation extends { readonly kind: 'find-many' }
+			? readonly OperationObjectResult<TOperation, TMode, TInclusionMode>[]
+			: TOperation extends {
+						readonly kind: 'find-one' | 'update-one' | 'delete-one'
+				  }
+				? OperationObjectResult<TOperation, TMode, TInclusionMode> | null
+				: TOperation extends {
+							readonly kind: 'get' | 'create-one' | 'upsert-one'
+					  }
+					? OperationObjectResult<TOperation, TMode, TInclusionMode>
+					: TOperation extends {
+								readonly kind: 'update-many' | 'delete-many'
+						  }
+						? readonly OperationObjectResult<
+								TOperation,
+								TMode,
+								TInclusionMode,
+								never
+							>[]
+						: TOperation extends {
+									readonly kind: 'create-many' | 'upsert-many'
+							  }
+							? readonly BulkObjectResult<TOperation, TMode, TInclusionMode>[]
+							: never
 
 /** Maps every normalized terminal intent to its exact public model result. */
 export type OperationResult<TOperation extends OperationAstNode> =

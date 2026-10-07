@@ -66,18 +66,62 @@ export type QuerySchemaFilterLeaf<TSchema extends SchemaDefinition> =
 export type QueryFilterNode<TSchema extends SchemaDefinition> =
 	QueryFilterExpression<QuerySchemaFilterLeaf<TSchema>>
 
-const trueFilter: QueryConstantFilterNode = immutableRecord({
-	kind: 'constant',
-	value: true,
-})
-
-const falseFilter: QueryConstantFilterNode = immutableRecord({
-	kind: 'constant',
-	value: false,
+const constantFilters: Readonly<
+	Record<'false' | 'true', QueryConstantFilterNode>
+> = immutableRecord({
+	false: immutableRecord({ kind: 'constant', value: false }),
+	true: immutableRecord({ kind: 'constant', value: true }),
 })
 
 const constantFilter = (value: boolean): QueryConstantFilterNode =>
-	value ? trueFilter : falseFilter
+	constantFilters[value ? 'true' : 'false']
+
+/** Flattens one and/or group while folding its identity and absorbing constants. */
+const normalizeLogicalGroup = (
+	expressions: readonly unknown[],
+	kind: 'and' | 'or',
+	ancestors: WeakSet<object>,
+): QueryFilterExpression => {
+	const identity = kind === 'and'
+	const normalized: QueryFilterExpression[] = []
+
+	for (const expression of expressions) {
+		const child = normalizeUnknownLogicalFilter(expression, ancestors)
+
+		if (child.kind === 'constant' && 'value' in child) {
+			if (child.value !== identity) return child
+		} else if (child.kind === kind && 'expressions' in child) {
+			normalized.push(...child.expressions)
+		} else {
+			normalized.push(child)
+		}
+	}
+
+	const [first] = normalized
+
+	if (first === undefined) return constantFilter(identity)
+
+	return normalized.length === 1
+		? first
+		: immutableRecord({ kind, expressions: immutableArray(normalized) })
+}
+
+const normalizeNotFilter = (
+	expression: unknown,
+	ancestors: WeakSet<object>,
+): QueryFilterExpression => {
+	const child = normalizeUnknownLogicalFilter(expression, ancestors)
+
+	if (child.kind === 'constant' && 'value' in child) {
+		return constantFilter(!child.value)
+	}
+
+	if (child.kind === 'not' && 'expression' in child) {
+		return child.expression
+	}
+
+	return immutableRecord({ kind: 'not', expression: child })
+}
 
 const assertFilterRecord: (
 	filter: unknown,
@@ -91,21 +135,11 @@ const assertFilterRecord: (
 	assertNonEmptyString(filter.kind, 'filter.kind')
 }
 
-const isConstantFilter = (
-	filter: QueryFilterExpression,
-): filter is QueryConstantFilterNode => filter.kind === 'constant'
-
-const isLogicalGroup = (
-	filter: QueryFilterExpression,
-	kind: 'and' | 'or',
-): filter is QueryAndFilterNode | QueryOrFilterNode =>
-	filter.kind === kind && 'expressions' in filter
-
-const withLogicalAncestor = <TResult>(
+const withLogicalAncestor = (
 	filter: object,
 	ancestors: WeakSet<object>,
-	normalize: () => TResult,
-): TResult => {
+	normalize: () => QueryFilterExpression,
+): QueryFilterExpression => {
 	if (ancestors.has(filter)) {
 		throw new TypeError('logical filter must not contain circular references')
 	}
@@ -118,77 +152,6 @@ const withLogicalAncestor = <TResult>(
 		ancestors.delete(filter)
 	}
 }
-
-const normalizeLogicalGroup = (
-	filter: Record<string, unknown>,
-	kind: 'and' | 'or',
-	ancestors: WeakSet<object>,
-): QueryFilterExpression => {
-	const sourceExpressions: unknown = filter.expressions
-
-	if (!isUnknownArray(sourceExpressions)) {
-		throw new TypeError(`logical ${kind} filter expressions must be an array`)
-	}
-
-	return withLogicalAncestor(filter, ancestors, () => {
-		const expressions: QueryFilterExpression[] = []
-		const identity = kind === 'and'
-
-		for (const expression of sourceExpressions) {
-			const normalized = normalizeUnknownLogicalFilter(expression, ancestors)
-
-			if (isConstantFilter(normalized)) {
-				if (normalized.value !== identity) {
-					return normalized
-				}
-
-				continue
-			}
-
-			if (isLogicalGroup(normalized, kind)) {
-				expressions.push(...normalized.expressions)
-			} else {
-				expressions.push(normalized)
-			}
-		}
-
-		if (expressions.length === 0) {
-			return constantFilter(identity)
-		}
-
-		const firstExpression = expressions[0]
-
-		if (expressions.length === 1 && firstExpression !== undefined) {
-			return firstExpression
-		}
-
-		return immutableRecord({
-			kind,
-			expressions: immutableArray(expressions),
-		})
-	})
-}
-
-const normalizeNotFilter = (
-	filter: Record<string, unknown>,
-	ancestors: WeakSet<object>,
-): QueryFilterExpression =>
-	withLogicalAncestor(filter, ancestors, () => {
-		const expression = normalizeUnknownLogicalFilter(
-			filter.expression,
-			ancestors,
-		)
-
-		if (isConstantFilter(expression)) {
-			return constantFilter(!expression.value)
-		}
-
-		if (expression.kind === 'not' && 'expression' in expression) {
-			return expression.expression
-		}
-
-		return immutableRecord({ kind: 'not', expression })
-	})
 
 const normalizeUnknownLogicalFilter = (
 	filter: unknown,
@@ -204,10 +167,23 @@ const normalizeUnknownLogicalFilter = (
 
 			return constantFilter(filter.value)
 		case 'and':
-		case 'or':
-			return normalizeLogicalGroup(filter, filter.kind, ancestors)
+		case 'or': {
+			const { expressions, kind } = filter
+
+			if (!isUnknownArray(expressions)) {
+				throw new TypeError(
+					`logical ${kind} filter expressions must be an array`,
+				)
+			}
+
+			return withLogicalAncestor(filter, ancestors, () =>
+				normalizeLogicalGroup(expressions, kind, ancestors),
+			)
+		}
 		case 'not':
-			return normalizeNotFilter(filter, ancestors)
+			return withLogicalAncestor(filter, ancestors, () =>
+				normalizeNotFilter(filter.expression, ancestors),
+			)
 		default:
 			// Leaf factories own their data snapshots; logical normalization treats them as atoms.
 			return filter

@@ -1,21 +1,19 @@
 import {
-	Schema,
 	type SchemaDefinition,
 	type SchemaPointerFieldName,
 	type SchemaPointerTarget,
 	type SchemaRelationFieldName,
 	type SchemaRelationTarget,
+	Schema,
 } from '../../schema/index.js'
-import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableRecord } from '@ultimabase/shared'
+
+import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
+import type { QueryJsonPathExpression, QueryRegexPattern } from './primitive.js'
 import {
-	createWhereRelationshipInput,
-	createWhereTargetInput,
-} from './where-builder-target.js'
-import {
-	readWhereBuilderState,
-	storeWhereBuilderState,
-} from './where-builder-state.js'
+	resolveRelationshipTarget,
+	type QueryRelationPredicateOperator,
+} from './relation.js'
 import type {
 	WhereBuilderOperand,
 	WhereBuilderTarget,
@@ -29,12 +27,29 @@ import {
 	createConstantWhereExpression,
 	normalizeWhereInput,
 } from './where-normalize.js'
-import { whereInputFromQueryFilter } from './where-serialize.js'
-import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
-import type { QueryJsonPathExpression, QueryRegexPattern } from './primitive.js'
-import type { QueryRelationQuantifierOperator } from './relation.js'
+import {
+	createWhereTargetInput,
+	serializeWhereExpression,
+	whereInputFromQueryFilter,
+} from './where-serialize.js'
 
-export const resolveWhereBuilderInput = <TSchema extends SchemaDefinition>(
+/** @internal Exposes one builder's immutable state to trusted Query modules. */
+export interface WhereBuilderState<TSchema extends SchemaDefinition> {
+	readonly expression: QueryFilterNode<TSchema> | undefined
+	readonly schema: TSchema
+}
+
+let readState: <TSchema extends SchemaDefinition>(
+	builder: WhereBuilder<TSchema>,
+) => WhereBuilderState<TSchema>
+
+/** @internal Reads one builder's state without adding a public accessor. */
+export const readWhereBuilderState = <TSchema extends SchemaDefinition>(
+	builder: WhereBuilder<TSchema>,
+): WhereBuilderState<TSchema> => readState(builder)
+
+/** Resolves every supported public where form through the same object normalizer. */
+export const resolveWhereInput = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: WhereSource<TSchema>,
 ): QueryFilterNode<TSchema> => {
@@ -57,39 +72,43 @@ export const resolveWhereBuilderInput = <TSchema extends SchemaDefinition>(
 			)
 		}
 
-		return resolveWhereBuilderInput(schema, result)
+		return resolveWhereInput(schema, result)
 	}
 
 	return normalizeWhereInput(schema, input)
 }
 
-const createWhereBuilder = <TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	expression: QueryFilterNode<TSchema> | undefined,
-): WhereBuilder<TSchema> => {
-	const builder = new WhereBuilder(schema)
-
-	storeWhereBuilderState(builder, immutableRecord({ expression, schema }))
-	return builder
-}
-
 /** Builds schema-correlated where objects without becoming a second AST source. */
 export class WhereBuilder<TSchema extends SchemaDefinition> {
+	readonly #schema: TSchema
+	// Assigned only while deriving a new frozen builder; never after it escapes.
+	#expression: QueryFilterNode<TSchema> | undefined
+
+	static {
+		readState = (builder) => {
+			if (!(#schema in builder)) {
+				throw new TypeError('WhereBuilder has no internal state')
+			}
+
+			return immutableRecord({
+				expression: builder.#expression,
+				schema: builder.#schema,
+			})
+		}
+	}
+
 	constructor(schema: TSchema) {
 		if (!Schema.is(schema)) {
 			throw new TypeError('WhereBuilder schema must be a schema definition')
 		}
 
-		storeWhereBuilderState(
-			this,
-			immutableRecord({ expression: undefined, schema }),
-		)
+		this.#schema = schema
 		Object.freeze(this)
 	}
 
 	/** Returns the exact schema correlated with this immutable builder. */
 	get schema(): TSchema {
-		return readWhereBuilderState(this).schema
+		return this.#schema
 	}
 
 	/**
@@ -100,11 +119,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereBuilderOperand<TSchema, 'count', TFieldName>,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			immutableRecord({
-				[fieldName]: immutableRecord({ count: input }),
-			}),
-		)
+		return this.#operator(fieldName, 'count', input)
 	}
 
 	/**
@@ -114,11 +129,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	isEmpty(
 		fieldName: WhereOperatorFieldName<TSchema, 'isEmpty'>,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			immutableRecord({
-				[fieldName]: immutableRecord({ isEmpty: true }),
-			}),
-		)
+		return this.#operator(fieldName, 'isEmpty', true)
 	}
 
 	/**
@@ -129,7 +140,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'has', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'has', value))
+		return this.#operator(target, 'has', value)
 	}
 
 	/**
@@ -140,7 +151,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		values: WhereBuilderOperand<TSchema, 'hasSome', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'hasSome', values))
+		return this.#operator(target, 'hasSome', values)
 	}
 
 	/**
@@ -151,7 +162,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		values: WhereBuilderOperand<TSchema, 'hasEvery', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'hasEvery', values))
+		return this.#operator(target, 'hasEvery', values)
 	}
 
 	/**
@@ -161,11 +172,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	isNotEmpty(
 		fieldName: WhereOperatorFieldName<TSchema, 'isNotEmpty'>,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			immutableRecord({
-				[fieldName]: immutableRecord({ isNotEmpty: true }),
-			}),
-		)
+		return this.#operator(fieldName, 'isNotEmpty', true)
 	}
 
 	/**
@@ -176,7 +183,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'eq', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'eq', value))
+		return this.#operator(target, 'eq', value)
 	}
 
 	/**
@@ -187,7 +194,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'ne', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'ne', value))
+		return this.#operator(target, 'ne', value)
 	}
 
 	/**
@@ -198,7 +205,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'gt', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'gt', value))
+		return this.#operator(target, 'gt', value)
 	}
 
 	/**
@@ -209,7 +216,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'gte', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'gte', value))
+		return this.#operator(target, 'gte', value)
 	}
 
 	/**
@@ -220,7 +227,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'lt', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'lt', value))
+		return this.#operator(target, 'lt', value)
 	}
 
 	/**
@@ -231,7 +238,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'lte', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'lte', value))
+		return this.#operator(target, 'lte', value)
 	}
 
 	/**
@@ -243,13 +250,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		lower: WhereRangeBound<TSchema, 'between', TFieldName>,
 		upper: WhereRangeBound<TSchema, 'between', TFieldName>,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			createWhereTargetInput(
-				target,
-				'between',
-				immutableRecord({ lower, upper }),
-			),
-		)
+		return this.#operator(target, 'between', immutableRecord({ lower, upper }))
 	}
 
 	/**
@@ -261,12 +262,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		lower: WhereRangeBound<TSchema, 'notBetween', TFieldName>,
 		upper: WhereRangeBound<TSchema, 'notBetween', TFieldName>,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			createWhereTargetInput(
-				target,
-				'notBetween',
-				immutableRecord({ lower, upper }),
-			),
+		return this.#operator(
+			target,
+			'notBetween',
+			immutableRecord({ lower, upper }),
 		)
 	}
 
@@ -278,7 +277,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		values: WhereBuilderOperand<TSchema, 'in', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'in', values))
+		return this.#operator(target, 'in', values)
 	}
 
 	/**
@@ -289,7 +288,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		values: WhereBuilderOperand<TSchema, 'notIn', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'notIn', values))
+		return this.#operator(target, 'notIn', values)
 	}
 
 	/**
@@ -300,7 +299,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'contains', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'contains', value))
+		return this.#operator(target, 'contains', value)
 	}
 
 	/**
@@ -311,7 +310,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'containedBy', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'containedBy', value))
+		return this.#operator(target, 'containedBy', value)
 	}
 
 	/**
@@ -322,7 +321,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'startsWith', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'startsWith', value))
+		return this.#operator(target, 'startsWith', value)
 	}
 
 	/**
@@ -333,7 +332,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'endsWith', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'endsWith', value))
+		return this.#operator(target, 'endsWith', value)
 	}
 
 	/**
@@ -344,7 +343,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		key: WhereBuilderOperand<TSchema, 'hasKey', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'hasKey', key))
+		return this.#operator(target, 'hasKey', key)
 	}
 
 	/**
@@ -355,7 +354,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		keys: WhereBuilderOperand<TSchema, 'hasAnyKeys', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'hasAnyKeys', keys))
+		return this.#operator(target, 'hasAnyKeys', keys)
 	}
 
 	/**
@@ -366,7 +365,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: TTarget,
 		keys: WhereBuilderOperand<TSchema, 'hasAllKeys', TTarget>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'hasAllKeys', keys))
+		return this.#operator(target, 'hasAllKeys', keys)
 	}
 
 	/**
@@ -377,9 +376,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: WhereBuilderTarget<TSchema, 'jsonPathExists'>,
 		expression: QueryJsonPathExpression,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			createWhereTargetInput(target, 'jsonPathExists', expression),
-		)
+		return this.#operator(target, 'jsonPathExists', expression)
 	}
 
 	/**
@@ -390,9 +387,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		target: WhereBuilderTarget<TSchema, 'jsonPathMatches'>,
 		expression: QueryJsonPathExpression,
 	): WhereBuilder<TSchema> {
-		return this.#append(
-			createWhereTargetInput(target, 'jsonPathMatches', expression),
-		)
+		return this.#operator(target, 'jsonPathMatches', expression)
 	}
 
 	/**
@@ -403,7 +398,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: WhereOperatorFieldName<TSchema, 'matches'>,
 		pattern: QueryRegexPattern,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(fieldName, 'matches', pattern))
+		return this.#operator(fieldName, 'matches', pattern)
 	}
 
 	/**
@@ -411,7 +406,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.isNull('deletedAt')`
 	 */
 	isNull(target: WhereBuilderTarget<TSchema, 'isNull'>): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'isNull', true))
+		return this.#operator(target, 'isNull', true)
 	}
 
 	/**
@@ -421,7 +416,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	isNotNull(
 		target: WhereBuilderTarget<TSchema, 'isNotNull'>,
 	): WhereBuilder<TSchema> {
-		return this.#append(createWhereTargetInput(target, 'isNotNull', true))
+		return this.#operator(target, 'isNotNull', true)
 	}
 
 	/**
@@ -456,7 +451,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
-		return this.#relation('some', fieldName, input)
+		return this.#relationship('some', fieldName, input)
 	}
 
 	/**
@@ -467,7 +462,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
-		return this.#relation('none', fieldName, input)
+		return this.#relationship('none', fieldName, input)
 	}
 
 	/**
@@ -478,7 +473,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
-		return this.#relation('every', fieldName, input)
+		return this.#relationship('every', fieldName, input)
 	}
 
 	/**
@@ -489,7 +484,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
-		return this.#pointer('is', fieldName, input)
+		return this.#relationship('is', fieldName, input)
 	}
 
 	/**
@@ -500,7 +495,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		fieldName: TFieldName,
 		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
-		return this.#pointer('is-not', fieldName, input)
+		return this.#relationship('is-not', fieldName, input)
 	}
 
 	/**
@@ -508,20 +503,32 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `new WhereBuilder(Post).eq('published', true).build()`
 	 */
 	build(): WhereInput<TSchema> {
-		const expression = readWhereBuilderState(this).expression
-
 		return whereInputFromQueryFilter(
-			expression ?? createConstantWhereExpression<TSchema>(true),
+			this.#expression ?? createConstantWhereExpression<TSchema>(true),
 		)
 	}
 
-	#append(input: WhereInput<TSchema>): WhereBuilder<TSchema> {
-		const state = readWhereBuilderState(this)
-		const next = normalizeWhereInput(state.schema, input)
+	#derive(
+		next: QueryFilterNode<TSchema>,
+		kind: 'and' | 'or' = 'and',
+	): WhereBuilder<TSchema> {
+		const builder = new WhereBuilder(this.#schema)
 
-		return createWhereBuilder(
-			state.schema,
-			combineWhereExpressions(state.expression, next),
+		builder.#expression = combineWhereExpressions(this.#expression, next, kind)
+		return builder
+	}
+
+	#operator(
+		target: unknown,
+		operator: string,
+		operand: unknown,
+	): WhereBuilder<TSchema> {
+		// The object normalizer stays the single validation path for every method.
+		return this.#derive(
+			normalizeWhereInput(
+				this.#schema,
+				createWhereTargetInput(target, operator, operand),
+			),
 		)
 	}
 
@@ -530,71 +537,39 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		kind: 'and' | 'or',
 		negate: boolean,
 	): WhereBuilder<TSchema> {
-		const state = readWhereBuilderState(this)
-		const nested = resolveWhereBuilderInput(state.schema, input)
-		const next = negate
-			? normalizeLogicalFilter({ kind: 'not', expression: nested })
-			: nested
+		const nested = resolveWhereInput(this.#schema, input)
 
-		return createWhereBuilder(
-			state.schema,
-			combineWhereExpressions(state.expression, next, kind),
+		return this.#derive(
+			negate
+				? normalizeLogicalFilter({ kind: 'not', expression: nested })
+				: nested,
+			kind,
 		)
 	}
 
-	#relation<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		operator: QueryRelationQuantifierOperator,
-		fieldName: TFieldName,
-		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
+	#relationship(
+		operator: QueryRelationPredicateOperator,
+		fieldName: string,
+		input: unknown,
 	): WhereBuilder<TSchema> {
-		const state = readWhereBuilderState(this)
-		const field = state.schema.persistedFields[fieldName]
-		const target =
-			field === undefined ? undefined : getFieldSchemaTarget(field)?.()
+		const kind =
+			operator === 'is' || operator === 'is-not' ? 'pointer' : 'relation'
+		const target = resolveRelationshipTarget(this.#schema, fieldName, kind)
 
-		if (field?.kind !== 'relation' || !Schema.is(target)) {
-			throw new TypeError(
-				'WhereBuilder relation must reference a relation field',
-			)
+		if (target === undefined) {
+			throw new TypeError(`WhereBuilder ${kind} must reference a ${kind} field`)
 		}
 
-		const nested = resolveWhereBuilderInput(
+		// The public method signature correlated the input with this exact target.
+		const nested = resolveWhereInput(
 			target,
-			input as unknown as WhereSource<typeof target>,
+			input as WhereSource<SchemaDefinition>,
 		)
-		return this.#append(
-			createWhereRelationshipInput<TSchema, typeof target>(
-				fieldName,
-				operator,
-				nested,
-			),
-		)
-	}
 
-	#pointer<TFieldName extends SchemaPointerFieldName<TSchema>>(
-		operator: 'is' | 'is-not',
-		fieldName: TFieldName,
-		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
-	): WhereBuilder<TSchema> {
-		const state = readWhereBuilderState(this)
-		const field = state.schema.persistedFields[fieldName]
-		const target =
-			field === undefined ? undefined : getFieldSchemaTarget(field)?.()
-
-		if (field?.kind !== 'pointer' || !Schema.is(target)) {
-			throw new TypeError('WhereBuilder pointer must reference a pointer field')
-		}
-
-		const nested = resolveWhereBuilderInput(
-			target,
-			input as unknown as WhereSource<typeof target>,
-		)
-		return this.#append(
-			createWhereRelationshipInput<TSchema, typeof target>(
-				fieldName,
-				operator === 'is-not' ? 'isNot' : 'is',
-				nested,
-			),
+		return this.#operator(
+			fieldName,
+			operator === 'is-not' ? 'isNot' : operator,
+			serializeWhereExpression(nested),
 		)
 	}
 }
