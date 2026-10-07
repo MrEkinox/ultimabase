@@ -1,37 +1,32 @@
-import type { PluginId } from './catalog.js'
-import type { InitializerPlan } from './config.js'
-import { privateSchemaApiOptions } from './api-template.js'
-
-const securityIds: readonly PluginId[] = [
-	'access-plugin',
-	'acl-permissions-plugin',
-	'password-auth-plugin',
-	'roles-plugin',
-]
-
-const has = (plan: InitializerPlan, id: PluginId): boolean =>
-	plan.plugins.includes(id)
+import { pluginImports, privateSchemaApiOptions } from './api-template.js'
+import { hasPlugin as has, type InitializerPlan } from './config.js'
 
 export const needsMasterKey = (plan: InitializerPlan): boolean =>
-	securityIds.some((id) => has(plan, id))
+	has(plan, 'access-plugin') ||
+	has(plan, 'acl-permissions-plugin') ||
+	has(plan, 'password-auth-plugin') ||
+	has(plan, 'roles-plugin')
+
+const hasAuth = (plan: InitializerPlan): boolean =>
+	has(plan, 'password-auth-plugin')
+
+/** Access with Password Auth needs an own-profile read policy for its operations. */
+const hasProfilePolicy = (plan: InitializerPlan): boolean =>
+	has(plan, 'access-plugin') && hasAuth(plan)
+
+/** Roles without Password Auth get a local member model. */
+const hasMember = (plan: InitializerPlan): boolean =>
+	has(plan, 'roles-plugin') && !hasAuth(plan)
 
 /** These declarations stay in application source; plugin imports alone grant nothing. */
-export const securitySchemaImports = (
-	plan: InitializerPlan,
-): readonly string[] => [
-	...(has(plan, 'access-plugin')
-		? ["import { accessPlugin } from '@ultimabase/access-plugin'"]
-		: []),
-	...(has(plan, 'acl-permissions-plugin')
-		? ["import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'"]
-		: []),
-	...(has(plan, 'password-auth-plugin')
-		? ["import { PasswordUserSchema } from '@ultimabase/password-auth-plugin'"]
-		: []),
-	...(has(plan, 'roles-plugin')
-		? ["import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'"]
-		: []),
-	...(has(plan, 'roles-plugin') && has(plan, 'password-auth-plugin')
+export const securitySchemaImports = (plan: InitializerPlan): string[] => [
+	...pluginImports(plan, [
+		['access-plugin', 'accessPlugin'],
+		['acl-permissions-plugin', 'ACL, aclPlugin'],
+		['password-auth-plugin', 'PasswordUserSchema'],
+		['roles-plugin', 'RoleSchema, rolesPlugin'],
+	]),
+	...(has(plan, 'roles-plugin') && hasAuth(plan)
 		? ["import { passwordPrincipal } from '@ultimabase/password-auth-plugin'"]
 		: []),
 ]
@@ -42,7 +37,7 @@ export const securitySchemaPluginEntries = (
 ): readonly string[] => [
 	...(has(plan, 'access-plugin')
 		? [
-				has(plan, 'password-auth-plugin')
+				hasAuth(plan)
 					? 'accessPlugin({ default: { read: true } })'
 					: 'accessPlugin()',
 			]
@@ -51,39 +46,44 @@ export const securitySchemaPluginEntries = (
 	...(has(plan, 'roles-plugin') ? ['rolesPlugin()'] : []),
 ]
 
-export const securitySchemaDeclarations = (plan: InitializerPlan): string => {
-	const declarations: string[] = []
-	if (has(plan, 'password-auth-plugin')) {
-		declarations.push(`// Password Auth claims this exact application User schema; credentials stay in private storage.
+export const securitySchemaDeclarations = (plan: InitializerPlan): string =>
+	[
+		...(hasAuth(plan)
+			? [
+					`// Password Auth claims this exact application User schema; credentials stay in private storage.
 export const AppUser = PasswordUserSchema.define(SchemaApplication.Schema, {
   className: 'User',
   fields: (f) => ({ displayName: f.string() }),
-})`)
-	}
-	if (has(plan, 'roles-plugin') && !has(plan, 'password-auth-plugin')) {
-		declarations.push(`// A local member model keeps Roles useful without installing authentication.
+})`,
+				]
+			: []),
+		...(hasMember(plan)
+			? [
+					`// A local member model keeps Roles useful without installing authentication.
 export const Member = SchemaApplication.Schema.define({
   className: 'Member',
 ${privateSchemaApiOptions(plan)}
   fields: (f) => ({ name: f.string({ required: true }) }),
-})`)
-	}
-	if (has(plan, 'roles-plugin')) {
-		const member = has(plan, 'password-auth-plugin') ? 'AppUser' : 'Member'
-		const resolveCurrent = has(plan, 'password-auth-plugin')
-			? ',\n    resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user'
-			: ''
-		declarations.push(`// Role membership is data, not an authorization grant by itself.
+})`,
+				]
+			: []),
+		...(has(plan, 'roles-plugin')
+			? [
+					`// Role membership is data, not an authorization grant by itself.
 export const AppRole = RoleSchema.define(SchemaApplication.Schema, {
   className: 'Role',
 ${privateSchemaApiOptions(plan)}
-  members: { schema: ${member}${resolveCurrent} },
+  members: { schema: ${
+		hasAuth(plan)
+			? 'AppUser,\n    resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user'
+			: 'Member'
+	} },
   deletion: { references: 'fail' },
   fields: (f) => ({ description: f.string() }),
-})`)
-	}
-	return declarations.join('\n\n')
-}
+})`,
+				]
+			: []),
+	].join('\n\n')
 
 export const taskSecurityOptions = (plan: InitializerPlan): string =>
 	[
@@ -110,15 +110,15 @@ export const securityApplicationImports = (
 	...(needsMasterKey(plan)
 		? ["import { MasterAuthority } from '@ultimabase/core'"]
 		: []),
-	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+	...(hasProfilePolicy(plan)
 		? [
 				"import { provideAccessContributions, schemaAccess } from '@ultimabase/access-plugin'",
 			]
 		: []),
-	...(has(plan, 'password-auth-plugin')
+	...(hasAuth(plan)
 		? ["import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'"]
 		: []),
-	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+	...(hasProfilePolicy(plan)
 		? [
 				"import { plugin } from '@ultimabase/core'",
 				"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
@@ -129,27 +129,21 @@ export const securityApplicationImports = (
 export const securitySchemaNames = (
 	plan: InitializerPlan,
 ): readonly string[] => [
-	...(has(plan, 'password-auth-plugin') ? ['AppUser'] : []),
-	...(has(plan, 'roles-plugin') && !has(plan, 'password-auth-plugin')
-		? ['Member']
-		: []),
+	...(hasAuth(plan) ? ['AppUser'] : []),
+	...(hasMember(plan) ? ['Member'] : []),
 	...(has(plan, 'roles-plugin') ? ['AppRole'] : []),
 ]
 
 export const securityPluginEntries = (
 	plan: InitializerPlan,
 ): readonly string[] => [
-	...(has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
-		? ['profilePolicy']
-		: []),
-	...(has(plan, 'password-auth-plugin')
-		? ['passwordAuthPlugin({ user: AppUser })']
-		: []),
+	...(hasProfilePolicy(plan) ? ['profilePolicy'] : []),
+	...(hasAuth(plan) ? ['passwordAuthPlugin({ user: AppUser })'] : []),
 ]
 
 /** Plugin-owned and claimed schemas use attributed contributions instead of inline Access. */
 export const securityPolicySource = (plan: InitializerPlan): string =>
-	has(plan, 'access-plugin') && has(plan, 'password-auth-plugin')
+	hasProfilePolicy(plan)
 		? `// Allow only the current session's profile; all other schema reads remain denied.
 const profilePolicy = plugin({
   id: 'app.profile-policy',
@@ -195,23 +189,6 @@ export const securityApplicationOption = (plan: InitializerPlan): string =>
 `
 		: ''
 
-export const securityDependencies = (
-	plan: InitializerPlan,
-): Readonly<Record<string, string>> => ({
-	...(has(plan, 'access-plugin')
-		? { '@ultimabase/access-plugin': '^0.0.0' }
-		: {}),
-	...(has(plan, 'acl-permissions-plugin')
-		? { '@ultimabase/acl-permissions-plugin': '^0.0.0' }
-		: {}),
-	...(has(plan, 'password-auth-plugin')
-		? { '@ultimabase/password-auth-plugin': '^0.0.0' }
-		: {}),
-	...(has(plan, 'roles-plugin')
-		? { '@ultimabase/roles-plugin': '^0.0.0' }
-		: {}),
-})
-
 export const securityReadmeNotes = (
 	plan: InitializerPlan,
 ): readonly string[] => [
@@ -220,12 +197,12 @@ export const securityReadmeNotes = (
 				'This development project uses an ignored local Master key for trusted server-side examples. Never expose it through HTTP or a browser; replace the console audit with durable auditing before deployment.',
 			]
 		: []),
-	...(has(plan, 'password-auth-plugin')
+	...(hasAuth(plan)
 		? [
 				'Password Auth claims the configured application User schema and owns private credentials and sessions. A session identifies a caller; it does not grant Task access or publish authentication operations.',
 			]
 		: []),
-	...(has(plan, 'password-auth-plugin') && has(plan, 'access-plugin')
+	...(hasProfilePolicy(plan)
 		? [
 				'The generated User read policy exposes only the current session owner. Sign-up, login, and refresh require this readable profile; other User operations still use Access defaults.',
 			]

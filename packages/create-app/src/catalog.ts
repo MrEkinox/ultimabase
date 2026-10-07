@@ -111,7 +111,7 @@ export const isPluginId = (value: string): value is PluginId =>
 	officialPlugins.some((plugin) => plugin.id === value)
 
 // Each dependency is a real packaged plugin; GraphQL alone remains network-independent.
-export const pluginDependencies: Readonly<
+const pluginDependencies: Readonly<
 	Partial<Record<PluginId, readonly PluginId[]>>
 > = {
 	'server-hono-plugin': ['http-plugin'],
@@ -125,7 +125,27 @@ export const pluginDependencies: Readonly<
 	'apollo-sandbox-plugin': ['graphql-yoga-plugin'],
 }
 
-export const apiPlugins: Readonly<Record<ApiId, PluginId>> = {
+const apiPlugins: Readonly<Record<ApiId, PluginId>> = {
 	rest: 'rest-plugin',
 	graphql: 'graphql-yoga-plugin',
+}
+
+/**
+ * PostgreSQL, the API plugins and the requested plugins with every transitive
+ * prerequisite. A `Set` also visits values added while it is iterated, so one
+ * pass reaches the closure.
+ */
+export const selectedPluginIds = (
+	apis: readonly ApiId[],
+	requested: readonly PluginId[] = [],
+): ReadonlySet<PluginId> => {
+	const selected = new Set<PluginId>([
+		'postgres-plugin',
+		...requested,
+		...apis.map((api) => apiPlugins[api]),
+	])
+	for (const id of selected)
+		for (const dependency of pluginDependencies[id] ?? [])
+			selected.add(dependency)
+	return selected
 }

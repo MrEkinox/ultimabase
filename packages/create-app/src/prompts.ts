@@ -2,15 +2,16 @@ import * as clack from '@clack/prompts'
 import path from 'node:path'
 
 import {
-	apiPlugins,
 	officialPlugins,
-	pluginDependencies,
 	pluginGroups,
+	selectedPluginIds,
 	type ApiId,
 	type PluginId,
 } from './catalog.js'
 import {
 	detectPackageManager,
+	hasDataApi,
+	hasPlugin,
 	resolveSelection,
 	type Database,
 	type InitializerPlan,
@@ -54,27 +55,10 @@ const requiredValue = <T>(value: T | null): T => {
 	return value
 }
 
-export const requiredPluginIds = (
-	apis: readonly ApiId[],
-): ReadonlySet<PluginId> => {
-	const required = new Set<PluginId>([
-		'postgres-plugin',
-		...apis.map((api) => apiPlugins[api]),
-	])
-	let count = -1
-	while (count !== required.size) {
-		count = required.size
-		for (const id of required)
-			for (const dependency of pluginDependencies[id] ?? [])
-				required.add(dependency)
-	}
-	return required
-}
-
 export const pluginChoices = (
 	apis: readonly ApiId[],
 ): readonly PluginChoice[] => {
-	const required = requiredPluginIds(apis)
+	const required = selectedPluginIds(apis)
 	return officialPlugins.map((plugin) => ({
 		...plugin,
 		required: required.has(plugin.id),
@@ -84,20 +68,21 @@ export const pluginChoices = (
 const missingFlags = (
 	options: ParsedOptions,
 	detectedManager: PackageManager | undefined,
-): string[] => {
-	const missing: string[] = []
-	if (options.name === undefined) missing.push('--name')
-	if (options.language === undefined) missing.push('--language')
-	if (options.apis === undefined) missing.push('--api (or --yes for none)')
-	if (options.plugins === undefined)
-		missing.push('--plugin (or --yes for none)')
-	if (options.starter === undefined) missing.push('--starter')
-	if (options.database === undefined) missing.push('--database')
-	if (options.packageManager === undefined && detectedManager === undefined)
-		missing.push('--package-manager')
-	if (options.install === undefined) missing.push('--install or --no-install')
-	return missing
-}
+): string[] =>
+	(
+		[
+			[options.name, '--name'],
+			[options.language, '--language'],
+			[options.apis, '--api (or --yes for none)'],
+			[options.plugins, '--plugin (or --yes for none)'],
+			[options.starter, '--starter'],
+			[options.database, '--database'],
+			[options.packageManager ?? detectedManager, '--package-manager'],
+			[options.install, '--install or --no-install'],
+		] as const
+	)
+		.filter(([value]) => value === undefined)
+		.map(([, flag]) => flag)
 
 /** The same flow accepts prompt answers and flags, then validates one final plan. */
 export const collectSelection = async (
@@ -120,31 +105,42 @@ export const collectSelection = async (
 	if (!context.isTTY && options.name === undefined)
 		throw new Error('Non-interactive mode requires --name.')
 	const ask = context.isTTY && !options.yes
-	const name =
-		options.name ?? (ask ? requiredValue(await prompts.name()) : undefined)
+	// A given value wins; otherwise ask in order, or fall back without a terminal.
+	const choose = async <T>(
+		given: T | undefined,
+		prompt: () => Promise<T | null>,
+		fallback: T,
+	): Promise<T> => given ?? (ask ? requiredValue(await prompt()) : fallback)
+	const name = await choose(options.name, () => prompts.name(), undefined)
 	if (name === undefined) throw new Error('Project name is required (--name).')
-	const directory =
-		options.directory ??
-		(ask
-			? requiredValue(await prompts.directory(name.split('/').at(-1) ?? name))
-			: undefined)
-	const language =
-		options.language ?? (ask ? requiredValue(await prompts.language()) : 'ts')
-	const apis = options.apis ?? (ask ? requiredValue(await prompts.apis()) : [])
-	const plugins =
-		options.plugins ??
-		(ask ? requiredValue(await prompts.plugins(pluginChoices(apis))) : [])
-	const starter =
-		options.starter ?? (ask ? requiredValue(await prompts.starter()) : 'task')
-	const database =
-		options.database ??
-		(ask ? requiredValue(await prompts.database()) : 'existing')
-	const packageManager =
-		options.packageManager ??
-		detectedManager ??
-		(ask ? requiredValue(await prompts.packageManager()) : 'npm')
-	const install =
-		options.install ?? (ask ? requiredValue(await prompts.install()) : true)
+	const directory = await choose(
+		options.directory,
+		() => prompts.directory(name.split('/').at(-1) ?? name),
+		undefined,
+	)
+	const language = await choose(
+		options.language,
+		() => prompts.language(),
+		'ts',
+	)
+	const apis = await choose(options.apis, () => prompts.apis(), [])
+	const plugins = await choose(
+		options.plugins,
+		() => prompts.plugins(pluginChoices(apis)),
+		[],
+	)
+	const starter = await choose(options.starter, () => prompts.starter(), 'task')
+	const database = await choose(
+		options.database,
+		() => prompts.database(),
+		'existing',
+	)
+	const packageManager = await choose(
+		options.packageManager ?? detectedManager,
+		() => prompts.packageManager(),
+		'npm',
+	)
+	const install = await choose(options.install, () => prompts.install(), true)
 	const plan = resolveSelection(
 		{
 			name,
@@ -168,54 +164,56 @@ export const collectSelection = async (
 const fromClack = <T>(value: T | typeof clack.CANCEL_SYMBOL): T | null =>
 	value === clack.CANCEL_SYMBOL ? null : value
 
-const capabilityNotes = (plan: InitializerPlan): string[] => [
-	...(plan.plugins.includes('pg-vector-plugin')
-		? [
-				'Vector values are logical only; this starter does not store or search vectors.',
-			]
-		: []),
-	...(plan.plugins.includes('password-auth-plugin')
-		? ['Password Auth adds identity and sessions, not CRUD permission.']
-		: []),
-	...(plan.plugins.includes('password-auth-plugin') &&
-	(plan.plugins.includes('rest-plugin') ||
-		plan.plugins.includes('graphql-plugin'))
-		? [
-				'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
-			]
-		: []),
-	...(plan.plugins.includes('graphiql-plugin') ||
-	plan.plugins.includes('apollo-sandbox-plugin')
-		? ['Explorers and introspection are development-only.']
-		: []),
-	...(plan.plugins.includes('rest-plugin') ||
-	plan.plugins.includes('graphql-plugin')
-		? [
-				'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
-			]
-		: []),
-	...(plan.plugins.includes('server-hono-plugin')
-		? ['HTTP binds to 127.0.0.1; API requests need the exact application ID.']
-		: []),
-	...(plan.starter === 'empty'
-		? ['An empty application has no schema for schema-local plugins to act on.']
-		: []),
-]
+const capabilityNotes = (plan: InitializerPlan): string[] => {
+	const has = (id: PluginId): boolean => hasPlugin(plan, id)
+	return [
+		...(has('pg-vector-plugin')
+			? [
+					'Vector values are logical only; this starter does not store or search vectors.',
+				]
+			: []),
+		...(has('password-auth-plugin')
+			? ['Password Auth adds identity and sessions, not CRUD permission.']
+			: []),
+		...(has('password-auth-plugin') && hasDataApi(plan)
+			? [
+					'Only the exact Password Auth operations are added to the selected API allowlists; add online-attempt defenses before public deployment.',
+				]
+			: []),
+		...(has('graphiql-plugin') || has('apollo-sandbox-plugin')
+			? ['Explorers and introspection are development-only.']
+			: []),
+		...(hasDataApi(plan)
+			? [
+					'Task API mutations are disabled; acknowledging unverified public protection does not establish authorization.',
+				]
+			: []),
+		...(has('server-hono-plugin')
+			? ['HTTP binds to 127.0.0.1; API requests need the exact application ID.']
+			: []),
+		...(plan.starter === 'empty'
+			? [
+					'An empty application has no schema for schema-local plugins to act on.',
+				]
+			: []),
+	]
+}
 
-export const formatPlan = (plan: InitializerPlan): string =>
+const dataApis = (plan: InitializerPlan): string =>
+	[
+		...(hasPlugin(plan, 'rest-plugin') ? ['REST'] : []),
+		...(hasPlugin(plan, 'graphql-yoga-plugin')
+			? ['GraphQL over HTTP']
+			: hasPlugin(plan, 'graphql-plugin')
+				? ['direct GraphQL']
+				: []),
+	].join(', ') || 'none; direct application calls'
+
+const formatPlan = (plan: InitializerPlan): string =>
 	[
 		`Destination: ${plan.destination}`,
 		`Language: ${plan.language === 'ts' ? 'TypeScript + automatic Typegen' : 'JavaScript (no Typegen)'}`,
-		`Data APIs: ${
-			[
-				...(plan.plugins.includes('rest-plugin') ? ['REST'] : []),
-				...(plan.plugins.includes('graphql-yoga-plugin')
-					? ['GraphQL over HTTP']
-					: plan.plugins.includes('graphql-plugin')
-						? ['direct GraphQL']
-						: []),
-			].join(', ') || 'none; direct application calls'
-		}`,
+		`Data APIs: ${dataApis(plan)}`,
 		`Plugins: ${plan.plugins.map((id) => `@ultimabase/${id}${plan.automaticPlugins.includes(id) ? ' (included)' : ''}`).join(', ')}`,
 		`Starter: ${plan.starter}; database: ${plan.database}; manager: ${plan.packageManager}`,
 		`Install dependencies: ${plan.install ? 'yes' : 'no'}`,
