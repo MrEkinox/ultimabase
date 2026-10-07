@@ -1,6 +1,6 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 import {
 	assertOperationIdentity,
 	assertOperationValueContract,
@@ -161,11 +161,7 @@ export const defineOperation = <
 	TErrors
 > => {
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('operation definition must be a plain object')
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		untrustedOptions,
 		new Set([
 			'errors',
@@ -176,6 +172,7 @@ export const defineOperation = <
 			'transaction',
 			'version',
 		]),
+		'operation definition must be a plain object',
 		'operation definition contains unknown option: ',
 	)
 

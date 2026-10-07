@@ -20,7 +20,7 @@ import {
 	throwRuntimeValidationIssues,
 	type RuntimeValidationErrorDescription,
 	type RuntimeValidationIssue,
-} from '../validation/runtime-validation.js'
+} from '../validation/runtime-field-validation.js'
 
 export const behaviorBoundaryErrorDescription: Readonly<RuntimeValidationErrorDescription> =
 	immutableRecord({

@@ -1,4 +1,7 @@
-import { runApplicationWork } from '../../application/active-application.js'
+import {
+	assertApplicationExecution,
+	runApplicationWork,
+} from '../../application/active-application.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type { MasterRequestAccess } from '../../access/index.js'
@@ -44,7 +47,6 @@ import { throwIfOperationCancelled } from '../cancellation/operation-cancellatio
 import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
-	assertApplicationEngineAvailable,
 	assertMasterElevationPrivilege,
 	requireMasterAuthority,
 	resolveTerminalContext,
@@ -367,7 +369,7 @@ export class RequestEngine<
 			RequestContext<MasterRequestAccess, TContext['source']>
 		>
 	> {
-		assertApplicationEngineAvailable(this.#application)
+		assertApplicationExecution(this.#application)
 		this.#lifetime?.assertActive()
 		assertMasterElevationPrivilege(this.#application)
 
@@ -388,7 +390,7 @@ export class RequestEngine<
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
-		assertApplicationEngineAvailable(this.#application)
+		assertApplicationExecution(this.#application)
 		if (typeof handler !== 'function') {
 			throw new TypeError(
 				'Request engine transaction handler must be a function',

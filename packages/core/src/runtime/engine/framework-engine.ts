@@ -1,5 +1,6 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
+import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type {
@@ -24,7 +25,6 @@ import type {
 } from '../plugin-operations/transport.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import {
-	assertApplicationEngineAvailable,
 	bindRequestContextToApplication,
 	requireMasterAuthority,
 } from './application-binding.js'
@@ -33,7 +33,6 @@ import { readApplicationFacade } from '../context/current-ultima-base.js'
 import type { UltimaBase } from '../application/ultima-base.js'
 
 export { RequestEngine } from './request-engine.js'
-export type { RequestTransactionHandler } from './request-engine.js'
 
 /** Captures every application-owned dependency shared by its request engines. */
 export interface FrameworkEngineOptions<
@@ -88,7 +87,7 @@ export class FrameworkEngine<
 
 	constructor(options: FrameworkEngineOptions<TSchemas, TPlugins>) {
 		assertFrameworkEngineOptions(options)
-		assertApplicationEngineAvailable(options.application)
+		assertApplicationExecution(options.application)
 		this.application = options.application
 		this.#pipeline = options.pipeline
 		this.#masterAuthority = options.masterAuthority
@@ -105,7 +104,7 @@ export class FrameworkEngine<
 
 	/** Verifies one raw credential without retaining it in framework state. */
 	authorizeMasterKey(rawKey: string): MasterKeyGrant {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationExecution(this.application)
 		return bindMasterGrantApplication(
 			requireMasterAuthority(this.#masterAuthority).authorize(rawKey),
 			this.application,
@@ -116,7 +115,7 @@ export class FrameworkEngine<
 	withContext<TAccess extends RequestAccess, const TSource extends string>(
 		context: RequestContext<TAccess, TSource>,
 	): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TSource>> {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationExecution(this.application)
 		if (!(context instanceof RequestContext)) {
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
@@ -143,13 +142,13 @@ export class FrameworkEngine<
 	exposeOperations<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportExposureOptions<TTransport>,
 	): ApplicationOperationTransport<TTransport> {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationExecution(this.application)
 		return exposeFrameworkOperations(this, options)
 	}
 
 	/** Keeps schema identity checks centralized for queries and direct operations. */
 	assertOwnsSchema(schema: unknown): asserts schema is TSchemas[number] {
-		assertApplicationEngineAvailable(this.application)
+		assertApplicationExecution(this.application)
 		if (this.application.ownsSchema(schema)) return
 
 		const className: string = Schema.is(schema) ? schema.className : 'unknown'

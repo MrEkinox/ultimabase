@@ -115,9 +115,11 @@ export type {
 	PluginModelSurfaceRegistrar,
 	PluginModelSurfaceSource,
 	PluginOperationDeclarationRegistrar,
+} from './plugins/application-surface-declarations.js'
+export type {
 	PluginSchemaMutationSurface,
 	PluginSchemaMutationSurfaceBinding,
-} from './plugins/application-surface-declarations.js'
+} from './plugins/schema-mutation-surface-declarations.js'
 export {
 	defineCapability,
 	optionalCapability,
@@ -159,19 +161,21 @@ export type {
 	FrameworkPluginContract,
 	PluginDefinition,
 	PluginExports,
-	PluginSetupContext,
 } from './plugins/definition.js'
+export type { PluginSetupContext } from './plugins/setup-registries.js'
 export type {
 	PluginSourceFieldObjectValue,
 	PluginSourceFieldOptionByKind,
 	PluginSourceFieldValue,
 	PluginSourceOpaque,
 	PluginSourceRelationChange,
+	PluginSourceState,
+} from './plugins/source-projections.js'
+export type {
 	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaMutations,
-	PluginSourceState,
-} from './plugins/source-projections.js'
+} from './plugins/source-schema-templates.js'
 export type {
 	PluginDeclaration,
 	PluginDeclarationCapabilityReader,
@@ -193,35 +197,41 @@ export {
 	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
-	defineFieldOption,
-	defineSchemaOption,
 	setSchemaFieldOption,
 	setSchemaOption,
-} from './plugins/schema-declarations.js'
+} from './plugins/schema-field-patch-operations.js'
+export {
+	defineFieldOption,
+	defineSchemaOption,
+} from './plugins/schema-option-definitions.js'
+export type {
+	PluginSchemaDeclarationRegistrar,
+	PluginSchemaOptionSource,
+	PluginSchemaPatchSource,
+} from './plugins/schema-declaration-contracts.js'
+export type {
+	FieldOptionDefinition,
+	SchemaOptionDefinition,
+	SchemaOptionRuntimeCompilationContext,
+	SchemaOptionRuntimeCompiler,
+	SchemaOptionRuntimeRequirement,
+	SchemaOptionTypegenDescriptor,
+} from './plugins/schema-option-definitions.js'
 export type {
 	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
-	FieldOptionDefinition,
-	PluginSchemaDeclarationRegistrar,
-	PluginSchemaOptionSource,
-	PluginSchemaPatchSource,
-	SetSchemaFieldOptionOperation,
-	SetSchemaOptionOperation,
-	SchemaOptionDefinition,
 	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
-	SchemaOptionRuntimeCompilationContext,
-	SchemaOptionRuntimeCompiler,
-	SchemaOptionRuntimeRequirement,
 	SchemaOptionSelector,
-	SchemaOptionTypegenDescriptor,
 	SchemaPatchOperation,
 	SchemaSelection,
 	SchemaSelectorOptions,
-} from './plugins/schema-declarations.js'
+	SetSchemaFieldOptionOperation,
+	SetSchemaOptionOperation,
+} from './plugins/schema-patch-contracts.js'
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'

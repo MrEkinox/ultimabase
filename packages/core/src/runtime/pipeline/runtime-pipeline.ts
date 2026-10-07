@@ -18,7 +18,7 @@ import type {
 	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
-import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import { createRuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
@@ -46,21 +46,20 @@ import {
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
 import {
-	createRuntimeVirtualFieldScheduler,
-	inheritRuntimeVirtualFields,
-} from '../virtual-fields/binding.js'
-import {
 	createRuntimeRelationFilterResolver,
+	createRuntimeVirtualFieldScheduler,
 	inheritRuntimeRelationFilters,
-} from '../relation-filters/binding.js'
+	inheritRuntimeVirtualFields,
+} from './application-bindings.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
-import type {
-	RuntimeOperationResult,
-	RuntimePipelineRequest,
-	RuntimePipelineStages,
+import {
+	runtimeBehaviorStageNames,
+	type RuntimeOperationResult,
+	type RuntimePipelineRequest,
+	type RuntimePipelineStages,
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
@@ -74,8 +73,6 @@ import {
 	enforceRuntimeOperation,
 } from './stage-inputs.js'
 import { finalizeRuntimeOperationResult } from './result-finalization.js'
-
-export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
 
 /** Identifies one Core-owned nested mutation while it uses the ordinary pipeline. */
 interface ActiveNestedWrite {
@@ -155,19 +152,7 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 		}
 		assertStageFunctions(
 			behaviors,
-			[
-				'beforeOperation',
-				'guardMutationInput',
-				'observePreparedMutation',
-				'postCommit',
-				'requiresPreparedMutationItems',
-				'transformDatabaseResult',
-				'transformInput',
-				'transformMutationOutcome',
-				'transformPreparedInput',
-				'transformPreparedOperation',
-				'transformResult',
-			],
+			runtimeBehaviorStageNames,
 			'Runtime behavior stage',
 			true,
 		)

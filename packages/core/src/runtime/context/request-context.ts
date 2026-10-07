@@ -13,7 +13,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 const declaredRequestSources = {
 	internal: 'internal',
@@ -127,13 +127,10 @@ let trustedMasterContextFactory: TrustedMasterContextFactory
 function assertRequestContextOptions(
 	options: unknown,
 ): asserts options is RequestContextOptions {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Request context options must be a plain object')
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		requestContextOptionKeys,
+		'Request context options must be a plain object',
 		'Unknown request context option: ',
 	)
 

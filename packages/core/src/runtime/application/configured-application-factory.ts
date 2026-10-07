@@ -3,7 +3,8 @@ import { immutableArray } from '@ultimabase/shared'
 import type { PluginDefinition } from '../../plugins/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
-import type { UltimaBase, UltimaBaseInstanceOptions } from './ultima-base.js'
+import type { UltimaBase } from './ultima-base.js'
+import type { UltimaBaseInstanceOptions } from './ultima-base-contracts.js'
 import type {
 	EmptyPluginSourceState,
 	MergePluginSourceState,

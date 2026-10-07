@@ -4,10 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import {
-	createFieldDefinition,
-	getFieldRelationWhere,
-} from '../base/definition.js'
+import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertBuiltInFieldOptions,
 	assertFieldOptions,
@@ -18,7 +15,6 @@ import type {
 	FieldDefinition,
 	FieldOptionValueCarrier,
 	FieldTypegenState,
-	GenericField,
 	ResolveFieldSourceTemplate,
 } from '../base/contract.js'
 import type {
@@ -268,11 +264,6 @@ const normalizeRelationWhereDeclaration = (
 		kind: 'static' as const,
 	})
 }
-
-/** @internal Returns the exact private declaration attached by `relationField`. */
-export const getRelationWhereDeclaration: (
-	field: GenericField,
-) => RelationWhereDeclaration | undefined = getFieldRelationWhere
 
 /**
  * Declares an independently queryable to-many relationship.

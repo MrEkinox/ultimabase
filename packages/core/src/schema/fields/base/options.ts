@@ -215,6 +215,10 @@ const hasGeneratedValue = (options: object): boolean =>
 	('autoIncrement' in options && options.autoIncrement === true) ||
 	'generatedOn' in options
 
+/** Detects a declared list option without validating its value. */
+export const hasListOption = (options: object): boolean =>
+	'list' in options && options.list !== undefined && options.list !== false
+
 /** Derives whether a selected persisted field may contain logical null. */
 export const isFieldNullable = (field: GenericField): boolean =>
 	!hasRequiredOption(field.options) && !hasGeneratedValue(field.options)

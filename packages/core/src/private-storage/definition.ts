@@ -6,7 +6,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import { assertFieldDefinition } from '../schema/fields/base/definition.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import {
@@ -93,11 +93,10 @@ const normalizeIndexes = <
 	return immutableArray(
 		value.map((candidate, index) => {
 			const path = `private collection indexes[${String(index)}]`
-			if (!isPlainRecord(candidate))
-				throw new TypeError(`${path} must be a plain object`)
-			assertExactObjectKeys(
+			assertExactPlainObject(
 				candidate,
 				new Set(['fields']),
+				`${path} must be a plain object`,
 				`${path} contains unknown option: `,
 			)
 			if (!isUnknownArray(candidate.fields) || candidate.fields.length === 0) {
@@ -139,11 +138,10 @@ const normalizeReferences = <
 	return immutableArray(
 		value.map((candidate, index) => {
 			const path = `private collection references[${String(index)}]`
-			if (!isPlainRecord(candidate))
-				throw new TypeError(`${path} must be a plain object`)
-			assertExactObjectKeys(
+			assertExactPlainObject(
 				candidate,
 				new Set(['field', 'onDelete', 'target']),
+				`${path} must be a plain object`,
 				`${path} contains unknown option: `,
 			)
 			assertNonEmptyString(candidate.field, `${path}.field`)
@@ -185,10 +183,7 @@ export const definePrivateCollection = <
 >(
 	options: DefinePrivateCollectionOptions<TFields, TIndexes>,
 ): PrivateCollection<TFields, TIndexes> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('private collection options must be a plain object')
-	}
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set([
 			'contributionId',
@@ -198,6 +193,7 @@ export const definePrivateCollection = <
 			'protocolVersion',
 			'references',
 		]),
+		'private collection options must be a plain object',
 		'private collection options contains unknown option: ',
 	)
 	assertNonEmptyString(

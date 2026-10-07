@@ -2,8 +2,9 @@ import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 } from '../../access/index.js'
+import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 import {
 	executeOperation,
 	normalizeOperationOptions,
@@ -17,16 +18,12 @@ import {
 	type CapabilityToken,
 } from '../../plugins/capability-token.js'
 import {
+	type CoreFoundationProvider,
+	defineCoreFoundationProvider,
 	provideCapability,
-	type CapabilityProviderDeclaration,
 } from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -35,7 +32,6 @@ import type {
 	RequestContextOptions,
 } from '../context/request-context.js'
 import {
-	assertApplicationEngineAvailable,
 	assertApplicationRequestExecutionAvailable,
 	assertMasterElevationPrivilege,
 } from '../engine/application-binding.js'
@@ -153,7 +149,7 @@ const enterBoundFramework = (
 	if (requireStarted) {
 		assertApplicationRequestExecutionAvailable(framework.application)
 	} else {
-		assertApplicationEngineAvailable(framework.application)
+		assertApplicationExecution(framework.application)
 	}
 	if (readApplicationPluginOwner(framework.application) === undefined) {
 		throw new FrameworkError(
@@ -172,14 +168,10 @@ const enterBoundFramework = (
 const assertMasterVerificationOptions: (
 	options: unknown,
 ) => asserts options is ApplicationMasterKeyVerificationOptions = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'Master key verification options must be a plain object',
-		)
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		masterVerificationOptionKeys,
+		'Master key verification options must be a plain object',
 		'Master key verification contains unknown option: ',
 	)
 	assertNonEmptyString(options.rawKey, 'Master key')
@@ -330,17 +322,9 @@ const canonicalApplicationRequestExecutor = provideCapability(
 )
 
 /** @internal Supplies the request facade only when a plugin consumes it. */
-export const canonicalApplicationRequestExecutionFoundation: Readonly<{
-	declaration: CapabilityProviderDeclaration<
-		typeof applicationRequestExecutionCapability
-	>
-	owner: PluginIdentity
-	version: string
-}> = immutableRecord({
-	declaration: canonicalApplicationRequestExecutor,
-	owner: immutableRecord({ pluginId: '@ultimabase/core' }),
-	version: '0.0.0',
-})
+export const canonicalApplicationRequestExecutionFoundation: CoreFoundationProvider<
+	typeof applicationRequestExecutionCapability
+> = defineCoreFoundationProvider(canonicalApplicationRequestExecutor)
 
 /** @internal Completes the one-time binding after FrameworkEngine construction. */
 export const bindApplicationRequestExecutor = (

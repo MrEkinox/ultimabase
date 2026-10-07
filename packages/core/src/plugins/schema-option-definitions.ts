@@ -1,10 +1,7 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
+import { isTypeScriptIdentifier } from './typegen-contracts.js'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 
 import type {
 	CapabilityConsumerValue,
@@ -158,13 +155,10 @@ const normalizeTypegenDescriptor = (
 ): SchemaOptionTypegenDescriptor | false => {
 	if (value === false) return false
 
-	if (!isPlainRecord(value)) {
-		throw new TypeError('Schema option typegen must be false or a plain object')
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		value,
 		optionTypegenKeys,
+		'Schema option typegen must be false or a plain object',
 		'Unknown schema option typegen key: ',
 	)
 	assertNonEmptyString(value.module, 'Schema option typegen.module')
@@ -176,7 +170,7 @@ const normalizeTypegenDescriptor = (
 		)
 	}
 
-	if (!/^[$A-Z_a-z][$\w]*$/u.test(value.type)) {
+	if (!isTypeScriptIdentifier(value.type)) {
 		throw new TypeError(
 			'Schema option typegen.type must be a TypeScript export identifier',
 		)
@@ -187,7 +181,7 @@ const normalizeTypegenDescriptor = (
 			value.compatibilityType,
 			'Schema option typegen.compatibilityType',
 		)
-		if (!/^[$A-Z_a-z][$\w]*$/u.test(value.compatibilityType)) {
+		if (!isTypeScriptIdentifier(value.compatibilityType)) {
 			throw new TypeError(
 				'Schema option typegen.compatibilityType must be a TypeScript export identifier',
 			)
@@ -221,13 +215,10 @@ const normalizeOptionDefinition = <
 ):
 	| SchemaOptionDefinition<TValue, TRequirement, TSource>
 	| FieldOptionDefinition<TValue, TRequirement, TSource> => {
-	if (!isPlainRecord(definition)) {
-		throw new TypeError('Schema option definition must be a plain object')
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		definition,
 		field ? fieldOptionDefinitionKeys : optionDefinitionKeys,
+		'Schema option definition must be a plain object',
 		`Unknown ${field ? 'field option definition' : 'schema option definition'} key: `,
 	)
 
@@ -256,12 +247,10 @@ const normalizeOptionDefinition = <
 	const runtime = definition.runtime
 	let runtimeCompile: ((context: unknown) => unknown) | undefined
 	if (runtime !== undefined) {
-		if (!isPlainRecord(runtime)) {
-			throw new TypeError('Schema option runtime must be a plain object')
-		}
-		assertExactObjectKeys(
+		assertExactPlainObject(
 			runtime,
 			optionRuntimeKeys,
+			'Schema option runtime must be a plain object',
 			'Unknown schema option runtime key: ',
 		)
 		const untrustedCompile: unknown = runtime.compile

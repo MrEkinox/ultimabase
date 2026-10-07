@@ -10,6 +10,7 @@ import { assertPluginDefinition, type PluginDefinition } from './definition.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	snapshotPluginIdentity,
 	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
@@ -45,10 +46,7 @@ export const createDuplicatePluginError = (
 		`Plugin "${formatPluginIdentity(identity)}" was declared more than once.`,
 		{
 			internalDetails: {
-				pluginId: identity.pluginId,
-				...(identity.instanceId === undefined
-					? {}
-					: { instanceId: identity.instanceId }),
+				...snapshotPluginIdentity(identity),
 				source,
 			},
 		},

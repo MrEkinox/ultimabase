@@ -1,10 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import { readActiveApplicationOwner } from '../../application/active-application.js'
 import { FrameworkError } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { QueryFilterExpression } from '../filters/logical.js'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type {
 	ExecutableOperationAst,
@@ -29,6 +30,7 @@ export interface NormalizedOperationOptions {
 	readonly useMasterKey: boolean
 }
 
+const operationOptionKeys = new Set(['context', 'useMasterKey'])
 const emptyNormalizedOperationOptions: NormalizedOperationOptions =
 	immutableRecord({ context: undefined, useMasterKey: false })
 
@@ -40,15 +42,12 @@ export const normalizeOperationOptions = (
 
 	const untrustedOptions: unknown = options
 
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('operation options must be a plain object')
-	}
-
-	for (const key of Object.keys(untrustedOptions)) {
-		if (key !== 'context' && key !== 'useMasterKey') {
-			throw new TypeError(`operation options contain unknown key: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		untrustedOptions,
+		operationOptionKeys,
+		'operation options must be a plain object',
+		'operation options contain unknown key: ',
+	)
 
 	const { context, useMasterKey } = untrustedOptions
 

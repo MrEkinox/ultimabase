@@ -1,16 +1,21 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import type { ValidationIssue, ValidationIssuePath } from './contracts.js'
+import type {
+	AnyValidationIssueCode,
+	ValidationIssue,
+	ValidationIssuePath,
+} from './contracts.js'
 
 const uuidPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 
-const createIssue = (
-	code: 'decimal.precision' | 'decimal.scale' | 'uuid.type',
+/** Builds one immutable issue for schema shape checks and Runtime validation. */
+export const createValidationIssue = <TCode extends AnyValidationIssueCode>(
+	code: TCode,
 	path: ValidationIssuePath,
 	message: string,
-): ValidationIssue =>
+): ValidationIssue<TCode> =>
 	immutableRecord({ code, path: immutableArray(path), message })
 
 /** Resolves the declared temporal representation without coupling it to validation. */
@@ -31,7 +36,11 @@ export const validateScalarFieldShape = (
 		return uuidPattern.test(value)
 			? immutableArray([])
 			: immutableArray([
-					createIssue('uuid.type', path, 'Value must be a valid UUID'),
+					createValidationIssue(
+						'uuid.type',
+						path,
+						'Value must be a valid UUID',
+					),
 				])
 	}
 
@@ -50,7 +59,7 @@ export const validateScalarFieldShape = (
 		precision > field.options.precision
 	) {
 		issues.push(
-			createIssue(
+			createValidationIssue(
 				'decimal.precision',
 				path,
 				`Value precision must not exceed ${String(field.options.precision)}`,
@@ -64,7 +73,7 @@ export const validateScalarFieldShape = (
 		fraction.length > field.options.scale
 	) {
 		issues.push(
-			createIssue(
+			createValidationIssue(
 				'decimal.scale',
 				path,
 				`Value scale must not exceed ${String(field.options.scale)}`,

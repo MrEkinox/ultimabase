@@ -44,7 +44,7 @@ import { defineOrdinarySchemaModel } from '../../schema/schema/definition.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-contracts.js'
 import { getActiveRequestEngine } from '../context/active-framework-context.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
 import { requestSources } from '../context/request-context.js'
@@ -84,10 +84,6 @@ import {
 	readEngineOptions,
 	type CompiledApplication,
 	type RootUltimaBaseOptions,
-} from './ultima-base-contracts.js'
-export type {
-	CompiledApplication,
-	UltimaBaseInstanceOptions,
 } from './ultima-base-contracts.js'
 
 /**

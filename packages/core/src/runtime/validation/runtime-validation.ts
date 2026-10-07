@@ -15,6 +15,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
@@ -41,12 +42,6 @@ import {
 	validateUpdateExpression,
 	validateUpsertCreateInput,
 } from './runtime-mutation-validation.js'
-
-export {
-	throwRuntimeValidationIssues,
-	type RuntimeValidationErrorDescription,
-	type RuntimeValidationIssue,
-} from './runtime-field-validation.js'
 
 const mutationKinds: ReadonlySet<string> = new Set([
 	'create-one',
@@ -80,15 +75,12 @@ export const emptyRuntimeValidationOptions: RuntimeValidationOptions =
 export const normalizeRuntimeValidationOptions = (
 	options: unknown,
 ): Readonly<RuntimeValidationOptions> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Runtime validation options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!validationOptionKeys.has(key)) {
-			throw new TypeError(`Runtime validation contains unknown option: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		options,
+		validationOptionKeys,
+		'Runtime validation options must be a plain object',
+		'Runtime validation contains unknown option: ',
+	)
 
 	const clock: unknown = options.clock
 	const nestedWrites: unknown = options.nestedWrites

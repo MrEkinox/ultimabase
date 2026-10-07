@@ -24,8 +24,8 @@ import {
 	createQueryRegexFilter,
 	createQueryStructuralFilter,
 	createQueryValueFilter,
-	fieldPath,
 } from './factory.js'
+import { fieldPath } from './target.js'
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import {
 	readWhereOperatorKind,

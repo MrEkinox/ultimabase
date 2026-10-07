@@ -1,6 +1,4 @@
-import { isPlainRecord } from '@ultimabase/shared'
-
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { FrameworkApplicationOptions } from '../../application/framework-application.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
@@ -69,12 +67,10 @@ export const assertUltimaBaseOptions: (
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 > = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('UltimaBase options must be a plain object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		ultimaBaseOptionKeys,
+		'UltimaBase options must be a plain object',
 		'UltimaBase contains unknown option: ',
 	)
 }

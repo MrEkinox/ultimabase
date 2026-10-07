@@ -207,6 +207,10 @@ export interface PluginManifestOptions {
 
 const pluginIdPattern =
 	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
+
+/** Package-scoped or dot-namespaced identifier shared by plugin and capability ids. */
+export const isPluginIdentifier = (value: string): boolean =>
+	pluginIdPattern.test(value)
 /** Lists every informational direct-environment claim accepted in manifests. */
 export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =
 	immutableArray(

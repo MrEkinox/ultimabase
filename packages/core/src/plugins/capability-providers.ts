@@ -221,3 +221,20 @@ export const assertCapabilityProviderDeclaration: (
 		throw new TypeError(`${path} must be created by provideCapability`)
 	}
 }
+
+/** @internal Describes one Core-owned provider installed only when a plugin consumes it. */
+export type CoreFoundationProvider<TToken extends CapabilityToken> = Readonly<{
+	declaration: CapabilityProviderDeclaration<TToken>
+	owner: PluginIdentity
+	version: string
+}>
+
+/** @internal Attributes one canonical provider declaration to Core itself. */
+export const defineCoreFoundationProvider = <TToken extends CapabilityToken>(
+	declaration: CapabilityProviderDeclaration<TToken>,
+): CoreFoundationProvider<TToken> =>
+	immutableRecord({
+		declaration,
+		owner: immutableRecord({ pluginId: '@ultimabase/core' }),
+		version: '0.0.0',
+	})

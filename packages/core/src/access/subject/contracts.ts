@@ -125,9 +125,7 @@ export class RequestSubjectReference<
 	readonly value: TValue
 
 	constructor(kind: TKind, value: TValue) {
-		if (typeof kind !== 'string' || kind.length === 0) {
-			throw new TypeError('Request subject kind must be a non-empty string')
-		}
+		assertNonEmptyString(kind, 'Request subject kind')
 
 		this.kind = kind
 		this.value = value

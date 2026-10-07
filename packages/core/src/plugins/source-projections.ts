@@ -19,13 +19,6 @@ import type {
 import type { RelationMutationDelta } from '../schema/relations/mutation.js'
 import type { ResolveSourceSchemaTemplate } from './source-schema-templates.js'
 
-export type {
-	PluginSourceMutationMethod,
-	PluginSourceSchemaFieldValues,
-	PluginSourceSchemaMutationCarrier,
-	PluginSourceSchemaMutations,
-} from './source-schema-templates.js'
-
 declare const pluginSourceReceiptType: unique symbol
 declare const pluginSourceRelationChangeType: unique symbol
 

@@ -15,7 +15,7 @@ import {
 	type PendingSchemaOptionRuntimeCompilation,
 	type SchemaDeclarationBatch,
 } from './schema-declaration-contracts.js'
-import { coreSchemaKeys } from './schema-option-resolution.js'
+import { coreSchemaKeys } from '../schema/schema/registry.js'
 import { readDeclaredRuntimeCapability, sameOwner } from './schema-selectors.js'
 
 const readCompiledOptionValue = (source: unknown, name: string): unknown => {

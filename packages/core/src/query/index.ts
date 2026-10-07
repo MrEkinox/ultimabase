@@ -52,7 +52,7 @@ export type {
 	QueryFilterOperandSource,
 	QueryFilterOperandTransformer,
 } from './filters/input-transformation.js'
-export { fieldPath } from './filters/factory.js'
+export { fieldPath } from './filters/target.js'
 export type {
 	QueryAndFilterNode,
 	QueryConstantFilterNode,
@@ -216,7 +216,7 @@ export type {
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
 export { QueryBuilder } from './query/query.js'
-export type { QueryPointerTargetBuilder } from './query/query.js'
+export type { QueryPointerTargetBuilder } from './query/query-contracts.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export { applyUpdateExpressionToRecord } from './updates/apply.js'

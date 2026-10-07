@@ -1,4 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import {
 	createSchemaRecord,
@@ -39,18 +40,12 @@ const readCommandInput = (
 	command: string,
 	keys: readonly string[],
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`Schema model ${command} input must be a plain object`)
-	}
-
-	for (const key of Object.keys(input)) {
-		if (!keys.includes(key)) {
-			throw new TypeError(
-				`Schema model ${command} input contains unknown key: ${key}`,
-			)
-		}
-	}
-
+	assertExactEnumerablePlainObject(
+		input,
+		new Set(keys),
+		`Schema model ${command} input must be a plain object`,
+		`Schema model ${command} input contains unknown key: `,
+	)
 	return input
 }
 

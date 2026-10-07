@@ -39,11 +39,6 @@ import {
 	type VirtualFieldResolver,
 } from './virtual-field.js'
 
-export {
-	FieldBuilderMethodUnavailableError,
-	FieldBuilderTargetUnavailableError,
-	type FieldBuilderTargetResolver,
-} from './runtime-field-builder.js'
 export type {
 	EmbeddedFieldBuilder,
 	FieldBuilder,

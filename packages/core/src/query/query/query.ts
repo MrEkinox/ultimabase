@@ -100,7 +100,6 @@ import type {
 	QuerySelectionAfterInclude,
 	ReplaceResultInclusion,
 } from './query-contracts.js'
-export type { QueryPointerTargetBuilder } from './query-contracts.js'
 
 /** Serializes normalized AST priorities through deterministic property order. */
 const buildQueryOrderByInput = (

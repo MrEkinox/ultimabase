@@ -1,10 +1,12 @@
 import type {
 	EmptyPluginSourceState,
 	PluginSourceState,
-	PluginSourceSchemaMutationCarrier,
-	PluginSourceSchemaMutations,
 	ResolvePluginSchemaProjection,
 } from '../../plugins/source-projections.js'
+import type {
+	PluginSourceSchemaMutationCarrier,
+	PluginSourceSchemaMutations,
+} from '../../plugins/source-schema-templates.js'
 import type {
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoCarrier,
@@ -13,7 +15,7 @@ import type {
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
-import type { SchemaResultCapabilityCarrier } from './model.js'
+import type { SchemaResultCapabilityCarrier } from './model-contracts.js'
 import type {
 	Schema,
 	SchemaDeclaredFields,

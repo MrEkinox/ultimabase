@@ -19,11 +19,6 @@ import type { SchemaMetadata } from '../schema/schema/definition.js'
 import type { SchemaCompilationResult } from './schema-compilation/contracts.js'
 import { attachPluginDeclarationDiagnostic } from './schema-declaration-contracts.js'
 import { isSamePluginIdentity } from './manifest.js'
-export type {
-	CompiledApplicationSchemaSurface,
-	CompiledPluginOperation,
-	CompiledSchemaMutationCommand,
-} from './application-surface-contracts.js'
 
 const assertMutationSelection = (
 	name: string,

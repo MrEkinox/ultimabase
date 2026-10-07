@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { snapshotPluginIdentity } from '../../plugins/manifest.js'
 
 import { FrameworkError } from '../../foundation.js'
 import {
@@ -14,7 +15,10 @@ import {
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../foundation.js'
 import type { CapabilityToken } from '../../plugins/capability-token.js'
-import type { OwnedPluginContribution } from '../../plugins/setup-registries.js'
+import {
+	ownPluginContribution,
+	type OwnedPluginContribution,
+} from '../../plugins/setup-registries.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
@@ -126,12 +130,7 @@ export class RuntimeCallbackExecutor {
 			? runWithApplicationOwner(this.application, execute)
 			: runWithApplicationPluginOwner(
 					this.application,
-					immutableRecord({
-						pluginId: descriptor.owner.pluginId,
-						...(descriptor.owner.instanceId === undefined
-							? {}
-							: { instanceId: descriptor.owner.instanceId }),
-					}),
+					snapshotPluginIdentity(descriptor.owner),
 					execute,
 				))
 
@@ -180,14 +179,7 @@ export const readOwnedRuntimeContributions = <
 	for (const { contributionId, owner, value } of readApplicationKernelState(
 		application,
 	).capabilityContributions(token)) {
-		const contribution = immutableRecord({
-			name: contributionId,
-			ownerPlugin: owner.pluginId,
-			...(owner.instanceId === undefined
-				? {}
-				: { ownerInstanceId: owner.instanceId }),
-			value,
-		})
+		const contribution = ownPluginContribution(contributionId, owner, value)
 		const implementation = resolve(contribution)
 		if (implementation === undefined) continue
 

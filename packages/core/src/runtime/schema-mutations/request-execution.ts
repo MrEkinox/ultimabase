@@ -1,5 +1,8 @@
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
-import { runApplicationWork } from '../../application/active-application.js'
+import {
+	assertApplicationExecution,
+	runApplicationWork,
+} from '../../application/active-application.js'
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
@@ -17,10 +20,7 @@ import {
 	readRequestEngineInternals,
 	type RequestEngineInternals,
 } from '../engine/request-engine.js'
-import {
-	assertApplicationEngineAvailable,
-	resolveTerminalContext,
-} from '../engine/application-binding.js'
+import { resolveTerminalContext } from '../engine/application-binding.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
 import { executeRuntimeSchemaMutation } from './pipeline-execution.js'
 
@@ -67,7 +67,7 @@ const executeSchemaMutationRequest = async (
 ): Promise<unknown> => {
 	const { application, derive, framework, lifetime, pipeline } =
 		readRequestEngineInternals(engine)
-	assertApplicationEngineAvailable(application)
+	assertApplicationExecution(application)
 	assertEnvelope(application, command, schema, envelope)
 	const context = await resolveTerminalContext(
 		application,

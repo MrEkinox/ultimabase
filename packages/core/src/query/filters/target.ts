@@ -11,6 +11,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import {
@@ -44,14 +45,16 @@ export const readObjectChildFields = (
 	return fields
 }
 
+const fieldPathKeys = new Set(['kind', 'field', 'path'])
+
 const parseFieldPath = (value: unknown): QueryFieldPath | undefined => {
 	if (!isPlainRecord(value) || value.kind !== 'field-path') return undefined
 
-	for (const key of Object.keys(value)) {
-		if (key !== 'kind' && key !== 'field' && key !== 'path') {
-			throw new TypeError(`query field path contains unknown key: ${key}`)
-		}
-	}
+	assertExactEnumerableKeys(
+		value,
+		fieldPathKeys,
+		'query field path contains unknown key: ',
+	)
 
 	if (typeof value.field !== 'string') {
 		throw new TypeError('query field path field must be a string')

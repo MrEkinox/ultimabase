@@ -1,15 +1,11 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { runApplicationWork } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-contracts.js'
 import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
@@ -111,14 +107,10 @@ export const exposeFrameworkSchemaMutations = <
 		transport: options.transport,
 		execute: async (request: SchemaMutationTransportRequest) => {
 			const untrustedRequest: unknown = request
-			if (!isPlainRecord(untrustedRequest)) {
-				throw new TypeError(
-					'schema mutation transport request must be a plain object',
-				)
-			}
-			assertExactEnumerableKeys(
+			assertExactEnumerablePlainObject(
 				untrustedRequest,
 				requestKeys,
+				'schema mutation transport request must be a plain object',
 				'schema mutation transport request contains unknown key: ',
 			)
 			const context: unknown = request.context

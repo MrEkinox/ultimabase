@@ -1,10 +1,13 @@
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import {
 	finalizeSchemaCompilation,
 	prepareSchemaCompilation,
-	Schema,
 	validateSchemaCompilation,
+} from './definition-compilation.js'
+import {
+	Schema,
 	type PreparedSchemaCompilation,
 	type SchemaCompiledTargetIdentity,
 	type SchemaDefinition,
@@ -15,7 +18,8 @@ import { getDeclaredFieldOptionsContract } from '../fields/base/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertEmbeddedFieldDefinition } from '../fields/builtins/object.js'
 
-const coreSchemaMetadataKeys = new Set([
+/** Names the compiled schema metadata keys; every other key is a schema option. */
+export const coreSchemaKeys: ReadonlySet<string> = new Set([
 	'className',
 	'constraints',
 	'fields',
@@ -62,11 +66,12 @@ const assertCompiledFields = (
 	rejectUnresolvedOptions: boolean,
 ): void => {
 	for (const { definition, schema } of prepared) {
-		const unknownSchemaKey = rejectUnresolvedOptions
-			? Object.keys(definition).find((key) => !coreSchemaMetadataKeys.has(key))
-			: undefined
-		if (unknownSchemaKey !== undefined) {
-			throw new TypeError(`Unknown schema option: ${unknownSchemaKey}`)
+		if (rejectUnresolvedOptions) {
+			assertExactEnumerableKeys(
+				definition,
+				coreSchemaKeys,
+				'Unknown schema option: ',
+			)
 		}
 
 		for (const [name, field] of Object.entries(definition.persistedFields)) {

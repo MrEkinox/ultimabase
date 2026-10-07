@@ -21,10 +21,8 @@ import {
 	isCollectionOperationResult,
 	isNullableOperationResult,
 } from '../operations/characteristics.js'
-import {
-	snapshotRuntimeResultRecord,
-	type RuntimeValidationErrorDescription,
-} from '../validation/runtime-validation.js'
+import type { RuntimeValidationErrorDescription } from '../validation/runtime-field-validation.js'
+import { snapshotRuntimeResultRecord } from '../validation/runtime-validation.js'
 import { throwBoundaryIssue } from './validation-boundary-helpers.js'
 
 type LogicalRecord = Readonly<Record<string, unknown>>

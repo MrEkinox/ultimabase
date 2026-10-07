@@ -20,9 +20,10 @@ import {
 	type ProtectedPolicyDefinition,
 } from './enforcement/protected-policy.js'
 import { getRuntimeContributionImplementation } from './contributions/definitions.js'
-import type {
-	RuntimeBehaviorStages,
-	RuntimeLogicalOperationKind,
+import {
+	runtimeBehaviorStageNames,
+	type RuntimeBehaviorStages,
+	type RuntimeLogicalOperationKind,
 } from './pipeline/contracts.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
@@ -110,19 +111,9 @@ type RuntimeProviderOptions<TDefinition> = Readonly<{
 // Declarations created only by the exact Runtime provider facades below.
 const runtimeProviders = new WeakSet<object>()
 
-const runtimeBehaviorKeys: ReadonlySet<string> = new Set([
-	'beforeOperation',
-	'guardMutationInput',
-	'observePreparedMutation',
-	'postCommit',
-	'requiresPreparedMutationItems',
-	'transformDatabaseResult',
-	'transformInput',
-	'transformMutationOutcome',
-	'transformPreparedInput',
-	'transformPreparedOperation',
-	'transformResult',
-])
+const runtimeBehaviorKeys: ReadonlySet<string> = new Set(
+	runtimeBehaviorStageNames,
+)
 
 const assertRuntimeBehavior = (value: unknown): RuntimeBehaviorStages => {
 	if (!isPlainRecord(value)) {

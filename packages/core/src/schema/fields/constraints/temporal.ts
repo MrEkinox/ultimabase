@@ -1,6 +1,7 @@
 import { assertOptionalBoolean } from '@ultimabase/shared'
 
 import type { FieldOptions } from '../base/contract.js'
+import { hasListOption } from '../base/options.js'
 
 interface TemporalAutoNowOption {
 	/**
@@ -51,11 +52,7 @@ export const assertTemporalAutoNow = (options: object): void => {
 		throw new TypeError('autoNow and default cannot both be configured')
 	}
 
-	if (
-		'list' in options &&
-		options.list !== undefined &&
-		options.list !== false
-	) {
+	if (hasListOption(options)) {
 		throw new TypeError('autoNow cannot be used with list fields')
 	}
 }

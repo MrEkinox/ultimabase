@@ -13,8 +13,8 @@ import type {
 } from '../schema-declaration-contracts.js'
 import { resolveOptionDefinition } from '../schema-declaration-contracts.js'
 import type { SchemaPatchOperation } from '../schema-patch-contracts.js'
+import { coreSchemaKeys } from '../../schema/schema/registry.js'
 import {
-	coreSchemaKeys,
 	normalizeOwnedOptionValue,
 	resolveFieldOptions,
 } from '../schema-option-resolution.js'

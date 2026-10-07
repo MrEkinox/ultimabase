@@ -4,6 +4,7 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 import { valid } from 'semver'
+import { isNamespacedName } from '../../schema/fields/base/definition.js'
 
 import {
 	isPluginOperationDefinition,
@@ -21,8 +22,6 @@ import type {
 	OperationWireCodec,
 } from './contracts.js'
 
-const namespacedNamePattern =
-	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
 const wireCodecImplementations = new WeakMap<
 	object,
 	Readonly<{
@@ -45,10 +44,7 @@ export const defineOperationTransport = <
 	if (!isPlainRecord(options)) {
 		throw new TypeError('operation transport options must be a plain object')
 	}
-	if (
-		typeof options.name !== 'string' ||
-		!namespacedNamePattern.test(options.name)
-	) {
+	if (typeof options.name !== 'string' || !isNamespacedName(options.name)) {
 		throw new TypeError('operation transport name must be namespaced')
 	}
 	if (valid(options.version) !== options.version) {

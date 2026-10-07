@@ -2,7 +2,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../../schema/fields/base/contract.js'
 import { assertFieldDefinition } from '../../schema/fields/base/definition.js'
-import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
+import { getRelationWhereDeclaration } from '../../schema/fields/base/definition.js'
 import type { CompiledSchemaRegistry } from '../../schema/schema/registry.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type { QueryFilterNode } from './logical.js'

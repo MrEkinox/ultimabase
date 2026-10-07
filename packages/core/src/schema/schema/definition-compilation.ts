@@ -12,8 +12,8 @@ import { areSchemaDeclarationValuesCompatible } from './declaration-compatibilit
 import {
 	FieldBuilderDeclarationExecutionError,
 	resolveCapturedFieldMap,
-	type FieldBuilderTargetResolver,
 } from './field-builder.js'
+import type { FieldBuilderTargetResolver } from './runtime-field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import { normalizeSchemaIndexes, type SchemaIndexOptions } from './indexes.js'
 import { createInitialSchemaProvenance } from './provenance.js'

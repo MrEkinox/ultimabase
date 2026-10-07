@@ -3,6 +3,7 @@ import {
 	type FieldDefinition,
 	type SchemaDefinition,
 } from '../../schema/index.js'
+import { hasListOption } from '../../schema/fields/base/options.js'
 import {
 	assertNonEmptyString,
 	immutableArray,
@@ -27,11 +28,6 @@ const includesString = (values: readonly string[], value: string): boolean =>
 
 const isImmutableField = (field: RuntimeUpdateField): boolean =>
 	'immutable' in field.options && field.options.immutable === true
-
-const isListField = (field: RuntimeUpdateField): boolean =>
-	'list' in field.options &&
-	field.options.list !== false &&
-	field.options.list !== undefined
 
 const resolveMutableField = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -87,7 +83,7 @@ const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 	const [numericFieldName, field] = resolveMutableField(schema, fieldName, path)
 
 	if (
-		isListField(field) ||
+		hasListOption(field.options) ||
 		!includesString(numericUpdateFieldKinds, field.kind)
 	) {
 		throw new TypeError(`${path} must reference a mutable scalar numeric field`)

@@ -1,6 +1,6 @@
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../foundation.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -40,8 +40,10 @@ import {
 	applicationRequestExecutionCapability,
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
-import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
-import { bindRuntimeRelationFilters } from '../relation-filters/binding.js'
+import {
+	bindRuntimeRelationFilters,
+	bindRuntimeVirtualFields,
+} from '../pipeline/application-bindings.js'
 import { assertSchemaMutationHandlers } from '../schema-mutations/runtime.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
@@ -80,15 +82,10 @@ const neutralCommit: RuntimeResultEffectStage = () => undefined
 export const normalizeCreateFrameworkEngineOptions = (
 	options: unknown,
 ): Readonly<CreateFrameworkEngineOptions> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'framework engine factory options must be a plain object',
-		)
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		createFrameworkEngineOptionKeys,
+		'framework engine factory options must be a plain object',
 		'framework engine factory contains unknown key: ',
 	)
 

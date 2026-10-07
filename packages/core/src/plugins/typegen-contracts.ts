@@ -1,14 +1,15 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 
 const typegenReferenceBrand: unique symbol = Symbol('TypegenReference')
 const typegenReferences = new WeakSet<object>()
-const identifierPattern = /^[$A-Z_a-z][$\w]*$/u
+
+const typeScriptIdentifierPattern = /^[$A-Z_a-z][$\w]*$/u
+
+/** TypeScript identifiers accepted for generated type and property names. */
+export const isTypeScriptIdentifier = (value: string): boolean =>
+	typeScriptIdentifierPattern.test(value)
 
 /** Names one public exported TypeScript type without importing executable code. */
 export interface TypegenReference<
@@ -28,12 +29,10 @@ export const defineTypegenReference = <
 	readonly exportName: TExportName
 	readonly module: TModule
 }): TypegenReference<TModule, TExportName> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Typegen reference must be a plain object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		new Set(['exportName', 'module']),
+		'Typegen reference must be a plain object',
 		'Typegen reference contains unknown option: ',
 	)
 	assertNonEmptyString(options.module, 'Typegen reference module')
@@ -41,7 +40,7 @@ export const defineTypegenReference = <
 	if (options.module.trim() !== options.module || /\s/u.test(options.module)) {
 		throw new TypeError('Typegen reference module must be a stable specifier')
 	}
-	if (!identifierPattern.test(options.exportName)) {
+	if (!typeScriptIdentifierPattern.test(options.exportName)) {
 		throw new TypeError('Typegen reference exportName must be an identifier')
 	}
 	const reference = immutableRecord({

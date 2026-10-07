@@ -14,7 +14,7 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -34,7 +34,7 @@ import {
 } from '../persistence/execution.js'
 import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
 import type { RuntimeInclusionProjector } from '../pipeline/inclusion-projection.js'
-import { loadSingularMutationInclusionSource } from '../pipeline/inclusion-projection.js'
+import { loadSingularMutationInclusionSource } from '../pipeline/mutation-inclusion-source.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.js'
 import {
@@ -43,7 +43,7 @@ import {
 } from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
-import { createRuntimeVirtualFieldScheduler } from '../virtual-fields/binding.js'
+import { createRuntimeVirtualFieldScheduler } from '../pipeline/application-bindings.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'

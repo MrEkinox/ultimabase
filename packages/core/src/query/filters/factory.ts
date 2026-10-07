@@ -1,25 +1,22 @@
 import {
 	getPluginFieldStorageCodec,
 	getPluginFieldStructuralContains,
-	snapshotScalarFieldValue,
 	type SchemaDefinition,
 } from '../../schema/index.js'
-import { snapshotPluginFieldStructuralContainsOperand } from '../../schema/fields/base/definition.js'
 import {
 	equalityFieldKinds,
 	orderedFieldKinds,
 } from '../../schema/fields/base/filter-kinds.js'
-import {
-	getFieldListDepth,
-	isFieldNullable,
-} from '../../schema/fields/base/options.js'
+import { hasListOption } from '../../schema/fields/base/options.js'
 import { snapshotJsonValue } from '../../schema/fields/base/portable-json.js'
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import type {
@@ -39,13 +36,16 @@ import type {
 	QueryStructuralContainmentFilterOperator,
 } from './primitive.js'
 import {
-	readObjectChildFields,
+	snapshotFieldValue,
+	snapshotList,
+	snapshotNonNullValue,
+	snapshotStructuralValue,
+} from './operand-snapshots.js'
+import {
 	resolveQueryTarget,
 	type ResolvedQueryTarget,
 	type RuntimeQueryField,
 } from './target.js'
-
-export { fieldPath } from './target.js'
 
 type QueryValueFilterOperator =
 	| QueryComparisonFilterOperator
@@ -54,11 +54,6 @@ type QueryValueFilterOperator =
 
 const includesString = (values: readonly string[], value: string): boolean =>
 	values.includes(value)
-
-const hasListShape = (field: RuntimeQueryField): boolean =>
-	'list' in field.options &&
-	field.options.list !== false &&
-	field.options.list !== undefined
 
 /** Structural containment applies to JSON, typed objects, and opted-in plugin fields. */
 const hasStructuralContainment = (field: RuntimeQueryField): boolean =>
@@ -112,7 +107,7 @@ const assertOperatorSupport = (
 		return
 	}
 
-	if (hasListShape(field)) {
+	if (hasListOption(field.options)) {
 		if (operator === 'equal' || operator === 'not-equal') return
 
 		throw new TypeError(
@@ -148,126 +143,6 @@ const targetProperties = <TFieldName extends string>(
 	target.path === undefined
 		? { field: target.fieldName }
 		: { field: target.fieldName, path: target.path }
-
-const snapshotNonNullValue = (
-	field: RuntimeQueryField,
-	value: unknown,
-	path: string,
-): unknown => {
-	if (value === null) {
-		throw new TypeError(`${path} must not be null`)
-	}
-
-	return snapshotScalarFieldValue(field, value, path)
-}
-
-const snapshotList = (
-	field: RuntimeQueryField,
-	value: unknown,
-	path: string,
-): readonly unknown[] => {
-	if (!isUnknownArray(value)) {
-		throw new TypeError(`${path} must be a list`)
-	}
-
-	return immutableArray(
-		value.map((item, index) =>
-			snapshotNonNullValue(field, item, `${path}[${String(index)}]`),
-		),
-	)
-}
-
-/** Snapshots one complete field value, including nullable and list shapes. */
-const snapshotFieldValue = (
-	field: RuntimeQueryField,
-	value: unknown,
-	path: string,
-): unknown => {
-	if (value === null && isFieldNullable(field)) return null
-
-	return hasListShape(field)
-		? snapshotList(field, value, path)
-		: snapshotScalarFieldValue(field, value, path)
-}
-
-const snapshotPartialField = (
-	field: RuntimeQueryField,
-	value: unknown,
-	path: string,
-	listDepth = getFieldListDepth(field.options),
-	allowNull = true,
-): unknown => {
-	if (allowNull && value === null && isFieldNullable(field)) return null
-
-	if (listDepth > 0) {
-		if (!isUnknownArray(value)) {
-			throw new TypeError(`${path} must be a list`)
-		}
-
-		return immutableArray(
-			value.map((item, index) =>
-				snapshotPartialField(
-					field,
-					item,
-					`${path}[${String(index)}]`,
-					listDepth - 1,
-					false,
-				),
-			),
-		)
-	}
-
-	return field.kind === 'object'
-		? snapshotPartialObject(field, value, path)
-		: snapshotScalarFieldValue(field, value, path)
-}
-
-/** Containment operands may name any subset of declared object fields. */
-const snapshotPartialObject = (
-	field: RuntimeQueryField,
-	value: unknown,
-	path: string,
-): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	const fields = readObjectChildFields(field)
-
-	if (fields === undefined) {
-		throw new TypeError(`${path} requires object field metadata`)
-	}
-
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(value).map(([name, item]) => {
-				const child = fields[name]
-
-				if (child === undefined) {
-					throw new TypeError(`${path}.${name} is not a declared field`)
-				}
-
-				return [name, snapshotPartialField(child, item, `${path}.${name}`)]
-			}),
-		),
-	)
-}
-
-const snapshotStructuralValue = (
-	field: RuntimeQueryField | undefined,
-	value: unknown,
-	path: string,
-): unknown => {
-	if (field === undefined) return snapshotJsonValue(value, path)
-
-	if (getPluginFieldStructuralContains(field) !== undefined) {
-		return snapshotPluginFieldStructuralContainsOperand(field, value, path)
-	}
-
-	return field.kind === 'object'
-		? snapshotPartialObject(field, value, path)
-		: snapshotScalarFieldValue(field, value, path)
-}
 
 /** Creates one immutable scalar value filter after checking runtime capabilities. */
 export const createQueryValueFilter = <const TSchema extends SchemaDefinition>(
@@ -376,7 +251,7 @@ export const createQueryListFilter = <const TSchema extends SchemaDefinition>(
 	const resolved = resolveQueryTarget(schema, target)
 	const field = resolved.terminalField
 
-	if (field === undefined || !hasListShape(field)) {
+	if (field === undefined || !hasListOption(field.options)) {
 		throw new TypeError(`query operator ${operator} requires a list field`)
 	}
 
@@ -473,23 +348,16 @@ export const createQueryJsonPathFilter = <
 	const resolved = resolveOperatorTarget(schema, target, operator)
 	const untrustedExpression: unknown = expression
 
-	if (!isPlainRecord(untrustedExpression)) {
-		throw new TypeError('query JSONPath expression must be an object')
-	}
-
-	for (const key of Object.keys(untrustedExpression)) {
-		if (key !== 'source' && key !== 'variables') {
-			throw new TypeError(
-				`query JSONPath expression contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		untrustedExpression,
+		jsonPathExpressionKeys,
+		'query JSONPath expression must be an object',
+		'query JSONPath expression contains unknown key: ',
+	)
 
 	const { source, variables } = untrustedExpression
 
-	if (typeof source !== 'string' || source.length === 0) {
-		throw new TypeError('query JSONPath source must be a non-empty string')
-	}
+	assertNonEmptyString(source, 'query JSONPath source')
 
 	if (variables !== undefined && !isPlainRecord(variables)) {
 		throw new TypeError('query JSONPath variables must be an object')
@@ -516,6 +384,8 @@ export const createQueryJsonPathFilter = <
 			: { variables: normalizedVariables }),
 	})
 }
+
+const jsonPathExpressionKeys = new Set(['source', 'variables'])
 
 const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
 	value === 'case-insensitive' ||

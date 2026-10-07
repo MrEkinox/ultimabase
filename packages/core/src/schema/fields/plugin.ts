@@ -3,6 +3,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 
 import {
 	createFieldDefinition,
@@ -25,11 +26,6 @@ import type {
 	PluginFieldWireCodec,
 } from './base/definition.js'
 import { snapshotJsonValue } from './base/portable-json.js'
-
-export type {
-	AvailablePluginFieldKind,
-	ReservedFieldKind,
-} from './base/kinds.js'
 
 /** Retains plugin-owned and installed option metadata for application compilation. */
 type PluginFieldMetadata<TOptions extends object> = TOptions
@@ -110,19 +106,6 @@ const isCodecFunction = (
 	value: unknown,
 ): value is (value: unknown) => unknown => typeof value === 'function'
 
-/** Rejects keys outside one closed plugin declaration object. */
-const assertKnownKeys = (
-	record: Readonly<Record<string, unknown>>,
-	keys: ReadonlySet<string>,
-	owner: string,
-): void => {
-	const unknownKey = Object.keys(record).find((key) => !keys.has(key))
-
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown plugin field ${owner} key: ${unknownKey}`)
-	}
-}
-
 /** Wraps each nominal wire codec in the field's scalar and JSON snapshot guards. */
 const normalizePluginFieldWireCodecs = (
 	codecs: unknown,
@@ -179,7 +162,11 @@ const normalizePluginFieldStorageCodec = <TValue>(
 		throw new TypeError('Plugin field storageCodec must be a plain object')
 	}
 
-	assertKnownKeys(candidate, storageCodecKeys, 'storageCodec')
+	assertExactEnumerableKeys(
+		candidate,
+		storageCodecKeys,
+		'Unknown plugin field storageCodec key: ',
+	)
 
 	const { decode, encode, format, version } = candidate
 
@@ -247,7 +234,11 @@ export const definePluginField = <
 		throw new TypeError('Plugin field snapshotValue must be a function')
 	}
 
-	assertKnownKeys(normalizers, normalizerKeys, 'normalizer')
+	assertExactEnumerableKeys(
+		normalizers,
+		normalizerKeys,
+		'Unknown plugin field normalizer key: ',
+	)
 
 	const { snapshotValue, structuralContains } = normalizers
 	const storageCodec =
@@ -270,10 +261,10 @@ export const definePluginField = <
 			)
 		}
 
-		assertKnownKeys(
+		assertExactEnumerableKeys(
 			structuralContains,
 			structuralContainsKeys,
-			'structuralContains',
+			'Unknown plugin field structuralContains key: ',
 		)
 
 		if (typeof structuralContains.snapshotOperand !== 'function') {

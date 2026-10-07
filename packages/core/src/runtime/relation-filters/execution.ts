@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import {
@@ -13,9 +14,8 @@ import {
 } from '../../query/filters/relation.js'
 import type { QueryFilterNode } from '../../query/filters/logical.js'
 import { WhereBuilder } from '../../query/filters/where.js'
-import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
+import { getRelationWhereDeclaration } from '../../schema/fields/base/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { assertApplicationEngineAvailable } from '../engine/application-binding.js'
 import type {
 	DatabaseOperationAst,
 	DatabaseRelationPredicateScope,
@@ -86,7 +86,7 @@ export class RuntimeRelationFilterResolver {
 		operation: DatabaseOperationAst,
 		relation: DatabaseRelationReference,
 	): Promise<QueryFilterNode<SchemaDefinition> | undefined> {
-		assertApplicationEngineAvailable(this.#application)
+		assertApplicationExecution(this.#application)
 		const field = readRelationWhereField(relation.source, relation.fieldPath)
 		if (field.kind !== 'relation') {
 			throw new TypeError('Runtime relation filter path must end at a relation')
@@ -165,7 +165,7 @@ export class RuntimeRelationFilterResolver {
 				)
 			}
 
-			assertApplicationEngineAvailable(this.#application)
+			assertApplicationExecution(this.#application)
 			const normalized = omitIdentityFilter(resolved)
 			this.#resolved.set(field, normalized)
 			return normalized

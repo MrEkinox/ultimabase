@@ -1,6 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type {
 	DatabaseMutationMaterializationSource,

@@ -40,3 +40,58 @@ export const assertExactPlainObject: (
 	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
 	assertExactObjectKeys(value, keys, unknownKeyPrefix)
 }
+
+/** @internal Combines the shared plain-object and enumerable-key boundary. */
+export const assertExactEnumerablePlainObject: (
+	value: unknown,
+	keys: ReadonlySet<string>,
+	notPlainObject: string,
+	unknownKeyPrefix: string,
+) => asserts value is Record<string, unknown> = (
+	value,
+	keys,
+	notPlainObject,
+	unknownKeyPrefix,
+) => {
+	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
+	assertExactEnumerableKeys(value, keys, unknownKeyPrefix)
+}
+
+/** @internal Validates one command input with required and optional enumerable keys. */
+export const assertExactCommandKeys: (
+	input: unknown,
+	path: string,
+	requiredKeys: readonly string[],
+	optionalKeys?: readonly string[],
+) => asserts input is Readonly<Record<string, unknown>> = (
+	input,
+	path,
+	requiredKeys,
+	optionalKeys = [],
+) => {
+	assertExactEnumerablePlainObject(
+		input,
+		new Set([...requiredKeys, ...optionalKeys]),
+		`${path} must be an object`,
+		`${path} contains unknown key: `,
+	)
+
+	for (const key of requiredKeys) {
+		if (!Object.hasOwn(input, key)) {
+			throw new TypeError(`${path} must contain key: ${key}`)
+		}
+	}
+}
+
+/** @internal Compares two objects' own enumerable string-key sets, ignoring order. */
+export const haveSameEnumerableKeys = (
+	left: object,
+	right: object,
+): boolean => {
+	const leftKeys = Object.keys(left)
+
+	return (
+		leftKeys.length === Object.keys(right).length &&
+		leftKeys.every((key) => Object.hasOwn(right, key))
+	)
+}

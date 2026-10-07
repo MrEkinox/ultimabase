@@ -12,11 +12,13 @@ import { describeOperationTransport } from '../commands/transport-projection.js'
 import {
 	defineCapability,
 	provideCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
+import {
+	defineCoreFoundationProvider,
+	type CoreFoundationProvider,
+} from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
 import {
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
@@ -248,17 +250,9 @@ const canonicalPlanner = provideCapability(
 )
 
 /** @internal Supplies the planning facade only when one transport consumes it. */
-export const canonicalApplicationOperationTransportPlanningFoundation: Readonly<{
-	declaration: CapabilityProviderDeclaration<
-		typeof applicationOperationTransportPlanningCapability
-	>
-	owner: PluginIdentity
-	version: string
-}> = immutableRecord({
-	declaration: canonicalPlanner,
-	owner: immutableRecord({ pluginId: '@ultimabase/core' }),
-	version: '0.0.0',
-})
+export const canonicalApplicationOperationTransportPlanningFoundation: CoreFoundationProvider<
+	typeof applicationOperationTransportPlanningCapability
+> = defineCoreFoundationProvider(canonicalPlanner)
 
 /** @internal Binds static application provenance before transport compilation. */
 export const bindApplicationOperationTransportPlanner = (

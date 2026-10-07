@@ -14,8 +14,10 @@ import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 
 import {
+	createSchemaContributionProvenance,
 	type PluginSchemaContributionOwner,
 	type SchemaCompilationProvenance,
+	type SchemaContributionProvenance,
 } from '../schema/schema/provenance.js'
 
 import {
@@ -179,6 +181,17 @@ export interface OwnedOptionDefinition {
 	readonly scope: 'field' | 'schema'
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
+
+/** Attributes an option definition to the plugin contribution that declared it. */
+export const optionDefinitionProvenance = (
+	descriptor: OwnedOptionDefinition,
+): SchemaContributionProvenance =>
+	createSchemaContributionProvenance(
+		descriptor.owner,
+		descriptor.contributionId,
+		descriptor.staticOptions,
+		descriptor.definition.protocolVersion,
+	)
 
 export interface OptionDefinitionIndex {
 	readonly field: ReadonlyMap<string, readonly OwnedOptionDefinition[]>
