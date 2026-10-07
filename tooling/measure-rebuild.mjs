@@ -4,8 +4,10 @@
 // Only Git-tracked files are counted, so build outputs and node_modules never
 // influence the result. Lines are physical non-blank lines.
 import { execFileSync } from 'node:child_process'
+import console from 'node:console'
 import fs from 'node:fs'
 import path from 'node:path'
+import process from 'node:process'
 
 const args = process.argv.slice(2)
 const root = path.resolve(args.find((arg) => !arg.startsWith('--')) ?? '.')
@@ -35,7 +37,8 @@ const classify = (file) => {
 	if (/^packages\/[^/]+\/src\//.test(file) && code.test(file)) {
 		return 'production'
 	}
-	if (/^packages\/[^/]+\/(?:templates|examples)\//.test(file)) return 'production'
+	if (/^packages\/[^/]+\/(?:templates|examples)\//.test(file))
+		return 'production'
 	return 'configuration-and-tooling'
 }
 
