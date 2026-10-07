@@ -1,11 +1,12 @@
 import {
 	assertNonEmptyString,
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { aclPermissions, type ACLPermission } from './acl-contracts.js'
+import { isACLPermission, type ACLPermission } from './acl-contracts.js'
 
 type ACLContainmentPermissionList = readonly [ACLPermission]
 
@@ -43,15 +44,12 @@ const snapshotPermissions = (
 	value: unknown,
 	path: string,
 ): ACLContainmentPermissionList => {
-	if (
-		!isUnknownArray(value) ||
-		value.length !== 1 ||
-		!aclPermissions.some((permission) => permission === value[0])
-	) {
+	const permission: unknown =
+		isUnknownArray(value) && value.length === 1 ? value[0] : undefined
+	if (!isACLPermission(permission)) {
 		throw new TypeError(`${path} must contain one ACL permission`)
 	}
-
-	return Object.freeze([value[0]]) as ACLContainmentPermissionList
+	return immutableArray([permission])
 }
 
 /** Snapshots only the narrow ACL fragments emitted by official protected policies. */
@@ -62,7 +60,6 @@ export const snapshotACLContainmentOperand = (
 	if (!isPlainRecord(value) || Object.keys(value).length !== 1) {
 		throw new TypeError(`${path} must contain one ACL fragment`)
 	}
-
 	if (Object.hasOwn(value, 'public')) {
 		return immutableRecord({
 			public: snapshotPermissions(value.public, `${path}.public`),
@@ -77,7 +74,8 @@ export const snapshotACLContainmentOperand = (
 		})
 	}
 
-	const collection = Object.hasOwn(value, 'principals')
+	const isPrincipal = Object.hasOwn(value, 'principals')
+	const collection = isPrincipal
 		? value.principals
 		: Object.hasOwn(value, 'roles')
 			? value.roles
@@ -89,65 +87,48 @@ export const snapshotACLContainmentOperand = (
 	if (!isPlainRecord(entry)) {
 		throw new TypeError(`${path} ACL subject entry must be an object`)
 	}
-	const permissions = Object.hasOwn(entry, 'permissions')
-		? snapshotPermissions(entry.permissions, `${path}.permissions`)
-		: undefined
+	const hasPermissions = Object.hasOwn(entry, 'permissions')
+	const permissions = hasPermissions
+		? {
+				permissions: snapshotPermissions(
+					entry.permissions,
+					`${path}.permissions`,
+				),
+			}
+		: {}
 
-	if (Object.hasOwn(value, 'principals')) {
-		if (
-			!hasExactKeys(
-				entry,
-				permissions === undefined
-					? ['className', 'id']
-					: ['className', 'id', 'permissions'],
-			)
-		) {
+	if (isPrincipal) {
+		const keys = ['className', 'id', ...(hasPermissions ? ['permissions'] : [])]
+		if (!hasExactKeys(entry, keys)) {
 			throw new TypeError(`${path} principal fragment has invalid keys`)
 		}
 		assertNonEmptyString(entry.className, `${path} principal className`)
 		assertNonEmptyString(entry.id, `${path} principal id`)
 
-		const principals = Object.freeze([
-			immutableRecord({
-				className: entry.className,
-				id: entry.id,
-				...(permissions === undefined ? {} : { permissions }),
-			}),
-		]) as readonly [
-			Readonly<{
-				className: string
-				id: string
-				permissions?: ACLContainmentPermissionList
-			}>,
-		]
-		return immutableRecord({ principals })
+		return immutableRecord({
+			principals: immutableArray([
+				immutableRecord({
+					className: entry.className,
+					id: entry.id,
+					...permissions,
+				}),
+			]),
+		})
 	}
 
-	if (
-		entry.kind !== 'role' ||
-		!hasExactKeys(
-			entry,
-			permissions === undefined
-				? ['kind', 'value']
-				: ['kind', 'permissions', 'value'],
-		)
-	) {
+	const keys = ['kind', 'value', ...(hasPermissions ? ['permissions'] : [])]
+	if (entry.kind !== 'role' || !hasExactKeys(entry, keys)) {
 		throw new TypeError(`${path} role fragment is invalid`)
 	}
 	assertNonEmptyString(entry.value, `${path} role value`)
 
-	const roles = Object.freeze([
-		immutableRecord({
-			kind: 'role' as const,
-			...(permissions === undefined ? {} : { permissions }),
-			value: entry.value,
-		}),
-	]) as readonly [
-		Readonly<{
-			kind: 'role'
-			permissions?: ACLContainmentPermissionList
-			value: string
-		}>,
-	]
-	return immutableRecord({ roles })
+	return immutableRecord({
+		roles: immutableArray([
+			immutableRecord({
+				kind: 'role' as const,
+				...permissions,
+				value: entry.value,
+			}),
+		]),
+	})
 }

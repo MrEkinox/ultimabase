@@ -27,7 +27,7 @@ export interface ACLAccessSubjects {
 export const resolveACLAccessSubjects = async (
 	context: RequestSubjectContext,
 	principalResolver: RequestPrincipalResolver | undefined,
-	roleResolver: RequestRoleResolver | undefined,
+	roleResolver: Partial<RequestRoleResolver> | undefined,
 	ownsSchema: (schema: SchemaDefinition) => boolean,
 ): Promise<ACLAccessSubjects> => {
 	const principal = await resolveRequestPrincipal({
@@ -35,13 +35,12 @@ export const resolveACLAccessSubjects = async (
 		ownsSchema,
 		resolver: principalResolver,
 	})
+	const roles: RequestRoleReference[] = []
 
-	const roles = await roleResolver?.resolveCurrentRoles?.({ context })
-	const normalizedRoles: RequestRoleReference[] = []
-
-	for (const [index, candidate] of (roles ?? []).entries()) {
+	for (const [index, candidate] of (
+		(await roleResolver?.resolveCurrentRoles?.({ context })) ?? []
+	).entries()) {
 		const role: unknown = candidate
-
 		if (
 			!(role instanceof RequestSubjectReference) ||
 			role.kind !== 'role' ||
@@ -51,23 +50,20 @@ export const resolveACLAccessSubjects = async (
 				`ACL role resolver returned an invalid reference at index ${String(index)}`,
 			)
 		}
-
-		if (!normalizedRoles.some(({ value }) => value === role.value)) {
+		if (!roles.some(({ value }) => value === role.value)) {
 			// Reconstructing erases unsafe generic arguments from an untrusted provider.
-			normalizedRoles.push(new RequestSubjectReference('role', role.value))
+			roles.push(new RequestSubjectReference('role', role.value))
 		}
 	}
 
 	return immutableRecord({
 		principal,
 		roleResolutionAvailable: roleResolver?.resolveCurrentRoles !== undefined,
-		roles: immutableArray(normalizedRoles),
+		roles: immutableArray(roles),
 	})
 }
 
-const createACLContainsLeaf = (
-	value: ACLContainmentOperand,
-): DatabaseRowFilterNode =>
+const containsLeaf = (value: ACLContainmentOperand): DatabaseRowFilterNode =>
 	immutableRecord({ field: aclFieldName, kind: 'contains' as const, value })
 
 /** Converts one required permission into ordinary portable subject alternatives. */
@@ -75,31 +71,21 @@ export const createACLPermissionRowFilter = (
 	permission: ACLPermission,
 	subjects: ACLAccessSubjects,
 ): DatabaseRowFilterNode => {
-	const principal = subjects.principal?.toJSON()
-	const alternatives: DatabaseRowFilterNode[] = [
-		createACLContainsLeaf({ public: [permission] }),
-	]
+	const permissions = [permission] as const
+	const alternatives = [containsLeaf({ public: permissions })]
 
-	if (principal !== undefined && subjects.principal !== undefined) {
+	if (subjects.principal !== undefined) {
+		const { className } = subjects.principal.toJSON()
 		alternatives.push(
-			createACLContainsLeaf({ authenticated: [permission] }),
-			createACLContainsLeaf({
-				principals: [
-					{
-						className: principal.className,
-						id: subjects.principal.id,
-						permissions: [permission],
-					},
-				],
+			containsLeaf({ authenticated: permissions }),
+			containsLeaf({
+				principals: [{ className, id: subjects.principal.id, permissions }],
 			}),
 		)
 	}
-
-	for (const role of subjects.roles) {
+	for (const { value } of subjects.roles) {
 		alternatives.push(
-			createACLContainsLeaf({
-				roles: [{ kind: 'role', permissions: [permission], value: role.value }],
-			}),
+			containsLeaf({ roles: [{ kind: 'role', permissions, value }] }),
 		)
 	}
 
@@ -132,15 +118,4 @@ export const requiredACLPermission = <TSchema extends SchemaDefinition>(
 		case 'create-one':
 			return undefined
 	}
-}
-
-/** Builds ACL's complete protected row predicate for one logical operation. */
-export const createACLRowFilter = <TSchema extends SchemaDefinition>(
-	operation: ExecutableOperationAst<TSchema>,
-	subjects: ACLAccessSubjects,
-): DatabaseRowFilterNode | undefined => {
-	const permission = requiredACLPermission(operation)
-	return permission === undefined
-		? undefined
-		: createACLPermissionRowFilter(permission, subjects)
 }

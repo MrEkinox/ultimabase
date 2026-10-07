@@ -18,7 +18,7 @@ import {
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACL } from './acl.js'
-import { aclPermissions, type ACLPermission } from './acl-contracts.js'
+import type { ACLPermission } from './acl-contracts.js'
 
 /** Names the committed event emitted for every persisted ACL change. */
 export const aclChangedEvent = 'ultimabase.acl.changed' as const
@@ -126,87 +126,57 @@ export type ACLChangedEventHandler = PluginEventHandler<
 	ACLChangedEvent
 >
 
-interface ACLSubjectEntry {
+interface SubjectRights {
 	readonly key: string
 	readonly permissions: readonly ACLPermission[]
 	readonly subject: ACLChangeSubject
 }
 
-const subjectKey = (kind: string, ...parts: readonly string[]): string =>
-	JSON.stringify([kind, ...parts])
+const subjectRights = (
+	subject: ACLChangeSubject,
+	permissions: readonly ACLPermission[],
+): SubjectRights => ({
+	// Literal key order is fixed per subject kind, so the JSON text is a unique key.
+	key: JSON.stringify(subject),
+	permissions,
+	subject: immutableRecord(subject),
+})
 
 /** Flattens canonical ACL JSON while preserving its deterministic subject order. */
-const collectSubjectEntries = (value: ACL): readonly ACLSubjectEntry[] => {
+const listSubjectRights = (value: ACL): readonly SubjectRights[] => {
 	const document = value.toJSON()
-	const entries: ACLSubjectEntry[] = [
-		immutableRecord({
-			key: subjectKey('public'),
-			permissions: document.public,
-			subject: immutableRecord({ kind: 'public' as const }),
-		}),
-		immutableRecord({
-			key: subjectKey('authenticated'),
-			permissions: document.authenticated,
-			subject: immutableRecord({ kind: 'authenticated' as const }),
-		}),
+
+	return [
+		subjectRights({ kind: 'public' }, document.public),
+		subjectRights({ kind: 'authenticated' }, document.authenticated),
+		...document.principals.map(({ className, id, permissions }) =>
+			subjectRights({ className, id, kind: 'principal' }, permissions),
+		),
+		...document.roles.map(({ permissions, value }) =>
+			subjectRights({ kind: 'role', value }, permissions),
+		),
 	]
-
-	for (const principal of document.principals) {
-		entries.push(
-			immutableRecord({
-				key: subjectKey('principal', principal.className, principal.id),
-				permissions: principal.permissions,
-				subject: immutableRecord({
-					className: principal.className,
-					id: principal.id,
-					kind: 'principal' as const,
-				}),
-			}),
-		)
-	}
-
-	for (const role of document.roles) {
-		entries.push(
-			immutableRecord({
-				key: subjectKey('role', role.value),
-				permissions: role.permissions,
-				subject: immutableRecord({
-					kind: 'role' as const,
-					value: role.value,
-				}),
-			}),
-		)
-	}
-
-	return immutableArray(entries)
 }
 
-/** Computes canonical permission additions from one ordered subject snapshot. */
-const collectPermissionChanges = (
-	source: readonly ACLSubjectEntry[],
-	comparison: ReadonlyMap<string, ACLSubjectEntry>,
+/** Lists the canonical rights present in `source` but absent from `comparison`. */
+const collectAdditions = (
+	source: readonly SubjectRights[],
+	comparison: readonly SubjectRights[],
 ): readonly ACLPermissionChange[] => {
-	const changes: ACLPermissionChange[] = []
+	const existing = new Map(
+		comparison.map(({ key, permissions }) => [key, permissions]),
+	)
 
-	for (const entry of source) {
-		const existing = comparison.get(entry.key)
-		const permissions = aclPermissions.filter(
-			(permission) =>
-				entry.permissions.includes(permission) &&
-				!existing?.permissions.includes(permission),
-		)
-
-		if (permissions.length === 0) continue
-
-		changes.push(
-			immutableRecord({
-				permissions: immutableArray(permissions),
-				subject: entry.subject,
-			}),
-		)
-	}
-
-	return immutableArray(changes)
+	return immutableArray(
+		source.flatMap(({ key, permissions, subject }) => {
+			const added = permissions.filter(
+				(permission) => existing.get(key)?.includes(permission) !== true,
+			)
+			return added.length === 0
+				? []
+				: [immutableRecord({ permissions: immutableArray(added), subject })]
+		}),
+	)
 }
 
 /** Computes one detached semantic ACL diff without exposing internal maps. */
@@ -214,18 +184,12 @@ export const createACLChangeDiff = (
 	previous: ACL,
 	current: ACL,
 ): ACLChangeDiff => {
-	const previousEntries = collectSubjectEntries(previous)
-	const currentEntries = collectSubjectEntries(current)
-	const previousByKey = new Map(
-		previousEntries.map((entry) => [entry.key, entry] as const),
-	)
-	const currentByKey = new Map(
-		currentEntries.map((entry) => [entry.key, entry] as const),
-	)
+	const previousRights = listSubjectRights(previous)
+	const currentRights = listSubjectRights(current)
 
 	return immutableRecord({
-		added: collectPermissionChanges(currentEntries, previousByKey),
-		removed: collectPermissionChanges(previousEntries, currentByKey),
+		added: collectAdditions(currentRights, previousRights),
+		removed: collectAdditions(previousRights, currentRights),
 	})
 }
 
