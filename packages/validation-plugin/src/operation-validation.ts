@@ -11,7 +11,6 @@ import {
 	type DatabaseMutationOperationAst,
 	type GenericField,
 	type RuntimePreparedMutationStageInput,
-	type SchemaDefinition,
 	type SchemaValidationPlans,
 	type UpdateExpressionNode,
 } from '@ultimabase/core'
@@ -91,7 +90,7 @@ const collectDirectIssues = (
 		if (fieldIssues.length > 0) failedPaths.push(input.valuePath)
 	}
 
-	return immutableArray(issues)
+	return issues
 }
 
 const readArithmeticFields = (
@@ -99,9 +98,7 @@ const readArithmeticFields = (
 	fields: Readonly<Record<string, GenericField>>,
 	path: readonly (number | string)[],
 ): readonly ArithmeticFieldOccurrence[] => {
-	if (!isPlainRecord(update) || !isUnknownArray(update.operations)) {
-		return immutableArray([])
-	}
+	if (!isPlainRecord(update) || !isUnknownArray(update.operations)) return []
 
 	const occurrences = new Map<string, ArithmeticFieldOccurrence>()
 	for (const [index, operation] of update.operations.entries()) {
@@ -116,18 +113,15 @@ const readArithmeticFields = (
 		const field = fields[operation.field]
 		const validator = field === undefined ? undefined : readValidator(field)
 		if (validator !== undefined) {
-			occurrences.set(
-				operation.field,
-				immutableRecord({
-					field: operation.field,
-					path: immutableArray([...path, index, operation.field, 'value']),
-					validator,
-				}),
-			)
+			occurrences.set(operation.field, {
+				field: operation.field,
+				path: immutableArray([...path, index, operation.field, 'value']),
+				validator,
+			})
 		}
 	}
 
-	return immutableArray([...occurrences.values()])
+	return [...occurrences.values()]
 }
 
 const createProjectableUpdate = (update: unknown): UpdateExpressionNode => {
@@ -153,43 +147,9 @@ const unavailableTargetIssues = (
 	fields: readonly ArithmeticFieldOccurrence[],
 	message: string,
 ): readonly FieldValidationIssue[] =>
-	immutableArray(
-		fields.map(({ path }) =>
-			immutableRecord({ code: 'field.validation' as const, message, path }),
-		),
+	fields.map(({ path }) =>
+		immutableRecord({ code: 'field.validation' as const, message, path }),
 	)
-
-const validateTargetProjection = (
-	schema: SchemaDefinition,
-	plans: SchemaValidationPlans,
-	update: UpdateExpressionNode,
-	fields: readonly ArithmeticFieldOccurrence[],
-	target: Readonly<Record<string, unknown>>,
-	targetPath: readonly (number | string)[],
-	callbacks: ApplicationCallbackExecutor,
-): readonly FieldValidationIssue[] => {
-	const stableTarget = snapshotRuntimeResultRecord(plans, target, targetPath)
-	const projection = applyUpdateExpressionToRecord(schema, stableTarget, update)
-	const stableProjection = snapshotRuntimeResultRecord(
-		plans,
-		projection,
-		targetPath,
-	)
-	const issues: FieldValidationIssue[] = []
-
-	for (const { field, path, validator } of fields) {
-		const value: unknown = stableProjection[field]
-		if (value !== undefined && value !== null) {
-			issues.push(
-				...callbacks.runApplication(() =>
-					validateFieldStandardSchema(validator, value, path),
-				),
-			)
-		}
-	}
-
-	return immutableArray(issues)
-}
 
 const collectArithmeticIssues = (
 	input: RuntimePreparedMutationStageInput<DatabaseMutationOperationAst>,
@@ -197,111 +157,96 @@ const collectArithmeticIssues = (
 	callbacks: ApplicationCallbackExecutor,
 ): readonly FieldValidationIssue[] => {
 	const operation: unknown = input.operation
-	if (!isPlainRecord(operation)) return immutableArray([])
+	if (!isPlainRecord(operation)) return []
 	const schema = getOperationSchema(input.operation)
 	if (!Schema.is(schema)) {
 		throw new TypeError('Projected arithmetic requires a schema definition')
 	}
 
-	const validate = (
-		kind: 'update-many' | 'update-one' | 'upsert-one',
-		update: unknown,
-		path: readonly (number | string)[],
-	): readonly FieldValidationIssue[] => {
-		const fields = readArithmeticFields(update, schema.fields, path)
-		if (
-			fields.length === 0 ||
-			(kind === 'update-one' && input.target === null)
-		) {
-			return immutableArray([])
-		}
-		if (kind === 'update-many') {
-			if (input.targets === undefined) {
-				return unavailableTargetIssues(
-					fields,
-					'Validated bulk arithmetic requires complete prepared targets',
+	if (operation.kind === 'upsert-many') {
+		const fields = isUnknownArray(operation.items)
+			? operation.items.flatMap((item, index) =>
+					isPlainRecord(item)
+						? readArithmeticFields(item.update, schema.fields, [
+								'items',
+								index,
+								'update',
+							])
+						: [],
 				)
-			}
-			// Every prepared target shares this mutation's immutable projection expression.
-			const projectableUpdate = createProjectableUpdate(update)
-			return immutableArray(
-				input.targets.flatMap((target, index) =>
-					validateTargetProjection(
-						schema,
-						plans,
-						projectableUpdate,
-						fields,
-						target,
-						['targets', index],
-						callbacks,
-					),
-				),
-			)
-		}
-		if (kind === 'upsert-one' && input.target === null) {
+			: []
+		return fields.length === 0
+			? []
+			: unavailableTargetIssues(
+					fields,
+					'Validated bulk upsert arithmetic requires per-item prepared targets',
+				)
+	}
+	if (
+		operation.kind !== 'update-one' &&
+		operation.kind !== 'update-many' &&
+		operation.kind !== 'upsert-one'
+	) {
+		return []
+	}
+
+	const update = operation.update
+	const fields = readArithmeticFields(update, schema.fields, ['update'])
+	if (
+		fields.length === 0 ||
+		(operation.kind === 'update-one' && input.target === null)
+	) {
+		return []
+	}
+	// Validates the arithmetic fields of the record one target would become.
+	const validateProjection = (
+		projectableUpdate: UpdateExpressionNode,
+		target: Readonly<Record<string, unknown>>,
+		targetPath: readonly (number | string)[],
+	): readonly FieldValidationIssue[] => {
+		const stableTarget = snapshotRuntimeResultRecord(plans, target, targetPath)
+		const projection = snapshotRuntimeResultRecord(
+			plans,
+			applyUpdateExpressionToRecord(schema, stableTarget, projectableUpdate),
+			targetPath,
+		)
+		return fields.flatMap(({ field, path, validator }) => {
+			const value: unknown = projection[field]
+			return value === undefined || value === null
+				? []
+				: callbacks.runApplication(() =>
+						validateFieldStandardSchema(validator, value, path),
+					)
+		})
+	}
+
+	if (operation.kind === 'update-many') {
+		if (input.targets === undefined) {
 			return unavailableTargetIssues(
 				fields,
-				'Targetless upsert arithmetic cannot validate a concurrent update result',
+				'Validated bulk arithmetic requires complete prepared targets',
 			)
 		}
-		if (input.target === undefined || input.target === null) {
-			throw new TypeError(
-				'Directed arithmetic validation requires a prepared target',
-			)
-		}
-		return validateTargetProjection(
-			schema,
-			plans,
-			createProjectableUpdate(update),
-			fields,
-			input.target,
-			['target'],
-			callbacks,
+		// Every prepared target shares this mutation's immutable projection expression.
+		const projectableUpdate = createProjectableUpdate(update)
+		return input.targets.flatMap((target, index) =>
+			validateProjection(projectableUpdate, target, ['targets', index]),
 		)
 	}
-
-	switch (operation.kind) {
-		case 'update-one':
-		case 'update-many':
-		case 'upsert-one':
-			return validate(operation.kind, operation.update, ['update'])
-		case 'upsert-many': {
-			const fields = isUnknownArray(operation.items)
-				? operation.items.flatMap((item, index) =>
-						isPlainRecord(item)
-							? readArithmeticFields(item.update, schema.fields, [
-									'items',
-									index,
-									'update',
-								])
-							: [],
-					)
-				: []
-			return fields.length === 0
-				? immutableArray([])
-				: unavailableTargetIssues(
-						fields,
-						'Validated bulk upsert arithmetic requires per-item prepared targets',
-					)
-		}
-		default:
-			return immutableArray([])
+	if (operation.kind === 'upsert-one' && input.target === null) {
+		return unavailableTargetIssues(
+			fields,
+			'Targetless upsert arithmetic cannot validate a concurrent update result',
+		)
 	}
-}
-
-const throwValidationIssues = (
-	issues: readonly FieldValidationIssue[],
-): never => {
-	const snapshot = immutableArray(issues)
-	throw new FrameworkError(
-		'VALIDATION_ERROR',
-		'Operation input validation failed.',
-		{
-			publicMessage: 'The operation input is invalid.',
-			publicDetails: { issues: snapshot },
-			internalDetails: { issues: snapshot },
-		},
-	)
+	if (input.target === undefined || input.target === null) {
+		throw new TypeError(
+			'Directed arithmetic validation requires a prepared target',
+		)
+	}
+	return validateProjection(createProjectableUpdate(update), input.target, [
+		'target',
+	])
 }
 
 /** Validates every installed field rule against one final mutation candidate. */
@@ -310,11 +255,20 @@ export const validateMutationInput = (
 	plans: SchemaValidationPlans,
 	callbacks: ApplicationCallbackExecutor,
 ): void => {
-	const issues = [
+	const issues = immutableArray([
 		...collectDirectIssues(input.operation, callbacks),
 		...collectArithmeticIssues(input, plans, callbacks),
-	]
-	if (issues.length > 0) throwValidationIssues(issues)
+	])
+	if (issues.length === 0) return
+	throw new FrameworkError(
+		'VALIDATION_ERROR',
+		'Operation input validation failed.',
+		{
+			publicMessage: 'The operation input is invalid.',
+			publicDetails: { issues },
+			internalDetails: { issues },
+		},
+	)
 }
 
 /** Requests bulk preimages only for affected arithmetic fields with validators. */

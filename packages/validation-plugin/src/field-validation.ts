@@ -7,7 +7,10 @@ import {
 } from '@ultimabase/shared'
 import { deepEqual } from 'fast-equals'
 
-import type { FieldStandardSchema } from './standard-schema.js'
+import {
+	isObjectOrFunction,
+	type FieldStandardSchema,
+} from './standard-schema.js'
 
 export type FieldValidationIssueCode = 'field.validation'
 
@@ -17,9 +20,6 @@ export interface FieldValidationIssue {
 	readonly message: string
 	readonly path: readonly (number | string)[]
 }
-
-const isObjectOrFunction = (value: unknown): value is object =>
-	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
 const isPromiseLike = (value: unknown): boolean =>
 	isObjectOrFunction(value) && typeof Reflect.get(value, 'then') === 'function'

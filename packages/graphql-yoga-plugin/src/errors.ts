@@ -1,6 +1,10 @@
 import { getCurrentRequest } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
-import { GraphQLError, type ExecutionResult } from 'graphql'
+import {
+	GraphQLError,
+	type ExecutionResult,
+	type GraphQLErrorOptions,
+} from 'graphql'
 
 interface GraphqlHttpFailureOptions {
 	readonly code: string
@@ -8,14 +12,22 @@ interface GraphqlHttpFailureOptions {
 	readonly status: number
 }
 
-/** Carries a safe request failure through Yoga's status-aware serializer. */
-export const createGraphqlHttpFailure = (
-	options: GraphqlHttpFailureOptions,
-): GraphQLError =>
-	new GraphQLError(options.message, {
+/**
+ * Carries a safe request failure through Yoga's status-aware serializer.
+ * Parse and validation failures also keep their source error and locations.
+ */
+export const createGraphqlHttpFailure = ({
+	code,
+	message,
+	status,
+	...errorOptions
+}: GraphqlHttpFailureOptions &
+	Pick<GraphQLErrorOptions, 'nodes' | 'originalError'>): GraphQLError =>
+	new GraphQLError(message, {
+		...errorOptions,
 		extensions: {
-			code: options.code,
-			http: { status: options.status },
+			code,
+			http: { status },
 			requestId: getCurrentRequest().requestId,
 			retryable: false,
 		},

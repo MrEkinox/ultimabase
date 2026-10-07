@@ -14,6 +14,7 @@ import { createYoga, type Plugin } from 'graphql-yoga'
 
 import { parseGraphqlRequestBody } from './body.js'
 import {
+	createGraphqlHttpFailure,
 	createGraphqlHttpFailureResponse,
 	sanitizeGraphqlExecutionResult,
 } from './errors.js'
@@ -24,108 +25,99 @@ import {
 } from './media.js'
 import type { NormalizedGraphqlYogaPluginOptions } from './options.js'
 
-interface GraphqlYogaMountResource {
-	readonly dispose: () => Promise<void>
-	readonly mount: HttpMountDefinition
-}
-
-const executeThroughApplication = async (
-	application: GraphqlApplication,
-	args: ExecutionArgs,
-): Promise<ExecutionResult> => {
-	const request = getCurrentRequest()
-	request.signal.throwIfAborted()
-	return await application.execute({
-		context: request,
-		document: args.document,
-		...(typeof args.operationName === 'string'
-			? { operationName: args.operationName }
-			: {}),
-		...(args.variableValues === undefined || args.variableValues === null
-			? {}
-			: { variables: args.variableValues }),
-	})
-}
-
 type YogaPlugin = Plugin<
 	Record<string, unknown>,
 	Record<string, unknown>,
 	Record<string, unknown>
 >
 
-const requestParserPlugin = (bodyLimit: number): YogaPlugin => ({
-	onRequestParse: ({ setRequestParser }) => {
-		setRequestParser((request) => parseGraphqlRequestBody(request, bodyLimit))
-	},
-})
-
-const safeParseErrorPlugin = (): YogaPlugin => ({
-	onParse:
-		() =>
-		({ result, replaceParseResult }) => {
-			if (!(result instanceof Error)) return
-			replaceParseResult(
-				new GraphQLError(result.message, {
-					extensions: {
-						code: 'GRAPHQL_PARSE_FAILED',
-						http: { status: 400 },
-						requestId: getCurrentRequest().requestId,
-						retryable: false,
-					},
-					originalError: result,
-				}),
-			)
-		},
-})
-
-const validationPlugin = (introspection: boolean): YogaPlugin => ({
-	onValidate: ({ addValidationRule }) => {
-		if (!introspection) addValidationRule(NoSchemaIntrospectionCustomRule)
-		return ({ result, setResult, valid }) => {
-			if (valid) return
-			setResult(
-				result.map(
-					(error: Error) =>
-						new GraphQLError(error.message, {
-							extensions: {
-								code: 'GRAPHQL_VALIDATION_FAILED',
-								http: { status: 400 },
-								requestId: getCurrentRequest().requestId,
-								retryable: false,
-							},
-							nodes: error instanceof GraphQLError ? error.nodes : undefined,
-						}),
-				),
-			)
-		}
-	},
-})
-
-const applicationExecutionPlugin = (
-	application: GraphqlApplication,
-): YogaPlugin => ({
-	onExecute: ({ setExecuteFn }) => {
-		setExecuteFn((args) => executeThroughApplication(application, args))
-	},
-})
-
-const safeResultPlugin = (): YogaPlugin => ({
-	onExecutionResult: (payload) => {
-		if (
-			payload.result === undefined ||
-			Symbol.asyncIterator in payload.result
-		) {
-			return
-		}
-		payload.setResult(sanitizeGraphqlExecutionResult(payload.result))
-	},
-})
+interface GraphqlYogaMountResource {
+	readonly dispose: () => Promise<void>
+	readonly mount: HttpMountDefinition
+}
 
 /** @internal Owns exactly one disposable Yoga adapter for one application. */
 export const createGraphqlYogaMountResource = (
 	application: GraphqlApplication,
 	options: NormalizedGraphqlYogaPluginOptions,
 ): GraphqlYogaMountResource => {
+	const plugins: YogaPlugin[] = [
+		{
+			onRequestParse: ({ setRequestParser }) => {
+				setRequestParser((request) =>
+					parseGraphqlRequestBody(request, options.bodyLimit),
+				)
+			},
+		},
+		{
+			onParse:
+				() =>
+				({ result, replaceParseResult }) => {
+					if (!(result instanceof Error)) return
+					replaceParseResult(
+						createGraphqlHttpFailure({
+							code: 'GRAPHQL_PARSE_FAILED',
+							message: result.message,
+							originalError: result,
+							status: 400,
+						}),
+					)
+				},
+		},
+		{
+			onValidate: ({ addValidationRule }) => {
+				if (!options.introspection) {
+					addValidationRule(NoSchemaIntrospectionCustomRule)
+				}
+				return ({ result, setResult, valid }) => {
+					if (valid) return
+					setResult(
+						result.map((error: Error) =>
+							createGraphqlHttpFailure({
+								code: 'GRAPHQL_VALIDATION_FAILED',
+								message: error.message,
+								nodes: error instanceof GraphQLError ? error.nodes : undefined,
+								status: 400,
+							}),
+						),
+					)
+				}
+			},
+		},
+		{
+			onExecute: ({ setExecuteFn }) => {
+				setExecuteFn(async (args: ExecutionArgs): Promise<ExecutionResult> => {
+					const request = getCurrentRequest()
+					request.signal.throwIfAborted()
+					return await application.execute({
+						context: request,
+						document: args.document,
+						...(typeof args.operationName === 'string'
+							? { operationName: args.operationName }
+							: {}),
+						...(args.variableValues == null
+							? {}
+							: { variables: args.variableValues }),
+					})
+				})
+			},
+		},
+		{
+			onExecutionResult: (payload) => {
+				if (
+					payload.result === undefined ||
+					Symbol.asyncIterator in payload.result
+				) {
+					return
+				}
+				payload.setResult(sanitizeGraphqlExecutionResult(payload.result))
+			},
+		},
+	]
+
+	// Yoga only parses, validates and serializes: every built-in feature that
+	// could widen the surface is off, and execution goes through the
+	// application so Core keeps the request context and authorization.
 	const yoga = createYoga({
 		batching: false,
 		cors: false,
@@ -138,13 +130,7 @@ export const createGraphqlYogaMountResource = (
 		maskedErrors: true,
 		multipart: false,
 		parserAndValidationCache: false,
-		plugins: [
-			requestParserPlugin(options.bodyLimit),
-			safeParseErrorPlugin(),
-			validationPlugin(options.introspection),
-			applicationExecutionPlugin(application),
-			safeResultPlugin(),
-		],
+		plugins,
 		schema: application.schema,
 	})
 
@@ -152,11 +138,11 @@ export const createGraphqlYogaMountResource = (
 		const requestedMediaType = selectGraphqlResponseMediaType(
 			request.headers.get('accept'),
 		)
-		const failureMediaType = requestedMediaType ?? graphqlResponseMediaType
+		const mediaType = requestedMediaType ?? graphqlResponseMediaType
 		if (new URL(request.url).pathname !== options.path) {
 			return createGraphqlHttpFailureResponse({
 				code: 'NOT_FOUND',
-				mediaType: failureMediaType,
+				mediaType,
 				message: 'The requested GraphQL endpoint was not found.',
 				status: 404,
 			})
@@ -165,7 +151,7 @@ export const createGraphqlYogaMountResource = (
 			return createGraphqlHttpFailureResponse({
 				allow: 'POST',
 				code: 'METHOD_NOT_ALLOWED',
-				mediaType: failureMediaType,
+				mediaType,
 				message: 'GraphQL over HTTP accepts POST requests only.',
 				status: 405,
 			})
@@ -177,7 +163,6 @@ export const createGraphqlYogaMountResource = (
 				status: 406,
 			})
 		}
-		const mediaType = requestedMediaType
 		if (!hasGraphqlJsonContentType(request.headers.get('content-type'))) {
 			return createGraphqlHttpFailureResponse({
 				code: 'UNSUPPORTED_MEDIA_TYPE',
@@ -187,6 +172,7 @@ export const createGraphqlYogaMountResource = (
 			})
 		}
 		request.signal.throwIfAborted()
+		// Yoga serializes for the single negotiated representation.
 		const headers = new Headers(request.headers)
 		headers.set('Accept', mediaType)
 		const response = await yoga.fetch(new Request(request, { headers }))
