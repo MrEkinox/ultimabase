@@ -70,6 +70,8 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | password-auth-plugin    |       3 567 |       3 359 | Modules épinglés par les tests et la doc ; parité vérifiée par comparaison runtime des deux bundles.                                                                                   |
 | http-plugin             |       2 338 |       2 080 | Registre de définitions partagé ; 1 écart TOCTOU sur les en-têtes (DIFFERENCES.md).                                                                                                    |
 | roles-plugin            |       2 192 |       2 015 | Helpers de résolution partagés ; 8 622 comparaisons aléatoires identiques à la référence.                                                                                              |
+| testing                 |       1 243 |       1 162 | Runner et suite simplifiés ; `dist/index.d.ts` identique.                                                                                                                              |
+| plugin-kit              |         778 |         722 | Contrats d’événements en `WeakSet` ; `dist/index.d.ts` identique.                                                                                                                      |
 
 Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
 inchangés (127 476 lignes).
