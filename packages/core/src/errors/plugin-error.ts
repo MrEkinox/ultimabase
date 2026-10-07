@@ -16,7 +16,7 @@ export interface PluginErrorPayload<
 }
 
 /** Constant identifiers or dot-namespaced codes accepted for plugin domain errors. */
-export const pluginErrorCodePattern =
+export const pluginErrorCodePattern: RegExp =
 	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
 
 const validatePluginErrorCode = (code: string): void => {

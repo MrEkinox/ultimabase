@@ -206,7 +206,7 @@ export interface PluginManifestOptions {
 }
 
 /** Package-scoped or dot-namespaced identifier shared by plugin and capability ids. */
-export const pluginIdPattern =
+export const pluginIdPattern: RegExp =
 	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
 /** Lists every informational direct-environment claim accepted in manifests. */
 export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =

@@ -6,7 +6,7 @@ const typegenReferenceBrand: unique symbol = Symbol('TypegenReference')
 const typegenReferences = new WeakSet<object>()
 
 /** TypeScript identifiers accepted for generated type and property names. */
-export const typeScriptIdentifierPattern = /^[$A-Z_a-z][$\w]*$/u
+export const typeScriptIdentifierPattern: RegExp = /^[$A-Z_a-z][$\w]*$/u
 
 /** Names one public exported TypeScript type without importing executable code. */
 export interface TypegenReference<

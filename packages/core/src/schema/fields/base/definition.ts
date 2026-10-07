@@ -47,7 +47,7 @@ export interface PluginFieldWireProtocol<
 }
 
 /** Dot-namespaced protocol and operation names shared by plugin-facing identities. */
-export const namespacedNamePattern =
+export const namespacedNamePattern: RegExp =
 	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
 const pluginFieldWireProtocols = new Map<string, PluginFieldWireProtocol>()
 const pluginFieldWireProtocolIdentities = new WeakSet<object>()
