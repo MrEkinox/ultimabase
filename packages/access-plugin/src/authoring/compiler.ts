@@ -39,39 +39,35 @@ import {
 	type AccessPlan,
 	type AccessRuleSource,
 	type CompiledAccessRule,
-	type CompiledAccessRuleMap,
 	type FieldAccessPlan,
 	type SchemaAccessPlan,
+	type SchemaMutationAccessPlan,
 } from './plan.js'
 
 type RuleLists<TKey extends string> = Record<TKey, CompiledAccessRule[]>
 
-/** Collects one field's rules; frozen into a `FieldAccessPlan` after compilation. */
-interface FieldDraft {
-	readonly field: GenericField
+/** Collects one field's rules; frozen in place, it is the `FieldAccessPlan`. */
+interface FieldDraft extends FieldAccessPlan {
 	readonly inlineOwner: SchemaContributionOwner
-	readonly path: readonly string[]
 	readonly read: RuleLists<FieldReadAccessChannel>
 	readonly relationWrite: CompiledAccessRule[]
 	readonly write: RuleLists<FieldWriteAccessTransition>
 }
 
-interface SchemaMutationDraft {
-	readonly descriptor: ApplicationSchemaMutationDescriptor
+interface SchemaMutationDraft extends SchemaMutationAccessPlan {
 	readonly filter: CompiledAccessRule[]
 	readonly item: CompiledAccessRule[]
 	readonly operation: CompiledAccessRule[]
 }
 
-/** Collects one schema's rules in contribution order before freezing. */
-interface SchemaDraft {
+/** Collects one schema's rules in contribution order; frozen, it is the plan. */
+interface SchemaDraft extends SchemaAccessPlan {
 	readonly fields: readonly FieldDraft[]
 	readonly fieldsByPath: ReadonlyMap<string, FieldDraft>
 	readonly filter: RuleLists<SchemaFilterAccessFamily>
 	readonly inlineOwner: SchemaContributionOwner
 	readonly item: RuleLists<SchemaItemAccessFamily>
 	readonly operation: RuleLists<OperationKind>
-	readonly schema: SchemaDefinition
 	readonly schemaMutations: ReadonlyMap<string, SchemaMutationDraft>
 }
 
@@ -83,14 +79,11 @@ const ruleLists = <const TKey extends string>(
 		keys.map((key): [TKey, CompiledAccessRule[]] => [key, []]),
 	) as RuleLists<TKey>
 
-/** Freezes collected lists in place; drafts never escape compilation. */
-const freezeLists = <TKey extends string>(
-	lists: RuleLists<TKey>,
-): CompiledAccessRuleMap<TKey> => {
-	for (const list of Object.values<CompiledAccessRule[]>(lists)) {
-		Object.freeze(list)
-	}
-	return Object.freeze(lists)
+const freezeLists = (
+	lists: Readonly<Record<string, CompiledAccessRule[]>>,
+): void => {
+	for (const list of Object.values(lists)) Object.freeze(list)
+	Object.freeze(lists)
 }
 
 const developerSource: AccessRuleSource = immutableRecord({
@@ -337,34 +330,25 @@ const appendDeveloperDeclarations = (drafts: readonly SchemaDraft[]): void => {
 	}
 }
 
-const finalizeField = (draft: FieldDraft): FieldAccessPlan =>
-	immutableRecord({
-		field: draft.field,
-		path: draft.path,
-		read: freezeLists(draft.read),
-		relationWrite: Object.freeze(draft.relationWrite),
-		write: freezeLists(draft.write),
-	})
-
-const finalizeSchema = (draft: SchemaDraft): SchemaAccessPlan =>
-	immutableRecord({
-		fields: immutableArray(draft.fields.map(finalizeField)),
-		filter: freezeLists(draft.filter),
-		item: freezeLists(draft.item),
-		operation: freezeLists(draft.operation),
-		schemaMutations: new Map(
-			[...draft.schemaMutations].map(([command, mutation]) => [
-				command,
-				immutableRecord({
-					descriptor: mutation.descriptor,
-					filter: Object.freeze(mutation.filter),
-					item: Object.freeze(mutation.item),
-					operation: Object.freeze(mutation.operation),
-				}),
-			]),
-		),
-		schema: draft.schema,
-	})
+/** Freezes every collected list and record in place, deepest first. */
+const freezeSchemaDraft = (draft: SchemaDraft): Readonly<SchemaDraft> => {
+	for (const field of draft.fields) {
+		freezeLists(field.read)
+		Object.freeze(field.relationWrite)
+		freezeLists(field.write)
+		Object.freeze(field)
+	}
+	for (const mutation of draft.schemaMutations.values()) {
+		Object.freeze(mutation.filter)
+		Object.freeze(mutation.item)
+		Object.freeze(mutation.operation)
+		Object.freeze(mutation)
+	}
+	freezeLists(draft.filter)
+	freezeLists(draft.item)
+	freezeLists(draft.operation)
+	return Object.freeze(draft)
+}
 
 /** Compiles application and provider declarations into one immutable plan. */
 export const compileAccessPlan = (
@@ -379,23 +363,9 @@ export const compileAccessPlan = (
 	// Provider rules precede developer rules in every compiled list.
 	applyPluginContributions(drafts, contributions)
 	appendDeveloperDeclarations(drafts)
-
-	const plans = new WeakMap<
-		SchemaDefinition,
-		{
-			readonly fieldsByPath: ReadonlyMap<string, FieldAccessPlan>
-			readonly plan: SchemaAccessPlan
-		}
-	>()
-	for (const draft of drafts) {
-		const plan = finalizeSchema(draft)
-		plans.set(draft.schema, {
-			fieldsByPath: new Map(
-				plan.fields.map((field) => [encodeFieldPath(field.path), field]),
-			),
-			plan,
-		})
-	}
+	const plans = new WeakMap(
+		drafts.map((draft) => [draft.schema, freezeSchemaDraft(draft)]),
+	)
 
 	return immutableRecord({
 		defaults,
@@ -403,9 +373,8 @@ export const compileAccessPlan = (
 			plans.get(schema)?.fieldsByPath.get(encodeFieldPath(path)),
 		getFields: (schema, field) =>
 			immutableArray(
-				plans.get(schema)?.plan.fields.filter((plan) => plan.field === field) ??
-					[],
+				plans.get(schema)?.fields.filter((plan) => plan.field === field) ?? [],
 			),
-		getSchema: (schema) => plans.get(schema)?.plan,
+		getSchema: (schema) => plans.get(schema),
 	})
 }

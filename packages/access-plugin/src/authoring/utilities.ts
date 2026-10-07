@@ -23,18 +23,6 @@ export interface AccessDecisionInput {
 	readonly context: AccessContext
 }
 
-type AccessDecisionCallback<TInput> = (
-	input: TInput,
-) => boolean | Promise<boolean>
-
-const assertDecisionResult = (result: unknown): boolean => {
-	if (typeof result !== 'boolean') {
-		throw new TypeError('Access decision must return a boolean')
-	}
-
-	return result
-}
-
 const evaluateDecision = async <TInput extends AccessDecisionInput>(
 	rule: AccessDecisionRule<TInput>,
 	input: TInput,
@@ -43,20 +31,40 @@ const evaluateDecision = async <TInput extends AccessDecisionInput>(
 	const result =
 		typeof rule === 'boolean' ? rule : await Promise.resolve(rule(input))
 	input.context.signal.throwIfAborted()
-
-	return assertDecisionResult(result)
+	if (typeof result !== 'boolean') {
+		throw new TypeError('Access decision must return a boolean')
+	}
+	return result
 }
 
-const requireDecisions = <TInput extends AccessDecisionInput>(
+/**
+ * Short-circuits on the `absorbing` decision: `true` for OR, `false` for AND.
+ * Static rules are folded at setup time; callbacks run in declaration order.
+ */
+const combineDecisions = <TInput extends AccessDecisionInput>(
 	name: 'allOf' | 'anyOf',
-	rules: readonly AccessDecisionRule<TInput>[],
-): readonly AccessDecisionRule<TInput>[] => {
-	if (rules.length === 0) {
+	absorbing: boolean,
+	decisions: readonly AccessDecisionRule<TInput>[],
+): AccessDecisionRule<TInput> => {
+	if (decisions.length === 0) {
 		throw new TypeError(`${name} requires at least one Access decision`)
 	}
-
 	// One immutable setup-time snapshot prevents later array mutation from changing policy.
-	return immutableArray(rules)
+	const rules = immutableArray(decisions)
+	if (rules.includes(absorbing)) return absorbing
+
+	const effectiveRules = rules.filter((rule) => rule !== !absorbing)
+	if (effectiveRules.length < 2) {
+		// A single remaining rule is returned as-is, without a wrapper.
+		for (const rule of effectiveRules) return rule
+		return !absorbing
+	}
+	return async (input) => {
+		for (const rule of effectiveRules) {
+			if ((await evaluateDecision(rule, input)) === absorbing) return absorbing
+		}
+		return !absorbing
+	}
 }
 
 /**
@@ -72,35 +80,7 @@ export const anyOf = <TInput extends AccessDecisionInput>(
 		AccessDecisionRule<TInput>,
 		...AccessDecisionRule<TInput>[],
 	]
-): AccessDecisionRule<TInput> => {
-	const rules = requireDecisions('anyOf', decisions)
-
-	if (rules.includes(true)) {
-		return true
-	}
-
-	const effectiveRules = rules.filter((rule) => rule !== false)
-
-	if (effectiveRules.length === 0) {
-		return false
-	}
-
-	if (effectiveRules.length === 1) {
-		return effectiveRules[0] as AccessDecisionRule<TInput>
-	}
-
-	const combined: AccessDecisionCallback<TInput> = async (input) => {
-		for (const rule of effectiveRules) {
-			if (await evaluateDecision(rule, input)) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	return combined
-}
+): AccessDecisionRule<TInput> => combineDecisions('anyOf', true, decisions)
 
 /**
  * Allows only when every decision allows, using deterministic short-circuit AND.
@@ -115,35 +95,7 @@ export const allOf = <TInput extends AccessDecisionInput>(
 		AccessDecisionRule<TInput>,
 		...AccessDecisionRule<TInput>[],
 	]
-): AccessDecisionRule<TInput> => {
-	const rules = requireDecisions('allOf', decisions)
-
-	if (rules.includes(false)) {
-		return false
-	}
-
-	const effectiveRules = rules.filter((rule) => rule !== true)
-
-	if (effectiveRules.length === 0) {
-		return true
-	}
-
-	if (effectiveRules.length === 1) {
-		return effectiveRules[0] as AccessDecisionRule<TInput>
-	}
-
-	const combined: AccessDecisionCallback<TInput> = async (input) => {
-		for (const rule of effectiveRules) {
-			if (!(await evaluateDecision(rule, input))) {
-				return false
-			}
-		}
-
-		return true
-	}
-
-	return combined
-}
+): AccessDecisionRule<TInput> => combineDecisions('allOf', false, decisions)
 
 /**
  * Inverts exactly one Access decision without changing contribution ordering.

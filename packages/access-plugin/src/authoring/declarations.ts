@@ -250,13 +250,6 @@ const isSchemaAccessFamily = (key: string): key is SchemaAccessFamily =>
 	Object.hasOwn(stageKeys, key)
 const schemaMutationCommandNamePattern = /^[_A-Za-z][_0-9A-Za-z]*$/u
 
-const recordOrUndefined = <TValue>(
-	entries: readonly (readonly [string, TValue])[],
-): Readonly<Record<string, TValue>> | undefined =>
-	entries.length === 0
-		? undefined
-		: immutableRecord(Object.fromEntries(entries))
-
 /** Copies and validates one native declaration without executing policy code. */
 export const normalizeSchemaAccessDeclarations = (
 	access: unknown,
@@ -324,25 +317,23 @@ export const normalizeSchemaAccessDeclarations = (
 		if (stages.item !== undefined) item.push([key, stages.item])
 	}
 
-	const filters = recordOrUndefined(filter)
-	const items = recordOrUndefined(item)
-	const commands = recordOrUndefined(mutations)
-	if (
-		Object.keys(operation).length === 0 &&
-		filters === undefined &&
-		items === undefined &&
-		commands === undefined
-	) {
-		return undefined
-	}
-	return immutableRecord({
+	const declarations: SchemaAccessDeclarations = {
 		...(Object.keys(operation).length === 0
 			? {}
 			: { operation: immutableRecord(operation) }),
-		...(filters === undefined ? {} : { filter: filters }),
-		...(items === undefined ? {} : { item: items }),
-		...(commands === undefined ? {} : { mutations: commands }),
-	})
+		...(filter.length === 0
+			? {}
+			: { filter: immutableRecord(Object.fromEntries(filter)) }),
+		...(item.length === 0
+			? {}
+			: { item: immutableRecord(Object.fromEntries(item)) }),
+		...(mutations.length === 0
+			? {}
+			: { mutations: immutableRecord(Object.fromEntries(mutations)) }),
+	}
+	return Object.keys(declarations).length === 0
+		? undefined
+		: immutableRecord(declarations)
 }
 
 const publicFieldReadAccessChannels = ['output', 'where', 'orderBy'] as const

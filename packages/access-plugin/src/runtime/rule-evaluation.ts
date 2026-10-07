@@ -170,12 +170,15 @@ export const assertAccessRules = async (
 	}
 }
 
-/** Lets developer rules apply the default, then lets providers only deny. */
+/**
+ * Lets developer rules apply the configured default, then lets provider rules
+ * only deny. `createInput` runs once per group.
+ */
 const assertOperationRules = async (
 	scope: AccessScope,
 	rules: readonly CompiledAccessRule[],
 	branch: string,
-	input: Readonly<Record<string, unknown>>,
+	createInput: () => Readonly<Record<string, unknown>>,
 	defaultDecision: boolean,
 ): Promise<void> => {
 	const target = { branch, phase: 'access-operation' as const }
@@ -183,8 +186,14 @@ const assertOperationRules = async (
 		({ source }) => source.kind === 'developer',
 	)
 	const providerRules = rules.filter(({ source }) => source.kind === 'plugin')
-	await assertAccessRules(scope, developerRules, target, input, defaultDecision)
-	await assertAccessRules(scope, providerRules, target, input)
+	await assertAccessRules(
+		scope,
+		developerRules,
+		target,
+		createInput(),
+		defaultDecision,
+	)
+	await assertAccessRules(scope, providerRules, target, createInput())
 }
 
 const normalizeAccessWhereResult = (
@@ -236,11 +245,12 @@ export const evaluateAccessOperation = async (
 	kind: OperationKind,
 ): Promise<DatabaseRowFilterNode | undefined> => {
 	const { context, plan, schemaPlan } = scope
+	const input = immutableRecord({ context })
 	await assertOperationRules(
 		scope,
 		schemaPlan.operation[kind],
 		kind,
-		immutableRecord({ context }),
+		() => input,
 		readAccessOperationDefault(plan.defaults, kind),
 	)
 	const family = readAccessOperationFamily(kind)
@@ -331,12 +341,12 @@ export const evaluateSchemaMutationAccess = async (
 	operation: PluginSchemaMutationOperationAst,
 ): Promise<DatabaseRowFilterNode | undefined> => {
 	const mutation = readSchemaMutationPlan(scope, operation)
-	const input = schemaMutationInput(scope.context, operation)
+	const createInput = () => schemaMutationInput(scope.context, operation)
 	await assertOperationRules(
 		scope,
 		mutation.operation,
 		operation.command,
-		input,
+		createInput,
 		scope.plan.defaults.schemaMutations,
 	)
 	// Custom filters always run through the callback runtime, even when static.
@@ -344,7 +354,11 @@ export const evaluateSchemaMutationAccess = async (
 		scope,
 		mutation.filter,
 		operation.command,
-		() => immutableRecord({ ...input, where: new WhereBuilder(scope.schema) }),
+		() =>
+			immutableRecord({
+				...createInput(),
+				where: new WhereBuilder(scope.schema),
+			}),
 		true,
 	)
 }
