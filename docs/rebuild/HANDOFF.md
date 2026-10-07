@@ -60,6 +60,7 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | acl-permissions-plugin | 3 188 | 2 687 | Un seul modèle d'état ACL. |
 | hooks-plugin | 4 145 | 3 421 | Un seul dispatcher. Un écart documenté dans [DIFFERENCES.md](DIFFERENCES.md) (`__proto__`). |
 | rest-plugin | 4 320 | 3 696 | Erreurs, transports et routes unifiés. |
+| core / schema | 16 616 | 15 267 | WIP repris puis relu ; 2 écarts sur entrées non typées (DIFFERENCES.md). Voir `packages/core/REBUILD-core-schema.md`. |
 
 Total de la production (script de mesure) : **114 742 → 112 893 lignes**. Les tests sont
 inchangés (127 476 lignes).
@@ -80,8 +81,7 @@ committé a été sauvegardé tel quel. Il peut ne pas compiler.
 **Reprise du 2026-10-07 (session 2)** : les agents `core-schema`, `core-plugins`,
 `core-runtime-app` et `core-runtime-pipeline` ont été relancés dans leurs worktrees
 (`../claude-ultimabase-worktrees/<nom>`), avec consigne de committer des checkpoints et
-de tenir `packages/core/REBUILD-<périmètre>.md` à jour. `core-query` sera lancé dès qu'un
-slot se libère. Si cette session est interrompue, chaque branche contient le dernier
+de tenir `packages/core/REBUILD-<périmètre>.md` à jour. `core-schema` est fusionné ; `core-query` a été lancé ensuite. Si cette session est interrompue, chaque branche contient le dernier
 checkpoint de l'agent : relire son `REBUILD-*.md` avant de reprendre.
 
 Pour reprendre une branche WIP :
