@@ -1,28 +1,29 @@
-import { runApplicationWork } from '../../application/active-application.js'
 import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
+import { runApplicationWork } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
-import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
+import { prepareSchemaMutationEnvelope } from '../../application/schema-mutation-envelope.js'
 import { FrameworkError } from '../../errors/framework-error.js'
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
 import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
+import { projectSchemaMutationTransports } from '../commands/transport-projection.js'
 import { RequestContext } from '../context/request-context.js'
-import type { RequestEngine } from '../engine/framework-engine.js'
-import { readRequestEngineApplication } from '../engine/request-engine.js'
+import { assertApplicationRequestExecutionAvailable } from '../engine/application-binding.js'
+import type { FrameworkEngine } from '../engine/framework-engine.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
+import {
+	assertTransportExposureOptions,
+	reportFrameworkPublicTransportProtection,
+} from '../plugin-operations/engine-integration.js'
 import type { PublicTransportProtectionOptions } from '../plugin-operations/transport.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
-import type {
-	OwnedSchemaMutationTransportBinding,
-	PluginSchemaMutationRuntime,
-} from './runtime.js'
+import { decodeSchemaMutationInput } from './runtime.js'
 
 /** Contains only the inert facts needed to compile and bind one public route. */
 export interface ExposedSchemaMutationTransportBinding {
@@ -67,14 +68,6 @@ export interface ApplicationSchemaMutationTransport<
 	execute(request: SchemaMutationTransportRequest): Promise<unknown>
 }
 
-interface ExposedSchemaMutation {
-	readonly binding: OwnedSchemaMutationTransportBinding
-	readonly descriptor: ExposedSchemaMutationTransportBinding
-	readonly commandName: string
-	readonly command: CompiledMutationCommand
-	readonly schema: SchemaDefinition
-}
-
 const requestKeys = new Set([
 	'binding',
 	'context',
@@ -85,89 +78,94 @@ const requestKeys = new Set([
 	'select',
 ])
 
-/** @internal Retains executable codecs and commands behind inert descriptors. */
-export class CoreApplicationSchemaMutationTransport<
-	TTransport extends OperationTransportProtocol,
-> implements ApplicationSchemaMutationTransport<TTransport> {
-	readonly mutations: readonly ExposedSchemaMutationTransportBinding[]
-	readonly transport: TTransport
-	readonly #exposed = new Map<
-		ExposedSchemaMutationTransportBinding,
-		ExposedSchemaMutation
-	>()
+/** Builds the complete exact schema-mutation allowlist for one protocol. */
+export const exposeFrameworkSchemaMutations = <
+	const TTransport extends OperationTransportProtocol,
+>(
+	framework: FrameworkEngine,
+	options: SchemaMutationTransportExposureOptions<TTransport>,
+): ApplicationSchemaMutationTransport<TTransport> => {
+	assertTransportExposureOptions(options, [], {
+		invalid: 'schema mutation transport exposure requires a transport protocol',
+		exposure: 'schema mutation transport exposure',
+		ack: 'schema mutation transport',
+	})
+	const { application } = framework
+	const graph = readApplicationKernelState(application).commands
+	const exposed = new Map(
+		projectSchemaMutationTransports(graph, options.transport).map((entry) => {
+			const schema = application.schemas.get(entry.descriptor.schema)
+			if (schema === undefined) {
+				throw new TypeError('Compiled command schema is unavailable')
+			}
+			return [entry.descriptor, { ...entry, schema }] as const
+		}),
+	)
+	reportFrameworkPublicTransportProtection(framework, options)
 
-	constructor(
-		transport: TTransport,
-		exposed: readonly ExposedSchemaMutation[],
-		private readonly runtime: PluginSchemaMutationRuntime,
-		private readonly createEngine: (context: RequestContext) => RequestEngine,
-	) {
-		this.transport = transport
-		for (const item of exposed) {
-			this.#exposed.set(item.descriptor, item)
-		}
-		this.mutations = immutableArray([...this.#exposed.keys()])
-		Object.freeze(this)
-	}
-
-	async execute(request: SchemaMutationTransportRequest): Promise<unknown> {
-		if (!isPlainRecord(request)) {
-			throw new TypeError(
-				'schema mutation transport request must be a plain object',
-			)
-		}
-		assertExactEnumerableKeys(
-			request,
-			requestKeys,
-			'schema mutation transport request contains unknown key: ',
-		)
-		if (!(request.context instanceof RequestContext)) {
-			throw new TypeError(
-				'schema mutation transport request context must be a RequestContext',
-			)
-		}
-		// Context provenance and application lifecycle fail before owner codecs run.
-		const engine = this.createEngine(request.context)
-		const application = readRequestEngineApplication(engine)
-		return runApplicationWork(application, async () => {
-			const exposed = this.#exposed.get(request.binding)
-			if (exposed?.schema !== request.schema) {
-				throw new FrameworkError(
-					'PLUGIN_OPERATION_INVALID',
-					'Schema mutation transport binding is not exposed by this application.',
-					{ publicMessage: 'The requested operation is not available.' },
+	return immutableRecord({
+		mutations: immutableArray([...exposed.keys()]),
+		transport: options.transport,
+		execute: async (request: SchemaMutationTransportRequest) => {
+			const untrustedRequest: unknown = request
+			if (!isPlainRecord(untrustedRequest)) {
+				throw new TypeError(
+					'schema mutation transport request must be a plain object',
 				)
 			}
-			if (typeof request.id !== 'string' || request.id.length === 0) {
-				throw new TypeError('schema mutation transport id must be a string')
+			assertExactEnumerableKeys(
+				untrustedRequest,
+				requestKeys,
+				'schema mutation transport request contains unknown key: ',
+			)
+			const context: unknown = request.context
+			if (!(context instanceof RequestContext)) {
+				throw new TypeError(
+					'schema mutation transport request context must be a RequestContext',
+				)
 			}
-			throwIfOperationCancelled(request.context.signal, {
-				operation: exposed.command.definition.name,
-				stage: 'transport-input',
+			// Context provenance and application lifecycle fail before owner codecs run.
+			assertApplicationRequestExecutionAvailable(application)
+			const engine = framework.withContext(context)
+			return runApplicationWork(application, async () => {
+				const entry = exposed.get(request.binding)
+				if (entry?.schema !== request.schema) {
+					throw new FrameworkError(
+						'PLUGIN_OPERATION_INVALID',
+						'Schema mutation transport binding is not exposed by this application.',
+						{ publicMessage: 'The requested operation is not available.' },
+					)
+				}
+				const id: unknown = request.id
+				if (typeof id !== 'string' || id.length === 0) {
+					throw new TypeError('schema mutation transport id must be a string')
+				}
+				throwIfOperationCancelled(context.signal, {
+					operation: entry.command.definition.name,
+					stage: 'transport-input',
+				})
+				const input = decodeSchemaMutationInput(
+					application,
+					entry.binding,
+					request.input,
+				)
+				const envelope = prepareSchemaMutationEnvelope({
+					graph,
+					command: entry.command,
+					schema: entry.schema,
+					name: entry.descriptor.command,
+					id,
+					input,
+					projection: request,
+				})
+				return executeRequestSchemaMutation(
+					engine,
+					entry.command,
+					entry.schema,
+					envelope,
+					immutableRecord({ context: undefined, useMasterKey: false }),
+				)
 			})
-			const decoded = this.runtime.decodeTransportInput(
-				exposed.binding,
-				request.input,
-			)
-			const envelope = prepareSchemaMutationEnvelope({
-				graph: readApplicationKernelState(application).commands,
-				command: exposed.command,
-				schema: request.schema,
-				name: exposed.commandName,
-				id: request.id,
-				input: decoded,
-				projection: request,
-			})
-			return executeRequestSchemaMutation(
-				engine,
-				exposed.command,
-				request.schema,
-				envelope,
-				immutableRecord({
-					context: undefined,
-					useMasterKey: false,
-				}),
-			)
-		})
-	}
+		},
+	})
 }

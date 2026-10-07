@@ -47,7 +47,7 @@ import { createRuntimeVirtualFieldScheduler } from '../virtual-fields/binding.js
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
-import type { PluginSchemaMutationRuntime } from './runtime.js'
+import { resolveSchemaMutation } from './runtime.js'
 
 interface SchemaMutationPipelineBinding {
 	readonly boundaries: RuntimeBehaviorBoundaries
@@ -56,10 +56,10 @@ interface SchemaMutationPipelineBinding {
 }
 
 export interface RuntimeSchemaMutationRequest {
+	readonly application: object
 	readonly command: CompiledMutationCommand
 	readonly context: RequestContext
 	readonly envelope: PluginSchemaMutationEnvelope
-	readonly runtime: PluginSchemaMutationRuntime
 	readonly schema: SchemaDefinition
 }
 
@@ -246,7 +246,7 @@ export const executeRuntimeSchemaMutation = async (
 		)
 	}
 	const { boundaries, inclusions, stages } = binding
-	const { command, context, envelope, runtime, schema } = request
+	const { application, command, context, envelope, schema } = request
 	let logical: PluginSchemaMutationOperationAst = immutableRecord({
 		command: envelope.command,
 		effect: undefined,
@@ -319,7 +319,8 @@ export const executeRuntimeSchemaMutation = async (
 		operationKind: logical.kind,
 		phase: 'schema-mutation-handler',
 	})
-	const candidate = await runtime.resolve(
+	const candidate = await resolveSchemaMutation(
+		application,
 		command,
 		schema,
 		envelope,

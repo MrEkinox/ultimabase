@@ -6,25 +6,27 @@ import type {
 	CompiledMutationCommand,
 	CompiledOperationCommand,
 } from '../../plugins/command-graph.js'
+import type {
+	OperationTransportImplementation,
+	SchemaMutationTransportImplementation,
+} from './bindings.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
-import type { OwnedTransportBinding } from '../plugin-operations/runtime.js'
 import type { ExposedOperationTransportBinding } from '../plugin-operations/transport.js'
-import type { OwnedSchemaMutationTransportBinding } from '../schema-mutations/runtime.js'
 import type { ExposedSchemaMutationTransportBinding } from '../schema-mutations/transport.js'
 
 // Exact application-owned bindings give inert plans and execution the same identity.
 const operations = new WeakMap<
-	OwnedTransportBinding,
+	OperationTransportImplementation,
 	ExposedOperationTransportBinding
 >()
 const mutations = new WeakMap<
-	OwnedSchemaMutationTransportBinding,
+	SchemaMutationTransportImplementation,
 	Map<CommandSurface, ExposedSchemaMutationTransportBinding>
 >()
 
 /** Keeps execution references private while its descriptor is safe for transport planning. */
 interface ProjectedSchemaMutationTransport {
-	readonly binding: OwnedSchemaMutationTransportBinding
+	readonly binding: SchemaMutationTransportImplementation
 	readonly command: CompiledMutationCommand
 	readonly descriptor: ExposedSchemaMutationTransportBinding
 }
@@ -32,7 +34,7 @@ interface ProjectedSchemaMutationTransport {
 /** Describes the already validated binding without exposing its private codec. */
 export const describeOperationTransport = (
 	command: CompiledOperationCommand,
-	binding: OwnedTransportBinding,
+	binding: OperationTransportImplementation,
 ): ExposedOperationTransportBinding => {
 	let descriptor = operations.get(binding)
 	if (descriptor === undefined) {
@@ -58,7 +60,7 @@ export const describeOperationTransport = (
 const describeMutation = (
 	command: CompiledMutationCommand,
 	surface: CommandSurface,
-	binding: OwnedSchemaMutationTransportBinding,
+	binding: SchemaMutationTransportImplementation,
 ): ExposedSchemaMutationTransportBinding => {
 	let aliases = mutations.get(binding)
 	if (aliases === undefined) {

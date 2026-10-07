@@ -20,48 +20,38 @@ export const requireCurrentRequestRoleResolver = (): RequestRoleResolver => {
 	const contribution = readApplicationKernelState(
 		application,
 	).capabilityContributions(requestRoleResolverCapability)[0]
-	if (contribution !== undefined) {
-		const resolver = contribution.value
-		const resolvePersistentRole = resolver.resolvePersistentRole?.bind(resolver)
-		const resolveCurrentRoles = resolver.resolveCurrentRoles?.bind(resolver)
-		const attributed: RequestRoleResolver = immutableRecord({
-			hasRole: (input) =>
-				runWithApplicationPluginOwner(application, contribution.owner, () =>
-					resolver.hasRole(input),
-				),
-			...(resolvePersistentRole === undefined
-				? {}
-				: {
-						resolvePersistentRole: (input) =>
-							runWithApplicationPluginOwner(
-								application,
-								contribution.owner,
-								() => resolvePersistentRole(input),
-							),
-					}),
-			...(resolveCurrentRoles === undefined
-				? {}
-				: {
-						resolveCurrentRoles: (input) =>
-							runWithApplicationPluginOwner(
-								application,
-								contribution.owner,
-								() => resolveCurrentRoles(input),
-							),
-					}),
-		})
-		attributedRoleResolvers.set(application, attributed)
-		return attributed
+	if (contribution === undefined) {
+		throw new FrameworkError(
+			'PLUGIN_CAPABILITY_MISSING',
+			'Active application requires a request role resolver capability.',
+			{
+				internalDetails: {
+					capabilityId: requestRoleResolverCapability.capabilityId,
+					requiredVersion: '^1.0.0',
+				},
+			},
+		)
 	}
 
-	throw new FrameworkError(
-		'PLUGIN_CAPABILITY_MISSING',
-		'Active application requires a request role resolver capability.',
-		{
-			internalDetails: {
-				capabilityId: requestRoleResolverCapability.capabilityId,
-				requiredVersion: '^1.0.0',
-			},
-		},
-	)
+	// Every resolver call keeps the contributing plugin's privilege attribution.
+	const resolver = contribution.value
+	const attribute =
+		<TInput, TResult>(method: (input: TInput) => TResult) =>
+		(input: TInput): TResult =>
+			runWithApplicationPluginOwner(application, contribution.owner, () =>
+				method(input),
+			)
+	const resolvePersistentRole = resolver.resolvePersistentRole?.bind(resolver)
+	const resolveCurrentRoles = resolver.resolveCurrentRoles?.bind(resolver)
+	const attributed: RequestRoleResolver = immutableRecord({
+		hasRole: attribute(resolver.hasRole.bind(resolver)),
+		...(resolvePersistentRole === undefined
+			? {}
+			: { resolvePersistentRole: attribute(resolvePersistentRole) }),
+		...(resolveCurrentRoles === undefined
+			? {}
+			: { resolveCurrentRoles: attribute(resolveCurrentRoles) }),
+	})
+	attributedRoleResolvers.set(application, attributed)
+	return attributed
 }

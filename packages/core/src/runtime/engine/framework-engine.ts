@@ -1,9 +1,6 @@
-import {
-	assertFrameworkEngineOptions,
-	type FrameworkEngineOptions,
-} from './engine-options.js'
-export type { FrameworkEngineOptions } from './engine-options.js'
-import type { FrameworkApplication } from '../../application/framework-application.js'
+import { isPlainRecord } from '@ultimabase/shared'
+
+import { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type {
 	AnonymousRequestAccess,
@@ -14,9 +11,10 @@ import {
 	RequestContext,
 	type RequestContextOptions,
 } from '../context/request-context.js'
-import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
+import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
 	bindMasterGrantApplication,
+	MasterAuthority,
 	type MasterKeyGrant,
 } from '../master/master-authority.js'
 import { exposeFrameworkOperations } from '../plugin-operations/engine-integration.js'
@@ -28,19 +26,51 @@ import type { OperationTransportProtocol } from '../plugin-operations/contracts.
 import {
 	assertApplicationEngineAvailable,
 	bindRequestContextToApplication,
+	requireMasterAuthority,
 } from './application-binding.js'
-import {
-	bindFrameworkMasterAuthority,
-	getFrameworkMasterAuthority,
-	readFrameworkMasterAuthority,
-} from './framework-master-authority.js'
-import { RequestEngine } from './request-engine.js'
-import { requestEngineConstructionKey } from './request-engine-construction.js'
+import { createRequestEngine, RequestEngine } from './request-engine.js'
 import { readApplicationFacade } from '../context/current-ultima-base.js'
 import type { UltimaBase } from '../application/ultima-base.js'
 
 export { RequestEngine } from './request-engine.js'
 export type { RequestTransactionHandler } from './request-engine.js'
+
+/** Captures every application-owned dependency shared by its request engines. */
+export interface FrameworkEngineOptions<
+	TSchemas extends readonly SchemaDefinition[],
+	TPlugins extends readonly PluginDefinition[],
+> {
+	readonly application: FrameworkApplication<TSchemas, TPlugins>
+	readonly masterAuthority?: MasterAuthority
+	readonly pipeline: RuntimePipeline
+}
+
+/** Rejects malformed low-level construction before it can bind request state. */
+const assertFrameworkEngineOptions = (options: unknown): void => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError('Framework engine options must be a plain object')
+	}
+	if (!(options.application instanceof FrameworkApplication)) {
+		throw new TypeError(
+			'Framework engine application must be a FrameworkApplication',
+		)
+	}
+	if (!(options.pipeline instanceof RuntimePipeline)) {
+		throw new TypeError('Framework engine pipeline must be a RuntimePipeline')
+	}
+	if (
+		options.masterAuthority !== undefined &&
+		!(options.masterAuthority instanceof MasterAuthority)
+	) {
+		throw new TypeError(
+			'Framework engine masterAuthority must be a MasterAuthority',
+		)
+	}
+}
+
+let readMasterAuthority: (
+	framework: FrameworkEngine,
+) => MasterAuthority | undefined
 
 /**
  * Owns application-wide execution dependencies and creates isolated request
@@ -54,17 +84,14 @@ export class FrameworkEngine<
 > {
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
 	readonly #pipeline: RuntimePipeline
+	readonly #masterAuthority: MasterAuthority | undefined
 
 	constructor(options: FrameworkEngineOptions<TSchemas, TPlugins>) {
 		assertFrameworkEngineOptions(options)
 		assertApplicationEngineAvailable(options.application)
 		this.application = options.application
 		this.#pipeline = options.pipeline
-
-		if (options.masterAuthority !== undefined) {
-			bindFrameworkMasterAuthority(this, options.masterAuthority)
-		}
-
+		this.#masterAuthority = options.masterAuthority
 		Object.freeze(this)
 	}
 
@@ -80,7 +107,7 @@ export class FrameworkEngine<
 	authorizeMasterKey(rawKey: string): MasterKeyGrant {
 		assertApplicationEngineAvailable(this.application)
 		return bindMasterGrantApplication(
-			getFrameworkMasterAuthority(this).authorize(rawKey),
+			requireMasterAuthority(this.#masterAuthority).authorize(rawKey),
 			this.application,
 		)
 	}
@@ -93,19 +120,12 @@ export class FrameworkEngine<
 		if (!(context instanceof RequestContext)) {
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
-
 		bindRequestContextToApplication(
 			this.application,
 			context,
-			readFrameworkMasterAuthority(this),
+			this.#masterAuthority,
 		)
-
-		return new RequestEngine(
-			requestEngineConstructionKey,
-			this,
-			context,
-			this.#pipeline,
-		)
+		return createRequestEngine(this, context, this.#pipeline)
 	}
 
 	/** Creates one anonymous request engine without introducing public identity. */
@@ -130,12 +150,9 @@ export class FrameworkEngine<
 	/** Keeps schema identity checks centralized for queries and direct operations. */
 	assertOwnsSchema(schema: unknown): asserts schema is TSchemas[number] {
 		assertApplicationEngineAvailable(this.application)
-		if (this.application.ownsSchema(schema)) {
-			return
-		}
+		if (this.application.ownsSchema(schema)) return
 
 		const className: string = Schema.is(schema) ? schema.className : 'unknown'
-
 		throw new FrameworkError(
 			'VALIDATION_ERROR',
 			`Schema does not belong to this application: ${className}`,
@@ -145,4 +162,13 @@ export class FrameworkEngine<
 			},
 		)
 	}
+
+	static {
+		readMasterAuthority = (framework) => framework.#masterAuthority
+	}
 }
+
+/** @internal Reads the optional authority used for provenance and elevation. */
+export const readFrameworkMasterAuthority = (
+	framework: FrameworkEngine,
+): MasterAuthority | undefined => readMasterAuthority(framework)

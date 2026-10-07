@@ -1,21 +1,16 @@
 import { FrameworkError } from '../../foundation.js'
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
-import type {
-	DatabaseAdapter,
-	DatabaseOperationExecutor,
-	DatabaseTransactionAdapter,
+import {
+	isDatabaseAdapter,
+	isDatabaseTransactionAdapter,
+	type DatabaseTransactionAdapter,
 } from '../database/contracts.js'
-import type {
-	RuntimeBehaviorStages,
-	RuntimePipelineStages,
-} from '../pipeline/contracts.js'
+import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 
-type TransactionScopeState =
-	'active' | 'committed' | 'flushed' | 'flushing' | 'rolled-back'
 type DeferredPostCommitEffect = () => MaybePromise<void>
-type RuntimePipelineFactory = (stages: RuntimePipelineStages) => RuntimePipeline
+
 const transactionAdapters = new WeakMap<
 	RuntimePipeline,
 	DatabaseTransactionAdapter
@@ -30,59 +25,15 @@ export interface RuntimePipelineTransactionScope {
 	flushPostCommitEvents(): Promise<void>
 }
 
-/** Narrows the root executor before asking an infrastructure plugin for a transaction. */
-const assertDatabaseAdapter: (
-	executor: DatabaseOperationExecutor,
-) => asserts executor is DatabaseAdapter = (executor) => {
-	const untrustedExecutor: unknown = executor
-
-	if (
-		typeof untrustedExecutor !== 'object' ||
-		untrustedExecutor === null ||
-		!('kind' in untrustedExecutor) ||
-		untrustedExecutor.kind !== 'database-adapter' ||
-		!('beginTransaction' in untrustedExecutor) ||
-		typeof untrustedExecutor.beginTransaction !== 'function'
-	) {
-		throw new FrameworkError(
-			'TRANSACTION_ERROR',
-			'Runtime pipeline database executor cannot begin transactions.',
-			{
-				publicMessage: 'Transactions are not available.',
-				internalDetails: { reason: 'database-adapter-required' },
-			},
-		)
-	}
-}
-
-/** Validates a plugin-owned transaction before any developer callback receives it. */
-const assertDatabaseTransactionAdapter: (
-	transaction: unknown,
-) => asserts transaction is DatabaseTransactionAdapter = (transaction) => {
-	if (
-		typeof transaction !== 'object' ||
-		transaction === null ||
-		!('kind' in transaction) ||
-		transaction.kind !== 'database-transaction-adapter' ||
-		!('execute' in transaction) ||
-		typeof transaction.execute !== 'function' ||
-		!('prepare' in transaction) ||
-		typeof transaction.prepare !== 'function' ||
-		!('commit' in transaction) ||
-		typeof transaction.commit !== 'function' ||
-		!('rollback' in transaction) ||
-		typeof transaction.rollback !== 'function'
-	) {
-		throw new FrameworkError(
-			'TRANSACTION_ERROR',
-			'Database adapter returned an invalid transaction executor.',
-			{
-				publicMessage: 'The transaction could not be started.',
-				internalDetails: { reason: 'invalid-transaction-adapter' },
-			},
-		)
-	}
-}
+const transactionError = (
+	message: string,
+	publicMessage: string,
+	reason: string,
+): FrameworkError<'TRANSACTION_ERROR'> =>
+	new FrameworkError('TRANSACTION_ERROR', message, {
+		publicMessage,
+		internalDetails: { reason },
+	})
 
 /**
  * Reuses every pipeline stage with an isolated transaction adapter and keeps
@@ -90,75 +41,80 @@ const assertDatabaseTransactionAdapter: (
  */
 export const beginPipelineTransaction = async (
 	stages: Readonly<RuntimePipelineStages>,
-	createPipeline: RuntimePipelineFactory,
+	createPipeline: (stages: RuntimePipelineStages) => RuntimePipeline,
 ): Promise<RuntimePipelineTransactionScope> => {
-	const databaseAdapter: DatabaseOperationExecutor = stages.databaseOperation
+	const database = stages.databaseOperation
+	if (!isDatabaseAdapter(database)) {
+		throw transactionError(
+			'Runtime pipeline database executor cannot begin transactions.',
+			'Transactions are not available.',
+			'database-adapter-required',
+		)
+	}
+	const transaction: unknown = await database.beginTransaction()
+	if (!isDatabaseTransactionAdapter(transaction)) {
+		throw transactionError(
+			'Database adapter returned an invalid transaction executor.',
+			'The transaction could not be started.',
+			'invalid-transaction-adapter',
+		)
+	}
 
-	assertDatabaseAdapter(databaseAdapter)
-	const transaction: unknown = await databaseAdapter.beginTransaction()
-
-	assertDatabaseTransactionAdapter(transaction)
-
-	const postCommitEffects: DeferredPostCommitEffect[] = []
+	const effects: DeferredPostCommitEffect[] = []
 	const postCommit = stages.behaviors?.postCommit
-	const transactionBehaviors: RuntimeBehaviorStages | undefined =
-		postCommit === undefined
-			? stages.behaviors
-			: immutableRecord({
-					...stages.behaviors,
-					postCommit: (input) => {
-						postCommitEffects.push(() => postCommit(input))
-					},
-				})
-	const transactionPipeline: RuntimePipeline = createPipeline({
+	const pipeline = createPipeline({
 		...stages,
 		databaseOperation: transaction,
 		// The outer scope commits the adapter exactly once after the callback.
 		commit: () => undefined,
-		...(transactionBehaviors === undefined
+		...(postCommit === undefined
 			? {}
-			: { behaviors: transactionBehaviors }),
+			: {
+					behaviors: immutableRecord({
+						...stages.behaviors,
+						postCommit: (input) => {
+							effects.push(() => postCommit(input))
+						},
+					}),
+				}),
 	})
-	transactionAdapters.set(transactionPipeline, transaction)
-	let state: TransactionScopeState = 'active'
+	transactionAdapters.set(pipeline, transaction)
+	let state: 'active' | 'committed' | 'flushed' | 'flushing' | 'rolled-back' =
+		'active'
+	const assertActive = (): void => {
+		if (state !== 'active') {
+			throw new TypeError('Runtime transaction scope is already finalized')
+		}
+	}
 
 	return immutableRecord({
-		pipeline: transactionPipeline,
+		pipeline,
 		commit: async (): Promise<void> => {
-			if (state !== 'active') {
-				throw new TypeError('Runtime transaction scope is already finalized')
-			}
-
+			assertActive()
 			await transaction.commit()
 			state = 'committed'
-			transactionAdapters.delete(transactionPipeline)
+			transactionAdapters.delete(pipeline)
 		},
 		rollback: async (): Promise<void> => {
-			if (state !== 'active') {
-				throw new TypeError('Runtime transaction scope is already finalized')
-			}
-
-			postCommitEffects.length = 0
-
+			assertActive()
+			effects.length = 0
 			try {
 				await transaction.rollback()
 				state = 'rolled-back'
 			} finally {
-				transactionAdapters.delete(transactionPipeline)
+				transactionAdapters.delete(pipeline)
 			}
 		},
-		deferPostCommitEffect: (effect): void => {
+		deferPostCommitEffect: (effect: DeferredPostCommitEffect): void => {
 			if (state !== 'active' && state !== 'committed') {
 				throw new TypeError(
 					'Runtime transaction effects require an active transaction',
 				)
 			}
-
 			if (typeof effect !== 'function') {
 				throw new TypeError('Runtime transaction effect must be a function')
 			}
-
-			postCommitEffects.push(effect)
+			effects.push(effect)
 		},
 		flushPostCommitEvents: async (): Promise<void> => {
 			if (state !== 'committed') {
@@ -166,14 +122,9 @@ export const beginPipelineTransaction = async (
 					'Runtime transaction events require a committed transaction',
 				)
 			}
-
-			const effects: readonly DeferredPostCommitEffect[] =
-				postCommitEffects.splice(0)
-			const failures: unknown[] = []
-
 			state = 'flushing'
-
-			for (const effect of effects) {
+			const failures: unknown[] = []
+			for (const effect of effects.splice(0)) {
 				try {
 					await effect()
 				} catch (error: unknown) {
@@ -181,13 +132,8 @@ export const beginPipelineTransaction = async (
 					failures.push(error)
 				}
 			}
-
 			state = 'flushed'
-
-			if (failures.length === 1) {
-				throw failures[0]
-			}
-
+			if (failures.length === 1) throw failures[0]
 			if (failures.length > 1) {
 				throw new AggregateError(
 					failures,

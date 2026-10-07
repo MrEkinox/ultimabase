@@ -37,9 +37,9 @@ import type {
 import {
 	assertApplicationEngineAvailable,
 	assertApplicationRequestExecutionAvailable,
+	assertMasterElevationPrivilege,
 } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
-import { assertMasterElevationPrivilege } from '../engine/framework-master-authority.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { reportFrameworkPublicTransportProtection } from '../plugin-operations/engine-integration.js'
 import type {
@@ -52,11 +52,11 @@ import {
 	type ApplicationSchemaMutationRequest,
 	type ApplicationSchemaMutationResult,
 } from './application-schema-mutation-execution.js'
-import type {
-	ApplicationSchemaMutationTransport,
-	SchemaMutationTransportExposureOptions,
+import {
+	exposeFrameworkSchemaMutations,
+	type ApplicationSchemaMutationTransport,
+	type SchemaMutationTransportExposureOptions,
 } from '../schema-mutations/transport.js'
-import { exposeFrameworkSchemaMutations } from '../schema-mutations/transport-exposure.js'
 
 /** Carries one raw credential only for immediate application-owned verification. */
 export interface ApplicationMasterKeyVerificationOptions<

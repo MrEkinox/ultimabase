@@ -3,8 +3,7 @@ export class TrackedExecutionLifetime {
 	readonly #createClosedError: () => Error
 	readonly #pendingOperations = new Set<Promise<void>>()
 	#active = true
-	#failure: unknown
-	#hasFailure = false
+	#failure: { readonly error: unknown } | undefined
 
 	constructor(createClosedError: () => Error) {
 		this.#createClosedError = createClosedError
@@ -22,7 +21,6 @@ export class TrackedExecutionLifetime {
 		this.assertActive()
 
 		let result: Promise<TResult>
-
 		try {
 			result = operation()
 		} catch (error: unknown) {
@@ -36,7 +34,6 @@ export class TrackedExecutionLifetime {
 				this.markFailed(error)
 			},
 		)
-
 		this.#pendingOperations.add(observation)
 		void observation.finally(() => this.#pendingOperations.delete(observation))
 
@@ -45,10 +42,7 @@ export class TrackedExecutionLifetime {
 
 	/** Retains the first failure so catching it cannot make the owner look successful. */
 	markFailed(error: unknown): void {
-		if (!this.#hasFailure) {
-			this.#failure = error
-			this.#hasFailure = true
-		}
+		this.#failure ??= { error }
 	}
 
 	/** Revokes new work, waits for admitted operations, and rethrows their first failure. */
@@ -56,8 +50,8 @@ export class TrackedExecutionLifetime {
 		this.#active = false
 		await Promise.all([...this.#pendingOperations])
 
-		if (this.#hasFailure) {
-			throw this.#failure
+		if (this.#failure !== undefined) {
+			throw this.#failure.error
 		}
 	}
 }

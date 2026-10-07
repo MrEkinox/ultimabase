@@ -45,7 +45,7 @@ import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.j
 
 import type { PluginSchemaMutationEnvelope } from '../../application/application-schema-mutations.js'
 import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
-import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
+import { getActiveRequestEngine } from '../context/active-framework-context.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
 import { requestSources } from '../context/request-context.js'
 import type {
@@ -75,10 +75,6 @@ import {
 	type ConfiguredUltimaBaseFactory,
 	type MergeInstalledPluginSources,
 } from './configured-application-factory.js'
-import {
-	bindUltimaBaseEngine,
-	bindUltimaBaseKernel,
-} from './ultima-base-kernel.js'
 import type {
 	EmptyPluginSourceState,
 	PluginSourceState,
@@ -113,6 +109,21 @@ export type {
  * const posts = await PostSchema.findMany()
  * ```
  */
+let readKernel: <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+) => FrameworkApplication<TSchemas, TPlugins>
+let readEngine: <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+) => FrameworkEngine<TSchemas, TPlugins>
+
 const configuredSchemaNamespace = Object.freeze({
 	define: defineOrdinarySchemaModel,
 	defineSpecialized: Schema.defineSpecialized.bind(Schema),
@@ -168,60 +179,31 @@ export class UltimaBase<
 			schemas: options.schemas,
 			plugins,
 		})
-		bindUltimaBaseKernel(this, this.#application)
 		this.#engineOptions = readEngineOptions(options)
 		this.#operationOwnerToken = registerQueryExecutionOwner({
 			application: this.#application,
 			bindResult: (value, ownerToken) =>
 				this.#bindQueryResult(value, ownerToken),
-			executeModelSchemaMutation: (model, schema, name, input, options) => {
-				const surface = this.#application.getSchemaSurface(schema.className)
-				if (surface?.schema !== schema || !surface.modelMutations.has(name)) {
-					throw new TypeError(
-						`Model mutation ${schema.className}.${name} is not installed in this application`,
-					)
-				}
-				const handle = this.schema(schema).for(model)
-				const method: unknown = Reflect.get(handle, name)
-				if (typeof method !== 'function') {
-					throw new TypeError(
-						`Model mutation ${schema.className}.${name} is not installed in this application`,
-					)
-				}
-				return Reflect.apply(method, handle, [
+			executeModelSchemaMutation: (model, schema, name, input, options) =>
+				this.#invokeSchemaMutation(
+					schema,
+					name,
+					'model',
+					(handle) => handle.for(model),
 					input,
 					options,
-				]) as Promise<unknown>
-			},
-			executeSchemaMutation: (schema, name, input, options) => {
-				const surface = this.#application.getSchemaSurface(schema.className)
-				if (surface?.schema !== schema || !surface.schemaMutations.has(name)) {
-					throw new TypeError(
-						`Schema mutation ${schema.className}.${name} is not installed in this application`,
-					)
-				}
-				const handle = this.schema(schema)
-				const method: unknown = Reflect.get(handle, name)
-				if (typeof method !== 'function') {
-					throw new TypeError(
-						`Schema mutation ${schema.className}.${name} is not installed in this application`,
-					)
-				}
-				return Reflect.apply(method, handle, [
+				),
+			executeSchemaMutation: (schema, name, input, options) =>
+				this.#invokeSchemaMutation(
+					schema,
+					name,
+					'schema',
+					(handle) => handle,
 					input,
 					options,
-				]) as Promise<unknown>
-			},
-			createRootExecutor: () => {
-				const frameworkEngine = this.#frameworkEngine ?? this.#engine
-				const requestEngine = frameworkEngine.anonymous({
-					requestId: randomUUID(),
-					source: requestSources.internal,
-				})
-
-				// The facade-owned anonymous engine validates exact schema ownership.
-				return requestEngine
-			},
+				),
+			// The facade-owned anonymous engine validates exact schema ownership.
+			createRootExecutor: () => this.#anonymousEngine(this.#frameworkEngine),
 		})
 		// Public facade identity is stable while private lifecycle state may advance.
 		registerApplicationFacade(this, this.#application)
@@ -348,22 +330,12 @@ export class UltimaBase<
 		value: unknown,
 		ownerToken: OperationExecutionOwnerToken,
 	): unknown {
-		const modelMutationsBySchema = new Map<
-			SchemaDefinition,
-			ReadonlySet<string>
-		>()
-		for (const schema of this.#application.schemas.values()) {
-			const surface = this.#application.getSchemaSurface(schema.className)
-			modelMutationsBySchema.set(
-				schema,
-				new Set(surface?.modelMutations.keys() ?? []),
-			)
-		}
-		return bindDirectApplicationValue(
-			value,
-			ownerToken,
-			(schema) => modelMutationsBySchema.get(schema) ?? new Set<string>(),
-		)
+		return bindDirectApplicationValue(value, ownerToken, (schema) => {
+			const surface = this.#application.ownsSchema(schema)
+				? this.#application.getSchemaSurface(schema.className)
+				: undefined
+			return new Set(surface?.modelMutations.keys() ?? [])
+		})
 	}
 
 	/** Resolves one exact stable schema class through its application-owned handle. */
@@ -381,22 +353,22 @@ export class UltimaBase<
 		if (surface === undefined) {
 			throw new TypeError(`Unknown application schema: ${className}`)
 		}
-		if (typeof nameOrClass !== 'string') {
-			if (!Schema.is(nameOrClass) || surface.schema !== nameOrClass) {
-				throw new TypeError(
-					`Schema class does not belong to this application: ${className}`,
-				)
-			}
+		if (
+			typeof nameOrClass !== 'string' &&
+			(!Schema.is(nameOrClass) || surface.schema !== nameOrClass)
+		) {
+			throw new TypeError(
+				`Schema class does not belong to this application: ${className}`,
+			)
 		}
 		let handle = this.#schemaHandles.get(className)
 		if (handle === undefined) {
-			const schemaHandle = new ApplicationSchemaHandleBase(
+			handle = new ApplicationSchemaHandleBase(
 				this,
 				surface,
 				(command, schema, envelope, options) =>
 					this.#executeSchemaMutation(command, schema, envelope, options),
 			)
-			handle = schemaHandle
 			this.#schemaHandles.set(className, handle)
 		}
 		return handle
@@ -432,14 +404,15 @@ export class UltimaBase<
 
 	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */
 	start(): Promise<void> {
+		const { state } = this.#application
 		if (
-			this.#application.state === 'stopping' ||
-			this.#application.state === 'stopped' ||
-			this.#application.state === 'disposing' ||
-			this.#application.state === 'disposed'
+			state === 'stopping' ||
+			state === 'stopped' ||
+			state === 'disposing' ||
+			state === 'disposed'
 		) {
 			throw new TypeError(
-				`Cannot start UltimaBase while application is ${this.#application.state}`,
+				`Cannot start UltimaBase while application is ${state}`,
 			)
 		}
 
@@ -447,16 +420,13 @@ export class UltimaBase<
 			if (
 				readApplicationKernelState(this.#application).capabilityContributions(
 					databaseAdapterCapability,
-				).length === 0
+				).length > 0
 			) {
-				return
+				this.#frameworkEngine = createFrameworkEngine(
+					this.#application,
+					this.#engineOptions,
+				)
 			}
-			const frameworkEngine = createFrameworkEngine(
-				this.#application,
-				this.#engineOptions,
-			)
-			bindUltimaBaseEngine(this, frameworkEngine)
-			this.#frameworkEngine = frameworkEngine
 		})
 	}
 
@@ -475,20 +445,58 @@ export class UltimaBase<
 		await this.dispose()
 	}
 
+	/** Creates one fresh internal anonymous request for root application calls. */
+	#anonymousEngine(
+		framework: FrameworkEngine<TSchemas, TPlugins> = this.#engine,
+	): RequestEngine<TSchemas, TPlugins> {
+		return framework.anonymous({
+			requestId: randomUUID(),
+			source: requestSources.internal,
+		})
+	}
+
+	/** Reuses this application's active request or opens a fresh internal one. */
+	#requestEngine(): RequestEngine {
+		const active = getActiveRequestEngine()
+		return active?.ultimabase === this ? active : this.#anonymousEngine()
+	}
+
+	/** Calls one installed handle mutation after exact surface ownership checks. */
+	#invokeSchemaMutation(
+		schema: SchemaDefinition,
+		name: string,
+		target: 'model' | 'schema',
+		select: (handle: ApplicationSchemaHandle) => object,
+		input: unknown,
+		options: OperationOptions | undefined,
+	): Promise<unknown> {
+		const surface = this.#application.getSchemaSurface(schema.className)
+		const installed =
+			target === 'model' ? surface?.modelMutations : surface?.schemaMutations
+		const handle =
+			surface?.schema === schema && installed?.has(name) === true
+				? select(this.schema(schema))
+				: undefined
+		const method: unknown =
+			handle === undefined ? undefined : Reflect.get(handle, name)
+		if (handle === undefined || typeof method !== 'function') {
+			throw new TypeError(
+				`${target === 'model' ? 'Model' : 'Schema'} mutation ${schema.className}.${name} is not installed in this application`,
+			)
+		}
+		return Reflect.apply(method, handle, [input, options]) as Promise<unknown>
+	}
+
 	async #executePluginOperation(
 		compiled: CompiledOperationCommand,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
-		const active = getActiveFrameworkContext()
-		const requestEngine =
-			active?.ultimabase === this
-				? active.requestEngine
-				: this.#engine.anonymous({
-						requestId: randomUUID(),
-						source: requestSources.internal,
-					})
 		return this.#bindQueryResult(
-			await executeRequestPluginOperation(requestEngine, compiled, envelope),
+			await executeRequestPluginOperation(
+				this.#requestEngine(),
+				compiled,
+				envelope,
+			),
 			this.#operationOwnerToken,
 		)
 	}
@@ -499,17 +507,9 @@ export class UltimaBase<
 		envelope: PluginSchemaMutationEnvelope,
 		options: OperationOptions | undefined,
 	): Promise<unknown> {
-		const active = getActiveFrameworkContext()
-		const requestEngine =
-			active?.ultimabase === this
-				? active.requestEngine
-				: this.#engine.anonymous({
-						requestId: randomUUID(),
-						source: requestSources.internal,
-					})
 		return this.#bindQueryResult(
 			await executeRequestSchemaMutation(
-				requestEngine,
+				this.#requestEngine(),
 				readMutationCommand(command).command,
 				schema,
 				envelope,
@@ -518,4 +518,33 @@ export class UltimaBase<
 			this.#operationOwnerToken,
 		)
 	}
+
+	static {
+		readKernel = (ultimabase) => ultimabase.#application
+		readEngine = (ultimabase) => {
+			const engine = ultimabase.#frameworkEngine
+			if (engine === undefined) {
+				throw new TypeError('UltimaBase Runtime engine is unavailable')
+			}
+			return engine
+		}
+	}
 }
+
+/** @internal Resolves private Core state without exposing another public owner. */
+export const readUltimaBaseKernel = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+): FrameworkApplication<TSchemas, TPlugins> => readKernel(ultimabase)
+
+/** @internal Reads the private Runtime engine after successful assembly. */
+export const readUltimaBaseEngine = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+): FrameworkEngine<TSchemas, TPlugins> => readEngine(ultimabase)
