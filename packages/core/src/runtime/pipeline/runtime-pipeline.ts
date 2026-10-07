@@ -55,10 +55,11 @@ import type { RuntimeRelationFilterResolver } from '../relation-filters/executio
 import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
-import type {
-	RuntimeOperationResult,
-	RuntimePipelineRequest,
-	RuntimePipelineStages,
+import {
+	runtimeBehaviorStageNames,
+	type RuntimeOperationResult,
+	type RuntimePipelineRequest,
+	type RuntimePipelineStages,
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
@@ -151,19 +152,7 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 		}
 		assertStageFunctions(
 			behaviors,
-			[
-				'beforeOperation',
-				'guardMutationInput',
-				'observePreparedMutation',
-				'postCommit',
-				'requiresPreparedMutationItems',
-				'transformDatabaseResult',
-				'transformInput',
-				'transformMutationOutcome',
-				'transformPreparedInput',
-				'transformPreparedOperation',
-				'transformResult',
-			],
+			runtimeBehaviorStageNames,
 			'Runtime behavior stage',
 			true,
 		)
