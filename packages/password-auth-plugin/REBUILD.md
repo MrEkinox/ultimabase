@@ -13,8 +13,8 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 |        | Lines        |
 | ------ | ------------ |
 | Before | 3567         |
-| After  | 3226         |
-| Change | -341 (-9.6%) |
+| After  | 3359         |
+| Change | -208 (-5.8%) |
 
 About 40% of what remains is public contract: the operation, result and
 policy types and their JSDoc, the `PasswordUserSchema.define` overloads,
@@ -105,12 +105,48 @@ on the same input, in the same order.
 
 ## Pre-existing failures (untouched tree)
 
-To be completed with the final validation.
+Baseline on the untouched tree (branch base `13e2e80`): `yarn build` passed;
+`--project unit --project types packages/password-auth-plugin` 16 files /
+69 tests passed; `--project e2e` 2 files / 2 tests passed;
+`--project postgres-e2e` 6 files / 30 tests passed. No pre-existing failure
+in the focused suites.
+
+On the pre-rebase branch, `yarn vitest run --project website-content` had 2
+failures caused by stale `sources` of other packages
+(`packages/core/src/runtime/validation/runtime-validation-options.ts`,
+`packages/rest-plugin/src/operation-execution.ts`); main fixed them in
+`eb4c137`, and the branch was rebased on main (`fcc7d82`) before the final
+validation. Every `packages/password-auth-plugin/src` path listed in
+`apps/website/content` exists on this branch (that is why
+`application-api.ts` and `authentication-result.ts` were kept).
 
 ## Reference bugs found
 
 None found.
 
-## Validation
+## Validation (final tree, rebased on `fcc7d82`)
 
-To be completed with the final validation.
+| Command                                                                        | Result                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn build`                                                                   | pass (before and after `tsc --build`)                                                                                                                                                             |
+| `yarn vitest run --project unit --project types packages/password-auth-plugin` | 16 files, 69 tests passed, no type errors                                                                                                                                                         |
+| `yarn vitest run --project e2e packages/password-auth-plugin`                  | 2 files, 2 tests passed                                                                                                                                                                           |
+| `yarn vitest run --project postgres-e2e packages/password-auth-plugin`         | 6 files, 30 tests passed                                                                                                                                                                          |
+| consumers (1), `--project unit --project types`                                | 56 files, 228 tests passed, no type errors                                                                                                                                                        |
+| consumers (1), `--project e2e`                                                 | 10 of 11 passed; `create-app-packed` "writes a valid graph for each official plugin selected alone" timed out at 120 s (load average about 100). Rerun alone: 1 file, 6 tests passed (58.7 s).    |
+| consumers (1), `--project postgres-e2e`                                        | 5 files, 15 tests passed                                                                                                                                                                          |
+| `yarn vitest run --project e2e tests/e2e`                                      | 218 of 219 passed (47 files); the same `create-app-packed` timeout, which passed alone (see above)                                                                                                |
+| `yarn vitest run --project postgres-e2e tests/e2e`                             | 55 files, 191 tests passed                                                                                                                                                                        |
+| `yarn vitest run --project website-content`                                    | 17 files, 66 tests passed                                                                                                                                                                         |
+| `examples/minimal`: `yarn typecheck && yarn check-generated-types`             | pass                                                                                                                                                                                              |
+| `yarn test:pack:built`                                                         | 32 files, 173 tests passed (includes `password-auth-plugin.e2e.test.ts`)                                                                                                                          |
+| `yarn eslint packages/password-auth-plugin`                                    | 0 errors, 2 `max-lines` warnings: `src/operations.ts` (487 physical lines, under the 600 budget; the reference was 488) and the unchanged `tests/e2e/password-http-sessions.postgres.e2e.test.ts` |
+| `yarn prettier --check packages/password-auth-plugin`                          | pass                                                                                                                                                                                              |
+| `yarn tsc --build packages/password-auth-plugin`                               | pass                                                                                                                                                                                              |
+| `yarn tsc -p packages/password-auth-plugin/tsconfig.test.json`                 | pass                                                                                                                                                                                              |
+
+(1) Consumers from `git grep -l "@ultimabase/password-auth-plugin" -- packages tests examples apps`:
+`packages/create-app`, `packages/graphql-plugin` (README mention only),
+`packages/typegen`, `examples/minimal` (no vitest project; type-checked and
+generated-type checked instead), the three `tests/e2e` files (covered by the
+two `tests/e2e` runs) and `apps/website` (covered by `website-content`).
