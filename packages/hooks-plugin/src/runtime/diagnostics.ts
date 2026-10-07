@@ -3,8 +3,10 @@ import {
 	type FrameworkErrorCode,
 	type CapabilityToken,
 } from '@ultimabase/core'
-import type { FieldHookPhase } from '../authoring/field-declarations.js'
-import type { SchemaHookPhase } from '../authoring/declarations.js'
+import type {
+	FieldHookPhase,
+	SchemaHookPhase,
+} from '../authoring/declarations.js'
 import type {
 	HookContextOwner,
 	HookContextTarget,

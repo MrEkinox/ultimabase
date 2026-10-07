@@ -1,100 +1,124 @@
 import {
 	applicationSchemaMutationSurfaceCapability,
 	contributeDeclarations,
+	defineSchemaOption,
 	optionalCapability,
 	plugin,
 	provideRuntimeBehavior,
 	requireCapability,
-	type CapabilityProviderDeclaration,
-	type CapabilityRequirement,
+	type FieldOptionDefinition,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
-	type runtimeBehaviorCapability,
+	type SchemaDefinition,
+	type SchemaOptionDefinition,
+	type SchemaOptionRuntimeRequirement,
+	type SchemaReference,
 } from '@ultimabase/core'
+import { definePluginFieldOption } from '@ultimabase/plugin-kit'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { hookContributionsCapability } from './contributions.js'
-import { fieldHooksOption, schemaHooksOption } from './options.js'
+import type { SchemaHooks } from './authoring/contracts.js'
 import {
-	hookDiagnosticsObserverCapability,
-	type HookDiagnosticsObserver,
-} from './runtime/diagnostics.js'
+	normalizeFieldHookDeclarations,
+	normalizeSchemaHookDeclarations,
+	type FieldHookDeclarations,
+	type SchemaHookDeclarations,
+} from './authoring/declarations.js'
+import type { SourceFieldHooksOption } from './authoring/source-contracts.js'
+import { hookContributionsCapability } from './contributions.js'
 import { compileHookContributionPlan } from './runtime/contribution-plan.js'
+import { hookDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 import { createHookBehavior } from './runtime/dispatcher.js'
 import {
-	hookEventContributionsCapability,
 	getHookEventImplementation,
+	hookEventContributionsCapability,
 } from './runtime/events.js'
-import {
-	HookExecutionRuntime,
-	type OwnedHookEventHandler,
-} from './runtime/execution-runtime.js'
+import { HookExecutionRuntime } from './runtime/execution-runtime.js'
 
-const optionalHookContributions: CapabilityRequirement<
-	typeof hookContributionsCapability,
-	true,
-	'^1.0.0',
-	'materialization'
-> = optionalCapability(hookContributionsCapability, '^1.0.0')
-const optionalHookEvents: CapabilityRequirement<
-	typeof hookEventContributionsCapability,
-	true,
-	'^1.0.0',
-	'materialization'
-> = optionalCapability(hookEventContributionsCapability, '^1.0.0')
-const optionalHookDiagnostics: CapabilityRequirement<
-	typeof hookDiagnosticsObserverCapability,
-	true,
-	'^1.0.0',
-	'materialization'
-> = optionalCapability(hookDiagnosticsObserverCapability, '^1.0.0')
-const schemaMutationSurfaceRequirement: CapabilityRequirement<
-	typeof applicationSchemaMutationSurfaceCapability,
-	false,
-	'^1.0.0',
-	'materialization'
-> = requireCapability(applicationSchemaMutationSurfaceCapability, '^1.0.0', {
-	phase: 'materialization',
+type SchemaForOptions<TOptions> =
+	TOptions extends Readonly<{
+		readonly className: infer TClassName extends string
+	}>
+		? SchemaReference<TClassName>
+		: SchemaDefinition
+
+/** Resolves the exact generated schema identity from `SchemaOptions<this>`. */
+export type SchemaHooksOption<TOptions> = SchemaHooks<
+	SchemaForOptions<TOptions>
+>
+
+/** Owns the official schema `hooks` namespace as an opaque callback artifact. */
+const schemaHooksOption: SchemaOptionDefinition<
+	SchemaHookDeclarations | undefined,
+	SchemaOptionRuntimeRequirement,
+	never
+> = defineSchemaOption({
+	normalize: normalizeSchemaHookDeclarations,
+	protocolVersion: 1,
+	typegen: {
+		generic: 'self',
+		module: '@ultimabase/hooks-plugin',
+		type: 'SchemaHooksOption',
+	},
+	valueKind: 'opaque',
 })
 
-const hooksRuntimeProvider: CapabilityProviderDeclaration<
-	typeof runtimeBehaviorCapability
-> = provideRuntimeBehavior({
+/** Owns the official field `hooks` namespace as an opaque callback artifact. */
+const fieldHooksOption: FieldOptionDefinition<
+	FieldHookDeclarations | undefined,
+	SchemaOptionRuntimeRequirement,
+	SourceFieldHooksOption
+> = definePluginFieldOption({
+	contexts: ['stored', 'embedded'],
+	normalize: normalizeFieldHookDeclarations,
+	protocolVersion: 1,
+	typegen: false,
+	valueKind: 'opaque',
+})
+
+const optionalHookContributions = optionalCapability(
+	hookContributionsCapability,
+	'^1.0.0',
+)
+const optionalHookEvents = optionalCapability(
+	hookEventContributionsCapability,
+	'^1.0.0',
+)
+const optionalHookDiagnostics = optionalCapability(
+	hookDiagnosticsObserverCapability,
+	'^1.0.0',
+)
+const schemaMutationSurfaceRequirement = requireCapability(
+	applicationSchemaMutationSurfaceCapability,
+	'^1.0.0',
+	{ phase: 'materialization' },
+)
+
+const hooksRuntimeProvider = provideRuntimeBehavior({
 	contributionId: 'official-hooks-runtime',
 	create: ({ callbacks, capabilities, schemas }) => {
+		// Core attributes every contribution to its exact plugin instance.
 		const contributions = capabilities
 			.contributions(optionalHookContributions)
 			.flatMap(({ contributionId, owner, pluginVersion, value }) =>
 				value.map((definition) =>
-					immutableRecord({
-						contributionId,
-						definition,
-						owner,
-						pluginVersion,
-					}),
+					immutableRecord({ contributionId, definition, owner, pluginVersion }),
 				),
 			)
-		const eventHandlers: OwnedHookEventHandler[] = []
-
-		for (const contribution of capabilities.contributions(optionalHookEvents)) {
-			const implementation = getHookEventImplementation(contribution.value)
-			if (implementation === undefined) {
-				throw new TypeError('Hook event capabilities must use provideHookEvent')
-			}
-			eventHandlers.push(
-				immutableRecord({
-					contributionId: contribution.contributionId,
-					implementation,
-					owner: contribution.owner,
-				}),
-			)
-		}
-
-		const observer: HookDiagnosticsObserver | undefined = capabilities.get(
-			optionalHookDiagnostics,
-		)
+		const eventHandlers = capabilities
+			.contributions(optionalHookEvents)
+			.map(({ contributionId, owner, value }) => {
+				const implementation = getHookEventImplementation(value)
+				if (implementation === undefined) {
+					throw new TypeError(
+						'Hook event capabilities must use provideHookEvent',
+					)
+				}
+				return immutableRecord({ contributionId, implementation, owner })
+			})
+		const observer = capabilities.get(optionalHookDiagnostics)
 		const plan = compileHookContributionPlan(
 			schemas,
 			contributions,
@@ -109,12 +133,6 @@ const hooksRuntimeProvider: CapabilityProviderDeclaration<
 		return immutableRecord({ value: createHookBehavior(plan, runtime) })
 	},
 })
-
-const hooksPluginPermissions = {
-	'schema:declare': 'Declares the official schema and field Hooks options.',
-	'runtime:intercept':
-		'Runs official Hooks through the public Runtime behavior kernel.',
-} as const
 
 type HooksOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-hooks-options'
@@ -134,14 +152,12 @@ const hooksDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-type HooksSource = PluginDeclarationSource<typeof hooksDeclarations>
-
 /** Names the exact configured official Hooks engine. */
 export type HooksPlugin = PluginInstance<{
 	readonly id: '@ultimabase/hooks-plugin'
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
-	readonly source: HooksSource
+	readonly source: PluginDeclarationSource<typeof hooksDeclarations>
 }>
 
 /**
@@ -149,12 +165,16 @@ export type HooksPlugin = PluginInstance<{
  *
  * Importing the package alone has no application effect.
  */
-export const hooksPlugin = (): HooksPlugin => {
-	const instance = plugin({
+export const hooksPlugin = (): HooksPlugin =>
+	plugin({
 		id: '@ultimabase/hooks-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: hooksPluginPermissions,
+		permissions: {
+			'schema:declare': 'Declares the official schema and field Hooks options.',
+			'runtime:intercept':
+				'Runs official Hooks through the public Runtime behavior kernel.',
+		},
 		contributions: [
 			optionalHookContributions,
 			optionalHookEvents,
@@ -164,5 +184,3 @@ export const hooksPlugin = (): HooksPlugin => {
 			hooksDeclarations,
 		],
 	})
-	return instance
-}

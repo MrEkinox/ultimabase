@@ -4,7 +4,21 @@ import type {
 	RequestContextValue,
 } from '@ultimabase/core'
 import type { JsonDocument, OperationKind } from '@ultimabase/core'
-import type { HookExecutionContext } from './execution-context.js'
+
+/**
+ * Defines the durable minimal execution identity implemented by HookContext.
+ *
+ * Consumers needing only correlation and cancellation may depend on this
+ * interface without acquiring query or event capabilities.
+ */
+export interface HookExecutionContext {
+	/** Stable identifier shared by every operation in the originating request. */
+	readonly requestId: string
+	/** Framework-owned identifier shared by one explicit or automatic transaction. */
+	readonly transactionId: string | undefined
+	/** Cooperative cancellation signal inherited from the originating request. */
+	readonly signal: AbortSignal
+}
 
 /** Selects whether one emitted event requires at least one configured consumer. */
 export type HookEventDelivery = 'optional' | 'required'

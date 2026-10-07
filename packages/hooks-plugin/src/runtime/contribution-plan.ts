@@ -12,19 +12,16 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { FieldHookDeclarations } from '../authoring/field-declarations.js'
-import type { SchemaHookDeclarations } from '../authoring/declarations.js'
+import type {
+	FieldHookDeclarations,
+	SchemaHookDeclarations,
+} from '../authoring/declarations.js'
 import type {
 	HookContributionTargetKind,
 	OwnedHookContribution,
 } from '../contributions.js'
 
-export interface DeveloperHookContribution<TDeclarations extends object> {
-	readonly declarations: TDeclarations
-	readonly kind: 'developer'
-}
-
-export interface PluginHookContribution<TDeclarations extends object> {
+interface PluginHookContribution<TDeclarations extends object> {
 	readonly declarations: TDeclarations
 	readonly kind: 'plugin'
 	readonly localName: string
@@ -34,10 +31,12 @@ export interface PluginHookContribution<TDeclarations extends object> {
 }
 
 export type HookContribution<TDeclarations extends object> =
-	| DeveloperHookContribution<TDeclarations>
+	| Readonly<{ declarations: TDeclarations; kind: 'developer' }>
 	| PluginHookContribution<TDeclarations>
 
+/** Before order lists plugins in graph order, then the developer declaration. */
 export interface HookContributionNesting<TDeclarations extends object> {
+	/** Unwinds the exact before nesting, retaining each owner. */
 	readonly after: readonly HookContribution<TDeclarations>[]
 	readonly before: readonly HookContribution<TDeclarations>[]
 }
@@ -66,36 +65,23 @@ export interface HookContributionPlan {
 	getSchema(schema: SchemaDefinition): SchemaHookContributionPlan | undefined
 }
 
-interface MutableFieldPlan {
+interface FieldDraft {
 	readonly field: GenericField
 	readonly inlineOwner: SchemaContributionOwner
 	readonly path: readonly string[]
 	readonly plugins: PluginHookContribution<FieldHookDeclarations>[]
 }
 
-interface MutableSchemaPlan {
-	readonly fields: readonly MutableFieldPlan[]
-	readonly fieldsByPath: ReadonlyMap<string, MutableFieldPlan>
+interface SchemaDraft {
+	readonly fields: ReadonlyMap<string, FieldDraft>
 	readonly plugins: PluginHookContribution<SchemaHookDeclarations>[]
 	readonly schema: SchemaDefinition
-	readonly schemaMutations: ReadonlyMap<
-		string,
-		ApplicationSchemaMutationDescriptor
-	>
+	readonly schemaMutations: SchemaHookContributionPlan['schemaMutations']
 }
 
-interface SchemaPlanLookup {
-	readonly fieldsByPath: ReadonlyMap<string, FieldHookContributionPlan>
-	readonly plan: SchemaHookContributionPlan
-}
-
+// Length-prefixed segments keep listed paths, dotted names and system fields distinct.
 const encodeFieldPath = (path: readonly string[]): string =>
 	path.map((segment) => `${String(segment.length)}:${segment}`).join('')
-
-const describeOwner = (owner: SchemaContributionOwner): string =>
-	owner.kind === 'plugin'
-		? `${owner.pluginId}${owner.instanceId === undefined ? '' : `#${owner.instanceId}`}`
-		: owner.kind
 
 /** Prevents plugin-owned option values from bypassing capability privilege checks. */
 const assertApplicationOwnedInlineHooks = (
@@ -103,54 +89,63 @@ const assertApplicationOwnedInlineHooks = (
 	path: string,
 ): void => {
 	if (owner.kind === 'application') return
-
+	const name =
+		owner.kind === 'plugin'
+			? `${owner.pluginId}${owner.instanceId === undefined ? '' : `#${owner.instanceId}`}`
+			: owner.kind
 	throw new TypeError(
-		`Inline Hooks at ${path} are owned by ${describeOwner(owner)}; plugins must use provideHookContributions()`,
+		`Inline Hooks at ${path} are owned by ${name}; plugins must use provideHookContributions()`,
 	)
 }
 
+// The official option normalizers are the only writers of an inline `hooks` value.
+const readInlineHooks = (source: object): unknown =>
+	Object.hasOwn(source, 'hooks') ? Reflect.get(source, 'hooks') : undefined
+
+/** Indexes every stored and recursively embedded field by its exact path. */
 const collectFields = (
 	fields: Readonly<Record<string, GenericField>>,
-	owner: SchemaContributionOwner,
-	parent: readonly string[] = immutableArray([]),
-): readonly Readonly<{
-	readonly field: GenericField
-	readonly inlineOwner: SchemaContributionOwner
-	readonly path: readonly string[]
-}>[] =>
-	immutableArray(
-		Object.entries(fields).flatMap(([name, field]) => {
-			const path = immutableArray([...parent, name])
-			const current = immutableRecord({ field, inlineOwner: owner, path })
-			const nestedFields: unknown = Reflect.get(field.options, 'fields')
-			if (field.kind !== 'object' || !isPlainRecord(nestedFields)) {
-				return [current]
-			}
-			return [
-				current,
-				...collectFields(
-					nestedFields as Readonly<Record<string, GenericField>>,
-					owner,
-					path,
-				),
-			]
-		}),
-	)
+	owner: (name: string) => SchemaContributionOwner,
+	parent: readonly string[],
+	into: Map<string, FieldDraft>,
+): void => {
+	for (const [name, field] of Object.entries(fields)) {
+		const path = immutableArray([...parent, name])
+		const inlineOwner = owner(name)
+		into.set(encodeFieldPath(path), { field, inlineOwner, path, plugins: [] })
+		const nested: unknown = Reflect.get(field.options, 'fields')
+		if (field.kind === 'object' && isPlainRecord(nested)) {
+			// Embedded object fields store their compiled child field definitions.
+			const children = nested as Readonly<Record<string, GenericField>>
+			collectFields(children, () => inlineOwner, path, into)
+		}
+	}
+}
 
-const readSchemaDeclarations = (
+const createSchemaDraft = (
 	schema: SchemaDefinition,
-): SchemaHookDeclarations | undefined =>
-	Object.hasOwn(schema.definition, 'hooks')
-		? (Reflect.get(schema.definition, 'hooks') as
-				SchemaHookDeclarations | undefined)
-		: undefined
-
-const readFieldDeclarations = (
-	field: GenericField,
-): FieldHookDeclarations | undefined =>
-	Object.hasOwn(field.options, 'hooks')
-		? (Reflect.get(field.options, 'hooks') as FieldHookDeclarations | undefined)
-		: undefined
+	mutations: readonly ApplicationSchemaMutationDescriptor[] = [],
+): SchemaDraft => {
+	const fields = new Map<string, FieldDraft>()
+	const { provenance } = schema
+	collectFields(
+		schema.fields,
+		(name) =>
+			provenance.fieldOptions[name]?.hooks?.value.owner ??
+			provenance.fields[name]?.owner ??
+			provenance.schema.owner,
+		[],
+		fields,
+	)
+	return {
+		fields,
+		plugins: [],
+		schema,
+		schemaMutations: new Map(
+			mutations.map((descriptor) => [descriptor.command, descriptor]),
+		),
+	}
+}
 
 const createPluginContribution = <TDeclarations extends object>(
 	owned: OwnedHookContribution,
@@ -167,86 +162,14 @@ const createPluginContribution = <TDeclarations extends object>(
 		targetKind: owned.definition.targetKind,
 	})
 
-const createContributionNesting = <TDeclarations extends object>(
-	plugins: readonly PluginHookContribution<TDeclarations>[],
-	developer: TDeclarations | undefined,
-): HookContributionNesting<TDeclarations> => {
-	const declared: DeveloperHookContribution<TDeclarations> | undefined =
-		developer === undefined
-			? undefined
-			: immutableRecord({ declarations: developer, kind: 'developer' as const })
-	const before: HookContribution<TDeclarations>[] = [...plugins]
-
-	if (declared !== undefined) {
-		before.push(declared)
-	}
-
-	return immutableRecord({
-		// After hooks unwind the exact before nesting, retaining each owner.
-		after: immutableArray(before.toReversed()),
-		before: immutableArray(before),
-	})
-}
-
-const createMutableSchemaPlan = (
-	schema: SchemaDefinition,
-	mutationDescriptors: readonly ApplicationSchemaMutationDescriptor[] = [],
-): MutableSchemaPlan => {
-	const fields = Object.entries(schema.fields).flatMap(([name, field]) => {
-		const owner =
-			schema.provenance.fieldOptions[name]?.hooks?.value.owner ??
-			schema.provenance.fields[name]?.owner ??
-			schema.provenance.schema.owner
-		return collectFields({ [name]: field }, owner).map(
-			({ field: candidate, inlineOwner, path }) => ({
-				field: candidate,
-				inlineOwner,
-				path,
-				plugins: [],
-			}),
-		)
-	})
-	return {
-		fields,
-		fieldsByPath: new Map(
-			fields.map((field) => [encodeFieldPath(field.path), field]),
-		),
-		plugins: [],
-		schema,
-		schemaMutations: new Map(
-			mutationDescriptors.map((descriptor) => [descriptor.command, descriptor]),
-		),
-	}
-}
-
-const assertKnownSchemaMutationHooks = (
-	contribution: HookContribution<SchemaHookDeclarations>,
-	schema: SchemaDefinition,
-	mutations: ReadonlyMap<string, ApplicationSchemaMutationDescriptor>,
-): void => {
-	for (const [command, declarations] of Object.entries(
-		contribution.declarations.mutations ?? {},
-	)) {
-		if (mutations.has(command)) continue
-
-		const group =
-			declarations.beforeOperation === undefined
-				? 'afterOperation'
-				: 'beforeOperation'
-		throw new TypeError(
-			`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${command}`,
-		)
-	}
-}
-
 const applyPluginContributions = (
-	drafts: readonly MutableSchemaPlan[],
-	ownedContributions: readonly OwnedHookContribution[],
+	drafts: readonly SchemaDraft[],
+	contributions: readonly OwnedHookContribution[],
 ): void => {
 	const draftsBySchema = new Map(drafts.map((draft) => [draft.schema, draft]))
 
-	for (const owned of ownedContributions) {
-		const definition = owned.definition
+	for (const owned of contributions) {
+		const { definition } = owned
 		if (definition.targetKind === 'global') {
 			for (const draft of drafts) {
 				draft.plugins.push(
@@ -269,7 +192,7 @@ const applyPluginContributions = (
 			continue
 		}
 
-		const field = draft.fieldsByPath.get(encodeFieldPath(definition.path))
+		const field = draft.fields.get(encodeFieldPath(definition.path))
 		if (field?.field !== definition.field) {
 			throw new TypeError(
 				`Hook contribution "${owned.contributionId}" resolved an inconsistent field target`,
@@ -279,51 +202,82 @@ const applyPluginContributions = (
 	}
 }
 
-const finalizeSchemaPlan = (draft: MutableSchemaPlan): SchemaPlanLookup => {
-	const fieldsByPath = new Map<string, FieldHookContributionPlan>()
+const nestContributions = <TDeclarations extends object>(
+	plugins: readonly HookContribution<TDeclarations>[],
+	developer: TDeclarations | undefined,
+): HookContributionNesting<TDeclarations> => {
+	const before =
+		developer === undefined
+			? [...plugins]
+			: [
+					...plugins,
+					immutableRecord({
+						declarations: developer,
+						kind: 'developer' as const,
+					}),
+				]
+	return immutableRecord({
+		after: immutableArray(before.toReversed()),
+		before: immutableArray(before),
+	})
+}
 
-	for (const candidate of draft.fields) {
-		const developer = readFieldDeclarations(candidate.field)
+const finalizeSchemaPlan = (draft: SchemaDraft) => {
+	const { schema, schemaMutations } = draft
+	const fields = new Map<string, FieldHookContributionPlan>()
+
+	for (const [key, candidate] of draft.fields) {
+		// Inline field values are written only by the field `hooks` option normalizer.
+		const developer = readInlineHooks(candidate.field.options) as
+			FieldHookDeclarations | undefined
 		if (developer === undefined && candidate.plugins.length === 0) continue
 		if (developer !== undefined) {
 			assertApplicationOwnedInlineHooks(
 				candidate.inlineOwner,
-				`${draft.schema.className}.fields.${candidate.path.join('.')}.hooks`,
+				`${schema.className}.fields.${candidate.path.join('.')}.hooks`,
 			)
 		}
-
-		const field = immutableRecord({
-			contributions: createContributionNesting(candidate.plugins, developer),
-			field: candidate.field,
-			path: candidate.path,
-		})
-		fieldsByPath.set(encodeFieldPath(field.path), field)
+		fields.set(
+			key,
+			immutableRecord({
+				contributions: nestContributions(candidate.plugins, developer),
+				field: candidate.field,
+				path: candidate.path,
+			}),
+		)
 	}
 
-	const developer = readSchemaDeclarations(draft.schema)
+	// Inline schema values are written only by the schema `hooks` option normalizer.
+	const developer = readInlineHooks(schema.definition) as
+		SchemaHookDeclarations | undefined
 	if (developer !== undefined) {
 		assertApplicationOwnedInlineHooks(
-			draft.schema.provenance.options.hooks?.value.owner ??
-				draft.schema.provenance.schema.owner,
-			`${draft.schema.className}.hooks`,
+			schema.provenance.options.hooks?.value.owner ??
+				schema.provenance.schema.owner,
+			`${schema.className}.hooks`,
 		)
 	}
-	const nesting = createContributionNesting(draft.plugins, developer)
-	for (const contribution of nesting.before) {
-		assertKnownSchemaMutationHooks(
-			contribution,
-			draft.schema,
-			draft.schemaMutations,
-		)
+	const contributions = nestContributions(draft.plugins, developer)
+
+	// Stale custom mutation branches fail at startup, before Runtime work begins.
+	for (const { declarations } of contributions.before) {
+		for (const [command, branches] of Object.entries(
+			declarations.mutations ?? {},
+		)) {
+			if (schemaMutations.has(command)) continue
+			const group =
+				branches.beforeOperation === undefined
+					? 'afterOperation'
+					: 'beforeOperation'
+			throw new TypeError(
+				`Unknown schema mutation Hook branch: ${schema.className}.hooks.${group}.${command}`,
+			)
+		}
 	}
 
 	return {
-		fieldsByPath,
-		plan: immutableRecord({
-			contributions: nesting,
-			schema: draft.schema,
-			schemaMutations: draft.schemaMutations,
-		}),
+		fields,
+		plan: immutableRecord({ contributions, schema, schemaMutations }),
 	}
 }
 
@@ -335,19 +289,16 @@ export const compileHookContributionPlan = (
 ): HookContributionPlan => {
 	const drafts = schemas
 		.values()
-		.map((schema) =>
-			createMutableSchemaPlan(schema, mutationSurface?.get(schema)),
-		)
+		.map((schema) => createSchemaDraft(schema, mutationSurface?.get(schema)))
 	applyPluginContributions(drafts, contributions)
-	const lookups = drafts.map(finalizeSchemaPlan)
-	const bySchema = new Map(
-		lookups.map((lookup) => [lookup.plan.schema, lookup]),
+	const plans = new Map(
+		drafts.map((draft) => [draft.schema, finalizeSchemaPlan(draft)]),
 	)
 
 	return immutableRecord({
-		schemas: immutableArray(lookups.map(({ plan }) => plan)),
+		schemas: immutableArray(Array.from(plans.values(), ({ plan }) => plan)),
 		getField: (schema, path) =>
-			bySchema.get(schema)?.fieldsByPath.get(encodeFieldPath(path)),
-		getSchema: (schema) => bySchema.get(schema)?.plan,
+			plans.get(schema)?.fields.get(encodeFieldPath(path)),
+		getSchema: (schema) => plans.get(schema)?.plan,
 	})
 }

@@ -16,7 +16,7 @@ import type { DatabaseOperationOutcome } from '@ultimabase/core'
 import {
 	collectMutationAfterItems,
 	collectMutationBeforeItems,
-} from './materializations.js'
+} from './lifecycle.js'
 
 const schema = UltimaBase.Schema.define({
 	className: 'MutationItemPairs',

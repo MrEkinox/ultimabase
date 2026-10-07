@@ -1,8 +1,7 @@
 // Application API: plugin installation, generated schema-option contracts,
 // inline callback authoring, request context, and typed event emission.
 export { hooksPlugin } from './plugin.js'
-export type { HooksPlugin } from './plugin.js'
-export type { SchemaHooksOption } from './options.js'
+export type { HooksPlugin, SchemaHooksOption } from './plugin.js'
 
 export type {
 	HookHandlerDeclaration,
@@ -68,8 +67,8 @@ export { HookContext } from './context/hook-context.js'
 export type {
 	HookEventContract,
 	HookEventDelivery,
+	HookExecutionContext,
 } from './context/hook-context.js'
-export type { HookExecutionContext } from './context/execution-context.js'
 export { defineEvent } from './runtime/events.js'
 export type {
 	DefineEventFactory,
@@ -78,10 +77,11 @@ export type {
 
 // Compatible-provider contract: official phase metadata, contribution
 // selectors, capability tokens, and post-commit event consumers.
-export { fieldHookPhases } from './authoring/field-declarations.js'
-export type { FieldHookPhase } from './authoring/field-declarations.js'
-export { schemaHookPhases } from './authoring/declarations.js'
-export type { SchemaHookPhase } from './authoring/declarations.js'
+export { fieldHookPhases, schemaHookPhases } from './authoring/declarations.js'
+export type {
+	FieldHookPhase,
+	SchemaHookPhase,
+} from './authoring/declarations.js'
 export type { FieldAtPath, SchemaFieldPath } from '@ultimabase/core'
 export type {
 	HookContextIdentity,
