@@ -72,6 +72,7 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | roles-plugin            |       2 192 |       2 015 | Helpers de résolution partagés ; 8 622 comparaisons aléatoires identiques à la référence.                                                                                              |
 | testing                 |       1 243 |       1 162 | Runner et suite simplifiés ; `dist/index.d.ts` identique.                                                                                                                              |
 | plugin-kit              |         778 |         722 | Contrats d’événements en `WeakSet` ; `dist/index.d.ts` identique.                                                                                                                      |
+| create-app              |       1 656 |       1 557 | Tables de conditions partagées ; oracle de parité sur 196 608 rendus de projets, 0 différence.                                                                                         |
 
 Total de la production (script de mesure) : **114 742 → 104 478 lignes** (main `f9297bb`). Les tests sont
 inchangés (127 476 lignes).
