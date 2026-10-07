@@ -170,7 +170,7 @@ export const prepareGraphqlReadOperation = <
 			)
 		}
 	}
-	let input: Readonly<Record<string, unknown>> = {}
+	let input: Readonly<Record<string, unknown>>
 	let page: GraphqlConnectionPagePlan | undefined
 	if (operation === 'get') {
 		input = { id: args.id }

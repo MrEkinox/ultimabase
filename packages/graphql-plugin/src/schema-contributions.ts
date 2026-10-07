@@ -17,6 +17,8 @@ import {
 } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'
 
+import { assertGraphqlKnownKeys } from './options.js'
+
 /** Composes completed GraphQL schemas in plugin graph and registration order. */
 export type GraphqlSchemaContributionsCapability = CapabilityToken<
 	readonly GraphQLSchema[],
@@ -55,19 +57,18 @@ export interface ProvideGraphqlSchemasOptions {
 
 const providerOptionKeys = new Set(['contributionId', 'create'])
 
-const assertSchemas: (
-	value: unknown,
-	path: string,
-) => asserts value is readonly GraphQLSchema[] = (value, path) => {
-	if (!isUnknownArray(value)) throw new TypeError(`${path} must be an array`)
-	for (const [index, schema] of value.entries()) {
-		if (!(schema instanceof GraphQLSchema)) {
-			throw new TypeError(
-				`${path}[${String(index)}] must be a completed GraphQLSchema`,
-			)
-		}
-	}
-}
+// A factory may return one schema or a list; each must already be completed.
+const readSchemas = (created: unknown): readonly GraphQLSchema[] =>
+	immutableArray(
+		(isUnknownArray(created) ? created : [created]).map((schema, index) => {
+			if (!(schema instanceof GraphQLSchema)) {
+				throw new TypeError(
+					`GraphQL schema contribution[${String(index)}] must be a completed GraphQLSchema`,
+				)
+			}
+			return schema
+		}),
+	)
 
 /** Provides completed schemas without registering a generic Core extension. */
 export const provideGraphqlSchemas = (
@@ -81,13 +82,11 @@ export const provideGraphqlSchemas = (
 			'GraphQL schema provider options must be a plain object',
 		)
 	}
-	for (const key of Reflect.ownKeys(untrusted)) {
-		if (typeof key !== 'string' || !providerOptionKeys.has(key)) {
-			throw new TypeError(
-				`GraphQL schema provider options contains unknown option: ${String(key)}`,
-			)
-		}
-	}
+	assertGraphqlKnownKeys(
+		untrusted,
+		providerOptionKeys,
+		'GraphQL schema provider options',
+	)
 	assertNonEmptyString(options.contributionId, 'GraphQL schema contributionId')
 	if (typeof options.create !== 'function') {
 		throw new TypeError('GraphQL schema provider create must be a function')
@@ -102,9 +101,7 @@ export const provideGraphqlSchemas = (
 				capabilities: context.capabilities,
 				schemas: context.schemas,
 			})
-			const schemas = isUnknownArray(created) ? created : [created]
-			assertSchemas(schemas, 'GraphQL schema contribution')
-			return immutableRecord({ value: immutableArray(schemas) })
+			return immutableRecord({ value: readSchemas(created) })
 		},
 	})
 }

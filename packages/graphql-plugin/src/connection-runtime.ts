@@ -17,6 +17,7 @@ import {
 import { GraphqlInvalidCursorError } from './connection-errors.js'
 import {
 	defaultGraphqlExecutionLimits,
+	maximumGraphqlInt,
 	type NormalizedGraphqlExecutionLimits,
 } from './connection-limits.js'
 import { assertGraphqlKnownKeys } from './options.js'
@@ -24,7 +25,6 @@ import { effectiveGraphqlConnectionOrdering } from './read-normalization.js'
 import { decodeGraphqlWhere } from './wire-values.js'
 
 const connectionArgumentKeys = new Set(['after', 'first', 'orderBy', 'where'])
-const maximumGraphqlInt = 2_147_483_647
 const maximumCursorLength = 4096
 const base64urlPattern = /^[0-9A-Z_a-z-]+$/u
 const fingerprintPattern = /^[0-9a-f]{64}$/u

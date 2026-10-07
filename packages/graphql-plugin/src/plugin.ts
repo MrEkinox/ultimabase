@@ -7,8 +7,6 @@ import {
 	plugin,
 	provideCapability,
 	requireCapability,
-	type CapabilityRequirement,
-	type CapabilityProviderContribution,
 	type PluginDeclarationContribution,
 	type PluginInstance,
 	type PluginOperationDefinition,
@@ -19,9 +17,9 @@ import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 import { GraphQLSchema } from 'graphql'
 
 import {
-	createGraphqlApplicationResource,
 	bindGraphqlOperationTransport,
 	bindGraphqlSchemaMutationTransport,
+	createGraphqlApplicationResource,
 	graphqlApplicationCapability,
 	type GraphqlApplication,
 } from './application.js'
@@ -33,17 +31,16 @@ import {
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
-import { GraphqlOperationExecution } from './operation-execution.js'
 import { GraphqlNetworklessExecution } from './networkless-execution.js'
+import { GraphqlOperationExecution } from './operation-execution.js'
 import {
 	graphqlSchemaOption,
-	normalizeGraphqlSchemaOperations,
 	normalizeGraphqlPluginOperations,
+	normalizeGraphqlSchemaOperations,
 	type GraphqlSchemaOperations,
 } from './options.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
-import type { OwnedGraphqlSchema } from './schema-composition-preflight.js'
 import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 
@@ -64,49 +61,6 @@ export interface GraphqlPluginOptions {
 /** Exposes the application-local network-independent GraphQL schema. */
 export type GraphqlPluginExports = GraphqlApplication
 
-const parseGraphqlPluginOptions = definePluginOptionsParser({
-	name: 'GraphQL plugin options',
-	keys: [
-		'acknowledgeUnverifiedProtection',
-		'default',
-		'limits',
-		'operations',
-		'schemas',
-	] as const,
-	normalize: ({
-		acknowledgeUnverifiedProtection,
-		default: defaultOperations,
-		limits,
-		operations,
-		schemas,
-	}) => {
-		if (
-			acknowledgeUnverifiedProtection !== undefined &&
-			acknowledgeUnverifiedProtection !== true
-		) {
-			throw new TypeError(
-				'GraphQL plugin acknowledgeUnverifiedProtection must be true when provided',
-			)
-		}
-		return {
-			acknowledgeUnverifiedProtection,
-			defaultOperations:
-				defaultOperations === undefined
-					? undefined
-					: normalizeGraphqlSchemaOperations(
-							defaultOperations,
-							'GraphQL plugin default',
-						),
-			limits:
-				limits === undefined
-					? defaultGraphqlExecutionLimits
-					: normalizeGraphqlExecutionLimits(limits),
-			operations: normalizeGraphqlPluginOperations(operations),
-			schemas: normalizeCustomSchemas(schemas),
-		}
-	},
-})
-
 const normalizeCustomSchemas = (value: unknown): readonly GraphQLSchema[] => {
 	if (value === undefined) return immutableArray([])
 	if (!isUnknownArray(value)) {
@@ -124,63 +78,60 @@ const normalizeCustomSchemas = (value: unknown): readonly GraphQLSchema[] => {
 	return immutableArray(schemas)
 }
 
-const requestExecutionRequirement: CapabilityRequirement<
-	typeof applicationRequestExecutionCapability,
-	false,
-	'^1.0.0',
-	'materialization'
-> = requireCapability(applicationRequestExecutionCapability, '^1.0.0', {
-	phase: 'materialization',
+const parseGraphqlPluginOptions = definePluginOptionsParser({
+	name: 'GraphQL plugin options',
+	keys: [
+		'acknowledgeUnverifiedProtection',
+		'default',
+		'limits',
+		'operations',
+		'schemas',
+	] as const,
+	normalize: (options) => {
+		const acknowledged = options.acknowledgeUnverifiedProtection
+		if (acknowledged !== undefined && acknowledged !== true) {
+			throw new TypeError(
+				'GraphQL plugin acknowledgeUnverifiedProtection must be true when provided',
+			)
+		}
+		return {
+			acknowledgeUnverifiedProtection: acknowledged,
+			defaultOperations:
+				options.default === undefined
+					? undefined
+					: normalizeGraphqlSchemaOperations(
+							options.default,
+							'GraphQL plugin default',
+						),
+			limits:
+				options.limits === undefined
+					? defaultGraphqlExecutionLimits
+					: normalizeGraphqlExecutionLimits(options.limits),
+			operations: normalizeGraphqlPluginOperations(options.operations),
+			schemas: normalizeCustomSchemas(options.schemas),
+		}
+	},
 })
-const operationPlanningRequirement: CapabilityRequirement<
-	typeof applicationOperationTransportPlanningCapability,
-	false,
+
+const requestExecutionRequirement = requireCapability(
+	applicationRequestExecutionCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(
+	{ phase: 'materialization' },
+)
+const operationPlanningRequirement = requireCapability(
 	applicationOperationTransportPlanningCapability,
 	'^1.0.0',
 	{ phase: 'materialization' },
 )
-const graphqlApplicationRequirement: CapabilityRequirement<
-	typeof graphqlApplicationCapability,
-	false,
+const graphqlApplicationRequirement = requireCapability(
+	graphqlApplicationCapability,
 	'^1.0.0',
-	'setup'
-> = requireCapability(graphqlApplicationCapability, '^1.0.0', {
-	phase: 'setup',
-})
-const optionalSchemaContributions: CapabilityRequirement<
-	typeof graphqlSchemaContributionsCapability,
-	true,
+	{ phase: 'setup' },
+)
+const optionalSchemaContributions = optionalCapability(
+	graphqlSchemaContributionsCapability,
 	'^1.0.0',
-	'materialization'
-> = optionalCapability(graphqlSchemaContributionsCapability, '^1.0.0')
-
-const graphqlPluginPermissions = {
-	'schema:declare': 'Declares the direct GraphQL schema exposure option.',
-	'transport:expose':
-		'Generates explicitly configured public GraphQL declarations.',
-} as const
-
-const pluginSchemaSources = (
-	contributions: readonly CapabilityProviderContribution<
-		typeof graphqlSchemaContributionsCapability
-	>[],
-): readonly OwnedGraphqlSchema[] =>
-	immutableArray(
-		contributions.flatMap((contribution) =>
-			contribution.value.map((schema, index) => ({
-				attribution: {
-					kind: 'plugin' as const,
-					owner: contribution.owner,
-					pluginVersion: contribution.pluginVersion,
-				},
-				description: `plugin ${contribution.owner.pluginId}${contribution.owner.instanceId === undefined ? '' : `#${contribution.owner.instanceId}`} contribution ${contribution.contributionId}[${String(index)}]`,
-				schema,
-			})),
-		),
-	)
+)
 
 // The configured factory derives the option from this same authorized declaration.
 type GraphqlOptionSource = PluginSchemaOptionSource<{
@@ -238,15 +189,12 @@ export const graphqlPlugin = (
 					schemaMutations,
 					schemas,
 				})
+				// Generated roots first, then application schemas, then plugin contributions.
 				const schema = composeGraphqlSchemas({
 					callbacks,
 					schemas: [
 						{
-							attribution: {
-								kind: 'generated',
-								owner,
-								pluginVersion: '0.0.0',
-							},
+							attribution: { kind: 'generated', owner, pluginVersion: '0.0.0' },
 							description: 'generated GraphQL schema',
 							schema: generated,
 						},
@@ -255,9 +203,19 @@ export const graphqlPlugin = (
 							description: `application schema[${String(index)}]`,
 							schema: custom,
 						})),
-						...pluginSchemaSources(
-							reader.contributions(optionalSchemaContributions),
-						),
+						...reader
+							.contributions(optionalSchemaContributions)
+							.flatMap((contribution) =>
+								contribution.value.map((custom, index) => ({
+									attribution: {
+										kind: 'plugin' as const,
+										owner: contribution.owner,
+										pluginVersion: contribution.pluginVersion,
+									},
+									description: `plugin ${contribution.owner.pluginId}${contribution.owner.instanceId === undefined ? '' : `#${contribution.owner.instanceId}`} contribution ${contribution.contributionId}[${String(index)}]`,
+									schema: custom,
+								})),
+							),
 					],
 				})
 				const networkless = new GraphqlNetworklessExecution({
@@ -267,13 +225,13 @@ export const graphqlPlugin = (
 					owner,
 					schema,
 				})
-				return createGraphqlApplicationResource(
-					schema,
+				return createGraphqlApplicationResource({
 					connections,
-					operations,
-					schemaMutations,
 					networkless,
-				)
+					operations,
+					schema,
+					schemaMutations,
+				})
 			} catch (error: unknown) {
 				connections.dispose()
 				operations.dispose()
@@ -297,10 +255,11 @@ export const graphqlPlugin = (
 		return {
 			exports,
 			startTransports: () => {
+				const executor = reader.get(requestExecutionRequirement)
 				if (normalized.operations.length > 0) {
 					bindGraphqlOperationTransport(
 						exports,
-						reader.get(requestExecutionRequirement).exposeOperations({
+						executor.exposeOperations({
 							// The GraphQL surface reports once below; this private bridge is not
 							// a second independently reachable public transport.
 							acknowledgeUnverifiedProtection: true,
@@ -311,28 +270,30 @@ export const graphqlPlugin = (
 				}
 				bindGraphqlSchemaMutationTransport(
 					exports,
-					reader.get(requestExecutionRequirement).exposeSchemaMutations({
+					executor.exposeSchemaMutations({
 						// Generated roots are part of the one public GraphQL report below.
 						acknowledgeUnverifiedProtection: true,
 						transport: graphqlProtocol,
 					}),
 				)
-				reader
-					.get(requestExecutionRequirement)
-					.reportPublicTransportProtection({
-						...(normalized.acknowledgeUnverifiedProtection === true
-							? { acknowledgeUnverifiedProtection: true as const }
-							: {}),
-						transport: graphqlProtocol,
-					})
+				executor.reportPublicTransportProtection({
+					...(normalized.acknowledgeUnverifiedProtection === true
+						? { acknowledgeUnverifiedProtection: true as const }
+						: {}),
+					transport: graphqlProtocol,
+				})
 			},
 		}
 	})
-	const instance = plugin({
+	return plugin({
 		id: '@ultimabase/graphql-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: graphqlPluginPermissions,
+		permissions: {
+			'schema:declare': 'Declares the direct GraphQL schema exposure option.',
+			'transport:expose':
+				'Generates explicitly configured public GraphQL declarations.',
+		},
 		contributions: [
 			optionalSchemaContributions,
 			applicationProvider,
@@ -343,5 +304,4 @@ export const graphqlPlugin = (
 			application,
 		],
 	})
-	return instance
 }
