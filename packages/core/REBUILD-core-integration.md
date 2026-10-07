@@ -13,14 +13,18 @@ generics, JSDoc, `package.json` exports) is unchanged.
 ## Production lines
 
 Physical non-blank lines, `tooling/measure-rebuild.mjs` rules (`*.test.ts` and
-`*.test-d.ts` excluded):
+`*.test-d.ts` excluded). The branch was rebased on `main` `6069a43` before the
+final validation; the later `main` commits do not touch `packages/core`, so the
+Core numbers compare with `541e9e5`. The repository "before" is the measured
+after-value plus the Core delta, because this branch changes no other
+production file:
 
-| Measure                              | Before (`541e9e5`) |  After | Delta        |
-| ------------------------------------ | -----------------: | -----: | ------------ |
-| `packages/core` production           |              58973 |  58689 | −284 (−0.5%) |
-| `packages/core/src` production files |                326 |    323 | −3           |
-| Repository production                |             104242 | 103958 | −284         |
-| Repository tests                     |             127476 | 127477 | +1           |
+| Measure                              |           Before (`541e9e5`) |  After | Delta        |
+| ------------------------------------ | ---------------------------: | -----: | ------------ |
+| `packages/core` production           |                        58973 |  58694 | −279 (−0.5%) |
+| `packages/core/src` production files |                          326 |    323 | −3           |
+| Repository production                | 103888 (`main` at `6069a43`) | 103609 | −279         |
+| Repository tests                     |                       127476 | 127477 | +1           |
 
 The test line is the split import in `src/schema/schema/model.test.ts` (one
 module became two specifiers).
@@ -44,8 +48,8 @@ paths alive, and splits the largest module that a natural seam allowed.
   identities and error codes in plugins/errors, behavior stage names in the
   pipeline contracts.
 - The public contract is unchanged. The emitted `packages/core/dist/index.d.ts`
-  was compared with a build of `main` (`541e9e5`'s Core sources; later `main`
-  commits do not touch `packages/core`): the 1118 exported names are identical,
+  was compared with a build of the pre-integration Core sources (`541e9e5`, identical
+  to `main` `6069a43` for `packages/core`): the 1118 exported names are identical,
   and the declaration lines, sorted with `#region` comments removed, are
   identical too (no hover, JSDoc or signature change).
 - No new runtime dependency, no `package.json` change.
@@ -137,3 +141,97 @@ No assertion, input or expectation changed. Nothing under
 | `yarn vitest run --project website-content`      | 17 files, 66 tests passed                                                                                                 |
 | `yarn test:pack:built`                           | 32 files, 173 tests passed                                                                                                |
 | `node tooling/measure-rebuild.mjs .`             | Core production 58973 lines; repository production 104242 lines (625 files); tests 127476                                 |
+
+## Casts
+
+No `as` cast was added, moved or removed (`git diff main...HEAD -- packages/core/src`
+contains no added or removed line with an `as` expression other than `as const`).
+No `any`, no broadened type.
+
+## Checks removed
+
+None. Every former check still runs, in the same order and with the same error
+class and message, through the shared helper that replaced it. The only deleted
+functions are wrappers whose body was exactly the shared helper
+(`assertKnownKeys` in `schema/fields/plugin.ts`, `assertApplicationEngineAvailable`,
+`haveSameKeys`/`sameKeys`, the duplicated `createIssue`, `isListField`,
+`hasListShape`) and the alias `getFieldRelationWhere`.
+
+## Behavior differences
+
+None. `docs/rebuild/DIFFERENCES.md` needs no new row. Points reviewed for parity:
+
+- Property reads of raw (developer- or transport-supplied) objects are unchanged
+  in number and order. Where a helper would have changed them, the code stays
+  inline: the typegen module-specifier checks read their property three times,
+  and `hasListOption` keeps the temporal check's read order.
+- Combined plain-object helpers now evaluate their message template before the
+  plain-object check; every such template interpolates only strings or numbers
+  already computed by the caller (no getters, no `toString` of untrusted values).
+- Owner records created by `defineCoreFoundationProvider` are still one fresh
+  frozen record per provider.
+
+## Editor-visible (DX) parity
+
+`node tooling/rebuild/dx-audit.mjs /Users/mrekinox/Desktop/claude-test/ub-ref <worktree> --only core`
+(both roots built) reports 335 Core differences against the reference, both on
+this branch and on the pre-integration Core sources (`541e9e5`, same worktree,
+Core rebuilt). The two `report.json` files are identical apart from their
+timestamp: this pass adds no hover, completion, diagnostic or declaration
+difference. The 335 pre-existing differences come from the partition rebuilds
+and are handled separately.
+
+## Website sources
+
+No file listed in an `apps/website/content` `sources` frontmatter was deleted or
+renamed. The deleted modules are `plugins/schema-declarations.ts`,
+`runtime/behaviors/boundaries.ts`, `schema/schema/model.ts`,
+`runtime/relation-filters/binding.ts` and `runtime/virtual-fields/binding.ts`;
+the new ones are `runtime/pipeline/application-bindings.ts` and
+`query/filters/operand-snapshots.ts`.
+
+## Files changed outside `packages/core`
+
+Only `docs/rebuild/core-interfaces/README.md` (frozen interfaces marked as
+retired). The `iface-*.txt` files are kept unchanged as a historical record.
+
+## Not done (considered)
+
+- `query/filters/where.ts` stays a pure facade (it is the filters entry used by
+  about twelve modules and five internal tests).
+- Re-exports that unmodifiable tests deep-import were kept (see the table above).
+- `query/filters/where-builder.ts` (595 lines) has no natural seam: the class is
+  one cohesive API. `schema/schema/model-contracts.ts` (580) was not split to
+  avoid any declaration reordering ahead of the DX fix pass.
+- The `__proto__`/prototype-chain lookups reported by `core-query` and the
+  `private-storage/request.ts` unknown-field lookup are reference behavior and
+  were not changed.
+
+## Pre-existing failures and flakes
+
+Baseline: `typegen` `hybrid-authoring.performance.test.ts` timed out (180 s)
+under load in the baseline performance run (known flake). In the final run every
+suite passed on its first run; no file needed an isolated rerun.
+
+## Validation (final tree, rebased on `main` `6069a43`)
+
+Run in this order in the worktree; Docker available; machine shared with other
+agents.
+
+| Command                                                | Result                                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `yarn build`                                           | pass                                                                              |
+| `yarn vitest run --project unit --project types`       | Test Files 558 passed (558); Tests 2709 passed (2709); no type errors             |
+| `yarn vitest run --project performance`                | Test Files 3 passed (3); Tests 4 passed (4)                                       |
+| `yarn vitest run --project e2e`                        | Test Files 47 passed (47); Tests 219 passed (219)                                 |
+| `yarn vitest run --project postgres-e2e`               | Test Files 55 passed (55); Tests 191 passed (191)                                 |
+| `yarn vitest run --project website-content`            | Test Files 17 passed (17); Tests 66 passed (66)                                   |
+| `yarn test:pack:built`                                 | Test Files 32 passed (32); Tests 173 passed (173)                                 |
+| `yarn eslint packages/core`                            | 0 errors, 54 warnings, all `max-lines` (400-line warning threshold)               |
+| `yarn prettier --check packages/core docs/rebuild`     | pass                                                                              |
+| `yarn tsc --build packages/core`                       | pass                                                                              |
+| `yarn tsc -p packages/core/tsconfig.test.json`         | pass                                                                              |
+| `yarn build` (again)                                   | pass                                                                              |
+| `dist/index.d.ts` export list vs pre-integration build | 1118 names on both sides, no name added or removed; sorted declarations identical |
+| `node tooling/rebuild/dx-audit.mjs … --only core`      | 335 differences, identical to the pre-integration report                          |
+| `node tooling/measure-rebuild.mjs .`                   | production 103609 (core 58694), tests 127477                                      |
