@@ -3,6 +3,7 @@ import type {
 	ResolvedSchemaRelation,
 	SchemaDefinition,
 } from '@ultimabase/core'
+import { immutableRecord } from '@ultimabase/shared'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
 /** Lists physical column families needed by synchronization and query compilation. */
@@ -78,3 +79,39 @@ export interface CompiledPostgresRelation {
 				readonly targetColumn: PgColumn
 		  }>
 }
+
+/** Resolves one compiled field through the shared adapter invariant. */
+export const resolveCompiledPostgresField = (
+	schema: CompiledPostgresSchema,
+	fieldName: string,
+): CompiledPostgresField => {
+	const field = schema.fields[fieldName]
+
+	if (field === undefined) {
+		throw new TypeError(
+			`PostgreSQL query references missing field: ${fieldName}`,
+		)
+	}
+
+	if (schema.definition.definition.fields[fieldName] !== field.plan.field) {
+		throw new TypeError(
+			`PostgreSQL compiled field plan does not match schema field: ${fieldName}`,
+		)
+	}
+
+	return field
+}
+
+/** Builds a Drizzle projection keyed by logical UltimaBase field names. */
+export const compilePostgresSelection = (
+	schema: CompiledPostgresSchema,
+	fieldNames: readonly string[] = Object.keys(schema.fields),
+): Readonly<Record<string, PgColumn>> =>
+	immutableRecord(
+		Object.fromEntries(
+			fieldNames.map((name) => [
+				name,
+				resolveCompiledPostgresField(schema, name).column,
+			]),
+		),
+	)

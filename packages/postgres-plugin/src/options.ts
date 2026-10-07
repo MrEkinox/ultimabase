@@ -25,55 +25,35 @@ export interface PostgresFieldOption {
 	readonly renamedFrom: string
 }
 
-const postgresSchemaOptionKeys = new Set(['table'])
-const postgresFieldOptionKeys = new Set(['renamedFrom'])
-
-const assertKnownKeys = (
-	value: Readonly<Record<string, unknown>>,
-	keys: ReadonlySet<string>,
+/** Validates one closed single-key option namespace and returns its string value. */
+const readSingleStringOption = (
+	value: unknown,
 	path: string,
-): void => {
+	key: 'renamedFrom' | 'table',
+): string => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+
 	const unknownKey = Reflect.ownKeys(value).find(
-		(key) => typeof key !== 'string' || !keys.has(key),
+		(candidate) => candidate !== key,
 	)
 
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown ${path} key: ${String(unknownKey)}`)
 	}
-}
 
-const normalizePostgresSchemaOption = (
-	value: unknown,
-	path: string,
-): PostgresSchemaOption => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
+	const option = value[key]
 
-	assertKnownKeys(value, postgresSchemaOptionKeys, path)
-	assertNonEmptyString(value.table, `${path}.table`)
-
-	return immutableRecord({ table: value.table })
-}
-
-const normalizePostgresFieldOption = (
-	value: unknown,
-	path: string,
-): PostgresFieldOption => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	assertKnownKeys(value, postgresFieldOptionKeys, path)
-	assertNonEmptyString(value.renamedFrom, `${path}.renamedFrom`)
-
-	return immutableRecord({ renamedFrom: value.renamedFrom })
+	assertNonEmptyString(option, `${path}.${key}`)
+	return option
 }
 
 /** Owns the direct schema `postgres` namespace as portable naming metadata. */
 export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> =
 	defineSchemaOption({
-		normalize: normalizePostgresSchemaOption,
+		normalize: (value, path): PostgresSchemaOption =>
+			immutableRecord({ table: readSingleStringOption(value, path, 'table') }),
 		protocolVersion: 1,
 		typegen: {
 			module: '@ultimabase/postgres-plugin',
@@ -85,7 +65,10 @@ export const postgresSchemaOption: SchemaOptionDefinition<PostgresSchemaOption> 
 export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
 	definePluginFieldOption({
 		contexts: ['stored'],
-		normalize: normalizePostgresFieldOption,
+		normalize: (value, path): PostgresFieldOption =>
+			immutableRecord({
+				renamedFrom: readSingleStringOption(value, path, 'renamedFrom'),
+			}),
 		protocolVersion: 1,
 		typegen: {
 			module: '@ultimabase/postgres-plugin',
@@ -93,27 +76,25 @@ export const postgresFieldOption: FieldOptionDefinition<PostgresFieldOption> =
 		},
 	})
 
-const readPostgresSchemaOption = (
-	schema: SchemaDefinition,
-): PostgresSchemaOption | undefined =>
-	Object.hasOwn(schema.definition, 'postgres')
-		? (Reflect.get(schema.definition, 'postgres') as
-				PostgresSchemaOption | undefined)
+/** Reads one normalized string option without trusting its static type. */
+const readNormalizedOption = (
+	options: object,
+	key: 'renamedFrom' | 'table',
+): string | undefined => {
+	const option: unknown = Object.hasOwn(options, 'postgres')
+		? Reflect.get(options, 'postgres')
 		: undefined
 
-const readPostgresFieldOption = (
-	field: GenericField,
-): PostgresFieldOption | undefined =>
-	Object.hasOwn(field.options, 'postgres')
-		? (Reflect.get(field.options, 'postgres') as
-				PostgresFieldOption | undefined)
+	return isPlainRecord(option) && typeof option[key] === 'string'
+		? option[key]
 		: undefined
+}
 
 /** Resolves one safely escapable physical identifier from normalized metadata. */
 export const resolvePostgresTableName = (schema: SchemaDefinition): string =>
-	readPostgresSchemaOption(schema)?.table ?? tableize(schema.className)
+	readNormalizedOption(schema.definition, 'table') ?? tableize(schema.className)
 
 /** Reads normalized explicit column-rename intent from one compiled field. */
 export const resolvePostgresRenamedFrom = (
 	field: GenericField,
-): string | undefined => readPostgresFieldOption(field)?.renamedFrom
+): string | undefined => readNormalizedOption(field.options, 'renamedFrom')

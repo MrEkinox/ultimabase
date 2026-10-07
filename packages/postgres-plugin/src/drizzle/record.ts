@@ -1,11 +1,19 @@
-import { snapshotScalarFieldValue } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	snapshotScalarFieldValue,
+	type DatabaseLogicalRecord,
+	type QuerySelectionNode,
+} from '@ultimabase/core'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
-import type {
-	CompiledPostgresField,
-	CompiledPostgresSchema,
+import {
+	resolveCompiledPostgresField,
+	type CompiledPostgresField,
+	type CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
 
 const readPostgresFieldValue = (
 	fieldName: string,
@@ -54,38 +62,71 @@ const readPostgresFieldValue = (
 const copyPostgresRecord = (
 	schema: CompiledPostgresSchema,
 	value: unknown,
-	rejectUndefined: boolean,
-): Readonly<Record<string, unknown>> => {
+	direction: 'prepare' | 'read',
+): DatabaseLogicalRecord => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError('PostgreSQL record must be a plain object')
 	}
 
-	const copied: Record<string, unknown> = {}
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([fieldName, fieldValue]) => {
+				if (direction === 'prepare' && fieldValue === undefined) {
+					throw new TypeError(
+						`PostgreSQL mutation field cannot be undefined: ${fieldName}`,
+					)
+				}
 
-	for (const [fieldName, fieldValue] of Object.entries(value)) {
-		if (rejectUndefined && fieldValue === undefined) {
-			throw new TypeError(
-				`PostgreSQL mutation field cannot be undefined: ${fieldName}`,
-			)
-		}
+				const field = resolveCompiledPostgresField(schema, fieldName)
 
-		const field = resolveCompiledPostgresField(schema, fieldName)
-		copied[fieldName] = rejectUndefined
-			? fieldValue
-			: readPostgresFieldValue(fieldName, field, fieldValue)
-	}
-
-	return immutableRecord(copied)
+				return [
+					fieldName,
+					direction === 'prepare'
+						? fieldValue
+						: readPostgresFieldValue(fieldName, field, fieldValue),
+				]
+			}),
+		),
+	)
 }
 
 /** Keeps logical mutation values intact for Drizzle's column encoders. */
 export const preparePostgresRecord = (
 	schema: CompiledPostgresSchema,
 	value: unknown,
-): Readonly<Record<string, unknown>> => copyPostgresRecord(schema, value, true)
+): DatabaseLogicalRecord => copyPostgresRecord(schema, value, 'prepare')
 
 /** Detaches logical values already decoded by Drizzle's columns. */
 export const readPostgresRecord = (
 	schema: CompiledPostgresSchema,
 	value: unknown,
-): Readonly<Record<string, unknown>> => copyPostgresRecord(schema, value, false)
+): DatabaseLogicalRecord => copyPostgresRecord(schema, value, 'read')
+
+/** Keeps full private records separate from one exact returning projection. */
+export const projectPostgresRecord = (
+	record: DatabaseLogicalRecord,
+	selection: QuerySelectionNode,
+	missingField = 'PostgreSQL prepared mutation result is missing selected field',
+): DatabaseLogicalRecord =>
+	selection.fields.length === 0
+		? record
+		: immutableRecord(
+				Object.fromEntries(
+					selection.fields.map(({ field }) => {
+						if (!Object.hasOwn(record, field)) {
+							throw new TypeError(`${missingField}: ${field}`)
+						}
+
+						return [field, record[field]]
+					}),
+				),
+			)
+
+/** Projects an atomic collection without altering its full private materializations. */
+export const projectPostgresRecords = (
+	records: readonly DatabaseLogicalRecord[],
+	selection: QuerySelectionNode,
+): readonly DatabaseLogicalRecord[] =>
+	immutableArray(
+		records.map((record) => projectPostgresRecord(record, selection)),
+	)

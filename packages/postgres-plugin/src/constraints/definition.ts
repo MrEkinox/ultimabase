@@ -11,8 +11,11 @@ import {
 import { or, sql as drizzleSql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import { required } from '../required.js'
+import {
+	resolveCompiledPostgresField,
+	type CompiledPostgresSchema,
+} from '../schema/contracts.js'
 
 declare const postgresConstraintFieldType: unique symbol
 declare const postgresConstraintPredicateType: unique symbol
@@ -110,16 +113,12 @@ const assertCompilerOptions = (options: unknown): void => {
 		}
 	}
 
-	if (typeof options.decode !== 'function') {
-		throw new TypeError(
-			'postgres constraint compiler decode must be a function',
-		)
-	}
-
-	if (typeof options.compile !== 'function') {
-		throw new TypeError(
-			'postgres constraint compiler compile must be a function',
-		)
+	for (const callback of ['decode', 'compile'] as const) {
+		if (typeof options[callback] !== 'function') {
+			throw new TypeError(
+				`postgres constraint compiler ${callback} must be a function`,
+			)
+		}
 	}
 }
 
@@ -166,6 +165,10 @@ const assertPortableParameter: (
 	)
 }
 
+/**
+ * Creates one compile context whose field and predicate handles are opaque
+ * frozen objects; their columns and SQL stay in context-local weak maps.
+ */
 const createCompileContext = (
 	schema: CompiledPostgresSchema,
 	payload: DatabaseConstraintPayload,
@@ -175,6 +178,15 @@ const createCompileContext = (
 }> => {
 	const fieldColumns = new WeakMap<object, PgColumn>()
 	const predicateExpressions = new WeakMap<object, SQL>()
+	const createPredicate = (expression: SQL): PostgresConstraintPredicate => {
+		const predicate = immutableRecord(
+			{},
+		) as unknown as PostgresConstraintPredicate
+
+		predicateExpressions.set(predicate, expression)
+
+		return predicate
+	}
 	const field = (name: string): PostgresConstraintField => {
 		if (typeof name !== 'string') {
 			throw new TypeError('postgres constraint field name must be a string')
@@ -189,70 +201,48 @@ const createCompileContext = (
 
 		return reference
 	}
-	const sql: PostgresConstraintSqlTag = (strings, ...values) => {
-		const parameters = values.map((value, index) => {
-			const column =
-				typeof value === 'object' && value !== null
-					? fieldColumns.get(value)
-					: undefined
+	const sql: PostgresConstraintSqlTag = (strings, ...values) =>
+		createPredicate(
+			drizzleSql(
+				strings,
+				...values.map((value, index) => {
+					const isObject = typeof value === 'object' && value !== null
+					const column = isObject ? fieldColumns.get(value) : undefined
 
-			if (column !== undefined) {
-				return column
-			}
-			if (
-				typeof value === 'object' &&
-				value !== null &&
-				postgresConstraintFields.has(value)
-			) {
-				throw new TypeError(
-					'postgres constraint field belongs to another compile context',
-				)
-			}
+					if (column !== undefined) {
+						return column
+					}
+					if (isObject && postgresConstraintFields.has(value)) {
+						throw new TypeError(
+							'postgres constraint field belongs to another compile context',
+						)
+					}
 
-			// SQL wrappers and class instances fail before Drizzle can unwrap them.
-			assertPortableParameter(
-				value,
-				`postgres constraint interpolation[${String(index)}]`,
-			)
-
-			return drizzleSql.param(value)
-		})
-		const expression = drizzleSql(strings, ...parameters)
-		const predicate = immutableRecord(
-			{},
-		) as unknown as PostgresConstraintPredicate
-
-		predicateExpressions.set(predicate, expression)
-
-		return predicate
-	}
-	const anyOf: PostgresConstraintCompileContext<DatabaseConstraintPayload>['anyOf'] =
-		(first, ...rest) => {
-			const expressions = [first, ...rest].map((predicate) => {
-				const expression = predicateExpressions.get(predicate)
-
-				if (expression === undefined) {
-					throw new TypeError(
-						'postgres constraint predicate belongs to another compile context',
+					// SQL wrappers and class instances fail before Drizzle can unwrap them.
+					assertPortableParameter(
+						value,
+						`postgres constraint interpolation[${String(index)}]`,
 					)
-				}
 
-				return expression
-			})
-			const expression = or(...expressions)
-
-			if (expression === undefined) {
-				throw new TypeError('postgres constraint anyOf requires one predicate')
-			}
-
-			const predicate = immutableRecord(
-				{},
-			) as unknown as PostgresConstraintPredicate
-
-			predicateExpressions.set(predicate, expression)
-
-			return predicate
-		}
+					return drizzleSql.param(value)
+				}),
+			),
+		)
+	const anyOf: PostgresConstraintCompileContext<DatabaseConstraintPayload>['anyOf'] =
+		(first, ...rest) =>
+			createPredicate(
+				required(
+					or(
+						...[first, ...rest].map((predicate) =>
+							required(
+								predicateExpressions.get(predicate),
+								'postgres constraint predicate belongs to another compile context',
+							),
+						),
+					),
+					'postgres constraint anyOf requires one predicate',
+				),
+			)
 
 	return immutableRecord({
 		context: immutableRecord({ anyOf, field, payload, sql }),
@@ -304,36 +294,22 @@ export const postgresConstraintCompiler = <
 	return definition
 }
 
-/** Resolves only PostgreSQL definitions produced by the public factory. */
-export const getPostgresConstraintCompilerImplementation = (
-	value: unknown,
-): PostgresConstraintCompilerImplementation | undefined =>
-	typeof value === 'object' && value !== null
-		? compilerImplementations.get(value)
-		: undefined
-
 /** Runs one protected compiler and rejects forged predicate lookalikes. */
 export const compilePostgresConstraintPredicate = (
 	definition: unknown,
 	schema: CompiledPostgresSchema,
 	payload: DatabaseConstraintPayload,
 ): SQL => {
-	const implementation = getPostgresConstraintCompilerImplementation(definition)
+	const implementation = required(
+		typeof definition === 'object' && definition !== null
+			? compilerImplementations.get(definition)
+			: undefined,
+		'Unknown PostgreSQL constraint compiler definition',
+	)
+	const boundary = createCompileContext(schema, implementation.decode(payload))
 
-	if (implementation === undefined) {
-		throw new TypeError('Unknown PostgreSQL constraint compiler definition')
-	}
-
-	const decoded = implementation.decode(payload)
-	const boundary = createCompileContext(schema, decoded)
-	const predicate = implementation.compile(boundary.context)
-	const expression = boundary.readPredicate(predicate)
-
-	if (expression === undefined) {
-		throw new TypeError(
-			'PostgreSQL constraint compiler returned an invalid predicate',
-		)
-	}
-
-	return expression
+	return required(
+		boundary.readPredicate(implementation.compile(boundary.context)),
+		'PostgreSQL constraint compiler returned an invalid predicate',
+	)
 }

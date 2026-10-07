@@ -8,47 +8,51 @@ import {
 	FrameworkError,
 	isRelationUpdateExpression,
 	registerPrivateStorageAdapter,
+	type DatabaseAdapter,
+	type DatabaseConstraintNode,
+	type DatabaseMutationOperationAst,
+	type DatabaseOperationAst,
+	type DatabaseOperationRequest,
+	type DatabaseOperationResult,
+	type DatabaseTransactionAdapter,
+	type ExecutableOperationAst,
+	type PreparedDatabaseOperation,
+	type PrivateStorageAdapterCollection,
 } from '@ultimabase/core'
-import type {
-	DatabaseAdapter,
-	DatabaseMutationOperationAst,
-	DatabaseOperationAst,
-	DatabaseOperationRequest,
-	DatabaseOperationResult,
-	DatabaseTransactionAdapter,
-	PreparedDatabaseOperation,
-	PrivateStorageAdapterCollection,
-} from '@ultimabase/core'
-import { and, type SQL } from 'drizzle-orm'
 import { immutableRecord } from '@ultimabase/shared'
+import { and, type SQL } from 'drizzle-orm'
 
+import type {
+	PostgresPool,
+	PostgresPoolClient,
+} from '../connection/contracts.js'
 import {
 	compilePostgresConstraints,
 	emptyPostgresConstraintCompilerRegistry,
 	type PostgresConstraintCompilerRegistry,
 } from '../constraints/compiler.js'
+import { executePostgresPrivateStorage } from '../private-storage/executor.js'
+import {
+	compilePostgresRowFilter,
+	type PostgresRelationPredicateCompiler,
+} from '../query/filter-compiler.js'
+import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
+import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
+import type { PostgresSchemaCatalog } from '../schema/catalog.js'
+import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	createPostgresDrizzleClient,
 	type PostgresDrizzleClient,
 } from './client.js'
 import { executePostgresOperation } from './operation-executor.js'
+import { createPostgresTransactionError } from './operation-error.js'
+import { readPostgresPersistenceOperation } from './persistence-plan.js'
 import { preparePostgresMutation } from './prepared-operation.js'
-import type {
-	PostgresPool,
-	PostgresPoolClient,
-} from '../connection/contracts.js'
-import type { PostgresSchemaCatalog } from '../schema/catalog.js'
-import { createPostgresTransactionError } from './transaction-error.js'
-import { compilePostgresRowFilter } from '../query/filter-compiler.js'
-import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
-import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
 import {
 	executePostgresRelationalRead,
 	readPostgresIncludedValue,
 	readPostgresRelationalObjectIdentity,
 } from './relational-query-executor.js'
-import { readPostgresPersistenceOperation } from './persistence-plan.js'
-import { executePostgresPrivateStorage } from '../private-storage/executor.js'
 
 const postgresTransactionClients = new WeakMap<
 	DatabaseTransactionAdapter,
@@ -65,30 +69,26 @@ const postgresDatabaseCapabilities = immutableRecord({
 	persistencePlans: databasePersistencePlanCapability,
 })
 
-const readPostgresObjectIdentity = (
-	record: Readonly<Record<string, unknown>>,
-): unknown => readPostgresRelationalObjectIdentity(record)
+/** Shares one compiled schema catalog and constraint registry across lifetimes. */
+interface PostgresExecutionContext {
+	readonly client: PostgresDrizzleClient
+	readonly constraintCompilers: PostgresConstraintCompilerRegistry
+	readonly schemas: PostgresSchemaCatalog
+}
 
-const isPostgresRelationalRead = (
-	operation: ReturnType<typeof readPostgresPersistenceOperation>,
-): operation is Extract<
-	ReturnType<typeof readPostgresPersistenceOperation>,
-	{ readonly kind: 'find-many' | 'find-one' | 'get' }
-> =>
-	operation.kind === 'find-many' ||
-	operation.kind === 'find-one' ||
-	operation.kind === 'get'
+/** Reads the physical operation and rejects row predicates on INSERT paths. */
+const readSupportedOperation = (
+	request: DatabaseOperationRequest,
+	constraints: readonly DatabaseConstraintNode[],
+): ExecutableOperationAst => {
+	const operation = readPostgresPersistenceOperation(
+		request.operation,
+		request.plan,
+	)
 
-const readPlanSchema = (request: DatabaseOperationRequest): unknown =>
-	request.plan.target.schema.definition
-
-/** Prevents a row predicate from being silently ignored by an INSERT path. */
-const assertConstraintOperationSupported = (
-	operation: DatabaseOperationAst,
-	hasRowRestriction: boolean,
-): void => {
+	// A create cannot honor a row restriction, so it must not silently ignore one.
 	if (
-		hasRowRestriction &&
+		(constraints.length > 0 || request.rowFilter !== undefined) &&
 		(operation.kind === 'create-one' || operation.kind === 'create-many')
 	) {
 		throw new FrameworkError(
@@ -103,54 +103,99 @@ const assertConstraintOperationSupported = (
 			},
 		)
 	}
+
+	return operation
 }
 
 /** Combines protected constraints and row filters without exposing either to QueryBuilder behavior. */
-const compilePostgresRequestConstraint = (
-	constraintCompilers: PostgresConstraintCompilerRegistry,
-	schema: ReturnType<PostgresSchemaCatalog['get']>,
+const compileRequestConstraint = (
+	{ constraintCompilers }: PostgresExecutionContext,
+	schema: CompiledPostgresSchema,
+	constraints: readonly DatabaseConstraintNode[],
 	request: DatabaseOperationRequest,
-	relationCompiler?: ReturnType<typeof createPostgresRelationPredicateCompiler>,
-): SQL | undefined => {
-	const contributed = compilePostgresConstraints(
-		constraintCompilers,
-		schema,
-		request.constraints,
-	)
-	const access =
+	relationCompiler: PostgresRelationPredicateCompiler,
+): SQL | undefined =>
+	and(
+		compilePostgresConstraints(constraintCompilers, schema, constraints),
 		request.rowFilter === undefined
 			? undefined
-			: compilePostgresRowFilter(request.rowFilter, schema, relationCompiler)
+			: compilePostgresRowFilter(request.rowFilter, schema, relationCompiler),
+	)
 
-	return and(contributed, access)
-}
-
-/** Adds a validated to-many traversal only to target read operations. */
-const compilePostgresRequestRelation = (
-	schemas: PostgresSchemaCatalog,
-	schema: ReturnType<PostgresSchemaCatalog['get']>,
+const createRelationCompiler = (
+	{ constraintCompilers, schemas }: PostgresExecutionContext,
 	request: DatabaseOperationRequest,
-): SQL | undefined => {
+): PostgresRelationPredicateCompiler =>
+	createPostgresRelationPredicateCompiler(
+		schemas,
+		constraintCompilers,
+		request.relationPredicates ?? [],
+	)
+
+/** Executes one request through the client selected by the adapter lifetime. */
+const executePostgresRequest = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	context: PostgresExecutionContext,
+	request: DatabaseOperationRequest<TOperation>,
+): Promise<DatabaseOperationResult<TOperation>> => {
+	const { client, schemas } = context
+	const schema = schemas.get(request.plan.target.schema.definition)
+	const operation = readSupportedOperation(request, request.constraints)
+	let result: unknown
+
+	// Object reads have one compiler, including their ordinary scalar-only form.
 	if (
-		request.relation === undefined ||
-		request.operation.kind === 'update-one'
+		operation.kind === 'find-many' ||
+		operation.kind === 'find-one' ||
+		operation.kind === 'get'
 	) {
-		return undefined
-	}
+		result = await executePostgresRelationalRead(
+			client,
+			schemas,
+			context.constraintCompilers,
+			request,
+		)
+	} else {
+		const relationCompiler = createRelationCompiler(context, request)
+		const constraint = compileRequestConstraint(
+			context,
+			schema,
+			request.constraints,
+			request,
+			relationCompiler,
+		)
+		let relationPredicate: SQL | undefined
 
-	const relation = schemas.getRelation(request.relation)
+		// A validated to-many traversal applies only to target read operations.
+		if (
+			request.relation !== undefined &&
+			request.operation.kind !== 'update-one'
+		) {
+			const relation = schemas.getRelation(request.relation)
 
-	if (relation.target !== schema) {
-		throw new TypeError(
-			'PostgreSQL relation read target does not match its operation schema',
+			if (relation.target !== schema) {
+				throw new TypeError(
+					'PostgreSQL relation read target does not match its operation schema',
+				)
+			}
+
+			relationPredicate = compilePostgresRelationPredicate(
+				schemas,
+				relation,
+				request.relation.sourceObjectId,
+			)
+		}
+
+		result = await executePostgresOperation(
+			{ client, relationCompiler, schema },
+			operation,
+			and(constraint, relationPredicate),
 		)
 	}
 
-	return compilePostgresRelationPredicate(
-		schemas,
-		relation,
-		request.relation.sourceObjectId,
-	)
+	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
+	return result as DatabaseOperationResult<TOperation>
 }
 
 /** Prevents structural pool cleanup failures from replacing a known SQL outcome. */
@@ -166,73 +211,30 @@ const releasePostgresClient = (
 	}
 }
 
-/** Executes one request through the client selected by the adapter lifetime. */
-const executePostgresRequest = async <
-	const TOperation extends DatabaseOperationAst,
->(
-	client: PostgresDrizzleClient,
-	schemas: PostgresSchemaCatalog,
-	constraintCompilers: PostgresConstraintCompilerRegistry,
-	request: DatabaseOperationRequest<TOperation>,
-): Promise<DatabaseOperationResult<TOperation>> => {
-	const schema = schemas.get(readPlanSchema(request))
-	const operation = readPostgresPersistenceOperation(
-		request.operation,
-		request.plan,
-	)
-	assertConstraintOperationSupported(
-		operation,
-		request.constraints.length > 0 || request.rowFilter !== undefined,
-	)
-
-	// Object reads have one compiler, including their ordinary scalar-only form.
-	if (isPostgresRelationalRead(operation)) {
-		return (await executePostgresRelationalRead(
-			client,
-			schemas,
-			constraintCompilers,
-			request,
-		)) as DatabaseOperationResult<TOperation>
+/** Shares the identity and inclusion lookups retained by relational reads. */
+abstract class PostgresRecordReader {
+	/** Exposes only identity retained for the exact projected adapter record. */
+	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
+		return readPostgresRelationalObjectIdentity(record)
 	}
 
-	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-		schemas,
-		constraintCompilers,
-		request.relationPredicates ?? [],
-	)
-	const constraintPredicate = compilePostgresRequestConstraint(
-		constraintCompilers,
-		schema,
-		request,
-		relationPredicateCompiler,
-	)
-	const relationPredicate = compilePostgresRequestRelation(
-		schemas,
-		schema,
-		request,
-	)
-	const effectivePredicate = and(constraintPredicate, relationPredicate)
-	// Runtime guarantees the closed Operation AST union before the adapter boundary.
-	const result = await executePostgresOperation(
-		client,
-		schema,
-		operation,
-		effectivePredicate,
-		relationPredicateCompiler,
-	)
-
-	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
-	return result as DatabaseOperationResult<TOperation>
+	readIncludedValue(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	) {
+		return readPostgresIncludedValue(record, fieldPath)
+	}
 }
 
 /** Owns one borrowed client until exactly one finalization path releases it. */
-class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
+class DrizzlePostgresTransactionAdapter
+	extends PostgresRecordReader
+	implements DatabaseTransactionAdapter
+{
 	readonly kind = 'database-transaction-adapter' as const
 	readonly capabilities = postgresDatabaseCapabilities
 	readonly #client: PostgresPoolClient
-	readonly #drizzle: PostgresDrizzleClient
-	readonly #schemas: PostgresSchemaCatalog
-	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
+	readonly #context: PostgresExecutionContext
 	#state:
 		'active' | 'committing' | 'rollback-required' | 'rolling-back' | 'closed' =
 		'active'
@@ -242,39 +244,30 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		schemas: PostgresSchemaCatalog,
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
+		super()
 		this.#client = client
-		this.#drizzle = createPostgresDrizzleClient(
-			client,
-			schemas.drizzleRelationDefinitions(),
-		)
-		this.#schemas = schemas
-		this.#constraintCompilers = constraintCompilers
+		this.#context = {
+			client: createPostgresDrizzleClient(
+				client,
+				schemas.drizzleRelationDefinitions(),
+			),
+			constraintCompilers,
+			schemas,
+		}
 		registerPrivateStorageAdapter(
 			this,
 			immutableRecord({
 				executePrivateStorage: (request) => {
 					this.#assertActive()
 					return executePostgresPrivateStorage(
-						this.#drizzle,
-						this.#schemas,
+						this.#context.client,
+						schemas,
 						request,
 					)
 				},
 			}),
 		)
 		postgresTransactionClients.set(this, client)
-	}
-
-	/** Exposes only identity retained for the exact projected adapter record. */
-	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
-		return readPostgresObjectIdentity(record)
-	}
-
-	readIncludedValue(
-		record: Readonly<Record<string, unknown>>,
-		fieldPath: readonly string[],
-	) {
-		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -293,47 +286,33 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		}
 	}
 
-	/** Allows Runtime's single compensating rollback after a failed commit. */
-	#assertRollbackAllowed(): void {
-		if (this.#state !== 'active' && this.#state !== 'rollback-required') {
-			this.#assertActive()
-		}
-	}
-
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.#assertActive()
 
-		return executePostgresRequest(
-			this.#drizzle,
-			this.#schemas,
-			this.#constraintCompilers,
-			request,
-		)
+		return executePostgresRequest(this.#context, request)
 	}
 
 	async prepare<const TOperation extends DatabaseMutationOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
-		const schema = this.#schemas.get(readPlanSchema(request))
-		const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-			this.#schemas,
-			this.#constraintCompilers,
-			request.relationPredicates ?? [],
-		)
-		const constraintPredicate = compilePostgresRequestConstraint(
-			this.#constraintCompilers,
+		const context = this.#context
+		const schema = context.schemas.get(request.plan.target.schema.definition)
+		const relationCompiler = createRelationCompiler(context, request)
+		const constraint = compileRequestConstraint(
+			context,
 			schema,
+			request.constraints,
 			request,
-			relationPredicateCompiler,
+			relationCompiler,
 		)
 		const relationScope = request.relation
 		const relation =
 			relationScope === undefined
 				? undefined
-				: this.#schemas.getRelation(relationScope)
+				: context.schemas.getRelation(relationScope)
 		// A scalar nested target update uses the edge as a lock predicate; a
 		// relation delta instead uses the same scope to select physical edge storage.
 		const scopedTargetPredicate =
@@ -343,26 +322,20 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			'update' in request.operation &&
 			!isRelationUpdateExpression(request.operation.update)
 				? compilePostgresRelationPredicate(
-						this.#schemas,
+						context.schemas,
 						relation,
 						relationScope.sourceObjectId,
 						schema.table,
 					)
 				: undefined
-		const initialPhysicalOperation = readPostgresPersistenceOperation(
-			request.operation,
-			request.plan,
-		)
-		assertConstraintOperationSupported(
-			initialPhysicalOperation,
-			request.constraints.length > 0 || request.rowFilter !== undefined,
-		)
+
+		readSupportedOperation(request, request.constraints)
 
 		return preparePostgresMutation({
 			assertActive: () => {
 				this.#assertActive()
 			},
-			client: this.#drizzle,
+			client: context.client,
 			compileConstraint: (execution) => {
 				if (
 					execution.plan.target.schema.definition !==
@@ -372,36 +345,29 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 						'PostgreSQL prepared plan changed its target schema',
 					)
 				}
-				const physicalOperation = readPostgresPersistenceOperation(
-					execution.operation,
-					execution.plan,
-				)
-				assertConstraintOperationSupported(
-					physicalOperation,
-					execution.constraints.length > 0 || request.rowFilter !== undefined,
+
+				readSupportedOperation(
+					{ ...request, operation: execution.operation, plan: execution.plan },
+					execution.constraints,
 				)
 
 				return and(
-					compilePostgresRequestConstraint(
-						this.#constraintCompilers,
+					compileRequestConstraint(
+						context,
 						schema,
-						{
-							...request,
-							constraints: execution.constraints,
-							operation: execution.operation,
-							plan: execution.plan,
-						},
-						relationPredicateCompiler,
+						execution.constraints,
+						request,
+						relationCompiler,
 					),
 					scopedTargetPredicate,
 				)
 			},
-			constraint: and(constraintPredicate, scopedTargetPredicate),
+			constraint: and(constraint, scopedTargetPredicate),
 			operation: request.operation,
 			plan: request.plan,
 			prepareMutationItems: request.prepareMutationItems === true,
 			relation,
-			relationCompiler: relationPredicateCompiler,
+			relationCompiler,
 			schema,
 		})
 	}
@@ -425,7 +391,11 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	}
 
 	async rollback(): Promise<void> {
-		this.#assertRollbackAllowed()
+		// Runtime's single compensating rollback is allowed after a failed commit.
+		if (this.#state !== 'rollback-required') {
+			this.#assertActive()
+		}
+
 		this.#state = 'rolling-back'
 		let failure: FrameworkError<'TRANSACTION_ERROR'> | undefined
 
@@ -454,61 +424,46 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 }
 
 /** Binds one private Drizzle client and transaction pool to compiled schemas. */
-class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
+class DrizzlePostgresDatabaseAdapter
+	extends PostgresRecordReader
+	implements DatabaseAdapter
+{
 	readonly kind = 'database-adapter' as const
 	readonly capabilities = postgresDatabaseCapabilities
-	readonly #client: PostgresDrizzleClient
+	readonly #context: PostgresExecutionContext
 	readonly #pool: PostgresPool
-	readonly #schemas: PostgresSchemaCatalog
-	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
 
 	constructor(
 		pool: PostgresPool,
 		schemas: PostgresSchemaCatalog,
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
-		this.#client = createPostgresDrizzleClient(
+		super()
+		const client = createPostgresDrizzleClient(
 			pool,
 			schemas.drizzleRelationDefinitions(),
 		)
+
+		this.#context = { client, constraintCompilers, schemas }
 		this.#pool = pool
-		this.#schemas = schemas
-		this.#constraintCompilers = constraintCompilers
 		registerPrivateStorageAdapter(
 			this,
 			immutableRecord({
 				configurePrivateStorage: (
 					collections: readonly PrivateStorageAdapterCollection[],
 				) => {
-					this.#schemas.configurePrivateStorage(collections)
+					schemas.configurePrivateStorage(collections)
 				},
 				executePrivateStorage: (request) =>
-					executePostgresPrivateStorage(this.#client, this.#schemas, request),
+					executePostgresPrivateStorage(client, schemas, request),
 			}),
 		)
-	}
-
-	/** Exposes only identity retained for the exact projected adapter record. */
-	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
-		return readPostgresObjectIdentity(record)
-	}
-
-	readIncludedValue(
-		record: Readonly<Record<string, unknown>>,
-		fieldPath: readonly string[],
-	) {
-		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
-		return executePostgresRequest(
-			this.#client,
-			this.#schemas,
-			this.#constraintCompilers,
-			request,
-		)
+		return executePostgresRequest(this.#context, request)
 	}
 
 	async beginTransaction(): Promise<DatabaseTransactionAdapter> {
@@ -530,8 +485,8 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 
 		return new DrizzlePostgresTransactionAdapter(
 			client,
-			this.#schemas,
-			this.#constraintCompilers,
+			this.#context.schemas,
+			this.#context.constraintCompilers,
 		)
 	}
 }

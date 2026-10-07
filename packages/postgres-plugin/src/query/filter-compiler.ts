@@ -1,11 +1,12 @@
-import type {
-	DatabaseRowFilterNode,
-	FieldValidationPlan,
-	QueryFilterNode,
-	QueryRelationFilterNode,
-	QueryRegexFlag,
+import {
+	type DatabaseRowFilterNode,
+	type FieldValidationPlan,
+	type QueryFilterExpression,
+	type QueryFilterNode,
+	type QueryRegexFlag,
+	type QueryRelationFilterNode,
+	type SchemaDefinition,
 } from '@ultimabase/core'
-import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	and,
 	between,
@@ -26,36 +27,71 @@ import {
 	type SQL,
 } from 'drizzle-orm'
 
-import type {
-	CompiledPostgresField,
-	CompiledPostgresSchema,
+import { required } from '../required.js'
+import {
+	resolveCompiledPostgresField,
+	type CompiledPostgresField,
+	type CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
 import {
 	createPostgresValueCodec,
 	encodePostgresPartialValue,
 } from '../schema/value-codec.js'
-import { compilePostgresPluginFieldContains } from './plugin-field-containment-compiler.js'
-import { stringifyPostgresJsonbParameter } from './jsonb-parameter.js'
-import type {
-	RuntimeEqualityFilter,
-	RuntimeFilter,
-	RuntimeJsonPathFilter,
-	RuntimeKeyFilter,
-	RuntimeKeysFilter,
-	RuntimeListFilter,
-	RuntimeMembershipFilter,
-	RuntimePrimitiveFilter,
-	RuntimeRangeFilter,
-	RuntimeRegexFilter,
-	RuntimeStringOrContainmentFilter,
-} from './filter-contracts.js'
+import {
+	compilePostgresPluginFieldContains,
+	stringifyJsonbParameter,
+} from './jsonb-operand.js'
 
 /** Compiles one correlated relation leaf against the current source alias. */
 export type PostgresRelationPredicateCompiler = (
 	predicate: QueryRelationFilterNode,
 	source: CompiledPostgresSchema,
 ) => SQL
+
+type FilterLeaf<TLeaf> = Readonly<
+	TLeaf & { readonly field: string; readonly path?: readonly string[] }
+>
+
+/** Mirrors Core's normalized primitive leaves once schema inference is erased. */
+type RuntimePrimitiveFilter = FilterLeaf<
+	| {
+			kind:
+				| 'contained-by'
+				| 'contains'
+				| 'ends-with'
+				| 'equal'
+				| 'greater-than'
+				| 'greater-than-or-equal'
+				| 'less-than'
+				| 'less-than-or-equal'
+				| 'list-has'
+				| 'not-equal'
+				| 'starts-with'
+			value: unknown
+	  }
+	| { kind: 'between' | 'not-between'; lower: unknown; upper: unknown }
+	| {
+			kind: 'in' | 'list-has-every' | 'list-has-some' | 'not-in'
+			values: readonly unknown[]
+	  }
+	| { kind: 'list-empty' }
+	| { kind: 'has-key'; value: string }
+	| { kind: 'has-all-keys' | 'has-any-keys'; keys: readonly string[] }
+	| {
+			kind: 'json-path-exists' | 'json-path-matches'
+			source: string
+			variables?: Readonly<Record<string, unknown>>
+	  }
+	| {
+			kind: 'regex'
+			pattern: Readonly<{ flags: readonly QueryRegexFlag[]; source: string }>
+	  }
+	| { kind: 'null'; isNull: boolean }
+>
+
+type RuntimeFilter = QueryFilterExpression<
+	RuntimePrimitiveFilter | QueryRelationFilterNode
+>
 
 const trueExpression = sql<boolean>`true`
 const falseExpression = sql<boolean>`false`
@@ -68,10 +104,8 @@ interface PostgresFilterTarget {
 	readonly text: SQL
 }
 
-const readFilterPath = (
-	filter: RuntimePrimitiveFilter,
-): readonly string[] | undefined =>
-	'path' in filter && Array.isArray(filter.path) ? filter.path : undefined
+const jsonbParameter = (value: unknown): SQL =>
+	sql`${stringifyJsonbParameter(value)}::jsonb`
 
 const resolvePathPlan = (
 	plan: FieldValidationPlan,
@@ -107,7 +141,8 @@ const resolveFilterTarget = (
 	schema: CompiledPostgresSchema,
 ): PostgresFilterTarget => {
 	const field = resolveCompiledPostgresField(schema, filter.field)
-	const path = readFilterPath(filter)
+	const path =
+		'path' in filter && Array.isArray(filter.path) ? filter.path : undefined
 
 	if (path === undefined) {
 		return {
@@ -132,81 +167,45 @@ const resolveFilterTarget = (
 	}
 }
 
-const encodePathValue = (
-	target: PostgresFilterTarget,
+/** Encodes one complete value through the target's JSONB storage codec. */
+const encodeJsonbValue = (
+	plan: FieldValidationPlan | undefined,
 	value: unknown,
-): string => {
-	const encoded =
-		target.plan === undefined
-			? value
-			: createPostgresValueCodec(target.plan, true).encode(value)
-
-	return stringifyPostgresJsonbParameter(encoded)
-}
-
-const encodeStructuralValue = (
-	target: PostgresFilterTarget,
-	value: unknown,
-): string => {
-	const encoded =
-		target.plan === undefined
-			? value
-			: target.plan.kind === 'object'
-				? encodePostgresPartialValue(target.plan, value)
-				: createPostgresValueCodec(target.plan, true).encode(value)
-
-	return stringifyPostgresJsonbParameter(encoded)
-}
+): SQL =>
+	jsonbParameter(
+		plan === undefined ? value : createPostgresValueCodec(plan).encode(value),
+	)
 
 const compileEquality = (
-	filter: RuntimeEqualityFilter,
+	kind: 'equal' | 'not-equal',
+	value: unknown,
 	target: PostgresFilterTarget,
 ): SQL => {
-	if (target.path !== undefined) {
-		const value = sql`${encodePathValue(target, filter.value)}::jsonb`
-
-		return filter.kind === 'equal'
-			? eq(target.jsonb, value)
-			: ne(target.jsonb, value)
-	}
-
-	if (filter.value === null) {
-		return filter.kind === 'equal'
+	if (target.path === undefined && value === null) {
+		return kind === 'equal'
 			? isNull(target.field.column)
 			: isNotNull(target.field.column)
 	}
 
-	if (target.plan?.kind === 'array') {
-		const value = sql`${encodePathValue(target, filter.value)}::jsonb`
+	const compare = kind === 'equal' ? eq : ne
 
-		return filter.kind === 'equal'
-			? eq(target.jsonb, value)
-			: ne(target.jsonb, value)
-	}
-
-	return filter.kind === 'equal'
-		? eq(target.field.column, filter.value)
-		: ne(target.field.column, filter.value)
-}
-
-const encodeListValue = (
-	target: PostgresFilterTarget,
-	value: unknown,
-): string => {
-	if (target.plan?.kind !== 'array') {
-		throw new TypeError('PostgreSQL list filters require an array plan')
-	}
-
-	return stringifyPostgresJsonbParameter(
-		createPostgresValueCodec(target.plan.items, true).encode(value),
-	)
+	// Paths and lists compare whole JSONB documents encoded by the field codec.
+	return target.path !== undefined || target.plan?.kind === 'array'
+		? compare(target.jsonb, encodeJsonbValue(target.plan, value))
+		: compare(target.field.column, value)
 }
 
 const compileListElementEquality = (
 	target: PostgresFilterTarget,
 	value: unknown,
 ): SQL => {
-	const encoded = encodeListValue(target, value)
+	if (target.plan?.kind !== 'array') {
+		throw new TypeError('PostgreSQL list filters require an array plan')
+	}
+
+	const encoded = stringifyJsonbParameter(
+		createPostgresValueCodec(target.plan.items).encode(value),
+	)
 
 	// Element equality avoids JSONB containment's partial-object semantics.
 	return sql`EXISTS (
@@ -221,105 +220,63 @@ const compileListElementEquality = (
 	)`
 }
 
-const compileList = (
-	filter: RuntimeListFilter,
-	target: PostgresFilterTarget,
-): SQL => {
-	if (filter.kind === 'list-empty') {
-		return eq(target.jsonb, sql`${stringifyPostgresJsonbParameter([])}::jsonb`)
-	}
-
-	if (filter.kind === 'list-has') {
-		return compileListElementEquality(target, filter.value)
-	}
-
-	if (filter.kind === 'list-has-every') {
-		return (
-			and(
-				...filter.values.map((value) =>
-					compileListElementEquality(target, value),
-				),
-			) ?? trueExpression
-		)
-	}
-
-	const expressions = filter.values.map((value) =>
-		compileListElementEquality(target, value),
-	)
-
-	return or(...expressions) ?? falseExpression
-}
-
 const compileMembership = (
-	filter: RuntimeMembershipFilter,
+	kind: 'in' | 'not-in',
+	values: readonly unknown[],
 	target: PostgresFilterTarget,
 ): SQL => {
+	const included = kind === 'in'
+	const empty = included ? falseExpression : trueExpression
+
 	if (target.path !== undefined) {
-		const expressions = filter.values.map((value) => {
-			const encoded = sql`${encodePathValue(target, value)}::jsonb`
+		const expressions = values.map((value) =>
+			(included ? eq : ne)(target.jsonb, encodeJsonbValue(target.plan, value)),
+		)
 
-			return filter.kind === 'in'
-				? eq(target.jsonb, encoded)
-				: ne(target.jsonb, encoded)
-		})
-		const combined =
-			filter.kind === 'in' ? or(...expressions) : and(...expressions)
-
-		return combined ?? (filter.kind === 'in' ? falseExpression : trueExpression)
+		return (included ? or(...expressions) : and(...expressions)) ?? empty
 	}
 
-	const includesNull = filter.values.some((value) => value === null)
-	const values = filter.values.filter((value) => value !== null)
+	const column = target.field.column
+	const includesNull = values.some((value) => value === null)
+	const nonNull = values.filter((value) => value !== null)
 
-	if (values.length === 0) {
-		if (includesNull) {
-			return filter.kind === 'in'
-				? isNull(target.field.column)
-				: isNotNull(target.field.column)
-		}
+	if (nonNull.length === 0) {
+		if (!includesNull) return empty
 
-		return filter.kind === 'in' ? falseExpression : trueExpression
+		return included ? isNull(column) : isNotNull(column)
 	}
 
-	const membership =
-		filter.kind === 'in'
-			? inArray(target.field.column, values)
-			: notInArray(target.field.column, values)
+	const membership = included
+		? inArray(column, nonNull)
+		: notInArray(column, nonNull)
 
 	if (!includesNull) return membership
 
-	const combined =
-		filter.kind === 'in'
-			? or(membership, isNull(target.field.column))
-			: and(membership, isNotNull(target.field.column))
-
-	if (combined === undefined) {
-		throw new TypeError('PostgreSQL membership filter could not be combined')
-	}
-
-	return combined
+	return required(
+		included
+			? or(membership, isNull(column))
+			: and(membership, isNotNull(column)),
+		'PostgreSQL membership filter could not be combined',
+	)
 }
 
-const escapeLikeValue = (value: string): string =>
-	value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')
-
-const readStringValue = (value: unknown): string => {
+const compileString = (
+	kind: 'contains' | 'ends-with' | 'starts-with',
+	value: unknown,
+	target: PostgresFilterTarget,
+): SQL => {
 	if (typeof value !== 'string') {
 		throw new TypeError('PostgreSQL string filter value must be a string')
 	}
 
-	return value
-}
-
-const compileString = (
-	filter: RuntimeStringOrContainmentFilter,
-	target: PostgresFilterTarget,
-): SQL => {
-	const escaped = escapeLikeValue(readStringValue(filter.value))
+	const escaped = value
+		.replaceAll('\\', '\\\\')
+		.replaceAll('%', '\\%')
+		.replaceAll('_', '\\_')
 	const pattern =
-		filter.kind === 'contains'
+		kind === 'contains'
 			? `%${escaped}%`
-			: filter.kind === 'starts-with'
+			: kind === 'starts-with'
 				? `${escaped}%`
 				: `%${escaped}`
 
@@ -332,100 +289,96 @@ const isStructuredTarget = (target: PostgresFilterTarget): boolean =>
 	target.plan.kind === 'object' ||
 	target.plan.field.kind === 'json'
 
-const compileStructural = (
-	filter: RuntimeStringOrContainmentFilter,
+const assertStructuredTarget = (
 	target: PostgresFilterTarget,
-): SQL => {
+	filterLabel: string,
+): void => {
 	if (!isStructuredTarget(target)) {
 		throw new TypeError(
-			'PostgreSQL structural filters require a JSON or object target',
+			`PostgreSQL ${filterLabel} filters require a JSON or object target`,
 		)
 	}
+}
 
-	const encoded = encodeStructuralValue(target, filter.value)
+const compileStructural = (
+	kind: 'contained-by' | 'contains',
+	value: unknown,
+	target: PostgresFilterTarget,
+): SQL => {
+	assertStructuredTarget(target, 'structural')
+	const encoded = stringifyJsonbParameter(
+		target.plan?.kind === 'object'
+			? encodePostgresPartialValue(target.plan, value)
+			: target.plan === undefined
+				? value
+				: createPostgresValueCodec(target.plan).encode(value),
+	)
 
-	return filter.kind === 'contains'
+	return kind === 'contains'
 		? sql`${target.jsonb} @> ${encoded}::jsonb`
 		: sql`${target.jsonb} <@ ${encoded}::jsonb`
 }
 
-const compileKeys = (
-	filter: RuntimeKeyFilter | RuntimeKeysFilter,
-	target: PostgresFilterTarget,
-): SQL => {
-	if (!isStructuredTarget(target)) {
+const compileContains = (value: unknown, target: PostgresFilterTarget): SQL => {
+	const pluginContains = compilePostgresPluginFieldContains(
+		value,
+		target.jsonb,
+		target.plan,
+		target.field.storage,
+	)
+
+	if (pluginContains !== undefined) return pluginContains
+	if (isStructuredTarget(target)) {
+		return compileStructural('contains', value, target)
+	}
+	if (target.plan?.kind !== 'scalar' || target.plan.field.kind !== 'string') {
 		throw new TypeError(
-			'PostgreSQL key filters require a JSON or object target',
+			'PostgreSQL contains filter requires a string or structured target',
 		)
 	}
 
-	if (filter.kind === 'has-key') {
-		return sql`${target.jsonb} ? ${filter.value}`
-	}
-
-	return filter.kind === 'has-any-keys'
-		? sql`${target.jsonb} ?| ${sql.param(filter.keys)}::text[]`
-		: sql`${target.jsonb} ?& ${sql.param(filter.keys)}::text[]`
+	return compileString('contains', value, target)
 }
 
 const compileJsonPath = (
-	filter: RuntimeJsonPathFilter,
+	kind: 'json-path-exists' | 'json-path-matches',
+	source: string,
+	variables: Readonly<Record<string, unknown>> | undefined,
 	target: PostgresFilterTarget,
 ): SQL => {
-	if (!isStructuredTarget(target)) {
-		throw new TypeError(
-			'PostgreSQL JSONPath filters require a JSON or object target',
-		)
+	assertStructuredTarget(target, 'JSONPath')
+
+	if (variables === undefined) {
+		return kind === 'json-path-exists'
+			? sql`${target.jsonb} @? ${source}::jsonpath`
+			: sql`${target.jsonb} @@ ${source}::jsonpath`
 	}
 
-	if (filter.variables === undefined) {
-		return filter.kind === 'json-path-exists'
-			? sql`${target.jsonb} @? ${filter.source}::jsonpath`
-			: sql`${target.jsonb} @@ ${filter.source}::jsonpath`
-	}
-
-	const variables = stringifyPostgresJsonbParameter(filter.variables)
+	const encoded = stringifyJsonbParameter(variables)
 
 	// Function forms preserve operator-style error suppression when variables are required.
-	return filter.kind === 'json-path-exists'
-		? sql`jsonb_path_exists(${target.jsonb}, ${filter.source}::jsonpath, ${variables}::jsonb, ${true})`
-		: sql`jsonb_path_match(${target.jsonb}, ${filter.source}::jsonpath, ${variables}::jsonb, ${true})`
+	return kind === 'json-path-exists'
+		? sql`jsonb_path_exists(${target.jsonb}, ${source}::jsonpath, ${encoded}::jsonb, ${true})`
+		: sql`jsonb_path_match(${target.jsonb}, ${source}::jsonpath, ${encoded}::jsonb, ${true})`
 }
-
-const compileRange = (
-	filter: RuntimeRangeFilter,
-	field: CompiledPostgresField,
-): SQL => {
-	return filter.kind === 'between'
-		? between(field.column, filter.lower, filter.upper)
-		: notBetween(field.column, filter.lower, filter.upper)
-}
-
-const hasRegexFlag = (
-	flags: readonly QueryRegexFlag[],
-	flag: QueryRegexFlag,
-): boolean => flags.some((candidate) => candidate === flag)
 
 const compileRegex = (
-	filter: RuntimeRegexFilter,
+	pattern: Readonly<{ flags: readonly QueryRegexFlag[]; source: string }>,
 	field: CompiledPostgresField,
 ): SQL => {
-	const caseInsensitive = hasRegexFlag(filter.pattern.flags, 'case-insensitive')
-	const dotMatchesNewline = hasRegexFlag(
-		filter.pattern.flags,
-		'dot-matches-newline',
-	)
-	const multiline = hasRegexFlag(filter.pattern.flags, 'multiline')
-	const newlineMode = dotMatchesNewline
+	const hasFlag = (flag: QueryRegexFlag): boolean =>
+		pattern.flags.some((candidate) => candidate === flag)
+	const multiline = hasFlag('multiline')
+	const newlineMode = hasFlag('dot-matches-newline')
 		? multiline
 			? 'w'
 			: 's'
 		: multiline
 			? 'n'
 			: 'p'
-	const source = `(?${newlineMode})${filter.pattern.source}`
+	const source = `(?${newlineMode})${pattern.source}`
 
-	return caseInsensitive
+	return hasFlag('case-insensitive')
 		? sql`${field.column} ~* ${source}`
 		: sql`${field.column} ~ ${source}`
 }
@@ -435,79 +388,79 @@ const compilePrimitive = (
 	schema: CompiledPostgresSchema,
 ): SQL => {
 	const target = resolveFilterTarget(filter, schema)
+	const column = target.field.column
 
 	switch (filter.kind) {
 		case 'equal':
 		case 'not-equal':
-			return compileEquality(filter, target)
+			return compileEquality(filter.kind, filter.value, target)
 		case 'greater-than':
-			return gt(target.field.column, filter.value)
+			return gt(column, filter.value)
 		case 'greater-than-or-equal':
-			return gte(target.field.column, filter.value)
+			return gte(column, filter.value)
 		case 'less-than':
-			return lt(target.field.column, filter.value)
+			return lt(column, filter.value)
 		case 'less-than-or-equal':
-			return lte(target.field.column, filter.value)
+			return lte(column, filter.value)
 		case 'between':
+			return between(column, filter.lower, filter.upper)
 		case 'not-between':
-			return compileRange(filter, target.field)
+			return notBetween(column, filter.lower, filter.upper)
 		case 'in':
 		case 'not-in':
-			return compileMembership(filter, target)
+			return compileMembership(filter.kind, filter.values, target)
 		case 'list-empty':
+			return eq(target.jsonb, jsonbParameter([]))
 		case 'list-has':
+			return compileListElementEquality(target, filter.value)
 		case 'list-has-every':
+			return (
+				and(
+					...filter.values.map((value) =>
+						compileListElementEquality(target, value),
+					),
+				) ?? trueExpression
+			)
 		case 'list-has-some':
-			return compileList(filter, target)
+			return (
+				or(
+					...filter.values.map((value) =>
+						compileListElementEquality(target, value),
+					),
+				) ?? falseExpression
+			)
 		case 'contains':
-			{
-				const pluginContains = compilePostgresPluginFieldContains(
-					filter.value,
-					target.jsonb,
-					target.plan,
-					target.field.storage,
-				)
-				if (pluginContains !== undefined) return pluginContains
-			}
-			if (isStructuredTarget(target)) {
-				return compileStructural(filter, target)
-			}
-			if (
-				target.plan?.kind !== 'scalar' ||
-				target.plan.field.kind !== 'string'
-			) {
-				throw new TypeError(
-					'PostgreSQL contains filter requires a string or structured target',
-				)
-			}
-
-			return compileString(filter, target)
+			return compileContains(filter.value, target)
 		case 'contained-by':
-			return compileStructural(filter, target)
+			return compileStructural(filter.kind, filter.value, target)
 		case 'has-key':
+			assertStructuredTarget(target, 'key')
+			return sql`${target.jsonb} ? ${filter.value}`
 		case 'has-any-keys':
+			assertStructuredTarget(target, 'key')
+			return sql`${target.jsonb} ?| ${sql.param(filter.keys)}::text[]`
 		case 'has-all-keys':
-			return compileKeys(filter, target)
+			assertStructuredTarget(target, 'key')
+			return sql`${target.jsonb} ?& ${sql.param(filter.keys)}::text[]`
 		case 'json-path-exists':
 		case 'json-path-matches':
-			return compileJsonPath(filter, target)
+			return compileJsonPath(
+				filter.kind,
+				filter.source,
+				filter.variables,
+				target,
+			)
 		case 'starts-with':
 		case 'ends-with':
-			return compileString(filter, target)
+			return compileString(filter.kind, filter.value, target)
 		case 'regex':
-			return compileRegex(filter, target.field)
+			return compileRegex(filter.pattern, target.field)
 		case 'null':
 			if (target.path !== undefined) {
-				const jsonNull = sql`${stringifyPostgresJsonbParameter(null)}::jsonb`
-
-				return filter.isNull
-					? eq(target.jsonb, jsonNull)
-					: ne(target.jsonb, jsonNull)
+				return (filter.isNull ? eq : ne)(target.jsonb, jsonbParameter(null))
 			}
 
-			return filter.isNull
-				? isNull(target.field.column)
-				: isNotNull(target.field.column)
+			return filter.isNull ? isNull(column) : isNotNull(column)
 	}
 }
 
@@ -528,14 +481,10 @@ const compileRuntimeFilter = (
 			const expressions = filter.expressions.map((expression) =>
 				compileRuntimeFilter(expression, schema, relationCompiler),
 			)
-			const compiled =
-				filter.kind === 'and' ? and(...expressions) : or(...expressions)
 
-			if (compiled === undefined) {
-				return filter.kind === 'and' ? trueExpression : falseExpression
-			}
-
-			return compiled
+			return filter.kind === 'and'
+				? (and(...expressions) ?? trueExpression)
+				: (or(...expressions) ?? falseExpression)
 		}
 		case 'relation-count':
 		case 'relation-predicate':

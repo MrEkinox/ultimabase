@@ -51,27 +51,26 @@ export interface PostgresPhysicalColumnPayload extends JsonObject {
 	readonly table: string
 }
 
-const postgresPhysicalColumnTypes = [
-	'bigint',
-	'boolean',
-	'bytea',
-	'date',
-	'double precision',
-	'integer',
-	'jsonb',
-	'numeric',
-	'text',
-	'time',
-	'timestamp',
-	'uuid',
-] as const satisfies readonly PostgresPhysicalColumnType[]
+const postgresPhysicalColumnTypes: ReadonlySet<unknown> =
+	new Set<PostgresPhysicalColumnType>([
+		'bigint',
+		'boolean',
+		'bytea',
+		'date',
+		'double precision',
+		'integer',
+		'jsonb',
+		'numeric',
+		'text',
+		'time',
+		'timestamp',
+		'uuid',
+	])
 
 /** @internal Validates bridge metadata before it reaches PostgreSQL DDL. */
 export const isPostgresPhysicalColumnType = (
 	value: unknown,
-): value is PostgresPhysicalColumnType =>
-	typeof value === 'string' &&
-	postgresPhysicalColumnTypes.some((candidate) => candidate === value)
+): value is PostgresPhysicalColumnType => postgresPhysicalColumnTypes.has(value)
 
 export const postgresPhysicalSchemaContributionCapability: AdapterContributionCapabilityToken<
 	PostgresPhysicalColumnPayload,
