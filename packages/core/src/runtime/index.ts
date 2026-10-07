@@ -8,10 +8,10 @@ export type {
 export {
 	getCurrentEngine,
 	getCurrentRequest,
+	runOutsideRequestEngineScope,
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
-export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
 export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
 export type {
@@ -350,7 +350,7 @@ export { readRuntimeIncludedPointerValue } from './operations/model-metadata.js'
 export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,
-} from './transactions/transaction-execution-storage.js'
+} from './transactions/run-transaction.js'
 export {
 	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,

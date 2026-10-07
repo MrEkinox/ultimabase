@@ -1,7 +1,7 @@
 import { FrameworkError } from '../../foundation.js'
 import { describe, expect, it } from 'vitest'
 
-import { TransactionLifetime } from './transaction-lifetime.js'
+import { TransactionLifetime } from './run-transaction.js'
 
 describe('TransactionLifetime', () => {
 	it('records synchronous operation failures and closes permanently', async () => {

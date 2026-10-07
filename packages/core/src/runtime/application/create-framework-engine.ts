@@ -11,6 +11,7 @@ import {
 import {
 	databaseAdapterCapability,
 	databasePointerCapabilityVersion,
+	isDatabaseAdapter,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
@@ -41,7 +42,7 @@ import {
 } from './application-request-execution.js'
 import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
 import { bindRuntimeRelationFilters } from '../relation-filters/binding.js'
-import { bindFrameworkSchemaMutationRuntime } from '../schema-mutations/engine-integration.js'
+import { assertSchemaMutationHandlers } from '../schema-mutations/runtime.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
@@ -66,12 +67,14 @@ const createFrameworkEngineOptionKeys = new Set([
 const emptyCreateFrameworkEngineOptions: CreateFrameworkEngineOptions =
 	immutableRecord({})
 
+type AnyFrameworkApplication = FrameworkApplication<
+	readonly SchemaDefinition[],
+	readonly PluginDefinition[]
+>
+
 const neutralNormalization: RuntimeOperationTransformStage = (input) =>
 	input.operation
 const neutralCommit: RuntimeResultEffectStage = () => undefined
-
-const isObjectLike = (value: unknown): value is object =>
-	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
 /** Validates and snapshots Runtime assembly options for deferred application start. */
 export const normalizeCreateFrameworkEngineOptions = (
@@ -112,10 +115,7 @@ export const normalizeCreateFrameworkEngineOptions = (
 }
 
 const assertApplicationIsUsable = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): void => {
 	if (application.state !== 'ready' && application.state !== 'started') {
 		throw new TypeError(
@@ -124,30 +124,9 @@ const assertApplicationIsUsable = (
 	}
 }
 
-const assertDatabaseAdapter: (
-	adapter: unknown,
-) => asserts adapter is DatabaseAdapter = (adapter) => {
-	if (
-		!isObjectLike(adapter) ||
-		!('kind' in adapter) ||
-		adapter.kind !== 'database-adapter' ||
-		!('execute' in adapter) ||
-		typeof adapter.execute !== 'function' ||
-		!('beginTransaction' in adapter) ||
-		typeof adapter.beginTransaction !== 'function'
-	) {
-		throw new TypeError(
-			'databaseAdapterCapability must resolve to a DatabaseAdapter',
-		)
-	}
-}
-
 /** Detects whether static schemas require the portable pointer adapter protocol. */
 const applicationUsesPointers = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): boolean =>
 	application.schemas
 		.values()
@@ -158,10 +137,7 @@ const applicationUsesPointers = (
 		)
 
 const readRequiredSchemaMutationPlans = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 ): ReadonlySet<DatabasePersistencePlanKind> => {
 	const required = new Set<DatabasePersistencePlanKind>()
 	for (const schema of application.schemas.values()) {
@@ -183,10 +159,7 @@ const readRequiredSchemaMutationPlans = (
 
 /** Fails during assembly instead of letting a database mis-store logical pointers. */
 const assertRequiredAdapterCapabilities = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	application: AnyFrameworkApplication,
 	adapter: DatabaseAdapter,
 ): void => {
 	if (applicationUsesPointers(application)) {
@@ -240,7 +213,11 @@ export const createFrameworkEngine = <
 		application,
 	).capability(databaseAdapterCapability)
 
-	assertDatabaseAdapter(databaseAdapter)
+	if (!isDatabaseAdapter(databaseAdapter)) {
+		throw new TypeError(
+			'databaseAdapterCapability must resolve to a DatabaseAdapter',
+		)
+	}
 	assertRequiredAdapterCapabilities(application, databaseAdapter)
 
 	const enforcement = createEnforcementStages(application)
@@ -281,7 +258,7 @@ export const createFrameworkEngine = <
 				}
 
 	const framework = new FrameworkEngine(engineOptions)
-	bindFrameworkSchemaMutationRuntime(framework)
+	assertSchemaMutationHandlers(application)
 	bindApplicationRequestExecutor(
 		readApplicationKernelState(application).capability(
 			applicationRequestExecutionCapability,

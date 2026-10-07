@@ -16,11 +16,11 @@ import type {
 	SchemaMutationWireCodec,
 } from './transport-contracts.js'
 
+// Only nominal codecs minted by schemaMutationWireCodec carry a decoder.
 const codecImplementations = new WeakMap<
 	object,
 	Readonly<{ decode(value: unknown): unknown }>
 >()
-const codecs = new WeakSet<object>()
 const bindings = new WeakSet<object>()
 
 /** Defines one owner-private payload decoder without exposing a schema result codec. */
@@ -54,7 +54,6 @@ export const schemaMutationWireCodec = <
 		mutation: options.mutation,
 		transport: options.transport,
 	})
-	codecs.add(codec)
 	codecImplementations.set(codec, {
 		decode: (value) => options.decode(value as TWireInput),
 	})
@@ -77,7 +76,7 @@ export const schemaMutationTransportBinding = <
 	TWireInput,
 	TMetadata
 > => {
-	if (!isPlainRecord(options) || !codecs.has(options.codec)) {
+	if (!isPlainRecord(options) || !codecImplementations.has(options.codec)) {
 		throw new TypeError(
 			'schema mutation transport binding requires a wire codec',
 		)

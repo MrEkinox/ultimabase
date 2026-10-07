@@ -43,6 +43,18 @@ export type CommandTransportBinding = OwnedImplementation &
 		  }>
 	)
 
+/** Narrows one attributed operation wire binding. */
+export type OperationTransportImplementation = Extract<
+	CommandTransportBinding,
+	{ kind: 'operation' }
+>
+
+/** Narrows one attributed schema-mutation wire binding. */
+export type SchemaMutationTransportImplementation = Extract<
+	CommandTransportBinding,
+	{ kind: 'mutation' }
+>
+
 export interface OwnedCommandHandlerPlan extends OwnedImplementation {
 	readonly resource: PluginCommandHandlerResource
 	readonly source: PluginCommandSource

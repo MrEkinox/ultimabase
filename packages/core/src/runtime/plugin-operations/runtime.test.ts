@@ -28,7 +28,7 @@ import {
 	provideAdapterRawCapability,
 } from '../adapters/raw-access.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import { readUltimaBaseKernel } from '../application/ultima-base-kernel.js'
+import { readUltimaBaseKernel } from '../application/ultima-base.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'

@@ -1,5 +1,7 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
+import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+
 import type { FrameworkApplicationOptions } from '../../application/framework-application.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
@@ -70,11 +72,11 @@ export const assertUltimaBaseOptions: (
 	if (!isPlainRecord(options)) {
 		throw new TypeError('UltimaBase options must be a plain object')
 	}
-	for (const key of Object.keys(options)) {
-		if (!ultimaBaseOptionKeys.has(key)) {
-			throw new TypeError(`UltimaBase contains unknown option: ${key}`)
-		}
-	}
+	assertExactEnumerableKeys(
+		options,
+		ultimaBaseOptionKeys,
+		'UltimaBase contains unknown option: ',
+	)
 }
 
 /** Snapshots engine configuration independently from the plugin graph. */

@@ -19,7 +19,7 @@ import { UltimaBase } from '../application/ultima-base.js'
 import {
 	readUltimaBaseEngine,
 	readUltimaBaseKernel,
-} from '../application/ultima-base-kernel.js'
+} from '../application/ultima-base.js'
 import { executeRequestSchemaMutation } from './request-execution.js'
 import { defineOperationTransport } from '../plugin-operations/capabilities.js'
 import {
@@ -27,7 +27,7 @@ import {
 	schemaMutationWireCodec,
 } from './transport-capabilities.js'
 import { planApplicationSchemaMutations } from '../application/schema-mutation-transport-planning.js'
-import { exposeFrameworkSchemaMutations } from './transport-exposure.js'
+import { exposeFrameworkSchemaMutations } from './transport.js'
 
 const protocol = defineOperationTransport({
 	name: 'fixture.canonical-mutation.wire',

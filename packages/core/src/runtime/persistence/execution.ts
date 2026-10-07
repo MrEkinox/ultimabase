@@ -21,6 +21,15 @@ import {
 } from './plans.js'
 import type { QuerySelectionNode } from '../../query/index.js'
 
+/** Builds Core's canonical plan, optionally with a private result projection. */
+const createCanonicalPlan = <const TOperation extends DatabaseOperationAst>(
+	operation: TOperation,
+	returningSelection: QuerySelectionNode | undefined,
+): DatabasePersistencePlan<TOperation> =>
+	returningSelection === undefined
+		? createDatabasePersistencePlan(operation)
+		: createDatabasePersistencePlanWithSelection(operation, returningSelection)
+
 /** Attaches the canonical physical plan to one Core-owned internal request. */
 export const createDatabasePersistenceRequest = <
 	const TOperation extends DatabaseOperationAst,
@@ -30,13 +39,7 @@ export const createDatabasePersistenceRequest = <
 ): DatabaseOperationRequest<TOperation> =>
 	immutableRecord({
 		...request,
-		plan:
-			returningSelection === undefined
-				? createDatabasePersistencePlan(request.operation)
-				: createDatabasePersistencePlanWithSelection(
-						request.operation,
-						returningSelection,
-					),
+		plan: createCanonicalPlan(request.operation, returningSelection),
 	})
 
 /** Rejects missing protocol or statement support before an adapter effect. */
@@ -77,13 +80,7 @@ export const compileDatabasePersistencePlan = async <
 	rewrite: RuntimePersistencePlanRewriteStage | undefined,
 	returningSelection?: QuerySelectionNode,
 ): Promise<DatabasePersistencePlan<TOperation>> => {
-	const canonical =
-		returningSelection === undefined
-			? createDatabasePersistencePlan(logicalOperation)
-			: createDatabasePersistencePlanWithSelection(
-					logicalOperation,
-					returningSelection,
-				)
+	const canonical = createCanonicalPlan(logicalOperation, returningSelection)
 	const plan =
 		rewrite === undefined
 			? canonical
