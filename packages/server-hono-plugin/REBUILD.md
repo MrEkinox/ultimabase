@@ -81,4 +81,44 @@ The branch rebuilds `server-hono-plugin`, `pg-vector-plugin`,
 `apollo-sandbox-plugin`, `graphiql-plugin`, `graphql-http` and `shared`
 (`$P` below); they were validated together on the same tree.
 
-VALIDATION_PLACEHOLDER
+### Pre-existing failures (untouched tree, base `cd7dca7`)
+
+`yarn build` passed. `--project unit --project types $P`: 31 files, 122 tests
+passed, no type errors. `--project e2e $P`: 4 files, 10 tests passed.
+`--project postgres-e2e $P`: no test files (none of the six packages has a
+`*.postgres.e2e.test.ts`; Vitest prints "No test files found", exit 1). No
+pre-existing failure.
+
+### Final tree
+
+`CONS` = every package matched by
+`git grep -l -e "@ultimabase/<pkg>" -- packages` for the six names (because
+`@ultimabase/shared` is used everywhere this is all 23 packages: access,
+acl-permissions, apollo-sandbox, core, create-app, graphiql, graphql-http,
+graphql, graphql-yoga, hooks, http, password-auth, pg-vector, plugin-kit,
+postgres, rest, roles, server-hono, shared, soft-delete, testing, typegen,
+validation). `examples/minimal`, `tests/e2e`, `tests/fixtures` and
+`apps/website` matches are exercised by the two `tests/e2e` runs and
+`website-content`.
+
+| Command                                                         | Result                                           |
+| --------------------------------------------------------------- | ------------------------------------------------ |
+| `yarn build`                                                    | pass                                             |
+| `yarn vitest run --project unit --project types $P`             | 31 files, 122 tests passed, no type errors       |
+| `yarn vitest run --project e2e $P`                              | 4 files, 10 tests passed                         |
+| `yarn vitest run --project postgres-e2e $P`                     | no test files (same as baseline)                 |
+| `yarn vitest run --project unit --project types $CONS`          | 549 files, 2595 tests passed, no type errors     |
+| `yarn vitest run --project e2e $CONS`                           | 37 files, 112 tests passed                       |
+| `yarn vitest run --project postgres-e2e $CONS`                  | 44 files, 167 tests passed                       |
+| `yarn vitest run --project e2e tests/e2e`                       | 47 files, 219 tests passed                       |
+| `yarn vitest run --project postgres-e2e tests/e2e`              | 55 files, 191 tests passed                       |
+| `yarn vitest run --project website-content`                     | 17 files, 66 tests passed                        |
+| `yarn test:pack:built`                                          | 32 files, 173 tests passed                       |
+| `yarn eslint $P`                                                | 0 problems                                       |
+| `yarn prettier --check $P docs/rebuild/DIFFERENCES.md`          | pass                                             |
+| `yarn tsc --build $P`                                           | pass                                             |
+| `yarn tsc -p packages/<pkg>/tsconfig.test.json` (each of the 6) | pass                                             |
+| `yarn build` (after `tsc --build`)                              | pass                                             |
+| `node tooling/measure-rebuild.mjs .`                            | 431→424, 202→201, 197→192, 188→183, 76→72, 74→74 |
+
+No flaky failure occurred in this run; no file had to be rerun alone.
