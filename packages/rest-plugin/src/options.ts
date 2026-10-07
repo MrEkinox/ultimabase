@@ -1,9 +1,19 @@
 import {
 	defineSchemaOption,
+	isPluginOperationDefinition,
+	type PluginOperationDefinition,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import { defaultRestReadLimits } from './reads.js'
 
 /** Selects the itemized bulk REST routes generated for one schema. */
 export interface RestBulkRoutes {
@@ -67,16 +77,25 @@ const assertBoolean = (value: unknown, path: string): boolean => {
 	return value
 }
 
-const normalizeBulkRoutes = (value: unknown, path: string): RestBulkRoutes => {
+// Copies one sparse selection; omitted keys keep inheriting their defaults.
+const normalizeSelection = (
+	value: unknown,
+	path: string,
+	keys: ReadonlySet<string>,
+): Readonly<Record<string, boolean | RestBulkRoutes>> => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a boolean or plain object`)
 	}
-	const normalized: Record<string, boolean> = {}
+	const normalized: Record<string, boolean | RestBulkRoutes> = {}
 	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !bulkRouteKeys.has(key)) {
+		if (typeof key !== 'string' || !keys.has(key)) {
 			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
 		}
-		normalized[key] = assertBoolean(value[key], `${path}.${key}`)
+		const option = value[key]
+		normalized[key] =
+			key === 'bulk' && typeof option !== 'boolean'
+				? normalizeSelection(option, `${path}.bulk`, bulkRouteKeys)
+				: assertBoolean(option, `${path}.${key}`)
 	}
 	return immutableRecord(normalized)
 }
@@ -85,25 +104,10 @@ const normalizeBulkRoutes = (value: unknown, path: string): RestBulkRoutes => {
 export const normalizeRestSchemaRoutes = (
 	value: unknown,
 	path: string,
-): RestSchemaRoutesOption => {
-	if (typeof value === 'boolean') return value
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
-	}
-
-	const normalized: Record<string, boolean | RestBulkRoutes> = {}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !schemaRouteKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-		const option = value[key]
-		normalized[key] =
-			key === 'bulk' && typeof option !== 'boolean'
-				? normalizeBulkRoutes(option, `${path}.bulk`)
-				: assertBoolean(option, `${path}.${key}`)
-	}
-	return immutableRecord(normalized)
-}
+): RestSchemaRoutesOption =>
+	typeof value === 'boolean'
+		? value
+		: normalizeSelection(value, path, schemaRouteKeys)
 
 /** Owns the direct application schema `rest` route-selection option. */
 export const restSchemaOption: SchemaOptionDefinition<RestSchemaRoutesOption> =
@@ -124,3 +128,172 @@ export const readRestSchemaRoutes = (
 		? (Reflect.get(schema.definition, 'rest') as
 				RestSchemaRoutesOption | undefined)
 		: undefined
+
+/** Configures immutable REST v1 schema-route generation. */
+export interface RestPluginOptions {
+	/** Accepts Core's inability to prove complete public policy coverage. */
+	readonly acknowledgeUnverifiedProtection?: true
+	/** Absolute normalized prefix; REST always appends `/v1`. @default "/api" */
+	readonly basePath?: string
+	/** Maximum streamed JSON request size in bytes. @default 1048576 */
+	readonly bodyLimit?: number
+	/** Supplies sparse route defaults inherited by application schemas. */
+	readonly default?: RestSchemaRoutesOption
+	/** Distinguishes two explicit REST configurations in one application. */
+	readonly instanceId?: string
+	/** Maximum accepted collection limit. @default 1000 */
+	readonly maxLimit?: number
+	/** Explicitly exposes these exact application operation tokens through REST. */
+	readonly operations?: readonly PluginOperationDefinition[]
+}
+
+/** @internal Validates the exact operation tokens exposed by one REST instance. */
+const normalizeRestOperations = (
+	value: unknown,
+): readonly PluginOperationDefinition[] => {
+	if (value === undefined) return immutableArray([])
+	if (!isUnknownArray(value)) {
+		throw new TypeError('REST plugin operations must be an array')
+	}
+	const names = new Set<string>()
+	const operations: PluginOperationDefinition[] = []
+	for (const [index, operation] of value.entries()) {
+		if (!isPluginOperationDefinition(operation)) {
+			throw new TypeError(
+				`REST plugin operations[${String(index)}] must be an operation token`,
+			)
+		}
+		if (names.has(operation.name)) {
+			throw new TypeError(`REST plugin operations repeats ${operation.name}`)
+		}
+		names.add(operation.name)
+		operations.push(operation)
+	}
+	return immutableArray(operations)
+}
+
+interface NormalizedRestBasePath {
+	readonly basePath: string
+	readonly mountPath: string
+}
+
+const normalizeBasePath = (value: unknown): NormalizedRestBasePath => {
+	if (value === undefined) return { basePath: '/api/v1', mountPath: '/api' }
+	if (typeof value !== 'string' || !value.startsWith('/')) {
+		throw new TypeError('REST plugin basePath must be an absolute path')
+	}
+	if (value.includes('?') || value.includes('#')) {
+		throw new TypeError(
+			'REST plugin basePath cannot contain a query or fragment',
+		)
+	}
+	if (value.length > 1 && value.endsWith('/')) {
+		throw new TypeError('REST plugin basePath cannot have a trailing slash')
+	}
+	const segments = value === '/' ? [] : value.slice(1).split('/')
+	if (segments.some((segment) => segment.length === 0)) {
+		throw new TypeError('REST plugin basePath must not contain empty segments')
+	}
+	for (const segment of segments) {
+		let decoded: string
+		try {
+			decoded = decodeURIComponent(segment)
+		} catch {
+			throw new TypeError('REST plugin basePath contains invalid encoding')
+		}
+		if (decoded === '.' || decoded === '..' || decoded === 'v1') {
+			throw new TypeError(
+				'REST plugin basePath cannot contain dot or protocol-version segments',
+			)
+		}
+	}
+	return {
+		basePath: value === '/' ? '/v1' : `${value}/v1`,
+		mountPath: value,
+	}
+}
+
+const normalizePositiveSafeInteger = (
+	value: unknown,
+	name: string,
+	fallback: number,
+): number => {
+	if (value === undefined) return fallback
+	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+		throw new TypeError(`REST plugin ${name} must be a positive safe integer`)
+	}
+	return value
+}
+
+/** @internal The validated configuration one `restPlugin()` call closes over. */
+export interface NormalizedRestPluginOptions {
+	readonly acknowledgeUnverifiedProtection: true | undefined
+	readonly basePath: string
+	readonly bodyLimit: number
+	readonly defaultRoutes: RestSchemaRoutesOption | undefined
+	readonly instanceId: string | undefined
+	readonly maxLimit: number
+	readonly mountPath: string
+	readonly operations: readonly PluginOperationDefinition[]
+}
+
+/** @internal Rejects unknown keys and normalizes every plugin factory option. */
+export const parseRestPluginOptions: (
+	options: RestPluginOptions,
+) => NormalizedRestPluginOptions = definePluginOptionsParser({
+	name: 'REST plugin options',
+	keys: [
+		'acknowledgeUnverifiedProtection',
+		'basePath',
+		'bodyLimit',
+		'default',
+		'instanceId',
+		'maxLimit',
+		'operations',
+	] as const,
+	normalize: ({
+		acknowledgeUnverifiedProtection,
+		basePath,
+		bodyLimit,
+		default: defaultRoutes,
+		instanceId,
+		maxLimit,
+		operations,
+	}) => {
+		const paths = normalizeBasePath(basePath)
+		if (
+			acknowledgeUnverifiedProtection !== undefined &&
+			acknowledgeUnverifiedProtection !== true
+		) {
+			throw new TypeError(
+				'REST plugin acknowledgeUnverifiedProtection must be true when provided',
+			)
+		}
+		if (
+			instanceId !== undefined &&
+			(typeof instanceId !== 'string' || instanceId.length === 0)
+		) {
+			throw new TypeError('REST plugin instanceId must be a non-empty string')
+		}
+		return {
+			acknowledgeUnverifiedProtection,
+			...paths,
+			bodyLimit: normalizePositiveSafeInteger(
+				bodyLimit,
+				'bodyLimit',
+				defaultRestReadLimits.bodyBytes,
+			),
+			defaultRoutes:
+				defaultRoutes === undefined
+					? undefined
+					: normalizeRestSchemaRoutes(defaultRoutes, 'REST plugin default'),
+			instanceId,
+			maxLimit: normalizePositiveSafeInteger(
+				maxLimit,
+				'maxLimit',
+				defaultRestReadLimits.maximumResults,
+			),
+			operations: normalizeRestOperations(operations),
+		}
+	},
+})

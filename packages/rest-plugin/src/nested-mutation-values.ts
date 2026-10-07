@@ -15,131 +15,106 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { decodeRestFieldValue, type InvalidRestValue } from './field-values.js'
-import { isUuidV7 } from './read-values.js'
+import {
+	decodeRestFieldValue,
+	isUuidV7,
+	type InvalidRestValue,
+} from './field-values.js'
 
 const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
-const pointerCreateCommands = new Set(['connect', 'create'])
-const pointerUpdateCommands = new Set([
-	'connect',
-	'create',
-	'disconnect',
-	'update',
-])
-const relationCreateCommands = new Set(['connect', 'create'])
-const relationUpdateCommands = new Set([
-	'clear',
-	'connect',
-	'create',
-	'disconnect',
-	'set',
-	'update',
-])
+
+// ADR-0243 command allowlists; Core validates their payloads and exclusivity.
+const nestedCommands = {
+	pointer: {
+		create: new Set(['connect', 'create']),
+		update: new Set(['connect', 'create', 'disconnect', 'update']),
+	},
+	relation: {
+		create: new Set(['connect', 'create']),
+		update: new Set([
+			'clear',
+			'connect',
+			'create',
+			'disconnect',
+			'set',
+			'update',
+		]),
+	},
+} as const
 
 const decodeIdentity = (value: unknown, invalid: InvalidRestValue): string => {
 	if (!isUuidV7(value)) throw invalid()
 	return value
 }
 
-const decodeIdentityArray = (
+const decodeArray = (
 	value: unknown,
 	invalid: InvalidRestValue,
+	decodeItem: (item: unknown) => unknown,
 ): unknown => {
 	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(value.map((item) => decodeIdentity(item, invalid)))
+	return immutableArray(value.map((item) => decodeItem(item)))
 }
 
-const requireTarget = (
+const decodeRelationCommand = (
+	command: string,
+	input: unknown,
+	invalid: InvalidRestValue,
+): unknown => {
+	switch (command) {
+		case 'connect':
+		case 'disconnect':
+		case 'set':
+			return decodeArray(input, invalid, (item) =>
+				decodeIdentity(item, invalid),
+			)
+		case 'create':
+			// Core recursively transforms nested create data after this check.
+			if (!isUnknownArray(input)) throw invalid()
+			return input
+		case 'update':
+			return decodeArray(input, invalid, (item) => {
+				if (!isPlainRecord(item)) throw invalid()
+				return immutableRecord({
+					...item,
+					...(Object.hasOwn(item, 'id')
+						? { id: decodeIdentity(item.id, invalid) }
+						: {}),
+				})
+			})
+	}
+	// Core Runtime owns literal-true and replacement-exclusivity validation.
+	return input
+}
+
+const decodeRelationshipCommands = (
 	field: GenericField,
-	invalid: InvalidRestValue,
-): void => {
-	if (getFieldSchemaTarget(field)?.() === undefined) throw invalid()
-}
-
-const assertKnownCommands = (
+	kind: 'pointer' | 'relation',
 	value: unknown,
-	commands: ReadonlySet<string>,
+	mode: 'create' | 'update',
 	invalid: InvalidRestValue,
-): Readonly<Record<string, unknown>> => {
+): unknown => {
 	if (!isPlainRecord(value)) throw invalid()
-	const keys = Object.keys(value)
-	if (keys.length === 0 || keys.some((key) => !commands.has(key))) {
+	const commands = Object.entries(value)
+	if (
+		commands.length === 0 ||
+		commands.some(([command]) => !nestedCommands[kind][mode].has(command)) ||
+		getFieldSchemaTarget(field)?.() === undefined
+	) {
 		throw invalid()
 	}
-	return value
-}
-
-const decodePointerCommands = (
-	field: GenericField,
-	value: unknown,
-	mode: 'create' | 'update',
-	invalid: InvalidRestValue,
-): unknown => {
-	const commands = assertKnownCommands(
-		value,
-		mode === 'create' ? pointerCreateCommands : pointerUpdateCommands,
-		invalid,
+	return immutableRecord(
+		Object.fromEntries(
+			commands.map(([command, input]) => [
+				command,
+				kind === 'relation'
+					? decodeRelationCommand(command, input, invalid)
+					: command === 'connect'
+						? decodeIdentity(input, invalid)
+						: input,
+			]),
+		),
 	)
-	requireTarget(field, invalid)
-	const decoded: Record<string, unknown> = {}
-
-	for (const [command, input] of Object.entries(commands)) {
-		decoded[command] =
-			command === 'connect' ? decodeIdentity(input, invalid) : input
-	}
-	return immutableRecord(decoded)
-}
-
-const decodeRelationUpdateItems = (
-	value: unknown,
-	invalid: InvalidRestValue,
-): unknown => {
-	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(
-		value.map((item) => {
-			if (!isPlainRecord(item)) throw invalid()
-			return immutableRecord({
-				...item,
-				...(Object.hasOwn(item, 'id')
-					? { id: decodeIdentity(item.id, invalid) }
-					: {}),
-			})
-		}),
-	)
-}
-
-const decodeRelationCommands = (
-	field: GenericField,
-	value: unknown,
-	mode: 'create' | 'update',
-	invalid: InvalidRestValue,
-): unknown => {
-	const commands = assertKnownCommands(
-		value,
-		mode === 'create' ? relationCreateCommands : relationUpdateCommands,
-		invalid,
-	)
-	requireTarget(field, invalid)
-	const decoded: Record<string, unknown> = {}
-
-	for (const [command, input] of Object.entries(commands)) {
-		if (
-			command === 'connect' ||
-			command === 'disconnect' ||
-			command === 'set'
-		) {
-			decoded[command] = decodeIdentityArray(input, invalid)
-		} else if (command === 'create') {
-			if (!isUnknownArray(input)) throw invalid()
-			decoded[command] = input
-		} else if (command === 'update') {
-			decoded[command] = decodeRelationUpdateItems(input, invalid)
-		} else {
-			// Core Runtime owns literal-true and replacement-exclusivity validation.
-			decoded[command] = input
-		}
-	}
-	return immutableRecord(decoded)
 }
 
 const decodeNumericUpdate = (
@@ -152,17 +127,15 @@ const decodeNumericUpdate = (
 		!numericKinds.has(field.kind) ||
 		!isPlainRecord(value) ||
 		Object.keys(value).length !== 2 ||
-		!Object.hasOwn(value, 'type') ||
 		!Object.hasOwn(value, 'value') ||
 		(value.type !== 'increment' && value.type !== 'decrement')
 	) {
 		return undefined
 	}
-
-	const operand = decodeRestFieldValue(field, value.value, invalid)
-	return value.type === 'increment'
-		? increment(operand as bigint | number | string)
-		: decrement(operand as bigint | number | string)
+	// Numeric field codecs only produce bigint, number, or decimal strings.
+	const operand = decodeRestFieldValue(field, value.value, invalid) as
+		bigint | number | string
+	return value.type === 'increment' ? increment(operand) : decrement(operand)
 }
 
 const decodeMutationField = (
@@ -174,25 +147,16 @@ const decodeMutationField = (
 		return input.value
 	}
 	const { field, mode, relationships, value } = input
-
-	if (relationships === 'nested' && field.kind === 'pointer') {
-		return decodePointerCommands(field, value, mode, invalid)
-	}
-	if (relationships === 'nested' && field.kind === 'relation') {
-		return decodeRelationCommands(field, value, mode, invalid)
-	}
-	if (
-		relationships === 'flat' &&
-		(field.kind === 'pointer' || field.kind === 'relation')
-	) {
+	if (field.kind === 'pointer' || field.kind === 'relation') {
 		// ADR-0243 keeps bulk and upsert roots flat.
-		throw invalid()
+		if (relationships === 'flat') throw invalid()
+		return decodeRelationshipCommands(field, field.kind, value, mode, invalid)
 	}
 	if (mode === 'update') {
 		const numeric = decodeNumericUpdate(field, value, invalid)
 		if (numeric !== undefined) return numeric
 	}
-	return decodeRestFieldValue(field, value, invalid, false, 'value')
+	return decodeRestFieldValue(field, value, invalid, 'value')
 }
 
 /** Decodes one mutation data object while keeping nested commands declarative. */

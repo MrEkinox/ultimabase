@@ -1,11 +1,9 @@
-import {
-	isPluginOperationDefinition,
-	type ApplicationOperationTransportPlan,
-	type CompiledSchemaRegistry,
-	type PluginIdentity,
-	type PluginOperationDefinition,
+import type {
+	ApplicationOperationTransportPlan,
+	CompiledSchemaRegistry,
+	PluginIdentity,
 } from '@ultimabase/core'
-import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
 	readRestOperationBindingMetadata,
@@ -13,35 +11,11 @@ import {
 } from './binding-metadata.js'
 import {
 	createRestRouteFragment,
+	createRestRoutePlugin,
 	encodeRestPathSegment,
 	restProtocol,
 	type RestRouteFragmentValue,
 } from './routes.js'
-
-/** @internal Validates the exact operation tokens exposed by one REST instance. */
-export const normalizeRestOperations = (
-	value: unknown,
-): readonly PluginOperationDefinition[] => {
-	if (value === undefined) return immutableArray([])
-	if (!isUnknownArray(value)) {
-		throw new TypeError('REST plugin operations must be an array')
-	}
-	const names = new Set<string>()
-	const operations: PluginOperationDefinition[] = []
-	for (const [index, operation] of value.entries()) {
-		if (!isPluginOperationDefinition(operation)) {
-			throw new TypeError(
-				`REST plugin operations[${String(index)}] must be an operation token`,
-			)
-		}
-		if (names.has(operation.name)) {
-			throw new TypeError(`REST plugin operations repeats ${operation.name}`)
-		}
-		names.add(operation.name)
-		operations.push(operation)
-	}
-	return immutableArray(operations)
-}
 
 /** Compiles only the exact application operations selected by one REST instance. */
 export const compileRestOperationRouteFragment = (options: {
@@ -50,8 +24,9 @@ export const compileRestOperationRouteFragment = (options: {
 	readonly schemas: CompiledSchemaRegistry
 	readonly owner: PluginIdentity
 	readonly pluginVersion: string
-}): RestRouteFragmentValue =>
-	createRestRouteFragment(
+}): RestRouteFragmentValue => {
+	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
+	return createRestRouteFragment(
 		options.plan.operations.map((operation) => {
 			const metadata = readRestOperationBindingMetadata(
 				operation.metadata,
@@ -63,18 +38,28 @@ export const compileRestOperationRouteFragment = (options: {
 				operation,
 				options.schemas,
 			)
-			return {
-				errors: operation.errors,
+			const path = `${options.basePath}${metadata.path ?? `/operations/${encodeRestPathSegment(operation.name, 'REST operation name')}`}`
+			const errors = immutableArray(operation.errors)
+			return immutableRecord({
+				errors,
 				kind: 'rest-plugin-operation-route' as const,
 				method: 'POST' as const,
 				operation: operation.name,
 				operationVersion: operation.version,
-				path: `${options.basePath}${metadata.path ?? `/operations/${encodeRestPathSegment(operation.name, 'REST operation name')}`}`,
-				plugin: {
-					...options.owner,
-					version: options.pluginVersion,
-				},
+				path,
 				protocol: restProtocol,
-			}
+				provenance: immutableRecord({
+					method: 'POST' as const,
+					operation: immutableRecord({
+						errors,
+						name: operation.name,
+						version: operation.version,
+					}),
+					path,
+					plugin,
+					protocolVersion: restProtocol.version,
+				}),
+			})
 		}),
 	)
+}

@@ -10,20 +10,20 @@ import type { HttpMethod } from '@ultimabase/http-plugin'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
-import {
-	readRestSchemaRoutes,
-	type RestBulkRoutes,
-	type RestSchemaRoutesOption,
-} from './options.js'
+import { readRestSchemaRoutes, type RestSchemaRoutesOption } from './options.js'
 import {
 	createRestRouteFragment,
-	encodeRestPathSegment,
+	createRestRoutePlugin,
+	restClassPath,
 	restProtocol,
+	type RestRouteCandidate,
 	type RestRouteFragmentValue,
-	type RestSchemaRouteCandidate,
 	type RestSchemaOperation,
 } from './routes.js'
 
+type RestRouteSelection = RestSchemaOperation | 'mutations'
+
+// Provenance-aware built-in defaults used when neither schema nor plugin decides.
 const builtInDefaults = immutableRecord({
 	bulkCreate: false,
 	bulkDelete: false,
@@ -36,65 +36,44 @@ const builtInDefaults = immutableRecord({
 	find: true,
 	first: true,
 	get: true,
+	mutations: true,
 	update: true,
 	upsert: false,
-}) satisfies Readonly<Record<RestSchemaOperation, boolean>>
+}) satisfies Readonly<Record<RestRouteSelection, boolean>>
 
-const readBulkValue = (
-	selection: RestSchemaRoutesOption | undefined,
-	operation: keyof RestBulkRoutes,
-): boolean | undefined => {
-	if (typeof selection === 'boolean') return selection
-	if (selection?.bulk === undefined) return undefined
-	if (typeof selection.bulk === 'boolean') return selection.bulk
-	return selection.bulk[operation]
-}
-
-const bulkOperationOptionNames = {
+const bulkOptionNames = {
 	bulkCreate: 'create',
 	bulkDelete: 'delete',
 	bulkUpdate: 'update',
 	bulkUpsert: 'upsert',
-} as const satisfies Readonly<
-	Record<Extract<RestSchemaOperation, `bulk${string}`>, keyof RestBulkRoutes>
->
-
-const isBulkOperation = (
-	operation: RestSchemaOperation,
-): operation is keyof typeof bulkOperationOptionNames =>
-	Object.hasOwn(bulkOperationOptionNames, operation)
+} as const
 
 const readSelection = (
 	selection: RestSchemaRoutesOption | undefined,
-	operation: RestSchemaOperation,
+	operation: RestRouteSelection,
 ): boolean | undefined => {
-	if (typeof selection === 'boolean') return selection
-	if (isBulkOperation(operation)) {
-		return readBulkValue(selection, bulkOperationOptionNames[operation])
+	if (typeof selection !== 'object') return selection
+	switch (operation) {
+		case 'bulkCreate':
+		case 'bulkDelete':
+		case 'bulkUpdate':
+		case 'bulkUpsert': {
+			const bulk = selection.bulk
+			return typeof bulk === 'object' ? bulk[bulkOptionNames[operation]] : bulk
+		}
 	}
-	return selection?.[operation]
+	return selection[operation]
 }
 
-const isEnabled = (
+/** Resolves one route selection: schema option, then plugin default, then built-in. */
+export const isRestRouteEnabled = (
 	schema: RestSchemaRoutesOption | undefined,
 	defaults: RestSchemaRoutesOption | undefined,
-	operation: RestSchemaOperation,
+	operation: RestRouteSelection,
 ): boolean =>
 	readSelection(schema, operation) ??
 	readSelection(defaults, operation) ??
 	builtInDefaults[operation]
-
-/** Resolves whether one application schema exposes its explicitly bound mutations. */
-export const areRestSchemaMutationsEnabled = (
-	schema: RestSchemaRoutesOption | undefined,
-	defaults: RestSchemaRoutesOption | undefined,
-): boolean => {
-	const read = (
-		selection: RestSchemaRoutesOption | undefined,
-	): boolean | undefined =>
-		typeof selection === 'boolean' ? selection : selection?.mutations
-	return read(schema) ?? read(defaults) ?? true
-}
 
 const routeTemplates: readonly Readonly<{
 	method: HttpMethod
@@ -120,38 +99,6 @@ const routeTemplates: readonly Readonly<{
 	{ method: 'DELETE', operation: 'delete', suffix: '/{id}' },
 ]
 
-const assertRestFieldCodecs = (
-	fields: Readonly<Record<string, GenericField>>,
-	path: string,
-): void => {
-	for (const [name, field] of Object.entries(fields)) {
-		const fieldPath = `${path}.${name}`
-		if (field.kind === 'object') {
-			const fieldOptions: unknown = field.options
-			if (!isPlainRecord(fieldOptions)) {
-				throw new TypeError(`${fieldPath} requires embedded field metadata`)
-			}
-			const children = fieldOptions.fields
-			if (!isPlainRecord(children)) {
-				throw new TypeError(`${fieldPath} requires embedded field metadata`)
-			}
-			assertRestFieldCodecs(
-				children as Readonly<Record<string, GenericField>>,
-				fieldPath,
-			)
-			continue
-		}
-		if (
-			field.kind.includes('.') &&
-			getPluginFieldWireCodec(field, restFieldProtocol) === undefined
-		) {
-			throw new TypeError(
-				`${fieldPath} requires an exact REST v1 field codec before route exposure`,
-			)
-		}
-	}
-}
-
 const builtInOutputKinds = new Set([
 	'bigint',
 	'binary',
@@ -169,6 +116,36 @@ const builtInOutputKinds = new Set([
 	'uuid',
 ])
 
+// Embedded object metadata is compiled by Core; REST only walks its children.
+const readNestedFields = (options: unknown): unknown =>
+	isPlainRecord(options) ? options.fields : undefined
+
+const assertRestFieldCodecs = (
+	fields: Readonly<Record<string, GenericField>>,
+	path: string,
+): void => {
+	for (const [name, field] of Object.entries(fields)) {
+		const fieldPath = `${path}.${name}`
+		if (field.kind === 'object') {
+			const children = readNestedFields(field.options)
+			if (!isPlainRecord(children)) {
+				throw new TypeError(`${fieldPath} requires embedded field metadata`)
+			}
+			assertRestFieldCodecs(
+				children as Readonly<Record<string, GenericField>>,
+				fieldPath,
+			)
+		} else if (
+			field.kind.includes('.') &&
+			getPluginFieldWireCodec(field, restFieldProtocol) === undefined
+		) {
+			throw new TypeError(
+				`${fieldPath} requires an exact REST v1 field codec before route exposure`,
+			)
+		}
+	}
+}
+
 const assertRestOutputDescriptors = (
 	fields: Readonly<Record<string, GenericOutputDescriptor>>,
 	path: string,
@@ -181,8 +158,7 @@ const assertRestOutputDescriptors = (
 			)
 		}
 		if (output.kind !== 'object') continue
-		const options: unknown = output.options
-		const children = isPlainRecord(options) ? options.fields : undefined
+		const children = readNestedFields(output.options)
 		if (!isPlainRecord(children)) {
 			throw new TypeError(`${outputPath} requires output object metadata`)
 		}
@@ -227,57 +203,46 @@ export const compileRestRouteFragment = (
 		schemas: CompiledSchemaRegistry
 	}>,
 ): RestRouteFragmentValue => {
-	const plugin = immutableRecord({
-		...(options.owner.instanceId === undefined
-			? {}
-			: { instanceId: options.owner.instanceId }),
-		pluginId: options.owner.pluginId,
-		version: options.pluginVersion,
-	})
-	const routes: RestSchemaRouteCandidate[] = []
-
+	const plugin = createRestRoutePlugin(options.owner, options.pluginVersion)
+	const routes: RestRouteCandidate[] = []
 	for (const schema of options.schemas.values()) {
 		const configuredRoutes = readRestSchemaRoutes(schema)
-		if (schema.provenance.schema.owner.kind === 'plugin') {
-			if (configuredRoutes !== undefined) {
-				throw new TypeError(
-					`Plugin-owned schema "${schema.className}" cannot declare REST schema routes`,
-				)
-			}
-			continue
-		}
-		if (schema.provenance.schema.owner.kind !== 'application') continue
-		if (
-			routeTemplates.some((template) =>
-				isEnabled(configuredRoutes, options.defaultRoutes, template.operation),
+		const owner = schema.provenance.schema.owner.kind
+		// Storage ownership can never be converted into public CRUD exposure.
+		if (owner === 'plugin' && configuredRoutes !== undefined) {
+			throw new TypeError(
+				`Plugin-owned schema "${schema.className}" cannot declare REST schema routes`,
 			)
-		) {
-			assertRestSchemaResultCodecs(schema)
 		}
+		if (owner !== 'application') continue
+		const templates = routeTemplates.filter(({ operation }) =>
+			isRestRouteEnabled(configuredRoutes, options.defaultRoutes, operation),
+		)
+		if (templates.length > 0) assertRestSchemaResultCodecs(schema)
+		const classPath = restClassPath(options.basePath, schema.className)
 		const virtualFields = readRestVirtualFields(schema)
-
-		const classPath = `${options.basePath}/classes/${encodeRestPathSegment(schema.className, `REST schema className ${schema.className}`)}`
-		for (const template of routeTemplates) {
-			if (
-				!isEnabled(configuredRoutes, options.defaultRoutes, template.operation)
-			) {
-				continue
-			}
+		for (const { method, operation, suffix } of templates) {
+			const path = `${classPath}${suffix}`
 			routes.push(
 				immutableRecord({
 					kind: 'rest-schema-route' as const,
-					method: template.method,
-					operation: template.operation,
-					path: `${classPath}${template.suffix}`,
-					plugin,
+					method,
+					operation,
+					path,
 					protocol: restProtocol,
+					provenance: immutableRecord({
+						method,
+						operation,
+						path,
+						plugin,
+						protocolVersion: restProtocol.version,
+						schema: schema.provenance.schema,
+					}),
 					schema: schema.className,
-					schemaProvenance: schema.provenance.schema,
 					virtualFields,
 				}),
 			)
 		}
 	}
-
 	return createRestRouteFragment(routes)
 }

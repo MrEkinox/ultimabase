@@ -16,18 +16,31 @@ import {
 } from '@ultimabase/shared'
 
 import { restFieldProtocol } from './field-codecs.js'
-import { readRestObjectFields, type InvalidRestValue } from './field-values.js'
+import {
+	mapRestRecord,
+	readRestObjectFields,
+	type InvalidRestValue,
+} from './field-values.js'
 
-const encodeBinary = (value: unknown, invalid: InvalidRestValue): unknown => {
-	if (!(value instanceof Uint8Array)) throw invalid()
-	let binary = ''
-	for (const byte of value) binary += String.fromCharCode(byte)
-	return immutableRecord({
-		type: 'binary' as const,
-		encoding: 'base64' as const,
-		data: globalThis.btoa(binary),
-	})
-}
+const isString = (value: unknown): boolean => typeof value === 'string'
+
+// Built-in scalars whose canonical REST value is the logical value itself.
+const passThroughScalars: ReadonlyMap<string, (value: unknown) => boolean> =
+	new Map([
+		['boolean', (value: unknown) => typeof value === 'boolean'],
+		[
+			'float',
+			(value: unknown) => typeof value === 'number' && Number.isFinite(value),
+		],
+		['int', (value: unknown) => Number.isSafeInteger(value)],
+		['date', isString],
+		['dateTime', isString],
+		['decimal', isString],
+		['enum', isString],
+		['string', isString],
+		['time', isString],
+		['uuid', isString],
+	])
 
 const readModelValues = (
 	schema: SchemaDefinition,
@@ -45,8 +58,9 @@ const readModelValues = (
 	}
 	const toJSON: unknown = Reflect.get(prototype, 'toJSON')
 	const toPointer: unknown = Reflect.get(prototype, 'toPointer')
-	if (typeof toJSON !== 'function' || typeof toPointer !== 'function')
+	if (typeof toJSON !== 'function' || typeof toPointer !== 'function') {
 		throw invalid()
+	}
 	const pointer: unknown = Reflect.apply(toPointer, value, [])
 	if (!Pointer.is(pointer) || pointer.schema !== schema) throw invalid()
 	const values: unknown = Reflect.apply(toJSON, value, [])
@@ -57,8 +71,8 @@ const readModelValues = (
 const encodeJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
+	schemas: CompiledSchemaRegistry | undefined,
 	seen: Set<object>,
-	schemas?: CompiledSchemaRegistry,
 ): unknown => {
 	if (
 		value === null ||
@@ -71,138 +85,62 @@ const encodeJsonValue = (
 		if (!Number.isFinite(value)) throw invalid()
 		return value
 	}
-	if (isUnknownArray(value)) {
-		if (seen.has(value)) throw invalid()
-		seen.add(value)
-		const encoded = immutableArray(
-			value.map((item) => encodeJsonValue(item, invalid, seen, schemas)),
-		)
-		seen.delete(value)
-		return encoded
+	if (!isUnknownArray(value) && !isPlainRecord(value)) {
+		// Only this application's models use schema codecs; JSON fields remain JSON.
+		const schema =
+			typeof value === 'object'
+				? schemas
+						?.values()
+						.find(
+							(candidate) =>
+								Object.getPrototypeOf(value) ===
+								Reflect.get(candidate, 'prototype'),
+						)
+				: undefined
+		if (schema === undefined) throw invalid()
+		return encodeRestSchemaResult(schema, value, invalid)
 	}
-	if (
-		schemas !== undefined &&
-		typeof value === 'object' &&
-		!isPlainRecord(value)
-	) {
-		const schema = schemas
-			.values()
-			.find(
-				(candidate) =>
-					Object.getPrototypeOf(value) === Reflect.get(candidate, 'prototype'),
-			)
-		if (schema !== undefined) {
-			// Only this application's models use schema codecs; JSON fields remain JSON.
-			return encodeSchemaRecord(schema, value, invalid)
-		}
-	}
-	if (!isPlainRecord(value) || seen.has(value)) throw invalid()
+	if (seen.has(value)) throw invalid()
 	seen.add(value)
-	const encoded: Record<string, unknown> = {}
-	for (const [name, item] of Object.entries(value)) {
-		encoded[name] = encodeJsonValue(item, invalid, seen, schemas)
-	}
+	const encodeItem = (item: unknown): unknown =>
+		encodeJsonValue(item, invalid, schemas, seen)
+	const encoded = isUnknownArray(value)
+		? immutableArray(value.map(encodeItem))
+		: mapRestRecord(value, (_name, item) => encodeItem(item))
 	seen.delete(value)
-	return immutableRecord(encoded)
-}
-
-const encodeSchemaRecord = (
-	schema: SchemaDefinition,
-	value: unknown,
-	invalid: InvalidRestValue,
-): Readonly<Record<string, unknown>> => {
-	const values = readModelValues(schema, value, invalid)
-	const encoded: Record<string, unknown> = {}
-	for (const [name, item] of Object.entries(values)) {
-		const virtual = schema.virtualFields[name]
-		if (virtual !== undefined) {
-			encoded[name] = encodeRestOutputValue(virtual.output, item, invalid)
-			continue
-		}
-		const field = schema.persistedFields[name]
-		if (field === undefined) throw invalid()
-		encoded[name] = encodeRestFieldValue(field, item, invalid)
-	}
-	return immutableRecord(encoded)
-}
-
-const encodeOutputObject = (
-	descriptor: GenericOutputDescriptor,
-	value: unknown,
-	invalid: InvalidRestValue,
-): unknown => {
-	if (!isPlainRecord(value)) throw invalid()
-	const options: unknown = descriptor.options
-	const fields = isPlainRecord(options) ? options.fields : undefined
-	if (!isPlainRecord(fields)) throw invalid()
-	const encoded: Record<string, unknown> = {}
-	for (const [name, item] of Object.entries(value)) {
-		const child: unknown = fields[name]
-		if (typeof child !== 'object' || child === null) throw invalid()
-		encoded[name] = encodeRestOutputValue(
-			child as GenericOutputDescriptor,
-			item,
-			invalid,
-		)
-	}
-	return immutableRecord(encoded)
+	return encoded
 }
 
 const encodeBuiltInScalar = (
 	kind: string,
 	value: unknown,
-	encodeObjectValue: () => unknown,
 	invalid: InvalidRestValue,
+	encodeObject: () => unknown,
 ): unknown => {
 	if (value === null) return null
-	if (kind === 'bigint') {
-		if (typeof value !== 'bigint') throw invalid()
-		return value.toString(10)
-	}
-	if (kind === 'binary') return encodeBinary(value, invalid)
-	if (kind === 'object') return encodeObjectValue()
-	if (kind === 'json') {
-		return encodeJsonValue(value, invalid, new Set())
-	}
-	if (kind === 'float') {
-		if (typeof value !== 'number' || !Number.isFinite(value)) throw invalid()
+	const isValid = passThroughScalars.get(kind)
+	if (isValid !== undefined) {
+		if (!isValid(value)) throw invalid()
 		return value
 	}
-	if (kind === 'int') {
-		if (typeof value !== 'number' || !Number.isSafeInteger(value))
-			throw invalid()
-		return value
-	}
-	if (kind === 'boolean') {
-		if (typeof value !== 'boolean') throw invalid()
-		return value
-	}
-	if (
-		kind === 'date' ||
-		kind === 'dateTime' ||
-		kind === 'decimal' ||
-		kind === 'enum' ||
-		kind === 'string' ||
-		kind === 'time' ||
-		kind === 'uuid'
-	) {
-		if (typeof value !== 'string') throw invalid()
-		return value
+	switch (kind) {
+		case 'bigint':
+			if (typeof value !== 'bigint') throw invalid()
+			return value.toString(10)
+		case 'binary':
+			if (!(value instanceof Uint8Array)) throw invalid()
+			return immutableRecord({
+				type: 'binary' as const,
+				encoding: 'base64' as const,
+				data: Buffer.from(value).toString('base64'),
+			})
+		case 'object':
+			return encodeObject()
+		case 'json':
+			return encodeJsonValue(value, invalid, undefined, new Set())
 	}
 	throw invalid()
 }
-
-const encodeOutputScalar = (
-	descriptor: GenericOutputDescriptor,
-	value: unknown,
-	invalid: InvalidRestValue,
-): unknown =>
-	encodeBuiltInScalar(
-		descriptor.kind,
-		value,
-		() => encodeOutputObject(descriptor, value, invalid),
-		invalid,
-	)
 
 /** Encodes one output-only value through the same canonical REST shapes. */
 export const encodeRestOutputValue = (
@@ -210,47 +148,27 @@ export const encodeRestOutputValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
 ): unknown => {
+	const encodeItem = (item: unknown): unknown =>
+		encodeBuiltInScalar(descriptor.kind, item, invalid, () => {
+			if (!isPlainRecord(item)) throw invalid()
+			const options: unknown = descriptor.options
+			const fields = isPlainRecord(options) ? options.fields : undefined
+			if (!isPlainRecord(fields)) throw invalid()
+			return mapRestRecord(item, (name, child) => {
+				const output: unknown = fields[name]
+				if (typeof output !== 'object' || output === null) throw invalid()
+				// Core compiled this nested output descriptor with the virtual field.
+				return encodeRestOutputValue(
+					output as GenericOutputDescriptor,
+					child,
+					invalid,
+				)
+			})
+		})
 	if (value === null) return null
-	if (!descriptor.options.list) {
-		return encodeOutputScalar(descriptor, value, invalid)
-	}
+	if (!descriptor.options.list) return encodeItem(value)
 	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(
-		value.map((item) => encodeOutputScalar(descriptor, item, invalid)),
-	)
-}
-
-const encodeObject = (
-	field: GenericField,
-	value: unknown,
-	invalid: InvalidRestValue,
-): unknown => {
-	if (!isPlainRecord(value)) throw invalid()
-	const fields = readRestObjectFields(field, invalid)
-	const encoded: Record<string, unknown> = {}
-	for (const [name, item] of Object.entries(value)) {
-		const child = fields[name]
-		if (child === undefined) throw invalid()
-		encoded[name] = encodeRestFieldValue(child, item, invalid)
-	}
-	return immutableRecord(encoded)
-}
-
-const encodeRelationship = (
-	field: GenericField,
-	value: unknown,
-	invalid: InvalidRestValue,
-): unknown => {
-	const target = getFieldSchemaTarget(field)?.()
-	if (target === undefined) throw invalid()
-	if (field.kind === 'pointer') {
-		if (Pointer.is(value)) return value.toJSON()
-		return encodeSchemaRecord(target, value, invalid)
-	}
-	if (!isUnknownArray(value)) throw invalid()
-	return immutableArray(
-		value.map((item) => encodeSchemaRecord(target, item, invalid)),
-	)
+	return immutableArray(value.map(encodeItem))
 }
 
 const encodeScalar = (
@@ -258,25 +176,37 @@ const encodeScalar = (
 	value: unknown,
 	invalid: InvalidRestValue,
 ): unknown => {
-	if (value === null) return null
 	if (field.kind === 'pointer' || field.kind === 'relation') {
-		return encodeRelationship(field, value, invalid)
+		const target = getFieldSchemaTarget(field)?.()
+		if (target === undefined) throw invalid()
+		if (field.kind === 'pointer') {
+			return Pointer.is(value)
+				? value.toJSON()
+				: encodeRestSchemaResult(target, value, invalid)
+		}
+		if (!isUnknownArray(value)) throw invalid()
+		return immutableArray(
+			value.map((item) => encodeRestSchemaResult(target, item, invalid)),
+		)
 	}
 	if (field.kind.includes('.')) {
 		const codec = getPluginFieldWireCodec(field, restFieldProtocol)
 		if (codec === undefined) throw invalid()
 		try {
-			return encodeJsonValue(codec.encode(value), invalid, new Set())
+			return encodeJsonValue(codec.encode(value), invalid, undefined, new Set())
 		} catch {
 			throw invalid()
 		}
 	}
-	return encodeBuiltInScalar(
-		field.kind,
-		value,
-		() => encodeObject(field, value, invalid),
-		invalid,
-	)
+	return encodeBuiltInScalar(field.kind, value, invalid, () => {
+		if (!isPlainRecord(value)) throw invalid()
+		const fields = readRestObjectFields(field, invalid)
+		return mapRestRecord(value, (name, item) => {
+			const child = fields[name]
+			if (child === undefined) throw invalid()
+			return encodeRestFieldValue(child, item, invalid)
+		})
+	})
 }
 
 const encodeAtDepth = (
@@ -307,11 +237,19 @@ export const encodeRestSchemaResult = (
 	value: unknown,
 	invalid: InvalidRestValue,
 ): Readonly<Record<string, unknown>> =>
-	encodeSchemaRecord(schema, value, invalid)
+	mapRestRecord(readModelValues(schema, value, invalid), (name, item) => {
+		const virtual = schema.virtualFields[name]
+		if (virtual !== undefined) {
+			return encodeRestOutputValue(virtual.output, item, invalid)
+		}
+		const field = schema.persistedFields[name]
+		if (field === undefined) throw invalid()
+		return encodeRestFieldValue(field, item, invalid)
+	})
 
 /** Revalidates operation wire output before JSON serialization. */
 export const encodeRestJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
 	schemas?: CompiledSchemaRegistry,
-): unknown => encodeJsonValue(value, invalid, new Set(), schemas)
+): unknown => encodeJsonValue(value, invalid, schemas, new Set())

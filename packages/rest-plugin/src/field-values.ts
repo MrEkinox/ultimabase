@@ -3,6 +3,7 @@ import {
 	getFieldListDepth,
 	getFieldSchemaTarget,
 	getPluginFieldWireCodec,
+	transformQueryFilterInput,
 	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -13,6 +14,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { invalidRestRead } from './errors.js'
 import { restFieldProtocol } from './field-codecs.js'
 
 const bigintPattern = /^(?:0|-?[1-9]\d*)$/u
@@ -25,8 +27,25 @@ const base64Pattern =
 
 export type InvalidRestValue = () => Error
 
+/**
+ * Selects the logical form of a tagged pointer: reads compare identities while
+ * mutation data carries Core `Pointer` values.
+ */
+type PointerMode = 'identity' | 'value'
+
 export const isUuidV7 = (value: unknown): value is string =>
 	typeof value === 'string' && uuidV7Pattern.test(value)
+
+/** @internal Maps own entries by plain assignment into one frozen copy. */
+export const mapRestRecord = (
+	value: Readonly<Record<string, unknown>>,
+	map: (name: string, item: unknown) => unknown,
+): Readonly<Record<string, unknown>> => {
+	const mapped: Record<string, unknown> = {}
+	for (const [name, item] of Object.entries(value))
+		mapped[name] = map(name, item)
+	return immutableRecord(mapped)
+}
 
 /** @internal Resolves embedded field metadata for both REST codec directions. */
 export const readRestObjectFields = (
@@ -34,8 +53,7 @@ export const readRestObjectFields = (
 	invalid: InvalidRestValue,
 ): Readonly<Record<string, GenericField>> => {
 	const options: unknown = field.options
-	if (!isPlainRecord(options)) throw invalid()
-	const fields = options.fields
+	const fields = isPlainRecord(options) ? options.fields : undefined
 	if (!isPlainRecord(fields)) throw invalid()
 	return fields as Readonly<Record<string, GenericField>>
 }
@@ -54,21 +72,15 @@ const decodeBinary = (
 	) {
 		throw invalid()
 	}
-
-	try {
-		return Uint8Array.from(globalThis.atob(value.data), (character) =>
-			character.charCodeAt(0),
-		)
-	} catch {
-		throw invalid()
-	}
+	return new Uint8Array(Buffer.from(value.data, 'base64'))
 }
 
-const decodePointerIdentity = (
+const decodePointer = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,
-): Readonly<{ id: string; target: SchemaDefinition }> => {
+	pointerMode: PointerMode,
+): unknown => {
 	const target = getFieldSchemaTarget(field)?.()
 	if (
 		target === undefined ||
@@ -80,74 +92,50 @@ const decodePointerIdentity = (
 	) {
 		throw invalid()
 	}
-	return { id: value.id, target }
-}
-
-const decodeObject = (
-	field: GenericField,
-	value: unknown,
-	invalid: InvalidRestValue,
-	partial: boolean,
-	pointerMode: 'identity' | 'value',
-): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value)) throw invalid()
-	const fields = readRestObjectFields(field, invalid)
-	const decoded: Record<string, unknown> = {}
-	for (const [name, item] of Object.entries(value)) {
-		const child = fields[name]
-		if (child === undefined) throw invalid()
-		decoded[name] = decodeRestFieldValue(
-			child,
-			item,
-			invalid,
-			partial,
-			pointerMode,
-		)
-	}
-	return immutableRecord(decoded)
+	return pointerMode === 'identity' ? value.id : new Pointer(target, value.id)
 }
 
 const decodeScalar = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,
-	partial: boolean,
-	pointerMode: 'identity' | 'value',
+	pointerMode: PointerMode,
 ): unknown => {
-	if (value === null) return null
-	if (field.kind === 'bigint') {
-		if (typeof value !== 'string' || !bigintPattern.test(value)) {
-			throw invalid()
+	switch (field.kind) {
+		case 'bigint':
+			if (typeof value !== 'string' || !bigintPattern.test(value)) {
+				throw invalid()
+			}
+			return BigInt(value)
+		case 'binary':
+			return decodeBinary(value, invalid)
+		case 'pointer':
+			return decodePointer(field, value, invalid, pointerMode)
+		case 'uuid':
+			if (typeof value !== 'string' || !uuidPattern.test(value)) {
+				throw invalid()
+			}
+			return value
+		case 'object': {
+			if (!isPlainRecord(value)) throw invalid()
+			const fields = readRestObjectFields(field, invalid)
+			return mapRestRecord(value, (name, item) => {
+				const child = fields[name]
+				if (child === undefined) throw invalid()
+				return decodeRestFieldValue(child, item, invalid, pointerMode)
+			})
 		}
-		return BigInt(value)
-	}
-	if (field.kind === 'binary') return decodeBinary(value, invalid)
-	if (field.kind === 'pointer') {
-		const pointer = decodePointerIdentity(field, value, invalid)
-		return pointerMode === 'identity'
-			? pointer.id
-			: new Pointer(pointer.target, pointer.id)
-	}
-	if (field.kind === 'uuid') {
-		if (typeof value !== 'string' || !uuidPattern.test(value)) {
+		case 'relation':
 			throw invalid()
-		}
-		return value
 	}
-	if (field.kind === 'object') {
-		return decodeObject(field, value, invalid, partial, pointerMode)
+	if (!field.kind.includes('.')) return value
+	const codec = getPluginFieldWireCodec(field, restFieldProtocol)
+	if (codec === undefined) throw invalid()
+	try {
+		return codec.decode(value)
+	} catch {
+		throw invalid()
 	}
-	if (field.kind === 'relation') throw invalid()
-	if (field.kind.includes('.')) {
-		const codec = getPluginFieldWireCodec(field, restFieldProtocol)
-		if (codec === undefined) throw invalid()
-		try {
-			return codec.decode(value)
-		} catch {
-			throw invalid()
-		}
-	}
-	return value
 }
 
 const decodeAtDepth = (
@@ -155,17 +143,14 @@ const decodeAtDepth = (
 	value: unknown,
 	depth: number,
 	invalid: InvalidRestValue,
-	partial: boolean,
-	pointerMode: 'identity' | 'value',
+	pointerMode: PointerMode,
 ): unknown => {
 	if (value === null) return null
-	if (depth === 0) {
-		return decodeScalar(field, value, invalid, partial, pointerMode)
-	}
+	if (depth <= 0) return decodeScalar(field, value, invalid, pointerMode)
 	if (!isUnknownArray(value)) throw invalid()
 	return immutableArray(
 		value.map((item) =>
-			decodeAtDepth(field, item, depth - 1, invalid, partial, pointerMode),
+			decodeAtDepth(field, item, depth - 1, invalid, pointerMode),
 		),
 	)
 }
@@ -175,15 +160,13 @@ export const decodeRestFieldValue = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,
-	partial = false,
-	pointerMode: 'identity' | 'value' = 'identity',
+	pointerMode: PointerMode = 'identity',
 ): unknown =>
 	decodeAtDepth(
 		field,
 		value,
 		getFieldListDepth(field.options),
 		invalid,
-		partial,
 		pointerMode,
 	)
 
@@ -192,14 +175,85 @@ export const decodeRestListElement = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,
-): unknown => {
-	const depth = getFieldListDepth(field.options)
-	return decodeAtDepth(
+): unknown =>
+	decodeAtDepth(
 		field,
 		value,
-		Math.max(0, depth - 1),
+		getFieldListDepth(field.options) - 1,
 		invalid,
-		false,
 		'identity',
 	)
+
+const untouchedOperators = new Set([
+	'count',
+	'hasAllKeys',
+	'hasAnyKeys',
+	'hasKey',
+	'isEmpty',
+	'isNotEmpty',
+	'isNotNull',
+	'isNull',
+	'jsonPathExists',
+	'jsonPathMatches',
+	'matches',
+])
+
+const relationshipOperators = new Set(['every', 'is', 'isNot', 'none', 'some'])
+
+const decodeOperand = (
+	field: GenericField,
+	operator: string,
+	value: unknown,
+): unknown => {
+	const decode = (item: unknown): unknown =>
+		decodeRestFieldValue(field, item, invalidRestRead)
+	const decodeElement = (item: unknown): unknown =>
+		decodeRestListElement(field, item, invalidRestRead)
+	const decodeEach = (decodeItem: (item: unknown) => unknown): unknown => {
+		if (!isUnknownArray(value)) throw invalidRestRead()
+		return immutableArray(value.map((item) => decodeItem(item)))
+	}
+	switch (operator) {
+		case 'between':
+		case 'notBetween':
+			if (
+				!isPlainRecord(value) ||
+				Object.keys(value).length !== 2 ||
+				!Object.hasOwn(value, 'lower') ||
+				!Object.hasOwn(value, 'upper')
+			) {
+				throw invalidRestRead()
+			}
+			return immutableRecord({
+				lower: decode(value.lower),
+				upper: decode(value.upper),
+			})
+		case 'in':
+		case 'notIn':
+			return decodeEach(decode)
+		case 'has':
+			return decodeElement(value)
+		case 'hasSome':
+		case 'hasEvery':
+			return decodeEach(decodeElement)
+		case 'contains':
+		case 'containedBy':
+			// JSON and plugin containment operands keep their logical JSON shape.
+			return field.kind === 'json' || field.kind.includes('.')
+				? value
+				: decode(value)
+	}
+	return untouchedOperators.has(operator) ? value : decode(value)
 }
+
+/** Decodes filter field values while leaving operator validity to Core normalization. */
+export const decodeRestWhere = (
+	schema: SchemaDefinition,
+	value: unknown,
+): unknown =>
+	transformQueryFilterInput(schema, value, ({ field, operator, value }) =>
+		relationshipOperators.has(operator) &&
+		getFieldSchemaTarget(field) === undefined
+			? value
+			: decodeOperand(field, operator, value),
+	)

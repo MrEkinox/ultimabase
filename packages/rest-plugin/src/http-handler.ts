@@ -3,7 +3,6 @@ import {
 	getCurrentRequest,
 	type ApplicationRequestExecutor,
 	type CompiledSchemaRegistry,
-	type PluginIdentity,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { httpMount, type HttpMountDefinition } from '@ultimabase/http-plugin'
@@ -13,14 +12,12 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { executeRestMutationRequest } from './mutations.js'
+import { executeRestReadRequest, type RestReadLimits } from './reads.js'
 import {
 	encodeRestJsonValue,
 	encodeRestSchemaResult,
 } from './response-values.js'
-import { executeRestMutationRequest } from './mutation-execution.js'
-import type { RestOperationTransport } from './operation-execution.js'
-import type { RestSchemaMutationTransport } from './schema-mutation-execution.js'
-import { executeRestReadRequest } from './read-execution.js'
 import {
 	createRestCaughtErrorResponse,
 	createRestJsonResponse,
@@ -28,75 +25,115 @@ import {
 	restResponseErrorCodes,
 } from './responses.js'
 import {
+	encodeRestPathSegment,
 	restProtocol,
 	type RestRouteDefinition,
-	type RestRouteGraph,
 	type RestSchemaRouteDefinition,
 } from './routes.js'
-import {
-	hasSupportedRestVersion,
-	isCanonicalRestPath,
-	matchRestRoute,
-	readRestAcceptQuality,
-	type MatchedRestRoute,
-} from './http-routing.js'
-import type { RestReadLimits } from './reads.js'
+import type {
+	RestOperationTransport,
+	RestSchemaMutationTransport,
+} from './transports.js'
 
-interface RestOwnerHttpState {
-	limits: RestReadLimits | undefined
-	operationTransport: RestOperationTransport | undefined
-	routes: readonly RestRouteDefinition[]
-	schemaMutationTransport: RestSchemaMutationTransport | undefined
-}
-
-interface ConfiguredRestOwnerHttpState {
+/** @internal Setup-owned routes and exposure bound after the HTTP mount exists. */
+export interface RestHttpConfiguration {
 	readonly limits: RestReadLimits
 	readonly operationTransport: RestOperationTransport | undefined
+	readonly routes: readonly RestRouteDefinition[]
 	readonly schemaMutationTransport: RestSchemaMutationTransport | undefined
 }
 
-const ownerStates = new WeakMap<
-	ApplicationRequestExecutor,
-	Map<string, RestOwnerHttpState>
->()
-
-const ownerKey = (owner: PluginIdentity): string =>
-	`${owner.pluginId}\0${owner.instanceId ?? ''}`
-
-/** @internal Attaches setup-owned routes and operation exposure to one HTTP mount. */
-export const configureRestHttpOwner = (
-	executor: ApplicationRequestExecutor,
-	graph: RestRouteGraph,
-	owner: PluginIdentity,
-	limits: RestReadLimits,
-	operationTransport: RestOperationTransport | undefined,
-	schemaMutationTransport: RestSchemaMutationTransport | undefined,
-): void => {
-	const key = ownerKey(owner)
-	const state = ownerStates.get(executor)?.get(key)
-	const routes = graph.routes.filter(
-		(route) => ownerKey(route.provenance.plugin) === key,
-	)
-	if (state === undefined) {
-		if (routes.length > 0)
-			throw new TypeError('REST HTTP owner state is unavailable')
-		return
-	}
-	state.routes = immutableArray(routes)
-	state.limits = limits
-	state.operationTransport = operationTransport
-	state.schemaMutationTransport = schemaMutationTransport
+// Rejects aliases (empty, trailing, or non-canonically encoded segments) up front.
+const isCanonicalPath = (pathname: string): boolean => {
+	if (pathname.length > 1 && pathname.endsWith('/')) return false
+	return pathname
+		.slice(1)
+		.split('/')
+		.every((segment) => {
+			try {
+				return (
+					segment.length > 0 &&
+					encodeRestPathSegment(decodeURIComponent(segment), 'REST path') ===
+						segment
+				)
+			} catch {
+				return false
+			}
+		})
 }
 
-const schemaResult = (
-	schema: SchemaDefinition,
-	value: unknown,
-): Readonly<Record<string, unknown>> =>
-	encodeRestSchemaResult(
-		schema,
-		value,
-		() => new TypeError('Invalid REST result'),
+// Matches static routes before the one strict `{id}` item placeholder.
+const matchRoute = (
+	routes: readonly RestRouteDefinition[],
+	method: string,
+	pathname: string,
+): Readonly<{ id?: string; route: RestRouteDefinition }> | undefined => {
+	const exact = routes.find(
+		(route) => route.method === method && route.path === pathname,
 	)
+	if (exact !== undefined) return { route: exact }
+	const requestSegments = pathname.slice(1).split('/')
+	for (const route of routes) {
+		if (route.method !== method || !route.path.includes('{id}')) continue
+		const segments = route.path.slice(1).split('/')
+		if (segments.length !== requestSegments.length) continue
+		let id: string | undefined
+		const matches = segments.every((segment, index) => {
+			const requestSegment = requestSegments[index]
+			if (segment !== '{id}') return segment === requestSegment
+			id = requestSegment
+			return true
+		})
+		if (matches && id !== undefined) return { id, route }
+	}
+	return undefined
+}
+
+/** @internal Resolves JSON compatibility using the most specific media range. */
+export const readRestAcceptQuality = (value: string | null): number => {
+	if (value === null) return 1
+	let specificity = -1
+	let quality = 0
+	for (const rawRange of value.split(',')) {
+		const [rawMediaType, ...rawParameters] = rawRange.split(';')
+		const current = ['*/*', 'application/*', 'application/json'].indexOf(
+			rawMediaType?.trim().toLowerCase() ?? '',
+		)
+		if (current < 0) continue
+		let currentQuality = 1
+		let valid = true
+		let qualitySeen = false
+		for (const rawParameter of rawParameters) {
+			const parameter = rawParameter.trim().toLowerCase()
+			if (parameter === 'charset=utf-8' || parameter === 'charset="utf-8"') {
+				continue
+			}
+			if (!parameter.startsWith('q=') || qualitySeen) {
+				valid = false
+				continue
+			}
+			qualitySeen = true
+			const parsed = Number(parameter.slice(2))
+			if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) valid = false
+			else currentQuality = parsed
+		}
+		if (!valid) continue
+		if (current > specificity) {
+			specificity = current
+			quality = currentQuality
+		} else if (current === specificity) {
+			quality = Math.max(quality, currentQuality)
+		}
+	}
+	return quality
+}
+
+const invalidResult = (): TypeError => new TypeError('Invalid REST result')
+
+const notFound = (message: string): FrameworkError =>
+	new FrameworkError('NOT_FOUND', message, {
+		publicMessage: 'The requested object was not found.',
+	})
 
 /** @internal Applies the fixed status and envelope matrix to one schema result. */
 export const createRestSchemaSuccessResponse = (
@@ -104,38 +141,41 @@ export const createRestSchemaSuccessResponse = (
 	schema: SchemaDefinition,
 	result: unknown,
 ): Response => {
-	if (route.operation === 'count') {
+	const encode = (value: unknown): Readonly<Record<string, unknown>> =>
+		encodeRestSchemaResult(schema, value, invalidResult)
+	const { operation } = route
+	if (operation === 'count') {
 		if (typeof result !== 'number' || !Number.isSafeInteger(result)) {
 			throw new TypeError('Invalid REST count result')
 		}
 		return createRestJsonResponse({ count: result }, 200)
 	}
-	if (route.operation === 'exists') {
-		if (typeof result !== 'boolean')
+	if (operation === 'exists') {
+		if (typeof result !== 'boolean') {
 			throw new TypeError('Invalid REST exists result')
+		}
 		return createRestJsonResponse({ exists: result }, 200)
 	}
-	if (route.operation === 'find' || route.operation.startsWith('bulk')) {
-		if (!isUnknownArray(result))
+	if (operation === 'find' || operation.startsWith('bulk')) {
+		if (!isUnknownArray(result)) {
 			throw new TypeError('Invalid REST collection result')
+		}
 		return createRestJsonResponse(
-			{ results: result.map((item) => schemaResult(schema, item)) },
-			route.operation === 'bulkCreate' ? 201 : 200,
+			{ results: result.map(encode) },
+			operation === 'bulkCreate' ? 201 : 200,
 		)
 	}
-	if (result === null && route.operation !== 'first') {
-		throw new FrameworkError('NOT_FOUND', 'REST mutation target was absent.', {
-			publicMessage: 'The requested object was not found.',
-		})
+	if (result === null && operation !== 'first') {
+		throw notFound('REST mutation target was absent.')
 	}
 	return createRestJsonResponse(
-		{ result: result === null ? null : schemaResult(schema, result) },
-		route.operation === 'create' ? 201 : 200,
+		{ result: result === null ? null : encode(result) },
+		operation === 'create' ? 201 : 200,
 	)
 }
 
-// Item mutations are handled before this collection/create dispatch table.
-const mutationOperations = {
+// Collection mutations use the hyphenated REST mutation operation names.
+const collectionMutations = {
 	bulkCreate: 'bulk-create',
 	bulkDelete: 'bulk-delete',
 	bulkUpdate: 'bulk-update',
@@ -146,144 +186,150 @@ const mutationOperations = {
 
 const executeSchemaRoute = async (
 	route: RestSchemaRouteDefinition,
-	id: string | undefined,
+	id: string,
 	request: Request,
 	schema: SchemaDefinition,
 	executor: ApplicationRequestExecutor,
 	limits: RestReadLimits,
-): Promise<Response> => {
+): Promise<unknown> => {
 	const context = getCurrentRequest()
-	let result: unknown
-	if (route.operation === 'get') {
-		result = await executeRestReadRequest(
-			executor,
-			context,
-			schema,
-			{ id: id ?? '', operation: 'get', request },
-			limits,
-		)
-	} else if (
-		route.operation === 'find' ||
-		route.operation === 'first' ||
-		route.operation === 'count' ||
-		route.operation === 'exists'
-	) {
-		result = await executeRestReadRequest(
-			executor,
-			context,
-			schema,
-			{ operation: route.operation, request },
-			limits,
-		)
-	} else if (route.operation === 'update' || route.operation === 'delete') {
-		result = await executeRestMutationRequest(
-			executor,
-			context,
-			schema,
-			{ id: id ?? '', operation: route.operation, request },
-			limits,
-		)
-	} else {
-		result = await executeRestMutationRequest(
-			executor,
-			context,
-			schema,
-			{ operation: mutationOperations[route.operation], request },
-			limits,
-		)
+	const { operation } = route
+	switch (operation) {
+		case 'get':
+			return executeRestReadRequest(
+				executor,
+				context,
+				schema,
+				{ id, operation, request },
+				limits,
+			)
+		case 'find':
+		case 'first':
+		case 'count':
+		case 'exists':
+			return executeRestReadRequest(
+				executor,
+				context,
+				schema,
+				{ operation, request },
+				limits,
+			)
+		case 'update':
+		case 'delete':
+			return executeRestMutationRequest(
+				executor,
+				context,
+				schema,
+				{ id, operation, request },
+				limits,
+			)
 	}
-	return createRestSchemaSuccessResponse(route, schema, result)
+	return executeRestMutationRequest(
+		executor,
+		context,
+		schema,
+		{ operation: collectionMutations[operation], request },
+		limits,
+	)
 }
 
-const executeMatchedRoute = async (
-	match: MatchedRestRoute,
+const executeRoute = async (
+	route: RestRouteDefinition,
+	id: string,
 	request: Request,
-	state: ConfiguredRestOwnerHttpState,
+	configuration: RestHttpConfiguration,
 	executor: ApplicationRequestExecutor,
 	schemas: CompiledSchemaRegistry,
 ): Promise<Response> => {
-	if (match.route.kind === 'rest-schema-route') {
-		const schema = schemas.get(match.route.schema)
-		if (schema === undefined)
+	const { limits, operationTransport, schemaMutationTransport } = configuration
+	if (route.kind === 'rest-plugin-operation-route') {
+		if (operationTransport === undefined) {
+			throw new TypeError('REST operation transport is unavailable')
+		}
+		const result = await operationTransport.execute(
+			getCurrentRequest(),
+			route,
+			request,
+			limits,
+		)
+		return createRestJsonResponse(
+			{ result: encodeRestJsonValue(result, invalidResult, schemas) },
+			200,
+		)
+	}
+	const requireSchema = (name: string): SchemaDefinition => {
+		const schema = schemas.get(name)
+		if (schema === undefined) {
 			throw new TypeError('REST route schema is unavailable')
-		return executeSchemaRoute(
-			match.route,
-			match.id,
+		}
+		return schema
+	}
+	if (route.kind === 'rest-schema-route') {
+		const schema = requireSchema(route.schema)
+		const result = await executeSchemaRoute(
+			route,
+			id,
 			request,
 			schema,
 			executor,
-			state.limits,
+			limits,
 		)
+		return createRestSchemaSuccessResponse(route, schema, result)
 	}
-	if (match.route.kind === 'rest-schema-mutation-route') {
-		if (state.schemaMutationTransport === undefined) {
-			throw new TypeError('REST schema mutation transport is unavailable')
-		}
-		const schema = schemas.get(match.route.schema)
-		if (schema === undefined) {
-			throw new TypeError('REST schema mutation route schema is unavailable')
-		}
-		const result = await state.schemaMutationTransport.execute(
-			getCurrentRequest(),
-			match.route,
-			match.id ?? '',
-			request,
-			schema,
-			state.limits,
-		)
-		if (result === null) {
-			throw new FrameworkError(
-				'NOT_FOUND',
-				'REST schema mutation target was absent.',
-				{ publicMessage: 'The requested object was not found.' },
-			)
-		}
-		return createRestJsonResponse({ result: schemaResult(schema, result) }, 200)
+	if (schemaMutationTransport === undefined) {
+		throw new TypeError('REST schema mutation transport is unavailable')
 	}
-	if (state.operationTransport === undefined) {
-		throw new TypeError('REST operation transport is unavailable')
-	}
-	const result = await state.operationTransport.execute(
+	const schema = requireSchema(route.schema)
+	const result = await schemaMutationTransport.execute(
 		getCurrentRequest(),
-		match.route,
+		route,
+		id,
 		request,
-		state.limits,
+		schema,
+		limits,
 	)
+	if (result === null) {
+		throw notFound('REST schema mutation target was absent.')
+	}
 	return createRestJsonResponse(
-		{
-			result: encodeRestJsonValue(
-				result,
-				() => new TypeError('Invalid REST result'),
-				schemas,
-			),
-		},
+		{ result: encodeRestSchemaResult(schema, result, invalidResult) },
 		200,
 	)
 }
 
-const createMountHandler =
-	(
-		state: RestOwnerHttpState,
-		mountPath: string,
-		executor: ApplicationRequestExecutor,
-		schemas: CompiledSchemaRegistry,
-	) =>
-	async (request: Request): Promise<Response> => {
+const restHttpProtocol = immutableRecord({
+	name: restProtocol.name,
+	version: restProtocol.version,
+})
+
+/**
+ * @internal Creates one instance-owned HTTP dispatcher. Its configuration is
+ * read per request because setup binds routes only after the mount exists.
+ */
+export const createRestHttpMounts = (
+	mountPath: string,
+	executor: ApplicationRequestExecutor,
+	schemas: CompiledSchemaRegistry,
+	readConfiguration: () => RestHttpConfiguration | undefined,
+): readonly HttpMountDefinition[] => {
+	const versionRoot = mountPath === '/' ? '/v1' : `${mountPath}/v1`
+	const handle = async (request: Request): Promise<Response> => {
 		const requestId = getCurrentRequest().requestId
 		const pathname = new URL(request.url).pathname
-		if (!isCanonicalRestPath(pathname)) {
-			return createRestResponseFailure(
-				restResponseErrorCodes.badRequest,
-				requestId,
-			)
+		const configuration = readConfiguration()
+		const failure = !isCanonicalPath(pathname)
+			? restResponseErrorCodes.badRequest
+			: pathname !== versionRoot && !pathname.startsWith(`${versionRoot}/`)
+				? restResponseErrorCodes.unsupportedVersion
+				: undefined
+		if (failure !== undefined) {
+			return createRestResponseFailure(failure, requestId)
 		}
-		if (!hasSupportedRestVersion(pathname, mountPath)) {
-			return createRestResponseFailure(
-				restResponseErrorCodes.unsupportedVersion,
-				requestId,
-			)
-		}
-		const match = matchRestRoute(state.routes, request)
+		const match = matchRoute(
+			configuration?.routes ?? [],
+			request.method,
+			pathname,
+		)
 		if (match === undefined) {
 			return createRestResponseFailure(
 				restResponseErrorCodes.notFound,
@@ -296,66 +342,30 @@ const createMountHandler =
 				requestId,
 			)
 		}
-		const pluginErrorRoute =
-			match.route.kind === 'rest-plugin-operation-route' ||
-			match.route.kind === 'rest-schema-mutation-route'
-				? match.route
-				: undefined
+		const { route } = match
 		try {
-			if (state.limits === undefined) {
+			if (configuration === undefined) {
 				throw new TypeError('REST owner state is unavailable')
 			}
-			return await executeMatchedRoute(
-				match,
+			return await executeRoute(
+				route,
+				match.id ?? '',
 				request,
-				{
-					limits: state.limits,
-					operationTransport: state.operationTransport,
-					schemaMutationTransport: state.schemaMutationTransport,
-				},
+				configuration,
 				executor,
 				schemas,
 			)
 		} catch (error: unknown) {
 			if (request.signal.aborted) throw error
 			return createRestCaughtErrorResponse(error, requestId, {
-				...(pluginErrorRoute === undefined ? {} : { route: pluginErrorRoute }),
+				...(route.kind === 'rest-schema-route' ? {} : { route }),
 				statusFor: (operation, code) =>
-					state.operationTransport?.statusFor(operation, code) ??
-					state.schemaMutationTransport?.statusFor(operation, code),
+					configuration?.operationTransport?.statusFor(operation, code) ??
+					configuration?.schemaMutationTransport?.statusFor(operation, code),
 			})
 		}
 	}
-
-const restHttpProtocol = immutableRecord({
-	name: restProtocol.name,
-	version: restProtocol.version,
-})
-
-/** @internal Creates one instance-owned HTTP dispatcher before setup binds routes. */
-export const createRestHttpMounts = (
-	hasRoutes: boolean,
-	mountPath: string,
-	owner: PluginIdentity,
-	executor: ApplicationRequestExecutor,
-	schemas: CompiledSchemaRegistry,
-): readonly HttpMountDefinition[] => {
-	const state: RestOwnerHttpState = {
-		limits: undefined,
-		operationTransport: undefined,
-		routes: immutableArray([]),
-		schemaMutationTransport: undefined,
-	}
-	const states =
-		ownerStates.get(executor) ?? new Map<string, RestOwnerHttpState>()
-	states.set(ownerKey(owner), state)
-	ownerStates.set(executor, states)
-	if (!hasRoutes) return immutableArray([])
 	return immutableArray([
-		httpMount({
-			handle: createMountHandler(state, mountPath, executor, schemas),
-			path: mountPath,
-			protocol: restHttpProtocol,
-		}),
+		httpMount({ handle, path: mountPath, protocol: restHttpProtocol }),
 	])
 }
