@@ -13,8 +13,8 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 |        | Lines        |
 | ------ | ------------ |
 | Before | 2192         |
-| After  | 2015         |
-| Change | -177 (-8.1%) |
+| After  | 2043         |
+| Change | -149 (-6.8%) |
 
 | File                      | Before | After |
 | ------------------------- | -----: | ----: |
@@ -29,7 +29,7 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 | `role-reference.ts`       |    151 |   220 |
 | `role-resolution.ts`      |    139 |   125 |
 | `role-schema-identity.ts` |     53 |    54 |
-| `role-schema.ts`          |    504 |   459 |
+| `role-schema.ts`          |    504 |   487 |
 
 About 1100 of the remaining lines are public contract: the authoring types and
 their JSDoc in `role-schema.ts` (the `RoleSchema.define()` overloads, options,
@@ -54,7 +54,7 @@ deep-imported by internal tests or re-exported by `index.ts`.
 | `role-resolution.ts`      | `roleQuerySchema(schema)` is the single bridge from an erased `SchemaDefinition` to the schema-root Query API. Before, resolution, membership and deletion each had their own cast. `resolveRoleReference` has one result cast instead of two. `resolveUniqueRoleNameMatch` checks ambiguity first, then the first element. One branch covers the empty and sparse cases, with the same errors.                                                                                             |
 | `role-access.ts`          | Each request-domain cache keeps the declaration found when the cache was created. Membership is memoized with `??=`.                                                                                                                                                                                                                                                                                                                                                                        |
 | `role-deletion.ts`        | Uses `readRoleRelation`, `roleQuerySchema` and Core's cleanup type. Each helper reads the stable id once instead of up to three times. The `fail` check now tracks one boolean instead of collecting owner names that were never used.                                                                                                                                                                                                                                                      |
-| `role-schema.ts`          | Private aliases `DeclaredRoleFields`, `RoleResultCapabilities` and `RoleSchemaCapabilities` replace six repetitions of the same field and capability intersections. The single-use `RoleSchemaBaseClass` alias is inlined. `define()` builds the capability object directly.                                                                                                                                                                                                                |
+| `role-schema.ts`          | `define()` builds the capability object directly and names the field map once through a local `Fields` alias. The exported and private type declarations are the reference ones (see DX parity fixes).                                                                                                                                                                                                                                                                                      |
 | `role-schema-identity.ts` | The identity check first narrows with `instanceof RoleSchemaIdentityValue`, then applies the existing `WeakMap` provenance check. This removes the result cast.                                                                                                                                                                                                                                                                                                                             |
 | error classes             | `RoleDeletionError`, `RoleHierarchyError` and `RoleReferenceResolutionError` declare `code` as a parameter property. The emitted class still defines `code` before `name`, so own-key order and frozen state are unchanged.                                                                                                                                                                                                                                                                 |
 | unchanged                 | `index.ts`, `role-events.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -112,21 +112,56 @@ Removed casts:
 
 ### Emitted declarations
 
-`dist/index.d.ts` was compared with the build of the base commit. Every
-exported name and every exported type resolves to the same type. Three
-declarations differ in their text, not in their meaning:
+See DX parity fixes: the type declarations of `role-schema.ts` are again the
+reference ones. The only remaining `dist/index.d.ts` difference is an unused
+`Relation` name the bundler adds to the Core import line (the exported internal
+`readRoleRelation` returns `Relation`; its declaration is tree-shaken, the
+import specifier is not). It is not visible in any hover, completion or
+diagnostic.
 
-- `RoleSchemaClass` now spells its capabilities through the private
-  `RoleSchemaCapabilities` alias.
-- `RoleSchemaOptions.indexes` spells its field map through the private
-  `DeclaredRoleFields` alias.
-- `RoleSchemaOptions.access` reads `SchemaAccess<SchemaReference<TClassName>>`
-  instead of the removed private alias `RoleSchemaBaseClass<TClassName>`, which
-  had the same definition.
+## DX parity fixes
 
-The bundler also adds an unused `Relation` name to the Core import line.
-The language-service tests for hovers and completions pass against both the
-source and the packed package.
+`tooling/rebuild/dx-audit.mjs` (see `docs/rebuild/DX-AUDIT.md`) showed that the
+private `role-schema.ts` aliases were editor-visible: the `RoleSchemaClass`
+export hover and 18 member hovers printed `DeclaredRoleFields<...>` instead of
+`RoleSchemaFields<TMemberSchema, RoleSchemaSelfDefinition<TClassName>, ...>`,
+the `[schemaResultCapabilitiesType]` member printed
+`RoleResultCapabilities<...>` instead of the
+`RequestRoleReferenceCarrier & RoleMemberCommands<...> & RoleHierarchyCommands<...>`
+intersection, `RoleSchemaOptions.indexes` / `.access` printed
+`DeclaredRoleFields` / `SchemaReference<TClassName>` instead of
+`RoleSchemaFields<...>` / `RoleSchemaBaseClass<TClassName>`, and consumer
+hovers (typegen role language-service fixture, application `AppRole` types)
+expanded the same aliases.
+
+Restored verbatim from the reference (types only, runtime unchanged):
+`ExactRoleSchemaDefinition`, the private `RoleSchemaBaseClass`,
+`RoleSchemaClass`, `ConfiguredRoleSchemaOptions`, `ConfiguredRoleSchemaClass`
+and `RoleSchemaOptions`; the private `DeclaredRoleFields`,
+`RoleResultCapabilities` and `RoleSchemaCapabilities` aliases are gone. Inside
+`define()` the field map is a function-local `Fields` alias and the result
+capabilities object is annotated with the reference intersection (neither is
+emitted). +28 production lines (2015 -> 2043).
+
+After the fix the audit reports, for `roles-plugin` and its usage sites
+(`typegen`, `tests`, `examples/*`): the unused `Relation` import specifier
+above (not visible), and `Simplify$1` instead of `Simplify` in the `role`
+usage hovers of `tests/role-schema-intellisense.test.ts` and
+`typegen/src/generator-role-language-service.test.ts`, which come from Core's
+declarations and are fixed with Core.
+
+Validation after the DX parity fixes (branch `rebuild/dx-fix-plugins`, all four
+plugin fixes together): `yarn build` pass (before and after `tsc --build`);
+`yarn vitest run --project unit --project types` 558 files, 2709 tests passed,
+no type errors; `--project e2e` on the four packages and `tests/e2e` (the
+`tests/e2e` filter also matches every `packages/*/tests/e2e`) 218 of 219
+passed, the known `create-app-packed` 120 s timeout passed alone (6 tests,
+51.8 s); `--project postgres-e2e` on the same filters 55 files, 191 tests
+passed (package-only filters: e2e 5 files / 8 tests, postgres-e2e 11 files /
+53 tests); `--project website-content` 17 files, 66 tests; `yarn
+test:pack:built` 32 files, 173 tests; eslint 0 errors (only the existing
+`max-lines` warnings), `prettier --check`, `tsc --build` and
+`tsc -p tsconfig.test.json` pass for the four packages.
 
 ## Removed checks and proofs
 

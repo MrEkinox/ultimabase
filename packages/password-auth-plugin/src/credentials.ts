@@ -31,9 +31,17 @@ type PasswordCredentialFields = Readonly<{
 	readonly username: StringField<RequiredFieldState<true>>
 }>
 
+const createCredentialFields = (): PasswordCredentialFields => ({
+	passwordVerifier: stringField({ required: true }),
+	policyVersion: intField({ required: true }),
+	sessionGeneration: intField({ required: true }),
+	userId: uuidField({ immutable: true, required: true }),
+	username: stringField({ immutable: true, required: true }),
+})
+
 /** Represents the exact package-private credential collection token. */
 export type PasswordCredentialCollection = PrivateCollection<
-	PasswordCredentialFields,
+	ReturnType<typeof createCredentialFields>,
 	readonly [
 		Readonly<{ readonly fields: readonly ['username'] }>,
 		Readonly<{ readonly fields: readonly ['userId'] }>,
@@ -65,13 +73,7 @@ export const createPasswordCredentialCollection = (
 ): PasswordCredentialCollection =>
 	definePrivateCollection({
 		contributionId: 'credentials',
-		fields: {
-			passwordVerifier: stringField({ required: true }),
-			policyVersion: intField({ required: true }),
-			sessionGeneration: intField({ required: true }),
-			userId: uuidField({ immutable: true, required: true }),
-			username: stringField({ immutable: true, required: true }),
-		},
+		fields: createCredentialFields(),
 		indexes: [{ fields: ['username'] }, { fields: ['userId'] }] as const,
 		normalizedStaticOptions: {
 			passwordPolicy: {

@@ -4,11 +4,57 @@ Reference snapshot: `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`.
 
 ## Production lines (`node tooling/measure-rebuild.mjs .`)
 
-|        | Lines          |
-| ------ | -------------- |
-| Before | 4145           |
-| After  | 3109           |
-| Delta  | -1036 (-25.0%) |
+|        | Lines         |
+| ------ | ------------- |
+| Before | 4145          |
+| After  | 3447          |
+| Delta  | -698 (-16.8%) |
+
+The previous figure here (3109) did not match the measurement script: on the
+tree before the DX parity fixes `node tooling/measure-rebuild.mjs .` reports
+3421 production lines; the fixes below add 26 (3421 -> 3447).
+
+## DX parity fixes
+
+`tooling/rebuild/dx-audit.mjs` (see `docs/rebuild/DX-AUDIT.md`) found
+editor-visible differences caused by private type simplifications. The
+reference type declarations were restored verbatim (types only, runtime
+unchanged, +26 production lines):
+
+- `plugin.ts`: the private `HooksSource` alias. Without it the `HooksPlugin`
+  hover printed `source: PluginDeclarationSource<PluginDeclarationContribution<readonly [], HooksOptionSource>>`
+  instead of `source: HooksOptionSource`.
+- `authoring/contracts.ts`: the private `SchemaBeforeMutationInputForKind`
+  alias, which `SchemaBeforeMutationHook`'s `input` parameter (and its hover)
+  names.
+- `authoring/schema-mutation-contracts.ts`: the separate
+  `SchemaMutationBeforeOperationHooks` / `SchemaMutationAfterOperationHooks`
+  projections and the inline merges in `SchemaBeforeOperationHooks` /
+  `SchemaAfterOperationHooks`. The private `CombineOperationHooks` helper
+  reordered the key union in hovers (custom mutation keys first instead of
+  the native lifecycle keys first), visible
+  on the two exported aliases, their members, and `SchemaHooks` /
+  `SchemaHooksOption.beforeOperation` / `.afterOperation`.
+- `authoring/source-contracts.ts`: the private `SourceHandler` and
+  `SourceHandlerDeclaration` aliases used by `SourceFieldHooksOption`.
+
+After the fix the audit reports no `hooks-plugin` difference except the
+usage hovers of `item` / `originalItem` in `src/schema-mutation-hooks.test-d.ts`
+(8 sites), which differ only by Core's private `Simplify$1` alias name
+(`@ultimabase/core` declarations); they are fixed with Core, not here.
+
+Validation after the DX parity fixes (branch `rebuild/dx-fix-plugins`, all four
+plugin fixes together): `yarn build` pass (before and after `tsc --build`);
+`yarn vitest run --project unit --project types` 558 files, 2709 tests passed,
+no type errors; `--project e2e` on the four packages and `tests/e2e` (the
+`tests/e2e` filter also matches every `packages/*/tests/e2e`) 218 of 219
+passed, the known `create-app-packed` 120 s timeout passed alone (6 tests,
+51.8 s); `--project postgres-e2e` on the same filters 55 files, 191 tests
+passed (package-only filters: e2e 5 files / 8 tests, postgres-e2e 11 files /
+53 tests); `--project website-content` 17 files, 66 tests; `yarn
+test:pack:built` 32 files, 173 tests; eslint 0 errors (only the existing
+`max-lines` warnings), `prettier --check`, `tsc --build` and
+`tsc -p tsconfig.test.json` pass for the four packages.
 
 ## Design summary
 
@@ -32,9 +78,9 @@ Module layout (28 production files before, 16 after):
 | `runtime/hook-context-runtime.ts`        | same                                                                                                                                   | Inlined the closed-context error factory and payload snapshot helper.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `runtime/lifecycle.ts`                   | `phase-order.ts`, `materializations.ts`                                                                                                | The phase table and item pairs (what runs for which terminal, with which items) are in one module. Boundary checks share `requireBoundary`.                                                                                                                                                                                                                                                                                                                                                                   |
 | `runtime/events.ts`                      | same                                                                                                                                   | `defineEvent` and `onEvent` share `assertExactOptions`. Trusted lookups share `readTrusted`. Messages are unchanged.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `authoring/source-contracts.ts`          | same                                                                                                                                   | Reuses `HookHandlerDeclaration` instead of re-declaring it.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `authoring/schema-mutation-contracts.ts` | same                                                                                                                                   | The duplicated before and after projections and merges became the private `SchemaMutationOperationHooks<TSchema, TTiming>` and `CombineOperationHooks`. The public `SchemaBeforeOperationHooks` and `SchemaAfterOperationHooks` are structurally identical.                                                                                                                                                                                                                                                   |
-| `authoring/contracts.ts`                 | same                                                                                                                                   | Inlined the single-use private alias `SchemaBeforeMutationInputForKind`.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `authoring/source-contracts.ts`          | same                                                                                                                                   | Unchanged (the reuse of `HookHandlerDeclaration` was reverted for hover parity, see DX parity fixes).                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `authoring/schema-mutation-contracts.ts` | same                                                                                                                                   | Unchanged (the merged `SchemaMutationOperationHooks`/`CombineOperationHooks` were reverted for hover parity, see DX parity fixes).                                                                                                                                                                                                                                                                                                                                                                            |
+| `authoring/contracts.ts`                 | same                                                                                                                                   | Unchanged (the inlined `SchemaBeforeMutationInputForKind` alias was restored for hover parity, see DX parity fixes).                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Internal-only mechanisms that are still asserted by internal tests were kept,
 in compact form:

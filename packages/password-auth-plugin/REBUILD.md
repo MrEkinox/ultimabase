@@ -13,8 +13,8 @@ Measured with `node tooling/measure-rebuild.mjs .` (non-blank production lines):
 |        | Lines        |
 | ------ | ------------ |
 | Before | 3567         |
-| After  | 3359         |
-| Change | -208 (-5.8%) |
+| After  | 3366         |
+| Change | -201 (-5.6%) |
 
 About 40% of what remains is public contract: the operation, result and
 policy types and their JSDoc, the `PasswordUserSchema.define` overloads,
@@ -24,6 +24,44 @@ constants, and the literal error, path and permission vocabulary. Every
 production module is still pinned by a deep import from `tests/` or from a
 website page `sources` list, so modules were simplified in place instead of
 being merged away.
+
+## DX parity fixes
+
+`tooling/rebuild/dx-audit.mjs` (see `docs/rebuild/DX-AUDIT.md`) found that
+inlining the private operation constants changed the editor hover of
+`passwordAuthOperations`: the reference prints the first members in full and
+abbreviates the rest (`PluginOperationDefinition<...>`), with
+`PasswordAuthenticationResult<PasswordUserReference>` spelled out, while the
+rebuild printed all six definitions in full. Restored reference declaration
+shapes (runtime unchanged, +7 production lines, 3359 -> 3366):
+
+- `operations.ts`: the six private `*Operation` constants with their explicit
+  `PluginOperationDefinition<...>` annotations, and `passwordAuthOperations`
+  typed through `typeof` those constants. The constants are still built by
+  the single `authOperation` helper.
+- `credentials.ts` / `sessions.ts`: the private `createCredentialFields` /
+  `createSessionFields` factories, the collection tokens typed with
+  `ReturnType<typeof ...>`, and the reference `RequiredFieldState` /
+  `OptionalFieldState` aliases (instead of one two-parameter `FieldState`).
+- `operation-handlers.ts`: `PasswordOperationHandlerOptions<TUser>` and the
+  generic `createPasswordOperationHandlers<TUser>(options)` signature.
+
+After the fix the audit reports 0 differences for `password-auth-plugin`
+(declarations, exports, export and member hovers, usage hovers, completions
+and diagnostics).
+
+Validation after the DX parity fixes (branch `rebuild/dx-fix-plugins`, all four
+plugin fixes together): `yarn build` pass (before and after `tsc --build`);
+`yarn vitest run --project unit --project types` 558 files, 2709 tests passed,
+no type errors; `--project e2e` on the four packages and `tests/e2e` (the
+`tests/e2e` filter also matches every `packages/*/tests/e2e`) 218 of 219
+passed, the known `create-app-packed` 120 s timeout passed alone (6 tests,
+51.8 s); `--project postgres-e2e` on the same filters 55 files, 191 tests
+passed (package-only filters: e2e 5 files / 8 tests, postgres-e2e 11 files /
+53 tests); `--project website-content` 17 files, 66 tests; `yarn
+test:pack:built` 32 files, 173 tests; eslint 0 errors (only the existing
+`max-lines` warnings), `prettier --check`, `tsc --build` and
+`tsc -p tsconfig.test.json` pass for the four packages.
 
 ## Design summary
 
@@ -35,7 +73,7 @@ being merged away.
 | `session.ts`                    | The `WeakSet` of package sessions and the `WeakMap` of their generations became one `WeakMap` whose membership marks package ownership. `createPasswordAuthenticationResult` was folded into `readPasswordAuthenticationResult`.                                                                                                                                                                                                                                                                                |
 | `authentication-result.ts`      | Holds `readPasswordAuthenticationResult` and the shared `readPasswordProfile`. The identical `NOT_FOUND` profile read in `user-auth-methods.ts` now uses the same helper. The principal placed in the read context is reused in the result.                                                                                                                                                                                                                                                                     |
 | `password-hasher.ts`            | `verifyNormalizedPassword` was inlined into `verifyNormalizedPasswordOrDummy`. The dummy verification still runs in full and its outcome is masked.                                                                                                                                                                                                                                                                                                                                                             |
-| `operations.ts`                 | The six operation declarations go through one typed `authOperation(name, transaction, input, result, errors)` helper (namespace, version and target fixed in one place); the exact `PluginOperationDefinition` types now annotate `passwordAuthOperations` directly. The four rejections come from one `rejection(code, message, publicMessage)` factory. REST decoders share `decodePasswordAuthInput(contract, path, reject?)`; REST paths are derived from the operation name.                               |
+| `operations.ts`                 | The six operation declarations go through one typed `authOperation(name, transaction, input, result, errors)` helper (namespace, version and target fixed in one place); each result annotates one private `*Operation` constant (kept for hover parity, see DX parity fixes). The four rejections come from one `rejection(code, message, publicMessage)` factory. REST decoders share `decodePasswordAuthInput(contract, path, reject?)`; REST paths are derived from the operation name.                     |
 | `graphql-operation-bindings.ts` | GraphQL type metadata is built with `graphqlField(name, typeName)` and `graphqlType(kind, name, fields)`. Decoders use `decodePasswordAuthInput`.                                                                                                                                                                                                                                                                                                                                                               |
 | `http-cookie-routes.ts`         | The bind-once executor object became a closure variable. The three route builders (`authenticationRoute`, `changePasswordRoute`, `logoutRoute`) and `readAuthenticationInput` became one `route(key)` with `readInput` (body rejections in one map) and `respond` (a `switch` on the operation name). The six HTTP binding contributions come from `Object.values(passwordAuthOperations)` (same order).                                                                                                        |
 | `http-session-resolver.ts`      | The cookie parser returns `readonly string[] \| undefined` (absent) instead of a frozen `{ present, values }` record.                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -65,9 +103,9 @@ option sets (valid and invalid), the hash policy for 10 inputs, and the HTTP
 options for 8 inputs. The only difference was the bundler renaming the
 private `SignUpBytes` class in the comparison bundle. The emitted
 `dist/index.d.ts` was compared with the reference build: the export list is
-identical; the only differences are private aliases (the six private
-`declare const xOperation` are now inlined into `passwordAuthOperations`,
-`RequiredFieldState`/`OptionalFieldState` became `FieldState`).
+identical. The private-alias differences found at that time changed editor
+hovers and were reverted (see DX parity fixes); the declaration file now
+matches the reference.
 
 ## `as` casts
 
@@ -140,7 +178,7 @@ None found.
 | `yarn vitest run --project website-content`                                    | 17 files, 66 tests passed                                                                                                                                                                         |
 | `examples/minimal`: `yarn typecheck && yarn check-generated-types`             | pass                                                                                                                                                                                              |
 | `yarn test:pack:built`                                                         | 32 files, 173 tests passed (includes `password-auth-plugin.e2e.test.ts`)                                                                                                                          |
-| `yarn eslint packages/password-auth-plugin`                                    | 0 errors, 2 `max-lines` warnings: `src/operations.ts` (487 physical lines, under the 600 budget; the reference was 488) and the unchanged `tests/e2e/password-http-sessions.postgres.e2e.test.ts` |
+| `yarn eslint packages/password-auth-plugin`                                    | 0 errors, 2 `max-lines` warnings: `src/operations.ts` (484 physical lines, under the 600 budget; the reference was 488) and the unchanged `tests/e2e/password-http-sessions.postgres.e2e.test.ts` |
 | `yarn prettier --check packages/password-auth-plugin`                          | pass                                                                                                                                                                                              |
 | `yarn tsc --build packages/password-auth-plugin`                               | pass                                                                                                                                                                                              |
 | `yarn tsc -p packages/password-auth-plugin/tsconfig.test.json`                 | pass                                                                                                                                                                                              |

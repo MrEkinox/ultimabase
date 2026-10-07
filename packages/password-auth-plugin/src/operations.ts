@@ -253,103 +253,100 @@ const authOperation = <
 		version: '1.0.0',
 	})
 
+// Credential and password work stays outside transactions; each handler opens
+// its own short transaction after hashing.
+const loginOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.login',
+	'1.0.0',
+	'application',
+	PasswordCredentialsInput,
+	PasswordAuthenticationResult,
+	readonly ['PASSWORD_AUTH_INVALID_CREDENTIALS']
+> = authOperation(
+	'login',
+	'forbidden',
+	credentialsInput,
+	authenticationResult,
+	[passwordAuthErrorCodes.invalidCredentials],
+)
+const logoutOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.logout',
+	'1.0.0',
+	'application',
+	null,
+	PasswordLogoutResult,
+	readonly ['PASSWORD_AUTH_INVALID_SESSION']
+> = authOperation('logout', 'required', nullInput, logoutResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
+const logoutEverywhereOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.logout-everywhere',
+	'1.0.0',
+	'application',
+	null,
+	PasswordLogoutResult,
+	readonly ['PASSWORD_AUTH_INVALID_SESSION']
+> = authOperation('logout-everywhere', 'required', nullInput, logoutResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
+const changePasswordOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.change-password',
+	'1.0.0',
+	'application',
+	PasswordChangeInput,
+	PasswordChangeResult,
+	readonly [
+		'PASSWORD_AUTH_INVALID_SESSION',
+		'PASSWORD_AUTH_PASSWORD_CHANGE_REJECTED',
+	]
+> = authOperation(
+	'change-password',
+	'forbidden',
+	passwordChangeInput,
+	passwordChangeResult,
+	[
+		passwordAuthErrorCodes.invalidSession,
+		passwordAuthErrorCodes.passwordChangeRejected,
+	],
+)
+const refreshOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.refresh',
+	'1.0.0',
+	'application',
+	null,
+	PasswordAuthenticationResult,
+	readonly ['PASSWORD_AUTH_INVALID_SESSION']
+> = authOperation('refresh', 'required', nullInput, authenticationResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
+const signUpOperation: PluginOperationDefinition<
+	'ultimabase.password-auth.sign-up',
+	'1.0.0',
+	'application',
+	PasswordSignUpInput,
+	PasswordAuthenticationResult,
+	readonly ['PASSWORD_AUTH_SIGN_UP_REJECTED']
+> = authOperation('sign-up', 'forbidden', signUpInput, authenticationResult, [
+	passwordAuthErrorCodes.signUpRejected,
+])
+
+// The `typeof` members keep the reference hover, which prints each operation
+// through its named private constant.
 /** Exposes the six nominal transport-neutral Password Auth operations. */
 export const passwordAuthOperations: Readonly<{
-	readonly changePassword: PluginOperationDefinition<
-		'ultimabase.password-auth.change-password',
-		'1.0.0',
-		'application',
-		PasswordChangeInput,
-		PasswordChangeResult,
-		readonly [
-			'PASSWORD_AUTH_INVALID_SESSION',
-			'PASSWORD_AUTH_PASSWORD_CHANGE_REJECTED',
-		]
-	>
-	readonly login: PluginOperationDefinition<
-		'ultimabase.password-auth.login',
-		'1.0.0',
-		'application',
-		PasswordCredentialsInput,
-		PasswordAuthenticationResult,
-		readonly ['PASSWORD_AUTH_INVALID_CREDENTIALS']
-	>
-	readonly logout: PluginOperationDefinition<
-		'ultimabase.password-auth.logout',
-		'1.0.0',
-		'application',
-		null,
-		PasswordLogoutResult,
-		readonly ['PASSWORD_AUTH_INVALID_SESSION']
-	>
-	readonly logoutEverywhere: PluginOperationDefinition<
-		'ultimabase.password-auth.logout-everywhere',
-		'1.0.0',
-		'application',
-		null,
-		PasswordLogoutResult,
-		readonly ['PASSWORD_AUTH_INVALID_SESSION']
-	>
-	readonly refresh: PluginOperationDefinition<
-		'ultimabase.password-auth.refresh',
-		'1.0.0',
-		'application',
-		null,
-		PasswordAuthenticationResult,
-		readonly ['PASSWORD_AUTH_INVALID_SESSION']
-	>
-	readonly signUp: PluginOperationDefinition<
-		'ultimabase.password-auth.sign-up',
-		'1.0.0',
-		'application',
-		PasswordSignUpInput,
-		PasswordAuthenticationResult,
-		readonly ['PASSWORD_AUTH_SIGN_UP_REJECTED']
-	>
+	readonly changePassword: typeof changePasswordOperation
+	readonly login: typeof loginOperation
+	readonly logout: typeof logoutOperation
+	readonly logoutEverywhere: typeof logoutEverywhereOperation
+	readonly refresh: typeof refreshOperation
+	readonly signUp: typeof signUpOperation
 }> = immutableRecord({
-	// Credential and password work stays outside transactions; each handler
-	// opens its own short transaction after hashing.
-	changePassword: authOperation(
-		'change-password',
-		'forbidden',
-		passwordChangeInput,
-		passwordChangeResult,
-		[
-			passwordAuthErrorCodes.invalidSession,
-			passwordAuthErrorCodes.passwordChangeRejected,
-		],
-	),
-	login: authOperation(
-		'login',
-		'forbidden',
-		credentialsInput,
-		authenticationResult,
-		[passwordAuthErrorCodes.invalidCredentials],
-	),
-	logout: authOperation('logout', 'required', nullInput, logoutResult, [
-		passwordAuthErrorCodes.invalidSession,
-	]),
-	logoutEverywhere: authOperation(
-		'logout-everywhere',
-		'required',
-		nullInput,
-		logoutResult,
-		[passwordAuthErrorCodes.invalidSession],
-	),
-	refresh: authOperation(
-		'refresh',
-		'required',
-		nullInput,
-		authenticationResult,
-		[passwordAuthErrorCodes.invalidSession],
-	),
-	signUp: authOperation(
-		'sign-up',
-		'forbidden',
-		signUpInput,
-		authenticationResult,
-		[passwordAuthErrorCodes.signUpRejected],
-	),
+	changePassword: changePasswordOperation,
+	login: loginOperation,
+	logout: logoutOperation,
+	logoutEverywhere: logoutEverywhereOperation,
+	refresh: refreshOperation,
+	signUp: signUpOperation,
 })
 
 /** Lists every Password Auth operation for explicit transport exposure. */

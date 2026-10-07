@@ -249,6 +249,16 @@ export type SchemaAfterMutationHookInput<
 			SchemaAfterMutationItemsForKind<TSchema, TOperation['kind']>
 	: never
 
+type SchemaBeforeMutationInputForKind<
+	TSchema extends SchemaDefinition,
+	TKind extends SchemaBeforeOperationHookKind,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+> = SchemaBeforeMutationHookInput<
+	TSchema,
+	SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
+>
+
 /** Transforms one directed mutation after its visible preimage is stable. */
 export type SchemaResolveHook<
 	TSchema extends SchemaDefinition,
@@ -279,9 +289,11 @@ export type SchemaBeforeMutationHook<
 	const TSelectedField extends QueryFieldName<TSchema>,
 	const TIncludedPointer = never,
 >(
-	input: SchemaBeforeMutationHookInput<
+	input: SchemaBeforeMutationInputForKind<
 		TSchema,
-		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
+		TKind,
+		TSelectedField,
+		TIncludedPointer
 	>,
 ) => MaybePromise<void>
 
