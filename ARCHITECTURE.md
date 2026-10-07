@@ -29,7 +29,7 @@ whole rebuild. The rebuild rewrote internal implementations only:
   Editor-visible parity is audited by `tooling/rebuild/dx-audit.mjs`
   ([DX-AUDIT.md](docs/rebuild/DX-AUDIT.md)), and the validation correspondence
   is in [`docs/rebuild/VALIDATIONS.md`](docs/rebuild/VALIDATIONS.md).
-- Production code went from 114,742 to 103,702 non-blank lines (731 to 619
+- Production code went from 114,742 to 104,141 non-blank lines (731 to 622
   files, `node tooling/measure-rebuild.mjs`). Test code keeps its size (127,477
   lines): public tests are unchanged, and internal tests beside the source only
   had import specifiers updated. The published runtime dependencies are the

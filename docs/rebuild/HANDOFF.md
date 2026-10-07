@@ -1,6 +1,6 @@
 # Passation de la reconstruction UltimaBase
 
-Dernière mise à jour : 2026-10-07. Ce document permet à une nouvelle session de
+Dernière mise à jour : 2026-10-08. Ce document permet à une nouvelle session de
 reprendre la reconstruction sans le contexte de la session précédente.
 
 ## Mission (résumé du cahier des charges initial)
@@ -47,6 +47,23 @@ Outils :
   les tests. `tsc --build` écrase les `dist` des packages référencés, il faut donc
   relancer `yarn build` après.
 
+## État final au 2026-10-08 : reconstruction terminée
+
+- **Tout est fusionné dans `main`** : Core (5 périmètres + passe d'intégration + parité
+  DX) et les 22 autres packages. Aucune branche WIP en cours ; les branches `rebuild/*`
+  restent comme historique et ne sont pas poussées.
+- **Validation complète sur machine calme** (2026-10-08, référence puis reconstruction,
+  une à la fois) : `yarn validate:full`, `yarn test:e2e` et `yarn test:pack` passent sur
+  les deux arbres avec des nombres de tests identiques (couverture comprise). Résultats
+  exacts : [VALIDATIONS.md](VALIDATIONS.md).
+- **Audit DX final** : 2 différences sur 35 775 enregistrements, aucune visible.
+- **Tests** : aucun test public ni `*.test-d.ts` modifié ; 27 tests internes ne diffèrent
+  que par leurs spécificateurs d'import ([CAPABILITIES.md](CAPABILITIES.md), section
+  « Unchanged test oracle »).
+- **Rapport final** : [RAPPORT_FINAL.md](RAPPORT_FINAL.md).
+
+Les sections suivantes sont l'historique du déroulement.
+
 ## État au 2026-10-07
 
 ### Fusionné dans `main` (validé)
@@ -86,7 +103,7 @@ packages. Le détail figure dans leur `REBUILD.md`.
 | core / intégration      |      58 973 |      58 694 | Vérifications d’objets exacts, grammaires d’identifiants, snapshots d’identité et bindings de pipeline unifiés ; shims d’interfaces gelées retirés.                                    |
 | core / parité DX        |      58 694 |      59 126 | Déclarations de types de la référence restaurées (options de champs, résultats d’opérations, contextes de déclaration, ordre des modules pour `Simplify`) : audit DX 335 → 0.          |
 
-Total de la production (script de mesure) : **114 742 → 104 134 lignes** (main après la parité DX). Les tests sont
+Total de la production (script de mesure) : **114 742 → 104 141 lignes** (mesure finale, main `f6b0f5a`). Les tests sont
 inchangés (127 476 lignes).
 
 Les 5 périmètres de Core sont fusionnés (2026-10-07). Main intégré, validé par le
