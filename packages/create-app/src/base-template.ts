@@ -79,6 +79,7 @@ const scriptCommand = (
 	return `${manager} ${script}`
 }
 
+/** One `.use(entry)` line per plugin entry, appended to a factory expression. */
 const useChain = (entries: readonly string[]): string =>
 	entries.map((entry) => `\n  .use(${entry})`).join('')
 

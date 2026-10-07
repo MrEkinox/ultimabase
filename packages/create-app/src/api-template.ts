@@ -61,12 +61,11 @@ export const apiSchemaPluginImports = (plan: InitializerPlan): string[] => [
 		['rest-plugin', 'restPlugin'],
 		['graphql-plugin', 'graphqlPlugin'],
 	]),
-	...included([
-		[
-			hasPublishedAuth(plan),
-			"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
-		],
-	]),
+	...(hasPublishedAuth(plan)
+		? [
+				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
+			]
+		: []),
 ]
 
 export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>

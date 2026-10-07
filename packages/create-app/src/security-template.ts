@@ -26,12 +26,9 @@ export const securitySchemaImports = (plan: InitializerPlan): string[] => [
 		['password-auth-plugin', 'PasswordUserSchema'],
 		['roles-plugin', 'RoleSchema, rolesPlugin'],
 	]),
-	...included([
-		[
-			has(plan, 'roles-plugin') && hasAuth(plan),
-			"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
-		],
-	]),
+	...(has(plan, 'roles-plugin') && hasAuth(plan)
+		? ["import { passwordPrincipal } from '@ultimabase/password-auth-plugin'"]
+		: []),
 ]
 
 /** Installs security plugins once on the schema-owning application factory. */
