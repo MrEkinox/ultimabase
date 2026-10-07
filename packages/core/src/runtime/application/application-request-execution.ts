@@ -3,7 +3,7 @@ import type {
 	MasterRequestAccess,
 } from '../../access/index.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 import {
 	executeOperation,
 	normalizeOperationOptions,
@@ -22,11 +22,7 @@ import {
 } from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type { PluginIdentity } from '../../plugins/manifest.js'
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -172,14 +168,10 @@ const enterBoundFramework = (
 const assertMasterVerificationOptions: (
 	options: unknown,
 ) => asserts options is ApplicationMasterKeyVerificationOptions = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'Master key verification options must be a plain object',
-		)
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		masterVerificationOptionKeys,
+		'Master key verification options must be a plain object',
 		'Master key verification contains unknown option: ',
 	)
 	assertNonEmptyString(options.rawKey, 'Master key')

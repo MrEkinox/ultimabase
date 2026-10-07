@@ -2,10 +2,9 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import { Schema, type SchemaDefinition } from '../schema/schema/definition.js'
@@ -196,13 +195,11 @@ export const createApplicationSurfaceRegistrars = (
 	return immutableRecord({
 		models: immutableRecord({
 			extend: (target, options) => {
-				if (!isPlainRecord(options)) {
-					throw new TypeError('model surface must be a plain object')
-				}
 				// Removed command maps must fail for JavaScript callers instead of becoming inert options.
-				assertExactEnumerableKeys(
+				assertExactEnumerablePlainObject(
 					options,
 					new Set(['contributionId', 'schemaMutations', 'staticOptions']),
+					'model surface must be a plain object',
 					'model surface contains unknown option: ',
 				)
 				assertNonEmptyString(

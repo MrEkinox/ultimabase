@@ -10,12 +10,14 @@ import { OutputBuilderMethodUnavailableError } from '../output/builder.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
 	createSchemaModelCapabilityContext,
-	createSchemaModelClass,
 	finalizeSchemaModelClass,
-	type SchemaDraft,
-	type SchemaModelCapabilityContext,
-	type SchemaResultCapabilityCarrier,
-} from './model.js'
+} from './model-capabilities.js'
+import { createSchemaModelClass } from './model-class.js'
+import type {
+	SchemaDraft,
+	SchemaModelCapabilityContext,
+	SchemaResultCapabilityCarrier,
+} from './model-contracts.js'
 import {
 	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
@@ -26,10 +28,12 @@ import type { SystemFields } from './system-fields.js'
 import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
-	FieldBuilderMethodUnavailableError,
-	FieldBuilderTargetUnavailableError,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
+import {
+	FieldBuilderMethodUnavailableError,
+	FieldBuilderTargetUnavailableError,
+} from './runtime-field-builder.js'
 import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
@@ -53,14 +57,6 @@ import {
 	storeSchemaDeclaration,
 } from './definition-compilation.js'
 
-export { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
-export {
-	finalizeSchemaCompilation,
-	prepareSchemaCompilation,
-	SchemaCompilationError,
-	validateSchemaCompilation,
-} from './definition-compilation.js'
-export type { SchemaCompilationFailureReason } from './definition-compilation.js'
 export type {
 	ConfiguredFieldDeclaration,
 	ConfiguredSchemaDeclarationOptions,

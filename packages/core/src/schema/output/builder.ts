@@ -4,7 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../../exact-object-validation.js'
+import { assertExactPlainObject } from '../../exact-object-validation.js'
 import { createCapturedBuilderCallRegistry } from '../captured-builder-call.js'
 
 import type { GenericField } from '../fields/base/contract.js'
@@ -162,13 +162,10 @@ const normalizeOutputOptions = (
 	specificOptionNames: readonly string[] = [],
 ): NormalizedOutputOptionsInput => {
 	const options = value === undefined ? immutableRecord({}) : value
-	if (!isPlainRecord(options)) {
-		throw new TypeError(`${path} options must be a plain object`)
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set<string>([...commonOptionNames, ...specificOptionNames]),
+		`${path} options must be a plain object`,
 		`${path} does not support output option `,
 	)
 

@@ -42,12 +42,6 @@ import {
 	validateUpsertCreateInput,
 } from './runtime-mutation-validation.js'
 
-export {
-	throwRuntimeValidationIssues,
-	type RuntimeValidationErrorDescription,
-	type RuntimeValidationIssue,
-} from './runtime-field-validation.js'
-
 const mutationKinds: ReadonlySet<string> = new Set([
 	'create-one',
 	'create-many',

@@ -2,9 +2,9 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
+import { assertConstraintKind } from '../schema/schema/constraints.js'
 
 import { FrameworkError } from '../errors/framework-error.js'
 
@@ -74,22 +74,7 @@ interface CreatePluginConstraintCompilerRegistryOptions {
 
 const definitionOptionKeys = new Set(['adapter', 'kind', 'version'])
 const adapterPattern = /^[a-z][a-z0-9-]*$/u
-const constraintKindPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u
 const definitions = new WeakSet<object>()
-
-/** Keeps node and compiler factories aligned on one namespaced-kind grammar. */
-export const assertDatabaseConstraintKind: (
-	value: unknown,
-	path: string,
-) => asserts value is string = (value, path) => {
-	assertNonEmptyString(value, path)
-
-	if (!constraintKindPattern.test(value)) {
-		throw new TypeError(
-			`${path} must use lowercase dot-separated namespace segments`,
-		)
-	}
-}
 
 /** Keeps node and compiler identities aligned on one version contract. */
 export const assertDatabaseConstraintVersion: (
@@ -136,15 +121,10 @@ export const defineDatabaseConstraintCompiler = <
 ): DatabaseConstraintCompilerDefinition<TAdapter, TKind, TVersion> => {
 	const untrustedOptions: unknown = options
 
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError(
-			'database constraint compiler options must be a plain object',
-		)
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		untrustedOptions,
 		definitionOptionKeys,
+		'database constraint compiler options must be a plain object',
 		'database constraint compiler contains unknown key: ',
 	)
 
@@ -152,7 +132,7 @@ export const defineDatabaseConstraintCompiler = <
 		untrustedOptions.adapter,
 		'database constraint compiler adapter',
 	)
-	assertDatabaseConstraintKind(
+	assertConstraintKind(
 		untrustedOptions.kind,
 		'database constraint compiler kind',
 	)

@@ -4,7 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import type { PluginDefinition } from '../plugins/definition.js'
 import type { PluginGraph } from '../plugins/graph.js'
 import {
@@ -171,13 +171,10 @@ const normalizeScope = (
 	path: string,
 	acceptedKeys: ReadonlySet<string> = policyScopeKeys,
 ): NormalizedPolicyScope => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		value,
 		acceptedKeys,
+		`${path} must be a plain object`,
 		`${path} contains unknown option: `,
 	)
 
@@ -199,15 +196,10 @@ const normalizeLogger = (value: unknown): PluginPrivilegeLogger | false => {
 	if (value === undefined) return defaultPluginPrivilegeLogger
 	if (value === false) return false
 
-	if (!isPlainRecord(value)) {
-		throw new TypeError(
-			'pluginPrivileges.logger must be false or a plain object',
-		)
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		value,
 		new Set(['error', 'info']),
+		'pluginPrivileges.logger must be false or a plain object',
 		'pluginPrivileges.logger contains unknown option: ',
 	)
 	if (typeof value.info !== 'function') {

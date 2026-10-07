@@ -1,9 +1,7 @@
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
-import {
-	areSchemaDeclarationValuesCompatible,
-	Schema,
-} from '../../schema/schema/definition.js'
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
+import { Schema } from '../../schema/schema/definition.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import { assertVirtualFieldDefinition } from '../../schema/schema/virtual-field.js'
 import { assertOutputDescriptor } from '../../schema/output/descriptor.js'

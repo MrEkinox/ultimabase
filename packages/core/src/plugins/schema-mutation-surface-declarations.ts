@@ -5,7 +5,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 
 import {
 	isPluginSchemaMutationDefinition,
@@ -42,14 +42,10 @@ export const snapshotSchemaMutationMap = (
 				`schema mutation command name must be a TypeScript and GraphQL identifier: ${name}`,
 			)
 		}
-		if (!isPlainRecord(binding)) {
-			throw new TypeError(
-				`schema mutation ${name} binding must be a plain object`,
-			)
-		}
-		assertExactEnumerableKeys(
+		assertExactEnumerablePlainObject(
 			binding,
 			new Set(['mutation', 'surfaces']),
+			`schema mutation ${name} binding must be a plain object`,
 			`schema mutation ${name} binding contains unknown option: `,
 		)
 		if (!isPluginSchemaMutationDefinition(binding.mutation)) {

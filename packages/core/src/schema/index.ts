@@ -152,7 +152,9 @@ export type {
 } from './fields/builtins/json.js'
 export { floatField } from './fields/builtins/float.js'
 export type { FloatField, FloatFieldOptions } from './fields/builtins/float.js'
-export { Schema, SchemaCompilationError } from './schema/definition.js'
+export { Schema } from './schema/definition.js'
+export { SchemaCompilationError } from './schema/definition-compilation.js'
+export type { SchemaCompilationFailureReason } from './schema/definition-compilation.js'
 export { defineSchemaConstraint } from './schema/constraints.js'
 export type { SchemaConstraintDefinition } from './schema/constraints.js'
 export type {
@@ -208,7 +210,6 @@ export type {
 	SchemaReference,
 	SchemaFields,
 	SchemaVirtualFields,
-	SchemaCompilationFailureReason,
 	SchemaMetadata,
 	SchemaOptions,
 	SchemaStaticCapabilities,
@@ -358,7 +359,7 @@ export type {
 	SchemaResult,
 	SchemaResultCommands,
 	SchemaResultRelations,
-} from './schema/model.js'
+} from './schema/model-contracts.js'
 export {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,

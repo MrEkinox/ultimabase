@@ -5,7 +5,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import {
 	assertFieldDefinition,
 	forbidFieldMutationInput,
@@ -50,12 +50,10 @@ export const addSchemaField = <
 		? ForbiddenMutationInputField<TField>
 		: TField
 > => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Schema field addition must be a plain object')
-	}
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set(['contributionId', 'field', 'mutationInput', 'name']),
+		'Schema field addition must be a plain object',
 		'Unknown Schema field addition key: ',
 	)
 
@@ -112,13 +110,11 @@ export const addSchemaIndex = (
 export const setSchemaOption = (
 	options: Omit<SetSchemaOptionOperation, 'kind'>,
 ): SetSchemaOptionOperation => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Schema option patch must be a plain object')
-	}
 	// Additive setters cannot accept the retired existing-owner replacement target.
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set(['contributionId', 'name', 'value']),
+		'Schema option patch must be a plain object',
 		'Unknown Schema option patch key: ',
 	)
 	assertNonEmptyString(options.contributionId, 'Schema option contributionId')
@@ -137,12 +133,10 @@ export const setSchemaOption = (
 export const setSchemaFieldOption = (
 	options: Omit<SetSchemaFieldOptionOperation, 'kind'>,
 ): SetSchemaFieldOptionOperation => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Schema field option patch must be a plain object')
-	}
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set(['contributionId', 'field', 'name', 'value']),
+		'Schema field option patch must be a plain object',
 		'Unknown Schema field option patch key: ',
 	)
 	assertNonEmptyString(

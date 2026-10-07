@@ -3,7 +3,7 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import {
 	prepareRuntimeVirtualFieldProjection,
 	projectRuntimePublicPersistedResult,

@@ -40,3 +40,19 @@ export const assertExactPlainObject: (
 	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
 	assertExactObjectKeys(value, keys, unknownKeyPrefix)
 }
+
+/** @internal Combines the shared plain-object and enumerable-key boundary. */
+export const assertExactEnumerablePlainObject: (
+	value: unknown,
+	keys: ReadonlySet<string>,
+	notPlainObject: string,
+	unknownKeyPrefix: string,
+) => asserts value is Record<string, unknown> = (
+	value,
+	keys,
+	notPlainObject,
+	unknownKeyPrefix,
+) => {
+	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
+	assertExactEnumerableKeys(value, keys, unknownKeyPrefix)
+}

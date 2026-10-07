@@ -33,7 +33,6 @@ import { readApplicationFacade } from '../context/current-ultima-base.js'
 import type { UltimaBase } from '../application/ultima-base.js'
 
 export { RequestEngine } from './request-engine.js'
-export type { RequestTransactionHandler } from './request-engine.js'
 
 /** Captures every application-owned dependency shared by its request engines. */
 export interface FrameworkEngineOptions<

@@ -7,7 +7,7 @@ import {
 } from '@ultimabase/shared'
 import { satisfies, validRange } from 'semver'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import {
 	assertCapabilityProviderDeclaration,
 	type CapabilityProviderDeclaration,
@@ -18,7 +18,6 @@ import {
 } from './capability-token.js'
 
 export {
-	assertCapabilityProviderDeclaration,
 	provideCapability,
 	runApplicationCapabilityFactory,
 } from './capability-providers.js'
@@ -26,16 +25,11 @@ export type {
 	ApplicationCapabilityFactory,
 	ApplicationCapabilityFactoryContext,
 	ApplicationCapabilityResource,
-	CapabilityContributionBase,
 	CapabilityProviderContribution,
 	CapabilityProviderDeclaration,
 	PluginCapabilityReader,
 } from './capability-providers.js'
-export {
-	assertCapabilityToken,
-	composeCapability,
-	defineCapability,
-} from './capability-token.js'
+export { composeCapability, defineCapability } from './capability-token.js'
 export type {
 	CapabilityCardinality,
 	CapabilityComposer,
@@ -81,12 +75,10 @@ const normalizeCapabilityRequirementPhase = (
 	if (options === undefined) return 'materialization'
 
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('capability requirement options must be a plain object')
-	}
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		untrustedOptions,
 		capabilityRequirementOptionKeys,
+		'capability requirement options must be a plain object',
 		'capability requirement options contains unknown option: ',
 	)
 	if (

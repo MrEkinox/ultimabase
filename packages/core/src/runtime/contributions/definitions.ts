@@ -3,13 +3,9 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import {
-	immutableRecord,
-	isPlainRecord,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -224,13 +220,11 @@ const defineRuntimeContribution = <
 	THandler
 > => {
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('runtime contribution options must be a plain object')
-	}
 	// Only enumerable string keys are option names; symbol keys are ignored.
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		untrustedOptions,
 		contributionOptionKeys,
+		'runtime contribution options must be a plain object',
 		'runtime contribution contains unknown key: ',
 	)
 	if (typeof options.handler !== 'function') {

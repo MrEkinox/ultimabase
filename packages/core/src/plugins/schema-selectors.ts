@@ -6,7 +6,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import {
+	assertExactObjectKeys,
+	assertExactPlainObject,
+} from '../exact-object-validation.js'
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
 import type {
@@ -17,7 +20,6 @@ import type {
 
 import {
 	applicationSchemaContributionOwner,
-	type ApplicationSchemaContributionOwner,
 	type SchemaContributionOwner,
 	type SchemaContributionOwnerReference,
 } from '../schema/schema/provenance.js'
@@ -28,13 +30,10 @@ import { type SchemaSelectorOptions } from './schema-patch-contracts.js'
 
 export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 	const untrustedSelector = selector
-	if (!isPlainRecord(untrustedSelector)) {
-		throw new TypeError('Schema selector must be a plain object')
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		untrustedSelector,
 		new Set(['className', 'field', 'option', 'owner']),
+		'Schema selector must be a plain object',
 		'Unknown schema selector key: ',
 	)
 
@@ -46,12 +45,10 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 	const fieldInput = untrustedSelector.field
 	let field: SchemaSelectorOptions['field']
 	if (fieldInput !== undefined) {
-		if (!isPlainRecord(fieldInput)) {
-			throw new TypeError('Schema selector field must be a plain object')
-		}
-		assertExactObjectKeys(
+		assertExactPlainObject(
 			fieldInput,
 			new Set(['kind', 'name']),
+			'Schema selector field must be a plain object',
 			'Unknown schema selector field key: ',
 		)
 		assertNonEmptyString(fieldInput.name, 'Schema selector field.name')
@@ -67,12 +64,10 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 	const optionInput = untrustedSelector.option
 	let option: SchemaSelectorOptions['option']
 	if (optionInput !== undefined) {
-		if (!isPlainRecord(optionInput)) {
-			throw new TypeError('Schema selector option must be a plain object')
-		}
-		assertExactObjectKeys(
+		assertExactPlainObject(
 			optionInput,
 			new Set(['equals', 'name', 'path', 'present']),
+			'Schema selector option must be a plain object',
 			'Unknown schema selector option key: ',
 		)
 		assertNonEmptyString(optionInput.name, 'Schema selector option.name')
@@ -132,7 +127,7 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 				new Set(['kind']),
 				'Unknown schema selector owner key: ',
 			)
-			owner = applicationOwner
+			owner = applicationSchemaContributionOwner
 		} else if (ownerInput.kind === 'plugin') {
 			assertExactObjectKeys(
 				ownerInput,
@@ -170,9 +165,6 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 		...(owner === undefined ? {} : { owner }),
 	})
 }
-
-export const applicationOwner: ApplicationSchemaContributionOwner =
-	applicationSchemaContributionOwner
 
 export const readDeclaredRuntimeCapability = (
 	reader: PluginCapabilityReader,

@@ -5,12 +5,10 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
-import {
-	assertDatabaseConstraintKind,
-	assertDatabaseConstraintVersion,
-} from '../../plugins/constraint-compilers.js'
+import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
+import { assertConstraintKind } from '../../schema/schema/constraints.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
 	DatabaseConstraintNode,
@@ -268,15 +266,11 @@ const defineEnforcement = <
 	options: EnforcementOptions<TSchema, TOperations, THandler>,
 ): EnforcementDefinition<TKind, TSchema, TOperations[number], THandler> => {
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError(
-			'enforcement contribution options must be a plain object',
-		)
-	}
 	// Only enumerable string keys are option names; symbol keys are ignored.
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		untrustedOptions,
 		optionKeys,
+		'enforcement contribution options must be a plain object',
 		'enforcement contribution contains unknown key: ',
 	)
 	if (typeof untrustedOptions.handler !== 'function') {
@@ -437,7 +431,7 @@ export const databaseConstraint = <
 	TVersion,
 	ImmutableDatabaseConstraintPayload<TPayload>
 > => {
-	assertDatabaseConstraintKind(kind, 'database constraint kind')
+	assertConstraintKind(kind, 'database constraint kind')
 	assertDatabaseConstraintVersion(version, 'database constraint version')
 
 	const detachedPayload = snapshotDatabaseConstraintPayload(

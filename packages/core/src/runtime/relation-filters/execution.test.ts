@@ -14,7 +14,7 @@ import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/record
 import { provideTestRuntimeConstraint } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { QueryBuilder } from '../../query/query/query.js'
 import { normalizeWhereInput } from '../../query/filters/where.js'
-import { materializeSchemaModel } from '../../schema/schema/model.js'
+import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { MasterAuthority } from '../master/master-authority.js'

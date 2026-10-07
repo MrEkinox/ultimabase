@@ -9,7 +9,10 @@ import {
 	type ValidationIssue,
 	type ValidationIssuePath,
 } from '../../schema/index.js'
-import { validateScalarFieldShape } from '../../schema/plans/scalar-shape-validation.js'
+import {
+	createValidationIssue,
+	validateScalarFieldShape,
+} from '../../schema/plans/scalar-shape-validation.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -36,20 +39,13 @@ export interface RuntimeValidationErrorDescription {
 	readonly publicMessage: string
 }
 
-const createIssue = (
-	code: AnyValidationIssueCode,
-	path: ValidationIssuePath,
-	message: string,
-): ValidationIssue<AnyValidationIssueCode> =>
-	immutableRecord({ code, path: immutableArray(path), message })
-
 export const appendIssue = (
 	execution: ValidationIssueSink,
 	code: AnyValidationIssueCode,
 	path: ValidationIssuePath,
 	message: string,
 ): void => {
-	execution.issues.push(createIssue(code, path, message))
+	execution.issues.push(createValidationIssue(code, path, message))
 }
 
 /** Raises one consistent transport-neutral error for structural and behavior issues. */

@@ -17,7 +17,7 @@ import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
-import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
+import { SchemaDeclarationRegistry } from '../plugins/schema-declaration-registry.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {

@@ -18,7 +18,7 @@ import type {
 	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
-import { createRuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import { createRuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
@@ -74,8 +74,6 @@ import {
 	enforceRuntimeOperation,
 } from './stage-inputs.js'
 import { finalizeRuntimeOperationResult } from './result-finalization.js'
-
-export type { RuntimeMutationBatchProjectionRequest } from './inclusion-projection.js'
 
 /** Identifies one Core-owned nested mutation while it uses the ordinary pipeline. */
 interface ActiveNestedWrite {

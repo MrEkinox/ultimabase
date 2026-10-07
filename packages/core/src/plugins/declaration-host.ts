@@ -26,11 +26,11 @@ import {
 	type PluginPrivilege,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
-import type { SchemaDeclarationRegistry } from './schema-declarations.js'
 import {
 	attachPluginDeclarationDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
-} from './schema-declarations.js'
+} from './schema-declaration-contracts.js'
+import type { SchemaDeclarationRegistry } from './schema-declaration-registry.js'
 import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 
 type RequiredCapability<TCapabilities> =

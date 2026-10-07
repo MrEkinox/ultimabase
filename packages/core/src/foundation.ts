@@ -193,35 +193,41 @@ export {
 	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
-	defineFieldOption,
-	defineSchemaOption,
 	setSchemaFieldOption,
 	setSchemaOption,
-} from './plugins/schema-declarations.js'
+} from './plugins/schema-field-patch-operations.js'
+export {
+	defineFieldOption,
+	defineSchemaOption,
+} from './plugins/schema-option-definitions.js'
+export type {
+	PluginSchemaDeclarationRegistrar,
+	PluginSchemaOptionSource,
+	PluginSchemaPatchSource,
+} from './plugins/schema-declaration-contracts.js'
+export type {
+	FieldOptionDefinition,
+	SchemaOptionDefinition,
+	SchemaOptionRuntimeCompilationContext,
+	SchemaOptionRuntimeCompiler,
+	SchemaOptionRuntimeRequirement,
+	SchemaOptionTypegenDescriptor,
+} from './plugins/schema-option-definitions.js'
 export type {
 	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
-	FieldOptionDefinition,
-	PluginSchemaDeclarationRegistrar,
-	PluginSchemaOptionSource,
-	PluginSchemaPatchSource,
-	SetSchemaFieldOptionOperation,
-	SetSchemaOptionOperation,
-	SchemaOptionDefinition,
 	SchemaOptionAbsenceSelector,
 	SchemaOptionEqualitySelector,
 	SchemaOptionPresenceSelector,
-	SchemaOptionRuntimeCompilationContext,
-	SchemaOptionRuntimeCompiler,
-	SchemaOptionRuntimeRequirement,
 	SchemaOptionSelector,
-	SchemaOptionTypegenDescriptor,
 	SchemaPatchOperation,
 	SchemaSelection,
 	SchemaSelectorOptions,
-} from './plugins/schema-declarations.js'
+	SetSchemaFieldOptionOperation,
+	SetSchemaOptionOperation,
+} from './plugins/schema-patch-contracts.js'
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'

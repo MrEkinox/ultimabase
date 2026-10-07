@@ -1,10 +1,6 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 
 const typegenReferenceBrand: unique symbol = Symbol('TypegenReference')
 const typegenReferences = new WeakSet<object>()
@@ -28,12 +24,10 @@ export const defineTypegenReference = <
 	readonly exportName: TExportName
 	readonly module: TModule
 }): TypegenReference<TModule, TExportName> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Typegen reference must be a plain object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		new Set(['exportName', 'module']),
+		'Typegen reference must be a plain object',
 		'Typegen reference contains unknown option: ',
 	)
 	assertNonEmptyString(options.module, 'Typegen reference module')

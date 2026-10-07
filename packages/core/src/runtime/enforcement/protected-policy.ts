@@ -1,11 +1,10 @@
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
@@ -167,12 +166,10 @@ export const protectedPolicy = <
 ): ProtectedPolicyDefinition<TSchema, TOperations[number]> => {
 	const candidate: unknown = options
 
-	if (!isPlainRecord(candidate)) {
-		throw new TypeError('protected policy options must be a plain object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		candidate,
 		optionKeys,
+		'protected policy options must be a plain object',
 		'protected policy contains unknown key: ',
 	)
 	if (options.schema !== undefined && !Schema.is(options.schema)) {
@@ -241,12 +238,10 @@ const effectKeys = new Set([
 export const normalizeProtectedPolicyEffects = (
 	value: unknown,
 ): ProtectedPolicyEffects => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('protected policy effects must be a plain object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		value,
 		effectKeys,
+		'protected policy effects must be a plain object',
 		'protected policy effects contain unknown key: ',
 	)
 	if (value.allowed !== undefined && typeof value.allowed !== 'boolean') {

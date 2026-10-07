@@ -28,7 +28,7 @@ import {
 	type PluginPrivilege,
 } from './manifest.js'
 import type { PluginOperationAuthoringContribution } from './plugin-command-contribution-contracts.js'
-import type { PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
+import type { PluginSchemaDeclarationRegistrar } from './schema-declaration-contracts.js'
 import type { PluginSetupContext } from './setup-registries.js'
 import type { TypegenReferenceRegistrar } from './typegen-declarations.js'
 import type {

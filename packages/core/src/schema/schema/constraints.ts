@@ -1,10 +1,6 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../../exact-object-validation.js'
+import { assertExactPlainObject } from '../../exact-object-validation.js'
 import { snapshotJsonValue, type JsonValue } from '../fields/builtins/json.js'
 
 /** Describes one adapter-neutral versioned logical schema constraint. */
@@ -24,6 +20,23 @@ export interface SchemaConstraintDefinition<
 const constraintKindPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u
 const schemaConstraints = new WeakSet<object>()
 
+/**
+ * Keeps schema constraints, database constraint nodes and compiler identities
+ * aligned on one namespaced-kind grammar.
+ */
+export const assertConstraintKind: (
+	value: unknown,
+	path: string,
+) => asserts value is string = (value, path) => {
+	assertNonEmptyString(value, path)
+
+	if (!constraintKindPattern.test(value)) {
+		throw new TypeError(
+			`${path} must use lowercase dot-separated namespace segments`,
+		)
+	}
+}
+
 /** Creates one nominal immutable portable constraint for schema patches. */
 export const defineSchemaConstraint = <
 	const TKind extends string,
@@ -32,22 +45,14 @@ export const defineSchemaConstraint = <
 >(
 	definition: SchemaConstraintDefinition<TKind, TVersion, TValue>,
 ): SchemaConstraintDefinition<TKind, TVersion, TValue> => {
-	if (!isPlainRecord(definition)) {
-		throw new TypeError('Schema constraint must be a plain object')
-	}
-
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		definition,
 		new Set(['kind', 'value', 'version']),
+		'Schema constraint must be a plain object',
 		'Unknown schema constraint key: ',
 	)
 
-	assertNonEmptyString(definition.kind, 'Schema constraint kind')
-	if (!constraintKindPattern.test(definition.kind)) {
-		throw new TypeError(
-			'Schema constraint kind must use lowercase dot-separated namespace segments',
-		)
-	}
+	assertConstraintKind(definition.kind, 'Schema constraint kind')
 	if (!Number.isSafeInteger(definition.version) || definition.version < 1) {
 		throw new RangeError(
 			'Schema constraint version must be a positive safe integer',

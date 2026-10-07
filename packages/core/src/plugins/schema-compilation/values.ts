@@ -7,7 +7,7 @@ import {
 } from '../../schema/fields/base/definition.js'
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import type { JsonValue } from '../../schema/fields/builtins/json.js'
-import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
 import type { SchemaConstraintDefinition } from '../../schema/schema/constraints.js'
 import { isSchemaConstraintDefinition } from '../../schema/schema/constraints.js'
 

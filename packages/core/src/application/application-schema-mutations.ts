@@ -1,5 +1,5 @@
 import type { QueryAst, QueryFieldName } from '../query/ast/contracts.js'
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -26,7 +26,6 @@ import type {
 	SchemaTypeInfoSource,
 } from '../schema/type-info.js'
 import { readPersistedSchemaModelRecord } from '../schema/schema/model-state.js'
-import { isPlainRecord } from '@ultimabase/shared'
 
 /** Carries one normalized direct call without an executable resolver or adapter. */
 export interface PluginSchemaMutationEnvelope {
@@ -52,12 +51,10 @@ const assertSchemaMutationInput = (
 	value: unknown,
 	name: string,
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`Schema mutation ${name} input must be a plain object`)
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		value,
 		schemaMutationInputKeys,
+		`Schema mutation ${name} input must be a plain object`,
 		`Schema mutation ${name} input contains unknown key: `,
 	)
 	return value

@@ -14,7 +14,7 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -34,7 +34,7 @@ import {
 } from '../persistence/execution.js'
 import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
 import type { RuntimeInclusionProjector } from '../pipeline/inclusion-projection.js'
-import { loadSingularMutationInclusionSource } from '../pipeline/inclusion-projection.js'
+import { loadSingularMutationInclusionSource } from '../pipeline/mutation-inclusion-source.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.js'
 import {

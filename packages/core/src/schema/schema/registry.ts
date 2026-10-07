@@ -3,8 +3,10 @@ import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 import {
 	finalizeSchemaCompilation,
 	prepareSchemaCompilation,
-	Schema,
 	validateSchemaCompilation,
+} from './definition-compilation.js'
+import {
+	Schema,
 	type PreparedSchemaCompilation,
 	type SchemaCompiledTargetIdentity,
 	type SchemaDefinition,

@@ -1,6 +1,6 @@
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../foundation.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -80,15 +80,10 @@ const neutralCommit: RuntimeResultEffectStage = () => undefined
 export const normalizeCreateFrameworkEngineOptions = (
 	options: unknown,
 ): Readonly<CreateFrameworkEngineOptions> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'framework engine factory options must be a plain object',
-		)
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		createFrameworkEngineOptionKeys,
+		'framework engine factory options must be a plain object',
 		'framework engine factory contains unknown key: ',
 	)
 

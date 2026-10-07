@@ -21,7 +21,7 @@ import type {
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import {
 	retainRuntimeIncludedPointerValue,
 	retainRuntimeSchemaModelMetadata,
@@ -56,8 +56,6 @@ import {
 } from '../virtual-fields/projection.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { assertDatabaseInclusionCapability } from './mutation-inclusion-source.js'
-
-export { loadSingularMutationInclusionSource } from './mutation-inclusion-source.js'
 
 type LogicalRecord = Readonly<Record<string, unknown>>
 

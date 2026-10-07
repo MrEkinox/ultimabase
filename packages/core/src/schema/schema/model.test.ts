@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 import { Schema } from './definition.js'
 import {
-	isSchemaModelInstance,
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
-} from './model.js'
+} from './model-materialization.js'
+import { isSchemaModelInstance } from './model-state.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const Post = UltimaBase.Schema.define({
