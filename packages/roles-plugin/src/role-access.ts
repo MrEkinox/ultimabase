@@ -75,8 +75,10 @@ export interface StoredRoleResolverDependencies {
 	resolveReferenceId(reference: RoleReference): Promise<string | undefined>
 }
 
+/** Holds one request's lazy membership snapshot and reference ids for one domain. */
 interface RoleDomainRequestCache {
-	membership: Promise<readonly string[] | undefined> | undefined
+	readonly declaration: RoleSchemaDeclaration
+	membership?: Promise<readonly string[] | undefined>
 	readonly references: Map<string, Promise<string | undefined>>
 }
 
@@ -155,34 +157,23 @@ export const createStoredRoleResolver = (
 		let domain = domains.get(schema)
 
 		if (domain === undefined) {
-			domain = {
-				membership: undefined,
-				references: new Map(),
-			}
+			domain = { declaration, references: new Map() }
 			domains.set(schema, domain)
 		}
 
 		return domain
 	}
+	// Membership remains lazy because persistence needs role identity, not a principal.
 	const resolveMembership = (
 		context: AccessContext,
 		schema: SchemaDefinition,
 		domain: RoleDomainRequestCache,
-	): Promise<readonly string[] | undefined> => {
-		if (domain.membership !== undefined) return domain.membership
-
-		const declaration = getRoleSchemaDeclaration(schema)
-
-		if (declaration === undefined) return Promise.resolve(undefined)
-
-		// Membership remains lazy because persistence needs role identity, not a principal.
-		domain.membership = dependencies.resolveMembership(
+	): Promise<readonly string[] | undefined> =>
+		(domain.membership ??= dependencies.resolveMembership(
 			schema,
-			declaration,
+			domain.declaration,
 			context,
-		)
-		return domain.membership
-	}
+		))
 	const resolveReferenceState = (
 		role: RequestRoleReference,
 	): RoleReferenceState | undefined => {
@@ -215,12 +206,10 @@ export const createStoredRoleResolver = (
 	return immutableRecord({
 		async hasRole({ context, role }): Promise<boolean> {
 			const state = resolveReferenceState(role)
+			const domain =
+				state === undefined ? undefined : getDomain(context, state.schema)
 
-			if (state === undefined) return false
-
-			const domain = getDomain(context, state.schema)
-
-			if (domain === undefined) return false
+			if (state === undefined || domain === undefined) return false
 
 			const membership = await resolveMembership(context, state.schema, domain)
 
@@ -232,12 +221,10 @@ export const createStoredRoleResolver = (
 		},
 		async resolvePersistentRole({ context, role }) {
 			const state = resolveReferenceState(role)
+			const domain =
+				state === undefined ? undefined : getDomain(context, state.schema)
 
-			if (state === undefined) return undefined
-
-			const domain = getDomain(context, state.schema)
-
-			if (domain === undefined) return undefined
+			if (state === undefined || domain === undefined) return undefined
 
 			const id = await resolveReferenceId(role, state, domain)
 

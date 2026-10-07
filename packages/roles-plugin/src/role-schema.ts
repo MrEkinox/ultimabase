@@ -124,17 +124,24 @@ export type RoleSchemaFields<
 export type RoleSchemaSelfDefinition<TClassName extends string> =
 	SchemaDefinition<TClassName>
 
+/** Names the complete field map of one declared role schema. */
+type DeclaredRoleFields<
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TCustomFields extends SchemaFields,
+> = RoleSchemaFields<
+	TMemberSchema,
+	RoleSchemaSelfDefinition<TClassName>,
+	TCustomFields
+>
+
 type ExactRoleSchemaDefinition<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
 	TCustomFields extends SchemaFields,
 > = SchemaReference<
 	TClassName,
-	RoleSchemaFields<
-		TMemberSchema,
-		RoleSchemaSelfDefinition<TClassName>,
-		TCustomFields
-	>
+	DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
 >
 
 /** Adds lightweight reference construction to one exact generated schema class. */
@@ -149,9 +156,20 @@ export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 	): RoleReference<TSchema, RoleIdSelector<TId>>
 }
 
-/** Represents one exact constructible role schema declared by the application. */
-type RoleSchemaBaseClass<TClassName extends string = string> =
-	SchemaReference<TClassName>
+/** Lists the commands added to every persisted result of one role schema. */
+type RoleResultCapabilities<
+	TSelf extends SchemaDefinition,
+	TMemberSchema extends SchemaDefinition,
+> = RequestRoleReferenceCarrier &
+	RoleMemberCommands<TSelf, TMemberSchema> &
+	RoleHierarchyCommands<TSelf>
+
+/** Adds role statics and persisted-result commands to one exact schema type. */
+type RoleSchemaCapabilities<
+	TSelf extends SchemaDefinition,
+	TMemberSchema extends SchemaDefinition,
+> = RoleSchemaStatics<TSelf> &
+	SchemaResultCapabilityCarrier<RoleResultCapabilities<TSelf, TMemberSchema>>
 
 /** Represents one exact constructible role schema declared by the application. */
 export type RoleSchemaClass<
@@ -159,18 +177,9 @@ export type RoleSchemaClass<
 	TMemberSchema extends SchemaDefinition = SchemaDefinition,
 	TCustomFields extends SchemaFields = SchemaFields,
 > = ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields> &
-	RoleSchemaStatics<
-		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
-	> &
-	SchemaResultCapabilityCarrier<
-		RequestRoleReferenceCarrier &
-			RoleMemberCommands<
-				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
-				TMemberSchema
-			> &
-			RoleHierarchyCommands<
-				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
-			>
+	RoleSchemaCapabilities<
+		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
+		TMemberSchema
 	>
 
 type ConfiguredRoleSchemaOptions<
@@ -194,11 +203,7 @@ type ConfiguredRoleSchemaOptions<
 		TClassName,
 		TFieldDeclaration,
 		Omit<TDeclaredOptions, 'deletion' | 'members'>,
-		RoleSchemaFields<
-			TMemberSchema,
-			RoleSchemaSelfDefinition<TClassName>,
-			ReturnType<TFieldDeclaration>
-		>
+		DeclaredRoleFields<TClassName, TMemberSchema, ReturnType<TFieldDeclaration>>
 	>
 
 type ConfiguredRoleSchemaClass<
@@ -214,37 +219,16 @@ type ConfiguredRoleSchemaClass<
 > = ConfiguredSchemaResult<
 	TSource,
 	TClassName,
-	RoleSchemaFields<
-		TMemberSchema,
-		RoleSchemaSelfDefinition<TClassName>,
-		ReturnType<TFieldDeclaration>
-	>,
+	DeclaredRoleFields<TClassName, TMemberSchema, ReturnType<TFieldDeclaration>>,
 	TDeclaredOptions
 > &
-	RoleSchemaStatics<
+	RoleSchemaCapabilities<
 		ExactRoleSchemaDefinition<
 			TClassName,
 			TMemberSchema,
 			ReturnType<TFieldDeclaration>
-		>
-	> &
-	SchemaResultCapabilityCarrier<
-		RequestRoleReferenceCarrier &
-			RoleMemberCommands<
-				ExactRoleSchemaDefinition<
-					TClassName,
-					TMemberSchema,
-					ReturnType<TFieldDeclaration>
-				>,
-				TMemberSchema
-			> &
-			RoleHierarchyCommands<
-				ExactRoleSchemaDefinition<
-					TClassName,
-					TMemberSchema,
-					ReturnType<TFieldDeclaration>
-				>
-			>
+		>,
+		TMemberSchema
 	>
 
 /** Declares the developer-owned portion of a role-aware schema. */
@@ -267,15 +251,11 @@ export interface RoleSchemaOptions<
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
 	readonly indexes?: readonly SchemaIndexOptions<
 		SchemaFieldName<
-			RoleSchemaFields<
-				TMemberSchema,
-				RoleSchemaSelfDefinition<TClassName>,
-				TCustomFields
-			>
+			DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
 		>
 	>[]
 	/** Protects role administration when the official Access plugin is installed. */
-	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
+	readonly access?: SchemaAccess<SchemaReference<TClassName>>
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -398,9 +378,11 @@ export class RoleSchema {
 			throw new TypeError('members.schema must be created by App.Schema.define')
 		}
 
-		const configuredDeletionPolicy: unknown =
-			deletion === undefined ? undefined : Reflect.get(deletion, 'references')
-		const deletionPolicy = configuredDeletionPolicy ?? 'fail'
+		// `Reflect.get` keeps rejecting a non-object `deletion` from untyped callers.
+		const deletionPolicy: unknown =
+			(deletion === undefined
+				? undefined
+				: Reflect.get(deletion, 'references')) ?? 'fail'
 
 		if (
 			deletionPolicy !== 'fail' &&
@@ -412,29 +394,25 @@ export class RoleSchema {
 			)
 		}
 
+		type Fields = DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
 		type SelfSchema = ExactRoleSchemaDefinition<
 			TClassName,
 			TMemberSchema,
 			TCustomFields
 		>
-		const selfTargetState: {
-			roleSchema?: RoleSchemaClass<TClassName, TMemberSchema, TCustomFields>
-		} = {}
+		// The nested-role relation targets the class created below; Core resolves
+		// relation targets lazily, after `defineSpecialized` returned.
+		const self: { schema?: SelfSchema } = {}
 		const selfTarget = (): SelfSchema => {
-			if (selfTargetState.roleSchema === undefined) {
+			if (self.schema === undefined) {
 				throw new TypeError('Role schema self target is not initialized')
 			}
 
-			return selfTargetState.roleSchema
+			return self.schema
 		}
-		const fields: SchemaFieldBuilderDeclaration<
-			RoleSchemaFields<
-				TMemberSchema,
-				RoleSchemaSelfDefinition<TClassName>,
-				TCustomFields
-			>,
-			TClassName
-		> = (field) => {
+		const fields: SchemaFieldBuilderDeclaration<Fields, TClassName> = (
+			field,
+		) => {
 			const customFields = defineFields(field)
 
 			for (const fieldName of ['members', 'name', 'roles'] as const) {
@@ -472,60 +450,43 @@ export class RoleSchema {
 				)
 			}
 
-			const toRequestRoleReference = function (
-				this: object,
-			): RoleReference<SelfSchema, RoleIdSelector> {
-				context.assertPersisted(this, 'toRequestRoleReference')
+			const results: RoleResultCapabilities<SelfSchema, TMemberSchema> = {
+				toRequestRoleReference(
+					this: object,
+				): RoleReference<SelfSchema, RoleIdSelector> {
+					context.assertPersisted(this, 'toRequestRoleReference')
 
-				if (!('id' in this) || typeof this.id !== 'string') {
-					throw new TypeError(
-						'Persisted role has no valid framework identifier',
-					)
-				}
+					if (!('id' in this) || typeof this.id !== 'string') {
+						throw new TypeError(
+							'Persisted role has no valid framework identifier',
+						)
+					}
 
-				// The neutral reference keeps ACL and other consumers independent from roles.
-				return createRoleReference(context.schema, { id: this.id })
-			}
-			const resultCapabilities: RequestRoleReferenceCarrier &
-				RoleMemberCommands<SelfSchema, TMemberSchema> &
-				RoleHierarchyCommands<SelfSchema> = {
-				toRequestRoleReference,
+					// The neutral reference keeps ACL and other consumers independent from roles.
+					return createRoleReference(context.schema, { id: this.id })
+				},
 				...createRoleMemberCommands(context, members.schema),
-				...createRoleHierarchyCommands<SelfSchema>(context),
+				...createRoleHierarchyCommands(context),
 			}
 
 			return {
 				statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-				results: resultCapabilities,
+				results,
 			}
 		}
-		const commonOptions = {
-			...generatedOptions,
-			[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),
-			className,
-			fields,
-			...(indexes === undefined ? {} : { indexes }),
-			...(access === undefined ? {} : { access }),
-		}
 		const roleSchema = Schema.defineSpecialized(
-			commonOptions as unknown as SchemaOptions<
-				TClassName,
-				RoleSchemaFields<
-					TMemberSchema,
-					RoleSchemaSelfDefinition<TClassName>,
-					TCustomFields
-				>
-			> &
-				ReservedSchemaFieldCollision<
-					RoleSchemaFields<
-						TMemberSchema,
-						RoleSchemaSelfDefinition<TClassName>,
-						TCustomFields
-					>
-				>,
+			{
+				...generatedOptions,
+				[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),
+				className,
+				fields,
+				...(indexes === undefined ? {} : { indexes }),
+				...(access === undefined ? {} : { access }),
+			} as unknown as SchemaOptions<TClassName, Fields> &
+				ReservedSchemaFieldCollision<Fields>,
 			createCapabilities,
 		)
-		selfTargetState.roleSchema = roleSchema
+		self.schema = roleSchema
 		roleSchemaDeclarations.set(
 			roleSchema,
 			Object.freeze({
