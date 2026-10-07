@@ -1,5 +1,5 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
-import { typeScriptIdentifierPattern } from './typegen-contracts.js'
+import { isTypeScriptIdentifier } from './typegen-contracts.js'
 
 import { assertExactPlainObject } from '../exact-object-validation.js'
 
@@ -170,7 +170,7 @@ const normalizeTypegenDescriptor = (
 		)
 	}
 
-	if (!typeScriptIdentifierPattern.test(value.type)) {
+	if (!isTypeScriptIdentifier(value.type)) {
 		throw new TypeError(
 			'Schema option typegen.type must be a TypeScript export identifier',
 		)
@@ -181,7 +181,7 @@ const normalizeTypegenDescriptor = (
 			value.compatibilityType,
 			'Schema option typegen.compatibilityType',
 		)
-		if (!typeScriptIdentifierPattern.test(value.compatibilityType)) {
+		if (!isTypeScriptIdentifier(value.compatibilityType)) {
 			throw new TypeError(
 				'Schema option typegen.compatibilityType must be a TypeScript export identifier',
 			)

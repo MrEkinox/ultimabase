@@ -7,7 +7,7 @@ import { valid } from 'semver'
 
 import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 import {
-	pluginIdPattern,
+	isPluginIdentifier,
 	pluginPrivilegeMetadata,
 	type PluginPrivilege,
 } from './manifest.js'
@@ -164,7 +164,7 @@ export const defineCapability =
 		)
 
 		assertNonEmptyString(options.capabilityId, 'capabilityId')
-		if (!pluginIdPattern.test(options.capabilityId)) {
+		if (!isPluginIdentifier(options.capabilityId)) {
 			throw new TypeError(
 				'capabilityId must be a namespaced capability identifier',
 			)

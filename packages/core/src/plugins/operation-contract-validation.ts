@@ -4,8 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { valid } from 'semver'
-import { pluginErrorCodePattern } from '../errors/plugin-error.js'
-import { namespacedNamePattern } from '../schema/fields/base/definition.js'
+import { isPluginErrorCode } from '../errors/plugin-error.js'
+import { isNamespacedName } from '../schema/fields/base/definition.js'
 
 import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 
@@ -26,7 +26,7 @@ export const assertOperationIdentity = (
 	subject: string,
 ): void => {
 	assertNonEmptyString(name, `${subject} name`)
-	if (!namespacedNamePattern.test(name)) {
+	if (!isNamespacedName(name)) {
 		throw new TypeError(`${subject} name must be namespaced: ${name}`)
 	}
 	if (valid(version) !== version) {
@@ -69,7 +69,7 @@ export const snapshotOperationErrors = <
 	const seen = new Set<string>()
 	for (const [index, code] of normalized.entries()) {
 		assertNonEmptyString(code, `${subject} errors[${String(index)}]`)
-		if (!pluginErrorCodePattern.test(code)) {
+		if (!isPluginErrorCode(code)) {
 			throw new TypeError(
 				`${subject} error code must be namespaced or a constant identifier: ${code}`,
 			)

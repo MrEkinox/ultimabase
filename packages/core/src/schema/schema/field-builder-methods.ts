@@ -4,7 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
-import { typeScriptIdentifierPattern } from '../../plugins/typegen-contracts.js'
+import { isTypeScriptIdentifier } from '../../plugins/typegen-contracts.js'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
@@ -177,7 +177,7 @@ const assertDeclarationRecord: (
 
 const assertTypeExportName = (value: unknown, path: string): string => {
 	assertNonEmptyString(value, path)
-	if (!typeScriptIdentifierPattern.test(value)) {
+	if (!isTypeScriptIdentifier(value)) {
 		throw new TypeError(`${path} must be a TypeScript export identifier`)
 	}
 	return value
@@ -234,7 +234,7 @@ const normalizeContext = (
 const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 	assertDeclarationRecord(value, builderKeys, 'Plugin field family builder')
 	assertNonEmptyString(value.name, 'Plugin field family builder name')
-	if (!typeScriptIdentifierPattern.test(value.name)) {
+	if (!isTypeScriptIdentifier(value.name)) {
 		throw new TypeError(
 			'Plugin field family builder name must be a TypeScript property identifier',
 		)

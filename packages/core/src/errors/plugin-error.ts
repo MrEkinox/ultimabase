@@ -15,9 +15,12 @@ export interface PluginErrorPayload<
 	readonly code: TCode
 }
 
-/** Constant identifiers or dot-namespaced codes accepted for plugin domain errors. */
-export const pluginErrorCodePattern: RegExp =
+const pluginErrorCodePattern =
 	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
+
+/** Constant identifiers or dot-namespaced codes accepted for plugin domain errors. */
+export const isPluginErrorCode = (value: string): boolean =>
+	pluginErrorCodePattern.test(value)
 
 const validatePluginErrorCode = (code: string): void => {
 	assertNonEmptyString(code, 'plugin error code')

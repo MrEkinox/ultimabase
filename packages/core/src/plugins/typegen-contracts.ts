@@ -5,8 +5,11 @@ import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 const typegenReferenceBrand: unique symbol = Symbol('TypegenReference')
 const typegenReferences = new WeakSet<object>()
 
+const typeScriptIdentifierPattern = /^[$A-Z_a-z][$\w]*$/u
+
 /** TypeScript identifiers accepted for generated type and property names. */
-export const typeScriptIdentifierPattern: RegExp = /^[$A-Z_a-z][$\w]*$/u
+export const isTypeScriptIdentifier = (value: string): boolean =>
+	typeScriptIdentifierPattern.test(value)
 
 /** Names one public exported TypeScript type without importing executable code. */
 export interface TypegenReference<
