@@ -77,6 +77,13 @@ committé a été sauvegardé tel quel. Il peut ne pas compiler.
 | `rebuild/core-plugins` | `plugins/**`, `application/**`, `errors/**`, `foundation.ts`, `index.ts` | ~14 000 | WIP : 29 fichiers, +1 637 / −2 473. En cours (`capability-host.ts`). |
 | `rebuild/core-runtime-app` | le reste de `runtime/**`, `private-storage/**` | ~11 000 | WIP : 40 fichiers, +1 506 / −2 452. Tests unitaires Core pas encore lancés. |
 
+**Reprise du 2026-10-07 (session 2)** : les agents `core-schema`, `core-plugins`,
+`core-runtime-app` et `core-runtime-pipeline` ont été relancés dans leurs worktrees
+(`../claude-ultimabase-worktrees/<nom>`), avec consigne de committer des checkpoints et
+de tenir `packages/core/REBUILD-<périmètre>.md` à jour. `core-query` sera lancé dès qu'un
+slot se libère. Si cette session est interrompue, chaque branche contient le dernier
+checkpoint de l'agent : relire son `REBUILD-*.md` avant de reprendre.
+
 Pour reprendre une branche WIP :
 
 1. Lancer `tooling/rebuild-worktree.sh <nom>`.
