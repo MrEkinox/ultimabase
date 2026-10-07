@@ -26,6 +26,7 @@ import {
 	type SchemaOptionRuntimeCompiler,
 	type SchemaOptionRuntimeRequirement,
 } from './schema-option-definitions.js'
+import { isSamePluginIdentity } from './manifest.js'
 import type {
 	PluginSourceProjection,
 	PluginSourceReceipt,
@@ -243,12 +244,6 @@ export const attachPluginDeclarationDiagnostic = (
 	)
 }
 
-export const samePluginOwner = (
-	left: PluginSchemaContributionOwner,
-	right: PluginSchemaContributionOwner,
-): boolean =>
-	left.pluginId === right.pluginId && left.instanceId === right.instanceId
-
 export const resolveOptionDefinition = (
 	definitions: ReadonlyMap<string, readonly OwnedOptionDefinition[]>,
 	name: string,
@@ -261,7 +256,7 @@ export const resolveOptionDefinition = (
 
 	if (preferredOwner !== undefined) {
 		const owned = candidates.filter((candidate) =>
-			samePluginOwner(candidate.owner, preferredOwner),
+			isSamePluginIdentity(candidate.owner, preferredOwner),
 		)
 		if (owned.length === 1) return owned[0]
 	}

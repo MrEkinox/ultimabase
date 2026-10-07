@@ -29,10 +29,10 @@ import {
 	PluginDeclarationDiagnosticError,
 	type PluginDeclarationFailureDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
-	samePluginOwner,
 	type SchemaDeclarationBatch,
 	snapshotStaticOptions,
 } from './schema-declaration-contracts.js'
+import { isSamePluginIdentity } from './manifest.js'
 
 import {
 	fieldOptionDefinitions,
@@ -342,7 +342,9 @@ export class SchemaDeclarationRegistry {
 		for (const batch of this.#batches) {
 			for (const addition of batch.additions) {
 				const prior = contributionIds.get(addition.contributionId) ?? []
-				if (prior.some((owner) => samePluginOwner(owner, addition.owner))) {
+				if (
+					prior.some((owner) => isSamePluginIdentity(owner, addition.owner))
+				) {
 					throw new PluginDeclarationDiagnosticError(
 						`Duplicate schema contributionId: ${addition.contributionId}`,
 						pluginDeclarationDiagnostic(

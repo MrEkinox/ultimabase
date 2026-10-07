@@ -16,10 +16,8 @@ import type {
 	OptionDefinitionIndex,
 	OwnedSchemaPatch,
 } from '../schema-declaration-contracts.js'
-import {
-	resolveOptionDefinition,
-	samePluginOwner,
-} from '../schema-declaration-contracts.js'
+import { isSamePluginIdentity } from '../manifest.js'
+import { resolveOptionDefinition } from '../schema-declaration-contracts.js'
 import type { SchemaPatchOperation } from '../schema-patch-contracts.js'
 import type { SchemaCompilationValues } from './values.js'
 
@@ -41,7 +39,7 @@ const assertUnusedContributionId = (
 			(contribution) =>
 				contribution.contributionId === contributionId &&
 				contribution.owner.kind === 'plugin' &&
-				samePluginOwner(contribution.owner, patch.owner),
+				isSamePluginIdentity(contribution.owner, patch.owner),
 		)
 	)
 		throw new TypeError(
