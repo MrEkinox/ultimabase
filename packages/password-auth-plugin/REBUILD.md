@@ -50,6 +50,19 @@ After the fix the audit reports 0 differences for `password-auth-plugin`
 (declarations, exports, export and member hovers, usage hovers, completions
 and diagnostics).
 
+Validation after the DX parity fixes (branch `rebuild/dx-fix-plugins`, all four
+plugin fixes together): `yarn build` pass (before and after `tsc --build`);
+`yarn vitest run --project unit --project types` 558 files, 2709 tests passed,
+no type errors; `--project e2e` on the four packages and `tests/e2e` (the
+`tests/e2e` filter also matches every `packages/*/tests/e2e`) 218 of 219
+passed, the known `create-app-packed` 120 s timeout passed alone (6 tests,
+51.8 s); `--project postgres-e2e` on the same filters 55 files, 191 tests
+passed (package-only filters: e2e 5 files / 8 tests, postgres-e2e 11 files /
+53 tests); `--project website-content` 17 files, 66 tests; `yarn
+test:pack:built` 32 files, 173 tests; eslint 0 errors (only the existing
+`max-lines` warnings), `prettier --check`, `tsc --build` and
+`tsc -p tsconfig.test.json` pass for the four packages.
+
 ## Design summary
 
 | Module                          | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -165,7 +178,7 @@ None found.
 | `yarn vitest run --project website-content`                                    | 17 files, 66 tests passed                                                                                                                                                                         |
 | `examples/minimal`: `yarn typecheck && yarn check-generated-types`             | pass                                                                                                                                                                                              |
 | `yarn test:pack:built`                                                         | 32 files, 173 tests passed (includes `password-auth-plugin.e2e.test.ts`)                                                                                                                          |
-| `yarn eslint packages/password-auth-plugin`                                    | 0 errors, 2 `max-lines` warnings: `src/operations.ts` (487 physical lines, under the 600 budget; the reference was 488) and the unchanged `tests/e2e/password-http-sessions.postgres.e2e.test.ts` |
+| `yarn eslint packages/password-auth-plugin`                                    | 0 errors, 2 `max-lines` warnings: `src/operations.ts` (484 physical lines, under the 600 budget; the reference was 488) and the unchanged `tests/e2e/password-http-sessions.postgres.e2e.test.ts` |
 | `yarn prettier --check packages/password-auth-plugin`                          | pass                                                                                                                                                                                              |
 | `yarn tsc --build packages/password-auth-plugin`                               | pass                                                                                                                                                                                              |
 | `yarn tsc -p packages/password-auth-plugin/tsconfig.test.json`                 | pass                                                                                                                                                                                              |
