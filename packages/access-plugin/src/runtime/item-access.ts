@@ -2,100 +2,78 @@ import {
 	collectOperationFieldInputs,
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
-	type DatabaseLogicalRecord,
 	type DatabaseMutationMaterializationSource,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type ExecutableOperationAst,
-	type RuntimeMutationOutcomeStageInput,
-	type RuntimeOperationStageInput,
-	type RuntimePreparedMutationStageInput,
+	type RequestContext,
+	type RuntimePreparedMutationRecords,
 } from '@ultimabase/core'
+import { immutableRecord } from '@ultimabase/shared'
+
+import type { SchemaItemAccessFamily } from '../authoring/declarations.js'
 import {
-	allowUndeclaredFieldAccess,
 	readAccessOperationFamily,
 	type AccessPlan,
 	type CompiledAccessRule,
-	type SchemaAccessPlan,
 } from '../authoring/plan.js'
-import { immutableRecord } from '@ultimabase/shared'
 import type { AccessExecutionRuntime } from './execution-runtime.js'
 import {
-	createAccessUpdateCandidate,
 	collectUpdateFieldValues,
+	createAccessUpdateCandidate,
 	evaluateAccessCreateFillRules,
 	evaluateAccessPreparedUpdateFieldRules,
 	evaluateAccessRelationWriteRules,
 	readAccessStaticWriteDecision,
 } from './mutation-transitions.js'
 import {
-	assertAccessDecisionRules,
+	assertAccessRules,
+	createAccessScope,
+	readExecutableOperation,
 	requireAccessSchemaPlan,
+	type AccessScope,
 } from './rule-evaluation.js'
 
 /** Applies one item branch with its canonical Runtime identity. */
-const assertAccessItemRules = (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	schemaPlan: SchemaAccessPlan,
-	branch: keyof SchemaAccessPlan['item'],
+const assertItemRules = (
+	scope: AccessScope,
+	branch: SchemaItemAccessFamily,
 	input: Readonly<Record<string, unknown>>,
-	rules: readonly CompiledAccessRule[] = schemaPlan.item[branch],
+	rules: readonly CompiledAccessRule[] = scope.schemaPlan.item[branch],
 ): Promise<void> =>
-	assertAccessDecisionRules(
-		runtime,
-		request,
-		rules,
-		{
-			branch,
-			phase: 'access-item',
-			schema: schemaPlan.schema,
-		},
-		input,
-		true,
-	)
+	assertAccessRules(scope, rules, { branch, phase: 'access-item' }, input)
 
-/** Evaluates create candidates and direct item denials before preparation. */
+/** Evaluates create candidates and static item denials before preparation. */
 export const evaluateAccessCreateItems = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
+	operation: DatabaseOperationAst,
 ): Promise<void> => {
-	// Structural validation establishes the executable closed operation union.
-	const operation = request.operation as unknown as ExecutableOperationAst
-	const family = readAccessOperationFamily(operation.kind)
-
+	const executable = readExecutableOperation(operation)
+	const family = readAccessOperationFamily(executable.kind)
 	if (family === 'read') return
 
-	if (operation.kind !== 'create-one' && operation.kind !== 'create-many') {
-		const directRules = schemaPlan.item[family].filter(
-			({ rule }) => typeof rule === 'boolean',
-		)
-		await assertAccessItemRules(
-			runtime,
-			request,
-			schemaPlan,
+	if (executable.kind !== 'create-one' && executable.kind !== 'create-many') {
+		// Only static item decisions can run before a target is prepared.
+		await assertItemRules(
+			scope,
 			family,
-			immutableRecord({ context: request.context }),
-			directRules,
+			immutableRecord({ context: scope.context }),
+			scope.schemaPlan.item[family].filter(
+				({ rule }) => typeof rule === 'boolean',
+			),
 		)
 		return
 	}
 
 	const inputs =
-		operation.kind === 'create-one' ? [operation.input] : operation.inputs
-
+		executable.kind === 'create-one' ? [executable.input] : executable.inputs
 	for (const input of inputs) {
-		const item = materializePreparedSchemaDraft(schemaPlan.schema, input)
-
-		await assertAccessItemRules(
-			runtime,
-			request,
-			schemaPlan,
+		await assertItemRules(
+			scope,
 			'create',
 			immutableRecord({
-				context: request.context,
-				item,
+				context: scope.context,
+				item: materializePreparedSchemaDraft(scope.schema, input),
 			}),
 		)
 	}
@@ -109,25 +87,18 @@ export const requiresAccessPreparedMutationItems = (
 	if (operation.kind !== 'update-many' && operation.kind !== 'delete-many') {
 		return false
 	}
-
 	const schemaPlan = requireAccessSchemaPlan(plan, operation)
-
 	if (operation.kind === 'delete-many') {
 		return schemaPlan.item.delete.length > 0
 	}
-
-	if (schemaPlan.item.update.length > 0) {
-		return true
-	}
+	if (schemaPlan.item.update.length > 0) return true
 
 	return collectOperationFieldInputs(operation, 'parent-first').some(
 		(input) => {
 			if (input.mode !== 'update' || input.field.kind === 'relation') {
 				return false
 			}
-
 			const field = plan.getField(schemaPlan.schema, input.fieldPath)
-
 			return (
 				field?.field === input.field &&
 				readAccessStaticWriteDecision(field) === undefined
@@ -140,140 +111,102 @@ export const requiresAccessPreparedMutationItems = (
 export const enforceAccessPreparedMutation = async (
 	runtime: AccessExecutionRuntime,
 	plan: AccessPlan,
-	request: RuntimePreparedMutationStageInput<
-		DatabaseMutationOperationAst,
-		DatabaseLogicalRecord
-	>,
+	context: RequestContext,
+	operation: DatabaseMutationOperationAst,
+	{ target, targets }: RuntimePreparedMutationRecords,
 ): Promise<void> => {
-	const setBased =
-		request.operation.kind === 'update-many' ||
-		request.operation.kind === 'delete-many'
-	const family = readAccessOperationFamily(request.operation.kind)
-
+	const kind = operation.kind
+	const setBased = kind === 'update-many' || kind === 'delete-many'
+	const family = readAccessOperationFamily(kind)
 	if (
-		(request.target === undefined &&
-			(!setBased || request.targets === undefined)) ||
+		(target === undefined && (!setBased || targets === undefined)) ||
 		family === 'create' ||
 		family === 'read' ||
-		request.operation.kind === 'upsert-many'
+		kind === 'upsert-many'
 	) {
 		return
 	}
-	if (request.target === null && request.operation.kind !== 'upsert-one') {
-		return
-	}
+	if (target === null && kind !== 'upsert-one') return
 
-	const schemaPlan = requireAccessSchemaPlan(plan, request.operation)
-
-	// The mutation discriminants above establish the executable operation subset.
-	const operation = request.operation as unknown as ExecutableOperationAst
-	const fieldInputs = collectOperationFieldInputs(operation, 'parent-first')
+	const scope = createAccessScope(runtime, plan, context, operation)
+	const { schema } = scope
+	const executable = readExecutableOperation(operation)
+	const fieldInputs = collectOperationFieldInputs(executable, 'parent-first')
 	const updateFields = collectUpdateFieldValues(fieldInputs)
 
 	if (
-		(operation.kind === 'update-many' || operation.kind === 'delete-many') &&
-		request.targets !== undefined
+		(executable.kind === 'update-many' || executable.kind === 'delete-many') &&
+		targets !== undefined
 	) {
-		for (const target of request.targets) {
-			const originalItem = materializeSchemaModel(schemaPlan.schema, target)
-
-			if (operation.kind === 'delete-many') {
-				await assertAccessItemRules(
-					runtime,
-					request,
-					schemaPlan,
+		for (const current of targets) {
+			const originalItem = materializeSchemaModel(schema, current)
+			if (executable.kind === 'delete-many') {
+				await assertItemRules(
+					scope,
 					'delete',
-					immutableRecord({ context: request.context, originalItem }),
+					immutableRecord({ context, originalItem }),
 				)
 				continue
 			}
-
 			const candidate = createAccessUpdateCandidate(
-				schemaPlan.schema,
-				operation.update,
-				target,
+				schema,
+				executable.update,
+				current,
 			)
-
 			await evaluateAccessPreparedUpdateFieldRules(
-				runtime,
-				request,
-				schemaPlan,
-				allowUndeclaredFieldAccess,
-				target,
+				scope,
+				current,
 				candidate,
 				updateFields,
 			)
-			await assertAccessItemRules(
-				runtime,
-				request,
-				schemaPlan,
+			await assertItemRules(
+				scope,
 				'update',
-				immutableRecord({
-					context: request.context,
-					item: candidate,
-					originalItem,
-				}),
+				immutableRecord({ context, item: candidate, originalItem }),
 			)
 		}
-
 		return
 	}
 
-	if (request.target === undefined) {
+	if (target === undefined) {
 		throw new TypeError(
 			'Native Access singular mutation requires a prepared target',
 		)
 	}
-
-	const upsertUpdate = family === 'upsert' && request.target !== null
 	let item: object | null
 	let originalItem: object | null
-
-	if (request.target === null) {
-		if (operation.kind !== 'upsert-one') {
+	if (target === null) {
+		if (executable.kind !== 'upsert-one') {
 			throw new TypeError(
 				'Native Access missing target is valid only for an upsert create branch',
 			)
 		}
-
-		item = materializePreparedSchemaDraft(schemaPlan.schema, operation.create)
+		item = materializePreparedSchemaDraft(schema, executable.create)
 		originalItem = null
 		await evaluateAccessCreateFillRules(
-			runtime,
-			request,
-			plan,
-			schemaPlan,
+			scope,
 			fieldInputs.filter((input) => input.mode === 'create'),
 		)
 	} else {
-		originalItem = materializeSchemaModel(schemaPlan.schema, request.target)
-
-		if (operation.kind === 'delete-one') {
+		originalItem = materializeSchemaModel(schema, target)
+		if (executable.kind === 'delete-one') {
 			item = null
 		} else if (
-			operation.kind === 'update-one' ||
-			operation.kind === 'upsert-one'
+			executable.kind === 'update-one' ||
+			executable.kind === 'upsert-one'
 		) {
 			const candidate = createAccessUpdateCandidate(
-				schemaPlan.schema,
-				operation.update,
-				request.target,
+				schema,
+				executable.update,
+				target,
 			)
 			item = candidate
-			if (operation.kind === 'upsert-one') {
-				await evaluateAccessRelationWriteRules(
-					runtime,
-					request,
-					schemaPlan,
-					updateFields,
-				)
+			if (executable.kind === 'upsert-one') {
+				await evaluateAccessRelationWriteRules(scope, updateFields)
 			}
 			await evaluateAccessPreparedUpdateFieldRules(
-				runtime,
-				request,
-				schemaPlan,
-				allowUndeclaredFieldAccess,
-				request.target,
+				scope,
+				target,
 				candidate,
 				updateFields,
 			)
@@ -282,20 +215,19 @@ export const enforceAccessPreparedMutation = async (
 		}
 	}
 
-	await assertAccessItemRules(
-		runtime,
-		request,
-		schemaPlan,
+	await assertItemRules(
+		scope,
 		family,
 		family === 'delete'
-			? immutableRecord({ context: request.context, originalItem })
+			? immutableRecord({ context, originalItem })
 			: immutableRecord({
-					context: request.context,
+					context,
 					item,
 					originalItem,
 					...(family === 'upsert'
 						? {
-								mode: upsertUpdate ? ('update' as const) : ('create' as const),
+								mode:
+									target === null ? ('create' as const) : ('update' as const),
 							}
 						: {}),
 				}),
@@ -303,34 +235,18 @@ export const enforceAccessPreparedMutation = async (
 }
 
 /** Validates the database-selected upsert branch against item and field rules. */
-export const enforceAccessMutationOutcome = async (
-	runtime: AccessExecutionRuntime,
-	plan: AccessPlan,
-	request: RuntimeMutationOutcomeStageInput<
-		DatabaseMutationOperationAst,
-		DatabaseMutationMaterializationSource
-	>,
-): Promise<void> => {
-	if (
-		request.operation.kind !== 'upsert-one' &&
-		request.operation.kind !== 'upsert-many'
-	) {
-		return
-	}
-
-	const schemaPlan = requireAccessSchemaPlan(plan, request.operation)
-
-	// The checked terminal narrows the private operation shape and materializations.
-	const operation = request.operation as unknown as Extract<
+export const enforceAccessUpsertOutcome = async (
+	scope: AccessScope,
+	operation: Extract<
 		ExecutableOperationAst,
 		{ readonly kind: 'upsert-many' | 'upsert-one' }
-	>
+	>,
+	outcome: DatabaseMutationMaterializationSource,
+): Promise<void> => {
+	const { context, schema } = scope
 	const items = operation.kind === 'upsert-one' ? [operation] : operation.items
 	const fieldInputs = collectOperationFieldInputs(operation, 'parent-first')
-	for (const [
-		index,
-		materialization,
-	] of request.outcome.materializations.entries()) {
+	for (const [index, materialization] of outcome.materializations.entries()) {
 		if (materialization.kind === 'delete') {
 			throw new TypeError(
 				'Native Access received an invalid upsert materialization',
@@ -341,53 +257,35 @@ export const enforceAccessMutationOutcome = async (
 		}
 
 		const update = materialization.kind === 'update'
-		const accessItem = update
+		const item = update
 			? materialization.current
-			: materializePreparedSchemaDraft(
-					schemaPlan.schema,
-					materialization.current,
-				)
+			: materializePreparedSchemaDraft(schema, materialization.current)
 		const originalItem = update
-			? materializeSchemaModel(schemaPlan.schema, materialization.previous)
+			? materializeSchemaModel(schema, materialization.previous)
 			: null
-
 		if (update) {
 			const updateFields = collectUpdateFieldValues(fieldInputs, index)
-
-			await evaluateAccessRelationWriteRules(
-				runtime,
-				request,
-				schemaPlan,
-				updateFields,
-			)
+			await evaluateAccessRelationWriteRules(scope, updateFields)
 			await evaluateAccessPreparedUpdateFieldRules(
-				runtime,
-				request,
-				schemaPlan,
-				allowUndeclaredFieldAccess,
+				scope,
 				materialization.previous,
 				materialization.current,
 				updateFields,
 			)
 		} else {
 			await evaluateAccessCreateFillRules(
-				runtime,
-				request,
-				plan,
-				schemaPlan,
+				scope,
 				fieldInputs.filter(
 					(input) => input.mode === 'create' && input.itemIndex === index,
 				),
 			)
 		}
-		await assertAccessItemRules(
-			runtime,
-			request,
-			schemaPlan,
+		await assertItemRules(
+			scope,
 			'upsert',
 			immutableRecord({
-				context: request.context,
-				item: accessItem,
+				context,
+				item,
 				mode: update ? ('update' as const) : ('create' as const),
 				originalItem,
 			}),

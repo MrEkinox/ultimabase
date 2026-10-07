@@ -7,7 +7,6 @@ import {
 	provideRuntimeConstraint,
 	protectedPolicy,
 	requireCapability,
-	type CapabilityRequirement,
 	type PluginDeclarationContribution,
 	type PluginDeclarationSource,
 	type PluginInstance,
@@ -23,33 +22,23 @@ import {
 } from './authoring/declarations.js'
 import { compileAccessPlan } from './authoring/compiler.js'
 import { fieldAccessOption, schemaAccessOption } from './options.js'
-import {
-	accessContributionsCapability,
-	type OwnedAccessContribution,
-} from './contributions.js'
+import { accessContributionsCapability } from './contributions.js'
 import { AccessRuntime } from './runtime/dispatcher.js'
 import { accessDiagnosticsObserverCapability } from './runtime/diagnostics.js'
 
-const optionalAccessContributions: CapabilityRequirement<
-	typeof accessContributionsCapability,
-	true,
+const optionalAccessContributions = optionalCapability(
+	accessContributionsCapability,
 	'^1.0.0',
-	'materialization'
-> = optionalCapability(accessContributionsCapability, '^1.0.0')
-const optionalAccessDiagnostics: CapabilityRequirement<
-	typeof accessDiagnosticsObserverCapability,
-	true,
+)
+const optionalAccessDiagnostics = optionalCapability(
+	accessDiagnosticsObserverCapability,
 	'^1.0.0',
-	'materialization'
-> = optionalCapability(accessDiagnosticsObserverCapability, '^1.0.0')
-const schemaMutationSurfaceRequirement: CapabilityRequirement<
-	typeof applicationSchemaMutationSurfaceCapability,
-	false,
+)
+const schemaMutationSurfaceRequirement = requireCapability(
+	applicationSchemaMutationSurfaceCapability,
 	'^1.0.0',
-	'materialization'
-> = requireCapability(applicationSchemaMutationSurfaceCapability, '^1.0.0', {
-	phase: 'materialization',
-})
+	{ phase: 'materialization' },
+)
 
 /** Configures static read-capability fallbacks for every application schema. */
 export interface SchemaReadAccessDefaults {
@@ -78,43 +67,39 @@ export interface AccessPluginOptions {
 	readonly default?: boolean | SchemaAccessDefaults
 }
 
-const denyByDefault: AccessDefaultPolicy = immutableRecord({
-	create: false,
-	delete: false,
-	read: immutableRecord({
-		count: false,
-		exists: false,
-		many: false,
-		one: false,
-	}),
-	update: false,
-	upsert: false,
-	schemaMutations: false,
-})
+const uniformReadDefaults = (value: boolean): AccessDefaultPolicy['read'] =>
+	immutableRecord({ count: value, exists: value, many: value, one: value })
+
+const uniformDefaults = (value: boolean): AccessDefaultPolicy =>
+	immutableRecord({
+		create: value,
+		delete: value,
+		read: uniformReadDefaults(value),
+		update: value,
+		upsert: value,
+		schemaMutations: value,
+	})
+
+const denyByDefault = uniformDefaults(false)
+const readDefaultKeys = new Set<string>(schemaReadAccessBranches)
+const defaultKeys = new Set<string>([
+	...schemaAccessFamilies,
+	'schemaMutations',
+])
 
 const normalizeReadDefaults = (value: unknown): AccessDefaultPolicy['read'] => {
-	if (typeof value === 'boolean') {
-		return immutableRecord({
-			count: value,
-			exists: value,
-			many: value,
-			one: value,
-		})
-	}
+	if (typeof value === 'boolean') return uniformReadDefaults(value)
 	if (!isPlainRecord(value)) {
 		throw new TypeError('Access read default must be a boolean or plain object')
 	}
-
-	const allowedKeys = new Set<string>(schemaReadAccessBranches)
 	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !allowedKeys.has(key)) {
+		if (typeof key !== 'string' || !readDefaultKeys.has(key)) {
 			throw new TypeError(`Unknown Access read default: ${String(key)}`)
 		}
 		if (typeof value[key] !== 'boolean') {
 			throw new TypeError(`Access read default ${key} must be a boolean`)
 		}
 	}
-
 	return immutableRecord({
 		count: value.count === true,
 		exists: value.exists === true,
@@ -127,69 +112,46 @@ const normalizeDefaults = definePluginOptionsParser({
 	name: 'Access plugin options',
 	keys: ['default'] as const,
 	formatUnknownKey: (key) => `Unknown Access plugin option: ${String(key)}`,
-	normalize: ({ default: defaultAccess }): AccessDefaultPolicy => {
-		if (defaultAccess === undefined) return denyByDefault
-		if (typeof defaultAccess === 'boolean') {
-			return immutableRecord({
-				create: defaultAccess,
-				delete: defaultAccess,
-				read: normalizeReadDefaults(defaultAccess),
-				update: defaultAccess,
-				upsert: defaultAccess,
-				schemaMutations: defaultAccess,
-			})
-		}
-		if (!isPlainRecord(defaultAccess)) {
+	normalize: ({ default: defaults }): AccessDefaultPolicy => {
+		if (defaults === undefined) return denyByDefault
+		if (typeof defaults === 'boolean') return uniformDefaults(defaults)
+		if (!isPlainRecord(defaults)) {
 			throw new TypeError('Access default must be a boolean or plain object')
 		}
-		const allowedFamilies = new Set<string>([
-			...schemaAccessFamilies,
-			'schemaMutations',
-		])
-		for (const key of Reflect.ownKeys(defaultAccess)) {
-			if (typeof key !== 'string' || !allowedFamilies.has(key)) {
+		for (const key of Reflect.ownKeys(defaults)) {
+			if (typeof key !== 'string' || !defaultKeys.has(key)) {
 				throw new TypeError(`Unknown Access default: ${String(key)}`)
 			}
-			if (key !== 'read' && typeof defaultAccess[key] !== 'boolean') {
+			if (key !== 'read' && typeof defaults[key] !== 'boolean') {
 				throw new TypeError(`Access ${key} default must be a boolean`)
 			}
 		}
-
 		return immutableRecord({
-			create: defaultAccess.create === true,
-			delete: defaultAccess.delete === true,
+			create: defaults.create === true,
+			delete: defaults.delete === true,
 			read:
-				defaultAccess.read === undefined
+				defaults.read === undefined
 					? denyByDefault.read
-					: normalizeReadDefaults(defaultAccess.read),
-			update: defaultAccess.update === true,
-			upsert: defaultAccess.upsert === true,
-			schemaMutations: defaultAccess.schemaMutations === true,
+					: normalizeReadDefaults(defaults.read),
+			update: defaults.update === true,
+			upsert: defaults.upsert === true,
+			schemaMutations: defaults.schemaMutations === true,
 		})
 	},
 })
 
-// Only authorization denials become policy decisions; other failures propagate.
-const returnsDenied = async (run: () => Promise<unknown>): Promise<boolean> => {
-	try {
-		await run()
-		return true
-	} catch (error: unknown) {
-		if (error instanceof FrameworkError && error.code === 'PERMISSION_DENIED') {
-			return false
-		}
-		throw error
-	}
-}
+const deniedEffects = immutableRecord({ allowed: false as const })
 
-const evaluatesDenied = async <TResult>(
+/** Turns authorization denials into policy decisions; other failures propagate. */
+const unlessDenied = async <TResult, TDenied>(
 	run: () => Promise<TResult>,
-): Promise<TResult | Readonly<{ readonly allowed: false }>> => {
+	denied: TDenied,
+): Promise<TDenied | TResult> => {
 	try {
 		return await run()
 	} catch (error: unknown) {
 		if (error instanceof FrameworkError && error.code === 'PERMISSION_DENIED') {
-			return immutableRecord({ allowed: false as const })
+			return denied
 		}
 		throw error
 	}
@@ -237,7 +199,7 @@ export const accessPlugin = (
 	const runtimeProvider = provideRuntimeConstraint({
 		contributionId: 'official-access-runtime',
 		create: ({ callbacks, capabilities, schemas }) => {
-			const contributions: OwnedAccessContribution[] = capabilities
+			const contributions = capabilities
 				.contributions(optionalAccessContributions)
 				.flatMap(({ contributionId, owner, pluginVersion, value }) =>
 					value.map((definition) =>
@@ -262,15 +224,17 @@ export const accessPlugin = (
 
 			return {
 				value: protectedPolicy({
-					evaluate: (input) => evaluatesDenied(() => runtime.evaluate(input)),
+					evaluate: (input) =>
+						unlessDenied(() => runtime.evaluate(input), deniedEffects),
 					master: 'bypass',
 					mutationOutcome: (input) =>
-						returnsDenied(() => runtime.enforceMutationOutcome(input)),
+						unlessDenied(() => runtime.enforceMutationOutcome(input), false),
 					preparedMutation: (input) =>
-						returnsDenied(() => runtime.enforcePreparedMutation(input)),
-					reevaluate: (input) => returnsDenied(() => runtime.reevaluate(input)),
+						unlessDenied(() => runtime.enforcePreparedMutation(input), false),
+					reevaluate: (input) =>
+						unlessDenied(() => runtime.reevaluate(input), false),
 					relation: (input) =>
-						returnsDenied(() => runtime.enforceRelationRead(input)),
+						unlessDenied(() => runtime.enforceRelationRead(input), false),
 					requiresPreparedMutationItems: (operation) =>
 						runtime.requiresPreparedMutationItems(operation),
 					restrictResult: (input) => runtime.enforceOutput(input),

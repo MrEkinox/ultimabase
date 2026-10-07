@@ -4,28 +4,44 @@ import { performance } from 'node:perf_hooks'
 import {
 	FrameworkError,
 	frameworkErrorCodes,
-	type FrameworkErrorCode,
 	type ApplicationCallbackExecutor,
+	type FrameworkErrorCode,
+	type OperationKind,
 	type PluginIdentity,
 	type RequestContext,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { AccessRuleIdentity } from './rule-evaluation.js'
-import type { AccessOperationKind } from './rule-evaluation.js'
+import type { CompiledAccessRule, FieldAccessPlan } from '../authoring/plan.js'
 import type {
 	AccessDiagnosticEvent,
 	AccessDiagnosticIdentity,
 	AccessDiagnosticsObserver,
 } from './diagnostics.js'
 
+export type AccessPhase =
+	| 'access-field-read'
+	| 'access-field-write'
+	| 'access-filter'
+	| 'access-item'
+	| 'access-operation'
+
+export type AccessOperationKind = OperationKind | 'plugin-schema-mutation'
+
+/** Identifies one compiled rule at one exact policy boundary. */
+export interface AccessRuleIdentity {
+	readonly branch: string
+	readonly field?: FieldAccessPlan
+	readonly phase: AccessPhase
+	readonly rule: CompiledAccessRule
+	readonly ruleIndex: number
+	readonly schema: SchemaDefinition
+}
+
 export interface AccessExecutionDescriptor {
 	readonly identity: AccessRuleIdentity
 	readonly operation: AccessOperationKind
-}
-
-interface AccessExecutionState {
-	readonly stack: readonly AccessExecutionDescriptor[]
 }
 
 const emptyStack: readonly AccessExecutionDescriptor[] = immutableArray([])
@@ -47,20 +63,20 @@ const isSameRule = (
 	left.identity.schema === right.identity.schema &&
 	left.operation === right.operation
 
-const createDiagnosticIdentity = (
-	descriptor: AccessExecutionDescriptor,
-): AccessDiagnosticIdentity => {
-	const source = descriptor.identity.rule.source
-
+const createDiagnosticIdentity = ({
+	identity,
+	operation,
+}: AccessExecutionDescriptor): AccessDiagnosticIdentity => {
+	const source = identity.rule.source
 	return immutableRecord({
-		branch: descriptor.identity.branch,
-		...(descriptor.identity.field === undefined
+		branch: identity.branch,
+		...(identity.field === undefined
 			? {}
-			: { fieldPath: immutableArray(descriptor.identity.field.path) }),
-		operation: descriptor.operation,
-		phase: descriptor.identity.phase,
-		ruleIndex: descriptor.identity.ruleIndex,
-		schema: descriptor.identity.schema.className,
+			: { fieldPath: immutableArray(identity.field.path) }),
+		operation,
+		phase: identity.phase,
+		ruleIndex: identity.ruleIndex,
+		schema: identity.schema.className,
 		source: source.kind,
 		...(source.kind === 'developer'
 			? {}
@@ -73,28 +89,13 @@ const readErrorCode = (error: unknown): FrameworkErrorCode | undefined =>
 		? frameworkErrorCodes.find((candidate) => candidate === error.code)
 		: undefined
 
-const createRecursionError = (
-	descriptor: AccessExecutionDescriptor,
-): FrameworkError<'RUNTIME_CALLBACK_RECURSION'> =>
-	new FrameworkError(
-		'RUNTIME_CALLBACK_RECURSION',
-		`Recursive Access rule execution detected for ${descriptor.identity.phase}.`,
-		{
-			publicMessage: 'A recursive policy execution was rejected.',
-			internalDetails: {
-				kind: 'access-rule-recursion',
-				operation: descriptor.operation,
-				phase: descriptor.identity.phase,
-				schema: descriptor.identity.schema.className,
-			},
-		},
-	)
-
 /** Keeps official Access callbacks cancellable, observable, and fail-closed. */
 export class AccessExecutionRuntime {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #observer: AccessDiagnosticsObserver | undefined
-	readonly #storage = new AsyncLocalStorage<AccessExecutionState>()
+	readonly #stack = new AsyncLocalStorage<
+		readonly AccessExecutionDescriptor[]
+	>()
 
 	constructor(
 		observer?: AccessDiagnosticsObserver,
@@ -108,22 +109,57 @@ export class AccessExecutionRuntime {
 		Object.freeze(this)
 	}
 
+	/** Runs one rule callback under its owner, rejecting re-entry of the same rule. */
 	async invoke<TResult>(
 		descriptor: AccessExecutionDescriptor,
 		context: RequestContext,
 		run: () => TResult | Promise<TResult>,
 	): Promise<TResult> {
 		context.signal.throwIfAborted()
-		const parentStack = this.#storage.getStore()?.stack ?? emptyStack
+		const parentStack = this.#stack.getStore() ?? emptyStack
 		if (parentStack.some((frame) => isSameRule(frame, descriptor))) {
-			throw createRecursionError(descriptor)
+			throw new FrameworkError(
+				'RUNTIME_CALLBACK_RECURSION',
+				`Recursive Access rule execution detected for ${descriptor.identity.phase}.`,
+				{
+					publicMessage: 'A recursive policy execution was rejected.',
+					internalDetails: {
+						kind: 'access-rule-recursion',
+						operation: descriptor.operation,
+						phase: descriptor.identity.phase,
+						schema: descriptor.identity.schema.className,
+					},
+				},
+			)
 		}
 
 		const startedAt = this.#observer === undefined ? 0 : performance.now()
-		const nextStack = immutableArray([...parentStack, descriptor])
+		const report = (
+			status: AccessDiagnosticEvent['status'],
+			errorCode?: FrameworkErrorCode,
+		): void => {
+			const observer = this.#observer
+			if (observer === undefined) return
+			try {
+				observer(
+					immutableRecord({
+						depth: parentStack.length,
+						durationMs: performance.now() - startedAt,
+						...(errorCode === undefined ? {} : { errorCode }),
+						identity: createDiagnosticIdentity(descriptor),
+						requestId: context.requestId,
+						status,
+					}),
+				)
+			} catch {
+				// Diagnostic observers are deliberately unable to affect policy outcomes.
+			}
+		}
+
 		try {
 			const source = descriptor.identity.rule.source
-			const execute = () => this.#storage.run({ stack: nextStack }, run)
+			const stack = immutableArray([...parentStack, descriptor])
+			const execute = () => this.#stack.run(stack, run)
 			const result = await (source.kind === 'developer'
 				? this.#callbacks.runApplication(execute)
 				: this.#callbacks.runPlugin(
@@ -136,33 +172,11 @@ export class AccessExecutionRuntime {
 						execute,
 					))
 			context.signal.throwIfAborted()
-			this.#notify({
-				depth: parentStack.length,
-				durationMs: performance.now() - startedAt,
-				identity: createDiagnosticIdentity(descriptor),
-				requestId: context.requestId,
-				status: 'fulfilled',
-			})
+			report('fulfilled')
 			return result
 		} catch (error: unknown) {
-			const errorCode = readErrorCode(error)
-			this.#notify({
-				depth: parentStack.length,
-				durationMs: performance.now() - startedAt,
-				...(errorCode === undefined ? {} : { errorCode }),
-				identity: createDiagnosticIdentity(descriptor),
-				requestId: context.requestId,
-				status: 'failed',
-			})
+			report('failed', readErrorCode(error))
 			throw error
-		}
-	}
-
-	#notify(event: AccessDiagnosticEvent): void {
-		try {
-			this.#observer?.(immutableRecord(event))
-		} catch {
-			// Diagnostic observers are deliberately unable to affect policy outcomes.
 		}
 	}
 }
