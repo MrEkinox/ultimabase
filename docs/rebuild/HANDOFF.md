@@ -196,6 +196,18 @@ yarn validate:full && yarn test:e2e && yarn test:pack
 
 Ils passent quand on les relance isolément.
 
+## Audit DX (hovers) — 2026-10-07
+
+`node tooling/rebuild/dx-audit.mjs <ref> <rebuild> [--only …]` (voir
+[DX-AUDIT.md](DX-AUDIT.md)) compare déclarations, hovers, complétions et diagnostics.
+Premier passage (main `86294af` contre `ub-ref`) : 16 packages identiques ; **299
+différences de hovers visibles** dans 7 packages (password-auth, hooks, rest, roles,
+Core, et par propagation typegen, plugin-kit, pg-vector) ; aucune différence de
+complétion, de diagnostic ni de liste d'exports. Corrections : agent `dx-fix-plugins`
+pour password-auth, hooks, rest et roles ; Core après la passe d'intégration. Les
+suites de tests ne détectaient pas ces écarts : l'audit fait désormais partie des
+validations finales.
+
 ## Enseignements
 
 - Des `dist/index.d.ts` « identiques sauf alias privés » peuvent changer le texte des
