@@ -6,19 +6,16 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	fieldOptionKeys,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
-import {
-	type CompactScalarFieldDefinition,
-	type CompatibleGeneratedScalarOptions,
-	createConfiguredGeneratedCompactScalarFieldFactory,
-	type DefaultedCompactScalarFieldOptions,
-	type GeneratedScalarOption,
-	type NonDefaultedCompactScalarFieldOptions,
+	type CompactScalarField,
+	createScalarFieldFactory,
+	type DefaultedGeneratedScalarFieldOptions,
+	type NonDefaultedGeneratedScalarFieldOptions,
+	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 import {
-	createTemporalFieldConfigurationResolver,
+	assertTemporalAutoNow,
+	createTemporalNormalizer,
+	readTemporalTimezone,
 	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
 
@@ -34,57 +31,43 @@ export type DateTimeField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'dateTime', string, DateTimeFieldOptions, TTypegen>
 
-const dateTimeFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'dateTime',
-	optionKeys: [...fieldOptionKeys, 'autoNow', 'timezone'],
-}
-
 /** Provides date-time-specific names for compact auto-now inference. */
 type DefaultedDateTimeFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = DefaultedCompactScalarFieldOptions<
+> = DefaultedGeneratedScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
-> &
-	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
+	'autoNow',
+	TAutoNow,
+	true
+>
 
 type NonDefaultedDateTimeFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
+> = NonDefaultedGeneratedScalarFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
 	TList,
 	TImmutable,
-	GeneratedScalarOption<'autoNow', TAutoNow>
-> &
-	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
+	'autoNow',
+	TAutoNow,
+	true
+>
 
-type ResolvedDateTimeField<
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-	TAutoNow extends boolean,
-> = CompactScalarFieldDefinition<
+type DateTimeScalar = ScalarFieldDescriptor<
 	'dateTime',
 	string,
-	DateTimeFieldOptions,
-	TRequired,
-	TList,
-	TImmutable,
-	THasDefault,
-	TAutoNow
+	DateTimeFieldOptions
 >
 
 type DefaultedDateTimeField<
@@ -92,14 +75,28 @@ type DefaultedDateTimeField<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateTimeField<TRequired, TList, TImmutable, true, TAutoNow>
+> = CompactScalarField<
+	DateTimeScalar,
+	TRequired,
+	TList,
+	TImmutable,
+	true,
+	TAutoNow
+>
 
 type NonDefaultedDateTimeField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateTimeField<TRequired, TList, TImmutable, false, TAutoNow>
+> = CompactScalarField<
+	DateTimeScalar,
+	TRequired,
+	TList,
+	TImmutable,
+	false,
+	TAutoNow
+>
 
 export interface DateTimeFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -152,39 +149,22 @@ const hasValidLocalDateTime = (value: string): boolean => {
  */
 export const createDateTimeNormalizer = (
 	timezone: boolean,
-): ((value: unknown, path: string) => string) => {
-	const expectation = timezone
-		? 'a complete ISO date-time string with a timezone'
-		: 'a complete ISO date-time string without a timezone'
+): ((value: unknown, path: string) => string) =>
+	createTemporalNormalizer(
+		`a complete ISO date-time string ${timezone ? 'with' : 'without'} a timezone`,
+		(value) => {
+			// A zoned value must carry a suffix; its local part follows the local rules.
+			const localValue = timezone
+				? value.replace(timezoneSuffixPattern, '')
+				: value
+			const timestamp = Date.parse(timezone ? value : `${value}Z`)
 
-	return (value, path) => {
-		if (typeof value !== 'string') {
-			throw new TypeError(`${path} must be ${expectation}`)
-		}
-
-		const localValue = timezone
-			? value.replace(timezoneSuffixPattern, '')
-			: value
-		const validTimezone = !timezone || localValue.length !== value.length
-		const timestamp = timezone ? Date.parse(value) : Date.parse(`${value}Z`)
-
-		if (
-			!validTimezone ||
-			!hasValidLocalDateTime(localValue) ||
-			!Number.isFinite(timestamp)
-		) {
-			throw new RangeError(`${path} must be ${expectation}`)
-		}
-
-		return value
-	}
-}
-
-const resolveDateTimeFieldConfiguration =
-	createTemporalFieldConfigurationResolver<DateTimeFieldOptions>(
-		dateTimeFieldOptionsContract,
-		true,
-		createDateTimeNormalizer,
+			return (
+				(!timezone || localValue.length !== value.length) &&
+				hasValidLocalDateTime(localValue) &&
+				Number.isFinite(timestamp)
+			)
+		},
 	)
 
 /**
@@ -195,11 +175,13 @@ const resolveDateTimeFieldConfiguration =
  * dateTimeField({ autoNow: true })
  * ```
  */
-export const dateTimeField: DateTimeFieldFactory =
-	createConfiguredGeneratedCompactScalarFieldFactory<
-		'dateTime',
-		string,
-		DateTimeFieldOptions,
-		'autoNow',
-		true
-	>('dateTime', resolveDateTimeFieldConfiguration)
+export const dateTimeField: DateTimeFieldFactory = createScalarFieldFactory(
+	'dateTime',
+	createDateTimeNormalizer(true),
+	{
+		optionKeys: ['autoNow', 'timezone'],
+		assertOptions: assertTemporalAutoNow,
+		resolveSnapshot: (options) =>
+			createDateTimeNormalizer(readTemporalTimezone(options.timezone, true)),
+	},
+)

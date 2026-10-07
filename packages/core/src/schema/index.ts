@@ -91,9 +91,10 @@ export {
 	getPluginFieldWireCodec,
 	getFieldSchemaTarget,
 	isFieldRequiredDeferred,
+	pluginFieldStructuralContainsProtocolVersion,
+	readFieldTypegenState,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
-export { pluginFieldStructuralContainsProtocolVersion } from './fields/base/definition.js'
 export type {
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
@@ -137,7 +138,6 @@ export type {
 export type { FieldValueMode } from './fields/base/value-map.js'
 export type { FieldAtPath, SchemaFieldPath } from './fields/paths.js'
 export { assertFieldOptions, getFieldListDepth } from './fields/base/options.js'
-export { readFieldTypegenState } from './fields/base/definition.js'
 export { intField } from './fields/builtins/int.js'
 export type { IntField, IntFieldOptions } from './fields/builtins/int.js'
 export { jsonField } from './fields/builtins/json.js'

@@ -54,12 +54,10 @@ const containsExecutableArtifact = (
 	)
 }
 
-/** Detaches field options while retaining callback-bearing values as opaque artifacts. */
-export const snapshotCapturedFieldOptions = (value: unknown): unknown => {
-	if (!isPlainRecord(value)) {
-		return snapshotCapturedOptionValue(value)
-	}
-
+/** Detaches one field option record while retaining callback-bearing values as opaque artifacts. */
+export const snapshotCapturedFieldRecord = (
+	value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
 	const snapshot: Record<string, unknown> = {}
 	const seen = new WeakSet<object>()
 
@@ -71,3 +69,9 @@ export const snapshotCapturedFieldOptions = (value: unknown): unknown => {
 
 	return immutableRecord(snapshot)
 }
+
+/** Detaches field options while retaining callback-bearing values as opaque artifacts. */
+export const snapshotCapturedFieldOptions = (value: unknown): unknown =>
+	isPlainRecord(value)
+		? snapshotCapturedFieldRecord(value)
+		: snapshotCapturedOptionValue(value)

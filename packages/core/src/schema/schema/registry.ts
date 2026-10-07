@@ -25,71 +25,56 @@ const coreSchemaMetadataKeys = new Set([
 	'virtualFields',
 ])
 
-const assertNoUnresolvedFieldOptions = (
+/**
+ * Re-checks embedded field provenance and, before plugins resolve options,
+ * rejects option keys that no Core contract or installed plugin owns.
+ */
+const assertCompiledField = (
 	field: GenericField,
 	path: string,
+	rejectUnresolvedOptions: boolean,
 ): void => {
-	const contract = getDeclaredFieldOptionsContract(field)
-	if (contract !== undefined) {
-		const unknownKey = Object.keys(field.options).find(
-			(key) => !contract.optionKeys.includes(key),
-		)
-		if (unknownKey !== undefined) {
-			throw new TypeError(`Unknown ${field.kind} field option: ${unknownKey}`)
-		}
+	const contract = rejectUnresolvedOptions
+		? getDeclaredFieldOptionsContract(field)
+		: undefined
+	const unknownKey = Object.keys(field.options).find(
+		(key) => contract !== undefined && !contract.optionKeys.includes(key),
+	)
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown ${field.kind} field option: ${unknownKey}`)
 	}
 
-	const nestedFields =
-		'fields' in field.options ? field.options.fields : undefined
-	if (field.kind === 'object' && isPlainRecord(nestedFields)) {
-		for (const [name, nested] of Object.entries(nestedFields)) {
-			const nestedPath = `${path}.fields.${name}`
-			assertEmbeddedFieldDefinition(nested, nestedPath)
-			assertNoUnresolvedFieldOptions(nested, nestedPath)
+	const nestedFields: unknown =
+		field.kind === 'object' ? Reflect.get(field.options, 'fields') : undefined
+	if (!isPlainRecord(nestedFields)) return
+
+	for (const [name, nested] of Object.entries(nestedFields)) {
+		const nestedPath = `${path}.fields.${name}`
+		assertEmbeddedFieldDefinition(nested, nestedPath)
+		if (rejectUnresolvedOptions) {
+			assertCompiledField(nested, nestedPath, true)
 		}
 	}
 }
 
-const assertNoUnresolvedOptions = (
+const assertCompiledFields = (
 	prepared: readonly PreparedSchemaCompilation[],
+	rejectUnresolvedOptions: boolean,
 ): void => {
-	for (const candidate of prepared) {
-		const unknownSchemaKey = Object.keys(candidate.definition).find(
-			(key) => !coreSchemaMetadataKeys.has(key),
-		)
+	for (const { definition, schema } of prepared) {
+		const unknownSchemaKey = rejectUnresolvedOptions
+			? Object.keys(definition).find((key) => !coreSchemaMetadataKeys.has(key))
+			: undefined
 		if (unknownSchemaKey !== undefined) {
 			throw new TypeError(`Unknown schema option: ${unknownSchemaKey}`)
 		}
 
-		for (const [name, field] of Object.entries(
-			candidate.definition.persistedFields,
-		)) {
-			assertNoUnresolvedFieldOptions(
+		for (const [name, field] of Object.entries(definition.persistedFields)) {
+			assertCompiledField(
 				field,
-				`${candidate.schema.className}.fields.${name}`,
+				`${schema.className}.fields.${name}`,
+				rejectUnresolvedOptions,
 			)
-		}
-	}
-}
-
-const assertValidEmbeddedFields = (
-	prepared: readonly PreparedSchemaCompilation[],
-): void => {
-	for (const candidate of prepared) {
-		for (const [fieldName, field] of Object.entries(
-			candidate.definition.persistedFields,
-		)) {
-			if (field.kind !== 'object') continue
-
-			const nestedFields: unknown = Reflect.get(field.options, 'fields')
-			if (!isPlainRecord(nestedFields)) continue
-
-			for (const [name, nested] of Object.entries(nestedFields)) {
-				assertEmbeddedFieldDefinition(
-					nested,
-					`${candidate.schema.className}.fields.${fieldName}.fields.${name}`,
-				)
-			}
 		}
 	}
 }
@@ -226,22 +211,15 @@ export class SchemaRegistry<
 			return state.schemaTargets
 		}
 
-		const initialPrepared = this.values().map((schema) =>
-			prepareSchemaCompilation(schema, fieldMethods, (className) =>
-				this.get(className),
-			),
-		)
-		const prepared = immutableArray(initialPrepared)
-		assertNoUnresolvedOptions(prepared)
-		assertValidEmbeddedFields(prepared)
-		const schemaTargets = compilePreparedSchemaRegistry(
+		const prepared = prepareSchemaRegistry(this, fieldMethods)
+		assertCompiledFields(prepared, true)
+		state.schemaTargets = compilePreparedSchemaRegistry(
 			this,
 			prepared,
 			prepared,
 		)
-		state.schemaTargets = schemaTargets
 
-		return schemaTargets
+		return state.schemaTargets
 	}
 
 	/** Resolves every lazy relationship target and closes schema registration. */
@@ -259,6 +237,21 @@ export class SchemaRegistry<
 		return schemaTargets
 	}
 }
+
+/** Resolves every registered declaration against one registry's own schemas. */
+const prepareSchemaRegistry = (
+	registry: SchemaRegistry,
+	fieldMethods: FieldBuilderMethodResolver | undefined,
+): readonly PreparedSchemaCompilation[] =>
+	immutableArray(
+		registry
+			.values()
+			.map((schema) =>
+				prepareSchemaCompilation(schema, fieldMethods, (className) =>
+					registry.get(className),
+				),
+			),
+	)
 
 const compilePreparedSchemaRegistry = (
 	registry: SchemaRegistry,
@@ -333,20 +326,14 @@ export const stageSchemaRegistryCompilation = (
 	if (getSchemaRegistryState(registry).schemaTargets !== undefined) {
 		throw new TypeError('Cannot replace an already compiled schema registry')
 	}
-	const staged = new SchemaRegistry([
+	const staged = new SchemaRegistry<readonly SchemaDefinition[]>([
 		...registry.values(),
 		...additions,
-	] as readonly SchemaDefinition[])
-	const prepared = immutableArray(
-		staged
-			.values()
-			.map((schema) =>
-				prepareSchemaCompilation(schema, fieldMethods, (className) =>
-					staged.get(className),
-				),
-			),
-	)
-	return { prepared, registry: staged }
+	])
+	return {
+		prepared: prepareSchemaRegistry(staged, fieldMethods),
+		registry: staged,
+	}
 }
 
 /** @internal Validates and atomically publishes one decoded compiler result. */
@@ -355,7 +342,7 @@ export const publishSchemaRegistryCompilation = (
 	staging: StagedSchemaRegistryCompilation,
 	prepared: readonly PreparedSchemaCompilation[],
 ): SchemaTargetGraph => {
-	assertValidEmbeddedFields(prepared)
+	assertCompiledFields(prepared, false)
 	const targets = compilePreparedSchemaRegistry(
 		staging.registry,
 		staging.prepared,

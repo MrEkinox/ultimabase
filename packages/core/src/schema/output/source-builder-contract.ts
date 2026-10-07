@@ -48,6 +48,3 @@ export type ConfiguredOutputBuilder<TSource extends PluginSourceState> =
 		PluginSourceContextSurface<TSource, 'output', 'fieldOptions'>,
 		ConfiguredPluginOutputMethods<TSource>
 	>
-
-/** Accepts every genuine Core or plugin output produced by the configured builder. */
-export type ConfiguredOutputDescriptor = GenericOutputDescriptor

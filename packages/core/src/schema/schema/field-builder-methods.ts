@@ -8,8 +8,8 @@ import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
 import { assertPluginFieldKind } from '../fields/base/kinds.js'
 import {
-	fieldDeclarationContexts,
 	assertFieldDeclarationContext,
+	mapFieldDeclarationContexts,
 	type FieldDeclarationContext,
 } from './field-contexts.js'
 import type { PluginSourceReceipt } from '../../plugins/source-projections.js'
@@ -155,11 +155,19 @@ type FieldFamilySourceProjection<
 			}>
 		: Readonly<Record<never, never>>
 
-const assertKnownKeys = (
-	value: Readonly<Record<string, unknown>>,
+/** Narrows one plain declaration object and rejects keys outside its contract. */
+const assertDeclarationRecord: (
+	value: unknown,
 	knownKeys: ReadonlySet<string>,
 	path: string,
-): void => {
+) => asserts value is Readonly<Record<string, unknown>> = (
+	value,
+	knownKeys,
+	path,
+) => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
 	const unknownKey = Object.keys(value).find((key) => !knownKeys.has(key))
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown ${path} key: ${unknownKey}`)
@@ -175,10 +183,7 @@ const assertTypeExportName = (value: unknown, path: string): string => {
 }
 
 const normalizeTypegen = (value: unknown, path: string): PluginFieldTypegen => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-	assertKnownKeys(value, typegenKeys, path)
+	assertDeclarationRecord(value, typegenKeys, path)
 	assertNonEmptyString(value.module, `${path}.module`)
 	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
 		throw new TypeError(`${path}.module must be a stable module specifier`)
@@ -203,10 +208,7 @@ const normalizeContext = (
 	context: FieldDeclarationContext,
 ): PluginFieldFamilyContextDefinition => {
 	const path = `Plugin field family builder contexts.${context}`
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-	assertKnownKeys(value, contextKeys, path)
+	assertDeclarationRecord(value, contextKeys, path)
 	if (typeof value.factory !== 'function') {
 		throw new TypeError(`${path}.factory must be a function`)
 	}
@@ -229,10 +231,7 @@ const normalizeContext = (
 }
 
 const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('Plugin field family builder must be a plain object')
-	}
-	assertKnownKeys(value, builderKeys, 'Plugin field family builder')
+	assertDeclarationRecord(value, builderKeys, 'Plugin field family builder')
 	assertNonEmptyString(value.name, 'Plugin field family builder name')
 	if (!/^[$A-Z_a-z][$\w]*$/u.test(value.name)) {
 		throw new TypeError(
@@ -250,24 +249,17 @@ const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 			'Plugin field family builder contexts must declare at least one context',
 		)
 	}
-	const contexts = new Map<
+	const declared = new Map<
 		FieldDeclarationContext,
 		PluginFieldFamilyContextDefinition
 	>()
 	for (const key of keys) {
 		assertFieldDeclarationContext(key, 'Plugin field family builder context')
-		contexts.set(key, normalizeContext(value.contexts[key], key))
+		declared.set(key, normalizeContext(value.contexts[key], key))
 	}
 
 	return immutableRecord({
-		contexts: immutableRecord(
-			Object.fromEntries(
-				fieldDeclarationContexts.flatMap((context) => {
-					const definition = contexts.get(context)
-					return definition === undefined ? [] : [[context, definition]]
-				}),
-			),
-		),
+		contexts: mapFieldDeclarationContexts((context) => declared.get(context)),
 		name: value.name,
 	})
 }
@@ -300,10 +292,11 @@ export function definePluginFieldFamily(
 	definition: PluginFieldFamilyDefinition,
 ): PluginFieldFamilyDefinition {
 	const candidate: unknown = definition
-	if (!isPlainRecord(candidate)) {
-		throw new TypeError('Plugin field family definition must be a plain object')
-	}
-	assertKnownKeys(candidate, familyKeys, 'Plugin field family definition')
+	assertDeclarationRecord(
+		candidate,
+		familyKeys,
+		'Plugin field family definition',
+	)
 
 	const fieldKind = assertPluginFieldKind(
 		definition.fieldKind,

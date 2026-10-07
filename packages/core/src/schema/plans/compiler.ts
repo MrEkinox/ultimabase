@@ -11,16 +11,10 @@ import {
 	isRequiredOnCreate,
 } from '../fields/base/options.js'
 import type { ObjectField } from '../fields/builtins/object.js'
-import type {
-	SchemaDefinition,
-	SchemaFields,
-	SchemaMetadata,
-} from '../schema/definition.js'
+import type { SchemaDefinition, SchemaFields } from '../schema/definition.js'
 
 import type {
 	FieldValidationPlan,
-	ObjectValidationPlan,
-	ScalarValidationPlan,
 	SchemaValidationPlan,
 	SchemaValidationPlans,
 	ValidationOperation,
@@ -37,35 +31,24 @@ const readPresence = (
 	operation: ValidationOperation,
 ): ValidationPresence => {
 	// Relation collections are addressed through handles and never cross row inputs.
-	if (field.kind === 'relation') return 'forbidden'
-	if (hasForbiddenMutationInput(field)) return 'forbidden'
-
-	const options = field.options
-	const generated = 'generatedOn' in options
-	const immutable = 'immutable' in options && options.immutable
-
-	if (generated || (operation === 'update' && immutable)) {
+	if (
+		field.kind === 'relation' ||
+		hasForbiddenMutationInput(field) ||
+		'generatedOn' in field.options
+	) {
 		return 'forbidden'
 	}
 
 	if (operation === 'update') {
-		return 'optional'
+		return 'immutable' in field.options && field.options.immutable
+			? 'forbidden'
+			: 'optional'
 	}
 
-	if (isFieldRequiredDeferred(field)) {
-		return 'optional'
-	}
-
-	return isRequiredOnCreate(field) ? 'required' : 'optional'
+	return !isFieldRequiredDeferred(field) && isRequiredOnCreate(field)
+		? 'required'
+		: 'optional'
 }
-
-const compileFieldPlanBase = (
-	field: GenericField,
-	operation: ValidationOperation,
-): FieldPlanBase => ({
-	presence: readPresence(field, operation),
-	nullable: isFieldNullable(field),
-})
 
 /** Narrows the only built-in kind whose plan requires recursive children. */
 const isObjectField = (field: GenericField): field is ObjectField =>
@@ -74,61 +57,44 @@ const isObjectField = (field: GenericField): field is ObjectField =>
 const compileFields = (
 	fields: SchemaFields,
 	operation: ValidationOperation,
-): Readonly<Record<string, FieldValidationPlan>> => {
-	const entries: [string, FieldValidationPlan][] = Object.entries(fields).map(
-		([name, field]) => [name, compileField(field, operation)],
+): Readonly<Record<string, FieldValidationPlan>> =>
+	immutableRecord(
+		Object.fromEntries(
+			Object.entries(fields).map(([name, field]) => [
+				name,
+				compileFieldValidationPlan(field, operation),
+			]),
+		),
 	)
 
-	return immutableRecord(Object.fromEntries(entries))
-}
-
-const compileScalarOrObject = (
-	field: GenericField,
-	operation: ValidationOperation,
-	base: FieldPlanBase,
-): ObjectValidationPlan | ScalarValidationPlan => {
-	if (isObjectField(field)) {
-		return immutableRecord({
-			...base,
-			field,
-			kind: 'object',
-			unknownFields: 'reject',
-			fields: compileFields(field.options.fields, operation),
-		})
-	}
-
-	return immutableRecord({ ...base, field, kind: 'scalar' })
-}
-
-const compileField = (
+/** Compiles one standalone field for protected adapter-owned record protocols. */
+export const compileFieldValidationPlan = (
 	field: GenericField,
 	operation: ValidationOperation,
 ): FieldValidationPlan => {
-	const base = compileFieldPlanBase(field, operation)
 	const listDepth = getFieldListDepth(field.options)
-	const scalarBase: FieldPlanBase =
-		listDepth === 0
-			? base
-			: {
-					presence: 'required',
-					nullable: false,
-				}
-	const scalarOperation =
-		operation === 'update' && listDepth > 0 ? 'create' : operation
-	const scalarPlan = compileScalarOrObject(field, scalarOperation, scalarBase)
-
-	if (listDepth === 0) {
-		return scalarPlan
+	const base: FieldPlanBase = {
+		presence: readPresence(field, operation),
+		nullable: isFieldNullable(field),
 	}
-
-	let plan: FieldValidationPlan = scalarPlan
+	// List items are always present and non-null, and an update replaces them whole.
+	const itemBase: FieldPlanBase =
+		listDepth === 0 ? base : { presence: 'required', nullable: false }
+	const itemOperation = listDepth === 0 ? operation : 'create'
+	let plan: FieldValidationPlan = isObjectField(field)
+		? immutableRecord({
+				...itemBase,
+				field,
+				kind: 'object',
+				unknownFields: 'reject',
+				fields: compileFields(field.options.fields, itemOperation),
+			})
+		: immutableRecord({ ...itemBase, field, kind: 'scalar' })
 
 	// Wrappers are built inside-out so only the outer field owns property presence.
 	for (let level = listDepth; level >= 1; level -= 1) {
-		const wrapperBase = level === 1 ? base : scalarBase
-
 		plan = immutableRecord({
-			...wrapperBase,
+			...(level === 1 ? base : itemBase),
 			field,
 			kind: 'array',
 			items: plan,
@@ -138,22 +104,6 @@ const compileField = (
 	return plan
 }
 
-/** Compiles one standalone field for protected adapter-owned record protocols. */
-export const compileFieldValidationPlan = (
-	field: GenericField,
-	operation: ValidationOperation,
-): FieldValidationPlan => compileField(field, operation)
-
-const compileOperationPlan = (
-	schema: SchemaMetadata,
-	operation: ValidationOperation,
-): SchemaValidationPlan =>
-	immutableRecord({
-		operation,
-		unknownFields: 'reject',
-		fields: compileFields(schema.persistedFields, operation),
-	})
-
 /**
  * Compiles immutable operation structure while reusing declared field metadata.
  */
@@ -161,10 +111,18 @@ export const compileValidationPlans = (
 	schema: SchemaDefinition,
 ): SchemaValidationPlans => {
 	// Compilation deliberately crosses from class identity to neutral metadata once.
-	const definition = schema.definition
+	const { persistedFields } = schema.definition
+	const compileOperation = (
+		operation: ValidationOperation,
+	): SchemaValidationPlan =>
+		immutableRecord({
+			operation,
+			unknownFields: 'reject',
+			fields: compileFields(persistedFields, operation),
+		})
 
 	return immutableRecord({
-		create: compileOperationPlan(definition, 'create'),
-		update: compileOperationPlan(definition, 'update'),
+		create: compileOperation('create'),
+		update: compileOperation('update'),
 	})
 }

@@ -1,45 +1,136 @@
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	assertNonEmptyString,
 } from '@ultimabase/shared'
+
+import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import {
-	assertVirtualFieldDefinition,
-	getVirtualFieldResolver,
-} from './virtual-field.js'
-import { normalizeSchemaIndexes } from './indexes.js'
-import { systemFields, reservedSystemFieldNames } from './system-fields.js'
+import { snapshotCapturedOptionValue } from './captured-options.js'
+import { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 import {
 	FieldBuilderDeclarationExecutionError,
 	resolveCapturedFieldMap,
 	type FieldBuilderTargetResolver,
 } from './field-builder.js'
-import { snapshotCapturedOptionValue } from './captured-options.js'
-import { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
+import { normalizeSchemaIndexes, type SchemaIndexOptions } from './indexes.js'
+import { createInitialSchemaProvenance } from './provenance.js'
 import {
 	isReservedQueryLogicalFieldName,
 	isReservedSchemaModelFieldName,
 } from './reserved-field-names.js'
-import { createInitialSchemaProvenance } from './provenance.js'
-import { SchemaCompilationError } from './definition-error.js'
+import { reservedSystemFieldNames, systemFields } from './system-fields.js'
 import {
-	getSchemaDeclaration,
-	getCompiledSchemaRecord,
-	storeCompiledSchemaRecord,
-	type CompiledSchemaRecord,
-	type NormalizedSchemaDeclaration,
-} from './definition-state.js'
+	assertVirtualFieldDefinition,
+	getVirtualFieldResolver,
+	type GenericVirtualField,
+} from './virtual-field.js'
 import type {
 	PreparedSchemaCompilation,
 	SchemaCompiledTargetIdentity,
 	SchemaDeclaredFields,
 	SchemaDefinition,
 	SchemaFields,
+	SchemaMetadata,
 	SchemaVirtualFields,
 } from './definition.js'
+
+/** Explains why a deferred schema cannot expose its final runtime definition. */
+export type SchemaCompilationFailureReason =
+	| 'callback-threw'
+	| 'incompatible-definition'
+	| 'invalid-result'
+	| 'not-compiled'
+
+/** Reports one deterministic static schema-compilation failure. */
+export class SchemaCompilationError extends Error {
+	readonly code = 'SCHEMA_COMPILATION_FAILED' as const
+	readonly className: string
+	readonly reason: SchemaCompilationFailureReason
+
+	constructor(
+		reason: SchemaCompilationFailureReason,
+		className: string,
+		message: string,
+		options?: ErrorOptions,
+	) {
+		super(message, options)
+		this.name = 'SchemaCompilationError'
+		this.className = className
+		this.reason = reason
+		Object.freeze(this)
+	}
+}
+
+// A versioned global symbol preserves constructor provenance across package copies.
+export const schemaDefinitionMarker: symbol = Symbol.for(
+	'@ultimabase/core/schema-definition/v1',
+)
+
+/** Retains one declaration until an application resolves its deferred fields. */
+export interface NormalizedSchemaDeclaration {
+	readonly className: string
+	readonly fields: Readonly<Record<string, unknown>>
+	readonly indexes: readonly SchemaIndexOptions[] | undefined
+	readonly options: Readonly<Record<string, unknown>>
+}
+
+/** Holds the published metadata; targets exist once an application owns it. */
+interface CompiledSchemaRecord {
+	readonly definition: SchemaMetadata
+	readonly developerFields: SchemaFields
+	readonly targets: readonly SchemaCompiledTargetIdentity[] | undefined
+}
+
+const schemaDeclarations = new WeakMap<
+	SchemaDefinition,
+	NormalizedSchemaDeclaration
+>()
+const compiledSchemaRecords = new WeakMap<
+	SchemaDefinition,
+	CompiledSchemaRecord
+>()
+
+/** Owns the deferred declaration of one schema class. */
+export const storeSchemaDeclaration = (
+	schema: SchemaDefinition,
+	declaration: NormalizedSchemaDeclaration,
+): void => {
+	schemaDeclarations.set(schema, declaration)
+}
+
+/** Publishes a candidate resolved without application-owned field methods. */
+export const storeProvisionalSchemaCompilation = (
+	prepared: PreparedSchemaCompilation,
+): void => {
+	compiledSchemaRecords.set(
+		prepared.schema,
+		immutableRecord({
+			definition: prepared.definition,
+			developerFields: prepared.developerFields,
+			targets: undefined,
+		}),
+	)
+}
+
+/** Reads the published compilation or explains that no application owns it yet. */
+export const readCompiledSchemaRecord = (
+	schema: SchemaDefinition,
+): CompiledSchemaRecord => {
+	const record = compiledSchemaRecords.get(schema)
+
+	if (record === undefined) {
+		throw new SchemaCompilationError(
+			'not-compiled',
+			schema.className,
+			`Schema ${schema.className} has not been compiled by an application`,
+		)
+	}
+
+	return record
+}
 
 const assertNoReservedFieldCollision = (
 	fields: Readonly<Record<string, unknown>>,
@@ -61,10 +152,15 @@ const assertNoReservedFieldCollision = (
 	}
 }
 
-const assertSchemaFields: (
+/** Validates one resolved developer field map and splits its stored fields. */
+const assertDeveloperFields = (
 	fields: unknown,
 	className: string,
-) => asserts fields is SchemaDeclaredFields = (fields, className) => {
+): {
+	declared: SchemaDeclaredFields
+	persisted: SchemaFields
+	virtual: SchemaVirtualFields
+} => {
 	if (!isPlainRecord(fields)) {
 		throw new SchemaCompilationError(
 			'invalid-result',
@@ -75,7 +171,13 @@ const assertSchemaFields: (
 
 	assertNoReservedFieldCollision(fields)
 
+	const declared: Record<string, GenericField | GenericVirtualField> = {}
+	const persisted: Record<string, GenericField> = {}
+	const virtual: Record<string, GenericVirtualField> = {}
+
 	for (const [name, field] of Object.entries(fields)) {
+		const path = `${className}.fields.${name}`
+
 		assertNonEmptyString(name, `${className} schema field name`)
 		if (
 			typeof field === 'object' &&
@@ -83,69 +185,20 @@ const assertSchemaFields: (
 			'kind' in field &&
 			field.kind === 'virtual'
 		) {
-			assertVirtualFieldDefinition(field, `${className}.fields.${name}`)
+			assertVirtualFieldDefinition(field, path)
+			virtual[name] = field
 		} else {
-			assertFieldDefinition(field, `${className}.fields.${name}`)
+			assertFieldDefinition(field, path)
+			persisted[name] = field
 		}
+		declared[name] = field
 	}
-}
 
-const compileSchemaRecord = (
-	declaration: NormalizedSchemaDeclaration,
-	developerFieldsInput: unknown,
-): CompiledSchemaRecord => {
-	assertSchemaFields(developerFieldsInput, declaration.className)
-	const developerFields = immutableRecord(developerFieldsInput)
-	const declaredFields = developerFields
-	const persistedDeveloperFields = immutableRecord(
-		Object.fromEntries(
-			Object.entries(developerFields).filter(
-				([, field]) => field.kind !== 'virtual',
-			),
-		),
-	) as SchemaFields
-	const virtualFields = immutableRecord(
-		Object.fromEntries(
-			Object.entries(developerFields).filter(
-				([, field]) => field.kind === 'virtual',
-			),
-		),
-	) as SchemaVirtualFields
-	const fields = immutableRecord({
-		...declaredFields,
-		...systemFields,
-	})
-	const persistedFields = immutableRecord({
-		...persistedDeveloperFields,
-		...systemFields,
-	})
-	const indexes = normalizeSchemaIndexes(
-		persistedDeveloperFields,
-		declaration.indexes,
-	)
-	const provenance = createInitialSchemaProvenance(
-		declaration.className,
-		Object.keys(declaredFields),
-		fields,
-		indexes,
-		Object.keys(declaration.options),
-	)
-	const definition = immutableRecord({
-		...declaration.options,
-		className: declaration.className,
-		constraints: immutableArray([]),
-		fields,
-		indexes,
-		persistedFields,
-		provenance,
-		virtualFields,
-	})
-
-	return immutableRecord({
-		definition,
-		developerFields: persistedDeveloperFields,
-		targets: undefined,
-	})
+	return {
+		declared: immutableRecord(declared),
+		persisted: immutableRecord(persisted),
+		virtual: immutableRecord(virtual),
+	}
 }
 
 const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
@@ -169,10 +222,10 @@ export const snapshotUnresolvedSchemaOptions = (
 	return immutableRecord(unresolved)
 }
 
-const executeSchemaFieldDeclaration = (
+const resolveDeveloperFields = (
 	declaration: NormalizedSchemaDeclaration,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
+	fieldMethods: FieldBuilderMethodResolver | undefined,
+	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): unknown => {
 	try {
 		return resolveCapturedFieldMap(
@@ -197,25 +250,74 @@ const executeSchemaFieldDeclaration = (
 	}
 }
 
-const assertCompatibleTargets = (
-	className: string,
-	canonical: readonly SchemaCompiledTargetIdentity[],
-	candidate: readonly SchemaCompiledTargetIdentity[],
+/** Resolves one application-local candidate without publishing partial metadata. */
+export const prepareSchemaCompilation = (
+	schema: SchemaDefinition,
+	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
+): PreparedSchemaCompilation => {
+	const declaration = schemaDeclarations.get(schema)
+
+	if (declaration === undefined) {
+		throw new TypeError('schema must be a class created by App.Schema.define')
+	}
+
+	const { className, options } = declaration
+	const { declared, persisted, virtual } = assertDeveloperFields(
+		resolveDeveloperFields(declaration, fieldMethods, resolveTarget),
+		className,
+	)
+	const fields = immutableRecord({ ...declared, ...systemFields })
+	const indexes = normalizeSchemaIndexes(persisted, declaration.indexes)
+
+	return immutableRecord({
+		definition: immutableRecord({
+			...options,
+			className,
+			constraints: immutableArray([]),
+			fields,
+			indexes,
+			persistedFields: immutableRecord({ ...persisted, ...systemFields }),
+			provenance: createInitialSchemaProvenance(
+				className,
+				Object.keys(declared),
+				fields,
+				indexes,
+				Object.keys(options),
+			),
+			virtualFields: virtual,
+		}),
+		developerFields: persisted,
+		schema,
+	})
+}
+
+const assertCompatibleCompilation = (
+	existing: CompiledSchemaRecord,
+	prepared: PreparedSchemaCompilation,
+	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
+	const canonicalTargets = existing.targets ?? []
 	const compatible =
-		canonical.length === candidate.length &&
-		canonical.every((target, index) => {
-			const candidateTarget = candidate[index]
-
-			if (candidateTarget === undefined) {
-				return false
-			}
-
+		Object.entries(existing.definition.virtualFields).every(([name, field]) => {
+			const candidate = prepared.definition.virtualFields[name]
 			return (
-				target.target === candidateTarget.target &&
+				candidate !== undefined &&
+				getVirtualFieldResolver(candidate) === getVirtualFieldResolver(field)
+			)
+		}) &&
+		areSchemaDeclarationValuesCompatible(
+			existing.definition,
+			prepared.definition,
+		) &&
+		canonicalTargets.length === targets.length &&
+		canonicalTargets.every((target, index) => {
+			const candidate = targets[index]
+			return (
+				candidate?.target === target.target &&
 				areSchemaDeclarationValuesCompatible(
 					target.fieldPath,
-					candidateTarget.fieldPath,
+					candidate.fieldPath,
 				)
 			)
 		})
@@ -223,34 +325,10 @@ const assertCompatibleTargets = (
 	if (!compatible) {
 		throw new SchemaCompilationError(
 			'incompatible-definition',
-			className,
-			`Schema ${className} compiled differently in another application`,
+			prepared.schema.className,
+			`Schema ${prepared.schema.className} compiled differently in another application`,
 		)
 	}
-}
-
-/** Resolves one application-local candidate without publishing partial metadata. */
-export const prepareSchemaCompilation = (
-	schema: SchemaDefinition,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): PreparedSchemaCompilation => {
-	const declaration = getSchemaDeclaration(schema)
-
-	if (declaration === undefined) {
-		throw new TypeError('schema must be a class created by App.Schema.define')
-	}
-
-	const candidate = compileSchemaRecord(
-		declaration,
-		executeSchemaFieldDeclaration(declaration, fieldMethods, resolveTarget),
-	)
-
-	return immutableRecord({
-		definition: candidate.definition,
-		developerFields: candidate.developerFields,
-		schema,
-	})
 }
 
 /** Checks compatibility without publishing any candidate in the application graph. */
@@ -258,40 +336,11 @@ export const validateSchemaCompilation = (
 	prepared: PreparedSchemaCompilation,
 	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
-	const existingRecord = getCompiledSchemaRecord(prepared.schema)
-	const resolverCompatible =
-		existingRecord?.targets === undefined ||
-		Object.entries(existingRecord.definition.virtualFields).every(
-			([name, field]) => {
-				const candidate = prepared.definition.virtualFields[name]
-				return (
-					candidate !== undefined &&
-					getVirtualFieldResolver(candidate) === getVirtualFieldResolver(field)
-				)
-			},
-		)
+	const existing = compiledSchemaRecords.get(prepared.schema)
 
-	if (
-		existingRecord?.targets !== undefined &&
-		(!resolverCompatible ||
-			!areSchemaDeclarationValuesCompatible(
-				existingRecord.definition,
-				prepared.definition,
-			))
-	) {
-		throw new SchemaCompilationError(
-			'incompatible-definition',
-			prepared.schema.className,
-			`Schema ${prepared.schema.className} compiled differently in another application`,
-		)
-	}
-
-	if (existingRecord?.targets !== undefined) {
-		assertCompatibleTargets(
-			prepared.schema.className,
-			existingRecord.targets,
-			targets,
-		)
+	// A schema published by another application must compile identically here.
+	if (existing?.targets !== undefined) {
+		assertCompatibleCompilation(existing, prepared, targets)
 	}
 }
 
@@ -300,24 +349,21 @@ export const finalizeSchemaCompilation = (
 	prepared: PreparedSchemaCompilation,
 	targets: readonly SchemaCompiledTargetIdentity[],
 ): void => {
-	const existingRecord = getCompiledSchemaRecord(prepared.schema)
-	if (existingRecord?.targets !== undefined) return
+	if (compiledSchemaRecords.get(prepared.schema)?.targets !== undefined) return
 
-	const immutableTargets = immutableArray(
-		targets.map((target) =>
-			immutableRecord({
-				fieldPath: immutableArray(target.fieldPath),
-				target: target.target,
-			}),
-		),
-	)
-
-	storeCompiledSchemaRecord(
+	compiledSchemaRecords.set(
 		prepared.schema,
 		immutableRecord({
 			definition: prepared.definition,
 			developerFields: prepared.developerFields,
-			targets: immutableTargets,
+			targets: immutableArray(
+				targets.map((target) =>
+					immutableRecord({
+						fieldPath: immutableArray(target.fieldPath),
+						target: target.target,
+					}),
+				),
+			),
 		}),
 	)
 }

@@ -66,8 +66,6 @@ export interface SchemaIndexDefinition<TFieldName extends string = string> {
 	readonly unique: boolean
 }
 
-const emptySchemaIndexes: readonly [] = immutableArray([])
-
 function assertSchemaIndexes(
 	indexes: unknown,
 ): asserts indexes is readonly SchemaIndexOptions[] | undefined {
@@ -135,10 +133,6 @@ export const readFieldIndexValue = (value: unknown): boolean | 'unique' => {
 	throw new TypeError('indexed must be a boolean or "unique"')
 }
 
-/** @internal Resolves the implicit index carried by one field options contract. */
-export const readFieldIndex = (options: object): boolean | 'unique' =>
-	readFieldIndexValue('indexed' in options ? options.indexed : undefined)
-
 const normalizeCompositeIndex = (
 	index: SchemaIndexOptions,
 	knownFieldNames: ReadonlySet<string>,
@@ -185,7 +179,7 @@ export const normalizeSchemaIndexes = (
 	])
 
 	for (const [fieldName, field] of Object.entries(fields)) {
-		const indexed = readFieldIndex(field.options)
+		const indexed = readFieldIndexValue(Reflect.get(field.options, 'indexed'))
 
 		if (indexed !== false) {
 			definitions.push(
@@ -197,7 +191,7 @@ export const normalizeSchemaIndexes = (
 		}
 	}
 
-	for (const index of indexes ?? emptySchemaIndexes) {
+	for (const index of indexes ?? []) {
 		definitions.push(normalizeCompositeIndex(index, knownFieldNames))
 	}
 

@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,10 +7,11 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
-	type DefaultedCompactScalarFieldOptions,
-	type NonDefaultedCompactScalarFieldOptions,
+	type CompactScalarField,
+	createScalarFieldFactory,
+	type DefaultedScalarFieldOptions,
+	type NonDefaultedScalarFieldOptions,
+	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
 
@@ -31,61 +27,31 @@ export type StringField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
 
-const stringFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'string',
-	optionKeys: fieldOptionKeys,
-}
+type StringScalar = ScalarFieldDescriptor<'string', string, StringFieldOptions>
 
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	StringFieldOptions,
-	string,
-	TRequired,
-	TList,
-	TImmutable
->
+> = DefaultedScalarFieldOptions<StringScalar, TRequired, TList, TImmutable>
 
 type NonDefaultedStringFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	StringFieldOptions,
-	string,
-	TRequired,
-	TList,
-	TImmutable
->
-
-type ResolvedStringField<
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-> = CompactScalarFieldDefinition<
-	'string',
-	string,
-	StringFieldOptions,
-	TRequired,
-	TList,
-	TImmutable,
-	THasDefault
->
+> = NonDefaultedScalarFieldOptions<StringScalar, TRequired, TList, TImmutable>
 
 type DefaultedStringField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedStringField<TRequired, TList, TImmutable, true>
+> = CompactScalarField<StringScalar, TRequired, TList, TImmutable, true>
 
 type NonDefaultedStringField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedStringField<TRequired, TList, TImmutable, false>
+> = CompactScalarField<StringScalar, TRequired, TList, TImmutable, false>
 
 export interface StringFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -118,15 +84,6 @@ export interface StringFieldFactory<
 	): NonDefaultedStringField<TRequired, TList, TImmutable>
 }
 
-const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeStringValue,
-		stringFieldOptionsContract,
-	)
-
 /**
  * Declares a UTF-16 JavaScript string with portable field metadata.
  *
@@ -138,8 +95,7 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
  * })
  * ```
  */
-export const stringField: StringFieldFactory = createCompactScalarFieldFactory<
+export const stringField: StringFieldFactory = createScalarFieldFactory(
 	'string',
-	string,
-	StringFieldOptions
->('string', normalizeStringFieldOptions, normalizeStringValue)
+	normalizeStringValue,
+)
