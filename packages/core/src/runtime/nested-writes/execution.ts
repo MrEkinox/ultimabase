@@ -13,7 +13,10 @@ import type {
 	NestedWriteRelationNode,
 } from '../../schema/nested-writes/contracts.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
-import { createRuntimeNestedUpdateOperation } from './preparation.js'
+import {
+	createRuntimeNestedUpdateOperation,
+	readNestedPointerTarget,
+} from './preparation.js'
 import {
 	readNestedWriteRecordId,
 	requireNestedWriteCurrentPointer,
@@ -153,62 +156,41 @@ export class RuntimeNestedWriteCoordinator {
 		node: NestedWriteObjectNode,
 		operation: DatabaseMutationOperationAst,
 	): void {
-		if (node.command === 'create') {
-			if (operation.kind !== 'create-one') {
-				throw new TypeError(
-					'Nested create resolved to a different operation kind',
-				)
-			}
-			const create =
-				operation as unknown as CreateOneOperationAst<SchemaDefinition>
-			for (const relationship of node.relationships) {
-				if (relationship.kind !== 'pointer') continue
-				const expectedId =
-					relationship.command === 'connect'
-						? relationship.id
-						: relationship.command === 'create'
-							? relationship.child?.reservedId
-							: undefined
-				const candidate = create.input[relationship.fieldName]
-				if (
-					expectedId === undefined ||
-					!Pointer.is(candidate) ||
-					candidate.schema !== relationship.target ||
-					candidate.id !== expectedId
-				) {
-					throw new TypeError(
-						`Nested pointer resolution changed its graph target: ${node.schema.className}.${relationship.fieldName}`,
-					)
-				}
-			}
-			return
-		}
-
-		if (operation.kind !== 'update-one') {
+		if (operation.kind !== `${node.command}-one`) {
 			throw new TypeError(
-				'Nested update resolved to a different operation kind',
+				`Nested ${node.command} resolved to a different operation kind`,
 			)
 		}
+		// The kind check above proves the exact singular operation shape.
+		const create =
+			node.command === 'create'
+				? (operation as unknown as CreateOneOperationAst<SchemaDefinition>)
+				: undefined
 		const update = operation as UpdateOneOperationAst<SchemaDefinition>
-		const current = this.#preflight.readUpdateTarget(node)?.record
+		const current =
+			create === undefined
+				? this.#preflight.readUpdateTarget(node)?.record
+				: undefined
+
 		for (const relationship of node.relationships) {
 			if (relationship.kind !== 'pointer') continue
+			const target = readNestedPointerTarget(relationship)
 			const expected =
-				relationship.command === 'connect' && relationship.id !== undefined
-					? new Pointer(relationship.target, relationship.id)
-					: relationship.command === 'create' &&
-						  relationship.child?.reservedId !== undefined
-						? new Pointer(relationship.target, relationship.child.reservedId)
-						: relationship.command === 'disconnect'
-							? null
-							: relationship.command === 'update'
-								? requireNestedWriteCurrentPointer(
-										relationship.fieldName,
-										relationship.target,
-										current,
-									)
-								: undefined
-			const candidate = readUpdateFieldValue(update, relationship.fieldName)
+				create !== undefined || target !== undefined
+					? target
+					: relationship.command === 'disconnect'
+						? null
+						: relationship.command === 'update'
+							? requireNestedWriteCurrentPointer(
+									relationship.fieldName,
+									relationship.target,
+									current,
+								)
+							: undefined
+			const candidate =
+				create === undefined
+					? readUpdateFieldValue(update, relationship.fieldName)
+					: create.input[relationship.fieldName]
 			if (
 				expected === undefined ||
 				(expected === null ? candidate !== null : !expected.equals(candidate))
