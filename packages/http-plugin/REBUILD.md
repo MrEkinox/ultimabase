@@ -163,6 +163,12 @@ an application`, raised inside Core query normalization, not an HTTP status or
 envelope mismatch. It passed in the baseline run and twice in isolation on the
 final tree, so it is attributed to parallel load on the shared machine.
 
+Confirmation reruns on the final commit (fresh `yarn build`):
+`--project postgres-e2e tests/e2e` 55 files / 191 tests passed;
+`--project e2e tests/e2e` 217 / 219 passed with the two known flaky files
+(`core-archive-declarations`, `create-app-packed`) failing under load; both
+files run together alone: 2 files / 28 tests passed.
+
 ## Reference bugs
 
 None found that change public behavior. Noted (documented, not fixed):
