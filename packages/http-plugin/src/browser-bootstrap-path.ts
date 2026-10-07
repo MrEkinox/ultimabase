@@ -1,7 +1,6 @@
 import { assertNonEmptyString } from '@ultimabase/shared'
 
-const invalidPath = (label: string): TypeError =>
-	new TypeError(`${label} must be a normalized route suffix`)
+import { isReservedHttpPath } from './constants.js'
 
 /** Normalizes one application-local browser bootstrap suffix for plugin options. */
 export const normalizeHttpBrowserBootstrapPath = (
@@ -9,6 +8,8 @@ export const normalizeHttpBrowserBootstrapPath = (
 	label: string,
 ): string => {
 	assertNonEmptyString(label, 'HTTP browser bootstrap path label')
+	const invalid = (): TypeError =>
+		new TypeError(`${label} must be a normalized route suffix`)
 	if (
 		typeof value !== 'string' ||
 		!value.startsWith('/') ||
@@ -16,17 +17,17 @@ export const normalizeHttpBrowserBootstrapPath = (
 		value.includes('?') ||
 		value.includes('#') ||
 		value.endsWith('/') ||
-		value === '/__ultimabase/apps' ||
-		value.startsWith('/__ultimabase/apps/')
+		isReservedHttpPath(value)
 	)
-		throw invalidPath(label)
+		throw invalid()
 
+	// Each segment must stay one non-empty, non-traversing segment once decoded.
 	for (const segment of value.slice(1).split('/')) {
 		let decoded: string
 		try {
 			decoded = decodeURIComponent(segment)
 		} catch {
-			throw invalidPath(label)
+			throw invalid()
 		}
 		if (
 			segment.length === 0 ||
@@ -34,7 +35,7 @@ export const normalizeHttpBrowserBootstrapPath = (
 			decoded === '..' ||
 			decoded.includes('/')
 		)
-			throw invalidPath(label)
+			throw invalid()
 	}
 	return value
 }

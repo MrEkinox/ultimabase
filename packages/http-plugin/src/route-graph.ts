@@ -6,7 +6,7 @@ import type {
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
-	assertHttpEndpointDefinitions,
+	endpointDefinitions,
 	type HttpEndpointContributionsCapability,
 	type HttpEndpointDefinition,
 	type HttpBrowserBootstrapRouteDefinition,
@@ -56,49 +56,14 @@ const pathsOverlap = (left: string, right: string): boolean =>
 	left.startsWith(`${right}/`) ||
 	right.startsWith(`${left}/`)
 
-const throwEndpointCollision = (
-	left: HttpEndpointDefinition,
-	right: HttpEndpointDefinition,
-): never => {
-	throw new TypeError(
-		`HTTP endpoint collision between ${left.kind} "${left.path}" and ${right.kind} "${right.path}"`,
-	)
-}
-
-const assertNoEndpointCollision = (
-	accepted: readonly OwnedHttpEndpoint[],
+// Mounts own a whole subtree; routes and browser bootstraps own one method and path.
+const collides = (
+	accepted: OwnedHttpEndpoint,
 	candidate: HttpEndpointDefinition,
-): void => {
-	for (const endpoint of accepted) {
-		if (
-			candidate.kind !== 'mount' &&
-			endpoint.kind !== 'mount' &&
-			candidate.method === endpoint.method &&
-			candidate.path === endpoint.path
-		) {
-			throwEndpointCollision(endpoint, candidate)
-		}
-		if (
-			(candidate.kind === 'mount' || endpoint.kind === 'mount') &&
-			pathsOverlap(candidate.path, endpoint.path)
-		) {
-			throwEndpointCollision(endpoint, candidate)
-		}
-	}
-}
-
-const invokeHandler = async (
-	handle: HttpRequestHandler,
-	request: Request,
-	owner: PluginIdentity,
-	callbacks: ApplicationCallbackExecutor,
-): Promise<Response> => {
-	const response = await callbacks.runPlugin(owner, () => handle(request))
-	if (!(response instanceof Response)) {
-		throw new TypeError('HTTP endpoint handlers must return a Response')
-	}
-	return response
-}
+): boolean =>
+	candidate.kind === 'mount' || accepted.kind === 'mount'
+		? pathsOverlap(candidate.path, accepted.path)
+		: candidate.method === accepted.method && candidate.path === accepted.path
 
 const ownEndpoint = (
 	definition: HttpEndpointDefinition,
@@ -112,8 +77,16 @@ const ownEndpoint = (
 		pluginVersion: contribution.pluginVersion,
 		registrationIndex,
 	})
-	const handle: HttpRequestHandler = (request) =>
-		invokeHandler(definition.handle, request, contribution.owner, callbacks)
+	const ownerHandle = definition.handle
+	const handle: HttpRequestHandler = async (request) => {
+		const response = await callbacks.runPlugin(contribution.owner, () =>
+			ownerHandle(request),
+		)
+		if (!(response instanceof Response)) {
+			throw new TypeError('HTTP endpoint handlers must return a Response')
+		}
+		return response
+	}
 
 	return immutableRecord({ ...definition, handle, provenance })
 }
@@ -124,19 +97,23 @@ export const compileHttpRouteGraph = (
 	callbacks: ApplicationCallbackExecutor,
 ): HttpRouteGraph => {
 	const endpoints: OwnedHttpEndpoint[] = []
-	let registrationIndex = 0
-
 	for (const contribution of contributions) {
-		assertHttpEndpointDefinitions(
+		const definitions = endpointDefinitions.validate(
 			contribution.value,
 			`HTTP endpoint capability ${contribution.owner.pluginId}/${contribution.contributionId}`,
 		)
-		for (const definition of contribution.value) {
-			assertNoEndpointCollision(endpoints, definition)
-			endpoints.push(
-				ownEndpoint(definition, contribution, registrationIndex, callbacks),
+		for (const definition of definitions) {
+			const collision = endpoints.find((endpoint) =>
+				collides(endpoint, definition),
 			)
-			registrationIndex += 1
+			if (collision !== undefined) {
+				throw new TypeError(
+					`HTTP endpoint collision between ${collision.kind} "${collision.path}" and ${definition.kind} "${definition.path}"`,
+				)
+			}
+			endpoints.push(
+				ownEndpoint(definition, contribution, endpoints.length, callbacks),
+			)
 		}
 	}
 
@@ -161,28 +138,20 @@ export const compileHttpRouteGraph = (
 	})
 }
 
-const matchesMount = (pathname: string, mountPath: string): boolean =>
-	mountPath === '/' ||
-	pathname === mountPath ||
-	pathname.startsWith(`${mountPath}/`)
-
 /** @internal Selects an exact route before falling back to the first owned mount. */
 export const selectHttpEndpoint = (
 	graph: HttpRouteGraph,
 	request: Request,
 ): OwnedHttpEndpoint | undefined => {
 	const pathname = new URL(request.url).pathname
-	const route = graph.routes.find(
-		(candidate) =>
-			candidate.method === request.method && candidate.path === pathname,
-	)
-	if (route !== undefined) return route
-	const browserBootstrap = graph.browserBootstraps.find(
-		(candidate) =>
-			candidate.method === request.method && candidate.path === pathname,
-	)
-	if (browserBootstrap !== undefined) return browserBootstrap
-	return graph.mounts.find((candidate) =>
-		matchesMount(pathname, candidate.path),
+	const exact = (candidate: OwnedHttpRoute | OwnedHttpBrowserBootstrapRoute) =>
+		candidate.method === request.method && candidate.path === pathname
+	return (
+		graph.routes.find(exact) ??
+		graph.browserBootstraps.find(exact) ??
+		graph.mounts.find(
+			({ path }) =>
+				path === '/' || pathname === path || pathname.startsWith(`${path}/`),
+		)
 	)
 }

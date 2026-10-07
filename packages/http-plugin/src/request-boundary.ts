@@ -69,32 +69,18 @@ const sensitiveHeaderNames = new Set(
 	].map((name) => name.toLowerCase()),
 )
 
+// Every pre-dispatch failure maps to one fixed status and non-revealing message.
 const errorContracts: Readonly<
-	Record<
-		HttpPreDispatchErrorCode,
-		Readonly<{ readonly message: string; readonly status: number }>
-	>
+	Record<HttpPreDispatchErrorCode, readonly [status: number, message: string]>
 > = immutableRecord({
-	HTTP_BAD_REQUEST: immutableRecord({
-		message: 'The HTTP request is malformed.',
-		status: 400,
-	}),
-	HTTP_APPLICATION_REJECTED: immutableRecord({
-		message: 'The application or credentials were rejected.',
-		status: 401,
-	}),
-	HTTP_NOT_FOUND: immutableRecord({
-		message: 'The requested HTTP route was not found.',
-		status: 404,
-	}),
-	HTTP_REQUEST_TIMEOUT: immutableRecord({
-		message: 'The HTTP request deadline was reached.',
-		status: 408,
-	}),
-	HTTP_INTERNAL_ERROR: immutableRecord({
-		message: 'The HTTP request could not be completed.',
-		status: 500,
-	}),
+	HTTP_BAD_REQUEST: [400, 'The HTTP request is malformed.'],
+	HTTP_APPLICATION_REJECTED: [
+		401,
+		'The application or credentials were rejected.',
+	],
+	HTTP_NOT_FOUND: [404, 'The requested HTTP route was not found.'],
+	HTTP_REQUEST_TIMEOUT: [408, 'The HTTP request deadline was reached.'],
+	HTTP_INTERNAL_ERROR: [500, 'The HTTP request could not be completed.'],
 })
 
 /** @internal Marks one sanitized failure without retaining its raw cause. */
@@ -111,35 +97,31 @@ export class HttpPreDispatchFailure extends Error {
 /** @internal Creates correlation independently from application identity validation. */
 export const createHttpRequestId = (): string => globalThis.crypto.randomUUID()
 
+const badRequest = (): HttpPreDispatchFailure =>
+	new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
+
+// Copies string pairs and rejects any repeated security-relevant header name.
 const snapshotOriginalHeaders = (
 	value: unknown,
 ): readonly HttpOriginalHeader[] => {
-	if (!isUnknownArray(value)) {
-		throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
-	}
+	if (!isUnknownArray(value)) throw badRequest()
 	const headers: HttpOriginalHeader[] = []
 	const seenSensitiveNames = new Set<string>()
-
 	for (const header of value) {
-		if (
-			!isUnknownArray(header) ||
-			header.length !== 2 ||
-			typeof header[0] !== 'string' ||
-			typeof header[1] !== 'string'
-		) {
-			throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
+		if (!isUnknownArray(header) || header.length !== 2) throw badRequest()
+		// Read each slot once so the validated value is the one retained.
+		const name: unknown = header[0]
+		const headerValue: unknown = header[1]
+		if (typeof name !== 'string' || typeof headerValue !== 'string') {
+			throw badRequest()
 		}
-		const pair: HttpOriginalHeader = immutableArray([header[0], header[1]])
-		headers.push(pair)
-		const normalizedName = header[0].toLowerCase()
+		headers.push(immutableArray([name, headerValue]))
+		const normalizedName = name.toLowerCase()
 		if (sensitiveHeaderNames.has(normalizedName)) {
-			if (seenSensitiveNames.has(normalizedName)) {
-				throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
-			}
+			if (seenSensitiveNames.has(normalizedName)) throw badRequest()
 			seenSensitiveNames.add(normalizedName)
 		}
 	}
-
 	return immutableArray(headers)
 }
 
@@ -152,7 +134,7 @@ export const prepareHttpServerRequest = (
 		!isPlainRecord(untrustedInput) ||
 		!(untrustedInput.request instanceof Request)
 	) {
-		throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
+		throw badRequest()
 	}
 	const originalHeaders = snapshotOriginalHeaders(
 		untrustedInput.originalHeaders,
@@ -165,7 +147,7 @@ export const prepareHttpServerRequest = (
 		suppliedRequestId !== undefined &&
 		!requestIdPattern.test(suppliedRequestId)
 	) {
-		throw new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)
+		throw badRequest()
 	}
 
 	return immutableRecord({
@@ -189,32 +171,16 @@ export const readPreparedHeader = (
 	)?.[1]
 }
 
-/** @internal Reads the mandatory application identity from validated evidence. */
-export const readPreparedApplicationId = (
-	prepared: PreparedHttpServerRequest,
-): string => {
-	const appId = readPreparedHeader(
-		prepared.originalHeaders,
-		httpApplicationIdHeader,
-	)
-	if (appId === undefined || appId.length === 0) {
-		throw new HttpPreDispatchFailure(
-			httpPreDispatchErrorCodes.applicationRejected,
-		)
-	}
-	return appId
-}
-
 /** @internal Emits only the approved stable public failure contract. */
 export const createHttpPreDispatchErrorResponse = (
 	code: HttpPreDispatchErrorCode,
 	requestId: string,
 ): Response => {
-	const contract = errorContracts[code]
+	const [status, message] = errorContracts[code]
 	const body: HttpPreDispatchErrorEnvelope = immutableRecord({
 		error: immutableRecord({
 			code,
-			message: contract.message,
+			message,
 			requestId,
 			retryable: false as const,
 		}),
@@ -224,7 +190,7 @@ export const createHttpPreDispatchErrorResponse = (
 			'Cache-Control': 'private, no-store',
 			[httpRequestIdHeader]: requestId,
 		},
-		status: contract.status,
+		status,
 	})
 }
 
@@ -243,6 +209,53 @@ export const finalizeHttpResponse = (
 	})
 }
 
+/**
+ * @internal Validates provider input, or answers with the sanitized failure and a
+ * fresh correlation ID because the supplied one cannot be trusted yet.
+ */
+export const prepareHttpServerRequestOrReject = (
+	input: HttpServerRequest,
+): PreparedHttpServerRequest | Response => {
+	try {
+		return prepareHttpServerRequest(input)
+	} catch (error: unknown) {
+		return createHttpPreDispatchErrorResponse(
+			error instanceof HttpPreDispatchFailure
+				? error.code
+				: httpPreDispatchErrorCodes.internalError,
+			createHttpRequestId(),
+		)
+	}
+}
+
+/**
+ * @internal Copies a request with a new URL, headers, signal and body.
+ * Hono's Node adapter may supply a Fetch-compatible Request from another
+ * implementation. Reconstruct from public fields instead of relying on native
+ * Request private slots shared by same-realm clones.
+ */
+export const rebuildHttpRequest = (
+	source: Request,
+	url: string | URL,
+	headers: Headers,
+	signal: AbortSignal,
+	body: ReadableStream<Uint8Array> | null,
+): Request =>
+	new Request(url, {
+		...(body === null ? {} : { body, duplex: 'half' }),
+		cache: source.cache,
+		credentials: source.credentials,
+		headers,
+		integrity: source.integrity,
+		keepalive: source.keepalive,
+		method: source.method,
+		mode: source.mode,
+		redirect: source.redirect,
+		referrer: source.referrer,
+		referrerPolicy: source.referrerPolicy,
+		signal,
+	})
+
 /** @internal Removes credentials before downstream protocol handlers begin. */
 export const withoutHttpCredentialHeaders = (
 	request: Request,
@@ -251,21 +264,5 @@ export const withoutHttpCredentialHeaders = (
 ): Request => {
 	const headers = new Headers(request.headers)
 	for (const name of names) headers.delete(name)
-	// Hono's Node adapter may supply a Fetch-compatible Request from another
-	// implementation. Reconstruct from public fields instead of relying on
-	// native Request private slots shared by same-realm clones.
-	return new Request(request.url, {
-		...(request.body === null ? {} : { body: request.body, duplex: 'half' }),
-		cache: request.cache,
-		credentials: request.credentials,
-		headers,
-		integrity: request.integrity,
-		keepalive: request.keepalive,
-		method: request.method,
-		mode: request.mode,
-		redirect: request.redirect,
-		referrer: request.referrer,
-		referrerPolicy: request.referrerPolicy,
-		signal,
-	})
+	return rebuildHttpRequest(request, request.url, headers, signal, request.body)
 }

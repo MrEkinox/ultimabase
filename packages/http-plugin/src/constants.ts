@@ -17,8 +17,8 @@ export const httpApplicationProtocolVersion = '1.0.0'
 /** Requires evidence captured before Fetch combines repeated header fields. */
 export const httpOriginalHeaderMode = 'ordered-pairs'
 
-/** @internal Shares the supported vocabulary between routes and browser policy. */
-export const httpMethods: ReadonlySet<HttpMethod> = new Set([
+// The supported vocabulary is shared by routes and browser policy.
+const httpMethods: ReadonlySet<string> = new Set<HttpMethod>([
 	'DELETE',
 	'GET',
 	'HEAD',
@@ -27,3 +27,12 @@ export const httpMethods: ReadonlySet<HttpMethod> = new Set([
 	'POST',
 	'PUT',
 ])
+
+/** @internal Accepts only the exact supported uppercase method names. */
+export const isHttpMethod = (value: unknown): value is HttpMethod =>
+	typeof value === 'string' && httpMethods.has(value)
+
+/** @internal Rejects the reserved browser bootstrap namespace and its subtree. */
+export const isReservedHttpPath = (path: string): boolean =>
+	path === httpBrowserBootstrapPathPrefix ||
+	path.startsWith(`${httpBrowserBootstrapPathPrefix}/`)
