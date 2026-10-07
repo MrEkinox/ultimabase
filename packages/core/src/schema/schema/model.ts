@@ -1,6 +1,5 @@
 export {
 	createSchemaModelCapabilityContext,
-	defineSchemaModelResultCapabilities,
 	finalizeSchemaModelClass,
 } from './model-capabilities.js'
 export { createSchemaModelClass } from './model-class.js'

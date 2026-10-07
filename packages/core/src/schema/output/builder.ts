@@ -8,11 +8,7 @@ import { assertExactObjectKeys } from '../../exact-object-validation.js'
 import { createCapturedBuilderCallRegistry } from '../captured-builder-call.js'
 
 import type { GenericField } from '../fields/base/contract.js'
-import type {
-	FieldBuilderMethodContextDefinition,
-	FieldBuilderMethodResolver,
-	OwnedFieldBuilderMethod,
-} from '../schema/field-builder-methods.js'
+import type { FieldBuilderMethodResolver } from '../schema/field-builder-methods.js'
 import { snapshotCapturedFieldOptions } from '../schema/captured-options.js'
 import { snapshotScalarFieldValue } from '../fields/base/definition.js'
 import { bigintField } from '../fields/builtins/bigint.js'
@@ -42,6 +38,30 @@ import {
 	snapshotOutputValue,
 } from './descriptor.js'
 
+/*
+ * Output declarations run in two stages. Schema declaration executes the developer
+ * callback once against a capturing builder that records callback-free method calls;
+ * application compilation later resolves those calls against the installed plugin
+ * methods, producing provenance-checked descriptors.
+ */
+
+const outputKinds = [
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'dateTime',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'object',
+	'string',
+	'time',
+	'uuid',
+] as const satisfies readonly OutputKind[]
+
 const commonOptionNames = ['description', 'list', 'nullable'] as const
 
 const [createCapturedOutputBuilderCall, isCapturedOutputBuilderCall] =
@@ -49,6 +69,21 @@ const [createCapturedOutputBuilderCall, isCapturedOutputBuilderCall] =
 
 /** Identifies a delayed output method whose owning plugin is not installed. */
 export class OutputBuilderMethodUnavailableError extends TypeError {}
+
+/** Validates each property name of one output map and maps its values in order. */
+const mapOutputFields = <TValue>(
+	fields: Readonly<Record<string, unknown>>,
+	path: string,
+	mapValue: (value: unknown, path: string) => TValue,
+): Readonly<Record<string, TValue>> =>
+	immutableRecord(
+		Object.fromEntries(
+			Object.entries(fields).map(([name, value]) => {
+				assertNonEmptyString(name, `${path} property name`)
+				return [name, mapValue(value, `${path}.${name}`)]
+			}),
+		),
+	)
 
 const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 	const method =
@@ -58,13 +93,35 @@ const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 				methodName,
 				snapshotCapturedFieldOptions(options),
 			)
+	// Nested object properties are captured eagerly because they are callbacks too.
 	const object = (optionsValue: unknown): GenericOutputDescriptor => {
 		if (!isPlainRecord(optionsValue)) {
 			throw new TypeError(`${path}.object options must be a plain object`)
 		}
 
 		const { fields: declaration, ...options } = optionsValue
-		const fields = captureOutputFields(declaration, `${path}.object.fields`)
+		const fieldsPath = `${path}.object.fields`
+		if (typeof declaration !== 'function') {
+			throw new TypeError(`${fieldsPath} must be a function`)
+		}
+
+		const returned: unknown = (
+			declaration as (output: OutputBuilder) => unknown
+		)(createCapturedOutputBuilder(fieldsPath))
+		if (!isPlainRecord(returned)) {
+			throw new TypeError(`${fieldsPath} must return an output descriptor map`)
+		}
+
+		const fields = mapOutputFields(
+			returned,
+			fieldsPath,
+			(descriptor, descriptorPath) => {
+				if (!isCapturedOutputBuilderCall(descriptor)) {
+					assertOutputDescriptor(descriptor, descriptorPath)
+				}
+				return descriptor
+			},
+		)
 
 		return createCapturedOutputBuilderCall(
 			'object',
@@ -76,54 +133,22 @@ const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 			}),
 		)
 	}
-	const known = immutableRecord({
-		bigint: method('bigint'),
-		binary: method('binary'),
-		boolean: method('boolean'),
-		date: method('date'),
-		dateTime: method('dateTime'),
-		decimal: method('decimal'),
-		enum: method('enum'),
-		float: method('float'),
-		int: method('int'),
-		json: method('json'),
-		object,
-		string: method('string'),
-		time: method('time'),
-		uuid: method('uuid'),
-	})
+	const known = immutableRecord(
+		Object.fromEntries(
+			outputKinds.map((kind) => [
+				kind,
+				kind === 'object' ? object : method(kind),
+			]),
+		),
+	)
 
+	// Any other name is captured as a plugin method and checked during resolution.
 	return new Proxy(known, {
 		get: (record, property, receiver): unknown =>
 			typeof property !== 'string' || Reflect.has(record, property)
 				? Reflect.get(record, property, receiver)
 				: method(property),
 	}) as unknown as OutputBuilder
-}
-
-const captureOutputFields = (
-	declaration: unknown,
-	path: string,
-): Readonly<Record<string, unknown>> => {
-	if (typeof declaration !== 'function') {
-		throw new TypeError(`${path} must be a function`)
-	}
-
-	const returned: unknown = (declaration as (output: OutputBuilder) => unknown)(
-		createCapturedOutputBuilder(path),
-	)
-	if (!isPlainRecord(returned)) {
-		throw new TypeError(`${path} must return an output descriptor map`)
-	}
-
-	for (const [name, descriptor] of Object.entries(returned)) {
-		assertNonEmptyString(name, `${path} property name`)
-		if (!isCapturedOutputBuilderCall(descriptor)) {
-			assertOutputDescriptor(descriptor, `${path}.${name}`)
-		}
-	}
-
-	return immutableRecord(returned)
 }
 
 interface NormalizedOutputOptionsInput {
@@ -141,27 +166,19 @@ const normalizeOutputOptions = (
 		throw new TypeError(`${path} options must be a plain object`)
 	}
 
-	const allowed = new Set<string>([
-		...commonOptionNames,
-		...specificOptionNames,
-	])
 	assertExactObjectKeys(
 		options,
-		allowed,
+		new Set<string>([...commonOptionNames, ...specificOptionNames]),
 		`${path} does not support output option `,
 	)
 
-	const nullable: unknown = Reflect.get(options, 'nullable')
-	if (nullable !== undefined && typeof nullable !== 'boolean') {
+	const { description, list = false, nullable = true } = options
+	if (typeof nullable !== 'boolean') {
 		throw new TypeError(`${path}.nullable must be a boolean`)
 	}
-
-	const list: unknown = Reflect.get(options, 'list')
-	if (list !== undefined && typeof list !== 'boolean') {
+	if (typeof list !== 'boolean') {
 		throw new TypeError(`${path}.list must be a boolean`)
 	}
-
-	const description: unknown = Reflect.get(options, 'description')
 	if (description !== undefined && typeof description !== 'string') {
 		throw new TypeError(`${path}.description must be a string`)
 	}
@@ -170,15 +187,19 @@ const normalizeOutputOptions = (
 		options,
 		common: immutableRecord({
 			...(description === undefined ? {} : { description }),
-			list: list ?? false,
-			nullable: nullable ?? true,
+			list,
+			nullable,
 		}),
 	}
 }
 
-const createScalarSnapshot =
-	(field: GenericField) =>
-	(value: unknown, path: string): unknown => {
+/** Reuses the stored field's snapshot and shape rules for one scalar output. */
+const createScalarOutput = (
+	kind: string,
+	options: NormalizedOutputValueOptions,
+	field: GenericField,
+): GenericOutputDescriptor =>
+	createOutputDescriptor(kind, options, (value: unknown, path: string) => {
 		const snapshot: unknown = snapshotScalarFieldValue(field, value, path)
 		const [issue] = validateScalarFieldShape(field, snapshot, [])
 		if (issue !== undefined) {
@@ -186,29 +207,33 @@ const createScalarSnapshot =
 		}
 
 		return snapshot
+	})
+
+/** Creates the stored field behind one scalar output without representation options. */
+const createSimpleScalarField = (kind: string): GenericField | undefined => {
+	switch (kind) {
+		case 'bigint':
+			return bigintField()
+		case 'binary':
+			return binaryField()
+		case 'boolean':
+			return booleanField()
+		case 'date':
+			return dateField()
+		case 'float':
+			return floatField()
+		case 'int':
+			return intField()
+		case 'json':
+			return jsonField()
+		case 'string':
+			return stringField()
+		case 'uuid':
+			return uuidField()
+		default:
+			return undefined
 	}
-
-const createScalarOutput = (
-	kind: Exclude<OutputKind, 'enum' | 'object'>,
-	options: NormalizedOutputValueOptions,
-	field: GenericField,
-): GenericOutputDescriptor =>
-	createOutputDescriptor(kind, options, createScalarSnapshot(field))
-
-const createSimpleScalarMethod =
-	(
-		kind: Exclude<
-			OutputKind,
-			'dateTime' | 'decimal' | 'enum' | 'object' | 'time'
-		>,
-		field: GenericField,
-		path: string,
-	) =>
-	(options?: unknown): GenericOutputDescriptor => {
-		const normalized = normalizeOutputOptions(options, `${path}.${kind}`)
-
-		return createScalarOutput(kind, normalized.common, field)
-	}
+}
 
 const snapshotObjectElement =
 	(fields: OutputFields) =>
@@ -238,66 +263,30 @@ const snapshotObjectElement =
 		return immutableRecord(Object.fromEntries(entries))
 	}
 
-const resolveOutputFields = (
-	declaration: unknown,
+/** Resolves one captured core or plugin method call with its captured options. */
+const resolveOutputCall = (
+	methodName: string,
+	value: unknown,
 	path: string,
-	fieldMethods?: FieldBuilderMethodResolver,
-): OutputFields => {
-	if (typeof declaration !== 'function') {
-		throw new TypeError(`${path} must be a function`)
-	}
-
-	const resolveFields = declaration as (output: OutputBuilder) => unknown
-	const fields: unknown = resolveFields(createOutputBuilder(path, fieldMethods))
-	if (!isPlainRecord(fields)) {
-		throw new TypeError(`${path} must return an output descriptor map`)
-	}
-
-	const entries: [string, GenericOutputDescriptor][] = []
-	for (const [name, descriptor] of Object.entries(fields)) {
-		assertNonEmptyString(name, `${path} property name`)
-		assertOutputDescriptor(descriptor, `${path}.${name}`)
-		entries.push([name, descriptor])
-	}
-
-	return immutableRecord(Object.fromEntries(entries))
-}
-
-const invokePluginOutputFactory = (
-	method: OwnedFieldBuilderMethod,
-	implementation: FieldBuilderMethodContextDefinition,
-	options: unknown,
-	path: string,
+	fieldMethods: FieldBuilderMethodResolver | undefined,
 ): GenericOutputDescriptor => {
-	const returned: unknown = (
-		implementation.factory as (options: unknown) => unknown
-	)(options)
-	assertOutputDescriptor(returned, `${path}.${method.name}`)
-	if (returned.kind !== implementation.fieldKind) {
-		throw new TypeError(
-			`${path} OutputBuilder method "${method.name}" from "${method.owner}" returned kind "${returned.kind}" instead of "${implementation.fieldKind}"`,
-		)
-	}
-	return returned
-}
+	const methodPath = `${path}.${methodName}`
 
-const createOutputBuilder = (
-	path: string,
-	fieldMethods?: FieldBuilderMethodResolver,
-): OutputBuilder => {
-	const decimal = (options?: unknown): GenericOutputDescriptor => {
-		const normalized = normalizeOutputOptions(options, `${path}.decimal`, [
+	if (methodName === 'decimal') {
+		const { common, options } = normalizeOutputOptions(value, methodPath, [
 			'precision',
 			'scale',
 		])
-		const precision: unknown = Reflect.get(normalized.options, 'precision')
-		const scale: unknown = Reflect.get(normalized.options, 'scale')
 		const field = decimalField({
-			...(precision === undefined ? {} : { precision: precision as number }),
-			...(scale === undefined ? {} : { scale: scale as number }),
+			...(options.precision === undefined
+				? {}
+				: { precision: options.precision as number }),
+			...(options.scale === undefined
+				? {}
+				: { scale: options.scale as number }),
 		})
 		const descriptorOptions = immutableRecord({
-			...normalized.common,
+			...common,
 			...(field.options.precision === undefined
 				? {}
 				: { precision: field.options.precision }),
@@ -309,80 +298,80 @@ const createOutputBuilder = (
 		return createScalarOutput('decimal', descriptorOptions, field)
 	}
 
-	const temporal = (
-		kind: 'dateTime' | 'time',
-		options?: unknown,
-	): GenericOutputDescriptor => {
-		const normalized = normalizeOutputOptions(options, `${path}.${kind}`, [
+	if (methodName === 'dateTime' || methodName === 'time') {
+		const { common, options } = normalizeOutputOptions(value, methodPath, [
 			'timezone',
 		])
-		const timezone: unknown = Reflect.get(normalized.options, 'timezone')
+		const { timezone } = options
 		const fieldOptions =
 			timezone === undefined ? {} : { timezone: timezone as boolean }
 		const field =
-			kind === 'dateTime'
+			methodName === 'dateTime'
 				? dateTimeField(fieldOptions)
 				: timeField(fieldOptions)
 		const descriptorOptions = immutableRecord({
-			...normalized.common,
-			timezone: timezone ?? kind === 'dateTime',
+			...common,
+			timezone: timezone ?? methodName === 'dateTime',
 		})
 
-		return createScalarOutput(kind, descriptorOptions, field)
+		return createScalarOutput(methodName, descriptorOptions, field)
 	}
 
-	const enumOutput = (options: unknown): GenericOutputDescriptor => {
-		const normalized = normalizeOutputOptions(options, `${path}.enum`, [
+	if (methodName === 'enum') {
+		const { common, options } = normalizeOutputOptions(value, methodPath, [
 			'typeName',
 			'values',
 		])
-		const values: unknown = Reflect.get(normalized.options, 'values')
-		const typeName: unknown = Reflect.get(normalized.options, 'typeName')
 		const field = enumField({
-			...(typeName === undefined ? {} : { typeName: typeName as string }),
-			values: values as EnumValues,
+			...(options.typeName === undefined
+				? {}
+				: { typeName: options.typeName as string }),
+			values: options.values as EnumValues,
 		})
 		const declaredValues = field.options.values
 		const acceptedValues = Array.isArray(declaredValues)
 			? declaredValues
 			: Object.values(declaredValues)
-		const snapshotEnum = (value: unknown, valuePath: string): string => {
-			if (typeof value !== 'string' || !acceptedValues.includes(value)) {
-				throw new TypeError(`${valuePath} must be a declared enum value`)
-			}
-
-			return value
-		}
 		const descriptorOptions = immutableRecord({
-			...normalized.common,
+			...common,
 			...(field.options.typeName === undefined
 				? {}
 				: { typeName: field.options.typeName }),
 			values: declaredValues,
 		})
 
-		return createOutputDescriptor('enum', descriptorOptions, snapshotEnum)
+		return createOutputDescriptor(
+			'enum',
+			descriptorOptions,
+			(element: unknown, elementPath: string): string => {
+				if (typeof element !== 'string' || !acceptedValues.includes(element)) {
+					throw new TypeError(`${elementPath} must be a declared enum value`)
+				}
+
+				return element
+			},
+		)
 	}
 
-	const object = (options: unknown): GenericOutputDescriptor => {
-		const normalized = normalizeOutputOptions(options, `${path}.object`, [
+	if (methodName === 'object') {
+		const { common, options } = normalizeOutputOptions(value, methodPath, [
 			'fields',
 			'typeName',
 		])
-		const typeName: unknown = Reflect.get(normalized.options, 'typeName')
+		const { typeName } = options
 		if (
 			typeName !== undefined &&
 			(typeof typeName !== 'string' || typeName.length === 0)
 		) {
 			throw new TypeError(`${path}.object.typeName must be a non-empty string`)
 		}
-		const fields = resolveOutputFields(
-			Reflect.get(normalized.options, 'fields'),
-			`${path}.object.fields`,
+		const fields = resolveCapturedOutputFields(
+			options.fields,
+			`${path}.fields`,
 			fieldMethods,
 		)
 		const descriptorOptions = immutableRecord({
-			...normalized.common,
+			...common,
 			fields,
 			...(typeName === undefined ? {} : { typeName }),
 		})
@@ -394,54 +383,36 @@ const createOutputBuilder = (
 		)
 	}
 
-	const pluginMethods: Record<
-		string,
-		(options?: unknown) => GenericOutputDescriptor
-	> = {}
-	for (const method of fieldMethods?.values() ?? []) {
-		const implementation = method.contexts.output
-		if (implementation === undefined) continue
-		pluginMethods[method.name] = (options) =>
-			invokePluginOutputFactory(method, implementation, options, path)
+	const simpleField = createSimpleScalarField(methodName)
+	if (simpleField !== undefined) {
+		const { common } = normalizeOutputOptions(value, methodPath)
+		return createScalarOutput(methodName, common, simpleField)
 	}
-	const builder = immutableRecord({
-		bigint: createSimpleScalarMethod('bigint', bigintField(), path),
-		binary: createSimpleScalarMethod('binary', binaryField(), path),
-		boolean: createSimpleScalarMethod('boolean', booleanField(), path),
-		date: createSimpleScalarMethod('date', dateField(), path),
-		dateTime: (options?: unknown) => temporal('dateTime', options),
-		decimal,
-		enum: enumOutput,
-		float: createSimpleScalarMethod('float', floatField(), path),
-		int: createSimpleScalarMethod('int', intField(), path),
-		json: createSimpleScalarMethod('json', jsonField(), path),
-		object,
-		string: createSimpleScalarMethod('string', stringField(), path),
-		time: (options?: unknown) => temporal('time', options),
-		uuid: createSimpleScalarMethod('uuid', uuidField(), path),
-		...pluginMethods,
-	})
 
-	return new Proxy(builder, {
-		get: (record, property, receiver): unknown => {
-			if (typeof property !== 'string' || Reflect.has(record, property)) {
-				return Reflect.get(record, property, receiver)
-			}
-			const method = fieldMethods?.get(property)
-			if (method !== undefined) {
-				return (): never => {
-					throw new TypeError(
-						`${path} OutputBuilder method "${property}" from "${method.owner}" does not support the output context`,
-					)
-				}
-			}
-			return (): never => {
-				throw new TypeError(
-					`${path} OutputBuilder method "${property}" is unavailable; configure the plugin that declares it`,
-				)
-			}
-		},
-	}) as unknown as OutputBuilder
+	const method = fieldMethods?.get(methodName)
+	if (method === undefined) {
+		throw new TypeError(
+			`${path} OutputBuilder method "${methodName}" is unavailable; configure the plugin that declares it`,
+		)
+	}
+
+	const implementation = method.contexts.output
+	if (implementation === undefined) {
+		throw new TypeError(
+			`${path} OutputBuilder method "${methodName}" from "${method.owner}" does not support the output context`,
+		)
+	}
+
+	const returned: unknown = (
+		implementation.factory as (options: unknown) => unknown
+	)(value)
+	assertOutputDescriptor(returned, methodPath)
+	if (returned.kind !== implementation.fieldKind) {
+		throw new TypeError(
+			`${path} OutputBuilder method "${methodName}" from "${method.owner}" returned kind "${returned.kind}" instead of "${implementation.fieldKind}"`,
+		)
+	}
+	return returned
 }
 
 const resolveCapturedOutputFields = (
@@ -453,20 +424,9 @@ const resolveCapturedOutputFields = (
 		throw new TypeError(`${path} must be an output descriptor map`)
 	}
 
-	const entries: [string, GenericOutputDescriptor][] = []
-	for (const [name, descriptor] of Object.entries(captured)) {
-		assertNonEmptyString(name, `${path} property name`)
-		entries.push([
-			name,
-			resolveCapturedOutputDescriptor(
-				descriptor,
-				`${path}.${name}`,
-				fieldMethods,
-			),
-		])
-	}
-
-	return immutableRecord(Object.fromEntries(entries))
+	return mapOutputFields(captured, path, (descriptor, descriptorPath) =>
+		resolveCapturedOutputDescriptor(descriptor, descriptorPath, fieldMethods),
+	)
 }
 
 /** Resolves one callback-free captured output declaration for an application. */
@@ -480,30 +440,15 @@ export const resolveCapturedOutputDescriptor = (
 		return captured
 	}
 
-	let options = captured.options
-	if (captured.methodName === 'object') {
-		if (!isPlainRecord(options)) {
-			throw new TypeError(`${path}.object options must be a plain object`)
-		}
-		const { fields, ...rest } = options
-		options = immutableRecord({
-			...rest,
-			fields: () =>
-				resolveCapturedOutputFields(fields, `${path}.fields`, fieldMethods),
-		})
-	}
-
-	const builder = createOutputBuilder(path, fieldMethods)
-	const factory: unknown = Reflect.get(builder, captured.methodName)
-	if (typeof factory !== 'function') {
-		throw new OutputBuilderMethodUnavailableError(
-			`${path} OutputBuilder method "${captured.methodName}" is unavailable`,
-		)
-	}
-
 	try {
-		return (factory as (value: unknown) => GenericOutputDescriptor)(options)
+		return resolveOutputCall(
+			captured.methodName,
+			captured.options,
+			path,
+			fieldMethods,
+		)
 	} catch (cause: unknown) {
+		// Missing plugin methods, including nested ones, surface as one recognizable class.
 		if (
 			cause instanceof TypeError &&
 			cause.message.includes('is unavailable; configure the plugin')

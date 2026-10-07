@@ -24,7 +24,7 @@ import type { SchemaRegistry } from './registry.js'
 export type SchemaTarget<TSchema extends SchemaDefinition = SchemaDefinition> =
 	() => TSchema
 
-const namedSchemaTargets = new WeakMap<SchemaTarget, string>()
+const namedSchemaTargets = new WeakMap<object, string>()
 
 /** Creates one private exact target callback from an application schema name. */
 export const createNamedSchemaTarget = (
@@ -45,9 +45,6 @@ export const createNamedSchemaTarget = (
 
 	return namedTarget
 }
-
-const readNamedSchemaTarget = (target: SchemaTarget): string | undefined =>
-	namedSchemaTargets.get(target)
 
 /** Explains why one lazy target could not join an application's schema graph. */
 export type SchemaTargetResolutionReason =
@@ -118,9 +115,40 @@ export class SchemaTargetResolutionError extends Error {
 const schemaTargetPathKey = (fieldPath: readonly string[]): string =>
 	JSON.stringify(fieldPath)
 
-const assertSchemaTargetPath: (
-	fieldPath: unknown,
-) => asserts fieldPath is readonly string[] = (fieldPath) => {
+interface SchemaFieldEdge {
+	readonly source: SchemaDefinition
+	readonly fieldPath: readonly string[]
+}
+
+/** Indexes edges by exact source identity, then by structural field path. */
+const indexEdges = <TEdge extends SchemaFieldEdge>(
+	edges: readonly TEdge[],
+): ReadonlyMap<SchemaDefinition, ReadonlyMap<string, TEdge>> => {
+	const index = new Map<SchemaDefinition, Map<string, TEdge>>()
+
+	for (const edge of edges) {
+		const byPath = index.get(edge.source) ?? new Map<string, TEdge>()
+
+		byPath.set(schemaTargetPathKey(edge.fieldPath), edge)
+		index.set(edge.source, byPath)
+	}
+
+	return index
+}
+
+/** Validates one untrusted lookup before it reaches the private indexes. */
+const findEdge = <TEdge extends SchemaFieldEdge>(
+	index: ReadonlyMap<SchemaDefinition, ReadonlyMap<string, TEdge>>,
+	source: SchemaDefinition,
+	fieldPath: readonly string[],
+	label: 'relation' | 'target',
+): TEdge | undefined => {
+	if (!Schema.is(source)) {
+		throw new TypeError(
+			`Schema ${label} source must be created by App.Schema.define`,
+		)
+	}
+
 	if (
 		!isUnknownArray(fieldPath) ||
 		fieldPath.length === 0 ||
@@ -128,44 +156,29 @@ const assertSchemaTargetPath: (
 	) {
 		throw new TypeError('Schema target fieldPath must contain field names')
 	}
+
+	return index.get(source)?.get(schemaTargetPathKey(fieldPath))
 }
 
 /** Keeps mutable lookup maps private behind one frozen read-only graph facade. */
 class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
-	readonly #targetsBySource = new Map<
+	readonly #targets: ReadonlyMap<
 		SchemaDefinition,
-		Map<string, SchemaDefinition>
-	>()
+		ReadonlyMap<string, ResolvedSchemaTarget>
+	>
 	readonly #values: readonly ResolvedSchemaTarget[]
-	readonly #relationsBySource = new Map<
+	readonly #relationIndex: ReadonlyMap<
 		SchemaDefinition,
-		Map<string, ResolvedSchemaRelation>
-	>()
+		ReadonlyMap<string, ResolvedSchemaRelation>
+	>
 	readonly #relations: readonly ResolvedSchemaRelation[]
 
 	constructor(
 		entries: readonly ResolvedSchemaTarget[],
 		relations: readonly ResolvedSchemaRelation[],
 	) {
-		for (const entry of entries) {
-			const targetsByPath =
-				this.#targetsBySource.get(entry.source) ??
-				new Map<string, SchemaDefinition>()
-			const pathKey = schemaTargetPathKey(entry.fieldPath)
-
-			targetsByPath.set(pathKey, entry.target)
-			this.#targetsBySource.set(entry.source, targetsByPath)
-		}
-
-		for (const relation of relations) {
-			const relationsByPath =
-				this.#relationsBySource.get(relation.source) ??
-				new Map<string, ResolvedSchemaRelation>()
-
-			relationsByPath.set(schemaTargetPathKey(relation.fieldPath), relation)
-			this.#relationsBySource.set(relation.source, relationsByPath)
-		}
-
+		this.#targets = indexEdges(entries)
+		this.#relationIndex = indexEdges(relations)
 		this.#values = immutableArray(entries)
 		this.#relations = immutableArray(relations)
 		Object.freeze(this)
@@ -175,17 +188,7 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 		source: SchemaDefinition,
 		fieldPath: readonly string[],
 	): SchemaDefinition | undefined {
-		if (!Schema.is(source)) {
-			throw new TypeError(
-				'Schema target source must be created by App.Schema.define',
-			)
-		}
-
-		assertSchemaTargetPath(fieldPath)
-
-		return this.#targetsBySource
-			.get(source)
-			?.get(schemaTargetPathKey(fieldPath))
+		return findEdge(this.#targets, source, fieldPath, 'target')?.target
 	}
 
 	get size(): number {
@@ -200,17 +203,7 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 		source: SchemaDefinition,
 		fieldPath: readonly string[],
 	): ResolvedSchemaRelation | undefined {
-		if (!Schema.is(source)) {
-			throw new TypeError(
-				'Schema relation source must be created by App.Schema.define',
-			)
-		}
-
-		assertSchemaTargetPath(fieldPath)
-
-		return this.#relationsBySource
-			.get(source)
-			?.get(schemaTargetPathKey(fieldPath))
+		return findEdge(this.#relationIndex, source, fieldPath, 'relation')
 	}
 
 	relations(): readonly ResolvedSchemaRelation[] {
@@ -218,39 +211,39 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 	}
 }
 
-const targetLocation = (
-	source: SchemaDefinition,
-	fieldPath: readonly string[],
-): string => `${source.className}.${fieldPath.join('.')}`
-
 const resolveTarget = (
 	registry: SchemaRegistry,
 	source: SchemaDefinition,
 	fieldPath: readonly string[],
 	target: unknown,
 ): SchemaDefinition => {
-	const location = targetLocation(source, fieldPath)
-
-	if (typeof target !== 'function') {
-		throw new SchemaTargetResolutionError(
-			'invalid-target',
+	const location = `${source.className}.${fieldPath.join('.')}`
+	const fail = (
+		reason: SchemaTargetResolutionReason,
+		message: string,
+		options?: SchemaTargetResolutionErrorOptions,
+	): SchemaTargetResolutionError =>
+		new SchemaTargetResolutionError(
+			reason,
 			source.className,
 			fieldPath,
-			`Schema target at ${location} must be a function`,
+			`Schema target at ${location} ${message}`,
+			options,
 		)
+
+	if (typeof target !== 'function') {
+		throw fail('invalid-target', 'must be a function')
 	}
 
-	const namedTarget = readNamedSchemaTarget(target as SchemaTarget)
+	const namedTarget = namedSchemaTargets.get(target)
 
 	if (namedTarget !== undefined) {
 		const registeredTarget = registry.get(namedTarget)
 
 		if (registeredTarget === undefined) {
-			throw new SchemaTargetResolutionError(
+			throw fail(
 				'unregistered-target',
-				source.className,
-				fieldPath,
-				`Schema target at ${location} names unregistered schema ${namedTarget}`,
+				`names unregistered schema ${namedTarget}`,
 				{ targetClassName: namedTarget },
 			)
 		}
@@ -263,44 +256,33 @@ const resolveTarget = (
 	try {
 		resolvedTarget = Reflect.apply(target, undefined, [])
 	} catch (cause: unknown) {
-		throw new SchemaTargetResolutionError(
-			'callback-threw',
-			source.className,
-			fieldPath,
-			`Schema target at ${location} threw during resolution`,
-			{ cause },
-		)
+		throw fail('callback-threw', 'threw during resolution', { cause })
 	}
 
 	if (!Schema.is(resolvedTarget)) {
-		throw new SchemaTargetResolutionError(
+		throw fail(
 			'invalid-target',
-			source.className,
-			fieldPath,
-			`Schema target at ${location} must return a class created by App.Schema.define`,
+			'must return a class created by App.Schema.define',
 		)
 	}
 
-	const registeredTarget = registry.get(resolvedTarget.className)
+	const { className } = resolvedTarget
+	const registeredTarget = registry.get(className)
 
 	if (registeredTarget === undefined) {
-		throw new SchemaTargetResolutionError(
+		throw fail(
 			'unregistered-target',
-			source.className,
-			fieldPath,
-			`Schema target at ${location} returned unregistered schema ${resolvedTarget.className}`,
-			{ targetClassName: resolvedTarget.className },
+			`returned unregistered schema ${className}`,
+			{
+				targetClassName: className,
+			},
 		)
 	}
 
 	if (registeredTarget !== resolvedTarget) {
-		throw new SchemaTargetResolutionError(
-			'foreign-target',
-			source.className,
-			fieldPath,
-			`Schema target at ${location} returned a foreign ${resolvedTarget.className} schema`,
-			{ targetClassName: resolvedTarget.className },
-		)
+		throw fail('foreign-target', `returned a foreign ${className} schema`, {
+			targetClassName: className,
+		})
 	}
 
 	return registeredTarget

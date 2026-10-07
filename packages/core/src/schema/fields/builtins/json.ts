@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,10 +7,11 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
-	type DefaultedCompactScalarFieldOptions,
-	type NonDefaultedCompactScalarFieldOptions,
+	type CompactScalarField,
+	createScalarFieldFactory,
+	type DefaultedScalarFieldOptions,
+	type NonDefaultedScalarFieldOptions,
+	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 import { snapshotJsonValue, type JsonDocument } from '../base/portable-json.js'
 
@@ -39,61 +35,31 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
 export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
 
-const jsonFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'json',
-	optionKeys: fieldOptionKeys,
-}
+type JsonScalar = ScalarFieldDescriptor<'json', JsonDocument, JsonFieldOptions>
 
 type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	JsonFieldOptions,
-	JsonDocument,
-	TRequired,
-	TList,
-	TImmutable
->
+> = DefaultedScalarFieldOptions<JsonScalar, TRequired, TList, TImmutable>
 
 type NonDefaultedJsonFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	JsonFieldOptions,
-	JsonDocument,
-	TRequired,
-	TList,
-	TImmutable
->
-
-type ResolvedJsonField<
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-> = CompactScalarFieldDefinition<
-	'json',
-	JsonDocument,
-	JsonFieldOptions,
-	TRequired,
-	TList,
-	TImmutable,
-	THasDefault
->
+> = NonDefaultedScalarFieldOptions<JsonScalar, TRequired, TList, TImmutable>
 
 type DefaultedJsonField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedJsonField<TRequired, TList, TImmutable, true>
+> = CompactScalarField<JsonScalar, TRequired, TList, TImmutable, true>
 
 type NonDefaultedJsonField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedJsonField<TRequired, TList, TImmutable, false>
+> = CompactScalarField<JsonScalar, TRequired, TList, TImmutable, false>
 
 export interface JsonFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -147,11 +113,6 @@ const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
 	throw new TypeError(`${path} must be a JSON object or array`)
 }
 
-const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(options, snapshotJsonDocument, jsonFieldOptionsContract)
-
 /**
  * Declares an unstructured JSON object or array containing portable JSON values.
  *
@@ -160,8 +121,7 @@ const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
  * jsonField({ default: { theme: "dark", notifications: true } })
  * ```
  */
-export const jsonField: JsonFieldFactory = createCompactScalarFieldFactory<
+export const jsonField: JsonFieldFactory = createScalarFieldFactory(
 	'json',
-	JsonDocument,
-	JsonFieldOptions
->('json', normalizeJsonFieldOptions, snapshotJsonDocument)
+	snapshotJsonDocument,
+)

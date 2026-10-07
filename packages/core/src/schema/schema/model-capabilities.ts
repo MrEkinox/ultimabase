@@ -1,5 +1,3 @@
-import { isPlainRecord } from '@ultimabase/shared'
-
 import { Pointer } from '../relations/pointer.js'
 import type { SchemaDefinition } from './definition.js'
 import type { SchemaModelCapabilityContext } from './model-contracts.js'
@@ -58,22 +56,21 @@ export const createSchemaModelCapabilityContext = <
 		toPointer: toPersistedSchemaPointer,
 	})
 
-/** Attaches package-owned result methods before the generated prototype is frozen. */
-export const defineSchemaModelResultCapabilities = (
+/**
+ * Attaches validated package-owned result methods, then closes the generated
+ * model prototype so no later specialization can change persisted results.
+ */
+export const finalizeSchemaModelClass = (
 	schema: SchemaDefinition,
-	capabilities: object,
+	resultCapabilities: Readonly<Record<string, unknown>> = {},
 ): void => {
-	if (!isPlainRecord(capabilities)) {
-		throw new TypeError('schema result capabilities must be a plain object')
-	}
-
 	const prototype: unknown = Reflect.get(schema, 'prototype')
 
 	if (typeof prototype !== 'object' || prototype === null) {
 		throw new TypeError('schema model prototype is unavailable')
 	}
 
-	for (const [name, capability] of Object.entries(capabilities)) {
+	for (const [name, capability] of Object.entries(resultCapabilities)) {
 		if (name.length === 0 || typeof capability !== 'function') {
 			throw new TypeError(
 				'schema result capabilities must contain named functions',
@@ -90,15 +87,6 @@ export const defineSchemaModelResultCapabilities = (
 			value: capability,
 			writable: false,
 		})
-	}
-}
-
-/** Closes the generated model prototype after every specialization is attached. */
-export const finalizeSchemaModelClass = (schema: SchemaDefinition): void => {
-	const prototype: unknown = Reflect.get(schema, 'prototype')
-
-	if (typeof prototype !== 'object' || prototype === null) {
-		throw new TypeError('schema model prototype is unavailable')
 	}
 
 	Object.freeze(prototype)

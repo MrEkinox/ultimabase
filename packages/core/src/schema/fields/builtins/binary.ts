@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,10 +7,11 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
-	type DefaultedCompactScalarFieldOptions,
-	type NonDefaultedCompactScalarFieldOptions,
+	type CompactScalarField,
+	createScalarFieldFactory,
+	type DefaultedScalarFieldOptions,
+	type NonDefaultedScalarFieldOptions,
+	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 /**
  * Describes storage-neutral binary metadata through native byte sequences.
@@ -29,61 +25,35 @@ export type BinaryField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
 
-const binaryFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'binary',
-	optionKeys: fieldOptionKeys,
-}
+type BinaryScalar = ScalarFieldDescriptor<
+	'binary',
+	Uint8Array,
+	BinaryFieldOptions
+>
 
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	BinaryFieldOptions,
-	Uint8Array,
-	TRequired,
-	TList,
-	TImmutable
->
+> = DefaultedScalarFieldOptions<BinaryScalar, TRequired, TList, TImmutable>
 
 type NonDefaultedBinaryFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	BinaryFieldOptions,
-	Uint8Array,
-	TRequired,
-	TList,
-	TImmutable
->
-
-type ResolvedBinaryField<
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-> = CompactScalarFieldDefinition<
-	'binary',
-	Uint8Array,
-	BinaryFieldOptions,
-	TRequired,
-	TList,
-	TImmutable,
-	THasDefault
->
+> = NonDefaultedScalarFieldOptions<BinaryScalar, TRequired, TList, TImmutable>
 
 type DefaultedBinaryField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBinaryField<TRequired, TList, TImmutable, true>
+> = CompactScalarField<BinaryScalar, TRequired, TList, TImmutable, true>
 
 type NonDefaultedBinaryField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBinaryField<TRequired, TList, TImmutable, false>
+> = CompactScalarField<BinaryScalar, TRequired, TList, TImmutable, false>
 
 export interface BinaryFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -131,15 +101,6 @@ export const snapshotBinaryValue = (
 	return value.map((byte) => byte)
 }
 
-const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		snapshotBinaryValue,
-		binaryFieldOptionsContract,
-	)
-
 /**
  * Declares native binary data as a `Uint8Array`; adapters choose its transport and storage encoding.
  *
@@ -148,8 +109,7 @@ const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
  * binaryField({ required: true })
  * ```
  */
-export const binaryField: BinaryFieldFactory = createCompactScalarFieldFactory<
+export const binaryField: BinaryFieldFactory = createScalarFieldFactory(
 	'binary',
-	Uint8Array,
-	BinaryFieldOptions
->('binary', normalizeBinaryFieldOptions, snapshotBinaryValue)
+	snapshotBinaryValue,
+)

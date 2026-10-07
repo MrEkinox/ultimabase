@@ -16,42 +16,15 @@ import { enumField } from '../fields/builtins/enum.js'
 import { floatField } from '../fields/builtins/float.js'
 import { intField } from '../fields/builtins/int.js'
 import { jsonField } from '../fields/builtins/json.js'
-import { objectField } from '../fields/builtins/object.js'
-import {
-	pointerField,
-	type NamedPointerFieldBuilderMethod,
-} from '../fields/builtins/pointer.js'
-import {
-	relationField,
-	type NamedRelationFieldBuilderMethod,
-} from '../fields/builtins/relation.js'
+import { pointerField } from '../fields/builtins/pointer.js'
+import { relationField } from '../fields/builtins/relation.js'
 import { stringField } from '../fields/builtins/string.js'
 import { timeField } from '../fields/builtins/time.js'
 import { uuidField } from '../fields/builtins/uuid.js'
-import type { SchemaDeclaredFields, SchemaDefinition } from './definition.js'
-import type {
-	EmbeddedFieldBuilder,
-	FieldBuilder,
-	ScalarFieldBuilderMethods,
-} from './field-builder-contract.js'
-import type {
-	FieldBuilderMethodContextDefinition,
-	FieldBuilderMethodResolver,
-	OwnedFieldBuilderMethod,
-} from './field-builder-methods.js'
-import type { FieldDeclarationContext } from './field-contexts.js'
-import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
+import type { CapturedBuilderCall } from '../captured-builder-call.js'
+import type { SchemaDefinition } from './definition.js'
+import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import { createNamedSchemaTarget } from './targets.js'
-
-type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
-type RuntimeFieldBuilderMethod = (options?: unknown) => GenericField
-type ExecuteEmbeddedFields = (
-	declaration: unknown,
-	path: string,
-	embedded: boolean,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-) => SchemaDeclaredFields
 
 /** Identifies the one expected failure when an application omitted a used field plugin. */
 export class FieldBuilderMethodUnavailableError extends TypeError {}
@@ -64,9 +37,36 @@ export type FieldBuilderTargetResolver = (
 	className: string,
 ) => SchemaDefinition | undefined
 
-const isUnknownCallable = (value: unknown): value is UnknownCallable =>
+type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
+
+export const isUnknownCallable = (value: unknown): value is UnknownCallable =>
 	typeof value === 'function'
 
+/** Methods that only exist on the stored root builder, never inside objects. */
+export const isRelationshipMethod = (methodName: string): boolean =>
+	methodName === 'pointer' || methodName === 'relation'
+
+/** Built-in value factories replayed identically in stored and embedded maps. */
+const valueFieldFactories: ReadonlyMap<string, unknown> = new Map<
+	string,
+	unknown
+>([
+	['bigint', bigintField],
+	['binary', binaryField],
+	['boolean', booleanField],
+	['date', dateField],
+	['dateTime', dateTimeField],
+	['decimal', decimalField],
+	['enum', enumField],
+	['float', floatField],
+	['int', intField],
+	['json', jsonField],
+	['string', stringField],
+	['time', timeField],
+	['uuid', uuidField],
+])
+
+/** Calls one factory and proves it returned a field definition. */
 export const invokeFieldFactory = (
 	factory: unknown,
 	options: unknown,
@@ -81,185 +81,80 @@ export const invokeFieldFactory = (
 	return field
 }
 
-const createRuntimeBuilder = <TBuilder extends object>(
-	builder: TBuilder,
-	pluginMethods: Readonly<Record<string, RuntimeFieldBuilderMethod>>,
+/** Replaces a pointer/relation target name with the registry-resolved target. */
+const resolveNamedTargetOptions = (
+	options: unknown,
 	path: string,
-	embedded: boolean,
-): TBuilder => {
-	const target = immutableRecord({ ...builder, ...pluginMethods })
+	resolveTarget: FieldBuilderTargetResolver | undefined,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError(`${path} relationship options must be a plain object`)
+	}
 
-	return new Proxy(target, {
-		get: (record, property, receiver): unknown => {
-			if (typeof property !== 'string' || Reflect.has(record, property)) {
-				return Reflect.get(record, property, receiver)
-			}
+	const { target, ...rest } = options
+	assertNonEmptyString(target, `${path} target`)
 
-			if (embedded && (property === 'pointer' || property === 'relation')) {
-				return undefined
-			}
+	if (resolveTarget === undefined) {
+		throw new FieldBuilderTargetUnavailableError(
+			`${path} target requires an application schema registry`,
+		)
+	}
 
-			return (): never => {
-				throw new FieldBuilderMethodUnavailableError(
-					`${path} FieldBuilder method "${property}" is unavailable; configure the plugin that declares it`,
-				)
-			}
-		},
+	return immutableRecord({
+		...rest,
+		target: createNamedSchemaTarget(target, resolveTarget(target)),
 	})
 }
 
-const invokePluginFieldFactory = (
-	method: OwnedFieldBuilderMethod,
-	implementation: FieldBuilderMethodContextDefinition,
-	options: unknown,
-	path: string,
-): GenericField => {
-	const field = invokeFieldFactory(
-		implementation.factory,
-		options,
-		`${path}.${method.name}`,
-	)
-
-	if (field.kind !== implementation.fieldKind) {
-		throw new TypeError(
-			`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${implementation.fieldKind}"`,
-		)
-	}
-
-	return field
-}
-
-const createPluginMethods = (
-	path: string,
-	context: Exclude<FieldDeclarationContext, 'output'>,
-	fieldMethods?: FieldBuilderMethodResolver,
-): Readonly<Record<string, RuntimeFieldBuilderMethod>> => {
-	const methods: Record<string, RuntimeFieldBuilderMethod> = {}
-
-	for (const method of fieldMethods?.values() ?? []) {
-		const implementation = method.contexts[context]
-		if (implementation === undefined) continue
-		methods[method.name] = (options): GenericField =>
-			invokePluginFieldFactory(method, implementation, options, path)
-	}
-
-	return immutableRecord(methods)
-}
-
-const createObjectMethod = (
-	path: string,
-	fieldMethods: FieldBuilderMethodResolver | undefined,
-	resolveTarget: FieldBuilderTargetResolver | undefined,
-	executeEmbeddedFields: ExecuteEmbeddedFields,
-): ObjectFieldBuilderMethod => {
-	const method = (optionsValue: unknown): GenericField => {
-		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path}.object options must be a plain object`)
-		}
-
-		const { fields: declaration, ...options } = optionsValue
-		const fields = executeEmbeddedFields(
-			declaration,
-			`${path}.object.fields`,
-			true,
-			fieldMethods,
-			resolveTarget,
-		)
-
-		return objectField({ ...options, fields })
-	}
-
-	return method as ObjectFieldBuilderMethod
-}
-
-/** Builds the concrete field surface used while captured declarations compile. */
-export const createRuntimeFieldBuilder = (
+/**
+ * Replays one captured plugin or built-in call (anything but `object` and
+ * `virtual`) against the methods the application declared.
+ */
+export const replayFieldBuilderMethod = (
+	{ methodName, options }: CapturedBuilderCall,
 	path: string,
 	embedded: boolean,
 	fieldMethods: FieldBuilderMethodResolver | undefined,
 	resolveTarget: FieldBuilderTargetResolver | undefined,
-	executeEmbeddedFields: ExecuteEmbeddedFields,
-): FieldBuilder | EmbeddedFieldBuilder => {
-	const scalarMethods: ScalarFieldBuilderMethods = {
-		binary: binaryField,
-		boolean: booleanField,
-		date: dateField,
-		dateTime: dateTimeField,
-		decimal: decimalField,
-		enum: enumField,
-		float: floatField,
-		json: jsonField,
-		object: createObjectMethod(
-			path,
-			fieldMethods,
-			resolveTarget,
-			executeEmbeddedFields,
-		),
-		string: stringField,
-		time: timeField,
-		uuid: uuidField,
-	}
+): GenericField => {
+	const methodPath = `${path}.${methodName}`
 	const context = embedded ? 'embedded' : 'stored'
-	const pluginMethods = createPluginMethods(path, context, fieldMethods)
-
-	if (embedded) {
-		return createRuntimeBuilder<EmbeddedFieldBuilder>(
-			{ ...scalarMethods, bigint: bigintField, int: intField },
-			pluginMethods,
-			path,
-			true,
-		)
-	}
-
-	const namedTargetOptions = (
-		options: unknown,
-	): Readonly<Record<string, unknown>> => {
-		if (!isPlainRecord(options)) {
-			throw new TypeError(`${path} relationship options must be a plain object`)
-		}
-
-		const { target, ...rest } = options
-		assertNonEmptyString(target, `${path} target`)
-
-		if (resolveTarget === undefined) {
-			throw new FieldBuilderTargetUnavailableError(
-				`${path} target requires an application schema registry`,
+	const pluginMethod = fieldMethods?.get(methodName)
+	if (pluginMethod !== undefined) {
+		const implementation = pluginMethod.contexts[context]
+		if (implementation === undefined) {
+			throw new TypeError(
+				`${path} FieldBuilder method "${methodName}" from "${pluginMethod.owner}" does not support the ${context} context`,
 			)
 		}
 
-		return immutableRecord({
-			...rest,
-			target: createNamedSchemaTarget(target, resolveTarget(target)),
-		})
+		const field = invokeFieldFactory(
+			implementation.factory,
+			options,
+			methodPath,
+		)
+		if (field.kind !== implementation.fieldKind) {
+			throw new TypeError(
+				`${path} FieldBuilder method "${methodName}" from "${pluginMethod.owner}" returned kind "${field.kind}" instead of "${implementation.fieldKind}"`,
+			)
+		}
+		return field
 	}
-	const namedPointer = ((options: unknown): GenericField =>
-		invokeFieldFactory(
-			pointerField,
-			namedTargetOptions(options),
-			`${path}.pointer`,
-		)) as NamedPointerFieldBuilderMethod
-	const namedRelation = ((options: unknown): GenericField =>
-		invokeFieldFactory(
-			relationField,
-			namedTargetOptions(options),
-			`${path}.relation`,
-		)) as NamedRelationFieldBuilderMethod
 
-	return createRuntimeBuilder<FieldBuilder>(
-		{
-			...scalarMethods,
-			bigint: bigintField,
-			int: intField,
-			pointer: namedPointer,
-			relation: namedRelation,
-			virtual: () => {
-				throw new TypeError(
-					`${path}.virtual is available only through captured schema declarations`,
-				)
-			},
-		},
-		pluginMethods,
-		path,
-		false,
-	)
+	if (!embedded && isRelationshipMethod(methodName)) {
+		return invokeFieldFactory(
+			methodName === 'pointer' ? pointerField : relationField,
+			resolveNamedTargetOptions(options, path, resolveTarget),
+			methodPath,
+		)
+	}
+
+	const factory = valueFieldFactories.get(methodName)
+	if (factory === undefined) {
+		throw new FieldBuilderMethodUnavailableError(
+			`${path} FieldBuilder method "${methodName}" is unavailable; configure the plugin that declares it`,
+		)
+	}
+
+	return invokeFieldFactory(factory, options, methodPath)
 }

@@ -1,24 +1,23 @@
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
+
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
-	ResolveFieldSourceTemplate,
+	ResolvedFieldSourceOptions,
 	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
+import { createFieldDefinition } from './definition.js'
 import {
-	createFieldDefinition,
-	type ScalarValueSnapshot,
-} from './definition.js'
-import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
-
-type ScalarFieldOptionsNormalizer<TOptions extends object> = <
-	const TDeclaredOptions extends TOptions,
->(
-	options: TDeclaredOptions,
-) => Readonly<TDeclaredOptions>
+	assertFieldOptions,
+	emptyFieldOptions,
+	fieldOptionKeys,
+	normalizeFieldOptions,
+	type BuiltInFieldOptionsContract,
+} from './options.js'
 
 type CompactScalarFieldOptions<
 	TOptions extends object,
@@ -143,7 +142,7 @@ export type CompatibleGeneratedScalarOptions<
 		: object
 
 /** Names a generated scalar input with a default so editor signatures stay compact. */
-type DefaultedGeneratedScalarFieldOptions<
+export type DefaultedGeneratedScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
@@ -169,7 +168,7 @@ type DefaultedGeneratedScalarFieldOptions<
 	>
 
 /** Names a generated scalar input without a default for concise editor signatures. */
-type NonDefaultedGeneratedScalarFieldOptions<
+export type NonDefaultedGeneratedScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
@@ -193,16 +192,6 @@ type NonDefaultedGeneratedScalarFieldOptions<
 		false,
 		TExclusiveGeneration
 	>
-
-/** Carries option-dependent construction behavior without exposing capabilities. */
-export interface ScalarFieldConfiguration<TOptions extends object> {
-	readonly normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>
-	readonly snapshotValue: ScalarValueSnapshot
-}
-
-export type ScalarFieldConfigurationResolver<TOptions extends object> = (
-	options: TOptions | EmptyFieldOptions,
-) => ScalarFieldConfiguration<TOptions>
 
 /**
  * Keeps operation metadata compact; built-ins retain named callable aliases
@@ -230,16 +219,7 @@ export interface CompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<TValue, TList>,
-					TRequired extends true
-						? FieldListValue<TValue, TList>
-						: FieldListValue<TValue, TList> | null
-				>,
-				object
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -263,16 +243,7 @@ export interface CompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<TValue, TList>,
-					TRequired extends true
-						? FieldListValue<TValue, TList>
-						: FieldListValue<TValue, TList> | null
-				>,
-				object
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
 		>,
 	): FieldDefinition<
 		TKind,
@@ -311,16 +282,7 @@ export interface GeneratedCompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<TValue, TList>,
-					TRequired extends true
-						? FieldListValue<TValue, TList>
-						: FieldListValue<TValue, TList> | null
-				>,
-				object
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -352,16 +314,7 @@ export interface GeneratedCompactScalarFieldFactory<
 			>,
 			TExtensionOptions,
 			TValue,
-			Extract<
-				ResolveFieldSourceTemplate<
-					TSourceTemplate,
-					FieldListValue<TValue, TList>,
-					TRequired extends true
-						? FieldListValue<TValue, TList>
-						: FieldListValue<TValue, TList> | null
-				>,
-				object
-			>
+			ResolvedFieldSourceOptions<TSourceTemplate, TValue, TList, TRequired>
 		>,
 	): CompactScalarFieldDefinition<
 		TKind,
@@ -375,81 +328,117 @@ export interface GeneratedCompactScalarFieldFactory<
 	>
 }
 
-/** Shares compact runtime construction across regular and generated contracts. */
-const createCompactScalarFieldImplementation =
-	<const TKind extends string, TValue, TOptions extends FieldOptions<TValue>>(
-		kind: TKind,
-		resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
-	): ((options?: object) => FieldDefinition<TKind, TValue, TOptions, never>) =>
-	(options?: object) => {
-		if (options === undefined) {
-			const { snapshotValue } = resolveConfiguration(emptyFieldOptions)
+/** Names one built-in scalar's kind, logical value and options exactly once. */
+export interface ScalarFieldDescriptor<
+	TKind extends string,
+	TValue,
+	TOptions extends FieldOptions<TValue>,
+> {
+	readonly kind: TKind
+	readonly options: TOptions
+	readonly value: TValue
+}
 
+/** Resolves one described scalar's compact state for field-specific editor aliases. */
+export type CompactScalarField<
+	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	THasGeneratedValue extends boolean = false,
+> = FieldDefinition<
+	TScalar['kind'],
+	TScalar['value'],
+	TScalar['options'],
+	ScalarFieldTypegenState<
+		TRequired,
+		TList,
+		TImmutable,
+		THasDefault,
+		THasGeneratedValue
+	>
+>
+
+/** Names one described scalar's input with a default for concise editor signatures. */
+export type DefaultedScalarFieldOptions<
+	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	TScalar['options'],
+	TScalar['value'],
+	TRequired,
+	TList,
+	TImmutable
+>
+
+/** Names one described scalar's default-free input for concise editor signatures. */
+export type NonDefaultedScalarFieldOptions<
+	TScalar extends ScalarFieldDescriptor<string, unknown, object>,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = CompactScalarFieldOptions<
+	TScalar['options'],
+	TRequired,
+	TList,
+	TImmutable
+> &
+	object & { readonly default?: never }
+
+type ScalarValueSnapshot<TValue> = (value: unknown, path: string) => TValue
+
+/** Describes how one compact built-in scalar validates options beyond common metadata. */
+export interface ScalarFieldSpec<TValue> {
+	/** Lists root option names owned in addition to the common value-field keys. */
+	readonly optionKeys?: readonly string[]
+	/** Validates kind-specific options before common metadata is normalized. */
+	readonly assertOptions?: (options: Readonly<Record<string, unknown>>) => void
+	/** Derives an option-dependent snapshot, such as a timezone-aware normalizer. */
+	readonly resolveSnapshot?: (
+		options: Readonly<Record<string, unknown>>,
+	) => ScalarValueSnapshot<TValue>
+}
+
+/**
+ * Creates the runtime shared by every compact scalar factory. Built-ins annotate
+ * the result with their named overload interface so editor hovers stay concise;
+ * the snapshot governs both static defaults and later value boundaries.
+ */
+export const createScalarFieldFactory = <const TKind extends string, TValue>(
+	kind: TKind,
+	snapshotValue: ScalarValueSnapshot<TValue>,
+	{
+		optionKeys = [],
+		assertOptions,
+		resolveSnapshot,
+	}: ScalarFieldSpec<TValue> = {},
+): ((
+	options?: object,
+) => FieldDefinition<TKind, TValue, FieldOptions<TValue>, never>) => {
+	const optionsContract: BuiltInFieldOptionsContract = immutableRecord({
+		kind,
+		optionKeys: immutableArray([...fieldOptionKeys, ...optionKeys]),
+	})
+
+	return (options) => {
+		// Zero-argument fields share one empty option record without a contract.
+		if (options === undefined) {
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const declaredOptions = options as TOptions
-		const { normalizeOptions, snapshotValue } =
-			resolveConfiguration(declaredOptions)
+
+		assertFieldOptions(options)
+		assertOptions?.(options)
+
+		const snapshot = resolveSnapshot?.(options) ?? snapshotValue
 
 		return createFieldDefinition(
 			kind,
-			normalizeOptions(declaredOptions),
-			snapshotValue,
+			normalizeFieldOptions(options, snapshot, optionsContract),
+			snapshot,
+			{ optionsContract },
 		)
 	}
-
-/** Creates the compact scalar contract without changing runtime field metadata. */
-export const createCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
->(
-	kind: TKind,
-	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
-	snapshotValue: ScalarValueSnapshot,
-): CompactScalarFieldFactory<TKind, TValue, TOptions> =>
-	createCompactScalarFieldImplementation(kind, () => ({
-		normalizeOptions,
-		snapshotValue,
-	}))
-
-/** Creates compact scalar inference for adapter-generated values. */
-export const createGeneratedCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-	TGenerationKey extends keyof TOptions & string,
-	TExclusiveGeneration extends boolean,
->(
-	kind: TKind,
-	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
-	snapshotValue: ScalarValueSnapshot,
-): GeneratedCompactScalarFieldFactory<
-	TKind,
-	TValue,
-	TOptions,
-	TGenerationKey,
-	TExclusiveGeneration
-> =>
-	createCompactScalarFieldImplementation(kind, () => ({
-		normalizeOptions,
-		snapshotValue,
-	}))
-
-/** Resolves option-dependent snapshots for generated temporal scalar fields. */
-export const createConfiguredGeneratedCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-	TGenerationKey extends keyof TOptions & string,
-	TExclusiveGeneration extends boolean,
->(
-	kind: TKind,
-	resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
-): GeneratedCompactScalarFieldFactory<
-	TKind,
-	TValue,
-	TOptions,
-	TGenerationKey,
-	TExclusiveGeneration
-> => createCompactScalarFieldImplementation(kind, resolveConfiguration)
+}

@@ -13,10 +13,10 @@ import {
 	assertFieldOptions,
 	assertValidTypeName,
 	fieldOptionKeys,
+	isRequiredOnCreate,
 	normalizeFieldOptions,
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
-import { isRequiredOnCreate } from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -274,11 +274,7 @@ export function objectField(
 	}
 
 	assertValidTypeName(options.typeName)
-
-	for (const [name, field] of Object.entries(options.fields)) {
-		assertNonEmptyString(name, 'object field name')
-		assertEmbeddedFieldDefinition(field, `fields.${name}`)
-	}
+	assertEmbeddedFieldMap(options.fields, '')
 
 	const normalized = normalizeFieldOptions(
 		options,
@@ -325,15 +321,22 @@ export const assertEmbeddedFieldDefinition: (
 		throw new TypeError(`${path} cannot use generatedOn inside objectField`)
 	}
 
-	if (field.kind !== 'object') return
+	if (field.kind === 'object') {
+		assertEmbeddedFieldMap(Reflect.get(field.options, 'fields'), `${path}.`)
+	}
+}
 
-	const nestedFields: unknown = Reflect.get(field.options, 'fields')
-	if (!isPlainRecord(nestedFields)) {
-		throw new TypeError(`${path}.fields must be a field map`)
+/** Validates every child of one embedded field map with the embedded contract. */
+function assertEmbeddedFieldMap(
+	fields: unknown,
+	pathPrefix: string,
+): asserts fields is ObjectFields {
+	if (!isPlainRecord(fields)) {
+		throw new TypeError(`${pathPrefix}fields must be a field map`)
 	}
 
-	for (const [name, nestedField] of Object.entries(nestedFields)) {
+	for (const [name, field] of Object.entries(fields)) {
 		assertNonEmptyString(name, 'object field name')
-		assertEmbeddedFieldDefinition(nestedField, `${path}.fields.${name}`)
+		assertEmbeddedFieldDefinition(field, `${pathPrefix}fields.${name}`)
 	}
 }

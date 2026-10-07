@@ -33,105 +33,34 @@ import {
 	type SchemaModelRecord,
 } from './model-state.js'
 
-interface NormalizedSchemaDraftUpsertInput {
-	readonly select?: QuerySelection<SchemaDefinition>
-	readonly update: UpdateExpressionInput<SchemaDefinition> & {}
-	readonly where: SchemaWhereInput<SchemaDefinition>
-}
-
-interface NormalizedSchemaModelSelectionInput {
-	readonly select?: QuerySelection<SchemaDefinition>
-}
-
-interface NormalizedSchemaModelUpdateInput extends NormalizedSchemaModelSelectionInput {
-	readonly data: UpdateExpressionInput<SchemaDefinition> & {}
-}
-
-const readSchemaModelSelectionInput = (
+/** Rejects non-object inputs and keys that one instance command does not accept. */
+const readCommandInput = (
 	input: unknown,
-	command: 'create' | 'delete' | 'fetch',
-): NormalizedSchemaModelSelectionInput => {
+	command: string,
+	keys: readonly string[],
+): Readonly<Record<string, unknown>> => {
 	if (!isPlainRecord(input)) {
 		throw new TypeError(`Schema model ${command} input must be a plain object`)
 	}
 
 	for (const key of Object.keys(input)) {
-		if (key !== 'select') {
+		if (!keys.includes(key)) {
 			throw new TypeError(
 				`Schema model ${command} input contains unknown key: ${key}`,
 			)
 		}
 	}
 
-	return immutableRecord({
-		...(Object.hasOwn(input, 'select')
-			? { select: input.select as QuerySelection<SchemaDefinition> }
-			: {}),
-	})
+	return input
 }
 
-const readSchemaModelUpdateInput = (
-	input: unknown,
-): NormalizedSchemaModelUpdateInput => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('Schema model update input must be a plain object')
-	}
-
-	for (const key of Object.keys(input)) {
-		if (key !== 'data' && key !== 'select') {
-			throw new TypeError(
-				`Schema model update input contains unknown key: ${key}`,
-			)
-		}
-	}
-
-	if (!Object.hasOwn(input, 'data')) {
-		throw new TypeError('Schema model update input must contain data')
-	}
-
-	return immutableRecord({
-		data: input.data as UpdateExpressionInput<SchemaDefinition> & {},
-		...(Object.hasOwn(input, 'select')
-			? { select: input.select as QuerySelection<SchemaDefinition> }
-			: {}),
-	})
-}
-
-const readSchemaDraftUpsertInput = (
-	input: unknown,
-): NormalizedSchemaDraftUpsertInput => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('Schema model upsert input must be a plain object')
-	}
-
-	for (const key of Object.keys(input)) {
-		if (key !== 'select' && key !== 'update' && key !== 'where') {
-			throw new TypeError(
-				`Schema model upsert input contains unknown key: ${key}`,
-			)
-		}
-	}
-
-	if (!Object.hasOwn(input, 'update') || !Object.hasOwn(input, 'where')) {
-		throw new TypeError(
-			'Schema model upsert input must contain update and where',
-		)
-	}
-
-	if (typeof input.where !== 'function' && !isPlainRecord(input.where)) {
-		throw new TypeError(
-			'Schema model upsert where must be an object or function',
-		)
-	}
-
-	return immutableRecord({
-		...(Object.hasOwn(input, 'select')
-			? { select: input.select as QuerySelection<SchemaDefinition> }
-			: {}),
-		update: input.update as UpdateExpressionInput<SchemaDefinition> & {},
-		where: input.where as SchemaWhereInput<SchemaDefinition>,
-	})
-}
+/** Retains only an explicitly supplied result projection. */
+const readSelection = (
+	input: Readonly<Record<string, unknown>>,
+): { readonly select?: QuerySelection<SchemaDefinition> } =>
+	Object.hasOwn(input, 'select')
+		? { select: input.select as QuerySelection<SchemaDefinition> }
+		: {}
 
 /** Restores the exact protected target without deriving identity from visible values. */
 const createPersistedModelQuery = (
@@ -233,8 +162,10 @@ export class SchemaModelPrototype {
 			)
 		}
 
-		const normalized = readSchemaModelSelectionInput(input, 'fetch')
-		const query = createPersistedModelQuery(record, normalized.select)
+		const { select } = readSelection(
+			readCommandInput(input, 'fetch', ['select']),
+		)
+		const query = createPersistedModelQuery(record, select)
 
 		return executeQueryGet(query, record.objectId, options)
 	}
@@ -286,11 +217,13 @@ export class SchemaModelPrototype {
 		const record = readSchemaModelRecord(this)
 
 		assertSchemaModelState(record, 'draft', 'create')
-		const normalized = readSchemaModelSelectionInput(input, 'create')
+		const selection = readSelection(
+			readCommandInput(input, 'create', ['select']),
+		)
 
 		return createSchemaRecord(
 			record.schema,
-			{ data: record.values, ...normalized },
+			{ data: record.values, ...selection },
 			options,
 			'flat',
 		)
@@ -301,16 +234,38 @@ export class SchemaModelPrototype {
 		const record = readSchemaModelRecord(this)
 
 		assertSchemaModelState(record, 'draft', 'upsert')
-		const normalized = readSchemaDraftUpsertInput(input)
+		const normalized = readCommandInput(input, 'upsert', [
+			'select',
+			'update',
+			'where',
+		])
+
+		if (
+			!Object.hasOwn(normalized, 'update') ||
+			!Object.hasOwn(normalized, 'where')
+		) {
+			throw new TypeError(
+				'Schema model upsert input must contain update and where',
+			)
+		}
+
+		if (
+			typeof normalized.where !== 'function' &&
+			!isPlainRecord(normalized.where)
+		) {
+			throw new TypeError(
+				'Schema model upsert where must be an object or function',
+			)
+		}
+
 		return upsertSchemaRecord(
 			record.schema,
 			{
-				where: normalized.where,
+				where: normalized.where as SchemaWhereInput<SchemaDefinition>,
 				create: record.values,
-				...(normalized.select === undefined
-					? {}
-					: { select: normalized.select }),
-				update: normalized.update,
+				...readSelection(normalized),
+				update:
+					normalized.update as UpdateExpressionInput<SchemaDefinition> & {},
 			},
 			options,
 		)
@@ -320,12 +275,16 @@ export class SchemaModelPrototype {
 	async update(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
 		assertOperationExecutionOwnerToken(record.ownerToken, options)
-		const normalized = readSchemaModelUpdateInput(input)
+		const normalized = readCommandInput(input, 'update', ['data', 'select'])
+
+		if (!Object.hasOwn(normalized, 'data')) {
+			throw new TypeError('Schema model update input must contain data')
+		}
 
 		return requirePersistedMutationResult(
 			executeQueryUpdateOne(
-				createPersistedModelQuery(record, normalized.select),
-				normalized.data,
+				createPersistedModelQuery(record, readSelection(normalized).select),
+				normalized.data as UpdateExpressionInput<SchemaDefinition> & {},
 				options,
 			),
 			'update',
@@ -336,13 +295,12 @@ export class SchemaModelPrototype {
 	async delete(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
 		assertOperationExecutionOwnerToken(record.ownerToken, options)
-		const normalized = readSchemaModelSelectionInput(input, 'delete')
+		const { select } = readSelection(
+			readCommandInput(input, 'delete', ['select']),
+		)
 
 		return requirePersistedMutationResult(
-			executeQueryDeleteOne(
-				createPersistedModelQuery(record, normalized.select),
-				options,
-			),
+			executeQueryDeleteOne(createPersistedModelQuery(record, select), options),
 			'delete',
 		)
 	}

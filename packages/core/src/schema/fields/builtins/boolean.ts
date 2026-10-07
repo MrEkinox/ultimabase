@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,10 +7,11 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
-	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
-	type DefaultedCompactScalarFieldOptions,
-	type NonDefaultedCompactScalarFieldOptions,
+	type CompactScalarField,
+	createScalarFieldFactory,
+	type DefaultedScalarFieldOptions,
+	type NonDefaultedScalarFieldOptions,
+	type ScalarFieldDescriptor,
 } from '../base/factory.js'
 import { normalizeBooleanValue } from '../base/value.js'
 
@@ -31,61 +27,35 @@ export type BooleanField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
 
-const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'boolean',
-	optionKeys: fieldOptionKeys,
-}
+type BooleanScalar = ScalarFieldDescriptor<
+	'boolean',
+	boolean,
+	BooleanFieldOptions
+>
 
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = DefaultedCompactScalarFieldOptions<
-	BooleanFieldOptions,
-	boolean,
-	TRequired,
-	TList,
-	TImmutable
->
+> = DefaultedScalarFieldOptions<BooleanScalar, TRequired, TList, TImmutable>
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = NonDefaultedCompactScalarFieldOptions<
-	BooleanFieldOptions,
-	boolean,
-	TRequired,
-	TList,
-	TImmutable
->
-
-type ResolvedBooleanField<
-	TRequired extends boolean,
-	TList extends FieldListOption,
-	TImmutable extends boolean,
-	THasDefault extends boolean,
-> = CompactScalarFieldDefinition<
-	'boolean',
-	boolean,
-	BooleanFieldOptions,
-	TRequired,
-	TList,
-	TImmutable,
-	THasDefault
->
+> = NonDefaultedScalarFieldOptions<BooleanScalar, TRequired, TList, TImmutable>
 
 type DefaultedBooleanField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBooleanField<TRequired, TList, TImmutable, true>
+> = CompactScalarField<BooleanScalar, TRequired, TList, TImmutable, true>
 
 type NonDefaultedBooleanField<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBooleanField<TRequired, TList, TImmutable, false>
+> = CompactScalarField<BooleanScalar, TRequired, TList, TImmutable, false>
 
 export interface BooleanFieldFactory<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
@@ -118,17 +88,6 @@ export interface BooleanFieldFactory<
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }
 
-const normalizeBooleanFieldOptions = <
-	const TOptions extends BooleanFieldOptions,
->(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeBooleanValue,
-		booleanFieldOptionsContract,
-	)
-
 /**
  * Declares a `true` or `false` value.
  *
@@ -137,9 +96,7 @@ const normalizeBooleanFieldOptions = <
  * booleanField({ default: false, indexed: true })
  * ```
  */
-export const booleanField: BooleanFieldFactory =
-	createCompactScalarFieldFactory<'boolean', boolean, BooleanFieldOptions>(
-		'boolean',
-		normalizeBooleanFieldOptions,
-		normalizeBooleanValue,
-	)
+export const booleanField: BooleanFieldFactory = createScalarFieldFactory(
+	'boolean',
+	normalizeBooleanValue,
+)

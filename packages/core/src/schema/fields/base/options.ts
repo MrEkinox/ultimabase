@@ -7,7 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import { isStaticDefault } from './defaults.js'
-import type { FieldOptions, GenericField } from './contract.js'
+import type { GenericField } from './contract.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -39,33 +39,6 @@ export interface BuiltInFieldOptionsContract {
 	readonly optionKeys: readonly string[]
 }
 
-const builtInContractsByOptions = new WeakMap<
-	object,
-	BuiltInFieldOptionsContract
->()
-
-/** Reads the exact Core-owned root keys recorded by a built-in field factory. */
-export const getBuiltInFieldOptionsContract = (
-	options: object,
-): BuiltInFieldOptionsContract | undefined =>
-	builtInContractsByOptions.get(options)
-
-const assertStringOptionKeys = (
-	value: Readonly<Record<string, unknown>>,
-	contract: BuiltInFieldOptionsContract,
-): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (
-			typeof key !== 'string' ||
-			(!contract.optionKeys.includes(key) && coreFieldOptionKeySet.has(key))
-		) {
-			throw new TypeError(
-				`Unknown ${contract.kind} field option: ${String(key)}`,
-			)
-		}
-	}
-}
-
 // Core-owned root names stay reserved even when one field kind does not support them.
 const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 	...fieldOptionKeys,
@@ -87,14 +60,23 @@ const coreFieldOptionKeySet: ReadonlySet<string> = new Set([
 export const isCoreFieldOptionKey = (name: string): boolean =>
 	coreFieldOptionKeySet.has(name)
 
-/** Rejects metadata that no built-in field normalizer owns. */
+/** Rejects symbol keys and Core-owned names that one built-in kind does not own. */
 export const assertBuiltInFieldOptions = (
 	options: Readonly<Record<string, unknown>>,
 	contract: BuiltInFieldOptionsContract,
 ): void => {
 	// Unknown string keys are retained until application compilation can resolve
 	// them against option descriptors declared by installed plugins.
-	assertStringOptionKeys(options, contract)
+	for (const key of Reflect.ownKeys(options)) {
+		if (
+			typeof key !== 'string' ||
+			(!contract.optionKeys.includes(key) && coreFieldOptionKeySet.has(key))
+		) {
+			throw new TypeError(
+				`Unknown ${contract.kind} field option: ${String(key)}`,
+			)
+		}
+	}
 }
 
 /** Ensures field factories and community plugins can safely read options. */
@@ -118,35 +100,18 @@ export const assertValidTypeName = (typeName: unknown): void => {
 	}
 }
 
-type NormalizedFieldList = boolean | undefined
-
-const invalidListMessage = 'list must be true or false'
-
-/** Keeps list validation identical for declaration and later depth reads. */
-const readFieldList = (list: unknown): NormalizedFieldList => {
-	if (list === undefined || list === false || list === true) {
-		return list
-	}
-
-	throw new TypeError(invalidListMessage)
-}
-
-const normalizeList = (list: unknown): NormalizedFieldList => {
-	const normalized = readFieldList(list)
-
-	return normalized
-}
-
-const readListDepth = (list: NormalizedFieldList): number =>
-	list === true ? 1 : 0
-
 /**
- * Returns the number of homogeneous list wrappers declared by field metadata.
+ * Returns the number of homogeneous list wrappers declared by field metadata,
+ * validating the flag identically at declaration time and on later reads.
  */
 export const getFieldListDepth = (options: object): number => {
-	const list = readFieldList('list' in options ? options.list : undefined)
+	const list = 'list' in options ? options.list : undefined
 
-	return readListDepth(list)
+	if (list !== undefined && typeof list !== 'boolean') {
+		throw new TypeError('list must be true or false')
+	}
+
+	return list === true ? 1 : 0
 }
 
 /**
@@ -208,10 +173,7 @@ const assertCommonFieldMetadata = (options: object): void => {
 /**
  * Copies common field metadata while delegating primitive-specific validation.
  */
-export const normalizeFieldOptions = <
-	TValue,
-	const TOptions extends FieldOptions<TValue>,
->(
+export const normalizeFieldOptions = <const TOptions extends object>(
 	options: TOptions,
 	normalizeStaticValue: NormalizeStaticValue,
 	builtInContract?: BuiltInFieldOptionsContract,
@@ -224,47 +186,41 @@ export const normalizeFieldOptions = <
 
 	assertCommonFieldMetadata(options)
 
-	const list = normalizeList(options.list)
-	const hasNormalizedDefault =
-		'default' in options && isStaticDefault(options.default)
-	const normalizedDefault = hasNormalizedDefault
-		? snapshotListedFieldValue(
-				options.default,
-				readListDepth(list),
-				normalizeStaticValue,
-				'default',
-			)
-		: undefined
+	const depth = getFieldListDepth(options)
 
-	// Conditional spreads preserve absent options and replace caller-owned nested values.
-	const normalized = immutableRecord({
+	// A conditional spread preserves an absent default and replaces caller-owned
+	// nested values; executable defaults stay untouched until object creation.
+	return immutableRecord({
 		...options,
-		...(list === undefined ? {} : { list }),
-		...(hasNormalizedDefault ? { default: normalizedDefault } : {}),
+		...('default' in options && isStaticDefault(options.default)
+			? {
+					default: snapshotListedFieldValue(
+						options.default,
+						depth,
+						normalizeStaticValue,
+						'default',
+					),
+				}
+			: {}),
 	})
-
-	if (builtInContract !== undefined) {
-		builtInContractsByOptions.set(normalized, builtInContract)
-	}
-
-	return normalized
 }
 
 /** Reads direct required presence without trusting external metadata. */
 const hasRequiredOption = (options: object): boolean =>
 	'required' in options && options.required === true
 
+/** Clock, sequence and plugin-generated values are supplied by the system. */
+const hasGeneratedValue = (options: object): boolean =>
+	('autoNow' in options && options.autoNow === true) ||
+	('autoIncrement' in options && options.autoIncrement === true) ||
+	'generatedOn' in options
+
 /** Derives whether a selected persisted field may contain logical null. */
 export const isFieldNullable = (field: GenericField): boolean =>
-	!hasRequiredOption(field.options) &&
-	!('autoNow' in field.options && field.options.autoNow === true) &&
-	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
-	!('generatedOn' in field.options)
+	!hasRequiredOption(field.options) && !hasGeneratedValue(field.options)
 
 /** Mirrors create-input omission rules at runtime snapshot boundaries. */
 export const isRequiredOnCreate = (field: GenericField): boolean =>
 	hasRequiredOption(field.options) &&
 	!('default' in field.options) &&
-	!('autoNow' in field.options && field.options.autoNow === true) &&
-	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
-	!('generatedOn' in field.options)
+	!hasGeneratedValue(field.options)

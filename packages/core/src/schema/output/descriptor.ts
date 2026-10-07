@@ -19,14 +19,8 @@ import {
 
 type OutputElementSnapshot = (value: unknown, path: string) => unknown
 
-interface OutputDescriptorCapability {
-	readonly snapshotElement: OutputElementSnapshot
-}
-
-const outputDescriptorCapabilities = new WeakMap<
-	object,
-	OutputDescriptorCapability
->()
+// Only descriptors registered here are genuine; the element snapshot stays private.
+const outputElementSnapshots = new WeakMap<object, OutputElementSnapshot>()
 
 /** @internal Creates one provenance-checked immutable output descriptor. */
 export const createOutputDescriptor = <
@@ -43,7 +37,7 @@ export const createOutputDescriptor = <
 		options,
 	}) as unknown as OutputDescriptor<TKind, TValue, TOptions>
 
-	outputDescriptorCapabilities.set(descriptor, { snapshotElement })
+	outputElementSnapshots.set(descriptor, snapshotElement)
 
 	return descriptor
 }
@@ -68,33 +62,22 @@ export const definePluginOutputDescriptor = <
 	TOptions
 > => {
 	assertPluginFieldKind(kind, 'Plugin output descriptor kind')
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'Plugin output descriptor options must be a plain object',
-		)
+	const fail = (problem: string): never => {
+		throw new TypeError(`Plugin output descriptor ${problem}`)
 	}
-	if (typeof options.list !== 'boolean') {
-		throw new TypeError(
-			'Plugin output descriptor options.list must be a boolean',
-		)
-	}
+	if (!isPlainRecord(options)) return fail('options must be a plain object')
+	if (typeof options.list !== 'boolean') fail('options.list must be a boolean')
 	if (typeof options.nullable !== 'boolean') {
-		throw new TypeError(
-			'Plugin output descriptor options.nullable must be a boolean',
-		)
+		fail('options.nullable must be a boolean')
 	}
 	if (
 		options.description !== undefined &&
 		typeof options.description !== 'string'
 	) {
-		throw new TypeError(
-			'Plugin output descriptor options.description must be a string',
-		)
+		fail('options.description must be a string')
 	}
 	if (typeof snapshotElement !== 'function') {
-		throw new TypeError(
-			'Plugin output descriptor snapshotElement must be a function',
-		)
+		fail('snapshotElement must be a function')
 	}
 
 	return createOutputDescriptor<
@@ -113,40 +96,10 @@ export function assertOutputDescriptor(
 		!isPlainRecord(value) ||
 		typeof value.kind !== 'string' ||
 		!isPlainRecord(value.options) ||
-		!outputDescriptorCapabilities.has(value)
+		!outputElementSnapshots.has(value)
 	) {
 		throw new TypeError(`${path} must be created by OutputBuilder`)
 	}
-}
-
-const snapshotNonNullOutputValue = (
-	descriptor: GenericOutputDescriptor,
-	value: unknown,
-	path: string,
-): unknown => {
-	const capability = outputDescriptorCapabilities.get(descriptor)
-	if (capability === undefined) {
-		throw new TypeError(`${path} uses an invalid output descriptor`)
-	}
-
-	if (descriptor.options.list) {
-		if (!isUnknownArray(value)) {
-			throw new TypeError(`${path} must be a list`)
-		}
-
-		return immutableArray(
-			value.map((item, index) => {
-				const itemPath = `${path}[${String(index)}]`
-				if (item === null) {
-					throw new TypeError(`${itemPath} must not be null`)
-				}
-
-				return capability.snapshotElement(item, itemPath)
-			}),
-		)
-	}
-
-	return capability.snapshotElement(value, path)
 }
 
 /**
@@ -175,5 +128,25 @@ export const snapshotOutputValue = <
 		return null
 	}
 
-	return snapshotNonNullOutputValue(descriptor, value, path)
+	const snapshotElement = outputElementSnapshots.get(descriptor)
+	if (snapshotElement === undefined) {
+		throw new TypeError(`${path} uses an invalid output descriptor`)
+	}
+
+	if (!descriptor.options.list) return snapshotElement(value, path)
+	if (!isUnknownArray(value)) {
+		throw new TypeError(`${path} must be a list`)
+	}
+
+	// Nullability applies to the whole list; list items are never null.
+	return immutableArray(
+		value.map((item, index) => {
+			const itemPath = `${path}[${String(index)}]`
+			if (item === null) {
+				throw new TypeError(`${itemPath} must not be null`)
+			}
+
+			return snapshotElement(item, itemPath)
+		}),
+	)
 }

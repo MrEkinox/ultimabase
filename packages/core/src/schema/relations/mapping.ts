@@ -72,16 +72,10 @@ export interface PendingSchemaRelation {
 /** Reads normalized inverse metadata without widening ordinary target entries. */
 export const readRelationMappedBy = (
 	field: GenericField,
-): string | undefined => {
-	if (!('mappedBy' in field.options)) return undefined
-
-	return typeof field.options.mappedBy === 'string'
+): string | undefined =>
+	'mappedBy' in field.options && typeof field.options.mappedBy === 'string'
 		? field.options.mappedBy
 		: undefined
-}
-
-const relationLocation = (relation: PendingSchemaRelation): string =>
-	`${relation.source.className}.${relation.fieldPath.join('.')}`
 
 const mappedRelationKey = (
 	schema: SchemaDefinition,
@@ -108,135 +102,101 @@ export const compileSchemaRelations = (
 	}
 
 	for (const relation of pendingRelations) {
-		const location = relationLocation(relation)
+		const { fieldPath, mappedBy, source, target } = relation
+		const location = `${source.className}.${fieldPath.join('.')}`
+		const mappingError = (
+			reason: SchemaRelationMappingReason,
+			message: string,
+		) =>
+			new SchemaRelationMappingError(
+				reason,
+				source,
+				fieldPath,
+				target,
+				message,
+				mappedBy,
+			)
 
-		if (relation.fieldPath.length !== 1) {
-			throw new SchemaRelationMappingError(
+		if (fieldPath.length !== 1) {
+			throw mappingError(
 				'incompatible-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
 				`Relation field ${location} must be declared at the schema root`,
-				relation.mappedBy,
 			)
 		}
 
-		if (relation.mappedBy === undefined) {
+		if (mappedBy === undefined) {
 			const previousLocation = owningFieldLocations.get(relation.field)
-
 			if (previousLocation !== undefined) {
-				throw new SchemaRelationMappingError(
+				throw mappingError(
 					'multiply-owned-mapping',
-					relation.source,
-					relation.fieldPath,
-					relation.target,
 					`Owning relation field ${location} reuses the definition from ${previousLocation}`,
 				)
 			}
 
 			owningFieldLocations.set(relation.field, location)
 			relations.push(
-				immutableRecord({
-					fieldPath: relation.fieldPath,
-					ownership: 'owning',
-					source: relation.source,
-					target: relation.target,
-				}),
+				immutableRecord({ fieldPath, ownership: 'owning', source, target }),
 			)
 			continue
 		}
 
-		const mappedField = readFields(relation.target)[relation.mappedBy]
+		const mappedField = readFields(target)[mappedBy]
+		const mappedLocation = mappedRelationKey(target, mappedBy)
+		const previousInverse = inverseByOwner.get(mappedLocation)
 
+		// Checks run from structural to topological so each failure names its root cause.
 		if (mappedField === undefined) {
-			throw new SchemaRelationMappingError(
+			throw mappingError(
 				'missing-mapped-field',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
-				`Inverse relation ${location} maps missing field ${relation.target.className}.${relation.mappedBy}`,
-				relation.mappedBy,
+				`Inverse relation ${location} maps missing field ${target.className}.${mappedBy}`,
 			)
 		}
-
 		if (mappedField.kind !== 'pointer' && mappedField.kind !== 'relation') {
-			throw new SchemaRelationMappingError(
+			throw mappingError(
 				'incompatible-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
 				`Inverse relation ${location} must map a pointer or owning relation field`,
-				relation.mappedBy,
 			)
 		}
-
-		const mappedLocation = mappedRelationKey(relation.target, relation.mappedBy)
-		const mappedTarget = targetByLocation.get(mappedLocation)
-
-		if (mappedTarget !== relation.source) {
-			throw new SchemaRelationMappingError(
+		if (targetByLocation.get(mappedLocation) !== source) {
+			throw mappingError(
 				'incompatible-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
-				`Inverse relation ${location} must map a field targeting ${relation.source.className}`,
-				relation.mappedBy,
+				`Inverse relation ${location} must map a field targeting ${source.className}`,
 			)
 		}
-
-		if (
-			relation.source === relation.target &&
-			relation.fieldPath[0] === relation.mappedBy
-		) {
-			throw new SchemaRelationMappingError(
+		if (source === target && fieldPath[0] === mappedBy) {
+			throw mappingError(
 				'self-conflicting-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
 				`Inverse relation ${location} cannot map itself`,
-				relation.mappedBy,
 			)
 		}
-
 		if (
 			mappedField.kind === 'relation' &&
 			readRelationMappedBy(mappedField) !== undefined
 		) {
-			throw new SchemaRelationMappingError(
+			throw mappingError(
 				'self-conflicting-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
 				`Inverse relation ${location} cannot map another inverse relation`,
-				relation.mappedBy,
 			)
 		}
-
-		const previousInverse = inverseByOwner.get(mappedLocation)
-
 		if (previousInverse !== undefined) {
-			throw new SchemaRelationMappingError(
+			throw mappingError(
 				'ambiguous-mapping',
-				relation.source,
-				relation.fieldPath,
-				relation.target,
-				`Inverse relation ${location} conflicts with ${previousInverse} for ${relation.target.className}.${relation.mappedBy}`,
-				relation.mappedBy,
+				`Inverse relation ${location} conflicts with ${previousInverse} for ${target.className}.${mappedBy}`,
 			)
 		}
 
 		inverseByOwner.set(mappedLocation, location)
 		relations.push(
 			immutableRecord({
-				fieldPath: relation.fieldPath,
+				fieldPath,
 				mappedBy: immutableRecord({
-					fieldPath: immutableArray([relation.mappedBy]),
+					fieldPath: immutableArray([mappedBy]),
 					kind: mappedField.kind,
-					schema: relation.target,
+					schema: target,
 				}),
 				ownership: 'inverse',
-				source: relation.source,
-				target: relation.target,
+				source,
+				target,
 			}),
 		)
 	}

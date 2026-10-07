@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/shared'
 
 import { builtInFieldKinds } from '../fields/base/kinds.js'
-import { fieldDeclarationContexts } from './field-contexts.js'
+import { mapFieldDeclarationContexts } from './field-contexts.js'
 import {
 	assertPluginFieldFamily,
 	resolvePluginFieldFamilyContext,
@@ -58,19 +58,7 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 			typegen: PluginFieldTypegen,
 		): void => {
 			stagedFieldTypes.push(
-				immutableRecord({
-					fieldKind,
-					owner: pluginName,
-					typegen: immutableRecord({
-						module: typegen.module,
-						...(typegen.structuralContainsType === undefined
-							? {}
-							: {
-									structuralContainsType: typegen.structuralContainsType,
-								}),
-						valueType: typegen.valueType,
-					}),
-				}),
+				immutableRecord({ fieldKind, owner: pluginName, typegen }),
 			)
 		}
 
@@ -99,29 +87,19 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 					)
 				}
 
-				const contexts = immutableRecord(
-					Object.fromEntries(
-						fieldDeclarationContexts.flatMap((context) => {
-							const declaration = builder.contexts[context]
-							if (declaration === undefined) return []
-							const resolved = resolvePluginFieldFamilyContext(
-								family,
-								declaration,
-							)
-							if (context === 'stored' || context === 'embedded') {
-								stageType(resolved.fieldKind, resolved.typegen)
-							}
-							return [[context, resolved]]
-						}),
-					),
-				)
+				const contexts = mapFieldDeclarationContexts((context) => {
+					const declaration = builder.contexts[context]
+					if (declaration === undefined) return undefined
+					const resolved = resolvePluginFieldFamilyContext(family, declaration)
+					// Only persisted value contexts contribute generated value types.
+					if (context === 'stored' || context === 'embedded') {
+						stageType(resolved.fieldKind, declaration.typegen ?? family.typegen)
+					}
+					return resolved
+				})
 				stagedMethods.set(
 					builder.name,
-					immutableRecord({
-						contexts,
-						name: builder.name,
-						owner: pluginName,
-					}),
+					immutableRecord({ contexts, name: builder.name, owner: pluginName }),
 				)
 				return pluginSourceReceipt()
 			},

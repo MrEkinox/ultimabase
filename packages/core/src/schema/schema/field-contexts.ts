@@ -1,4 +1,8 @@
-import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 /** Names the four semantic locations where a field-like declaration may appear. */
 export const fieldDeclarationContexts = [
@@ -47,3 +51,16 @@ export const normalizeFieldDeclarationContexts = (
 		fieldDeclarationContexts.filter((context) => declared.has(context)),
 	)
 }
+
+/** Builds one immutable per-context record in canonical order, omitting absent contexts. */
+export const mapFieldDeclarationContexts = <TValue>(
+	read: (context: FieldDeclarationContext) => TValue | undefined,
+): Readonly<Partial<Record<FieldDeclarationContext, TValue>>> =>
+	immutableRecord(
+		Object.fromEntries(
+			fieldDeclarationContexts.flatMap((context) => {
+				const value = read(context)
+				return value === undefined ? [] : [[context, value]]
+			}),
+		),
+	)

@@ -114,7 +114,18 @@ type FieldOptionsDefaultValue<
 	? TValue | readonly TValue[]
 	: FieldListValue<TValue, TList>
 
-interface FieldMetadataOptions {
+/** Defines shared field metadata without assigning a default-value contract. */
+export interface FieldOptionsBase<
+	TList extends FieldListOption = FieldListOption,
+	TValue = unknown,
+>
+	extends FieldOptionValueCarrier<TValue>, UltimaBaseGeneratedFieldOptions {
+	/**
+	 * Wraps the scalar in one homogeneous list when enabled.
+	 *
+	 * @example `list: true`
+	 */
+	readonly list?: TList
 	/**
 	 * Requires a non-null persisted value and, without a default or generator,
 	 * requires the field in create input.
@@ -140,23 +151,6 @@ interface FieldMetadataOptions {
 	 * @example `description: "Public display name"`
 	 */
 	readonly description?: string
-}
-
-/** Defines shared field metadata without assigning a default-value contract. */
-export interface FieldOptionsBase<
-	TList extends FieldListOption = FieldListOption,
-	TValue = unknown,
->
-	extends
-		FieldMetadataOptions,
-		FieldOptionValueCarrier<TValue>,
-		UltimaBaseGeneratedFieldOptions {
-	/**
-	 * Wraps the scalar in one homogeneous list when enabled.
-	 *
-	 * @example `list: true`
-	 */
-	readonly list?: TList
 }
 
 /**
@@ -244,8 +238,6 @@ type OptionObjectKeysAreCompatible<TDeclared, TAllowed> =
 			: false
 		: true
 
-type SourceOptionKeys<TSourceOptions extends object> = keyof TSourceOptions
-
 type GeneratedNonCompatibilityOptionsAreExact<
 	TExtensionOptions extends object,
 	TOptions extends object,
@@ -265,21 +257,18 @@ type GeneratedNonCompatibilityOptionsAreExact<
 	? false
 	: true
 
-/**
- * Validates a factory's exact options against its scalar value and generated checks.
- */
-type FieldOptionsAreCompatible<TOptions extends object, TValue> =
+/** Validates a factory's exact options against its scalar value and generated checks. */
+export type ValidatedFieldOptions<TOptions extends object, TValue> =
 	DefaultIsCompatible<
 		TOptions,
 		FieldOptionsValue<TValue, TOptions>
 	> extends true
 		? GeneratedValueIsCompatible<TOptions> extends true
-			? GeneratedFieldOptionsAreCompatible<TOptions, TValue>
-			: false
-		: false
-
-export type ValidatedFieldOptions<TOptions extends object, TValue> =
-	FieldOptionsAreCompatible<TOptions, TValue> extends true ? TOptions : never
+			? GeneratedFieldOptionsAreCompatible<TOptions, TValue> extends true
+				? TOptions
+				: never
+			: never
+		: never
 
 /** Narrows an exact factory input only when every installed type-only check accepts it. */
 export type CompatibleFieldOptions<
@@ -308,7 +297,7 @@ export type CompatibleFieldOptionsExtension<
 	TExtensionOptions extends object,
 	TValue,
 	TSourceOptions extends object = Readonly<Record<never, never>>,
-> = [SourceOptionKeys<TSourceOptions>] extends [never]
+> = [keyof TSourceOptions] extends [never]
 	? [GeneratedCompatibilityOptionKeys<TBaseOptions, TValue>] extends [never]
 		? TBaseOptions
 		: TBaseOptions &
@@ -350,79 +339,45 @@ type FieldOptionsList<TOptions> = TOptions extends {
 	? TList
 	: false
 
-type FieldOptionsRequired<TOptions> = TOptions extends {
-	readonly required: true
-}
-	? true
-	: false
-
-type FieldOptionsHaveDefault<TOptions> = TOptions extends {
-	readonly default: unknown
-}
-	? true
-	: false
-
-type FieldOptionsHaveAutoNow<TOptions> = TOptions extends {
-	readonly autoNow: true
-}
-	? true
-	: false
-
-type FieldOptionsAreAutoIncremented<TOptions> = TOptions extends {
-	readonly autoIncrement: true
-}
-	? true
-	: false
-
-type FieldOptionsAreGenerated<TOptions> = TOptions extends {
-	readonly generatedOn: unknown
-}
-	? true
-	: false
-
-type FieldOptionsAreImmutable<TOptions> = TOptions extends {
-	readonly immutable: true
-}
-	? true
-	: false
-
-type ResolveObjectPresence = 'required'
+/** Tests one exact option, distributing over option unions like each flag check. */
+type HasOption<TOptions, TKey extends PropertyKey, TValue = unknown> =
+	TOptions extends Readonly<Record<TKey, TValue>> ? true : false
 
 type ResolveNullability<TOptions> =
-	FieldOptionsRequired<TOptions> extends true
+	HasOption<TOptions, 'required', true> extends true
 		? false
-		: FieldOptionsHaveAutoNow<TOptions> extends true
+		: HasOption<TOptions, 'autoNow', true> extends true
 			? false
-			: FieldOptionsAreAutoIncremented<TOptions> extends true
+			: HasOption<TOptions, 'autoIncrement', true> extends true
 				? false
-				: FieldOptionsAreGenerated<TOptions> extends true
+				: HasOption<TOptions, 'generatedOn'> extends true
 					? false
 					: true
 
 type ResolveCreatePresence<TOptions> =
-	FieldOptionsAreGenerated<TOptions> extends true
+	HasOption<TOptions, 'generatedOn'> extends true
 		? 'forbidden'
-		: FieldOptionsRequired<TOptions> extends true
-			? FieldOptionsHaveDefault<TOptions> extends true
+		: HasOption<TOptions, 'required', true> extends true
+			? HasOption<TOptions, 'default'> extends true
 				? 'optional'
-				: FieldOptionsHaveAutoNow<TOptions> extends true
+				: HasOption<TOptions, 'autoNow', true> extends true
 					? 'optional'
-					: FieldOptionsAreAutoIncremented<TOptions> extends true
+					: HasOption<TOptions, 'autoIncrement', true> extends true
 						? 'optional'
 						: 'required'
 			: 'optional'
 
 type ResolveUpdatePresence<TOptions> =
-	FieldOptionsAreGenerated<TOptions> extends true
+	HasOption<TOptions, 'generatedOn'> extends true
 		? 'forbidden'
-		: FieldOptionsAreImmutable<TOptions> extends true
+		: HasOption<TOptions, 'immutable', true> extends true
 			? 'forbidden'
 			: 'optional'
 
 /** Converts exact field options into the compact field inference contract. */
 export interface ResolveFieldTypegenState<TOptions extends object> {
 	readonly create: ResolveCreatePresence<TOptions>
-	readonly object: ResolveObjectPresence
+	readonly object: 'required'
 	readonly update: ResolveUpdatePresence<TOptions>
 	readonly nullable: ResolveNullability<TOptions>
 	readonly list: FieldOptionsList<TOptions>
