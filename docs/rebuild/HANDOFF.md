@@ -12,8 +12,7 @@ en prenant comme référence fonctionnelle `/Users/mrekinox/Desktop/claude-test/
 - **Ce qui doit rester identique** : la DX applicative et TypeScript (imports, signatures,
   inférence, diagnostics, autocomplétion, hovers), tous les comportements, erreurs et
   garanties de sécurité, ainsi que l'extensibilité publique pour les plugins.
-- **Priorités** : 1. parité, sécurité, DX ; 2. simplicité et maintenabilité ;
-  3. réduction du code ; 4. performances.
+- **Priorités** : 1. parité, sécurité, DX ; 2. simplicité et maintenabilité ; 3. réduction du code ; 4. performances.
 - **Livrable final** : une reconstruction autonome, les commandes d'installation et de
   validation, une matrice des capacités avec preuves de parité, les résultats exacts des
   validations, les écarts, la comparaison avant/après des mesures, l'explication des
@@ -55,14 +54,15 @@ Outils :
 Toutes les validations listées dans le protocole ont été rejouées pour ces trois
 packages. Le détail figure dans leur `REBUILD.md`.
 
-| Package | Prod. avant | Prod. après | Notes |
-| --- | ---: | ---: | --- |
-| acl-permissions-plugin | 3 188 | 2 687 | Un seul modèle d'état ACL. |
-| hooks-plugin | 4 145 | 3 421 | Un seul dispatcher. Un écart documenté dans [DIFFERENCES.md](DIFFERENCES.md) (`__proto__`). |
-| rest-plugin | 4 320 | 3 696 | Erreurs, transports et routes unifiés. |
-| core / schema | 16 616 | 15 267 | WIP repris puis relu ; 2 écarts sur entrées non typées (DIFFERENCES.md). Voir `packages/core/REBUILD-core-schema.md`. |
-| core / runtime-app | 10 914 | 9 998 | WIP repris ; régression de rollback du WIP corrigée ; 1 écart (handles internes non exposés). Voir `packages/core/REBUILD-core-runtime-app.md`. |
-| core / plugins | 14 525 | 13 822 | WIP repris ; 4 régressions du WIP corrigées ; 3 contrôles inatteignables retirés (preuve dans le REBUILD, vérifiée par le coordinateur). Voir `packages/core/REBUILD-core-plugins.md`. |
+| Package                 | Prod. avant | Prod. après | Notes                                                                                                                                                                                  |
+| ----------------------- | ----------: | ----------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| acl-permissions-plugin  |       3 188 |       2 687 | Un seul modèle d'état ACL.                                                                                                                                                             |
+| hooks-plugin            |       4 145 |       3 421 | Un seul dispatcher. Un écart documenté dans [DIFFERENCES.md](DIFFERENCES.md) (`__proto__`).                                                                                            |
+| rest-plugin             |       4 320 |       3 696 | Erreurs, transports et routes unifiés.                                                                                                                                                 |
+| core / schema           |      16 616 |      15 267 | WIP repris puis relu ; 2 écarts sur entrées non typées (DIFFERENCES.md). Voir `packages/core/REBUILD-core-schema.md`.                                                                  |
+| core / runtime-app      |      10 914 |       9 998 | WIP repris ; régression de rollback du WIP corrigée ; 1 écart (handles internes non exposés). Voir `packages/core/REBUILD-core-runtime-app.md`.                                        |
+| core / plugins          |      14 525 |      13 822 | WIP repris ; 4 régressions du WIP corrigées ; 3 contrôles inatteignables retirés (preuve dans le REBUILD, vérifiée par le coordinateur). Voir `packages/core/REBUILD-core-plugins.md`. |
+| core / runtime-pipeline |      12 290 |      11 261 | WIP repris ; 3 écarts du WIP corrigés. Voir `packages/core/REBUILD-core-runtime-pipeline.md`.                                                                                          |
 
 Total de la production (script de mesure) : **114 742 → 112 893 lignes**. Les tests sont
 inchangés (127 476 lignes).
@@ -72,13 +72,13 @@ inchangés (127 476 lignes).
 La limite d'usage a interrompu ces cinq agents en pleine réécriture. Leur travail non
 committé a été sauvegardé tel quel. Il peut ne pas compiler.
 
-| Branche | Périmètre (`packages/core/src/…`) | Lignes prod. | État du WIP |
-| --- | --- | ---: | --- |
-| `rebuild/core-query` | `query/**`, `access/**` | ~8 700 | Un commit de l'agent et un WIP de 2 fichiers. Début de travail. |
-| `rebuild/core-runtime-pipeline` | `runtime/{pipeline,enforcement,behaviors,validation,operations,contributions,relation-filters,relations,virtual-fields,nested-writes}` | ~13 000 | Un commit et un WIP de 3 fichiers. Début de travail. |
-| `rebuild/core-schema` | `schema/**` | ~16 500 | WIP : 63 fichiers, +3 106 / −4 630. Bien avancé, non testé. |
-| `rebuild/core-plugins` | `plugins/**`, `application/**`, `errors/**`, `foundation.ts`, `index.ts` | ~14 000 | WIP : 29 fichiers, +1 637 / −2 473. En cours (`capability-host.ts`). |
-| `rebuild/core-runtime-app` | le reste de `runtime/**`, `private-storage/**` | ~11 000 | WIP : 40 fichiers, +1 506 / −2 452. Tests unitaires Core pas encore lancés. |
+| Branche                         | Périmètre (`packages/core/src/…`)                                                                                                      | Lignes prod. | État du WIP                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -----------: | --------------------------------------------------------------------------- |
+| `rebuild/core-query`            | `query/**`, `access/**`                                                                                                                |       ~8 700 | Un commit de l'agent et un WIP de 2 fichiers. Début de travail.             |
+| `rebuild/core-runtime-pipeline` | `runtime/{pipeline,enforcement,behaviors,validation,operations,contributions,relation-filters,relations,virtual-fields,nested-writes}` |      ~13 000 | Un commit et un WIP de 3 fichiers. Début de travail.                        |
+| `rebuild/core-schema`           | `schema/**`                                                                                                                            |      ~16 500 | WIP : 63 fichiers, +3 106 / −4 630. Bien avancé, non testé.                 |
+| `rebuild/core-plugins`          | `plugins/**`, `application/**`, `errors/**`, `foundation.ts`, `index.ts`                                                               |      ~14 000 | WIP : 29 fichiers, +1 637 / −2 473. En cours (`capability-host.ts`).        |
+| `rebuild/core-runtime-app`      | le reste de `runtime/**`, `private-storage/**`                                                                                         |      ~11 000 | WIP : 40 fichiers, +1 506 / −2 452. Tests unitaires Core pas encore lancés. |
 
 **Reprise du 2026-10-07 (session 2)** : les agents `core-schema`, `core-plugins`,
 `core-runtime-app` et `core-runtime-pipeline` ont été relancés dans leurs worktrees
@@ -117,16 +117,16 @@ Reste également :
 
 ## Validations de référence (clone de la référence, 2026-10-07, machine chargée)
 
-| Commande | Résultat |
-| --- | --- |
-| `yarn validate:full` | Arrêt à `yarn test` : 2 712/2 713. Seul échec : `packages/typegen/tests/performance/hybrid-authoring.performance.test.ts`, budget d'initialisation du language service dépassé de 0,3 % (511,7 ms contre 510,3 ms), probablement dû à la charge machine. |
-| `yarn test:e2e` | 409/410. Seul échec : `create-app-packed.e2e.test.ts`, timeout de 120 s sous charge. |
-| `yarn test:pack` | 32/32 fichiers, 173/173 tests. |
-| `yarn lint` | OK. |
-| `yarn check:issues` | OK. |
-| `yarn constraints` | OK. |
-| `yarn website:validate` | 17 fichiers, 66/66. |
-| `yarn test:coverage` | **Pas encore exécuté.** À lancer sur machine calme, sur la référence et sur la reconstruction. |
+| Commande                | Résultat                                                                                                                                                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn validate:full`    | Arrêt à `yarn test` : 2 712/2 713. Seul échec : `packages/typegen/tests/performance/hybrid-authoring.performance.test.ts`, budget d'initialisation du language service dépassé de 0,3 % (511,7 ms contre 510,3 ms), probablement dû à la charge machine. |
+| `yarn test:e2e`         | 409/410. Seul échec : `create-app-packed.e2e.test.ts`, timeout de 120 s sous charge.                                                                                                                                                                     |
+| `yarn test:pack`        | 32/32 fichiers, 173/173 tests.                                                                                                                                                                                                                           |
+| `yarn lint`             | OK.                                                                                                                                                                                                                                                      |
+| `yarn check:issues`     | OK.                                                                                                                                                                                                                                                      |
+| `yarn constraints`      | OK.                                                                                                                                                                                                                                                      |
+| `yarn website:validate` | 17 fichiers, 66/66.                                                                                                                                                                                                                                      |
+| `yarn test:coverage`    | **Pas encore exécuté.** À lancer sur machine calme, sur la référence et sur la reconstruction.                                                                                                                                                           |
 
 À refaire sur machine calme pour qualifier définitivement les échecs préexistants :
 
