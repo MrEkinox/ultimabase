@@ -121,24 +121,17 @@ export type RoleSchemaFields<
 export type RoleSchemaSelfDefinition<TClassName extends string> =
 	SchemaDefinition<TClassName>
 
-/** Names the complete field map of one declared role schema. */
-type DeclaredRoleFields<
-	TClassName extends string,
-	TMemberSchema extends SchemaDefinition,
-	TCustomFields extends SchemaFields,
-> = RoleSchemaFields<
-	TMemberSchema,
-	RoleSchemaSelfDefinition<TClassName>,
-	TCustomFields
->
-
 type ExactRoleSchemaDefinition<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
 	TCustomFields extends SchemaFields,
 > = SchemaReference<
 	TClassName,
-	DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
+	RoleSchemaFields<
+		TMemberSchema,
+		RoleSchemaSelfDefinition<TClassName>,
+		TCustomFields
+	>
 >
 
 /** Adds lightweight reference construction to one exact generated schema class. */
@@ -153,20 +146,9 @@ export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 	): RoleReference<TSchema, RoleIdSelector<TId>>
 }
 
-/** Lists the commands added to every persisted result of one role schema. */
-type RoleResultCapabilities<
-	TSelf extends SchemaDefinition,
-	TMemberSchema extends SchemaDefinition,
-> = RequestRoleReferenceCarrier &
-	RoleMemberCommands<TSelf, TMemberSchema> &
-	RoleHierarchyCommands<TSelf>
-
-/** Adds role statics and persisted-result commands to one exact schema type. */
-type RoleSchemaCapabilities<
-	TSelf extends SchemaDefinition,
-	TMemberSchema extends SchemaDefinition,
-> = RoleSchemaStatics<TSelf> &
-	SchemaResultCapabilityCarrier<RoleResultCapabilities<TSelf, TMemberSchema>>
+/** Represents one exact constructible role schema declared by the application. */
+type RoleSchemaBaseClass<TClassName extends string = string> =
+	SchemaReference<TClassName>
 
 /** Represents one exact constructible role schema declared by the application. */
 export type RoleSchemaClass<
@@ -174,9 +156,18 @@ export type RoleSchemaClass<
 	TMemberSchema extends SchemaDefinition = SchemaDefinition,
 	TCustomFields extends SchemaFields = SchemaFields,
 > = ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields> &
-	RoleSchemaCapabilities<
-		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
-		TMemberSchema
+	RoleSchemaStatics<
+		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
+	> &
+	SchemaResultCapabilityCarrier<
+		RequestRoleReferenceCarrier &
+			RoleMemberCommands<
+				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
+				TMemberSchema
+			> &
+			RoleHierarchyCommands<
+				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
+			>
 	>
 
 type ConfiguredRoleSchemaOptions<
@@ -200,7 +191,11 @@ type ConfiguredRoleSchemaOptions<
 		TClassName,
 		TFieldDeclaration,
 		Omit<TDeclaredOptions, 'deletion' | 'members'>,
-		DeclaredRoleFields<TClassName, TMemberSchema, ReturnType<TFieldDeclaration>>
+		RoleSchemaFields<
+			TMemberSchema,
+			RoleSchemaSelfDefinition<TClassName>,
+			ReturnType<TFieldDeclaration>
+		>
 	>
 
 type ConfiguredRoleSchemaClass<
@@ -216,16 +211,37 @@ type ConfiguredRoleSchemaClass<
 > = ConfiguredSchemaResult<
 	TSource,
 	TClassName,
-	DeclaredRoleFields<TClassName, TMemberSchema, ReturnType<TFieldDeclaration>>,
+	RoleSchemaFields<
+		TMemberSchema,
+		RoleSchemaSelfDefinition<TClassName>,
+		ReturnType<TFieldDeclaration>
+	>,
 	TDeclaredOptions
 > &
-	RoleSchemaCapabilities<
+	RoleSchemaStatics<
 		ExactRoleSchemaDefinition<
 			TClassName,
 			TMemberSchema,
 			ReturnType<TFieldDeclaration>
-		>,
-		TMemberSchema
+		>
+	> &
+	SchemaResultCapabilityCarrier<
+		RequestRoleReferenceCarrier &
+			RoleMemberCommands<
+				ExactRoleSchemaDefinition<
+					TClassName,
+					TMemberSchema,
+					ReturnType<TFieldDeclaration>
+				>,
+				TMemberSchema
+			> &
+			RoleHierarchyCommands<
+				ExactRoleSchemaDefinition<
+					TClassName,
+					TMemberSchema,
+					ReturnType<TFieldDeclaration>
+				>
+			>
 	>
 
 /** Declares the developer-owned portion of a role-aware schema. */
@@ -248,11 +264,15 @@ export interface RoleSchemaOptions<
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
 	readonly indexes?: readonly SchemaIndexOptions<
 		SchemaFieldName<
-			DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
+			RoleSchemaFields<
+				TMemberSchema,
+				RoleSchemaSelfDefinition<TClassName>,
+				TCustomFields
+			>
 		>
 	>[]
 	/** Protects role administration when the official Access plugin is installed. */
-	readonly access?: SchemaAccess<SchemaReference<TClassName>>
+	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -391,7 +411,11 @@ export class RoleSchema {
 			)
 		}
 
-		type Fields = DeclaredRoleFields<TClassName, TMemberSchema, TCustomFields>
+		type Fields = RoleSchemaFields<
+			TMemberSchema,
+			RoleSchemaSelfDefinition<TClassName>,
+			TCustomFields
+		>
 		type SelfSchema = ExactRoleSchemaDefinition<
 			TClassName,
 			TMemberSchema,
@@ -447,7 +471,9 @@ export class RoleSchema {
 				)
 			}
 
-			const results: RoleResultCapabilities<SelfSchema, TMemberSchema> = {
+			const results: RequestRoleReferenceCarrier &
+				RoleMemberCommands<SelfSchema, TMemberSchema> &
+				RoleHierarchyCommands<SelfSchema> = {
 				toRequestRoleReference(
 					this: object,
 				): RoleReference<SelfSchema, RoleIdSelector> {
