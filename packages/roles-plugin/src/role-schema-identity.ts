@@ -40,16 +40,17 @@ const normalizeRoleSchemaIdentity = (
 	value: unknown,
 	path: string,
 ): RoleSchemaIdentityOption => {
+	// Only exact package instances registered for this schema path are accepted;
+	// copies and markers moved to another schema fail before setup.
 	if (
-		typeof value !== 'object' ||
-		value === null ||
+		!(value instanceof RoleSchemaIdentityValue) ||
 		roleSchemaClassNames.get(value) !==
 			path.slice(0, -`.${roleSchemaIdentityOptionName}`.length)
 	) {
 		throw new TypeError(`${path} must be created by RoleSchema.define()`)
 	}
 
-	return value as RoleSchemaIdentityOption
+	return value
 }
 
 /** Owns the nominal direct option that makes Roles installation mandatory. */

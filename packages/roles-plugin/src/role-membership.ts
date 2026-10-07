@@ -1,8 +1,4 @@
-import {
-	type Pointer,
-	type SchemaClass,
-	type SchemaDefinition,
-} from '@ultimabase/core'
+import type { Pointer, SchemaDefinition } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -11,8 +7,7 @@ import {
 	roleHierarchyMaxDepth,
 	roleHierarchyMaxVisitedRoles,
 } from './role-hierarchy.js'
-
-type MembershipRoleSchema = SchemaClass
+import { roleQuerySchema } from './role-resolution.js'
 
 /** Retains one request-local, duplicate-free stored membership closure. */
 export interface RoleMembershipSnapshot {
@@ -22,42 +17,30 @@ export interface RoleMembershipSnapshot {
 	readonly memberId: string
 }
 
-type ReadParentRoles = (role: unknown) => Promise<readonly unknown[]>
-
 /** Resolves a portable ancestor graph independently from database execution. */
 export const resolveRoleMembershipGraph = async (
 	memberId: string,
 	directRoles: readonly unknown[],
-	readParents: ReadParentRoles,
+	readParents: (role: unknown) => Promise<readonly unknown[]>,
 ): Promise<RoleMembershipSnapshot> => {
 	const minimumDepthByRoleId = new Map<string, number>()
-	const pending: { readonly depth: number; readonly role: unknown }[] =
-		directRoles.map((role) => ({ depth: 0, role }))
-	let cursor = 0
+	const pending = directRoles.map((role) => ({ depth: 0, role }))
 
-	while (cursor < pending.length) {
-		const entry = pending[cursor]
-		cursor += 1
-
-		if (entry === undefined) {
-			continue
-		}
-
-		const roleId = readPersistedRoleId(entry.role)
+	// Breadth-first: `for...of` also visits entries appended during iteration.
+	for (const { depth, role } of pending) {
+		const roleId = readPersistedRoleId(role)
 		const knownDepth = minimumDepthByRoleId.get(roleId)
 
-		if (knownDepth !== undefined && knownDepth <= entry.depth) {
-			continue
-		}
+		if (knownDepth !== undefined && knownDepth <= depth) continue
 
-		if (entry.depth > roleHierarchyMaxDepth) {
+		if (depth > roleHierarchyMaxDepth) {
 			throw new RoleHierarchyError(
 				'ROLE_HIERARCHY_LIMIT',
 				`Role membership exceeds maximum depth ${String(roleHierarchyMaxDepth)}`,
 			)
 		}
 
-		minimumDepthByRoleId.set(roleId, entry.depth)
+		minimumDepthByRoleId.set(roleId, depth)
 
 		if (minimumDepthByRoleId.size > roleHierarchyMaxVisitedRoles) {
 			throw new RoleHierarchyError(
@@ -66,25 +49,23 @@ export const resolveRoleMembershipGraph = async (
 			)
 		}
 
-		for (const parent of await readParents(entry.role)) {
-			pending.push({ depth: entry.depth + 1, role: parent })
+		for (const parent of await readParents(role)) {
+			pending.push({ depth: depth + 1, role: parent })
 		}
 	}
 
 	const allRoleIds = [...minimumDepthByRoleId.keys()].sort((left, right) =>
 		left.localeCompare(right),
 	)
-	const directRoleIds = allRoleIds.filter(
-		(roleId) => minimumDepthByRoleId.get(roleId) === 0,
-	)
-	const inheritedRoleIds = allRoleIds.filter(
-		(roleId) => minimumDepthByRoleId.get(roleId) !== 0,
-	)
 
 	return immutableRecord({
 		allRoleIds: immutableArray(allRoleIds),
-		directRoleIds: immutableArray(directRoleIds),
-		inheritedRoleIds: immutableArray(inheritedRoleIds),
+		directRoleIds: immutableArray(
+			allRoleIds.filter((roleId) => minimumDepthByRoleId.get(roleId) === 0),
+		),
+		inheritedRoleIds: immutableArray(
+			allRoleIds.filter((roleId) => minimumDepthByRoleId.get(roleId) !== 0),
+		),
 		memberId,
 	})
 }
@@ -94,8 +75,8 @@ export const resolveStoredRoleMembership = async (
 	schema: SchemaDefinition,
 	member: Pointer,
 ): Promise<RoleMembershipSnapshot> => {
-	const lookupSchema = schema as unknown as MembershipRoleSchema
-	const directRoles = await lookupSchema.findMany(
+	const roles = roleQuerySchema(schema)
+	const directRoles = await roles.findMany(
 		{
 			where: { members: { some: { id: { eq: member.id } } } },
 			orderBy: { id: 'asc' },
@@ -103,15 +84,13 @@ export const resolveStoredRoleMembership = async (
 		{ useMasterKey: true },
 	)
 
-	return resolveRoleMembershipGraph(member.id, directRoles, async (role) => {
-		const roleId = readPersistedRoleId(role)
-
-		return lookupSchema.findMany(
+	return resolveRoleMembershipGraph(member.id, directRoles, async (role) =>
+		roles.findMany(
 			{
-				where: { roles: { some: { id: { eq: roleId } } } },
+				where: { roles: { some: { id: { eq: readPersistedRoleId(role) } } } },
 				orderBy: { id: 'asc' },
 			},
 			{ useMasterKey: true },
-		)
-	})
+		),
+	)
 }

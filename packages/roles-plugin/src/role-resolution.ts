@@ -10,21 +10,13 @@ import {
 	getRoleReferenceState,
 	type RoleReference,
 	type RoleReferenceState,
-	type RoleSelector,
 } from './role-reference.js'
 import { readPersistedRoleId } from './role-hierarchy.js'
 
-type RoleLookupSchema = SchemaClass
-
 /** Reports strict stored-role lookup failures without leaking adapter details. */
 export class RoleReferenceResolutionError extends Error {
-	readonly code:
-		| 'ROLE_REFERENCE_AMBIGUOUS'
-		| 'ROLE_REFERENCE_UNKNOWN'
-		| 'ROLE_REFERENCE_UNRECOGNIZED'
-
 	constructor(
-		code:
+		readonly code:
 			| 'ROLE_REFERENCE_AMBIGUOUS'
 			| 'ROLE_REFERENCE_UNKNOWN'
 			| 'ROLE_REFERENCE_UNRECOGNIZED',
@@ -32,16 +24,21 @@ export class RoleReferenceResolutionError extends Error {
 	) {
 		super(message)
 		this.name = 'RoleReferenceResolutionError'
-		this.code = code
 		Object.freeze(this)
 	}
 }
 
-const requireRoleReferenceState = <
-	const TSchema extends SchemaDefinition,
-	const TSelector extends RoleSelector,
->(
-	reference: RoleReference<TSchema, TSelector>,
+/**
+ * Exposes the schema-root Query API of a role schema whose exact type is erased.
+ *
+ * Every role schema is a `Schema.defineSpecialized` class, so the static Query
+ * methods exist at runtime; only the generic `SchemaDefinition` type hides them.
+ */
+export const roleQuerySchema = (schema: SchemaDefinition): SchemaClass =>
+	schema as unknown as SchemaClass
+
+const requireRoleReferenceState = <const TSchema extends SchemaDefinition>(
+	reference: RoleReference<TSchema>,
 ): RoleReferenceState<TSchema> => {
 	const state = getRoleReferenceState(reference)
 
@@ -62,13 +59,6 @@ export const resolveUniqueRoleNameMatch = <
 	name: string,
 	matches: readonly TRole[],
 ): TRole => {
-	if (matches.length === 0) {
-		throw new RoleReferenceResolutionError(
-			'ROLE_REFERENCE_UNKNOWN',
-			`Unknown role name: ${name}`,
-		)
-	}
-
 	if (matches.length > 1) {
 		throw new RoleReferenceResolutionError(
 			'ROLE_REFERENCE_AMBIGUOUS',
@@ -76,10 +66,10 @@ export const resolveUniqueRoleNameMatch = <
 		)
 	}
 
-	const match = matches[0]
+	// An empty or sparse adapter result has no first match.
+	const [match] = matches
 
 	if (match === undefined) {
-		// The length guard above protects this branch from sparse adapter values.
 		throw new RoleReferenceResolutionError(
 			'ROLE_REFERENCE_UNKNOWN',
 			`Unknown role name: ${name}`,
@@ -89,22 +79,19 @@ export const resolveUniqueRoleNameMatch = <
 	return match
 }
 
-const findRoleByName = async <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
+/** Reads at most two rows so corrupted ambiguous storage fails closed. */
+const findRoleByName = async (
+	schema: SchemaDefinition,
 	name: string,
 	options?: OperationOptions,
-): Promise<SchemaResult<TSchema>> => {
-	const lookupSchema = schema as unknown as RoleLookupSchema
-	const matches = await lookupSchema.findMany(
-		{ where: { name: { eq: name } }, limit: 2 },
-		options,
-	)
-
-	return resolveUniqueRoleNameMatch(
+): Promise<{ readonly id: string }> =>
+	resolveUniqueRoleNameMatch(
 		name,
-		matches,
-	) as unknown as SchemaResult<TSchema>
-}
+		await roleQuerySchema(schema).findMany(
+			{ where: { name: { eq: name } }, limit: 2 },
+			options,
+		),
+	)
 
 /**
  * Resolves one schema-qualified reference to its stable stored UUID.
@@ -118,14 +105,12 @@ export const resolveRoleReferenceId = async <
 	reference: RoleReference<TSchema>,
 	options?: OperationOptions,
 ): Promise<string> => {
-	const state = requireRoleReferenceState(reference)
+	const { schema, selector } = requireRoleReferenceState(reference)
 
-	if ('id' in state.selector) {
-		return state.selector.id
-	}
+	if ('id' in selector) return selector.id
 
 	return readPersistedRoleId(
-		await findRoleByName(state.schema, state.selector.name, options),
+		await findRoleByName(schema, selector.name, options),
 	)
 }
 
@@ -136,23 +121,20 @@ export const resolveRoleReference = async <
 	reference: RoleReference<TSchema>,
 	options?: OperationOptions,
 ): Promise<SchemaResult<TSchema>> => {
-	const state = requireRoleReferenceState(reference)
+	const { schema, selector } = requireRoleReferenceState(reference)
+	let role: object | null
 
-	if ('name' in state.selector) {
-		return findRoleByName(state.schema, state.selector.name, options)
-	}
+	if ('name' in selector) {
+		role = await findRoleByName(schema, selector.name, options)
+	} else {
+		role = await new Pointer(schema, selector.id).findOne(undefined, options)
 
-	const roleId = state.selector.id
-	const role = await new Pointer(state.schema, roleId).findOne(
-		undefined,
-		options,
-	)
-
-	if (role === null) {
-		throw new RoleReferenceResolutionError(
-			'ROLE_REFERENCE_UNKNOWN',
-			`Unknown role id: ${roleId}`,
-		)
+		if (role === null) {
+			throw new RoleReferenceResolutionError(
+				'ROLE_REFERENCE_UNKNOWN',
+				`Unknown role id: ${selector.id}`,
+			)
+		}
 	}
 
 	// Runtime preserves the exact schema identity; this generic bridge only hides

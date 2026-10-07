@@ -1,28 +1,22 @@
 import {
-	Relation,
 	Pointer,
-	type RequestSubjectContext,
-	type RequestSubjectReferenceCleanup,
+	type NamedRequestSubjectReferenceCleanup,
 	type OperationOptions,
-	type SchemaClass,
+	type RequestSubjectContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { RoleDeletedEvent } from './role-events.js'
-import { createRoleReference } from './role-reference.js'
-import { resolveRoleReference } from './role-resolution.js'
+import { readRoleRelation } from './role-hierarchy.js'
+import { createRoleReference, type RoleReference } from './role-reference.js'
+import { resolveRoleReference, roleQuerySchema } from './role-resolution.js'
 import type { RoleSchemaDeclaration } from './role-schema.js'
 
 /** Reports deterministic deletion-policy failures owned by the roles package. */
 export class RoleDeletionError extends Error {
-	readonly code:
-		| 'ROLE_DELETE_BULK_UNSUPPORTED'
-		| 'ROLE_DELETE_CASCADE_MASTER_REQUIRED'
-		| 'ROLE_DELETE_REFERENCED'
-
 	constructor(
-		code:
+		readonly code:
 			| 'ROLE_DELETE_BULK_UNSUPPORTED'
 			| 'ROLE_DELETE_CASCADE_MASTER_REQUIRED'
 			| 'ROLE_DELETE_REFERENCED',
@@ -30,47 +24,21 @@ export class RoleDeletionError extends Error {
 	) {
 		super(message)
 		this.name = 'RoleDeletionError'
-		this.code = code
 		Object.freeze(this)
 	}
 }
-
-/** Retains registry provenance beside a validated generic cleanup contract. */
-export interface NamedRoleReferenceCleanup {
-	readonly cleanup: RequestSubjectReferenceCleanup
-	readonly name: string
-}
-
-type RoleDeletionLookupSchema = SchemaClass
 
 const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 
-const readRelation = (
-	role: object,
-	fieldName: 'members' | 'roles',
-): Relation => {
-	const relationMethod: unknown = Reflect.get(role, 'relation')
-
-	if (typeof relationMethod !== 'function') {
-		throw new TypeError('Persisted role must expose generated relations')
-	}
-
-	const invokeRelation = relationMethod as (
-		this: object,
-		fieldName: 'members' | 'roles',
-	) => unknown
-	const relation = invokeRelation.call(role, fieldName)
-
-	if (!Relation.is(relation)) {
-		throw new TypeError(
-			`Persisted role returned an invalid ${fieldName} relation`,
-		)
-	}
-
-	return relation
-}
+const readRelation = (role: object, fieldName: 'members' | 'roles') =>
+	readRoleRelation(
+		role,
+		fieldName,
+		'Persisted role must expose generated relations',
+		`Persisted role returned an invalid ${fieldName} relation`,
+	)
 
 const readRoleId = (role: object): string => {
 	const roleId: unknown = Reflect.get(role, 'id')
@@ -83,42 +51,25 @@ const readRoleId = (role: object): string => {
 }
 
 /** Reads parents through the public relation predicate API inside the transaction. */
-const readParentRoles = async (
+const readParentRoles = (
 	schema: SchemaDefinition,
 	roleId: string,
-): Promise<readonly object[]> => {
-	const lookupSchema = schema as unknown as RoleDeletionLookupSchema
-
+): Promise<readonly object[]> =>
 	// The public quantified relation predicate compiles to one indexed join lookup.
-	return lookupSchema.findMany(
+	roleQuerySchema(schema).findMany(
 		{ where: { roles: { some: { id: { eq: roleId } } } } },
 		masterOptions,
 	)
-}
 
-const readExternalReferences = async (
-	context: RequestSubjectContext,
-	reference: ReturnType<typeof createRoleReference>,
-	cleanups: readonly NamedRoleReferenceCleanup[],
-): Promise<readonly string[]> => {
-	const owners: string[] = []
-
-	for (const contribution of cleanups) {
-		if (await contribution.cleanup.hasReferences({ context, reference })) {
-			owners.push(contribution.name)
-		}
-	}
-
-	return immutableArray(owners)
-}
-
+/** Rejects deletion while any role-owned edge or external reference remains. */
 const assertUnreferenced = async (
 	context: RequestSubjectContext,
 	role: object,
 	schema: SchemaDefinition,
-	reference: ReturnType<typeof createRoleReference>,
-	cleanups: readonly NamedRoleReferenceCleanup[],
+	reference: RoleReference,
+	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
 ): Promise<void> => {
+	const roleId = readRoleId(role)
 	const memberCount = await readRelation(role, 'members').count(
 		{},
 		masterOptions,
@@ -127,32 +78,36 @@ const assertUnreferenced = async (
 		{},
 		masterOptions,
 	)
-	const parentRoles = await readParentRoles(schema, readRoleId(role))
-	const externalOwners = await readExternalReferences(
-		context,
-		reference,
-		cleanups,
-	)
+	const parentRoles = await readParentRoles(schema, roleId)
+	// Every owner is asked, even when an earlier check already found a reference.
+	let externallyReferenced = false
+
+	for (const { cleanup } of cleanups) {
+		if (await cleanup.hasReferences({ context, reference })) {
+			externallyReferenced = true
+		}
+	}
 
 	if (
 		memberCount > 0 ||
 		childRoleCount > 0 ||
 		parentRoles.length > 0 ||
-		externalOwners.length > 0
+		externallyReferenced
 	) {
 		throw new RoleDeletionError(
 			'ROLE_DELETE_REFERENCED',
-			`Role ${readRoleId(role)} still has membership, hierarchy, or external references`,
+			`Role ${roleId} still has membership, hierarchy, or external references`,
 		)
 	}
 }
 
+/** Clears role-owned edges, then lets every cleanup owner remove its references. */
 const cascadeReferences = async (
 	context: RequestSubjectContext,
 	role: object,
 	schema: SchemaDefinition,
-	reference: ReturnType<typeof createRoleReference>,
-	cleanups: readonly NamedRoleReferenceCleanup[],
+	reference: RoleReference,
+	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
 ): Promise<readonly string[]> => {
 	if (context.access.mode !== 'master') {
 		throw new RoleDeletionError(
@@ -176,9 +131,9 @@ const cascadeReferences = async (
 
 	const invoked: string[] = []
 
-	for (const contribution of cleanups) {
-		await contribution.cleanup.cleanup({ context, reference })
-		invoked.push(contribution.name)
+	for (const { cleanup, name } of cleanups) {
+		await cleanup.cleanup({ context, reference })
+		invoked.push(name)
 	}
 
 	return immutableArray(invoked)
@@ -190,31 +145,28 @@ export const applyRoleDeletionPolicy = async (
 	schema: SchemaDefinition,
 	roleName: string,
 	declaration: RoleSchemaDeclaration,
-	cleanups: readonly NamedRoleReferenceCleanup[],
+	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
 ): Promise<RoleDeletedEvent> => {
 	const role = await resolveRoleReference(
 		createRoleReference(schema, { name: roleName }),
 		masterOptions,
 	)
 	const roleId = readRoleId(role)
-	const stableReference = createRoleReference(schema, { id: roleId })
+	const reference = createRoleReference(schema, { id: roleId })
+	const policy = declaration.deletionPolicy
 	let cleanupContributions: readonly string[] = immutableArray([])
 
-	if (declaration.deletionPolicy === 'fail') {
-		await assertUnreferenced(context, role, schema, stableReference, cleanups)
-	} else if (declaration.deletionPolicy === 'cascade') {
+	if (policy === 'fail') {
+		await assertUnreferenced(context, role, schema, reference, cleanups)
+	} else if (policy === 'cascade') {
 		cleanupContributions = await cascadeReferences(
 			context,
 			role,
 			schema,
-			stableReference,
+			reference,
 			cleanups,
 		)
 	}
 
-	return immutableRecord({
-		cleanupContributions,
-		policy: declaration.deletionPolicy,
-		roleId,
-	})
+	return immutableRecord({ cleanupContributions, policy, roleId })
 }
