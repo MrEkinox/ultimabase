@@ -25,6 +25,8 @@ interface CollectedField {
 interface SelectionContext {
 	readonly fragments: Readonly<Record<string, FragmentDefinitionNode>>
 	readonly info: GraphQLResolveInfo
+	readonly connections: GraphqlConnectionRuntime
+	readonly relationshipMode: GraphqlRelationshipSelectionMode
 }
 
 export interface GraphqlReadProjection {
@@ -137,8 +139,6 @@ const modelProjection = (
 	type: GraphQLObjectType,
 	selectionSets: readonly SelectionSetNode[],
 	context: SelectionContext,
-	connections: GraphqlConnectionRuntime,
-	relationshipMode: GraphqlRelationshipSelectionMode,
 ): GraphqlReadProjection => {
 	const select: Record<string, true> = {}
 	const include: Record<string, unknown> = {}
@@ -156,7 +156,7 @@ const modelProjection = (
 			select[selected.name] = true
 			continue
 		}
-		if (relationshipMode === 'stored-pointer-only') {
+		if (context.relationshipMode === 'stored-pointer-only') {
 			if (field.kind === 'relation') {
 				throw new TypeError(
 					`GraphQL ${schema.className}.${selected.name} cannot be selected from delete or upsert results`,
@@ -227,15 +227,13 @@ const modelProjection = (
 			modelType,
 			targetSelectionSets,
 			context,
-			connections,
-			relationshipMode,
 		)
 		include[selected.name] = immutableRecord({
 			...(field.kind === 'relation'
 				? normalizeGraphqlCollectionArguments(
 						target,
 						fieldArguments(selected, definition, context),
-						connections,
+						context.connections,
 						{
 							relationPath: targetRelationPath,
 							typeName: modelType.name,
@@ -262,7 +260,12 @@ export const normalizeGraphqlSelection = (
 	connections: GraphqlConnectionRuntime,
 	relationshipMode: GraphqlRelationshipSelectionMode = 'include',
 ): GraphqlReadProjection => {
-	const context: SelectionContext = { fragments: info.fragments, info }
+	const context: SelectionContext = {
+		connections,
+		fragments: info.fragments,
+		info,
+		relationshipMode,
+	}
 	const root = getNamedType(info.returnType)
 	if (!isObjectType(root)) {
 		throw new TypeError('GraphQL read result must be an object type')
@@ -271,14 +274,7 @@ export const normalizeGraphqlSelection = (
 		node.selectionSet === undefined ? [] : [node.selectionSet],
 	)
 	if (!connectionRoot) {
-		return modelProjection(
-			schema,
-			root,
-			rootSelectionSets,
-			context,
-			connections,
-			relationshipMode,
-		)
+		return modelProjection(schema, root, rootSelectionSets, context)
 	}
 	const model = getNamedType(root.getFields().nodes?.type)
 	if (!model || !isObjectType(model)) {
@@ -294,7 +290,5 @@ export const normalizeGraphqlSelection = (
 		model,
 		relationNodeSelectionSets(synthetic, root, context),
 		context,
-		connections,
-		relationshipMode,
 	)
 }
