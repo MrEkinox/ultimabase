@@ -1,10 +1,16 @@
 import type {
 	DatabaseRelationScope,
+	PrivateStorageAdapterCollection,
 	SchemaDefinition,
 	SchemaTargetGraph,
 } from '@ultimabase/core'
 import { immutableArray } from '@ultimabase/shared'
 
+import {
+	compilePostgresPrivateCollection,
+	type CompiledPostgresPrivateCollection,
+} from '../private-storage/compiler.js'
+import { required } from '../required.js'
 import type {
 	CompiledPostgresJoinRelation,
 	CompiledPostgresPointerRelation,
@@ -14,25 +20,24 @@ import type {
 import {
 	compilePostgresDrizzleRelations,
 	type CompiledPostgresDrizzleRelations,
-	type PostgresDrizzleRelationBinding,
 	type PostgresDrizzlePointerBinding,
+	type PostgresDrizzleRelationBinding,
 } from './drizzle-relations.js'
 import { compilePostgresRelations } from './relation-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
-import type { PrivateStorageAdapterCollection } from '@ultimabase/core'
-import type { CompiledPostgresPrivateCollection } from '../private-storage/contracts.js'
-import { compilePostgresPrivateCollection } from '../private-storage/compiler.js'
+
+const isSameFieldPath = (
+	left: readonly string[],
+	right: readonly string[],
+): boolean => JSON.stringify(left) === JSON.stringify(right)
 
 /** Owns application-scoped compiled tables without exposing mutable map operations. */
 export class PostgresSchemaCatalog {
 	readonly #schemas = new Map<object, CompiledPostgresSchema>()
-	readonly #relations = new Map<object, Map<string, CompiledPostgresRelation>>()
+	readonly #relations: readonly CompiledPostgresRelation[]
 	readonly #drizzleRelations: CompiledPostgresDrizzleRelations
 	readonly #joins: readonly CompiledPostgresJoinRelation[]
-	readonly #pointers = new Map<
-		object,
-		Map<string, CompiledPostgresPointerRelation>
-	>()
+	readonly #pointers: readonly CompiledPostgresPointerRelation[]
 	readonly #privateCollections = new Map<
 		PrivateStorageAdapterCollection,
 		CompiledPostgresPrivateCollection
@@ -46,41 +51,24 @@ export class PostgresSchemaCatalog {
 		const compiled = compilePostgresSchemas(schemas, targets)
 
 		for (const [position, schema] of schemas.entries()) {
-			const compiledSchema = compiled[position]
-
-			if (compiledSchema === undefined) {
-				throw new TypeError(
+			this.#schemas.set(
+				schema,
+				required(
+					compiled[position],
 					'PostgreSQL schema catalog compilation is incomplete',
-				)
-			}
-
-			this.#schemas.set(schema, compiledSchema)
-		}
-
-		if (targets === undefined) {
-			this.#joins = immutableArray([])
-			this.#drizzleRelations = compilePostgresDrizzleRelations(
-				compiled,
-				this.#joins,
-				[],
-				[],
+				),
 			)
-			return
 		}
 
-		const schemasByDefinition = new Map<
-			SchemaDefinition,
-			CompiledPostgresSchema
-		>()
-
-		for (const schema of schemas) {
-			schemasByDefinition.set(schema, this.get(schema))
-		}
-
-		const relations = compilePostgresRelations(targets, schemasByDefinition)
+		const { joins, relations } =
+			targets === undefined
+				? { joins: [], relations: [] }
+				: compilePostgresRelations(targets, (schema) =>
+						this.#schemas.get(schema),
+					)
 		const pointers: CompiledPostgresPointerRelation[] = []
 
-		for (const target of targets.values()) {
+		for (const target of targets?.values() ?? []) {
 			const source = this.get(target.source)
 			const fieldName = target.fieldPath[0]
 			const field =
@@ -88,38 +76,24 @@ export class PostgresSchemaCatalog {
 					? undefined
 					: source.fields[fieldName]
 
-			if (field?.plan.field.kind !== 'pointer') continue
-
-			const pointer = {
-				fieldPath: target.fieldPath,
-				source,
-				target: this.get(target.target),
-			} satisfies CompiledPostgresPointerRelation
-			const sourcePointers =
-				this.#pointers.get(target.source) ??
-				new Map<string, CompiledPostgresPointerRelation>()
-
-			sourcePointers.set(JSON.stringify(target.fieldPath), pointer)
-			this.#pointers.set(target.source, sourcePointers)
-			pointers.push(pointer)
+			if (field?.plan.field.kind === 'pointer') {
+				pointers.push({
+					fieldPath: target.fieldPath,
+					source,
+					target: this.get(target.target),
+				})
+			}
 		}
 
-		this.#joins = relations.joins
+		this.#joins = immutableArray(joins)
+		this.#relations = relations
+		this.#pointers = pointers
 		this.#drizzleRelations = compilePostgresDrizzleRelations(
 			compiled,
-			relations.joins,
-			relations.relations,
+			joins,
+			relations,
 			pointers,
 		)
-
-		for (const relation of relations.relations) {
-			const sourceRelations =
-				this.#relations.get(relation.relation.source) ??
-				new Map<string, CompiledPostgresRelation>()
-
-			sourceRelations.set(JSON.stringify(relation.relation.fieldPath), relation)
-			this.#relations.set(relation.relation.source, sourceRelations)
-		}
 	}
 
 	/** Compiles owner-private tables once before PostgreSQL setup begins. */
@@ -147,11 +121,10 @@ export class PostgresSchemaCatalog {
 	getPrivateCollection(
 		collection: PrivateStorageAdapterCollection,
 	): CompiledPostgresPrivateCollection {
-		const compiled = this.#privateCollections.get(collection)
-		if (compiled === undefined) {
-			throw new TypeError('PostgreSQL private collection is not registered')
-		}
-		return compiled
+		return required(
+			this.#privateCollections.get(collection),
+			'PostgreSQL private collection is not registered',
+		)
 	}
 
 	/** Lists private tables only for adapter-owned preparation. */
@@ -166,39 +139,30 @@ export class PostgresSchemaCatalog {
 
 	/** Resolves the generated RQB table key for one compiled schema. */
 	getDrizzleTableKey(schema: CompiledPostgresSchema): string {
-		const key = this.#drizzleRelations.tableKeys.get(schema)
-
-		if (key === undefined) {
-			throw new TypeError('PostgreSQL Drizzle schema table is not registered')
-		}
-
-		return key
+		return required(
+			this.#drizzleRelations.tableKeys.get(schema),
+			'PostgreSQL Drizzle schema table is not registered',
+		)
 	}
 
 	/** Resolves generated names for one exact logical relation orientation. */
 	getDrizzleRelation(
 		relation: CompiledPostgresRelation,
 	): PostgresDrizzleRelationBinding {
-		const binding = this.#drizzleRelations.bindings.get(relation)
-
-		if (binding === undefined) {
-			throw new TypeError('PostgreSQL Drizzle relation is not registered')
-		}
-
-		return binding
+		return required(
+			this.#drizzleRelations.bindings.get(relation),
+			'PostgreSQL Drizzle relation is not registered',
+		)
 	}
 
 	/** Resolves generated RQB metadata for one exact direct pointer. */
 	getDrizzlePointer(
 		pointer: CompiledPostgresPointerRelation,
 	): PostgresDrizzlePointerBinding {
-		const binding = this.#drizzleRelations.pointerBindings.get(pointer)
-
-		if (binding === undefined) {
-			throw new TypeError('PostgreSQL Drizzle pointer is not registered')
-		}
-
-		return binding
+		return required(
+			this.#drizzleRelations.pointerBindings.get(pointer),
+			'PostgreSQL Drizzle pointer is not registered',
+		)
 	}
 
 	/** Resolves one direct pointer inclusion by exact schema identity and path. */
@@ -207,7 +171,12 @@ export class PostgresSchemaCatalog {
 		fieldPath: readonly string[],
 		target: SchemaDefinition,
 	): CompiledPostgresPointerRelation {
-		const pointer = this.#pointers.get(source)?.get(JSON.stringify(fieldPath))
+		// The last registration wins, as for the keyed lookup it mirrors.
+		const pointer = this.#pointers.findLast(
+			(candidate) =>
+				candidate.source.definition === source &&
+				isSameFieldPath(candidate.fieldPath, fieldPath),
+		)
 
 		if (pointer?.target.definition !== target) {
 			throw new TypeError('PostgreSQL pointer inclusion is not registered')
@@ -275,7 +244,11 @@ export class PostgresSchemaCatalog {
 		fieldPath: readonly string[],
 		target: SchemaDefinition,
 	): CompiledPostgresRelation {
-		const relation = this.#relations.get(source)?.get(JSON.stringify(fieldPath))
+		const relation = this.#relations.findLast(
+			(candidate) =>
+				candidate.relation.source === source &&
+				isSameFieldPath(candidate.relation.fieldPath, fieldPath),
+		)
 
 		if (relation?.relation.target !== target) {
 			throw new TypeError('PostgreSQL relation scope is not registered')

@@ -6,7 +6,7 @@ import {
 import { sql } from 'drizzle-orm'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import { resolveCompiledPostgresField } from '../schema/contracts.js'
 
 /** Compiles one Runtime-normalized atomic update into Drizzle set values. */
 export const compilePostgresUpdate = (

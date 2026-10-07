@@ -12,7 +12,7 @@ import { or, sql as drizzleSql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import { resolveCompiledPostgresField } from '../schema/contracts.js'
 
 declare const postgresConstraintFieldType: unique symbol
 declare const postgresConstraintPredicateType: unique symbol

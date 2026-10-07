@@ -3,7 +3,7 @@ import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { and, eq, inArray, notInArray } from 'drizzle-orm'
 
 import type { CompiledPostgresRelation } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import { resolveCompiledPostgresField } from '../schema/contracts.js'
 import type { PostgresDrizzleClient } from './client.js'
 
 type PostgresRelationAction = 'clear' | 'connect' | 'disconnect' | 'set'

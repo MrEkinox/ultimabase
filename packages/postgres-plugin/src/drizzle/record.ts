@@ -5,7 +5,7 @@ import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import { resolveCompiledPostgresField } from '../schema/contracts.js'
 
 const readPostgresFieldValue = (
 	fieldName: string,

@@ -14,8 +14,8 @@ import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
-} from '../schema/field.js'
-import { readDrizzleIndexColumns } from '../schema/drizzle-table-metadata.js'
+} from '../schema/contracts.js'
+import { readDrizzleIndexColumns } from '../schema/index-compiler.js'
 import {
 	compilePostgresQueryClauses,
 	type CompiledPostgresQueryClauses,

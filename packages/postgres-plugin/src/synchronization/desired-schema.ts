@@ -14,7 +14,7 @@ import {
 	readDrizzleIndexColumns,
 	readDrizzleIndexMethod,
 	readDrizzleIndexName,
-} from '../schema/drizzle-table-metadata.js'
+} from '../schema/index-compiler.js'
 import type {
 	DesiredPostgresColumn,
 	DesiredPostgresForeignKey,

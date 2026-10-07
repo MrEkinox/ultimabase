@@ -14,18 +14,19 @@ import {
 	type AnyPgColumnBuilder,
 	type PgColumn,
 	type PgTable,
-	type PgTableExtraConfigValue,
 	type UpdateDeleteAction,
 } from 'drizzle-orm/pg-core'
 
-import { createPostgresForeignKeyName } from '../naming/foreign-key.js'
+import { createPostgresForeignKeyName } from '../naming.js'
 import {
 	resolvePostgresRenamedFrom,
 	resolvePostgresTableName,
 } from '../options.js'
+import { required } from '../required.js'
 import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
+	PostgresStorageKind,
 } from './contracts.js'
 import { compilePostgresFieldBuilder } from './field-compiler.js'
 import { compilePostgresIndexBuilders } from './index-compiler.js'
@@ -56,54 +57,29 @@ const assertNoNestedRenames = (
 	}
 }
 
-const indexColumnsByName = (
-	columns: readonly PgColumn[],
-): Readonly<Record<string, PgColumn>> =>
-	immutableRecord(
-		Object.fromEntries(
-			columns.map((column) => [column.name, column]),
-		) as Record<string, PgColumn>,
-	)
-
 interface PreparedPostgresSchema {
-	readonly definition: SchemaDefinition['definition']
-	readonly schema: SchemaDefinition
 	readonly pendingFields: readonly [
 		string,
 		Omit<CompiledPostgresField, 'column'>,
 	][]
+	readonly schema: SchemaDefinition
 	readonly table: PgTable
 	readonly tableName: string
 }
 
 interface PreparedPostgresPointer {
 	readonly constraintName: string
-	readonly onDelete: PointerReferentialAction
+	readonly fieldName: string
+	readonly onDelete: UpdateDeleteAction
 	readonly targetSchema: SchemaDefinition
 }
 
-const postgresReferentialActions: Readonly<
-	Record<PointerReferentialAction, UpdateDeleteAction>
-> = immutableRecord({
-	cascade: 'cascade',
-	restrict: 'restrict',
-	setNull: 'set null',
-})
-
-const readPointerReferentialAction = (
-	plan: FieldValidationPlan,
-	fieldName: string,
-): PointerReferentialAction => {
-	const action: unknown = Reflect.get(plan.field.options, 'onDelete')
-
-	if (action !== 'restrict' && action !== 'cascade' && action !== 'setNull') {
-		throw new TypeError(
-			`PostgreSQL pointer has invalid onDelete metadata: ${fieldName}`,
-		)
-	}
-
-	return action
-}
+const postgresReferentialActions: ReadonlyMap<unknown, UpdateDeleteAction> =
+	new Map<PointerReferentialAction, UpdateDeleteAction>([
+		['cascade', 'cascade'],
+		['restrict', 'restrict'],
+		['setNull', 'set null'],
+	])
 
 const resolvePointerMetadata = (
 	schema: SchemaDefinition,
@@ -113,61 +89,39 @@ const resolvePointerMetadata = (
 ): PreparedPostgresPointer | undefined => {
 	if (plan.kind !== 'scalar' || plan.field.kind !== 'pointer') return undefined
 
-	const targetSchema = targets?.get(schema, [fieldName])
-
-	if (targetSchema === undefined) {
-		throw new TypeError(
-			`PostgreSQL pointer target is unavailable: ${schema.className}.${fieldName}`,
-		)
-	}
-
+	const targetSchema = required(
+		targets?.get(schema, [fieldName]),
+		`PostgreSQL pointer target is unavailable: ${schema.className}.${fieldName}`,
+	)
 	const targetTable = resolvePostgresTableName(targetSchema)
-	const onDelete = readPointerReferentialAction(plan, fieldName)
-	const tableName = resolvePostgresTableName(schema)
+	const onDelete = required(
+		postgresReferentialActions.get(Reflect.get(plan.field.options, 'onDelete')),
+		`PostgreSQL pointer has invalid onDelete metadata: ${fieldName}`,
+	)
 
 	return immutableRecord({
 		constraintName: createPostgresForeignKeyName(
-			tableName,
+			resolvePostgresTableName(schema),
 			fieldName,
 			targetTable,
 			'id',
 		),
+		fieldName,
 		onDelete,
 		targetSchema,
 	})
 }
 
-const compilePointerConstraints = (
-	columns: Readonly<Record<string, PgColumn>>,
-	pointers: readonly [string, PreparedPostgresPointer][],
-	resolveTargetColumn: (schema: SchemaDefinition) => PgColumn,
-): PgTableExtraConfigValue[] =>
-	pointers.map(([fieldName, pointer]) => {
-		const sourceColumn = columns[fieldName]
-
-		if (sourceColumn === undefined) {
-			throw new TypeError(
-				`PostgreSQL pointer column is unavailable: ${fieldName}`,
-			)
-		}
-
-		return foreignKey({
-			columns: [sourceColumn],
-			foreignColumns: [resolveTargetColumn(pointer.targetSchema)],
-			name: pointer.constraintName,
-		}).onDelete(postgresReferentialActions[pointer.onDelete])
-	})
-
 const preparePostgresSchema = (
 	schema: SchemaDefinition,
 	targets: SchemaTargetGraph | undefined,
-	resolveTargetColumn: (schema: SchemaDefinition) => PgColumn,
+	resolveTargetId: (schema: SchemaDefinition) => PgColumn,
 ): PreparedPostgresSchema => {
-	const definition = schema.definition
 	const validationPlan = compileValidationPlans(schema).create
-	const builderEntries: [string, AnyPgColumnBuilder][] = []
+	const builders: [string, AnyPgColumnBuilder][] = []
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
-	const pointerEntries: [string, PreparedPostgresPointer][] = []
+	const pointers: PreparedPostgresPointer[] = []
+	const storageByField = new Map<string, PostgresStorageKind>()
 	const fieldNames = new Set(Object.keys(validationPlan.fields))
 	const renameSources = new Set<string>()
 
@@ -200,9 +154,10 @@ const preparePostgresSchema = (
 			renameSources.add(renamedFrom)
 		}
 
-		if (pointer !== undefined) pointerEntries.push([fieldName, pointer])
+		if (pointer !== undefined) pointers.push(pointer)
 
-		builderEntries.push([fieldName, compiled.builder])
+		builders.push([fieldName, compiled.builder])
+		storageByField.set(fieldName, compiled.storage)
 		pendingFields.push([
 			fieldName,
 			{
@@ -216,52 +171,56 @@ const preparePostgresSchema = (
 		])
 	}
 
-	const builders = Object.fromEntries(builderEntries) as Record<
-		string,
-		AnyPgColumnBuilder
-	>
 	const tableName = resolvePostgresTableName(schema)
-	const storageByField = immutableRecord(
-		Object.fromEntries(
-			pendingFields.map(([fieldName, field]) => [fieldName, field.storage]),
-		) as Record<string, CompiledPostgresField['storage']>,
-	)
-	const table = pgTable(tableName, builders, (columns) => [
+	const table = pgTable(tableName, Object.fromEntries(builders), (columns) => [
 		...compilePostgresIndexBuilders(
 			tableName,
-			definition.indexes,
+			schema.definition.indexes,
 			columns,
 			storageByField,
 		),
-		...compilePointerConstraints(columns, pointerEntries, resolveTargetColumn),
+		...pointers.map((pointer) =>
+			foreignKey({
+				columns: [
+					required(
+						columns[pointer.fieldName],
+						`PostgreSQL pointer column is unavailable: ${pointer.fieldName}`,
+					),
+				],
+				foreignColumns: [resolveTargetId(pointer.targetSchema)],
+				name: pointer.constraintName,
+			}).onDelete(pointer.onDelete),
+		),
 	])
 
-	return { definition, pendingFields, schema, table, tableName }
+	return { pendingFields, schema, table, tableName }
 }
 
-const finalizePostgresSchema = (
-	prepared: PreparedPostgresSchema,
-): CompiledPostgresSchema => {
-	const { pendingFields, schema, table, tableName } = prepared
-	const tableConfig = getTableConfig(table)
-	const columns = indexColumnsByName(tableConfig.columns)
-	const fields = immutableRecord(
-		Object.fromEntries(
-			pendingFields.map(([fieldName, pending]) => {
-				const column = columns[fieldName]
-
-				if (column === undefined) {
-					throw new TypeError(`Drizzle omitted PostgreSQL field: ${fieldName}`)
-				}
-
-				return [fieldName, immutableRecord({ ...pending, column })]
+const finalizePostgresSchema = ({
+	pendingFields,
+	schema,
+	table,
+	tableName,
+}: PreparedPostgresSchema): CompiledPostgresSchema => {
+	const columns = new Map(
+		getTableConfig(table).columns.map((column) => [column.name, column]),
+	)
+	const fields = Object.fromEntries(
+		pendingFields.map(([fieldName, pending]) => [
+			fieldName,
+			immutableRecord({
+				...pending,
+				column: required(
+					columns.get(fieldName),
+					`Drizzle omitted PostgreSQL field: ${fieldName}`,
+				),
 			}),
-		) as Record<string, CompiledPostgresField>,
+		]),
 	)
 
 	return immutableRecord({
 		definition: schema,
-		fields,
+		fields: immutableRecord(fields),
 		table,
 		tableName,
 	})
@@ -273,27 +232,19 @@ export const compilePostgresSchemas = (
 	targets?: SchemaTargetGraph,
 ): readonly CompiledPostgresSchema[] => {
 	const tables = new Map<SchemaDefinition, PgTable>()
-	const resolveTargetColumn = (target: SchemaDefinition): PgColumn => {
-		const table = tables.get(target)
-
-		if (table === undefined) {
-			throw new TypeError(
-				`PostgreSQL pointer target is not registered: ${target.className}`,
-			)
-		}
-
-		const id = getColumns(table).id
-
-		if (id === undefined) {
-			throw new TypeError(
-				`PostgreSQL pointer target has no id column: ${target.className}`,
-			)
-		}
-
-		return id
-	}
+	// Drizzle evaluates table callbacks lazily, after every table below exists.
+	const resolveTargetId = (target: SchemaDefinition): PgColumn =>
+		required(
+			getColumns(
+				required(
+					tables.get(target),
+					`PostgreSQL pointer target is not registered: ${target.className}`,
+				),
+			).id,
+			`PostgreSQL pointer target has no id column: ${target.className}`,
+		)
 	const prepared = schemas.map((schema) => {
-		const plan = preparePostgresSchema(schema, targets, resolveTargetColumn)
+		const plan = preparePostgresSchema(schema, targets, resolveTargetId)
 
 		tables.set(schema, plan.table)
 		return plan

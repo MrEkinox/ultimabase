@@ -7,12 +7,12 @@ import {
 	type OneFn,
 	type Relation,
 	type RelationsBuilder,
-	type RelationsBuilderConfigValue,
 	type SchemaEntry,
 	type TablesRelationalConfig,
 } from 'drizzle-orm'
 import type { PgTable } from 'drizzle-orm/pg-core'
 
+import { required } from '../required.js'
 import type {
 	CompiledPostgresJoinRelation,
 	CompiledPostgresPointerRelation,
@@ -47,10 +47,12 @@ export interface CompiledPostgresDrizzleRelations {
 	readonly tableKeys: ReadonlyMap<CompiledPostgresSchema, string>
 }
 
-type DynamicPostgresTables = Readonly<Record<string, PgTable>>
+type DynamicPostgresHelpers = RelationsBuilder<
+	Readonly<Record<string, PgTable>>
+>
 
 const readBuilderColumn = (
-	helpers: RelationsBuilder<DynamicPostgresTables>,
+	helpers: DynamicPostgresHelpers,
 	tableKey: string,
 	columnName: string,
 ): RelationsBuilderColumn => {
@@ -66,7 +68,7 @@ const readBuilderColumn = (
 }
 
 const createManyRelation = (
-	helpers: RelationsBuilder<DynamicPostgresTables>,
+	helpers: DynamicPostgresHelpers,
 	targetTableKey: string,
 	config: ManyConfig<SchemaEntry>,
 ): Relation => {
@@ -82,7 +84,7 @@ const createManyRelation = (
 }
 
 const createOneRelation = (
-	helpers: RelationsBuilder<DynamicPostgresTables>,
+	helpers: DynamicPostgresHelpers,
 	targetTableKey: string,
 	config: OneConfig<SchemaEntry, boolean>,
 ): Relation => {
@@ -97,69 +99,25 @@ const createOneRelation = (
 	return (factory as OneFn<PgTable, string>)(config)
 }
 
-const requireTableKey = <TValue>(
-	keys: ReadonlyMap<TValue, string>,
-	value: TValue,
-	kind: string,
-): string => {
-	const key = keys.get(value)
-
-	if (key === undefined) {
-		throw new TypeError(`Drizzle ${kind} table key is unavailable`)
-	}
-
-	return key
-}
-
-const resolvePointerFieldName = (
-	relation: CompiledPostgresRelation,
-): string => {
-	if (relation.storage.kind !== 'pointer') {
-		throw new TypeError('Drizzle pointer relation storage is unavailable')
-	}
-
-	const fieldName = Object.entries(relation.target.fields).find(
-		([, field]) => field.column === relation.storage.targetColumn,
-	)?.[0]
-
-	if (fieldName === undefined) {
-		throw new TypeError('Drizzle pointer relation field is unavailable')
-	}
-
-	return fieldName
-}
-
-const resolveJoinColumnNames = (
-	relation: CompiledPostgresRelation,
-): Readonly<{
-	readonly source: 'sourceId' | 'targetId'
-	readonly target: 'sourceId' | 'targetId'
-}> => {
-	if (relation.storage.kind !== 'join') {
-		throw new TypeError('Drizzle join relation storage is unavailable')
-	}
-
-	return relation.storage.sourceColumn ===
-		relation.storage.relation.sourceColumn
-		? { source: 'sourceId', target: 'targetId' }
-		: { source: 'targetId', target: 'sourceId' }
-}
-
+/** Builds the forward and generated reverse relation for one logical edge. */
 const createRelationPair = (
-	helpers: RelationsBuilder<DynamicPostgresTables>,
+	helpers: DynamicPostgresHelpers,
 	relation: CompiledPostgresRelation,
 	sourceTableKey: string,
 	targetTableKey: string,
-	joinTableKeys: ReadonlyMap<CompiledPostgresJoinRelation, string>,
-): Readonly<{
-	readonly forward: Relation
-	readonly reverse: Relation
-}> => {
+	joinTableKey: (join: CompiledPostgresJoinRelation) => string,
+): Readonly<{ readonly forward: Relation; readonly reverse: Relation }> => {
+	const storage = relation.storage
 	const sourceId = readBuilderColumn(helpers, sourceTableKey, 'id')
 	const targetId = readBuilderColumn(helpers, targetTableKey, 'id')
 
-	if (relation.storage.kind === 'pointer') {
-		const pointerFieldName = resolvePointerFieldName(relation)
+	if (storage.kind === 'pointer') {
+		const pointerFieldName = required(
+			Object.entries(relation.target.fields).find(
+				([, field]) => field.column === storage.targetColumn,
+			)?.[0],
+			'Drizzle pointer relation field is unavailable',
+		)
 		const pointer = readBuilderColumn(helpers, targetTableKey, pointerFieldName)
 
 		return {
@@ -174,22 +132,13 @@ const createRelationPair = (
 		}
 	}
 
-	const joinTableKey = requireTableKey(
-		joinTableKeys,
-		relation.storage.relation,
-		'join',
-	)
-	const columnNames = resolveJoinColumnNames(relation)
-	const sourceEdge = readBuilderColumn(
-		helpers,
-		joinTableKey,
-		columnNames.source,
-	)
-	const targetEdge = readBuilderColumn(
-		helpers,
-		joinTableKey,
-		columnNames.target,
-	)
+	const joinKey = joinTableKey(storage.relation)
+	const [sourceColumn, targetColumn] =
+		storage.sourceColumn === storage.relation.sourceColumn
+			? ['sourceId', 'targetId']
+			: ['targetId', 'sourceId']
+	const sourceEdge = readBuilderColumn(helpers, joinKey, sourceColumn)
+	const targetEdge = readBuilderColumn(helpers, joinKey, targetColumn)
 
 	return {
 		forward: createManyRelation(helpers, targetTableKey, {
@@ -203,19 +152,18 @@ const createRelationPair = (
 	}
 }
 
+/** Picks a generated relation key that no declared field on the table can shadow. */
 const createReverseRelationName = (
-	config: Readonly<Record<string, unknown>>,
+	config: ReadonlyMap<string, Relation>,
 	position: number,
 ): string => {
 	let suffix = position
-	let candidate = `__ultimabase_reverse_${String(suffix)}`
 
-	while (Object.hasOwn(config, candidate)) {
+	while (config.has(`__ultimabase_reverse_${String(suffix)}`)) {
 		suffix += 1
-		candidate = `__ultimabase_reverse_${String(suffix)}`
 	}
 
-	return candidate
+	return `__ultimabase_reverse_${String(suffix)}`
 }
 
 /** Generates Drizzle RQB v2 metadata from the already resolved UltimaBase graph. */
@@ -225,24 +173,25 @@ export const compilePostgresDrizzleRelations = (
 	relations: readonly CompiledPostgresRelation[],
 	pointers: readonly CompiledPostgresPointerRelation[] = [],
 ): CompiledPostgresDrizzleRelations => {
-	const tables: Record<string, PgTable> = {}
-	const schemaTableKeys = new Map<CompiledPostgresSchema, string>()
-	const joinTableKeys = new Map<CompiledPostgresJoinRelation, string>()
-
-	for (const [position, schema] of schemas.entries()) {
-		const key = `schema_${String(position)}`
-
-		tables[key] = schema.table
-		schemaTableKeys.set(schema, key)
-	}
-
-	for (const [position, join] of joins.entries()) {
-		const key = `join_${String(position)}`
-
-		tables[key] = join.table
-		joinTableKeys.set(join, key)
-	}
-
+	const schemaEntries = schemas.map(
+		(schema, position) => [`schema_${String(position)}`, schema] as const,
+	)
+	const joinEntries = joins.map(
+		(join, position) => [`join_${String(position)}`, join] as const,
+	)
+	const schemaTableKeys = new Map(
+		schemaEntries.map(([key, schema]) => [schema, key]),
+	)
+	const joinTableKeys = new Map(joinEntries.map(([key, join]) => [join, key]))
+	const tables = Object.fromEntries(
+		[...schemaEntries, ...joinEntries].map(([key, { table }]) => [key, table]),
+	)
+	const tableKey = <TValue>(
+		keys: ReadonlyMap<TValue, string>,
+		value: TValue,
+		kind: string,
+	): string =>
+		required(keys.get(value), `Drizzle ${kind} table key is unavailable`)
 	const bindings = new Map<
 		CompiledPostgresRelation,
 		PostgresDrizzleRelationBinding
@@ -252,28 +201,26 @@ export const compilePostgresDrizzleRelations = (
 		PostgresDrizzlePointerBinding
 	>()
 	const drizzleRelations = defineRelations(tables, (helpers) => {
-		const config: Record<string, RelationsBuilderConfigValue> = {}
-
-		for (const key of Object.keys(tables)) config[key] = {}
+		// Generated relation names live in maps so declared field names stay inert keys.
+		const config = new Map(
+			Object.keys(tables).map((key) => [key, new Map<string, Relation>()]),
+		)
+		const tableConfig = (key: string, kind: string): Map<string, Relation> =>
+			required(config.get(key), `Drizzle ${kind} configuration is unavailable`)
 
 		for (const [position, relation] of relations.entries()) {
-			const sourceTableKey = requireTableKey(
+			const sourceTableKey = tableKey(
 				schemaTableKeys,
 				relation.source,
 				'source',
 			)
-			const targetTableKey = requireTableKey(
+			const targetTableKey = tableKey(
 				schemaTableKeys,
 				relation.target,
 				'target',
 			)
-			const sourceConfig = config[sourceTableKey]
-			const targetConfig = config[targetTableKey]
-
-			if (sourceConfig === undefined || targetConfig === undefined) {
-				throw new TypeError('Drizzle relation configuration is unavailable')
-			}
-
+			const sourceConfig = tableConfig(sourceTableKey, 'relation')
+			const targetConfig = tableConfig(targetTableKey, 'relation')
 			const sourceRelationName = relation.relation.fieldPath[0]
 
 			if (
@@ -282,7 +229,7 @@ export const compilePostgresDrizzleRelations = (
 			) {
 				throw new TypeError('Drizzle relation path must contain one field')
 			}
-			if (Object.hasOwn(sourceConfig, sourceRelationName)) {
+			if (sourceConfig.has(sourceRelationName)) {
 				throw new TypeError(
 					`Duplicate Drizzle relation field: ${sourceRelationName}`,
 				)
@@ -297,11 +244,11 @@ export const compilePostgresDrizzleRelations = (
 				relation,
 				sourceTableKey,
 				targetTableKey,
-				joinTableKeys,
+				(join) => tableKey(joinTableKeys, join, 'join'),
 			)
 
-			sourceConfig[sourceRelationName] = pair.forward
-			targetConfig[reverseRelationName] = pair.reverse
+			sourceConfig.set(sourceRelationName, pair.forward)
+			targetConfig.set(reverseRelationName, pair.reverse)
 			bindings.set(relation, {
 				reverseRelationName,
 				sourceRelationName,
@@ -317,27 +264,22 @@ export const compilePostgresDrizzleRelations = (
 				throw new TypeError('Drizzle pointer path must contain one field')
 			}
 
-			const sourceTableKey = requireTableKey(
+			const sourceTableKey = tableKey(
 				schemaTableKeys,
 				pointer.source,
 				'pointer source',
 			)
-			const targetTableKey = requireTableKey(
+			const targetTableKey = tableKey(
 				schemaTableKeys,
 				pointer.target,
 				'pointer target',
 			)
-			const sourceConfig = config[sourceTableKey]
-			const targetConfig = config[targetTableKey]
-
-			if (sourceConfig === undefined || targetConfig === undefined) {
-				throw new TypeError('Drizzle pointer configuration is unavailable')
-			}
+			const sourceConfig = tableConfig(sourceTableKey, 'pointer')
+			const targetConfig = tableConfig(targetTableKey, 'pointer')
 			const relationName = createReverseRelationName(
 				sourceConfig,
 				relations.length + pointers.length + position,
 			)
-
 			const sourcePointer = readBuilderColumn(
 				helpers,
 				sourceTableKey,
@@ -349,17 +291,19 @@ export const compilePostgresDrizzleRelations = (
 				relations.length + position,
 			)
 
-			sourceConfig[relationName] = createOneRelation(helpers, targetTableKey, {
-				from: sourcePointer,
-				to: targetId,
-			})
-			targetConfig[reverseRelationName] = createManyRelation(
-				helpers,
-				sourceTableKey,
-				{
+			sourceConfig.set(
+				relationName,
+				createOneRelation(helpers, targetTableKey, {
+					from: sourcePointer,
+					to: targetId,
+				}),
+			)
+			targetConfig.set(
+				reverseRelationName,
+				createManyRelation(helpers, sourceTableKey, {
 					from: targetId,
 					to: sourcePointer,
-				},
+				}),
 			)
 			pointerBindings.set(pointer, {
 				relationName,
@@ -368,7 +312,9 @@ export const compilePostgresDrizzleRelations = (
 			})
 		}
 
-		return config
+		return Object.fromEntries(
+			[...config].map(([key, entries]) => [key, Object.fromEntries(entries)]),
+		)
 	})
 
 	return {

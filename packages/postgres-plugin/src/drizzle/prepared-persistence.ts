@@ -14,7 +14,7 @@ import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
-} from '../schema/field.js'
+} from '../schema/contracts.js'
 import type { PostgresDrizzleClient } from './client.js'
 import { readPostgresRecord } from './record.js'
 import { projectPostgresRecords } from './result-projection.js'

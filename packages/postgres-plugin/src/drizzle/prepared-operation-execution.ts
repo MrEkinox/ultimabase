@@ -17,7 +17,7 @@ import type {
 	CompiledPostgresRelation,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import { compilePostgresSelection } from '../schema/field.js'
+import { compilePostgresSelection } from '../schema/contracts.js'
 import type { PostgresDrizzleClient } from './client.js'
 import {
 	lockPostgresMutationTarget,

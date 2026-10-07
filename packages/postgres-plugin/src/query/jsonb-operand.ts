@@ -7,8 +7,19 @@ import { isPlainRecord } from '@ultimabase/shared'
 import { sql, type SQL } from 'drizzle-orm'
 
 import type { PostgresStorageKind } from '../schema/contracts.js'
-import { stringifyPostgresJsonbParameter } from './jsonb-parameter.js'
 
+/** Serializes one validated value without interpolating JSON into SQL text. */
+export const stringifyJsonbParameter = (value: unknown): string => {
+	const serialized: unknown = JSON.stringify(value)
+
+	if (typeof serialized !== 'string') {
+		throw new TypeError('PostgreSQL JSONB filter value must be serializable')
+	}
+
+	return serialized
+}
+
+/** Rejects operands that JSON.stringify would silently coerce or drop. */
 const assertPortableJsonOperand = (
 	value: unknown,
 	path: string,
@@ -66,11 +77,6 @@ const assertPortableJsonOperand = (
 	}
 }
 
-const stringifyPortableOperand = (value: unknown): string => {
-	assertPortableJsonOperand(value, 'value', new WeakSet<object>())
-	return stringifyPostgresJsonbParameter(value)
-}
-
 /** Compiles an opted-in plugin leaf, or yields when the target is not one. */
 export const compilePostgresPluginFieldContains = (
 	value: unknown,
@@ -78,20 +84,24 @@ export const compilePostgresPluginFieldContains = (
 	plan: FieldValidationPlan | undefined,
 	storage: PostgresStorageKind,
 ): SQL | undefined => {
-	if (plan === undefined) return undefined
+	if (
+		plan === undefined ||
+		getPluginFieldStructuralContains(plan.field) === undefined
+	) {
+		return undefined
+	}
 
-	const metadata = getPluginFieldStructuralContains(plan.field)
-
-	if (metadata === undefined) return undefined
-
-	const codec = getPluginFieldStorageCodec(plan.field)
-	if (plan.kind !== 'scalar' || storage !== 'jsonb' || codec === undefined) {
+	if (
+		plan.kind !== 'scalar' ||
+		storage !== 'jsonb' ||
+		getPluginFieldStorageCodec(plan.field) === undefined
+	) {
 		throw new TypeError(
 			'PostgreSQL plugin containment requires a matching JSONB field plan and codec',
 		)
 	}
 
 	// Core already converted the logical input into this partial storage fragment.
-	const operand = stringifyPortableOperand(value)
-	return sql`${jsonb} @> ${operand}::jsonb`
+	assertPortableJsonOperand(value, 'value', new WeakSet<object>())
+	return sql`${jsonb} @> ${stringifyJsonbParameter(value)}::jsonb`
 }

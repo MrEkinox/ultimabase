@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import { describe, expect, it } from 'vitest'
 
-import { createPostgresRelationTableName } from './relation.js'
+import { createPostgresRelationTableName } from '../naming.js'
 
 describe('PostgreSQL relation naming', () => {
 	it('keeps physical names deterministic, distinct, and byte safe', () => {

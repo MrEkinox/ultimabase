@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import { describe, expect, it } from 'vitest'
 
-import { createPostgresIndexName } from './index.js'
+import { createPostgresIndexName } from '../naming.js'
 
 describe('PostgreSQL index naming', () => {
 	it('is deterministic and distinguishes field boundaries and uniqueness', () => {
