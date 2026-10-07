@@ -1,4 +1,5 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { snapshotApplicationContributionOwner } from '../../application/application-operation-contracts.js'
 
 import type {
 	CommandSurface,
@@ -42,13 +43,7 @@ export const describeOperationTransport = (
 			errors: command.definition.errors,
 			metadata: binding.binding.metadata,
 			name: command.definition.name,
-			owner: immutableRecord({
-				...(command.owner.instanceId === undefined
-					? {}
-					: { instanceId: command.owner.instanceId }),
-				pluginId: command.owner.pluginId,
-				version: command.owner.version,
-			}),
+			owner: snapshotApplicationContributionOwner(command.owner),
 			version: command.definition.version,
 		})
 		operations.set(binding, descriptor)

@@ -66,6 +66,21 @@ export interface OwnedPluginContribution {
 	readonly value: unknown
 }
 
+/** Attributes one registered value to the plugin identity that contributed it. */
+export const ownPluginContribution = (
+	name: string,
+	owner: PluginIdentity,
+	value: unknown,
+): OwnedPluginContribution =>
+	immutableRecord({
+		name,
+		ownerPlugin: owner.pluginId,
+		...(owner.instanceId === undefined
+			? {}
+			: { ownerInstanceId: owner.instanceId }),
+		value,
+	})
+
 /** Supplies one plugin with application state and owner-bound contribution views. */
 export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
@@ -151,14 +166,7 @@ export class PluginSetupRegistries {
 					// Compiler identities are unique application-wide, so ownership is the only key.
 					register: (name: string, value: unknown): void => {
 						this.#constraintCompilers.push(
-							immutableRecord({
-								name,
-								ownerPlugin: owner.pluginId,
-								...(owner.instanceId === undefined
-									? {}
-									: { ownerInstanceId: owner.instanceId }),
-								value,
-							}),
+							ownPluginContribution(name, owner, value),
 						)
 					},
 					values: () => this.#constraintCompilers,

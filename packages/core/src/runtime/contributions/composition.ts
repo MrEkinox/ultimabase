@@ -6,6 +6,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { haveSameEnumerableKeys } from '../../exact-object-validation.js'
 
 import type { RequestContext } from '../context/request-context.js'
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
@@ -42,25 +43,13 @@ const assertExactContributionOutput = (
 	return output
 }
 
-const haveSameKeys = (
-	left: Readonly<Record<string, unknown>>,
-	right: Readonly<Record<string, unknown>>,
-): boolean => {
-	const leftKeys = Object.keys(left)
-
-	return (
-		leftKeys.length === Object.keys(right).length &&
-		leftKeys.every((key) => Object.hasOwn(right, key))
-	)
-}
-
 /** Proves both records share one key set and identical values outside `replaced`. */
 const differsOnlyAt = (
 	previous: Readonly<Record<string, unknown>>,
 	next: Readonly<Record<string, unknown>>,
 	replaced: string,
 ): boolean =>
-	haveSameKeys(previous, next) &&
+	haveSameEnumerableKeys(previous, next) &&
 	Object.keys(previous).every(
 		(key) => key === replaced || next[key] === previous[key],
 	)
@@ -116,7 +105,7 @@ const normalizePreparedContributionOutput = <
 		nextUpdate.kind !== 'update-expression' ||
 		!isUnknownArray(previousUpdate.operations) ||
 		!isUnknownArray(nextUpdate.operations) ||
-		!haveSameKeys(previousUpdate, nextUpdate) ||
+		!haveSameEnumerableKeys(previousUpdate, nextUpdate) ||
 		previousUpdate.operations.length !== nextUpdate.operations.length
 	) {
 		throw new TypeError(

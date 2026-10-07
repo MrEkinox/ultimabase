@@ -1,5 +1,6 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type {
 	QueryAst,
@@ -131,17 +132,12 @@ const assertQueryInput: (
 	input: unknown,
 	kind: QueryInputKind,
 ) => asserts input is Readonly<Record<string, unknown>> = (input, kind) => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`${kind} input must be an object`)
-	}
-
-	const allowedKeys = queryInputKeys[kind]
-
-	for (const key of Object.keys(input)) {
-		if (!allowedKeys.has(key)) {
-			throw new TypeError(`${kind} input contains an unknown clause: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		input,
+		queryInputKeys[kind],
+		`${kind} input must be an object`,
+		`${kind} input contains an unknown clause: `,
+	)
 }
 
 const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(

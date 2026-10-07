@@ -43,7 +43,7 @@ import {
 } from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
-import { createRuntimeVirtualFieldScheduler } from '../virtual-fields/binding.js'
+import { createRuntimeVirtualFieldScheduler } from '../pipeline/application-bindings.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'

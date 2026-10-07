@@ -40,8 +40,10 @@ import {
 	applicationRequestExecutionCapability,
 	bindApplicationRequestExecutor,
 } from './application-request-execution.js'
-import { bindRuntimeVirtualFields } from '../virtual-fields/binding.js'
-import { bindRuntimeRelationFilters } from '../relation-filters/binding.js'
+import {
+	bindRuntimeRelationFilters,
+	bindRuntimeVirtualFields,
+} from '../pipeline/application-bindings.js'
 import { assertSchemaMutationHandlers } from '../schema-mutations/runtime.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkApplication } from '../../application/framework-application.js'
-import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
+import { getRelationWhereDeclaration } from '../../schema/fields/base/definition.js'
 
 import {
 	getCompiledStaticRelationWhere,

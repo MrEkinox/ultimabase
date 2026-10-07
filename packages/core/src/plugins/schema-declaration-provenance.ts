@@ -10,11 +10,12 @@ import {
 
 import {
 	type OptionDefinitionIndex,
+	optionDefinitionProvenance,
 	type OwnedSchemaSource,
 	resolveOptionDefinition,
 } from './schema-declaration-contracts.js'
 
-import { coreSchemaKeys } from './schema-option-resolution.js'
+import { coreSchemaKeys } from '../schema/schema/registry.js'
 
 export const attachInitialContributionProvenance = (
 	candidate: PreparedSchemaCompilation,
@@ -45,12 +46,7 @@ export const attachInitialContributionProvenance = (
 												? provenance
 												: immutableRecord({
 														...provenance,
-														definition: createSchemaContributionProvenance(
-															descriptor.owner,
-															descriptor.contributionId,
-															descriptor.staticOptions,
-															descriptor.definition.protocolVersion,
-														),
+														definition: optionDefinitionProvenance(descriptor),
 													}),
 										]
 									},
@@ -76,12 +72,7 @@ export const attachInitialContributionProvenance = (
 							? provenance
 							: immutableRecord({
 									...provenance,
-									definition: createSchemaContributionProvenance(
-										descriptor.owner,
-										descriptor.contributionId,
-										descriptor.staticOptions,
-										descriptor.definition.protocolVersion,
-									),
+									definition: optionDefinitionProvenance(descriptor),
 								}),
 					]
 				}),
@@ -162,12 +153,7 @@ export const attachInitialContributionProvenance = (
 												definition:
 													descriptor === undefined
 														? (prior?.definition ?? fieldOwner)
-														: createSchemaContributionProvenance(
-																descriptor.owner,
-																descriptor.contributionId,
-																descriptor.staticOptions,
-																descriptor.definition.protocolVersion,
-															),
+														: optionDefinitionProvenance(descriptor),
 												value: createSchemaContributionProvenance(
 													fieldOwner.owner,
 													`${fieldOwner.contributionId}:option:${optionName}`,
@@ -200,12 +186,7 @@ export const attachInitialContributionProvenance = (
 					return [
 						name,
 						immutableRecord({
-							definition: createSchemaContributionProvenance(
-								descriptor.owner,
-								descriptor.contributionId,
-								descriptor.staticOptions,
-								descriptor.definition.protocolVersion,
-							),
+							definition: optionDefinitionProvenance(descriptor),
 							value: createSchemaContributionProvenance(
 								sourceOwner,
 								`${sourceId}:option:${name}`,

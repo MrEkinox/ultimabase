@@ -1,7 +1,4 @@
-import {
-	assertApplicationExecution,
-	isRunningApplicationWork,
-} from '../../application/active-application.js'
+import { isRunningApplicationWork } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError } from '../../errors/framework-error.js'
@@ -25,13 +22,6 @@ type EngineApplication = FrameworkApplication<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 >
-
-/** Closes every escaped execution object when its application starts teardown. */
-export const assertApplicationEngineAvailable = (
-	application: EngineApplication,
-): void => {
-	assertApplicationExecution(application)
-}
 
 /** Prevents public request work until every startup phase completed successfully. */
 export const assertApplicationRequestExecutionAvailable = (

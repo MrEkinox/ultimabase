@@ -5,6 +5,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactCommandKeys } from '../../exact-object-validation.js'
 
 import type { QueryAst } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -112,21 +113,7 @@ export const normalizeUpsertInput = <const TSchema extends SchemaDefinition>(
 ): NormalizedUpsertInput<TSchema> => {
 	const untrustedInput: unknown = input
 
-	if (!isPlainRecord(untrustedInput)) {
-		throw new TypeError('upsert input must be an object')
-	}
-
-	for (const key of Object.keys(untrustedInput)) {
-		if (key !== 'create' && key !== 'update') {
-			throw new TypeError(`upsert input contains unknown key: ${key}`)
-		}
-	}
-
-	for (const key of ['create', 'update']) {
-		if (!Object.hasOwn(untrustedInput, key)) {
-			throw new TypeError(`upsert input must contain key: ${key}`)
-		}
-	}
+	assertExactCommandKeys(untrustedInput, 'upsert input', ['create', 'update'])
 
 	return immutableRecord({
 		create: input.create,

@@ -1,4 +1,5 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { coreSchemaKeys } from '../schema/schema/registry.js'
 
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
@@ -27,16 +28,6 @@ import {
 	type ResolvedFieldOptions,
 	resolveOptionDefinition,
 } from './schema-declaration-contracts.js'
-
-export const coreSchemaKeys: ReadonlySet<string> = new Set([
-	'className',
-	'constraints',
-	'fields',
-	'indexes',
-	'persistedFields',
-	'provenance',
-	'virtualFields',
-])
 
 const resolveVirtualFieldOptions = (
 	field: GenericVirtualField,

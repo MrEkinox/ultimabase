@@ -46,7 +46,8 @@ export interface PluginFieldWireProtocol<
 	readonly version: TVersion
 }
 
-const pluginFieldWireProtocolNamePattern =
+/** Dot-namespaced protocol and operation names shared by plugin-facing identities. */
+export const namespacedNamePattern =
 	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
 const pluginFieldWireProtocols = new Map<string, PluginFieldWireProtocol>()
 const pluginFieldWireProtocolIdentities = new WeakSet<object>()
@@ -70,7 +71,7 @@ export const definePluginFieldWireProtocol = <
 	}
 	if (
 		typeof options.name !== 'string' ||
-		!pluginFieldWireProtocolNamePattern.test(options.name)
+		!namespacedNamePattern.test(options.name)
 	) {
 		throw new TypeError('Plugin field wire protocol name must be namespaced')
 	}
@@ -220,8 +221,8 @@ export const getDeclaredFieldOptionsContract = (
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
 
-/** @internal Reads a private relation-filter declaration retained by its factory. */
-export const getFieldRelationWhere = (
+/** @internal Returns the exact private declaration attached by `relationField`. */
+export const getRelationWhereDeclaration = (
 	field: GenericField,
 ): RelationWhereDeclaration | undefined =>
 	fieldCapabilities.get(field)?.relationWhere

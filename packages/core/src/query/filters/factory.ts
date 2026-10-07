@@ -15,11 +15,13 @@ import {
 } from '../../schema/fields/base/options.js'
 import { snapshotJsonValue } from '../../schema/fields/base/portable-json.js'
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import type {
@@ -473,23 +475,16 @@ export const createQueryJsonPathFilter = <
 	const resolved = resolveOperatorTarget(schema, target, operator)
 	const untrustedExpression: unknown = expression
 
-	if (!isPlainRecord(untrustedExpression)) {
-		throw new TypeError('query JSONPath expression must be an object')
-	}
-
-	for (const key of Object.keys(untrustedExpression)) {
-		if (key !== 'source' && key !== 'variables') {
-			throw new TypeError(
-				`query JSONPath expression contains unknown key: ${key}`,
-			)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		untrustedExpression,
+		jsonPathExpressionKeys,
+		'query JSONPath expression must be an object',
+		'query JSONPath expression contains unknown key: ',
+	)
 
 	const { source, variables } = untrustedExpression
 
-	if (typeof source !== 'string' || source.length === 0) {
-		throw new TypeError('query JSONPath source must be a non-empty string')
-	}
+	assertNonEmptyString(source, 'query JSONPath source')
 
 	if (variables !== undefined && !isPlainRecord(variables)) {
 		throw new TypeError('query JSONPath variables must be an object')
@@ -516,6 +511,8 @@ export const createQueryJsonPathFilter = <
 			: { variables: normalizedVariables }),
 	})
 }
+
+const jsonPathExpressionKeys = new Set(['source', 'variables'])
 
 const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
 	value === 'case-insensitive' ||

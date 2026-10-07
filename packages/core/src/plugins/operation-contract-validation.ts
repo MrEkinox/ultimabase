@@ -4,6 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 import { valid } from 'semver'
+import { pluginErrorCodePattern } from '../errors/plugin-error.js'
+import { namespacedNamePattern } from '../schema/fields/base/definition.js'
 
 import { assertExactEnumerableKeys } from '../exact-object-validation.js'
 
@@ -17,11 +19,6 @@ interface OperationValueContractLike {
 	readonly typegen?: TypegenReference
 }
 
-const namespacedOperationNamePattern =
-	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
-const operationErrorCodePattern =
-	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
-
 /** @internal Validates the shared stable identity of operation-like tokens. */
 export const assertOperationIdentity = (
 	name: string,
@@ -29,7 +26,7 @@ export const assertOperationIdentity = (
 	subject: string,
 ): void => {
 	assertNonEmptyString(name, `${subject} name`)
-	if (!namespacedOperationNamePattern.test(name)) {
+	if (!namespacedNamePattern.test(name)) {
 		throw new TypeError(`${subject} name must be namespaced: ${name}`)
 	}
 	if (valid(version) !== version) {
@@ -72,7 +69,7 @@ export const snapshotOperationErrors = <
 	const seen = new Set<string>()
 	for (const [index, code] of normalized.entries()) {
 		assertNonEmptyString(code, `${subject} errors[${String(index)}]`)
-		if (!operationErrorCodePattern.test(code)) {
+		if (!pluginErrorCodePattern.test(code)) {
 			throw new TypeError(
 				`${subject} error code must be namespaced or a constant identifier: ${code}`,
 			)

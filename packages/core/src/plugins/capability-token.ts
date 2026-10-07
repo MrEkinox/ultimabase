@@ -6,7 +6,11 @@ import {
 import { valid } from 'semver'
 
 import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
-import { pluginPrivilegeMetadata, type PluginPrivilege } from './manifest.js'
+import {
+	pluginIdPattern,
+	pluginPrivilegeMetadata,
+	type PluginPrivilege,
+} from './manifest.js'
 
 /** Determines how compatible provider declarations compose in one application. */
 export type CapabilityCardinality = 'single' | 'multiple' | 'pipeline'
@@ -109,8 +113,6 @@ export type DefineCapabilityFactory<TProvider, TConsumer = TProvider> = <
 	TLifetime
 >
 
-const capabilityIdPattern =
-	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
 const capabilityTokens = new WeakSet<object>()
 const capabilityComposers = new WeakMap<
 	object,
@@ -162,7 +164,7 @@ export const defineCapability =
 		)
 
 		assertNonEmptyString(options.capabilityId, 'capabilityId')
-		if (!capabilityIdPattern.test(options.capabilityId)) {
+		if (!pluginIdPattern.test(options.capabilityId)) {
 			throw new TypeError(
 				'capabilityId must be a namespaced capability identifier',
 			)

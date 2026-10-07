@@ -4,6 +4,7 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 import { valid } from 'semver'
+import { namespacedNamePattern } from '../../schema/fields/base/definition.js'
 
 import {
 	isPluginOperationDefinition,
@@ -21,8 +22,6 @@ import type {
 	OperationWireCodec,
 } from './contracts.js'
 
-const namespacedNamePattern =
-	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
 const wireCodecImplementations = new WeakMap<
 	object,
 	Readonly<{

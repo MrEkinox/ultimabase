@@ -3,6 +3,7 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { isSamePluginIdentity } from '../../plugins/manifest.js'
 
 import { FrameworkError } from '../../errors/framework-error.js'
 import type { CompiledMutationCommand } from '../../plugins/command-graph.js'
@@ -43,8 +44,7 @@ const isOwnedField = (
 
 	return (
 		provenance?.kind === 'plugin' &&
-		provenance.pluginId === command.owner.pluginId &&
-		provenance.instanceId === command.owner.instanceId
+		isSamePluginIdentity(provenance, command.owner)
 	)
 }
 

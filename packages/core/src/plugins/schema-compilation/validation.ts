@@ -1,11 +1,12 @@
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import { haveSameEnumerableKeys } from '../../exact-object-validation.js'
 
 import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
 import { Schema } from '../../schema/schema/definition.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import { assertVirtualFieldDefinition } from '../../schema/schema/virtual-field.js'
 import { assertOutputDescriptor } from '../../schema/output/descriptor.js'
-import { coreSchemaKeys } from '../schema-option-resolution.js'
+import { coreSchemaKeys } from '../../schema/schema/registry.js'
 import type {
 	PreparedSchemaBatch,
 	SchemaCompilationResult,
@@ -21,14 +22,6 @@ const assertFrozenRecord = (value: unknown, path: string): void => {
 	if (!isPlainRecord(value))
 		throw new TypeError(`${path} must be a plain object`)
 	if (!Object.isFrozen(value)) throw new TypeError(`${path} must be immutable`)
-}
-
-const sameKeys = (left: object, right: object): boolean => {
-	const names = Object.keys(left)
-	return (
-		names.length === Object.keys(right).length &&
-		names.every((name) => Object.hasOwn(right, name))
-	)
 }
 
 const assertCandidate = (
@@ -90,7 +83,10 @@ const assertCandidate = (
 			)
 	}
 	if (
-		!sameKeys(definition.virtualFields, initial.definition.virtualFields) ||
+		!haveSameEnumerableKeys(
+			definition.virtualFields,
+			initial.definition.virtualFields,
+		) ||
 		Object.entries(initial.definition.virtualFields).some(
 			([name, field], index) =>
 				Object.keys(definition.virtualFields)[index] !== name ||
@@ -126,7 +122,7 @@ const assertCandidate = (
 			)
 	}
 	if (
-		!sameKeys(definition.fields, {
+		!haveSameEnumerableKeys(definition.fields, {
 			...definition.persistedFields,
 			...definition.virtualFields,
 		}) ||
@@ -152,15 +148,23 @@ const assertCandidate = (
 				`Missing developer field in compiler output: ${definition.className}.${name}`,
 			)
 	}
-	if (!sameKeys(definition.provenance.fields, definition.fields))
+	if (!haveSameEnumerableKeys(definition.provenance.fields, definition.fields))
 		throw new TypeError(`${path}.provenance.fields must match schema fields`)
-	if (!sameKeys(definition.provenance.fieldOptions, definition.fields))
+	if (
+		!haveSameEnumerableKeys(
+			definition.provenance.fieldOptions,
+			definition.fields,
+		)
+	)
 		throw new TypeError(
 			`${path}.provenance.fieldOptions must match schema fields`,
 		)
 	for (const [name, field] of Object.entries(definition.fields)) {
 		const options = definition.provenance.fieldOptions[name]
-		if (options === undefined || !sameKeys(field.options, options))
+		if (
+			options === undefined ||
+			!haveSameEnumerableKeys(field.options, options)
+		)
 			throw new TypeError(
 				`${path}.provenance.fieldOptions.${name} must match field options`,
 			)
@@ -168,7 +172,7 @@ const assertCandidate = (
 	const options = Object.fromEntries(
 		Object.entries(definition).filter(([name]) => !coreSchemaKeys.has(name)),
 	)
-	if (!sameKeys(definition.provenance.options, options))
+	if (!haveSameEnumerableKeys(definition.provenance.options, options))
 		throw new TypeError(`${path}.provenance.options must match schema options`)
 	for (const [name, value] of Object.entries(options))
 		values.assertOption(value, `${path}.options.${name}`)

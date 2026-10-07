@@ -143,10 +143,7 @@ const throwMissingCapability = (
 		`Plugin "${formatPluginIdentity(owner)}" requires capability "${requirement.token.capabilityId}" version "${requirement.version}", but no compatible provider is installed.`,
 		{
 			internalDetails: {
-				pluginId: owner.pluginId,
-				...(owner.instanceId === undefined
-					? {}
-					: { instanceId: owner.instanceId }),
+				...snapshotPluginIdentity(owner),
 				capabilityId: requirement.token.capabilityId,
 				requiredVersion: requirement.version,
 			},

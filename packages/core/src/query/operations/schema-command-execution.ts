@@ -2,9 +2,9 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactCommandKeys } from '../../exact-object-validation.js'
 
 import type { QueryFieldName, QuerySelectionNode } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
@@ -60,34 +60,6 @@ type SchemaQuery<TSchema extends SchemaDefinition> = NormalizedQueryInput<
 	TSchema,
 	QueryFieldName<TSchema>
 >
-
-const assertExactCommandKeys: (
-	input: unknown,
-	path: string,
-	requiredKeys: readonly string[],
-	optionalKeys?: readonly string[],
-) => asserts input is Readonly<Record<string, unknown>> = (
-	input,
-	path,
-	requiredKeys,
-	optionalKeys = [],
-) => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`${path} must be an object`)
-	}
-
-	for (const key of Object.keys(input)) {
-		if (!requiredKeys.includes(key) && !optionalKeys.includes(key)) {
-			throw new TypeError(`${path} contains unknown key: ${key}`)
-		}
-	}
-
-	for (const key of requiredKeys) {
-		if (!Object.hasOwn(input, key)) {
-			throw new TypeError(`${path} must contain key: ${key}`)
-		}
-	}
-}
 
 const assertCommandArray: (
 	value: unknown,

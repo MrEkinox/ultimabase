@@ -46,13 +46,11 @@ import {
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
 import {
-	createRuntimeVirtualFieldScheduler,
-	inheritRuntimeVirtualFields,
-} from '../virtual-fields/binding.js'
-import {
 	createRuntimeRelationFilterResolver,
+	createRuntimeVirtualFieldScheduler,
 	inheritRuntimeRelationFilters,
-} from '../relation-filters/binding.js'
+	inheritRuntimeVirtualFields,
+} from './application-bindings.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { registerRuntimeSchemaMutationPipeline } from '../schema-mutations/pipeline-execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'

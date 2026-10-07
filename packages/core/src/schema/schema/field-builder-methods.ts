@@ -3,6 +3,12 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+import {
+	assertTypeExportName,
+	isStableModuleSpecifier,
+	typeScriptIdentifierPattern,
+} from '../../plugins/typegen-contracts.js'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericOutputDescriptor } from '../output/contracts.js'
@@ -165,27 +171,18 @@ const assertDeclarationRecord: (
 	knownKeys,
 	path,
 ) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-	const unknownKey = Object.keys(value).find((key) => !knownKeys.has(key))
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown ${path} key: ${unknownKey}`)
-	}
-}
-
-const assertTypeExportName = (value: unknown, path: string): string => {
-	assertNonEmptyString(value, path)
-	if (!/^[$A-Z_a-z][$\w]*$/u.test(value)) {
-		throw new TypeError(`${path} must be a TypeScript export identifier`)
-	}
-	return value
+	assertExactEnumerablePlainObject(
+		value,
+		knownKeys,
+		`${path} must be a plain object`,
+		`Unknown ${path} key: `,
+	)
 }
 
 const normalizeTypegen = (value: unknown, path: string): PluginFieldTypegen => {
 	assertDeclarationRecord(value, typegenKeys, path)
 	assertNonEmptyString(value.module, `${path}.module`)
-	if (value.module.trim() !== value.module || /\s/u.test(value.module)) {
+	if (!isStableModuleSpecifier(value.module)) {
 		throw new TypeError(`${path}.module must be a stable module specifier`)
 	}
 
@@ -233,7 +230,7 @@ const normalizeContext = (
 const normalizeBuilder = (value: unknown): PluginFieldFamilyBuilder => {
 	assertDeclarationRecord(value, builderKeys, 'Plugin field family builder')
 	assertNonEmptyString(value.name, 'Plugin field family builder name')
-	if (!/^[$A-Z_a-z][$\w]*$/u.test(value.name)) {
+	if (!typeScriptIdentifierPattern.test(value.name)) {
 		throw new TypeError(
 			'Plugin field family builder name must be a TypeScript property identifier',
 		)

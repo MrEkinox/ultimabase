@@ -12,7 +12,7 @@ import type {
 } from '../database/contracts.js'
 import { databasePersistencePlanCapability } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
-import { bindRuntimeVirtualFields } from './binding.js'
+import { bindRuntimeVirtualFields } from '../pipeline/application-bindings.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
 const context = RequestContext.anonymous({

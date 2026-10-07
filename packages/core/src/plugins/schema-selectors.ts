@@ -26,6 +26,7 @@ import {
 
 import { type SchemaOptionRuntimeRequirement } from './schema-option-definitions.js'
 
+import { isSamePluginIdentity } from './manifest.js'
 import { type SchemaSelectorOptions } from './schema-patch-contracts.js'
 
 export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
@@ -195,9 +196,5 @@ export const sameOwner = (
 	if (owner.kind !== reference.kind) return false
 	if (owner.kind !== 'plugin') return true
 
-	return (
-		reference.kind === 'plugin' &&
-		owner.pluginId === reference.pluginId &&
-		owner.instanceId === reference.instanceId
-	)
+	return reference.kind === 'plugin' && isSamePluginIdentity(owner, reference)
 }
