@@ -102,12 +102,42 @@ discriminates.
   `packages/create-app/tests/e2e/create-app-packed.e2e.test.ts > packed
 initializer outside the repository > writes a valid graph for each official
 plugin selected alone`, which timed out at 120000 ms. It is pulled in by the
-  `tests/e2e` filter and packs and installs a generated app.
+  `tests/e2e` filter and packs and installs a generated app. It passed on the
+  rebuilt tree, so it looks like a flaky timeout.
 
 All other baseline suites passed.
 
 ## Validation commands and results
 
-See the final report of this rebuild for the exact counts. Every command
-listed in `docs/rebuild/PROTOCOL.md` was run on the rebuilt tree after
-`yarn build`.
+| Command                                                        | Baseline                        | Rebuilt                              |
+| -------------------------------------------------------------- | ------------------------------- | ------------------------------------ |
+| `yarn build`                                                   | pass                            | pass                                 |
+| `yarn vitest run --project unit packages/hooks-plugin`         | 17 files, 79 tests passed       | 17 files, 79 tests passed            |
+| `yarn vitest run --project types packages/hooks-plugin`        | 4 files, 6 tests passed         | 4 files, 6 tests passed              |
+| `yarn vitest run --project e2e packages/hooks-plugin`          | 2 files, 3 tests passed         | 2 files, 3 tests passed              |
+| `yarn vitest run --project postgres-e2e packages/hooks-plugin` | 1 file, 5 tests passed          | 1 file, 5 tests passed               |
+| Consumers, `--project unit` (1)                                | 112 files, 534 tests passed     | 112 files, 534 tests passed          |
+| Consumers, `--project e2e` (1)                                 | 9 files, 43 tests passed        | 9 files, 43 tests passed             |
+| Consumers, `--project postgres-e2e` (1)                        | 28 files, 114 tests passed      | 28 files, 114 tests passed           |
+| `yarn vitest run --project e2e tests/e2e`                      | 1 failed, 218 passed (47 files) | 219 passed (47 files)                |
+| `yarn vitest run --project postgres-e2e tests/e2e`             | 191 passed (55 files)           | 191 passed (55 files)                |
+| `yarn eslint packages/hooks-plugin`                            | not run                         | 0 errors, 3 `max-lines` warnings (2) |
+| `yarn prettier --check packages/hooks-plugin`                  | not run                         | pass                                 |
+| `yarn tsc --build packages/hooks-plugin`                       | not run                         | pass                                 |
+| `yarn tsc -p packages/hooks-plugin/tsconfig.test.json`         | not run                         | pass                                 |
+
+(1) The consumer runs cover these packages:
+`packages/access-plugin`, `acl-permissions-plugin`, `graphql-plugin`,
+`rest-plugin`, `roles-plugin`, `soft-delete-plugin`, `validation-plugin`,
+`create-app` and `typegen`. They also cover every Core test file that imports
+`@ultimabase/hooks-plugin`.
+
+(2) The 400-line warning threshold flags `runtime/dispatcher.ts` (534 physical
+lines), `runtime/execution-runtime.ts` (474) and the unchanged
+`tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts`. The reference already
+had `execution-runtime.ts` at 493 lines. All files are under the 600-line
+budget.
+
+The emitted `dist/index.d.ts` was also compared against a build of the
+reference. The exported names are identical. The only differences are the
+private type aliases listed in the design summary.
