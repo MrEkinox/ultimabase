@@ -43,7 +43,7 @@ import {
 } from './options.js'
 import { graphqlOperationProtocol, graphqlProtocol } from './protocol.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
-import type { OwnedGraphqlSchema } from './schema-composition-types.js'
+import type { OwnedGraphqlSchema } from './schema-composition-preflight.js'
 import { graphqlSchemaContributionsCapability } from './schema-contributions.js'
 import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 

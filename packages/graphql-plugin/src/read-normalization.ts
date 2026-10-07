@@ -1,22 +1,21 @@
 import {
 	normalizeReadOperation,
 	type ReadOperationAstForKind,
-	type ReadOperationKind,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 import { getNamedType, isObjectType, type GraphQLResolveInfo } from 'graphql'
 
 import type {
 	GraphqlConnectionPagePlan,
 	GraphqlConnectionRuntime,
 } from './connection-runtime.js'
-import { decodeGraphqlWhere } from './read-values.js'
-import { normalizeGraphqlOrdering } from './read-ordering.js'
-import {
-	normalizeGraphqlSelection,
-	type GraphqlReadProjection,
-} from './selection-normalization.js'
+import { normalizeGraphqlSelection } from './selection-normalization.js'
+import { decodeGraphqlWhere } from './wire-values.js'
 
 /** Names generated reads independently from GraphQL root field spelling. */
 export type GraphqlReadOperation =
@@ -35,40 +34,23 @@ export type GraphqlReadOperationAst<
 	TOperation extends GraphqlReadOperation,
 > = ReadOperationAstForKind<TSchema, CoreReadKindFor<TOperation>>
 
-const coreReadKinds: Readonly<Record<GraphqlReadOperation, ReadOperationKind>> =
-	immutableRecord({
-		count: 'count',
-		exists: 'exists',
-		findMany: 'find-many',
-		findOne: 'find-one',
-		get: 'get',
-	})
-
-const argumentKeys: Readonly<
-	Record<GraphqlReadOperation, ReadonlySet<string>>
-> = immutableRecord({
-	count: new Set(['where']),
-	exists: new Set(['where']),
-	findMany: new Set(['after', 'first', 'orderBy', 'where']),
-	findOne: new Set(['orderBy', 'where']),
-	get: new Set(['id']),
-})
-
-const assertArguments = (
-	value: unknown,
-	operation: GraphqlReadOperation,
-): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`GraphQL ${operation} arguments must be an object`)
-	}
-	for (const key of Object.keys(value)) {
-		if (!argumentKeys[operation].has(key)) {
-			throw new TypeError(
-				`GraphQL ${operation} contains an unknown argument: ${key}`,
-			)
-		}
-	}
-	return value
+const readContracts: Readonly<
+	Record<
+		GraphqlReadOperation,
+		Readonly<{
+			kind: CoreReadKindFor<GraphqlReadOperation>
+			args: ReadonlySet<string>
+		}>
+	>
+> = {
+	count: { kind: 'count', args: new Set(['where']) },
+	exists: { kind: 'exists', args: new Set(['where']) },
+	findMany: {
+		kind: 'find-many',
+		args: new Set(['after', 'first', 'orderBy', 'where']),
+	},
+	findOne: { kind: 'find-one', args: new Set(['orderBy', 'where']) },
+	get: { kind: 'get', args: new Set(['id']) },
 }
 
 export interface GraphqlReadNormalizationContext {
@@ -89,6 +71,45 @@ export interface GraphqlPreparedReadOperation<
 	readonly page?: GraphqlConnectionPagePlan
 }
 
+/** Converts the ordered GraphQL representation into Core's object input. */
+export const normalizeGraphqlOrdering = (
+	value: unknown,
+): Readonly<Record<string, 'asc' | 'desc'>> => {
+	if (!isUnknownArray(value)) {
+		throw new TypeError('GraphQL orderBy must be a list')
+	}
+	const order = new Map<string, 'asc' | 'desc'>()
+	for (const [index, item] of value.entries()) {
+		if (
+			!isPlainRecord(item) ||
+			typeof item.field !== 'string' ||
+			(item.direction !== 'asc' && item.direction !== 'desc')
+		) {
+			throw new TypeError(
+				`GraphQL orderBy[${String(index)}] must contain a field and direction`,
+			)
+		}
+		if (order.has(item.field)) {
+			throw new TypeError(`GraphQL orderBy repeats field ${item.field}`)
+		}
+		order.set(item.field, item.direction)
+	}
+	return immutableRecord(Object.fromEntries(order))
+}
+
+/** Adds the accepted deterministic ID order without changing prior priority. */
+export const effectiveGraphqlConnectionOrdering = (
+	value: unknown,
+): Readonly<Record<string, 'asc' | 'desc'>> => {
+	const order =
+		value === undefined || value === null
+			? immutableRecord<Record<string, 'asc' | 'desc'>>({})
+			: normalizeGraphqlOrdering(value)
+	return Object.hasOwn(order, 'id')
+		? order
+		: immutableRecord({ ...order, id: 'asc' })
+}
+
 /** Converts collection arguments into existing Core query clauses. */
 export const normalizeGraphqlCollectionArguments = (
 	schema: SchemaDefinition,
@@ -103,30 +124,16 @@ export const normalizeGraphqlCollectionArguments = (
 		typeName: scope.typeName,
 	}).clauses
 
-const projectionFor = (
-	schema: SchemaDefinition,
-	operation: GraphqlReadOperation,
+const requireInfo = (
 	info: GraphQLResolveInfo | undefined,
-	context: GraphqlReadNormalizationContext,
-): GraphqlReadProjection | undefined => {
-	if (operation === 'count' || operation === 'exists') return undefined
+	operation: GraphqlReadOperation,
+): GraphQLResolveInfo => {
 	if (info === undefined) {
 		throw new TypeError(
 			`GraphQL ${operation} normalization requires selection info`,
 		)
 	}
-	return normalizeGraphqlSelection(
-		schema,
-		info,
-		operation === 'findMany',
-		(relationSchema, args, scope) =>
-			normalizeGraphqlCollectionArguments(
-				relationSchema,
-				args,
-				context.connections,
-				scope,
-			),
-	)
+	return info
 }
 
 const connectionTypeName = (info: GraphQLResolveInfo): string => {
@@ -152,39 +159,60 @@ export const prepareGraphqlReadOperation = <
 	info: GraphQLResolveInfo | undefined,
 	context: GraphqlReadNormalizationContext,
 ): GraphqlPreparedReadOperation<TSchema, TOperation> => {
-	const source = assertArguments(args, operation)
-	const input: Record<string, unknown> = {}
-	let page: GraphqlConnectionPagePlan | undefined
-	if (operation === 'get') {
-		input.id = source.id
-	} else if (operation === 'findMany') {
-		if (info === undefined) {
+	const contract = readContracts[operation]
+	if (!isPlainRecord(args)) {
+		throw new TypeError(`GraphQL ${operation} arguments must be an object`)
+	}
+	for (const key of Object.keys(args)) {
+		if (!contract.args.has(key)) {
 			throw new TypeError(
-				'GraphQL findMany normalization requires selection info',
+				`GraphQL ${operation} contains an unknown argument: ${key}`,
 			)
 		}
+	}
+	let input: Readonly<Record<string, unknown>> = {}
+	let page: GraphqlConnectionPagePlan | undefined
+	if (operation === 'get') {
+		input = { id: args.id }
+	} else if (operation === 'findMany') {
 		const prepared = context.connections.prepare({
-			arguments: source,
+			arguments: args,
 			relationPath: [],
 			schema,
-			typeName: connectionTypeName(info),
+			typeName: connectionTypeName(requireInfo(info, operation)),
 		})
-		Object.assign(input, prepared.clauses)
+		input = prepared.clauses
 		page = prepared.page
 	} else {
-		if (source.where !== undefined && source.where !== null) {
-			input.where = decodeGraphqlWhere(schema, source.where)
-		}
-		if (source.orderBy !== undefined && source.orderBy !== null) {
-			input.orderBy = normalizeGraphqlOrdering(source.orderBy)
+		input = {
+			...(args.where === undefined || args.where === null
+				? {}
+				: { where: decodeGraphqlWhere(schema, args.where) }),
+			...(args.orderBy === undefined || args.orderBy === null
+				? {}
+				: { orderBy: normalizeGraphqlOrdering(args.orderBy) }),
 		}
 	}
-	const projection = projectionFor(schema, operation, info, context)
-	if (projection !== undefined) Object.assign(input, projection)
+	// Counts and existence checks carry no selection.
+	const projection =
+		operation === 'count' || operation === 'exists'
+			? undefined
+			: normalizeGraphqlSelection(
+					schema,
+					requireInfo(info, operation),
+					operation === 'findMany',
+					(relationSchema, relationArgs, scope) =>
+						normalizeGraphqlCollectionArguments(
+							relationSchema,
+							relationArgs,
+							context.connections,
+							scope,
+						),
+				)
 	const normalized = normalizeReadOperation(
 		schema,
-		coreReadKinds[operation],
-		immutableRecord(input),
+		contract.kind,
+		immutableRecord({ ...input, ...projection }),
 	) as GraphqlReadOperationAst<TSchema, TOperation>
 	return immutableRecord({
 		operation: normalized,

@@ -27,24 +27,19 @@ import { normalizeGraphqlSelection } from './selection-normalization.js'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 
-const assertRequestContext: (
-	value: unknown,
-) => asserts value is RequestContext = (value) => {
-	if (!(value instanceof RequestContext)) {
-		throw new TypeError(
-			'GraphQL resolver context must contain one real RequestContext',
-		)
-	}
-}
-
+// Generated resolvers accept only the exact `{ request }` context built by
+// networkless execution or a network adapter.
 const requestFromContext = (value: unknown): RequestContext => {
 	const request: unknown = isPlainRecord(value) ? value.request : undefined
-	if (!isPlainRecord(value) || Reflect.ownKeys(value).length !== 1) {
+	if (
+		!isPlainRecord(value) ||
+		Reflect.ownKeys(value).length !== 1 ||
+		!(request instanceof RequestContext)
+	) {
 		throw new TypeError(
 			'GraphQL resolver context must contain one real RequestContext',
 		)
 	}
-	assertRequestContext(request)
 	return request
 }
 

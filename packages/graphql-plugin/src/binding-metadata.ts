@@ -1,32 +1,25 @@
+import type {
+	ExposedOperationTransportBinding,
+	PluginSchemaContributionOwner,
+} from '@ultimabase/core'
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-/** References one named GraphQL type supplied by v1 or this binding. */
-export interface GraphqlOperationNamedTypeReference {
-	readonly kind: 'named'
-	readonly name: string
-}
+import { assertGraphqlKnownKeys } from './options.js'
 
-/** References one exact application schema by Core class identity. */
-export interface GraphqlOperationSchemaTypeReference {
-	readonly className: string
-	readonly kind: 'schema'
-}
-
-/** Wraps another operation type reference in one GraphQL list. */
-export interface GraphqlOperationListTypeReference {
-	readonly kind: 'list'
-	readonly ofType: GraphqlOperationTypeReference
-}
-
+/** References a v1 built-in or binding-supplied type, or one application schema. */
 export type GraphqlOperationNullableTypeReference =
-	| GraphqlOperationNamedTypeReference
-	| GraphqlOperationSchemaTypeReference
-	| GraphqlOperationListTypeReference
+	| Readonly<{ readonly kind: 'named'; readonly name: string }>
+	| Readonly<{ readonly className: string; readonly kind: 'schema' }>
+	| Readonly<{
+			readonly kind: 'list'
+			readonly ofType: GraphqlOperationTypeReference
+	  }>
 
 /** Expresses GraphQL nullability without carrying executable schema objects. */
 export type GraphqlOperationTypeReference =
@@ -80,22 +73,16 @@ export interface GraphqlSchemaMutationBindingMetadata {
 	readonly types: readonly GraphqlOperationSupportingTypeDefinition[]
 }
 
-const assertExactKeys = (
+const assertKeys = (
 	value: Readonly<Record<string, unknown>>,
-	allowed: ReadonlySet<string>,
+	keys: readonly string[],
 	path: string,
 ): void => {
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !allowed.has(key)) {
-			throw new TypeError(`${path} contains unknown key: ${String(key)}`)
-		}
-	}
+	assertGraphqlKnownKeys(value, new Set(keys), path, 'unknown key')
 }
 
 const readString = (value: unknown, path: string): string => {
-	if (typeof value !== 'string' || value.length === 0) {
-		throw new TypeError(`${path} must be a non-empty string`)
-	}
+	assertNonEmptyString(value, path)
 	return value
 }
 
@@ -104,23 +91,23 @@ const normalizeNullableReference = (
 	path: string,
 ): GraphqlOperationNullableTypeReference => {
 	if (value.kind === 'named') {
-		assertExactKeys(value, new Set(['kind', 'name']), path)
+		assertKeys(value, ['kind', 'name'], path)
 		return immutableRecord({
-			kind: 'named' as const,
+			kind: 'named',
 			name: readString(value.name, `${path}.name`),
 		})
 	}
 	if (value.kind === 'schema') {
-		assertExactKeys(value, new Set(['className', 'kind']), path)
+		assertKeys(value, ['className', 'kind'], path)
 		return immutableRecord({
 			className: readString(value.className, `${path}.className`),
-			kind: 'schema' as const,
+			kind: 'schema',
 		})
 	}
 	if (value.kind === 'list') {
-		assertExactKeys(value, new Set(['kind', 'ofType']), path)
+		assertKeys(value, ['kind', 'ofType'], path)
 		return immutableRecord({
-			kind: 'list' as const,
+			kind: 'list',
 			ofType: normalizeTypeReference(value.ofType, `${path}.ofType`),
 		})
 	}
@@ -135,12 +122,12 @@ const normalizeTypeReference = (
 		throw new TypeError(`${path} must be a plain type reference`)
 	}
 	if (value.kind !== 'non-null') return normalizeNullableReference(value, path)
-	assertExactKeys(value, new Set(['kind', 'ofType']), path)
+	assertKeys(value, ['kind', 'ofType'], path)
 	if (!isPlainRecord(value.ofType) || value.ofType.kind === 'non-null') {
 		throw new TypeError(`${path}.ofType must be a nullable type reference`)
 	}
 	return immutableRecord({
-		kind: 'non-null' as const,
+		kind: 'non-null',
 		ofType: normalizeNullableReference(value.ofType, `${path}.ofType`),
 	})
 }
@@ -158,7 +145,7 @@ const normalizeFields = (
 			if (!isPlainRecord(field)) {
 				throw new TypeError(`${fieldPath} must be a plain object`)
 			}
-			assertExactKeys(field, new Set(['name', 'type']), fieldPath)
+			assertKeys(field, ['name', 'type'], fieldPath)
 			return immutableRecord({
 				name: readString(field.name, `${fieldPath}.name`),
 				type: normalizeTypeReference(field.type, `${fieldPath}.type`),
@@ -176,12 +163,12 @@ const normalizeSupportingType = (
 	}
 	const name = readString(value.name, `${path}.name`)
 	if (value.kind === 'enum') {
-		assertExactKeys(value, new Set(['kind', 'name', 'values']), path)
+		assertKeys(value, ['kind', 'name', 'values'], path)
 		if (!isUnknownArray(value.values) || value.values.length === 0) {
 			throw new TypeError(`${path}.values must be a non-empty array`)
 		}
 		return immutableRecord({
-			kind: 'enum' as const,
+			kind: 'enum',
 			name,
 			values: immutableArray(
 				value.values.map((item, index) =>
@@ -191,14 +178,14 @@ const normalizeSupportingType = (
 		})
 	}
 	if (value.kind === 'input-object' || value.kind === 'object') {
-		assertExactKeys(
+		assertKeys(
 			value,
-			new Set([
+			[
 				'fields',
 				'kind',
 				'name',
 				...(value.kind === 'input-object' ? ['createFieldsFrom'] : []),
-			]),
+			],
 			path,
 		)
 		return immutableRecord({
@@ -218,41 +205,59 @@ const normalizeSupportingType = (
 	throw new TypeError(`${path}.kind must be enum, input-object, or object`)
 }
 
+// Both binding families share the plain-object, kind and types envelope checks.
+const readBindingEnvelope = (
+	value: unknown,
+	path: string,
+	keys: readonly string[],
+	kind: string,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+	assertKeys(value, keys, path)
+	if (value.kind !== kind) throw new TypeError(`${path}.kind must be ${kind}`)
+	return value
+}
+
+const normalizeSupportingTypes = (
+	value: readonly unknown[],
+	path: string,
+): readonly GraphqlOperationSupportingTypeDefinition[] =>
+	immutableArray(
+		value.map((definition, index) =>
+			normalizeSupportingType(definition, `${path}.types[${String(index)}]`),
+		),
+	)
+
 /** Validates and snapshots one owner-supplied GraphQL binding description. */
 export const normalizeGraphqlOperationBindingMetadata = (
 	value: unknown,
 	operation: string,
 ): GraphqlOperationBindingMetadata => {
 	const path = `GraphQL binding for operation ${operation}`
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be a plain object`)
-	assertExactKeys(
+	const binding = readBindingEnvelope(
 		value,
-		new Set(['field', 'input', 'kind', 'result', 'root', 'types']),
 		path,
+		['field', 'input', 'kind', 'result', 'root', 'types'],
+		'graphql-operation-binding',
 	)
-	if (value.kind !== 'graphql-operation-binding') {
-		throw new TypeError(`${path}.kind must be graphql-operation-binding`)
-	}
-	if (value.root !== 'mutation' && value.root !== 'query') {
+	const root = binding.root
+	if (root !== 'mutation' && root !== 'query') {
 		throw new TypeError(`${path}.root must be query or mutation`)
 	}
-	if (!isUnknownArray(value.types)) {
+	if (!isUnknownArray(binding.types)) {
 		throw new TypeError(`${path}.types must be an array`)
 	}
 	return immutableRecord({
-		field: readString(value.field, `${path}.field`),
-		...(value.input === undefined
+		field: readString(binding.field, `${path}.field`),
+		...(binding.input === undefined
 			? {}
-			: { input: normalizeTypeReference(value.input, `${path}.input`) }),
-		kind: 'graphql-operation-binding' as const,
-		result: normalizeTypeReference(value.result, `${path}.result`),
-		root: value.root,
-		types: immutableArray(
-			value.types.map((definition, index) =>
-				normalizeSupportingType(definition, `${path}.types[${String(index)}]`),
-			),
-		),
+			: { input: normalizeTypeReference(binding.input, `${path}.input`) }),
+		kind: 'graphql-operation-binding',
+		result: normalizeTypeReference(binding.result, `${path}.result`),
+		root,
+		types: normalizeSupportingTypes(binding.types, path),
 	})
 }
 
@@ -262,25 +267,41 @@ export const normalizeGraphqlSchemaMutationBindingMetadata = (
 	mutation: string,
 ): GraphqlSchemaMutationBindingMetadata => {
 	const path = `GraphQL binding for schema mutation ${mutation}`
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
-	assertExactKeys(value, new Set(['input', 'kind', 'types']), path)
-	if (value.kind !== 'graphql-schema-mutation-binding') {
-		throw new TypeError(`${path}.kind must be graphql-schema-mutation-binding`)
-	}
-	if (!isUnknownArray(value.types)) {
+	const binding = readBindingEnvelope(
+		value,
+		path,
+		['input', 'kind', 'types'],
+		'graphql-schema-mutation-binding',
+	)
+	if (!isUnknownArray(binding.types)) {
 		throw new TypeError(`${path}.types must be an array`)
 	}
 	return immutableRecord({
-		...(value.input === undefined
+		...(binding.input === undefined
 			? {}
-			: { input: normalizeTypeReference(value.input, `${path}.input`) }),
-		kind: 'graphql-schema-mutation-binding' as const,
-		types: immutableArray(
-			value.types.map((definition, index) =>
-				normalizeSupportingType(definition, `${path}.types[${String(index)}]`),
-			),
-		),
+			: { input: normalizeTypeReference(binding.input, `${path}.input`) }),
+		kind: 'graphql-schema-mutation-binding',
+		types: normalizeSupportingTypes(binding.types, path),
 	})
 }
+
+/** Projects exact Core ownership for both retained binding families. */
+export const bindingOwnerFor = (
+	descriptor: Pick<ExposedOperationTransportBinding, 'owner'>,
+): PluginSchemaContributionOwner => ({
+	kind: 'plugin',
+	...(descriptor.owner.instanceId === undefined
+		? {}
+		: { instanceId: descriptor.owner.instanceId }),
+	pluginId: descriptor.owner.pluginId,
+	version: descriptor.owner.version,
+})
+
+/** Compares binding owners by plugin identity, instance and version. */
+export const isSameBindingOwner = (
+	left: PluginSchemaContributionOwner,
+	right: PluginSchemaContributionOwner,
+): boolean =>
+	left.pluginId === right.pluginId &&
+	left.instanceId === right.instanceId &&
+	left.version === right.version
