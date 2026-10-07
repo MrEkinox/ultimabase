@@ -1,0 +1,130 @@
+---
+title: Plugin System
+seoTitle: Backend Plugin Architecture
+description: Understand when a plugin becomes part of an application and find the official capability you need.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+order: 1
+outcome: Decide whether a feature belongs in the application plugin chain and know what Core validates.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/hooks-plugin/README.md
+  - apps/website/lib/official-plugins.ts
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+---
+
+## Context
+
+Core owns schemas, queries, application assembly, and the Runtime. Optional
+behavior—such as database persistence, Hooks, authentication, or an HTTP
+server—comes from plugins. The application chooses its own set; importing a
+package does not install behavior.
+
+## Mental model
+
+Importing a plugin package never installs it. Its factory returns an inert
+definition. Add that definition to an immutable application factory with
+`.use()` to opt in:
+
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
+const Application = UltimaBase.use(hooksPlugin())
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({ title: f.string() }),
+	hooks: {
+		beforeOperation: {
+			create: ({ item }) => console.log(item.title),
+		},
+	},
+})
+
+export const application = new Application({
+	schemas: [Post],
+})
+```
+
+The `hooks` option belongs to the Hooks plugin. If you remove `hooksPlugin()`
+but leave that option on `Post`, application compilation rejects the unknown
+option; it does not silently skip the callback. This excerpt assembles an
+application but does not start a database or an API. For a complete working
+setup, follow [Using Plugins](./using-plugins).
+
+Core validates plugin identity, versions, dependencies, capabilities, and
+active privilege requests before infrastructure effects. It then compiles
+static declarations; application-local capabilities and resources are
+materialized during initialization and cleaned up on disposal.
+
+<Mermaid
+	description="A plugin definition enters one application's plugin chain, where Core validates the graph, compiles declarations, materializes application capabilities, runs lifecycle phases, and disposes resources."
+	chart="flowchart TB
+    A[Compose definition with application use] --> B[Validate graph and privileges]
+    B --> C[Compile static declarations]
+    C --> D[Materialize application capabilities]
+    D --> E[Run lifecycle]
+    E --> F[Dispose resources]"
+/>
+
+## Boundaries
+
+Plugins integrate through versioned capabilities, not a global service
+registry. A requirement can demand a compatible provider; Core rejects a
+missing required provider or an ambiguous exclusive one. Dependencies run
+before consumers. Configuration position breaks ties between ready plugins,
+and registration order breaks ties within one plugin.
+
+One stable plugin ID may have multiple configurations only with explicit,
+distinct instance IDs. This allows repeated plugin configurations within one
+application, not simultaneous initialized applications in one JavaScript realm.
+See [Application boundaries](/docs/1.0.0/core/application#application-boundaries)
+for disposal and isolated test workers. Each application owns its compiled graph and resources;
+installing a plugin in one application does not install it in another. Core
+enforces declared privileges, but environmental claims such as network or
+filesystem access are disclosures, not an operating-system sandbox. For
+selection, compatibility, and safe removal, see [Using Plugins](./using-plugins).
+For the public authoring contract, see [Build a Plugin](./build-a-plugin).
+
+## Official plugins
+
+Choose by the capability you need. Each guide explains its own installation,
+configuration, behavior, and limits. GraphQL's Yoga adapter and development
+explorers share a guide, but remain separate packages you install explicitly.
+
+| Need                                                | Official guide                                                |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| Persist data in PostgreSQL                          | [PostgreSQL](./official/postgresql)                           |
+| Keep tombstones and control restore or purge        | [Soft Delete](./official/soft-delete)                         |
+| Declare PostgreSQL vector fields                    | [PostgreSQL Vector](./official/postgresql-vector)             |
+| Run application field validators                    | [Validation](./official/validation)                           |
+| React to operation and field lifecycle phases       | [Hooks](./official/hooks)                                     |
+| Authenticate with passwords and sessions            | [Password Authentication](./official/password-authentication) |
+| Define application access rules                     | [Access](./official/access)                                   |
+| Represent schema-backed role membership             | [Roles](./official/roles)                                     |
+| Enforce per-object ACLs                             | [Object ACLs](./official/acl-permissions)                     |
+| Select an HTTP application and apply browser policy | [HTTP](./official/http)                                       |
+| Run an HTTP application on Node.js with Hono        | [Hono Server](./official/hono-server)                         |
+| Expose generated REST routes                        | [REST](./official/rest)                                       |
+| Execute GraphQL or serve it through Yoga            | [GraphQL, Yoga, and explorers](./official/graphql)            |
+
+## Related tasks
+
+<Cards>
+	<Card title="Using Plugins" href="./using-plugins">
+		Choose a compatible package, install it, and verify it in one application.
+	</Card>
+	<Card title="Community Plugins" href="./community-plugins">
+		Understand maintenance boundaries and propose a new listing.
+	</Card>
+	<Card title="Build a Plugin" href="./build-a-plugin">
+		Create a public, versioned plugin without depending on Core internals.
+	</Card>
+</Cards>

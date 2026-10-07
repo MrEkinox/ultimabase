@@ -1,0 +1,361 @@
+---
+title: Hooks
+seoTitle: Transactional Hooks and Business Rules
+description: Normalize mutation input, enforce business rules, run transactional work, and deliver post-commit events with the official Hooks plugin.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-29
+sources:
+  - packages/hooks-plugin/README.md
+  - packages/hooks-plugin/src/authoring/contracts.ts
+  - packages/hooks-plugin/src/authoring/schema-mutation-contracts.ts
+  - packages/hooks-plugin/src/contributions.ts
+  - packages/hooks-plugin/src/context/hook-context.ts
+  - packages/hooks-plugin/src/runtime/events.ts
+  - packages/hooks-plugin/src/runtime/execution-runtime.ts
+  - packages/hooks-plugin/src/runtime/phase-order.ts
+  - packages/hooks-plugin/tests/e2e/hooks-plugin-postgres.postgres.e2e.test.ts
+  - examples/minimal/src/schema.ts
+  - docs/adr/0161-compact-field-operation-hooks.md
+  - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
+  - docs/adr/0172-focused-schema-hook-results.md
+  - docs/adr/0202-hooks-are-one-vertical-plugin.md
+  - docs/adr/0274-canonical-operation-cancellation.md
+---
+
+## Overview
+
+`@ultimabase/hooks-plugin` adds the official lifecycle to an application.
+Use a field Hook to normalize one supplied value, a schema Hook to inspect or
+reject a complete mutation, and a named event to deliver an external effect
+after commit. Importing the package alone installs none of this behavior:
+the application must include `hooksPlugin()`.
+
+Hooks are optional business behavior, not an authorization layer. [Access](./access)
+controls who may act; Core still owns structural validation and transactions.
+
+## Installation
+
+Start with an UltimaBase application and database provider, then install the
+optional lifecycle plugin:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/hooks-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/hooks-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/hooks-plugin
+```
+
+## Configuration
+
+Declare Hooks on the exact field or schema they affect. This example trims
+titles, prevents changes to a published title, and records successful title
+changes in the same transaction as the post:
+
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(hooksPlugin())
+```
+
+```ts title="src/post.ts"
+import { Application } from './application.js'
+
+export const PostTitleChange = Application.Schema.define({
+	className: 'PostTitleChange',
+	fields: (f) => ({
+		postId: f.string({ required: true }),
+		previousTitle: f.string({ required: true }),
+		title: f.string({ required: true }),
+	}),
+})
+
+export const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({
+		published: f.boolean({ default: false }),
+		title: f.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+		}),
+	}),
+	hooks: {
+		beforeOperation: {
+			update: ({ originalItem, item }) => {
+				if (originalItem.published && item.title !== originalItem.title) {
+					throw new Error('Published titles cannot change')
+				}
+			},
+		},
+		afterOperation: {
+			update: async ({ originalItem, item }) => {
+				if (item.title === originalItem.title) return
+				await PostTitleChange.createOne({
+					data: {
+						postId: item.id,
+						previousTitle: originalItem.title,
+						title: item.title,
+					},
+				})
+			},
+		},
+	},
+})
+```
+
+Install the plugin alongside the database provider and register both schemas:
+
+```ts title="src/ultimabase.ts"
+import { Application } from './application.js'
+import { Post, PostTitleChange } from './post.js'
+
+export const ultimabase = new Application({
+	schemas: [Post, PostTitleChange],
+})
+```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
+
+`hooksPlugin()` has no factory options. Its configured factory exposes field
+`hooks` directly from source. Schema `hooks` callbacks use the retained Typegen
+graph so exact items, operations, relationships, and plugin mutation keys share
+the completed application contract; regenerate after changing that graph. An
+unknown `hooks` option usually means the schema was declared from a factory
+that omits the plugin or the generated graph is stale.
+
+## Behavior and limitations
+
+### Choose the right phase
+
+| Hook                  | Use it for                                                                                | What it receives or changes                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Field `resolveInput`  | Normalize or reject one present stored-field value, including an embedded property.       | The field's `value`, `kind`, `mode`, and `context`; a returned value replaces that value.                     |
+| Schema `resolveInput` | Transform or reject a create, update, or upsert after the visible target is prepared.     | The normalized `operation`, `originalItem`, and `context`; a returned operation replaces the input operation. |
+| `beforeOperation`     | Check the complete prepared item or perform transaction-bound work before persistence.    | One item-oriented create, update, or delete callback. Its return value is ignored.                            |
+| `afterOperation`      | Inspect the persisted item, perform transaction-bound work, or queue a post-commit event. | One item-oriented create, update, upsert, or delete callback before commit. Its return value is ignored.      |
+
+Returning `undefined` from a `resolveInput` handler keeps its current value
+or operation; throwing rejects it. Schema input resolution cannot retarget the
+prepared schema, terminal, query, or locked object. Core revalidates a
+transformed operation before persistence. Use the [Validation plugin](./validation)
+for application field validators rather than treating Hooks as a replacement
+for structural or Standard Schema validation.
+
+Each field or schema `resolveInput` declaration may be one callback, a
+non-empty ordered array, or a family map with `all`, `create`, `update`, and
+`upsert`. The `all` handlers run before the matching family handlers. The
+`beforeOperation` and `afterOperation` branches each accept one callback or
+a non-empty ordered array. Field Hooks apply to stored fields and embedded
+properties, not virtual fields or output descriptors.
+
+### Mutation callbacks and item values
+
+`beforeOperation.create` receives a complete immutable prepared draft in
+`item`. It has no `originalItem` or operation AST. Update callbacks receive
+the complete visible `originalItem` and candidate or persisted `item`;
+delete callbacks receive `originalItem` and `item: null`. An upsert has no
+`beforeOperation.upsert` because its final create/update branch is not known
+before persistence. `afterOperation.upsert` receives the actual persisted
+`item` and an `originalItem` that may be `null`.
+
+`afterOperation` values are complete persisted schema models, independent of
+the caller's `select`. There is no Hook `result` to replace. Reads do not run
+these mutation Hooks: there is no schema `beforeRead`, `afterRead`, or field
+`resolveOutput`.
+
+`createMany`, `updateMany`, `upsertMany`, and `deleteMany` run the same
+item Hooks once per item, in input order, inside one automatic transaction.
+An empty batch runs no item Hook. If a later item or Hook fails, the whole batch
+rolls back. For a [nested write](../../core/writing-data/nested-writes), the
+callbacks for its root and created children may also receive `nestedWrite`,
+the same immutable graph; it is absent for a standalone mutation.
+
+### Transactional work and post-commit events
+
+Both operation groups run before commit. In the configuration example,
+`PostTitleChange.createOne()` inherits the active application and transaction;
+throwing from either Hook rolls back both the post and its title-change row.
+Do not send email or publish to an external broker directly from
+`afterOperation`: that effect cannot be rolled back if the transaction fails.
+
+Use `context.emit()` to queue a JSON event for delivery after a successful
+commit. The provider ranges below target this `1.0.0` documentation line.
+The event contract and its consumer can live in one module:
+
+```ts title="src/post-created-event.ts"
+import { plugin } from '@ultimabase/core'
+import {
+	defineEvent,
+	onEvent,
+	provideHookEvent,
+} from '@ultimabase/hooks-plugin'
+
+export const postCreated = defineEvent<{ postId: string }>()('post.created', {
+	delivery: 'required',
+})
+
+// This in-memory sink makes post-commit delivery observable in this example.
+export const committedPostIds: string[] = []
+
+export const postCreatedConsumer = plugin({
+	id: 'example.post-created-consumer',
+	version: '1.0.0',
+	core: '^1.0.0',
+	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
+	permissions: [
+		{
+			name: 'runtime:observe',
+			reason: 'Deliver post.created after commit.',
+		},
+	],
+	contributions: [
+		provideHookEvent(
+			'post-created',
+			onEvent<typeof postCreated.name, { postId: string }>({
+				name: postCreated.name,
+				handler: ({ event }) => {
+					committedPostIds.push(event.payload.postId)
+				},
+			}),
+		),
+	],
+})
+```
+
+Declare the emitting Hook on a schema and install both `hooksPlugin()` and
+`postCreatedConsumer` in its application's `plugins`:
+
+```ts title="src/evented-post.ts"
+import { postCreated } from './post-created-event.js'
+import { Application } from './application.js'
+
+export const EventedPost = Application.Schema.define({
+	className: 'EventedPost',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+	hooks: {
+		afterOperation: {
+			create: ({ context, item }) => {
+				context.emit(postCreated, { postId: item.id })
+			},
+		},
+	},
+})
+```
+
+A required event without a matching consumer fails before commit. A contract
+with `delivery: 'optional'` intentionally does nothing when no consumer is
+installed. A plain string event name is required by default. Consumers run
+after commit in plugin order. Their failures are reported but cannot undo an
+already committed transaction. See [Build a Plugin](../build-a-plugin) for
+other provider patterns; delivering events requires `runtime:observe`.
+These callbacks are not a durable queue: persist an outbox in the mutation
+transaction if delivery must survive a process crash. Replace the in-memory
+sink for production delivery and declare the consumer plugin's direct network,
+filesystem, or process claims.
+
+### Plugin-defined mutations and contributed Hooks
+
+Generated application types also expose installed schema mutation names in
+`beforeOperation` and `afterOperation`. For example, with the
+[Soft Delete plugin](./soft-delete), `softDelete`, `restore`, and `purge`
+are separate logical branches. A `softDelete` implemented by a physical
+update runs `softDelete` Hooks, not native `update` Hooks. Master-only
+`restore` and `purge` still run business Hooks and never acquire public
+transport routes merely because a Hook exists.
+
+Compatible plugins can contribute `globalHooks()`, `schemaHooks()`, or
+`fieldHooks()` through `provideHookContributions()`. Their handlers retain
+the contributing plugin's identity and privileges; the Hooks engine does not
+lend its own. A compatible provider needs `runtime:intercept` and can declare
+the Hooks plugin as a peer:
+
+```ts title="src/post-rules-plugin.ts"
+import { plugin } from '@ultimabase/core'
+import { provideHookContributions, schemaHooks } from '@ultimabase/hooks-plugin'
+import { Post } from './post.js'
+
+export const postRulesPlugin = plugin({
+	id: 'example.post-rules',
+	version: '1.0.0',
+	core: '^1.0.0',
+	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
+	permissions: [
+		{
+			name: 'runtime:intercept',
+			reason: 'Reject deletion of published posts.',
+		},
+	],
+	contributions: [
+		provideHookContributions('published-post-rule', () =>
+			schemaHooks(Post, {
+				beforeOperation: {
+					delete: ({ originalItem }) => {
+						if (originalItem.published) {
+							throw new Error('Published posts cannot be deleted')
+						}
+					},
+				},
+			}),
+		),
+	],
+})
+```
+
+Install `postRulesPlugin` in the same application as `hooksPlugin()` and
+`Post`. An independent lifecycle engine can instead use Core's generic
+Runtime behavior capability without depending on the official Hooks protocol.
+
+### Ordering, context, and safety
+
+Handlers run sequentially according to plugin dependencies, plugin position,
+contribution order, and order within a declared array. Field input resolution
+precedes schema input resolution; `beforeOperation` precedes persistence;
+`afterOperation` follows persistence but precedes commit. Installed Access
+and Core validation still enforce their own boundaries around these phases.
+
+Every callback receives a `HookContext` with a request ID, optional
+transaction ID, cancellation signal, source, authority, and hook identity.
+It can inspect registered request values or capability tokens and emit events,
+but it exposes no adapter, raw credential, or transaction controls. Do not
+retain it for later work: its capabilities close when the callback settles.
+Re-entering the same Hook recursively fails with `RUNTIME_CALLBACK_RECURSION`; an observed
+cancellation prevents later pre-commit handlers from starting. Master bypasses
+authorization policy, not Hooks. The engine uses Core's canonical
+`throwIfOperationCancelled()` boundary, so independent plugin engines can
+produce the same `OPERATION_CANCELLED` failure without copying Hooks internals.
+
+## Troubleshooting
+
+- **`hooks` is rejected at startup or absent in autocomplete:** install
+  `hooksPlugin()` on the configured factory used to declare the schema.
+  Importing the package or installing it only on another factory is insufficient.
+- **A callback never runs:** check the exact schema or field, the operation
+  branch, and whether the input actually supplies that field. Upsert has no
+  before-operation branch; a plugin-defined mutation uses its own name rather
+  than the physical update/delete name.
+- **An event has no consumer:** register a matching `onEvent()` provider, or
+  deliberately define the event as optional. Emitting outside an active
+  transaction is not supported.
+- **A write rolls back:** inspect the first thrown Hook or nested operation.
+  Business `afterOperation` runs before commit and may abort the whole batch;
+  `RUNTIME_CALLBACK_RECURSION` points to a Hook that entered itself through nested work.

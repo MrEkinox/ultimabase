@@ -1,0 +1,275 @@
+---
+title: Relationships
+description: Model to-one pointers and to-many relations without embedding related records.
+audience:
+  - application-developer
+contentType: concept
+order: 7
+outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-09-20
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/src/schema/relations/pointer.ts
+  - packages/core/src/schema/relations/relation.ts
+  - packages/postgres-plugin/src/drizzle/relation-executor.ts
+  - packages/core/examples/schema/pointers.md
+  - packages/core/examples/schema/relations.md
+  - docs/adr/0115-immutable-model-commands.md
+  - docs/adr/0118-transport-neutral-relations.md
+  - docs/adr/0179-name-based-relationship-targets.md
+  - docs/adr/0247-contextual-relation-filters.md
+---
+
+Use a **pointer** when a record refers to one target. Use a **relation** when it
+owns or exposes a collection of targets. Neither stores the related records
+inside the source model. Declare both at the schema root, not inside an
+[embedded object](./embedded-objects).
+
+## Pointers
+
+A pointer stores one immutable logical reference: the exact target schema plus
+one record ID. It does not load the target and does not expose a mutable target
+object.
+
+```ts title="src/session.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+export const Account = UltimaBase.Schema.define({
+	className: 'DocsAccount',
+	fields: (f) => ({
+		email: f.string({ required: true }),
+	}),
+})
+
+export const Session = UltimaBase.Schema.define({
+	className: 'DocsSession',
+	fields: (f) => ({
+		account: f.pointer({
+			required: true,
+			target: 'DocsAccount',
+		}),
+		expiresAt: f.dateTime({ required: true }),
+	}),
+})
+```
+
+Register both schemas in the same application. During compilation, UltimaBase
+resolves `target: 'DocsAccount'` to the exact registered `Account` schema;
+an unknown target fails before database setup. Typegen can then expose the
+exact target type for `Session.account`.
+
+Use `Account.pointer(id)` in a create or update input to reference an existing
+account. The equivalent general form is `new Pointer(Account, id)`. Constructing
+a pointer performs no I/O and does not prove that the target exists;
+persistence enforces the relationship. Its ordinary value is a `Pointer`, not
+an `Account` model. `pointer.equals(other)` compares exact schema identity and
+ID, while `pointer.toJSON()` returns the immutable logical shape
+`{ type: 'pointer', className: 'DocsAccount', id }`.
+
+A required pointer cannot be `null`. An optional pointer can be `null` in a
+complete record; pointers cannot be lists or have defaults. Use
+[Defaults and Nullability](./defaults) for the general presence rules.
+
+### Read through a pointer
+
+After registering both schemas and starting the application with a persistence
+plugin, read a persisted session without including its account. Its selected
+`account` field is still a `Pointer`, not a loaded `Account` model:
+
+```ts title="src/read-account.ts"
+import { Session } from './session.js'
+
+export const readSessionAccount = async (sessionId: string) => {
+	const session = await Session.get({
+		id: sessionId,
+		select: { account: true },
+	})
+
+	return session.account.findOne({ select: { email: true } })
+}
+```
+
+`findOne()` returns a selected `Account` model or `null` if the target is missing
+or excluded by a row filter. When you need only a boolean, call
+`session.account.exists({})` instead; it does not load a model.
+Explicit read-policy denials reject both operations and abort an active
+transaction, just like other read errors.
+Both methods remain scoped to the pointer's exact target ID and run through the
+ordinary target read pipeline. Neither changes the stored pointer or grants
+access to its target.
+
+If you already know that you need the account when reading the session, use
+`include: { account: { select: { email: true } } }` on `Session.get()` instead.
+Read through the pointer when you have the session already and decide to load
+its target later. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
+for inclusion behavior.
+
+### Pointer deletion behavior
+
+`onDelete` controls how deleting a target affects its referencing records:
+
+- `restrict` (the default) rejects target deletion while the pointer exists;
+- `cascade` deletes the referencing record;
+- `setNull` clears the pointer and therefore requires an optional field.
+
+Use `indexed: 'unique'` on a pointer to express a one-to-one constraint. Use a
+relation instead when one record owns a changing set of target members.
+
+## Relations
+
+A relation declares a typed to-many edge between two schemas. The source record
+does not contain a target array. The database adapter stores membership, while
+Runtime provides explicit reads and mutations through the relationship.
+
+```ts title="src/post.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+export const Author = UltimaBase.Schema.define({
+	className: 'DocsAuthor',
+	fields: (f) => ({
+		name: f.string({ required: true }),
+		posts: f.relation({ mappedBy: 'author', target: 'DocsPost' }),
+	}),
+})
+
+export const Post = UltimaBase.Schema.define({
+	className: 'DocsPost',
+	fields: (f) => ({
+		author: f.pointer({
+			required: true,
+			target: 'DocsAuthor',
+		}),
+		reviewers: f.relation({ target: 'DocsAuthor' }),
+		title: f.string({ required: true }),
+	}),
+})
+```
+
+### Owning and inverse sides
+
+`Post.reviewers` owns an independent membership set. `Author.posts` is inverse:
+`mappedBy: 'author'` derives its members from `Post.author` instead of storing
+a second edge. Static compilation resolves target names and verifies that the
+inverse points to a compatible field. A one-to-one relationship uses a unique
+pointer, not a one-item relation.
+
+Relations do not appear as arrays in ordinary model values or create/update
+data. A persisted model can create a relation handle through `relation(name)`
+even when the collection was not included in its result. Use an explicit
+relationship schema with pointers when the edge itself needs fields such as
+role, position, status, or creation time.
+
+<Callout type="info" title="One source of membership truth">
+	Choose either an owning relation or an inverse `mappedBy` relation for an
+	edge. Do not mirror both sides with separately writable relation sets.
+</Callout>
+
+## Read through a relation handle
+
+Use `include` to load pointer and relation targets with a parent result;
+[Related Data](/docs/1.0.0/core/reading-data/related-data) owns the full
+example, selection rules, and filtering behavior. For a collection you do
+not want to include in a parent result, use the persisted model's relation
+handle. The following examples assume registered `Author` and `Post` schemas
+in a started application with a persistence plugin.
+
+```ts title="src/read-reviewers.ts"
+import { Post } from './post.js'
+
+export const readReviewers = async (postId: string) => {
+	const post = await Post.get({ id: postId })
+	const reviewers = post.relation('reviewers')
+
+	return reviewers.findMany({ limit: 10, select: { name: true } })
+}
+```
+
+The same handle offers the other target read terminals. For example, check
+whether a post has a particular visible reviewer and count its visible
+reviewers without loading the collection:
+
+```ts title="src/read-reviewers.ts"
+import { Post } from './post.js'
+
+export const inspectReviewers = async (postId: string, reviewerId: string) => {
+	const post = await Post.get({ id: postId })
+	const reviewers = post.relation('reviewers')
+
+	return {
+		first: await reviewers.findOne({
+			orderBy: { id: 'asc' },
+			select: { name: true },
+		}),
+		matching: await reviewers.get({ id: reviewerId, select: { name: true } }),
+		count: await reviewers.count({}),
+		hasAny: await reviewers.exists({}),
+	}
+}
+```
+
+`findOne()` reads the first matching visible member, and `get()` targets one ID
+within this relation rather than the whole `Author` schema. `count()` and
+`exists()` return a number and boolean without materializing the members.
+All five relation read methods apply the field's declared filter and target
+policies; their results describe visible membership, which can differ from
+physical membership. Use `where` in these read inputs to narrow it further.
+
+## Change relation membership
+
+A persisted model's relation handle can change an existing membership without
+updating an array field or deleting a target record. For example, add one
+reviewer and then read the visible membership:
+
+```ts title="src/add-reviewer.ts"
+import { Post } from './post.js'
+
+export const addReviewer = async (postId: string, reviewerId: string) => {
+	const post = await Post.get({ id: postId })
+	const reviewers = post.relation('reviewers')
+
+	await reviewers.connect(reviewerId)
+	return reviewers.findMany({ select: { name: true } })
+}
+```
+
+The returned models have `id` and `name`; the edge itself is not a model field.
+Choose the mutation that describes the intended membership change:
+
+| Method                     | Effect                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `connect(id, options?)`    | Add one target without removing existing edges; it also accepts a non-empty tuple of IDs. |
+| `disconnect(id, options?)` | Remove one edge without deleting its target; it also accepts a non-empty tuple of IDs.    |
+| `set(ids, options?)`       | Replace membership with the supplied IDs; `[]` is allowed.                                |
+| `clear(options?)`          | Remove membership without supplying an empty array.                                       |
+
+Each call has one automatic or inherited transaction and runs installed
+source-field policy, target visibility checks, and mutation behavior. Missing
+or inaccessible targets both report `NOT_FOUND`; duplicate IDs within one
+call are rejected before the transaction. On an owning relation, direct-handle
+`set` and `clear` change the complete physical edge set, not only the subset a
+read currently shows. An inverse pointer relation instead updates its visible
+targets through ordinary pointer mutations; an operation that would clear a
+required inverse pointer fails. Use [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)
+when the relation change must be part of the same atomic root create or update;
+its `set` and `clear` preserve policy-hidden memberships.
+
+A relation may declare a static or request-contextual `where` to narrow every
+read through that field. It intersects with caller filters and target policies;
+it does not grant access or change membership.
+
+## Related tasks
+
+<Cards>
+	<Card title="Related Data" href="/docs/1.0.0/core/reading-data/related-data">
+		Load and filter related models with exact selections.
+	</Card>
+	<Card
+		title="Nested Writes"
+		href="/docs/1.0.0/core/writing-data/nested-writes"
+	>
+		Create or change pointer and relation graphs atomically.
+	</Card>
+</Cards>

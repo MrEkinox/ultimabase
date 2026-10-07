@@ -1,0 +1,432 @@
+{
+	"sections": [
+		{
+			"slug": "core",
+			"label": "Core",
+			"owner": "2824",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "ready",
+			"sources": [
+				"ARCHITECTURE.md",
+				"packages/core/README.md",
+				"packages/core/docs",
+				"docs/adr"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "application",
+					"contentType": "concept",
+					"outcome": "Configure one UltimaBase application and understand how it is started, used, and isolated."
+				},
+				{
+					"slug": "data-modeling/defaults",
+					"contentType": "concept",
+					"outcome": "Predict create-input presence, default resolution, and complete persisted values."
+				},
+				{
+					"slug": "data-modeling/embedded-objects",
+					"contentType": "concept",
+					"outcome": "Define a typed embedded object and know when it is not a separate schema."
+				},
+				{
+					"slug": "data-modeling/fields",
+					"contentType": "concept",
+					"outcome": "Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output."
+				},
+				{
+					"slug": "data-modeling/models",
+					"contentType": "concept",
+					"outcome": "Construct, inspect, and use immutable draft and persisted schema models."
+				},
+				{
+					"slug": "data-modeling/relationships",
+					"contentType": "concept",
+					"outcome": "Choose and declare pointers and relations, then use a relation handle to read or change membership."
+				},
+				{
+					"slug": "data-modeling/schemas",
+					"contentType": "concept",
+					"outcome": "Define and register a schema, choose its declaration options, and understand when its fields and application handle become available."
+				},
+				{
+					"slug": "data-modeling/virtual-fields",
+					"contentType": "concept",
+					"outcome": "Define a virtual field and predict its selection, privacy, typing, and failure behavior."
+				},
+				{
+					"slug": "reading-data/filters",
+					"contentType": "reference",
+					"outcome": "Express precise scalar, list, pointer, and structured predicates with valid operands."
+				},
+				{
+					"slug": "reading-data/ordering-and-pagination",
+					"contentType": "guide",
+					"outcome": "Return a bounded, explicitly ordered Core page without inventing a cursor contract."
+				},
+				{
+					"slug": "reading-data/overview",
+					"contentType": "concept",
+					"outcome": "Choose a read terminal, build its input, and handle read failures in the correct application context."
+				},
+				{
+					"slug": "reading-data/related-data",
+					"contentType": "guide",
+					"outcome": "Load and filter related data, including request-contextual relation views, without mistaking a filter for authorization."
+				},
+				{
+					"slug": "reading-data/selections",
+					"contentType": "guide",
+					"outcome": "Choose between inclusive and exclusive projections and the appropriate singular terminal."
+				},
+				{
+					"slug": "runtime/api-errors",
+					"contentType": "reference",
+					"outcome": "Identify the error owner and handle FrameworkError without exposing internal details."
+				},
+				{
+					"slug": "runtime/logical-operations-and-persistence",
+					"contentType": "concept",
+					"outcome": "Understand safe persistence rewrites without changing policy or Hook meaning."
+				},
+				{
+					"slug": "runtime/runtime-pipeline",
+					"contentType": "concept",
+					"outcome": "Place validation, policy, Hooks, persistence, and post-commit work correctly."
+				},
+				{
+					"slug": "security-foundations/master-authority",
+					"contentType": "guide",
+					"outcome": "Use Master deliberately without creating a transport-forgeable bypass."
+				},
+				{
+					"slug": "security-foundations/request-identity",
+					"contentType": "concept",
+					"outcome": "Add request identity values without creating an authority mode or implicit grant."
+				},
+				{
+					"slug": "security-foundations/security-model",
+					"contentType": "concept",
+					"outcome": "Place each security requirement at the boundary that actually enforces it."
+				},
+				{
+					"slug": "writing-data/bulk-operations",
+					"contentType": "concept",
+					"outcome": "Use bulk commands with the same guarantees as their singular forms."
+				},
+				{
+					"slug": "writing-data/create",
+					"contentType": "guide",
+					"outcome": "Create one record with defaults, a nested pointer command, and an exact result type."
+				},
+				{
+					"slug": "writing-data/delete",
+					"contentType": "guide",
+					"outcome": "Choose schema-root or loaded-model deletion and interpret its result."
+				},
+				{
+					"slug": "writing-data/nested-writes",
+					"contentType": "concept",
+					"outcome": "Choose legal pointer and relation commands and verify their atomic order and limits."
+				},
+				{
+					"slug": "writing-data/transactions",
+					"contentType": "concept",
+					"outcome": "Place business work and post-commit effects on the correct side of commit."
+				},
+				{
+					"slug": "writing-data/update",
+					"contentType": "guide",
+					"outcome": "Update by identity or unique predicate and handle a possibly absent target correctly."
+				},
+				{
+					"slug": "writing-data/upserts",
+					"contentType": "guide",
+					"outcome": "Build deterministic upserts without broad filter or nested-write ambiguity."
+				}
+			]
+		},
+		{
+			"slug": "plugins",
+			"label": "Plugins",
+			"owner": "2824",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "ready",
+			"sources": [
+				"ARCHITECTURE.md",
+				"packages/README.md",
+				"packages/plugin-kit/README.md",
+				"packages/testing/README.md",
+				"docs/concepts/open-plugin-authoring.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "build-a-plugin",
+					"contentType": "guide",
+					"outcome": "Export a reusable plugin factory and verify its application-local setup result."
+				},
+				{
+					"slug": "build-a-plugin/schemas-and-typegen",
+					"contentType": "guide",
+					"outcome": "Choose a schema contribution and publish its correct application-specific TypeScript types."
+				},
+				{
+					"slug": "build-a-plugin/operations-and-graphql",
+					"contentType": "guide",
+					"outcome": "Declare executable plugin behavior and choose its exact public transport surface."
+				},
+				{
+					"slug": "build-a-plugin/runtime-and-infrastructure",
+					"contentType": "guide",
+					"outcome": "Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin."
+				},
+				{
+					"slug": "community-plugins",
+					"contentType": "concept",
+					"outcome": "Understand how community plugins will be listed without confusing visibility with official maintenance."
+				},
+				{
+					"slug": "official/access",
+					"contentType": "guide",
+					"outcome": "Define fail-closed authorization that can only narrow as policies compose."
+				},
+				{
+					"slug": "official/acl-permissions",
+					"contentType": "guide",
+					"outcome": "Protect individual objects with public, principal, and role permissions."
+				},
+				{
+					"slug": "official/password-authentication",
+					"contentType": "guide",
+					"outcome": "Register a User, manage its session, and expose authentication through your chosen transport."
+				},
+				{
+					"slug": "official/roles",
+					"contentType": "guide",
+					"outcome": "Compose role membership with Access or ACL without treating membership as a grant."
+				},
+				{
+					"slug": "official/postgresql",
+					"contentType": "guide",
+					"outcome": "Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures."
+				},
+				{
+					"slug": "official/postgresql-vector",
+					"contentType": "concept",
+					"outcome": "Declare a dimension-safe vector field and recognize the current physical storage limit."
+				},
+				{
+					"slug": "official/soft-delete",
+					"contentType": "guide",
+					"outcome": "Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code."
+				},
+				{
+					"slug": "official/graphql",
+					"contentType": "guide",
+					"outcome": "Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries."
+				},
+				{
+					"slug": "official/http",
+					"contentType": "guide",
+					"outcome": "Configure the HTTP application boundary, browser policy, and pre-dispatch request handling."
+				},
+				{
+					"slug": "official/hono-server",
+					"contentType": "guide",
+					"outcome": "Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership."
+				},
+				{
+					"slug": "official/rest",
+					"contentType": "guide",
+					"outcome": "Call generated REST routes while preserving the same Runtime semantics as TypeScript."
+				},
+				{
+					"slug": "official/hooks",
+					"contentType": "concept",
+					"outcome": "Choose and configure the right Hook phase for input, mutation, or post-commit behavior."
+				},
+				{
+					"slug": "official/validation",
+					"contentType": "concept",
+					"outcome": "Decide when application validation belongs in the Validation plugin rather than Core or Hooks."
+				},
+				{
+					"slug": "overview",
+					"contentType": "concept",
+					"outcome": "Decide whether a feature belongs in the application plugin chain and know what Core validates."
+				},
+				{
+					"slug": "using-plugins",
+					"contentType": "guide",
+					"outcome": "Add the smallest compatible plugin set and verify its application-local behavior."
+				}
+			]
+		},
+		{
+			"slug": "guides",
+			"label": "Guides",
+			"owner": "2814",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "partial",
+			"sources": [
+				"examples/minimal/README.md",
+				"packages/core/README.md",
+				"packages/testing/README.md",
+				"packages/typegen/README.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "generate-types",
+					"contentType": "guide",
+					"outcome": "Generate and verify replaceable declarations for one configured UltimaBase application."
+				},
+				{
+					"slug": "test-an-application",
+					"contentType": "guide",
+					"outcome": "Verify a public create-and-read path with an isolated application and disposable PostgreSQL schema."
+				}
+			]
+		},
+		{
+			"slug": "operations",
+			"label": "Operations",
+			"owner": "2824",
+			"audiences": ["operator", "application-developer"],
+			"sourceStatus": "partial",
+			"sources": [
+				"packages/core/README.md",
+				"packages/typegen/README.md",
+				"examples/minimal/README.md",
+				"docs/RELEASING.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "before-exposing-your-application",
+					"contentType": "guide",
+					"outcome": "Identify the checks your application and deployment must pass before public exposure."
+				},
+				{
+					"slug": "troubleshooting",
+					"contentType": "troubleshooting",
+					"outcome": "Identify the failed startup boundary and repair it without bypassing a safety check."
+				}
+			]
+		},
+		{
+			"slug": "reference",
+			"label": "Reference",
+			"owner": "2824",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "ready",
+			"sources": [
+				"packages/*/README.md",
+				"packages/*/src/index.ts",
+				"README.md",
+				"ARCHITECTURE.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "package-index",
+					"contentType": "reference",
+					"outcome": "Choose the packages you need and verify their runtime and plugin compatibility."
+				}
+			]
+		},
+		{
+			"slug": "project",
+			"label": "Project",
+			"owner": "2822",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"sourceStatus": "partial",
+			"sources": [
+				"README.md",
+				"ROADMAP.md",
+				"CONTRIBUTING.md",
+				"docs/RELEASING.md"
+			],
+			"releaseStatus": "pre-release",
+			"pages": [
+				{
+					"slug": "release-status",
+					"contentType": "reference",
+					"outcome": "Decide whether the current pre-release framework is suitable for evaluation or adoption."
+				},
+				{
+					"slug": "roadmap",
+					"contentType": "reference",
+					"outcome": "Find proposed capabilities and their tracking issues without mistaking them for commitments."
+				},
+				{
+					"slug": "contributing",
+					"contentType": "guide",
+					"outcome": "Choose a contribution path, verify your work, and submit a useful proposal or pull request."
+				}
+			]
+		}
+	],
+	"standalonePages": [
+		{
+			"path": "/",
+			"slug": "home",
+			"contentType": "concept",
+			"outcome": "Understand the product promise and choose a next step.",
+			"owner": "2803",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": ["README.md", "ARCHITECTURE.md", "examples/minimal/README.md"]
+		},
+		{
+			"path": "/docs/1.0.0",
+			"slug": "what-is-ultimabase",
+			"contentType": "concept",
+			"outcome": "Understand UltimaBase's core model and choose the right next path.",
+			"owner": "2806",
+			"audiences": ["application-developer", "plugin-author", "operator"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": ["README.md", "ARCHITECTURE.md", "docs/PRODUCT_SPEC.md"]
+		},
+		{
+			"path": "/docs/1.0.0/quick-start",
+			"slug": "quick-start",
+			"contentType": "tutorial",
+			"outcome": "Understand the generated project's first-run path and use manual installation until packages are published.",
+			"owner": "2908",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"docs/adr/0249-interactive-project-initializer.md",
+				"packages/create-app/README.md",
+				"packages/create-app/src/cli.ts",
+				"packages/create-app/src/prompts.ts",
+				"packages/create-app/src/catalog.ts",
+				"packages/create-app/src/base-template.ts",
+				"packages/create-app/src/api-template.ts",
+				"packages/create-app/src/security-template.ts",
+				"packages/create-app/tests/e2e/create-app-packed.e2e.test.ts"
+			]
+		},
+		{
+			"path": "/docs/1.0.0/manual-installation",
+			"slug": "manual-installation",
+			"contentType": "tutorial",
+			"outcome": "Start and verify a minimal schema-backed PostgreSQL application from a manually configured project.",
+			"owner": "2806",
+			"audiences": ["application-developer"],
+			"releaseStatus": "pre-release",
+			"sourceStatus": "ready",
+			"sources": [
+				"README.md",
+				"packages/core/README.md",
+				"packages/postgres-plugin/README.md",
+				"examples/minimal/README.md"
+			]
+		}
+	]
+}

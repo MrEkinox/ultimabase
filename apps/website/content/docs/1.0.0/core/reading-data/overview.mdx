@@ -1,0 +1,153 @@
+---
+title: Query Overview
+seoTitle: Typed Data Queries
+description: Read typed models through canonical object inputs and immutable reusable builders.
+audience:
+  - application-developer
+contentType: concept
+order: 1
+outcome: Choose a read terminal, build its input, and execute it in the correct application context.
+owner: '2808'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/src/query/query/input.ts
+  - packages/core/src/query/query/query.ts
+  - docs/adr/0058-immutable-unbound-query-builder.md
+  - docs/adr/0152-schema-root-object-read-commands.md
+  - docs/adr/0227-core-query-exposes-offset-not-cursors.md
+---
+
+Read from the schema class returned by `App.Schema.define()`. `findMany` accepts one
+object for filtering, selection, related data, ordering, and pagination.
+Execution options are a separate final argument, not part of that read input.
+
+The example assumes `Post` declares `published` and `title`, and that its
+application is started with a persistence plugin. See
+[Manual Installation](/docs/1.0.0/manual-installation) for that setup.
+
+```ts title="src/read-posts.ts"
+import { Post } from './schemas.js'
+
+export const readPublishedPosts = () =>
+	Post.findMany({
+		limit: 20,
+		orderBy: { createdAt: 'desc', id: 'asc' },
+		select: { createdAt: true, title: true },
+		where: { published: { eq: true } },
+	})
+```
+
+The call returns at most 20 immutable `Post` models, ordered newest first with
+`id` breaking equal-timestamp ties. Each result contains `id`, `createdAt`,
+and `title`; `published` filters the rows but is not returned because the
+selection does not request it. The schema's TypeScript types check fields and
+operators; optional Typegen adds application-wide precision for installed
+plugins. Core still validates JavaScript and untrusted transport input before
+executing a read.
+
+## Read terminals
+
+| Terminal                       | Result               | No visible match | Use it for                       |
+| ------------------------------ | -------------------- | ---------------- | -------------------------------- |
+| `findMany(input?, options?)`   | Readonly model array | Empty array      | A filtered collection            |
+| `findOne(input?, options?)`    | One model or `null`  | `null`           | One matching record              |
+| `get({ id, ... }, options?)`   | One model            | `NOT_FOUND`      | One known stable identity        |
+| `count({ where? }, options?)`  | `number`             | `0`              | Collection cardinality           |
+| `exists({ where? }, options?)` | `boolean`            | `false`          | Presence without loading a model |
+
+`findOne` and `get` communicate different expectations. Use `get` when absence
+is exceptional and the ID is already known. Use `findOne` when a filter may
+legitimately match nothing. If several records may match `findOne`, add
+`orderBy` to define which is first; Core adds no implicit ordering. `count` and
+`exists` accept `where`, not selection, ordering, or pagination clauses.
+
+## Execution context
+
+Inside an active request, hook, or transaction, a read can omit the final
+argument and inherit the exact application, request context, cancellation
+signal, authority, and any active transaction. A read does not start a
+transaction by itself. In a root script, worker, or test, pass the started
+application explicitly as the final argument, as the first example does.
+Execution options can also supply a trusted context when needed; they are
+never serialized as query input by a transport. See
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity#use-a-context-in-a-direct-operation)
+for an explicit context and cancellation example.
+
+## Reusable dynamic queries
+
+Object input is the primary API. Use `QueryBuilder` when conditions are composed
+programmatically or reused as a typed scope:
+
+```ts title="src/recent-posts.ts"
+import { QueryBuilder, type QueryScope } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+const published: QueryScope<typeof Post> = (query) =>
+	query.where({ published: { eq: true } })
+
+const recentPublishedInput = new QueryBuilder(Post)
+	.select({ createdAt: true, title: true })
+	.use(published)
+	.descending('createdAt')
+	.ascending('id')
+	.limit(25)
+	.build()
+
+export const readRecentPublishedPosts = () =>
+	Post.findMany(recentPublishedInput)
+```
+
+Every builder method returns a new frozen branch. `build()` emits the same
+canonical object accepted by `Post.findMany`; the builder performs no I/O and
+retains no application or authority. The last call executes the read.
+
+You can branch one reusable selection without sharing a mutable filter:
+
+```ts title="src/post-queries.ts"
+import { QueryBuilder } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+
+const base = new QueryBuilder(Post).select({ title: true })
+const publishedInput = base.where({ published: { eq: true } }).build()
+const draftInput = base.where({ published: { eq: false } }).build()
+```
+
+Both inputs select `title`, but only their own `published` condition. `base`
+remains unchanged and none of these lines executes a request. Pass either
+input to `Post.findMany(input)` when you want to read it.
+
+An empty builder has no filter, selection, inclusion, ordering, limit, or
+offset. Omitted selection returns the complete visible model; Core adds no
+hidden ordering term. Use `include(field, callback)` to shape a related target
+with its own typed builder: pointer targets allow projection and nested
+inclusion, while relation targets also allow filtering, ordering, and paging.
+See [Related Data](./related-data) for the corresponding object input.
+
+## Read failures
+
+Core rejects unknown fields, invalid operators, negative pagination, and
+invalid relation predicates before database work. An adapter can also reject
+a query capability it does not support. Installed policy may hide a target,
+so `get()` can report `NOT_FOUND` even when the record exists physically.
+See [API Error Boundaries](/docs/1.0.0/core/runtime/api-errors) for safe error
+handling.
+
+## Related tasks
+
+<Cards>
+	<Card title="Filters" href="./filters">
+		Combine field operators and logical groups in `where`.
+	</Card>
+	<Card title="Selections" href="./selections">
+		Choose the visible fields and inferred result shape.
+	</Card>
+	<Card title="Ordering and Pagination" href="./ordering-and-pagination">
+		Build bounded, deterministic collection pages.
+	</Card>
+</Cards>

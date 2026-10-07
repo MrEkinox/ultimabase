@@ -1,0 +1,270 @@
+---
+title: Generate TypeScript Types
+description: Generate application-specific TypeScript declarations before typechecking or building.
+audience:
+  - application-developer
+contentType: guide
+order: 7
+outcome: Generate and verify replaceable declarations for one configured UltimaBase application.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-10-01
+sources:
+  - packages/typegen/README.md
+  - packages/typegen/src/plugin.ts
+  - packages/typegen/src/loader.ts
+  - packages/typegen/src/errors.ts
+  - packages/typegen/src/generator.ts
+  - packages/typegen/src/writer.ts
+  - packages/typegen/src/index.ts
+  - packages/core/src/plugins/typegen-declarations.test.ts
+  - apps/website/content/docs/1.0.0/manual-installation.mdx
+  - packages/create-app/src/base-template.ts
+  - docs/adr/0281-retain-generated-where-contracts.md
+  - docs/adr/0285-sparse-generated-mutation-surfaces.md
+  - packages/typegen/src/generator/contributions.ts
+  - packages/core/src/schema/type-info.ts
+---
+
+Typegen turns one application's compiled static graph into replaceable
+TypeScript declarations. Core derives a schema's local fields, models, inputs,
+bootstrap filters, selections, and results directly from its source declaration.
+Generate Typegen **before** typechecking or building for the complete `WhereInput`
+of every schema, the application-wide literal-name graph used by pointers,
+relations, and circular schemas, and plugin-owned contracts that have not yet
+moved to source projection. Typegen does not
+generate an executable client or change Runtime behavior. A missing or stale
+declaration affects TypeScript and editor completion, not what UltimaBase executes.
+
+Configured `App.Schema.define()` callbacks infer local plugin builders and
+options from the installed plugins. Typegen still supplies complete
+Access/Hooks/ACL callback contexts, exact Password User results, standalone
+specialized builder contracts, and advanced dynamically named operation or
+schema/model handles. These are retained consumers of the same generated graph.
+It is not yet a relationships-only file.
+
+The unpublished [project initializer](/docs/1.0.0/quick-start) already
+configures Typegen and runs generation before typecheck and build when you
+choose TypeScript. Use this guide when adding Typegen to an existing
+application. The initializer's JavaScript path does not install Typegen.
+
+## Prerequisites
+
+- Complete [Manual Installation](/docs/1.0.0/manual-installation). This guide
+  extends its `Task` schema and exported `ultimabase` application.
+- Keep its `.env` file available when generating types. Loading the application
+  evaluates `src/ultimabase.ts`, which reads `DATABASE_URL`; the database does
+  not need to be reachable for static generation.
+- Keep the tutorial's `schemaPolicy: 'override'` pointed at a disposable
+  database when you later start the application.
+
+## Shortest path
+
+### Install and configure Typegen
+
+Install the tooling package in the same project:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/typegen
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/typegen
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/typegen
+```
+
+Add `typegenPlugin()` once to the existing application. It generates directly
+during setup, before infrastructure connects. Repeating this plugin is a
+duplicate plugin identity error.
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
+
+import { Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+const Application = UltimaBase.use(typegenPlugin()).use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
+	schemas: [Task],
+})
+```
+
+Typegen reads the public type references registered by installed plugins and
+used by the compiled graph. It regenerates files at startup, before PostgreSQL
+connects. The separate build step below makes those types available **before**
+TypeScript checks your source. The default application ID is `main`; keep it and the output path in sync
+with the build script below. Static generation does not initialize an
+application. If your repository builds separate applications, give each its own
+output and TypeScript project so their generated registries do not collide.
+Only one application may initialize per JavaScript realm; see
+[Application boundaries](/docs/1.0.0/core/application#application-boundaries).
+
+### Include the generated declarations
+
+In the `tsconfig.json` from Manual Installation, include Typegen's output:
+
+```json title="tsconfig.json"
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"rootDir": "src",
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2024",
+		"types": ["node"]
+	},
+	"include": ["src", ".ultimabase/**/*.d.ts"]
+}
+```
+
+### Generate before building
+
+Create this script at your project root. It loads the exported application,
+compiles its static graph without calling `start()`, and writes the application
+declaration:
+
+```js title="scripts/generate-types.mjs"
+import path from 'node:path'
+
+import {
+	generateApplicationTypes,
+	loadTypegenApplication,
+	writeGeneratedTypeFiles,
+} from '@ultimabase/typegen'
+
+const applicationId = 'main'
+const outputPath = path.resolve('.ultimabase/schema.generated.d.ts')
+const application = await loadTypegenApplication({
+	sourcePath: './src/ultimabase.ts',
+	exportName: 'ultimabase',
+})
+const generated = generateApplicationTypes({
+	ultimabase: application,
+	applicationId,
+})
+
+await writeGeneratedTypeFiles([
+	{ applicationId, contents: generated.contents, outputPath },
+])
+```
+
+Replace the scripts from Manual Installation with these; keep the other
+`package.json` fields. Both `typecheck` and `build` regenerate declarations so
+neither can silently use an old file:
+
+```json title="package.json"
+{
+	"type": "module",
+	"scripts": {
+		"generate:types": "node --env-file=.env scripts/generate-types.mjs",
+		"typecheck": "node --env-file=.env scripts/generate-types.mjs && tsc --noEmit",
+		"build": "node --env-file=.env scripts/generate-types.mjs && tsc",
+		"start": "node --env-file=.env dist/main.js"
+	}
+}
+```
+
+The loader evaluates your module-level configuration, so keep database
+connections and other startup effects out of imports. It does not call
+`ultimabase.start()` or create a `Task` record. Run the checks before starting
+the tutorial application:
+
+```bash tab="npm" tab-group="package-manager"
+npm run typecheck
+npm run build
+npm start
+```
+
+```bash tab="yarn"
+yarn typecheck
+yarn build
+yarn start
+```
+
+```bash tab="pnpm"
+pnpm typecheck
+pnpm build
+pnpm start
+```
+
+## Verify the outcome
+
+The first `typecheck` creates `.ultimabase/schema.generated.d.ts` without
+starting PostgreSQL. Open it and look for `TaskItem`, `TaskCreateInput`, and
+`Schemas.Task`, plus a generated-file notice and SHA-256 fingerprint. Then
+confirm the file exists:
+
+```sh
+test -f .ultimabase/schema.generated.d.ts
+```
+
+Your editor already obtains `Task`'s local Core fields from its source. It should
+now also resolve named relationship targets across the configured schema graph
+and the installed plugin-owned types represented by the current generated
+contract. A successful build confirms that TypeScript included the declaration;
+it does not prove that the database is reachable. Regenerate
+after changing schemas or plugins. Never edit generated output by hand.
+
+The redundant generated `Application*Builder` aliases are no longer emitted.
+Prefer the inferred callback parameter; use Core's public builder types for
+explicit low-level annotations. Plugin methods remain available through their
+contextual interfaces. Mutation methods likewise share one generated descriptor
+per schema alias, without changing their input, result, or error types.
+Core derives class mutation types from that descriptor and schema-handle
+visibility, so no separate `schemaClass` map is generated. Schemas without
+mutation methods have no generated surface entry; entirely empty operation or
+surface interfaces are omitted. Installed mutations such as Soft Delete still
+retain schema/model maps for named handles, related models, and exact policy
+callbacks. Regenerate declarations after upgrading Core and Typegen together.
+
+## Limitations
+
+Because `typegenPlugin()` is in this application's graph, starting the
+application also writes the generated files, including in production if you
+deploy the same graph. Its `environment:filesystem` claim makes that direct
+filesystem effect visible, but it is not an operating-system sandbox. Keep the
+output path writable wherever this application starts. Startup generation
+alone is convenient for a small project that already compiles, but it cannot
+supply types before the first TypeScript build.
+
+Generated declarations are needed by TypeScript, not by the deployed
+JavaScript Runtime. Either commit the output or reproduce it in every build
+environment with the required configuration available; the scripts above take
+the latter approach. There is no dedicated Typegen CLI, freshness-check mode,
+or watch mode yet.
+
+### Troubleshooting generation
+
+Run the `generate:types` script from this guide, then `typecheck`. If the
+declaration is missing or stale, confirm that `src/ultimabase.ts` exports the
+configured `ultimabase` name, that `.env` is available without printing its
+values, and that the generated directory is writable. The `applicationId` and
+output path in the script must match `typegenPlugin()`; include the `.d.ts` in
+`tsconfig.json` but never import it as Runtime state.
+
+For `SCHEMA_TYPEGEN_FAILED`, keep the stable `reason` and owner. Check
+plugin-owned references and output paths when the failure names a contribution.
+Host permissions and path casing vary; grant access only to the generated
+directory, not the whole project. Never edit an old declaration to make a
+typecheck pass. Use [Report a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem)
+if a minimal application still fails.
+
+## Related concepts
+
+Read [Application](/docs/1.0.0/core/application) for the Runtime boundary,
+[Schemas](/docs/1.0.0/core/data-modeling/schemas) for the declaration source,
+and [Using Plugins](/docs/1.0.0/plugins/using-plugins) for plugin-owned types.

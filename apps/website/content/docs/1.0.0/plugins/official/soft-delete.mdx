@@ -1,0 +1,508 @@
+---
+title: Soft Delete
+description: Soft-delete records through TypeScript, REST, or GraphQL, then restore or purge them from trusted server code.
+audience:
+  - application-developer
+contentType: guide
+order: 8
+outcome: Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code.
+owner: '2809'
+releaseStatus: pre-release
+reviewedAt: 2026-09-29
+sources:
+  - packages/soft-delete-plugin/README.md
+  - packages/soft-delete-plugin/src/plugin.ts
+  - packages/soft-delete-plugin/src/visibility.ts
+  - packages/soft-delete-plugin/tests/e2e/soft-delete-visibility.postgres.e2e.test.ts
+  - packages/soft-delete-plugin/src/explicit.ts
+  - packages/soft-delete-plugin/src/administration.ts
+  - packages/rest-plugin/README.md
+  - packages/graphql-plugin/README.md
+  - packages/typegen/README.md
+  - tests/e2e/soft-delete-explicit-transports.postgres.e2e.test.ts
+  - tests/e2e/soft-delete-public-vertical.postgres.e2e.test.ts
+  - examples/minimal/src/soft-delete.ts
+  - examples/minimal/README.md
+  - packages/core/docs/runtime.md
+  - docs/adr/0245-plugin-schema-mutations-and-soft-delete.md
+  - docs/adr/0248-application-selected-schema-class-mutations.md
+---
+
+## Overview
+
+`@ultimabase/soft-delete-plugin` lets you hide a record without removing its
+stored data. It marks the record with `isDeleted: true`, called a tombstone.
+Ordinary reads then treat that record as absent. Trusted server code can
+restore it, or permanently remove it with `purge()`.
+
+Choose how callers request deletion:
+
+| Mode             | What callers use    | What happens                                                  |
+| ---------------- | ------------------- | ------------------------------------------------------------- |
+| `explicit`       | `Post.softDelete()` | Writes a recoverable tombstone; native delete stays permanent |
+| `replace-delete` | `Post.deleteOne()`  | Existing delete calls write recoverable tombstones            |
+| `disabled`       | `Post.deleteOne()`  | Native permanent deletion; no Soft Delete commands            |
+
+This guide starts with `explicit` mode and the same `Post` schema throughout.
+Follow the server-side flow, then use [REST](#rest) or [GraphQL](#graphql).
+[Replace-delete mode](#keep-existing-delete-calls) shows how to keep existing
+delete calls instead.
+
+## Installation
+
+Start from a working UltimaBase application with a database provider. Packages
+are pre-release; follow [Manual Installation](/docs/1.0.0/manual-installation)
+for the project layout and the linked repository example. These are the intended registry commands
+once the package is published:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/soft-delete-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/soft-delete-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/soft-delete-plugin
+```
+
+Importing the package installs no behavior. Add `softDeletePlugin()` to the
+application that owns the schema. REST, GraphQL, Access, and Hooks are optional
+integrations, installed separately.
+
+The configured factory supplies the application-specific `softDelete` option,
+methods, and `isDeleted` field directly from the plugin declaration. Keep
+[Typegen](/docs/1.0.0/guides/generate-types) for the application-wide named
+schema and relationship graph. JavaScript executes the same compiled
+application without generated declarations.
+
+## Configuration
+
+Define a Post with a required title and opt it into explicit soft deletion:
+
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }))
+	.use(softDeletePlugin({ defaultMode: 'disabled' }))
+```
+
+```ts title="src/schemas.ts"
+import { Application } from './application.js'
+
+export const Post = Application.Schema.define({
+	className: 'Post',
+	softDelete: 'explicit',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+})
+```
+
+Install the plugin and your database provider. This example uses a **disposable
+development database**: PostgreSQL's `override` policy can create or alter
+application tables. Master authority is configured for the private restore and
+purge steps later; ordinary soft deletion does not require it.
+
+```ts title="src/ultimabase.ts"
+import { MasterAuthority } from '@ultimabase/core'
+import { Application } from './application.js'
+import { Post } from './schemas.js'
+
+const masterKey = process.env.ULTIMABASE_MASTER_KEY
+if (!masterKey) throw new Error('ULTIMABASE_MASTER_KEY is required')
+
+export const ultimabase = new Application({
+	masterAuthority: new MasterAuthority({
+		keys: [{ id: 'server', value: masterKey }],
+		onUse: (event) => {
+			// Replace this development sink with your production audit sink.
+			console.info('Master use', event.reason)
+		},
+	}),
+	schemas: [Post],
+})
+```
+
+Keep `ULTIMABASE_MASTER_KEY` server-side. A client must never choose
+`useMasterKey` or receive that key. See [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
+for audit configuration.
+
+`defaultMode: 'disabled'` makes every schema opt in deliberately. You can instead
+set the default to `explicit` or `replace-delete`. Each schema inherits that
+default unless it sets `softDelete: 'explicit'`, `'replace-delete'`, or `false`.
+The configured factory types inherited commands from a literal default;
+`softDelete: false` excludes them. Plugin-owned schemas are never enabled
+implicitly.
+
+Start the exported application from a separate entry point:
+
+```ts title="src/main.ts"
+import { ultimabase } from './ultimabase.js'
+
+await ultimabase.start()
+```
+
+Generate types before compiling your application. Keeping startup in `main.ts`
+also lets the Typegen build step load `ultimabase.ts` without opening the database
+or an HTTP listener.
+
+## Behavior and limitations
+
+### Create, soft-delete, and verify
+
+In server code, call the schema class directly after `ultimabase.start()`.
+Outside an active request, the class resolves the sole active application.
+
+```ts title="src/soft-delete-flow.ts"
+import { Post } from './schemas.js'
+
+const post = await Post.createOne({
+	data: { title: 'Draft announcement' },
+})
+
+const deleted = await Post.softDelete({
+	id: post.id,
+	select: { title: true, isDeleted: true },
+})
+
+const visible = await Post.findOne({
+	where: { id: { eq: post.id } },
+})
+```
+
+`deleted` contains the same ID and title with `isDeleted: true`: it is the
+record **after** soft deletion. `visible` is `null`. Keep the ID if trusted
+server code will restore it later. Repeating `softDelete()` for that ID fails
+with `NOT_FOUND`, just as it does for an absent target.
+
+Inside an active request, the same class methods preserve the exact request
+owner. The advanced application handle
+`ultimabase.schema(Post).softDelete(...)` and persisted model method
+`post.softDelete()` are also available. A retained model is an immutable
+snapshot; having that object does not make a tombstone visible or allow you to
+soft-delete it twice.
+
+<Callout type="warn" title="Native delete stays permanent in explicit mode">
+	`Post.deleteOne()`, REST `DELETE`, and GraphQL `deletePost` still physically
+	delete the record. Use the dedicated soft-delete command for a recoverable
+	deletion. Restore cannot recover a physically deleted record.
+</Callout>
+
+### Enable REST and GraphQL
+
+Soft Delete discovers the installed transports automatically. It needs no
+application-operation token list. The schema must be exposed by that transport,
+and its plugin-mutation surface must be enabled:
+
+- REST: `rest: { mutations: true }` controls the additional schema-mutation
+  routes. `rest: false` or `mutations: false` hides them.
+- GraphQL: `graphql: { operations: { mutations: true } }` controls additional
+  schema-mutation fields. `graphql: false` or `mutations: false` hides them.
+
+Both mutation switches are on by default. They inherit the corresponding
+transport's configured defaults; enabling exposure does not grant permission.
+
+For a local walkthrough of both APIs, install the HTTP, REST, GraphQL, Yoga,
+and Hono packages described in [REST setup](./rest) and
+[GraphQL with Yoga](./graphql#serve-graphql-over-http-with-yoga). Add the following
+plugins to the existing application with `...apiPlugins` before starting it;
+import `apiPlugins` from `./api-plugins.js` in `ultimabase.ts`. Use
+[Hono's server entry point](./hono-server#start-and-stop-the-managed-listener)
+so the API keeps serving between the requests below.
+
+```ts title="src/api-plugins.ts"
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+export const apiPlugins = [
+	httpPlugin({ appId: 'blog' }),
+	restPlugin({ acknowledgeUnverifiedProtection: true }),
+	graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
+	graphqlYogaPlugin(),
+	honoServerPlugin({ host: '127.0.0.1', port: 1337 }),
+] as const
+```
+
+This local example exposes the schema's default read and write operations
+without an authorization policy. Keep it on loopback with disposable data.
+Before public exposure, configure [Access](./access) or [Object ACLs](./acl-permissions)
+and review [public transport protection](/docs/1.0.0/operations/before-exposing-your-application).
+The example explicitly acknowledges unverified protection for this local
+walkthrough. Removing that acknowledgement produces
+`UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`; acknowledging it does not add policy.
+
+If your policy requires an authenticated caller, configure
+[Password Authentication](./password-authentication) and send that caller's
+session with `Authorization: Bearer SESSION_TOKEN` on the requests below.
+Authentication alone grants no read or soft-delete permission.
+
+### REST
+
+These requests use the default `/api` prefix and the `blog` application ID
+configured above. Create a fresh record for this walkthrough:
+
+```bash title="create-post.sh"
+curl --request POST \
+  'http://127.0.0.1:1337/api/v1/classes/Post?select=id,title,isDeleted' \
+  --header 'Content-Type: application/json' \
+  --header 'X-UltimaBase-Application-Id: blog' \
+  --data '{"title":"Draft announcement"}'
+```
+
+Expect HTTP `201` with `result.id`, the title, and `isDeleted: false`. Replace
+`POST_ID` below with that returned UUID v7; it is a placeholder, not a valid ID.
+
+```bash title="soft-delete-post.sh"
+curl --request POST \
+  http://127.0.0.1:1337/api/v1/classes/Post/POST_ID/soft-delete \
+  --header 'Content-Type: application/json' \
+  --header 'X-UltimaBase-Application-Id: blog' \
+  --data '{"select":{"title":true,"isDeleted":true}}'
+```
+
+The ID belongs in the URL. The JSON body controls the result selection; soft
+delete has no operation payload, so omit `input`. Send `{}` when you need the
+default selection. Do not send `isDeleted` as create or update data.
+
+Expect HTTP `200` with the **post-delete** record:
+
+```json title="soft-delete.response.json"
+{
+	"result": {
+		"id": "POST_ID",
+		"title": "Draft announcement",
+		"isDeleted": true
+	}
+}
+```
+
+Now read the same ID through the ordinary get route:
+
+```bash title="get-deleted-post.sh"
+curl --include \
+  http://127.0.0.1:1337/api/v1/classes/Post/POST_ID \
+  --header 'X-UltimaBase-Application-Id: blog'
+```
+
+Expect HTTP `404` with `NOT_FOUND`. A repeated soft-delete request also returns
+`404`. Collection reads omit the tombstone; a first-match read returns
+`{ "result": null }` if that is the only matching record. There is no public
+restore or purge URL, including for clients with elevated credentials.
+
+A custom REST `basePath` changes the `/api` prefix. Disabling `rest.mutations`
+hides the soft-delete route independently of native `rest.delete`.
+
+### GraphQL
+
+Use `POST http://127.0.0.1:1337/graphql` with these headers:
+
+```json title="graphql-headers.json"
+{
+	"Content-Type": "application/json",
+	"X-UltimaBase-Application-Id": "blog"
+}
+```
+
+In an HTTP client, place each document in `query` and its variables in
+`variables`. In a GraphQL explorer, paste them into the corresponding panes.
+Create a separate Post so this example does not reuse the REST tombstone:
+
+```graphql title="create-post.graphql"
+mutation CreatePost {
+	createPost(input: { title: "Draft announcement" }) {
+		id
+		title
+		isDeleted
+	}
+}
+```
+
+Read the new ID from `data.createPost.id`; `isDeleted` is initially `false`.
+Use that ID in the following variables:
+
+```json title="post.variables.json"
+{ "id": "POST_ID" }
+```
+
+```graphql title="soft-delete-post.graphql"
+mutation SoftDeletePost($id: ID!) {
+	softDeletePost(input: { id: $id }) {
+		id
+		title
+		isDeleted
+	}
+}
+```
+
+The generated field accepts `input: SoftDeletePostInput!`, containing only
+`id: ID!`. There is no `data` or `isDeleted` input. Select the fields you need
+from the **post-delete** record:
+
+```json title="soft-delete.graphql.response.json"
+{
+	"data": {
+		"softDeletePost": {
+			"id": "POST_ID",
+			"title": "Draft announcement",
+			"isDeleted": true
+		}
+	}
+}
+```
+
+Verify visibility with the same variables:
+
+```graphql title="find-deleted-post.graphql"
+query FindDeletedPost($id: ID!) {
+	findOnePost(where: { id: { eq: $id } }) {
+		id
+		title
+	}
+}
+```
+
+Expect `{ "data": { "findOnePost": null } }`. Repeating the soft-delete mutation
+instead produces a GraphQL error with `extensions.code: "NOT_FOUND"`; inspect
+`errors`, even if the HTTP status is `200`. There are no generated `restorePost`
+or `purgePost` fields.
+
+GraphQL derives `softDeletePost` from the command and the generated model name.
+Disabling `graphql.operations.mutations` hides this field independently of
+native `graphql.operations.delete`.
+
+### Restore or permanently purge from server code
+
+Both modes expose `Post.restore()` and `Post.purge()` to trusted server code.
+They require configured, audited Master authority. Never forward a
+client-selected `useMasterKey` flag.
+
+Continue the earlier server-side flow using its `post.id`:
+
+```ts title="src/soft-delete-flow.ts (continued)"
+const restored = await Post.restore(
+	{ id: post.id, select: { title: true, isDeleted: true } },
+	{ useMasterKey: true },
+)
+
+const visibleAgain = await Post.findOne({
+	where: { id: { eq: post.id } },
+})
+```
+
+`restored.isDeleted` is `false`, and `visibleAgain` returns the Post. Restore
+preserves its ID, stored fields, pointers, and relation memberships. A later
+REST or GraphQL read can see it again, subject to the caller's read permissions.
+
+Purge accepts only an existing tombstone. To finish this disposable example,
+soft-delete the restored Post again, then purge it:
+
+```ts title="src/soft-delete-flow.ts (continued)"
+await Post.softDelete({ id: post.id })
+
+const purged = await Post.purge(
+	{ id: post.id, select: { title: true, isDeleted: true } },
+	{ useMasterKey: true },
+)
+```
+
+`purged` is the record **before** physical deletion, with `isDeleted: true`.
+The row is now permanently removed; `restore()` cannot recover it. Purge follows
+the database's ordinary integrity rules. Missing, active, and already purged
+targets all produce the same `NOT_FOUND` result for restore and purge.
+
+The equivalent application handles `.restore()` and `.purge()` remain available.
+Neither command exists on persisted models, in REST, in GraphQL, or as an
+Access-policy branch. Master does not skip Hooks or transaction integrity.
+
+### Keep existing delete calls
+
+Choose `softDelete: 'replace-delete'` on Post instead of `explicit` and restart
+with the new compiled application. Regenerate Typegen declarations. The
+additional `softDelete` method, REST route, and GraphQL field are absent in
+this mode; use native delete with a fresh active Post.
+
+For TypeScript, call `Post.deleteOne({ id: postId })`.
+For REST, send a bodyless `DELETE` request:
+
+```bash title="replace-delete-post.sh"
+curl --request DELETE \
+  'http://127.0.0.1:1337/api/v1/classes/Post/POST_ID?select=id,title,isDeleted' \
+  --header 'X-UltimaBase-Application-Id: blog'
+```
+
+For GraphQL, use the ordinary delete mutation and the same `{ "id": "POST_ID" }`
+variables shape, substituting another fresh record's ID:
+
+```graphql title="replace-delete-post.graphql"
+mutation DeletePost($id: ID!) {
+	deletePost(input: { id: $id }) {
+		id
+		title
+		isDeleted
+	}
+}
+```
+
+Both return the **pre-delete** record, so the selected `isDeleted` is `false`
+even though the stored row is now a hidden tombstone. Verify with the ordinary
+reads above, then use the same private restore or purge commands. The public
+REST/GraphQL delete operations must still be enabled and authorized.
+
+Native delete Access and Hooks continue to run. Update Access, Hooks,
+validators, defaults, and generators are not replayed. Each item of native
+`deleteMany` follows the same replacement behavior inside one transaction;
+a rejected item rolls back earlier tombstones in the batch.
+
+### Visibility, permissions, and limits
+
+The plugin owns `isDeleted`. Do not declare it yourself or write it through
+create, update, nested commands, REST, or GraphQL. You may select it in results
+and filter it like an ordinary boolean, subject to installed field policy.
+A filter such as `where: { isDeleted: { eq: true } }` still returns no tombstones:
+the plugin always combines ordinary reads with its private `isDeleted: false`
+constraint. Filtering is not an include-deleted permission.
+
+Tombstones are hidden from ordinary reads, counts, existence checks, pointer
+and relation traversal, eager loading, and ordinary update or delete targets.
+This also applies to Master reads: Master is not an include-deleted switch.
+Direct database queries do not apply these application rules.
+
+With [Access](./access), explicit soft deletion uses its own `access.softDelete`
+rule. Granting native update or delete does not grant soft deletion. With
+[Hooks](./hooks), it runs `beforeOperation.softDelete` and
+`afterOperation.softDelete`. The private commands similarly have `restore`
+and `purge` Hook branches. REST, GraphQL, and TypeScript enter the same Runtime
+pipeline and preserve transaction and protected-policy boundaries.
+
+V1 has no deletion timestamp, deleter identity, reason, include-deleted query,
+uniqueness reuse, retention job, automatic purge, bulk `softDelete`, or nested
+soft delete. A tombstone retains its data and may still occupy a unique value.
+
+## Troubleshooting
+
+- **The soft-delete route or field is missing:** check `explicit` mode, plugin
+  installation, schema exposure, and the transport's `mutations` switch. In
+  replace mode, use native delete instead.
+- **Soft deletion returns `NOT_FOUND`:** the ID may be absent, already deleted,
+  or hidden by a policy. Repeating soft deletion does not succeed again.
+- **A deleted record remains visible:** check the selected application, effective
+  mode, and operation result. Direct database reads still see tombstones.
+- **Native deletion cannot be restored:** in explicit or disabled mode, native
+  delete is permanent. Only tombstones can be restored.
+- **Restore or purge is rejected:** use trusted server code with audited Master
+  authority and an existing tombstone. Neither operation is public.
+- **TypeScript cannot find a field or method:** declare the schema from the
+  configured factory that installs `softDeletePlugin()` and check its effective
+  mode. At runtime, start the sole owning application.
+- **A request fails before reaching the operation:** check the application ID,
+  credentials, and transport setup in [HTTP troubleshooting](./http#troubleshooting).

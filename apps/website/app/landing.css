@@ -1,0 +1,1075 @@
+/* Landing-only tokens keep the standard Fumadocs documentation shell intact. */
+.ub-landing {
+	--landing-ink: #172135;
+	--landing-blue: #2055d6;
+	--landing-soft: #edf3ff;
+	--landing-muted: #596477;
+	--landing-line: #dce2ed;
+	--landing-paper: #f9fafc;
+	--landing-card: #fff;
+	--ub-accent-hover: #123ca3;
+	font-family: var(--ub-font-sans);
+	background: var(--landing-paper);
+	color: #172135;
+}
+html.dark .ub-landing {
+	--landing-ink: #edf1fa;
+	--landing-blue: #96b9ff;
+	--landing-soft: #0b101a;
+	--landing-muted: #a5b0c3;
+	--landing-line: #252b36;
+	--landing-paper: #000;
+	--landing-card: #101216;
+	--ub-accent-hover: #b6cfff;
+	color: #edf1fa;
+}
+.ub-landing .ub-section {
+	width: min(100% - 6rem, 78rem);
+}
+.ub-landing h1,
+.ub-landing h2,
+.ub-landing h3 {
+	text-wrap: balance;
+}
+.ub-landing h2 {
+	font-size: clamp(2.25rem, 4vw, 3.6rem);
+	font-weight: 560;
+	letter-spacing: -0.045em;
+	line-height: 1.08;
+}
+.ub-landing .ub-text-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--landing-blue);
+}
+.ub-landing svg {
+	width: 1rem;
+	height: 1rem;
+	flex-shrink: 0;
+}
+.ub-landing .ub-button {
+	gap: 0.8rem;
+	padding: 0.95rem 1.2rem;
+	font-weight: 600;
+}
+.ub-landing .ub-button-secondary {
+	border-color: var(--landing-line);
+	background: var(--landing-paper);
+	color: inherit;
+}
+.ub-landing .ub-landing-hero {
+	position: relative;
+	isolation: isolate;
+	display: grid;
+	grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr);
+	gap: 0 3rem;
+	width: min(100% - 2rem, 86rem);
+	margin-top: 1rem;
+	padding: 4rem 3rem 0;
+	border: 1px solid var(--landing-line);
+	border-radius: 1.25rem;
+	background: var(--landing-soft);
+}
+/* The same coordinate field connects the opening demo and closing invitation. */
+.ub-landing-hero::before,
+.ub-landing-start::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	border-radius: inherit;
+	background-image: radial-gradient(
+		var(--landing-blue) 0.65px,
+		transparent 0.8px
+	);
+	background-size: 7px 7px;
+	opacity: 0.18;
+	mask-image: linear-gradient(115deg, transparent 35%, #000);
+	pointer-events: none;
+}
+.ub-landing-hero-copy {
+	text-align: left;
+}
+.ub-landing-kicker {
+	color: var(--landing-blue);
+	font: 0.75rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.09em;
+}
+.ub-landing-kicker {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 0.75rem;
+}
+.ub-landing-hero h1 {
+	margin-top: 1.6rem;
+	font-size: clamp(3.4rem, 5.1vw, 5rem);
+	font-weight: 560;
+	line-height: 1.02;
+	letter-spacing: -0.055em;
+}
+.ub-landing-hero h1 > span {
+	color: var(--landing-blue);
+}
+.ub-landing-hero .ub-lede {
+	max-width: 40rem;
+	margin: 1.5rem 0 0;
+	color: var(--landing-muted);
+	font-size: 1.125rem;
+	line-height: 1.7;
+}
+.ub-landing-hero .ub-action-row {
+	justify-content: flex-start;
+	margin-top: 1.6rem;
+}
+.ub-hero-note {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	align-items: center;
+	gap: 0.6rem;
+	margin-top: 1.1rem;
+	color: var(--landing-muted);
+	font-size: 0.75rem;
+}
+.ub-status-dot {
+	width: 0.35rem;
+	height: 0.35rem;
+	background: var(--landing-blue);
+	border-radius: 50%;
+}
+/* Native tabs keep all examples reachable by keyboard and reserve their tallest panel. */
+.ub-proof {
+	grid-column: 1 / -1;
+	min-width: 0;
+	margin: 3rem 0 -1px;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem 0.75rem 0 0;
+	background: var(--landing-card);
+	box-shadow: 0 12px 40px -16px rgb(18 50 110 / 0.2);
+}
+.ub-demo-tabs,
+.ub-outcome-tabs {
+	margin: 0;
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+}
+.ub-demo-tabs [role='tablist'],
+.ub-outcome-tabs [role='tablist'] {
+	margin: 0;
+	padding-inline: 1.5rem;
+	border-bottom: 1px solid var(--landing-line);
+	background: transparent;
+}
+.ub-demo-tabs [role='tab'],
+.ub-outcome-tabs [role='tab'] {
+	color: var(--landing-muted);
+	min-height: 2.75rem;
+	padding-inline: 0.5rem;
+	font-size: 0.875rem;
+}
+.ub-demo-panels {
+	display: grid;
+	min-width: 0;
+}
+.ub-demo-panels > [role='tabpanel'] {
+	grid-area: 1 / 1;
+	min-width: 0;
+	margin: 0;
+	border-radius: 0;
+	background: transparent;
+}
+/* Visibility removes inactive controls from focus and accessibility without collapsing layout. */
+.ub-demo-panels > [role='tabpanel'][data-state='inactive'] {
+	display: block;
+	visibility: hidden;
+	pointer-events: none;
+}
+.ub-demo-tabs .ub-demo-panel {
+	display: grid;
+	grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+	padding: 0;
+}
+.ub-demo-tabs .ub-demo-panel[data-state='inactive'] {
+	display: grid;
+}
+.ub-demo-code {
+	min-width: 0;
+	border-right: 1px solid var(--landing-line);
+}
+.ub-editor-label {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.85rem 1.5rem;
+	border-bottom: 1px solid var(--landing-line);
+	color: var(--landing-muted);
+	font: 0.75rem/1.5 var(--ub-font-mono);
+}
+.ub-editor-label > span:first-child {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--landing-blue);
+}
+.ub-proof .ub-code {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+/* Landing previews own their spacing instead of stacking viewport, pre, and line padding. */
+.ub-landing .shiki > [role='region'] {
+	padding-block: 0;
+}
+.ub-landing .shiki pre {
+	--padding-left: 0px;
+	--padding-right: 0px;
+}
+.ub-proof .ub-code pre {
+	padding: 1rem 1.5rem;
+	background: transparent;
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-demo-result {
+	align-self: center;
+	min-width: 0;
+	padding: 2rem;
+}
+.ub-demo-eyebrow {
+	color: var(--landing-blue);
+	font: 0.6875rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.09em;
+}
+.ub-landing .ub-demo-result h2 {
+	margin-top: 0.75rem;
+	font-size: clamp(1.5rem, 2.2vw, 2rem);
+	line-height: 1.15;
+	letter-spacing: -0.035em;
+}
+.ub-demo-result > p:not(.ub-demo-eyebrow) {
+	margin-top: 0.75rem;
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-field-types {
+	margin-top: 1.5rem;
+	border-block: 1px solid var(--landing-line);
+	font: 0.875rem/1.5 var(--ub-font-mono);
+}
+.ub-field-types > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.55rem 0;
+}
+.ub-field-types > div + div {
+	border-top: 1px dashed var(--landing-line);
+}
+.ub-field-types dd {
+	color: var(--landing-blue);
+}
+.ub-proof figcaption {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.85rem 1.5rem;
+	border-top: 1px solid var(--landing-line);
+	color: var(--landing-muted);
+	font-size: 0.75rem;
+	line-height: 1.6;
+}
+.ub-proof figcaption a {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	white-space: nowrap;
+	color: var(--landing-blue);
+	font-weight: 600;
+}
+.ub-unpublished-note {
+	flex-basis: 100%;
+}
+#application-setup {
+	scroll-margin-top: 5rem;
+}
+/* Editorial introduction and explicit application composition. */
+.ub-intro {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 2rem;
+	padding-block: 3rem;
+}
+.ub-intro p {
+	color: var(--landing-ink);
+	font-size: clamp(1.125rem, 1.6vw, 1.5rem);
+	line-height: 1.55;
+	letter-spacing: -0.035em;
+}
+.ub-intro strong {
+	color: var(--landing-blue);
+	font-weight: 600;
+}
+.ub-intro .ub-text-link {
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.ub-landing-composition {
+	display: grid;
+	grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+	/* Share the tallest card's height without fixing either card's content size. */
+	align-items: stretch;
+	gap: 2rem;
+	padding-block: 4rem 5rem;
+}
+.ub-section-label {
+	margin-bottom: 1rem;
+	color: var(--landing-blue);
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.5;
+}
+.ub-composition-copy > p:not(.ub-section-label) {
+	margin-top: 1.4rem;
+	color: var(--landing-muted);
+	font-size: 1rem;
+	line-height: 1.75;
+}
+.ub-composition-copy > .ub-text-link {
+	margin-top: 1.5rem;
+}
+.ub-plugin-directory {
+	margin-top: 2rem;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-plugin-directory .ub-text-link {
+	display: grid;
+	grid-template-columns: 5.5rem 1fr auto;
+	width: 100%;
+	padding-block: 0.85rem;
+	border-bottom: 1px solid var(--landing-line);
+}
+.ub-plugin-directory span {
+	color: var(--landing-muted);
+	font-size: 0.8125rem;
+	font-weight: 400;
+}
+.ub-plugin-directory strong {
+	color: var(--ub-foreground);
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+.ub-application-code {
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid #34415d;
+	border-radius: 0.75rem;
+	background: #101b30;
+	color: #eaf0ff;
+	box-shadow: 0 16px 40px -20px rgb(18 30 60 / 0.3);
+}
+.ub-code-overline {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1rem 1.25rem;
+	background: #1a2d50;
+	color: #adc7f7;
+	font: 0.6875rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.06em;
+}
+.ub-application-code .ub-application-codeblock {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: #101b30;
+	color: #c6d2e9;
+	box-shadow: none;
+}
+.ub-application-codeblock > div {
+	background: transparent;
+	border-color: #2c3a55;
+	color: #c6d2e9;
+}
+.ub-application-code .ub-application-codeblock pre {
+	padding: 1rem 1.25rem;
+	background: #101b30;
+	font-size: 0.875rem;
+	line-height: 1.9;
+}
+/* Shared execution diagram. */
+.ub-landing-flow {
+	padding: 3.5rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	background: var(--landing-soft);
+	box-shadow: 0 8px 20px -14px rgb(18 50 110 / 0.3);
+}
+.ub-landing-details {
+	padding-block: 6rem;
+}
+.ub-transaction-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 4rem;
+	padding-bottom: 4rem;
+}
+.ub-transaction-proof > div > p:not(.ub-section-label) {
+	max-width: 31rem;
+	margin-top: 1.25rem;
+	color: var(--landing-muted);
+	line-height: 1.75;
+}
+.ub-transaction-proof > div .ub-text-link {
+	margin-top: 1.5rem;
+}
+.ub-transaction-demo {
+	min-width: 0;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	background: var(--landing-soft);
+}
+.ub-transaction-demo figcaption {
+	padding: 1.25rem 1.5rem 0.5rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+.ub-outcome-tabs [role='tabpanel'] {
+	padding: 1.5rem;
+}
+.ub-transaction-demo li {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+	padding: 1rem 0;
+	border-bottom: 1px solid var(--landing-line);
+	font-size: 0.9375rem;
+}
+.ub-transaction-demo li span {
+	color: var(--landing-blue);
+	font: 0.75rem var(--ub-font-mono);
+}
+.ub-transaction-outcome {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 1.5rem;
+	padding: 1rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.35rem;
+	background: var(--landing-card);
+	color: var(--landing-blue);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+/* Echo the hero surface while keeping the closing actions centered. */
+.ub-landing-start {
+	position: relative;
+	isolation: isolate;
+	display: grid;
+	justify-items: center;
+	gap: 2rem;
+	margin-bottom: 5rem;
+	padding: 4rem 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 1.25rem;
+	background: var(--landing-soft);
+	color: var(--landing-ink);
+	text-align: center;
+}
+.ub-landing-start h2 {
+	font-size: clamp(2.2rem, 3.8vw, 3.25rem);
+}
+.ub-landing-start > div > p {
+	max-width: 34rem;
+	margin: 1.25rem auto 0;
+	color: var(--landing-muted);
+	font-size: 1rem;
+	line-height: 1.75;
+}
+.ub-start-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 1.5rem;
+}
+.ub-start-actions .ub-button {
+	width: auto;
+}
+.ub-start-status {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	color: var(--landing-muted);
+	font-size: 0.8125rem;
+}
+.ub-landing .ub-start-status .ub-text-link {
+	color: var(--landing-muted);
+	font-size: inherit;
+	font-weight: inherit;
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+}
+.ub-landing .ub-start-status .ub-text-link:hover {
+	color: var(--landing-blue);
+}
+/* Concrete examples make the schema/plugin composition legible at a glance. */
+.ub-hero-equation {
+	align-self: center;
+	display: grid;
+	justify-items: center;
+	padding: 0.5rem;
+	color: var(--landing-blue);
+}
+.ub-equation-label {
+	font: 0.6875rem/1.5 var(--ub-font-mono);
+	letter-spacing: 0.1em;
+	margin-bottom: 1rem;
+}
+.ub-equation-schema,
+.ub-equation-plugins {
+	position: relative;
+	width: 100%;
+	padding: 1.25rem;
+	border: 1px solid
+		color-mix(in srgb, var(--landing-blue) 35%, var(--landing-line));
+	border-radius: 0.625rem;
+	background: var(--landing-card);
+	box-shadow: 0 4px 0 color-mix(in srgb, var(--landing-blue) 9%, transparent);
+}
+.ub-equation-card-heading {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.ub-equation-card-heading strong {
+	color: var(--landing-ink);
+	font-size: 1.25rem;
+	font-weight: 550;
+	letter-spacing: -0.035em;
+}
+.ub-equation-items {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+.ub-equation-items > span {
+	padding: 0.35rem 0.55rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.25rem;
+	background: var(--landing-paper);
+	color: var(--landing-muted);
+	font: 0.75rem/1.4 var(--ub-font-mono);
+}
+.ub-equation-items > .ub-equation-custom {
+	border-style: dashed;
+	color: var(--landing-blue);
+	background: var(--landing-soft);
+}
+.ub-equation-connector {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 3rem;
+}
+.ub-equation-connector::before {
+	content: '';
+	position: absolute;
+	inset-block: 0;
+	border-left: 1px solid
+		color-mix(in srgb, var(--landing-blue) 45%, transparent);
+}
+.ub-equation-connector > span {
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 1.625rem;
+	height: 1.625rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 50%;
+	background: var(--landing-soft);
+	font: 1rem/1 var(--ub-font-mono);
+}
+.ub-equation-result {
+	display: grid;
+	justify-items: center;
+	gap: 0.625rem;
+	margin-top: 1rem;
+}
+.ub-equation-result strong {
+	font-size: 1rem;
+	font-weight: 550;
+	letter-spacing: -0.02em;
+}
+.ub-composition-copy {
+	padding: 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	background: var(--landing-card);
+}
+
+@media (max-width: 64rem) {
+	.ub-landing-composition,
+	.ub-transport-heading {
+		gap: 2.5rem;
+	}
+	.ub-landing-flow {
+		padding: 2rem;
+	}
+	.ub-proof .ub-code pre {
+		font-size: 0.875rem;
+		padding-inline: 1rem;
+	}
+}
+@media (max-width: 48rem) {
+	.ub-landing .ub-section {
+		width: min(100% - 2rem, 40rem);
+	}
+	.ub-landing .ub-landing-hero {
+		width: min(100% - 1rem, 40rem);
+		display: block;
+		padding: 2rem 1rem 0;
+	}
+	.ub-hero-equation {
+		display: none;
+	}
+	.ub-landing-kicker {
+		font-size: 0.75rem;
+		gap: 0.5rem;
+	}
+	.ub-landing-hero h1 {
+		font-size: clamp(2.8rem, 8vw, 4.5rem);
+	}
+	.ub-landing-hero .ub-lede {
+		font-size: 1rem;
+		margin-top: 1.25rem;
+	}
+	.ub-desktop-break {
+		display: none;
+	}
+	.ub-landing-hero .ub-action-row {
+		gap: 0.6rem;
+	}
+	.ub-landing-hero .ub-button {
+		width: auto;
+		padding-inline: 1rem;
+		font-size: 0.8125rem;
+	}
+	.ub-proof {
+		margin-top: 2rem;
+	}
+	.ub-editor-label {
+		padding: 0.85rem 1rem;
+	}
+	.ub-proof .ub-code pre {
+		font-size: 0.875rem;
+	}
+	.ub-proof figcaption {
+		padding: 0.85rem 1rem;
+		font-size: 0.75rem;
+	}
+	.ub-intro {
+		align-items: start;
+		flex-direction: column;
+		gap: 1rem;
+		padding-block: 2.5rem;
+	}
+	.ub-intro p {
+		font-size: 1.125rem;
+	}
+	.ub-landing-composition,
+	.ub-transport-heading {
+		grid-template-columns: 1fr;
+	}
+	.ub-landing-composition,
+	.ub-landing-details {
+		padding-block: 3.5rem;
+	}
+	.ub-application-code .ub-application-codeblock pre {
+		padding: 1rem;
+	}
+	.ub-landing-flow {
+		padding: 1.5rem;
+	}
+	.ub-landing-start {
+		margin-bottom: 3rem;
+		padding: 3rem 1.5rem;
+	}
+	.ub-start-actions {
+		flex-direction: column;
+	}
+	.ub-section-label {
+		font-size: 0.75rem;
+	}
+}
+@media (prefers-reduced-motion: no-preference) {
+	.ub-proof {
+		animation: ub-proof-enter 500ms ease-out both;
+	}
+	@keyframes ub-proof-enter {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+}
+
+@media (max-width: 64rem) and (min-width: 48.01rem) {
+	.ub-landing .ub-landing-hero {
+		padding-inline: 2rem;
+		grid-template-columns: 1.5fr 0.7fr;
+		gap: 1.5rem;
+	}
+	.ub-equation-schema,
+	.ub-equation-plugins {
+		padding: 1rem;
+	}
+	.ub-equation-label {
+		font-size: 0.625rem;
+	}
+}
+@media (max-width: 48rem) {
+	.ub-hero-equation {
+		display: none;
+	}
+	.ub-composition-copy {
+		padding: 1.5rem;
+	}
+	.ub-landing-kicker {
+		letter-spacing: 0.025em;
+		font-size: 0.6875rem;
+	}
+	.ub-proof .ub-code pre {
+		font-size: 0.875rem;
+	}
+	.ub-landing-hero h1 {
+		font-size: clamp(2.4rem, 9.2vw, 4rem);
+	}
+}
+
+@media (max-width: 48rem) {
+	/* Soft wrapping preserves the complete examples at 320px and enlarged text sizes. */
+	.ub-landing pre {
+		width: 100%;
+		min-width: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+}
+
+@media (max-width: 64rem) {
+	.ub-transaction-proof {
+		gap: 2rem;
+	}
+}
+@media (max-width: 48rem) {
+	.ub-demo-tabs .ub-demo-panel {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ub-demo-code {
+		border-right: 0;
+		border-bottom: 1px solid var(--landing-line);
+	}
+	.ub-demo-result {
+		padding: 1.25rem;
+		align-self: start;
+	}
+	.ub-demo-result .ub-demo-eyebrow {
+		display: none;
+	}
+	.ub-landing .ub-demo-result h2 {
+		margin-top: 0;
+		font-size: 1.4rem;
+	}
+	.ub-field-types {
+		margin-top: 1rem;
+		font-size: 0.8125rem;
+	}
+	.ub-field-types > div {
+		padding-block: 0.3rem;
+	}
+	.ub-proof figcaption {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.ub-proof figcaption a {
+		align-self: start;
+	}
+	.ub-demo-tabs [role='tablist'] {
+		padding-inline: 0.75rem;
+	}
+	.ub-transaction-proof {
+		grid-template-columns: minmax(0, 1fr);
+		padding-bottom: 3rem;
+	}
+	.ub-transaction-demo figcaption {
+		padding-inline: 1rem;
+	}
+	.ub-outcome-tabs [role='tabpanel'] {
+		padding: 1rem;
+	}
+	.ub-transaction-outcome {
+		padding: 0.75rem;
+	}
+}
+
+.ub-demo-tabs [role='tab'][data-state='active'],
+.ub-outcome-tabs [role='tab'][data-state='active'] {
+	color: var(--landing-blue);
+}
+@media (max-width: 48rem) {
+	.ub-proof .ub-code pre {
+		padding-block: 1rem;
+		line-height: 1.55;
+	}
+}
+
+/* Transport examples retain native Fumadocs controls and share one explained outcome. */
+.ub-transport-heading {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	align-items: end;
+	gap: 3rem;
+	margin-bottom: 2.5rem;
+}
+.ub-transport-heading > p {
+	color: var(--landing-muted);
+	line-height: 1.75;
+	max-width: 31rem;
+}
+.ub-transport-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	background: var(--landing-card);
+	overflow: hidden;
+}
+.ub-transport-tabs {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+.ub-transport-tabs [role='tablist'] {
+	border-bottom: 1px solid var(--landing-line);
+	padding-inline: 1rem;
+}
+.ub-transport-tabs [role='tab'] {
+	min-height: 2.75rem;
+	color: var(--landing-muted);
+}
+.ub-transport-tabs [role='tab'][data-state='active'] {
+	color: var(--landing-blue);
+}
+.ub-transport-tabs [role='tabpanel'] {
+	padding: 0;
+}
+.ub-transport .ub-transport-code {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+.ub-transport-code pre {
+	padding: 1rem 1.25rem;
+	font-size: 0.8125rem;
+	line-height: 1.65;
+}
+.ub-transport-caption {
+	padding: 1rem 1.25rem;
+	color: var(--landing-muted);
+	font-size: 0.75rem;
+	line-height: 1.65;
+	overflow-wrap: anywhere;
+}
+.ub-transport-result {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 1.25rem;
+	min-width: 0;
+	padding: 2rem;
+	border-left: 1px solid var(--landing-line);
+}
+.ub-transport-result > code {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-size: clamp(0.8rem, 1.2vw, 1rem);
+}
+.ub-title-input {
+	color: var(--landing-muted);
+}
+.ub-title-output {
+	color: var(--landing-blue);
+	font-weight: 600;
+}
+.ub-transport-result > svg {
+	transform: rotate(90deg);
+	color: var(--landing-blue);
+}
+.ub-transport-result > p:not(.ub-demo-eyebrow) {
+	color: var(--landing-muted);
+	line-height: 1.7;
+	font-size: 0.875rem;
+}
+.ub-transport-result .ub-text-link {
+	font-size: 0.875rem;
+}
+.ub-composition-tabs {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+.ub-composition-tabs [role='tablist'] {
+	border-bottom: 1px solid #34415d;
+}
+.ub-composition-tabs [role='tab'] {
+	min-height: 2.75rem;
+	color: #b9c8e3;
+}
+.ub-composition-tabs [role='tab'][data-state='active'] {
+	color: #bfd5ff;
+	border-color: #bfd5ff;
+}
+.ub-composition-tabs [role='tabpanel'] {
+	padding: 0;
+	border-radius: 0;
+	background: transparent;
+}
+.ub-preset-note {
+	padding: 1rem 1.25rem;
+	color: #c6d2e9;
+	font-size: 0.8125rem;
+	line-height: 1.7;
+	overflow-wrap: anywhere;
+}
+.ub-faq {
+	display: grid;
+	gap: 2.5rem;
+	max-width: 56.25rem;
+	padding-block: 2rem 5rem;
+}
+.ub-landing .ub-faq h2 {
+	font-size: clamp(2rem, 3vw, 2.75rem);
+	text-align: center;
+}
+.ub-faq-list {
+	min-width: 0;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
+}
+.ub-faq details:not(:last-child) {
+	border-bottom: 1px solid var(--landing-line);
+}
+/* Native details keeps keyboard interaction and works before hydration. */
+.ub-faq details[open] {
+	padding-bottom: 1.5rem;
+	background: var(--landing-soft);
+}
+.ub-faq summary {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+	padding: 1.25rem 1.5rem;
+	list-style: none;
+	cursor: pointer;
+	font-size: 1.05rem;
+	font-weight: 550;
+	line-height: 1.5;
+}
+.ub-faq summary:hover {
+	color: var(--landing-blue);
+}
+.ub-faq summary:focus-visible {
+	outline: 2px solid var(--landing-blue);
+	outline-offset: -2px;
+}
+.ub-faq summary::-webkit-details-marker {
+	display: none;
+}
+.ub-faq summary svg {
+	color: var(--landing-blue);
+}
+.ub-faq details[open] summary svg {
+	transform: rotate(180deg);
+}
+.ub-faq details > p {
+	margin-inline: 1.5rem;
+	color: var(--landing-muted);
+	line-height: 1.75;
+}
+.ub-faq .ub-text-link {
+	margin-top: 0.75rem;
+	margin-inline: 1.5rem;
+	font-size: 0.875rem;
+}
+@media (max-width: 48rem) {
+	.ub-transport-heading,
+	.ub-transport-proof,
+	.ub-faq {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1.5rem;
+	}
+	.ub-transport-proof {
+		gap: 0;
+	}
+	.ub-transport-heading {
+		margin-bottom: 1.5rem;
+	}
+	.ub-transport-result {
+		border-left: 0;
+		border-top: 1px solid var(--landing-line);
+		padding: 1.25rem;
+		gap: 1rem;
+	}
+	.ub-transport-result .ub-demo-eyebrow {
+		display: block;
+	}
+	.ub-transport-code pre {
+		font-size: 0.8125rem;
+		padding-inline: 1rem;
+		/* Preserve HTTP paths and headers; the native code viewport scrolls locally. */
+		width: max-content;
+		min-width: 100%;
+		white-space: pre;
+		overflow-wrap: normal;
+	}
+	.ub-transport-caption {
+		padding-inline: 1rem;
+	}
+	.ub-landing .ub-landing-flow {
+		padding: 1.25rem;
+	}
+	.ub-faq {
+		padding-block: 0 3rem;
+		gap: 2rem;
+	}
+	.ub-faq summary {
+		padding-inline: 1rem;
+		font-size: 1rem;
+	}
+	.ub-faq details > p,
+	.ub-faq .ub-text-link {
+		margin-inline: 1rem;
+	}
+}

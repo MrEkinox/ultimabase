@@ -1,0 +1,121 @@
+---
+title: Update Records
+description: Update one existing record, handle an absent target, and choose its returned fields.
+audience:
+  - application-developer
+contentType: guide
+order: 2
+outcome: Update one record by ID or unique predicate and inspect the returned model.
+owner: '2809'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/src/query/updates/operators.ts
+  - packages/core/docs/runtime.md
+  - docs/adr/0109-constructible-schema-models.md
+  - docs/adr/0134-unified-update-data.md
+  - docs/adr/0162-strict-object-target-commands.md
+  - docs/adr/0180-mutation-relationship-projections.md
+  - docs/adr/0182-singular-id-target-aliases.md
+---
+
+Use `Post.updateOne()` to change one persisted record. The `data` object names
+only the fields you want to change; omitted fields keep their stored values.
+
+This page continues with a `Post` like the one in [Create Records](./create).
+The examples also assume a unique `slug`, an optional `summary`, and an integer
+`editCount` initialized to `0`. Start the application with a persistence plugin
+before running them.
+
+## Update by ID
+
+```ts title="src/update-post.ts"
+import { Post } from './schemas.js'
+
+export const renamePost = (postId: string, title: string) =>
+	Post.updateOne({
+		id: postId,
+		data: { title },
+		select: { title: true },
+	})
+```
+
+`id` is shorthand for `where: { id: { eq: postId } }`. Pass **either** `id`
+**or** `where`, never both. To target a declared unique slug instead, use
+`where: { slug: { eq: slug } }`; an arbitrary multi-match filter is not a
+valid `updateOne` target.
+
+## Verify the result
+
+If a visible post matches, `renamePost()` returns a new immutable `Post` with
+the same `id` and the updated `title`. The old model, if you loaded one, does
+not change. Other post fields are absent from this selected result, not deleted
+from storage. Without `select`, the command returns the complete visible model.
+
+If no visible post matches, schema-level `updateOne()` returns `null`. Handle
+that case before reading the result. A previously loaded model's `update()`
+command is different: it targets that model's protected identity and throws
+`NOT_FOUND` if the target has disappeared or become inaccessible. See
+[Models](/docs/1.0.0/core/data-modeling/models) for instance commands.
+
+## Replace, clear, or increment fields
+
+Direct values replace stored values. `unset()` is another spelling for `null`
+and can clear only an optional field. `increment()` and `decrement()` operate on
+mutable numeric fields without a separate read-and-write cycle.
+
+```ts title="src/update-post.ts"
+import { increment, unset } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const clearSummary = (postId: string) =>
+	Post.updateOne({
+		id: postId,
+		data: { summary: unset(), editCount: increment(1) },
+		select: { summary: true, editCount: true },
+	})
+```
+
+This clears `summary` to `null` and increases `editCount` by one. Core checks
+the complete projected numeric value against the field's rules while the
+target is locked; the database still applies the delta atomically. An invalid
+value, installed policy or hook failure, or persistence error rolls back the
+whole update.
+
+The delta uses the field's value type; do not convert exact values to a
+JavaScript `number` merely to update them:
+
+| Field kind | `increment()` / `decrement()` operand | Example             |
+| ---------- | ------------------------------------- | ------------------- |
+| `int`      | Safe integer `number`                 | `increment(2)`      |
+| `float`    | Finite `number`                       | `decrement(0.25)`   |
+| `decimal`  | Exact decimal `string`                | `increment('1.25')` |
+| `bigint`   | Native JavaScript `bigint`            | `decrement(1n)`     |
+
+These operations work only on mutable scalar numeric fields, not numeric
+lists or immutable fields. Core validates both the operand and the projected
+result; for example, an integer update cannot produce an unsafe integer and a
+decimal update must fit its declared precision and scale. Use a direct value
+when you intend to replace the field rather than apply an atomic delta.
+
+`select` shapes only the returned model. To return related data after an
+update, add `include`, for example
+`include: { author: { select: { displayName: true } } }`. The included target
+is read inside the same transaction and remains subject to its read policy.
+To change a pointer or relation rather than include it in the result, see
+[Nested Writes](./nested-writes).
+
+## Next steps
+
+<Cards>
+	<Card title="Nested Writes" href="./nested-writes">
+		Update pointers and relations in the same transaction.
+	</Card>
+	<Card title="Bulk Operations" href="./bulk-operations">
+		Update several exact targets as one ordered, atomic batch.
+	</Card>
+</Cards>

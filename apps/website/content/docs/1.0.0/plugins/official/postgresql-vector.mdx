@@ -1,0 +1,141 @@
+---
+title: PostgreSQL Vector
+description: Declare and validate fixed-size vectors before PostgreSQL vector storage is available.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Declare a dimension-safe vector field and recognize the current physical storage limit.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-22
+sources:
+  - packages/pg-vector-plugin/README.md
+  - packages/pg-vector-plugin/src/index.ts
+  - packages/pg-vector-plugin/tests/vector-field.test.ts
+  - packages/pg-vector-plugin/tests/field-builder.test.ts
+  - docs/adr/0029-plugin-defined-logical-fields.md
+---
+
+## Overview
+
+`@ultimabase/pg-vector-plugin` contributes the application-local
+`f.vector({ dimensions })` builder and the standalone `vectorField()`
+factory. They define a logical field whose value is a detached, immutable
+`readonly number[]`. The plugin checks that every component is a finite number
+and that the array has exactly the declared length. Core does not provide
+`f.vector()` when the plugin is absent.
+
+**You cannot persist this field with the PostgreSQL plugin yet.** There is no
+PostgreSQL vector column compiler or similarity-search operator. Use the plugin
+to declare and test the logical value contract, not as a working pgvector
+storage feature.
+
+## Installation
+
+Install the plugin package in an UltimaBase project:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/pg-vector-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/pg-vector-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/pg-vector-plugin
+```
+
+The configured factory adds `f.vector()` to TypeScript directly from the
+installed plugin; this local builder needs no Typegen regeneration. Keep
+[Typegen](/docs/1.0.0/guides/generate-types) for the application-wide named
+schema and relationship graph.
+
+## Configuration
+
+Add `pgVectorPlugin()` to the application and declare a stored vector field:
+
+```ts title="src/document.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+
+const Application = UltimaBase.use(pgVectorPlugin())
+const Document = Application.Schema.define({
+	className: 'Document',
+	fields: (f) => ({
+		embedding: f.vector({ dimensions: 1536, required: true }),
+	}),
+})
+
+const application = new Application({
+	schemas: [Document],
+})
+
+application.compile()
+```
+
+This performs pure schema compilation without initializing an application or
+claiming the active-application slot. It does
+not prove that you can create, query, or synchronize a `Document` with a vector
+column. `pgVectorPlugin()` takes no factory options.
+
+| Field option | Meaning                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `dimensions` | Required positive **safe integer**; each vector must contain exactly this many components.              |
+| `required`   | Ordinary Core create-time presence and non-nullability behavior; it does not affect PostgreSQL support. |
+| `default`    | A vector snapshot checked against `dimensions` when the field is declared.                              |
+| `list`       | Wraps the vector value in a homogeneous list; each element still has the declared dimension.            |
+
+The builder is available for stored schema fields only. It is not available in
+embedded objects or output-field descriptors. Standard Schema `validation`
+requires the optional [Validation plugin](./validation); it can reject a
+complete canonical vector but does not replace the plugin's structural checks.
+
+## Behavior and limitations
+
+### Validate values without a database
+
+The public factory and Core's scalar snapshot boundary can check a value now:
+
+```ts title="src/check-embedding.ts"
+import { snapshotScalarFieldValue } from '@ultimabase/core'
+import { vectorField } from '@ultimabase/pg-vector-plugin'
+
+const embedding = vectorField({ dimensions: 3 })
+const value = snapshotScalarFieldValue(embedding, [0.1, 0.2, 0.3], 'embedding')
+
+console.log(value) // [0.1, 0.2, 0.3]
+```
+
+The returned array is a frozen copy; changing the original input later does
+not change it. A non-array value, an array of the wrong length, or a `NaN` or
+infinite component fails validation. This is a **logical-value check**, not a
+database write. `pgVectorPlugin()` adds the field builder without a separate
+validation facade; this Core boundary is the value-checking API.
+
+### Wire and storage boundaries
+
+The plugin declares a GraphQL JSON field codec that checks incoming vector
+values and encodes them as arrays. That codec is not a PostgreSQL column
+compiler, a REST codec, or evidence that a GraphQL mutation can persist a
+vector. An ordinary TypeScript `readonly number[]` also does not statically
+encode the declared length; `dimensions` is enforced when the value is
+snapshotted.
+
+The PostgreSQL plugin currently has no physical mapping for this kind. Do not
+add a vector field to an application that must store or read that schema through
+PostgreSQL, even if schema compilation succeeds. A raw SQL column cannot make
+UltimaBase Query, validation, or schema synchronization understand the field.
+
+## Troubleshooting
+
+- **`f.vector` is missing in TypeScript:** define the schema through the same
+  configured factory that installs `pgVectorPlugin()`. A factory without the
+  plugin has no vector builder, and Runtime also rejects an untyped call.
+- **A dimension or value is rejected:** use a positive safe integer for
+  `dimensions`; provide an array of exactly that many finite numbers. A
+  `default` is checked when the field is declared.
+- **PostgreSQL cannot prepare the field:** physical pgvector support is not yet
+  available. No extension setting or raw SQL workaround makes this a supported
+  UltimaBase field for database operations.

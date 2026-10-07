@@ -1,0 +1,213 @@
+---
+title: Schemas
+seoTitle: Define Data Schemas in TypeScript
+description: Define, register, and compile schemas, including their fields, indexes, and application-owned handles.
+audience:
+  - application-developer
+contentType: concept
+order: 1
+outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-10-01
+sources:
+  - packages/core/README.md
+  - packages/core/docs/schema.md
+  - packages/core/src/schema/schema/definition.ts
+  - packages/core/src/schema/schema/indexes.ts
+  - packages/core/examples/schema/basic-schema.md
+  - docs/adr/0080-postgres-index-compilation.md
+  - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
+  - docs/adr/0248-application-selected-schema-class-mutations.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0281-retain-generated-where-contracts.md
+  - packages/typegen/README.md
+---
+
+A schema declares one kind of stored record: its stable `className` and the
+fields that records of that kind can contain. `UltimaBase.Schema.define()`
+returns the inert schema class immediately and derives its local TypeScript
+contracts from the field declaration. Registration remains explicit when an
+application lists that class in `schemas`.
+
+```ts title="src/article.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+export const Article = UltimaBase.Schema.define({
+	className: 'DocsArticle',
+	fields: (f) => ({
+		published: f.boolean({ default: false }),
+		slug: f.string({ indexed: 'unique', required: true }),
+		title: f.string({ required: true }),
+	}),
+	indexes: [{ fields: ['published', 'createdAt'] }],
+})
+```
+
+## Declaration options
+
+`UltimaBase.Schema.define()` accepts the following Core options:
+
+| Option      | Required | Purpose                                                                                                             |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `className` | Yes      | Stable logical name for the schema.                                                                                 |
+| `fields(f)` | Yes      | Synchronous callback that returns its stored, relationship, and virtual field declarations. See [Fields](./fields). |
+| `indexes`   | No       | Composite indexes over top-level fields.                                                                            |
+
+Installed plugins may add direct schema options, such as `access`, `hooks`,
+`rest`, `graphql`, or `postgres`. Those are not Core defaults: an option must
+have one exact installed plugin owner, and each plugin documents its own
+configuration. Use that configured factory's `App.Schema.define()` to obtain
+its local plugin options and builders; the examples above use the portable
+zero-plugin root. Importing a plugin package alone does not install it. See
+[Using Plugins](/docs/1.0.0/plugins/using-plugins).
+
+## Indexes
+
+An index helps the database find rows for a recurring filter or ordering
+pattern. A unique index also rejects duplicate values. Neither kind filters
+results or grants access: keep query predicates and authorization rules
+explicit. Indexes take storage and add work to writes, so declare them for
+queries or uniqueness requirements you actually have.
+
+### Index one field
+
+Set `indexed: true` on a stored field for an ordinary index, or
+`indexed: 'unique'` when stored values must be distinct. Omit `indexed` or
+use `indexed: false` when no index is needed. The `slug` field in the first
+example is unique across all `DocsArticle` records; `published` is not unique.
+An index does not make a field required: `required` and uniqueness are separate
+decisions. If absence must be forbidden, also set `required: true`; an
+adapter's treatment of nulls in a unique index is a physical database rule.
+
+### Index a combination
+
+Use the schema-level `indexes` array when the index covers at least two
+distinct top-level fields. The first example indexes `published` together with
+the framework-owned `createdAt` field. The order in `fields` is preserved;
+put the columns in the order that serves your common query pattern, then check
+the database's query plan when performance matters. The database planner, not
+Core, decides whether an ordinary index is used for a particular query.
+
+For a slug that is unique only within one tenant, declare the pair as unique
+instead of making `slug` globally unique:
+
+```ts title="src/tenant-article.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+export const TenantArticle = UltimaBase.Schema.define({
+	className: 'TenantArticle',
+	fields: (f) => ({
+		slug: f.string({ required: true }),
+		tenantId: f.string({ required: true }),
+		title: f.string({ required: true }),
+	}),
+	indexes: [
+		{ fields: ['tenantId', 'slug'], unique: true },
+		{ fields: ['tenantId', 'createdAt'] },
+	],
+})
+```
+
+The first index forbids two articles with the same `tenantId` **and** `slug`,
+but permits the same slug in different tenants. The second is an ordinary
+index for tenant-scoped chronological reads; it permits duplicates. `unique`
+defaults to `false`. Core rejects repeated or unknown fields and a composite
+entry with fewer than two fields. Index only top-level stored fields or
+framework-owned system fields, not an embedded child, relation, or virtual
+result.
+
+Every unique declaration can be an exact [upsert target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target).
+The database plugin creates and enforces physical indexes; Core records
+portable intent and does not expose SQL or index names. See
+[PostgreSQL index preparation](/docs/1.0.0/plugins/official/postgresql#index-preparation)
+before relying on a new index in an existing database.
+
+## Register and compile
+
+Register schemas you define directly in the application's `schemas` array:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+import { Article } from './article.js'
+
+export const ultimabase = new UltimaBase({
+	schemas: [Article],
+})
+```
+
+This example only registers the schema; it installs no database adapter. For
+a working application, add a persistence plugin and call `start()` as shown in
+[Manual Installation](/docs/1.0.0/manual-installation). At startup, UltimaBase
+runs installed plugins' static declarations, then compiles the complete schema
+graph before plugin setup or database connections. The `fields` callback runs
+once when `article.ts` is imported to capture inert builder calls. That capture
+does not register the schema, connect infrastructure, or depend on application
+lifecycle state.
+
+Plugins can also contribute schemas during static declaration; those schemas
+do not need an entry in the application's `schemas` array.
+
+## Schema classes and application handles
+
+`UltimaBase.Schema.define()` returns the final schema class. Its local fields,
+drafts, Core operation inputs, selections, and results infer from source before
+Typegen; complete filters still use the generated contract. Core-only declarations can construct immutable drafts
+immediately; configured plugin builder calls resolve when a compatible
+application compiles them. Ordinary schema commands execute against an owning
+application. Use
+`ultimabase.schema(Article)` only for application-specific mutation handles or
+model binding. Ordinary CRUD uses `Article` directly. The handle also accepts
+the registered name of a plugin-contributed schema; its `.schema` is the
+runtime class and can run ordinary commands. A plugin schema mutation can also
+be declared directly on the frozen configured class before startup; execution
+resolves the sole active application and verifies that application's compiled plugin graph. See
+[Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
+for an example and [Models](./models) for draft and persisted instances.
+
+## Schema identity
+
+`className` is the stable logical identity used by relations, generated types,
+and adapters. Treat it like a persistent API name: changing it describes a
+different schema, not a cosmetic rename.
+
+## System fields
+
+Every compiled schema receives three framework-owned fields:
+
+| Field       | Type                   | Purpose                 |
+| ----------- | ---------------------- | ----------------------- |
+| `id`        | UUIDv7 `string`        | Stable record identity  |
+| `createdAt` | ISO date-time `string` | Creation time           |
+| `updatedAt` | ISO date-time `string` | Most recent update time |
+
+They are always present on complete persisted models and are not accepted in
+create or update data. UltimaBase generates all three at creation and refreshes
+`updatedAt` on persisted updates; application code cannot set or redeclare
+them.
+
+## Compilation errors
+
+Core-only declarations resolve field-dependent metadata immediately. A
+declaration that captured configured plugin builder calls throws
+`SchemaCompilationError` if code reads unresolved Runtime metadata before a
+compatible application compiles it. Compilation also rejects duplicate or
+reserved field names, unresolved relationship targets, and plugin options
+without one exact installed owner. These failures occur before plugin setup or
+database connection, not on the first request. See
+[Relationships](./relationships) for target declarations and
+[Using Plugins](/docs/1.0.0/plugins/using-plugins) for installation and ownership.
+
+## Optional generated types
+
+The compiled schema graph is Runtime truth. Local Core schema contracts infer
+from source, as do locally decidable plugin surfaces on configured factories.
+Typegen retains named pointers/relations and circular schemas, every complete
+filter, complete schema Access/Hooks/ACL callbacks, exact Password User results,
+and the supported standalone/advanced consumers. It does not change what the
+application executes. See
+[Generate TypeScript Types](/docs/1.0.0/guides/generate-types) for setup.
+
+Continue with [Fields](./fields) for field kinds, [Models](./models) for
+immutable instances, and [Relationships](./relationships) for schema targets.

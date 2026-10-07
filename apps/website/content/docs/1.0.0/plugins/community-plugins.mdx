@@ -1,0 +1,84 @@
+---
+title: Community Plugins
+description: Propose a community plugin and understand what a future listing means.
+audience:
+  - application-developer
+  - plugin-author
+contentType: concept
+outcome: Understand how community plugins will be listed without confusing visibility with official maintenance.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - CONTRIBUTING.md
+  - .github/ISSUE_TEMPLATE/community-plugin.md
+  - apps/website/lib/site.ts
+  - packages/plugin-kit/README.md
+  - packages/testing/README.md
+  - docs/concepts/open-plugin-authoring.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+## No listings yet
+
+No community plugin is listed yet. The catalog will show real, reviewed
+packages when they exist; it will not invent packages, maintainers, or
+compatibility claims to fill the page.
+
+You can [build a plugin](./build-a-plugin) with the same public Core contracts
+available to official plugins, then [propose it for review](#propose-a-plugin).
+An idea or unpublished prototype is welcome for feedback but cannot be listed
+as an installable plugin yet.
+
+## What a listing means
+
+A future listing will identify the npm package, maintainer, source repository,
+license, supported UltimaBase range, last reviewed version, documentation, and
+support channel. Readers can then check a specific release rather than infer
+compatibility from the package name or its presence on this site.
+
+UltimaBase may edit the page for clarity, but the plugin remains
+community-maintained. A listing is not a security audit, endorsement, warranty,
+or promise that UltimaBase will release fixes or provide support. The maintainer
+owns release accuracy, compatibility updates, support, and security response.
+
+## Requirements for a listing
+
+Before a package can be listed, it needs:
+
+- a published version, stable plugin ID, declared UltimaBase compatibility
+  range, source repository, license, and identifiable maintainer;
+- setup, configuration, upgrade, removal, and troubleshooting instructions,
+  plus a minimal reproducible example and public support channel;
+- tests using public package exports, with evidence for the claimed UltimaBase
+  and Node.js versions;
+- a valid manifest with a reason for each requested Core privilege and explicit
+  claims for direct filesystem, network, process, or native behavior.
+
+The plugin must use public extension contracts, not another package's private
+`src/` files or an unowned Runtime escape hatch. Environmental claims are
+reviewable disclosures, not a sandbox or proof that all host behavior was
+declared. Publication alone does not establish compatibility.
+
+## Propose a plugin
+
+Start with [Build a Plugin](./build-a-plugin) if you need the authoring path.
+When you want feedback or a listing, [open a community plugin proposal](https://github.com/MrEkinox/ultimadatabase/issues/new?template=community-plugin.md).
+The proposal template asks for the package and maintainer, compatibility,
+manifest powers, direct host behavior, documentation, and test evidence. Mark
+an unpublished package as an idea or prototype; do not present it as
+installable.
+
+Submit the proposal before a documentation PR so the package and its claimed
+compatibility can be reviewed. A reviewer may request corrections or a focused
+PR for the listing page. Proposals are not automatic approvals.
+
+## Keep a listing current
+
+After listing, the maintainer should update the package and its documentation
+when supported releases, dependencies, behavior, or support details change.
+UltimaBase may mark a listing incompatible or remove it if its evidence can no
+longer be reproduced, its package disappears, or its documentation becomes
+misleading. Readers should still verify the exact version they install using
+[Using Plugins](./using-plugins) and [Packages and Compatibility](/docs/1.0.0/reference/package-index#platform-and-version-compatibility).

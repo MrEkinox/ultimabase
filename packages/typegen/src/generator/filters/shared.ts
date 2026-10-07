@@ -1,0 +1,64 @@
+import type {
+	TypegenApplicationSnapshot,
+	TypegenFieldSnapshot,
+} from '../../snapshot.js'
+import { isListField } from '../values.js'
+import {
+	equalityKinds,
+	nullProperties,
+	renderNamedFilter,
+} from './operators.js'
+import { renderRelationshipFilters } from './relationships.js'
+import { renderScalarFilters } from './scalar.js'
+import { renderStructuralFilters } from './structural.js'
+import { renderArrayFilters } from './arrays.js'
+import type { RenderContext } from '../types.js'
+
+const collectNestedFields = (
+	fields: readonly TypegenFieldSnapshot[],
+): readonly TypegenFieldSnapshot[] =>
+	fields.flatMap((field) => [
+		field,
+		...(field.value.kind === 'object'
+			? collectNestedFields(field.value.fields)
+			: []),
+	])
+
+/** Coordinates shared declarations while preserving their deterministic order. */
+export const renderSharedTypes = (
+	snapshot: TypegenApplicationSnapshot,
+	context: RenderContext,
+): string => {
+	const rootFields = snapshot.schemas.flatMap(({ fields }) => fields)
+	const nestedFields = snapshot.schemas.flatMap(({ fields }) =>
+		fields.flatMap((field) =>
+			field.value.kind === 'object'
+				? collectNestedFields(field.value.fields)
+				: [],
+		),
+	)
+	const allFields = [...rootFields, ...nestedFields]
+	const definitions: string[] = [`export type OrderDirection = "asc" | "desc"`]
+
+	if (
+		allFields.some(
+			(field) =>
+				!isListField(field) &&
+				!equalityKinds.has(field.kind) &&
+				!field.portableEquality &&
+				field.value.kind !== 'object' &&
+				field.value.kind !== 'relation',
+		)
+	) {
+		definitions.push(renderNamedFilter('NullFilter', [nullProperties]))
+	}
+
+	definitions.push(
+		...renderArrayFilters(allFields, context),
+		...renderScalarFilters(rootFields, nestedFields),
+		...renderStructuralFilters(rootFields, nestedFields, allFields),
+		...renderRelationshipFilters(rootFields),
+	)
+
+	return definitions.join('\n\n')
+}

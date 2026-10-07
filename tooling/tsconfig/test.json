@@ -1,0 +1,32 @@
+{
+	"extends": "./base.json",
+	"compilerOptions": {
+		"composite": false,
+		"allowImportingTsExtensions": true,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		// Tests still check project source while ignoring declarations from optional third-party drivers.
+		"skipLibCheck": true,
+		"types": ["node", "vitest"]
+	},
+	"include": [
+		"../../packages/*/src/**/*.test.ts",
+		"../../packages/*/src/**/*.test-d.ts",
+		"../../packages/*/tests/**/*.ts",
+		"../../tests/e2e/**/*.ts",
+		"../../tests/fixtures/**/*.ts",
+		"../../tests/performance/**/*.ts",
+		"../architecture/**/*.ts",
+		"../ci/**/*.ts",
+		"../documentation/**/*.test.ts",
+		"../eslint/**/*.test.ts",
+		"../issues/**/*.ts",
+		"../prototypes/generated-schema-authoring/**/*.ts",
+		"../vitest/**/*.test.ts",
+		"../vitest/optional-product-public-api.ts",
+		"../vitest/prepared-mutation-adapter.ts",
+		"../vitest/typescript-language-service.ts"
+	]
+}

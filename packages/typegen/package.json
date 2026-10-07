@@ -1,0 +1,47 @@
+{
+	"name": "@ultimabase/typegen",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
+		"directory": "packages/typegen"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run --project unit --project types --project performance --passWithNoTests",
+		"typecheck": "tsc --build",
+		"test:unit": "vitest run --project unit --passWithNoTests",
+		"test:types": "vitest run --project types --passWithNoTests",
+		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
+		"typecheck:tests": "tsc --project tsconfig.test.json",
+		"test:performance": "vitest run --project performance"
+	},
+	"dependencies": {
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/shared": "workspace:^",
+		"jiti": "^2.6.1"
+	},
+	"devDependencies": {
+		"@ultimabase/acl-permissions-plugin": "workspace:^",
+		"@ultimabase/pg-vector-plugin": "workspace:^",
+		"@ultimabase/roles-plugin": "workspace:^",
+		"@ultimabase/validation-plugin": "workspace:^",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"valibot": "^1.4.2",
+		"vitest": "4.1.11",
+		"zod": "^4.4.3"
+	}
+}

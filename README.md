@@ -1,0 +1,162 @@
+# UltimaBase
+
+UltimaBase is an open-source, Node.js-first backend framework for building typed data APIs from static TypeScript schemas.
+
+It takes inspiration from the simplicity of Parse Server while deliberately replacing its limitations with stronger inference, explicit plugin boundaries, a single operation engine, immutable class-based builders, and first-class PostgreSQL support.
+
+> Status: active pre-release development. The implementation is tracked as small issues under [`issues/`](issues/README.md).
+
+## Intended developer experience
+
+Configure plugins once, declare schemas from that factory, and register them
+explicitly. This example uses a disposable development PostgreSQL database;
+`override` may change its physical schema. The [minimal application](examples/minimal/README.md)
+adds REST, GraphQL, authentication and policies to the same authoring path.
+
+```ts
+import process from 'node:process'
+
+import { typegenPlugin } from '@ultimabase/typegen'
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Blog = UltimaBase.use(typegenPlugin())
+	.use(postgresPlugin({ url: databaseUrl, schemaPolicy: 'override' }))
+	.use(softDeletePlugin({ defaultMode: 'explicit' }))
+
+export const Post = Blog.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		published: field.boolean({ default: false }),
+	}),
+})
+
+// One local exception; no repeated installation or schema auto-registration.
+export const AuditLog = Blog.Schema.define({
+	className: 'AuditLog',
+	softDelete: false,
+	fields: (field) => ({ message: field.string({ required: true }) }),
+})
+
+const application = new Blog({ schemas: [Post, AuditLog] })
+
+try {
+	await application.start()
+	const post = await Post.createOne({ data: { title: 'Hello UltimaBase' } })
+	await Post.softDelete({ id: post.id })
+	const posts = await Post.findMany({
+		where: { published: { eq: true } },
+		limit: 25,
+	})
+	console.log(posts[0]?.toJSON()) // A detached immutable snapshot.
+} finally {
+	await application.dispose()
+}
+```
+
+Local plugin fields, options and commands infer from the configured factory.
+[Typegen](packages/typegen/README.md) still supplies named relationships,
+complete filters and the other retained graph contracts; run generation before
+the first TypeScript build. JavaScript executes the same graph without Typegen.
+
+## Principles
+
+- Developer declarations plus authorized deterministic plugin contributions
+  form the authoritative compiled application graph.
+- Concrete product capabilities are plugins; Core is the trusted,
+  privilege-aware application and execution kernel.
+- Publishable plugin packages use the explicit `-plugin` directory and package-name suffix.
+- Core contains Schema, Query, application orchestration, protected execution,
+  persistence-plan, master-authority, and Runtime mechanisms while remaining
+  independent from concrete product and infrastructure implementations.
+- REST and GraphQL use one operation AST and one runtime pipeline.
+- Singular creates and updates accept the same schema-aware nested pointer and
+  relation commands through direct TypeScript, REST, and GraphQL. Core executes
+  the complete bounded graph in one automatic transaction.
+- Relation fields may declare one static or request-contextual `where` that
+  shapes direct reads, eager inclusions, REST, and GraphQL consistently without
+  replacing Access, ACL, protected constraints, or physical membership.
+- UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
+- Hooks, Access, and application field validation are optional official plugin
+  capabilities. The Validation plugin owns Standard Schema rules while Core
+  always retains structural validation. ACL contributes
+  persisted per-object policies directly
+  through Core's generic protected-policy boundary, while roles and
+  authentication provide optional request subjects. Core keeps anonymous and
+  trusted master authority; master bypasses authorization without bypassing
+  structural or installed application validation, hooks, transactions, or
+  integrity constraints.
+- Typegen may include plugin-owned contracts but generates declarations only;
+  JavaScript applications run without Typegen or a generated client.
+- Stable plugin operations and application-specific model surfaces execute
+  through application-owned handles. Plugin schema mutations can also be
+  called directly on a frozen configured schema class; the class resolves the
+  sole active owner and dispatches through its compiled handle.
+- The official soft-delete plugin can preserve native delete as a tombstone
+  rewrite or add an independently authorized `softDelete` mutation. Ordinary
+  reads stay tombstone-blind, while audited `restore` and `purge` commands remain
+  private to trusted server code.
+- Owner-private plugin records retain typed transactional persistence and
+  versioned physical provenance without becoming application schemas, Query or Typegen
+  surfaces, generated transport routes, or application behavior inputs.
+- PostgreSQL synchronization is available today. Migration support is not shipped;
+  a future migration product would own reviewed DDL and history separately.
+- Milestone 23 delivers HTTP application identity,
+  Fetch-compatible route composition, and request context resolution in an
+  optional HTTP plugin. Hono only provides the server, REST and GraphQL remain
+  sibling transports, and Password Auth adds identity without granting
+  authorization.
+- That target enters Runtime through a narrow Core request-execution capability
+  rather than giving HTTP the application engine. Cross-origin access is
+  explicit and disabled by default. One initialized application owns resources
+  per JavaScript realm; independent workers or processes may run in parallel.
+- The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
+
+The shipped authenticated REST, GraphQL, soft-delete, nested-write,
+virtual-result, and contextual relation-filter vertical is demonstrated by the
+[`examples/minimal`](examples/minimal/README.md)
+application. It exercises network-independent GraphQL execution and the
+optional Yoga HTTP adapter beside REST, including atomic pointer and relation
+writes, both soft-delete modes, private Master restoration and purge, plus
+request-aware output-only fields whose persisted dependencies stay private and
+relation views shaped from authentication context, while GraphiQL and Apollo
+Sandbox remain separate development plugins.
+
+## Repository map
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries and dependency graph.
+- [`docs/current-architecture.md`](docs/current-architecture.md): current
+  contracts, responsible packages, and accepted decisions by concept.
+- [`ROADMAP.md`](ROADMAP.md): milestone order.
+- [`docs/`](docs/README.md): concepts, specifications, and ADRs.
+- [`docs/concepts/open-plugin-authoring.md`](docs/concepts/open-plugin-authoring.md): accepted open-plugin authoring and consumption target.
+- [`issues/`](issues/README.md): atomic implementation backlog.
+- [`packages/`](packages/README.md): publishable `@ultimabase/*` packages.
+- [`apps/`](apps/README.md): development playground and benchmarks.
+- [`examples/`](examples/README.md): user-facing examples.
+- [`tests/`](tests/README.md): cross-package integration and conformance tests.
+
+## Development setup
+
+UltimaBase requires Node.js 24 and the Yarn version declared by `packageManager`.
+
+```sh
+corepack enable
+yarn install --immutable
+yarn test
+```
+
+Corepack ensures that `yarn` uses the repository's pinned Yarn version instead of a globally installed Yarn Classic binary.
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes. Work should normally start from one issue file and respect its dependencies.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE).

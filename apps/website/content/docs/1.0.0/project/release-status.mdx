@@ -1,0 +1,65 @@
+---
+title: Release Status
+description: Check what you can evaluate today and which release guarantees UltimaBase does not yet make.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+outcome: Decide whether the current pre-release framework is suitable for evaluation or adoption.
+owner: '2822'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - README.md
+  - .changeset/README.md
+  - docs/RELEASING.md
+  - packages/README.md
+  - examples/minimal/README.md
+  - apps/website/lib/docs-versions.ts
+  - packages/create-app/README.md
+  - packages/create-app/tests/e2e/create-app-packed.e2e.test.ts
+---
+
+UltimaBase is in active pre-release development. Its implementation can be
+evaluated, but the documentation's `1.0.0` label is not a published-package or
+stability guarantee.
+
+The [Quick Start](/docs/1.0.0/quick-start) now describes a tested local
+initializer. Its npm, yarn, pnpm, and npx registry commands remain unavailable
+until the packages are published and a post-publication installation check
+passes. Use locally built packages and the repository example in the meantime;
+Manual Installation explains the intended project setup; this site is not a release feed.
+
+## Current status
+
+| Question                                    | Answer                                                                                                                                                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can I evaluate the framework?               | Yes. The repository contains a [runnable PostgreSQL, REST, and GraphQL example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md). It needs Node.js 24 or newer and a development PostgreSQL database. |
+| How do I install the documented packages?   | Follow [Manual Installation](/docs/1.0.0/manual-installation) for the intended npm, yarn, or pnpm setup. Registry commands require publication; evaluate locally built workspace packages in the meantime.                            |
+| Does `1.0.0` mean a stable package release? | No. It selects this documentation line; by itself, it does not prove an npm release or guarantee compatibility.                                                                                                                       |
+| Is production support guaranteed?           | No. There is no announced support window, migration guarantee, hosted service, or production support commitment.                                                                                                                      |
+
+Core schemas, immutable data operations, PostgreSQL persistence, and optional
+plugins are implemented in the repository. Direct TypeScript, experimental
+[REST](/docs/1.0.0/plugins/official/rest), and
+[GraphQL](/docs/1.0.0/plugins/official/graphql) use the same Runtime. Their
+owning pages describe behavior and limits; this page does not replace them.
+
+## Choose your next step
+
+- To evaluate the implementation from source, run the repository's
+  [minimal example](https://github.com/MrEkinox/ultimadatabase/blob/main/examples/minimal/README.md)
+  against a disposable database.
+- For a new application, follow [Manual Installation](/docs/1.0.0/manual-installation)
+  and check package versions and requirements in
+  [Packages and Compatibility](/docs/1.0.0/reference/package-index).
+- Before exposing any application to users, work through
+  [Before Exposing Your Application](/docs/1.0.0/operations/before-exposing-your-application).
+
+Public APIs and package compatibility may still change before the first stable
+release. The [release process](https://github.com/MrEkinox/ultimadatabase/blob/main/docs/RELEASING.md)
+describes how publication is verified and approved; it is not a release date.
+
+No release date has been announced. The [Roadmap](./roadmap) shows possible
+future work, not a delivery schedule.

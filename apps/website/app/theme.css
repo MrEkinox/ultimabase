@@ -1,0 +1,43 @@
+:root {
+	/* Keep Fumadocs' black surfaces; only the shared interactive accent changes. */
+	--color-fd-primary: #174bbf;
+	--color-fd-primary-foreground: #fff;
+	--color-fd-accent: #eaf1ff;
+	--color-fd-accent-foreground: #153f9d;
+	--color-fd-ring: #174bbf;
+	--ub-font-sans:
+		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		'Segoe UI', sans-serif;
+	--ub-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+	--ub-space-1: 0.25rem;
+	--ub-space-2: 0.5rem;
+	--ub-space-3: 0.75rem;
+	--ub-space-4: 1rem;
+	--ub-space-6: 1.5rem;
+	--ub-space-8: 2rem;
+	--ub-space-12: 3rem;
+	--ub-space-16: 4rem;
+	--ub-radius-small: 0.375rem;
+	--ub-radius-medium: 0.75rem;
+	--ub-radius-large: 1rem;
+	--ub-border-width: 1px;
+	--ub-background: var(--color-fd-background);
+	--ub-surface: var(--color-fd-card);
+	--ub-surface-raised: var(--color-fd-popover);
+	--ub-foreground: var(--color-fd-foreground);
+	--ub-muted: var(--color-fd-muted-foreground);
+	--ub-border: var(--color-fd-border);
+	--ub-border-strong: var(--color-fd-ring);
+	--ub-accent: var(--color-fd-primary);
+	--ub-accent-hover: var(--color-fd-muted-foreground);
+	--ub-accent-contrast: var(--color-fd-primary-foreground);
+	--ub-focus: var(--color-fd-ring);
+}
+
+.dark {
+	--color-fd-primary: #8bb5ff;
+	--color-fd-primary-foreground: #08152f;
+	--color-fd-accent: #14274b;
+	--color-fd-accent-foreground: #d3e3ff;
+	--color-fd-ring: #8bb5ff;
+}

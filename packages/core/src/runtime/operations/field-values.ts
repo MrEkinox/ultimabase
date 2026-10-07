@@ -1,0 +1,529 @@
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+	type MaybePromise,
+} from '@ultimabase/shared'
+
+import type {
+	ExecutableOperationAst,
+	UpdateExpressionNode,
+} from '../../query/index.js'
+import { readUpdateExpressionOperations } from '../../query/updates/structure.js'
+import { Schema, type GenericField } from '../../schema/index.js'
+import { getFieldListDepth } from '../../schema/fields/base/options.js'
+import type { DatabaseOperationAst } from '../database/contracts.js'
+import { getOperationSchema } from '../operations/schema.js'
+import type { PluginSchemaMutationOperationAst } from '../schema-mutations/contracts.js'
+
+export type RuntimeFieldValuePathSegment = number | string
+export type RuntimeFieldVisitOrder = 'children-first' | 'parent-first'
+
+/** Retains low-level adapter AST kinds without exposing collection kinds to item behavior. */
+type RuntimeFieldInputKind =
+	| 'create-many'
+	| 'create-one'
+	| 'update-many'
+	| 'update-one'
+	| 'upsert-many'
+	| 'upsert-one'
+	| 'plugin-schema-mutation'
+
+/** Identifies one present logical field value without flattening structural paths. */
+export interface RuntimeFieldValue {
+	readonly field: GenericField
+	readonly fieldPath: readonly string[]
+	readonly value: unknown
+	readonly valuePath: readonly RuntimeFieldValuePathSegment[]
+}
+
+/** Correlates one present field value with its exact mutation candidate. */
+export interface RuntimeFieldInputValue extends RuntimeFieldValue {
+	readonly itemIndex: number
+	readonly kind: RuntimeFieldInputKind
+	readonly mode: 'create' | 'update'
+}
+
+/** Observes or replaces one exact normalized persisted mutation input value. */
+export type RuntimeFieldInputVisitor = (
+	input: RuntimeFieldInputValue,
+) => MaybePromise<unknown>
+
+type RuntimeFieldInputLocation = RuntimeFieldInputValue
+
+interface RuntimeObjectField extends GenericField {
+	readonly kind: 'object'
+	readonly options: Readonly<{
+		readonly fields: Readonly<Record<string, GenericField>>
+	}>
+}
+
+interface UpdateOperationValue {
+	readonly field: string
+	readonly value: unknown
+}
+
+type RuntimeFieldInputRoot =
+	| readonly [
+			mode: 'create',
+			value: Readonly<Record<string, unknown>>,
+			path: readonly RuntimeFieldValuePathSegment[],
+			itemIndex: number,
+			kind: RuntimeFieldInputKind,
+	  ]
+	| readonly [
+			mode: 'update',
+			value: UpdateExpressionNode,
+			path: readonly RuntimeFieldValuePathSegment[],
+			itemIndex: number,
+			kind: RuntimeFieldInputKind,
+	  ]
+
+interface RuntimeFieldInputContext {
+	readonly itemIndex: number
+	readonly kind: RuntimeFieldInputKind
+	readonly locations: RuntimeFieldInputLocation[]
+	readonly mode: 'create' | 'update'
+	readonly order: RuntimeFieldVisitOrder
+}
+
+const isRuntimeObjectField = (
+	field: GenericField,
+): field is RuntimeObjectField =>
+	field.kind === 'object' &&
+	'fields' in field.options &&
+	isPlainRecord(field.options.fields)
+
+/** Recovers one validated schema field map from either operation AST shape. */
+export const getRuntimeOperationFields = (
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
+): Readonly<Record<string, GenericField>> => {
+	const schema = getOperationSchema(operation)
+
+	if (!Schema.is(schema)) {
+		throw new TypeError('Runtime field traversal requires a declared schema')
+	}
+
+	return schema.persistedFields
+}
+
+/** Adds one immutable visit descriptor at the requested traversal position. */
+const appendFieldLocation = (
+	field: GenericField,
+	value: unknown,
+	fieldPath: readonly string[],
+	operationPath: readonly RuntimeFieldValuePathSegment[],
+	context: RuntimeFieldInputContext,
+): void => {
+	context.locations.push(
+		immutableRecord({
+			field,
+			fieldPath: immutableArray(fieldPath),
+			itemIndex: context.itemIndex,
+			kind: context.kind,
+			mode: context.mode,
+			value,
+			valuePath: immutableArray(operationPath),
+		}),
+	)
+}
+
+const collectFieldLocations = (
+	field: GenericField,
+	value: unknown,
+	fieldPath: readonly string[],
+	operationPath: readonly RuntimeFieldValuePathSegment[],
+	context: RuntimeFieldInputContext,
+): void => {
+	if (context.order === 'parent-first') {
+		appendFieldLocation(field, value, fieldPath, operationPath, context)
+	}
+
+	if (isRuntimeObjectField(field)) {
+		collectObjectChildLocations(field, value, fieldPath, operationPath, context)
+	}
+
+	if (context.order === 'children-first') {
+		appendFieldLocation(field, value, fieldPath, operationPath, context)
+	}
+}
+
+const collectFieldMapLocations = (
+	fields: Readonly<Record<string, GenericField>>,
+	value: Readonly<Record<string, unknown>>,
+	parentFieldPath: readonly string[],
+	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
+	context: RuntimeFieldInputContext,
+): void => {
+	for (const [name, field] of Object.entries(fields)) {
+		if (!Object.hasOwn(value, name)) {
+			continue
+		}
+
+		collectFieldLocations(
+			field,
+			value[name],
+			immutableArray([...parentFieldPath, name]),
+			immutableArray([...parentOperationPath, name]),
+			context,
+		)
+	}
+}
+
+function collectObjectChildLocations(
+	field: RuntimeObjectField,
+	value: unknown,
+	fieldPath: readonly string[],
+	operationPath: readonly RuntimeFieldValuePathSegment[],
+	context: RuntimeFieldInputContext,
+): void {
+	const visitObject = (
+		candidate: unknown,
+		remainingListDepth: number,
+		candidatePath: readonly RuntimeFieldValuePathSegment[],
+	): void => {
+		if (remainingListDepth > 0) {
+			if (!isUnknownArray(candidate)) {
+				return
+			}
+
+			for (const [index, item] of candidate.entries()) {
+				visitObject(
+					item,
+					remainingListDepth - 1,
+					immutableArray([...candidatePath, index]),
+				)
+			}
+			return
+		}
+
+		if (!isPlainRecord(candidate)) {
+			return
+		}
+
+		collectFieldMapLocations(
+			field.options.fields,
+			candidate,
+			fieldPath,
+			candidatePath,
+			context,
+		)
+	}
+
+	visitObject(value, getFieldListDepth(field.options), operationPath)
+}
+
+/** Lists every explicitly affected top-level field. */
+export const collectUpdateExpressionFieldNames = (
+	update: UpdateExpressionNode,
+): readonly string[] => {
+	const names = new Set<string>()
+
+	for (const operation of readUpdateExpressionOperations(
+		update,
+		'Runtime field inputs require an update expression',
+	)) {
+		if (typeof operation.field !== 'string') {
+			throw new TypeError(
+				'Runtime field inputs contain an update without a field name',
+			)
+		}
+
+		names.add(operation.field)
+	}
+
+	return immutableArray([...names])
+}
+
+const readUpdateOperationValue = (
+	operation: Readonly<Record<string, unknown>>,
+): UpdateOperationValue => {
+	if (
+		(operation.kind !== 'relation' &&
+			operation.kind !== 'decrement' &&
+			operation.kind !== 'increment' &&
+			operation.kind !== 'set') ||
+		typeof operation.field !== 'string' ||
+		!Object.hasOwn(operation, 'value')
+	) {
+		throw new TypeError(
+			'Runtime field inputs contain an invalid update operation',
+		)
+	}
+
+	return { field: operation.field, value: operation.value }
+}
+
+const collectUpdateLocations = (
+	update: UpdateExpressionNode,
+	fields: Readonly<Record<string, GenericField>>,
+	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
+	context: RuntimeFieldInputContext & Readonly<{ mode: 'update' }>,
+): void => {
+	for (const [index, operation] of readUpdateExpressionOperations(
+		update,
+		'Runtime field inputs require an update expression',
+	).entries()) {
+		const updateValue = readUpdateOperationValue(operation)
+
+		const field = fields[updateValue.field]
+
+		if (field === undefined) {
+			throw new TypeError(
+				`Runtime field inputs reference unknown field ${JSON.stringify(updateValue.field)}`,
+			)
+		}
+
+		collectFieldLocations(
+			field,
+			updateValue.value,
+			immutableArray([updateValue.field]),
+			immutableArray([...parentOperationPath, 'operations', index, 'value']),
+			context,
+		)
+	}
+}
+
+/** Normalizes operation wrappers without changing field traversal semantics. */
+const collectOperationFieldInputRoots = (
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
+): readonly RuntimeFieldInputRoot[] => {
+	if (operation.kind === 'plugin-schema-mutation') {
+		return operation.effect?.kind === 'update'
+			? [
+					[
+						'update',
+						operation.effect.update,
+						['effect', 'update'],
+						0,
+						operation.kind,
+					],
+				]
+			: []
+	}
+
+	const executable = operation as unknown as ExecutableOperationAst
+
+	switch (executable.kind) {
+		case 'create-one':
+			return [['create', executable.input, ['input'], 0, executable.kind]]
+		case 'create-many':
+			return executable.inputs.map(
+				(value, itemIndex) =>
+					[
+						'create',
+						value,
+						['inputs', itemIndex],
+						itemIndex,
+						executable.kind,
+					] as const,
+			)
+		case 'update-many':
+		case 'update-one':
+			return [['update', executable.update, ['update'], 0, executable.kind]]
+		case 'upsert-one':
+			return [
+				['create', executable.create, ['create'], 0, executable.kind],
+				['update', executable.update, ['update'], 0, executable.kind],
+			]
+		case 'upsert-many':
+			return executable.items.flatMap(
+				(item, itemIndex): readonly RuntimeFieldInputRoot[] => [
+					[
+						'create',
+						item.create,
+						['items', itemIndex, 'create'],
+						itemIndex,
+						executable.kind,
+					],
+					[
+						'update',
+						item.update,
+						['items', itemIndex, 'update'],
+						itemIndex,
+						executable.kind,
+					],
+				],
+			)
+		default:
+			return []
+	}
+}
+
+/** Collects every present candidate value in deterministic item and field order. */
+export const collectOperationFieldInputs = (
+	operation: DatabaseOperationAst | PluginSchemaMutationOperationAst,
+	order: RuntimeFieldVisitOrder,
+): readonly RuntimeFieldInputValue[] => {
+	const fields = getRuntimeOperationFields(operation)
+	const locations: RuntimeFieldInputLocation[] = []
+
+	for (const [
+		mode,
+		value,
+		path,
+		itemIndex,
+		kind,
+	] of collectOperationFieldInputRoots(operation)) {
+		if (mode === 'update') {
+			collectUpdateLocations(value, fields, path, {
+				itemIndex,
+				kind,
+				locations,
+				mode,
+				order,
+			})
+			continue
+		}
+
+		collectFieldMapLocations(fields, value, immutableArray([]), path, {
+			itemIndex,
+			kind,
+			locations,
+			mode,
+			order,
+		})
+	}
+
+	return immutableArray(locations)
+}
+
+type PathValue =
+	Readonly<{ found: false }> | Readonly<{ found: true; value: unknown }>
+
+/** Reads a present value through the segmented paths shared by field lifecycles. */
+export const readRuntimeFieldValuePath = (
+	root: unknown,
+	path: readonly RuntimeFieldValuePathSegment[],
+): PathValue => {
+	let value = root
+
+	for (const segment of path) {
+		if (typeof segment === 'number') {
+			if (!isUnknownArray(value) || segment >= value.length) {
+				return { found: false }
+			}
+			value = value[segment]
+			continue
+		}
+
+		if (!isPlainRecord(value) || !Object.hasOwn(value, segment)) {
+			return { found: false }
+		}
+		value = value[segment]
+	}
+
+	return { found: true, value }
+}
+
+/** Replaces one field value through immutable record and array copies. */
+export const replaceRuntimeFieldValuePath = (
+	root: unknown,
+	path: readonly RuntimeFieldValuePathSegment[],
+	replacement: unknown,
+): unknown => {
+	const [segment, ...remainingPath] = path
+
+	if (segment === undefined) {
+		return replacement
+	}
+
+	if (typeof segment === 'number') {
+		if (!isUnknownArray(root) || segment >= root.length) {
+			throw new TypeError('Runtime field value replacement path is unavailable')
+		}
+
+		const values = [...root]
+		values[segment] = replaceRuntimeFieldValuePath(
+			values[segment],
+			remainingPath,
+			replacement,
+		)
+		return immutableArray(values)
+	}
+
+	if (!isPlainRecord(root) || !Object.hasOwn(root, segment)) {
+		throw new TypeError('Runtime field value replacement path is unavailable')
+	}
+
+	return immutableRecord({
+		...root,
+		[segment]: replaceRuntimeFieldValuePath(
+			root[segment],
+			remainingPath,
+			replacement,
+		),
+	})
+}
+
+/**
+ * Visits normalized persisted mutation inputs children-first and immutably
+ * replaces every value for which the visitor returns a defined result.
+ * Returning `undefined` observes without replacement.
+ *
+ * @example `await transformOperationFieldInputs(operation, ({ value }) => value)`
+ */
+export const transformOperationFieldInputs = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	operation: TOperation,
+	visitor: RuntimeFieldInputVisitor,
+): Promise<TOperation> => {
+	let transformed: unknown = operation
+	const inputs = collectOperationFieldInputs(operation, 'children-first')
+
+	for (const input of inputs) {
+		const current = readRuntimeFieldValuePath(transformed, input.valuePath)
+
+		if (!current.found) {
+			throw new TypeError(
+				'Runtime field input disappeared during transformation',
+			)
+		}
+
+		const replacement = await visitor(
+			immutableRecord({ ...input, value: current.value }),
+		)
+
+		// Undefined means observation only; logical field values never use it as data.
+		if (replacement !== undefined) {
+			transformed = replaceRuntimeFieldValuePath(
+				transformed,
+				input.valuePath,
+				replacement,
+			)
+		}
+	}
+
+	return transformed as TOperation
+}
+
+/** Collects one logical record independently from operation-specific wrapper paths. */
+export const collectRecordFieldValues = (
+	fields: Readonly<Record<string, GenericField>>,
+	record: Readonly<Record<string, unknown>>,
+	order: RuntimeFieldVisitOrder,
+): readonly RuntimeFieldValue[] => {
+	const locations: RuntimeFieldInputLocation[] = []
+
+	collectFieldMapLocations(
+		fields,
+		record,
+		immutableArray([]),
+		immutableArray([]),
+		{
+			itemIndex: 0,
+			kind: 'create-one',
+			locations,
+			mode: 'create',
+			order,
+		},
+	)
+
+	return immutableArray(
+		locations.map(({ field, fieldPath, value, valuePath }) =>
+			immutableRecord({ field, fieldPath, value, valuePath }),
+		),
+	)
+}

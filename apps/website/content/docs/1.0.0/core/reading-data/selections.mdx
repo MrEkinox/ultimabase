@@ -1,0 +1,101 @@
+---
+title: Selections
+description: Choose which model fields a read returns with a flat select object.
+audience:
+  - application-developer
+contentType: guide
+order: 3
+outcome: Choose an inclusion or exclusion projection and predict the returned model shape.
+owner: '2808'
+releaseStatus: pre-release
+reviewedAt: 2026-09-16
+sources:
+  - packages/core/README.md
+  - packages/core/docs/query.md
+  - packages/core/docs/schema.md
+  - packages/core/src/query/clauses/selection.ts
+  - docs/adr/0152-schema-root-object-read-commands.md
+---
+
+## Outcome
+
+Use a flat `select` object to request only the model fields a caller needs.
+TypeScript infers the shape of that requested result. Installed output policies
+may narrow it further at runtime; `select` does not grant access or protect a
+field from other callers.
+
+## Prerequisites
+
+Start with [Query Overview](./overview). The examples assume a started
+application and a `Post` schema with `title`, `published`, and `internalNote`
+fields, in addition to the built-in `id`, `createdAt`, and `updatedAt` fields.
+
+## Steps
+
+For a stable card shape, include the fields the caller needs. Exclusion is
+convenient when the caller genuinely needs every other field:
+
+```ts title="src/post-results.ts"
+import { Post } from './schemas.js'
+
+const cardFields = { createdAt: true, title: true } as const
+
+export const readPostCard = (id: string) => Post.get({ id, select: cardFields })
+
+export const readPostsWithoutNotes = () =>
+	Post.findMany({
+		select: { internalNote: false },
+		where: { published: { eq: true } },
+	})
+```
+
+The first call returns a model with `id`, `createdAt`, and `title` when the
+record exists. `id` is added automatically to an ordinary model projection.
+The second call returns all fields except `internalNote` for each matching
+post, including fields added to `Post` later.
+
+### Selection modes
+
+| `select` value                         | Mode      | Requested result                                               |
+| -------------------------------------- | --------- | -------------------------------------------------------------- |
+| `{ title: true }`                      | Inclusion | `id` and `title` only.                                         |
+| `{ internalNote: false }`              | Exclusion | Every field except `internalNote`.                             |
+| `{ title: true, internalNote: false }` | Inclusion | `id` and `title` only; the `false` flag does not switch modes. |
+| `{}` or omitted                        | Complete  | Every available field.                                         |
+
+At least one `true` flag switches to inclusion mode. A selection containing
+only `false` flags uses exclusion mode. The flags must be literal booleans so
+TypeScript can infer the result accurately; use `as const` when reusing a
+selection object. `id: false` is rejected. Unknown field names and non-boolean
+flags are also rejected before the read executes.
+
+`select` is flat: it chooses whole fields, not properties inside an embedded
+object. To load and shape a pointer or relation target, use `include` with its
+own nested `select`; see [Related Data](./related-data). Virtual fields are
+selectable too. Omitting `select` can therefore run their resolvers; see
+[Virtual Fields](/docs/1.0.0/core/data-modeling/virtual-fields).
+
+## Verify
+
+Hover the resolved result of `readPostCard()`: its type includes `id`,
+`createdAt`, and `title`, but not `internalNote` or `published`. At runtime,
+direct properties, `get(field)`, enumeration, inspection, and `toJSON()` expose
+the same selected snapshot. An omitted field cannot be recovered from that
+model; run another read if it is needed.
+
+Prefer inclusion for a public response with a fixed contract. Exclusion may
+expose a field added to the schema later. Use an authorization policy, not a
+selection, to keep data confidential. A policy can also remove a requested
+field from the runtime result, so code that handles protected fields must
+account for that restriction.
+
+## Next steps
+
+<Cards>
+	<Card title="Ordering and Pagination" href="./ordering-and-pagination">
+		Add explicit ordering, limit, and offset to page through results.
+	</Card>
+	<Card title="Related Data" href="./related-data">
+		Include related models while keeping their visible fields explicit.
+	</Card>
+</Cards>

@@ -1,0 +1,205 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  select:
+    name: Select affected checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      packages: ${{ steps.plan.outputs.packages }}
+      build: ${{ steps.plan.outputs.build }}
+      transversal: ${{ steps.plan.outputs.transversal }}
+      coverage: ${{ steps.plan.outputs.coverage }}
+      website: ${{ steps.plan.outputs.website }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # PR merge bases, deleted files and multi-commit pushes need complete history.
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - uses: dorny/paths-filter@v4
+        id: changes
+        if: github.event_name != 'workflow_dispatch'
+        # Unavailable history falls back to complete validation in the planner.
+        continue-on-error: true
+        with:
+          token: ''
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ref: ${{ github.sha }}
+          list-files: json
+          filters: |
+            all:
+              - '**'
+      - name: Compute affected packages and suites
+        id: plan
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_CHANGED_FILES: ${{ steps.changes.outputs.all_files }}
+          CI_FULL: ${{ github.event_name == 'workflow_dispatch' || steps.changes.outcome != 'success' }}
+        run: node tooling/ci/plan.ts
+
+  repository:
+    name: Repository and documentation
+    needs: [select, build]
+    if: always() && needs.select.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI_PLAN: ${{ needs.select.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        if: needs.select.outputs.build == 'true'
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+        if: needs.select.outputs.build == 'true'
+      - run: node tooling/ci/run.ts repository
+
+  build:
+    name: Build public packages once
+    needs: select
+    if: needs.select.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - name: Check production project references
+        run: yarn tsc --build tsconfig.json
+      - run: yarn build
+      - name: Preserve package paths and executable permissions
+        run: tar -cf compiled-packages.tar packages/*/dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: compiled-packages
+          path: compiled-packages.tar
+          if-no-files-found: error
+          retention-days: 1
+
+  packages:
+    name: Package (${{ matrix.name }})
+    needs: [select, build]
+    if: needs.select.outputs.packages != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include: ${{ fromJSON(needs.select.outputs.packages) }}
+    env:
+      CI_PLAN: ${{ needs.select.outputs.plan }}
+      CI_PACKAGE: ${{ matrix.name }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+      - name: Install browser only for selected browser suites
+        if: matrix.browser
+        run: yarn playwright install --with-deps chromium
+      - name: Check the selected package suites
+        run: node tooling/ci/run.ts package
+
+  transversal:
+    name: Affected transversal suites
+    needs: [select, build]
+    if: needs.select.outputs.transversal == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI_PLAN: ${{ needs.select.outputs.plan }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+      - name: Install browser only for the authenticated REST vertical
+        if: contains(needs.select.outputs.plan, 'authenticated-rest-vertical.postgres.e2e.test.ts')
+        run: yarn playwright install --with-deps chromium
+      - run: node tooling/ci/run.ts transversal
+
+  coverage:
+    name: Complete coverage
+    needs: [select, build]
+    # Unknown/global inputs and manual runs require the complete coverage denominator.
+    # Ordinary affected runs must not secretly execute every suite again here.
+    if: needs.select.outputs.coverage == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # Pass the safe hosted bound through CLI without overriding serial projects.
+      ULTIMABASE_COVERAGE_WORKERS: 2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+      - run: yarn playwright install --with-deps chromium
+      - run: yarn test:coverage
+
+  website:
+    name: Website
+    needs: [select, build]
+    if: needs.select.outputs.website == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: compiled-packages
+      - run: tar -xf compiled-packages.tar
+      - run: yarn website:typecheck
+      - run: yarn website:lint
+      - run: yarn playwright install --with-deps chromium
+      - run: yarn website:test
+
+  quality:
+    name: Quality
+    needs: [select, repository, build, packages, transversal, coverage, website]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      CHECK_RESULTS: ${{ toJSON(needs) }}
+    steps:
+      - name: Require every scheduled check to succeed
+        # Keep the existing required-check name stable, including docs-only PRs.
+        run: |
+          node --input-type=module <<'NODE'
+          const results = Object.values(JSON.parse(process.env.CHECK_RESULTS));
+          if (results.some(({ result }) => !['success', 'skipped'].includes(result))) {
+            console.error('A required CI job failed or was cancelled.');
+            process.exit(1);
+          }
+          NODE

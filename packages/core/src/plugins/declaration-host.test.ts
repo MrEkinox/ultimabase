@@ -1,0 +1,412 @@
+import { applicationFixture } from '../../tests/application-fixture.js'
+import { describe, expect, it } from 'vitest'
+import { createApplication } from '../application/framework-application.js'
+
+import {
+	defineCapability,
+	definePluginFieldFamily,
+	plugin as createPlugin,
+	contributeDeclarations,
+	optionalCapability,
+	provideCapability,
+	requireCapability,
+	stringField,
+	type CapabilityRequirement,
+	type PluginDeclarationCapabilityReader,
+} from '../index.js'
+import { FieldBuilderMethodRegistry } from '../schema/schema/field-builder-method-registry.js'
+
+const alphaMethod = definePluginFieldFamily({
+	fieldKind: 'fixture.alpha',
+	typegen: { module: '@fixture/alpha-plugin', valueType: 'AlphaValue' },
+	builder: {
+		name: 'alpha',
+		contexts: {
+			stored: { factory: stringField, methodType: 'AlphaFieldBuilderMethod' },
+		},
+	},
+})
+
+const betaMethod = definePluginFieldFamily({
+	fieldKind: 'fixture.beta',
+	typegen: { module: '@fixture/beta-plugin', valueType: 'BetaValue' },
+	builder: {
+		name: 'beta',
+		contexts: {
+			stored: { factory: stringField, methodType: 'BetaFieldBuilderMethod' },
+		},
+	},
+})
+
+const declarationCapability = defineCapability<{
+	readonly label: string
+}>()({
+	capabilityId: 'fixture.static-declaration',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'declaration',
+	compose: ([provider]) => provider,
+})
+
+const applicationCapability = defineCapability<{
+	readonly ready: boolean
+}>()({
+	capabilityId: 'fixture.application-declaration',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
+
+describe('PluginDeclarationHost', () => {
+	it('accepts receipts and rejects arbitrary declaration results', async () => {
+		const valid = createPlugin({
+			id: 'fixture.valid-receipt',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Declares one field family.' },
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => fields.register(alphaMethod),
+				}),
+			],
+		})
+		const application = applicationFixture(
+			await createApplication({ plugins: [valid], schemas: [] }),
+		)
+		expect(application.fieldBuilderMethods.map(({ name }) => name)).toEqual([
+			'alpha',
+		])
+		await application.dispose()
+
+		const invalid = createPlugin({
+			id: 'fixture.invalid-receipt',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Exercises the Runtime boundary.' },
+			contributions: [
+				contributeDeclarations({
+					schema: () => ({ registered: true }) as unknown as undefined,
+				}),
+			],
+		})
+		await expect(
+			createApplication({ plugins: [invalid], schemas: [] }),
+		).rejects.toThrow(
+			'plugin declaration contribution callbacks may return only Core declaration receipts',
+		)
+	})
+
+	it('exposes only active privilege facades and keeps applications isolated', async () => {
+		const conditionalRequirement = optionalCapability(
+			declarationCapability,
+			'^1.0.0',
+		)
+		const plugin = () =>
+			createPlugin({
+				id: 'fixture.conditional-declarer',
+				version: '1.0.0',
+				core: '^0.0.0',
+				permissions: {
+					'schema:declare': {
+						reason: 'Declares alpha when the static protocol is present.',
+						when: conditionalRequirement,
+					},
+				},
+				contributions: [
+					conditionalRequirement,
+					contributeDeclarations({
+						schema: ({ fields }) => {
+							const availableFields: unknown = fields
+							if (availableFields !== undefined) {
+								;(availableFields as typeof fields).register(alphaMethod)
+							}
+
+							return undefined
+						},
+					}),
+				],
+			})
+		const provider = createPlugin({
+			id: 'fixture.static-provider',
+			version: '1.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'available' },
+				}),
+			],
+		})
+
+		const withoutProvider = applicationFixture(
+			await createApplication({
+				plugins: [plugin()],
+				schemas: [],
+			}),
+		)
+		await withoutProvider.dispose()
+		const withProvider = applicationFixture(
+			await createApplication({
+				plugins: [plugin(), provider],
+				schemas: [],
+			}),
+		)
+
+		expect(withoutProvider.fieldBuilderMethods).toStrictEqual([])
+		expect(withProvider.fieldBuilderMethods.map(({ name }) => name)).toEqual([
+			'alpha',
+		])
+	})
+
+	it('resolves every declaration privilege through one active set', async () => {
+		const conditionalRequirement = optionalCapability(
+			declarationCapability,
+			'^1.0.0',
+		)
+		const properties = [
+			'fields',
+			'models',
+			'operations',
+			'privateStorage',
+			'typegenReferences',
+		] as const
+		const createDeclarer = (observed: boolean[]) => {
+			const observe =
+				(property: (typeof properties)[number]) =>
+				(context: object): undefined => {
+					observed.push(Object.hasOwn(context, property))
+					return undefined
+				}
+			const conditional = (reason: string) => ({
+				reason,
+				when: conditionalRequirement,
+			})
+			return createPlugin({
+				id: 'fixture.all-conditional-declarations',
+				version: '1.0.0',
+				core: '^0.0.0',
+				permissions: {
+					'model:extend': conditional('Extends models.'),
+					'operation:declare': conditional('Declares operations.'),
+					'schema:declare': conditional('Declares schemas.'),
+					'storage:private': conditional('Declares private storage.'),
+					'typegen:reference': conditional('References public types.'),
+				},
+				contributions: [
+					conditionalRequirement,
+					contributeDeclarations({
+						models: observe('models'),
+						operations: observe('operations'),
+						privateStorage: observe('privateStorage'),
+						schema: observe('fields'),
+						typegen: observe('typegenReferences'),
+					}),
+				],
+			})
+		}
+		const provider = createPlugin({
+			id: 'fixture.all-conditional-provider',
+			version: '1.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'available' },
+				}),
+			],
+		})
+		const inactive: boolean[] = []
+		const active: boolean[] = []
+		const withoutProvider = applicationFixture(
+			await createApplication({
+				plugins: [createDeclarer(inactive)],
+				pluginPrivileges: { logger: false },
+				schemas: [],
+			}),
+		)
+		await withoutProvider.dispose()
+		const withProvider = applicationFixture(
+			await createApplication({
+				plugins: [createDeclarer(active), provider],
+				pluginPrivileges: { logger: false },
+				schemas: [],
+			}),
+		)
+
+		expect(inactive).toEqual(properties.map(() => false))
+		expect(active).toEqual(properties.map(() => true))
+		await withProvider.dispose()
+	})
+
+	it('reads only exact static requirements and closes captured readers', async () => {
+		const required = requireCapability(declarationCapability, '^1.0.0')
+		const absent = optionalCapability(
+			defineCapability<{ readonly missing: true }>()({
+				capabilityId: 'fixture.absent-static',
+				version: '1.0.0',
+				cardinality: 'single',
+				lifetime: 'declaration',
+				compose: ([provider]) => provider,
+			}),
+			'^1.0.0',
+		)
+		let observed: { readonly label: string } | undefined
+		let optionalObserved: { readonly missing: true } | undefined
+		let captured:
+			| PluginDeclarationCapabilityReader<
+					readonly [typeof required, typeof absent]
+			  >
+			| undefined
+		const provider = createPlugin({
+			id: 'fixture.reader-provider',
+			version: '1.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideCapability(declarationCapability, {
+					contributionId: 'fixture',
+					value: { label: 'composed' },
+				}),
+			],
+		})
+		const consumer = createPlugin({
+			id: 'fixture.reader-consumer',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Reads declaration capabilities.' },
+			contributions: [
+				contributeDeclarations({
+					requires: [required, absent],
+					schema: ({ capabilities }) => {
+						captured = capabilities
+						observed = capabilities.get(required)
+						optionalObserved = capabilities.get(absent)
+					},
+				}),
+			],
+		})
+
+		applicationFixture(
+			await createApplication({ plugins: [consumer, provider], schemas: [] }),
+		)
+
+		expect(observed).toEqual({ label: 'composed' })
+		expect(optionalObserved).toBeUndefined()
+		expect(() => captured?.get(required)).toThrow(
+			'Plugin static declaration facade is already closed',
+		)
+	})
+
+	it('rejects undeclared and application-lifetime reads before setup', async () => {
+		const undeclared = optionalCapability(declarationCapability, '^1.0.0')
+		const applicationRequirement = optionalCapability(
+			applicationCapability,
+			'^1.0.0',
+		)
+		const readThroughRuntimeBoundary = (
+			reader: PluginDeclarationCapabilityReader,
+			requirement: CapabilityRequirement,
+		): unknown =>
+			(
+				reader as Readonly<{
+					get(requirement: CapabilityRequirement): unknown
+				}>
+			).get(requirement)
+		const undeclaredPlugin = createPlugin({
+			id: 'fixture.undeclared-reader',
+			version: '1.0.0',
+			core: '^0.0.0',
+			permissions: { 'schema:declare': 'Exercises undeclared reads.' },
+			contributions: [
+				contributeDeclarations({
+					schema: ({ capabilities }) => {
+						readThroughRuntimeBoundary(capabilities, undeclared)
+					},
+				}),
+			],
+		})
+
+		await expect(
+			createApplication({ plugins: [undeclaredPlugin], schemas: [] }),
+		).rejects.toThrow('attempted to read an undeclared capability requirement')
+		expect(() =>
+			contributeDeclarations({
+				requires: [applicationRequirement],
+				schema: () => undefined,
+			}),
+		).toThrow(
+			'plugin declaration contributions may require only declaration capabilities',
+		)
+	})
+
+	it('publishes field registrations atomically and closes stored facades', () => {
+		const registry = new FieldBuilderMethodRegistry()
+		const failed = registry.beginPluginDeclaration('fixture.failed')
+		failed.fields.register(alphaMethod)
+		failed.close()
+
+		const successful = registry.beginPluginDeclaration('fixture.successful')
+		successful.fields.register(alphaMethod)
+		successful.commit()
+		successful.close()
+		registry.close()
+
+		expect(registry.values().map(({ owner }) => owner)).toEqual([
+			'fixture.successful',
+		])
+		expect(() => {
+			successful.fields.register(betaMethod)
+		}).toThrow('Plugin field family declaration facade is already closed')
+	})
+
+	it('binds contributions to two explicit instances in deterministic order', async () => {
+		const createInstance = (
+			instanceId: 'primary' | 'secondary',
+			method: typeof alphaMethod | typeof betaMethod,
+		) =>
+			createPlugin({
+				id: 'fixture.repeated-declarer',
+				instanceId,
+				version: '1.0.0',
+				core: '^0.0.0',
+				permissions: {
+					'schema:declare': `Declares the ${method.builder.name} fixture method.`,
+				},
+				contributions: [
+					contributeDeclarations({
+						schema: ({ fields }) => {
+							fields.register(method)
+
+							return undefined
+						},
+					}),
+				],
+			})
+
+		const application = applicationFixture(
+			await createApplication({
+				plugins: [
+					createInstance('primary', alphaMethod),
+					createInstance('secondary', betaMethod),
+				],
+				schemas: [],
+			}),
+		)
+
+		expect(
+			application.fieldBuilderMethods.map(({ name, owner }) => ({
+				name,
+				owner,
+			})),
+		).toEqual([
+			{
+				name: 'alpha',
+				owner: 'fixture.repeated-declarer (instance primary)',
+			},
+			{
+				name: 'beta',
+				owner: 'fixture.repeated-declarer (instance secondary)',
+			},
+		])
+	})
+})

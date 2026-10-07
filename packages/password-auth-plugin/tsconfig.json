@@ -1,0 +1,16 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../http-plugin" },
+		{ "path": "../typegen" },
+		{ "path": "../testing" }
+	]
+}

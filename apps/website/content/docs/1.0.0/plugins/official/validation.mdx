@@ -1,0 +1,150 @@
+---
+title: Validation
+description: Add synchronous Standard Schema validation to final mutation values while Core retains structural validation.
+audience:
+  - application-developer
+contentType: concept
+outcome: Decide when application validation belongs in the Validation plugin rather than Core or Hooks.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-29
+sources:
+  - packages/validation-plugin/README.md
+  - packages/validation-plugin/src/field-validation.ts
+  - packages/validation-plugin/src/operation-validation.ts
+  - packages/validation-plugin/src/field-validation.test.ts
+  - docs/adr/0223-optional-field-validation-plugin.md
+  - examples/minimal/src/schema.ts
+---
+
+## Overview
+
+`@ultimabase/validation-plugin` owns the optional `validation` field option.
+Core always enforces requiredness, nullability, canonical value shapes, defaults,
+immutable fields, and database integrity; installing this plugin adds
+application-specific rejection rules. Importing the package alone does not
+install those rules in an application.
+
+## Installation
+
+Start from an UltimaBase application with a database provider, as in
+[Manual Installation](/docs/1.0.0/manual-installation). Install this plugin
+and a Standard Schema V1 implementation such as Zod. The example below uses
+the already-installed PostgreSQL provider.
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/validation-plugin zod
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/validation-plugin zod
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/validation-plugin zod
+```
+
+## Configuration
+
+Attach a validator to a stored field. Here Zod checks the complete canonical
+string after Core has resolved the input:
+
+```ts title="src/application.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+export const Application = UltimaBase.use(
+	postgresPlugin({ url: databaseUrl }),
+).use(validationPlugin())
+```
+
+```ts title="src/article.ts"
+import { z } from 'zod'
+import { Application } from './application.js'
+
+export const Article = Application.Schema.define({
+	className: 'Article',
+	fields: (f) => ({
+		title: f.string({
+			required: true,
+			validation: z.string().min(1).max(200),
+		}),
+	}),
+})
+```
+
+Install the plugin in the same application that registers `Article`:
+
+```ts title="src/ultimabase.ts"
+import { Application } from './application.js'
+import { Article } from './article.js'
+
+export const ultimabase = new Application({
+	schemas: [Article],
+})
+```
+
+Keep startup in the existing entry point from
+[Manual Installation](/docs/1.0.0/manual-installation#start-and-verify): await
+`ultimabase.start()` there and always await `dispose()` when the process finishes.
+This configuration module stays safe to load for static Typegen generation.
+
+`validationPlugin()` takes no options. Its configured factory exposes
+`validation` on supported fields directly from source. Regenerate Typegen
+when the application-wide named schema graph or a generated `where` contract
+changes; see
+[Generate TypeScript Types](/docs/1.0.0/guides/generate-types).
+
+The option accepts one synchronous Standard Schema V1 validator whose input
+and output are compatible with the field's complete canonical non-null value.
+It works on stored fields and embedded object properties, including list and
+plugin-defined stored values. Relation handles, virtual fields, and output
+descriptors do not expose it. `required` remains an independent Core option:
+the validator does not decide whether a field may be omitted or set to `null`.
+
+## Behavior and limitations
+
+### What runs, and when
+
+The plugin checks each present, non-null field occurrence once for create,
+update, and upsert candidates. Defaults, generators, optional field and schema
+`resolveInput` hooks, prepared-operation transforms, and final Core structural
+validation run first. The validator sees the resulting complete value, not a
+raw transport input or an arithmetic delta. An update that increments a
+validated number checks its projected complete value while keeping the
+database operation atomic.
+
+Standard Schema issues become `field.validation` issues with the affected
+field path, including nested object and list positions. Master mutations take
+the same validation path; Master bypasses authorization, not validation.
+
+The validator may accept or reject the value, but its output is not adopted as
+a replacement. A schema that trims, coerces, inserts a default, or otherwise
+changes the value is a validator-contract error. Use [Hooks](./hooks) for input
+normalization, then validate the resolved result. Validators must be
+synchronous; promises and thrown vendor errors are contract errors too.
+
+Reads, included records, adapter results, and mutation results retain Core's
+structural checks but do **not** rerun application validators. This plugin is
+not a read-time data-cleaning mechanism or a substitute for database
+constraints such as unique indexes.
+
+## Troubleshooting
+
+- **`validation` is an unknown field option:** confirm `validationPlugin()` is
+  installed on the configured factory used to declare the schema. Importing the
+  package or installing it only on another factory does not expose the option.
+- **A value is rejected with `field.validation`:** inspect the issue path and
+  the vendor's message. In the example, an empty title fails `min(1)`; a
+  non-empty title passes. The same rule applies to Master mutations.
+- **A validator-contract error occurs:** keep validation synchronous and
+  rejection-only. For example, `z.string().trim()` can change accepted values;
+  normalize through a `resolveInput` hook instead, then validate the result.
+- **A value that fails an application rule still reads:** application validators
+  do not run on reads, although Core still checks its structural shape. Check
+  the data source and enforce persistent invariants with the appropriate
+  database constraint or migration.

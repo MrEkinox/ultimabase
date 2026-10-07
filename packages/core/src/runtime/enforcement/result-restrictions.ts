@@ -1,0 +1,162 @@
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import type { RuntimeCallbackExecutor } from '../contributions/execution.js'
+import { narrowRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import { readOperationResultInclusion } from '../operations/queries.js'
+import type {
+	RuntimeLogicalOperationAst,
+	RuntimeDatabaseResultStageInput,
+	RuntimeResultStageInput,
+} from '../pipeline/contracts.js'
+import {
+	createEnforcementExecutionDescriptor,
+	normalizeEnforcementRestrictedFields,
+	readEnforcementOperationSchema,
+	type OwnedEnforcementContribution,
+} from './contribution-evaluation.js'
+import { matchesEnforcementContribution } from './definitions.js'
+import {
+	getEnforcementStateSnapshot,
+	narrowEnforcementFields,
+	type EnforcementState,
+} from './state.js'
+
+/** Applies one final projection to plain adapter result records only. */
+const restrictResultRecord = (
+	result: Readonly<Record<string, unknown>>,
+	permittedFields: readonly string[],
+): Readonly<Record<string, unknown>> => {
+	const entries = Object.entries(result).filter(([field]) =>
+		permittedFields.includes(field),
+	)
+	const restricted = immutableRecord(Object.fromEntries(entries))
+
+	narrowRuntimeSchemaModelMetadata(result, restricted, permittedFields)
+
+	return restricted
+}
+
+const restrictResult = <const TResult>(
+	result: TResult,
+	permittedFields: readonly string[] | undefined,
+): TResult => {
+	if (permittedFields === undefined || result === null) {
+		return result
+	}
+
+	const unknownResult: unknown = result
+
+	if (isUnknownArray(unknownResult)) {
+		return immutableArray(
+			unknownResult.map((record) =>
+				isPlainRecord(record)
+					? restrictResultRecord(record, permittedFields)
+					: record,
+			),
+		) as TResult
+	}
+
+	return (
+		isPlainRecord(unknownResult)
+			? restrictResultRecord(unknownResult, permittedFields)
+			: result
+	) as TResult
+}
+
+/** Hides selection-restricted fields before any output behavior can observe them. */
+export const enforceSelectionResultRestrictions = <
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
+>(
+	input: RuntimeDatabaseResultStageInput<TOperation, TResult> & {
+		readonly enforcement: EnforcementState
+	},
+): TResult => {
+	const snapshot = getEnforcementStateSnapshot(input.enforcement)
+
+	return restrictResult(input.result, snapshot.selectionFields)
+}
+
+/** Evaluates final output restrictions after business result replacement. */
+export const enforceOutputRestrictions = async <
+	const TOperation extends RuntimeLogicalOperationAst,
+	const TResult,
+>(
+	contributions: readonly OwnedEnforcementContribution[],
+	runtime: RuntimeCallbackExecutor,
+	input: RuntimeResultStageInput<TOperation, TResult> & {
+		readonly enforcement: EnforcementState
+	},
+): Promise<TResult> => {
+	const schema = readEnforcementOperationSchema(input.operation)
+	let state = input.enforcement
+
+	for (const owned of contributions) {
+		const { contribution, implementation } = owned
+		if (
+			implementation.kind === 'protected-policy' ||
+			implementation.kind !== 'restrictOutput' ||
+			(input.context.access.mode === 'master' &&
+				implementation.master === 'bypass') ||
+			!matchesEnforcementContribution(implementation, input.operation, schema)
+		) {
+			continue
+		}
+
+		const output: unknown = await runtime.invoke(
+			// Output restrictions retain the same callback identity and recursion boundary.
+			createEnforcementExecutionDescriptor(owned, input.operation),
+			input.context,
+			() =>
+				implementation.run(
+					immutableRecord({
+						context: input.context,
+						operation: input.operation,
+						result: input.result,
+					}) as never,
+				),
+		)
+		state = narrowEnforcementFields(
+			state,
+			'output',
+			normalizeEnforcementRestrictedFields(
+				output,
+				schema,
+				contribution,
+				'output',
+			),
+		)
+	}
+
+	const snapshot = getEnforcementStateSnapshot(state)
+	const permittedFields =
+		snapshot.outputFields === undefined
+			? snapshot.selectionFields
+			: snapshot.selectionFields === undefined
+				? snapshot.outputFields
+				: snapshot.outputFields.filter((field) =>
+						snapshot.selectionFields?.includes(field),
+					)
+	if (permittedFields === undefined) return input.result
+
+	// Relationship inclusions are a separately validated output projection and
+	// never enter the physical scalar selection narrowed by policy providers.
+	const inclusionFields = readOperationResultInclusion(input.operation)
+		.fields.map(({ field }) => field)
+		.filter(
+			(field) =>
+				snapshot.outputFields === undefined ||
+				snapshot.outputFields.includes(field),
+		)
+	const permittedResultFields = immutableArray([
+		...permittedFields,
+		...inclusionFields.filter((field) => !permittedFields.includes(field)),
+	])
+
+	return restrictResult(input.result, permittedResultFields)
+}

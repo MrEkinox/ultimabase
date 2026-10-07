@@ -1,0 +1,217 @@
+---
+title: Hono Server
+description: Run an UltimaBase HTTP application on a managed Node.js listener or an existing Hono app.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 3
+outcome: Run an UltimaBase HTTP application on a managed or existing Hono server without mixing listener and browser-policy ownership.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - packages/server-hono-plugin/README.md
+  - packages/server-hono-plugin/src/options.ts
+  - docs/adr/0009-http-server-plugins.md
+  - docs/adr/0226-http-browser-and-predispatch-boundaries.md
+  - docs/adr/0260-single-owner-http-dispatch.md
+---
+
+## Overview
+
+`@ultimabase/server-hono-plugin` connects an UltimaBase HTTP application to
+Hono on Node.js. It can own a listener or mount onto an existing Hono app. The
+[HTTP plugin](./http) owns application identity, request boundaries, and
+browser policy; Hono supplies the server. Neither plugin creates REST or
+GraphQL routes. Install a [REST](./rest) or [GraphQL](./graphql) transport when
+you need one.
+
+## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
+
+Install the Hono server provider alongside the [HTTP plugin](./http):
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/server-hono-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/server-hono-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/server-hono-plugin
+```
+
+If you supply your own Hono app and start its listener yourself, also install
+the packages you import directly:
+
+```bash tab="npm" tab-group="package-manager"
+npm install hono @hono/node-server
+```
+
+```bash tab="yarn"
+yarn add hono @hono/node-server
+```
+
+```bash tab="pnpm"
+pnpm add hono @hono/node-server
+```
+
+## Configuration
+
+Start from the database setup in [Manual Installation](/docs/1.0.0/manual-installation).
+`UltimaBase.start()` requires a database provider even when `schemas` is empty;
+the examples below use PostgreSQL and `DATABASE_URL`.
+
+Choose one listener owner. With no `app`, UltimaBase creates and starts a Node
+listener after the application graph validates:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
+
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(server)
+
+export const ultimabase = new Application({
+	schemas: [],
+})
+```
+
+This starts the HTTP boundary, not an API route. Add a transport plugin to
+serve REST or GraphQL. Without `port`, the managed listener uses `1337`. The
+optional `host` is forwarded only when you set it; the loopback value above is
+appropriate for local development. Port `0` lets the operating system choose
+an ephemeral port for tests.
+
+### Start and stop the managed listener
+
+Keep the exported configuration free of startup effects so Typegen can load it.
+The REST and GraphQL examples use the same `ultimabase` export and entry point:
+
+```ts title="src/main.ts"
+import { once } from 'node:events'
+import { ultimabase } from './ultimabase.js'
+
+// Register before startup so Ctrl+C during startup is also observed.
+const interrupted = once(process, 'SIGINT')
+try {
+	await ultimabase.start()
+	await interrupted
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Run the project's typecheck, build and start scripts after configuring
+`DATABASE_URL` when using PostgreSQL. The process keeps serving until Ctrl+C;
+then it awaits application cleanup, including the managed listener and database.
+For deployment, wire the host's shutdown mechanism (often SIGTERM) to the same
+awaited disposal. Do not start another application before that cleanup completes.
+
+### Join an existing Hono listener
+
+To join an existing Hono app instead, pass that `app` and name the browser
+policy owner. You start and stop the listener yourself:
+
+```ts title="src/server.ts"
+import { serve } from '@hono/node-server'
+import { Hono } from 'hono'
+import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+const app = new Hono()
+app.get('/health', (context) => context.text('ok'))
+
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(honoServerPlugin({ app, browserPolicyOwner: 'ultimabase' }))
+
+const application = new Application({
+	schemas: [],
+})
+
+await application.start()
+const listener = serve({ fetch: app.fetch, port: 1337 })
+```
+
+Here `/health` is an ordinary Hono route. UltimaBase application routes still
+require a transport plugin and an `X-UltimaBase-Application-Id` header. In
+existing-app mode, `host` and `port` are not Hono plugin options; configure
+them on your own listener.
+
+To stop only UltimaBase, await `application.dispose()`; `/health` and the
+externally owned listener stay available. When the whole process shuts down,
+also close your listener from the same entry point:
+
+```ts
+try {
+	await application.dispose()
+} finally {
+	await new Promise<void>((resolve, reject) => {
+		listener.close((error) => (error ? reject(error) : resolve()))
+	})
+}
+```
+
+## Behavior and limitations
+
+### Run one active application
+
+One JavaScript realm may initialize one UltimaBase application. After UltimaBase stops, its routes reject requests
+through the safe HTTP boundary while ordinary Hono routes and the external
+listener remain available. A second
+application fails before opening a listener, even if it reuses the same
+`honoServerPlugin()` value. Await complete disposal before replacement.
+Run simultaneous applications in separate processes, workers, or containers.
+An existing Hono app can keep its ordinary routes alongside its single
+UltimaBase application.
+
+### Choose one browser-policy owner
+
+With an existing app, `browserPolicyOwner` is required. Choose
+`'ultimabase'` to use the [HTTP browser policy](./http#browser-policy). Choose
+`'external'` when existing middleware already owns CORS, and leave the HTTP
+`browser` policy disabled. UltimaBase rejects conflicting ownership rather
+than combining CORS headers. Browser preflight selects no application; real
+application requests still require their exact `appId`.
+
+### Keep the boundary intact
+
+The existing-app Node integration must expose Hono's standard
+`incoming.rawHeaders` binding. UltimaBase uses that evidence to reject
+duplicate sensitive headers before application identity and fails closed if
+the evidence is missing. CORS is not authentication, authorization, or CSRF
+protection. TLS, proxy trust, compression, rate limiting, REST, GraphQL, and
+authentication remain outside this server plugin.
+
+## Troubleshooting
+
+If startup reports an address conflict, check whether another listener owns
+the fixed host and port. For another simultaneous application, use a separate process and address;
+two independently created managed providers do not share a socket.
+
+If initialization reports another active application, await that application’s
+`dispose()` before starting its replacement. Use a separate worker or process
+when both applications must run at the same time.
+If an existing Hono app rejects requests before routing, verify its Node
+integration supplies `incoming.rawHeaders` and that CORS has exactly one
+owner. For application identity, credentials, or `HTTP_*` errors, continue at
+[HTTP troubleshooting](./http#troubleshooting). A 404 with no REST or GraphQL
+transport installed is expected: the server plugin does not add API routes.

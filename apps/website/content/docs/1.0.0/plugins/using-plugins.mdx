@@ -1,0 +1,260 @@
+---
+title: Using Plugins
+description: Add optional behavior to an existing application, verify it, and maintain a compatible plugin set.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 2
+outcome: Add the smallest compatible plugin set and verify its application-local behavior.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-10-01
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/hooks-plugin/README.md
+  - packages/validation-plugin/README.md
+  - packages/postgres-plugin/README.md
+  - packages/typegen/README.md
+  - examples/minimal/src/schema.ts
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0282-variadic-configured-plugin-installation.md
+  - docs/adr/0284-configured-password-user-authoring.md
+---
+
+## Outcome
+
+Add Hooks and Validation to the `Task` application from
+[Manual Installation](/docs/1.0.0/manual-installation). The field Hook trims a
+title; Validation rejects it if the result is empty. Both behaviors belong to
+the application that installs these plugins.
+
+## Prerequisites
+
+- Complete Manual Installation with its disposable PostgreSQL database and
+  `src/schema.ts`, `src/ultimabase.ts`, and `src/main.ts` files.
+- Set up [Generate TypeScript Types](/docs/1.0.0/guides/generate-types), including
+  `typegenPlugin()`, the generated declaration in `tsconfig.json`, and the
+  [pre-build generator](/docs/1.0.0/guides/generate-types#generate-before-building).
+  The `typecheck` and `build` scripts there regenerate the retained relationship
+  and complete-schema callback graph. Field Hooks and Validation are inferred
+  directly from the configured source factory. JavaScript Runtime does not
+  require Typegen.
+
+## Steps
+
+### Choose the plugin set
+
+Start with the capability you need. Before adding any plugin, check its
+supported UltimaBase and capability versions, stable identity, requested
+privileges and reasons, and direct filesystem, network, process, or native
+claims. For a community package, also check its maintainer, source, license,
+and support channel. A community listing does not imply official maintenance
+or a security audit.
+
+This task needs [Hooks](./official/hooks) to normalize input and
+[Validation](./official/validation) to reject the final value. Keep the
+PostgreSQL provider from Manual Installation. Its `override` schema policy can
+change physical tables, so use only the disposable development database here.
+
+### Install the packages
+
+Install the two plugins and Zod, which supplies the field validator:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/hooks-plugin @ultimabase/validation-plugin zod
+```
+
+### Configure the application with plugins
+
+Build one immutable schema application factory by passing schema-authoring
+plugins to `.use()`. The `typegenPlugin()` setup comes from
+the Typegen prerequisite. Define Task from that factory so field Hooks and
+Validation are available directly from the installed plugin set:
+
+```ts title="src/schema.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { typegenPlugin } from '@ultimabase/typegen'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
+
+export const SchemaApplication = UltimaBase.use(
+	typegenPlugin(),
+	hooksPlugin(),
+	validationPlugin(),
+)
+
+export const Task = SchemaApplication.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		done: f.boolean({ default: false }),
+		title: f.string({
+			required: true,
+			hooks: { resolveInput: ({ value }) => value?.trim() ?? null },
+			validation: z.string().min(1),
+		}),
+	}),
+})
+```
+
+Importing either package or calling its factory alone installs no behavior;
+the returned definition must enter this application's graph.
+
+Keep every definition in this one flat ordered installation path. You can
+spread a plugin list or chain `.use()` calls; each call returns a new factory
+and leaves its parent unchanged. The application constructor takes no
+`plugins` option. Use `dependencies` when another
+plugin must exist and start first, `optionalDependencies` for that order only
+when it is installed, `peers` for compatible identity without ordering, and a
+versioned capability when several providers can supply the required behavior.
+
+### Add the database provider
+
+Extend the same factory in `ultimabase.ts`; do not repeat Hooks or Validation.
+The Hook runs before the final field validator, so Zod receives the trimmed
+title:
+
+```ts title="src/ultimabase.ts"
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+import { SchemaApplication, Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Application = SchemaApplication.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+export const ultimabase = new Application({
+	schemas: [Task],
+})
+```
+
+The Hook may normalize input, but Validation only accepts or rejects the
+result; it does not transform stored values. Core still enforces required
+presence and field structure even if Validation is absent.
+
+## Verify
+
+Replace the manual tutorial's `main.ts` with one successful and one rejected
+write:
+
+```ts title="src/main.ts"
+import { FrameworkError } from '@ultimabase/core'
+
+import { Task } from './schema.js'
+import { ultimabase } from './ultimabase.js'
+
+try {
+	await ultimabase.start()
+	const task = await Task.createOne({
+		data: { title: '  Write the documentation  ' },
+	})
+	console.log(task.title) // 'Write the documentation'
+
+	let rejected = false
+	try {
+		await Task.createOne({ data: { title: '   ' } })
+	} catch (error) {
+		if (
+			!(error instanceof FrameworkError) ||
+			error.code !== 'VALIDATION_ERROR'
+		) {
+			throw error
+		}
+		rejected = true
+	}
+	if (!rejected) throw new Error('Expected an empty title to be rejected')
+	console.log('VALIDATION_ERROR')
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+Run the updated scripts. Typecheck and build regenerate Typegen after the
+plugin and schema changes to refresh retained graph contracts. The configured
+factory already supplies the new local field options:
+
+```bash tab="npm" tab-group="package-manager"
+npm run typecheck
+npm run build
+npm start
+```
+
+```bash tab="yarn"
+yarn typecheck
+yarn build
+yarn start
+```
+
+```bash tab="pnpm"
+pnpm typecheck
+pnpm build
+pnpm start
+```
+
+Expect the trimmed title and then `VALIDATION_ERROR`. The second write is
+rejected before persistence. If TypeScript does not recognize `hooks` or
+`validation`, check that Task uses the factory on which Hooks and Validation
+were installed, not the zero-plugin `UltimaBase.Schema`. Regenerate Typegen for
+complete filters, named relationships and complete schema callbacks. If startup fails instead, inspect the default
+plugin report and compatibility diagnostics before changing privileges or
+infrastructure settings.
+
+## Migrate pre-release authoring
+
+Use one replacement for each removed form; these are migrations, not compatibility aliases:
+
+| Removed form                                             | Current form                                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Constructor `plugins` option                             | Install once with chained `UltimaBase.use()` calls; a plugin list can use the same `.use(...plugins)` entry point. |
+| Standalone ordinary `Schema.define(options)`             | `App.Schema.define(options)`; portable Core-only schemas use `UltimaBase.Schema.define(options)`.                  |
+| Ordinary CRUD through `application.schema(name)`         | Call the declared schema class directly, such as `Post.findMany()`.                                                |
+| Explicit application selector on ordinary class commands | Call the class after its owning application starts; it resolves and verifies the sole active application.          |
+| Generated `Application*Builder` aliases                  | Infer callback parameters, or annotate low-level consumers with Core's contextual builder types.                   |
+
+No schema is registered by being declared: keep `new App({ schemas: [...] })`.
+Advanced dynamically named handles remain for capabilities that need them; they
+are not the ordinary CRUD journey. Specialized User and Role declarations use
+`PasswordUserSchema.define(App.Schema, options)` and
+`RoleSchema.define(App.Schema, options)` to inherit the same plugin configuration.
+Their supported standalone forms retain generated builder contracts; no
+additional plugin installation is required per schema.
+
+## Next steps
+
+When removing a plugin, remove its factory and plugin-owned schema options or
+commands, regenerate Typegen, and verify startup and stored-data compatibility.
+Removing a plugin does not automatically migrate its data. Core checks
+required providers, protocol compatibility, privileges, and duplicate
+identities during application assembly; it cannot replace your review of a
+package's maintenance or direct Node.js behavior.
+
+<Cards>
+	<Card
+		title="Packages and Compatibility"
+		href="/docs/1.0.0/reference/package-index#platform-and-version-compatibility"
+	>
+		Check release lines, capability protocols, and version support.
+	</Card>
+	<Card title="Official Plugins" href="./overview#official-plugins">
+		Choose another shipped capability by the task it solves.
+	</Card>
+	<Card title="Community Plugins" href="./community-plugins">
+		Understand ownership before adopting a community-maintained package.
+	</Card>
+</Cards>

@@ -1,0 +1,17 @@
+name: Set up repository
+description: Install the pinned Node and Yarn toolchain with immutable registry archives.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        package-manager-cache: false
+    - run: corepack enable
+      shell: bash
+    - uses: actions/cache@v5
+      with:
+        path: .yarn/cache
+        key: yarn-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
+    - run: yarn install --immutable
+      shell: bash

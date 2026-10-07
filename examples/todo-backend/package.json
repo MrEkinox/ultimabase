@@ -1,0 +1,25 @@
+{
+	"name": "@ultimabase/example-todo-backend",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "node src/main.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@ultimabase/access-plugin": "workspace:^",
+		"@ultimabase/acl-permissions-plugin": "workspace:^",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/hooks-plugin": "workspace:^",
+		"@ultimabase/postgres-plugin": "workspace:^",
+		"@ultimabase/roles-plugin": "workspace:^",
+		"@ultimabase/typegen": "workspace:^",
+		"@ultimabase/validation-plugin": "workspace:^",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"typescript": "^6.0.3"
+	}
+}

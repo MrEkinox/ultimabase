@@ -1,0 +1,262 @@
+---
+title: Roadmap
+description: See the next priorities and the optional capabilities planned for UltimaBase.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: reference
+outcome: Identify upcoming priorities and proposed capabilities without mistaking plans for shipped behavior or release commitments.
+owner: '2822'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - README.md
+  - ROADMAP.md
+  - CURRENT_PLAN.md
+  - issues/README.md
+  - issues/3100-residual-complexity-simplification/README.md
+  - issues/500-postgres/513-migration-snapshot-history.md
+  - issues/500-postgres/514-migration-diff-sql.md
+  - issues/500-postgres/515-migration-startup-lock-drift.md
+  - issues/700-extensions/705-file-plugin.md
+  - issues/700-extensions/707-better-auth-plugin.md
+  - issues/700-extensions/708-realtime-contract.md
+  - issues/700-extensions/709-realtime-memory-adapter.md
+  - issues/700-extensions/711-postgres-outbox.md
+  - issues/700-extensions/712-bullmq-jobs.md
+  - issues/700-extensions/713-cache-plugin.md
+  - issues/700-extensions/714-grpc-transport.md
+  - issues/700-extensions/715-openapi-generator.md
+  - issues/700-extensions/716-cli-framework.md
+  - issues/700-extensions/719-typescript-sdk.md
+  - issues/700-extensions/720-react-query-sdk.md
+  - issues/700-extensions/721-audit-plugin.md
+  - issues/700-extensions/722-observability-plugin.md
+  - issues/700-extensions/724-multi-tenant-plugin.md
+  - issues/700-extensions/726-health-plugin.md
+  - issues/700-extensions/727-admin-app.md
+  - issues/800-generated-types/808-typegen-cli-watch-start.md
+---
+
+import {
+	Activity,
+	Atom,
+	Braces,
+	Database,
+	FileCode2,
+	FileUp,
+	GitBranch,
+	HeartPulse,
+	KeyRound,
+	LayoutDashboard,
+	ListTodo,
+	Network,
+	Radio,
+	ScrollText,
+	Send,
+	Shield,
+	Terminal,
+} from 'lucide-react'
+
+UltimaBase already has schemas, typed data operations, PostgreSQL, and optional
+REST, GraphQL, and password authentication in the repository. See
+[Release Status](./release-status) for what you can evaluate today. The cards
+below show proposed product directions after the simplification work.
+
+<Callout type="info" title="Simplification before new features">
+	The simplification passes preserve current application behavior and used
+	plugin contracts. Explicit decisions removed unused Runtime stage
+	contributions, the Typegen emitter marker, and migration-only scaffolding.
+	Hooks, generated types, and direct PostgreSQL synchronization remain
+	supported. Files and caching remain planned and still need design work.
+</Callout>
+
+## Next priorities
+
+<Cards>
+	<Card
+		title="File fields"
+		description="Attach files to a schema through a typed field."
+		icon={<FileUp />}
+		className="border-fd-primary/40 bg-fd-primary/5 [&_.prose-no-margin]:text-fd-foreground [&_h3]:text-fd-foreground [&_p]:text-fd-foreground"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md"
+	>
+		An optional plugin is planned for file metadata, upload authorization, and
+		storage adapters. The field API and blob lifecycle still need design review.
+	</Card>
+	<Card
+		title="Caching"
+		description="Faster reads that respect application access rules."
+		icon={<Database />}
+		className="border-fd-primary/40 bg-fd-primary/5 [&_.prose-no-margin]:text-fd-foreground [&_h3]:text-fd-foreground [&_p]:text-fd-foreground"
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/713-cache-plugin.md"
+	>
+		The planned cache contracts must account for private data and invalidate
+		after committed mutations. The cache design is not final.
+	</Card>
+</Cards>
+
+## Further ahead
+
+These are separate issue-tracked directions, not a delivery sequence. Some
+depend on earlier work or still need design review.
+
+### Application capabilities
+
+<Cards>
+	<Card
+		title="Tenant isolation"
+		description="Keep each tenant's data within its own request boundary."
+		icon={<Shield />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/724-multi-tenant-plugin.md"
+	>
+		A proposed plugin would add typed tenant context and isolation filters that
+		compose with Access, ACL, and relations.
+	</Card>
+	<Card
+		title="Realtime"
+		description="Post-commit events and a local adapter for development."
+		icon={<Radio />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/708-realtime-contract.md"
+	>
+		First define safe events and subscription boundaries, then an isolated
+		in-memory adapter.
+	</Card>
+	<Card
+		title="Background jobs"
+		description="Asynchronous work through an optional BullMQ plugin."
+		icon={<ListTodo />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/712-bullmq-jobs.md"
+	>
+		Job handlers retain explicit request authority, with retry and idempotency
+		metadata.
+	</Card>
+	<Card
+		title="Reliable event delivery"
+		description="Record event intent alongside business transactions."
+		icon={<Send />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/711-postgres-outbox.md"
+	>
+		A planned PostgreSQL outbox would support post-commit delivery with
+		at-least-once semantics.
+	</Card>
+	<Card
+		title="More authentication"
+		description="An optional Better Auth integration."
+		icon={<KeyRound />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/707-better-auth-plugin.md"
+	>
+		Separate from the existing Password Auth plugin, using shared HTTP and
+		application capabilities.
+	</Card>
+</Cards>
+
+### APIs and developer tools
+
+<Cards>
+	<Card
+		title="OpenAPI"
+		description="An API description generated from schema and REST metadata."
+		icon={<FileCode2 />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/715-openapi-generator.md"
+	>
+		API tooling should describe the installed application, without a second API
+		definition to maintain.
+	</Card>
+	<Card
+		title="TypeScript SDK"
+		description="A typed client generated from application schemas."
+		icon={<Braces />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/719-typescript-sdk.md"
+	>
+		A separate API tooling track for schema-derived inputs, selected results,
+		cursors, and errors.
+	</Card>
+	<Card
+		title="React Query SDK"
+		description="Generated query options and mutation helpers."
+		icon={<Atom />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/720-react-query-sdk.md"
+	>
+		Planned on top of the TypeScript SDK, with React as an optional dependency.
+	</Card>
+	<Card
+		title="gRPC"
+		description="Another transport over the shared operation pipeline."
+		icon={<Network />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/714-grpc-transport.md"
+	>
+		Generated services would translate framework errors into gRPC status codes.
+	</Card>
+	<Card
+		title="Developer CLI"
+		description="Commands for generation, development, and diagnostics."
+		icon={<Terminal />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/716-cli-framework.md"
+	>
+		The general CLI is planned; manual generation and watch commands are
+		currently deferred.
+	</Card>
+</Cards>
+
+### Shipping and operations
+
+<Cards>
+	<Card
+		title="PostgreSQL migrations"
+		description="Review schema changes before applying them."
+		icon={<GitBranch />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/500-postgres/513-migration-snapshot-history.md"
+	>
+		A separate migration plugin is planned for versioned snapshots,
+		deterministic SQL plans, and drift-aware application.
+	</Card>
+	<Card
+		title="Durable audit"
+		description="Record who changed what, and why."
+		icon={<ScrollText />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/721-audit-plugin.md"
+	>
+		The planned audit trail covers operations, ACL changes, and Master use while
+		redacting sensitive values.
+	</Card>
+	<Card
+		title="Observability"
+		description="Trace requests through the runtime and its plugins."
+		icon={<Activity />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/722-observability-plugin.md"
+	>
+		An optional OpenTelemetry plugin would cover transports, hooks, adapters,
+		and pipeline stages.
+	</Card>
+	<Card
+		title="Health and readiness"
+		description="Check lifecycle and dependency availability."
+		icon={<HeartPulse />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/726-health-plugin.md"
+	>
+		A proposed plugin would keep HTTP exposure optional and hide sensitive
+		dependency details.
+	</Card>
+	<Card
+		title="Administration"
+		description="A separate app for managing an UltimaBase backend."
+		icon={<LayoutDashboard />}
+		href="https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/727-admin-app.md"
+	>
+		Built on public APIs, with explicit audited Master authority for privileged
+		actions.
+	</Card>
+</Cards>
+
+## Planned is not shipped
+
+The issues above do not establish a release date, implementation order, or
+final API. There is no announced next-release feature list. Work may change
+scope or be deferred after dependency and design review.
+
+The [milestone plan](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md)
+and [issue backlog](https://github.com/MrEkinox/ultimadatabase/tree/main/issues)
+carry the full engineering context. To suggest a change or help with an issue,
+see [Contributing](./contributing).

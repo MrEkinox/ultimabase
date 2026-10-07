@@ -1,0 +1,114 @@
+{
+	"version": 2,
+	"areas": [
+		{
+			"id": "core-application",
+			"packages": ["@ultimabase/core", "@ultimabase/shared"],
+			"sections": ["manual-installation", "core", "guides", "operations"]
+		},
+		{
+			"id": "project-initializer",
+			"packages": ["@ultimabase/create-app"],
+			"sections": [
+				"quick-start",
+				"guides/generate-types",
+				"reference",
+				"project/release-status"
+			]
+		},
+		{
+			"id": "plugin-authoring-and-tooling",
+			"packages": [
+				"@ultimabase/plugin-kit",
+				"@ultimabase/testing",
+				"@ultimabase/typegen"
+			],
+			"sections": [
+				"guides/generate-types",
+				"plugins/overview",
+				"plugins/build-a-plugin",
+				"operations/troubleshooting",
+				"reference"
+			]
+		},
+		{
+			"id": "postgresql",
+			"packages": ["@ultimabase/postgres-plugin"],
+			"sections": [
+				"manual-installation",
+				"plugins/official/postgresql",
+				"operations",
+				"reference"
+			]
+		},
+		{
+			"id": "optional-data-behavior",
+			"packages": [
+				"@ultimabase/pg-vector-plugin",
+				"@ultimabase/soft-delete-plugin"
+			],
+			"sections": [
+				"plugins/official/postgresql-vector",
+				"plugins/official/soft-delete",
+				"guides",
+				"reference"
+			]
+		},
+		{
+			"id": "validation-and-lifecycle",
+			"packages": ["@ultimabase/hooks-plugin", "@ultimabase/validation-plugin"],
+			"sections": [
+				"plugins/official/validation",
+				"plugins/official/hooks",
+				"guides",
+				"reference"
+			]
+		},
+		{
+			"id": "http-and-transports",
+			"packages": [
+				"@ultimabase/graphql-http",
+				"@ultimabase/graphql-plugin",
+				"@ultimabase/graphql-yoga-plugin",
+				"@ultimabase/http-plugin",
+				"@ultimabase/rest-plugin",
+				"@ultimabase/server-hono-plugin"
+			],
+			"sections": [
+				"plugins/official/http",
+				"plugins/official/hono-server",
+				"plugins/official/rest",
+				"plugins/official/graphql",
+				"guides",
+				"operations",
+				"reference"
+			]
+		},
+		{
+			"id": "authentication-and-authorization",
+			"packages": [
+				"@ultimabase/access-plugin",
+				"@ultimabase/acl-permissions-plugin",
+				"@ultimabase/password-auth-plugin",
+				"@ultimabase/roles-plugin"
+			],
+			"sections": [
+				"core/security-foundations",
+				"plugins/official/password-authentication",
+				"plugins/official/access",
+				"plugins/official/roles",
+				"plugins/official/acl-permissions",
+				"guides",
+				"reference"
+			]
+		},
+		{
+			"id": "api-explorers",
+			"packages": [
+				"@ultimabase/apollo-sandbox-plugin",
+				"@ultimabase/graphiql-plugin"
+			],
+			"sections": ["plugins/official/graphql", "reference"]
+		}
+	]
+}

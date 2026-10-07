@@ -1,0 +1,248 @@
+---
+title: REST API
+seoTitle: REST API from TypeScript Schemas
+description: Expose selected schema and application operations through the experimental JSON REST v1 contract.
+audience:
+  - application-developer
+contentType: guide
+order: 3
+outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - packages/rest-plugin/README.md
+  - packages/rest-plugin/src/schema-routes.ts
+  - packages/rest-plugin/src/options.ts
+  - packages/rest-plugin/src/operation-routes.ts
+  - docs/adr/0256-rest-operation-public-paths.md
+  - packages/rest-plugin/src/response-values.ts
+  - examples/minimal/src/create-application.ts
+  - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
+---
+
+## Overview
+
+`@ultimabase/rest-plugin` contributes the experimental JSON REST v1 route
+graph. It decodes accepted requests into the same Core Query and mutation
+operations used by direct TypeScript. REST neither opens a listener nor
+provides authentication, authorization, or a database.
+
+Importing the package does not expose routes. Add `restPlugin()` and the
+separate [HTTP](./http) application boundary to the same application.
+
+## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
+
+Install REST in an UltimaBase project:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/rest-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/rest-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/rest-plugin
+```
+
+A running API also needs `@ultimabase/http-plugin`, a server provider such
+as [Hono Server](./hono-server), and a database provider such as
+[PostgreSQL](./postgresql). Install and configure those siblings explicitly;
+REST does not install them. Follow [Manual Installation](/docs/1.0.0/manual-installation)
+for the initial project and database setup.
+
+## Configuration
+
+The schema's `rest` option selects its generated routes. This complete local
+example exposes only `find` and `get`; it does not install authentication or
+authorization. Use a disposable development database and keep the listener on
+`127.0.0.1`.
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
+import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required')
+
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+	.use(httpPlugin({ appId: 'blog' }))
+	.use(
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			default: false,
+		}),
+	)
+	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
+
+const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (f) => ({
+		title: f.string({ required: true }),
+	}),
+	rest: { find: true, get: true },
+})
+
+export const ultimabase = new Application({
+	schemas: [Post],
+})
+```
+
+Start this configuration from the [managed listener entry point](./hono-server#start-and-stop-the-managed-listener).
+It keeps serving until Ctrl+C and awaits disposal. The exported configuration
+can also be loaded by Typegen without opening a database or listener.
+The direct `rest` option is typed by the installed plugin without first running
+Typegen. Schema declaration does not register it; `schemas: [Post]` does.
+
+`default: false` disables every route unless the schema opts in, including
+plugin-defined schema mutations. The schema above enables only reads. The
+acknowledgement says you reviewed this unprotected local exposure; it does
+not add a policy. Before binding to a public interface, configure
+[authentication](./password-authentication) if you need an identity and enforce
+authorization with [Access](./access) or [ACL](./acl-permissions). Review every
+enabled route: authentication alone grants no permission. The PostgreSQL
+`override` policy can alter tables; do not point this example at shared or
+production data without a reviewed schema plan.
+
+| Plugin option                     | Purpose                                                              |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `acknowledgeUnverifiedProtection` | Accepts that Core cannot prove complete public policy coverage.      |
+| `basePath`                        | Mount prefix, `/api` by default; REST appends `/v1`.                 |
+| `bodyLimit`                       | Maximum JSON request body, 1 MiB by default.                         |
+| `maxLimit`                        | Maximum accepted collection limit, 1,000 by default.                 |
+| `default`                         | Boolean or sparse generated-route defaults for application schemas.  |
+| `operations`                      | Exact plugin-operation tokens to expose; none are public by default. |
+| `instanceId`                      | Distinguishes explicit REST configurations in one application.       |
+
+The schema option accepts `false`, `true`, or a sparse route map. Each omitted
+route inherits `restPlugin({ default })`, then REST's built-in default. Use
+`rest: false` to expose none of a schema's generated routes. A plugin-owned
+schema cannot expose generated CRUD routes.
+
+## Behavior and limitations
+
+### Generated routes
+
+Without `default: false` or per-schema overrides, an application-owned schema
+exposes these routes under the default `/api/v1` root:
+
+| Operation      | Method and path below `/api/v1`                         | Built-in default |
+| -------------- | ------------------------------------------------------- | ---------------- |
+| Find           | `GET /classes/Post`, `POST /classes/Post/query`         | On               |
+| Get            | `GET /classes/Post/{id}`                                | On               |
+| First          | `GET` or `POST /classes/Post/first`                     | On               |
+| Exists         | `GET` or `POST /classes/Post/exists`                    | On               |
+| Create         | `POST /classes/Post`                                    | On               |
+| Update         | `PATCH /classes/Post/{id}`                              | On               |
+| Delete         | `DELETE /classes/Post/{id}`                             | On               |
+| Count          | `GET` or `POST /classes/Post/count`                     | Off              |
+| Upsert         | `POST /classes/Post/upsert`                             | Off              |
+| Bulk mutations | `POST /classes/Post/bulk/{create,update,delete,upsert}` | Off              |
+
+`{id}` must be a UUID v7. Class names are case-sensitive and are not
+pluralized. `rest: { count: true }` enables count **in addition to** the
+built-in routes unless you also disable them through a plugin or schema
+default. Routes marked off do not exist until enabled; Master authority does
+not enable them. Plugin-defined request-authority schema mutations can add
+their own routes, but private Master-only mutations cannot. See
+[Soft Delete](./soft-delete) for a concrete example.
+
+### Request and response shape
+
+Every real request must identify the exact HTTP application. With the local
+configuration above, run:
+
+```bash title="terminal"
+curl -i \
+  -H 'X-UltimaBase-Application-Id: blog' \
+  'http://127.0.0.1:1337/api/v1/classes/Post?select=id,title&limit=10'
+```
+
+On a fresh database, expect HTTP `200` and `{ "results": [] }`. If the
+application ID is missing or wrong, HTTP rejects the request before REST
+handles it. For a filtered read, use simple GET parameters or the JSON
+`POST /query` form:
+
+```bash title="terminal"
+curl -i -X POST \
+  -H 'X-UltimaBase-Application-Id: blog' \
+  -H 'Content-Type: application/json' \
+  --data '{"where":{"title":{"eq":"Hello"}},"select":{"id":true,"title":true},"limit":10}' \
+  http://127.0.0.1:1337/api/v1/classes/Post/query
+```
+
+GET accepts `where` as URL-encoded JSON, `orderBy` and `select` as
+comma-separated fields, `include` as relationship paths or JSON, and
+non-negative `limit` and `offset`. POST reads accept the corresponding typed
+Query input as JSON. Collection reads default to 100 items; the default
+maximum is 1,000. REST rejects unknown or duplicate parameters rather than
+silently ignoring them. A non-empty JSON body must use `application/json` and
+stay within `bodyLimit`.
+
+Success envelopes follow the operation: collections and bulk mutations return
+`{ "results": [...] }`; singular reads, mutations, and explicitly selected
+plugin operations return `{ "result": ... }`; count and exists return
+`{ "count": 1 }` and `{ "exists": true }`. A first read with no visible match
+returns `{ "result": null }`. Create and bulk create return HTTP `201`; other
+successful operations return `200`.
+
+An exposed plugin operation may return a readable schema model inside its
+result, such as Password Auth's `result.user`. REST applies the same field
+encodings as generated schema routes and includes only values already returned
+by the authorized Runtime read. It does not fetch extra fields or relationships.
+
+Mutations use the same schema commands and automatic transaction boundaries
+as TypeScript. Bulk is ordered, itemized, atomic, and never partial-success.
+Application operations remain private until exact tokens are listed in
+`restPlugin({ operations })`. Ordinary create and update bodies contain the
+field data directly; item DELETE has no body. Upsert and bulk use their
+schema-command-shaped JSON bodies. REST decodes input, then Core applies
+structural validation and any installed Validation, Access, ACL, and Hooks
+behavior. A public route is not itself a permission rule.
+
+Application operation bodies use exactly `{ "input": value }`, unlike ordinary
+create/update field bodies. The Password Auth guide shows each concrete input.
+
+Application operations use `POST /api/v1/operations/{name}` by default. Their
+owner may declare a short static path in the REST binding. For example,
+[Password Auth](./password-authentication) uses `/api/v1/auth/login` and its
+three sibling authentication routes. The configured `basePath` applies to
+these routes too. A declared path replaces the default URL; it does not create
+an alias or expose an unselected operation.
+
+### Read errors at the correct boundary
+
+After REST dispatch, errors use
+`{ error: { code, message, retryable, requestId, details? } }`.
+Permission failures return 403, hidden or missing targets return 404, and
+validation failures return 422. Unexpected exceptions become a safe
+`REST_INTERNAL_ERROR` response rather than exposing internal diagnostics.
+The response carries `X-UltimaBase-Request-Id`; keep it with the safe code when
+reporting a failure. Earlier application identity or credential failures retain
+the HTTP plugin's envelope and never enter REST.
+
+## Troubleshooting
+
+If startup reports `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION`, review the
+generated routes and policy before adding the acknowledgement. If a route is
+missing, check the schema's `rest` option, the plugin default, the configured
+`basePath`, and whether the schema is application-owned. In the local example,
+create, update, and delete routes deliberately return 404 because
+`default: false` disables them.
+
+If a request fails before REST begins, check [HTTP troubleshooting](./http#troubleshooting)
+for application ID, credentials, browser policy, and request correlation. If
+REST rejects a request, verify the method, JSON body size and content type,
+UUID item ID, and supported query parameters. Do not use Master authority to
+bypass a missing Access or ACL policy.

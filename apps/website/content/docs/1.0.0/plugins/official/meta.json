@@ -1,0 +1,18 @@
+{
+	"title": "Official Plugins",
+	"pages": [
+		"postgresql",
+		"soft-delete",
+		"postgresql-vector",
+		"validation",
+		"hooks",
+		"password-authentication",
+		"access",
+		"roles",
+		"acl-permissions",
+		"http",
+		"hono-server",
+		"rest",
+		"graphql"
+	]
+}

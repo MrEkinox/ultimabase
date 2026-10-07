@@ -1,0 +1,199 @@
+---
+title: PostgreSQL
+seoTitle: PostgreSQL Storage Plugin
+description: Connect UltimaBase to PostgreSQL and choose how its physical schema is prepared.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 3
+outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
+owner: '2813'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - docs/adr/0266-defer-migration-only-protocols.md
+  - packages/postgres-plugin/README.md
+  - packages/postgres-plugin/src/plugin/postgres-plugin.ts
+  - packages/postgres-plugin/src/options.ts
+  - packages/postgres-plugin/src/connection/managed-connection.ts
+  - packages/postgres-plugin/src/synchronization/preparer.ts
+  - docs/adr/0080-postgres-index-compilation.md
+---
+
+## Overview
+
+`@ultimabase/postgres-plugin` is the official database provider. It turns
+compiled schemas and Core operations into PostgreSQL tables, queries,
+transactions, indexes, and constraints. The plugin owns `pg` and Drizzle
+internally; application code uses UltimaBase schemas and Query, not Drizzle or
+a raw database client.
+
+The plugin can prepare a database schema directly at startup. It does **not**
+ship a migration runner. Importing the package alone does not install the
+provider; add `postgresPlugin()` to the application's `.use()` chain.
+
+## Installation
+
+You need Node.js 24+, a reachable PostgreSQL database, and an UltimaBase
+application. The database itself must already exist; the plugin can prepare
+tables inside it. For a complete first project, follow
+[Manual Installation](/docs/1.0.0/manual-installation).
+
+Install the plugin in that project:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/postgres-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/postgres-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/postgres-plugin
+```
+
+The package names describe the intended npm installation experience while
+UltimaBase remains pre-release.
+
+## Configuration
+
+Supply exactly one of `url` or `pool`. The example uses a disposable
+development database and lets the plugin own its connection pool.
+`DATABASE_URL` must be loaded into the process environment before this file
+runs; keep it out of source control.
+
+```ts title="src/main.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+const Task = Application.Schema.define({
+	className: 'Task',
+	fields: (f) => ({
+		title: f.string({ required: true }),
+	}),
+})
+const ultimabase = new Application({
+	schemas: [Task],
+})
+
+try {
+	await ultimabase.start()
+	const connection = ultimabase.plugin(postgresPluginName).connection
+	console.log(connection.state) // 'connected'
+} finally {
+	await ultimabase.dispose()
+}
+```
+
+<Callout type="warn" title="Use override only on a reviewed database">
+	`override` can create or alter physical structures. Use this example with a
+	disposable development database. Do not point it at shared or production data
+	without reviewing the proposed schema and a recovery plan.
+</Callout>
+
+| Plugin option  | Purpose                                                               |
+| -------------- | --------------------------------------------------------------------- |
+| `url`          | Non-empty connection URL. The plugin creates and closes its own pool. |
+| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.   |
+| `schemaPolicy` | `'override'` (default), `'fail'`, or `'ignore'`; see below.           |
+
+Do not pass both `url` and `pool`. Creating `UltimaBase` does not contact the
+database. `start()` verifies a connection, returns the borrowed client to its
+pool, and then runs schema preparation. `dispose()` closes only a pool that
+the plugin created.
+
+### Physical table names and column renames
+
+The optional schema-level `postgres.table` chooses an exact physical table
+identifier; otherwise PostgreSQL derives a plural `snake_case` name from
+`className`. The stored-field `postgres.renamedFrom` records one explicit
+old column name for a data-preserving rename:
+
+```ts
+const Article = Application.Schema.define({
+	className: 'Article',
+	postgres: { table: 'articles' },
+	fields: (f) => ({
+		title: f.string({ postgres: { renamedFrom: 'headline' } }),
+	}),
+})
+```
+
+Use `renamedFrom` only when an existing managed column is actually being
+renamed. The configured `Application` above projects both options from
+`postgresPlugin()` without Typegen; a factory without the plugin rejects them.
+Field-level `postgres` is limited to stored fields.
+
+## Behavior and limitations
+
+### Direct schema policies
+
+| Policy     | Startup behavior                                                         | Typical use                                       |
+| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------- |
+| `override` | Inspect the current schema and transactionally apply supported changes.  | Reviewed development or maintenance database.     |
+| `fail`     | Inspect and reject any drift without changing the database.              | Guard an already prepared database.               |
+| `ignore`   | Skip structural inspection and preparation; still verify the connection. | Another reviewed process owns schema preparation. |
+
+`override` can create missing tables and apply supported column type,
+nullability, default, identity, primary-key, foreign-key, and index changes.
+It does not infer that unmatched tables or columns should be dropped. Removed
+fields and plugin-owned storage need an explicit migration plan. Unsupported
+structures on a managed table stop direct preparation rather than being
+approximated. No official migration runner is shipped yet.
+
+Preparation always follows the configured `schemaPolicy`. Select `ignore`
+explicitly when external tooling manages schema changes. The former
+`postgresSchemaPreparationCapability` marker is removed; it cannot suppress
+direct synchronization. `renamedFrom` still applies explicit column renames
+under `override`, as shown above.
+
+### Index preparation
+
+Declare single-field and composite indexes through Core's
+[Schemas](/docs/1.0.0/core/data-modeling/schemas#indexes) API, not through
+Drizzle or SQL. PostgreSQL generates deterministic physical names and
+preserves the declared field order. A unique index is also the exact conflict
+target used by [Unique Upserts](/docs/1.0.0/core/writing-data/upserts).
+
+A declaration does not prove that an existing database already has the index.
+`override` applies supported changes; `fail` reports drift; `ignore` does
+not check. Review existing data before adding uniqueness: duplicate values
+make index creation fail. PostgreSQL permits multiple `NULL` values in a
+unique index, so also declare `required: true` when absence must be forbidden.
+
+### Connection and data boundaries
+
+A URL-backed pool belongs to the application; an injected pool stays yours.
+Neither connection URLs, raw pools, Drizzle objects, nor driver messages appear
+in public plugin exports or framework errors. Reads and mutations still use
+Core's policy and Runtime pipeline. This provider never grants access or
+installs Access, ACL, authentication, REST, or GraphQL.
+
+## Troubleshooting
+
+| Symptom                                                                   | Check                                                                                                                            | Next action                                                                                               |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `INTERNAL_ERROR` with “The database connection could not be established.” | Confirm `DATABASE_URL` is loaded, the database already exists, and network/TLS settings work with a supported PostgreSQL client. | Correct connectivity or credentials without logging the URL.                                              |
+| `VALIDATION_ERROR` at startup with `schemaPolicy: 'fail'`                 | Compare the compiled schema with the live managed tables in trusted server diagnostics.                                          | Prepare the reviewed change through a controlled process; do not switch production blindly to `override`. |
+| `VALIDATION_ERROR` for an unsupported structure                           | Check for a view, partitioned table, generated column, or unsupported index or constraint on a managed table.                    | Keep that structure under an explicit migration owner.                                                    |
+| `INTERNAL_ERROR` during direct synchronization                            | Check sanitized server diagnostics and database permissions; a physical change may have failed.                                  | Fix the cause and restart after reviewing the database state.                                             |
+
+Check that the environment variable exists without printing its value:
+
+```sh
+node -e "process.exit(process.env.DATABASE_URL ? 0 : 1)"
+```
+
+Do not send connection strings, SQL values, raw driver causes, or credentials
+to an HTTP client or public report. If the failure persists, collect the
+UltimaBase and PostgreSQL versions, schema policy, lifecycle stage, and
+sanitized driver code, then follow
+[Reporting a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem).

@@ -1,0 +1,211 @@
+import { UltimaBase, requestSources } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from '../fixtures/postgres-worker-fixture.js'
+import {
+	createSoftDeletePostgresPlugin,
+	createValuePostgresPlugin,
+} from './fixtures/open-kernel-postgres.js'
+import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
+import { createValuePlugin } from './fixtures/open-kernel-value.js'
+import {
+	createWorkflowPlugin,
+	type WorkflowCommittedPayload,
+} from './fixtures/open-kernel-workflow.js'
+
+let fixture: PostgresWorkerFixture | undefined
+
+const getFixture = (): PostgresWorkerFixture => {
+	if (fixture === undefined) {
+		throw new TypeError('Open-kernel PostgreSQL fixture has not started')
+	}
+	return fixture
+}
+
+beforeAll(async () => {
+	fixture = await createPostgresWorkerFixture({ prefix: 'open_kernel' })
+}, 30_000)
+
+afterAll(async () => {
+	await fixture?.dispose()
+})
+
+describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
+	it('runs workflow, logical value, and soft-delete plugins through public bridges', async () => {
+		const committed: WorkflowCommittedPayload[] = []
+		const deleteTrace: string[] = []
+		let rejectDelete = false
+		const postgresDefinition = postgresPlugin({
+			pool: getFixture().pool,
+			schemaPolicy: 'override',
+		})
+		const PostgresHookApplication =
+			UltimaBase.use(postgresDefinition).use(hooksPlugin())
+		const WorkflowPost = PostgresHookApplication.Schema.define({
+			className: 'OpenKernelPostgresWorkflowPost',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const value = createValuePlugin({
+			instanceId: 'primary',
+			targetClassName: 'OpenKernelLedgerEntry',
+		})
+		const LedgerEntry = PostgresHookApplication.use(value).Schema.define({
+			className: 'OpenKernelLedgerEntry',
+			decimalLedger: { defaultScale: 2 },
+			postgres: { table: 'open_kernel_ledger_entries' },
+			fields: (field) => ({
+				label: field.string({
+					decimalLabel: { format: 'accounting' },
+				}),
+			}),
+		})
+		const SoftPost = PostgresHookApplication.Schema.define({
+			className: 'OpenKernelSoftPost',
+			postgres: { table: 'open_kernel_soft_posts' },
+			fields: (field) => ({
+				title: field.string({ required: true }),
+			}),
+			hooks: {
+				afterOperation: {
+					delete: ({ originalItem }) => {
+						deleteTrace.push(`delete:${originalItem.id}`)
+						if (rejectDelete) throw new Error('reject tombstone')
+					},
+					update: () => {
+						deleteTrace.push('update')
+					},
+				},
+			},
+		})
+		const workflow = createWorkflowPlugin({
+			instanceId: 'postgres',
+			onCommitted: (payload) => committed.push(payload),
+			stableSchema: WorkflowPost,
+		})
+		const valuePostgres = createValuePostgresPlugin({
+			instanceId: 'primary',
+			table: 'open_kernel_ledger_entries',
+			version: '1.0.0',
+		})
+		const softDelete = createSoftDeletePlugin({
+			instanceId: 'primary',
+			target: SoftPost,
+		})
+		const softDeletePostgres = createSoftDeletePostgresPlugin({
+			instanceId: 'primary',
+			schema: SoftPost,
+			table: 'open_kernel_soft_posts',
+		})
+		const Application = PostgresHookApplication.use(workflow.plugin)
+			.use(value)
+			.use(valuePostgres)
+			.use(softDeletePostgres)
+			.use(softDelete)
+		const ultimabase = new Application({
+			pluginPrivileges: { logger: false },
+			schemas: [WorkflowPost, LedgerEntry, SoftPost],
+		})
+		await ultimabase.start()
+
+		try {
+			const amount = { scale: 2, units: '12345' } as const
+			const entry = await LedgerEntry.createOne({
+				data: { amount, label: 'invoice' },
+			})
+			expect(entry.toJSON()).toMatchObject({ amount, label: 'invoice' })
+			await expect(
+				LedgerEntry.createOne({
+					data: { amount: { scale: -1, units: 'broken' }, label: 'bad' },
+				}),
+			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			// This Runtime-only fixture has no generated registry; the companion
+			// editor test verifies this exact query with generated WhereInput types.
+			const filtered = await LedgerEntry.findMany({
+				where: { amount: { eq: amount } },
+			} as never)
+			expect(filtered.map(({ id }) => id)).toStrictEqual([entry.id])
+			const stored = await getFixture().pool.query<{
+				readonly amount: unknown
+				readonly amount_sort_key: null
+			}>(
+				'SELECT amount, amount_sort_key FROM open_kernel_ledger_entries WHERE id = $1',
+				[entry.id],
+			)
+			expect(stored.rows).toStrictEqual([{ amount, amount_sort_key: null }])
+			const postgres = ultimabase.plugin(
+				'@ultimabase/postgres-plugin',
+			) as PostgresPluginExports
+			const physical = postgres.adapterMetadata.physicalSchema.find(
+				({ contributionId }) => contributionId === 'decimal-sort-key',
+			)
+			expect(physical).toMatchObject({
+				contributionId: 'decimal-sort-key',
+				instanceId: 'primary',
+				pluginId: 'fixture.open-kernel-value-postgres',
+				protocolVersion: 1,
+			})
+
+			const audit = await workflow.DynamicAudit.createOne({
+				data: { action: 'publish' },
+			})
+			expect(committed).toStrictEqual([
+				{ action: 'publish', auditId: audit.id },
+			])
+			const request = ultimabase.anonymous({
+				requestId: 'open-kernel-event-rollback',
+				source: requestSources.internal,
+			})
+			await expect(
+				request.transaction(async () => {
+					await workflow.DynamicAudit.createOne({
+						data: { action: 'rollback' },
+					})
+					throw new Error('rollback event')
+				}),
+			).rejects.toThrow('rollback event')
+			expect(committed).toHaveLength(1)
+			expect(
+				await workflow.DynamicAudit.count({
+					where: { action: { eq: 'rollback' } },
+				}),
+			).toBe(0)
+
+			const created = await SoftPost.createOne({
+				data: { title: 'Tombstone me' },
+			})
+			await SoftPost.deleteOne({ id: created.id })
+			expect(
+				await SoftPost.findOne({ where: { id: { eq: created.id } } }),
+			).toBeNull()
+			expect(deleteTrace).toStrictEqual([`delete:${created.id}`])
+			expect(deleteTrace).not.toContain('update')
+			const retained = await SoftPost.createOne({
+				data: { title: 'Keep on rollback' },
+			})
+
+			rejectDelete = true
+			await expect(SoftPost.deleteOne({ id: retained.id })).rejects.toThrow(
+				'reject tombstone',
+			)
+			rejectDelete = false
+			expect(
+				await SoftPost.findOne({ where: { id: { eq: retained.id } } }),
+			).not.toBeNull()
+			const remaining = await getFixture().pool.query<{
+				readonly count: string
+			}>(
+				'SELECT count(*)::text AS count FROM open_kernel_soft_posts WHERE id = $1',
+				[created.id],
+			)
+			expect(remaining.rows).toStrictEqual([{ count: '1' }])
+		} finally {
+			await ultimabase.dispose()
+		}
+	}, 30_000)
+})

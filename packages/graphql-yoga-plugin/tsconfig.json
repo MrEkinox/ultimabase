@@ -1,0 +1,22 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"lib": ["ES2024", "ESNext.Disposable", "DOM"],
+		"outDir": "dist",
+		"rootDir": "src",
+		// Yoga's lru-cache v10 declarations have not adopted TypeScript 6's
+		// Iterator return type yet. Keep application declarations fully checked.
+		"skipLibCheck": true
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../http-plugin" },
+		{ "path": "../graphql-http" },
+		{ "path": "../graphql-plugin" },
+		{ "path": "../server-hono-plugin" },
+		{ "path": "../typegen" }
+	]
+}

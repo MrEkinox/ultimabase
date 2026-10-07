@@ -1,0 +1,493 @@
+---
+title: Operations and GraphQL
+description: Add application-owned commands and expose them deliberately through GraphQL, REST, or HTTP.
+audience:
+  - plugin-author
+contentType: guide
+outcome: Declare executable plugin behavior and choose its exact public transport surface.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-26
+sources:
+  - packages/core/README.md
+  - packages/plugin-kit/README.md
+  - packages/graphql-plugin/README.md
+  - packages/graphql-plugin/src/operation-schema-compiler.test.ts
+  - packages/http-plugin/README.md
+  - packages/http-plugin/src/browser-bootstrap-path.ts
+  - packages/rest-plugin/README.md
+  - packages/soft-delete-plugin/src/explicit.ts
+  - docs/adr/0240-static-operation-transport-planning.md
+  - docs/adr/0261-command-compilation-and-binding-phases.md
+  - docs/adr/0269-core-native-plugin-authoring.md
+  - docs/adr/0272-native-command-contributions.md
+  - packages/core/src/plugins/plugin-command-contribution-contracts.ts
+  - packages/core/src/plugins/plugin-command-contributions.ts
+  - packages/core/src/plugins/plugin-command-plan.ts
+  - packages/core/src/query/filters/input-transformation.ts
+  - packages/core/src/schema/nested-writes/input-transformation.ts
+  - packages/core/src/runtime/application/application-schema-mutation-transport-planning.test.ts
+  - docs/adr/0256-rest-operation-public-paths.md
+---
+
+## Outcome
+
+Give a plugin its own executable command, then choose whether that command is
+private to TypeScript callers or explicitly reachable through GraphQL or REST.
+You can also provide independent GraphQL fields. Declaring behavior, generating
+its TypeScript types, and publishing it on a transport are separate decisions.
+
+## Prerequisites
+
+- Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin) and start from an existing application.
+- Read [Application](/docs/1.0.0/core/application) for application-owned
+  handles and [GraphQL](/docs/1.0.0/plugins/official/graphql) for the consumer-facing endpoint.
+- For GraphQL integration, install `@ultimabase/graphql-plugin` in the
+  application. An HTTP endpoint additionally needs Yoga, HTTP, and a server
+  provider; the GraphQL package itself is network-independent.
+
+## Pick the executable surface
+
+| Requirement            | Declare                                                            | Implement                    | Expose                                                           |
+| ---------------------- | ------------------------------------------------------------------ | ---------------------------- | ---------------------------------------------------------------- |
+| App-wide command       | `defineOperation({ target: 'application' })`                       | `contributeOperation()`      | Optional exact GraphQL or REST binding and application allowlist |
+| Item-oriented mutation | `defineSchemaMutation()` plus `models.extend({ schemaMutations })` | `contributeSchemaMutation()` | Optional exact REST or GraphQL binding                           |
+
+`operation:declare` covers both token kinds. `model:extend` attaches
+schema-mutation methods to schema and model handles. Every command uses an exact namespaced name and semantic version.
+Input and result snapshotters validate untrusted values; declaring an error
+code makes only that `PluginError` safe to publish. Unknown exceptions remain
+internal diagnostics.
+
+Pure schema compilation and Typegen do not call a resource-backed handler's
+`create` factory. It runs once during application initialization under the exact
+plugin owner; transport bindings themselves remain inert declarations. Core
+rejects duplicate active handlers or protocol bindings and foreign ownership
+before plugin setup or transport planning. If initialization fails, it disposes
+the resources already created. Return resource cleanup from `create` as
+`dispose`.
+
+## Declare and implement an operation
+
+Here is one complete, intentionally simple app-wide operation. It has no
+database work, so it forbids a transaction. The token stays independently
+exportable; its Core contribution correlates declaration and execution:
+
+```ts title="src/operations.ts"
+import { defineOperation, defineOperationValue } from '@ultimabase/core'
+
+const text = defineOperationValue((value, path): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError(`${path} must be text`)
+	}
+	return value
+})
+
+export const formatWorkflow = defineOperation({
+	input: text,
+	name: 'community.workflow.format',
+	result: text,
+	target: 'application',
+	transaction: 'forbidden',
+	version: '1.0.0',
+})
+```
+
+Install the token and its handler under one plugin owner. The contribution is
+the single source for the static declaration, executable handler, owner-local
+identifier, optional wire bindings, and lifecycle resource boundary:
+
+```ts title="src/plugin.ts"
+import { contributeOperation, plugin } from '@ultimabase/core'
+
+import { formatWorkflow } from './operations.js'
+
+export const workflowPlugin = () =>
+	plugin({
+		id: 'community.workflow',
+		core: '^1.0.0',
+		version: '1.0.0',
+		contributions: [
+			contributeOperation({
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+			}),
+		],
+		permissions: {
+			'operation:declare': 'Declares formatWorkflow.',
+		},
+	})
+```
+
+Export both `workflowPlugin` and `formatWorkflow` from the package root. In a
+started application that installs the plugin,
+`await ultimabase.operation(formatWorkflow).execute('  ready  ')` returns
+`'ready'`. The same application without the plugin rejects that token. Generic
+The installed operation's source definition gives TypeScript its input and
+result types without a generated plugin declaration. Public type references
+remain available when the retained named-schema graph needs them. The
+operation remains private from every network transport at this point.
+
+## Reuse queries and mutate one item
+
+For a reusable query, export an ordinary function that builds an immutable
+`QueryBuilder` or calls the schema's query methods. Query helpers need no plugin
+registrar or privilege.
+
+Use a [schema mutation](#expose-a-schema-mutation) when a command updates or
+deletes one item and needs Core's locked target, policy checks, and transaction.
+`models.extend()` attaches its `schemaMutations` to selected schema and model
+surfaces. A configured `App.Schema.define(...)` projects those methods from
+the plugin source; JavaScript uses the same compiled surfaces without
+generated files.
+
+A mutation handler or transport binding with no selected schema/model alias
+stays dormant. It contributes no method or route and does not cause an
+unused-binding startup error. Declaring a provider alone never exposes a command.
+
+For transport authors, the Core planner and late execution facade share the
+same frozen descriptors from the compiled command. Keep those descriptors when
+binding execution; a reconstructed object does not identify an exposed mutation.
+The plan contains no codec or handler and cannot authorize a request.
+
+### Decode a Core-shaped filter without rebuilding its traversal
+
+If a transport exposes Core's `where` shape but uses different wire values, use
+`transformQueryFilterInput()` before canonical read normalization:
+
+```ts
+import {
+	normalizeReadOperation,
+	transformQueryFilterInput,
+	transformSchemaMutationDataInput,
+} from '@ultimabase/core'
+
+const where = transformQueryFilterInput(
+	schema,
+	wireWhere,
+	({ field, operator, source, value }) =>
+		decodeTransportOperand({ field, operator, source, value }),
+)
+
+const operation = normalizeReadOperation(schema, 'find-many', { where })
+```
+
+Core traverses `AND`, `OR`, `NOT`, relationship predicates, filtered relation
+counts, and structured `at` paths. The callback receives only the terminal
+field operand, so the transport keeps its scalar codecs and error contract in
+one place. The helper transforms values; it does not validate operators or
+authorize execution. Always pass its result through the ordinary Core
+normalizer and application request executor.
+
+For mutation data, the matching helper avoids rebuilding schema and nested-write
+recursion:
+
+```ts
+const data = transformSchemaMutationDataInput(schema, wireData, {
+	mode: 'create',
+	relationships: 'nested',
+	transformField: (input) => decodeMutationField(input),
+})
+```
+
+Core classifies persisted, virtual, and unknown fields and follows nested
+pointer/relation `create` and `update` data into the target schema. Your callback
+still owns scalar wrappers, IDs, command allowlists, and transport errors. Pass
+the result to the ordinary schema-mutation normalizer; this helper neither
+validates the complete command nor executes it.
+
+## Expose behavior through GraphQL
+
+### Bind an existing operation
+
+For a public GraphQL command, its owner supplies an exact wire codec and inert
+GraphQL metadata, requests `transport:expose`, and the application selects the
+operation in `graphqlPlugin({ operations })`. The owner can name the canonical
+protocol through Core without importing the GraphQL package:
+
+```ts title="src/graphql-binding.ts"
+import {
+	defineOperationTransport,
+	operationTransportBinding,
+	operationWireCodec,
+} from '@ultimabase/core'
+
+import { formatWorkflow } from './operations.js'
+
+const graphqlOperations = defineOperationTransport({
+	name: 'ultimabase.graphql.operation',
+	version: '1.0.0',
+})
+
+export const formatGraphqlBinding = operationTransportBinding({
+	codec: operationWireCodec({
+		decode: (value: unknown) =>
+			formatWorkflow.input.snapshot(value, 'formatWorkflow input'),
+		encode: (value) => value,
+		operation: formatWorkflow,
+		transport: graphqlOperations,
+	}),
+	metadata: {
+		field: 'formatWorkflow',
+		input: {
+			kind: 'non-null',
+			ofType: { kind: 'named', name: 'String' },
+		},
+		kind: 'graphql-operation-binding',
+		result: {
+			kind: 'non-null',
+			ofType: { kind: 'named', name: 'String' },
+		},
+		root: 'query',
+		types: [],
+	},
+	operation: formatWorkflow,
+})
+```
+
+Replace the previous plugin definition with the version that installs both
+providers under the same owner and requests the additional privilege:
+
+```ts title="src/plugin.ts"
+import { contributeOperation, plugin } from '@ultimabase/core'
+
+import { formatGraphqlBinding } from './graphql-binding.js'
+import { formatWorkflow } from './operations.js'
+
+export const workflowPlugin = () =>
+	plugin({
+		id: 'community.workflow',
+		core: '^1.0.0',
+		version: '1.0.0',
+		contributions: [
+			contributeOperation({
+				bindings: [formatGraphqlBinding],
+				execute: ({ input }) => input.trim(),
+				operation: formatWorkflow,
+			}),
+		],
+		permissions: {
+			'operation:declare': 'Declares formatWorkflow.',
+			'transport:expose': 'Exposes formatWorkflow in GraphQL.',
+		},
+	})
+```
+
+The operation owner can instead add
+`contributeOperationBinding(formatGraphqlBinding)` separately to the same
+plugin's `contributions` list. This keeps handler and transport modules separate
+without weakening exact ownership; a foreign plugin cannot publish the
+operation. The binding still requires `transport:expose`.
+
+The package root should re-export `workflowPlugin` and `formatWorkflow`.
+In the application, install the plugin and explicitly select the operation:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+import { formatWorkflow, workflowPlugin } from '@your-scope/workflow-plugin'
+
+import { Task } from './schema.js'
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
+
+const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+	.use(workflowPlugin())
+	.use(graphqlPlugin({ operations: [formatWorkflow] }))
+
+export const ultimabase = new Application({
+	schemas: [Task],
+})
+```
+
+After startup, `printSchema()` should show `formatWorkflow(input: String!):
+String!` under `Query`. An unselected operation stays absent even if its owner
+is installed. GraphQL checks owner, protocol, types, names, and collisions
+before serving requests. Its resolver passes a real application-bound request
+context to Core; neither GraphQL variables nor a custom resolver can create
+Master authority.
+
+### Provide an independent GraphQL field
+
+Use this path when you have a completed `GraphQLSchema` from `graphql`, Nexus,
+Pothos, or GraphQL Tools rather than an UltimaBase operation token. Install
+`graphql` and `@ultimabase/graphql-plugin` in the plugin package only when
+this integration is needed:
+
+```bash tab="npm" tab-group="package-manager"
+npm install graphql @ultimabase/graphql-plugin
+```
+
+```bash tab="yarn"
+yarn add graphql @ultimabase/graphql-plugin
+```
+
+```bash tab="pnpm"
+pnpm add graphql @ultimabase/graphql-plugin
+```
+
+```ts title="src/graphql-addon.ts"
+import { plugin } from '@ultimabase/core'
+import { provideGraphqlSchemas } from '@ultimabase/graphql-plugin'
+import { GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql'
+
+const health = new GraphQLSchema({
+	query: new GraphQLObjectType({
+		fields: {
+			workflowHealth: {
+				resolve: () => 'ok',
+				type: GraphQLString,
+			},
+		},
+		name: 'Query',
+	}),
+})
+
+export const workflowGraphqlAddon = () =>
+	plugin({
+		contributions: [
+			provideGraphqlSchemas({
+				contributionId: 'workflow-health',
+				create: () => health,
+			}),
+		],
+		core: '^1.0.0',
+		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
+		id: 'community.workflow-graphql',
+		permissions: {
+			'transport:expose': 'Adds workflowHealth to GraphQL.',
+		},
+		version: '1.0.0',
+	})
+```
+
+This provider contributes one schema to the installed GraphQL plugin; it does
+not install GraphQL, Yoga, HTTP, or a listener. A custom resolver receives only
+`{ request: RequestContext }`, not an UltimaBase application, adapter, or
+authority facade. Root-field and type collisions fail startup rather than
+overwriting another contribution. For data operations, prefer the owned
+operation and binding path above instead of reaching into Core Runtime from a
+resolver.
+
+### Expose a schema mutation
+
+Use `defineSchemaMutation()` when the command acts on one persisted schema
+item and should participate in Core's locked-target, policy, hook, and
+transaction semantics. The owner adds one `contributeSchemaMutation()` entry
+to the plugin's `contributions` list; that one entry owns the token declaration,
+handler, optional bindings, and lifecycle. `models.extend({ schemaMutations: { ... } })` selects the
+schema and model surfaces. Optional GraphQL exposure adds a
+`schemaMutationWireCodec()` binding to that same contribution, or uses
+`contributeSchemaMutationBinding()` under the same owner. It uses the separate
+canonical `ultimabase.graphql@1.0.0` protocol, is not an application operation,
+and does not enter `graphqlPlugin({ operations })`.
+
+GraphQL derives the root field from the installed schema and command. The
+owner may describe only the optional payload's closed input types, not choose
+its own root name, target ID, result type, resolver, or authority. A
+Master-only mutation never enters the public SDL. The official
+[Soft Delete](/docs/1.0.0/plugins/official/soft-delete) plugin is a concrete example of schema
+mutations with both REST and GraphQL bindings.
+
+## REST and HTTP are separate choices
+
+- REST exposes only application operations explicitly selected in
+  `restPlugin({ operations })`. The owner provides a binding for canonical
+  `ultimabase.rest@1.0.0` with a codec and `{ errors: { ... }, path?: string }`
+  metadata. The route is `POST /api/v1/operations/{name}` by default. A static
+  `path: '/auth/login'` replaces it with `POST /api/v1/auth/login`, respecting
+  the configured REST base path. Paths contain slash-separated ASCII letters,
+  digits, underscores, or hyphens, start with `/`, and have no trailing slash.
+  The `classes` and `operations` roots are reserved. Dynamic or encoded paths
+  and unknown metadata keys are rejected; duplicate routes fail before startup.
+- Plugin schema mutations use a separate REST schema-mutation binding and
+  schema-local route. They are not REST application operations.
+- An independent Fetch route or mount uses the HTTP package's
+  `provideHttpEndpoints()` and `transport:expose`. HTTP selects the exact
+  application and context before the handler; Hono is only a server provider.
+- A custom transport must use Core's narrow application request-execution
+  capability. It never receives the private Runtime engine, an adapter, or a Master
+  grant from an HTTP header or shaped object.
+
+For a standalone Fetch route, provide the HTTP endpoint capability. This
+example reads no application data; it still belongs to the selected HTTP
+application and requires its identity header:
+
+```ts title="src/status-route.ts"
+import { plugin } from '@ultimabase/core'
+import { httpRoute, provideHttpEndpoints } from '@ultimabase/http-plugin'
+
+export const statusRoutePlugin = () =>
+	plugin({
+		contributions: [
+			provideHttpEndpoints({
+				contributionId: 'status-route',
+				create: () => [
+					httpRoute({
+						method: 'GET',
+						path: '/status',
+						protocol: { name: 'community.status', version: '1' },
+						handle: () => Response.json({ ready: true }),
+					}),
+				],
+			}),
+		],
+		core: '^1.0.0',
+		id: 'community.status-route',
+		permissions: {
+			'transport:expose': 'Adds the GET /status route.',
+		},
+		version: '1.0.0',
+	})
+```
+
+The application must also install the HTTP plugin and a server provider to
+listen on a socket. Route collisions fail during application materialization.
+Even this status route requires `X-UltimaBase-Application-Id`; only configured
+browser preflight can omit application identity. If a route handles application data, it must use the selected request context
+and Core's public request-execution facade rather than bypassing Runtime.
+
+A plugin that exposes a browser bootstrap UI can validate a configurable route
+suffix with `normalizeHttpBrowserBootstrapPath(value, label)` and pass the
+result to `httpBrowserBootstrapRoute()`. This keeps absolute-path, reserved
+namespace, decoded-segment, and non-root checks consistent with the official
+GraphiQL and Apollo Sandbox plugins.
+
+Transport exposure is not authorization. Check Access, ACL, request identity,
+browser policy, and the `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` startup
+diagnostic for the actual public route. See the official [REST](/docs/1.0.0/plugins/official/rest)
+and [HTTP](/docs/1.0.0/plugins/official/http) guides for complete application configuration.
+
+## Schema-derived operation inputs
+
+For an operation that creates a plugin-owned schema, REST binding metadata can
+set `inputSchema` to its class name. REST applies the ordinary nested-create
+field codecs before the operation owner's decoder runs. The schema must belong
+to that exact plugin owner; declaring it exposes no CRUD routes.
+
+A GraphQL supporting input-object can similarly declare `createFieldsFrom`.
+Its fields inherit the schema's create types, requiredness, and codecs. Explicit
+supporting fields may add operation-only values, but cannot replace inherited
+fields. Password Auth uses this for `PasswordAuthSignUpInput`, adding `password`
+to the User create fields. Login retains a separate credentials-only input.
+Defaults and validation still run once through the ordinary Runtime creation.
+
+## Verify
+
+Test direct TypeScript execution first. For every selected public operation,
+inspect the generated GraphQL SDL or REST route graph and exercise one valid
+request, one invalid input, one undeclared error, and a context from another
+application. Confirm unselected operations stay private and that teardown
+revokes their handles. Use `@ultimabase/testing`'s `operation`,
+`schema-mutation`, `transport`, and `javascript-operation` optional checks
+where they match the feature; add real protocol-level tests for the wire
+representation and safe errors.
+
+## Next steps
+
+If the command needs durable state or policy, continue with
+[Runtime and Infrastructure](/docs/1.0.0/plugins/build-a-plugin/runtime-and-infrastructure). If its public
+TypeScript shape is not inferred from the compiled operation, continue with
+[Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen#contribute-to-typegen).

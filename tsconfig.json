@@ -1,0 +1,42 @@
+{
+	"extends": "./tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["node"]
+	},
+	"include": [
+		"*.config.ts",
+		"packages/*/*.config.ts",
+		"tooling/**/*.config.ts"
+	],
+	"references": [
+		{ "path": "./packages/shared" },
+		{ "path": "./packages/core" },
+		{ "path": "./packages/plugin-kit" },
+		{ "path": "./packages/typegen" },
+		{ "path": "./packages/hooks-plugin" },
+		{ "path": "./packages/access-plugin" },
+		{ "path": "./packages/pg-vector-plugin" },
+		{ "path": "./packages/roles-plugin" },
+		{ "path": "./packages/validation-plugin" },
+		{ "path": "./packages/soft-delete-plugin" },
+		{ "path": "./packages/http-plugin" },
+		{ "path": "./packages/rest-plugin" },
+		{ "path": "./packages/graphql-plugin" },
+		{ "path": "./packages/graphql-http" },
+		{ "path": "./packages/graphql-yoga-plugin" },
+		{ "path": "./packages/graphiql-plugin" },
+		{ "path": "./packages/apollo-sandbox-plugin" },
+		{ "path": "./packages/server-hono-plugin" },
+		{ "path": "./packages/password-auth-plugin" },
+		{ "path": "./packages/acl-permissions-plugin" },
+		{ "path": "./packages/postgres-plugin" },
+		{ "path": "./packages/create-app" },
+		{ "path": "./packages/testing" }
+	]
+}

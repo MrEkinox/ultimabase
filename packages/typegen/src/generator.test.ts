@@ -1,0 +1,629 @@
+import {
+	addSchemaField,
+	contributeApplication,
+	definePluginFieldFamily,
+	defineOperation,
+	defineOperationValue,
+	plugin as createPlugin,
+	contributeDeclarations,
+	definePluginField,
+	defineSchemaOption,
+	defineTypegenReference,
+	UltimaBase,
+	stringField,
+} from '@ultimabase/core'
+import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
+import { immutableRecord } from '@ultimabase/shared'
+import { describe, expect, it } from 'vitest'
+
+import type { SchemaTypegenError } from './errors.js'
+import { generateApplicationTypes } from './generator.js'
+
+const createFixture = (reverseOrder = false) => {
+	let setupCalls = 0
+	const setupGuard = createPlugin({
+		version: '0.0.0',
+		core: '^0.0.0',
+		id: 'fixture.typegen-setup-guard',
+		contributions: [
+			contributeApplication(() => {
+				setupCalls += 1
+				return { exports: undefined }
+			}),
+		],
+	})
+	const plugins = reverseOrder
+		? ([setupGuard, pgVectorPlugin()] as const)
+		: ([pgVectorPlugin(), setupGuard] as const)
+	const Application = UltimaBase.use(...plugins)
+	const Author = Application.Schema.define({
+		className: 'TypegenAuthor',
+		fields: (field) => ({
+			name: field.string({ required: true }),
+			articles: field.relation({ target: 'TypegenArticle' }),
+		}),
+	})
+	const Article = Application.Schema.define({
+		className: 'TypegenArticle',
+		fields: (field) => ({
+			title: field.string({
+				description: 'The public title.',
+				indexed: true,
+				required: true,
+			}),
+			slug: field.string({ default: 'draft', immutable: true }),
+			matrix: field.int({ list: true }),
+			status: field.enum({
+				typeName: 'PublicationStatus',
+				required: true,
+				values: ['published', 'draft'],
+			}),
+			billingAddress: field.object({
+				fields: (field) => ({
+					city: field.string({ required: true }),
+					country: field.enum({
+						typeName: 'CountryCode',
+						values: ['FR', 'US'],
+					}),
+				}),
+				typeName: 'PostalAddress',
+			}),
+			shippingAddress: field.object({
+				fields: (field) => ({
+					city: field.string({ required: true }),
+					country: field.enum({
+						typeName: 'CountryCode',
+						values: ['US', 'FR'],
+					}),
+				}),
+				typeName: 'PostalAddress',
+			}),
+			metadata: field.json(),
+			author: field.pointer({
+				target: 'TypegenAuthor',
+				required: true,
+			}),
+			related: field.relation({
+				target: 'TypegenArticle',
+			}),
+			embedding: field.vector({ dimensions: 3 }),
+		}),
+	})
+	const schemas = reverseOrder
+		? ([Article, Author] as const)
+		: ([Author, Article] as const)
+	const application = new Application({ schemas })
+
+	return { application, getSetupCalls: () => setupCalls }
+}
+
+describe('generateApplicationTypes', () => {
+	it('uses the same compiled logical graph as the JavaScript application', () => {
+		const Target = UltimaBase.Schema.define({
+			className: 'CompiledTypegenTarget',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const contribution = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.typegen-schema-compiler',
+			permissions: {
+				'schema:declare': 'Adds a field shared by Runtime and Typegen.',
+			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) => {
+						schemas.patch({
+							operations: [
+								addSchemaField({
+									contributionId: 'canonical-only',
+									field: stringField(),
+									name: 'canonicalOnly',
+								}),
+							],
+							targets: schemas.select({ className: Target.className }),
+						})
+
+						return undefined
+					},
+				}),
+			],
+		})
+		const application = new (UltimaBase.use(contribution))({
+			pluginPrivileges: { logger: false },
+			schemas: [Target],
+		})
+		const generated = generateApplicationTypes({
+			ultimabase: application,
+			applicationId: 'fixture.compiled-graph',
+		})
+
+		expect(Target.fields).toHaveProperty('canonicalOnly')
+		expect(
+			generated.snapshot.schemas[0]?.fields.map(({ name }) => name),
+		).toContain('canonicalOnly')
+	})
+
+	it('emits one deterministic callback-free registry without plugin setup', () => {
+		const firstFixture = createFixture()
+		const secondFixture = createFixture(true)
+		const first = generateApplicationTypes({
+			ultimabase: firstFixture.application,
+			applicationId: 'fixture.application',
+		})
+		const second = generateApplicationTypes({
+			ultimabase: secondFixture.application,
+			applicationId: 'fixture.application',
+		})
+
+		expect(second).toStrictEqual(first)
+		expect(firstFixture.getSetupCalls()).toBe(0)
+		expect(secondFixture.getSetupCalls()).toBe(0)
+		expect(first.contents).toContain(
+			`// @ultimabase/schema-fingerprint sha256:${first.fingerprint}`,
+		)
+		expect(first.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
+		expect(first.contents).not.toContain('export type DeepPartial<TValue>')
+		expect(first.contents).not.toContain('export type SchemaAccess<TItem')
+		expect(first.contents).not.toMatch(/^export type \w+(?:Access|Hooks) =/mu)
+		expect(first.contents).not.toContain('Core.GeneratedOrderBy')
+		expect(first.contents).toContain(
+			'export type OrderDirection = "asc" | "desc"',
+		)
+		expect(first.contents).toContain(
+			'export type TypegenArticleOrderByInput = {',
+		)
+		const schemaRegistry = first.contents.slice(
+			first.contents.indexOf('export declare namespace Schemas'),
+			first.contents.indexOf('// Framework registry'),
+		)
+
+		expect(schemaRegistry).toContain('export type TypegenArticle = {')
+		expect(schemaRegistry).toContain('readonly item: TypegenArticleItem')
+		expect(schemaRegistry).not.toContain('export type Item =')
+		expect(schemaRegistry).not.toContain('export type TypeInfo =')
+		expect(schemaRegistry).not.toContain('readonly access:')
+		expect(schemaRegistry).not.toContain('readonly hooks:')
+		expect(first.contents).not.toContain('GeneratedFieldContract')
+		expect(first.contents).not.toContain('Metadata')
+		expect(first.contents).toContain(
+			'readonly "TypegenArticle": Schemas.TypegenArticle',
+		)
+		expect(first.contents).toContain('export type StringFilter = {')
+		expect(
+			first.contents.indexOf('export type TypegenArticleItem'),
+		).toBeLessThan(first.contents.indexOf('export type StringFilter'))
+		expect(first.contents.indexOf('export type StringFilter')).toBeLessThan(
+			first.contents.indexOf('// Framework registry'),
+		)
+		const serializedSnapshot = JSON.stringify(first.snapshot)
+
+		expect(serializedSnapshot).not.toContain('beforeOperation')
+		expect(serializedSnapshot).not.toContain('dimensions')
+		expect(serializedSnapshot).not.toContain('indexed')
+		expect(serializedSnapshot).not.toContain('setup')
+	})
+
+	it('preserves exact field facts and reuses compatible named identities', () => {
+		const { application } = createFixture()
+		const generated = generateApplicationTypes({
+			ultimabase: application,
+			applicationId: 'fixture.application',
+		})
+		const article = generated.snapshot.schemas.find(
+			({ className }) => className === 'TypegenArticle',
+		)
+
+		expect(
+			article?.fields
+				.filter(({ name }) =>
+					[
+						'author',
+						'billingAddress',
+						'embedding',
+						'matrix',
+						'slug',
+						'status',
+					].includes(name),
+				)
+				.map(({ typegen, name, value }) => ({
+					typegen,
+					name,
+					value:
+						value.kind === 'object'
+							? { kind: value.kind, typeName: value.typeName }
+							: value,
+				})),
+		).toMatchInlineSnapshot(`
+			[
+			  {
+			    "name": "author",
+			    "typegen": {
+			      "create": "required",
+			      "list": false,
+			      "nullable": false,
+			      "object": "required",
+			      "update": "optional",
+			    },
+			    "value": {
+			      "kind": "pointer",
+			      "target": "TypegenAuthor",
+			    },
+			  },
+			  {
+			    "name": "billingAddress",
+			    "typegen": {
+			      "create": "optional",
+			      "list": false,
+			      "nullable": true,
+			      "object": "required",
+			      "update": "optional",
+			    },
+			    "value": {
+			      "kind": "object",
+			      "typeName": "PostalAddress",
+			    },
+			  },
+			  {
+			    "name": "embedding",
+			    "typegen": {
+			      "create": "optional",
+			      "list": false,
+			      "nullable": true,
+			      "object": "required",
+			      "update": "optional",
+			    },
+			    "value": {
+			      "kind": "plugin",
+			      "reference": {
+			        "exportName": "VectorValue",
+			        "module": "@ultimabase/pg-vector-plugin",
+			      },
+			    },
+			  },
+			  {
+			    "name": "matrix",
+			    "typegen": {
+			      "create": "optional",
+			      "list": true,
+			      "nullable": true,
+			      "object": "required",
+			      "update": "optional",
+			    },
+			    "value": {
+			      "kind": "number",
+			    },
+			  },
+			  {
+			    "name": "slug",
+			    "typegen": {
+			      "create": "optional",
+			      "list": false,
+			      "nullable": true,
+			      "object": "required",
+			      "update": "forbidden",
+			    },
+			    "value": {
+			      "kind": "string",
+			    },
+			  },
+			  {
+			    "name": "status",
+			    "typegen": {
+			      "create": "required",
+			      "list": false,
+			      "nullable": false,
+			      "object": "required",
+			      "update": "optional",
+			    },
+			    "value": {
+			      "kind": "enum",
+			      "typeName": "PublicationStatus",
+			      "values": [
+			        "draft",
+			        "published",
+			      ],
+			    },
+			  },
+			]
+		`)
+
+		expect(
+			generated.contents.match(/export type PostalAddress =/gu),
+		).toHaveLength(1)
+		expect(
+			generated.contents.match(/export type CountryCode =/gu),
+		).toHaveLength(1)
+		expect(generated.contents).toContain(
+			'readonly matrix: ReadonlyArray<number> | null',
+		)
+		expect(generated.contents).toContain('export type ArrayIntFilter = {')
+		expect(generated.contents).toContain('readonly matrix?: ArrayIntFilter')
+		expect(generated.contents).toContain('readonly status: PublicationStatus')
+		expect(generated.contents).toContain(
+			'readonly embedding: Plugin0_VectorValue | null',
+		)
+		expect(generated.contents).toContain(
+			'readonly author: Core.GeneratedPointerHandle<"TypegenAuthor">',
+		)
+		expect(generated.contents).toContain(
+			'readonly related?: { readonly include?:',
+		)
+	})
+
+	it('reports normalized schema and incompatible named identity collisions', () => {
+		const First = UltimaBase.Schema.define({
+			className: 'Typegen-A',
+			fields: () => ({}),
+		})
+		const Second = UltimaBase.Schema.define({
+			className: 'Typegen_A',
+			fields: () => ({}),
+		})
+		const schemaCollision = new UltimaBase({ schemas: [First, Second] })
+
+		expect(() =>
+			generateApplicationTypes({
+				ultimabase: schemaCollision,
+				applicationId: 'fixture.collision',
+			}),
+		).toThrow(
+			expect.objectContaining<Partial<SchemaTypegenError>>({
+				code: 'SCHEMA_TYPEGEN_FAILED',
+				owner: 'schema Typegen-A',
+				path: 'Typegen_AAccess',
+				reason: 'generated-identity-conflict',
+			}),
+		)
+
+		const Compatible = UltimaBase.Schema.define({
+			className: 'TypegenCompatibleIdentity',
+			fields: (field) => ({
+				first: field.object({
+					fields: (field) => ({
+						value: field.string(),
+					}),
+					typeName: 'SharedIdentity',
+				}),
+				second: field.object({
+					fields: (field) => ({
+						value: field.int(),
+					}),
+					typeName: 'SharedIdentity',
+				}),
+			}),
+		})
+		const identityCollision = new UltimaBase({ schemas: [Compatible] })
+
+		expect(() =>
+			generateApplicationTypes({
+				ultimabase: identityCollision,
+				applicationId: 'fixture.collision',
+			}),
+		).toThrow(
+			expect.objectContaining<Partial<SchemaTypegenError>>({
+				owner: 'TypegenCompatibleIdentity.second',
+				path: 'SharedIdentity',
+				reason: 'generated-identity-conflict',
+			}),
+		)
+	})
+
+	it('rejects plugin fields without a configured typegen contribution', () => {
+		const orphan = definePluginField(
+			'fixture.orphan',
+			{},
+			{
+				snapshotValue: (value: unknown) => value,
+			},
+		)
+		const Orphan = UltimaBase.Schema.define({
+			className: 'TypegenOrphanPluginField',
+			fields: () => ({
+				value: orphan,
+			}),
+		})
+		const application = new UltimaBase({ schemas: [Orphan] })
+
+		expect(() =>
+			generateApplicationTypes({
+				ultimabase: application,
+				applicationId: 'fixture.orphan',
+			}),
+		).toThrow(
+			expect.objectContaining<Partial<SchemaTypegenError>>({
+				path: 'TypegenOrphanPluginField.value',
+				reason: 'unsupported-field-kind',
+			}),
+		)
+	})
+
+	it('reports conflicting plugin value contributions with their owner', () => {
+		const sharedField = () =>
+			definePluginField(
+				'fixture.shared-kind',
+				{},
+				{
+					snapshotValue: (value: unknown) => value,
+				},
+			)
+		const firstMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.shared-kind',
+			typegen: {
+				module: '@fixture/first-shared-plugin',
+				valueType: 'FirstSharedValue',
+			},
+			builder: {
+				name: 'firstShared',
+				contexts: {
+					stored: {
+						factory: sharedField,
+						methodType: 'FirstSharedFieldBuilderMethod',
+					},
+				},
+			},
+		})
+		const secondMethod = definePluginFieldFamily({
+			fieldKind: 'fixture.shared-kind',
+			typegen: {
+				module: '@fixture/second-shared-plugin',
+				valueType: 'SecondSharedValue',
+			},
+			builder: {
+				name: 'secondShared',
+				contexts: {
+					stored: {
+						factory: sharedField,
+						methodType: 'SecondSharedFieldBuilderMethod',
+					},
+				},
+			},
+		})
+		const firstPlugin = createPlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			id: 'fixture.first-shared-plugin',
+			permissions: {
+				'schema:declare': 'Declares the first shared FieldBuilder method.',
+			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(firstMethod)
+
+						return undefined
+					},
+				}),
+			],
+		})
+		const secondPlugin = createPlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			id: 'fixture.second-shared-plugin',
+			permissions: {
+				'schema:declare': 'Declares the second shared FieldBuilder method.',
+			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ fields }) => {
+						fields.register(secondMethod)
+
+						return undefined
+					},
+				}),
+			],
+		})
+		const Empty = UltimaBase.Schema.define({
+			className: 'TypegenPluginContributionConflict',
+			fields: () => ({}),
+		})
+		const application = new (UltimaBase.use(firstPlugin, secondPlugin))({
+			schemas: [Empty],
+		})
+
+		expect(() =>
+			generateApplicationTypes({
+				ultimabase: application,
+				applicationId: 'fixture.plugin-conflict',
+			}),
+		).toThrow(
+			expect.objectContaining<Partial<SchemaTypegenError>>({
+				owner: 'fixture.second-shared-plugin',
+				reason: 'malformed-plugin-contribution',
+			}),
+		)
+	})
+
+	it('renders exact operations, and options from the graph reproducibly', () => {
+		const inputReference = defineTypegenReference({
+			exportName: 'PublishInput',
+			module: '@fixture/workflow-plugin',
+		})
+		const resultReference = defineTypegenReference({
+			exportName: 'PublishResult',
+			module: '@fixture/workflow-plugin',
+		})
+		const publish = defineOperation({
+			errors: ['fixture.workflow.rejected'] as const,
+			input: defineOperationValue(
+				(value) => immutableRecord({ value }),
+				inputReference,
+			),
+			name: 'fixture.workflow.publish',
+			result: defineOperationValue(
+				(value) => immutableRecord({ value }),
+				resultReference,
+			),
+			target: 'application',
+			transaction: 'required',
+			version: '2.3.0',
+		})
+		const workflowOption = defineSchemaOption({
+			normalize: (value, path) => {
+				if (typeof value !== 'string')
+					throw new TypeError(`${path} must be a string`)
+				return value
+			},
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/workflow-plugin',
+				type: 'WorkflowName',
+			},
+		})
+		const plugin = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.workflow-typegen',
+			version: '4.2.0',
+			permissions: {
+				'schema:declare': 'Declares the workflow option.',
+				'operation:declare': 'Declares publish.',
+				'typegen:reference': 'References public workflow types.',
+			},
+			contributions: [
+				contributeDeclarations({
+					schema: ({ schemas }) =>
+						schemas.defineOptions({
+							contributionId: 'workflow-options',
+							schema: { workflow: workflowOption },
+						}),
+					operations: ({ operations }) => {
+						operations.declare(publish)
+					},
+					typegen: ({ typegenReferences }) => {
+						typegenReferences.register(inputReference)
+						typegenReferences.register(resultReference)
+					},
+				}),
+			],
+		})
+		const Application = UltimaBase.use(plugin)
+		const Post = Application.Schema.define({
+			className: 'TypegenWorkflowPost',
+			fields: (field) => ({ title: field.string() }),
+			workflow: 'editorial',
+		})
+		const application = new Application({ schemas: [Post] })
+
+		const first = generateApplicationTypes({
+			ultimabase: application,
+			applicationId: 'fixture.workflow',
+		})
+		const second = generateApplicationTypes({
+			ultimabase: application,
+			applicationId: 'fixture.workflow',
+		})
+
+		expect(second).toStrictEqual(first)
+		expect(first.snapshot.version).toBe(11)
+		expect(first.contents).toContain('interface UltimaBaseGeneratedOperations')
+		expect(first.contents).toContain('readonly "fixture.workflow.publish"')
+		expect(first.contents).toContain('readonly ["fixture.workflow.rejected"]')
+		expect(first.contents).not.toContain(
+			'interface UltimaBaseGeneratedSchemaSurfaces',
+		)
+		expect(first.contents).toContain(
+			'interface UltimaBaseGeneratedSchemaOptions',
+		)
+		expect(first.contents).toContain('readonly workflow?:')
+	})
+})

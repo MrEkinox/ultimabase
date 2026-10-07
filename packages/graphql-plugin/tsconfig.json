@@ -1,0 +1,15 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"lib": ["ES2024", "ESNext.Disposable"],
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../typegen" }
+	]
+}

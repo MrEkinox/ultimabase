@@ -1,0 +1,150 @@
+---
+title: Virtual Fields
+description: Compute selectable results from stored fields or request context without persisting them.
+audience:
+  - application-developer
+contentType: concept
+order: 6
+outcome: Define a virtual field and predict its selection, privacy, typing, and failure behavior.
+owner: '2807'
+releaseStatus: pre-release
+reviewedAt: 2026-09-16
+sources:
+  - packages/core/README.md
+  - packages/core/examples/schema/virtual-fields.md
+  - packages/core/src/schema/output/descriptor.ts
+  - packages/core/src/runtime/virtual-fields/projection.ts
+  - packages/core/src/runtime/virtual-fields/execution.ts
+  - docs/adr/0244-contextual-fields-and-virtual-results.md
+---
+
+A virtual field is a value UltimaBase computes for a result instead of storing
+with the record. Use one for a display value derived from existing fields or
+request context. It can appear in direct TypeScript, REST, and GraphQL results,
+but never becomes mutation input or a database column.
+
+## Declare a virtual field
+
+Declare the result shape, the persisted values the resolver needs, and the
+resolver itself:
+
+```ts title="src/profile.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+export const Profile = UltimaBase.Schema.define({
+	className: 'DocsProfile',
+	fields: (f) => ({
+		firstName: f.string({ required: true }),
+		lastName: f.string({ required: true }),
+		displayName: f.virtual({
+			output: (output) => output.string({ nullable: false }),
+			select: { firstName: true, lastName: true },
+			resolve: ({ item }) => `${item.firstName} ${item.lastName}`,
+		}),
+	}),
+})
+```
+
+`output` defines the complete returned value. Outputs are nullable by default;
+`nullable: false` requires a string here rather than `null`. `undefined` is
+invalid even for a nullable output. The `output` callback describes the value
+once at schema compilation; `resolve` computes it for each selected result.
+
+Output descriptors can also describe one-dimensional lists and typed objects
+through `output.object({ fields })`. A list's container may be nullable, but
+its elements cannot be `null`. A resolved object must contain every declared
+property, and each property has its own nullability. The output builder has no
+defaults, indexes, generators, pointers, or relations: those belong to stored
+fields or schema relationships.
+
+## Select the result
+
+After registering `Profile` in a started application with a persistence plugin,
+read only the computed field:
+
+```ts title="src/read-profile.ts"
+import { Profile } from './profile.js'
+
+export const readDisplayName = async (id: string) => {
+	const profile = await Profile.get({ id, select: { displayName: true } })
+
+	return profile.toJSON()
+}
+```
+
+For an existing profile, the returned object contains `id` and `displayName`;
+it does not contain `firstName` or `lastName`. `id` is included in every
+persisted result even when the selection omits it. The selected model does not
+keep hidden dependencies for a later `get()` call. If the ID does not identify
+a visible record, `get()` reports `NOT_FOUND`. See
+[Selections](/docs/1.0.0/core/reading-data/selections) for the broader result
+contract and [Manual Installation](/docs/1.0.0/manual-installation) for
+application setup.
+
+## Selection and private dependencies
+
+The virtual field's `select` declares what its resolver needs; it is not the
+caller's selection or an access grant. Core loads those dependencies privately
+after authorizing `displayName`. It returns a dependency to the caller only if
+the caller also selects that stored field and is allowed to see it. The
+resolver receives only its own immutable dependency view, plus `id`; another
+virtual field or caller selection cannot silently add values to that view.
+
+The dependency `select` is flat. It may name persisted scalar or object values
+and pointer identities, but not relations, other virtual fields, nested
+selections, or eager inclusions. Core always retains `id`; use
+`select: { id: true }` when identity is the only dependency.
+
+An omitted caller selection requests the complete visible result, including
+permitted virtual fields. Exclude an expensive one explicitly with, for
+example, `select: { expensiveScore: false }`.
+
+<Callout type="warn" title="Private dependencies do not authorize the output">
+	A stored dependency may be hidden from the caller but still available to the
+	application-owned resolver. The resolver can reveal information derived from
+	it. Protect the virtual field itself with the optional Access plugin when its
+	output needs authorization; changing its presentation is not a substitute.
+</Callout>
+
+## Resolver execution
+
+`resolve` receives the immutable dependency `item` and the operation's real
+`RequestContext`. It may return a value or a promise. The context can supply
+request-local values and `context.signal` for cancellable work; it does not
+give the resolver an adapter, transaction, or authority bypass. Core validates
+and freezes the returned value against `output` before exposing it. The
+optional Validation plugin checks mutation inputs, not virtual outputs.
+
+Core resolves requested virtual fields for reads, mutation results, and eager
+pointer or relation targets through the same Runtime path. Collection
+resolvers run in batches of at most 16 invocations. There is no cross-request
+cache, automatic retry, or exactly-once side-effect guarantee; do not use a
+resolver as a Hook or event handler. An exception from `resolve` fails the
+operation; a value that violates `output` produces a result validation error.
+On a mutation, either failure happens before commit and rolls back the
+transaction.
+
+## Persisted data and generated types
+
+A virtual field is top-level output only: it cannot be a child of
+`f.object()`. It is absent from stored records, create and update data,
+filters, ordering, indexes, migrations, and adapter plans. Changing only its
+resolver or output declaration does not change the database schema. REST and
+GraphQL represent the selected value but do not execute the resolver
+themselves.
+
+The optional [Typegen guide](/docs/1.0.0/guides/generate-types) explains how
+to generate application-specific declarations. They distinguish the persisted
+item, which excludes virtual fields, from the selectable result, which includes
+them. UltimaBase executes the same compiled graph without generated types.
+
+## Related tasks
+
+<Cards>
+	<Card title="Fields" href="./fields#built-in-field-builders">
+		Compare stored, embedded, and output-only field builders.
+	</Card>
+	<Card title="Selections" href="/docs/1.0.0/core/reading-data/selections">
+		Choose which persisted and computed values a result returns.
+	</Card>
+</Cards>

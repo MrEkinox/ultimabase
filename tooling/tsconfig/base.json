@@ -1,0 +1,28 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"compilerOptions": {
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"exactOptionalPropertyTypes": true,
+		"forceConsistentCasingInFileNames": true,
+		"isolatedDeclarations": true,
+		"lib": ["ES2024", "ESNext.Disposable"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"noEmitOnError": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noUncheckedIndexedAccess": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"strict": true,
+		"target": "ES2024",
+		// UltimaBase supports Node.js only, including its public AbortSignal contracts.
+		"types": ["node"],
+		"verbatimModuleSyntax": true
+	}
+}

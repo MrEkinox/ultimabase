@@ -1,0 +1,33 @@
+{
+	"command": "yarn measure:runtime-baseline",
+	"scope": "Same existing one-schema deterministic-adapter scenario; twenty sequential lifetimes per revision; only medians are emitted by the existing measurement tool. Baseline production source is identical to 3c130475.",
+	"baseline": {
+		"revision": "3ee12f5e279dbbbe4b234ef440dfb14c1d191c4c",
+		"iterations": 20,
+		"definitions": {
+			"timing": "median wall-clock milliseconds across sequential samples",
+			"heap": "median process.memoryUsage().heapUsed bytes at each sample point",
+			"scenario": "one no-product application with a deterministic in-memory adapter, one read, one mutation, and disposal"
+		},
+		"median": {
+			"startupMs": 1.0361259999999959,
+			"readMs": 0.4105610000000013,
+			"mutationMs": 0.5115610000000004,
+			"heapBefore": 9827328,
+			"heapAfterStartup": 10363112,
+			"heapAfterRequests": 10564384
+		}
+	},
+	"current": {
+		"revision": "3a5874d73f2a1879e1e6d2e4860a3b63d5bf776a",
+		"iterations": 20,
+		"median": {
+			"startupMs": 0.9972660000000246,
+			"readMs": 0.4289760000000058,
+			"mutationMs": 0.5156019999999728,
+			"heapBefore": 9824744,
+			"heapAfterStartup": 10365600,
+			"heapAfterRequests": 10571776
+		}
+	}
+}

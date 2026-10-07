@@ -1,0 +1,408 @@
+import { applicationFixture } from '../application-fixture.js'
+import { isPlainRecord } from '@ultimabase/shared'
+import {
+	plugin as createPlugin,
+	type PluginDefinition,
+	type SchemaDefinition,
+} from '../../src/index.js'
+import {
+	createApplication,
+	type FrameworkApplication,
+} from '../../src/application/framework-application.js'
+
+import { describe, expect, it } from 'vitest'
+
+import {
+	afterOperation,
+	beforeOperation,
+	requestSources,
+	runWithRequestEngine,
+	RuntimePipeline,
+	type DatabaseAdapter,
+	type RuntimePipelineStages,
+	type RuntimeInterceptorDefinition,
+	type RuntimeResultEffectStage,
+	provideRuntimeBehavior,
+} from '../../src/runtime/index.js'
+import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
+import { composeRuntimeBehaviors } from '../../src/runtime/behaviors/composition.js'
+import {
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+} from './fixtures/recording-database-adapter.js'
+import { provideTestRuntimeInterceptor } from './fixtures/runtime-capabilities.js'
+import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+
+const createTestRuntimeContributions = (
+	declare: (
+		intercept: (name: string, definition: RuntimeInterceptorDefinition) => void,
+		postCommit: (name: string, handler: RuntimeResultEffectStage) => void,
+	) => void,
+) => {
+	const provides: (
+		| ReturnType<typeof provideTestRuntimeInterceptor>
+		| ReturnType<typeof provideRuntimeBehavior>
+	)[] = []
+	declare(
+		(name, definition) => {
+			provides.push(provideTestRuntimeInterceptor(name, definition))
+		},
+		(name, definition) => {
+			provides.push(
+				provideRuntimeBehavior({
+					contributionId: name,
+					create: () => ({ value: { postCommit: definition } }),
+				}),
+			)
+		},
+	)
+	return provides
+}
+
+const articleSchema = UltimaBase.Schema.define({
+	className: 'ContributionArticle',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+	}),
+})
+
+const foreignSchema = UltimaBase.Schema.define({
+	className: 'ContributionForeign',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+	}),
+})
+
+/** Produces the complete persisted shape expected by create-operation contributions. */
+const createStoredArticle = (title: string) => ({
+	id: '0198f090-2a50-7000-8000-000000000031',
+	title,
+	createdAt: '2026-08-01T00:00:00.000Z',
+	updatedAt: '2026-08-01T00:00:00.000Z',
+})
+
+const createOrderedPlugins = (trace: string[]) => {
+	const dependency = createPlugin({
+		version: '0.0.0',
+		core: '^0.0.0',
+		id: 'fixture.contributions.dependency',
+		permissions: {
+			'runtime:intercept':
+				'Registers low-level Runtime contributions for tests.',
+		},
+		contributions: createTestRuntimeContributions((intercept, postCommit) => {
+			intercept(
+				'fixture.dependency.global-before',
+				beforeOperation({
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push('global-before:dependency')
+						expect(Object.isFrozen(input)).toBe(true)
+					},
+				}),
+			)
+			intercept(
+				'fixture.dependency.schema-before',
+				beforeOperation({
+					schema: articleSchema,
+					operations: ['create-one'],
+					handler: () => {
+						trace.push('schema-before:dependency')
+					},
+				}),
+			)
+			intercept(
+				'fixture.dependency.schema-after',
+				afterOperation({
+					schema: articleSchema,
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push('schema-after:dependency')
+
+						return {
+							result: {
+								...input.result,
+								title: `${input.result.title}:dependency`,
+							},
+						}
+					},
+				}),
+			)
+			intercept(
+				'fixture.dependency.global-after',
+				afterOperation({
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push('global-after:dependency')
+						expect(Object.isFrozen(input)).toBe(true)
+
+						return { result: input.result }
+					},
+				}),
+			)
+			postCommit('fixture.dependency.event', (input) => {
+				// The product behavior runs only for its singular create operation.
+				if (input.operation.kind === 'create-one') {
+					if (!isPlainRecord(input.result))
+						throw new TypeError('Expected a singular create result')
+					trace.push(`event:dependency:${String(input.result.title)}`)
+				}
+			})
+			// These valid contributions prove schema and operation filters skip non-matches.
+			intercept(
+				'fixture.dependency.foreign-before',
+				beforeOperation({
+					schema: foreignSchema,
+					operations: ['create-one'],
+					handler: () => {
+						trace.push('unexpected:foreign')
+					},
+				}),
+			)
+			intercept(
+				'fixture.dependency.foreign-after',
+				afterOperation({
+					schema: foreignSchema,
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push('unexpected:foreign-after')
+
+						return { result: input.result }
+					},
+				}),
+			)
+		}),
+	})
+	const consumer = createPlugin({
+		version: '0.0.0',
+		core: '^0.0.0',
+		id: 'fixture.contributions.consumer',
+		permissions: {
+			'runtime:intercept':
+				'Registers low-level Runtime contributions for tests.',
+		},
+		dependencies: [
+			{ pluginId: 'fixture.contributions.dependency', version: '^0.0.0' },
+		],
+		contributions: createTestRuntimeContributions((intercept, postCommit) => {
+			intercept(
+				'fixture.consumer.global-before',
+				beforeOperation({
+					operations: ['create-one'],
+					handler: () => {
+						trace.push('global-before:consumer')
+					},
+				}),
+			)
+			intercept(
+				'fixture.consumer.schema-before',
+				beforeOperation({
+					schema: articleSchema,
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push(`schema-before:consumer:${input.operation.input.title}`)
+					},
+				}),
+			)
+			intercept(
+				'fixture.consumer.schema-after',
+				afterOperation({
+					schema: articleSchema,
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push(`schema-after:consumer:${input.result.title}`)
+
+						return { result: input.result }
+					},
+				}),
+			)
+			intercept(
+				'fixture.consumer.global-after',
+				afterOperation({
+					operations: ['create-one'],
+					handler: (input) => {
+						trace.push('global-after:consumer')
+
+						return { result: input.result }
+					},
+				}),
+			)
+			postCommit('fixture.consumer.event', (input) => {
+				// The product behavior runs only for its singular create operation.
+				if (input.operation.kind === 'create-one') {
+					if (!isPlainRecord(input.result))
+						throw new TypeError('Expected a singular create result')
+					trace.push(`event:consumer:${String(input.result.title)}`)
+				}
+			})
+			postCommit('fixture.consumer.update-event', (input) => {
+				if (input.operation.kind === 'update-one')
+					trace.push('unexpected:update')
+			})
+		}),
+	})
+
+	// Reversed configuration proves dependency order wins over array position.
+	return [consumer, dependency] as const
+}
+
+const createPipeline = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+>(
+	application: FrameworkApplication<TSchemas, TPlugins>,
+	databaseOperation: DatabaseAdapter,
+	trace: string[],
+): RuntimePipeline => {
+	const behavior = composeRuntimeBehaviors(application)
+	const stages: RuntimePipelineStages = {
+		normalization: (input) => input.operation,
+		structuralValidation: (input) => input.operation,
+		finalMutationValidation: (input) => input.operation,
+		...(behavior === undefined ? {} : { behaviors: behavior }),
+		databaseOperation,
+		commit: () => {
+			trace.push('pipeline:commit')
+		},
+	}
+
+	return new RuntimePipeline(stages)
+}
+
+const createRequest = async (
+	plugins: readonly PluginDefinition[],
+	results: readonly QueuedAdapterResult[],
+	trace: string[],
+) => {
+	const application = applicationFixture(
+		await createApplication({
+			schemas: [articleSchema, foreignSchema],
+			plugins,
+		}),
+	)
+	const adapter = new RecordingDatabaseAdapter(results, trace)
+	const framework = new FrameworkEngine({
+		application,
+		pipeline: createPipeline(application, adapter, trace),
+	})
+	const request = framework.anonymous({
+		requestId: 'hooks-1',
+		source: requestSources.internal,
+	})
+
+	return { adapter, application, request }
+}
+
+describe('Runtime contributions and post-commit events', () => {
+	it('orders plugin observers and delivers events only after commit', async () => {
+		const trace: string[] = []
+		const stored = createStoredArticle('stored')
+		const { adapter, request } = await createRequest(
+			createOrderedPlugins(trace),
+			[{ status: 'fulfilled', value: stored }],
+			trace,
+		)
+
+		const result = await runWithRequestEngine(request, () =>
+			articleSchema.createOne({ data: { title: 'input' } }),
+		)
+
+		// Root mutations must use the transaction executor rather than the root adapter.
+		expect(adapter.rootRequests).toStrictEqual([])
+		expect(adapter.transactions).toHaveLength(1)
+		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			input: { title: 'input' },
+		})
+		expect(result).toBeInstanceOf(articleSchema)
+		expect(result.toJSON()).toStrictEqual({
+			...stored,
+			title: 'stored:dependency',
+		})
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'global-before:dependency',
+			'global-before:consumer',
+			'schema-before:dependency',
+			'schema-before:consumer:input',
+			'prepare:create-one',
+			'execute:create-one',
+			'schema-after:dependency',
+			'schema-after:consumer:stored:dependency',
+			'global-after:dependency',
+			'global-after:consumer',
+			'adapter:commit',
+			'event:dependency:stored:dependency',
+			'event:consumer:stored:dependency',
+		])
+	})
+
+	it('defers external events until an explicit transaction commits', async () => {
+		const trace: string[] = []
+		const { request } = await createRequest(
+			createOrderedPlugins(trace),
+			[{ status: 'fulfilled', value: createStoredArticle('stored') }],
+			trace,
+		)
+
+		await request.transaction(async () => {
+			await articleSchema.createOne({ data: { title: 'input' } })
+			expect(trace.some((entry) => entry.startsWith('event:'))).toBe(false)
+			trace.push('transaction:callback-complete')
+		})
+
+		expect(trace.indexOf('adapter:commit')).toBeLessThan(
+			trace.indexOf('event:dependency:stored:dependency'),
+		)
+		expect(trace).toContain('transaction:callback-complete')
+	})
+
+	it('rolls back when an after-hook aborts and never delivers its event', async () => {
+		const trace: string[] = []
+		const hookError = new Error('business after-hook rejected the write')
+		const plugin = createPlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			id: 'fixture.contributions.abort',
+			permissions: {
+				'runtime:intercept': 'Registers a low-level Runtime hook for tests.',
+			},
+			contributions: createTestRuntimeContributions((intercept, postCommit) => {
+				intercept(
+					'fixture.abort.after',
+					afterOperation({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('after:abort')
+							throw hookError
+						},
+					}),
+				)
+				postCommit('fixture.abort.event', () => {
+					trace.push('event:unexpected')
+				})
+			}),
+		})
+		const { request } = await createRequest(
+			[plugin],
+			[{ status: 'fulfilled', value: createStoredArticle('stored') }],
+			trace,
+		)
+
+		// The root mutation owns the rollback boundary without an explicit callback.
+		await expect(
+			runWithRequestEngine(request, () =>
+				articleSchema.createOne({ data: { title: 'input' } }),
+			),
+		).rejects.toBe(hookError)
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'prepare:create-one',
+			'execute:create-one',
+			'after:abort',
+			'adapter:rollback',
+		])
+	})
+})

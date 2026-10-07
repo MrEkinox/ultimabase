@@ -1,0 +1,14 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{ "path": "../access-plugin" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../testing" }
+	]
+}

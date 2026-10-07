@@ -1,0 +1,181 @@
+---
+title: API Error Boundaries
+description: Identify whether Core, HTTP, REST, or GraphQL owns a failure.
+audience:
+  - application-developer
+  - operator
+contentType: reference
+order: 6
+outcome: Read a safe error response and find the contract owned by the rejecting layer.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-27
+sources:
+  - packages/core/src/errors/framework-error.ts
+  - packages/core/src/runtime/cancellation/operation-cancellation.ts
+  - packages/core/src/schema/plans/contracts.ts
+  - packages/core/src/runtime/validation/runtime-validation.ts
+  - packages/postgres-plugin/src/drizzle/operation-error.ts
+  - packages/http-plugin/README.md
+  - packages/rest-plugin/README.md
+  - packages/graphql-plugin/README.md
+  - docs/adr/0274-canonical-operation-cancellation.md
+---
+
+Core errors have transport-independent codes. A public HTTP request adds another
+boundary: the layer that has accepted the request owns its response format.
+Application selection and credential checks happen before REST or GraphQL can
+handle the request.
+
+## Find the owning boundary
+
+| When the failure occurs        | Owner and representation                                       | Start here                                                                |
+| ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [FrameworkError](#frameworkerror)                                         |
+| Before a protocol route begins | HTTP plugin's safe `HTTP_*` JSON envelope                      | [HTTP troubleshooting](/docs/1.0.0/plugins/official/http#troubleshooting) |
+| After REST begins              | REST plugin's JSON envelope and `REST_*` codes                 | [REST API](/docs/1.0.0/plugins/official/rest)                             |
+| After GraphQL begins           | GraphQL response errors and safe extensions                    | [GraphQL](/docs/1.0.0/plugins/official/graphql)                           |
+
+<Mermaid
+	description="A request rejected before route dispatch has an HTTP error envelope; after dispatch, the selected REST or GraphQL handler owns its error format."
+	chart="flowchart TB
+    A[Public request] --> B{Route handler started?}
+    B -->|no| C[HTTP error envelope]
+    B -->|REST| D[REST error envelope]
+    B -->|GraphQL| E[GraphQL response errors]"
+/>
+
+## Read only public error data
+
+HTTP and REST both use an `error` object, but their codes and mappings remain
+separate. For example, malformed REST read input can return:
+
+```json
+{
+	"error": {
+		"code": "REST_READ_INVALID_INPUT",
+		"message": "The REST read request is malformed.",
+		"retryable": false,
+		"requestId": "request-123"
+	}
+}
+```
+
+The HTTP layer adds `X-UltimaBase-Request-Id` and
+`Cache-Control: private, no-store` to its responses. The request ID helps
+correlate a sanitized report with server diagnostics; it is not a credential.
+
+Before route dispatch, malformed or ambiguous headers use `HTTP_BAD_REQUEST`;
+application or credential rejection uses `HTTP_APPLICATION_REJECTED`. After
+REST begins, unsupported versions, body limits, authorization, validation, and
+missing targets use REST-owned codes. Unknown REST failures become the fixed
+`REST_INTERNAL_ERROR`, not an exception string.
+
+GraphQL follows its own response format. Explicitly public Core or plugin
+failures may retain safe extensions such as code, retryability, request ID,
+and optional JSON details. Unknown failures are masked as
+`INTERNAL_SERVER_ERROR`.
+
+## FrameworkError
+
+Direct TypeScript calls can inspect Core's `FrameworkError` without depending
+on an HTTP response shape. Its constructor takes a declared
+`FrameworkErrorCode`, a non-empty diagnostic message, and optional `cause`,
+`publicMessage`, `publicDetails`, `internalDetails`, and `retryable` values:
+
+```ts title="src/handle-missing-post.ts"
+import { FrameworkError } from '@ultimabase/core'
+
+const error = new FrameworkError('NOT_FOUND', 'Trusted diagnostic', {
+	publicMessage: 'The requested post was not found.',
+	publicDetails: { resource: 'Post' },
+})
+
+const safePayload = error.toJSON()
+```
+
+`safePayload` contains `code`, `retryable: false`, and the explicitly public
+`message` and `details`. It never includes the diagnostic message, stack,
+cause, or internal details. `frameworkErrorCodes` lists all declared Core
+codes. Common ones include `VALIDATION_ERROR`, `NOT_FOUND`,
+`PERMISSION_DENIED`, `TRANSACTION_ERROR`, and plugin-graph failures such as
+`PLUGIN_DEPENDENCY_MISSING` and `PLUGIN_PRIVILEGE_DENIED`. Unknown codes or
+malformed constructor options throw `TypeError`.
+
+`OPERATION_CANCELLED` is the stable cooperative cancellation code. Plugin
+engines can call `throwIfOperationCancelled(signal, internalDetails?)` from
+`@ultimabase/core` at a safe boundary to produce the same failure as Core
+Runtime. The helper never exposes `signal.reason`; it records only the internal
+normalized reason `request-aborted` or `deadline-exceeded`. It checks an
+already-aborted signal and does not terminate or detach running JavaScript.
+
+When you need to handle an absent direct-read target, check the stable code:
+
+```ts title="src/find-post.ts"
+import { FrameworkError } from '@ultimabase/core'
+
+import { Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const findPostOrNull = async (postId: string) => {
+	try {
+		return await Post.get({ id: postId })
+	} catch (error: unknown) {
+		if (error instanceof FrameworkError && error.code === 'NOT_FOUND') {
+			return null
+		}
+		throw error
+	}
+}
+```
+
+### Read validation issues when present
+
+Core structural input validation can attach an `issues` array in the public
+details of a `VALIDATION_ERROR`. Each issue has a stable `code`, a `path` of
+field names and numeric list positions, and a readable `message`. For example,
+a missing label in the first item of a nested input can be reported as:
+
+```json title="Validation error payload"
+{
+	"code": "VALIDATION_ERROR",
+	"retryable": false,
+	"message": "The operation input is invalid.",
+	"details": {
+		"issues": [
+			{
+				"code": "field.required",
+				"path": ["input", "items", 0, "label"],
+				"message": "Field is required"
+			}
+		]
+	}
+}
+```
+
+Use the path to associate a structural issue with an input field and the code
+for programmatic handling. Do not parse the message to identify the failure.
+Not every `VALIDATION_ERROR` has field issues: PostgreSQL also maps a unique
+constraint violation to this code with a generic public message and no index
+or field name. Check that `details.issues` exists before treating an error as
+a form-field failure. The exact public envelope after REST or GraphQL dispatch
+still belongs to that transport.
+
+HTTP, REST, GraphQL, PostgreSQL, Typegen, and Password Auth each own their
+additional error codes and public representations. Use the relevant
+[HTTP](/docs/1.0.0/plugins/official/http),
+[REST](/docs/1.0.0/plugins/official/rest),
+[GraphQL](/docs/1.0.0/plugins/official/graphql), or
+[Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
+page for that capability's failures; use
+[Troubleshooting](/docs/1.0.0/operations/troubleshooting)
+for startup and plugin-graph diagnostics. See
+[Generate TypeScript Declarations](/docs/1.0.0/guides/generate-types#troubleshooting-generation)
+for Typegen failures.
+
+## Handle a failure safely
+
+Check the owner, stable code, and request ID first. Do not use the HTTP status
+alone to infer whether a failure happened before or after dispatch. Never log
+or attach a raw credential, password, session token, Master key, private
+record, or stack trace to a public error report.

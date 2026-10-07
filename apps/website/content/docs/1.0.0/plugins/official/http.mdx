@@ -1,0 +1,164 @@
+---
+title: HTTP
+description: Identify the HTTP application, apply browser policy, and handle requests before a transport runs.
+audience:
+  - application-developer
+  - operator
+contentType: guide
+order: 2
+outcome: Configure the HTTP application boundary, browser policy, and pre-dispatch request handling.
+owner: '2812'
+releaseStatus: pre-release
+reviewedAt: 2026-09-21
+sources:
+  - packages/http-plugin/README.md
+  - packages/http-plugin/src/request-boundary.ts
+  - packages/password-auth-plugin/src/operations.ts
+  - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+  - docs/adr/0258-single-active-application-lifecycle.md
+  - docs/adr/0260-single-owner-http-dispatch.md
+---
+
+## Overview
+
+`@ultimabase/http-plugin` owns the Fetch-compatible application boundary. It does
+not open a socket. Every real public request must carry exactly one public application
+identifier. It must match the sole active application and grants no authority:
+
+```http
+X-UltimaBase-Application-Id: blog
+```
+
+## Installation
+
+These packages are pre-release. Use the locally built repository example linked
+from [Manual Installation](/docs/1.0.0/manual-installation) to evaluate the
+current code; the registry commands below describe installation after publication.
+
+Install the application HTTP boundary:
+
+```bash tab="npm" tab-group="package-manager"
+npm install @ultimabase/http-plugin
+```
+
+```bash tab="yarn"
+yarn add @ultimabase/http-plugin
+```
+
+```bash tab="pnpm"
+pnpm add @ultimabase/http-plugin
+```
+
+The HTTP plugin does not open a socket. For a Node listener, follow the
+separate [Hono Server](./hono-server) guide; REST and GraphQL routes also need
+their own transport plugins.
+
+## Configuration
+
+Give each public application one exact `appId`. Browser policy and request
+timeout are optional; the example enables an explicit, restrictive browser
+policy:
+
+```ts
+import { UltimaBase } from '@ultimabase/core'
+import { httpPlugin } from '@ultimabase/http-plugin'
+
+export const Application = UltimaBase.use(
+	httpPlugin({
+		appId: 'blog',
+		browser: {
+			allowedHeaders: ['Content-Type', 'X-UltimaBase-Application-Id'],
+			allowedMethods: ['GET', 'POST'],
+			allowedOrigins: ['https://console.example'],
+			credentials: false,
+			maxAgeSeconds: 600,
+		},
+		requestTimeoutMs: 15_000,
+	}),
+)
+```
+
+`httpPlugin()` also accepts `master: { enabled: true }`, but only when the
+selected application has a configured `MasterAuthority`. Do not expose a raw
+Master key to browser code.
+
+## Behavior and limitations
+
+### Browser policy
+
+Browser-origin behavior is disabled by default. When enabled, the sole active
+application owns one effective policy for its server provider. CORS controls browser
+responses; it is not authentication, authorization, or protection from non-browser
+clients. Preflight may run without an application ID, but it selects no application
+and invokes no context resolver, credential check, route, Runtime, or database work.
+
+List only the origins, methods, and headers the client actually uses. Wildcard
+origin is incompatible with credentials, cookies, Authorization, or enabled
+Master transport. CORS also does not provide CSRF protection.
+
+### Application identity and authority
+
+Application identity, duplicate sensitive headers, credentials, optional Master
+verification, timeout, and request correlation run before a protocol handler. These
+failures use the safe `HTTP_*` boundary. Once REST or GraphQL begins, that protocol
+owns its response.
+
+Enable the canonical `X-UltimaBase-Master-Key` header only with `master: { enabled: true }` and a
+configured `MasterAuthority`. The selected application's authority verifies the raw
+key and must complete its audit before dispatch. Alternative headers, body flags,
+foreign credentials, contexts, and grants cannot select Master.
+
+### Connect a server and a transport
+
+The HTTP plugin contributes a Fetch-compatible application boundary, not a
+listener or an API route. The [Hono Server](./hono-server) guide covers managed
+and existing listeners. Add [REST](./rest) or [GraphQL](./graphql) to expose
+routes through that boundary.
+
+### Implement a server provider
+
+A custom server consumes `httpApplicationCapability` and
+`httpBrowserPolicyCapability`. Keep one optional HTTP application and pass it
+with the original header pairs to `dispatchHttpApplicationRequest(application,
+input)`. Clear the owner before teardown. When no owner remains, the helper
+still validates header cardinality and correlation, then returns the safe HTTP
+rejection envelope. A Hono external listener can therefore keep serving its
+ordinary routes after UltimaBase stops.
+
+The application boundary also owns exact browser-bootstrap URLs such as
+`/__ultimabase/apps/blog/graphiql`. Only a contributed GET bootstrap route can
+use path identity; normal API requests still require the header. See
+[GraphQL](./graphql) for the browser tool setup.
+
+## Troubleshooting
+
+Before a route starts, HTTP returns a private, non-cacheable envelope with a
+stable code and `X-UltimaBase-Request-Id`:
+
+| Code                        | First interpretation                              |
+| --------------------------- | ------------------------------------------------- |
+| `HTTP_BAD_REQUEST`          | malformed or ambiguous request evidence           |
+| `HTTP_APPLICATION_REJECTED` | application identity or credentials were rejected |
+| `HTTP_NOT_FOUND`            | no selected route owns the path                   |
+| `HTTP_REQUEST_TIMEOUT`      | the shared request deadline expired               |
+| `HTTP_INTERNAL_ERROR`       | the pre-dispatch boundary failed safely           |
+
+Reproduce without credentials first:
+
+```sh
+curl -i \
+  -H 'X-UltimaBase-Application-Id: blog' \
+  http://127.0.0.1:1337/api/v1/classes/Post
+```
+
+The path above assumes the REST plugin's default route is installed alongside
+HTTP and a server provider. Without REST or another route owner, a 404 is
+expected. Record status, stable error code, and request ID. Confirm the public
+`appId`, mount, method, and route. Send exactly one application ID on real
+requests and never combine Bearer and cookie credentials. Do not copy
+Authorization, Cookie, Master values, or request bodies into logs or reports.
+
+If the boundary still rejects the request, follow
+[Reporting a problem](/docs/1.0.0/operations/troubleshooting#report-a-problem)
+with sanitized evidence. Widening CORS or switching to Master authority cannot
+repair invalid identity or credentials.

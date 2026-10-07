@@ -1,0 +1,254 @@
+---
+title: Application
+description: Understand what one UltimaBase application owns, when it becomes ready, and how to release it.
+audience:
+  - application-developer
+  - plugin-author
+  - operator
+contentType: concept
+order: 1
+outcome: Explain how one UltimaBase application is composed, started, used, and isolated.
+owner: '2824'
+releaseStatus: pre-release
+reviewedAt: 2026-09-30
+sources:
+  - ARCHITECTURE.md
+  - packages/core/README.md
+  - packages/core/src/application/framework-application.ts
+  - packages/core/src/runtime/application/ultima-base.ts
+  - packages/core/src/runtime/context/current-ultima-base.ts
+  - packages/core/src/runtime/validation/runtime-validation-options.ts
+  - examples/minimal/src/create-application.ts
+  - docs/adr/0173-generated-schema-authoring.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0206-application-owned-master-provenance.md
+  - docs/adr/0258-single-active-application-lifecycle.md
+  - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0279-source-typed-configured-application-authoring.md
+  - docs/adr/0282-variadic-configured-plugin-installation.md
+---
+
+An application is one `UltimaBase` instance. It owns a set of schemas and
+configured plugins, starts their resources, and scopes every operation to that
+exact instance. It is not itself an HTTP server: you can use it directly from
+TypeScript, then add a transport plugin when you need an API. For a complete
+project setup, follow [Manual Installation](/docs/1.0.0/manual-installation).
+
+## Application graph
+
+Schemas, configured plugins, and static options form the application graph.
+Importing a package alone installs nothing; behavior comes from the definitions
+in this application's one flat `.use()` chain. Generated
+TypeScript declarations describe this graph but do not decide what runs.
+
+<Mermaid
+	description="Schemas, plugins, and options pass validation before producing an immutable application graph and its installed capabilities."
+	chart="flowchart TB
+    A[Schemas + configured plugins + static options] --> B[Identity, dependency, privilege, and conflict checks]
+    B --> C[Immutable compiled application graph]
+    C --> D[Installed capabilities + Runtime + optional transports]"
+/>
+
+Construction checks the configured plugin graph, including identities,
+dependencies, privileges, and capability compatibility. It opens no database
+or network connection. At startup, Core runs pure plugin declarations, compiles
+the schemas and relationships, then materializes capabilities and starts
+resources. Invalid declarations fail before plugin setup or infrastructure
+effects. [Plugin System](/docs/1.0.0/plugins/overview) explains the checks in
+detail.
+
+The compiled graph is application-local. Several inert definitions may coexist, but only one application may initialize
+in a JavaScript realm (normally one Node.js process). Core supplies structural
+validation and the Runtime pipeline; PostgreSQL, authentication, REST, and
+GraphQL are examples of separately installed capabilities. Compose plugins
+first, then construct the application with its instance options.
+
+## Configure the application
+
+`UltimaBase.use(pluginA, pluginB)` returns a new immutable application factory
+with one flat ordered plugin list. You can also spread a dynamic list or chain
+`.use()` calls; every call leaves its parent unchanged. The constructor accepts
+instance options only, never a `plugins` option.
+`new Application({ schemas, ...options })` then snapshots the
+configuration without connecting to infrastructure. Its instance options are:
+
+| Option             | Required | Purpose                                                                                     |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------- |
+| `schemas`          | Yes      | Exact schema classes owned by this application.                                             |
+| `masterAuthority`  | No       | Audited server authority for explicit Master work.                                          |
+| `pluginPrivileges` | No       | Privilege and environment-claim denials plus the reporting logger.                          |
+| `validation`       | No       | Structural validation settings, timezone, clock, UUID generation, and nested-write budgets. |
+
+No database, server, API, plugin behavior, or Master authority is installed
+implicitly. An unknown root option throws `TypeError`. Schema and plugin graph
+errors are reported before infrastructure starts. Use `app.schema(...)`,
+`app.operation(...)`, and `app.plugin(configuredDefinition)` for typed
+application-owned handles. Ordinary CRUD runs directly on the schema class,
+including the `.schema` class resolved from a dynamic plugin schema handle.
+`app.plugin({ pluginId, instanceId })` also supports
+dynamic identity lookup for repeated plugin instances. For request identity and
+grouped writes, see [Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
+and [Transactions](/docs/1.0.0/core/writing-data/transactions).
+
+Inside an active request, trusted server code can retrieve its owning facade
+with `getCurrentUltimaBase()` from `@ultimabase/core`. It returns the exact
+application's `UltimaBase`, so `.operation(token)` uses the existing request
+scope. Outside a request it returns the sole initialized application; with no
+active application it throws `MISSING_EXECUTION_CONTEXT`.
+Use `getCurrentEngine()` or `getCurrentRequest()` when only that focused value
+is needed; Core does not expose a second aggregate context API. Classes and
+models keep no application resource or authority.
+
+Read and validate required environment values at the composition root before
+passing them to plugin factories. Keep credentials server-side; the
+[pre-exposure checklist](/docs/1.0.0/operations/before-exposing-your-application)
+collects the other boundaries to review before accepting public traffic.
+
+### Configure Core validation and time
+
+The root `validation` option configures Core's structural Runtime boundary; it
+does not install the optional application-rule [Validation plugin](/docs/1.0.0/plugins/official/validation).
+For example, set the application's calendar timezone and bound nested writes:
+
+```ts title="src/ultimabase.ts"
+import { UltimaBase } from '@ultimabase/core'
+
+import { Article } from './article.js'
+
+export const ultimabase = new UltimaBase({
+	schemas: [Article],
+	validation: {
+		nestedWrites: { maxDepth: 3, maxOperations: 50 },
+		timezone: 'Europe/Paris',
+	},
+})
+```
+
+This only configures Core; add a persistence plugin before executing database
+operations. `timezone` defaults to `UTC` and controls calendar and zone-less
+values generated by `autoNow`. A field's own `timezone` option instead decides
+whether its time or date-time values include an offset. The two settings have
+different jobs; neither uses the host machine's timezone as an implicit
+application setting.
+
+| `validation` option          | Purpose                                                                                       | Default            |
+| ---------------------------- | --------------------------------------------------------------------------------------------- | ------------------ |
+| `timezone`                   | Application timezone for automatic temporal values.                                           | `UTC`              |
+| `nestedWrites.maxDepth`      | Maximum target levels below a singular root create or update.                                 | `5`                |
+| `nestedWrites.maxOperations` | Maximum operation nodes in that nested graph.                                                 | `100`              |
+| `clock`                      | Advanced/test override returning one `Date` for the operation clock.                          | System clock       |
+| `uuidV7Generator`            | Advanced/test override receiving a Unix-millisecond timestamp and returning a UUID v7 string. | Built-in generator |
+
+`maxDepth` must be a non-negative safe integer; `maxOperations` must be a
+positive safe integer. The [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes#bounds-and-failure-behavior)
+page explains what counts toward those limits. Keep custom clock and ID
+generators in trusted application setup, not request input.
+
+## Start and dispose
+
+Call `start()` before executing operations. It finishes setup, connects the
+installed resources, and starts transports in dependency order. Put `dispose()`
+in `finally` so normal work and failures both release application resources.
+If startup fails, Core attempts cleanup of its initialized resources.
+Repeated disposal shares the same cleanup outcome. If cleanup also fails, startup reports the original failure
+and the cleanup failure in an `AggregateError`.
+
+`app.state` reports the current lifecycle state. `start()`, `stop()`, and
+`dispose()` resolve to `void`; `stop()` ends active infrastructure without
+releasing setup-owned resources, while `dispose()` permanently releases the
+application. A stopped or disposed application cannot restart. The facade is
+frozen, but its private lifecycle state advances through these methods.
+
+This single-file example defines a schema, starts one PostgreSQL-backed
+application, reads directly from TypeScript, and closes it. It assumes the
+packages and disposable database from [Manual Installation](/docs/1.0.0/manual-installation):
+
+```ts title="src/main.ts"
+import { UltimaBase } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
+
+const Task = UltimaBase.Schema.define({
+	className: 'Task',
+	fields: (f) => ({ title: f.string({ required: true }) }),
+})
+
+const databaseUrl = process.env.DATABASE_URL
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+const Application = UltimaBase.use(
+	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+)
+
+const app = new Application({
+	schemas: [Task],
+})
+
+try {
+	await app.start()
+	const tasks = await Task.findMany({ limit: 20 })
+	console.log(tasks.map((task) => task.toJSON()))
+} finally {
+	await app.dispose()
+}
+```
+
+`schemaPolicy: 'override'` is only for this disposable database. The `Task`
+read passes through the same Runtime pipeline as a REST or GraphQL read would
+if you installed either transport. No HTTP plugin is required for this direct
+call. For writes and query options, continue with [Writing Data](/docs/1.0.0/core/writing-data/create)
+and [Reading Data](/docs/1.0.0/core/reading-data/overview).
+
+## Application boundaries
+
+A direct TypeScript operation resolves the sole active application. A transport
+must select that same application before sending a request into Runtime. Its
+request context retains the application's scope, cancellation signal, and
+authority; request labels or plugin values cannot manufacture Master access.
+[Request Identity](/docs/1.0.0/core/security-foundations/request-identity)
+and [Master Authority](/docs/1.0.0/core/security-foundations/master-authority)
+explain those security boundaries. The [HTTP plugin](/docs/1.0.0/plugins/official/http)
+owns transport selection and deadlines.
+
+A second application fails during initialization, before its resource factories
+or setup run, while the first remains active. `stop()` retains this ownership;
+only completed `dispose()` permits a replacement. Disposal closes new requests
+and waits for admitted Core work before releasing resources. Call shutdown
+outside an active request callback, so it does not wait for itself.
+
+A cleanup failure keeps ownership blocked because resource release is unproven.
+Report and resolve that failure; another `dispose()` call does not clear it.
+Old request contexts, Master grants, schema handles, and models never rebind
+themselves to the replacement. Static plugin mutation names reflect the current
+application graph and disappear after its disposal.
+
+Use separate processes, workers, or containers for simultaneous applications.
+For tests, see [Test an Application](/docs/1.0.0/guides/test-an-application)
+for `beforeAll` / `afterAll` and separate database schemas per worker.
+A schema class may be reused across sequential applications only when its
+separately compiled definition is structurally identical. Pure compilation
+and Typegen do not activate an application.
+
+## Next steps
+
+<Cards>
+	<Card title="Model schemas" href="/docs/1.0.0/core/data-modeling/schemas">
+		Define fields, defaults, and relationships in the application graph.
+	</Card>
+	<Card title="Read data" href="/docs/1.0.0/core/reading-data/overview">
+		Build typed queries and control the data returned to callers.
+	</Card>
+	<Card title="Use plugins" href="/docs/1.0.0/plugins/using-plugins">
+		Choose optional capabilities deliberately and inspect their privileges.
+	</Card>
+	<Card
+		title="Generate TypeScript types"
+		href="/docs/1.0.0/guides/generate-types"
+	>
+		Add optional editor declarations without changing Runtime behavior.
+	</Card>
+	<Card title="Expose HTTP" href="/docs/1.0.0/plugins/official/http">
+		Select one application before REST or GraphQL enters Runtime.
+	</Card>
+</Cards>

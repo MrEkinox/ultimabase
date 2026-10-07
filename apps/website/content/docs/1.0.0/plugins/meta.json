@@ -1,0 +1,10 @@
+{
+	"title": "Plugins",
+	"pages": [
+		"overview",
+		"using-plugins",
+		"official",
+		"community-plugins",
+		"build-a-plugin"
+	]
+}

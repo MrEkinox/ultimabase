@@ -1,0 +1,145 @@
+---
+title: Transactions
+description: Understand automatic mutation transactions and group several commands atomically.
+audience:
+  - application-developer
+contentType: concept
+order: 7
+outcome: Group related writes, handle failures, and place external effects after commit.
+owner: '2809'
+releaseStatus: pre-release
+reviewedAt: 2026-09-17
+sources:
+  - packages/core/README.md
+  - packages/core/docs/runtime.md
+  - packages/hooks-plugin/README.md
+  - packages/postgres-plugin/README.md
+  - docs/adr/0068-request-engine-transactions.md
+  - docs/adr/0099-automatic-mutation-transactions.md
+  - docs/adr/0107-hook-context-capabilities-and-events.md
+  - docs/adr/0172-focused-schema-hook-results.md
+---
+
+Every root create, update, upsert, or delete runs in a database transaction.
+UltimaBase opens one automatically when no transaction is active; inside an
+explicit transaction, the command reuses that transaction. This also applies
+to bulk and [nested writes](./nested-writes). Root reads do not open a
+transaction, but reads inside an explicit transaction share its scope.
+
+Use `RequestEngine.transaction()` when several root commands must commit or
+roll back together. The example assumes a started application with a database
+plugin, a `Post` schema with required `slug` and `title` and an `author`
+pointer, and an `Account` schema with `displayName`. Pass the ID of an existing
+author visible to the request.
+
+## Group two commands
+
+```ts title="src/publish.ts"
+import { requestSources } from '@ultimabase/core'
+
+import { Account, Post } from './schemas.js'
+import { ultimabase } from './ultimabase.js'
+
+export const createPostAndRenameAuthor = (
+	authorId: string,
+	slug: string,
+	title: string,
+) => {
+	const request = ultimabase.anonymous({
+		requestId: `publish:${slug}`,
+		source: requestSources.internal,
+	})
+
+	return request.transaction(async () => {
+		const post = await Post.createOne({
+			data: { author: { connect: authorId }, slug, title },
+		})
+
+		const updatedAuthor = await Account.updateOne({
+			data: { displayName: 'Published author' },
+			id: authorId,
+		})
+		if (updatedAuthor === null) {
+			throw new Error('Author is no longer available for update')
+		}
+
+		return post
+	})
+}
+```
+
+The callback runs with the request's application, authority, and metadata.
+Both commands use its one transaction, even though the schema methods do not
+receive a transaction parameter. `Post.createOne()` returns a post in that
+scope; the outer `createPostAndRenameAuthor()` call succeeds only after the
+transaction finishes. If the account update returns `null`, throwing ensures
+the new post is not committed alone. An installed policy or Hook can also
+reject either command and abort both writes.
+
+To verify, call the function with a fresh slug, then read the post by that
+slug and the account by ID in a new request. Both changes should be present.
+If the callback fails, the fresh slug should not resolve to a post.
+
+## How the transaction scope propagates
+
+Runtime creates one transaction-bound request engine for a root mutation or an
+explicit `request.transaction()` callback. Schema commands in that asynchronous
+scope use the same application, authority, request metadata, and database
+transaction without receiving an extra transaction parameter. Nested writes
+and database work started by optional Hooks inherit that engine too. They do
+not open sibling transactions. The outer scope commits once.
+
+Runtime waits for operations started in the scope before finalizing it, even
+if the callback forgot to await one. Still await every command yourself so
+its result and failure are handled at the right point in your code. Once the
+callback closes, a retained transaction-bound engine or query fails rather
+than silently running outside the transaction. These rules are the same for a
+mutation entered through TypeScript, REST, or GraphQL; the transport does not
+own transaction lifetime.
+
+## Know what commits and what rolls back
+
+<Mermaid
+	description="One mutation or several explicitly grouped commands share one transaction. A pre-commit failure rolls back its writes and buffered events; successful commit precedes event delivery."
+	chart="flowchart TB
+    A[One root mutation] --> C[One transaction]
+    B[Commands in request.transaction] --> C
+    C --> D[Validation, writes, optional Hooks]
+    D --> E[Result projection]
+    E --> F[Commit]
+    F --> G[Buffered events]
+    D -. failure .-> H[Rollback and discard events]"
+/>
+
+Validation, installed policy, and database work started by an operation Hook
+all belong to the active transaction. A failure before commit rolls back its
+database writes and discards buffered events. A commit failure triggers a
+rollback attempt; if rollback also fails, UltimaBase reports both failures.
+Even if your code catches a failed operation inside the callback, that
+transaction remains rollback-only. Do not start a nested explicit transaction:
+savepoints are not supported, and the call fails with `TRANSACTION_ERROR`.
+
+Business `beforeOperation` and `afterOperation` Hooks from the optional
+[Hooks plugin](/docs/1.0.0/plugins/official/hooks)
+run before commit and may abort it. For post-commit delivery, a Hook can call
+`context.emit(name, payload)` when a matching named-event consumer is
+installed. The event is buffered until the successful outer commit. Without
+a consumer, emission fails immediately. If a consumer fails after commit, the
+call may report an error, but the committed data cannot be rolled back. Named
+events are in-process delivery, not a durable queue that survives a crash.
+
+External effects such as emails or HTTP requests made directly inside a
+transaction callback are not undone by a database rollback. Keep those
+effects behind post-commit delivery. Public schema `beforeCommit` and
+`afterCommit` callbacks do not exist.
+
+## Next steps
+
+<Cards>
+	<Card title="Nested Writes" href="./nested-writes">
+		Write a related graph from one singular root command.
+	</Card>
+	<Card title="Bulk Operations" href="./bulk-operations">
+		Run an ordered list of singular mutations in one transaction.
+	</Card>
+</Cards>

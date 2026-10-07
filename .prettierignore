@@ -1,0 +1,4 @@
+**/.ultimabase/*.generated.d.ts
+**/.next/**
+**/.source/**
+**/next-env.d.ts

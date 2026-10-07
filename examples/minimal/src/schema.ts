@@ -1,0 +1,372 @@
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import {
+	PasswordUser,
+	passwordAuthOperations,
+	passwordPrincipal,
+} from '@ultimabase/password-auth-plugin'
+import { restPlugin } from '@ultimabase/rest-plugin'
+import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+import { validationPlugin } from '@ultimabase/validation-plugin'
+import { z } from 'zod'
+
+import type {} from '../.ultimabase/schema.generated.js'
+
+import { exampleStatusOperation } from './status-plugin.ts'
+
+const publicArticleACL = new ACL().grantPublic('delete', 'read', 'update')
+
+/** Owns every source-typed schema declaration used by the example. */
+export const MinimalSchemaApplication = UltimaBase.use(
+	softDeletePlugin({ defaultMode: 'disabled' }),
+)
+	.use(accessPlugin({ default: true }))
+	.use(hooksPlugin())
+	.use(validationPlugin())
+	.use(rolesPlugin())
+	.use(aclPlugin())
+	.use(
+		restPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [
+				exampleStatusOperation,
+				passwordAuthOperations.signUp,
+				passwordAuthOperations.login,
+				passwordAuthOperations.logout,
+				passwordAuthOperations.refresh,
+			],
+		}),
+	)
+	.use(
+		graphqlPlugin({
+			acknowledgeUnverifiedProtection: true,
+			operations: [
+				exampleStatusOperation,
+				passwordAuthOperations.signUp,
+				passwordAuthOperations.login,
+				passwordAuthOperations.logout,
+				passwordAuthOperations.refresh,
+			],
+		}),
+	)
+
+/** The exact User schema contributed by the configured Password Auth plugin. */
+export const ExampleUser = PasswordUser
+
+/** Resolves Password Auth identities into the example's independent role domain. */
+export const ExampleRole = RoleSchema.define(MinimalSchemaApplication.Schema, {
+	className: 'ExampleRole',
+	members: {
+		schema: PasswordUser,
+		resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user,
+	},
+	deletion: { references: 'fail' },
+	fields: (field) => ({
+		description: field.string(),
+	}),
+	access: {
+		create: false,
+		delete: false,
+		read: true,
+		update: false,
+	},
+	graphql: false,
+})
+
+export const ExampleEditorRole = ExampleRole.role('editor')
+const editorAccess = hasRole(ExampleEditorRole)
+const editorACL = new ACL().grantRole(
+	ExampleEditorRole,
+	'delete',
+	'read',
+	'update',
+)
+
+/** Stores durable evidence from logical soft-delete lifecycle Hooks. */
+export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
+	className: 'ExampleSoftDeleteEvent',
+	fields: (field) => ({
+		logicalOperation: field.string({ required: true }),
+		persistenceEffect: field.enum({
+			required: true,
+			typeName: 'ExampleSoftDeletePersistenceEffect',
+			values: ['update', 'delete'],
+		}),
+		schemaName: field.string({ required: true }),
+		targetId: field.string({ required: true }),
+	}),
+	access: {
+		create: true,
+		delete: false,
+		read: false,
+		update: false,
+		upsert: false,
+	},
+	graphql: false,
+	rest: false,
+	softDelete: false,
+})
+
+const recordSoftDeleteEvent = async (
+	logicalOperation: 'delete' | 'purge' | 'restore' | 'softDelete',
+	persistenceEffect: 'delete' | 'update',
+	schemaName: 'ExampleArticle' | 'ExampleAuthor',
+	targetId: string,
+): Promise<void> => {
+	await ExampleSoftDeleteEvent.createOne({
+		data: { logicalOperation, persistenceEffect, schemaName, targetId },
+	})
+}
+
+/** Authors can be selected and included through both public transports. */
+export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
+	className: 'ExampleAuthor',
+	fields: (field) => ({
+		articles: field.relation({
+			mappedBy: 'author',
+			target: 'ExampleArticle',
+			where: { published: { eq: true } },
+		}),
+		audience: field.enum({
+			default: 'public',
+			typeName: 'ExampleAuthorAudience',
+			values: ['authenticated', 'public'],
+		}),
+		contributions: field.relation({
+			mappedBy: 'contributors',
+			target: 'ExampleArticle',
+			where: { published: { eq: true } },
+		}),
+		listed: field.boolean({ default: true }),
+		name: field.string({ required: true, validation: z.string().min(1) }),
+		readable: field.boolean({ default: true }),
+	}),
+	access: {
+		read: {
+			allow: true,
+			where: ({ where }) => where.eq('readable', true),
+		},
+	},
+	acl: {
+		default: publicArticleACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? publicArticleACL,
+	},
+	graphql: true,
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			purge: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purge',
+					'delete',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+			restore: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restore',
+					'update',
+					'ExampleAuthor',
+					originalItem.id,
+				)
+			},
+		},
+	},
+	rest: true,
+	softDelete: 'replace-delete',
+})
+
+/** Articles demonstrate policy, lifecycle, validation, and relationships. */
+export const ExampleArticle = MinimalSchemaApplication.Schema.define({
+	className: 'ExampleArticle',
+	fields: (field) => ({
+		author: field.pointer({ target: 'ExampleAuthor' }),
+		contributors: field.relation({
+			target: 'ExampleAuthor',
+			where: { listed: { eq: true } },
+		}),
+		presentation: field.object({
+			fields: (embedded) => ({
+				subtitle: embedded.string(),
+				tags: embedded.string({ list: true }),
+			}),
+		}),
+		published: field.boolean({ default: true }),
+		reviewers: field.relation({
+			target: 'ExampleAuthor',
+			where: ({ context, where }) =>
+				context.getValue(passwordPrincipal) === undefined
+					? where.eq('audience', 'public')
+					: where,
+		}),
+		slug: field.string({ indexed: 'unique', required: true }),
+		title: field.string({
+			hooks: { resolveInput: ({ value }) => value.trim() },
+			required: true,
+			validation: z.string().min(2).max(200),
+		}),
+		displayTitle: field.virtual({
+			description: 'A display label derived from the persisted title.',
+			output: (output) => output.string({ nullable: false }),
+			select: { title: true },
+			resolve: ({ item }) => {
+				// @ts-expect-error -- Resolver items contain only declared dependencies.
+				void item.slug
+				return `Article: ${item.title}`
+			},
+		}),
+		optionalSubtitle: field.virtual({
+			output: (output) => output.string(),
+			select: { presentation: true },
+			resolve: ({ item }) => item.presentation?.subtitle ?? null,
+		}),
+		labels: field.virtual({
+			output: (output) => output.string({ list: true, nullable: false }),
+			select: { presentation: true },
+			resolve: ({ item }) => item.presentation?.tags ?? [],
+		}),
+		summary: field.virtual({
+			output: (output) =>
+				output.object({
+					fields: (output) => ({
+						labels: output.string({ list: true, nullable: false }),
+						subtitle: output.string(),
+						title: output.string({ nullable: false }),
+					}),
+					nullable: false,
+					typeName: 'ExampleArticleSummary',
+				}),
+			select: { presentation: true, title: true },
+			resolve: async ({ item }) => {
+				await Promise.resolve()
+				return {
+					labels: item.presentation?.tags ?? [],
+					subtitle: item.presentation?.subtitle ?? null,
+					title: item.title,
+				}
+			},
+		}),
+		viewerLabel: field.virtual({
+			description:
+				'A request-aware label that demonstrates context composition.',
+			output: (output) => output.string({ nullable: false }),
+			select: { slug: true },
+			resolve: ({ context, item }) => {
+				if (context.access.mode === 'master') return `master:${item.slug}`
+				return context.getValue(passwordPrincipal) === undefined
+					? `anonymous:${item.slug}`
+					: `authenticated:${item.slug}`
+			},
+		}),
+		authenticatedTitle: field.virtual({
+			access: {
+				read: {
+					orderBy: false,
+					output: ({ context }) =>
+						context.getValue(passwordPrincipal) !== undefined,
+					where: false,
+				},
+			},
+			description:
+				'A virtual field visible to authenticated requests and Master.',
+			output: (output) => output.string({ nullable: false }),
+			select: { title: true },
+			resolve: ({ item }) => item.title,
+		}),
+	}),
+	access: {
+		create: true,
+		delete: true,
+		read: {
+			allow: { count: true, exists: true, many: true, one: true },
+			where: ({ where }) => where.eq('published', true),
+		},
+		update: true,
+		upsert: true,
+		softDelete: {
+			allow: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
+		},
+	},
+	graphql: true,
+	acl: {
+		default: publicArticleACL,
+		resolveInput: ({ currentAcl, inputAcl }) =>
+			inputAcl ?? currentAcl ?? publicArticleACL,
+	},
+	rest: true,
+	softDelete: 'explicit',
+	hooks: {
+		afterOperation: {
+			delete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'delete',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			purge: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'purge',
+					'delete',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			restore: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'restore',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+			softDelete: async ({ originalItem }) => {
+				await recordSoftDeleteEvent(
+					'softDelete',
+					'update',
+					'ExampleArticle',
+					originalItem.id,
+				)
+			},
+		},
+	},
+})
+
+/** Notes prove authenticated role-based Access and ACL through public CRUD. */
+export const ExamplePrivateNote = MinimalSchemaApplication.Schema.define({
+	className: 'ExamplePrivateNote',
+	fields: (field) => ({
+		body: field.string({ required: true }),
+	}),
+	access: {
+		create: editorAccess,
+		delete: editorAccess,
+		read: editorAccess,
+		update: editorAccess,
+	},
+	acl: { default: editorACL },
+	graphql: true,
+	rest: true,
+})
+
+export const minimalSchemas = [
+	ExampleAuthor,
+	ExampleArticle,
+	ExampleRole,
+	ExamplePrivateNote,
+	ExampleSoftDeleteEvent,
+] as const

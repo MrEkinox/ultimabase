@@ -1,0 +1,540 @@
+import {
+	Schema,
+	UltimaBase,
+	relationField,
+	stringField,
+	type RequestRoleReferenceCarrier,
+	type ConfiguredFieldDeclaration,
+	type ConfiguredSchemaDeclarationOptions,
+	type ConfiguredSchemaNamespace,
+	type ConfiguredSchemaResult,
+	type Pointer,
+	type PluginSourceState,
+	type RelationField,
+	type SchemaReference,
+	type SchemaDefinition,
+	type SchemaFields,
+	type SchemaFieldBuilderDeclaration,
+	type SchemaFieldName,
+	type SchemaIndexOptions,
+	type SchemaModelCapabilityContext,
+	type SchemaOptions,
+	type ReservedSchemaFieldCollision,
+	type SchemaResultCapabilityCarrier,
+	type ScalarFieldTypegenState,
+	type StringField,
+	type UltimaBaseGeneratedSchemaOptions,
+} from '@ultimabase/core'
+import type { AccessContext, SchemaAccess } from '@ultimabase/access-plugin'
+
+import {
+	createRoleReference,
+	type RoleIdSelector,
+	type RoleNameSelector,
+	type RoleReference,
+} from './role-reference.js'
+import {
+	createRoleMemberCommands,
+	type RoleMemberCommands,
+} from './role-member.js'
+import {
+	createRoleHierarchyCommands,
+	type RoleHierarchyCommands,
+} from './role-hierarchy.js'
+import {
+	createRoleSchemaIdentity,
+	roleSchemaIdentityOptionName,
+} from './role-schema-identity.js'
+
+/** Identifies the option-light official provider owning RoleSchema behavior. */
+export const rolesPluginId = '@ultimabase/roles-plugin' as const
+
+const createRoleNameField = (): StringField<
+	ScalarFieldTypegenState<true, false, false, false>
+> =>
+	stringField({
+		indexed: 'unique',
+		required: true,
+	})
+
+type RoleNameField = ReturnType<typeof createRoleNameField>
+
+/** Names fields reserved for portable role semantics. */
+export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
+
+/** Resolves the current request member without coupling roles to authentication. */
+export interface RoleCurrentMemberInput {
+	readonly context: AccessContext
+}
+
+/** Configures the exact schema accepted by one independent role domain. */
+export interface RoleMemberOptions<
+	TMemberSchema extends SchemaDefinition = SchemaDefinition,
+> {
+	/** The exact schema whose persisted objects may become direct role members. */
+	readonly schema: TMemberSchema
+	/**
+	 * Maps immutable request-local plugin state to one exact member Pointer.
+	 *
+	 * Omission makes current-member Access checks deny normally while retaining
+	 * every administrative RoleSchema and QueryBuilder capability.
+	 *
+	 * @example `resolveCurrent: ({ context }) => toUserPointer(context.getValue(principal))`
+	 */
+	readonly resolveCurrent?: (
+		input: RoleCurrentMemberInput,
+	) =>
+		| Pointer<TMemberSchema>
+		| undefined
+		| Promise<Pointer<TMemberSchema> | undefined>
+}
+
+/** Selects how one role deletion treats references owned outside its schema. */
+export type RoleReferenceDeletionPolicy = 'cascade' | 'fail' | 'preserve'
+
+/** Configures stable reference behavior without adding plugin execution options. */
+export interface RoleDeletionOptions {
+	/**
+	 * Controls references registered by independent consumer plugins.
+	 *
+	 * `fail` is the safe default. `preserve` leaves inert external references,
+	 * while `cascade` transactionally asks their owners to remove them.
+	 *
+	 * @example `references: "cascade"`
+	 */
+	readonly references?: RoleReferenceDeletionPolicy
+}
+
+/** Describes the generated fields shared by every developer-defined role schema. */
+export type RoleSchemaFields<
+	TMemberSchema extends SchemaDefinition,
+	TSelf extends SchemaDefinition,
+	TCustomFields extends SchemaFields,
+> = Readonly<TCustomFields> &
+	Readonly<{
+		/** Stores the canonical locale-independent role identity. */
+		name: RoleNameField
+		/** Stores direct members from the declared member schema. */
+		members: RelationField<TMemberSchema>
+		/** Stores child roles whose members are inherited by this role. */
+		roles: RelationField<TSelf>
+	}>
+
+/** Represents the self target retained by the generated nested-role relation. */
+export type RoleSchemaSelfDefinition<TClassName extends string> =
+	SchemaDefinition<TClassName>
+
+type ExactRoleSchemaDefinition<
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TCustomFields extends SchemaFields,
+> = SchemaReference<
+	TClassName,
+	RoleSchemaFields<
+		TMemberSchema,
+		RoleSchemaSelfDefinition<TClassName>,
+		TCustomFields
+	>
+>
+
+/** Adds lightweight reference construction to one exact generated schema class. */
+export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
+	/** Creates a normalized name reference without performing database I/O. */
+	role<const TName extends string>(
+		name: TName,
+	): RoleReference<TSchema, RoleNameSelector<TName>>
+	/** Creates an explicit UUID reference without guessing string semantics. */
+	role<const TId extends string>(
+		selector: RoleIdSelector<TId>,
+	): RoleReference<TSchema, RoleIdSelector<TId>>
+}
+
+/** Represents one exact constructible role schema declared by the application. */
+type RoleSchemaBaseClass<TClassName extends string = string> =
+	SchemaReference<TClassName>
+
+/** Represents one exact constructible role schema declared by the application. */
+export type RoleSchemaClass<
+	TClassName extends string = string,
+	TMemberSchema extends SchemaDefinition = SchemaDefinition,
+	TCustomFields extends SchemaFields = SchemaFields,
+> = ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields> &
+	RoleSchemaStatics<
+		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
+	> &
+	SchemaResultCapabilityCarrier<
+		RequestRoleReferenceCarrier &
+			RoleMemberCommands<
+				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
+				TMemberSchema
+			> &
+			RoleHierarchyCommands<
+				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
+			>
+	>
+
+type ConfiguredRoleSchemaOptions<
+	TSource extends PluginSourceState,
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TFieldDeclaration extends ConfiguredFieldDeclaration<
+		TSource,
+		TClassName,
+		SchemaFields
+	>,
+	TDeclaredOptions extends object,
+> = Readonly<{
+	className: TClassName
+	deletion?: RoleDeletionOptions
+	fields: TFieldDeclaration
+	members: RoleMemberOptions<TMemberSchema>
+}> &
+	ConfiguredSchemaDeclarationOptions<
+		TSource,
+		TClassName,
+		TFieldDeclaration,
+		Omit<TDeclaredOptions, 'deletion' | 'members'>,
+		RoleSchemaFields<
+			TMemberSchema,
+			RoleSchemaSelfDefinition<TClassName>,
+			ReturnType<TFieldDeclaration>
+		>
+	>
+
+type ConfiguredRoleSchemaClass<
+	TSource extends PluginSourceState,
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TFieldDeclaration extends ConfiguredFieldDeclaration<
+		TSource,
+		TClassName,
+		SchemaFields
+	>,
+	TDeclaredOptions extends object,
+> = ConfiguredSchemaResult<
+	TSource,
+	TClassName,
+	RoleSchemaFields<
+		TMemberSchema,
+		RoleSchemaSelfDefinition<TClassName>,
+		ReturnType<TFieldDeclaration>
+	>,
+	TDeclaredOptions
+> &
+	RoleSchemaStatics<
+		ExactRoleSchemaDefinition<
+			TClassName,
+			TMemberSchema,
+			ReturnType<TFieldDeclaration>
+		>
+	> &
+	SchemaResultCapabilityCarrier<
+		RequestRoleReferenceCarrier &
+			RoleMemberCommands<
+				ExactRoleSchemaDefinition<
+					TClassName,
+					TMemberSchema,
+					ReturnType<TFieldDeclaration>
+				>,
+				TMemberSchema
+			> &
+			RoleHierarchyCommands<
+				ExactRoleSchemaDefinition<
+					TClassName,
+					TMemberSchema,
+					ReturnType<TFieldDeclaration>
+				>
+			>
+	>
+
+/** Declares the developer-owned portion of a role-aware schema. */
+export interface RoleSchemaOptions<
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TCustomFields extends SchemaFields = SchemaFields,
+> extends Omit<
+	UltimaBaseGeneratedSchemaOptions,
+	'access' | typeof roleSchemaIdentityOptionName
+> {
+	/** Declares the stable logical name used by queries and adapters. */
+	readonly className: TClassName
+	/** Selects the exact member domain and optional request-local resolver. */
+	readonly members: RoleMemberOptions<TMemberSchema>
+	/** Adds ordinary application fields beside generated role fields. */
+	readonly fields: SchemaFieldBuilderDeclaration<TCustomFields, TClassName>
+	/** Owns the default external-reference behavior for every role deletion. */
+	readonly deletion?: RoleDeletionOptions
+	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
+	readonly indexes?: readonly SchemaIndexOptions<
+		SchemaFieldName<
+			RoleSchemaFields<
+				TMemberSchema,
+				RoleSchemaSelfDefinition<TClassName>,
+				TCustomFields
+			>
+		>
+	>[]
+	/** Protects role administration when the official Access plugin is installed. */
+	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
+}
+
+/** Retains package-private declaration state without polluting schema metadata. */
+export interface RoleSchemaDeclaration {
+	readonly deletionPolicy: RoleReferenceDeletionPolicy
+	readonly memberSchema: SchemaDefinition
+	/** The exact resolver stays paired with its member schema behind package validation. */
+	readonly resolveCurrent:
+		((input: RoleCurrentMemberInput) => unknown) | undefined
+}
+
+const roleSchemaDeclarations = new WeakMap<object, RoleSchemaDeclaration>()
+
+/** Narrows registered schemas to declarations created by `RoleSchema.define()`. */
+export const getRoleSchemaDeclaration = (
+	schema: SchemaDefinition,
+): RoleSchemaDeclaration | undefined => roleSchemaDeclarations.get(schema)
+
+/** Declares role-specialized schema model classes without owning persistence. */
+// A static class keeps role schema declaration aligned with configured schema factories.
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+export class RoleSchema {
+	private constructor() {
+		throw new TypeError('Use RoleSchema.define() to declare a role schema')
+	}
+
+	/**
+	 * Defines one extensible stored-role schema for an exact member domain.
+	 *
+	 * @example
+	 * ```ts
+	 * const AppRole = RoleSchema.define({
+	 *   className: 'Role',
+	 *   members: { schema: User },
+	 *   fields: (field) => ({ description: field.string() }),
+	 * })
+	 * ```
+	 */
+	static define<
+		TSource extends PluginSourceState,
+		const TClassName extends string,
+		const TMemberSchema extends SchemaDefinition,
+		const TFieldDeclaration extends ConfiguredFieldDeclaration<
+			TSource,
+			TClassName,
+			SchemaFields
+		>,
+		const TDeclaredOptions extends Readonly<{
+			className: TClassName
+			fields: TFieldDeclaration
+			members: RoleMemberOptions<TMemberSchema>
+		}>,
+	>(
+		schema: ConfiguredSchemaNamespace<TSource>,
+		options: TDeclaredOptions &
+			ConfiguredRoleSchemaOptions<
+				TSource,
+				TClassName,
+				TMemberSchema,
+				TFieldDeclaration,
+				TDeclaredOptions
+			>,
+	): ConfiguredRoleSchemaClass<
+		TSource,
+		TClassName,
+		TMemberSchema,
+		TFieldDeclaration,
+		TDeclaredOptions
+	>
+
+	static define<
+		const TClassName extends string,
+		const TMemberSchema extends SchemaDefinition,
+		const TCustomFields extends SchemaFields,
+	>(
+		options: RoleSchemaOptions<TClassName, TMemberSchema, TCustomFields>,
+	): RoleSchemaClass<TClassName, TMemberSchema, TCustomFields>
+
+	static define<
+		const TClassName extends string,
+		const TMemberSchema extends SchemaDefinition,
+		const TCustomFields extends SchemaFields,
+	>(
+		optionsOrSchema:
+			| ConfiguredSchemaNamespace<PluginSourceState>
+			| RoleSchemaOptions<TClassName, TMemberSchema, TCustomFields>,
+		configuredOptions?: RoleSchemaOptions<
+			TClassName,
+			TMemberSchema,
+			TCustomFields
+		>,
+	): unknown {
+		const options =
+			configuredOptions ??
+			(optionsOrSchema as RoleSchemaOptions<
+				TClassName,
+				TMemberSchema,
+				TCustomFields
+			>)
+		// Configured factories inherit this one frozen namespace; the bare Schema
+		// class is no longer an authoring namespace.
+		if (
+			configuredOptions !== undefined &&
+			!Object.is(optionsOrSchema, UltimaBase.Schema)
+		) {
+			throw new TypeError(
+				'RoleSchema configured declarations require an UltimaBase Schema namespace',
+			)
+		}
+		const {
+			access,
+			className,
+			deletion,
+			fields: defineFields,
+			indexes,
+			members,
+			...generatedOptions
+		} = options
+		if (!Schema.is(members.schema)) {
+			throw new TypeError('members.schema must be created by App.Schema.define')
+		}
+
+		const configuredDeletionPolicy: unknown =
+			deletion === undefined ? undefined : Reflect.get(deletion, 'references')
+		const deletionPolicy = configuredDeletionPolicy ?? 'fail'
+
+		if (
+			deletionPolicy !== 'fail' &&
+			deletionPolicy !== 'preserve' &&
+			deletionPolicy !== 'cascade'
+		) {
+			throw new TypeError(
+				'deletion.references must be "fail", "preserve", or "cascade"',
+			)
+		}
+
+		type SelfSchema = ExactRoleSchemaDefinition<
+			TClassName,
+			TMemberSchema,
+			TCustomFields
+		>
+		const selfTargetState: {
+			roleSchema?: RoleSchemaClass<TClassName, TMemberSchema, TCustomFields>
+		} = {}
+		const selfTarget = (): SelfSchema => {
+			if (selfTargetState.roleSchema === undefined) {
+				throw new TypeError('Role schema self target is not initialized')
+			}
+
+			return selfTargetState.roleSchema
+		}
+		const fields: SchemaFieldBuilderDeclaration<
+			RoleSchemaFields<
+				TMemberSchema,
+				RoleSchemaSelfDefinition<TClassName>,
+				TCustomFields
+			>,
+			TClassName
+		> = (field) => {
+			const customFields = defineFields(field)
+
+			for (const fieldName of ['members', 'name', 'roles'] as const) {
+				if (Object.hasOwn(customFields, fieldName)) {
+					throw new TypeError(`Reserved role field: ${fieldName}`)
+				}
+			}
+
+			return {
+				...customFields,
+				name: createRoleNameField(),
+				members: relationField<TMemberSchema>({
+					target: () => members.schema,
+				}),
+				roles: relationField<RoleSchemaSelfDefinition<TClassName>>({
+					target: selfTarget,
+				}),
+			}
+		}
+		const createCapabilities = (
+			context: SchemaModelCapabilityContext<SelfSchema>,
+		) => {
+			function role<const TName extends string>(
+				name: TName,
+			): RoleReference<SelfSchema, RoleNameSelector<TName>>
+			function role<const TId extends string>(
+				selector: RoleIdSelector<TId>,
+			): RoleReference<SelfSchema, RoleIdSelector<TId>>
+			function role(
+				selector: string | RoleIdSelector,
+			): RoleReference<SelfSchema> {
+				return createRoleReference(
+					context.schema,
+					typeof selector === 'string' ? { name: selector } : selector,
+				)
+			}
+
+			const toRequestRoleReference = function (
+				this: object,
+			): RoleReference<SelfSchema, RoleIdSelector> {
+				context.assertPersisted(this, 'toRequestRoleReference')
+
+				if (!('id' in this) || typeof this.id !== 'string') {
+					throw new TypeError(
+						'Persisted role has no valid framework identifier',
+					)
+				}
+
+				// The neutral reference keeps ACL and other consumers independent from roles.
+				return createRoleReference(context.schema, { id: this.id })
+			}
+			const resultCapabilities: RequestRoleReferenceCarrier &
+				RoleMemberCommands<SelfSchema, TMemberSchema> &
+				RoleHierarchyCommands<SelfSchema> = {
+				toRequestRoleReference,
+				...createRoleMemberCommands(context, members.schema),
+				...createRoleHierarchyCommands<SelfSchema>(context),
+			}
+
+			return {
+				statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
+				results: resultCapabilities,
+			}
+		}
+		const commonOptions = {
+			...generatedOptions,
+			[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),
+			className,
+			fields,
+			...(indexes === undefined ? {} : { indexes }),
+			...(access === undefined ? {} : { access }),
+		}
+		const roleSchema = Schema.defineSpecialized(
+			commonOptions as unknown as SchemaOptions<
+				TClassName,
+				RoleSchemaFields<
+					TMemberSchema,
+					RoleSchemaSelfDefinition<TClassName>,
+					TCustomFields
+				>
+			> &
+				ReservedSchemaFieldCollision<
+					RoleSchemaFields<
+						TMemberSchema,
+						RoleSchemaSelfDefinition<TClassName>,
+						TCustomFields
+					>
+				>,
+			createCapabilities,
+		)
+		selfTargetState.roleSchema = roleSchema
+		roleSchemaDeclarations.set(
+			roleSchema,
+			Object.freeze({
+				deletionPolicy,
+				memberSchema: members.schema,
+				resolveCurrent: members.resolveCurrent,
+			}),
+		)
+
+		return roleSchema
+	}
+}

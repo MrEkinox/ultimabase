@@ -1,0 +1,307 @@
+import {
+	assertNonEmptyString,
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+import { valid, validRange } from 'semver'
+
+import {
+	type CapabilityRequirement,
+	type CapabilityToken,
+	type PluginCapabilityDeclarations,
+} from './capabilities.js'
+
+/** Identifies one installed plugin definition without constructing a string key. */
+export interface PluginIdentity<
+	TPluginId extends string = string,
+	TInstanceId extends string | undefined = string | undefined,
+> {
+	/** Stable namespaced identity shared by every configured instance of the plugin. */
+	readonly pluginId: TPluginId
+	/** Explicit application-local identity required when the same plugin is configured more than once. */
+	readonly instanceId?: TInstanceId
+}
+
+/** Targets one named plugin contract when a capability cannot express the dependency. */
+export interface PluginDependency<
+	TPluginId extends string = string,
+	TVersion extends string = string,
+	TInstanceId extends string | undefined = string | undefined,
+> {
+	/** Stable plugin package identity. */
+	readonly pluginId: TPluginId
+	/** Compatible semantic package-version range. */
+	readonly version: TVersion
+	/** Optional exact configured instance target. */
+	readonly instanceId?: TInstanceId
+}
+
+/** Classifies how prominently one requested privilege is reported. */
+export type PluginPrivilegeSeverity = 'critical' | 'sensitive' | 'standard'
+
+/** Names the Core-owned facade that enforces one plugin privilege. */
+export type PluginPrivilegeFacade =
+	| 'adapter'
+	| 'authority'
+	| 'capability'
+	| 'event'
+	| 'model'
+	| 'operation'
+	| 'persistence'
+	| 'query'
+	| 'runtime'
+	| 'schema'
+	| 'transport'
+	| 'typegen'
+
+/** Describes the stable reporting and enforcement owner for one privilege. */
+export interface PluginPrivilegeMetadata {
+	readonly facade: PluginPrivilegeFacade
+	readonly severity: PluginPrivilegeSeverity
+}
+
+const privilegeMetadata = (
+	facade: PluginPrivilegeFacade,
+	severity: PluginPrivilegeSeverity,
+): PluginPrivilegeMetadata => immutableRecord({ facade, severity })
+
+/**
+ * Lists every Core-enforceable power that a plugin may request.
+ *
+ * @example
+ * ```ts
+ * const privilege: PluginPrivilege = 'schema:declare'
+ * ```
+ */
+export type PluginPrivilege =
+	| 'adapter:consume'
+	| 'adapter:raw'
+	| 'authority:elevate'
+	| 'event:publish'
+	| 'model:extend'
+	| 'operation:declare'
+	| 'persistence:rewrite'
+	| 'runtime:constrain'
+	| 'runtime:intercept'
+	| 'runtime:observe'
+	| 'schema:declare'
+	| 'storage:private'
+	| 'transport:expose'
+	| 'typegen:reference'
+
+/**
+ * Documents the severity and Core-owned facade for every concrete privilege.
+ * A privilege never implies another privilege.
+ */
+export const pluginPrivilegeMetadata: Readonly<
+	Record<PluginPrivilege, PluginPrivilegeMetadata>
+> = immutableRecord({
+	'schema:declare': privilegeMetadata('schema', 'standard'),
+	'storage:private': privilegeMetadata('persistence', 'critical'),
+	'model:extend': privilegeMetadata('model', 'standard'),
+	'operation:declare': privilegeMetadata('operation', 'standard'),
+	'runtime:observe': privilegeMetadata('runtime', 'standard'),
+	'runtime:intercept': privilegeMetadata('runtime', 'sensitive'),
+	'runtime:constrain': privilegeMetadata('runtime', 'sensitive'),
+	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
+	'adapter:consume': privilegeMetadata('adapter', 'standard'),
+	'adapter:raw': privilegeMetadata('adapter', 'critical'),
+	'transport:expose': privilegeMetadata('transport', 'sensitive'),
+	'event:publish': privilegeMetadata('event', 'standard'),
+	'typegen:reference': privilegeMetadata('typegen', 'standard'),
+	'authority:elevate': privilegeMetadata('authority', 'critical'),
+})
+
+/** Separately reports direct Node.js behavior that Core cannot enforce. */
+export type PluginEnvironmentClaim =
+	| 'environment:filesystem'
+	| 'environment:native-code'
+	| 'environment:network'
+	| 'environment:process'
+
+/** Describes why one direct-environment claim is reported and its review severity. */
+export interface PluginEnvironmentClaimMetadata {
+	readonly reason: string
+	readonly severity: PluginPrivilegeSeverity
+}
+
+const environmentClaimMetadata = (
+	reason: string,
+	severity: PluginPrivilegeSeverity,
+): PluginEnvironmentClaimMetadata => immutableRecord({ reason, severity })
+
+/** Documents every informational claim without presenting it as enforceable. */
+export const pluginEnvironmentClaimMetadata: Readonly<
+	Record<PluginEnvironmentClaim, PluginEnvironmentClaimMetadata>
+> = immutableRecord({
+	'environment:filesystem': environmentClaimMetadata(
+		'Declares direct host filesystem behavior.',
+		'sensitive',
+	),
+	'environment:native-code': environmentClaimMetadata(
+		'Declares direct native-code behavior.',
+		'critical',
+	),
+	'environment:network': environmentClaimMetadata(
+		'Declares direct host network behavior.',
+		'sensitive',
+	),
+	'environment:process': environmentClaimMetadata(
+		'Declares direct host process behavior.',
+		'sensitive',
+	),
+})
+
+/** Requests one exact Core-owned power for a documented purpose. */
+export interface PluginPrivilegeRequest<
+	TPrivilege extends PluginPrivilege = PluginPrivilege,
+	TWhen extends CapabilityRequirement<CapabilityToken, true> | undefined =
+		CapabilityRequirement<CapabilityToken, true> | undefined,
+> {
+	/** Names one exact privilege from Core's closed vocabulary. */
+	readonly name: TPrivilege
+	/** Explains why the plugin needs this power in startup inspection. */
+	readonly reason: string
+	/** Activates the request only when this declared optional capability is present. */
+	readonly when?: TWhen
+}
+
+/** Contains the inert immutable metadata inspected before plugin callbacks run. */
+export interface PluginManifest<
+	TPluginId extends string = string,
+	TInstanceId extends string | undefined = string | undefined,
+	TVersion extends string = string,
+	TCoreRange extends string = string,
+	TPrivileges extends readonly PluginPrivilegeRequest[] =
+		readonly PluginPrivilegeRequest[],
+	TEnvironment extends readonly PluginEnvironmentClaim[] =
+		readonly PluginEnvironmentClaim[],
+	TCapabilities extends PluginCapabilityDeclarations =
+		PluginCapabilityDeclarations,
+> {
+	/** Carries the stable package and optional exact instance identity. */
+	readonly identity: PluginIdentity<TPluginId, TInstanceId>
+	/** Records the plugin package's canonical semantic version. */
+	readonly version: TVersion
+	/** Records the supported `@ultimabase/core` semantic-version range. */
+	readonly core: TCoreRange
+	/** Lists the exact enforceable powers requested by the plugin. */
+	readonly privileges: TPrivileges
+	/** Lists direct Node.js behaviors that Core reports but cannot enforce. */
+	readonly environment: TEnvironment
+	/** Lists inert typed providers and explicit required or optional protocol uses. */
+	readonly capabilities: TCapabilities
+}
+
+export interface PluginManifestOptions {
+	readonly pluginId: string
+	readonly instanceId?: string
+	readonly version: string
+	readonly core: string
+	readonly privileges?: readonly PluginPrivilegeRequest[]
+	readonly environment?: readonly PluginEnvironmentClaim[]
+	readonly capabilities: PluginCapabilityDeclarations
+}
+
+const pluginIdPattern =
+	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
+/** Lists every informational direct-environment claim accepted in manifests. */
+export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =
+	immutableArray(
+		Object.keys(pluginEnvironmentClaimMetadata) as PluginEnvironmentClaim[],
+	)
+
+const environmentClaims = new Set<PluginEnvironmentClaim>(
+	pluginEnvironmentClaims,
+)
+
+/** Compares structured plugin identities without relying on serialized keys. */
+export const isSamePluginIdentity = (
+	left: PluginIdentity,
+	right: PluginIdentity,
+): boolean =>
+	left.pluginId === right.pluginId && left.instanceId === right.instanceId
+
+/** Formats one identity for diagnostics only; the result must never be used as a key. */
+export const formatPluginIdentity = (identity: PluginIdentity): string =>
+	identity.instanceId === undefined
+		? identity.pluginId
+		: `${identity.pluginId} (instance ${identity.instanceId})`
+
+/** Validates stable plugin identities consistently across manifests and dependencies. */
+export const assertPluginId: (
+	value: unknown,
+	path: string,
+) => asserts value is string = (value, path) => {
+	assertNonEmptyString(value, path)
+	if (!pluginIdPattern.test(value)) {
+		throw new TypeError(`${path} must be a namespaced plugin identifier`)
+	}
+}
+
+const normalizeEnvironmentClaims = (
+	claims: readonly PluginEnvironmentClaim[] | undefined,
+): readonly PluginEnvironmentClaim[] => {
+	if (claims === undefined) return immutableArray([])
+
+	const untrustedClaims: unknown = claims
+	if (!isUnknownArray(untrustedClaims)) {
+		throw new TypeError('environment must be an array')
+	}
+
+	const normalized = new Set<PluginEnvironmentClaim>()
+	for (const [index, claim] of untrustedClaims.entries()) {
+		if (
+			typeof claim !== 'string' ||
+			!environmentClaims.has(claim as PluginEnvironmentClaim)
+		) {
+			throw new TypeError(
+				`environment[${String(index)}] must be a concrete PluginEnvironmentClaim`,
+			)
+		}
+
+		if (normalized.has(claim as PluginEnvironmentClaim)) {
+			throw new TypeError(`Duplicate plugin environment claim: ${claim}`)
+		}
+
+		normalized.add(claim as PluginEnvironmentClaim)
+	}
+
+	return immutableArray([...normalized])
+}
+
+/** Validates and snapshots one inert plugin manifest without invoking plugin code. */
+export const createPluginManifest = (
+	options: PluginManifestOptions,
+): PluginManifest => {
+	assertPluginId(options.pluginId, 'pluginId')
+
+	if (options.instanceId !== undefined) {
+		assertNonEmptyString(options.instanceId, 'instanceId')
+	}
+
+	assertNonEmptyString(options.version, 'version')
+	if (valid(options.version) !== options.version) {
+		throw new TypeError('version must be a canonical semantic version')
+	}
+
+	assertNonEmptyString(options.core, 'core')
+	if (validRange(options.core) === null) {
+		throw new TypeError('core must be a valid semantic version range')
+	}
+
+	return immutableRecord({
+		identity: immutableRecord({
+			pluginId: options.pluginId,
+			...(options.instanceId === undefined
+				? {}
+				: { instanceId: options.instanceId }),
+		}),
+		version: options.version,
+		core: options.core,
+		privileges: immutableArray(options.privileges ?? []),
+		environment: normalizeEnvironmentClaims(options.environment),
+		capabilities: options.capabilities,
+	})
+}

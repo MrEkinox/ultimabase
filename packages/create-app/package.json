@@ -1,0 +1,44 @@
+{
+	"name": "@ultimabase/create-app",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
+		"directory": "packages/create-app"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"bin": "./dist/cli.js",
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run --project unit --project types --passWithNoTests",
+		"typecheck": "tsc --build",
+		"test:unit": "vitest run --project unit --passWithNoTests",
+		"test:types": "vitest run --project types --passWithNoTests",
+		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
+		"typecheck:tests": "tsc --project tsconfig.test.json"
+	},
+	"dependencies": {
+		"@clack/prompts": "^1.8.1",
+		"validate-npm-package-name": "^7.0.2"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"@types/validate-npm-package-name": "^4.0.2",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.11"
+	}
+}

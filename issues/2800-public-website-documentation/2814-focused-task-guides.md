@@ -1,0 +1,53 @@
+# 2814: Publish focused task guides
+
+- Status: completed
+- Milestone: 28
+- Packages: `apps/website`, `examples/minimal`, publishable packages
+- Depends on: 2806, 2807, 2808, 2809, 2810, 2811, 2812, 2813
+- ADR: none
+
+## Goal
+
+Provide concise how-to guides for cross-cutting tasks after their underlying
+concepts and API contracts have canonical documentation.
+
+## Acceptance criteria
+
+- [x] Guides cover validation, Hooks, authenticated APIs, virtual fields,
+      nested writes, soft delete, contextual relations, and testing through
+      focused use cases.
+- [x] Each guide states prerequisites, one observable outcome, the shortest
+      supported path, verification steps, limitations, and related concepts.
+- [x] Guides link to canonical concept and reference pages instead of redefining
+      schema, security, plugin, or transport contracts.
+- [x] Copyable commands distinguish developer environment values from trusted
+      secrets and never encourage client exposure of Master credentials.
+- [x] Repeated samples share validated fixtures only where that prevents drift
+      across at least two concrete pages.
+- [x] Guide titles and search descriptions use reader tasks rather than internal
+      issue or ADR terminology.
+
+## Tests
+
+- [x] Representative end-to-end guide commands execute against maintained
+      fixtures where infrastructure permits.
+- [x] Links, headings, prerequisites, and navigation anchors pass content
+      validation.
+
+## Out of scope
+
+- Concept reference, exhaustive API signatures, deployment providers, benchmark
+  marketing, or tasks requiring unimplemented roadmap capabilities.
+
+## Post-milestone correction
+
+The authenticated-API guide was removed during the later page-by-page audit.
+It repeated the Password Authentication, Access, HTTP, and REST pages without
+adding an independent executable task. The official plugin pages now own its
+session and protected-read checks; this historical issue remains completed
+for its original delivery.
+
+The later application-testing audit also removed the thin `Test an Application`
+page. Its repository-only commands and general advice did not provide a
+runnable test for a reader's application. Plugin conformance remains in the
+plugin-authoring guide, and repository test requirements remain in `AGENTS.md`.

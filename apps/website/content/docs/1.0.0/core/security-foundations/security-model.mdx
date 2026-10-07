@@ -1,0 +1,85 @@
+---
+title: Security Model
+description: Know which boundary identifies a caller, restricts access, validates data, or elevates trusted server work.
+audience:
+  - application-developer
+  - operator
+contentType: concept
+order: 1
+outcome: Place each security requirement at the boundary that actually enforces it.
+owner: '2811'
+releaseStatus: pre-release
+reviewedAt: 2026-09-16
+sources:
+  - ARCHITECTURE.md
+  - packages/core/docs/access.md
+  - docs/adr/0205-protected-policy-contributions.md
+  - docs/adr/0218-master-bypasses-authorization-policies.md
+  - docs/adr/0224-http-application-rest-and-password-auth-boundaries.md
+---
+
+UltimaBase separates concerns that are often collapsed into “auth.” Keeping the
+layers distinct prevents a valid identity, a routing header, or a convenient
+filter from becoming an accidental permission.
+
+## Identify, authorize, and validate
+
+| Concern           | Question it answers                                                  | Owner                                             |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| Authentication    | Is this credential valid?                                            | Password Auth or another credential plugin        |
+| Identity          | Which principal or subject is associated with the request?           | The identity plugin's typed context values        |
+| Authorization     | May that subject perform this operation on these objects and fields? | Access, ACL, or another protected-policy plugin   |
+| Validation        | Is this input structurally and semantically valid?                   | Core structure; optional Validation for app rules |
+| Read shaping      | Which fields or related records does this read request?              | Query and relation declarations                   |
+| Trusted authority | May audited server code bypass authorization?                        | Core `MasterAuthority`                            |
+
+Core has exactly two authority modes: `anonymous` and `master`. An authenticated
+principal still uses `anonymous` Core authority: the mode means “not Master,”
+not “no known user.” Authentication establishes identity and grants no
+authorization. The public `X-UltimaBase-Application-Id` header selects an
+application but grants no authority either.
+
+## Protected policy is a separate choice
+
+Authorization is optional and composable. Installing Access or ACL contributes a
+protected policy; omitting both does not install a hidden default-deny policy.
+Before exposing CRUD over a public transport, review the complete policy for
+every route and schema. Authentication or a successful route match is not a
+substitute for that review.
+
+When multiple protected policies are installed, Core combines their effects
+monotonically: a denial stays denied, row predicates use `AND`, and field or
+result sets can only narrow. Access and ACL are separate optional plugins;
+ACL does not depend on the Access package.
+
+<Callout type="warn" title="A filter is not an access rule">
+	A relation `where`, a UI filter, or a transport projection shapes one read
+	path. It does not protect the same object through another query. Use Access,
+	ACL, or another protected policy for authorization.
+</Callout>
+
+## Master remains server-only
+
+Master is trusted, server-side authority. It bypasses authorization decisions, but
+Core still runs structural validation, installed application validation, Hooks,
+transactions, database constraints, lifecycle work, and integrity maintenance.
+
+## Continue learning
+
+<Cards>
+	<Card title="Request Identity" href="./request-identity">
+		Carry validated principal or subject data without changing authority.
+	</Card>
+	<Card title="Access" href="/docs/1.0.0/plugins/official/access">
+		Declare application-level authorization.
+	</Card>
+	<Card
+		title="ACL Permissions"
+		href="/docs/1.0.0/plugins/official/acl-permissions"
+	>
+		Apply per-object policy independently of Access.
+	</Card>
+	<Card title="Master Authority" href="./master-authority">
+		Run audited, trusted server-side work.
+	</Card>
+</Cards>

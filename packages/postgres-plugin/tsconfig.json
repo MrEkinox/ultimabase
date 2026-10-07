@@ -1,0 +1,17 @@
+{
+	"extends": "../../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		// Drizzle publishes declarations for optional drivers that are not PostgreSQL dependencies.
+		"skipLibCheck": true
+	},
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts"],
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../core" },
+		{ "path": "../plugin-kit" },
+		{ "path": "../testing" }
+	]
+}

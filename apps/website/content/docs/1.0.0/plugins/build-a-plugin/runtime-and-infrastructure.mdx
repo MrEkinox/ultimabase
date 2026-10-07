@@ -1,0 +1,365 @@
+---
+title: Runtime and Infrastructure
+description: Compose capabilities, request exact powers, own resources, and test a plugin across application boundaries.
+audience:
+  - plugin-author
+contentType: guide
+outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
+owner: '2810'
+releaseStatus: pre-release
+reviewedAt: 2026-09-27
+sources:
+  - packages/core/README.md
+  - packages/core/src/runtime/cancellation/operation-cancellation.ts
+  - packages/core/src/runtime/operations/field-values.ts
+  - packages/core/src/runtime/behaviors/prepared-target-boundary.ts
+  - packages/core/src/plugins/manifest.ts
+  - packages/plugin-kit/README.md
+  - packages/testing/README.md
+  - packages/http-plugin/README.md
+  - docs/adr/0264-remove-unused-runtime-stage-contributions.md
+  - docs/adr/0266-defer-migration-only-protocols.md
+  - docs/adr/0269-core-native-plugin-authoring.md
+  - docs/adr/0271-native-contribution-plugin-plan.md
+  - docs/adr/0274-canonical-operation-cancellation.md
+  - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
+  - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
+  - docs/adr/0195-setup-phase-capability-requirements.md
+  - docs/adr/0203-plugin-peer-requirements-do-not-order.md
+  - docs/adr/0208-enforceable-plugin-powers-and-environment-truth.md
+---
+
+## Outcome
+
+Place each advanced behavior at the boundary Core actually validates. A
+capability connects plugins; a privilege permits one Core-owned power; an
+environmental claim reports direct Node.js behavior. None grants authority
+to another plugin or makes an arbitrary public endpoint safe.
+
+## Prerequisites
+
+- Complete [Build a Plugin](/docs/1.0.0/plugins/build-a-plugin).
+- Decide whether your feature changes application declarations, request
+  execution, physical persistence, or public transport behavior. Keep a pure
+  static declaration separate from application resources and request state.
+
+## Compose plugins through a capability
+
+A nominal capability has a namespaced ID, exact semantic protocol version,
+cardinality, lifetime, and composition rule. The provider and consumer agree
+on this token rather than looking up a global service by string:
+
+```ts title="src/format-capability.ts"
+import {
+	contributeApplication,
+	defineCapability,
+	plugin,
+	provideCapability,
+	requireCapability,
+} from '@ultimabase/core'
+
+export const formatCapability = defineCapability<{
+	readonly format: 'compact'
+}>()({
+	capabilityId: 'community.workflow-format',
+	cardinality: 'single',
+	compose: ([provider]) => provider,
+	lifetime: 'declaration',
+	version: '1.0.0',
+})
+
+const format = requireCapability(formatCapability, '^1.0.0')
+
+export const formatProvider = plugin({
+	contributions: [
+		provideCapability(formatCapability, {
+			value: { format: 'compact' },
+		}),
+	],
+	core: '^1.0.0',
+	id: 'community.workflow-format',
+	version: '1.0.0',
+})
+
+export const formatConsumer = plugin({
+	contributions: [
+		format,
+		contributeApplication(({ capabilities }) => ({
+			exports: { format: capabilities.get(format).format },
+		})),
+	],
+	core: '^1.0.0',
+	id: 'community.workflow-consumer',
+	version: '1.0.0',
+})
+```
+
+`single` allows one provider; `multiple` retains ordered independent values;
+`pipeline` composes ordered handlers. Every provider retains its exact owner;
+competing `single` providers fail during graph validation. Authors use one flat
+list because each declaration already knows whether it provides, requires, or
+optionally consumes a capability. Core derives a provider's contribution ID
+from the nominal capability ID. Specify `contributionId` only when the same
+plugin contributes the same `multiple` or `pipeline` capability more than once.
+Inspection still reports the normalized
+`provides`, `requires`, and `optional` groups. Declaration values are
+deeply frozen, serializable facts. They must contain no secret, connection, or
+callback. For a live client, use an `application` lifetime token with a
+`create` factory returning `{ value, dispose? }`; Core materializes it once
+per application and disposes it after that application's lifecycle.
+
+`contributeApplication()` owns one application-local resource. Add `exports`
+only when consumers need a typed API; a lifecycle-only resource can omit it:
+
+```ts
+contributeApplication(() => ({
+	connect: () => connectClient(),
+	dispose: () => disconnectClient(),
+}))
+```
+
+Core exposes `undefined` for that plugin, stores the resource directly, and
+invokes its callbacks in the normal dependency order.
+
+### Requirements, dependencies, and peers
+
+Every capability read must use the exact `requireCapability()` or
+`optionalCapability()` object declared in that plugin's manifest. A recreated
+object or undeclared read fails even if a provider happens to be installed.
+The default `materialization` phase creates provider-first factory and
+lifecycle order. `phase: 'setup'` permits a genuine mutual setup protocol only
+when resources can materialize independently; that requirement is unavailable
+inside an application capability factory and promises no teardown order.
+
+Use `dependencies` for a required named plugin whose declaration or lifecycle
+must precede yours; `optionalDependencies` when that order matters only if the
+target is installed. Use `peers` when presence and SemVer compatibility matter
+but lifecycle order would create false coupling. A peer grants no capability
+read or setup export. Explicit `instanceId` selects one exact configuration;
+Core never guesses it from options.
+
+## Choose a Runtime boundary
+
+Core constructs the Runtime directly. Plugins contribute behavior, policies,
+and persistence rewrites through these supported boundaries. Normalization and
+transaction commit stay owned by Core; the former `runtimePipelineStage()`
+factory and its types are removed. For logical interception, use
+`provideRuntimeInterceptor()` with `beforeOperation`, `afterOperation` or
+`preparedOperation` under `runtime:intercept`. Callback ownership and ordering
+remain enforced; Hook `beforeCommit`/`afterCommit` still run at their documented
+transaction boundaries.
+
+| Goal                                  | Public contribution                                                            | Privilege             | Invariant                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------ | --------------------- | ----------------------------------------------------------------- |
+| Add request behavior                  | `provideRuntimeBehavior()`                                                     | `runtime:intercept`   | Core retains mandatory validation and transaction boundaries.     |
+| Deny or narrow access                 | `provideRuntimeConstraint()` with `guard`, `constraint`, or field restrictions | `runtime:constrain`   | Later contributors cannot broaden accumulated restrictions.       |
+| Rewrite the physical persistence plan | `providePersistencePlanRewriter()`                                             | `persistence:rewrite` | Logical policy, hooks, audit, and result identity stay unchanged. |
+
+If a behavior engine consumes a generic prepared-mutation callback, use
+`readRuntimePreparedMutationRecords()` from `@ultimabase/core` to recover the
+validated logical records. The helper preserves the absent and singular-null
+states and snapshots a target collection, so each plugin does not need its own
+record decoder. Validate a complete adapter outcome with
+`createRuntimeBehaviorBoundaries().snapshotMutationOutcome()`; that one Core
+boundary checks the result, materializations, effective selection, and
+immutability together.
+
+For field-oriented input normalization, use
+`transformOperationFieldInputs(operation, visitor)`. It visits normalized
+persisted create and update values children-first, keeps bulk items distinct,
+and returns an immutable operation with the same exact TypeScript type. Return
+`undefined` to observe a value without replacing it. This is a transformation
+helper, not a Runtime contribution: the plugin still needs an authorized
+behavior boundary through which Core invokes it.
+
+Use the optional [Hooks](/docs/1.0.0/plugins/official/hooks) and [Access](/docs/1.0.0/plugins/official/access)
+protocols when your plugin specifically extends those product contracts. A
+community plugin may instead provide its own independent behavior or policy
+engine through the public Core kernel; it must not depend on a hidden Core
+Hooks or Access registry. ACL's monotonic policy is another concrete example
+of `runtime:constrain` without importing Access.
+
+### Observe cooperative cancellation
+
+A callback or plugin engine that performs bounded work should pass the provided
+`AbortSignal` to cancellable dependencies and check it only at safe boundaries:
+
+```ts title="src/run-plugin-callback.ts"
+import { throwIfOperationCancelled } from '@ultimabase/core'
+
+export const runPluginCallback = async (
+	signal: AbortSignal,
+	callback: () => Promise<void>,
+) => {
+	throwIfOperationCancelled(signal, { phase: 'before-callback' })
+	await callback()
+	throwIfOperationCancelled(signal, { phase: 'after-callback' })
+}
+```
+
+An active signal returns normally. An aborted signal throws Core's stable
+`OPERATION_CANCELLED` error and retains only a normalized internal reason:
+`request-aborted` or `deadline-exceeded`. The arbitrary abort reason is never
+copied. This is cooperative cancellation, not forced termination: do not race a
+business callback and let it continue against resources that Runtime may close.
+
+`guard` may allow or throw; protected row constraints and field restrictions
+can only narrow. Master bypasses authorization only where the contribution
+explicitly declares `master: 'bypass'`; it does not bypass validation, hooks,
+transactions, or integrity constraints. Test that a second plugin cannot
+weaken your protected policy or make transport input select Master.
+
+## Data and infrastructure boundaries
+
+### Adapter integration
+
+Portable adapter work requires the exact Core adapter capability.
+`adapter:consume` covers adapter support and attributed physical contributions;
+physical providers are adapter-specific and versioned. Their snapshots retain
+actual ownership, instance, versions, normalized options and payload.
+
+Migration intent, Core migration planning, the `migration:contribute` privilege
+and `FakeAdapterMigrationHistory` are removed. PostgreSQL preparation follows
+its explicit `schemaPolicy`; use existing `ignore` when external tooling manages
+the schema. Direct synchronization and `renamedFrom` remain available, without
+automatically dropping unmatched plugin or private storage.
+
+`adapter:raw` is critical and different from `adapter:consume`. It requires
+the adapter package's nominal raw token and Core's revocable `withRaw()` lease.
+A request-time raw lease also requires an active transaction; it is not a
+generic SQL or Master escape hatch. A logical plugin should not request it
+merely because its data is stored in PostgreSQL.
+
+### Owner-private records
+
+Use an ordinary application schema when developers should query or expose
+records. Use `storage:private` only for plugin-owned verifier-like state that
+must never become a model, Query surface, generated REST/GraphQL route, or
+Typegen schema:
+
+```ts title="src/private-sessions.ts"
+import {
+	contributeDeclarations,
+	definePrivateCollection,
+	plugin,
+	stringField,
+} from '@ultimabase/core'
+
+const sessions = definePrivateCollection({
+	contributionId: 'sessions',
+	fields: {
+		secret: stringField({ immutable: true, required: true }),
+		version: stringField({ required: true }),
+	},
+	indexes: [{ fields: ['secret'] }] as const,
+})
+
+export const sessionPlugin = plugin({
+	contributions: [
+		contributeDeclarations({
+			privateStorage: ({ privateStorage }) => privateStorage.register(sessions),
+		}),
+	],
+	core: '^1.0.0',
+	id: 'community.sessions',
+	permissions: [
+		{ name: 'storage:private', reason: 'Stores revocable session verifiers.' },
+	] as const,
+	version: '1.0.0',
+})
+```
+
+Only an attributed callback from the same exact plugin instance may use
+`privateStore(sessions)`. It exposes bounded `findUnique`, `insert`, `update`,
+`delete`, and `compareAndSwap` methods, not an adapter or generic SQL handle.
+Writes join the active request transaction or open an automatic one. Removal
+of the plugin does not silently authorize dropping physical data.
+
+Treat this as exact addressable-record storage, not as a private ORM. Every
+operation targets one declared unique index. If data needs scans, arbitrary
+filters, ordering, pagination, bulk changes, relations, Hooks, Access, or a
+transport surface, model it as an application schema or expose a focused
+domain capability. Private storage intentionally has no migration or generic
+cleanup protocol.
+
+### Events and external effects
+
+For typed post-commit delivery, Plugin Kit provides event contracts,
+observer capabilities, and a dispatcher. The producer still requests
+`event:publish` and emits inside an active transaction; delivery occurs after
+commit. The observer remains a separate owner with its own `runtime:observe`
+privilege. Do not send a non-transactional email or network request from a
+business after-hook and claim it rolls back with the database.
+
+Direct filesystem, network, process, and native-code behavior belongs in
+`environment` claims. A claim is inspectable and may be denied at startup,
+but trusted in-process JavaScript is not sandboxed. Core has no current
+`filesystem:read`, `filesystem:write`, or `network:access` privilege.
+
+## Privilege and claim reference
+
+Request only the exact powers the plugin currently uses. Each requested
+privilege needs a human-readable reason, appears in the startup report, and
+may be denied globally, by plugin ID, or by exact instance. A dependency's
+privilege never transfers to your plugin.
+
+| Privilege             | Use only for                                                       |
+| --------------------- | ------------------------------------------------------------------ |
+| `schema:declare`      | Schema, field, option, additive patch, or index declarations.      |
+| `model:extend`        | Schema-mutation methods on application-owned schema/model handles. |
+| `operation:declare`   | Namespaced operation or schema-mutation tokens.                    |
+| `typegen:reference`   | Registered public package type references.                         |
+| `runtime:observe`     | Product event consumers and diagnostics.                           |
+| `runtime:intercept`   | Mutable request behavior at an allowed stage.                      |
+| `runtime:constrain`   | Deny-only or narrowing protected constraints.                      |
+| `persistence:rewrite` | Physical plan rewrite without logical-policy changes.              |
+| `adapter:consume`     | Adapter capability or attributed physical contribution.            |
+| `adapter:raw`         | Exact revocable adapter-specific raw lease.                        |
+| `storage:private`     | Owner-private persistent collections.                              |
+| `transport:expose`    | HTTP routes, public operation bindings, or GraphQL contributions.  |
+| `event:publish`       | Core-checked transactional event publication.                      |
+| `authority:elevate`   | Audited Core Master elevation, never transport-shaped input.       |
+
+The direct environment claims are `environment:filesystem`,
+`environment:network`, `environment:process`, and
+`environment:native-code`. They are separate from the enforceable table.
+There is no wildcard privilege or current `typegen:replace` power. A requested
+but unused critical power still makes a package harder to review; remove it.
+
+## Verify before publishing
+
+Run the common `@ultimabase/testing` conformance suite against a fresh
+package-root import. Supply the exact expected privilege and claim sets; add
+`instances` when repeated configuration is supported, and install real
+support plugins for declared dependencies. The suite checks manifest facts,
+static determinism, provenance, denial, lifecycle cleanup, and isolation.
+Extend it with focused `operation`, `schema-surface`, `schema-mutation`,
+`transport`, `middleware`, `persistence`, `codec`, `migration`, or
+`adapter-failure` checks only when your plugin implements that domain.
+
+Then verify the behavior beyond conformance:
+
+1. Typecheck the public package export and any generated Typegen contract;
+   run one JavaScript application without generated files.
+2. Verify rejection of a competing application before resource effects, then
+   dispose the first application and exercise a fresh replacement. Use isolated
+   workers for parallel applications. If supported, also exercise two explicit
+   plugin instances within one application. Connections, caches, policies, and
+   handles must retain their exact owner.
+3. Deny each requested sensitive or critical privilege and claim. Confirm
+   failure occurs before effects and partial startup cleans up resources.
+4. Run a real database or network integration test when the plugin owns that
+   boundary. A logical-only fixture cannot prove SQL, transport, or migration
+   behavior.
+5. Build and inspect the published artifact. Document package-root exports,
+   supported Core and protocol ranges, install commands, configuration,
+   privileges, claims, errors, upgrades, removal, and support channel.
+
+## Next steps
+
+Return to [Schemas and Typegen](/docs/1.0.0/plugins/build-a-plugin/schemas-and-typegen) for declaration and
+generated-type details, or [Operations and GraphQL](/docs/1.0.0/plugins/build-a-plugin/operations-and-graphql)
+for public command exposure. After a tested release exists, the
+[Community Plugins](/docs/1.0.0/plugins/community-plugins#propose-a-plugin) page explains how
+to propose a listing. Being listed does not transfer maintenance, security
+response, or compatibility ownership to UltimaBase.

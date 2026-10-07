@@ -1,0 +1,501 @@
+/* Product capabilities use the landing tokens; the documentation shell stays standard. */
+.ub-landing .ub-capability-navigation nav {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
+}
+.ub-capability-navigation a {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1.1rem 1rem;
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+}
+.ub-capability-navigation a + a {
+	border-left: 1px solid var(--landing-line);
+}
+.ub-capability-navigation a:hover {
+	background: var(--landing-soft);
+	color: var(--landing-blue);
+}
+.ub-capability-navigation a:focus-visible {
+	outline: 2px solid var(--landing-blue);
+	outline-offset: -3px;
+}
+.ub-landing .ub-capabilities {
+	padding-block: 4rem;
+	border-top: 1px solid var(--landing-line);
+	scroll-margin-top: 5rem;
+}
+.ub-capability-heading {
+	display: grid;
+	grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+	align-items: end;
+	gap: 4rem;
+	margin-bottom: 2.5rem;
+}
+.ub-capability-heading > p,
+.ub-capabilities article > p:not(.ub-demo-eyebrow),
+.ub-capability-columns article > p,
+.ub-computed-result > p:not(.ub-demo-eyebrow),
+.ub-hooks-strip > p {
+	color: var(--landing-muted);
+	font-size: 1rem;
+	line-height: 1.75;
+}
+.ub-landing .ub-capabilities h3,
+.ub-landing .ub-hooks-strip h3,
+.ub-landing .ub-capability-columns h3 {
+	font-size: 1.5rem;
+	font-weight: 550;
+	letter-spacing: -0.035em;
+	line-height: 1.2;
+}
+.ub-capabilities .ub-text-link,
+.ub-capability-columns .ub-text-link {
+	font-size: 0.875rem;
+}
+.ub-capability-columns {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2.5rem;
+	padding-top: 2.5rem;
+}
+.ub-capability-columns article {
+	min-width: 0;
+}
+.ub-capability-columns article > p {
+	margin-top: 0.75rem;
+	font-size: 0.9375rem;
+}
+.ub-capability-columns .ub-text-link {
+	margin-top: 1.25rem;
+}
+.ub-write-capabilities {
+	border-top: 1px solid var(--landing-line);
+}
+.ub-operation-label {
+	display: block;
+	margin-bottom: 1.25rem;
+	color: var(--landing-blue);
+	font: 0.875rem/1.5 var(--ub-font-mono);
+}
+.ub-validation-rule {
+	display: block;
+	margin-top: 1rem;
+	color: var(--landing-blue);
+	font: 0.75rem/1.75 var(--ub-font-mono);
+	overflow-wrap: anywhere;
+}
+.ub-computed-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
+	background: var(--landing-card);
+}
+.ub-computed-proof .ub-capability-code {
+	min-width: 0;
+	margin: 0;
+	border: 0;
+	border-right: 1px solid var(--landing-line);
+	border-radius: 0;
+	box-shadow: none;
+	background: transparent;
+}
+.ub-capability-code > div {
+	background: transparent;
+	border-color: var(--landing-line);
+	color: var(--landing-muted);
+}
+.ub-computed-proof .ub-capability-code pre {
+	background: transparent;
+	padding: 1rem 1.25rem;
+	font-size: 0.8125rem;
+	line-height: 1.8;
+}
+.ub-computed-result {
+	align-self: center;
+	min-width: 0;
+	padding: 2rem;
+}
+.ub-computed-result h3 {
+	margin-block: 0.65rem 1.5rem;
+}
+.ub-computed-values {
+	font: 0.8125rem/1.75 var(--ub-font-mono);
+	border-block: 1px solid var(--landing-line);
+}
+.ub-computed-values > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.6rem 0;
+}
+.ub-computed-values > div + div {
+	border-top: 1px dashed var(--landing-line);
+}
+.ub-computed-values dt {
+	color: var(--landing-muted);
+}
+.ub-computed-result > svg {
+	margin: 1rem auto;
+	color: var(--landing-blue);
+}
+.ub-computed-output {
+	display: grid;
+	gap: 0.35rem;
+	padding: 1rem;
+	background: var(--landing-soft);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.4rem;
+}
+.ub-computed-output span {
+	color: var(--landing-muted);
+	font: 0.75rem/1.5 var(--ub-font-mono);
+}
+.ub-computed-output strong {
+	color: var(--landing-blue);
+	font-size: 1.25rem;
+	font-weight: 550;
+}
+.ub-computed-result > p:not(.ub-demo-eyebrow) {
+	margin-block: 1.25rem;
+	font-size: 0.875rem;
+}
+.ub-identity-grid,
+.ub-extension-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 2rem;
+}
+.ub-identity-grid > article,
+.ub-extension-grid > article {
+	min-width: 0;
+	padding: 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+}
+.ub-auth-panel,
+.ub-soft-delete-panel {
+	background: var(--landing-soft);
+}
+.ub-access-panel,
+.ub-custom-plugin-panel {
+	background: var(--landing-card);
+}
+.ub-capabilities article > svg {
+	width: 1.75rem;
+	height: 1.75rem;
+	color: var(--landing-blue);
+	margin-bottom: 1.5rem;
+}
+.ub-capabilities article > .ub-demo-eyebrow {
+	margin-bottom: 0.75rem;
+}
+.ub-identity-grid article > p:not(.ub-demo-eyebrow),
+.ub-extension-grid article > p:not(.ub-demo-eyebrow) {
+	margin-top: 1rem;
+}
+.ub-session-lifecycle {
+	margin-block: 1.5rem;
+}
+.ub-session-lifecycle li {
+	display: flex;
+	gap: 1rem;
+	padding-block: 1rem;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-session-lifecycle li > span {
+	color: var(--landing-blue);
+	font: 0.75rem/1.75 var(--ub-font-mono);
+}
+.ub-session-lifecycle strong {
+	font-size: 0.9375rem;
+	font-weight: 550;
+}
+.ub-session-lifecycle p {
+	margin-top: 0.25rem;
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-access-levels {
+	margin-block: 1.5rem;
+}
+.ub-access-levels > div {
+	display: grid;
+	grid-template-columns: 6.5rem 1fr;
+	gap: 1rem;
+	padding: 1rem 0;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-access-levels dt {
+	color: var(--landing-blue);
+	font-size: 0.875rem;
+	font-weight: 550;
+}
+.ub-access-levels dd {
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-capability-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem 1.5rem;
+	margin-top: 1.5rem;
+}
+.ub-delete-lifecycle {
+	margin-block: 2rem;
+}
+.ub-delete-states {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	color: var(--landing-blue);
+}
+.ub-delete-states span {
+	padding: 0.65rem 0.8rem;
+	background: var(--landing-card);
+	border: 1px solid var(--landing-line);
+	border-radius: 0.3rem;
+	font: 0.8125rem/1.5 var(--ub-font-mono);
+}
+.ub-delete-states span:nth-of-type(2) {
+	border-style: dashed;
+	color: var(--landing-muted);
+	background: transparent;
+}
+.ub-delete-lifecycle figcaption {
+	margin-top: 1rem;
+	color: var(--landing-muted);
+	font-size: 0.8125rem;
+	line-height: 1.75;
+}
+.ub-extension-surfaces {
+	margin-top: 1.5rem;
+	font-size: 0.875rem;
+}
+.ub-extension-surfaces > div {
+	display: grid;
+	grid-template-columns: 4rem 1fr;
+	gap: 1rem;
+	padding-block: 0.85rem;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-extension-surfaces dt {
+	color: var(--landing-blue);
+	font-weight: 550;
+}
+.ub-extension-surfaces dd {
+	color: var(--landing-muted);
+	line-height: 1.65;
+}
+.ub-hooks-strip {
+	/* Hooks explain the transaction demo above and span both of its columns. */
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: 1fr 1.2fr auto;
+	align-items: center;
+	gap: 2rem;
+	border-top: 1px solid var(--landing-line);
+	padding-block: 2rem 0;
+}
+.ub-hooks-strip h3 {
+	margin-top: 0.75rem;
+}
+.ub-hooks-strip .ub-text-link {
+	white-space: nowrap;
+}
+@media (max-width: 64rem) {
+	.ub-capability-heading {
+		gap: 2rem;
+	}
+	.ub-identity-grid,
+	.ub-extension-grid {
+		gap: 1.5rem;
+	}
+	.ub-identity-grid > article,
+	.ub-extension-grid > article,
+	.ub-computed-result {
+		padding: 1.5rem;
+	}
+	.ub-delete-states {
+		flex-wrap: wrap;
+		justify-content: start;
+	}
+	.ub-hooks-strip {
+		grid-template-columns: 1fr 1fr;
+	}
+	.ub-hooks-strip .ub-text-link {
+		grid-column: 2;
+	}
+}
+@media (max-width: 48rem) {
+	.ub-landing .ub-capability-navigation nav {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.ub-capability-navigation a {
+		padding: 1rem 0.75rem;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+	}
+	.ub-capability-navigation a:nth-child(3) {
+		border-left: 0;
+	}
+	.ub-capability-navigation a:nth-child(n + 3) {
+		border-top: 1px solid var(--landing-line);
+	}
+	.ub-landing .ub-capabilities {
+		padding-block: 3rem;
+	}
+	.ub-capability-heading,
+	.ub-computed-proof,
+	.ub-identity-grid,
+	.ub-extension-grid,
+	.ub-capability-columns,
+	.ub-hooks-strip {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ub-capability-heading {
+		gap: 1.25rem;
+		margin-bottom: 2rem;
+	}
+	.ub-capability-columns {
+		gap: 1.75rem;
+		padding-top: 2rem;
+	}
+	.ub-capability-columns article + article {
+		padding-top: 1.75rem;
+		border-top: 1px solid var(--landing-line);
+	}
+	.ub-computed-proof .ub-capability-code {
+		border-right: 0;
+		border-bottom: 1px solid var(--landing-line);
+	}
+	.ub-computed-proof .ub-capability-code pre {
+		padding: 1rem;
+		font-size: 0.875rem;
+		/* Keep the schema indentation intact inside Fumadocs' local scroll viewport. */
+		width: max-content;
+		min-width: 100%;
+		white-space: pre;
+		overflow-wrap: normal;
+	}
+
+	.ub-hooks-strip {
+		gap: 1rem;
+	}
+	.ub-hooks-strip .ub-text-link {
+		grid-column: auto;
+	}
+	.ub-delete-states {
+		flex-wrap: nowrap;
+		justify-content: space-between;
+		gap: 0.3rem;
+	}
+	.ub-delete-states span {
+		font-size: 0.6875rem;
+		padding: 0.5rem;
+	}
+	.ub-delete-states svg {
+		width: 0.75rem;
+	}
+}
+@media (max-width: 40rem) {
+	.ub-access-levels > div {
+		grid-template-columns: 1fr;
+		gap: 0.4rem;
+	}
+}
+@media (max-width: 23rem) {
+	.ub-identity-grid > article,
+	.ub-extension-grid > article,
+	.ub-computed-result {
+		padding: 1rem;
+	}
+}
+
+/* Keep section shortcuts compact; each destination explains its capabilities. */
+.ub-capability-navigation svg {
+	flex-shrink: 0;
+	width: 1rem;
+}
+.ub-landing .ub-access-code pre {
+	font-size: 0.875rem;
+	line-height: 1.75;
+	padding: 1rem 1.25rem;
+}
+.ub-landing .ub-api-call-label {
+	margin-bottom: 1.25rem;
+}
+.ub-query-capabilities {
+	margin-top: 2.5rem;
+	border-top: 1px solid var(--landing-line);
+}
+.ub-policy-proof {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	margin-top: 2rem;
+	border: 1px solid var(--landing-line);
+	border-radius: 0.75rem;
+	overflow: hidden;
+	background: var(--landing-card);
+}
+.ub-policy-proof .ub-access-code {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	border-right: 1px solid var(--landing-line);
+	box-shadow: none;
+}
+/* Only the explanatory column needs padding, not the nested code block title. */
+.ub-policy-proof > figcaption {
+	align-self: center;
+	padding: 2rem;
+}
+.ub-policy-proof h3 {
+	margin-block: 0.75rem 1rem;
+}
+.ub-policy-proof p:not(.ub-demo-eyebrow) {
+	color: var(--landing-muted);
+	font-size: 0.875rem;
+	line-height: 1.75;
+}
+@media (max-width: 48rem) {
+	.ub-policy-proof {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ub-policy-proof .ub-access-code {
+		border-right: 0;
+		border-bottom: 1px solid var(--landing-line);
+	}
+	.ub-policy-proof > figcaption {
+		padding: 1.5rem;
+	}
+}
+.ub-access-outcomes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.5rem;
+	padding-top: 1rem;
+	font-size: 0.875rem;
+	color: var(--landing-muted);
+}
+.ub-access-outcomes strong {
+	color: var(--landing-blue);
+	margin-right: 0.5rem;
+}
+@media (max-width: 40rem) {
+	.ub-landing .ub-access-code pre {
+		padding: 1rem;
+	}
+}
