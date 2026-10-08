@@ -15,8 +15,10 @@ const minimumSecretLength = 32
 export const resolveGraphqlCursorKey = (
 	cursorSecret: unknown,
 ): Uint8Array | undefined => {
-	const configured =
-		cursorSecret ?? process.env[graphqlCursorSecretVariable] ?? undefined
+	const fromEnvironment = cursorSecret === undefined || cursorSecret === null
+	const configured = fromEnvironment
+		? process.env[graphqlCursorSecretVariable]
+		: cursorSecret
 	if (configured === undefined || configured === '') {
 		if (process.env.NODE_ENV === 'production') {
 			throw new TypeError(
@@ -29,8 +31,12 @@ export const resolveGraphqlCursorKey = (
 		typeof configured !== 'string' ||
 		configured.length < minimumSecretLength
 	) {
+		// Name the source the developer must fix, never the secret value itself.
+		const source = fromEnvironment
+			? graphqlCursorSecretVariable
+			: 'GraphQL cursorSecret'
 		throw new TypeError(
-			`GraphQL cursorSecret must be a string of at least ${String(minimumSecretLength)} characters`,
+			`${source} must be a string of at least ${String(minimumSecretLength)} characters`,
 		)
 	}
 	return createHash('sha256').update(configured, 'utf8').digest()

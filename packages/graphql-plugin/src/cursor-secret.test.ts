@@ -88,4 +88,22 @@ describe('GraphQL cursor secret', () => {
 			'GraphQL cursorSecret must be a string of at least 32 characters',
 		)
 	})
+
+	// Regression: a short secret read from the environment blamed the option.
+	it('names the environment variable when its value is too short', () => {
+		vi.stubEnv(graphqlCursorSecretVariable, 'too-short-env-value')
+		const resolve = (): unknown => resolveGraphqlCursorKey(undefined)
+
+		expect(resolve).toThrow(
+			new TypeError(
+				'ULTIMABASE_CURSOR_SECRET must be a string of at least 32 characters',
+			),
+		)
+		expect(resolve).not.toThrow('too-short-env-value')
+		expect(() => resolveGraphqlCursorKey('too-short')).toThrow(
+			new TypeError(
+				'GraphQL cursorSecret must be a string of at least 32 characters',
+			),
+		)
+	})
 })
