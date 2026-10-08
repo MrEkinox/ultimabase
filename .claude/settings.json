@@ -1,0 +1,17 @@
+{
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Write|Edit|MultiEdit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in \"$CLAUDE_PROJECT_DIR\"/*) cd \"$CLAUDE_PROJECT_DIR\" && yarn prettier --write --ignore-unknown --log-level warn \"$f\";; esac; } 2>/dev/null || true",
+						"timeout": 30,
+						"statusMessage": "Formatting with Prettier"
+					}
+				]
+			}
+		]
+	}
+}
