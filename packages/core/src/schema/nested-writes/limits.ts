@@ -1,4 +1,5 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { NestedWriteLimits } from './contracts.js'
 
@@ -14,15 +15,12 @@ const nestedWriteLimitKeys = new Set(['maxDepth', 'maxOperations'])
 export const normalizeNestedWriteLimits = (
 	limits: unknown,
 ): NestedWriteLimits => {
-	if (!isPlainRecord(limits)) {
-		throw new TypeError('Nested-write limits must be a plain object')
-	}
-
-	for (const key of Object.keys(limits)) {
-		if (!nestedWriteLimitKeys.has(key)) {
-			throw new TypeError(`Nested-write limits contain unknown option: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		limits,
+		nestedWriteLimitKeys,
+		'Nested-write limits must be a plain object',
+		'Nested-write limits contain unknown option: ',
+	)
 
 	const maxDepth = limits.maxDepth ?? defaultNestedWriteLimits.maxDepth
 	const maxOperations =

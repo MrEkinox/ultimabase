@@ -4,8 +4,7 @@ import {
 	type FrameworkErrorCode,
 } from '@ultimabase/core'
 
-import type { AccessPhase } from './rule-evaluation.js'
-import type { AccessOperationKind } from './rule-evaluation.js'
+import type { AccessOperationKind, AccessPhase } from './execution-runtime.js'
 
 /** Describes one official Access callback without exposing executable policy state. */
 export interface AccessDiagnosticIdentity {

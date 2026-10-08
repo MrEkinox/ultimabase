@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -30,11 +25,6 @@ export type StringFieldOptions = FieldOptions<string>
 export type StringField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
-
-const stringFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'string',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,
@@ -118,15 +108,6 @@ export interface StringFieldFactory<
 	): NonDefaultedStringField<TRequired, TList, TImmutable>
 }
 
-const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeStringValue,
-		stringFieldOptionsContract,
-	)
-
 /**
  * Declares a UTF-16 JavaScript string with portable field metadata.
  *
@@ -138,8 +119,7 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
  * })
  * ```
  */
-export const stringField: StringFieldFactory = createCompactScalarFieldFactory<
+export const stringField: StringFieldFactory = createScalarFieldFactory(
 	'string',
-	string,
-	StringFieldOptions
->('string', normalizeStringFieldOptions, normalizeStringValue)
+	normalizeStringValue,
+)

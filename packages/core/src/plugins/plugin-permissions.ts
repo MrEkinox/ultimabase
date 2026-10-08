@@ -5,7 +5,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import {
 	assertOptionalCapabilityRequirement,
 	type CapabilityRequirement,
@@ -64,14 +64,10 @@ export const normalizePluginPermissionRequests = (
 				assertNonEmptyString(configured, `plugin permissions.${name}`)
 				return immutableRecord({ name, reason: configured })
 			}
-			if (!isPlainRecord(configured)) {
-				throw new TypeError(
-					`plugin permissions.${name} must be a reason or conditional reason`,
-				)
-			}
-			assertExactObjectKeys(
+			assertExactPlainObject(
 				configured,
 				new Set(['reason', 'when']),
+				`plugin permissions.${name} must be a reason or conditional reason`,
 				`Unknown plugin permissions.${name} option: `,
 			)
 			assertNonEmptyString(

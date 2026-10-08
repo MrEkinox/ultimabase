@@ -1,10 +1,8 @@
 import type { HttpApplication } from './application.js'
 import {
-	HttpPreDispatchFailure,
 	createHttpPreDispatchErrorResponse,
-	createHttpRequestId,
 	httpPreDispatchErrorCodes,
-	prepareHttpServerRequest,
+	prepareHttpServerRequestOrReject,
 	type HttpServerRequest,
 } from './request-boundary.js'
 
@@ -20,19 +18,11 @@ export const dispatchHttpApplicationRequest = async (
 ): Promise<Response> => {
 	if (application !== undefined) return application.fetch(input)
 	// Keep original-header and correlation validation even after the application stops.
-	const fallbackRequestId = createHttpRequestId()
-	try {
-		const prepared = prepareHttpServerRequest(input)
-		return createHttpPreDispatchErrorResponse(
-			httpPreDispatchErrorCodes.applicationRejected,
-			prepared.requestId,
-		)
-	} catch (error: unknown) {
-		return createHttpPreDispatchErrorResponse(
-			error instanceof HttpPreDispatchFailure
-				? error.code
-				: httpPreDispatchErrorCodes.internalError,
-			fallbackRequestId,
-		)
-	}
+	const prepared = prepareHttpServerRequestOrReject(input)
+	return prepared instanceof Response
+		? prepared
+		: createHttpPreDispatchErrorResponse(
+				httpPreDispatchErrorCodes.applicationRejected,
+				prepared.requestId,
+			)
 }

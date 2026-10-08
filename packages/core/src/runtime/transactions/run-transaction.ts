@@ -1,53 +1,85 @@
-import type { MaybePromise } from '@ultimabase/shared'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 
+import type { MaybePromise } from '@ultimabase/shared'
+import { FrameworkError } from '../../foundation.js'
+import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
-import type { RuntimePipelineTransactionScope } from './pipeline-transaction.js'
-import { TransactionLifetime } from './transaction-lifetime.js'
-import { runWithTransactionExecution } from './transaction-execution-storage.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 
-/** Retains a successful callback value or its exact thrown failure. */
-type TransactionOutcome<TResult> =
-	| { readonly status: 'fulfilled'; readonly value: TResult }
-	| { readonly status: 'rejected'; readonly error: unknown }
+type DeferredTransactionEffect = () => MaybePromise<void>
 
-/** Preserves both independent failures without duplicating one caught error. */
-const combineTransactionErrors = (
-	primaryError: unknown,
-	secondaryError: unknown,
-	message: string,
-): unknown =>
-	primaryError === secondaryError
-		? primaryError
-		: new AggregateError([primaryError, secondaryError], message, {
-				cause: secondaryError,
-			})
-
-/** Rolls back once and reports only state confirmed by the adapter. */
-const rollbackAndThrow = async (
-	scope: RuntimePipelineTransactionScope,
-	error: unknown,
-): Promise<never> => {
-	try {
-		await scope.rollback()
-	} catch (rollbackError: unknown) {
-		throw combineTransactionErrors(
-			error,
-			rollbackError,
-			'Transaction failed and rollback reported an additional error.',
-		)
-	}
-
-	throw error
+interface TransactionExecutionState {
+	readonly deferPostCommitEffect: (effect: DeferredTransactionEffect) => void
+	readonly transactionId: string
 }
 
+const transactionExecution = new AsyncLocalStorage<TransactionExecutionState>()
+
+/** Reads the opaque transaction identity inherited by nested operations. */
+export const getCurrentTransactionId = (): string | undefined =>
+	transactionExecution.getStore()?.transactionId
+
+/** Queues one effect on the exact transaction inherited by the current callback. */
+export const deferCurrentTransactionEffect = (
+	effect: DeferredTransactionEffect,
+): void => {
+	const state = transactionExecution.getStore()
+	if (state === undefined) {
+		throw new TypeError('Transaction execution scope is unavailable')
+	}
+	state.deferPostCommitEffect(effect)
+}
+
+/** Creates the explicit Runtime policy failure for unsupported nesting. */
+export const createNestedTransactionError =
+	(): FrameworkError<'TRANSACTION_ERROR'> =>
+		new FrameworkError(
+			'TRANSACTION_ERROR',
+			'Nested RequestEngine transactions are not supported.',
+			{
+				publicMessage: 'Nested transactions are not supported.',
+				internalDetails: { reason: 'nested-transaction' },
+			},
+		)
+
 /**
- * Owns the adapter-neutral callback lifecycle while the engine module decides
- * the exact typed RequestEngine instance exposed to the developer.
+ * Keeps a transaction engine usable only during its callback and observes every
+ * started operation before the owning transaction can commit or roll back.
  */
-const executeActiveRequestTransaction = async <TEngine, TResult>(
-	scope: RuntimePipelineTransactionScope,
+export class TransactionLifetime extends TrackedExecutionLifetime {
+	constructor() {
+		super(
+			() =>
+				new FrameworkError(
+					'TRANSACTION_ERROR',
+					'Transaction engine cannot be used after its callback has completed.',
+					{
+						publicMessage: 'The transaction is no longer active.',
+						internalDetails: { reason: 'transaction-engine-closed' },
+					},
+				),
+		)
+	}
+}
+
+/** Preserves both independent failures without duplicating one caught error. */
+const combineErrors = (
+	primary: unknown,
+	secondary: unknown,
+	message: string,
+): unknown =>
+	primary === secondary
+		? primary
+		: new AggregateError([primary, secondary], message, { cause: secondary })
+
+/**
+ * Runs one callback inside an adapter transaction with one opaque identity,
+ * commits once after every started operation settles, rolls back on any
+ * failure, and delivers deferred effects only after the successful commit.
+ */
+export const runRequestTransaction = async <TEngine, TResult>(
+	pipeline: RuntimePipeline,
 	createEngine: (
 		pipeline: RuntimePipeline,
 		lifetime: TransactionLifetime,
@@ -55,85 +87,58 @@ const executeActiveRequestTransaction = async <TEngine, TResult>(
 	handler: (engine: TEngine) => MaybePromise<TResult>,
 	signal: AbortSignal,
 ): Promise<TResult> => {
-	const lifetime = new TransactionLifetime()
-	const engine: TEngine = createEngine(scope.pipeline, lifetime)
-	let outcome: TransactionOutcome<TResult>
-
-	try {
-		outcome = { status: 'fulfilled', value: await handler(engine) }
-	} catch (error: unknown) {
-		outcome = { status: 'rejected', error }
+	const scope = await pipeline.beginTransaction()
+	const state: TransactionExecutionState = {
+		deferPostCommitEffect: (effect) => {
+			scope.deferPostCommitEffect(effect)
+		},
+		transactionId: randomUUID(),
 	}
 
-	try {
-		await lifetime.close()
-	} catch (closeError: unknown) {
-		outcome =
-			outcome.status === 'rejected'
-				? {
-						status: 'rejected',
-						error: combineTransactionErrors(
+	return transactionExecution.run(state, async () => {
+		const lifetime = new TransactionLifetime()
+		const engine = createEngine(scope.pipeline, lifetime)
+		let outcome:
+			| { readonly ok: true; readonly value: TResult }
+			| { readonly ok: false; readonly error: unknown }
+		try {
+			outcome = { ok: true, value: await handler(engine) }
+		} catch (error: unknown) {
+			outcome = { ok: false, error }
+		}
+		try {
+			await lifetime.close()
+		} catch (closeError: unknown) {
+			outcome = {
+				ok: false,
+				error: outcome.ok
+					? closeError
+					: combineErrors(
 							outcome.error,
 							closeError,
 							'Transaction callback and an operation both failed.',
 						),
-					}
-				: { status: 'rejected', error: closeError }
-	}
+			}
+		}
 
-	if (outcome.status === 'rejected') {
-		return rollbackAndThrow(scope, outcome.error)
-	}
-
-	try {
-		throwIfOperationCancelled(signal, { phase: 'before-commit' })
-	} catch (cancellationError: unknown) {
-		return rollbackAndThrow(scope, cancellationError)
-	}
-
-	try {
-		await scope.commit()
-	} catch (commitError: unknown) {
-		return rollbackAndThrow(scope, commitError)
-	}
-
-	await scope.flushPostCommitEvents()
-
-	return outcome.value
+		try {
+			if (!outcome.ok) throw outcome.error
+			throwIfOperationCancelled(signal, { phase: 'before-commit' })
+			await scope.commit()
+		} catch (error: unknown) {
+			// Roll back once and report only state confirmed by the adapter.
+			try {
+				await scope.rollback()
+			} catch (rollbackError: unknown) {
+				throw combineErrors(
+					error,
+					rollbackError,
+					'Transaction failed and rollback reported an additional error.',
+				)
+			}
+			throw error
+		}
+		await scope.flushPostCommitEvents()
+		return outcome.value
+	})
 }
-
-/** Installs transaction identity and post-commit deferral after begin succeeds. */
-const executeRequestTransaction = async <TEngine, TResult>(
-	pipeline: RuntimePipeline,
-	createEngine: (
-		pipeline: RuntimePipeline,
-		lifetime: TransactionLifetime,
-	) => TEngine,
-	handler: (engine: TEngine) => MaybePromise<TResult>,
-	signal: AbortSignal,
-): Promise<TResult> => {
-	const scope: RuntimePipelineTransactionScope =
-		await pipeline.beginTransaction()
-
-	return runWithTransactionExecution(
-		{
-			deferPostCommitEffect: (effect) => {
-				scope.deferPostCommitEffect(effect)
-			},
-			transactionId: randomUUID(),
-		},
-		() => executeActiveRequestTransaction(scope, createEngine, handler, signal),
-	)
-}
-
-/** Assigns one opaque identity before adapter work so all nested operations share it. */
-export const runRequestTransaction = <TEngine, TResult>(
-	pipeline: RuntimePipeline,
-	createEngine: (
-		pipeline: RuntimePipeline,
-		lifetime: TransactionLifetime,
-	) => TEngine,
-	handler: (engine: TEngine) => MaybePromise<TResult>,
-	signal: AbortSignal,
-): Promise<TResult> =>
-	executeRequestTransaction(pipeline, createEngine, handler, signal)

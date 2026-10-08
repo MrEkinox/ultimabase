@@ -1,12 +1,7 @@
 import { assertOptionalBoolean } from '@ultimabase/shared'
 
 import type { FieldOptions } from '../base/contract.js'
-import type { ScalarFieldConfigurationResolver } from '../base/factory.js'
-import {
-	assertFieldOptions,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
+import { hasListOption } from '../base/options.js'
 
 interface TemporalAutoNowOption {
 	/**
@@ -30,8 +25,6 @@ export interface TimezoneTemporalFieldOptions extends TemporalFieldOptions {
 	 */
 	readonly timezone?: boolean
 }
-
-export type TemporalValueNormalizer = (value: unknown, path: string) => string
 
 /**
  * Resolves a timezone flag while protecting factories called from untyped code.
@@ -59,38 +52,25 @@ export const assertTemporalAutoNow = (options: object): void => {
 		throw new TypeError('autoNow and default cannot both be configured')
 	}
 
-	if (
-		'list' in options &&
-		options.list !== undefined &&
-		options.list !== false
-	) {
+	if (hasListOption(options)) {
 		throw new TypeError('autoNow cannot be used with list fields')
 	}
 }
 
 /**
- * Builds the common option-dependent configuration used by time-bearing fields.
+ * Builds a temporal normalizer that reports one expectation for both a wrong
+ * JavaScript type and an invalid canonical representation.
  */
-export const createTemporalFieldConfigurationResolver =
-	<TOptions extends TimezoneTemporalFieldOptions>(
-		optionsContract: BuiltInFieldOptionsContract,
-		defaultTimezone: boolean,
-		createNormalizer: (timezone: boolean) => TemporalValueNormalizer,
-	): ScalarFieldConfigurationResolver<TOptions> =>
-	(options) => {
-		assertFieldOptions(options)
-		assertTemporalAutoNow(options)
+export const createTemporalNormalizer =
+	(expectation: string, isValid: (value: string) => boolean) =>
+	(value: unknown, path: string): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError(`${path} must be ${expectation}`)
+		}
 
-		const timezone = readTemporalTimezone(
-			'timezone' in options ? options.timezone : undefined,
-			defaultTimezone,
-		)
-		const snapshotValue = createNormalizer(timezone)
-		const normalizeOptions = <const TDeclaredOptions extends TOptions>(
-			declaredOptions: TDeclaredOptions,
-		): Readonly<TDeclaredOptions> =>
-			normalizeFieldOptions(declaredOptions, snapshotValue, optionsContract)
+		if (!isValid(value)) {
+			throw new RangeError(`${path} must be ${expectation}`)
+		}
 
-		// The same normalizer governs defaults and later snapshots.
-		return { normalizeOptions, snapshotValue }
+		return value
 	}

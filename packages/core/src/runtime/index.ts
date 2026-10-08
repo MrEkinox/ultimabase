@@ -8,10 +8,10 @@ export type {
 export {
 	getCurrentEngine,
 	getCurrentRequest,
+	runOutsideRequestEngineScope,
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
-export { runOutsideRequestEngineScope } from './context/active-framework-storage.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
 export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
 export type {
@@ -55,7 +55,7 @@ export { UltimaBase } from './application/ultima-base.js'
 export type {
 	CompiledApplication,
 	UltimaBaseInstanceOptions,
-} from './application/ultima-base.js'
+} from './application/ultima-base-contracts.js'
 export type { ConfiguredUltimaBaseFactory } from './application/configured-application-factory.js'
 export {
 	ApplicationModelHandle,
@@ -320,14 +320,10 @@ export type {
 	RuntimeResultTransformStage,
 	RuntimeSchemaMutationOutcome,
 } from './pipeline/contracts.js'
-export {
-	createRuntimeBehaviorBoundaries,
-	readRuntimePreparedMutationRecords,
-} from './behaviors/boundaries.js'
-export type {
-	RuntimeBehaviorBoundaries,
-	RuntimePreparedMutationRecords,
-} from './behaviors/boundaries.js'
+export { createRuntimeBehaviorBoundaries } from './behaviors/validation-boundaries.js'
+export { readRuntimePreparedMutationRecords } from './behaviors/prepared-target-boundary.js'
+export type { RuntimeBehaviorBoundaries } from './behaviors/validation-boundaries.js'
+export type { RuntimePreparedMutationRecords } from './behaviors/prepared-target-boundary.js'
 export { getOperationSchema } from './operations/schema.js'
 export {
 	collectOperationFieldInputs,
@@ -350,7 +346,7 @@ export { readRuntimeIncludedPointerValue } from './operations/model-metadata.js'
 export {
 	deferCurrentTransactionEffect,
 	getCurrentTransactionId,
-} from './transactions/transaction-execution-storage.js'
+} from './transactions/run-transaction.js'
 export {
 	createRuntimeValidationStage,
 	snapshotRuntimeResultRecord,

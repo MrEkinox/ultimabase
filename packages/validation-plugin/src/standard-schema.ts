@@ -42,7 +42,8 @@ export type MutableFieldContainer<TValue> =
 				}
 			: TValue
 
-const isObjectOrFunction = (value: unknown): value is object =>
+/** @internal Matches values that may carry the Standard Schema protocol. */
+export const isObjectOrFunction = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
 /** Validates the protocol shape without invoking, cloning, or freezing the validator. */

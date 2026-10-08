@@ -1,4 +1,7 @@
-import { runApplicationWork } from '../../application/active-application.js'
+import {
+	assertApplicationExecution,
+	runApplicationWork,
+} from '../../application/active-application.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type { MasterRequestAccess } from '../../access/index.js'
@@ -10,77 +13,55 @@ import {
 	registerOperationBatchExecutionHandler,
 	registerOperationExecutionHandler,
 	type NormalizedOperationOptions,
-	type OperationBatchEntry,
-	type OperationBatchProjection,
 	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { MaybePromise } from '@ultimabase/shared'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
-
 import {
-	isRequestContext,
-	type RequestContext,
-} from '../context/request-context.js'
-import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
+	immutableArray,
+	immutableRecord,
+	type MaybePromise,
+} from '@ultimabase/shared'
+
+import type { RequestContext } from '../context/request-context.js'
+import { runWithRequestEngineScope } from '../context/active-framework-context.js'
 import type {
 	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import {
 	elevateMasterRequest,
-	elevateTrustedMasterRequest,
 	type MasterKeyGrant,
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
 import { isRuntimeMutationOperation } from '../operations/characteristics.js'
+import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
-import { runRequestTransaction } from '../transactions/run-transaction.js'
 import {
 	createNestedTransactionError,
+	runRequestTransaction,
 	type TransactionLifetime,
-} from '../transactions/transaction-lifetime.js'
+} from '../transactions/run-transaction.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
-import { registerRequestPluginOperationHost } from '../plugin-operations/request-execution.js'
-import { registerRequestSchemaMutationHost } from '../schema-mutations/request-execution.js'
-import {
-	assertApplicationEngineAvailable,
-	bindRequestContextToApplication,
-} from './application-binding.js'
-import { registerRequestAdapterAccessContext as registerAdapterAccess } from '../adapters/request-access.js'
-import {
-	createMasterAuditReason,
-	isProtectedPolicyDenial,
-	isStrictObjectOperation,
-} from './operation-boundaries.js'
 import {
 	assertMasterElevationPrivilege,
-	getFrameworkMasterAuthority,
-	readFrameworkMasterAuthority,
-} from './framework-master-authority.js'
-import { registerRequestPrivateStorageContext } from '../../private-storage/runtime.js'
-
+	requireMasterAuthority,
+	resolveTerminalContext,
+} from './application-binding.js'
+import { executeRequestTerminalBatch } from './request-engine-batch.js'
 import {
-	executeRequestTerminalBatch,
-	type RuntimeTerminalExecution,
-} from './request-engine-batch.js'
-import type { FrameworkEngine } from './framework-engine.js'
-import { requestEngineConstructionKey } from './request-engine-construction.js'
+	readFrameworkMasterAuthority,
+	type FrameworkEngine,
+} from './framework-engine.js'
 import type { UltimaBase } from '../application/ultima-base.js'
 
-type RequestEngineOwner = Readonly<{
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>
-	framework: FrameworkEngine
-}>
-
-const requestEngineOwners = new WeakMap<object, RequestEngineOwner>()
+/** Only the owning framework can construct request engines. */
+const requestEngineConstructionKey: unique symbol = Symbol(
+	'ultimabase.request-engine-construction',
+)
 
 /** Receives one transaction-scoped engine while preserving its exact context type. */
 export type RequestTransactionHandler<
@@ -91,6 +72,46 @@ export type RequestTransactionHandler<
 > = (
 	engine: RequestEngine<TSchemas, TPlugins, TContext>,
 ) => MaybePromise<TResult>
+
+/** Framework-owned restrictions that never enter a transformable operation AST. */
+interface PrivateOperationScope {
+	readonly deniedAsMissing?: true | undefined
+	readonly objectId?: string | undefined
+	readonly relation?: DatabaseRelationScope | undefined
+	readonly rowFilter?: DatabaseRowFilterNode | undefined
+}
+
+/** Core-only view of one engine's private execution state. */
+export interface RequestEngineInternals {
+	readonly application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>
+	readonly framework: FrameworkEngine
+	readonly lifetime: TransactionLifetime | undefined
+	readonly pipeline: RuntimePipeline
+	/** Derives one engine with another context and this engine's transaction lifetime. */
+	readonly derive: (context: RequestContext) => RequestEngine
+}
+
+let readInternals: (engine: RequestEngine) => RequestEngineInternals
+let readFramework: <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+>(
+	engine: RequestEngine<TSchemas, TPlugins>,
+) => FrameworkEngine<TSchemas, TPlugins>
+
+/** Hides whether a strict protected target was absent or denied by policy. */
+const asMissing = (error: unknown, strictMissing: boolean): unknown =>
+	strictMissing && isProtectedPolicyDenied(error)
+		? createProtectedObjectNotFoundError()
+		: error
+
+const isStrictObjectOperation = (operation: ExecutableOperationAst): boolean =>
+	operation.kind === 'get' ||
+	operation.kind === 'update-one' ||
+	operation.kind === 'delete-one'
 
 /**
  * Carries immutable request authority into queries, operations, and an
@@ -104,10 +125,9 @@ export class RequestEngine<
 	TContext extends RequestContext = RequestContext,
 > {
 	readonly context: TContext
-	readonly #application: FrameworkApplication<TSchemas, TPlugins>
 	readonly #framework: FrameworkEngine<TSchemas, TPlugins>
 	readonly #pipeline: RuntimePipeline
-	readonly #transactionLifetime: TransactionLifetime | undefined
+	readonly #lifetime: TransactionLifetime | undefined
 
 	constructor(
 		constructionKey: typeof requestEngineConstructionKey,
@@ -122,43 +142,46 @@ export class RequestEngine<
 			)
 		}
 
-		this.#application = framework.application
-		this.#framework = framework
-		requestEngineOwners.set(this, {
-			application: framework.application,
-			framework,
-		})
 		this.context = context
+		this.#framework = framework
 		this.#pipeline = pipeline
-		this.#transactionLifetime = transactionLifetime
-		registerAdapterAccess(this, pipeline, transactionLifetime)
-		registerRequestPrivateStorageContext(this, pipeline, transactionLifetime)
-		const transactionHost = {
-			runTransaction: (handler: (engine: RequestEngine) => Promise<unknown>) =>
-				this.transaction(handler),
-			...(transactionLifetime === undefined ? {} : { transactionLifetime }),
-		}
-		registerRequestPluginOperationHost({
-			engine: this,
-			...transactionHost,
-		})
-		registerRequestSchemaMutationHost({
-			createContextEngine: (nextContext) => this.#derive(nextContext),
-			engine: this,
-			pipeline: this.#pipeline,
-			...transactionHost,
-		})
+		this.#lifetime = transactionLifetime
+		const application = framework.application
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
-			runApplicationWork(this.#application, () =>
-				this.#executeTerminal(operation, options, scope),
-			),
+			runApplicationWork(application, async () => {
+				const terminal = await this.#prepareTerminal(operation, options, scope)
+				return terminal.engine.#executeOperation(
+					terminal.operation,
+					terminal.scope,
+				)
+			}),
 		)
 		registerOperationBatchExecutionHandler(
 			this,
 			(entries, options, projection) =>
-				runApplicationWork(this.#application, () =>
-					this.#executeTerminalBatch(entries, options, projection),
-				),
+				runApplicationWork(application, async () => {
+					if (entries.length === 0) return immutableArray([])
+					const executeItems = (engine: RequestEngine<TSchemas, TPlugins>) =>
+						executeRequestTerminalBatch(entries, projection, engine.#pipeline, {
+							execute: async (operation) => {
+								const item = await engine.#prepareTerminal(operation, options)
+								return item.engine.#executeOperation(item.operation, item.scope)
+							},
+							executeWithRuntime: async (operation) => {
+								const item = await engine.#prepareTerminal(operation, options)
+								return immutableRecord({
+									context: item.engine.context,
+									result: await item.engine.#executeRuntimeOperation(
+										item.operation,
+										item.scope,
+									),
+								})
+							},
+						})
+					return this.#lifetime === undefined
+						? this.transaction(executeItems)
+						: executeItems(this)
+				}),
 		)
 
 		Object.freeze(this)
@@ -169,94 +192,55 @@ export class RequestEngine<
 		return this.#framework.ultimabase
 	}
 
+	get #application(): FrameworkApplication<TSchemas, TPlugins> {
+		return this.#framework.application
+	}
+
 	/** Derives one request engine without duplicating its private ownership wiring. */
 	#derive<TNextContext extends RequestContext>(
 		context: TNextContext,
-		pipeline: RuntimePipeline = this.#pipeline,
-		transactionLifetime: TransactionLifetime | undefined = this
-			.#transactionLifetime,
+		pipeline = this.#pipeline,
+		lifetime = this.#lifetime,
 	): RequestEngine<TSchemas, TPlugins, TNextContext> {
 		return new RequestEngine(
 			requestEngineConstructionKey,
 			this.#framework,
 			context,
 			pipeline,
-			transactionLifetime,
+			lifetime,
 		)
 	}
 
-	/** Keeps every directed batch item inside one shared transaction lifetime. */
-	async #executeTerminalBatch(
-		entries: readonly OperationBatchEntry[],
-		options: NormalizedOperationOptions,
-		projection: OperationBatchProjection | undefined,
-	): Promise<readonly unknown[]> {
-		if (entries.length === 0) return immutableArray([])
-
-		const executeItems = (engine: RequestEngine): Promise<readonly unknown[]> =>
-			executeRequestTerminalBatch(
-				entries,
-				options,
-				projection,
-				engine.#pipeline,
-				{
-					execute: (operation, itemOptions) =>
-						engine.#executeTerminal(operation, itemOptions, undefined),
-					executeWithRuntime: (operation, itemOptions) =>
-						engine.#executeTerminal(operation, itemOptions, undefined, true),
-				},
-			)
-
-		if (this.#transactionLifetime !== undefined) {
-			return executeItems(this)
-		}
-
-		return this.transaction((transaction) => executeItems(transaction))
-	}
-
 	/** Resolves trusted terminal authority while retaining this engine's lifetime. */
-	async #executeTerminal(
+	async #prepareTerminal(
 		operation: unknown,
 		options: NormalizedOperationOptions,
-		scope: OperationPrivateScope | undefined,
-		returnRuntimeResult: true,
-	): Promise<RuntimeTerminalExecution>
-	async #executeTerminal(
-		operation: unknown,
-		options: NormalizedOperationOptions,
-		scope: OperationPrivateScope | undefined,
-		returnRuntimeResult?: undefined,
-	): Promise<unknown>
-	async #executeTerminal(
-		operation: unknown,
-		options: NormalizedOperationOptions,
-		scope: OperationPrivateScope | undefined,
-		returnRuntimeResult?: true,
-	): Promise<unknown> {
-		const normalizedOperation = operation as ExecutableOperationAst<
-			TSchemas[number]
-		>
-		const schema = getOperationSchema(normalizedOperation)
-		let relationScope: DatabaseRelationScope | undefined
-
+		scope?: OperationPrivateScope,
+	): Promise<{
+		readonly engine: RequestEngine<TSchemas, TPlugins>
+		readonly operation: ExecutableOperationAst<TSchemas[number]>
+		readonly scope: PrivateOperationScope
+	}> {
+		// Structural normalization guarantees an executable operation for this schema.
+		const executable = operation as ExecutableOperationAst<TSchemas[number]>
+		const schema = getOperationSchema(executable)
 		this.#framework.assertOwnsSchema(schema)
 
+		let relation: DatabaseRelationScope | undefined
 		if (scope?.kind === 'relation') {
 			this.#framework.assertOwnsSchema(scope.source)
-			const relation = this.#application.schemaTargets.getRelation(
+			const mapping = this.#application.schemaTargets.getRelation(
 				scope.source,
 				scope.fieldPath,
 			)
-
-			if (relation?.target !== schema || scope.target !== schema) {
+			if (mapping?.target !== schema || scope.target !== schema) {
 				throw new FrameworkError(
 					'VALIDATION_ERROR',
 					'Relation query scope does not match the executed target schema.',
 					{ publicMessage: 'The requested relation is not available.' },
 				)
 			}
-
-			relationScope = immutableRecord({
+			relation = immutableRecord({
 				fieldPath: immutableArray(scope.fieldPath),
 				source: scope.source,
 				sourceObjectId: scope.sourceObjectId,
@@ -264,63 +248,24 @@ export class RequestEngine<
 			})
 		}
 
-		let context: RequestContext = this.context
-
-		if (options.context !== undefined) {
-			if (!isRequestContext(options.context)) {
-				throw new TypeError(
-					'operation context must be a RequestContext instance',
-				)
-			}
-
-			bindRequestContextToApplication(
-				this.#application,
-				options.context,
-				readFrameworkMasterAuthority(this.#framework),
-			)
-			context = options.context
-		}
-
-		if (options.useMasterKey) {
-			assertMasterElevationPrivilege(this.#application)
-			context = await elevateTrustedMasterRequest(
-				getFrameworkMasterAuthority(this.#framework),
-				context,
-				createMasterAuditReason(normalizedOperation, schema),
-				this.#application,
-			)
-		}
-
-		const engine = context === this.context ? this : this.#derive(context)
-
-		// Structural normalization guarantees an executable operation for this schema.
-		const rowFilter = scope?.kind === 'row-filter' ? scope.rowFilter : undefined
-		const deniedAsMissing =
-			scope?.kind === 'row-filter'
-				? scope.protectedPolicyDeniedAsMissing
-				: undefined
-		const objectId = scope?.kind === 'row-filter' ? scope.objectId : undefined
-
-		if (returnRuntimeResult === true) {
-			return immutableRecord({
-				context: engine.context,
-				result: await engine.#executeRuntimeOperation(
-					normalizedOperation,
-					rowFilter,
-					deniedAsMissing,
-					objectId,
-					relationScope,
-				),
-			})
-		}
-
-		return engine.#executeOperation(
-			normalizedOperation,
-			rowFilter,
-			deniedAsMissing,
-			objectId,
-			relationScope,
+		const context = await resolveTerminalContext(
+			this.#application,
+			readFrameworkMasterAuthority(this.#framework),
+			this.context,
+			options,
+			() => `Schema command ${executable.kind} on ${schema.className}`,
 		)
+		const rowFilter = scope?.kind === 'row-filter' ? scope : undefined
+		return {
+			engine: context === this.context ? this : this.#derive(context),
+			operation: executable,
+			scope: {
+				deniedAsMissing: rowFilter?.protectedPolicyDeniedAsMissing,
+				objectId: rowFilter?.objectId,
+				relation,
+				rowFilter: rowFilter?.rowFilter,
+			},
+		}
 	}
 
 	/** Executes a normalized operation through this request's mandatory pipeline. */
@@ -337,20 +282,12 @@ export class RequestEngine<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(
 		operation: TOperation,
-		rowFilter?: DatabaseRowFilterNode,
-		protectedPolicyDeniedAsMissing?: true,
-		privateObjectId?: string,
-		relationScope?: DatabaseRelationScope,
+		scope: PrivateOperationScope = {},
 	): Promise<OperationResult<TOperation>> {
-		const result = await this.#executeRuntimeOperation(
+		return materializeOperationResult(
 			operation,
-			rowFilter,
-			protectedPolicyDeniedAsMissing,
-			privateObjectId,
-			relationScope,
+			await this.#executeRuntimeOperation(operation, scope),
 		)
-
-		return materializeOperationResult(operation, result)
 	}
 
 	/** Runs one complete lifecycle while retaining its unmaterialized Runtime result. */
@@ -358,117 +295,67 @@ export class RequestEngine<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(
 		operation: TOperation,
-		rowFilter?: DatabaseRowFilterNode,
-		protectedPolicyDeniedAsMissing?: true,
-		privateObjectId?: string,
-		relationScope?: DatabaseRelationScope,
+		scope: PrivateOperationScope,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		this.#framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
 			phase: 'request-engine',
 		})
+		const strictMissing =
+			scope.deniedAsMissing === true && isStrictObjectOperation(operation)
 
-		if (
-			this.#transactionLifetime === undefined &&
-			isRuntimeMutationOperation(operation)
-		) {
-			// Every root mutation reuses the exact public transaction lifecycle.
+		if (this.#lifetime === undefined && isRuntimeMutationOperation(operation)) {
+			// Every root mutation reuses the exact public transaction lifecycle, and
+			// a hidden strict target fails inside it so the transaction rolls back.
 			return this.transaction(async (transaction) => {
 				let result: RuntimeOperationResult<TOperation>
-
 				try {
-					result = await transaction.#executeRuntimeOperation(
-						operation,
-						rowFilter,
-						protectedPolicyDeniedAsMissing,
-						privateObjectId,
-						relationScope,
-					)
+					result = await transaction.#executeRuntimeOperation(operation, scope)
 				} catch (error: unknown) {
-					if (
-						protectedPolicyDeniedAsMissing === true &&
-						isStrictObjectOperation(operation) &&
-						isProtectedPolicyDenial(error)
-					) {
-						throw createProtectedObjectNotFoundError()
-					}
-
-					throw error
+					throw asMissing(error, strictMissing)
 				}
-
-				if (
-					protectedPolicyDeniedAsMissing === true &&
-					isStrictObjectOperation(operation) &&
-					result === null
-				) {
+				if (strictMissing && result === null) {
 					throw createProtectedObjectNotFoundError()
 				}
-
 				return result
 			})
 		}
 
-		const mutationRelationScope = await executeRuntimeRelationMutation(
-			operation,
-			privateObjectId,
-			{
+		const relation =
+			(await executeRuntimeRelationMutation(operation, scope.objectId, {
 				assertOwnsSchema: (schema) => {
 					this.#framework.assertOwnsSchema(schema)
 				},
-				execute: (
-					nestedOperation,
-					nestedRowFilter,
-					deniedAsMissing,
-					objectId,
-				) =>
+				execute: (nested, rowFilter, deniedAsMissing, objectId) =>
 					this.#executeOperation(
-						nestedOperation as unknown as ExecutableOperationAst<
-							TSchemas[number]
-						>,
-						nestedRowFilter,
-						deniedAsMissing,
-						objectId,
+						nested as unknown as ExecutableOperationAst<TSchemas[number]>,
+						{ deniedAsMissing, objectId, rowFilter },
 					),
 				getSchemaTargets: () => this.#application.schemaTargets,
-			},
-		)
-		const databaseRelationScope = mutationRelationScope ?? relationScope
-
-		const executeOperation = (): Promise<RuntimeOperationResult<TOperation>> =>
+			})) ?? scope.relation
+		const execute = (): Promise<RuntimeOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
 				this.#pipeline.execute({
 					context: this.context,
 					operation,
-					...(databaseRelationScope === undefined
+					...(relation === undefined ? {} : { relation }),
+					...(scope.rowFilter === undefined
 						? {}
-						: { relation: databaseRelationScope }),
-					...(rowFilter === undefined ? {} : { rowFilter }),
-					...(protectedPolicyDeniedAsMissing === undefined
+						: { rowFilter: scope.rowFilter }),
+					...(scope.deniedAsMissing === undefined
 						? {}
-						: { protectedPolicyDeniedAsMissing }),
+						: { protectedPolicyDeniedAsMissing: scope.deniedAsMissing }),
 				}),
 			)
 
-		let result: RuntimeOperationResult<TOperation>
-
 		try {
-			result = await (this.#transactionLifetime === undefined
-				? executeOperation()
-				: this.#transactionLifetime.run(executeOperation))
+			return await (this.#lifetime === undefined
+				? execute()
+				: this.#lifetime.run(execute))
 		} catch (error: unknown) {
-			if (
-				protectedPolicyDeniedAsMissing === true &&
-				isStrictObjectOperation(operation) &&
-				isProtectedPolicyDenial(error)
-			) {
-				throw createProtectedObjectNotFoundError()
-			}
-
-			throw error
+			throw asMissing(error, strictMissing)
 		}
-
-		return result
 	}
 
 	/** Produces an audited master engine from an authority-owned opaque grant. */
@@ -482,71 +369,88 @@ export class RequestEngine<
 			RequestContext<MasterRequestAccess, TContext['source']>
 		>
 	> {
-		assertApplicationEngineAvailable(this.#application)
-		this.#transactionLifetime?.assertActive()
+		assertApplicationExecution(this.#application)
+		this.#lifetime?.assertActive()
 		assertMasterElevationPrivilege(this.#application)
 
-		return runApplicationWork(this.#application, async () => {
-			const masterContext = await elevateMasterRequest(
-				getFrameworkMasterAuthority(this.#framework),
-				grant,
-				this.context,
-				reason,
-				this.#application,
-			)
-
-			return this.#derive(masterContext)
-		})
+		return runApplicationWork(this.#application, async () =>
+			this.#derive(
+				await elevateMasterRequest(
+					requireMasterAuthority(readFrameworkMasterAuthority(this.#framework)),
+					grant,
+					this.context,
+					reason,
+					this.#application,
+				),
+			),
+		)
 	}
 
 	/** Opens one adapter transaction while preserving this context and application. */
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
-		assertApplicationEngineAvailable(this.#application)
+		assertApplicationExecution(this.#application)
 		if (typeof handler !== 'function') {
 			throw new TypeError(
 				'Request engine transaction handler must be a function',
 			)
 		}
-
 		throwIfOperationCancelled(this.context.signal, {
 			phase: 'transaction-start',
 		})
-
-		if (this.#transactionLifetime !== undefined) {
-			this.#transactionLifetime.assertActive()
+		if (this.#lifetime !== undefined) {
+			this.#lifetime.assertActive()
 			const error = createNestedTransactionError()
-
-			this.#transactionLifetime.markFailed(error)
+			this.#lifetime.markFailed(error)
 			throw error
 		}
 
 		return runApplicationWork(this.#application, () =>
 			runRequestTransaction(
 				this.#pipeline,
-				(transactionPipeline, lifetime) =>
-					this.#derive(this.context, transactionPipeline, lifetime),
+				(pipeline, lifetime) => this.#derive(this.context, pipeline, lifetime),
 				(transaction) =>
 					runWithRequestEngineScope(transaction, () => handler(transaction)),
 				this.context.signal,
 			),
 		)
 	}
+
+	static {
+		readFramework = (engine) => {
+			// A forged prototype passes `instanceof` but owns no private state.
+			if (!(#framework in engine)) {
+				throw new TypeError('Request engine owner is unavailable')
+			}
+			return engine.#framework
+		}
+		readInternals = (engine) => ({
+			application: readFramework(engine).application,
+			framework: engine.#framework,
+			lifetime: engine.#lifetime,
+			pipeline: engine.#pipeline,
+			derive: (context) => engine.#derive(context),
+		})
+	}
 }
 
-/** @internal Reads the private application kernel owning one request engine. */
-export const readRequestEngineApplication = <
+/** @internal Lets the owning framework construct one request engine. */
+export const createRequestEngine = <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
+	TContext extends RequestContext,
 >(
-	engine: RequestEngine<TSchemas, TPlugins>,
-): FrameworkApplication<TSchemas, TPlugins> => {
-	const owner = requestEngineOwners.get(engine)
-	if (owner === undefined)
-		throw new TypeError('Request engine owner is unavailable')
-	return owner.application as FrameworkApplication<TSchemas, TPlugins>
-}
+	framework: FrameworkEngine<TSchemas, TPlugins>,
+	context: TContext,
+	pipeline: RuntimePipeline,
+): RequestEngine<TSchemas, TPlugins, TContext> =>
+	new RequestEngine(requestEngineConstructionKey, framework, context, pipeline)
+
+/** @internal Reads the private state used by Core-owned request extensions. */
+export const readRequestEngineInternals = (
+	engine: RequestEngine,
+): RequestEngineInternals => readInternals(engine)
 
 /** @internal Reads the private framework engine owning one request engine. */
 export const readRequestEngineFramework = <
@@ -554,9 +458,12 @@ export const readRequestEngineFramework = <
 	const TPlugins extends readonly PluginDefinition[],
 >(
 	engine: RequestEngine<TSchemas, TPlugins>,
-): FrameworkEngine<TSchemas, TPlugins> => {
-	const owner = requestEngineOwners.get(engine)
-	if (owner === undefined)
-		throw new TypeError('Request engine owner is unavailable')
-	return owner.framework as FrameworkEngine<TSchemas, TPlugins>
-}
+): FrameworkEngine<TSchemas, TPlugins> => readFramework(engine)
+
+/** @internal Reads the private application kernel owning one request engine. */
+export const readRequestEngineApplication = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+>(
+	engine: RequestEngine<TSchemas, TPlugins>,
+): FrameworkApplication<TSchemas, TPlugins> => readFramework(engine).application

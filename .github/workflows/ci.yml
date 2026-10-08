@@ -164,7 +164,9 @@ jobs:
           name: compiled-packages
       - run: tar -xf compiled-packages.tar
       - run: yarn playwright install --with-deps chromium
-      - run: yarn test:coverage
+      # Performance budgets are timing-sensitive and distorted by V8 coverage:
+      # the package and transversal jobs run them without instrumentation.
+      - run: yarn test:coverage --exclude '**/*.performance.test.ts'
 
   website:
     name: Website

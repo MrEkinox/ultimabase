@@ -5,8 +5,10 @@ import {
 } from '@ultimabase/shared'
 import { sql } from 'drizzle-orm'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import {
+	resolveCompiledPostgresField,
+	type CompiledPostgresSchema,
+} from '../schema/contracts.js'
 
 /** Compiles one Runtime-normalized atomic update into Drizzle set values. */
 export const compilePostgresUpdate = (
@@ -22,8 +24,8 @@ export const compilePostgresUpdate = (
 		throw new TypeError('PostgreSQL update expression is invalid')
 	}
 
-	const compiled: Record<string, unknown> = {}
 	const fields = new Set<string>()
+	const compiled: [string, unknown][] = []
 
 	for (const operation of value.operations) {
 		if (
@@ -41,35 +43,40 @@ export const compilePostgresUpdate = (
 		// Relation storage is handled separately while scalar system updates remain here.
 		if (operation.kind === 'relation') continue
 
-		const field = resolveCompiledPostgresField(schema, fieldName)
+		const column = resolveCompiledPostgresField(schema, fieldName).column
 
-		switch (operation.kind) {
-			case 'set':
-				if (!Object.hasOwn(operation, 'value')) {
-					throw new TypeError('PostgreSQL set operation requires a value')
-				}
-				compiled[fieldName] = operation.value
-				break
-			case 'increment':
-			case 'decrement': {
-				if (!Object.hasOwn(operation, 'value')) {
-					throw new TypeError('PostgreSQL numeric operation requires a value')
-				}
-
-				const operand = sql.param(operation.value, field.column)
-
-				compiled[fieldName] =
-					operation.kind === 'increment'
-						? sql`${field.column} + ${operand}`
-						: sql`${field.column} - ${operand}`
-				break
-			}
-			default:
-				throw new TypeError(
-					`Unsupported PostgreSQL update operation: ${String(operation.kind)}`,
-				)
+		if (
+			operation.kind !== 'set' &&
+			operation.kind !== 'increment' &&
+			operation.kind !== 'decrement'
+		) {
+			throw new TypeError(
+				`Unsupported PostgreSQL update operation: ${String(operation.kind)}`,
+			)
 		}
+
+		if (!Object.hasOwn(operation, 'value')) {
+			throw new TypeError(
+				operation.kind === 'set'
+					? 'PostgreSQL set operation requires a value'
+					: 'PostgreSQL numeric operation requires a value',
+			)
+		}
+
+		if (operation.kind === 'set') {
+			compiled.push([fieldName, operation.value])
+			continue
+		}
+
+		const operand = sql.param(operation.value, column)
+
+		compiled.push([
+			fieldName,
+			operation.kind === 'increment'
+				? sql`${column} + ${operand}`
+				: sql`${column} - ${operand}`,
+		])
 	}
 
-	return immutableRecord(compiled)
+	return immutableRecord(Object.fromEntries(compiled))
 }

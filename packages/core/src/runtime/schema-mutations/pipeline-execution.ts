@@ -14,7 +14,7 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -34,7 +34,7 @@ import {
 } from '../persistence/execution.js'
 import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
 import type { RuntimeInclusionProjector } from '../pipeline/inclusion-projection.js'
-import { loadSingularMutationInclusionSource } from '../pipeline/inclusion-projection.js'
+import { loadSingularMutationInclusionSource } from '../pipeline/mutation-inclusion-source.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.js'
 import {
@@ -43,11 +43,11 @@ import {
 } from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
-import { createRuntimeVirtualFieldScheduler } from '../virtual-fields/binding.js'
+import { createRuntimeVirtualFieldScheduler } from '../pipeline/application-bindings.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
-import type { PluginSchemaMutationRuntime } from './runtime.js'
+import { resolveSchemaMutation } from './runtime.js'
 
 interface SchemaMutationPipelineBinding {
 	readonly boundaries: RuntimeBehaviorBoundaries
@@ -56,10 +56,10 @@ interface SchemaMutationPipelineBinding {
 }
 
 export interface RuntimeSchemaMutationRequest {
+	readonly application: object
 	readonly command: CompiledMutationCommand
 	readonly context: RequestContext
 	readonly envelope: PluginSchemaMutationEnvelope
-	readonly runtime: PluginSchemaMutationRuntime
 	readonly schema: SchemaDefinition
 }
 
@@ -121,23 +121,11 @@ const readPreparedTarget = (
 	return target
 }
 
-const projectResolverItem = (
-	command: CompiledMutationCommand,
-	target: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => {
-	const fields = new Set(['id', ...Object.keys(command.definition.select)])
-	return immutableRecord(
-		Object.fromEntries(
-			Object.entries(target).filter(([field]) => fields.has(field)),
-		),
-	)
-}
-
-const projectResultRecord = (
+/** Keeps the identity and the selected fields of one record, in record order. */
+const pickFields = (
 	record: Readonly<Record<string, unknown>>,
 	fields: readonly string[],
 ): Readonly<Record<string, unknown>> => {
-	if (fields.length === 0) return record
 	const selected = new Set(['id', ...fields])
 	return immutableRecord(
 		Object.fromEntries(
@@ -212,13 +200,11 @@ const createBeforeInclusionSource = async (
 	inclusions: Parameters<RuntimeInclusionProjector['hydrate']>[4],
 ): Promise<Readonly<Record<string, unknown>> | undefined> => {
 	if (inclusions.length === 0) return undefined
-	const query = 'query' in physical ? physical.query : undefined
-	if (query === undefined) return undefined
 	const get: GetOperationAst<SchemaDefinition, QueryExpressionNode> =
 		immutableRecord({
 			id,
 			kind: 'get',
-			query: immutableRecord({ ...query, where: undefined }),
+			query: immutableRecord({ ...physical.query, where: undefined }),
 		})
 	const result: unknown = await executor.execute(
 		createDatabasePersistenceRequest({
@@ -246,7 +232,7 @@ export const executeRuntimeSchemaMutation = async (
 		)
 	}
 	const { boundaries, inclusions, stages } = binding
-	const { command, context, envelope, runtime, schema } = request
+	const { application, command, context, envelope, schema } = request
 	let logical: PluginSchemaMutationOperationAst = immutableRecord({
 		command: envelope.command,
 		effect: undefined,
@@ -305,7 +291,10 @@ export const executeRuntimeSchemaMutation = async (
 	const target = readPreparedTarget(prepared)
 	if (target === null) throw createProtectedObjectNotFoundError()
 	const completeOriginal = boundaries.snapshotValue(target)
-	const resolverOriginal = projectResolverItem(command, completeOriginal)
+	const resolverOriginal = pickFields(
+		completeOriginal,
+		Object.keys(command.definition.select),
+	)
 
 	if (
 		stages.enforcement?.enforcePreparedMutation !== undefined &&
@@ -319,7 +308,8 @@ export const executeRuntimeSchemaMutation = async (
 		operationKind: logical.kind,
 		phase: 'schema-mutation-handler',
 	})
-	const candidate = await runtime.resolve(
+	const candidate = await resolveSchemaMutation(
+		application,
 		command,
 		schema,
 		envelope,
@@ -448,11 +438,13 @@ export const executeRuntimeSchemaMutation = async (
 			: materialization.kind === 'update'
 				? materialization.current
 				: previous
-	const databaseResult = projectResultRecord(
-		sourceRecord,
-		(
-			virtualProjection?.persistedSelection ?? physical.query.selection
-		).fields.map(({ field }) => field),
+	const resultFields = (
+		virtualProjection?.persistedSelection ?? physical.query.selection
+	).fields.map(({ field }) => field)
+	const databaseResult = (
+		resultFields.length === 0
+			? sourceRecord
+			: pickFields(sourceRecord, resultFields)
 	) as DatabaseOperationResult<typeof physical>
 	const result = await finalizeRuntimeOperationResult<
 		PluginSchemaMutationOperationAst,

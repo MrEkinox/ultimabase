@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -30,11 +25,6 @@ export type BooleanFieldOptions = FieldOptions<boolean>
 export type BooleanField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
-
-const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'boolean',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
@@ -118,17 +108,6 @@ export interface BooleanFieldFactory<
 	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }
 
-const normalizeBooleanFieldOptions = <
-	const TOptions extends BooleanFieldOptions,
->(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		normalizeBooleanValue,
-		booleanFieldOptionsContract,
-	)
-
 /**
  * Declares a `true` or `false` value.
  *
@@ -137,9 +116,7 @@ const normalizeBooleanFieldOptions = <
  * booleanField({ default: false, indexed: true })
  * ```
  */
-export const booleanField: BooleanFieldFactory =
-	createCompactScalarFieldFactory<'boolean', boolean, BooleanFieldOptions>(
-		'boolean',
-		normalizeBooleanFieldOptions,
-		normalizeBooleanValue,
-	)
+export const booleanField: BooleanFieldFactory = createScalarFieldFactory(
+	'boolean',
+	normalizeBooleanValue,
+)

@@ -11,7 +11,7 @@ import {
 	RelationArticle,
 	RelationTag,
 } from '../../../tests/fixtures/relation-fixture.js'
-import { materializeSchemaModel } from '../schema/model.js'
+import { materializeSchemaModel } from '../schema/model-materialization.js'
 import { Relation } from './relation.js'
 import { QueryBuilder } from '../../query/query/query.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'

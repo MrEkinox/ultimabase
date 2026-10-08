@@ -94,6 +94,11 @@ const tests = (files: readonly string[], cwd = repositoryRoot): void => {
 		repositoryRoot,
 	)
 }
+// Suites that complete coverage does not run: E2E has its own coverage projects
+// and performance budgets are only meaningful without instrumentation.
+const runsOutsideCoverage = (file: string): boolean =>
+	file.endsWith('.e2e.test.ts') || file.endsWith('.performance.test.ts')
+
 switch (process.argv[2]) {
 	case 'repository': {
 		const formatted = plan.changed.filter((file) => existsSync(file))
@@ -138,10 +143,11 @@ switch (process.argv[2]) {
 			throw new Error('Package was not selected by the planner')
 		run(['workspace', selected.name, 'typecheck:tests'])
 		run(['eslint', selected.directory])
-		// Complete coverage already executes unit, type and performance suites once.
+		// Complete coverage already executes unit and type suites once. Performance
+		// suites stay here: V8 coverage instrumentation distorts their timings.
 		tests(
 			plan.coverage
-				? selected.files.filter((file) => file.endsWith('.e2e.test.ts'))
+				? selected.files.filter(runsOutsideCoverage)
 				: selected.files,
 			path.join(repositoryRoot, selected.directory),
 		)
@@ -157,7 +163,7 @@ switch (process.argv[2]) {
 			run(['tsc', '--project', 'tests/tsconfig.json'])
 		tests(
 			plan.coverage
-				? plan.transversal.filter((file) => file.endsWith('.e2e.test.ts'))
+				? plan.transversal.filter(runsOutsideCoverage)
 				: plan.transversal,
 		)
 		break

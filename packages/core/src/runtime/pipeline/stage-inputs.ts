@@ -12,34 +12,35 @@ import type {
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
-	DatabaseOperationOutcome,
-	DatabaseOperationResult,
+	DatabaseRelationPredicateScope,
+	DatabaseRelationReference,
+	DatabaseRowFilterNode,
 } from '../database/contracts.js'
-import { getEnforcementStateSnapshot } from '../enforcement/state.js'
-import type { EnforcementState } from '../enforcement/state.js'
+import {
+	combineDatabaseRowFilters,
+	getEnforcementStateSnapshot,
+	type EnforcementState,
+} from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import {
 	readRuntimeNestedWriteStageContext,
 	type RuntimeNestedWriteStageContext,
 } from '../nested-writes/execution-context.js'
+import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import type {
 	RuntimeEnforcementStageInput,
-	RuntimeMutationOutcomeStageInput,
-	RuntimeProjectedDatabaseResultStageInput,
-	RuntimeMaterializedResultStageInput,
-	RuntimeMutationRevalidationStageInput,
-	RuntimeOperationResult,
+	RuntimeLogicalOperationAst,
 	RuntimeOperationStageInput,
+	RuntimePipelineStages,
 	RuntimePreparedMutationStageInput,
-	RuntimeResultStageInput,
 } from './contracts.js'
-import type { RuntimeLogicalOperationAst } from './contracts.js'
 import { readOperationResultSelection } from '../operations/queries.js'
 
 export const emptyRuntimeConstraints: readonly DatabaseConstraintNode[] =
 	immutableArray([])
 
-const createRuntimeStageInput = <const TInput extends object>(
+/** Freezes one stage envelope beside the Core-owned nested node that is active. */
+export const createRuntimeStageInput = <const TInput extends object>(
 	input: TInput,
 ): TInput &
 	Readonly<{
@@ -92,23 +93,6 @@ export const createRuntimeOperationInput = <
 ): RuntimeOperationStageInput<TOperation> =>
 	createRuntimeStageInput({ context, operation })
 
-export const createRuntimeMutationRevalidationInput = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	context: RequestContext,
-	previousOperation: TOperation,
-	operation: TOperation,
-	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined,
-	targets: readonly DatabaseMutationLogicalRecord<TOperation>[] | undefined,
-): RuntimeMutationRevalidationStageInput<TOperation> =>
-	createRuntimeStageInput({
-		context,
-		operation,
-		previousOperation,
-		target,
-		...(targets === undefined ? {} : { targets }),
-	})
-
 export const createRuntimeEnforcementInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
@@ -136,124 +120,105 @@ export const createRuntimePreparedMutationInput = <
 		...(targets === undefined ? {} : { targets }),
 	})
 
-export const createRuntimeMutationOutcomeInput = <
-	const TOperation extends DatabaseMutationOperationAst,
+/** Retains every protected restriction prepared for one read or mutation. */
+export interface RuntimeOperationEnforcement<
+	TOperation extends DatabaseOperationAst,
+> {
+	readonly constraints: readonly DatabaseConstraintNode[]
+	readonly enforcement: EnforcementState | undefined
+	readonly operation: TOperation
+	readonly relationPredicates:
+		readonly DatabaseRelationPredicateScope[] | undefined
+	readonly rowFilter: DatabaseRowFilterNode | undefined
+}
+
+/**
+ * Applies protected policy before resolving one application-owned relation filter,
+ * then prepares every relation predicate against the final private filters.
+ */
+export const enforceRuntimeOperation = async <
+	const TOperation extends DatabaseOperationAst,
 >(
+	stages: Readonly<RuntimePipelineStages>,
 	context: RequestContext,
-	operation: TOperation,
-	outcome: DatabaseOperationOutcome<TOperation>,
-	selectedFieldsOverride?: readonly string[],
-): RuntimeMutationOutcomeStageInput<
-	TOperation,
-	DatabaseOperationOutcome<TOperation>
-> =>
-	createRuntimeStageInput({
-		context,
+	initialOperation: TOperation,
+	relation: DatabaseRelationReference | undefined,
+	privateRowFilter: DatabaseRowFilterNode | undefined,
+	relationFilterResolver: RuntimeRelationFilterResolver | undefined,
+): Promise<RuntimeOperationEnforcement<TOperation>> => {
+	let operation = initialOperation
+	let enforcement: EnforcementState | undefined
+	let constraints = emptyRuntimeConstraints
+	let policyRowFilter: DatabaseRowFilterNode | undefined
+	let policyPredicates: readonly DatabaseRelationPredicateScope[] | undefined
+
+	if (stages.enforcement !== undefined) {
+		enforcement = await stages.enforcement.evaluate(
+			createRuntimeOperationInput(context, operation),
+		)
+		const enforced = await stages.enforcement.enforceOperation(
+			createRuntimeEnforcementInput(context, operation, enforcement),
+		)
+		operation = enforced.operation
+		constraints = snapshotRuntimeConstraints(enforced.constraints)
+		policyRowFilter = enforced.rowFilter
+		policyPredicates = enforced.relationPredicates
+	}
+
+	const relationFilter =
+		relation === undefined
+			? undefined
+			: await relationFilterResolver?.resolve(context, operation, relation)
+	const rowFilter = combineDatabaseRowFilters(
+		combineDatabaseRowFilters(privateRowFilter, relationFilter),
+		policyRowFilter,
+	)
+	const relationPredicates =
+		(await relationFilterResolver?.preparePredicates({
+			context,
+			operation,
+			relationPredicates: policyPredicates,
+			rowFilter,
+		})) ?? policyPredicates
+
+	return immutableRecord({
+		constraints,
+		enforcement,
 		operation,
-		outcome,
-		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
+		relationPredicates,
+		rowFilter,
 	})
-
-export const createRuntimeEnforcementResultInput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-	result: RuntimeOperationResult<TOperation>,
-	enforcement: EnforcementState,
-): RuntimeResultStageInput<TOperation> & {
-	readonly enforcement: EnforcementState
-} => createRuntimeStageInput({ context, enforcement, operation, result })
-
-export const createRuntimeResultInput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-	result: RuntimeOperationResult<TOperation>,
-): RuntimeResultStageInput<TOperation> =>
-	createRuntimeStageInput({ context, operation, result })
-
-export const createRuntimeMaterializedResultInput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-	result: RuntimeOperationResult<TOperation>,
-	selectedFieldsOverride: readonly string[] | undefined,
-	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst> | undefined,
-): RuntimeMaterializedResultStageInput<TOperation> =>
-	createRuntimeStageInput({
-		context,
-		operation,
-		...(outcome === undefined ? {} : { outcome }),
-		result,
-		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
-	})
-
-export const createRuntimeProjectedDatabaseResultInput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	context: RequestContext,
-	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
-	selectedFieldsOverride: readonly string[] | undefined,
-): RuntimeProjectedDatabaseResultStageInput<
-	TOperation,
-	DatabaseOperationResult<TOperation>
-> =>
-	createRuntimeStageInput({
-		context,
-		operation,
-		result,
-		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
-	})
+}
 
 const readOperationSelectionFields = (
 	operation: RuntimeLogicalOperationAst,
-): readonly string[] | undefined => {
-	const selection = readOperationResultSelection(operation)
-
-	const selectedFields: string[] = []
-
-	for (const selected of selection.fields) {
-		if (isPlainRecord(selected) && typeof selected.field === 'string') {
-			selectedFields.push(selected.field)
-		}
-	}
-
-	return immutableArray(selectedFields)
-}
+): readonly string[] =>
+	immutableArray(
+		readOperationResultSelection(operation).fields.flatMap((selected) =>
+			isPlainRecord(selected) && typeof selected.field === 'string'
+				? [selected.field]
+				: [],
+		),
+	)
 
 /** Reads the effective projection after enforcement materializes select-all. */
 export const readRuntimeSelectedFieldsOverride = (
 	operation: RuntimeLogicalOperationAst,
 	enforcement: EnforcementState | undefined,
-): readonly string[] | undefined => {
-	if (enforcement === undefined) {
-		return undefined
-	}
-
-	const permittedFields =
-		getEnforcementStateSnapshot(enforcement).selectionFields
-
-	if (permittedFields === undefined) {
-		return undefined
-	}
-
-	return readOperationSelectionFields(operation) ?? permittedFields
-}
+): readonly string[] | undefined =>
+	enforcement === undefined ||
+	getEnforcementStateSnapshot(enforcement).selectionFields === undefined
+		? undefined
+		: readOperationSelectionFields(operation)
 
 /** Retains the effective public projection for immutable model commands. */
 export const readRuntimeSchemaModelSelectedFields = (
 	operation: RuntimeLogicalOperationAst,
 	selectedFieldsOverride: readonly string[] | undefined,
 ): readonly string[] | undefined => {
-	if (selectedFieldsOverride !== undefined) {
-		return selectedFieldsOverride
-	}
+	if (selectedFieldsOverride !== undefined) return selectedFieldsOverride
 
 	const selectedFields = readOperationSelectionFields(operation)
 
-	return selectedFields?.length === 0 ? undefined : selectedFields
+	return selectedFields.length === 0 ? undefined : selectedFields
 }

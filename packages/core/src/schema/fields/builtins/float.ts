@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -32,11 +27,6 @@ export type FloatFieldOptions = FieldOptions<number>
  */
 export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'float', number, FloatFieldOptions, TTypegen>
-
-const floatFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'float',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedFloatFieldOptions<
 	TRequired extends boolean,
@@ -120,16 +110,6 @@ export interface FloatFieldFactory<
 	): NonDefaultedFloatField<TRequired, TList, TImmutable>
 }
 
-const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> => {
-	return normalizeFieldOptions(
-		options,
-		normalizeNumberValue,
-		floatFieldOptionsContract,
-	)
-}
-
 /**
  * Declares a JavaScript floating-point number for approximate numeric values.
  *
@@ -138,8 +118,7 @@ const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
  * floatField({ default: 0 })
  * ```
  */
-export const floatField: FloatFieldFactory = createCompactScalarFieldFactory<
+export const floatField: FloatFieldFactory = createScalarFieldFactory(
 	'float',
-	number,
-	FloatFieldOptions
->('float', normalizeFloatFieldOptions, normalizeNumberValue)
+	normalizeNumberValue,
+)

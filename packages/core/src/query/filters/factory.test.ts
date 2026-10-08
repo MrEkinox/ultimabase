@@ -12,8 +12,8 @@ import {
 	createQueryRegexFilter,
 	createQueryStructuralFilter,
 	createQueryValueFilter,
-	fieldPath,
 } from './factory.js'
+import { fieldPath } from './target.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const fixtureSchema = UltimaBase.Schema.define({

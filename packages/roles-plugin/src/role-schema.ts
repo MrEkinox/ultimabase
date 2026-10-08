@@ -34,13 +34,10 @@ import {
 	type RoleReference,
 } from './role-reference.js'
 import {
-	createRoleMemberCommands,
+	createRoleRelationCommands,
 	type RoleMemberCommands,
 } from './role-member.js'
-import {
-	createRoleHierarchyCommands,
-	type RoleHierarchyCommands,
-} from './role-hierarchy.js'
+import type { RoleHierarchyCommands } from './role-hierarchy.js'
 import {
 	createRoleSchemaIdentity,
 	roleSchemaIdentityOptionName,
@@ -398,9 +395,11 @@ export class RoleSchema {
 			throw new TypeError('members.schema must be created by App.Schema.define')
 		}
 
-		const configuredDeletionPolicy: unknown =
-			deletion === undefined ? undefined : Reflect.get(deletion, 'references')
-		const deletionPolicy = configuredDeletionPolicy ?? 'fail'
+		// `Reflect.get` keeps rejecting a non-object `deletion` from untyped callers.
+		const deletionPolicy: unknown =
+			(deletion === undefined
+				? undefined
+				: Reflect.get(deletion, 'references')) ?? 'fail'
 
 		if (
 			deletionPolicy !== 'fail' &&
@@ -412,29 +411,29 @@ export class RoleSchema {
 			)
 		}
 
+		type Fields = RoleSchemaFields<
+			TMemberSchema,
+			RoleSchemaSelfDefinition<TClassName>,
+			TCustomFields
+		>
 		type SelfSchema = ExactRoleSchemaDefinition<
 			TClassName,
 			TMemberSchema,
 			TCustomFields
 		>
-		const selfTargetState: {
-			roleSchema?: RoleSchemaClass<TClassName, TMemberSchema, TCustomFields>
-		} = {}
+		// The nested-role relation targets the class created below; Core resolves
+		// relation targets lazily, after `defineSpecialized` returned.
+		const self: { schema?: SelfSchema } = {}
 		const selfTarget = (): SelfSchema => {
-			if (selfTargetState.roleSchema === undefined) {
+			if (self.schema === undefined) {
 				throw new TypeError('Role schema self target is not initialized')
 			}
 
-			return selfTargetState.roleSchema
+			return self.schema
 		}
-		const fields: SchemaFieldBuilderDeclaration<
-			RoleSchemaFields<
-				TMemberSchema,
-				RoleSchemaSelfDefinition<TClassName>,
-				TCustomFields
-			>,
-			TClassName
-		> = (field) => {
+		const fields: SchemaFieldBuilderDeclaration<Fields, TClassName> = (
+			field,
+		) => {
 			const customFields = defineFields(field)
 
 			for (const fieldName of ['members', 'name', 'roles'] as const) {
@@ -472,60 +471,44 @@ export class RoleSchema {
 				)
 			}
 
-			const toRequestRoleReference = function (
-				this: object,
-			): RoleReference<SelfSchema, RoleIdSelector> {
-				context.assertPersisted(this, 'toRequestRoleReference')
-
-				if (!('id' in this) || typeof this.id !== 'string') {
-					throw new TypeError(
-						'Persisted role has no valid framework identifier',
-					)
-				}
-
-				// The neutral reference keeps ACL and other consumers independent from roles.
-				return createRoleReference(context.schema, { id: this.id })
-			}
-			const resultCapabilities: RequestRoleReferenceCarrier &
+			const results: RequestRoleReferenceCarrier &
 				RoleMemberCommands<SelfSchema, TMemberSchema> &
 				RoleHierarchyCommands<SelfSchema> = {
-				toRequestRoleReference,
-				...createRoleMemberCommands(context, members.schema),
-				...createRoleHierarchyCommands<SelfSchema>(context),
+				toRequestRoleReference(
+					this: object,
+				): RoleReference<SelfSchema, RoleIdSelector> {
+					context.assertPersisted(this, 'toRequestRoleReference')
+
+					if (!('id' in this) || typeof this.id !== 'string') {
+						throw new TypeError(
+							'Persisted role has no valid framework identifier',
+						)
+					}
+
+					// The neutral reference keeps ACL and other consumers independent from roles.
+					return createRoleReference(context.schema, { id: this.id })
+				},
+				...createRoleRelationCommands(context, members.schema),
 			}
 
 			return {
 				statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-				results: resultCapabilities,
+				results,
 			}
 		}
-		const commonOptions = {
-			...generatedOptions,
-			[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),
-			className,
-			fields,
-			...(indexes === undefined ? {} : { indexes }),
-			...(access === undefined ? {} : { access }),
-		}
 		const roleSchema = Schema.defineSpecialized(
-			commonOptions as unknown as SchemaOptions<
-				TClassName,
-				RoleSchemaFields<
-					TMemberSchema,
-					RoleSchemaSelfDefinition<TClassName>,
-					TCustomFields
-				>
-			> &
-				ReservedSchemaFieldCollision<
-					RoleSchemaFields<
-						TMemberSchema,
-						RoleSchemaSelfDefinition<TClassName>,
-						TCustomFields
-					>
-				>,
+			{
+				...generatedOptions,
+				[roleSchemaIdentityOptionName]: createRoleSchemaIdentity(className),
+				className,
+				fields,
+				...(indexes === undefined ? {} : { indexes }),
+				...(access === undefined ? {} : { access }),
+			} as unknown as SchemaOptions<TClassName, Fields> &
+				ReservedSchemaFieldCollision<Fields>,
 			createCapabilities,
 		)
-		selfTargetState.roleSchema = roleSchema
+		self.schema = roleSchema
 		roleSchemaDeclarations.set(
 			roleSchema,
 			Object.freeze({

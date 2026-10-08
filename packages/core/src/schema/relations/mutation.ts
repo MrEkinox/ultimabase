@@ -63,29 +63,20 @@ export interface RelationUpdateExpression<
 /** Keeps terminal execution choices out of the immutable relation delta. */
 export type RelationMutationOptions = OperationOptions
 
+const hasKind = (value: unknown, kind: string): value is { kind: string } =>
+	typeof value === 'object' &&
+	value !== null &&
+	'kind' in value &&
+	value.kind === kind
+
 /** Narrows an unknown update expression to Core's logical relation shape. */
 export const isRelationUpdateExpression = (
 	value: unknown,
-): value is RelationUpdateExpression => {
-	if (
-		typeof value !== 'object' ||
-		value === null ||
-		!('kind' in value) ||
-		value.kind !== 'update-expression' ||
-		!('operations' in value) ||
-		!isUnknownArray(value.operations)
-	) {
-		return false
-	}
-
-	return value.operations.some(
-		(operation) =>
-			typeof operation === 'object' &&
-			operation !== null &&
-			'kind' in operation &&
-			operation.kind === 'relation',
-	)
-}
+): value is RelationUpdateExpression =>
+	hasKind(value, 'update-expression') &&
+	'operations' in value &&
+	isUnknownArray(value.operations) &&
+	value.operations.some((operation) => hasKind(operation, 'relation'))
 
 /** Converts exact IDs to pointers and rejects ambiguous duplicate declarations. */
 const normalizeTargets = <TTarget extends SchemaDefinition>(
@@ -143,16 +134,15 @@ export const createRelationUpdateExpression = <
 		)
 	}
 
-	const emptyTargets: readonly Pointer<TTarget>[] = []
+	// Clear ignores caller values; only set accepts an explicitly empty replacement.
 	const targets =
 		action === 'clear'
-			? immutableArray(emptyTargets)
+			? normalizeTargets(target, [], true)
 			: normalizeTargets(target, values, action === 'set')
-	const delta = immutableRecord({ action, targets })
 	const operation = immutableRecord({
 		field: fieldName,
 		kind: 'relation' as const,
-		value: delta,
+		value: immutableRecord({ action, targets }),
 	})
 
 	return immutableRecord({

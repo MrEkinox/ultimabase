@@ -1,9 +1,16 @@
 import {
 	RequestSubjectReference,
+	type DatabaseOperationAst,
+	type ExecutableOperationAst,
 	type RequestRoleReference,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 /** Selects one stored role by its normalized logical name. */
 export interface RoleNameSelector<TName extends string = string> {
@@ -47,6 +54,8 @@ export interface RoleReferenceState<
 const roleReferenceStates = new WeakMap<object, RoleReferenceState>()
 const uuidPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
+/** Versions the serialized neutral value so ACL JSON can restore it later. */
+const identityPrefix = ['@ultimabase/roles-plugin', 1] as const
 
 /** Applies one locale-independent identity form before storage or lookup. */
 export const normalizeRoleName = (name: string): string => {
@@ -61,6 +70,85 @@ export const normalizeRoleName = (name: string): string => {
 	}
 
 	return normalizedName
+}
+
+const normalizeRoleNameValue = (value: unknown): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError('Role names must be strings')
+	}
+	return normalizeRoleName(value)
+}
+
+const normalizeRoleRecord = (
+	value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> =>
+	Object.hasOwn(value, 'name')
+		? immutableRecord({ ...value, name: normalizeRoleNameValue(value.name) })
+		: value
+
+const normalizeRoleUpdate = (value: unknown): unknown => {
+	if (!isPlainRecord(value) || !isUnknownArray(value.operations)) return value
+
+	return immutableRecord({
+		...value,
+		operations: immutableArray(
+			value.operations.map((operation) =>
+				isPlainRecord(operation) &&
+				operation.field === 'name' &&
+				Object.hasOwn(operation, 'value')
+					? immutableRecord({
+							...operation,
+							value: normalizeRoleNameValue(operation.value),
+						})
+					: operation,
+			),
+		),
+	})
+}
+
+/** Stores every written role name in its canonical identity form. */
+export const normalizeRoleOperation = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	operation: TOperation,
+): TOperation => {
+	const executable = operation as unknown as ExecutableOperationAst
+	// Only role-name values change; every other operation property is kept.
+	const replace = (changes: object): TOperation => {
+		const normalized: unknown = immutableRecord({ ...executable, ...changes })
+		return normalized as TOperation
+	}
+
+	switch (executable.kind) {
+		case 'create-one':
+			return replace({ input: normalizeRoleRecord(executable.input) })
+		case 'create-many':
+			return replace({
+				inputs: immutableArray(executable.inputs.map(normalizeRoleRecord)),
+			})
+		case 'update-one':
+		case 'update-many':
+			return replace({ update: normalizeRoleUpdate(executable.update) })
+		case 'upsert-one':
+			return replace({
+				create: normalizeRoleRecord(executable.create),
+				update: normalizeRoleUpdate(executable.update),
+			})
+		case 'upsert-many':
+			return replace({
+				items: immutableArray(
+					executable.items.map((item) =>
+						immutableRecord({
+							...item,
+							create: normalizeRoleRecord(item.create),
+							update: normalizeRoleUpdate(item.update),
+						}),
+					),
+				),
+			})
+		default:
+			return operation
+	}
 }
 
 const normalizeRoleSelector = (selector: RoleSelector): RoleSelector => {
@@ -84,13 +172,10 @@ export const createRoleReference = <
 	selector: TSelector,
 ): RoleReference<TSchema, TSelector> => {
 	const normalizedSelector = normalizeRoleSelector(selector)
-	const identity = JSON.stringify([
-		'@ultimabase/roles-plugin',
-		1,
-		schema.className,
-		normalizedSelector,
-	])
-	const reference = new RequestSubjectReference('role', identity)
+	const reference = new RequestSubjectReference(
+		'role',
+		JSON.stringify([...identityPrefix, schema.className, normalizedSelector]),
+	)
 
 	roleReferenceStates.set(
 		reference,
@@ -117,7 +202,16 @@ export function getRoleReferenceState(
 	return roleReferenceStates.get(reference)
 }
 
-const parseJSON: (value: string) => unknown = JSON.parse
+/** Reads the single-key selector object of a serialized reference. */
+const readSerializedSelector = (value: unknown): RoleSelector | undefined => {
+	if (!isPlainRecord(value) || Object.keys(value).length !== 1) {
+		return undefined
+	}
+
+	if (typeof value.id === 'string') return { id: value.id }
+
+	return typeof value.name === 'string' ? { name: value.name } : undefined
+}
 
 /** Restores official role state from the stable neutral value retained by ACL JSON. */
 export const restoreRoleReferenceState = (
@@ -127,7 +221,7 @@ export const restoreRoleReferenceState = (
 	let value: unknown
 
 	try {
-		value = parseJSON(reference.value)
+		value = JSON.parse(reference.value)
 	} catch {
 		return undefined
 	}
@@ -135,43 +229,26 @@ export const restoreRoleReferenceState = (
 	if (
 		!isUnknownArray(value) ||
 		value.length !== 4 ||
-		value[0] !== '@ultimabase/roles-plugin' ||
-		value[1] !== 1 ||
-		typeof value[2] !== 'string' ||
-		!isPlainRecord(value[3])
+		value[0] !== identityPrefix[0] ||
+		value[1] !== identityPrefix[1] ||
+		typeof value[2] !== 'string'
 	) {
 		return undefined
 	}
 
 	const className = value[2]
+	const selector = readSerializedSelector(value[3])
+
+	if (selector === undefined) return undefined
+
 	const schema = [...registeredSchemas].find(
 		(candidate) => candidate.className === className,
 	)
 
 	if (schema === undefined) return undefined
 
-	const selectorValue = value[3]
-	let selector: RoleSelector
-
-	if (
-		Object.keys(selectorValue).length === 1 &&
-		typeof selectorValue.id === 'string'
-	) {
-		selector = { id: selectorValue.id }
-	} else if (
-		Object.keys(selectorValue).length === 1 &&
-		typeof selectorValue.name === 'string'
-	) {
-		selector = { name: selectorValue.name }
-	} else {
-		return undefined
-	}
-
 	try {
-		return Object.freeze({
-			schema,
-			selector: normalizeRoleSelector(selector),
-		})
+		return Object.freeze({ schema, selector: normalizeRoleSelector(selector) })
 	} catch {
 		return undefined
 	}

@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import {
@@ -13,9 +14,8 @@ import {
 } from '../../query/filters/relation.js'
 import type { QueryFilterNode } from '../../query/filters/logical.js'
 import { WhereBuilder } from '../../query/filters/where.js'
-import { getRelationWhereDeclaration } from '../../schema/fields/builtins/relation.js'
+import { getRelationWhereDeclaration } from '../../schema/fields/base/definition.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { assertApplicationEngineAvailable } from '../engine/application-binding.js'
 import type {
 	DatabaseOperationAst,
 	DatabaseRelationPredicateScope,
@@ -25,6 +25,7 @@ import type { RequestContext } from '../context/request-context.js'
 import {
 	createRuntimeCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
+	isFrameworkControlFailure,
 } from '../contributions/execution.js'
 import { createSchemaRuntimeCallbackOwner } from '../contributions/schema-callback-owner.js'
 import {
@@ -36,11 +37,6 @@ type RelationFilterApplication = FrameworkApplication<
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 >
-
-const preserveFrameworkControlFailure = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	(error.code === 'OPERATION_CANCELLED' ||
-		error.code === 'RUNTIME_CALLBACK_RECURSION')
 
 const omitIdentityFilter = (
 	filter: QueryFilterNode<SchemaDefinition>,
@@ -90,7 +86,7 @@ export class RuntimeRelationFilterResolver {
 		operation: DatabaseOperationAst,
 		relation: DatabaseRelationReference,
 	): Promise<QueryFilterNode<SchemaDefinition> | undefined> {
-		assertApplicationEngineAvailable(this.#application)
+		assertApplicationExecution(this.#application)
 		const field = readRelationWhereField(relation.source, relation.fieldPath)
 		if (field.kind !== 'relation') {
 			throw new TypeError('Runtime relation filter path must end at a relation')
@@ -154,7 +150,7 @@ export class RuntimeRelationFilterResolver {
 					),
 				)
 			} catch (error: unknown) {
-				if (preserveFrameworkControlFailure(error)) throw error
+				if (isFrameworkControlFailure(error)) throw error
 				throw new FrameworkError(
 					'INTERNAL_ERROR',
 					`Relation filter resolver failed: ${relation.source.className}.${relation.fieldPath.join('.')}`,
@@ -169,7 +165,7 @@ export class RuntimeRelationFilterResolver {
 				)
 			}
 
-			assertApplicationEngineAvailable(this.#application)
+			assertApplicationExecution(this.#application)
 			const normalized = omitIdentityFilter(resolved)
 			this.#resolved.set(field, normalized)
 			return normalized

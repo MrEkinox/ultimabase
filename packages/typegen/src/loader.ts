@@ -16,7 +16,7 @@ type TypegenApplication = UltimaBase<
 >
 
 const readProperty = (value: object, property: PropertyKey): unknown =>
-	(value as Readonly<Record<PropertyKey, unknown>>)[property]
+	Reflect.get(value, property)
 
 const isTypegenApplication = (
 	candidate: unknown,

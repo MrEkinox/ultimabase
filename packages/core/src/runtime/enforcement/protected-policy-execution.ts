@@ -1,4 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import type {
@@ -11,14 +11,13 @@ import type {
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
 import {
+	bypassesMaster,
 	readEnforcementOperationSchema,
 	type OwnedEnforcementContribution,
 } from './contribution-evaluation.js'
+import { matchesEnforcementContribution } from './definitions.js'
 import { createProtectedPolicyDeniedError } from './protected-denial.js'
-import {
-	matchesProtectedPolicy,
-	type ProtectedPolicyImplementation,
-} from './protected-policy.js'
+import type { ProtectedPolicyImplementation } from './protected-policy.js'
 import { validateProtectedPolicyResultSubset } from './protected-result.js'
 
 const matchingPolicies = (
@@ -29,69 +28,65 @@ const matchingPolicies = (
 
 	return contributions.flatMap(({ implementation }) =>
 		implementation.kind === 'protected-policy' &&
-		!(
-			input.context.access.mode === 'master' &&
-			implementation.master === 'bypass'
-		) &&
-		matchesProtectedPolicy(implementation, input.operation, schema)
+		!bypassesMaster(implementation, input.context) &&
+		matchesEnforcementContribution(implementation, input.operation, schema)
 			? [implementation]
 			: [],
 	)
 }
 
-const requireAllowed = (decision: unknown): void => {
-	if (decision !== undefined && typeof decision !== 'boolean') {
-		throw new TypeError(
-			'Protected policy guards must return a boolean or undefined',
-		)
-	}
-	if (decision === false) {
-		throw createProtectedPolicyDeniedError()
+/** Denies when any matching policy guard returns false; true or omission allow. */
+const requireMatchingPolicies = async (
+	contributions: readonly OwnedEnforcementContribution[],
+	input: RuntimeOperationStageInput<RuntimeLogicalOperationAst>,
+	decide: (policy: ProtectedPolicyImplementation) => MaybePromise<unknown>,
+): Promise<void> => {
+	for (const policy of matchingPolicies(contributions, input)) {
+		const decision = await decide(policy)
+		if (decision !== undefined && typeof decision !== 'boolean') {
+			throw new TypeError(
+				'Protected policy guards must return a boolean or undefined',
+			)
+		}
+		if (decision === false) {
+			throw createProtectedPolicyDeniedError()
+		}
 	}
 }
 
 /** Rechecks value-dependent policies without exposing accumulated enforcement. */
-export const reevaluateProtectedPolicies = async <
+export const reevaluateProtectedPolicies = <
 	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimeOperationStageInput<TOperation>,
-): Promise<void> => {
-	for (const policy of matchingPolicies(contributions, input)) {
-		if (policy.reevaluate !== undefined) {
-			requireAllowed(await policy.reevaluate(input))
-		}
-	}
-}
+): Promise<void> =>
+	requireMatchingPolicies(contributions, input, ({ reevaluate }) =>
+		reevaluate?.(input),
+	)
 
 /** Denies one relationship traversal when any matching policy rejects it. */
-export const enforceProtectedRelation = async <
+export const enforceProtectedRelation = <
 	const TOperation extends RuntimeLogicalOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimeRelationEnforcementStageInput<TOperation>,
-): Promise<void> => {
-	for (const policy of matchingPolicies(contributions, input)) {
-		if (policy.relation !== undefined) {
-			requireAllowed(await policy.relation(input))
-		}
-	}
-}
+): Promise<void> =>
+	requireMatchingPolicies(contributions, input, ({ relation }) =>
+		relation?.(input),
+	)
 
 /** Denies one stable mutation target when any matching policy rejects it. */
-export const enforceProtectedPreparedMutation = async <
+export const enforceProtectedPreparedMutation = <
 	const TOperation extends RuntimeLogicalMutationOperationAst,
 	const TTarget,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimePreparedMutationStageInput<TOperation, TTarget>,
-): Promise<void> => {
-	for (const policy of matchingPolicies(contributions, input)) {
-		if (policy.preparedMutation !== undefined) {
-			requireAllowed(await policy.preparedMutation(input))
-		}
-	}
-}
+): Promise<void> =>
+	requireMatchingPolicies(contributions, input, ({ preparedMutation }) =>
+		preparedMutation?.(input),
+	)
 
 /** Denies one actual mutation branch when any matching policy rejects it. */
 export const enforceProtectedMutationOutcome = async <
@@ -101,12 +96,9 @@ export const enforceProtectedMutationOutcome = async <
 	contributions: readonly OwnedEnforcementContribution[],
 	input: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
 ): Promise<TOutcome> => {
-	for (const policy of matchingPolicies(contributions, input)) {
-		if (policy.mutationOutcome !== undefined) {
-			requireAllowed(await policy.mutationOutcome(input))
-		}
-	}
-
+	await requireMatchingPolicies(contributions, input, ({ mutationOutcome }) =>
+		mutationOutcome?.(input),
+	)
 	return input.outcome
 }
 
@@ -120,7 +112,7 @@ export const protectedPoliciesRequirePreparedMutationItems = (
 	return contributions.some(
 		({ implementation }) =>
 			implementation.kind === 'protected-policy' &&
-			matchesProtectedPolicy(implementation, operation, schema) &&
+			matchesEnforcementContribution(implementation, operation, schema) &&
 			implementation.requiresPreparedMutationItems?.(operation) === true,
 	)
 }

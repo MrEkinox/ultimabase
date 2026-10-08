@@ -2,9 +2,9 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
+import { assertConstraintKind } from '../schema/schema/constraints.js'
 
 import { FrameworkError } from '../errors/framework-error.js'
 
@@ -74,22 +74,7 @@ interface CreatePluginConstraintCompilerRegistryOptions {
 
 const definitionOptionKeys = new Set(['adapter', 'kind', 'version'])
 const adapterPattern = /^[a-z][a-z0-9-]*$/u
-const constraintKindPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u
 const definitions = new WeakSet<object>()
-
-/** Keeps node and compiler factories aligned on one namespaced-kind grammar. */
-export const assertDatabaseConstraintKind: (
-	value: unknown,
-	path: string,
-) => asserts value is string = (value, path) => {
-	assertNonEmptyString(value, path)
-
-	if (!constraintKindPattern.test(value)) {
-		throw new TypeError(
-			`${path} must use lowercase dot-separated namespace segments`,
-		)
-	}
-}
 
 /** Keeps node and compiler identities aligned on one version contract. */
 export const assertDatabaseConstraintVersion: (
@@ -136,15 +121,10 @@ export const defineDatabaseConstraintCompiler = <
 ): DatabaseConstraintCompilerDefinition<TAdapter, TKind, TVersion> => {
 	const untrustedOptions: unknown = options
 
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError(
-			'database constraint compiler options must be a plain object',
-		)
-	}
-
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		untrustedOptions,
 		definitionOptionKeys,
+		'database constraint compiler options must be a plain object',
 		'database constraint compiler contains unknown key: ',
 	)
 
@@ -152,7 +132,7 @@ export const defineDatabaseConstraintCompiler = <
 		untrustedOptions.adapter,
 		'database constraint compiler adapter',
 	)
-	assertDatabaseConstraintKind(
+	assertConstraintKind(
 		untrustedOptions.kind,
 		'database constraint compiler kind',
 	)
@@ -207,34 +187,6 @@ export const createDatabaseConstraintCompilerReader = (
 	})
 }
 
-const sameIdentity = (
-	left: DatabaseConstraintCompilerDefinition,
-	right: DatabaseConstraintCompilerDefinition,
-): boolean =>
-	left.adapter === right.adapter &&
-	left.kind === right.kind &&
-	left.version === right.version
-
-const throwDuplicateCompiler = (
-	definition: DatabaseConstraintCompilerDefinition,
-	existingOwner: string,
-	ownerPlugin: string,
-): never => {
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Database constraint compiler "${definition.kind}" version ${String(definition.version)} for adapter "${definition.adapter}" is already owned by plugin "${existingOwner}".`,
-		{
-			internalDetails: {
-				adapter: definition.adapter,
-				constraintKind: definition.kind,
-				kind: 'duplicate-database-constraint-compiler',
-				pluginNames: immutableArray([existingOwner, ownerPlugin]),
-				version: definition.version,
-			},
-		},
-	)
-}
-
 /** Builds the concise plugin facade over one application's shared contribution storage. */
 export const createPluginConstraintCompilerRegistry = (
 	options: CreatePluginConstraintCompilerRegistryOptions,
@@ -261,23 +213,34 @@ export const createPluginConstraintCompilerRegistry = (
 				)
 			}
 
-			const existing = readValues().find(({ definition: candidate }) =>
-				sameIdentity(candidate, definition),
+			const { adapter, kind, version } = definition
+			const existing = readValues().find(
+				({ definition: candidate }) =>
+					candidate.adapter === adapter &&
+					candidate.kind === kind &&
+					candidate.version === version,
 			)
-
 			if (existing !== undefined) {
-				throwDuplicateCompiler(
-					definition,
-					existing.ownerPlugin,
-					options.ownerPlugin,
+				throw new FrameworkError(
+					'PLUGIN_CONFLICT',
+					`Database constraint compiler "${kind}" version ${String(version)} for adapter "${adapter}" is already owned by plugin "${existing.ownerPlugin}".`,
+					{
+						internalDetails: {
+							adapter,
+							constraintKind: kind,
+							kind: 'duplicate-database-constraint-compiler',
+							pluginNames: immutableArray([
+								existing.ownerPlugin,
+								options.ownerPlugin,
+							]),
+							version,
+						},
+					},
 				)
 			}
 
 			// The semantic identity is private storage metadata, never caller provenance.
-			options.register(
-				`${definition.adapter}:${definition.kind}@${String(definition.version)}`,
-				definition,
-			)
+			options.register(`${adapter}:${kind}@${String(version)}`, definition)
 		},
 		values: readValues,
 	})

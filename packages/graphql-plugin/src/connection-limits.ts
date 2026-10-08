@@ -1,6 +1,9 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-const maximumGraphqlInt = 2_147_483_647
+import { assertGraphqlKnownKeys } from './options.js'
+
+/** The largest value of the GraphQL `Int` scalar. */
+export const maximumGraphqlInt = 2_147_483_647
 
 /** Configures GraphQL v1 request safety and the forward-page window. */
 export interface GraphqlExecutionLimits {
@@ -46,16 +49,7 @@ export const defaultGraphqlExecutionLimits: NormalizedGraphqlExecutionLimits =
 		maxVariablesBytes: 1024 * 1024,
 	})
 
-const limitKeys = new Set([
-	'defaultPageSize',
-	'maxAliases',
-	'maxDepth',
-	'maxDocumentBytes',
-	'maxDocumentTokens',
-	'maxPageSize',
-	'maxRootFields',
-	'maxVariablesBytes',
-])
+const limitKeys = new Set(Object.keys(defaultGraphqlExecutionLimits))
 
 const readLimit = (value: unknown, path: string, minimum: number): number => {
 	if (
@@ -78,11 +72,7 @@ export const normalizeGraphqlExecutionLimits = (
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain object`)
 	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !limitKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
+	assertGraphqlKnownKeys(value, limitKeys, path)
 	const defaultPageSize =
 		value.defaultPageSize === undefined
 			? defaultGraphqlExecutionLimits.defaultPageSize

@@ -1,4 +1,5 @@
 import { isPlainRecord } from '@ultimabase/shared'
+import type { GraphQLError } from 'graphql'
 import type { GraphQLParams } from 'graphql-yoga'
 
 import { createGraphqlHttpFailure } from './errors.js'
@@ -10,23 +11,26 @@ const allowedKeys = new Set([
 	'variables',
 ])
 
-const badRequest = (message: string) =>
+const badRequest = (message: string): GraphQLError =>
 	createGraphqlHttpFailure({ code: 'BAD_REQUEST', message, status: 400 })
+
+const tooLarge = (): GraphQLError =>
+	createGraphqlHttpFailure({
+		code: 'PAYLOAD_TOO_LARGE',
+		message: 'GraphQL request body is too large.',
+		status: 413,
+	})
 
 const readBody = async (
 	request: Request,
 	bodyLimit: number,
 ): Promise<string> => {
-	const declaredLength = request.headers.get('content-length')
-	if (declaredLength !== null) {
-		const length = Number(declaredLength)
-		if (Number.isFinite(length) && length > bodyLimit) {
-			throw createGraphqlHttpFailure({
-				code: 'PAYLOAD_TOO_LARGE',
-				message: 'GraphQL request body is too large.',
-				status: 413,
-			})
-		}
+	// Content-Length only rejects early; the streamed byte count is authoritative.
+	const declaredLength = Number(
+		request.headers.get('content-length') ?? Number.NaN,
+	)
+	if (Number.isFinite(declaredLength) && declaredLength > bodyLimit) {
+		throw tooLarge()
 	}
 	if (request.body === null)
 		throw badRequest('GraphQL request body is required.')
@@ -40,11 +44,7 @@ const readBody = async (
 			length += chunk.value.byteLength
 			if (length > bodyLimit) {
 				await reader.cancel()
-				throw createGraphqlHttpFailure({
-					code: 'PAYLOAD_TOO_LARGE',
-					message: 'GraphQL request body is too large.',
-					status: 413,
-				})
+				throw tooLarge()
 			}
 			chunks.push(chunk.value)
 			request.signal.throwIfAborted()
@@ -82,8 +82,7 @@ const normalizeParams = (value: unknown): GraphQLParams => {
 		throw badRequest('GraphQL request query must be a string.')
 	}
 	if (
-		value.operationName !== undefined &&
-		value.operationName !== null &&
+		value.operationName != null &&
 		(typeof value.operationName !== 'string' ||
 			value.operationName.length === 0)
 	) {
@@ -91,14 +90,10 @@ const normalizeParams = (value: unknown): GraphQLParams => {
 			'GraphQL request operationName must be a non-empty string or null.',
 		)
 	}
-	if (
-		value.variables !== undefined &&
-		value.variables !== null &&
-		!isPlainRecord(value.variables)
-	) {
+	if (value.variables != null && !isPlainRecord(value.variables)) {
 		throw badRequest('GraphQL request variables must be an object or null.')
 	}
-	if (value.extensions !== undefined && value.extensions !== null) {
+	if (value.extensions != null) {
 		if (!isPlainRecord(value.extensions)) {
 			throw badRequest('GraphQL request extensions must be an object or null.')
 		}

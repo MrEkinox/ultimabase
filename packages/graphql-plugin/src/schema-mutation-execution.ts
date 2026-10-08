@@ -6,60 +6,51 @@ import type {
 	SchemaDefinition,
 } from '@ultimabase/core'
 
+import { matchesGraphqlPlan } from './operation-execution.js'
 import type { graphqlProtocol } from './protocol.js'
 
-interface GraphqlSchemaMutationExecutionState {
-	core: ApplicationSchemaMutationTransport<typeof graphqlProtocol> | undefined
-	plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>
-	selected: Set<ExposedSchemaMutationTransportBinding>
-}
-
-const states = new WeakMap<
-	GraphqlSchemaMutationExecution,
-	GraphqlSchemaMutationExecutionState
->()
+type Transport = ApplicationSchemaMutationTransport<typeof graphqlProtocol>
+type Plan = ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>
 
 /** Retains selected schema mutations while Core owns every executable callback. */
 export class GraphqlSchemaMutationExecution {
-	constructor(
-		plan: ApplicationSchemaMutationTransportPlan<typeof graphqlProtocol>,
-	) {
-		states.set(this, {
-			core: undefined,
-			plan,
-			selected: new Set(),
-		})
+	// Disposal clears the plan and the selection, which share one lifetime.
+	#plan: Plan | undefined
+	#core: Transport | undefined
+	readonly #selected = new Set<ExposedSchemaMutationTransportBinding>()
+
+	constructor(plan: Plan) {
+		this.#plan = plan
 		Object.freeze(this)
 	}
 
 	/** @internal Records only descriptors that produced a public GraphQL field. */
 	select(descriptor: ExposedSchemaMutationTransportBinding): void {
-		const state = states.get(this)
-		if (!state?.plan.mutations.includes(descriptor)) {
+		if (!this.#plan?.mutations.includes(descriptor)) {
 			throw new TypeError('GraphQL schema mutation selection is unavailable')
 		}
-		state.selected.add(descriptor)
+		this.#selected.add(descriptor)
 	}
 
-	bind(core: ApplicationSchemaMutationTransport<typeof graphqlProtocol>): void {
-		const state = states.get(this)
-		if (state === undefined) {
+	bind(core: Transport): void {
+		const plan = this.#plan
+		if (plan === undefined) {
 			throw new TypeError('GraphQL schema mutation execution is unavailable')
 		}
-		if (state.core !== undefined) {
+		if (this.#core !== undefined) {
 			throw new TypeError('GraphQL schema mutation execution is already bound')
 		}
 		if (
-			core.transport !== state.plan.transport ||
-			core.mutations.length !== state.plan.mutations.length ||
-			core.mutations.some((item, index) => item !== state.plan.mutations[index])
+			!matchesGraphqlPlan(
+				{ transport: core.transport, items: core.mutations },
+				{ transport: plan.transport, items: plan.mutations },
+			)
 		) {
 			throw new TypeError(
 				'GraphQL schema mutation execution does not match its static plan',
 			)
 		}
-
-		state.core = core
+		this.#core = core
 	}
 
 	async execute(options: {
@@ -71,12 +62,11 @@ export class GraphqlSchemaMutationExecution {
 		readonly schema: SchemaDefinition
 		readonly select?: unknown
 	}): Promise<unknown> {
-		const state = states.get(this)
-		if (state?.core === undefined || !state.selected.has(options.descriptor)) {
+		const core = this.#plan === undefined ? undefined : this.#core
+		if (core === undefined || !this.#selected.has(options.descriptor)) {
 			throw new TypeError('GraphQL schema mutation execution is unavailable')
 		}
-
-		return state.core.execute({
+		return core.execute({
 			binding: options.descriptor,
 			context: options.context,
 			id: options.id,
@@ -88,7 +78,8 @@ export class GraphqlSchemaMutationExecution {
 	}
 
 	dispose(): void {
-		// The selected descriptors and executable view have the same lifetime.
-		states.delete(this)
+		this.#plan = undefined
+		this.#core = undefined
+		this.#selected.clear()
 	}
 }

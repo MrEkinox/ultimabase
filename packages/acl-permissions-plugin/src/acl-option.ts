@@ -3,6 +3,7 @@ import {
 	definePluginFieldFamily,
 	definePluginFieldWireProtocol,
 	defineSchemaOption,
+	type CompiledSchemaRegistry,
 	type FieldValueMap,
 	type PluginFieldDefinition,
 	type PluginFieldFamilyDefinition,
@@ -77,16 +78,12 @@ const snapshotACL = (value: unknown, path: string): ACL => {
 	return value
 }
 
-const restV1FieldProtocol = definePluginFieldWireProtocol({
-	name: 'ultimabase.rest',
-	version: '1.0.0',
-})
-const graphqlV1FieldProtocol = definePluginFieldWireProtocol({
-	name: 'ultimabase.graphql.field',
-	version: '1.0.0',
-})
-const decodeACLJson = (value: unknown): ACL => ACL.fromJSON(value)
-const encodeACLJson = (value: ACL): unknown => value.toJSON()
+// Public ACL JSON is already versioned and strictly validated in both directions.
+const jsonCodec = {
+	decode: (value: unknown): ACL => ACL.fromJSON(value),
+	encode: (value: ACL): unknown => value.toJSON(),
+	format: 'json',
+} as const
 
 /** Defines the unchanged adapter-neutral field added to ACL-enabled schemas. */
 export const aclField = definePluginField(
@@ -96,25 +93,21 @@ export const aclField = definePluginField(
 		// The ACL plugin supplies missing create values after ordinary fields resolve.
 		deferRequiredUntilResolveInput: true,
 		snapshotValue: snapshotACL,
-		// Public ACL JSON is already versioned and strictly validated in both directions.
-		storageCodec: {
-			decode: decodeACLJson,
-			encode: encodeACLJson,
-			format: 'json',
-			version: 1,
-		},
+		storageCodec: { ...jsonCodec, version: 1 },
 		wireCodecs: [
 			{
-				decode: decodeACLJson,
-				encode: encodeACLJson,
-				format: 'json',
-				protocol: restV1FieldProtocol,
+				...jsonCodec,
+				protocol: definePluginFieldWireProtocol({
+					name: 'ultimabase.rest',
+					version: '1.0.0',
+				}),
 			},
 			{
-				decode: decodeACLJson,
-				encode: encodeACLJson,
-				format: 'json',
-				protocol: graphqlV1FieldProtocol,
+				...jsonCodec,
+				protocol: definePluginFieldWireProtocol({
+					name: 'ultimabase.graphql.field',
+					version: '1.0.0',
+				}),
 			},
 		],
 		structuralContains: {
@@ -290,7 +283,8 @@ export interface NormalizedACLSchemaOption<
 }
 
 const aclSchemaOptionKeys = new Set(['default', 'limits', 'resolveInput'])
-const normalizedACLSchemaOptions = new WeakSet<object>()
+// Only options produced here are trusted; the map also restores their exact type.
+const normalizedOptions = new WeakMap<object, NormalizedACLSchemaOption>()
 
 /** Normalizes direct ACL declarations without executing application callbacks. */
 export const normalizeACLSchemaOption = (
@@ -323,6 +317,7 @@ export const normalizeACLSchemaOption = (
 		throw new TypeError(`${path}.resolveInput must be a function`)
 	}
 
+	// Callback signatures cannot be checked at runtime; the static option type owns them.
 	const normalized: NormalizedACLSchemaOption = immutableRecord({
 		default:
 			declaredDefault === undefined
@@ -334,7 +329,7 @@ export const normalizeACLSchemaOption = (
 			`${path}.limits`,
 		),
 	})
-	normalizedACLSchemaOptions.add(normalized)
+	normalizedOptions.set(normalized, normalized)
 	return normalized
 }
 
@@ -354,16 +349,23 @@ export const aclSchemaOption: SchemaOptionDefinition<
 	valueKind: 'opaque',
 })
 
-/** Reads the exact normalized option occurrence from one compiled schema. */
-export const readACLSchemaOption = (
-	schema: SchemaDefinition,
-): NormalizedACLSchemaOption | undefined => {
-	if (!Object.hasOwn(schema.definition, 'acl')) return undefined
-	const value: unknown = Reflect.get(schema.definition, 'acl')
+/** Maps every ACL-enabled schema, in registry order, to its trusted option. */
+export const readProtectedSchemaOptions = (
+	schemas: CompiledSchemaRegistry,
+): ReadonlyMap<SchemaDefinition, NormalizedACLSchemaOption> => {
+	const options = new Map<SchemaDefinition, NormalizedACLSchemaOption>()
 
-	if (!isPlainRecord(value) || !normalizedACLSchemaOptions.has(value)) {
-		throw new TypeError('ACL plugin received an untrusted schema option')
+	for (const schema of schemas.values()) {
+		if (!Object.hasOwn(schema.definition, 'acl')) continue
+		const value: unknown = Reflect.get(schema.definition, 'acl')
+		const option = isPlainRecord(value)
+			? normalizedOptions.get(value)
+			: undefined
+
+		if (option === undefined) {
+			throw new TypeError('ACL plugin received an untrusted schema option')
+		}
+		options.set(schema, option)
 	}
-
-	return value as unknown as NormalizedACLSchemaOption
+	return options
 }

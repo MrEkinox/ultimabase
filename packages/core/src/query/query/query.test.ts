@@ -11,7 +11,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { hydrateQueryFromAst, QueryBuilder } from './query.js'
-import { fieldPath } from '../filters/factory.js'
+import { fieldPath } from '../filters/target.js'
 import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'

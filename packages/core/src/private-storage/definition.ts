@@ -6,7 +6,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import { assertExactPlainObject } from '../exact-object-validation.js'
 import { assertFieldDefinition } from '../schema/fields/base/definition.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import {
@@ -33,8 +33,8 @@ export interface PrivateCollectionDefinition {
 	>[]
 }
 
+// Only nominal tokens minted by definePrivateCollection resolve to a descriptor.
 const collectionDefinitions = new WeakMap<object, PrivateCollectionDefinition>()
-const collectionIdentities = new WeakSet<object>()
 const forbiddenFieldOptions = new Set([
 	'autoIncrement',
 	'autoNow',
@@ -93,11 +93,10 @@ const normalizeIndexes = <
 	return immutableArray(
 		value.map((candidate, index) => {
 			const path = `private collection indexes[${String(index)}]`
-			if (!isPlainRecord(candidate))
-				throw new TypeError(`${path} must be a plain object`)
-			assertExactObjectKeys(
+			assertExactPlainObject(
 				candidate,
 				new Set(['fields']),
+				`${path} must be a plain object`,
 				`${path} contains unknown option: `,
 			)
 			if (!isUnknownArray(candidate.fields) || candidate.fields.length === 0) {
@@ -139,11 +138,10 @@ const normalizeReferences = <
 	return immutableArray(
 		value.map((candidate, index) => {
 			const path = `private collection references[${String(index)}]`
-			if (!isPlainRecord(candidate))
-				throw new TypeError(`${path} must be a plain object`)
-			assertExactObjectKeys(
+			assertExactPlainObject(
 				candidate,
 				new Set(['field', 'onDelete', 'target']),
+				`${path} must be a plain object`,
 				`${path} contains unknown option: `,
 			)
 			assertNonEmptyString(candidate.field, `${path}.field`)
@@ -185,10 +183,7 @@ export const definePrivateCollection = <
 >(
 	options: DefinePrivateCollectionOptions<TFields, TIndexes>,
 ): PrivateCollection<TFields, TIndexes> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('private collection options must be a plain object')
-	}
-	assertExactObjectKeys(
+	assertExactPlainObject(
 		options,
 		new Set([
 			'contributionId',
@@ -198,6 +193,7 @@ export const definePrivateCollection = <
 			'protocolVersion',
 			'references',
 		]),
+		'private collection options must be a plain object',
 		'private collection options contains unknown option: ',
 	)
 	assertNonEmptyString(
@@ -237,7 +233,6 @@ export const definePrivateCollection = <
 		kind: 'private-collection' as const,
 	}) as PrivateCollection<TFields, TIndexes>
 	collectionDefinitions.set(collection, definition)
-	collectionIdentities.add(collection)
 	return collection
 }
 
@@ -245,17 +240,14 @@ export const definePrivateCollection = <
 export const readPrivateCollectionDefinition = (
 	collection: unknown,
 ): PrivateCollectionDefinition => {
-	if (
-		typeof collection !== 'object' ||
-		collection === null ||
-		!collectionIdentities.has(collection)
-	) {
+	const definition =
+		typeof collection === 'object' && collection !== null
+			? collectionDefinitions.get(collection)
+			: undefined
+	if (definition === undefined) {
 		throw new TypeError(
 			'private collection must be created by definePrivateCollection',
 		)
 	}
-	const definition = collectionDefinitions.get(collection)
-	if (definition === undefined)
-		throw new TypeError('private collection definition is unavailable')
 	return definition
 }

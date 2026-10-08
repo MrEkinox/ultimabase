@@ -75,12 +75,9 @@ const writeOneGeneratedTypeFile = async (
 }
 
 /** Atomically replaces one complete generated declaration. */
-export const writeGeneratedTypeFile = async (
+export const writeGeneratedTypeFile = (
 	file: GeneratedTypeFile,
-): Promise<void> => {
-	validateGeneratedTypeFile(file)
-	await writeOneGeneratedTypeFile(file)
-}
+): Promise<void> => writeGeneratedTypeFiles([file])
 
 /** Rejects duplicate destinations before atomically replacing any output. */
 export const writeGeneratedTypeFiles = async (

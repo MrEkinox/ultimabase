@@ -45,7 +45,22 @@ const hookEventContracts = new WeakMap<
 	object,
 	HookEventContractImplementation
 >()
-const defineEventOptionKeys = new Set(['delivery'])
+
+/** Rejects non-record and unknown options before reading any declared value. */
+const assertExactOptions = (
+	options: unknown,
+	keys: readonly string[],
+	factory: string,
+): void => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError(`${factory} options must be a plain object`)
+	}
+	for (const key of Object.keys(options)) {
+		if (!keys.includes(key)) {
+			throw new TypeError(`${factory} contains unknown option: ${key}`)
+		}
+	}
+}
 
 /**
  * Defines one trusted named-event contract with explicit delivery semantics.
@@ -61,18 +76,7 @@ export const defineEvent =
 		options: DefineEventOptions<TDelivery>,
 	): HookEventContract<TName, TPayload, TDelivery> => {
 		assertNonEmptyString(name, 'event name')
-
-		const untrustedOptions: unknown = options
-
-		if (!isPlainRecord(untrustedOptions)) {
-			throw new TypeError('defineEvent options must be a plain object')
-		}
-
-		for (const key of Object.keys(untrustedOptions)) {
-			if (!defineEventOptionKeys.has(key)) {
-				throw new TypeError(`defineEvent contains unknown option: ${key}`)
-			}
-		}
+		assertExactOptions(options, ['delivery'], 'defineEvent')
 
 		if (options.delivery !== 'optional' && options.delivery !== 'required') {
 			throw new TypeError('defineEvent delivery must be optional or required')
@@ -93,13 +97,17 @@ export const defineEvent =
 		return contract
 	}
 
+const readTrusted = <TValue>(
+	registry: WeakMap<object, TValue>,
+	value: unknown,
+): TValue | undefined =>
+	typeof value === 'object' && value !== null ? registry.get(value) : undefined
+
 /** Reads only event contracts created by the trusted public factory. */
 export const getHookEventContractImplementation = (
 	contract: unknown,
 ): HookEventContractImplementation | undefined =>
-	typeof contract === 'object' && contract !== null
-		? hookEventContracts.get(contract)
-		: undefined
+	readTrusted(hookEventContracts, contract)
 
 /** Carries one detached portable business event after its transaction commits. */
 export interface HookEvent<
@@ -166,7 +174,6 @@ export interface HookEventImplementation {
 }
 
 const hookEventImplementations = new WeakMap<object, HookEventImplementation>()
-const onEventOptionKeys = new Set(['handler', 'name'])
 
 /** Creates one immutable named-event consumer for a plugin events registry. */
 export const onEvent = <
@@ -175,18 +182,7 @@ export const onEvent = <
 >(
 	options: OnEventOptions<TName, TPayload>,
 ): HookEventDefinition<TName, TPayload> => {
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('onEvent options must be a plain object')
-	}
-
-	for (const key of Object.keys(untrustedOptions)) {
-		if (!onEventOptionKeys.has(key)) {
-			throw new TypeError(`onEvent contains unknown option: ${key}`)
-		}
-	}
-
+	assertExactOptions(options, ['handler', 'name'], 'onEvent')
 	assertNonEmptyString(options.name, 'onEvent name')
 
 	if (typeof options.handler !== 'function') {
@@ -213,9 +209,7 @@ export const onEvent = <
 export const getHookEventImplementation = (
 	definition: unknown,
 ): HookEventImplementation | undefined =>
-	typeof definition === 'object' && definition !== null
-		? hookEventImplementations.get(definition)
-		: undefined
+	readTrusted(hookEventImplementations, definition)
 
 export type HookEventContributionsCapability = CapabilityToken<
 	HookEventDefinition,

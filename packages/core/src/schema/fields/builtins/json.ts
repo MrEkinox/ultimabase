@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -38,11 +33,6 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
  */
 export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
-
-const jsonFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'json',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
@@ -147,11 +137,6 @@ const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
 	throw new TypeError(`${path} must be a JSON object or array`)
 }
 
-const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(options, snapshotJsonDocument, jsonFieldOptionsContract)
-
 /**
  * Declares an unstructured JSON object or array containing portable JSON values.
  *
@@ -160,8 +145,7 @@ const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
  * jsonField({ default: { theme: "dark", notifications: true } })
  * ```
  */
-export const jsonField: JsonFieldFactory = createCompactScalarFieldFactory<
+export const jsonField: JsonFieldFactory = createScalarFieldFactory(
 	'json',
-	JsonDocument,
-	JsonFieldOptions
->('json', normalizeJsonFieldOptions, snapshotJsonDocument)
+	snapshotJsonDocument,
+)

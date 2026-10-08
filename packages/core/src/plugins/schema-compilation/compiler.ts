@@ -4,7 +4,7 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/definition.js'
+import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import { attachPluginDeclarationDiagnostic } from '../schema-declaration-contracts.js'
 import type { OptionDefinitionIndex } from '../schema-declaration-contracts.js'

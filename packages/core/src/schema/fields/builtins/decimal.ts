@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -46,11 +41,6 @@ export interface DecimalFieldOptions extends FieldOptions<string> {
 export type DecimalField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'decimal', string, DecimalFieldOptions, TTypegen>
-
-const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'decimal',
-	optionKeys: [...fieldOptionKeys, 'precision', 'scale'],
-}
 
 type DefaultedDecimalFieldOptions<
 	TRequired extends boolean,
@@ -201,42 +191,30 @@ export const applyDecimalDelta = (
 	return `${sign}${digits.slice(0, -commonScale)}.${digits.slice(-commonScale)}`
 }
 
-const assertValidPrecision = (precision: number | undefined): void => {
+/** Rejects impossible fixed-precision shapes before adapters can inspect them. */
+const assertDecimalOptions = ({
+	precision,
+	scale,
+}: Readonly<Record<string, unknown>>): void => {
 	if (
 		precision !== undefined &&
-		(!Number.isSafeInteger(precision) || precision < 1)
+		(typeof precision !== 'number' ||
+			!Number.isSafeInteger(precision) ||
+			precision < 1)
 	) {
 		throw new RangeError('precision must be a positive safe integer')
 	}
-}
-
-const assertValidScale = (scale: number | undefined): void => {
-	if (scale !== undefined && (!Number.isSafeInteger(scale) || scale < 0)) {
-		throw new RangeError('scale must be a non-negative safe integer')
-	}
-}
-
-const normalizeDecimalFieldOptions = <
-	const TOptions extends DecimalFieldOptions,
->(
-	options: TOptions,
-): Readonly<TOptions> => {
-	assertValidPrecision(options.precision)
-	assertValidScale(options.scale)
 
 	if (
-		options.precision !== undefined &&
-		options.scale !== undefined &&
-		options.scale > options.precision
+		scale !== undefined &&
+		(typeof scale !== 'number' || !Number.isSafeInteger(scale) || scale < 0)
 	) {
-		throw new RangeError('scale cannot be greater than precision')
+		throw new RangeError('scale must be a non-negative safe integer')
 	}
 
-	return normalizeFieldOptions(
-		options,
-		normalizeDecimalValue,
-		decimalFieldOptionsContract,
-	)
+	if (precision !== undefined && scale !== undefined && scale > precision) {
+		throw new RangeError('scale cannot be greater than precision')
+	}
 }
 
 /**
@@ -247,9 +225,11 @@ const normalizeDecimalFieldOptions = <
  * decimalField({ precision: 12, scale: 2, default: "0.00" })
  * ```
  */
-export const decimalField: DecimalFieldFactory =
-	createCompactScalarFieldFactory<'decimal', string, DecimalFieldOptions>(
-		'decimal',
-		normalizeDecimalFieldOptions,
-		normalizeDecimalValue,
-	)
+export const decimalField: DecimalFieldFactory = createScalarFieldFactory(
+	'decimal',
+	normalizeDecimalValue,
+	{
+		optionKeys: ['precision', 'scale'],
+		assertOptions: assertDecimalOptions,
+	},
+)

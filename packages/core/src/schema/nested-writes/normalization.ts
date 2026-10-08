@@ -3,6 +3,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { isFieldNullable } from '../fields/base/options.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { readFieldTypegenState } from '../fields/base/definition.js'
+import type { ResolvedSchemaRelationMapping } from '../relations/mapping.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
 import type { CompiledSchemaRegistry } from '../schema/registry.js'
 import type {
@@ -27,6 +28,7 @@ import type {
 import {
 	assertInertNestedWriteArray,
 	assertInertNestedWriteRecord,
+	failNestedWriteInput,
 	formatNestedWriteInputPath,
 	readNestedWriteId,
 	readNestedWriteIds,
@@ -34,23 +36,25 @@ import {
 	type InertNestedWriteRecord,
 } from './input-validation.js'
 
-const pointerCommands = ['connect', 'create', 'update', 'disconnect'] as const
-const relationCreateCommands = ['create', 'connect'] as const
-const relationUpdateCommands = [
+type PointerCommand = NestedWritePointerNode['command']
+type RelationCommand = NestedWriteRelationNode['command']
+
+// Both lists are ordered: prefixes select the legal commands for each context, and
+// relation commands are always normalized in this order regardless of key order.
+const pointerCommands = [
+	'connect',
+	'create',
+	'update',
+	'disconnect',
+] as const satisfies readonly PointerCommand[]
+const relationCommands = [
 	'create',
 	'connect',
 	'update',
 	'disconnect',
 	'set',
 	'clear',
-] as const
-
-interface NormalizationState {
-	readonly activeInputs: WeakSet<object>
-	readonly limits: NestedWriteLimits
-	readonly schemas: CompiledSchemaRegistry
-	nextOperationIndex: number
-}
+] as const satisfies readonly RelationCommand[]
 
 type NestedWriteInput<
 	TSchema extends SchemaDefinition,
@@ -59,17 +63,16 @@ type NestedWriteInput<
 	? SchemaNestedCreateData<TSchema>
 	: SchemaNestedUpdateData<TSchema>
 
-const allocateOperation = (state: NormalizationState): number => {
-	const operationIndex = state.nextOperationIndex
-	state.nextOperationIndex += 1
-
-	if (state.nextOperationIndex > state.limits.maxOperations) {
-		throw new TypeError(
-			`Nested write exceeds maxOperations ${String(state.limits.maxOperations)}`,
-		)
-	}
-
-	return operationIndex
+/** Locates one relationship field of an object input while its commands are normalized. */
+interface RelationshipSite {
+	readonly declarationIndex: number
+	readonly depth: number
+	readonly field: GenericField
+	readonly fieldName: string
+	readonly inputPath: NestedWriteInputPath
+	readonly rootCommand: NestedWriteRootCommand
+	readonly source: SchemaDefinition
+	readonly sourcePath: readonly string[]
 }
 
 const createProvenance = (
@@ -85,461 +88,396 @@ const createProvenance = (
 		sourcePath: immutableArray(sourcePath),
 	})
 
-const resolveTarget = (
-	state: NormalizationState,
-	source: SchemaDefinition,
-	fieldName: string,
-): SchemaDefinition => {
-	const target = state.schemas.schemaTargets.get(source, [fieldName])
-	if (target === undefined || state.schemas.get(target.className) !== target) {
-		throw new TypeError(
-			`Nested-write target is missing or foreign: ${source.className}.${fieldName}`,
-		)
-	}
+const siteProvenance = (
+	site: RelationshipSite,
+	commandPath: NestedWriteInputPath,
+): NestedWriteNodeProvenance =>
+	createProvenance(
+		site.source.provenance.fields[site.fieldName] ??
+			site.source.provenance.schema,
+		site.declarationIndex,
+		commandPath,
+		site.sourcePath,
+	)
 
-	return target
-}
-
-const assertKnownCommandKeys = (
+/** Validates that a command record is non-empty and uses only legal commands, in key order. */
+const readCommandKeys = <TCommand extends string>(
 	input: InertNestedWriteRecord,
-	allowed: readonly string[],
+	allowed: readonly TCommand[],
 	path: NestedWriteInputPath,
-): readonly string[] => {
+): readonly TCommand[] => {
 	const keys = Object.keys(input)
-	if (keys.length === 0) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} must contain one command`,
-		)
+	if (keys.length === 0) failNestedWriteInput(path, 'must contain one command')
+
+	return immutableArray(
+		keys.map(
+			(key) =>
+				allowed.find((command) => command === key) ??
+				failNestedWriteInput([...path, key], 'is not available'),
+		),
+	)
+}
+
+/**
+ * Walks one caller input depth-first, allocating operation indexes in execution
+ * order and failing on the first invalid value it reaches.
+ */
+class NestedWriteNormalizer {
+	readonly limits: NestedWriteLimits
+	operationCount = 0
+	readonly #activeInputs = new WeakSet<object>()
+	readonly #schemas: CompiledSchemaRegistry
+
+	constructor(schemas: CompiledSchemaRegistry, limits: NestedWriteLimits) {
+		this.#schemas = schemas
+		this.limits = limits
 	}
 
-	for (const key of keys) {
-		if (!allowed.includes(key)) {
+	normalizeObject(
+		schema: SchemaDefinition,
+		command: NestedWriteRootCommand,
+		value: unknown,
+		depth: number,
+		inputPath: NestedWriteInputPath,
+		sourcePath: readonly string[],
+		declarationIndex: number,
+	): NestedWriteObjectNode {
+		if (depth > this.limits.maxDepth) {
 			throw new TypeError(
-				`${formatNestedWriteInputPath([...path, key])} is not available`,
+				`Nested write exceeds maxDepth ${String(this.limits.maxDepth)} at ${formatNestedWriteInputPath(inputPath)}`,
 			)
+		}
+
+		const input = assertInertNestedWriteRecord(value, inputPath)
+		if (this.#activeInputs.has(input)) {
+			failNestedWriteInput(inputPath, 'contains cyclic input')
+		}
+		this.#activeInputs.add(input)
+
+		try {
+			const operationIndex = this.#allocateOperation()
+			const fieldEntries = Object.entries(schema.persistedFields)
+			for (const key of Object.keys(input)) {
+				if (!Object.hasOwn(schema.persistedFields, key)) {
+					failNestedWriteInput([...inputPath, key], 'is unknown')
+				}
+			}
+
+			if (command === 'update' && Object.keys(input).length === 0) {
+				failNestedWriteInput(inputPath, 'must update one field')
+			}
+
+			const dataEntries: [string, unknown][] = []
+			const relationships: NestedWriteRelationshipNode[] = []
+
+			// Declaration order, not input key order, drives traversal and operation indexes.
+			for (const [fieldIndex, [fieldName, field]] of fieldEntries.entries()) {
+				if (!Object.hasOwn(input, fieldName)) continue
+				const fieldPath = [...inputPath, fieldName]
+
+				if (field.kind !== 'pointer' && field.kind !== 'relation') {
+					dataEntries.push([
+						fieldName,
+						snapshotNestedWriteInputValue(input[fieldName], fieldPath),
+					])
+					continue
+				}
+
+				const site: RelationshipSite = {
+					declarationIndex: fieldIndex,
+					depth,
+					field,
+					fieldName,
+					inputPath: fieldPath,
+					rootCommand: command,
+					source: schema,
+					sourcePath: [...sourcePath, fieldName],
+				}
+				if (field.kind === 'pointer') {
+					relationships.push(this.#normalizePointer(site, input[fieldName]))
+				} else {
+					relationships.push(...this.#normalizeRelation(site, input[fieldName]))
+				}
+			}
+
+			return immutableRecord({
+				command,
+				data: immutableRecord(Object.fromEntries(dataEntries)),
+				depth,
+				kind: 'object' as const,
+				operationIndex,
+				provenance: createProvenance(
+					schema.provenance.schema,
+					declarationIndex,
+					inputPath,
+					sourcePath,
+				),
+				relationships: immutableArray(relationships),
+				schema,
+			})
+		} finally {
+			this.#activeInputs.delete(input)
 		}
 	}
 
-	return immutableArray(keys)
-}
+	#allocateOperation(): number {
+		const operationIndex = this.operationCount
+		this.operationCount += 1
 
-const relationCanDisconnect = (
-	state: NormalizationState,
-	source: SchemaDefinition,
-	fieldName: string,
-): boolean => {
-	const relation = state.schemas.schemaTargets.getRelation(source, [fieldName])
-	const mappedBy = relation?.mappedBy
-	if (mappedBy?.kind !== 'pointer') return true
+		if (this.operationCount > this.limits.maxOperations) {
+			throw new TypeError(
+				`Nested write exceeds maxOperations ${String(this.limits.maxOperations)}`,
+			)
+		}
 
-	const mappedField =
-		mappedBy.schema.persistedFields[mappedBy.fieldPath[0] ?? '']
-	return mappedField === undefined || isFieldNullable(mappedField)
-}
+		return operationIndex
+	}
 
-const assertContextualCreateFieldAbsent = (
-	state: NormalizationState,
-	source: SchemaDefinition,
-	fieldName: string,
-	input: InertNestedWriteRecord,
-	path: NestedWriteInputPath,
-): void => {
-	const mappedBy = state.schemas.schemaTargets.getRelation(source, [
+	#resolveTarget({ source, fieldName }: RelationshipSite): SchemaDefinition {
+		const target = this.#schemas.schemaTargets.get(source, [fieldName])
+		if (
+			target === undefined ||
+			this.#schemas.get(target.className) !== target
+		) {
+			throw new TypeError(
+				`Nested-write target is missing or foreign: ${source.className}.${fieldName}`,
+			)
+		}
+
+		return target
+	}
+
+	/** Reads the target pointer that stores this relation when it is that pointer's inverse. */
+	#inversePointer({
+		source,
 		fieldName,
-	])?.mappedBy
-	const mappedFieldName = mappedBy?.fieldPath[0]
+	}: RelationshipSite): ResolvedSchemaRelationMapping | undefined {
+		const mappedBy = this.#schemas.schemaTargets.getRelation(source, [
+			fieldName,
+		])?.mappedBy
 
-	if (
-		mappedBy?.kind === 'pointer' &&
-		mappedFieldName !== undefined &&
-		Object.hasOwn(input, mappedFieldName)
-	) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath([...path, mappedFieldName])} is injected by the inverse relation`,
-		)
-	}
-}
-
-const normalizeObjectNode = (
-	state: NormalizationState,
-	schema: SchemaDefinition,
-	command: NestedWriteRootCommand,
-	value: unknown,
-	depth: number,
-	inputPath: NestedWriteInputPath,
-	sourcePath: readonly string[],
-	declarationIndex: number,
-): NestedWriteObjectNode => {
-	if (depth > state.limits.maxDepth) {
-		throw new TypeError(
-			`Nested write exceeds maxDepth ${String(state.limits.maxDepth)} at ${formatNestedWriteInputPath(inputPath)}`,
-		)
+		return mappedBy?.kind === 'pointer' ? mappedBy : undefined
 	}
 
-	const input = assertInertNestedWriteRecord(value, inputPath)
-	if (state.activeInputs.has(input)) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(inputPath)} contains cyclic input`,
-		)
-	}
-	state.activeInputs.add(input)
-
-	try {
-		const operationIndex = allocateOperation(state)
-		const fieldEntries = Object.entries(schema.persistedFields)
-		const knownFields = new Set(fieldEntries.map(([fieldName]) => fieldName))
-		for (const key of Object.keys(input)) {
-			if (!knownFields.has(key)) {
-				throw new TypeError(
-					`${formatNestedWriteInputPath([...inputPath, key])} is unknown`,
-				)
-			}
+	#normalizePointer(
+		site: RelationshipSite,
+		value: unknown,
+	): NestedWritePointerNode {
+		const { field, inputPath, rootCommand } = site
+		if (readFieldTypegenState(field)[rootCommand] === 'forbidden') {
+			failNestedWriteInput(inputPath, `is not available for ${rootCommand}`)
 		}
 
-		if (command === 'update' && Object.keys(input).length === 0) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath(inputPath)} must update one field`,
+		const input = assertInertNestedWriteRecord(value, inputPath)
+		const allowed = pointerCommands.slice(
+			0,
+			rootCommand === 'create' ? 2 : isFieldNullable(field) ? 4 : 3,
+		)
+		const keys = readCommandKeys(input, allowed, inputPath)
+		const [command] = keys
+		if (command === undefined || keys.length !== 1) {
+			return failNestedWriteInput(inputPath, 'must contain one pointer command')
+		}
+
+		const target = this.#resolveTarget(site)
+		const commandPath = [...inputPath, command]
+		let child: NestedWriteObjectNode | undefined
+		let id: string | undefined
+
+		if (command === 'connect') {
+			id = readNestedWriteId(input[command], commandPath)
+		} else if (command === 'disconnect') {
+			if (input[command] !== true)
+				failNestedWriteInput(commandPath, 'must be true')
+		} else {
+			child = this.normalizeObject(
+				target,
+				command,
+				input[command],
+				site.depth + 1,
+				commandPath,
+				site.sourcePath,
+				site.declarationIndex,
 			)
 		}
 
-		const dataEntries: [string, unknown][] = []
-		const relationships: NestedWriteRelationshipNode[] = []
-
-		for (const [fieldIndex, [fieldName, field]] of fieldEntries.entries()) {
-			if (!Object.hasOwn(input, fieldName)) continue
-			const fieldPath = [...inputPath, fieldName]
-			const nextSourcePath = [...sourcePath, fieldName]
-
-			if (field.kind === 'pointer') {
-				relationships.push(
-					normalizePointerNode(
-						state,
-						schema,
-						field,
-						fieldName,
-						command,
-						input[fieldName],
-						depth,
-						fieldPath,
-						nextSourcePath,
-						fieldIndex,
-					),
-				)
-				continue
-			}
-
-			if (field.kind === 'relation') {
-				relationships.push(
-					...normalizeRelationNodes(
-						state,
-						schema,
-						field,
-						fieldName,
-						command,
-						input[fieldName],
-						depth,
-						fieldPath,
-						nextSourcePath,
-						fieldIndex,
-					),
-				)
-				continue
-			}
-
-			dataEntries.push([
-				fieldName,
-				snapshotNestedWriteInputValue(input[fieldName], fieldPath),
-			])
-		}
+		// Identity actions follow any child mutation; an update reuses the existing target.
+		const actionOperationIndexes =
+			command === 'update' ? [] : [this.#allocateOperation()]
 
 		return immutableRecord({
+			actionOperationIndexes: immutableArray(actionOperationIndexes),
+			...(child === undefined ? {} : { child }),
 			command,
-			data: immutableRecord(Object.fromEntries(dataEntries)),
-			depth,
-			kind: 'object' as const,
-			operationIndex,
-			provenance: createProvenance(
-				schema.provenance.schema,
-				declarationIndex,
-				inputPath,
-				sourcePath,
-			),
-			relationships: immutableArray(relationships),
-			schema,
+			dependency: 'before-source' as const,
+			depth: site.depth,
+			field,
+			fieldName: site.fieldName,
+			...(id === undefined ? {} : { id }),
+			input: child?.data ?? id ?? true,
+			kind: 'pointer' as const,
+			provenance: siteProvenance(site, commandPath),
+			source: site.source,
+			target,
 		})
-	} finally {
-		state.activeInputs.delete(input)
-	}
-}
-
-const normalizePointerNode = (
-	state: NormalizationState,
-	source: SchemaDefinition,
-	field: GenericField,
-	fieldName: string,
-	rootCommand: NestedWriteRootCommand,
-	value: unknown,
-	depth: number,
-	inputPath: NestedWriteInputPath,
-	sourcePath: readonly string[],
-	declarationIndex: number,
-): NestedWritePointerNode => {
-	const fieldTypegen = readFieldTypegenState(field)
-	if (
-		(rootCommand === 'create' && fieldTypegen.create === 'forbidden') ||
-		(rootCommand === 'update' && fieldTypegen.update === 'forbidden')
-	) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(inputPath)} is not available for ${rootCommand}`,
-		)
 	}
 
-	const input = assertInertNestedWriteRecord(value, inputPath)
-	const allowed =
-		rootCommand === 'create'
-			? pointerCommands.slice(0, 2)
-			: isFieldNullable(field)
-				? pointerCommands
-				: pointerCommands.slice(0, 3)
-	const keys = assertKnownCommandKeys(input, allowed, inputPath)
-	if (keys.length !== 1) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(inputPath)} must contain one pointer command`,
-		)
-	}
+	#normalizeRelation(
+		site: RelationshipSite,
+		value: unknown,
+	): readonly NestedWriteRelationNode[] {
+		const input = assertInertNestedWriteRecord(value, site.inputPath)
+		const allowed: readonly RelationCommand[] =
+			site.rootCommand === 'create'
+				? relationCommands.slice(0, 2)
+				: this.#relationCanDisconnect(site)
+					? relationCommands
+					: relationCommands.slice(0, 3)
+		const keys = readCommandKeys(input, allowed, site.inputPath)
 
-	const command = keys[0]
-	if (
-		command !== 'connect' &&
-		command !== 'create' &&
-		command !== 'disconnect' &&
-		command !== 'update'
-	) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(inputPath)} has an invalid pointer command`,
-		)
-	}
-
-	const target = resolveTarget(state, source, fieldName)
-	const commandPath = [...inputPath, command]
-	let child: NestedWriteObjectNode | undefined
-	let id: string | undefined
-	let normalizedInput: unknown
-	const actionOperationIndexes: number[] = []
-
-	if (command === 'connect') {
-		id = readNestedWriteId(input[command], commandPath)
-		normalizedInput = id
-		actionOperationIndexes.push(allocateOperation(state))
-	} else if (command === 'disconnect') {
-		if (input[command] !== true) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath(commandPath)} must be true`,
+		if ((keys.includes('set') || keys.includes('clear')) && keys.length !== 1) {
+			failNestedWriteInput(
+				site.inputPath,
+				'replacement command must be exclusive',
 			)
 		}
-		normalizedInput = true
-		actionOperationIndexes.push(allocateOperation(state))
-	} else {
-		child = normalizeObjectNode(
-			state,
-			target,
-			command,
-			input[command],
-			depth + 1,
-			commandPath,
-			sourcePath,
-			declarationIndex,
-		)
-		normalizedInput = child.data
-		if (command === 'create') {
-			actionOperationIndexes.push(allocateOperation(state))
-		}
-	}
 
-	return immutableRecord({
-		actionOperationIndexes: immutableArray(actionOperationIndexes),
-		...(child === undefined ? {} : { child }),
-		command,
-		dependency: 'before-source' as const,
-		depth,
-		field,
-		fieldName,
-		...(id === undefined ? {} : { id }),
-		input: normalizedInput,
-		kind: 'pointer' as const,
-		provenance: createProvenance(
-			source.provenance.fields[fieldName] ?? source.provenance.schema,
-			declarationIndex,
-			commandPath,
-			sourcePath,
-		),
-		source,
-		target,
-	})
-}
+		const target = this.#resolveTarget(site)
+		const seenIds = new Set<string>()
 
-const normalizeRelationNodes = (
-	state: NormalizationState,
-	source: SchemaDefinition,
-	field: GenericField,
-	fieldName: string,
-	rootCommand: NestedWriteRootCommand,
-	value: unknown,
-	depth: number,
-	inputPath: NestedWriteInputPath,
-	sourcePath: readonly string[],
-	declarationIndex: number,
-): readonly NestedWriteRelationNode[] => {
-	const input = assertInertNestedWriteRecord(value, inputPath)
-	const canDisconnect = relationCanDisconnect(state, source, fieldName)
-	const allowed =
-		rootCommand === 'create'
-			? relationCreateCommands
-			: canDisconnect
-				? relationUpdateCommands
-				: relationUpdateCommands.slice(0, 3)
-	const keys = assertKnownCommandKeys(input, allowed, inputPath)
-
-	if ((keys.includes('set') || keys.includes('clear')) && keys.length !== 1) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(inputPath)} replacement command must be exclusive`,
+		return immutableArray(
+			relationCommands
+				.filter((command) => Object.hasOwn(input, command))
+				.map((command) =>
+					this.#normalizeRelationCommand(
+						site,
+						target,
+						command,
+						input[command],
+						seenIds,
+					),
+				),
 		)
 	}
 
-	const target = resolveTarget(state, source, fieldName)
-	const seenIds = new Set<string>()
-	const nodes: NestedWriteRelationNode[] = []
-	const commandOrder =
-		rootCommand === 'create' ? relationCreateCommands : relationUpdateCommands
+	/** Only a nullable inverse pointer can lose its source through disconnect, set, or clear. */
+	#relationCanDisconnect(site: RelationshipSite): boolean {
+		const mappedBy = this.#inversePointer(site)
+		if (mappedBy === undefined) return true
 
-	for (const command of commandOrder) {
-		if (!Object.hasOwn(input, command)) continue
-		const commandPath = [...inputPath, command]
+		const mappedField =
+			mappedBy.schema.persistedFields[mappedBy.fieldPath[0] ?? '']
+		return mappedField === undefined || isFieldNullable(mappedField)
+	}
+
+	#normalizeRelationCommand(
+		site: RelationshipSite,
+		target: SchemaDefinition,
+		command: RelationCommand,
+		value: unknown,
+		seenIds: Set<string>,
+	): NestedWriteRelationNode {
+		const commandPath = [...site.inputPath, command]
 		const children: NestedWriteObjectNode[] = []
 		const actionOperationIndexes: number[] = []
 		let ids: readonly string[] = immutableArray([])
 		let normalizedInput: unknown
 
 		if (command === 'clear') {
-			if (input[command] !== true) {
-				throw new TypeError(
-					`${formatNestedWriteInputPath(commandPath)} must be true`,
-				)
-			}
+			if (value !== true) failNestedWriteInput(commandPath, 'must be true')
 			normalizedInput = true
-			actionOperationIndexes.push(allocateOperation(state))
+			actionOperationIndexes.push(this.#allocateOperation())
 		} else if (command === 'create') {
-			const createInputs = assertInertNestedWriteArray(
-				input[command],
-				commandPath,
-				false,
-			)
-			for (let index = 0; index < createInputs.length; index += 1) {
+			const items = assertInertNestedWriteArray(value, commandPath, false)
+			const injectedField = this.#inversePointer(site)?.fieldPath[0]
+			for (const [index, item] of items.entries()) {
 				const childPath = [...commandPath, index]
-				const childInput = assertInertNestedWriteRecord(
-					createInputs[index],
-					childPath,
-				)
-				assertContextualCreateFieldAbsent(
-					state,
-					source,
-					fieldName,
-					childInput,
-					childPath,
-				)
+				const childInput = assertInertNestedWriteRecord(item, childPath)
+				// The inverse pointer is filled with the new source, so callers cannot set it.
+				if (
+					injectedField !== undefined &&
+					Object.hasOwn(childInput, injectedField)
+				) {
+					failNestedWriteInput(
+						[...childPath, injectedField],
+						'is injected by the inverse relation',
+					)
+				}
 				children.push(
-					normalizeObjectNode(
-						state,
+					this.normalizeObject(
 						target,
 						'create',
 						childInput,
-						depth + 1,
+						site.depth + 1,
 						childPath,
-						sourcePath,
+						site.sourcePath,
 						index,
 					),
 				)
-				actionOperationIndexes.push(allocateOperation(state))
+				actionOperationIndexes.push(this.#allocateOperation())
 			}
 			normalizedInput = immutableArray(children.map((child) => child.data))
 		} else if (command === 'update') {
-			const updateInputs = assertInertNestedWriteArray(
-				input[command],
-				commandPath,
-				false,
-			)
-			const normalizedItems: InertNestedWriteRecord[] = []
-			const mutableIds: string[] = []
-			for (let index = 0; index < updateInputs.length; index += 1) {
+			const items = assertInertNestedWriteArray(value, commandPath, false)
+			const normalizedItems = items.map((item, index) => {
 				const itemPath = [...commandPath, index]
-				const item = assertInertNestedWriteRecord(updateInputs[index], itemPath)
-				const itemKeys = Object.keys(item)
+				const record = assertInertNestedWriteRecord(item, itemPath)
+				const itemKeys = Object.keys(record)
 				if (
 					itemKeys.length !== 2 ||
 					!itemKeys.includes('id') ||
 					!itemKeys.includes('data')
 				) {
-					throw new TypeError(
-						`${formatNestedWriteInputPath(itemPath)} must contain exactly id and data`,
-					)
+					failNestedWriteInput(itemPath, 'must contain exactly id and data')
 				}
-				const id = readNestedWriteId(item.id, [...itemPath, 'id'])
-				mutableIds.push(id)
-				const child = normalizeObjectNode(
-					state,
+				const id = readNestedWriteId(record.id, [...itemPath, 'id'])
+				const child = this.normalizeObject(
 					target,
 					'update',
-					item.data,
-					depth + 1,
+					record.data,
+					site.depth + 1,
 					[...itemPath, 'data'],
-					sourcePath,
+					site.sourcePath,
 					index,
 				)
 				children.push(child)
-				normalizedItems.push(immutableRecord({ data: child.data, id }))
-			}
-			ids = immutableArray(mutableIds)
+				return immutableRecord({ data: child.data, id })
+			})
+			ids = immutableArray(normalizedItems.map((item) => item.id))
 			normalizedInput = immutableArray(normalizedItems)
 		} else {
-			ids = readNestedWriteIds(input[command], commandPath, command === 'set')
+			ids = readNestedWriteIds(value, commandPath, command === 'set')
 			normalizedInput = ids
-			actionOperationIndexes.push(...ids.map(() => allocateOperation(state)))
+			actionOperationIndexes.push(...ids.map(() => this.#allocateOperation()))
 		}
 
+		// One object ID may be addressed by at most one command of the same relation.
 		for (const id of ids) {
 			if (seenIds.has(id)) {
-				throw new TypeError(
-					`${formatNestedWriteInputPath(commandPath)} contradicts another command for object ID ${JSON.stringify(id)}`,
+				failNestedWriteInput(
+					commandPath,
+					`contradicts another command for object ID ${JSON.stringify(id)}`,
 				)
 			}
 			seenIds.add(id)
 		}
 
-		nodes.push(
-			immutableRecord({
-				actionOperationIndexes: immutableArray(actionOperationIndexes),
-				children: immutableArray(children),
-				command,
-				dependency: 'after-source' as const,
-				depth,
-				field,
-				fieldName,
-				ids,
-				input: normalizedInput,
-				kind: 'relation' as const,
-				provenance: createProvenance(
-					source.provenance.fields[fieldName] ?? source.provenance.schema,
-					declarationIndex,
-					commandPath,
-					sourcePath,
-				),
-				source,
-				target,
-			}),
-		)
+		return immutableRecord({
+			actionOperationIndexes: immutableArray(actionOperationIndexes),
+			children: immutableArray(children),
+			command,
+			dependency: 'after-source' as const,
+			depth: site.depth,
+			field: site.field,
+			fieldName: site.fieldName,
+			ids,
+			input: normalizedInput,
+			kind: 'relation' as const,
+			provenance: siteProvenance(site, commandPath),
+			source: site.source,
+			target,
+		})
 	}
-
-	return immutableArray(nodes)
 }
 
 /**
@@ -564,15 +502,11 @@ export const normalizeNestedWriteGraph = <
 		)
 	}
 
-	const normalizedLimits = normalizeNestedWriteLimits(limits)
-	const state: NormalizationState = {
-		activeInputs: new WeakSet(),
-		limits: normalizedLimits,
-		nextOperationIndex: 0,
+	const normalizer = new NestedWriteNormalizer(
 		schemas,
-	}
-	const root = normalizeObjectNode(
-		state,
+		normalizeNestedWriteLimits(limits),
+	)
+	const root = normalizer.normalizeObject(
 		schema,
 		command,
 		input,
@@ -584,8 +518,8 @@ export const normalizeNestedWriteGraph = <
 
 	return immutableRecord({
 		kind: 'nested-write-graph' as const,
-		limits: normalizedLimits,
-		operationCount: state.nextOperationIndex,
+		limits: normalizer.limits,
+		operationCount: normalizer.operationCount,
 		root,
 	})
 }

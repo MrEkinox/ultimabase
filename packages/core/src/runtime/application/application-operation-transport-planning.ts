@@ -12,11 +12,13 @@ import { describeOperationTransport } from '../commands/transport-projection.js'
 import {
 	defineCapability,
 	provideCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
+import {
+	defineCoreFoundationProvider,
+	type CoreFoundationProvider,
+} from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
 import {
 	isPluginOperationDefinition,
 	type PluginOperationDefinition,
@@ -62,11 +64,9 @@ interface PlannerState {
 	disposed: boolean
 }
 
-const plannerStates = new WeakMap<
-	ApplicationOperationTransportPlanner,
-	PlannerState
->()
+const plannerStates = new WeakMap<object, PlannerState>()
 const planningOptionKeys = new Set(['operations', 'transport'])
+const schemaPlanningOptionKeys = new Set(['transport'])
 
 const operationFailure = (
 	operation: PluginOperationDefinition,
@@ -103,31 +103,41 @@ const descriptorFor = (
 	return describeOperationTransport(command, owned)
 }
 
+/** Requires a bound planner and an attributed owner allowed to expose transports. */
+const authorizePlanning = (
+	planner: object,
+	subject: string,
+	kind: string,
+): object => {
+	const application = plannerStates.get(planner)?.application
+	if (application === undefined) {
+		throw new TypeError(
+			'Application operation transport planner is unavailable',
+		)
+	}
+	const owner = readApplicationPluginOwner(application)
+	if (owner === undefined) {
+		throw new FrameworkError(
+			'PLUGIN_PRIVILEGE_DENIED',
+			`${subject} transport planning requires an attributed plugin callback.`,
+			{ internalDetails: { kind } },
+		)
+	}
+	readApplicationKernelState(application).assertPrivilege(
+		owner,
+		'transport:expose',
+	)
+	return application
+}
+
 class CoreApplicationOperationTransportPlanner implements ApplicationOperationTransportPlanner {
 	plan<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportPlanningOptions<TTransport>,
 	): ApplicationOperationTransportPlan<TTransport> {
-		const state = plannerStates.get(this)
-		if (
-			state === undefined ||
-			state.disposed ||
-			state.application === undefined
-		) {
-			throw new TypeError(
-				'Application operation transport planner is unavailable',
-			)
-		}
-		const owner = readApplicationPluginOwner(state.application)
-		if (owner === undefined) {
-			throw new FrameworkError(
-				'PLUGIN_PRIVILEGE_DENIED',
-				'Operation transport planning requires an attributed plugin callback.',
-				{ internalDetails: { kind: 'operation-planning-owner-missing' } },
-			)
-		}
-		readApplicationKernelState(state.application).assertPrivilege(
-			owner,
-			'transport:expose',
+		const application = authorizePlanning(
+			this,
+			'Operation',
+			'operation-planning-owner-missing',
 		)
 		if (
 			!isPlainRecord(options) ||
@@ -157,9 +167,7 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 				)
 			}
 			names.add(operation.name)
-			descriptors.push(
-				descriptorFor(operation, options.transport, state.application),
-			)
+			descriptors.push(descriptorFor(operation, options.transport, application))
 		}
 		return immutableRecord({
 			operations: immutableArray(descriptors),
@@ -170,31 +178,10 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 	planSchemaMutations<const TTransport extends OperationTransportProtocol>(
 		options: SchemaMutationTransportPlanningOptions<TTransport>,
 	): ApplicationSchemaMutationTransportPlan<TTransport> {
-		const state = plannerStates.get(this)
-		if (
-			state === undefined ||
-			state.disposed ||
-			state.application === undefined
-		) {
-			throw new TypeError(
-				'Application operation transport planner is unavailable',
-			)
-		}
-		const owner = readApplicationPluginOwner(state.application)
-		if (owner === undefined) {
-			throw new FrameworkError(
-				'PLUGIN_PRIVILEGE_DENIED',
-				'Schema mutation transport planning requires an attributed plugin callback.',
-				{
-					internalDetails: {
-						kind: 'schema-mutation-planning-owner-missing',
-					},
-				},
-			)
-		}
-		readApplicationKernelState(state.application).assertPrivilege(
-			owner,
-			'transport:expose',
+		const application = authorizePlanning(
+			this,
+			'Schema mutation',
+			'schema-mutation-planning-owner-missing',
 		)
 		if (
 			!isPlainRecord(options) ||
@@ -204,15 +191,13 @@ class CoreApplicationOperationTransportPlanner implements ApplicationOperationTr
 				'schema mutation transport planning requires a protocol',
 			)
 		}
-		for (const key of Object.keys(options)) {
-			if (key !== 'transport') {
-				throw new TypeError(
-					`schema mutation transport planning contains unknown key: ${key}`,
-				)
-			}
-		}
+		assertExactEnumerableKeys(
+			options,
+			schemaPlanningOptionKeys,
+			'schema mutation transport planning contains unknown key: ',
+		)
 		return planApplicationSchemaMutations(
-			readApplicationKernelState(state.application).commands,
+			readApplicationKernelState(application).commands,
 			options,
 		)
 	}
@@ -265,17 +250,9 @@ const canonicalPlanner = provideCapability(
 )
 
 /** @internal Supplies the planning facade only when one transport consumes it. */
-export const canonicalApplicationOperationTransportPlanningFoundation: Readonly<{
-	declaration: CapabilityProviderDeclaration<
-		typeof applicationOperationTransportPlanningCapability
-	>
-	owner: PluginIdentity
-	version: string
-}> = immutableRecord({
-	declaration: canonicalPlanner,
-	owner: immutableRecord({ pluginId: '@ultimabase/core' }),
-	version: '0.0.0',
-})
+export const canonicalApplicationOperationTransportPlanningFoundation: CoreFoundationProvider<
+	typeof applicationOperationTransportPlanningCapability
+> = defineCoreFoundationProvider(canonicalPlanner)
 
 /** @internal Binds static application provenance before transport compilation. */
 export const bindApplicationOperationTransportPlanner = (
@@ -286,9 +263,7 @@ export const bindApplicationOperationTransportPlanner = (
 	if (typeof planner !== 'object' || planner === null) {
 		throw new TypeError('Unknown application operation transport planner')
 	}
-	const state = plannerStates.get(
-		planner as ApplicationOperationTransportPlanner,
-	)
+	const state = plannerStates.get(planner)
 	if (state === undefined || state.disposed) {
 		throw new TypeError('Unknown application operation transport planner')
 	}

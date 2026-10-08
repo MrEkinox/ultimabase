@@ -6,51 +6,35 @@ import type {
 	SchemaDefinition,
 	UltimaBase,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
-
-const snapshotOwner = (
-	owner: Readonly<{
-		readonly instanceId?: string
-		readonly pluginId: string
-		readonly version?: string
-	}>,
-): Readonly<{
+type PublicOwner = Readonly<{
 	readonly instanceId?: string
 	readonly pluginId: string
 	readonly version?: string
-}> =>
-	immutableRecord({
-		...(owner.instanceId === undefined ? {} : { instanceId: owner.instanceId }),
-		pluginId: owner.pluginId,
-		...(owner.version === undefined ? {} : { version: owner.version }),
-	})
+}>
+
+// The snapshot is only compared through `JSON.stringify`: owners keep a fixed
+// key order, and `undefined` identity parts disappear from the serialized text.
+const snapshotOwner = (owner: PublicOwner): object => ({
+	instanceId: owner.instanceId,
+	pluginId: owner.pluginId,
+	version: owner.version,
+})
 
 type PublicSchemaSurface = CompiledApplication<
 	readonly SchemaDefinition[]
 >['typegenGraph']['schemaSurfaces'][number]
 
-const snapshotSurface = (surface: PublicSchemaSurface): object => {
-	// Both projections retain the same mutation identity and provenance.
-	const snapshotMutations = (
-		commands: PublicSchemaSurface['schemaMutations'],
-	): readonly object[] =>
-		immutableArray(
-			[...commands.entries()].map(([name, command]) =>
-				immutableRecord({
-					contributionId: command.contributionId,
-					name,
-					mutation: command.mutation,
-					owner: snapshotOwner(command.owner),
-					staticOptions: command.staticOptions,
-				}),
-			),
-		)
-	return immutableRecord({
-		className: surface.schema.className,
-		modelMutations: snapshotMutations(surface.modelMutations),
-		schemaMutations: snapshotMutations(surface.schemaMutations),
-	})
-}
+// Both projections retain the same mutation identity and provenance.
+const snapshotMutations = (
+	commands: PublicSchemaSurface['schemaMutations'],
+): readonly object[] =>
+	[...commands.entries()].map(([name, command]) => ({
+		contributionId: command.contributionId,
+		name,
+		mutation: command.mutation,
+		owner: snapshotOwner(command.owner),
+		staticOptions: command.staticOptions,
+	}))
 
 /** Creates the callback-free public graph compared by the determinism check. */
 export const createPluginStaticConformanceSnapshot = (
@@ -62,82 +46,69 @@ export const createPluginStaticConformanceSnapshot = (
 	const application = ultimabase.compile()
 	const graph = application.typegenGraph
 
-	return immutableRecord({
-		fieldBuilderMethods: immutableArray(
-			application.fieldBuilderMethods.map((method) =>
-				immutableRecord({
-					contexts: Object.fromEntries(
-						Object.entries(method.contexts).map(([context, implementation]) => [
-							context,
-							{
-								fieldKind: implementation.fieldKind,
-								typegen: implementation.typegen,
-							},
-						]),
-					),
-					name: method.name,
-					owner: method.owner,
-				}),
+	return {
+		fieldBuilderMethods: application.fieldBuilderMethods.map((method) => ({
+			contexts: Object.fromEntries(
+				Object.entries(method.contexts).map(([context, implementation]) => [
+					context,
+					{
+						fieldKind: implementation.fieldKind,
+						typegen: implementation.typegen,
+					},
+				]),
 			),
-		),
-		operations: immutableArray(
-			graph.operations.map(({ operation, owner }) =>
-				immutableRecord({
-					errors: operation.errors,
-					input: operation.input.typegen,
-					name: operation.name,
-					owner: snapshotOwner(owner),
-					result: operation.result.typegen,
-					target: operation.target,
-					transaction: operation.transaction,
-					version: operation.version,
-				}),
-			),
-		),
+			name: method.name,
+			owner: method.owner,
+		})),
+		operations: graph.operations.map(({ operation, owner }) => ({
+			errors: operation.errors,
+			input: operation.input.typegen,
+			name: operation.name,
+			owner: snapshotOwner(owner),
+			result: operation.result.typegen,
+			target: operation.target,
+			transaction: operation.transaction,
+			version: operation.version,
+		})),
 		pluginDeclarations: graph.declarations,
 		pluginOptions: graph.options,
 		privilegeReport: application.pluginPrivilegeReport,
-		schemas: immutableArray(
-			application.schemas.values().map((schema) =>
-				immutableRecord({
-					className: schema.className,
-					constraints: schema.definition.constraints,
-					fields: immutableArray(
-						Object.entries(schema.definition.fields)
-							.sort(([left], [right]) => left.localeCompare(right))
-							.map(([name, field]) =>
-								immutableRecord({ kind: field.kind, name }),
-							),
-					),
-					indexes: schema.definition.indexes,
-					provenance: schema.definition.provenance,
-				}),
-			),
-		),
-		surfaces: immutableArray(graph.schemaSurfaces.map(snapshotSurface)),
-	})
+		schemas: [...application.schemas.values()].map((schema) => ({
+			className: schema.className,
+			constraints: schema.definition.constraints,
+			fields: Object.entries(schema.definition.fields)
+				.sort(([left], [right]) => left.localeCompare(right))
+				.map(([name, field]) => ({ kind: field.kind, name })),
+			indexes: schema.definition.indexes,
+			provenance: schema.definition.provenance,
+		})),
+		surfaces: graph.schemaSurfaces.map((surface) => ({
+			className: surface.schema.className,
+			modelMutations: snapshotMutations(surface.modelMutations),
+			schemaMutations: snapshotMutations(surface.schemaMutations),
+		})),
+	}
 }
 
 const readContributionProvenance = (
 	provenance: SchemaCompilationProvenance,
-): readonly SchemaContributionProvenance[] =>
-	immutableArray([
-		provenance.schema,
-		...Object.values(provenance.fields),
-		...provenance.indexes.map(({ provenance: value }) => value),
-		...provenance.constraints.map(({ provenance: value }) => value),
-		...provenance.patches.map(({ provenance: value }) => value),
-		...Object.values(provenance.options).flatMap(({ definition, value }) => [
+): readonly SchemaContributionProvenance[] => [
+	provenance.schema,
+	...Object.values(provenance.fields),
+	...provenance.indexes.map(({ provenance: value }) => value),
+	...provenance.constraints.map(({ provenance: value }) => value),
+	...provenance.patches.map(({ provenance: value }) => value),
+	...Object.values(provenance.options).flatMap(({ definition, value }) => [
+		definition,
+		value,
+	]),
+	...Object.values(provenance.fieldOptions).flatMap((options) =>
+		Object.values(options).flatMap(({ definition, value }) => [
 			definition,
 			value,
 		]),
-		...Object.values(provenance.fieldOptions).flatMap((options) =>
-			Object.values(options).flatMap(({ definition, value }) => [
-				definition,
-				value,
-			]),
-		),
-	])
+	),
+]
 
 /** Verifies that every public plugin provenance owner names one configured version. */
 export const assertPublicPluginProvenance = (

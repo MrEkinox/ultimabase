@@ -26,8 +26,7 @@ export type {
 export { aclFieldKind, aclFieldName, aclPluginId } from './acl-option.js'
 export { aclPlugin } from './plugin.js'
 export type { ACLPlugin } from './plugin.js'
-export type { ACLPluginOptions } from './plugin-contracts.js'
-export type { ACLEntryLimits } from './acl-limits.js'
+export type { ACLEntryLimits, ACLPluginOptions } from './acl-limits.js'
 export type {
 	ACLCreateInputResolution,
 	ACLDefaultFactory,

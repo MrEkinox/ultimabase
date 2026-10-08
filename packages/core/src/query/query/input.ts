@@ -1,5 +1,6 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type {
 	QueryAst,
@@ -131,24 +132,18 @@ const assertQueryInput: (
 	input: unknown,
 	kind: QueryInputKind,
 ) => asserts input is Readonly<Record<string, unknown>> = (input, kind) => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`${kind} input must be an object`)
-	}
-
-	const allowedKeys = queryInputKeys[kind]
-
-	for (const key of Object.keys(input)) {
-		if (!allowedKeys.has(key)) {
-			throw new TypeError(`${kind} input contains an unknown clause: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		input,
+		queryInputKeys[kind],
+		`${kind} input must be an object`,
+		`${kind} input contains an unknown clause: `,
+	)
 }
 
-const applyQueryOrdering = <const TSchema extends SchemaDefinition>(
+const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	ast: QueryInputAst<TSchema>,
 	input: unknown,
-): QueryInputAst<TSchema> => {
+): QueryInputAst<TSchema>['ordering'] => {
 	if (!isPlainRecord(input)) {
 		throw new TypeError('query.orderBy must be an object')
 	}
@@ -157,118 +152,71 @@ const applyQueryOrdering = <const TSchema extends SchemaDefinition>(
 
 	for (const [fieldName, direction] of Object.entries(input)) {
 		if (direction === null) {
+			// Null directions are ignored, but still name a real schema field.
 			parseQueryFieldName(schema, fieldName, `query.orderBy.${fieldName}`)
-			continue
-		}
-
-		if (direction !== 'asc' && direction !== 'desc') {
+		} else if (direction === 'asc' || direction === 'desc') {
+			orders.push({
+				direction: direction === 'asc' ? 'ascending' : 'descending',
+				field: fieldName,
+			})
+		} else {
 			throw new TypeError(
 				`query.orderBy.${fieldName} must be asc, desc, or null`,
 			)
 		}
-
-		orders.push({
-			direction:
-				direction === 'asc' ? ('ascending' as const) : ('descending' as const),
-			field: fieldName,
-		})
 	}
 
-	return immutableRecord({
-		...ast,
-		ordering: normalizeQueryOrdering(schema, orders),
-	})
+	return normalizeQueryOrdering(schema, orders)
 }
 
-const applyQueryProjection = <const TSchema extends SchemaDefinition>(
+/** Normalizes nested target reads and adds included pointers to a narrow selection. */
+const normalizeInputInclusion = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	ast: QueryInputAst<TSchema>,
-	input: Readonly<Record<string, unknown>>,
-): QueryInputAst<TSchema> => {
-	let selection = ast.selection
-	const fields = schema.persistedFields
-	if (input.select !== undefined) {
-		selection = normalizeQuerySelection(
-			schema,
-			input.select as QuerySelection<TSchema>,
-		)
-	}
-
-	if (input.include === undefined) {
-		return immutableRecord({ ...ast, selection })
-	}
-
-	if (!isPlainRecord(input.include)) {
+	input: unknown,
+	selection: QueryInputAst<TSchema>['selection'],
+): Pick<QueryInputAst<TSchema>, 'inclusion' | 'selection'> => {
+	if (!isPlainRecord(input)) {
 		throw new TypeError('query.include must be an object')
 	}
 
-	const inclusions: QueryInclusionInput<TSchema>[] = []
-
-	for (const [fieldName, targetInput] of Object.entries(input.include)) {
+	const pointerFields: QueryFieldName<TSchema>[] = []
+	const inclusions = Object.entries(input).map(([fieldName, targetInput]) => {
 		if (!isPlainRecord(targetInput)) {
 			throw new TypeError(`query.include.${fieldName} must be an object`)
 		}
 
 		const { field, target } = resolveQueryInclusionTarget(schema, fieldName)
 
-		const includedField = fieldName as QueryIncludableFieldName<TSchema>
-		const targetQuery = createInputQuery(
-			target,
-			targetInput,
-			field.kind === 'pointer' ? 'pointer-target' : 'relation-target',
-		)
+		if (field.kind === 'pointer') pointerFields.push(fieldName)
 
-		// Runtime target identity and the pointer field were validated together above;
-		// this boundary only restores their compile-time correlation after iteration.
-		inclusions.push({
-			field: includedField,
-			query: targetQuery.ast,
-		} as unknown as QueryInclusionInput<TSchema>)
-	}
+		// Runtime target identity and the relationship field were validated together
+		// above; this boundary only restores their compile-time correlation.
+		return {
+			field: fieldName,
+			query: createInputQuery(
+				target,
+				targetInput,
+				field.kind === 'pointer' ? 'pointer-target' : 'relation-target',
+			).ast,
+		} as unknown as QueryInclusionInput<TSchema>
+	})
+	const selectedFields = selection.fields.map(({ field }) => field)
 
-	const selectionFields = selection.fields.map(({ field }) => field)
-	const includedSelection =
-		selectionFields.length === 0
-			? selection
-			: normalizeQuerySelectedFields(schema, [
-					...selectionFields,
-					...inclusions
-						.filter(({ field }) => fields[field].kind === 'pointer')
-						.map(({ field }) => field),
-				])
-
-	return immutableRecord({
-		...ast,
+	return {
 		inclusion: normalizeQueryInclusion(schema, inclusions),
-		selection: includedSelection,
-	})
-}
-
-const createNormalizedQueryInput = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	ast: QueryInputAst<TSchema>,
-): NormalizedQueryInput<TSchema> => immutableRecord({ ast, schema })
-
-const applyQueryWhere = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	ast: QueryInputAst<TSchema>,
-	input: Readonly<Record<string, unknown>>,
-): QueryInputAst<TSchema> => {
-	if (input.where === undefined) {
-		return ast
+		selection:
+			selectedFields.length === 0
+				? selection
+				: normalizeQuerySelectedFields(schema, [
+						...selectedFields,
+						...pointerFields,
+					]),
 	}
-
-	const where: QueryWhereNode<QueryFilterNode<TSchema>> = immutableRecord({
-		expression: resolveWhereInput(schema, input.where as WhereInput<TSchema>),
-		kind: 'where',
-	})
-
-	return immutableRecord({ ...ast, where })
 }
 
 const createInputQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	input: Readonly<Record<string, unknown>>,
+	input: unknown,
 	kind: QueryInputKind,
 ): NormalizedQueryInput<TSchema> => {
 	const untrustedSchema: unknown = schema
@@ -281,32 +229,43 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 
 	assertQueryInput(input, kind)
 
-	let ast = createQueryAst(schema) as QueryInputAst<TSchema>
+	// The initial AST has no schema-specific clauses yet.
+	const initial = createQueryAst(schema) as QueryInputAst<TSchema>
+	const where: QueryWhereNode<QueryFilterNode<TSchema>> | undefined =
+		input.where === undefined
+			? undefined
+			: immutableRecord({
+					expression: resolveWhereInput(
+						schema,
+						input.where as WhereInput<TSchema>,
+					),
+					kind: 'where',
+				})
+	const selection =
+		input.select === undefined
+			? initial.selection
+			: normalizeQuerySelection(schema, input.select as QuerySelection<TSchema>)
+	const projection =
+		input.include === undefined
+			? { inclusion: initial.inclusion, selection }
+			: normalizeInputInclusion(schema, input.include, selection)
+	const ast: QueryInputAst<TSchema> = immutableRecord({
+		...initial,
+		...projection,
+		where,
+		ordering:
+			input.orderBy === undefined
+				? initial.ordering
+				: normalizeInputOrdering(schema, input.orderBy),
+		// The pagination normalizers validate these untrusted values themselves.
+		limit: normalizeQueryLimit(input.limit as number | undefined),
+		pagination:
+			input.offset === undefined
+				? undefined
+				: normalizeQueryOffsetPagination({ offset: input.offset as number }),
+	})
 
-	ast = applyQueryWhere(schema, ast, input)
-	ast = applyQueryProjection(schema, ast, input)
-
-	if (input.orderBy !== undefined) {
-		ast = applyQueryOrdering(schema, ast, input.orderBy)
-	}
-
-	if (input.limit !== undefined) {
-		ast = immutableRecord({
-			...ast,
-			limit: normalizeQueryLimit(input.limit as number),
-		})
-	}
-
-	if (input.offset !== undefined) {
-		ast = immutableRecord({
-			...ast,
-			pagination: normalizeQueryOffsetPagination({
-				offset: input.offset as number,
-			}),
-		})
-	}
-
-	return createNormalizedQueryInput(schema, ast)
+	return immutableRecord({ ast, schema })
 }
 
 /** Normalizes one collection object directly into the immutable Query AST. */
@@ -320,12 +279,7 @@ export const queryFromFindManyInput = <
 	TSchema,
 	QuerySelectedFieldFromInput<TSchema, TInput>,
 	QueryIncludedFieldFromInput<TSchema, TInput>
-> =>
-	createInputQuery(
-		schema,
-		input as unknown as Readonly<Record<string, unknown>>,
-		'find-many',
-	)
+> => createInputQuery(schema, input, 'find-many')
 
 /** Normalizes one first-match object directly into the immutable Query AST. */
 export const queryFromFindOneInput = <
@@ -338,12 +292,7 @@ export const queryFromFindOneInput = <
 	TSchema,
 	QuerySelectedFieldFromInput<TSchema, TInput>,
 	QueryIncludedFieldFromInput<TSchema, TInput>
-> =>
-	createInputQuery(
-		schema,
-		input as unknown as Readonly<Record<string, unknown>>,
-		'find-one',
-	)
+> => createInputQuery(schema, input, 'find-one')
 
 /** Normalizes one identifier input and returns its separately retained ID. */
 export const queryFromGetInput = <
@@ -360,41 +309,24 @@ export const queryFromGetInput = <
 		QueryIncludedFieldFromInput<TSchema, TInput>
 	>
 }> => {
-	const query = createInputQuery(
-		schema,
-		input as unknown as Readonly<Record<string, unknown>>,
-		'get',
-	)
+	const query = createInputQuery(schema, input, 'get')
 	const untrustedId: unknown = input.id
 
 	if (typeof untrustedId !== 'string') {
 		throw new TypeError('get input id must be a string')
 	}
 
-	return immutableRecord({
-		id: input.id,
-		query,
-	})
+	return immutableRecord({ id: input.id, query })
 }
 
 /** Normalizes one filtered count input. */
 export const queryFromCountInput = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: CountInput<TSchema>,
-): NormalizedQueryInput<TSchema> =>
-	createInputQuery(
-		schema,
-		input as unknown as Readonly<Record<string, unknown>>,
-		'count',
-	)
+): NormalizedQueryInput<TSchema> => createInputQuery(schema, input, 'count')
 
 /** Normalizes one filtered existence input. */
 export const queryFromExistsInput = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: ExistsInput<TSchema>,
-): NormalizedQueryInput<TSchema> =>
-	createInputQuery(
-		schema,
-		input as unknown as Readonly<Record<string, unknown>>,
-		'exists',
-	)
+): NormalizedQueryInput<TSchema> => createInputQuery(schema, input, 'exists')

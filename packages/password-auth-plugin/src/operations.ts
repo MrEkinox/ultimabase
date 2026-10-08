@@ -11,6 +11,8 @@ import {
 	type PluginOperationDefinition,
 	type PluginOperationInput,
 	type PluginOperationResult,
+	type PluginOperationTransaction,
+	type PluginOperationValueContract,
 	type SchemaResult,
 } from '@ultimabase/core'
 import {
@@ -57,30 +59,49 @@ export const passwordAuthErrorCodes: Readonly<{
 	signUpRejected: 'PASSWORD_AUTH_SIGN_UP_REJECTED',
 } as const)
 
-const credentialsInputReference = defineTypegenReference({
-	exportName: 'PasswordCredentialsInput',
-	module: '@ultimabase/password-auth-plugin',
-})
-const signUpInputReference = defineTypegenReference({
-	exportName: 'PasswordSignUpInput',
-	module: '@ultimabase/password-auth-plugin',
-})
-const passwordChangeInputReference = defineTypegenReference({
-	exportName: 'PasswordChangeInput',
-	module: '@ultimabase/password-auth-plugin',
-})
-const authenticationResultReference = defineTypegenReference({
-	exportName: 'PasswordAuthenticationResult',
-	module: '@ultimabase/password-auth-plugin',
-})
-const logoutResultReference = defineTypegenReference({
-	exportName: 'PasswordLogoutResult',
-	module: '@ultimabase/password-auth-plugin',
-})
-const passwordChangeResultReference = defineTypegenReference({
-	exportName: 'PasswordChangeResult',
-	module: '@ultimabase/password-auth-plugin',
-})
+const rejection =
+	(
+		code: (typeof passwordAuthErrorCodes)[keyof typeof passwordAuthErrorCodes],
+		message: string,
+		publicMessage: string,
+	) =>
+	(): never => {
+		throw new PluginError(code, message, { publicMessage })
+	}
+
+/** Creates the uniform public sign-up rejection. */
+export const rejectPasswordSignUp: () => never = rejection(
+	passwordAuthErrorCodes.signUpRejected,
+	'Password Auth sign-up was rejected.',
+	'Sign-up was rejected.',
+)
+
+/** Creates the enumeration-safe login rejection. */
+export const rejectPasswordCredentials: () => never = rejection(
+	passwordAuthErrorCodes.invalidCredentials,
+	'Password Auth credentials were rejected.',
+	'Invalid credentials.',
+)
+
+/** Creates one non-enumerating rejection for current or replacement secrets. */
+export const rejectPasswordChange: () => never = rejection(
+	passwordAuthErrorCodes.passwordChangeRejected,
+	'Password Auth password change was rejected.',
+	'Password change was rejected.',
+)
+
+/** Creates the uniform invalid, expired, revoked, or stale session rejection. */
+export const rejectPasswordSession: () => never = rejection(
+	passwordAuthErrorCodes.invalidSession,
+	'Password Auth session was rejected.',
+	'Invalid session.',
+)
+
+const reference = (exportName: string) =>
+	defineTypegenReference({
+		exportName,
+		module: '@ultimabase/password-auth-plugin',
+	})
 
 const credentialsInput = defineOperationValue<PasswordCredentialsInput>(
 	(value, path) => {
@@ -97,7 +118,7 @@ const credentialsInput = defineOperationValue<PasswordCredentialsInput>(
 			username: value.username,
 		})
 	},
-	credentialsInputReference,
+	reference('PasswordCredentialsInput'),
 )
 
 const nullInput = defineOperationValue<null>((value, path) => {
@@ -122,12 +143,12 @@ const passwordChangeInput = defineOperationValue<PasswordChangeInput>(
 			newPassword: value.newPassword,
 		})
 	},
-	passwordChangeInputReference,
+	reference('PasswordChangeInput'),
 )
 
 const signUpInput = defineOperationValue(
 	snapshotPasswordSignUpInput,
-	signUpInputReference,
+	reference('PasswordSignUpInput'),
 )
 
 const isUserProfile = (
@@ -171,7 +192,7 @@ const authenticationResult = defineOperationValue<PasswordAuthenticationResult>(
 			}),
 		})
 	},
-	authenticationResultReference,
+	reference('PasswordAuthenticationResult'),
 )
 
 const logoutResult = defineOperationValue<PasswordLogoutResult>(
@@ -185,7 +206,7 @@ const logoutResult = defineOperationValue<PasswordLogoutResult>(
 		}
 		return immutableRecord({ revoked: true as const })
 	},
-	logoutResultReference,
+	reference('PasswordLogoutResult'),
 )
 
 const passwordChangeResult = defineOperationValue<PasswordChangeResult>(
@@ -199,9 +220,41 @@ const passwordChangeResult = defineOperationValue<PasswordChangeResult>(
 		}
 		return immutableRecord({ changed: true as const })
 	},
-	passwordChangeResultReference,
+	reference('PasswordChangeResult'),
 )
 
+/** Declares one application operation in the Password Auth namespace. */
+const authOperation = <
+	const TName extends string,
+	TInput,
+	TResult,
+	const TErrors extends readonly string[],
+>(
+	name: TName,
+	transaction: PluginOperationTransaction,
+	input: PluginOperationValueContract<TInput>,
+	result: PluginOperationValueContract<TResult>,
+	errors: TErrors,
+): PluginOperationDefinition<
+	`ultimabase.password-auth.${TName}`,
+	'1.0.0',
+	'application',
+	TInput,
+	TResult,
+	TErrors
+> =>
+	defineOperation({
+		errors,
+		input,
+		name: `ultimabase.password-auth.${name}`,
+		result,
+		target: 'application',
+		transaction,
+		version: '1.0.0',
+	})
+
+// Credential and password work stays outside transactions; each handler opens
+// its own short transaction after hashing.
 const loginOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.login',
 	'1.0.0',
@@ -209,15 +262,13 @@ const loginOperation: PluginOperationDefinition<
 	PasswordCredentialsInput,
 	PasswordAuthenticationResult,
 	readonly ['PASSWORD_AUTH_INVALID_CREDENTIALS']
-> = defineOperation({
-	errors: [passwordAuthErrorCodes.invalidCredentials] as const,
-	input: credentialsInput,
-	name: 'ultimabase.password-auth.login',
-	result: authenticationResult,
-	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
+> = authOperation(
+	'login',
+	'forbidden',
+	credentialsInput,
+	authenticationResult,
+	[passwordAuthErrorCodes.invalidCredentials],
+)
 const logoutOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.logout',
 	'1.0.0',
@@ -225,15 +276,9 @@ const logoutOperation: PluginOperationDefinition<
 	null,
 	PasswordLogoutResult,
 	readonly ['PASSWORD_AUTH_INVALID_SESSION']
-> = defineOperation({
-	errors: [passwordAuthErrorCodes.invalidSession] as const,
-	input: nullInput,
-	name: 'ultimabase.password-auth.logout',
-	result: logoutResult,
-	target: 'application',
-	transaction: 'required',
-	version: '1.0.0',
-})
+> = authOperation('logout', 'required', nullInput, logoutResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
 const logoutEverywhereOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.logout-everywhere',
 	'1.0.0',
@@ -241,15 +286,9 @@ const logoutEverywhereOperation: PluginOperationDefinition<
 	null,
 	PasswordLogoutResult,
 	readonly ['PASSWORD_AUTH_INVALID_SESSION']
-> = defineOperation({
-	errors: [passwordAuthErrorCodes.invalidSession] as const,
-	input: nullInput,
-	name: 'ultimabase.password-auth.logout-everywhere',
-	result: logoutResult,
-	target: 'application',
-	transaction: 'required',
-	version: '1.0.0',
-})
+> = authOperation('logout-everywhere', 'required', nullInput, logoutResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
 const changePasswordOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.change-password',
 	'1.0.0',
@@ -260,18 +299,16 @@ const changePasswordOperation: PluginOperationDefinition<
 		'PASSWORD_AUTH_INVALID_SESSION',
 		'PASSWORD_AUTH_PASSWORD_CHANGE_REJECTED',
 	]
-> = defineOperation({
-	errors: [
+> = authOperation(
+	'change-password',
+	'forbidden',
+	passwordChangeInput,
+	passwordChangeResult,
+	[
 		passwordAuthErrorCodes.invalidSession,
 		passwordAuthErrorCodes.passwordChangeRejected,
-	] as const,
-	input: passwordChangeInput,
-	name: 'ultimabase.password-auth.change-password',
-	result: passwordChangeResult,
-	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
+	],
+)
 const refreshOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.refresh',
 	'1.0.0',
@@ -279,15 +316,9 @@ const refreshOperation: PluginOperationDefinition<
 	null,
 	PasswordAuthenticationResult,
 	readonly ['PASSWORD_AUTH_INVALID_SESSION']
-> = defineOperation({
-	errors: [passwordAuthErrorCodes.invalidSession] as const,
-	input: nullInput,
-	name: 'ultimabase.password-auth.refresh',
-	result: authenticationResult,
-	target: 'application',
-	transaction: 'required',
-	version: '1.0.0',
-})
+> = authOperation('refresh', 'required', nullInput, authenticationResult, [
+	passwordAuthErrorCodes.invalidSession,
+])
 const signUpOperation: PluginOperationDefinition<
 	'ultimabase.password-auth.sign-up',
 	'1.0.0',
@@ -295,16 +326,12 @@ const signUpOperation: PluginOperationDefinition<
 	PasswordSignUpInput,
 	PasswordAuthenticationResult,
 	readonly ['PASSWORD_AUTH_SIGN_UP_REJECTED']
-> = defineOperation({
-	errors: [passwordAuthErrorCodes.signUpRejected] as const,
-	input: signUpInput,
-	name: 'ultimabase.password-auth.sign-up',
-	result: authenticationResult,
-	target: 'application',
-	transaction: 'forbidden',
-	version: '1.0.0',
-})
+> = authOperation('sign-up', 'forbidden', signUpInput, authenticationResult, [
+	passwordAuthErrorCodes.signUpRejected,
+])
 
+// The `typeof` members keep the reference hover, which prints each operation
+// through its named private constant.
 /** Exposes the six nominal transport-neutral Password Auth operations. */
 export const passwordAuthOperations: Readonly<{
 	readonly changePassword: typeof changePasswordOperation
@@ -351,9 +378,27 @@ export const toPasswordAuthenticationPayload = (
 		user: value.user,
 	})
 
-const createRestBinding = <TOperation extends PasswordAuthOperation>(
+/**
+ * Snapshots wire input through the operation's own contract. With `reject`,
+ * malformed input fails with the declared safe error instead of HTTP 500.
+ */
+export const decodePasswordAuthInput =
+	<TInput>(
+		contract: PluginOperationValueContract<TInput>,
+		path: string,
+		reject?: () => never,
+	) =>
+	(value: unknown): TInput => {
+		try {
+			return contract.snapshot(value, path)
+		} catch (error: unknown) {
+			if (reject === undefined || !(error instanceof TypeError)) throw error
+			return reject()
+		}
+	}
+
+const restBinding = <TOperation extends PasswordAuthOperation>(
 	operation: TOperation,
-	path: string,
 	errors: Readonly<Record<string, 400 | 401>>,
 	decode: (value: unknown) => PluginOperationInput<TOperation>,
 	encode: (value: PluginOperationResult<TOperation>) => unknown,
@@ -368,11 +413,14 @@ const createRestBinding = <TOperation extends PasswordAuthOperation>(
 		}),
 		metadata: immutableRecord({
 			errors: immutableRecord(errors),
-			path,
+			// `ultimabase.password-auth.sign-up` is served at `/auth/sign-up`.
+			path: `/auth/${operation.name.slice('ultimabase.password-auth.'.length)}`,
 			...(inputSchema === undefined ? {} : { inputSchema }),
 		}),
 		operation,
 	})
+
+const sessionErrors = { [passwordAuthErrorCodes.invalidSession]: 401 } as const
 
 /** Provides the independently named REST v1 bindings without importing REST. */
 export const passwordAuthRestBindings: Readonly<
@@ -381,108 +429,56 @@ export const passwordAuthRestBindings: Readonly<
 		OperationTransportBindingDefinition
 	>
 > = immutableRecord({
-	changePassword: createRestBinding(
+	changePassword: restBinding(
 		passwordAuthOperations.changePassword,
-		'/auth/change-password',
 		{
-			[passwordAuthErrorCodes.invalidSession]: 401,
+			...sessionErrors,
 			[passwordAuthErrorCodes.passwordChangeRejected]: 400,
 		},
-		(value) => {
-			try {
-				return passwordChangeInput.snapshot(value, 'change-password.wire-input')
-			} catch (error: unknown) {
-				if (!(error instanceof TypeError)) throw error
-				return rejectPasswordChange()
-			}
-		},
+		decodePasswordAuthInput(
+			passwordChangeInput,
+			'change-password.wire-input',
+			rejectPasswordChange,
+		),
 		(value) => value,
 	),
-	login: createRestBinding(
+	login: restBinding(
 		passwordAuthOperations.login,
-		'/auth/login',
 		{ [passwordAuthErrorCodes.invalidCredentials]: 401 },
-		(value) => {
-			try {
-				return credentialsInput.snapshot(value, 'login.wire-input')
-			} catch (error: unknown) {
-				if (!(error instanceof TypeError)) throw error
-				// Invalid public credentials use the declared safe error, never HTTP 500.
-				return rejectPasswordCredentials()
-			}
-		},
+		decodePasswordAuthInput(
+			credentialsInput,
+			'login.wire-input',
+			rejectPasswordCredentials,
+		),
 		toPasswordAuthenticationPayload,
 	),
-	logout: createRestBinding(
+	logout: restBinding(
 		passwordAuthOperations.logout,
-		'/auth/logout',
-		{ [passwordAuthErrorCodes.invalidSession]: 401 },
-		(value) => nullInput.snapshot(value, 'logout.wire-input'),
+		sessionErrors,
+		decodePasswordAuthInput(nullInput, 'logout.wire-input'),
 		(value) => value,
 	),
-	logoutEverywhere: createRestBinding(
+	logoutEverywhere: restBinding(
 		passwordAuthOperations.logoutEverywhere,
-		'/auth/logout-everywhere',
-		{ [passwordAuthErrorCodes.invalidSession]: 401 },
-		(value) => nullInput.snapshot(value, 'logout-everywhere.wire-input'),
+		sessionErrors,
+		decodePasswordAuthInput(nullInput, 'logout-everywhere.wire-input'),
 		(value) => value,
 	),
-	refresh: createRestBinding(
+	refresh: restBinding(
 		passwordAuthOperations.refresh,
-		'/auth/refresh',
-		{ [passwordAuthErrorCodes.invalidSession]: 401 },
-		(value) => nullInput.snapshot(value, 'refresh.wire-input'),
+		sessionErrors,
+		decodePasswordAuthInput(nullInput, 'refresh.wire-input'),
 		toPasswordAuthenticationPayload,
 	),
-	signUp: createRestBinding(
+	signUp: restBinding(
 		passwordAuthOperations.signUp,
-		'/auth/sign-up',
 		{ [passwordAuthErrorCodes.signUpRejected]: 400 },
-		(value) => {
-			try {
-				return signUpInput.snapshot(value, 'sign-up.wire-input')
-			} catch (error: unknown) {
-				if (!(error instanceof TypeError)) throw error
-				return rejectPasswordSignUp()
-			}
-		},
+		decodePasswordAuthInput(
+			signUpInput,
+			'sign-up.wire-input',
+			rejectPasswordSignUp,
+		),
 		toPasswordAuthenticationPayload,
 		'User',
 	),
 })
-
-/** Creates the uniform public sign-up rejection. */
-export const rejectPasswordSignUp = (): never => {
-	throw new PluginError(
-		passwordAuthErrorCodes.signUpRejected,
-		'Password Auth sign-up was rejected.',
-		{ publicMessage: 'Sign-up was rejected.' },
-	)
-}
-
-/** Creates the enumeration-safe login rejection. */
-export const rejectPasswordCredentials = (): never => {
-	throw new PluginError(
-		passwordAuthErrorCodes.invalidCredentials,
-		'Password Auth credentials were rejected.',
-		{ publicMessage: 'Invalid credentials.' },
-	)
-}
-
-/** Creates one non-enumerating rejection for current or replacement secrets. */
-export const rejectPasswordChange = (): never => {
-	throw new PluginError(
-		passwordAuthErrorCodes.passwordChangeRejected,
-		'Password Auth password change was rejected.',
-		{ publicMessage: 'Password change was rejected.' },
-	)
-}
-
-/** Creates the uniform invalid, expired, revoked, or stale session rejection. */
-export const rejectPasswordSession = (): never => {
-	throw new PluginError(
-		passwordAuthErrorCodes.invalidSession,
-		'Password Auth session was rejected.',
-		{ publicMessage: 'Invalid session.' },
-	)
-}

@@ -4,9 +4,8 @@ import {
 	readOperationResultSelection,
 	readRuntimeFieldValuePath,
 	readRuntimeIncludedPointerValue,
+	type RuntimeLogicalOperationAst,
 } from '@ultimabase/core'
-import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
-import type { AccessPlan, SchemaAccessPlan } from '../authoring/plan.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -14,36 +13,31 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type { AccessExecutionRuntime } from './execution-runtime.js'
-import { accessFieldPathsEqual } from './field-paths.js'
 import {
-	assertAccessDecisionRules,
+	allowUndeclaredFieldAccess,
+	type SchemaAccessPlan,
+} from '../authoring/plan.js'
+import {
+	assertAccessRules,
 	createAccessDeniedError,
-	type AccessRuntimeRequest,
+	type AccessScope,
 } from './rule-evaluation.js'
 
+/** Lists permitted top-level row fields, or undefined when nothing is narrowed. */
 export const computeAccessStaticSelection = (
 	schemaPlan: SchemaAccessPlan,
 ): readonly string[] | undefined => {
-	const topLevel = schemaPlan.fields.filter((field) => {
-		if (field.path.length !== 1) return false
-
-		const [fieldName] = field.path
-		const definition =
-			fieldName === undefined ? undefined : schemaPlan.schema.fields[fieldName]
-
-		// Relations remain Access-controlled handles but never become row projections.
-		return definition?.kind !== 'relation'
-	})
+	// Relations remain Access-controlled handles but never become row projections.
+	const topLevel = schemaPlan.fields.filter(
+		({ field, path }) => path.length === 1 && field.kind !== 'relation',
+	)
 	const permitted = immutableArray(
 		topLevel
-			.filter((field) => {
-				if (field.read.item.length === 0) {
-					return allowUndeclaredFieldAccess
-				}
-
-				return !field.read.item.some(({ rule }) => rule === false)
-			})
+			.filter(({ read }) =>
+				read.item.length === 0
+					? allowUndeclaredFieldAccess
+					: !read.item.some(({ rule }) => rule === false),
+			)
 			.map(({ path }) => path[0])
 			.filter((field): field is string => field !== undefined),
 	)
@@ -52,29 +46,30 @@ export const computeAccessStaticSelection = (
 	return permitted.length === topLevel.length ? undefined : permitted
 }
 
+/** Rejects an explicit selection of a statically hidden field. */
 export const assertAccessExplicitSelection = (
-	request: AccessRuntimeRequest,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
+	operation: RuntimeLogicalOperationAst,
 	permitted: readonly string[] | undefined,
 ): void => {
-	if (permitted === undefined) {
-		return
-	}
-
-	for (const { field: fieldName } of readOperationResultSelection(
-		request.operation,
-	).fields) {
-		if (!permitted.includes(fieldName)) {
-			const field = plan.getField(schemaPlan.schema, [fieldName])
+	if (permitted === undefined) return
+	for (const { field } of readOperationResultSelection(operation).fields) {
+		if (!permitted.includes(field)) {
 			throw createAccessDeniedError(
 				'access-field-read',
-				request.operation.kind,
-				field,
+				scope.operation,
+				scope.plan.getField(scope.schema, [field]),
 			)
 		}
 	}
 }
+
+const fieldPathsEqual = (
+	left: readonly (number | string)[],
+	right: readonly (number | string)[],
+): boolean =>
+	left.length === right.length &&
+	left.every((segment, index) => segment === right[index])
 
 /** Omits one concrete property without changing surrounding list cardinality. */
 const removeConcreteFieldPath = (
@@ -82,7 +77,6 @@ const removeConcreteFieldPath = (
 	path: readonly (number | string)[],
 ): unknown => {
 	const [segment, ...tail] = path
-
 	if (segment === undefined) {
 		throw new TypeError('Native Access cannot omit an empty field path')
 	}
@@ -97,17 +91,14 @@ const removeConcreteFieldPath = (
 				'Native Access cannot omit an invalid list field path',
 			)
 		}
-
 		const items = [...value]
 		items[segment] = removeConcreteFieldPath(items[segment], tail)
-
 		return immutableArray(items)
 	}
 
 	if (!isPlainRecord(value) || !Object.hasOwn(value, segment)) {
 		throw new TypeError('Native Access cannot omit an unavailable field path')
 	}
-
 	if (tail.length === 0) {
 		return immutableRecord(
 			Object.fromEntries(
@@ -115,146 +106,94 @@ const removeConcreteFieldPath = (
 			),
 		)
 	}
-
 	return immutableRecord({
 		...value,
 		[segment]: removeConcreteFieldPath(value[segment], tail),
 	})
 }
 
+/** Removes every value whose field output rule denies it, parent first. */
 const enforceRecordOutput = async (
-	runtime: AccessExecutionRuntime,
-	request: AccessRuntimeRequest,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
 	record: Readonly<Record<string, unknown>>,
 ): Promise<Readonly<Record<string, unknown>>> => {
 	let projected = record
 	const values = collectRecordFieldValues(
-		schemaPlan.schema.fields,
+		scope.schema.fields,
 		record,
 		'parent-first',
 	)
 
 	for (const value of values) {
-		const field = plan.getField(schemaPlan.schema, value.fieldPath)
-
+		const field = scope.plan.getField(scope.schema, value.fieldPath)
 		if (field?.field !== value.field) {
 			throw new TypeError(
 				'Native Access field traversal resolved an inconsistent read target',
 			)
 		}
-
-		if (field.field.kind === 'relation') {
-			// Relation collections are absent from persisted rows. Their source rule is
-			// enforced before eager traversal, before an adapter can load targets.
-			continue
-		}
-
-		const current = readRuntimeFieldValuePath(projected, value.valuePath)
+		// Relation collections are absent from persisted rows. Their source rule is
+		// enforced before eager traversal, before an adapter can load targets.
+		if (field.field.kind === 'relation') continue
 
 		// A denied parent makes every originally collected descendant unavailable.
-		if (!current.found) {
-			continue
-		}
-		const retained = accessFieldPathsEqual(value.fieldPath, value.valuePath)
+		const current = readRuntimeFieldValuePath(projected, value.valuePath)
+		if (!current.found) continue
+
+		const retained = fieldPathsEqual(value.fieldPath, value.valuePath)
 			? readRuntimeIncludedPointerValue(projected, field.path)
 			: undefined
-		const accessValue =
-			retained?.present === true ? retained.value : current.value
-
 		try {
-			await assertAccessDecisionRules(
-				runtime,
-				request,
+			await assertAccessRules(
+				scope,
 				field.read.item,
-				{
-					branch: 'item',
-					field,
-					phase: 'access-field-read',
-					schema: schemaPlan.schema,
-				},
+				{ branch: 'item', field, phase: 'access-field-read' },
 				immutableRecord({
-					context: request.context,
-					value: accessValue,
+					context: scope.context,
+					value: retained?.present === true ? retained.value : current.value,
 				}),
-				allowUndeclaredFieldAccess,
 			)
 		} catch (error: unknown) {
 			if (
-				error instanceof FrameworkError &&
-				error.code === 'PERMISSION_DENIED'
+				!(error instanceof FrameworkError) ||
+				error.code !== 'PERMISSION_DENIED'
 			) {
-				const next = removeConcreteFieldPath(projected, value.valuePath)
-
-				if (!isPlainRecord(next)) {
-					throw new TypeError(
-						'Native Access field projection must preserve its root record',
-						{ cause: error },
-					)
-				}
-
-				projected = next
-				continue
+				throw error
 			}
-
-			throw error
+			// A denied value is omitted rather than failing the whole read.
+			const next = removeConcreteFieldPath(projected, value.valuePath)
+			if (!isPlainRecord(next)) {
+				throw new TypeError(
+					'Native Access field projection must preserve its root record',
+					{ cause: error },
+				)
+			}
+			projected = next
 		}
 	}
-
 	return projected
 }
 
 /** Applies value-dependent output restrictions without changing result shape. */
 export const enforceAccessOutput = async <const TResult>(
-	runtime: AccessExecutionRuntime,
-	request: AccessRuntimeRequest & {
-		readonly result: TResult
-	},
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
+	result: TResult,
 ): Promise<TResult> => {
-	const unknownResult: unknown = request.result
-	const operationInput = immutableRecord({
-		context: request.context,
-		operation: request.operation,
-	})
-
-	if (unknownResult === null || typeof unknownResult !== 'object') {
-		return request.result
-	}
-
-	if (isUnknownArray(unknownResult)) {
-		const results: unknown[] = []
-
-		for (const record of unknownResult) {
-			results.push(
+	const value: unknown = result
+	let restricted: unknown = value
+	if (isUnknownArray(value)) {
+		const records: unknown[] = []
+		for (const record of value) {
+			records.push(
 				isPlainRecord(record)
-					? await enforceRecordOutput(
-							runtime,
-							operationInput,
-							plan,
-							schemaPlan,
-							record,
-						)
+					? await enforceRecordOutput(scope, record)
 					: record,
 			)
 		}
-
-		// Cardinality and non-record values are retained exactly from TResult.
-		return immutableArray(results) as TResult
+		restricted = immutableArray(records)
+	} else if (isPlainRecord(value)) {
+		restricted = await enforceRecordOutput(scope, value)
 	}
-
-	// The record branch preserves the operation-specific result container.
-	return (
-		isPlainRecord(unknownResult)
-			? await enforceRecordOutput(
-					runtime,
-					operationInput,
-					plan,
-					schemaPlan,
-					unknownResult,
-				)
-			: request.result
-	) as TResult
+	// Records keep their keys minus denied values and arrays keep their
+	// cardinality, so the operation-specific result container is preserved.
+	return restricted as TResult
 }

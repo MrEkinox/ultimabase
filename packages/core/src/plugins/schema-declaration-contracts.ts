@@ -14,8 +14,10 @@ import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { FieldDeclarationContext } from '../schema/schema/field-contexts.js'
 
 import {
+	createSchemaContributionProvenance,
 	type PluginSchemaContributionOwner,
 	type SchemaCompilationProvenance,
+	type SchemaContributionProvenance,
 } from '../schema/schema/provenance.js'
 
 import {
@@ -26,6 +28,7 @@ import {
 	type SchemaOptionRuntimeCompiler,
 	type SchemaOptionRuntimeRequirement,
 } from './schema-option-definitions.js'
+import { isSamePluginIdentity } from './manifest.js'
 import type {
 	PluginSourceProjection,
 	PluginSourceReceipt,
@@ -179,6 +182,17 @@ export interface OwnedOptionDefinition {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
+/** Attributes an option definition to the plugin contribution that declared it. */
+export const optionDefinitionProvenance = (
+	descriptor: OwnedOptionDefinition,
+): SchemaContributionProvenance =>
+	createSchemaContributionProvenance(
+		descriptor.owner,
+		descriptor.contributionId,
+		descriptor.staticOptions,
+		descriptor.definition.protocolVersion,
+	)
+
 export interface OptionDefinitionIndex {
 	readonly field: ReadonlyMap<string, readonly OwnedOptionDefinition[]>
 	readonly schema: ReadonlyMap<string, readonly OwnedOptionDefinition[]>
@@ -243,12 +257,6 @@ export const attachPluginDeclarationDiagnostic = (
 	)
 }
 
-export const samePluginOwner = (
-	left: PluginSchemaContributionOwner,
-	right: PluginSchemaContributionOwner,
-): boolean =>
-	left.pluginId === right.pluginId && left.instanceId === right.instanceId
-
 export const resolveOptionDefinition = (
 	definitions: ReadonlyMap<string, readonly OwnedOptionDefinition[]>,
 	name: string,
@@ -261,7 +269,7 @@ export const resolveOptionDefinition = (
 
 	if (preferredOwner !== undefined) {
 		const owned = candidates.filter((candidate) =>
-			samePluginOwner(candidate.owner, preferredOwner),
+			isSamePluginIdentity(candidate.owner, preferredOwner),
 		)
 		if (owned.length === 1) return owned[0]
 	}

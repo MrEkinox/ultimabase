@@ -1,68 +1,64 @@
 import {
 	FrameworkError,
 	Schema,
+	WhereBuilder,
 	getOperationSchema,
+	normalizeLogicalFilter,
 	readOperationQueries,
+	resolveWhereInput,
 	traverseQueryExpression,
 	type DatabaseOperationAst,
 	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
 	type OperationKind,
-	type QueryExpressionNode,
+	type PluginSchemaMutationOperationAst,
+	type QueryFilterNode,
+	type RequestContext,
 	type RuntimeLogicalOperationAst,
-	type RuntimeOperationStageInput,
 	type SchemaDefinition,
+	type WhereInput,
 } from '@ultimabase/core'
 import {
-	combineAccessWhereResults,
-	createAccessWhere,
-} from '../authoring/filter.js'
-import type {
-	AccessPlan,
-	CompiledAccessRule,
-	FieldAccessPlan,
-	SchemaAccessPlan,
-} from '../authoring/plan.js'
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
+
 import {
-	allowUndeclaredFieldAccess,
-	readAccessOperationFamily,
 	readAccessOperationDefault,
+	readAccessOperationFamily,
+	type AccessPlan,
+	type CompiledAccessRule,
+	type FieldAccessPlan,
+	type SchemaAccessPlan,
+	type SchemaMutationAccessPlan,
 } from '../authoring/plan.js'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import type {
+	AccessExecutionRuntime,
+	AccessOperationKind,
+	AccessPhase,
+	AccessRuleIdentity,
+} from './execution-runtime.js'
 
-import type { AccessExecutionRuntime } from './execution-runtime.js'
-
-export type AccessPhase =
-	| 'access-field-read'
-	| 'access-field-write'
-	| 'access-filter'
-	| 'access-item'
-	| 'access-operation'
-
-export type AccessOperationKind = OperationKind | 'plugin-schema-mutation'
-
-/** Carries native and custom logical operations through one Access callback path. */
-export type AccessRuntimeRequest =
-	RuntimeOperationStageInput<RuntimeLogicalOperationAst>
-
-/** Narrows one shared logical request before entering native CRUD-only helpers. */
-export const readNativeAccessRequest = (
-	request: AccessRuntimeRequest,
-): RuntimeOperationStageInput<DatabaseOperationAst> => {
-	if (request.operation.kind === 'plugin-schema-mutation') {
-		throw new TypeError('Native Access requires a database operation')
-	}
-
-	return immutableRecord({ ...request, operation: request.operation })
+/** Carries the request facts shared by every rule evaluated at one boundary. */
+export interface RuleScope {
+	readonly context: RequestContext
+	readonly operation: AccessOperationKind
+	readonly runtime: AccessExecutionRuntime
+	readonly schema: SchemaDefinition
 }
 
-export interface AccessRuleIdentity {
+/** Adds the compiled plan of the operation schema to one rule scope. */
+export interface AccessScope extends RuleScope {
+	readonly plan: AccessPlan
+	readonly schemaPlan: SchemaAccessPlan
+}
+
+/** Names the policy boundary of one rule list without its rule position. */
+export interface RuleTarget {
 	readonly branch: string
 	readonly field?: FieldAccessPlan
 	readonly phase: AccessPhase
-	readonly rule: CompiledAccessRule
-	readonly ruleIndex: number
-	readonly schema: SchemaDefinition
 }
 
 /** Keeps public denials stable while diagnostics retain only static identity. */
@@ -81,142 +77,217 @@ export const createAccessDeniedError = (
 		},
 	})
 
-export const readAccessSchema = (operation: unknown): SchemaDefinition => {
-	const schema: unknown = getOperationSchema(operation)
-
-	if (!Schema.is(schema)) {
-		throw new TypeError('Native Access requires a schema definition')
-	}
-
-	return schema
-}
-
 /** Reads the exact compiled schema plan or fails closed for a foreign graph. */
 export const requireAccessSchemaPlan = (
 	plan: AccessPlan,
-	operation: unknown,
+	operation: RuntimeLogicalOperationAst,
 ): SchemaAccessPlan => {
-	const schemaPlan = plan.getSchema(readAccessSchema(operation))
-
+	const schema: unknown = getOperationSchema(operation)
+	if (!Schema.is(schema)) {
+		throw new TypeError('Native Access requires a schema definition')
+	}
+	const schemaPlan = plan.getSchema(schema)
 	if (schemaPlan === undefined) {
 		throw new TypeError('Native Access plan does not own the operation schema')
 	}
-
 	return schemaPlan
 }
 
-const createRuleDescriptor = (
-	identity: AccessRuleIdentity,
-	operation: AccessOperationKind,
-): Readonly<{
-	readonly identity: AccessRuleIdentity
-	readonly operation: AccessOperationKind
-}> => immutableRecord({ identity, operation })
-
-/** Executes callbacks through cancellation, recursion, and diagnostics. */
-const evaluateRule = async (
+/** Binds one request to the compiled plan of its operation schema. */
+export const createAccessScope = (
 	runtime: AccessExecutionRuntime,
-	request: AccessRuntimeRequest,
+	plan: AccessPlan,
+	context: RequestContext,
+	operation: RuntimeLogicalOperationAst,
+): AccessScope => {
+	const schemaPlan = requireAccessSchemaPlan(plan, operation)
+	return {
+		context,
+		operation: operation.kind,
+		plan,
+		runtime,
+		schema: schemaPlan.schema,
+		schemaPlan,
+	}
+}
+
+/** Exposes the operation details Core proved during structural validation. */
+export const readExecutableOperation = (
+	operation: DatabaseOperationAst,
+): ExecutableOperationAst =>
+	// Core validates every native operation into this closed union before
+	// Runtime stages run; its own operation readers rely on the same proof.
+	operation as unknown as ExecutableOperationAst
+
+/**
+ * Evaluates one rule. Static booleans skip the callback runtime unless
+ * `invokeStatic` asks for the same diagnostics and cancellation as callbacks.
+ */
+const evaluateRule = (
+	scope: RuleScope,
 	identity: AccessRuleIdentity,
 	input: Readonly<Record<string, unknown>>,
-): Promise<unknown> => {
-	if (typeof identity.rule.rule === 'boolean') {
-		return identity.rule.rule
-	}
-	const handler = identity.rule.rule
-
-	// Plan compilation correlates each callback with its branch-specific input.
-	return runtime.invoke(
-		createRuleDescriptor(identity, request.operation.kind),
-		request.context,
-		() => handler(input as never),
+	invokeStatic = false,
+): unknown => {
+	const rule = identity.rule.rule
+	if (typeof rule === 'boolean' && !invokeStatic) return rule
+	return scope.runtime.invoke(
+		immutableRecord({ identity, operation: scope.operation }),
+		scope.context,
+		// Plan compilation correlates each callback with its branch-specific input.
+		() => (typeof rule === 'boolean' ? rule : rule(input as never)),
 	)
 }
 
-export const assertAccessDecisionRules = async (
-	runtime: AccessExecutionRuntime,
-	request: AccessRuntimeRequest,
+/**
+ * Requires every rule to return `true`. An empty list allows unless
+ * `allowWhenEmpty` is false, which is how fail-closed defaults deny.
+ */
+export const assertAccessRules = async (
+	scope: RuleScope,
 	rules: readonly CompiledAccessRule[],
-	identity: Omit<AccessRuleIdentity, 'rule' | 'ruleIndex'>,
+	target: RuleTarget,
 	input: Readonly<Record<string, unknown>>,
-	defaultDecision: boolean,
+	allowWhenEmpty = true,
 ): Promise<void> => {
-	if (rules.length === 0 && !defaultDecision) {
-		throw createAccessDeniedError(
-			identity.phase,
-			request.operation.kind,
-			identity.field,
-		)
+	if (rules.length === 0 && !allowWhenEmpty) {
+		throw createAccessDeniedError(target.phase, scope.operation, target.field)
 	}
-
 	for (const [ruleIndex, rule] of rules.entries()) {
 		const output = await evaluateRule(
-			runtime,
-			request,
-			{ ...identity, rule, ruleIndex },
+			scope,
+			{ ...target, rule, ruleIndex, schema: scope.schema },
 			input,
 		)
-
 		if (typeof output !== 'boolean') {
 			throw new TypeError(
-				`Native Access ${identity.phase} rule must return a boolean`,
+				`Native Access ${target.phase} rule must return a boolean`,
 			)
 		}
-
 		if (!output) {
-			throw createAccessDeniedError(
-				identity.phase,
-				request.operation.kind,
-				identity.field,
-			)
+			throw createAccessDeniedError(target.phase, scope.operation, target.field)
 		}
 	}
 }
 
-const collectFilterFields = (
-	expression: QueryExpressionNode,
-	fields: Set<string>,
-): void => {
-	traverseQueryExpression(expression, (candidate) => {
-		// Collection fields cross a dedicated item boundary; pointer traversal still
-		// uses the source field filter channel before target Access runs.
-		if (candidate.kind === 'relation-predicate') {
-			if (
-				(candidate.operator === 'is' || candidate.operator === 'is-not') &&
-				typeof candidate.field === 'string'
-			) {
-				fields.add(candidate.field)
-			}
+/**
+ * Lets developer rules apply the configured default, then lets provider rules
+ * only deny. `createInput` runs once per group.
+ */
+const assertOperationRules = async (
+	scope: AccessScope,
+	rules: readonly CompiledAccessRule[],
+	branch: string,
+	createInput: () => Readonly<Record<string, unknown>>,
+	defaultDecision: boolean,
+): Promise<void> => {
+	const target = { branch, phase: 'access-operation' as const }
+	const developerRules = rules.filter(
+		({ source }) => source.kind === 'developer',
+	)
+	const providerRules = rules.filter(({ source }) => source.kind === 'plugin')
+	await assertAccessRules(
+		scope,
+		developerRules,
+		target,
+		createInput(),
+		defaultDecision,
+	)
+	await assertAccessRules(scope, providerRules, target, createInput())
+}
 
-			return 'skip'
-		}
+const normalizeAccessWhereResult = (
+	schema: SchemaDefinition,
+	result: unknown,
+): QueryFilterNode<SchemaDefinition> => {
+	if (!(result instanceof WhereBuilder) && !isPlainRecord(result)) {
+		throw new TypeError(
+			'Access where must return undefined, a WhereInput, or a WhereBuilder',
+		)
+	}
+	// `resolveWhereInput` validates the plain object exactly like public `where`.
+	return resolveWhereInput(
+		schema,
+		result as WhereBuilder<SchemaDefinition> | WhereInput<SchemaDefinition>,
+	)
+}
 
-		if (typeof candidate.field === 'string') {
-			fields.add(candidate.field)
-		}
-
-		return 'continue'
+/** ANDs independent row restrictions so no later contribution can broaden rows. */
+const evaluateFilters = async (
+	scope: AccessScope,
+	rules: readonly CompiledAccessRule[],
+	branch: string,
+	createInput: () => Readonly<Record<string, unknown>>,
+	invokeStatic?: boolean,
+): Promise<DatabaseRowFilterNode | undefined> => {
+	const results: unknown[] = []
+	for (const [ruleIndex, rule] of rules.entries()) {
+		const result = await evaluateRule(
+			scope,
+			{ branch, phase: 'access-filter', rule, ruleIndex, schema: scope.schema },
+			createInput(),
+			invokeStatic,
+		)
+		if (result !== undefined) results.push(result)
+	}
+	if (results.length === 0) return undefined
+	return normalizeLogicalFilter({
+		kind: 'and',
+		expressions: immutableArray(
+			results.map((result) => normalizeAccessWhereResult(scope.schema, result)),
+		),
 	})
 }
 
+/** Applies the native operation decision and returns its private row filter. */
+export const evaluateAccessOperation = async (
+	scope: AccessScope,
+	kind: OperationKind,
+): Promise<DatabaseRowFilterNode | undefined> => {
+	const { context, plan, schemaPlan } = scope
+	const input = immutableRecord({ context })
+	await assertOperationRules(
+		scope,
+		schemaPlan.operation[kind],
+		kind,
+		() => input,
+		readAccessOperationDefault(plan.defaults, kind),
+	)
+	const family = readAccessOperationFamily(kind)
+	if (family === 'create') return undefined
+	return evaluateFilters(scope, schemaPlan.filter[family], family, () =>
+		immutableRecord({ context, where: new WhereBuilder(scope.schema) }),
+	)
+}
+
+/** Checks the exact field references of where and orderBy clauses. */
 export const evaluateAccessFieldReferenceRules = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
+	operation: DatabaseOperationAst,
 ): Promise<void> => {
-	// Structural validation establishes the executable closed operation union.
-	const operation = request.operation as unknown as ExecutableOperationAst
 	const filterFields = new Set<string>()
 	const orderFields = new Set<string>()
-
 	for (const query of readOperationQueries(operation)) {
 		if (query.where !== undefined) {
-			collectFilterFields(query.where.expression, filterFields)
+			traverseQueryExpression(query.where.expression, (candidate) => {
+				// Collection fields cross a dedicated item boundary; pointer traversal
+				// still uses the source field filter channel before target Access runs.
+				if (candidate.kind === 'relation-predicate') {
+					if (
+						(candidate.operator === 'is' || candidate.operator === 'is-not') &&
+						typeof candidate.field === 'string'
+					) {
+						filterFields.add(candidate.field)
+					}
+					return 'skip'
+				}
+				if (typeof candidate.field === 'string') {
+					filterFields.add(candidate.field)
+				}
+				return 'continue'
+			})
 		}
-		for (const order of query.ordering.orders) {
-			orderFields.add(order.field)
-		}
+		for (const order of query.ordering.orders) orderFields.add(order.field)
 	}
 
 	for (const [channel, fields] of [
@@ -224,99 +295,89 @@ export const evaluateAccessFieldReferenceRules = async (
 		['order', orderFields],
 	] as const) {
 		for (const fieldName of fields) {
-			const field = plan.getField(schemaPlan.schema, [fieldName])
-
-			if (field === undefined) {
-				continue
-			}
-
-			await assertAccessDecisionRules(
-				runtime,
-				request,
+			const field = scope.plan.getField(scope.schema, [fieldName])
+			if (field === undefined) continue
+			await assertAccessRules(
+				scope,
 				field.read[channel],
-				{
-					branch: channel,
-					field,
-					phase: 'access-field-read',
-					schema: schemaPlan.schema,
-				},
-				immutableRecord({ context: request.context }),
-				allowUndeclaredFieldAccess,
+				{ branch: channel, field, phase: 'access-field-read' },
+				immutableRecord({ context: scope.context }),
 			)
 		}
 	}
 }
 
-/** Owns operation denial and private monotonic row-policy evaluation. */
-export const evaluateAccessOperationAndFilter = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
-): Promise<DatabaseRowFilterNode | undefined> => {
-	const operationRules = schemaPlan.operation[request.operation.kind]
-	const developerRules = operationRules.filter(
-		({ source }) => source.kind === 'developer',
-	)
-	const providerRules = operationRules.filter(
-		({ source }) => source.kind === 'plugin',
-	)
-	const identity = {
-		branch: request.operation.kind,
-		phase: 'access-operation' as const,
-		schema: schemaPlan.schema,
+const readSchemaMutationPlan = (
+	scope: AccessScope,
+	operation: PluginSchemaMutationOperationAst,
+): SchemaMutationAccessPlan => {
+	const mutation = scope.schemaPlan.schemaMutations.get(operation.command)
+	if (
+		mutation?.descriptor.mutation !== operation.mutation ||
+		mutation.descriptor.owner !== operation.owner
+	) {
+		throw new TypeError(
+			'Official Access received an unavailable schema mutation identity',
+		)
 	}
-	const input = immutableRecord({ context: request.context })
+	return mutation
+}
 
-	await assertAccessDecisionRules(
-		runtime,
-		request,
-		developerRules,
-		identity,
-		input,
-		readAccessOperationDefault(plan.defaults, request.operation.kind),
+const schemaMutationInput = (
+	context: RequestContext,
+	operation: PluginSchemaMutationOperationAst,
+): Readonly<Record<string, unknown>> => {
+	const { authority, effect, kind, name, version } = operation.mutation
+	return immutableRecord({
+		context,
+		input: operation.input,
+		mutation: immutableRecord({ authority, effect, kind, name, version }),
+	})
+}
+
+/** Applies the exact custom operation decision and private target universe. */
+export const evaluateSchemaMutationAccess = async (
+	scope: AccessScope,
+	operation: PluginSchemaMutationOperationAst,
+): Promise<DatabaseRowFilterNode | undefined> => {
+	const mutation = readSchemaMutationPlan(scope, operation)
+	const createInput = () => schemaMutationInput(scope.context, operation)
+	await assertOperationRules(
+		scope,
+		mutation.operation,
+		operation.command,
+		createInput,
+		scope.plan.defaults.schemaMutations,
 	)
-	await assertAccessDecisionRules(
-		runtime,
-		request,
-		providerRules,
-		identity,
-		input,
+	// Custom filters always run through the callback runtime, even when static.
+	return evaluateFilters(
+		scope,
+		mutation.filter,
+		operation.command,
+		() =>
+			immutableRecord({
+				...createInput(),
+				where: new WhereBuilder(scope.schema),
+			}),
 		true,
 	)
+}
 
-	const family = readAccessOperationFamily(request.operation.kind)
-
-	if (family === 'create') {
-		return undefined
-	}
-
-	const filterRules = schemaPlan.filter[family]
-	const results: unknown[] = []
-
-	for (const [ruleIndex, rule] of filterRules.entries()) {
-		const result = await evaluateRule(
-			runtime,
-			request,
-			{
-				branch: family,
-				phase: 'access-filter',
-				rule,
-				ruleIndex,
-				schema: schemaPlan.schema,
-			},
-			immutableRecord({
-				context: request.context,
-				where: createAccessWhere(schemaPlan.schema),
-			}),
-		)
-
-		if (result !== undefined) {
-			results.push(result)
-		}
-	}
-
-	return results.length === 0
-		? undefined
-		: combineAccessWhereResults(schemaPlan.schema, results)
+/** Evaluates the owner-resolved candidate once it becomes available. */
+export const enforceSchemaMutationItemAccess = async (
+	scope: AccessScope,
+	operation: PluginSchemaMutationOperationAst,
+): Promise<void> => {
+	const { item, originalItem } = operation
+	if (originalItem === undefined || item === undefined) return
+	await assertAccessRules(
+		scope,
+		readSchemaMutationPlan(scope, operation).item,
+		{ branch: operation.command, phase: 'access-item' },
+		immutableRecord({
+			...schemaMutationInput(scope.context, operation),
+			item,
+			originalItem,
+		}),
+	)
 }

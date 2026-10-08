@@ -1,46 +1,80 @@
 # Architecture
 
-Use the [current architecture index](docs/current-architecture.md) to locate a
-concept's maintained contract, responsible code, and accepted ADRs. This file
-remains the system-level contract and dependency narrative.
+This file is the system-level contract and dependency narrative of UltimaBase,
+followed by the module layout of the rebuilt implementation. Use the
+[current architecture index](docs/current-architecture.md) to locate a
+concept's maintained contract, responsible code, and accepted ADRs.
+
+## Reconstruction
+
+This repository is a reconstruction of the reference implementation at commit
+`0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`. The first commit of `main`
+(`edf3032`) imports that snapshot unchanged, so `git diff edf3032` shows the
+whole rebuild. The rebuild rewrote internal implementations only:
+
+- The public contract is unchanged: package exports and `package.json`
+  exports, signatures, generics, literal types and JSDoc, inference,
+  completion, hover text and diagnostics, observable behavior, error classes,
+  codes and messages, ordering, transactions, and security guarantees.
+- Each package, and Core in five partitions plus one integration pass, was
+  rewritten in an isolated branch under the
+  [rebuild protocol](docs/rebuild/PROTOCOL.md). Public tests stayed unchanged
+  and served as the oracle; internal tests were ported without losing an
+  assertion; every validation was replayed before the merge.
+- Every package records its module mapping, removed checks with proofs, casts,
+  test mapping, parity evidence, and validation results in its own
+  `REBUILD.md` (Core: `packages/core/REBUILD-core-*.md`).
+- The few deliberate observable differences, all on untyped or forged inputs,
+  are listed in [`docs/rebuild/DIFFERENCES.md`](docs/rebuild/DIFFERENCES.md).
+  Editor-visible parity is audited by `tooling/rebuild/dx-audit.mjs`
+  ([DX-AUDIT.md](docs/rebuild/DX-AUDIT.md)), and the validation correspondence
+  is in [`docs/rebuild/VALIDATIONS.md`](docs/rebuild/VALIDATIONS.md).
+- Production code went from 114,742 to 104,141 non-blank lines (731 to 622
+  files, `node tooling/measure-rebuild.mjs`). Test code keeps its size (127,477
+  lines): public tests are unchanged, and internal tests beside the source only
+  had import specifiers updated. The published runtime dependencies are the
+  same 16 packages.
+
+Accepted ADRs remain in force: the rebuild preserves every decision they
+record. The issue backlog (`issues/`), `docs/plans/`, `CURRENT_PLAN.md`, and
+`HISTORIQUE_SUPPRESSIONS.md` are the frozen archive of the reference's
+development; when they or an ADR name an internal module, they describe the
+reference layout, not the [current one](#module-layout).
 
 ## System shape
 
-Milestone 30 has accepted
-[ADR-0258](docs/adr/0258-single-active-application-lifecycle.md): one initialized
-application per JavaScript realm, concurrent requests, and sequential replacement
-after disposal. Issue 3006 enforces lifecycle ownership before initialization
-and drains admitted Core work before teardown. Cleanup failure retains the slot.
-Issue 3007 removes shared-server routing. Under
-[ADR-0260](docs/adr/0260-single-owner-http-dispatch.md), server providers dispatch
-to one optional HTTP owner through the safe HTTP boundary, including rejection
-after shutdown; HTTP application identity remains required.
+One initialized application exists per JavaScript realm, with concurrent
+requests and sequential replacement after disposal
+([ADR-0258](docs/adr/0258-single-active-application-lifecycle.md)). Lifecycle
+ownership is enforced before initialization, admitted Core work drains before
+teardown, and a cleanup failure retains the slot. There is no shared-server
+routing: under [ADR-0260](docs/adr/0260-single-owner-http-dispatch.md), server
+providers dispatch to one optional HTTP owner through the safe HTTP boundary,
+including rejection after shutdown; HTTP application identity remains required.
 
-[ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md) also
-accepts ten precisely listed extension removals and one private compiled command
-graph. Issues 3004/3005 remove those unused powers while preserving the used
-performance measurements; issues 3008–3013 consolidate application operations
-and schema mutations. [ADR-0261](docs/adr/0261-command-compilation-and-binding-phases.md)
-refines the construction phases: pure compilation freezes declarations and
-ordered surfaces; application materialization binds exact owner implementations
-and inert transport metadata before consumers. Issue 3008 introduces the private
-canonical graph and removes independent Runtime binding ownership stores.
-Issue 3009 executes application operations from those exact records: direct
-handles and wire transports share one input snapshot/envelope boundary, and
-Runtime reads command identity, transaction policy, result boundaries and public
-errors from the graph. The retained declaration view is a derived adapter, not
-an execution registry. Issue 3010 applies the same boundary to schema
-mutations: request dispatch validates the exact canonical command and its
-frozen schema-local aliases, while the existing logical pipeline preserves
-Master checks, protected targeting, owner-only effects and before/after results.
-Issue 3011 derives Typegen inspection from canonical inert commands and the same
-alias index as direct handles. [ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md)
-removes executable tokens and constructors from that tooling view. Direct
-execution retains exact original declarations. Issue 3012 derives static and
-executable transport projections from the same commands and exact materialized
-bindings. Shared inert descriptor identities replace duplicate metadata assembly
-and GraphQL structural comparisons; no binding list or legacy surface resolver
-remains in the planner. Removed extension APIs have no compatibility path.
+[ADR-0259](docs/adr/0259-smaller-plugin-kernel-and-canonical-commands.md)
+removes ten precisely listed extension powers and introduces one private
+compiled command graph.
+[ADR-0261](docs/adr/0261-command-compilation-and-binding-phases.md) defines the
+construction phases: pure compilation freezes declarations and ordered
+surfaces; application materialization binds exact owner implementations and
+inert transport metadata before consumers. Application operations execute from
+those exact records: direct handles and wire transports share one input
+snapshot and envelope boundary, and Runtime reads command identity, transaction
+policy, result boundaries, and public errors from the graph. The retained
+declaration view is a derived adapter, not an execution registry. Schema
+mutations use the same boundary: request dispatch validates the exact canonical
+command and its frozen schema-local aliases, while the logical pipeline
+preserves Master checks, protected targeting, owner-only effects, and
+before/after results. Typegen inspection derives from canonical inert commands
+and the same alias index as direct handles;
+[ADR-0262](docs/adr/0262-descriptive-typegen-command-inspection.md) removes
+executable tokens and constructors from that tooling view, while direct
+execution retains exact original declarations. Static and executable transport
+projections derive from the same commands and exact materialized bindings.
+Shared inert descriptor identities replace duplicate metadata assembly and
+GraphQL structural comparisons. Removed extension APIs have no compatibility
+path.
 
 [ADR-0279](docs/adr/0279-source-typed-configured-application-authoring.md)
 defines the current authoring target. `UltimaBase.use(plugin())` builds one
@@ -59,7 +93,7 @@ the same installation entry point to fixed or dynamic plugin lists through
 `UltimaBase.use(...plugins)`, without a second constructor plugin option.
 
 [ADR-0281](docs/adr/0281-retain-generated-where-contracts.md) also retains
-the complete generated `WhereInput` for every schema through this milestone.
+the complete generated `WhereInput` for every schema.
 Source filters before generation are a bootstrap shape, not a claim that
 custom plugin operators have complete Typegen-free editor typing.
 
@@ -131,6 +165,10 @@ apollo-sandbox-plugin → graphql-http, http-plugin, plugin-kit, core, shared
 testing ──────────────→ typegen, core, shared
 ```
 
+`create-app`, the interactive project initializer, has no workspace dependency:
+it generates projects that depend on the published packages. The rebuild left
+every package manifest and dependency edge unchanged.
+
 Concrete plugins depend on Core's public contracts. Core never depends back on
 concrete plugins. HTTP supplies its immutable effective browser policy to each
 generic context resolver and validates resolver policy requirements while
@@ -147,7 +185,7 @@ http-basic-auth-plugin ────→ http-plugin, plugin-kit, core, shared
 better-auth-plugin ────────→ http-plugin, plugin-kit, core, shared
 ```
 
-The HTTP package delivered by milestone 23 owns application IDs, an
+The HTTP package owns application IDs, an
 application-lifetime Fetch route graph, anonymous
 request-context resolution, safe pre-dispatch failures, and the explicitly
 enabled audited Master header boundary without opening a socket. The Hono
@@ -268,8 +306,8 @@ Auth while keeping its public User as an ordinary typed plugin-owned schema.
 
 ADR-0226 keeps browser preflight outside application selection. One HTTP server
 provider has one effective browser policy. Under ADR-0258, one initialized
-application owns that provider in each JavaScript realm; the former
-cross-application policy comparison is retired by issue 3007. The HTTP plugin owns
+application owns that provider in each JavaScript realm, so no
+cross-application policy comparison exists. The HTTP plugin owns
 safe failures before route dispatch; REST, GraphQL, and other protocols own
 only failures raised after their handler begins.
 
@@ -351,6 +389,119 @@ on otherwise eligible schemas. Audited Master-only `restore` and `purge`
 commands exist only on application schema handles. The package depends only on
 public foundations and never imports those optional engines, transports, Yoga,
 or a database implementation.
+
+## Module layout
+
+This section describes the rebuilt source layout. Paths are relative to each
+package's `src/` directory. A module kept at a reference path is often kept
+because a website page lists it in its `sources` frontmatter or because a
+frozen test deep-imports it; the package `REBUILD*.md` files record each case.
+
+### Core domains
+
+Core keeps one public entry (`src/index.ts`, 1,118 exported names, identical to
+the reference) and separates its internals into domains. The table lists the
+directories under `packages/core/src` and the modules that own each mechanism
+after the rebuild.
+
+| Directory                                                                                              | Responsibility                                                                                   | Owning modules in the rebuild                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.` (root)                                                                                             | Public entry, plugin-author foundation exports, shared exact-object boundary                     | `index.ts`, `foundation.ts`, `exact-object-validation.ts` (one implementation of the plain-object and unknown-key checks every domain uses)                                                                                                                                                                                                                                      |
+| `schema/fields/`                                                                                       | Field definitions, options, built-in and plugin field kinds                                      | `base/factory.ts` (one `createScalarFieldFactory` for every scalar kind), `base/definition.ts`, `base/options.ts`, one module per built-in kind in `builtins/`, `constraints/temporal.ts`, `plugin.ts`                                                                                                                                                                           |
+| `schema/schema/`                                                                                       | `Schema` classes, field builders, registry, compilation, immutable models and static commands    | `definition.ts`, `definition-compilation.ts` (compiled-record store, `SchemaCompilationError` and compilation together), `registry.ts`, `field-builder.ts`, `runtime-field-builder.ts`, `model-class.ts` (static commands and the static-mutation proxy), `model-commands.ts`, `source-type-info.ts`                                                                             |
+| `schema/nested-writes/`, `schema/output/`, `schema/plans/`, `schema/relations/`                        | Nested-write normalization, output builders, structural validation plans, pointers and relations | `nested-writes/normalization.ts` (one `NestedWriteNormalizer`), `output/builder.ts`, `plans/compiler.ts`, `relations/mapping.ts`                                                                                                                                                                                                                                                 |
+| `query/`                                                                                               | Query AST, clauses, filters, updates, logical operations and schema commands                     | `filters/primitive.ts` (one `where` operator table shared by normalization, serialization and relation counts), `filters/where-normalize.ts`, `filters/where-builder.ts`, `filters/operand-snapshots.ts`, `operations/execution.ts`, `operations/schema-command-execution.ts`, `operations/results.ts`, `query/query.ts`                                                         |
+| `access/`                                                                                              | Request access and subject contracts                                                             | Unchanged from the reference (public contracts and JSDoc only)                                                                                                                                                                                                                                                                                                                   |
+| `plugins/`                                                                                             | Plugin definitions, graph, manifests, privileges, capabilities, declarations, commands, Typegen  | `plugin.ts` (with its private contribution compiler), `graph.ts`, `manifest.ts`, `capabilities.ts`, `capability-rules.ts` (one table of protected protocol families), `capability-inventory.ts`, `capability-host.ts`, `declaration-host.ts`, `plugin-contributions.ts`, `plugin-command-contributions.ts`, `command-graph.ts`, `typegen-declarations.ts`, `schema-compilation/` |
+| `application/`                                                                                         | Active application slot, handles, model views, privilege policy, command envelopes               | `active-application.ts`, `application-handles.ts`, `application-model-views.ts`, `plugin-privilege-policy.ts`, `framework-application.ts`                                                                                                                                                                                                                                        |
+| `errors/`                                                                                              | Framework and plugin error classes                                                               | `framework-error.ts` (with the private public-error base), `plugin-error.ts`                                                                                                                                                                                                                                                                                                     |
+| `runtime/application/`                                                                                 | The `UltimaBase` facade, configured factories, the application request execution capability      | `ultima-base.ts` (kernel and engine in `#private` fields), `configured-application-factory.ts`, `application-request-execution.ts`, `application-operation-transport-planning.ts`                                                                                                                                                                                                |
+| `runtime/engine/`                                                                                      | Framework and request engines, Master elevation, terminal context resolution                     | `request-engine.ts` (private state read through one `readRequestEngineInternals` accessor), `framework-engine.ts`, `request-engine-batch.ts`, `application-binding.ts`                                                                                                                                                                                                           |
+| `runtime/pipeline/`, `runtime/behaviors/`, `runtime/contributions/`                                    | Logical operation pipeline, stage inputs, database execution, behavior composition               | `pipeline/runtime-pipeline.ts`, `pipeline/stage-inputs.ts`, `pipeline/database-execution.ts`, `pipeline/inclusion-projection.ts`, `pipeline/application-bindings.ts` (one bind-once factory for relation filters and virtual fields), `behaviors/composition.ts`, `behaviors/validation-boundaries.ts`                                                                           |
+| `runtime/enforcement/`, `runtime/validation/`                                                          | Protected policies and constraints, structural and final mutation validation                     | `enforcement/state.ts`, `enforcement/protected-policy.ts`, `validation/runtime-validation.ts` (one compiled-plan cache), `validation/runtime-mutation-validation.ts`, `validation/final-mutation-validation.ts`                                                                                                                                                                  |
+| `runtime/transactions/`, `runtime/context/`, `runtime/master/`, `runtime/cancellation/`                | Transactions, request context, Master authority, cancellation                                    | `transactions/run-transaction.ts` (identity, callback, lifetime, commit, rollback and post-commit flush in one function), `transactions/pipeline-transaction.ts`, `context/active-framework-context.ts`, `master/master-authority.ts`                                                                                                                                            |
+| `runtime/nested-writes/`, `runtime/relations/`, `runtime/relation-filters/`, `runtime/virtual-fields/` | Nested-write execution, relation mutations and inclusions, contextual relation filters, virtuals | `nested-writes/runtime-host.ts`, `relations/relation-mutation.ts`, `relation-filters/execution.ts`, `virtual-fields/execution.ts`                                                                                                                                                                                                                                                |
+| `runtime/plugin-operations/`, `runtime/schema-mutations/`, `runtime/commands/`                         | Plugin operations, plugin schema mutations, command bindings and transport projections           | `plugin-operations/request-execution.ts`, `plugin-operations/engine-integration.ts`, `schema-mutations/runtime.ts`, `schema-mutations/request-execution.ts`, `schema-mutations/transport.ts`, `commands/transport-projection.ts`                                                                                                                                                 |
+| `runtime/database/`, `runtime/adapters/`, `runtime/persistence/`, `runtime/operations/`                | Database adapter contracts, raw access, persistence plans, result materialization                | `database/contracts.ts`, `adapters/raw-access.ts`, `persistence/plans.ts`, `persistence/execution.ts`, `operations/materialize-result.ts`                                                                                                                                                                                                                                        |
+| `private-storage/`                                                                                     | Owner-private plugin records                                                                     | `runtime.ts` (reads the engine internals instead of its own registration), `registry.ts`, `request.ts`                                                                                                                                                                                                                                                                           |
+
+Core production went from 63,660 to 58,694 non-blank lines (schema −1,349,
+plugins/application/errors −703, query −690, runtime application domain −916,
+runtime pipeline domain −1,029, then −279 in the integration pass). See
+`packages/core/REBUILD-core-schema.md`, `REBUILD-core-plugins.md`,
+`REBUILD-core-query.md`, `REBUILD-core-runtime-app.md`,
+`REBUILD-core-runtime-pipeline.md` and `REBUILD-core-integration.md`.
+
+### Official packages
+
+| Package                  | Rebuilt layout (under `src/`)                                                                                                                                                                                                                                                                          | Lines before → after |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------: |
+| `shared`                 | Unchanged: every line is public contract                                                                                                                                                                                                                                                               |              74 → 74 |
+| `plugin-kit`             | `plugin-events.ts` (trusted event contracts in a `WeakSet`), `plugin-options.ts`, `schema-patch.ts`, `contextual-fields.ts`                                                                                                                                                                            |            778 → 722 |
+| `typegen`                | Snapshot half: `snapshot.ts`, `snapshot/fields.ts`, `snapshot/virtual-fields.ts`, `snapshot/plugin-graph.ts`; generator half: `generator.ts`, `generator/identifiers.ts`, `generator/filters/{operators,field-filters,declarations}.ts` and the other renderers; `plugin.ts`, `loader.ts`, `writer.ts` |        3,018 → 2,733 |
+| `testing`                | `plugins/runner.ts` (one `UltimaBase.use(...plugins)` per fixture), `plugins/suite.ts`, `plugins/fixture.ts`, `plugins/static-snapshot.ts`, `plugins/typegen-check.ts`, `postgres/worker.ts`                                                                                                           |        1,243 → 1,162 |
+| `hooks-plugin`           | `authoring/declarations.ts` (one declaration boundary), `context/hook-context.ts`, `runtime/dispatcher.ts` (one dispatcher closure), `runtime/lifecycle.ts` (phase table), `runtime/execution-runtime.ts`, `runtime/events.ts`                                                                         |        4,145 → 3,447 |
+| `access-plugin`          | `authoring/declarations.ts`, `authoring/plan.ts` (one operation-slot table), `authoring/compiler.ts` (drafts frozen in place), `runtime/rule-evaluation.ts` (one `AccessScope`), `runtime/dispatcher.ts`                                                                                               |        4,438 → 3,653 |
+| `validation-plugin`      | `operation-validation.ts` (flattened arithmetic projection), `field-validation.ts`, `standard-schema.ts`                                                                                                                                                                                               |            663 → 622 |
+| `soft-delete-plugin`     | `plugin.ts` (kept from the reference for hover parity), `contracts.ts`, `visibility.ts`, `replace-delete.ts`, `explicit.ts`, `administration.ts`                                                                                                                                                       |            710 → 709 |
+| `acl-permissions-plugin` | `acl.ts` (one canonical `ACLJSON` state per `ACL`), `acl-json.ts`, `application-state.ts` (merged state, attribution and operation lookup), `acl-operation-resolution.ts`, `plugin.ts`                                                                                                                 |        3,188 → 2,687 |
+| `roles-plugin`           | `plugin.ts` (wiring and Runtime behavior), `role-member.ts` (one relation-command factory), `role-hierarchy.ts`, `role-resolution.ts` (single schema-root Query bridge), `role-deletion.ts`                                                                                                            |        2,192 → 2,043 |
+| `pg-vector-plugin`       | `index.ts` (public types dominate; unchanged except one local)                                                                                                                                                                                                                                         |            202 → 201 |
+| `postgres-plugin`        | `required.ts` and `naming.ts` (new), `schema/`, `query/` (`jsonb-operand.ts` merges two modules), `drizzle/` (`prepared-operation.ts` merges four modules; one `PostgresStatementContext`), `synchronization/`, `introspection/`                                                                       |        9,307 → 7,966 |
+| `http-plugin`            | `definitions.ts` (shared exact-option checks and definition registry), `application.ts` (one `dispatchPreparedRequest`), `request-boundary.ts`, `browser-policy.ts`, `route-graph.ts`, `endpoints.ts`                                                                                                  |        2,338 → 2,080 |
+| `server-hono-plugin`     | `plugin.ts`, `options.ts`, `provider.ts`, `original-headers.ts`                                                                                                                                                                                                                                        |            431 → 424 |
+| `rest-plugin`            | `errors.ts` (all three error families), `transports.ts` (closures instead of class, `WeakMap` and exported binders), `http-handler.ts`, `reads.ts`, `mutations.ts` (one contract table), `field-values.ts`, `routes.ts`                                                                                |        4,320 → 3,728 |
+| `password-auth-plugin`   | `operation-handlers.ts` (one closure over private state), `credentials.ts` (one compare-and-swap writer), `sessions.ts`, `operations.ts`, `http-cookie-routes.ts` (one `route(key)`), `plugin.ts`                                                                                                      |        3,567 → 3,366 |
+| `graphql-plugin`         | `compile-context.ts` (one `GraphqlCompileContext`), `binding-compiler.ts`, `binding-metadata.ts`, `binding-types.ts`, `root-fields.ts`, `wire-values.ts`, `connection-runtime.ts`, `schema-composition.ts`                                                                                             |        7,620 → 6,661 |
+| `graphql-http`           | `endpoint.ts` (`path` read once)                                                                                                                                                                                                                                                                       |              76 → 72 |
+| `graphql-yoga-plugin`    | `handler.ts` (one ordered Yoga plugin list), `errors.ts` (one failure constructor), `body.ts`, `media.ts`, `options.ts`, `plugin.ts`                                                                                                                                                                   |            731 → 726 |
+| `graphiql-plugin`        | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                                                                                          |            188 → 183 |
+| `apollo-sandbox-plugin`  | `plugin.ts`, `options.ts`, `page.ts` (HTML and CSP identical)                                                                                                                                                                                                                                          |            197 → 192 |
+| `create-app`             | `catalog.ts` (one `selectedPluginIds`), `config.ts` (shared plan queries), `prompts.ts`, the three template modules (condition tables), `generate.ts`, `cli.ts`                                                                                                                                        |        1,656 → 1,557 |
+
+## Rebuild simplifications
+
+The rebuild counts as simplification only what removes indirection or
+duplication; it never compacts formatting, moves code into tests, weakens a
+check, or adds `any` or unjustified casts ([protocol](docs/rebuild/PROTOCOL.md)).
+The recurring changes are:
+
+- **One implementation per boundary check.** Exact-object and unknown-key
+  validation, namespaced-name, plugin-identifier, error-code and TypeScript
+  identifier grammars, constraint kinds, behavior stage names, and owner and
+  identity snapshots each have one implementation in their owning domain. Each
+  keeps the reference check order and message at every call site.
+- **Private state instead of side registrations.** `RequestEngine`,
+  `FrameworkEngine` (Master authority) and `UltimaBase` keep their state in
+  `#private` fields read through one internal accessor, instead of module
+  `WeakMap` entries registered per instance and re-read by every consumer.
+  GraphQL operation and schema-mutation executions follow the same rule.
+- **Tables instead of parallel branches.** Protected capability families
+  (`plugins/capability-rules.ts`), `where` operators (`query/filters/primitive.ts`),
+  Hooks phases, Access operation slots, REST mutation contracts, Typegen filter
+  names, PostgreSQL column specifications, and create-app conditions are each
+  one table read by every consumer, so the consumers cannot drift.
+- **Context records instead of positional parameters.** Examples include
+  `AccessScope`, `GraphqlCompileContext`, `PostgresStatementContext`,
+  `RuntimeOperationScope`, and the nested-write `RelationshipSite`.
+- **Fewer modules and wrappers.** Tiny modules merge into their only consumer;
+  pure re-export modules and the forwarders that kept the frozen Core partition
+  paths alive were removed once the partitions were integrated. Production
+  files went from 731 to 619.
+- **Unreachable checks removed with proof.** Each removed check is listed in
+  its package `REBUILD*.md` with the earlier check that already rejects the
+  same input and the test that proves it.
+- **Prototype-safe copies.** Records keyed by developer-declared names are
+  built with `Object.fromEntries` or `Map` instead of assignment loops. This
+  closes the `__proto__` and getter time-of-check/time-of-use defects listed
+  in [DIFFERENCES.md](docs/rebuild/DIFFERENCES.md); ordinary inputs behave
+  identically.
+
+What deliberately did not change: every public entry, every emitted export
+list, the type declarations whose private aliases shape hover text (restored
+where a first rewrite changed hovers, for example in Hooks, REST, Password
+Auth, Roles and Soft Delete), modules that website pages list as sources or
+that frozen tests deep-import, and the 16 published runtime dependencies.
 
 ## Direct plugin options
 
@@ -545,8 +696,8 @@ transport, artifact-session lookup or replacement API remains. Public tooling
 and transport projections stay inert; plugins extend compilation only through
 authorized declarations.
 
-Milestone 14 removed string slots, the plugin service registry, and generic
-named setup contribution registries. Versioned capabilities are the only public
+The kernel has no string slots, plugin service registry, or generic named
+setup contribution registries. Versioned capabilities are the only public
 cross-plugin host; concrete Hooks and Access contracts live in their vertical
 packages, while Core retains exact privilege-scoped facades only for generic
 Runtime, persistence, and constraint mechanisms.
@@ -726,4 +877,11 @@ unmatched columns and private/orphaned storage for explicit external review.
 
 ## Further reading
 
-See [`docs/adr/`](docs/adr/README.md) for decision records and [`docs/concepts/`](docs/concepts/README.md) for detailed contracts.
+- [`docs/adr/`](docs/adr/README.md): decision records, which remain in force.
+- [`docs/concepts/`](docs/concepts/README.md): detailed contracts.
+- [`docs/rebuild/`](docs/rebuild/PROTOCOL.md): the rebuild protocol,
+  [behavior differences](docs/rebuild/DIFFERENCES.md),
+  [editor-visible parity audit](docs/rebuild/DX-AUDIT.md), and
+  [validation correspondence](docs/rebuild/VALIDATIONS.md).
+- `packages/*/REBUILD.md` and `packages/core/REBUILD-core-*.md`: per-package
+  module mapping, parity evidence, and validation results.

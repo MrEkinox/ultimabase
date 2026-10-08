@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,8 +7,8 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
@@ -29,11 +24,6 @@ export type UuidFieldOptions = FieldOptions<string>
  */
 export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'uuid', string, UuidFieldOptions, TTypegen>
-
-const uuidFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'uuid',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedUuidFieldOptions<
 	TRequired extends boolean,
@@ -117,11 +107,6 @@ export interface UuidFieldFactory<
 	): NonDefaultedUuidField<TRequired, TList, TImmutable>
 }
 
-const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeStringValue, uuidFieldOptionsContract)
-
 /**
  * Declares a canonical UUID string with portable field metadata.
  *
@@ -130,8 +115,7 @@ const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
  * uuidField({ indexed: "unique", required: true })
  * ```
  */
-export const uuidField: UuidFieldFactory = createCompactScalarFieldFactory<
+export const uuidField: UuidFieldFactory = createScalarFieldFactory(
 	'uuid',
-	string,
-	UuidFieldOptions
->('uuid', normalizeUuidFieldOptions, normalizeStringValue)
+	normalizeStringValue,
+)

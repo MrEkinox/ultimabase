@@ -15,12 +15,13 @@ import type {
 	DesiredPostgresTable,
 } from './contracts.js'
 
+type PhysicalContribution =
+	AdapterContributionSnapshot<PostgresPhysicalColumnPayload>
+
+/** Revalidates bridge metadata before it reaches PostgreSQL DDL. */
 const decodeColumn = (
-	contribution: AdapterContributionSnapshot<PostgresPhysicalColumnPayload>,
-): Readonly<{
-	readonly column: DesiredPostgresColumn
-	readonly table: string
-}> => {
+	contribution: PhysicalContribution,
+): Readonly<{ column: DesiredPostgresColumn; table: string }> => {
 	const payload: unknown = contribution.payload
 	if (
 		contribution.protocolVersion !== 1 ||
@@ -58,46 +59,33 @@ const decodeColumn = (
 /** Merges bridge-owned physical columns without modifying the logical schema graph. */
 export const applyPostgresPhysicalContributions = (
 	tables: readonly DesiredPostgresTable[],
-	contributions: readonly AdapterContributionSnapshot<PostgresPhysicalColumnPayload>[],
+	contributions: readonly PhysicalContribution[],
 ): readonly DesiredPostgresTable[] => {
 	const additions = new Map<string, DesiredPostgresColumn[]>()
 	for (const contribution of contributions) {
-		const decoded = decodeColumn(contribution)
-		const table = tables.find((candidate) => candidate.name === decoded.table)
+		const { column, table: tableName } = decodeColumn(contribution)
+		const table = tables.find(({ name }) => name === tableName)
+		const details = {
+			contributionId: contribution.contributionId,
+			pluginId: contribution.pluginId,
+			table: tableName,
+		}
 		if (table === undefined) {
 			throw new FrameworkError(
 				'PLUGIN_DECLARATION_INVALID',
-				`PostgreSQL physical contribution targets unknown table "${decoded.table}".`,
-				{
-					internalDetails: {
-						contributionId: contribution.contributionId,
-						pluginId: contribution.pluginId,
-						table: decoded.table,
-					},
-				},
+				`PostgreSQL physical contribution targets unknown table "${tableName}".`,
+				{ internalDetails: details },
 			)
 		}
-		const existing = [
-			...table.columns,
-			...(additions.get(decoded.table) ?? []),
-		].find((column) => column.name === decoded.column.name)
-		if (existing !== undefined) {
+		const added = additions.get(tableName) ?? []
+		if ([...table.columns, ...added].some(({ name }) => name === column.name)) {
 			throw new FrameworkError(
 				'PLUGIN_CAPABILITY_CONFLICT',
-				`PostgreSQL physical column "${decoded.column.name}" is already declared on "${decoded.table}".`,
-				{
-					internalDetails: {
-						column: decoded.column.name,
-						contributionId: contribution.contributionId,
-						pluginId: contribution.pluginId,
-						table: decoded.table,
-					},
-				},
+				`PostgreSQL physical column "${column.name}" is already declared on "${tableName}".`,
+				{ internalDetails: { column: column.name, ...details } },
 			)
 		}
-		const columns = additions.get(decoded.table) ?? []
-		columns.push(decoded.column)
-		additions.set(decoded.table, columns)
+		additions.set(tableName, [...added, column])
 	}
 
 	return immutableArray(

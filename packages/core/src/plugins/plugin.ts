@@ -1,3 +1,10 @@
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
 import { assertExactPlainObject } from '../exact-object-validation.js'
 import {
 	createPluginDefinition,
@@ -6,8 +13,10 @@ import {
 } from './definition.js'
 import {
 	normalizeCapabilityDeclarations,
+	type PluginCapabilityDeclaration,
 	type PluginCapabilityDeclarationOptions,
 } from './capabilities.js'
+import { capabilityDeclarationPrivileges } from './capability-rules.js'
 import type {
 	PluginDependency,
 	PluginEnvironmentClaim,
@@ -15,16 +24,23 @@ import type {
 } from './manifest.js'
 import { createPluginManifest } from './manifest.js'
 import {
-	compilePluginContributions,
-	derivePluginCapabilityPrivileges,
-} from './plugin-contribution-compiler.js'
-import type {
-	PluginApplicationContribution,
-	PluginContribution,
-	PluginDeclarationContribution,
-	PluginDeclarationRequirements,
-	PluginPrivilegedContribution,
+	readPluginCommandContribution,
+	type PluginCommandContributionPlan,
+} from './plugin-command-contributions.js'
+import {
+	getPluginApplicationFactory,
+	getPluginDeclarationContribution,
+	isPluginPrivilegedContribution,
+	runPluginDeclarationContribution,
+	type PluginApplicationContribution,
+	type PluginApplicationResourceFactory,
+	type PluginContribution,
+	type PluginDeclarationContribution,
+	type PluginDeclarationRequirements,
+	type PluginPrivilegedContribution,
 } from './plugin-contributions.js'
+import type { PluginCommandPlan } from './plugin-command-plan.js'
+import type { PluginDeclaration } from './declaration-host.js'
 import type { PluginOperationContribution } from './plugin-command-contribution-contracts.js'
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { PluginSourceProjection } from './source-projections.js'
@@ -159,6 +175,131 @@ export type PluginInstance<
 	TContract extends PluginInstanceContract = PluginInstanceContract,
 > = FrameworkPlugin<TContract>
 
+const commandContributionKinds: ReadonlySet<unknown> = new Set([
+	'plugin-operation-contribution',
+	'plugin-operation-binding-contribution',
+	'plugin-schema-mutation-contribution',
+	'plugin-schema-mutation-binding-contribution',
+])
+
+interface CompiledPluginContributions {
+	readonly applicationFactory: PluginApplicationResourceFactory | undefined
+	readonly capabilities: readonly PluginCapabilityDeclaration[]
+	readonly commands: PluginCommandPlan
+	readonly declare: PluginDeclaration | undefined
+	readonly privileges: PluginPrivilege[]
+}
+
+/** Compiles one public contribution list directly into Core's native plugin plan. */
+const compilePluginContributions = (
+	contributions: readonly PluginContribution[],
+): CompiledPluginContributions => {
+	const untrustedContributions: unknown = contributions
+	if (!isUnknownArray(untrustedContributions)) {
+		throw new TypeError('plugin contributions must be an array')
+	}
+	const privileges: PluginPrivilege[] = []
+	const require = (privilege: PluginPrivilege): void => {
+		if (!privileges.includes(privilege)) privileges.push(privilege)
+	}
+	const capabilities: PluginCapabilityDeclaration[] = []
+	const declarations: Parameters<typeof runPluginDeclarationContribution>[0][] =
+		[]
+	const applicationFactories: PluginApplicationResourceFactory[] = []
+	const commandContributions: object[] = []
+	for (const [index, value] of untrustedContributions.entries()) {
+		let contribution = value as PluginContribution
+		if (isPluginPrivilegedContribution(contribution)) {
+			contribution.privileges.forEach(require)
+			contribution = contribution.contribution
+		}
+		const forged = (): TypeError =>
+			new TypeError(
+				`plugin contributions[${String(index)}] must be created by a Core contribution factory`,
+			)
+		if (!isPlainRecord(contribution)) throw forged()
+		if (
+			contribution.kind === 'capability-provider' ||
+			contribution.kind === 'capability-requirement'
+		) {
+			capabilities.push(contribution)
+			continue
+		}
+		// Command factories are verified after every other contribution is classified.
+		if (commandContributionKinds.has(contribution.kind)) {
+			commandContributions.push(contribution)
+			continue
+		}
+		const declaration = getPluginDeclarationContribution(contribution)
+		if (declaration !== undefined) {
+			declaration.privileges.forEach(require)
+			capabilities.push(...declaration.requires)
+			declarations.push(declaration)
+			continue
+		}
+		const applicationFactory = getPluginApplicationFactory(contribution)
+		if (applicationFactory === undefined) throw forged()
+		applicationFactories.push(applicationFactory)
+	}
+	if (applicationFactories.length > 1) {
+		throw new TypeError(
+			'plugin contributions may contain at most one application resource',
+		)
+	}
+
+	const commands = commandContributions.map(
+		(contribution, index): PluginCommandContributionPlan => {
+			const command = readPluginCommandContribution(contribution)
+			if (command === undefined) {
+				throw new TypeError(
+					`plugin operation contributions[${String(index)}] must be created by a Core contribution factory`,
+				)
+			}
+			return command
+		},
+	)
+	const handlers = commands.flatMap(({ handler }) =>
+		handler === undefined ? [] : [handler],
+	)
+	const commandSources = handlers.map(({ source }) => source)
+	const transports = commands.flatMap(({ transports }) => transports)
+	if (commandSources.length > 0) require('operation:declare')
+	if (
+		commandSources.some(
+			(source) =>
+				source.input.typegen !== undefined ||
+				(source.kind === 'plugin-operation' &&
+					source.result.typegen !== undefined),
+		)
+	) {
+		require('typegen:reference')
+	}
+	if (handlers.some(({ source }) => source.kind === 'plugin-schema-mutation')) {
+		require('persistence:rewrite')
+	}
+	if (transports.length > 0) require('transport:expose')
+
+	return {
+		applicationFactory: applicationFactories[0],
+		capabilities,
+		commands: immutableRecord({
+			declarations: immutableArray(commandSources),
+			handlers: immutableArray(handlers),
+			transports: immutableArray(transports),
+		}),
+		declare:
+			declarations.length === 0
+				? undefined
+				: (context): undefined => {
+						for (const declaration of declarations) {
+							runPluginDeclarationContribution(declaration, context)
+						}
+						return undefined
+					},
+		privileges,
+	}
+}
+
 const pluginOptionKeys = new Set([
 	'conflicts',
 	'contributions',
@@ -227,9 +368,20 @@ export const plugin = <
 
 	const compiled = compilePluginContributions(options.contributions)
 	const capabilities = normalizeCapabilityDeclarations(compiled.capabilities)
+	for (const declaration of [
+		...capabilities.provides,
+		...capabilities.requires,
+		...capabilities.optional,
+	]) {
+		for (const privilege of capabilityDeclarationPrivileges(declaration)) {
+			if (!compiled.privileges.includes(privilege)) {
+				compiled.privileges.push(privilege)
+			}
+		}
+	}
 	const privileges = normalizePluginPermissionRequests(
 		options.permissions,
-		derivePluginCapabilityPrivileges(compiled.privileges, capabilities),
+		compiled.privileges,
 		capabilities.optional,
 	)
 	const manifest = createPluginManifest({

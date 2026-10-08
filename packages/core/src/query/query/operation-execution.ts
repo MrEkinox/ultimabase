@@ -43,17 +43,26 @@ import {
 } from './private-scope.js'
 import type { QueryResult } from './result.js'
 
-/** Distinguishes nested command objects from already normalized Pointer values. */
-const hasNestedWriteRelationships = (
+/**
+ * Marks a root write whose data carries nested relationship commands rather
+ * than already normalized Pointer values, so Runtime can orchestrate them.
+ */
+const markNestedWrite = <TOperation extends OperationAstNode>(
 	schema: SchemaDefinition,
-	data: Readonly<Record<string, unknown>>,
-): boolean =>
+	operation: TOperation,
+	command: 'create' | 'update',
+	input: Readonly<Record<string, unknown>>,
+	inputMode: 'flat' | 'nested',
+): TOperation =>
+	inputMode === 'nested' &&
 	Object.entries(schema.persistedFields).some(
 		([fieldName, field]) =>
 			(field.kind === 'pointer' || field.kind === 'relation') &&
-			Object.hasOwn(data, fieldName) &&
-			!Pointer.is(data[fieldName]),
+			Object.hasOwn(input, fieldName) &&
+			!Pointer.is(input[fieldName]),
 	)
+		? markNestedWriteRootOperation(operation, { command, input })
+		: operation
 
 /**
  * Executes an internal operation with the protected scope retained by a QueryBuilder.
@@ -186,12 +195,7 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	})
 
 	return executeOperation(
-		inputMode === 'nested' && hasNestedWriteRelationships(schema, input.data)
-			? markNestedWriteRootOperation(operation, {
-					command: 'create',
-					input: input.data,
-				})
-			: operation,
+		markNestedWrite(schema, operation, 'create', input.data, inputMode),
 		normalizeOperationOptions(options),
 	)
 }
@@ -219,16 +223,15 @@ export const executeQueryUpdateOne = <
 		update: normalizeUpdateExpression(query.schema, input),
 	})
 
-	const nestedInput = input as Readonly<Record<string, unknown>>
 	return executeQueryWithPrivateScope(
 		query,
-		inputMode === 'nested' &&
-			hasNestedWriteRelationships(query.schema, nestedInput)
-			? markNestedWriteRootOperation(operation, {
-					command: 'update',
-					input: nestedInput,
-				})
-			: operation,
+		markNestedWrite(
+			query.schema,
+			operation,
+			'update',
+			input as Readonly<Record<string, unknown>>,
+			inputMode,
+		),
 		options,
 	)
 }

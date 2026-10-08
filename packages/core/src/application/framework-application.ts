@@ -17,7 +17,7 @@ import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
-import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
+import { SchemaDeclarationRegistry } from '../plugins/schema-declaration-registry.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
@@ -51,7 +51,7 @@ import * as diagnostics from './plugin-privilege-diagnostics.js'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledPluginOperation,
-} from '../plugins/application-surface-registry.js'
+} from '../plugins/application-surface-contracts.js'
 import type { CompiledTypegenGraph } from '../plugins/typegen-declarations.js'
 import { PrivateStorageRegistry } from '../private-storage/registry.js'
 import { configureApplicationPrivateStorage } from '../private-storage/runtime.js'

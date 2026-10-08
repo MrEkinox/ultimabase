@@ -22,30 +22,32 @@ export const formatNestedWriteInputPath = (
 		'',
 	)
 
+/** Throws the path-prefixed TypeError shared by every nested-write input failure. */
+export function failNestedWriteInput(
+	path: NestedWriteInputPath,
+	problem: string,
+): never {
+	throw new TypeError(`${formatNestedWriteInputPath(path)} ${problem}`)
+}
+
 /** Rejects getters, hidden properties, and symbols before reading input values. */
 export const assertInertNestedWriteRecord = (
 	value: unknown,
 	path: NestedWriteInputPath,
 ): InertNestedWriteRecord => {
 	if (!isPlainRecord(value)) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} must be a plain object`,
-		)
+		return failNestedWriteInput(path, 'must be a plain object')
 	}
 
 	if (Object.getOwnPropertySymbols(value).length > 0) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} cannot contain symbol keys`,
-		)
+		failNestedWriteInput(path, 'cannot contain symbol keys')
 	}
 
 	for (const [key, descriptor] of Object.entries(
 		Object.getOwnPropertyDescriptors(value),
 	)) {
 		if (!descriptor.enumerable || !('value' in descriptor)) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath([...path, key])} must be an inert enumerable value`,
-			)
+			failNestedWriteInput([...path, key], 'must be an inert enumerable value')
 		}
 	}
 
@@ -59,17 +61,16 @@ export const assertInertNestedWriteArray = (
 	allowEmpty: boolean,
 ): readonly unknown[] => {
 	if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} must be ${allowEmpty ? 'an' : 'a non-empty'} array`,
+		return failNestedWriteInput(
+			path,
+			`must be ${allowEmpty ? 'an' : 'a non-empty'} array`,
 		)
 	}
 
 	for (let index = 0; index < value.length; index += 1) {
 		const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
 		if (descriptor === undefined || !('value' in descriptor)) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath([...path, index])} must be an inert array item`,
-			)
+			failNestedWriteInput([...path, index], 'must be an inert array item')
 		}
 	}
 
@@ -83,64 +84,43 @@ export const snapshotNestedWriteInputValue = (
 	active: WeakSet<object> = new WeakSet(),
 ): unknown => {
 	if (typeof value === 'function') {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} cannot contain a callback`,
-		)
+		return failNestedWriteInput(path, 'cannot contain a callback')
 	}
 
-	if (Array.isArray(value)) {
-		if (active.has(value)) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath(path)} contains cyclic input`,
+	const isArray = Array.isArray(value)
+	if (!isArray && !isPlainRecord(value)) return value
+
+	// The active set tracks only the current branch, so shared acyclic values remain legal.
+	if (active.has(value)) failNestedWriteInput(path, 'contains cyclic input')
+	active.add(value)
+	const snapshot = isArray
+		? immutableArray(
+				assertInertNestedWriteArray(value, path, true).map((item, index) =>
+					snapshotNestedWriteInputValue(item, [...path, index], active),
+				),
 			)
-		}
-		active.add(value)
-		const input = assertInertNestedWriteArray(value, path, true)
-		const result = immutableArray(
-			input.map((item, index) =>
-				snapshotNestedWriteInputValue(item, [...path, index], active),
-			),
-		)
-		active.delete(value)
-		return result
-	}
-
-	if (isPlainRecord(value)) {
-		if (active.has(value)) {
-			throw new TypeError(
-				`${formatNestedWriteInputPath(path)} contains cyclic input`,
+		: immutableRecord(
+				Object.fromEntries(
+					Object.entries(assertInertNestedWriteRecord(value, path)).map(
+						([key, item]) => [
+							key,
+							snapshotNestedWriteInputValue(item, [...path, key], active),
+						],
+					),
+				),
 			)
-		}
-		active.add(value)
-		const input = assertInertNestedWriteRecord(value, path)
-		const result = immutableRecord(
-			Object.fromEntries(
-				Object.entries(input).map(([key, item]) => [
-					key,
-					snapshotNestedWriteInputValue(item, [...path, key], active),
-				]),
-			),
-		)
-		active.delete(value)
-		return result
-	}
-
-	return value
+	active.delete(value)
+	return snapshot
 }
 
 /** Reads one canonical non-empty object identifier. */
 export const readNestedWriteId = (
 	value: unknown,
 	path: NestedWriteInputPath,
-): string => {
-	if (typeof value !== 'string' || value.length === 0) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} must be a non-empty object ID`,
-		)
-	}
-
-	return value
-}
+): string =>
+	typeof value === 'string' && value.length > 0
+		? value
+		: failNestedWriteInput(path, 'must be a non-empty object ID')
 
 /** Reads one duplicate-free canonical identifier list. */
 export const readNestedWriteIds = (
@@ -148,15 +128,12 @@ export const readNestedWriteIds = (
 	path: NestedWriteInputPath,
 	allowEmpty: boolean,
 ): readonly string[] => {
-	const input = assertInertNestedWriteArray(value, path, allowEmpty)
-	const ids = input.map((item, index) =>
-		readNestedWriteId(item, [...path, index]),
+	const ids = assertInertNestedWriteArray(value, path, allowEmpty).map(
+		(item, index) => readNestedWriteId(item, [...path, index]),
 	)
 
 	if (new Set(ids).size !== ids.length) {
-		throw new TypeError(
-			`${formatNestedWriteInputPath(path)} contains duplicate object IDs`,
-		)
+		failNestedWriteInput(path, 'contains duplicate object IDs')
 	}
 
 	return immutableArray(ids)

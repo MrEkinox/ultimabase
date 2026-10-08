@@ -34,12 +34,9 @@ export type ACLReferenceSubject =
 			value: string
 	  }>
 
-interface ACLReferenceScope {
-	readonly schema: SchemaDefinition
-	readonly subject: ACLReferenceSubject
-}
-
-const referenceScope = new AsyncLocalStorage<ACLReferenceScope>()
+const referenceScope = new AsyncLocalStorage<
+	Readonly<{ schema: SchemaDefinition; subject: ACLReferenceSubject }>
+>()
 const cleanupPlaceholder = new ACL()
 
 const readPrincipalSubject = (
@@ -70,13 +67,6 @@ const readRoleSubject = (
 
 	return immutableRecord({ kind: 'role' as const, value: candidate.value })
 }
-
-/** Runs one internal QueryBuilder branch with an untransformable reference predicate. */
-const runWithReferenceScope = <TResult>(
-	schema: SchemaDefinition,
-	subject: ACLReferenceSubject,
-	callback: () => TResult,
-): TResult => referenceScope.run(immutableRecord({ schema, subject }), callback)
 
 /** Reads maintenance state only for the exact application-owned schema instance. */
 export const getACLReferenceScope = (
@@ -124,98 +114,70 @@ export const removeACLReference = (
 	)
 }
 
-const hasSchemaReferences = (
-	schema: SchemaDefinition,
-	subject: ACLReferenceSubject,
-): Promise<boolean> => {
-	if (!Schema.is(schema)) {
+const asSchemaClass = (definition: SchemaDefinition) => {
+	if (!Schema.is(definition)) {
 		throw new TypeError(
 			'ACL reference cleanup requires a registered schema class',
 		)
 	}
-
-	return runWithReferenceScope(schema, subject, () =>
-		schema.exists({}, { useMasterKey: true }),
-	)
+	return definition
 }
 
-const findSchemaReferenceIds = async (
+/**
+ * Runs one internal master query with an untransformable reference predicate:
+ * the `acl-reference-rows` constraint restricts it to rows naming `subject`.
+ */
+const inReferenceScope = <TResult>(
 	schema: SchemaDefinition,
 	subject: ACLReferenceSubject,
-): Promise<readonly string[]> => {
-	if (!Schema.is(schema)) {
-		throw new TypeError(
-			'ACL reference cleanup requires a registered schema class',
-		)
-	}
-
-	const rows = await runWithReferenceScope(schema, subject, () =>
-		schema.findMany({ select: { id: true } }, { useMasterKey: true }),
-	)
-
-	return immutableArray(
-		rows.map((row, index) => {
-			const id: unknown = Reflect.get(row, 'id')
-
-			if (typeof id !== 'string') {
-				throw new TypeError(
-					`ACL reference query returned an invalid id at index ${String(index)}`,
-				)
-			}
-
-			return id
-		}),
-	)
-}
-
-const removeSchemaReferences = async (
-	schema: SchemaDefinition,
-	subject: ACLReferenceSubject,
-): Promise<void> => {
-	if (!Schema.is(schema)) {
-		throw new TypeError(
-			'ACL reference cleanup requires a registered schema class',
-		)
-	}
-
-	const ids = await findSchemaReferenceIds(schema, subject)
-
-	for (const id of ids) {
-		// Every Schema carries the framework UUID even when this cleanup intentionally
-		// erases the concrete field map while iterating registered definitions.
-		const where = {
-			id: { eq: id },
-		} as unknown as WhereInput<typeof schema>
-
-		await runWithReferenceScope(schema, subject, () =>
-			schema.updateOne(
-				{
-					where,
-					data: { [aclFieldName]: cleanupPlaceholder },
-				},
-				{ useMasterKey: true },
-			),
-		)
-	}
-}
+	callback: () => TResult,
+): TResult => referenceScope.run(immutableRecord({ schema, subject }), callback)
 
 const hasAnyReferences = async (
 	schemas: readonly SchemaDefinition[],
 	subject: ACLReferenceSubject,
 ): Promise<boolean> => {
-	for (const schema of schemas) {
-		if (await hasSchemaReferences(schema, subject)) return true
+	for (const definition of schemas) {
+		const schema = asSchemaClass(definition)
+		const found = await inReferenceScope(schema, subject, () =>
+			schema.exists({}, { useMasterKey: true }),
+		)
+		if (found) return true
 	}
-
 	return false
 }
 
+/** Rewrites every referencing row through ordinary singular master updates. */
 const removeAllReferences = async (
 	schemas: readonly SchemaDefinition[],
 	subject: ACLReferenceSubject,
 ): Promise<void> => {
-	for (const schema of schemas) {
-		await removeSchemaReferences(schema, subject)
+	for (const definition of schemas) {
+		const schema = asSchemaClass(definition)
+		const rows = await inReferenceScope(schema, subject, () =>
+			schema.findMany({ select: { id: true } }, { useMasterKey: true }),
+		)
+		const ids = rows.map((row, index) => {
+			const id: unknown = Reflect.get(row, 'id')
+			if (typeof id !== 'string') {
+				throw new TypeError(
+					`ACL reference query returned an invalid id at index ${String(index)}`,
+				)
+			}
+			return id
+		})
+
+		for (const id of ids) {
+			// Every Schema carries the framework UUID even when this cleanup intentionally
+			// erases the concrete field map while iterating registered definitions.
+			const where = { id: { eq: id } } as unknown as WhereInput<typeof schema>
+			await inReferenceScope(schema, subject, () =>
+				schema.updateOne(
+					{ where, data: { [aclFieldName]: cleanupPlaceholder } },
+					{ useMasterKey: true },
+				),
+			)
+		}
 	}
 }
 

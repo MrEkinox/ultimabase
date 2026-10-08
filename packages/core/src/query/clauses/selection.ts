@@ -163,19 +163,11 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 		throw new TypeError('query selection must be an object')
 	}
 
-	const entries = Object.entries(untrustedSelection)
+	const included: QueryFieldName<TSchema>[] = []
+	const excluded = new Set<string>()
 
-	if (entries.length === 0) {
-		return emptyQuerySelection
-	}
-
-	const normalizedEntries: {
-		readonly field: QueryFieldName<TSchema>
-		readonly selected: boolean
-	}[] = []
-
-	for (const [fieldName, selected] of entries) {
-		const normalizedFieldName = parseQueryFieldName(
+	for (const [fieldName, selected] of Object.entries(untrustedSelection)) {
+		const field = parseQueryFieldName(
 			schema,
 			fieldName,
 			`selection.${fieldName}`,
@@ -189,23 +181,20 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 			throw new TypeError('selection.id cannot be false')
 		}
 
-		normalizedEntries.push({ field: normalizedFieldName, selected })
+		if (selected) included.push(field)
+		else excluded.add(field)
 	}
 
-	const includedFields = normalizedEntries
-		.filter((entry) => entry.selected)
-		.map((entry) => entry.field)
-
-	if (includedFields.length > 0) {
-		return normalizeQuerySelectedFields(schema, includedFields)
+	if (included.length > 0 || excluded.size === 0) {
+		return normalizeQuerySelectedFields(schema, included)
 	}
 
-	const excludedFields = new Set(normalizedEntries.map((entry) => entry.field))
+	// Exclusion mode starts from every schema field and omits the named ones.
 	const selectedFields = Object.keys(schema.fields)
 		.map((fieldName, index) =>
 			parseQueryFieldName(schema, fieldName, `schema.fields[${String(index)}]`),
 		)
-		.filter((fieldName) => !excludedFields.has(fieldName))
+		.filter((fieldName) => !excluded.has(fieldName))
 
 	if (selectedFields.length === 0) {
 		throw new TypeError('query selection must retain at least one field')

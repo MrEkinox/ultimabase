@@ -1,118 +1,115 @@
 import { createHash } from 'node:crypto'
 
-import type {
-	PrivateStorageAdapterCollection,
-	SchemaIndexDefinition,
-} from '@ultimabase/core'
+import type { PrivateStorageAdapterCollection } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 import { getColumns } from 'drizzle-orm'
 import {
 	foreignKey,
 	getTableConfig,
 	pgTable,
-	type AnyPgColumnBuilder,
-	type PgColumn,
+	type PgTable,
 	type UpdateDeleteAction,
 } from 'drizzle-orm/pg-core'
 
-import { createPostgresForeignKeyName } from '../naming/foreign-key.js'
+import { createPostgresForeignKeyName } from '../naming.js'
+import { required } from '../required.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
+import type { CompiledPostgresField } from '../schema/contracts.js'
 import { compilePostgresFieldBuilder } from '../schema/field-compiler.js'
 import { compilePostgresIndexBuilders } from '../schema/index-compiler.js'
-import type { CompiledPostgresField } from '../schema/contracts.js'
-import type { CompiledPostgresPrivateCollection } from './contracts.js'
 
-const privateTableName = (
-	collection: PrivateStorageAdapterCollection,
-): string => {
-	const identity = JSON.stringify([
-		collection.owner.pluginId,
-		collection.owner.instanceId ?? null,
-		collection.contributionId,
-	])
-	return `_ub_private_${createHash('sha256').update(identity).digest('hex').slice(0, 32)}`
+/** Keeps one private descriptor beside its non-public compiled PostgreSQL table. */
+export interface CompiledPostgresPrivateCollection {
+	readonly definition: PrivateStorageAdapterCollection
+	readonly fields: Readonly<Record<string, CompiledPostgresField>>
+	readonly table: PgTable
+	readonly tableName: string
 }
 
-const postgresDeleteAction: Readonly<
+const postgresDeleteActions: Readonly<
 	Record<'cascade' | 'fail', UpdateDeleteAction>
-> = {
-	cascade: 'cascade',
-	fail: 'restrict',
-}
+> = { cascade: 'cascade', fail: 'restrict' }
 
 /** Compiles one Core-attributed private descriptor without registering a public schema. */
 export const compilePostgresPrivateCollection = (
 	collection: PrivateStorageAdapterCollection,
 	publicSchemas: PostgresSchemaCatalog,
 ): CompiledPostgresPrivateCollection => {
-	const tableName = privateTableName(collection)
-	const pending = Object.entries(collection.fields).map(([name, field]) => {
-		const compiled = compilePostgresFieldBuilder(name, field.create)
-		return [name, compiled] as const
-	})
-	const builders = Object.fromEntries(
-		pending.map(([name, field]) => [name, field.builder]),
-	) as Record<string, AnyPgColumnBuilder>
-	const storageByField = immutableRecord(
-		Object.fromEntries(pending.map(([name, field]) => [name, field.storage])),
-	)
-	const indexes: readonly SchemaIndexDefinition[] = collection.indexes.map(
-		(index) =>
-			immutableRecord({
-				fields: index.fields as readonly [string, ...string[]],
-				unique: true,
-			}),
-	)
-	const table = pgTable(tableName, builders, (columns) => [
-		...compilePostgresIndexBuilders(
-			tableName,
-			indexes,
-			columns,
-			storageByField,
-		),
-		...collection.references.map((reference) => {
-			const source = columns[reference.field]
-			const target = getColumns(publicSchemas.get(reference.target).table).id
-			if (source === undefined || target === undefined) {
-				throw new TypeError(
-					'PostgreSQL private reference column is unavailable',
-				)
-			}
-			return foreignKey({
-				columns: [source],
-				foreignColumns: [target],
-				name: createPostgresForeignKeyName(
-					tableName,
-					reference.field,
-					publicSchemas.get(reference.target).tableName,
-					'id',
-				),
-			}).onDelete(postgresDeleteAction[reference.onDelete])
-		}),
+	// Hashing the owner identity keeps plugin and contribution names out of SQL.
+	const identity = JSON.stringify([
+		collection.owner.pluginId,
+		collection.owner.instanceId ?? null,
+		collection.contributionId,
 	])
-	const columns = Object.fromEntries(
-		getTableConfig(table).columns.map((column) => [column.name, column]),
-	) as Readonly<Record<string, PgColumn>>
-	const fields = immutableRecord(
-		Object.fromEntries(
-			pending.map(([name, field]) => {
-				const column = columns[name]
-				if (column === undefined)
-					throw new TypeError(`PostgreSQL omitted private field: ${name}`)
-				const plan = collection.fields[name]
-				if (plan === undefined)
-					throw new TypeError(`PostgreSQL private plan is unavailable: ${name}`)
-				const compiled: CompiledPostgresField = immutableRecord({
-					column,
-					...(field.generation === undefined
-						? {}
-						: { generation: field.generation }),
-					plan: plan.create,
-					storage: field.storage,
-				})
-				return [name, compiled]
-			}),
-		),
+	const tableName = `_ub_private_${createHash('sha256').update(identity).digest('hex').slice(0, 32)}`
+	const pending = Object.entries(collection.fields).map(
+		([name, field]) =>
+			[
+				name,
+				field.create,
+				compilePostgresFieldBuilder(name, field.create),
+			] as const,
 	)
-	return immutableRecord({ definition: collection, fields, table, tableName })
+	const table = pgTable(
+		tableName,
+		Object.fromEntries(pending.map(([name, , field]) => [name, field.builder])),
+		(columns) => [
+			...compilePostgresIndexBuilders(
+				tableName,
+				collection.indexes.map(({ fields }) => ({ fields, unique: true })),
+				columns,
+				new Map(pending.map(([name, , field]) => [name, field.storage])),
+			),
+			...collection.references.map((reference) => {
+				const target = publicSchemas.get(reference.target)
+
+				return foreignKey({
+					columns: [
+						required(
+							columns[reference.field],
+							'PostgreSQL private reference column is unavailable',
+						),
+					],
+					foreignColumns: [
+						required(
+							getColumns(target.table).id,
+							'PostgreSQL private reference column is unavailable',
+						),
+					],
+					name: createPostgresForeignKeyName(
+						tableName,
+						reference.field,
+						target.tableName,
+						'id',
+					),
+				}).onDelete(postgresDeleteActions[reference.onDelete])
+			}),
+		],
+	)
+	const columns = new Map(
+		getTableConfig(table).columns.map((column) => [column.name, column]),
+	)
+	const fields = Object.fromEntries(
+		pending.map(([name, plan, field]): [string, CompiledPostgresField] => [
+			name,
+			immutableRecord({
+				column: required(
+					columns.get(name),
+					`PostgreSQL omitted private field: ${name}`,
+				),
+				...(field.generation === undefined
+					? {}
+					: { generation: field.generation }),
+				plan,
+				storage: field.storage,
+			}),
+		]),
+	)
+
+	return immutableRecord({
+		definition: collection,
+		fields: immutableRecord(fields),
+		table,
+		tableName,
+	})
 }

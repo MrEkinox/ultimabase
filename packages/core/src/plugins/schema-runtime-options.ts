@@ -6,6 +6,7 @@ import {
 
 import { isCoreFieldOptionKey } from '../schema/fields/base/options.js'
 import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
+import type { SchemaOptionProvenance } from '../schema/schema/provenance.js'
 import type { ApplicationCapabilityHost } from './capability-host.js'
 import {
 	attachPluginDeclarationDiagnostic,
@@ -14,7 +15,7 @@ import {
 	type PendingSchemaOptionRuntimeCompilation,
 	type SchemaDeclarationBatch,
 } from './schema-declaration-contracts.js'
-import { coreSchemaKeys } from './schema-option-resolution.js'
+import { coreSchemaKeys } from '../schema/schema/registry.js'
 import { readDeclaredRuntimeCapability, sameOwner } from './schema-selectors.js'
 
 const readCompiledOptionValue = (source: unknown, name: string): unknown => {
@@ -63,81 +64,69 @@ export const collectRuntimeCompilations = (
 		for (const option of batch.options) {
 			const runtime = option.definition.runtime
 			if (runtime === undefined) continue
-
-			for (const candidate of candidates) {
-				if (option.scope === 'schema') {
-					if (!Object.hasOwn(candidate.definition, option.name)) continue
-					const provenance =
-						candidate.definition.provenance.options[option.name]
-					if (provenance === undefined) {
-						throw new TypeError(
-							`Missing schema option provenance: ${candidate.schema.className}.${option.name}`,
-						)
-					}
-					if (
-						!sameOwner(provenance.definition.owner, option.owner) ||
-						provenance.definition.contributionId !== option.contributionId
-					) {
-						continue
-					}
-					const path = `${candidate.schema.className}.${option.name}`
-					compilations.push(
-						immutableRecord({
-							context: immutableRecord({
-								className: candidate.schema.className,
-								optionName: option.name,
-								path,
-								provenance,
-								scope: 'schema',
-								// Static normalization already proved the owner-defined value contract.
-								value: readCompiledOptionValue(
-									candidate.definition,
-									option.name,
-								),
-							}),
-							owner: option.owner,
-							runtime,
+			// Records one occurrence whose final value is still owned by this descriptor.
+			const collect = (
+				className: string,
+				fieldName: string | undefined,
+				provenance: SchemaOptionProvenance | undefined,
+				path: string,
+				readValue: () => unknown,
+			): void => {
+				if (provenance === undefined) {
+					throw new TypeError(
+						`Missing ${fieldName === undefined ? 'schema' : 'field'} option provenance: ${path}`,
+					)
+				}
+				if (
+					!sameOwner(provenance.definition.owner, option.owner) ||
+					provenance.definition.contributionId !== option.contributionId
+				) {
+					return
+				}
+				compilations.push(
+					immutableRecord({
+						context: immutableRecord({
+							className,
+							...(fieldName === undefined
+								? {}
+								: { fieldName, fieldContext: 'stored' as const }),
+							optionName: option.name,
+							path,
+							provenance,
+							scope: option.scope,
+							// Static normalization already proved the owner-defined value contract.
+							value: readValue(),
 						}),
+						owner: option.owner,
+						runtime,
+					}),
+				)
+			}
+
+			for (const { definition, schema } of candidates) {
+				const { className } = schema
+				if (option.scope === 'schema') {
+					if (!Object.hasOwn(definition, option.name)) continue
+					collect(
+						className,
+						undefined,
+						definition.provenance.options[option.name],
+						`${className}.${option.name}`,
+						() => readCompiledOptionValue(definition, option.name),
 					)
 					continue
 				}
 
 				for (const [fieldName, field] of Object.entries(
-					candidate.definition.persistedFields,
+					definition.persistedFields,
 				)) {
 					if (!Object.hasOwn(field.options, option.name)) continue
-					const provenance =
-						candidate.definition.provenance.fieldOptions[fieldName]?.[
-							option.name
-						]
-					if (provenance === undefined) {
-						throw new TypeError(
-							`Missing field option provenance: ${candidate.schema.className}.fields.${fieldName}.options.${option.name}`,
-						)
-					}
-					if (
-						!sameOwner(provenance.definition.owner, option.owner) ||
-						provenance.definition.contributionId !== option.contributionId
-					) {
-						continue
-					}
-					const path = `${candidate.schema.className}.fields.${fieldName}.options.${option.name}`
-					compilations.push(
-						immutableRecord({
-							context: immutableRecord({
-								className: candidate.schema.className,
-								fieldName,
-								fieldContext: 'stored',
-								optionName: option.name,
-								path,
-								provenance,
-								scope: 'field',
-								// Static normalization already proved the owner-defined value contract.
-								value: readCompiledOptionValue(field.options, option.name),
-							}),
-							owner: option.owner,
-							runtime,
-						}),
+					collect(
+						className,
+						fieldName,
+						definition.provenance.fieldOptions[fieldName]?.[option.name],
+						`${className}.fields.${fieldName}.options.${option.name}`,
+						() => readCompiledOptionValue(field.options, option.name),
 					)
 				}
 			}

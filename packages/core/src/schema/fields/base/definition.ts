@@ -5,10 +5,8 @@ import {
 } from '@ultimabase/shared'
 import { valid } from 'semver'
 
-import { isBuiltInField } from './kinds.js'
-import { assertPluginFieldKind } from './kinds.js'
+import { assertPluginFieldKind, isBuiltInFieldKind } from './kinds.js'
 import {
-	getBuiltInFieldOptionsContract,
 	getFieldListDepth,
 	isFieldNullable,
 	isRequiredOnCreate,
@@ -22,6 +20,7 @@ import type {
 } from './contract.js'
 import { snapshotJsonValue } from './portable-json.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import type { RelationWhereDeclaration } from '../builtins/relation.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -47,8 +46,12 @@ export interface PluginFieldWireProtocol<
 	readonly version: TVersion
 }
 
-const pluginFieldWireProtocolNamePattern =
+const namespacedNamePattern =
 	/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u
+
+/** Dot-namespaced protocol and operation names shared by plugin-facing identities. */
+export const isNamespacedName = (value: string): boolean =>
+	namespacedNamePattern.test(value)
 const pluginFieldWireProtocols = new Map<string, PluginFieldWireProtocol>()
 const pluginFieldWireProtocolIdentities = new WeakSet<object>()
 
@@ -71,7 +74,7 @@ export const definePluginFieldWireProtocol = <
 	}
 	if (
 		typeof options.name !== 'string' ||
-		!pluginFieldWireProtocolNamePattern.test(options.name)
+		!namespacedNamePattern.test(options.name)
 	) {
 		throw new TypeError('Plugin field wire protocol name must be namespaced')
 	}
@@ -121,46 +124,67 @@ export interface PluginFieldStructuralContainsMetadata {
 	readonly format: 'json'
 	readonly protocolVersion: typeof pluginFieldStructuralContainsProtocolVersion
 }
-interface PluginFieldStructuralContainsCapability {
-	readonly metadata: PluginFieldStructuralContainsMetadata
-	readonly snapshotOperand: (value: unknown, path: string) => unknown
-}
-interface FieldMetadata<TKind extends string, TOptions extends object> {
-	readonly kind: TKind
-	readonly options: Readonly<TOptions>
-}
-interface FieldCapabilities {
-	readonly deferRequiredUntilResolveInput: boolean
-	readonly mutationInput: 'forbidden' | undefined
-	readonly optionsContract: BuiltInFieldOptionsContract | undefined
-	readonly relationWhere: unknown
-	readonly schemaTarget: SchemaTarget | undefined
-	readonly snapshotValue: ScalarValueSnapshot
-	readonly storageCodec: PluginFieldStorageCodec | undefined
-	readonly wireCodecs: readonly PluginFieldWireCodec[]
-	readonly structuralContains:
-		PluginFieldStructuralContainsCapability | undefined
-}
+const structuralContainsMetadata: PluginFieldStructuralContainsMetadata =
+	immutableRecord({
+		format: 'json',
+		protocolVersion: pluginFieldStructuralContainsProtocolVersion,
+	})
+
+type OperandSnapshot = (value: unknown, path: string) => unknown
+
 /** Carries non-metadata capabilities used only by specialized field factories. */
 export interface FieldDefinitionCapabilities {
 	/** Lets a plugin fill a required create value before structural revalidation. */
 	readonly deferRequiredUntilResolveInput?: boolean
 	readonly schemaTarget?: SchemaTarget
 	/** Retains relation shaping outside portable field metadata. */
-	readonly relationWhere?: unknown
+	readonly relationWhere?: RelationWhereDeclaration | undefined
 	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
 	readonly storageCodec?: PluginFieldStorageCodec
 	/** Attaches exact transport codecs without exposing callbacks in field metadata. */
 	readonly wireCodecs?: readonly PluginFieldWireCodec[]
 	/** Keeps the author callback private while exposing only inert protocol metadata. */
-	readonly structuralContains?: {
-		readonly snapshotOperand: (value: unknown, path: string) => unknown
-	}
+	readonly structuralContains?: { readonly snapshotOperand: OperandSnapshot }
 	/** Records Core-owned root option names for specialized factories. */
 	readonly optionsContract?: BuiltInFieldOptionsContract
 }
+
+/** Private behavior retained for one factory-created field. */
+interface FieldCapabilities extends FieldDefinitionCapabilities {
+	readonly mutationInputForbidden?: true
+	readonly snapshotValue: ScalarValueSnapshot
+}
+
 // Weak ownership proves factory provenance without retaining application schemas.
 const fieldCapabilities = new WeakMap<object, FieldCapabilities>()
+
+/** Freezes one field's public metadata and binds its private capabilities. */
+const bindFieldCapabilities = <TKind extends string, TOptions extends object>(
+	kind: TKind,
+	options: Readonly<TOptions>,
+	capabilities: FieldCapabilities,
+): { readonly kind: TKind; readonly options: Readonly<TOptions> } => {
+	const field = immutableRecord({ kind, options })
+
+	fieldCapabilities.set(field, capabilities)
+
+	return field
+}
+
+/** Reads the capabilities of a field that must come from an official factory. */
+const readFieldCapabilities = (
+	field: GenericField,
+	message: string,
+): FieldCapabilities => {
+	const capabilities = fieldCapabilities.get(field)
+
+	if (capabilities === undefined) {
+		throw new TypeError(message)
+	}
+
+	return capabilities
+}
+
 /**
  * Creates every official field through one immutable, capability-aware boundary.
  */
@@ -172,85 +196,66 @@ export const createFieldDefinition = <
 	options: Readonly<TOptions>,
 	snapshotValue: ScalarValueSnapshot,
 	capabilities: FieldDefinitionCapabilities = {},
-): FieldMetadata<TKind, TOptions> => {
-	const field = immutableRecord({ kind, options })
-	const structuralSnapshot = capabilities.structuralContains?.snapshotOperand
-	const structuralContains =
-		structuralSnapshot === undefined
-			? undefined
-			: immutableRecord({
-					metadata: immutableRecord({
-						format: 'json' as const,
-						protocolVersion: pluginFieldStructuralContainsProtocolVersion,
-					}),
-					snapshotOperand: (value: unknown, path: string): unknown =>
-						snapshotJsonValue(structuralSnapshot(value, path), path),
-				})
+): { readonly kind: TKind; readonly options: Readonly<TOptions> } => {
+	const snapshotOperand = capabilities.structuralContains?.snapshotOperand
 
-	fieldCapabilities.set(
-		field,
+	return bindFieldCapabilities(
+		kind,
+		options,
 		immutableRecord({
-			deferRequiredUntilResolveInput:
-				capabilities.deferRequiredUntilResolveInput === true,
-			mutationInput: undefined,
-			optionsContract:
-				capabilities.optionsContract ?? getBuiltInFieldOptionsContract(options),
-			relationWhere: capabilities.relationWhere,
-			schemaTarget: capabilities.schemaTarget,
+			...capabilities,
 			snapshotValue,
-			storageCodec: capabilities.storageCodec,
-			wireCodecs: capabilities.wireCodecs ?? [],
-			structuralContains,
+			// Containment operands always leave the plugin callback as portable JSON.
+			...(snapshotOperand === undefined
+				? {}
+				: {
+						structuralContains: immutableRecord({
+							snapshotOperand: (value: unknown, path: string): unknown =>
+								snapshotJsonValue(snapshotOperand(value, path), path),
+						}),
+					}),
 		}),
 	)
-
-	return field
 }
+
 /** Reads built-in ownership without exposing private behavioral capabilities. */
 export const getDeclaredFieldOptionsContract = (
 	field: GenericField,
 ): BuiltInFieldOptionsContract | undefined =>
 	fieldCapabilities.get(field)?.optionsContract
 
-/** @internal Reads a private relation-filter declaration retained by its factory. */
-export const getFieldRelationWhere = (field: GenericField): unknown =>
+/** @internal Returns the exact private declaration attached by `relationField`. */
+export const getRelationWhereDeclaration = (
+	field: GenericField,
+): RelationWhereDeclaration | undefined =>
 	fieldCapabilities.get(field)?.relationWhere
 
 /** Rebuilds immutable field metadata while retaining its private factory capabilities. */
 export const replaceDeclaredFieldOptions = (
 	field: GenericField,
 	options: Readonly<Record<string, unknown>>,
-): GenericField => {
-	const capabilities = fieldCapabilities.get(field)
-
-	if (capabilities === undefined) {
-		throw new TypeError('field must be created by a field factory')
-	}
-
-	const replacement = immutableRecord({ kind: field.kind, options })
-
-	fieldCapabilities.set(replacement, capabilities)
-
-	return replacement
-}
-
-export const forbidFieldMutationInput = (field: GenericField): GenericField => {
-	const capabilities = fieldCapabilities.get(field)
-	if (capabilities === undefined)
-		throw new TypeError('field must be created by a field factory')
-	const replacement = immutableRecord({
-		kind: field.kind,
-		options: field.options,
-	})
-	fieldCapabilities.set(
-		replacement,
-		immutableRecord({ ...capabilities, mutationInput: 'forbidden' as const }),
+): GenericField =>
+	bindFieldCapabilities(
+		field.kind,
+		options,
+		readFieldCapabilities(field, 'field must be created by a field factory'),
 	)
-	return replacement
-}
+
+export const forbidFieldMutationInput = (field: GenericField): GenericField =>
+	bindFieldCapabilities(
+		field.kind,
+		field.options,
+		immutableRecord({
+			...readFieldCapabilities(
+				field,
+				'field must be created by a field factory',
+			),
+			mutationInputForbidden: true as const,
+		}),
+	)
 
 export const hasForbiddenMutationInput = (field: GenericField): boolean =>
-	fieldCapabilities.get(field)?.mutationInput === 'forbidden'
+	fieldCapabilities.get(field)?.mutationInputForbidden === true
 
 /** Resolves one lazy schema target without placing its callback in field metadata. */
 export const getFieldSchemaTarget = (
@@ -270,13 +275,15 @@ export const getPluginFieldWireCodec = (
 ): PluginFieldWireCodec | undefined =>
 	fieldCapabilities
 		.get(field)
-		?.wireCodecs.find((codec) => codec.protocol === protocol)
+		?.wireCodecs?.find((codec) => codec.protocol === protocol)
 
 /** Reads only the inert protocol marker; plugin callbacks never leave Core ownership. */
 export const getPluginFieldStructuralContains = (
 	field: GenericField,
 ): PluginFieldStructuralContainsMetadata | undefined =>
-	fieldCapabilities.get(field)?.structuralContains?.metadata
+	fieldCapabilities.get(field)?.structuralContains === undefined
+		? undefined
+		: structuralContainsMetadata
 
 /** Snapshots one plugin containment operand at the trusted query boundary. */
 export const snapshotPluginFieldStructuralContainsOperand = (
@@ -292,10 +299,6 @@ export const snapshotPluginFieldStructuralContainsOperand = (
 
 	return capability.snapshotOperand(value, path)
 }
-
-/** Distinguishes official factories from structurally forged field objects. */
-export const isDeclaredFieldDefinition = (value: object): boolean =>
-	fieldCapabilities.has(value)
 
 /** Protects composition from malformed or structurally forged metadata. */
 export function assertFieldDefinition(
@@ -314,11 +317,11 @@ export function assertFieldDefinition(
 
 	assertNonEmptyString(kind, `${path}.kind`)
 
-	if (!isBuiltInField({ kind })) {
+	if (!isBuiltInFieldKind(kind)) {
 		assertPluginFieldKind(kind, `${path}.kind`)
 	}
 
-	if (!isDeclaredFieldDefinition(value)) {
+	if (!fieldCapabilities.has(value)) {
 		throw new TypeError(`${path} must be created by a field factory`)
 	}
 }
@@ -335,13 +338,10 @@ export function snapshotScalarFieldValue(
 	value: unknown,
 	path: string,
 ): unknown {
-	const capabilities = fieldCapabilities.get(field)
-
-	if (capabilities === undefined) {
-		throw new TypeError(`${path} uses a field not created by a field factory`)
-	}
-
-	return capabilities.snapshotValue(value, path)
+	return readFieldCapabilities(
+		field,
+		`${path} uses a field not created by a field factory`,
+	).snapshotValue(value, path)
 }
 
 /** Reapplies one declared field's scalar and list contract at static boundaries. */
@@ -350,16 +350,15 @@ export const snapshotDeclaredFieldValue = (
 	value: unknown,
 	path: string,
 ): unknown => {
-	const capabilities = fieldCapabilities.get(field)
-
-	if (capabilities === undefined) {
-		throw new TypeError(`${path} uses a field not created by a field factory`)
-	}
+	const { snapshotValue } = readFieldCapabilities(
+		field,
+		`${path} uses a field not created by a field factory`,
+	)
 
 	return snapshotListedFieldValue(
 		value,
 		getFieldListDepth(field.options),
-		capabilities.snapshotValue,
+		snapshotValue,
 		path,
 	)
 }
@@ -371,28 +370,24 @@ export const isFieldRequiredDeferred = (field: GenericField): boolean =>
 export const readFieldTypegenState = (
 	field: GenericField,
 ): FieldTypegenState => {
-	const generated = 'generatedOn' in field.options
 	const relation = field.kind === 'relation'
-	const mutationInputForbidden = hasForbiddenMutationInput(field)
+	// Relations, Runtime-forbidden fields and generated values never accept input.
+	const inputForbidden =
+		relation ||
+		hasForbiddenMutationInput(field) ||
+		'generatedOn' in field.options
 
 	return immutableRecord({
-		create:
-			relation || mutationInputForbidden
-				? 'forbidden'
-				: generated
-					? 'forbidden'
-					: isFieldRequiredDeferred(field)
-						? 'optional'
-						: isRequiredOnCreate(field)
-							? 'required'
-							: 'optional',
+		create: inputForbidden
+			? 'forbidden'
+			: !isFieldRequiredDeferred(field) && isRequiredOnCreate(field)
+				? 'required'
+				: 'optional',
 		list: getFieldListDepth(field.options) > 0,
-		nullable: relation ? false : isFieldNullable(field),
+		nullable: !relation && isFieldNullable(field),
 		object: relation ? 'forbidden' : 'required',
 		update:
-			relation ||
-			mutationInputForbidden ||
-			generated ||
+			inputForbidden ||
 			('immutable' in field.options && field.options.immutable === true)
 				? 'forbidden'
 				: 'optional',

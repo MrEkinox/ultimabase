@@ -1,77 +1,32 @@
 import { FrameworkApplication } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../foundation.js'
-import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
-	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { haveSameEnumerableKeys } from '../../exact-object-validation.js'
 
-import type {
-	DatabaseMutationLogicalRecord,
-	DatabaseMutationOperationAst,
-} from '../database/contracts.js'
+import type { RequestContext } from '../context/request-context.js'
+import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
-	RuntimePreparedMutationStageInput,
 	RuntimeBehaviorStages,
 	RuntimeLogicalOperationAst,
-	RuntimeOperationStageInput,
-	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
+import { getRuntimeContributionImplementation } from './definitions.js'
 import {
-	createAfterContributionInput,
-	createBeforeContributionInput,
-	createPreparedContributionInput,
-	getRuntimeContributionImplementation,
-} from './definitions.js'
-import {
-	createRuntimeCallbackDescriptor,
+	createContributionCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
-	type RuntimeCallbackDescriptor,
-	type RuntimeCallbackExecutor,
+	readOwnedRuntimeContributions,
+	type OwnedRuntimeContribution,
 } from './execution.js'
 import { runtimeInterceptorCapability } from '../capabilities.js'
 
-type RuntimeContributionImplementation = NonNullable<
-	ReturnType<typeof getRuntimeContributionImplementation>
+type OwnedInterceptor = OwnedRuntimeContribution<
+	NonNullable<ReturnType<typeof getRuntimeContributionImplementation>>
 >
-
-interface OwnedRuntimeContribution {
-	readonly contribution: Readonly<{
-		readonly name: string
-		readonly ownerInstanceId?: string
-		readonly ownerPlugin: string
-		readonly value: unknown
-	}>
-	readonly implementation: RuntimeContributionImplementation
-}
-
-/** Builds one redacted identity without retaining operation inputs or results. */
-const createRuntimeContributionDescriptor = (
-	owned: OwnedRuntimeContribution,
-	operation: RuntimeLogicalOperationAst,
-): RuntimeCallbackDescriptor => {
-	const { contribution, implementation } = owned
-	return createRuntimeCallbackDescriptor({
-		operationKind: operation.kind,
-		owner: {
-			contributionId: contribution.name,
-			kind: 'plugin',
-			pluginId: contribution.ownerPlugin,
-			...(contribution.ownerInstanceId === undefined
-				? {}
-				: { instanceId: contribution.ownerInstanceId }),
-		},
-		phase: implementation.kind,
-		target:
-			implementation.schema === undefined
-				? { kind: 'global' }
-				: { className: implementation.schema.className, kind: 'schema' },
-	})
-}
 
 const assertExactContributionOutput = (
 	output: unknown,
@@ -88,18 +43,16 @@ const assertExactContributionOutput = (
 	return output
 }
 
-const haveSameKeys = (
-	left: Readonly<Record<string, unknown>>,
-	right: Readonly<Record<string, unknown>>,
-): boolean => {
-	const leftKeys = Object.keys(left)
-	const rightKeys = Object.keys(right)
-
-	return (
-		leftKeys.length === rightKeys.length &&
-		leftKeys.every((key) => Object.hasOwn(right, key))
+/** Proves both records share one key set and identical values outside `replaced`. */
+const differsOnlyAt = (
+	previous: Readonly<Record<string, unknown>>,
+	next: Readonly<Record<string, unknown>>,
+	replaced: string,
+): boolean =>
+	haveSameEnumerableKeys(previous, next) &&
+	Object.keys(previous).every(
+		(key) => key === replaced || next[key] === previous[key],
 	)
-}
 
 /** Restricts the late prepared boundary to values in an existing update shape. */
 const normalizePreparedContributionOutput = <
@@ -108,11 +61,12 @@ const normalizePreparedContributionOutput = <
 	previousOperation: TOperation,
 	output: unknown,
 ): TOperation => {
-	const result = assertExactContributionOutput(output, 'operation')
+	const candidate: unknown = assertExactContributionOutput(
+		output,
+		'operation',
+	).operation
 
-	if (result.operation === previousOperation) return previousOperation
-
-	const candidate: unknown = result.operation
+	if (candidate === previousOperation) return previousOperation
 
 	if (!isPlainRecord(candidate) || candidate.kind !== previousOperation.kind) {
 		throw new TypeError(
@@ -127,34 +81,22 @@ const normalizePreparedContributionOutput = <
 	}
 
 	const nextOperation = immutableRecord(candidate) as TOperation
-	const previousValue: unknown = previousOperation
-	const nextValue: unknown = nextOperation
+	const previous: unknown = previousOperation
 
-	if (!isPlainRecord(previousValue) || !isPlainRecord(nextValue)) {
+	if (!isPlainRecord(previous)) {
 		throw new TypeError(
 			'prepared-operation contribution requires plain operations',
 		)
 	}
 
-	const previousRecord = previousValue
-	const nextRecord = nextValue
-
-	if (!haveSameKeys(previousRecord, nextRecord)) {
+	if (!differsOnlyAt(previous, candidate, 'update')) {
 		throw new TypeError(
 			'prepared-operation contribution may only replace update values',
 		)
 	}
 
-	for (const key of Object.keys(previousRecord)) {
-		if (key !== 'update' && nextRecord[key] !== previousRecord[key]) {
-			throw new TypeError(
-				'prepared-operation contribution may only replace update values',
-			)
-		}
-	}
-
-	const previousUpdate: unknown = previousRecord.update
-	const nextUpdate: unknown = nextRecord.update
+	const previousUpdate: unknown = previous.update
+	const nextUpdate: unknown = candidate.update
 
 	if (
 		!isPlainRecord(previousUpdate) ||
@@ -163,7 +105,7 @@ const normalizePreparedContributionOutput = <
 		nextUpdate.kind !== 'update-expression' ||
 		!isUnknownArray(previousUpdate.operations) ||
 		!isUnknownArray(nextUpdate.operations) ||
-		!haveSameKeys(previousUpdate, nextUpdate) ||
+		!haveSameEnumerableKeys(previousUpdate, nextUpdate) ||
 		previousUpdate.operations.length !== nextUpdate.operations.length
 	) {
 		throw new TypeError(
@@ -171,197 +113,36 @@ const normalizePreparedContributionOutput = <
 		)
 	}
 
+	const nextOperations = nextUpdate.operations
+
 	for (const [
 		index,
 		previousCandidate,
 	] of previousUpdate.operations.entries()) {
-		const nextCandidate = nextUpdate.operations[index]
+		const nextCandidate: unknown = nextOperations[index]
 
 		if (
 			!isPlainRecord(previousCandidate) ||
 			!isPlainRecord(nextCandidate) ||
-			!haveSameKeys(previousCandidate, nextCandidate) ||
-			previousCandidate.kind !== nextCandidate.kind ||
-			previousCandidate.field !== nextCandidate.field
+			!differsOnlyAt(previousCandidate, nextCandidate, 'value')
 		) {
 			throw new TypeError(
 				'prepared-operation contribution must preserve every update operation',
 			)
-		}
-
-		for (const key of Object.keys(previousCandidate)) {
-			if (key !== 'value' && nextCandidate[key] !== previousCandidate[key]) {
-				throw new TypeError(
-					'prepared-operation contribution must preserve every update operation',
-				)
-			}
 		}
 	}
 
 	return nextOperation
 }
 
-const normalizeAfterContributionOutput = (output: unknown): unknown => {
-	const result = assertExactContributionOutput(output, 'result')
-
-	// Result validation remains operation-specific; this boundary only enforces explicit replacement.
-	return result.result
-}
-
 const matchesContribution = (
-	implementation: RuntimeContributionImplementation,
+	{ implementation }: OwnedInterceptor,
 	operation: RuntimeLogicalOperationAst,
 ): boolean =>
 	(implementation.operations === undefined ||
 		implementation.operations.includes(operation.kind)) &&
 	(implementation.schema === undefined ||
 		implementation.schema === getOperationSchema(operation))
-
-const readContributions = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
-): readonly OwnedRuntimeContribution[] => {
-	const ownedContributions: OwnedRuntimeContribution[] = []
-
-	const contributions = readApplicationKernelState(application)
-		.capabilityContributions(runtimeInterceptorCapability)
-		.map(({ contributionId, owner, value }) =>
-			immutableRecord({
-				name: contributionId,
-				ownerPlugin: owner.pluginId,
-				...(owner.instanceId === undefined
-					? {}
-					: { ownerInstanceId: owner.instanceId }),
-				value,
-			}),
-		)
-
-	for (const contribution of contributions) {
-		const implementation = getRuntimeContributionImplementation(
-			contribution.value,
-		)
-		// A missing implementation must never silently discard an interceptor.
-		if (implementation === undefined) {
-			throw new TypeError('Runtime interceptor implementation is unavailable')
-		}
-
-		if (
-			implementation.schema !== undefined &&
-			!application.ownsSchema(implementation.schema)
-		) {
-			throw new TypeError(
-				`Runtime contribution "${contribution.name}" references a schema outside its application`,
-			)
-		}
-
-		ownedContributions.push(immutableRecord({ contribution, implementation }))
-	}
-
-	return immutableArray(ownedContributions)
-}
-
-const runBeforeContributions = async <
-	const TOperation extends RuntimeLogicalOperationAst,
->(
-	contributions: readonly OwnedRuntimeContribution[],
-	runtime: RuntimeCallbackExecutor,
-	input: RuntimeOperationStageInput<TOperation>,
-): Promise<void> => {
-	for (const owned of contributions) {
-		const { implementation } = owned
-		if (!matchesContribution(implementation, input.operation)) {
-			continue
-		}
-
-		const output: unknown = await runtime.invoke(
-			createRuntimeContributionDescriptor(owned, input.operation),
-			input.context,
-			() =>
-				implementation.run(
-					createBeforeContributionInput(input.context, input.operation),
-				),
-		)
-
-		if (output !== undefined) {
-			throw new TypeError('before-operation contribution must return undefined')
-		}
-	}
-}
-
-const runAfterContributions = async <
-	const TOperation extends RuntimeLogicalOperationAst,
-	const TResult,
->(
-	contributions: readonly OwnedRuntimeContribution[],
-	runtime: RuntimeCallbackExecutor,
-	input: RuntimeResultStageInput<TOperation, TResult>,
-): Promise<TResult> => {
-	let result = input.result
-
-	for (const owned of contributions) {
-		const { implementation } = owned
-		if (!matchesContribution(implementation, input.operation)) {
-			continue
-		}
-
-		const output: unknown = await runtime.invoke(
-			createRuntimeContributionDescriptor(owned, input.operation),
-			input.context,
-			() =>
-				implementation.run(
-					createAfterContributionInput(input.context, input.operation, result),
-				),
-		)
-
-		result = normalizeAfterContributionOutput(output) as TResult
-	}
-
-	return result
-}
-
-/** Runs locked-target transformers only for a materialized singular update. */
-const runPreparedContributions = async <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	contributions: readonly OwnedRuntimeContribution[],
-	runtime: RuntimeCallbackExecutor,
-	input: RuntimePreparedMutationStageInput<
-		TOperation,
-		DatabaseMutationLogicalRecord<TOperation>
-	>,
-): Promise<TOperation> => {
-	if (
-		input.operation.kind !== 'update-one' ||
-		input.target === undefined ||
-		input.target === null
-	) {
-		return input.operation
-	}
-
-	const target = input.target
-	let operation: TOperation = input.operation
-
-	for (const owned of contributions) {
-		const { implementation } = owned
-
-		if (!matchesContribution(implementation, operation)) continue
-
-		const output: unknown = await runtime.invoke(
-			createRuntimeContributionDescriptor(owned, operation),
-			input.context,
-			() =>
-				implementation.run(
-					createPreparedContributionInput(input.context, operation, target),
-				),
-		)
-
-		operation = normalizePreparedContributionOutput(operation, output)
-	}
-
-	return operation
-}
 
 /** Composes low-level Runtime definitions into the generic behavior kernel. */
 export const composeRuntimeContributionBehavior = <
@@ -376,62 +157,127 @@ export const composeRuntimeContributionBehavior = <
 		)
 	}
 
-	const interceptors = readContributions(application)
+	const interceptors = readOwnedRuntimeContributions(
+		application,
+		runtimeInterceptorCapability,
+		'Runtime',
+		({ value }) => {
+			const implementation = getRuntimeContributionImplementation(value)
+			// A missing implementation must never silently discard an interceptor.
+			if (implementation === undefined) {
+				throw new TypeError('Runtime interceptor implementation is unavailable')
+			}
+			return implementation
+		},
+	)
 	if (interceptors.length === 0) return undefined
 
 	const runtime = getApplicationRuntimeCallbackExecutor(application)
-	const globalBefore: OwnedRuntimeContribution[] = [],
-		schemaBefore: OwnedRuntimeContribution[] = [],
-		schemaAfter: OwnedRuntimeContribution[] = [],
-		globalAfter: OwnedRuntimeContribution[] = [],
-		prepared: OwnedRuntimeContribution[] = []
+	const select = (
+		kind: OwnedInterceptor['implementation']['kind'],
+		global: boolean,
+	): readonly OwnedInterceptor[] =>
+		interceptors.filter(
+			({ implementation }) =>
+				implementation.kind === kind &&
+				(implementation.schema === undefined) === global,
+		)
+	// Global observers wrap schema observers: global before first, global after last.
+	const before = [
+		...select('before-operation', true),
+		...select('before-operation', false),
+	]
+	const after = [
+		...select('after-operation', false),
+		...select('after-operation', true),
+	]
+	const prepared = interceptors.filter(
+		({ implementation }) => implementation.kind === 'prepared-operation',
+	)
+	const invoke = (
+		owned: OwnedInterceptor,
+		operation: RuntimeLogicalOperationAst,
+		context: RequestContext,
+		input: Parameters<OwnedInterceptor['implementation']['run']>[0],
+	): Promise<unknown> =>
+		runtime.invoke(
+			createContributionCallbackDescriptor(
+				owned.contribution,
+				owned.implementation.kind,
+				owned.implementation.schema,
+				operation.kind,
+			),
+			context,
+			() => owned.implementation.run(input),
+		)
+	const composed: {
+		-readonly [
+			TKey in keyof RuntimeBehaviorStages
+		]?: RuntimeBehaviorStages[TKey]
+	} = {}
 
-	for (const owned of interceptors) {
-		const { implementation } = owned
-		if (implementation.kind === 'before-operation') {
-			const group =
-				implementation.schema === undefined ? globalBefore : schemaBefore
-			group.push(owned)
-			continue
+	if (before.length > 0) {
+		composed.beforeOperation = async ({ context, operation }) => {
+			for (const owned of before) {
+				if (!matchesContribution(owned, operation)) continue
+				const output = await invoke(
+					owned,
+					operation,
+					context,
+					immutableRecord({ context, operation }),
+				)
+				if (output !== undefined) {
+					throw new TypeError(
+						'before-operation contribution must return undefined',
+					)
+				}
+			}
 		}
-		if (implementation.kind === 'after-operation') {
-			const group =
-				implementation.schema === undefined ? globalAfter : schemaAfter
-			group.push(owned)
-			continue
+	}
+	if (after.length > 0) {
+		composed.transformResult = async (input) => {
+			const { context, operation } = input
+			let result = input.result
+			for (const owned of after) {
+				if (!matchesContribution(owned, operation)) continue
+				const output = await invoke(
+					owned,
+					operation,
+					context,
+					immutableRecord({ context, operation, result }),
+				)
+				// Result validation stays operation-specific; this enforces explicit replacement.
+				result = assertExactContributionOutput(output, 'result')
+					.result as typeof result
+			}
+			return result
 		}
-		prepared.push(owned)
+	}
+	if (prepared.length > 0) {
+		// Locked-target transformers run only for a materialized singular update.
+		composed.transformPreparedOperation = async (input) => {
+			const { context, target } = input
+			let operation = input.operation
+			if (
+				operation.kind !== 'update-one' ||
+				target === undefined ||
+				target === null
+			) {
+				return operation
+			}
+			for (const owned of prepared) {
+				if (!matchesContribution(owned, operation)) continue
+				const output = await invoke(
+					owned,
+					operation,
+					context,
+					immutableRecord({ context, operation, target }),
+				)
+				operation = normalizePreparedContributionOutput(operation, output)
+			}
+			return operation
+		}
 	}
 
-	return immutableRecord({
-		...(globalBefore.length === 0 && schemaBefore.length === 0
-			? {}
-			: {
-					beforeOperation: async (input) => {
-						await runBeforeContributions(globalBefore, runtime, input)
-						await runBeforeContributions(schemaBefore, runtime, input)
-					},
-				}),
-		...(schemaAfter.length === 0 && globalAfter.length === 0
-			? {}
-			: {
-					transformResult: async (input) => {
-						const schemaResult = await runAfterContributions(
-							schemaAfter,
-							runtime,
-							input,
-						)
-						return runAfterContributions(globalAfter, runtime, {
-							...input,
-							result: schemaResult,
-						})
-					},
-				}),
-		...(prepared.length === 0
-			? {}
-			: {
-					transformPreparedOperation: (input) =>
-						runPreparedContributions(prepared, runtime, input),
-				}),
-	})
+	return immutableRecord(composed)
 }

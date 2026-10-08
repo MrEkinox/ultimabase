@@ -5,16 +5,17 @@ import { FrameworkError } from '../errors/framework-error.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	snapshotPluginIdentity,
 	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
 import {
 	assertNormalizedPlugin,
+	createDuplicatePluginError,
 	type NormalizedPlugin,
 } from './normalization.js'
-import { createDuplicatePluginError } from './plugin-errors.js'
 import { CapabilityInventory } from './capability-inventory.js'
-import type { CapabilityToken } from './capability-token.js'
+import type { CapabilityToken } from './capabilities.js'
 
 interface GraphNode {
 	readonly plugin: NormalizedPlugin
@@ -35,67 +36,6 @@ interface GraphNodes {
 const compareConfigurationOrder = (left: GraphNode, right: GraphNode): number =>
 	left.plugin.configurationIndex - right.plugin.configurationIndex ||
 	left.inputIndex - right.inputIndex
-
-const throwMissingDependency = (
-	pluginIdentity: PluginIdentity,
-	dependencyId: string,
-): never => {
-	const plugin = formatPluginIdentity(pluginIdentity)
-
-	throw new FrameworkError(
-		'PLUGIN_DEPENDENCY_MISSING',
-		`Plugin "${plugin}" requires missing plugin "${dependencyId}".`,
-		{
-			internalDetails: {
-				pluginId: pluginIdentity.pluginId,
-				...(pluginIdentity.instanceId === undefined
-					? {}
-					: { instanceId: pluginIdentity.instanceId }),
-				dependencyId,
-			},
-		},
-	)
-}
-
-const throwAmbiguousDependency = (
-	pluginIdentity: PluginIdentity,
-	dependencyId: string,
-): never => {
-	const plugin = formatPluginIdentity(pluginIdentity)
-
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Plugin "${plugin}" must target an exact instance of repeated plugin "${dependencyId}".`,
-		{
-			internalDetails: {
-				kind: 'ambiguous-plugin-dependency',
-				pluginId: pluginIdentity.pluginId,
-				dependencyId,
-			},
-		},
-	)
-}
-
-const throwExplicitConflict = (
-	pluginIdentity: PluginIdentity,
-	conflictingPluginId: string,
-): never => {
-	const plugin = formatPluginIdentity(pluginIdentity)
-
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Plugin "${plugin}" conflicts with "${conflictingPluginId}".`,
-		{
-			internalDetails: {
-				kind: 'explicit-conflict',
-				pluginIds: immutableArray([
-					pluginIdentity.pluginId,
-					conflictingPluginId,
-				]),
-			},
-		},
-	)
-}
 
 const findCyclePath = (
 	unresolvedNodes: readonly GraphNode[],
@@ -206,12 +146,31 @@ const resolveNamedDependency = (
 			: `${dependencyDeclaration.pluginId} (instance ${dependencyDeclaration.instanceId})`
 
 	if (candidates.length === 0) {
-		if (required) throwMissingDependency(pluginIdentity, dependencyTarget)
-		return undefined
+		if (!required) return undefined
+		throw new FrameworkError(
+			'PLUGIN_DEPENDENCY_MISSING',
+			`Plugin "${formatPluginIdentity(pluginIdentity)}" requires missing plugin "${dependencyTarget}".`,
+			{
+				internalDetails: {
+					...snapshotPluginIdentity(pluginIdentity),
+					dependencyId: dependencyTarget,
+				},
+			},
+		)
 	}
 
 	if (candidates.length > 1) {
-		throwAmbiguousDependency(pluginIdentity, dependencyDeclaration.pluginId)
+		throw new FrameworkError(
+			'PLUGIN_CONFLICT',
+			`Plugin "${formatPluginIdentity(pluginIdentity)}" must target an exact instance of repeated plugin "${dependencyDeclaration.pluginId}".`,
+			{
+				internalDetails: {
+					kind: 'ambiguous-plugin-dependency',
+					pluginId: pluginIdentity.pluginId,
+					dependencyId: dependencyDeclaration.pluginId,
+				},
+			},
+		)
 	}
 
 	const [candidate] = candidates as [GraphNode, ...GraphNode[]]
@@ -252,31 +211,31 @@ const connectGraphNodes = (graph: GraphNodes): void => {
 	for (const node of graph.all) {
 		const identity = node.plugin.definition.manifest.identity
 
-		for (const conflictId of node.plugin.definition.conflicts ?? []) {
-			if (graph.byPluginId.has(conflictId)) {
-				throwExplicitConflict(identity, conflictId)
-			}
-		}
-
-		for (const dependencyDeclaration of node.plugin.dependencies) {
-			const dependency =
-				resolveNamedDependency(
-					graph.byPluginId,
-					identity,
-					dependencyDeclaration,
-					true,
-				) ?? throwMissingDependency(identity, dependencyDeclaration.pluginId)
-			connectDependency(node, dependency)
-		}
-
-		for (const optionalDependency of node.plugin.definition
-			.optionalDependencies ?? []) {
-			const dependency = resolveNamedDependency(
-				graph.byPluginId,
-				identity,
-				optionalDependency,
-				false,
+		const conflictId = node.plugin.definition.conflicts?.find((pluginId) =>
+			graph.byPluginId.has(pluginId),
+		)
+		if (conflictId !== undefined) {
+			throw new FrameworkError(
+				'PLUGIN_CONFLICT',
+				`Plugin "${formatPluginIdentity(identity)}" conflicts with "${conflictId}".`,
+				{
+					internalDetails: {
+						kind: 'explicit-conflict',
+						pluginIds: immutableArray([identity.pluginId, conflictId]),
+					},
+				},
 			)
+		}
+
+		const dependencies = [
+			...node.plugin.dependencies.map((dependency) =>
+				resolveNamedDependency(graph.byPluginId, identity, dependency, true),
+			),
+			...(node.plugin.definition.optionalDependencies ?? []).map((dependency) =>
+				resolveNamedDependency(graph.byPluginId, identity, dependency, false),
+			),
+		]
+		for (const dependency of dependencies) {
 			if (dependency !== undefined) connectDependency(node, dependency)
 		}
 

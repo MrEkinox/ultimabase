@@ -1,3 +1,5 @@
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
+
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,13 +14,13 @@ import {
 	createFieldDefinition,
 	type ScalarValueSnapshot,
 } from './definition.js'
-import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
-
-type ScalarFieldOptionsNormalizer<TOptions extends object> = <
-	const TDeclaredOptions extends TOptions,
->(
-	options: TDeclaredOptions,
-) => Readonly<TDeclaredOptions>
+import {
+	assertFieldOptions,
+	emptyFieldOptions,
+	fieldOptionKeys,
+	normalizeFieldOptions,
+	type BuiltInFieldOptionsContract,
+} from './options.js'
 
 type CompactScalarFieldOptions<
 	TOptions extends object,
@@ -194,16 +196,6 @@ type NonDefaultedGeneratedScalarFieldOptions<
 		TExclusiveGeneration
 	>
 
-/** Carries option-dependent construction behavior without exposing capabilities. */
-export interface ScalarFieldConfiguration<TOptions extends object> {
-	readonly normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>
-	readonly snapshotValue: ScalarValueSnapshot
-}
-
-export type ScalarFieldConfigurationResolver<TOptions extends object> = (
-	options: TOptions | EmptyFieldOptions,
-) => ScalarFieldConfiguration<TOptions>
-
 /**
  * Keeps operation metadata compact; built-ins retain named callable aliases
  * because TypeScript surfaces those names in source and compiled editor hovers.
@@ -375,81 +367,63 @@ export interface GeneratedCompactScalarFieldFactory<
 	>
 }
 
-/** Shares compact runtime construction across regular and generated contracts. */
-const createCompactScalarFieldImplementation =
-	<const TKind extends string, TValue, TOptions extends FieldOptions<TValue>>(
-		kind: TKind,
-		resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
-	): ((options?: object) => FieldDefinition<TKind, TValue, TOptions, never>) =>
-	(options?: object) => {
-		if (options === undefined) {
-			const { snapshotValue } = resolveConfiguration(emptyFieldOptions)
+/**
+ * Narrows the shared snapshot boundary to one scalar's logical value. Reusing
+ * the definition contract also keeps the bundled declaration module order (and
+ * so the reference's private alias names) unchanged.
+ */
+type TypedScalarValueSnapshot<TValue> = ScalarValueSnapshot &
+	((value: unknown, path: string) => TValue)
 
+/** Describes how one compact built-in scalar validates options beyond common metadata. */
+export interface ScalarFieldSpec<TValue> {
+	/** Lists root option names owned in addition to the common value-field keys. */
+	readonly optionKeys?: readonly string[]
+	/** Validates kind-specific options before common metadata is normalized. */
+	readonly assertOptions?: (options: Readonly<Record<string, unknown>>) => void
+	/** Derives an option-dependent snapshot, such as a timezone-aware normalizer. */
+	readonly resolveSnapshot?: (
+		options: Readonly<Record<string, unknown>>,
+	) => TypedScalarValueSnapshot<TValue>
+}
+
+/**
+ * Creates the runtime shared by every compact scalar factory. Built-ins annotate
+ * the result with their named overload interface so editor hovers stay concise;
+ * the snapshot governs both static defaults and later value boundaries.
+ */
+export const createScalarFieldFactory = <const TKind extends string, TValue>(
+	kind: TKind,
+	snapshotValue: TypedScalarValueSnapshot<TValue>,
+	{
+		optionKeys = [],
+		assertOptions,
+		resolveSnapshot,
+	}: ScalarFieldSpec<TValue> = {},
+): ((
+	options?: object,
+) => FieldDefinition<TKind, TValue, FieldOptions<TValue>, never>) => {
+	const optionsContract: BuiltInFieldOptionsContract = immutableRecord({
+		kind,
+		optionKeys: immutableArray([...fieldOptionKeys, ...optionKeys]),
+	})
+
+	return (options) => {
+		// Zero-argument fields share one empty option record without a contract.
+		if (options === undefined) {
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const declaredOptions = options as TOptions
-		const { normalizeOptions, snapshotValue } =
-			resolveConfiguration(declaredOptions)
+
+		assertFieldOptions(options)
+		assertOptions?.(options)
+
+		const snapshot = resolveSnapshot?.(options) ?? snapshotValue
 
 		return createFieldDefinition(
 			kind,
-			normalizeOptions(declaredOptions),
-			snapshotValue,
+			normalizeFieldOptions(options, snapshot, optionsContract),
+			snapshot,
+			{ optionsContract },
 		)
 	}
-
-/** Creates the compact scalar contract without changing runtime field metadata. */
-export const createCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
->(
-	kind: TKind,
-	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
-	snapshotValue: ScalarValueSnapshot,
-): CompactScalarFieldFactory<TKind, TValue, TOptions> =>
-	createCompactScalarFieldImplementation(kind, () => ({
-		normalizeOptions,
-		snapshotValue,
-	}))
-
-/** Creates compact scalar inference for adapter-generated values. */
-export const createGeneratedCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-	TGenerationKey extends keyof TOptions & string,
-	TExclusiveGeneration extends boolean,
->(
-	kind: TKind,
-	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
-	snapshotValue: ScalarValueSnapshot,
-): GeneratedCompactScalarFieldFactory<
-	TKind,
-	TValue,
-	TOptions,
-	TGenerationKey,
-	TExclusiveGeneration
-> =>
-	createCompactScalarFieldImplementation(kind, () => ({
-		normalizeOptions,
-		snapshotValue,
-	}))
-
-/** Resolves option-dependent snapshots for generated temporal scalar fields. */
-export const createConfiguredGeneratedCompactScalarFieldFactory = <
-	const TKind extends string,
-	TValue,
-	TOptions extends FieldOptions<TValue>,
-	TGenerationKey extends keyof TOptions & string,
-	TExclusiveGeneration extends boolean,
->(
-	kind: TKind,
-	resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
-): GeneratedCompactScalarFieldFactory<
-	TKind,
-	TValue,
-	TOptions,
-	TGenerationKey,
-	TExclusiveGeneration
-> => createCompactScalarFieldImplementation(kind, resolveConfiguration)
+}

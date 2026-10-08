@@ -1,13 +1,12 @@
-import { FrameworkError } from '@ultimabase/core'
-import type { OperationKind } from '@ultimabase/core'
+import { FrameworkError, type OperationKind } from '@ultimabase/core'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 
-const isDeveloperDataError = (code: string): boolean =>
-	code.startsWith('22') || code.startsWith('23')
-
 const isFrameworkError = (value: unknown): value is FrameworkError =>
 	value instanceof FrameworkError
+
+const isSerializationFailure = (driverCode: string | undefined): boolean =>
+	driverCode === '40001' || driverCode === '40P01'
 
 /** Converts driver failures without exposing SQL, values, or database diagnostics. */
 export const mapPostgresOperationError = (
@@ -32,7 +31,11 @@ export const mapPostgresOperationError = (
 		})
 	}
 
-	if (driverCode !== undefined && isDeveloperDataError(driverCode)) {
+	// Data exceptions (22) and integrity violations (23) come from developer values.
+	if (
+		driverCode?.startsWith('22') === true ||
+		driverCode?.startsWith('23') === true
+	) {
 		return new FrameworkError(
 			'VALIDATION_ERROR',
 			'PostgreSQL rejected an operation value or constraint.',
@@ -44,12 +47,36 @@ export const mapPostgresOperationError = (
 		)
 	}
 
-	const retryable = driverCode === '40001' || driverCode === '40P01'
-
 	return new FrameworkError('INTERNAL_ERROR', 'PostgreSQL operation failed.', {
 		cause: error,
 		publicMessage: 'The database operation failed.',
 		internalDetails,
-		retryable,
+		retryable: isSerializationFailure(driverCode),
 	})
+}
+
+/** Removes SQL and connection diagnostics from transaction lifecycle failures. */
+export const createPostgresTransactionError = (
+	phase: 'begin' | 'commit' | 'rollback',
+	error: unknown,
+): FrameworkError<'TRANSACTION_ERROR'> => {
+	const driverCode = readPostgresDriverCode(error)
+
+	return new FrameworkError(
+		'TRANSACTION_ERROR',
+		`PostgreSQL transaction ${phase} failed.`,
+		{
+			publicMessage: 'The database transaction failed.',
+			// Only a failed BEGIN is known not to have committed developer work.
+			retryable:
+				phase === 'begin' &&
+				(driverCode?.startsWith('08') === true ||
+					isSerializationFailure(driverCode)),
+			internalDetails: {
+				kind: 'postgres-transaction-failed',
+				phase,
+				...(driverCode === undefined ? {} : { driverCode }),
+			},
+		},
+	)
 }

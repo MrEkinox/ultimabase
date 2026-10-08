@@ -13,6 +13,8 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+
 const declaredRequestSources = {
 	internal: 'internal',
 } as const
@@ -125,15 +127,12 @@ let trustedMasterContextFactory: TrustedMasterContextFactory
 function assertRequestContextOptions(
 	options: unknown,
 ): asserts options is RequestContextOptions {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Request context options must be a plain object')
-	}
-
-	for (const key of Object.keys(options)) {
-		if (!requestContextOptionKeys.has(key)) {
-			throw new TypeError(`Unknown request context option: ${key}`)
-		}
-	}
+	assertExactEnumerablePlainObject(
+		options,
+		requestContextOptionKeys,
+		'Request context options must be a plain object',
+		'Unknown request context option: ',
+	)
 
 	assertNonEmptyString(options.requestId, 'Request context requestId')
 	assertNonEmptyString(options.source, 'Request context source')
@@ -192,20 +191,28 @@ const snapshotCapabilities = (
 		throw new TypeError('Request context capabilities must be an array')
 	}
 
-	const validatedCapabilities: RequestCapability[] = []
-
-	for (const [index, capability] of capabilities.entries()) {
-		if (!isRequestCapability(capability)) {
-			throw new TypeError(
-				`Request context capabilities[${String(index)}] must be a RequestCapability`,
-			)
-		}
-
-		validatedCapabilities.push(capability)
-	}
-
-	return immutableArray(validatedCapabilities)
+	return immutableArray(
+		capabilities.map((capability, index) => {
+			if (!isRequestCapability(capability)) {
+				throw new TypeError(
+					`Request context capabilities[${String(index)}] must be a RequestCapability`,
+				)
+			}
+			return capability
+		}),
+	)
 }
+
+/** Reuses one immutable identity when deriving another context. */
+const optionsOf = <TSource extends string>(
+	context: RequestContext<RequestAccess, TSource>,
+): RequestContextOptions<TSource> => ({
+	capabilities: context.capabilities,
+	metadata: context.metadata,
+	requestId: context.requestId,
+	signal: context.signal,
+	source: context.source,
+})
 
 const createAnonymousAccess = (): AnonymousRequestAccess =>
 	immutableRecord({ mode: 'anonymous' })
@@ -316,17 +323,7 @@ export class RequestContext<
 		const nextValues = new Map(currentValues)
 		nextValues.set(token, token.snapshot(value))
 
-		const derived = new RequestContext(
-			this.access,
-			{
-				capabilities: this.capabilities,
-				metadata: this.metadata,
-				requestId: this.requestId,
-				signal: this.signal,
-				source: this.source,
-			},
-			nextValues,
-		)
+		const derived = new RequestContext(this.access, optionsOf(this), nextValues)
 
 		inheritRequestContextOwner(this, derived)
 
@@ -352,13 +349,7 @@ export class RequestContext<
 
 			const master = new RequestContext(
 				createMasterAccess(reason, keyId),
-				{
-					capabilities: context.capabilities,
-					metadata: context.metadata,
-					requestId: context.requestId,
-					signal: context.signal,
-					source: context.source,
-				},
+				optionsOf(context),
 				requestContextValues.get(context) ?? emptyRequestContextValues,
 			)
 

@@ -10,13 +10,14 @@ import { OutputBuilderMethodUnavailableError } from '../output/builder.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
 	createSchemaModelCapabilityContext,
-	createSchemaModelClass,
-	defineSchemaModelResultCapabilities,
 	finalizeSchemaModelClass,
-	type SchemaDraft,
-	type SchemaModelCapabilityContext,
-	type SchemaResultCapabilityCarrier,
-} from './model.js'
+} from './model-capabilities.js'
+import { createSchemaModelClass } from './model-class.js'
+import type {
+	SchemaDraft,
+	SchemaModelCapabilityContext,
+	SchemaResultCapabilityCarrier,
+} from './model-contracts.js'
 import {
 	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
@@ -27,10 +28,12 @@ import type { SystemFields } from './system-fields.js'
 import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
-	FieldBuilderMethodUnavailableError,
-	FieldBuilderTargetUnavailableError,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
+import {
+	FieldBuilderMethodUnavailableError,
+	FieldBuilderTargetUnavailableError,
+} from './runtime-field-builder.js'
 import type {
 	BaseSchemaTypeInfo,
 	SchemaTypeInfo,
@@ -46,24 +49,14 @@ import type { SchemaConstraintDefinition } from './constraints.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import {
 	prepareSchemaCompilation,
-	snapshotUnresolvedSchemaOptions,
-} from './definition-compilation.js'
-import { SchemaCompilationError } from './definition-error.js'
-import {
-	storeCompiledSchemaRecord,
 	readCompiledSchemaRecord,
-	storeSchemaDeclaration,
 	schemaDefinitionMarker,
-	type NormalizedSchemaDeclaration,
-} from './definition-state.js'
-
-export {
-	finalizeSchemaCompilation,
-	prepareSchemaCompilation,
-	validateSchemaCompilation,
+	SchemaCompilationError,
+	snapshotUnresolvedSchemaOptions,
+	storeProvisionalSchemaCompilation,
+	storeSchemaDeclaration,
 } from './definition-compilation.js'
-export { SchemaCompilationError } from './definition-error.js'
-export type { SchemaCompilationFailureReason } from './definition-error.js'
+
 export type {
 	ConfiguredFieldDeclaration,
 	ConfiguredSchemaDeclarationOptions,
@@ -73,7 +66,6 @@ export type {
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
-export { areSchemaDeclarationValuesCompatible } from './declaration-compatibility.js'
 /**
  * Collects named field definitions without erasing their concrete literals.
  */
@@ -185,12 +177,6 @@ export type SchemaReference<
 /** Collects additional static capabilities owned by a schema specialization. */
 export type SchemaStaticCapabilities = object
 
-/** Creates static capabilities after the exact schema class exists. */
-type SchemaStaticCapabilityFactory<
-	TSchema extends object,
-	TCapabilities extends SchemaStaticCapabilities,
-> = (schema: TSchema) => TCapabilities
-
 /** Groups static helpers and persisted commands contributed by one specialization. */
 export interface SchemaClassCapabilities<
 	TStatics extends SchemaStaticCapabilities,
@@ -220,44 +206,6 @@ export interface PreparedSchemaCompilation {
 	readonly definition: SchemaMetadata
 	readonly developerFields: SchemaFields
 	readonly schema: SchemaDefinition
-}
-
-const defineSchemaStaticCapabilities = <
-	const TSchema extends object,
-	const TCapabilities extends SchemaStaticCapabilities,
->(
-	schema: TSchema,
-	createCapabilities: SchemaStaticCapabilityFactory<TSchema, TCapabilities>,
-): TSchema & TCapabilities => {
-	if (typeof createCapabilities !== 'function') {
-		throw new TypeError('createCapabilities must be a function')
-	}
-
-	const capabilities: unknown = createCapabilities(schema)
-
-	if (!isPlainRecord(capabilities)) {
-		throw new TypeError('schema static capabilities must be a plain object')
-	}
-
-	for (const name of Reflect.ownKeys(capabilities)) {
-		if (typeof name === 'string') {
-			assertNonEmptyString(name, 'schema static capability name')
-		}
-
-		if (name in schema) {
-			throw new TypeError(`Reserved schema static capability: ${String(name)}`)
-		}
-
-		// Static specialization methods follow native class-method visibility.
-		Object.defineProperty(schema, name, {
-			configurable: false,
-			enumerable: false,
-			value: Reflect.get(capabilities, name),
-			writable: false,
-		})
-	}
-
-	return schema as TSchema & TCapabilities
 }
 
 const defineSchemaModel = <
@@ -296,36 +244,29 @@ const defineSchemaModel = <
 		)
 	}
 
-	const declaration: NormalizedSchemaDeclaration = immutableRecord({
+	// Readers close over the final class; they run only after compilation.
+	const schema: SchemaReference<TClassName, TFields> = createSchemaModelClass<
+		TClassName,
+		SchemaFields
+	>({
 		className: options.className,
-		fields,
-		indexes: snapshotSchemaIndexOptions(options.indexes),
-		options: snapshotUnresolvedSchemaOptions(options),
-	})
-	// Readers close over the final class, which is assigned only after construction.
-	// eslint-disable-next-line prefer-const
-	let schemaIdentity: SchemaReference<TClassName, TFields> | undefined
-	const schema = createSchemaModelClass<TClassName, SchemaFields>({
-		className: options.className,
-		readDefinition: () => {
-			if (schemaIdentity === undefined) {
-				throw new TypeError('Schema identity is not available')
-			}
-
-			return readCompiledSchemaRecord(schemaIdentity)
-				.definition as SchemaMetadata<TClassName, SchemaFields>
-		},
-		readDeveloperFields: () => {
-			if (schemaIdentity === undefined) {
-				throw new TypeError('Schema identity is not available')
-			}
-
-			return readCompiledSchemaRecord(schemaIdentity).developerFields
-		},
+		readDefinition: () =>
+			readCompiledSchemaRecord(schema).definition as SchemaMetadata<
+				TClassName,
+				SchemaFields
+			>,
+		readDeveloperFields: () => readCompiledSchemaRecord(schema).developerFields,
 	}) as SchemaReference<TClassName, TFields>
-	schemaIdentity = schema
-	storeSchemaDeclaration(schema, declaration)
 
+	storeSchemaDeclaration(
+		schema,
+		immutableRecord({
+			className: options.className,
+			fields,
+			indexes: snapshotSchemaIndexOptions(options.indexes),
+			options: snapshotUnresolvedSchemaOptions(options),
+		}),
+	)
 	// Keep provenance out of public enumeration while sharing it across package copies.
 	Object.defineProperty(schema, schemaDefinitionMarker, {
 		configurable: false,
@@ -333,17 +274,9 @@ const defineSchemaModel = <
 		value: true,
 		writable: false,
 	})
+	// Schemas without application-owned builder methods or targets compile eagerly.
 	try {
-		const prepared = prepareSchemaCompilation(schema)
-
-		storeCompiledSchemaRecord(
-			schema,
-			immutableRecord({
-				definition: prepared.definition,
-				developerFields: prepared.developerFields,
-				targets: undefined,
-			}),
-		)
+		storeProvisionalSchemaCompilation(prepareSchemaCompilation(schema))
 	} catch (error: unknown) {
 		if (!(
 			error instanceof SchemaCompilationError &&
@@ -450,16 +383,31 @@ export class Schema {
 			throw new TypeError('schema result capabilities must be a plain object')
 		}
 
-		const specializedSchema = defineSchemaStaticCapabilities<
-			typeof schema,
-			TStatics
-		>(schema, () => staticCapabilities as TStatics)
-		defineSchemaModelResultCapabilities(schema, resultCapabilities)
-		finalizeSchemaModelClass(specializedSchema)
-		Object.freeze(specializedSchema)
+		for (const name of Reflect.ownKeys(staticCapabilities)) {
+			if (typeof name === 'string') {
+				assertNonEmptyString(name, 'schema static capability name')
+			}
+
+			if (name in schema) {
+				throw new TypeError(
+					`Reserved schema static capability: ${String(name)}`,
+				)
+			}
+
+			// Static specialization methods follow native class-method visibility.
+			Object.defineProperty(schema, name, {
+				configurable: false,
+				enumerable: false,
+				value: Reflect.get(staticCapabilities, name),
+				writable: false,
+			})
+		}
+		finalizeSchemaModelClass(schema, resultCapabilities)
+		Object.freeze(schema)
 
 		// The required marker is type-only; attached methods back it at runtime.
-		return specializedSchema as typeof specializedSchema &
+		return schema as SchemaReference<TClassName, TFields> &
+			TStatics &
 			SchemaResultCapabilityCarrier<TResults>
 	}
 }

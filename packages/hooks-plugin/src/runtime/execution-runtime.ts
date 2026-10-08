@@ -9,98 +9,113 @@ import {
 	runOutsideRequestEngineScope,
 	runWithQueryExecutionGuard,
 	throwIfOperationCancelled,
-	type PluginIdentity,
 	type ApplicationCallbackExecutor,
+	type PluginIdentity,
 	type RequestContext,
 } from '@ultimabase/core'
-import type { HookContext } from '../context/hook-context.js'
-import type { HookExecutionContext } from '../context/execution-context.js'
 import {
 	immutableArray,
 	immutableRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import {
-	type HookDiagnosticEvent,
-	type HookDiagnosticPhase,
-	type HookDiagnosticsObserver,
+import type { ErasedHookHandler } from '../authoring/declarations.js'
+import type { HookContext, HookOperationKind } from '../context/hook-context.js'
+import type {
+	HookDiagnosticEvent,
+	HookDiagnosticOwner,
+	HookDiagnosticPhase,
+	HookDiagnosticsObserver,
+	HookDiagnosticTarget,
 } from './diagnostics.js'
-import type { HookExecutionDescriptor } from './execution-descriptor.js'
-import {
-	createHookExecutionDescriptor,
-	createPluginHookOwner,
-	globalHookTarget,
-} from './execution-descriptor.js'
-import {
-	type HookEvent,
-	type HookEventHandlerInput,
-	type HookEventImplementation,
+import type {
+	HookEvent,
+	HookEventHandlerInput,
+	HookEventImplementation,
 } from './events.js'
 import {
 	createRuntimeHookContext,
 	type HookContextEmission,
 } from './hook-context-runtime.js'
 
-interface HookExecutionFrame {
-	readonly key: string
-	readonly identity: HookExecutionDescriptor['identity']
+/** Supplies one stable structural identity to the shared hook executor. */
+export interface HookExecutionDescriptor {
+	readonly handler: ErasedHookHandler
+	readonly identity: Readonly<{
+		readonly declarationBranch: string
+		readonly handlerIndex: number
+		readonly operationKind: HookOperationKind
+		readonly owner: HookDiagnosticOwner
+		readonly phase: HookDiagnosticPhase
+		readonly target: HookDiagnosticTarget
+	}>
 }
 
-interface HookExecutionState {
-	readonly stack: readonly HookExecutionFrame[]
-}
-
-interface HookInvocationOptions {
-	/** Finalization observers still run after cancellation has determined the outcome. */
-	readonly cancellable?: boolean
-}
-
-const queryableHookPhases: ReadonlySet<HookDiagnosticPhase> = new Set([
-	'access-field-read',
-	'access-field-write',
-	'access-filter',
-	'access-item',
-	'access-operation',
-	'afterCreate',
-	'afterDelete',
-	'afterUpdate',
-	'afterUpsert',
-	'afterOperation',
-	'after-operation',
-	'beforeCreate',
-	'beforeDelete',
-	'beforeUpdate',
-	'beforeOperation',
-	'before-operation',
-	'constraint',
-	'guard',
-	'resolveInput',
-	'restrictInput',
-	'restrictOutput',
-	'restrictSelection',
-])
-
-/** Keeps transaction-finalization phases non-queryable even if async scope changes. */
-const isHookQueryAllowed = (descriptor: HookExecutionDescriptor): boolean =>
-	queryableHookPhases.has(descriptor.identity.phase)
-
-const emptyHookStack: readonly HookExecutionFrame[] = immutableArray([])
-const directCallbackExecutor: ApplicationCallbackExecutor = immutableRecord({
-	runApplication: <TResult>(callback: () => TResult): TResult => callback(),
-	runPlugin: <TResult>(
-		_owner: PluginIdentity,
-		callback: () => TResult,
-	): TResult => callback(),
-})
-const createExecutionCorrelation = (
-	request: RequestContext,
-): HookExecutionContext =>
+/** Creates one immutable descriptor shared by native and plugin hook paths. */
+export const createHookExecutionDescriptor = ({
+	declarationBranch = 'direct',
+	handler,
+	handlerIndex,
+	operationKind,
+	owner,
+	phase,
+	target,
+}: Readonly<
+	{ declarationBranch?: string; handler: ErasedHookHandler } & Omit<
+		HookExecutionDescriptor['identity'],
+		'declarationBranch'
+	>
+>): HookExecutionDescriptor =>
 	immutableRecord({
-		requestId: request.requestId,
-		signal: request.signal,
-		transactionId: getCurrentTransactionId(),
+		handler,
+		identity: immutableRecord({
+			declarationBranch,
+			handlerIndex,
+			operationKind,
+			owner,
+			phase,
+			target,
+		}),
 	})
+
+/** Identifies one developer-owned declaration without plugin metadata. */
+export const applicationHookOwner: HookDiagnosticOwner = immutableRecord({
+	kind: 'application' as const,
+})
+
+/** Creates the redacted owner shared by native and event plugin hooks. */
+export const createPluginHookOwner = (
+	pluginName: string,
+	contributionName: string,
+	pluginInstanceId?: string,
+): HookDiagnosticOwner =>
+	immutableRecord({
+		contributionName,
+		kind: 'plugin' as const,
+		pluginName,
+		...(pluginInstanceId === undefined ? {} : { pluginInstanceId }),
+	})
+
+/** Detaches one field path before it can enter diagnostics or recursion keys. */
+export const createFieldHookTarget = (
+	className: string,
+	path: readonly string[],
+): HookDiagnosticTarget =>
+	immutableRecord({
+		className,
+		kind: 'field' as const,
+		path: immutableArray(path),
+	})
+
+/** Identifies a schema without retaining its runtime object in diagnostics. */
+export const createSchemaHookTarget = (
+	className: string,
+): HookDiagnosticTarget =>
+	immutableRecord({ className, kind: 'schema' as const })
+
+const globalHookTarget: HookDiagnosticTarget = immutableRecord({
+	kind: 'global' as const,
+})
 
 export interface OwnedHookEventHandler {
 	readonly contributionId: string
@@ -108,79 +123,74 @@ export interface OwnedHookEventHandler {
 	readonly owner: PluginIdentity
 }
 
-type HookInvocationOutcome<TResult> =
-	| Readonly<{ readonly status: 'fulfilled'; readonly value: TResult }>
-	| Readonly<{ readonly error: unknown; readonly status: 'rejected' }>
-
-/** Preserves callback and nested-query failures without duplicating one error. */
-const combineHookFailures = (
-	primaryError: unknown,
-	secondaryError: unknown,
-): unknown =>
-	primaryError === secondaryError
-		? primaryError
-		: new AggregateError(
-				[primaryError, secondaryError],
-				'Hook callback and one nested query both failed.',
-				{ cause: secondaryError },
-			)
-
-/** Preserves independent post-commit consumer failures in stable handler order. */
-const throwEventFailures = (failures: readonly unknown[]): void => {
-	if (failures.length === 1) {
-		throw failures[0]
-	}
-
-	if (failures.length > 1) {
-		throw new AggregateError(
-			failures,
-			'Multiple hook event consumers failed.',
-			{ cause: failures[0] },
-		)
-	}
+interface HookExecutionFrame {
+	readonly identity: HookExecutionDescriptor['identity']
+	readonly key: string
 }
 
-const createExecutionFrame = (
-	descriptor: HookExecutionDescriptor,
-): HookExecutionFrame =>
-	immutableRecord({ key: descriptor.key, identity: descriptor.identity })
+type HookInvocationOutcome<TResult> =
+	| Readonly<{ ok: true; value: TResult }>
+	| Readonly<{ ok: false; error: unknown }>
+
+// Transaction-finalization phases stay non-queryable even if async scope changes.
+const nonQueryableHookPhases: ReadonlySet<HookDiagnosticPhase> = new Set([
+	'event',
+	'post-commit-event',
+	'prepared-operation',
+])
+const emptyHookStack: readonly HookExecutionFrame[] = immutableArray([])
+const directCallbackExecutor: ApplicationCallbackExecutor = immutableRecord({
+	runApplication: <TResult>(callback: () => TResult): TResult => callback(),
+	runPlugin: <TResult>(_owner: PluginIdentity, callback: () => TResult) =>
+		callback(),
+})
+
+/** Keeps recursion identity stable when one broad declaration handles many terminals. */
+const createHookExecutionKey = (
+	identity: HookExecutionDescriptor['identity'],
+): string =>
+	JSON.stringify([
+		identity.owner,
+		identity.target,
+		identity.phase,
+		identity.declarationBranch,
+		identity.handlerIndex,
+	])
+
+/** Preserves callback and nested-query failures without duplicating one error. */
+const combineHookFailures = (primary: unknown, secondary: unknown): unknown =>
+	primary === secondary
+		? primary
+		: new AggregateError(
+				[primary, secondary],
+				'Hook callback and one nested query both failed.',
+				{ cause: secondary },
+			)
 
 const readErrorCode = (error: unknown): HookDiagnosticEvent['errorCode'] => {
-	if (!(error instanceof FrameworkError)) {
-		return undefined
-	}
-
+	if (!(error instanceof FrameworkError)) return undefined
 	const code: unknown = error.code
-
 	return frameworkErrorCodes.find((candidate) => candidate === code)
 }
 
-const createRecursionError = (
-	descriptor: HookExecutionDescriptor,
-	stack: readonly HookExecutionFrame[],
-): FrameworkError<'RUNTIME_CALLBACK_RECURSION'> =>
-	new FrameworkError(
-		'RUNTIME_CALLBACK_RECURSION',
-		`Recursive hook execution detected for ${descriptor.identity.phase}.`,
-		{
-			publicMessage: 'A recursive hook execution was rejected.',
-			internalDetails: {
-				hook: descriptor.identity,
-				reason: 'same-hook-recursion',
-				stack: immutableArray([
-					...stack.map(({ identity }) => identity),
-					descriptor.identity,
-				]),
-			},
-		},
-	)
+const transactionError = (
+	message: string,
+	publicMessage: string,
+	reason: string,
+	cause?: unknown,
+): FrameworkError<'TRANSACTION_ERROR'> =>
+	new FrameworkError('TRANSACTION_ERROR', message, {
+		...(cause === undefined ? {} : { cause }),
+		publicMessage,
+		internalDetails: { reason },
+	})
 
 /** Owns one application's immutable hook stack and safe diagnostic observer. */
 export class HookExecutionRuntime {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #eventHandlers: readonly OwnedHookEventHandler[]
 	readonly #observer: HookDiagnosticsObserver | undefined
-	readonly #storage = new AsyncLocalStorage<HookExecutionState>()
+	readonly #storage = new AsyncLocalStorage<readonly HookExecutionFrame[]>()
 
 	constructor(
 		observer: HookDiagnosticsObserver | undefined,
@@ -197,64 +207,109 @@ export class HookExecutionRuntime {
 		Object.freeze(this)
 	}
 
-	/** Executes one handler with recursion, cancellation, and telemetry invariants. */
+	/**
+	 * Executes one handler with recursion, cancellation, and telemetry invariants.
+	 *
+	 * Non-cancellable invocations are finalization observers that still run
+	 * after cancellation has determined the outcome.
+	 */
 	async invoke<TResult>(
 		descriptor: HookExecutionDescriptor,
 		request: RequestContext,
 		callback: (context: HookContext) => MaybePromise<TResult>,
-		options: HookInvocationOptions = {},
+		{ cancellable = true }: Readonly<{ cancellable?: boolean }> = {},
 	): Promise<TResult> {
-		const cancellable = options.cancellable ?? true
-		const correlation = createExecutionCorrelation(request)
-		const parentStack = this.#storage.getStore()?.stack ?? emptyHookStack
+		const { identity } = descriptor
+		const transactionId = getCurrentTransactionId()
+		const parentStack = this.#storage.getStore() ?? emptyHookStack
+		const key = createHookExecutionKey(identity)
+		const cancellation = {
+			operationKind: identity.operationKind,
+			phase: identity.phase,
+		}
+		const report = (
+			status: HookDiagnosticEvent['status'],
+			startedAt: number,
+			error?: unknown,
+		): void => {
+			const observer = this.#observer
+			if (observer === undefined) return
+			const errorCode = readErrorCode(error)
+			const event: HookDiagnosticEvent = immutableRecord({
+				declarationBranch: identity.declarationBranch,
+				depth: parentStack.length,
+				durationMs:
+					startedAt === 0 ? 0 : Math.max(0, performance.now() - startedAt),
+				handlerIndex: identity.handlerIndex,
+				kind: 'hook' as const,
+				operationKind: identity.operationKind,
+				owner: identity.owner,
+				phase: identity.phase,
+				requestId: request.requestId,
+				status,
+				target: identity.target,
+				transactionId,
+				...(errorCode === undefined ? {} : { errorCode }),
+			})
 
-		if (cancellable) {
-			throwIfOperationCancelled(correlation.signal, {
-				operationKind: descriptor.identity.operationKind,
-				phase: descriptor.identity.phase,
+			// Diagnostics run outside request scope and never affect business execution.
+			this.#storage.exit(() => {
+				runOutsideRequestEngineScope(() => {
+					try {
+						void Promise.resolve(observer(event)).catch(() => undefined)
+					} catch {
+						// Synchronous observer failures are isolated as well.
+					}
+				})
 			})
 		}
 
-		if (parentStack.some(({ key }) => key === descriptor.key)) {
-			const recursionError = createRecursionError(descriptor, parentStack)
+		if (cancellable) throwIfOperationCancelled(request.signal, cancellation)
 
-			this.#notify(
-				this.#createDiagnosticEvent(
-					descriptor,
-					correlation,
-					parentStack.length,
-					0,
-					'failed',
-					recursionError,
-				),
+		if (parentStack.some((frame) => frame.key === key)) {
+			const error = new FrameworkError(
+				'RUNTIME_CALLBACK_RECURSION',
+				`Recursive hook execution detected for ${identity.phase}.`,
+				{
+					publicMessage: 'A recursive hook execution was rejected.',
+					internalDetails: {
+						hook: identity,
+						reason: 'same-hook-recursion',
+						stack: immutableArray([
+							...parentStack.map((frame) => frame.identity),
+							identity,
+						]),
+					},
+				},
 			)
-			throw recursionError
+			report('failed', 0, error)
+			throw error
 		}
 
-		const nextStack = immutableArray([
+		const stack = immutableArray([
 			...parentStack,
-			createExecutionFrame(descriptor),
+			immutableRecord({ identity, key }),
 		])
 		const startedAt = this.#observer === undefined ? 0 : performance.now()
-		const contextScope = createRuntimeHookContext({
+		const scope = createRuntimeHookContext({
 			emit: (emission) => {
 				this.#emit(emission)
 			},
-			hook: descriptor.identity,
-			queryable: isHookQueryAllowed(descriptor),
+			hook: identity,
+			queryable: !nonQueryableHookPhases.has(identity.phase),
 			request,
-			transactionId: correlation.transactionId,
+			transactionId,
 		})
 
-		return this.#storage.run({ stack: nextStack }, () =>
-			runWithQueryExecutionGuard(contextScope.queryGuard, async () => {
+		return this.#storage.run(stack, () =>
+			runWithQueryExecutionGuard(scope.queryGuard, async () => {
 				let outcome: HookInvocationOutcome<TResult>
+				const execute = () => callback(scope.context)
+				const { owner } = identity
 
 				try {
-					const execute = () => callback(contextScope.context)
-					const owner = descriptor.identity.owner
-					outcome = immutableRecord({
-						status: 'fulfilled' as const,
+					outcome = {
+						ok: true,
 						value: await (owner.kind === 'application'
 							? this.#callbacks.runApplication(execute)
 							: this.#callbacks.runPlugin(
@@ -266,68 +321,44 @@ export class HookExecutionRuntime {
 									}),
 									execute,
 								)),
-					})
+					}
 				} catch (error: unknown) {
-					outcome = immutableRecord({ error, status: 'rejected' as const })
+					outcome = { ok: false, error }
 				}
 
 				try {
-					await contextScope.lifetime.close()
+					await scope.lifetime.close()
 				} catch (closeError: unknown) {
-					outcome =
-						outcome.status === 'rejected'
-							? immutableRecord({
-									error: combineHookFailures(outcome.error, closeError),
-									status: 'rejected' as const,
-								})
-							: immutableRecord({
-									error: closeError,
-									status: 'rejected' as const,
-								})
-				}
-
-				if (outcome.status === 'fulfilled' && cancellable) {
-					try {
-						throwIfOperationCancelled(contextScope.context.signal, {
-							operationKind: descriptor.identity.operationKind,
-							phase: descriptor.identity.phase,
-						})
-					} catch (error: unknown) {
-						outcome = immutableRecord({ error, status: 'rejected' as const })
+					outcome = {
+						ok: false,
+						error: outcome.ok
+							? closeError
+							: combineHookFailures(outcome.error, closeError),
 					}
 				}
 
-				if (outcome.status === 'rejected') {
-					const { error } = outcome
-					const status =
-						error instanceof FrameworkError &&
-						error.code === 'OPERATION_CANCELLED'
-							? 'cancelled'
-							: 'failed'
+				if (outcome.ok && cancellable) {
+					try {
+						throwIfOperationCancelled(scope.context.signal, cancellation)
+					} catch (error: unknown) {
+						outcome = { ok: false, error }
+					}
+				}
 
-					this.#notify(
-						this.#createDiagnosticEvent(
-							descriptor,
-							contextScope.context,
-							parentStack.length,
-							startedAt,
-							status,
-							error,
-						),
+				if (!outcome.ok) {
+					const { error } = outcome
+					report(
+						error instanceof FrameworkError &&
+							error.code === 'OPERATION_CANCELLED'
+							? 'cancelled'
+							: 'failed',
+						startedAt,
+						error,
 					)
 					throw error
 				}
 
-				this.#notify(
-					this.#createDiagnosticEvent(
-						descriptor,
-						contextScope.context,
-						parentStack.length,
-						startedAt,
-						'succeeded',
-					),
-				)
-
+				report('succeeded', startedAt)
 				return outcome.value
 			}),
 		)
@@ -338,14 +369,10 @@ export class HookExecutionRuntime {
 		const transactionId = getCurrentTransactionId()
 
 		if (transactionId === undefined) {
-			throw new FrameworkError(
-				'TRANSACTION_ERROR',
+			throw transactionError(
 				'Hook events require an active transaction.',
-				{
-					publicMessage:
-						'This hook event cannot be emitted outside a transaction.',
-					internalDetails: { reason: 'hook-event-transaction-required' },
-				},
+				'This hook event cannot be emitted outside a transaction.',
+				'hook-event-transaction-required',
 			)
 		}
 
@@ -383,14 +410,11 @@ export class HookExecutionRuntime {
 				this.#dispatchEvent(event, emission.request, handlers),
 			)
 		} catch (cause: unknown) {
-			throw new FrameworkError(
-				'TRANSACTION_ERROR',
+			throw transactionError(
 				'Hook event cannot be queued during this transaction phase.',
-				{
-					cause,
-					publicMessage: 'The hook event cannot be queued now.',
-					internalDetails: { reason: 'hook-event-queue-closed' },
-				},
+				'The hook event cannot be queued now.',
+				'hook-event-queue-closed',
+				cause,
 			)
 		}
 	}
@@ -426,7 +450,6 @@ export class HookExecutionRuntime {
 							context,
 							event,
 						})
-
 						// The opaque definition retains the exact payload type at declaration time.
 						return implementation.handler(input as never)
 					},
@@ -438,56 +461,14 @@ export class HookExecutionRuntime {
 			}
 		}
 
-		throwEventFailures(failures)
-	}
-
-	#createDiagnosticEvent(
-		descriptor: HookExecutionDescriptor,
-		context: HookExecutionContext,
-		depth: number,
-		startedAt: number,
-		status: HookDiagnosticEvent['status'],
-		error?: unknown,
-	): HookDiagnosticEvent | undefined {
-		if (this.#observer === undefined) {
-			return undefined
+		// Preserves independent consumer failures in stable handler order.
+		if (failures.length === 1) throw failures[0]
+		if (failures.length > 1) {
+			throw new AggregateError(
+				failures,
+				'Multiple hook event consumers failed.',
+				{ cause: failures[0] },
+			)
 		}
-
-		const errorCode = readErrorCode(error)
-
-		return immutableRecord({
-			declarationBranch: descriptor.identity.declarationBranch,
-			depth,
-			durationMs:
-				startedAt === 0 ? 0 : Math.max(0, performance.now() - startedAt),
-			handlerIndex: descriptor.identity.handlerIndex,
-			kind: 'hook' as const,
-			operationKind: descriptor.identity.operationKind,
-			owner: descriptor.identity.owner,
-			phase: descriptor.identity.phase,
-			requestId: context.requestId,
-			status,
-			target: descriptor.identity.target,
-			transactionId: context.transactionId,
-			...(errorCode === undefined ? {} : { errorCode }),
-		})
-	}
-
-	#notify(event: HookDiagnosticEvent | undefined): void {
-		if (event === undefined || this.#observer === undefined) {
-			return
-		}
-
-		this.#storage.exit(() => {
-			runOutsideRequestEngineScope(() => {
-				try {
-					const observation = this.#observer?.(event)
-
-					void Promise.resolve(observation).catch(() => undefined)
-				} catch {
-					// Diagnostic failures are deliberately isolated from business execution.
-				}
-			})
-		})
 	}
 }

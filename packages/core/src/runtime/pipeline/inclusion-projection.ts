@@ -14,18 +14,17 @@ import {
 } from '../../query/index.js'
 import { Pointer, Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
-import {
-	databaseInclusionCapabilityVersion,
-	type DatabaseInclusionPlan,
-	type DatabaseOperationAst,
-	type DatabaseOperationExecutor,
-	type DatabaseOperationResult,
+import type {
+	DatabaseInclusionPlan,
+	DatabaseOperationAst,
+	DatabaseOperationResult,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import { isProtectedPolicyDenied } from '../enforcement/protected-denial.js'
-import type { RuntimeBehaviorBoundaries } from '../behaviors/boundaries.js'
+import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import {
 	retainRuntimeIncludedPointerValue,
+	retainRuntimeSchemaModelMetadata,
 	transferRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
 import { getOperationSchema } from '../operations/schema.js'
@@ -41,86 +40,32 @@ import type {
 } from './contracts.js'
 import {
 	createRuntimeOperationInput,
+	createRuntimeStageInput,
 	emptyRuntimeConstraints,
+	enforceRuntimeOperation,
+	readRuntimeSchemaModelSelectedFields,
 	readRuntimeSelectedFieldsOverride,
+	type RuntimeOperationEnforcement,
 } from './stage-inputs.js'
-import type { RuntimePipeline } from './runtime-pipeline.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 import type { RuntimeVirtualFieldScheduler } from '../virtual-fields/execution.js'
+import { prepareRuntimeVirtualDatabaseResult } from '../virtual-fields/pipeline.js'
 import {
 	prepareRuntimeVirtualFieldProjection,
 	type RuntimeVirtualFieldProjection,
 } from '../virtual-fields/projection.js'
-import {
-	finalizeRuntimeInclusionValue,
-	restoreRuntimeInclusionResult,
-} from './inclusion-finalization.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
-import {
-	prepareRuntimeInclusionEnforcement,
-	type RuntimeInclusionEnforcementResult,
-} from './inclusion-enforcement.js'
+import { assertDatabaseInclusionCapability } from './mutation-inclusion-source.js'
+
+type LogicalRecord = Readonly<Record<string, unknown>>
 
 /** Carries one grouped mutation projection without exposing it on RuntimePipeline. */
 export interface RuntimeMutationBatchProjectionRequest {
 	readonly context: RequestContext
 	readonly objectIds: readonly string[]
 	readonly operation: FindManyOperationAst<SchemaDefinition>
-	readonly results: readonly Readonly<Record<string, unknown>>[]
+	readonly results: readonly LogicalRecord[]
 }
-
-type RuntimeMutationBatchProjector = (
-	request: RuntimeMutationBatchProjectionRequest,
-) => Promise<readonly Readonly<Record<string, unknown>>[]>
-
-const runtimeMutationBatchProjectors = new WeakMap<
-	RuntimePipeline,
-	RuntimeMutationBatchProjector
->()
-
-/** Binds the engine-only grouped projection to one immutable pipeline instance. */
-export const retainRuntimeMutationBatchProjector = (
-	pipeline: RuntimePipeline,
-	projector: RuntimeMutationBatchProjector,
-): void => {
-	runtimeMutationBatchProjectors.set(pipeline, projector)
-}
-
-/** Executes one Runtime-owned grouped projection without widening the class API. */
-export const projectRuntimeMutationBatch = (
-	pipeline: RuntimePipeline,
-	request: RuntimeMutationBatchProjectionRequest,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-	const projector = runtimeMutationBatchProjectors.get(pipeline)
-
-	if (projector === undefined) {
-		throw new TypeError('Runtime mutation batch projector is unavailable')
-	}
-
-	return projector(request)
-}
-
-/** Rejects eager loading unless the adapter implements the complete side channel. */
-export const assertDatabaseInclusionCapability = (
-	executor: DatabaseOperationExecutor,
-): void => {
-	const capability: unknown = executor.capabilities?.inclusions
-
-	if (
-		!isPlainRecord(capability) ||
-		capability.kind !== 'inclusions' ||
-		capability.version !== databaseInclusionCapabilityVersion ||
-		typeof executor.readIncludedValue !== 'function'
-	) {
-		throw new FrameworkError(
-			'INTERNAL_ERROR',
-			`Database adapter must implement inclusion capability version ${String(databaseInclusionCapabilityVersion)}.`,
-			{ publicMessage: 'Relationship inclusion is not available.' },
-		)
-	}
-}
-
-export { loadSingularMutationInclusionSource } from './mutation-inclusion-source.js'
 
 /** Retains target policy beside one adapter-ready nested read. */
 export interface RuntimePreparedInclusion {
@@ -134,17 +79,24 @@ export interface RuntimePreparedInclusion {
 	readonly virtualProjection: RuntimeVirtualFieldProjection | undefined
 }
 
+/** Restores the terminal-specific result after hydration preserved its cardinality. */
+const restoreResult = <const TOperation extends DatabaseOperationAst>(
+	result: unknown,
+): RuntimeOperationResult<TOperation> =>
+	// Callers validate the exact null, record, or array shape before replacing fields.
+	result as RuntimeOperationResult<TOperation>
+
 /** Owns nested policy projection without replaying root policy or behavior. */
 export class RuntimeInclusionProjector {
 	readonly #stages: Readonly<RuntimePipelineStages>
-	readonly #resultBoundaries: RuntimeBehaviorBoundaries
+	readonly #boundaries: RuntimeBehaviorBoundaries
 
 	constructor(
 		stages: Readonly<RuntimePipelineStages>,
 		resultBoundaries: RuntimeBehaviorBoundaries,
 	) {
 		this.#stages = stages
-		this.#resultBoundaries = resultBoundaries
+		this.#boundaries = resultBoundaries
 	}
 
 	/** Loads all included source values once and restores original batch ordering. */
@@ -152,7 +104,7 @@ export class RuntimeInclusionProjector {
 		request: RuntimeMutationBatchProjectionRequest,
 		virtualScheduler?: RuntimeVirtualFieldScheduler,
 		relationFilterResolver?: RuntimeRelationFilterResolver,
-	): Promise<readonly Readonly<Record<string, unknown>>[]> {
+	): Promise<readonly LogicalRecord[]> {
 		if (request.objectIds.length !== request.results.length) {
 			throw new TypeError(
 				'Mutation batch projection identities must match result cardinality',
@@ -165,22 +117,16 @@ export class RuntimeInclusionProjector {
 
 		for (const id of request.objectIds) {
 			assertNonEmptyString(id, 'Mutation batch projection object id')
-
 			if (expectedIds.has(id)) {
 				throw new TypeError(
 					`Mutation batch contains duplicate object id: ${id}`,
 				)
 			}
-
 			expectedIds.add(id)
 		}
 
 		const expression: QueryMembershipFilterNode<'id', string> = immutableRecord(
-			{
-				field: 'id',
-				kind: 'in',
-				values: immutableArray(request.objectIds),
-			},
+			{ field: 'id', kind: 'in', values: immutableArray(request.objectIds) },
 		)
 		const operation: FindManyOperationAst<SchemaDefinition> = immutableRecord({
 			...request.operation,
@@ -201,10 +147,9 @@ export class RuntimeInclusionProjector {
 
 		if (inclusions.length === 0) return immutableArray(request.results)
 
-		assertDatabaseInclusionCapability(this.#stages.databaseOperation)
-		const rootVirtualProjection =
-			prepareRuntimeVirtualFieldProjection(operation)
-		const rawResult: unknown = await this.#stages.databaseOperation.execute(
+		const executor = this.#stages.databaseOperation
+		assertDatabaseInclusionCapability(executor)
+		const rawResult: unknown = await executor.execute(
 			createDatabasePersistenceRequest(
 				{
 					constraints: emptyRuntimeConstraints,
@@ -213,7 +158,7 @@ export class RuntimeInclusionProjector {
 					),
 					operation,
 				},
-				rootVirtualProjection?.persistedSelection,
+				prepareRuntimeVirtualFieldProjection(operation)?.persistedSelection,
 			),
 		)
 
@@ -221,17 +166,14 @@ export class RuntimeInclusionProjector {
 			throw new TypeError('Mutation batch projection must return an array')
 		}
 
-		const sources = new Map<string, Readonly<Record<string, unknown>>>()
+		const sources = new Map<string, LogicalRecord>()
 
 		for (const candidate of rawResult) {
 			if (!isPlainRecord(candidate)) {
 				throw new TypeError('Mutation batch projection must return records')
 			}
 
-			const identity =
-				this.#stages.databaseOperation.readObjectIdentity?.(candidate) ??
-				candidate.id
-
+			const identity = executor.readObjectIdentity?.(candidate) ?? candidate.id
 			assertNonEmptyString(identity, 'Mutation batch projected object id')
 
 			if (!expectedIds.has(identity)) {
@@ -239,13 +181,11 @@ export class RuntimeInclusionProjector {
 					`Mutation batch projected an unknown object id: ${identity}`,
 				)
 			}
-
 			if (sources.has(identity)) {
 				throw new TypeError(
 					`Mutation batch projected duplicate object id: ${identity}`,
 				)
 			}
-
 			sources.set(identity, candidate)
 		}
 
@@ -255,7 +195,7 @@ export class RuntimeInclusionProjector {
 			)
 		}
 
-		const projected: Readonly<Record<string, unknown>>[] = []
+		const projected: LogicalRecord[] = []
 		for (const [index, result] of request.results.entries()) {
 			const id = request.objectIds[index]
 			const source = id === undefined ? undefined : sources.get(id)
@@ -293,63 +233,59 @@ export class RuntimeInclusionProjector {
 		}
 
 		for (const descriptor of readInclusions(parentOperation)) {
-			let operation = createInclusionOperation(descriptor)
+			const fieldPath = immutableArray([descriptor.field])
 			const relation =
 				descriptor.kind === 'relation'
 					? immutableRecord({
-							fieldPath: immutableArray([descriptor.field]),
+							fieldPath,
 							source: parentSchema,
 							target: descriptor.query.schema.definition,
 						})
 					: undefined
-
-			operation = await this.#stages.normalization(
-				createRuntimeOperationInput(context, operation),
+			let operation = await this.#stages.normalization(
+				createRuntimeOperationInput(
+					context,
+					createInclusionOperation(descriptor),
+				),
 			)
 			operation = await this.#stages.structuralValidation(
 				createRuntimeOperationInput(context, operation),
 			)
-
-			let preparedEnforcement: RuntimeInclusionEnforcementResult
 
 			if (
 				relation !== undefined &&
 				this.#stages.enforcement?.enforceRelationRead !== undefined
 			) {
 				await this.#stages.enforcement.enforceRelationRead(
-					immutableRecord({
-						context,
-						operation,
-						relation,
-					}),
+					immutableRecord({ context, operation, relation }),
 				)
 			}
 
+			let enforced: RuntimeOperationEnforcement<RuntimeInclusionTargetOperation>
 			try {
-				preparedEnforcement = await prepareRuntimeInclusionEnforcement(
+				enforced = await enforceRuntimeOperation(
 					this.#stages,
 					context,
 					operation,
 					relation,
+					undefined,
 					relationFilterResolver,
 				)
 			} catch (error: unknown) {
 				if (!isProtectedPolicyDenied(error)) throw error
 
-				const request = createDatabasePersistenceRequest({
-					constraints: emptyRuntimeConstraints,
-					operation,
-				})
-				const database = immutableRecord({
-					fieldPath: immutableArray([descriptor.field]),
-					kind: descriptor.kind,
-					request,
-					unavailable: true as const,
-				})
-
+				// A denied target hides its relationship value instead of failing the parent.
 				prepared.push(
 					immutableRecord({
-						database,
+						database: immutableRecord({
+							fieldPath,
+							kind: descriptor.kind,
+							request: createDatabasePersistenceRequest({
+								constraints: emptyRuntimeConstraints,
+								operation,
+							}),
+							unavailable: true as const,
+						}),
 						descriptor,
 						enforcement: undefined,
 						nested: immutableArray([]),
@@ -363,8 +299,8 @@ export class RuntimeInclusionProjector {
 			}
 
 			const { constraints, enforcement, relationPredicates, rowFilter } =
-				preparedEnforcement
-			operation = preparedEnforcement.operation
+				enforced
+			operation = enforced.operation
 			const virtualProjection = prepareRuntimeVirtualFieldProjection(operation)
 			const nested = await this.prepare(
 				context,
@@ -387,15 +323,14 @@ export class RuntimeInclusionProjector {
 				},
 				virtualProjection?.persistedSelection,
 			)
-			const database = immutableRecord({
-				fieldPath: immutableArray([descriptor.field]),
-				kind: descriptor.kind,
-				request,
-			})
 
 			prepared.push(
 				immutableRecord({
-					database,
+					database: immutableRecord({
+						fieldPath,
+						kind: descriptor.kind,
+						request,
+					}),
 					descriptor,
 					enforcement,
 					nested,
@@ -413,21 +348,115 @@ export class RuntimeInclusionProjector {
 		return immutableArray(prepared)
 	}
 
+	/** Completes one eager target through the same private virtual projection boundary. */
+	async #finalizeTarget(
+		context: RequestContext,
+		prepared: RuntimePreparedInclusion,
+		rawTarget: LogicalRecord | readonly LogicalRecord[],
+		scheduler: RuntimeVirtualFieldScheduler | undefined,
+	): Promise<unknown> {
+		const stages = this.#stages
+		const { enforcement, operation, selectedFieldsOverride } = prepared
+		const source = rawTarget as DatabaseOperationResult<typeof operation>
+		const virtualResults = prepareRuntimeVirtualDatabaseResult(
+			this.#boundaries,
+			operation,
+			prepared.virtualProjection,
+			source,
+		)
+		let result = virtualResults.publicResult
+
+		if (stages.enforcement !== undefined && enforcement !== undefined) {
+			result = await stages.enforcement.enforceSelectionResult(
+				immutableRecord({ context, enforcement, operation, result }),
+			)
+		}
+		result = this.#boundaries.snapshotDatabaseResultReplacement(
+			operation,
+			result,
+			selectedFieldsOverride,
+		)
+		if (stages.behaviors?.transformDatabaseResult !== undefined) {
+			result = await stages.behaviors.transformDatabaseResult(
+				createRuntimeStageInput({
+					context,
+					operation,
+					result,
+					...(selectedFieldsOverride === undefined
+						? {}
+						: { selectedFieldsOverride }),
+				}),
+			)
+		}
+
+		let finalized = await this.hydrate(
+			context,
+			operation,
+			result,
+			source,
+			prepared.nested,
+			scheduler,
+		)
+		const rawRecords = isUnknownArray(rawTarget) ? rawTarget : [rawTarget]
+		retainRuntimeSchemaModelMetadata(
+			operation,
+			immutableArray(
+				rawRecords.map((record) =>
+					isPlainRecord(record)
+						? stages.databaseOperation.readObjectIdentity?.(record)
+						: undefined,
+				),
+			),
+			finalized,
+			readRuntimeSchemaModelSelectedFields(operation, selectedFieldsOverride),
+		)
+
+		if (prepared.virtualProjection !== undefined) {
+			if (scheduler === undefined) {
+				throw new FrameworkError(
+					'INTERNAL_ERROR',
+					'Runtime included virtual fields are not application-bound.',
+					{ publicMessage: 'The operation could not be completed.' },
+				)
+			}
+			finalized = await scheduler.resolve(
+				context,
+				operation,
+				prepared.virtualProjection,
+				finalized,
+				virtualResults.privateResult,
+			)
+		}
+
+		if (stages.enforcement !== undefined && enforcement !== undefined) {
+			finalized = await stages.enforcement.enforceResult(
+				immutableRecord({ context, enforcement, operation, result: finalized }),
+			)
+		}
+		if (prepared.descriptor.kind === 'pointer' && !isPlainRecord(finalized)) {
+			throw new TypeError('Runtime included pointer target must be a record')
+		}
+		if (prepared.descriptor.kind === 'relation' && !isUnknownArray(finalized)) {
+			throw new TypeError('Runtime included relation target must be an array')
+		}
+		return finalized
+	}
+
 	/** Replaces relationship fields with their adapter-retained target values. */
 	async #hydrateRecord(
 		context: RequestContext,
-		record: Readonly<Record<string, unknown>>,
-		rawRecord: Readonly<Record<string, unknown>>,
+		record: LogicalRecord,
+		rawRecord: LogicalRecord,
 		inclusions: readonly RuntimePreparedInclusion[],
 		virtualScheduler?: RuntimeVirtualFieldScheduler,
-	): Promise<Readonly<Record<string, unknown>>> {
+	): Promise<LogicalRecord> {
 		let hydrated = record
 
 		for (const inclusion of inclusions) {
-			const field = inclusion.descriptor.field
+			const { field, kind } = inclusion.descriptor
 			const pointer: unknown = hydrated[field]
 
-			if (inclusion.descriptor.kind === 'pointer') {
+			if (kind === 'pointer') {
 				if (!Object.hasOwn(hydrated, field) || pointer === null) continue
 				if (!Pointer.is(pointer)) {
 					throw new TypeError(
@@ -436,33 +465,26 @@ export class RuntimeInclusionProjector {
 				}
 			}
 
-			let target: unknown =
-				inclusion.descriptor.kind === 'pointer' ? null : immutableArray([])
+			let target: unknown = kind === 'pointer' ? null : immutableArray([])
 
 			if (!inclusion.unavailable) {
-				const retained = this.#stages.databaseOperation.readIncludedValue?.(
+				target = this.#stages.databaseOperation.readIncludedValue?.(
 					rawRecord,
 					inclusion.database.fieldPath,
 				)
-
-				if (retained === undefined) {
+				if (target === undefined) {
 					throw new TypeError(
 						`Database adapter did not retain relationship inclusion ${field}`,
 					)
 				}
-				target = retained
 			}
 
-			if (
-				inclusion.descriptor.kind === 'pointer' &&
-				target !== null &&
-				!isPlainRecord(target)
-			) {
+			if (kind === 'pointer' && target !== null && !isPlainRecord(target)) {
 				throw new TypeError(
 					`Runtime included pointer ${field} must be a record`,
 				)
 			}
-			if (inclusion.descriptor.kind === 'relation' && !isUnknownArray(target)) {
+			if (kind === 'relation' && !isUnknownArray(target)) {
 				throw new TypeError(
 					`Runtime included relation ${field} must be an array`,
 				)
@@ -471,29 +493,16 @@ export class RuntimeInclusionProjector {
 			const replacement =
 				target === null
 					? null
-					: await finalizeRuntimeInclusionValue(
+					: await this.#finalizeTarget(
 							context,
 							inclusion,
-							target as
-								| Readonly<Record<string, unknown>>
-								| readonly Readonly<Record<string, unknown>>[],
-							this.#stages,
-							this.#resultBoundaries,
-							(result, rawResult, nested, scheduler) =>
-								this.hydrate(
-									context,
-									inclusion.operation,
-									result,
-									rawResult,
-									nested,
-									scheduler,
-								),
+							target as LogicalRecord | readonly LogicalRecord[],
 							virtualScheduler,
 						)
 			const next = immutableRecord({ ...hydrated, [field]: replacement })
 
 			transferRuntimeSchemaModelMetadata(hydrated, next)
-			if (inclusion.descriptor.kind === 'pointer') {
+			if (kind === 'pointer') {
 				retainRuntimeIncludedPointerValue(next, [field], pointer)
 			}
 			hydrated = next
@@ -512,7 +521,7 @@ export class RuntimeInclusionProjector {
 		virtualScheduler?: RuntimeVirtualFieldScheduler,
 	): Promise<RuntimeOperationResult<TOperation>> {
 		if (inclusions.length === 0 || result === null) {
-			return restoreRuntimeInclusionResult<TOperation>(result)
+			return restoreResult<TOperation>(result)
 		}
 
 		if (operation.kind === 'find-many') {
@@ -525,7 +534,7 @@ export class RuntimeInclusionProjector {
 				)
 			}
 
-			const hydrated: Readonly<Record<string, unknown>>[] = []
+			const hydrated: LogicalRecord[] = []
 			for (const [index, record] of result.entries()) {
 				const rawRecord: unknown = rawResult[index]
 				if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
@@ -541,14 +550,14 @@ export class RuntimeInclusionProjector {
 					),
 				)
 			}
-			return restoreRuntimeInclusionResult<TOperation>(immutableArray(hydrated))
+			return restoreResult<TOperation>(immutableArray(hydrated))
 		}
 
 		if (!isPlainRecord(result) || !isPlainRecord(rawResult)) {
 			throw new TypeError('Runtime included source must be a record')
 		}
 
-		return restoreRuntimeInclusionResult<TOperation>(
+		return restoreResult<TOperation>(
 			await this.#hydrateRecord(
 				context,
 				result,

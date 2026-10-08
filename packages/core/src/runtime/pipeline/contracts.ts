@@ -352,6 +352,22 @@ export type RuntimeMutationOutcomeTransformStage = <
 	input: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
 ) => MaybePromise<TOutcome>
 
+/** Lists every optional behavior stage name, in validation order. */
+export const runtimeBehaviorStageNames: readonly (keyof RuntimeBehaviorStages)[] =
+	[
+		'beforeOperation',
+		'guardMutationInput',
+		'observePreparedMutation',
+		'postCommit',
+		'requiresPreparedMutationItems',
+		'transformDatabaseResult',
+		'transformInput',
+		'transformMutationOutcome',
+		'transformPreparedInput',
+		'transformPreparedOperation',
+		'transformResult',
+	]
+
 /**
  * Groups optional product behavior at Core-owned logical Runtime boundaries.
  *

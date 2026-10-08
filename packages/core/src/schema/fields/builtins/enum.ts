@@ -148,115 +148,53 @@ type NonDefaultedEnumField<
 	TImmutable extends boolean,
 > = ResolvedEnumField<TValues, TRequired, TList, TImmutable, false>
 
-const isString = (value: unknown): value is string => typeof value === 'string'
-
-const assertUniqueValues = (values: readonly string[]): void => {
-	const seen = new Set<string>()
-
-	for (const value of values) {
-		if (seen.has(value)) {
-			throw new TypeError(`Duplicate enum value: ${value}`)
-		}
-
-		seen.add(value)
-	}
-}
-
 interface NormalizedEnumSource {
 	readonly metadata: EnumValues
 	readonly values: readonly string[]
 }
 
 const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
-	if (isUnknownArray(source)) {
-		if (source.length === 0) {
-			throw new TypeError('Enum values cannot be empty')
-		}
+	const list = isUnknownArray(source)
 
-		if (!source.every(isString)) {
-			throw new TypeError('Enum values must contain only strings')
-		}
-
-		assertUniqueValues(source)
-
-		const values = immutableArray(source)
-
-		return immutableRecord({
-			metadata: values,
-			values,
-		})
-	}
-
-	if (!isPlainRecord(source)) {
+	if (!list && !isPlainRecord(source)) {
 		throw new TypeError('Enum values must be a string list or mapping')
 	}
 
-	const entries = Object.entries(source)
+	const declared = list ? source : Object.values(source)
 
-	if (entries.length === 0) {
+	if (declared.length === 0) {
 		throw new TypeError('Enum values cannot be empty')
 	}
 
-	const mapping: Record<string, string> = {}
-	const values: string[] = []
-
-	for (const [key, value] of entries) {
-		if (!isString(value)) {
-			throw new TypeError('Enum values must contain only strings')
-		}
-
-		mapping[key] = value
-		values.push(value)
+	if (!declared.every((value) => typeof value === 'string')) {
+		throw new TypeError('Enum values must contain only strings')
 	}
 
-	assertUniqueValues(values)
-
-	// Mapping keys remain available to future schema and SDK generators.
-	return immutableRecord({
-		metadata: immutableRecord(mapping),
-		values: immutableArray(values),
-	})
-}
-
-/** Reads the persisted enum domain from either supported declaration shape. */
-const isEnumValueList = (values: EnumValues): values is readonly string[] =>
-	Array.isArray(values)
-
-export const readEnumValues = (values: EnumValues): readonly string[] => {
-	return isEnumValueList(values) ? values : Object.values(values)
-}
-
-const snapshotEnumValue = (
-	values: readonly string[],
-	value: unknown,
-	path: string,
-): string => {
-	if (typeof value !== 'string' || !values.includes(value)) {
-		const location = path === 'default' ? '' : ` at ${path}`
-
-		throw new TypeError(`Invalid enum default${location}: ${String(value)}`)
-	}
-
-	return value
-}
-
-const normalizeEnumFieldOptions = (
-	options: EnumFieldOptions,
-): Readonly<EnumFieldOptions> => {
-	assertFieldOptions(options)
-	assertValidTypeName(options.typeName)
-
-	const enumSource = normalizeEnumValues(options.values)
-	const normalized = normalizeFieldOptions(
-		options,
-		(value, path) => snapshotEnumValue(enumSource.values, value, path),
-		enumFieldOptionsContract,
+	const duplicate = declared.find(
+		(value, index) => declared.indexOf(value) !== index,
 	)
 
-	return immutableRecord({
-		...normalized,
-		values: enumSource.metadata,
-	})
+	if (duplicate !== undefined) {
+		throw new TypeError(`Duplicate enum value: ${duplicate}`)
+	}
+
+	const values = immutableArray(declared)
+
+	// Mapping keys remain available to future schema and SDK generators; every
+	// entry value was proven to be a string above.
+	return {
+		metadata: list
+			? values
+			: immutableRecord(
+					Object.fromEntries(
+						Object.entries(source).filter(
+							(entry): entry is [string, string] =>
+								typeof entry[1] === 'string',
+						),
+					),
+				),
+		values,
+	}
 }
 
 /**
@@ -300,10 +238,30 @@ export function enumField<
 ): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField(options: EnumFieldOptions): EnumField {
-	const normalized = normalizeEnumFieldOptions(options)
-	const values = readEnumValues(normalized.values)
+	assertFieldOptions(options)
+	assertValidTypeName(options.typeName)
 
-	return createFieldDefinition('enum', normalized, (value, path) =>
-		snapshotEnumValue(values, value, path),
+	const { metadata, values } = normalizeEnumValues(options.values)
+	const snapshotValue = (value: unknown, path: string): string => {
+		if (typeof value !== 'string' || !values.includes(value)) {
+			const location = path === 'default' ? '' : ` at ${path}`
+
+			throw new TypeError(`Invalid enum default${location}: ${String(value)}`)
+		}
+
+		return value
+	}
+	const normalized = normalizeFieldOptions(
+		options,
+		snapshotValue,
+		enumFieldOptionsContract,
+	)
+
+	// Like object and pointer fields, enum fields record no Core options contract,
+	// so application compilation keeps their unresolved option keys.
+	return createFieldDefinition(
+		'enum',
+		immutableRecord({ ...normalized, values: metadata }),
+		snapshotValue,
 	)
 }

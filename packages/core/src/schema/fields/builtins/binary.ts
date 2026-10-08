@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -12,11 +7,12 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
-	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
+
 /**
  * Describes storage-neutral binary metadata through native byte sequences.
  */
@@ -28,11 +24,6 @@ export type BinaryFieldOptions = FieldOptions<Uint8Array>
 export type BinaryField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
-
-const binaryFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'binary',
-	optionKeys: fieldOptionKeys,
-}
 
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
@@ -131,15 +122,6 @@ export const snapshotBinaryValue = (
 	return value.map((byte) => byte)
 }
 
-const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(
-		options,
-		snapshotBinaryValue,
-		binaryFieldOptionsContract,
-	)
-
 /**
  * Declares native binary data as a `Uint8Array`; adapters choose its transport and storage encoding.
  *
@@ -148,8 +130,7 @@ const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
  * binaryField({ required: true })
  * ```
  */
-export const binaryField: BinaryFieldFactory = createCompactScalarFieldFactory<
+export const binaryField: BinaryFieldFactory = createScalarFieldFactory(
 	'binary',
-	Uint8Array,
-	BinaryFieldOptions
->('binary', normalizeBinaryFieldOptions, snapshotBinaryValue)
+	snapshotBinaryValue,
+)

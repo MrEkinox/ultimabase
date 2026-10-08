@@ -13,6 +13,7 @@ import type { RequestContext } from '../context/request-context.js'
 import {
 	createRuntimeCallbackDescriptor,
 	getApplicationRuntimeCallbackExecutor,
+	isFrameworkControlFailure,
 } from '../contributions/execution.js'
 import { createSchemaRuntimeCallbackOwner } from '../contributions/schema-callback-owner.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
@@ -25,11 +26,6 @@ const virtualResolverBatchSize = 16
 interface VirtualResolverInvocation {
 	readonly run: () => Promise<unknown>
 }
-
-const preserveFrameworkControlFailure = (error: unknown): boolean =>
-	error instanceof FrameworkError &&
-	(error.code === 'OPERATION_CANCELLED' ||
-		error.code === 'RUNTIME_CALLBACK_RECURSION')
 
 /** Owns one operation's deterministic and bounded virtual callback schedule. */
 export class RuntimeVirtualFieldScheduler {
@@ -133,7 +129,7 @@ export class RuntimeVirtualFieldScheduler {
 									),
 								)
 							} catch (error: unknown) {
-								if (preserveFrameworkControlFailure(error)) throw error
+								if (isFrameworkControlFailure(error)) throw error
 								throw new FrameworkError(
 									'INTERNAL_ERROR',
 									`Virtual field resolver failed: ${projection.schema.className}.${virtual.name}`,

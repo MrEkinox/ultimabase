@@ -19,8 +19,7 @@ import type {
 	SchemaUpsertOneExecutionInput,
 } from '../../query/operations/schema-commands.js'
 import type { SchemaDefinition } from '../../schema/index.js'
-import { isPlainRecord } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 /** Names the schema mutations accepted by the application request boundary. */
 export type ApplicationSchemaMutationKind =
@@ -85,12 +84,10 @@ const schemaMutationRequestKeys = new Set(['input', 'kind'])
 const assertSchemaMutationRequest: (
 	request: unknown,
 ) => asserts request is ApplicationSchemaMutationRequest = (request) => {
-	if (!isPlainRecord(request)) {
-		throw new TypeError('Application schema mutation request must be an object')
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		request,
 		schemaMutationRequestKeys,
+		'Application schema mutation request must be an object',
 		'Application schema mutation request contains unknown key: ',
 	)
 	if (!Object.hasOwn(request, 'input')) {

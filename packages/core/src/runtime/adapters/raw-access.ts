@@ -91,8 +91,8 @@ export interface ProvideAdapterRawCapabilityOptions<TFacade extends object> {
 	) => MaybePromise<AdapterRawProvider<TFacade>>
 }
 
+// Only values minted by the lease-aware factory resolve to a provider.
 const rawAdapterProviders = new WeakMap<object, AdapterRawProvider<object>>()
-const rawAdapterValues = new WeakSet<object>()
 
 const assertProvider: (
 	value: unknown,
@@ -134,7 +134,6 @@ export const provideAdapterRawCapability = <
 					kind: 'adapter-raw-capability-value' as const,
 				})
 			rawAdapterProviders.set(value, provider)
-			rawAdapterValues.add(value)
 			return { value }
 		},
 	})
@@ -152,6 +151,10 @@ const createExpiredLeaseError = (): FrameworkError<'TRANSACTION_ERROR'> =>
 		},
 	)
 
+const rejectMutation = (): never => {
+	throw new TypeError('raw adapter facade is immutable')
+}
+
 const createRevocableFacade = (facade: object) => {
 	let active = true
 	const methods = new Map<PropertyKey, (...arguments_: unknown[]) => unknown>()
@@ -160,12 +163,8 @@ const createRevocableFacade = (facade: object) => {
 		if (!active) throw createExpiredLeaseError()
 	}
 	const proxy = new Proxy(proxyTarget, {
-		defineProperty() {
-			throw new TypeError('raw adapter facade is immutable')
-		},
-		deleteProperty() {
-			throw new TypeError('raw adapter facade is immutable')
-		},
+		defineProperty: rejectMutation,
+		deleteProperty: rejectMutation,
 		get(_target, property) {
 			assertActive()
 			const value: unknown = Reflect.get(facade, property, facade)
@@ -203,15 +202,9 @@ const createRevocableFacade = (facade: object) => {
 			assertActive()
 			return Reflect.ownKeys(facade)
 		},
-		preventExtensions() {
-			throw new TypeError('raw adapter facade is immutable')
-		},
-		set() {
-			throw new TypeError('raw adapter facade is immutable')
-		},
-		setPrototypeOf() {
-			throw new TypeError('raw adapter facade is immutable')
-		},
+		preventExtensions: rejectMutation,
+		set: rejectMutation,
+		setPrototypeOf: rejectMutation,
 	})
 
 	return immutableRecord({
@@ -235,34 +228,27 @@ const withRawLease = async <TResult>(
 	scope: RawLeaseScope,
 	handler: (facade: object) => MaybePromise<TResult>,
 ): Promise<TResult> => {
-	if (!rawAdapterValues.has(value)) {
-		throw new TypeError('raw adapter capability value is not installed')
-	}
 	const provider = rawAdapterProviders.get(value)
 	if (provider === undefined) {
-		throw new TypeError('raw adapter provider is unavailable')
+		throw new TypeError('raw adapter capability value is not installed')
 	}
-	const createMissingError =
-		(): FrameworkError<'PLUGIN_ADAPTER_CAPABILITY_MISSING'> =>
-			new FrameworkError(
-				'PLUGIN_ADAPTER_CAPABILITY_MISSING',
-				`Raw adapter capability does not support ${scope.kind} leases.`,
-				{
-					publicMessage: 'The requested adapter capability is not available.',
-					internalDetails: { scope: scope.kind },
-				},
-			)
 	let rawFacade: unknown
-	if (scope.kind === 'setup') {
-		if (provider.setup === undefined) {
-			throw createMissingError()
-		}
+	if (scope.kind === 'setup' && provider.setup !== undefined) {
 		rawFacade = await provider.setup()
-	} else {
-		if (provider.transaction === undefined) {
-			throw createMissingError()
-		}
+	} else if (
+		scope.kind === 'transaction' &&
+		provider.transaction !== undefined
+	) {
 		rawFacade = await provider.transaction(scope.adapter)
+	} else {
+		throw new FrameworkError(
+			'PLUGIN_ADAPTER_CAPABILITY_MISSING',
+			`Raw adapter capability does not support ${scope.kind} leases.`,
+			{
+				publicMessage: 'The requested adapter capability is not available.',
+				internalDetails: { scope: scope.kind },
+			},
+		)
 	}
 	if (typeof rawFacade !== 'object' || rawFacade === null) {
 		throw new TypeError('raw adapter provider must return an object facade')

@@ -5,6 +5,11 @@ import type {
 	SchemaDefinition,
 } from '@ultimabase/core'
 
+const bindingKeys = new Set(['errors', 'inputSchema', 'path'])
+// Static ASCII segments only; templates, encodings, and dot segments cannot match.
+const publicPathPattern = /^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/u
+const reservedRoots = new Set(['classes', 'operations'])
+
 /** Reads a static operation path without allowing aliases or schema-route shadowing. */
 export const readRestOperationBindingMetadata = (
 	metadata: unknown,
@@ -15,15 +20,15 @@ export const readRestOperationBindingMetadata = (
 	readonly path?: string
 	readonly inputSchema?: string
 }> => {
+	const invalid = (problem: string): TypeError =>
+		new TypeError(`REST binding for operation ${operation} ${problem}`)
 	if (
 		!isPlainRecord(metadata) ||
 		!Object.hasOwn(metadata, 'errors') ||
-		Object.keys(metadata).some(
-			(key) => key !== 'errors' && key !== 'path' && key !== 'inputSchema',
-		)
+		Object.keys(metadata).some((key) => !bindingKeys.has(key))
 	) {
-		throw new TypeError(
-			`REST binding for operation ${operation} must declare exact error status metadata and an optional path`,
+		throw invalid(
+			'must declare exact error status metadata and an optional path',
 		)
 	}
 	const statuses = readRestErrorStatusMap(
@@ -31,30 +36,26 @@ export const readRestOperationBindingMetadata = (
 		errors,
 		operation,
 	)
-	const inputSchema = metadata.inputSchema
+	const { inputSchema, path } = metadata
 	if (
 		Object.hasOwn(metadata, 'inputSchema') &&
 		(typeof inputSchema !== 'string' || inputSchema.length === 0)
 	) {
-		throw new TypeError(
-			`REST binding for operation ${operation} has an invalid input schema`,
-		)
+		throw invalid('has an invalid input schema')
 	}
-	const schema = typeof inputSchema === 'string' ? { inputSchema } : {}
-	if (!Object.hasOwn(metadata, 'path'))
-		return immutableRecord({ errors: statuses, ...schema })
-	const path = metadata.path
-	// Paths are relative to the versioned REST root; built-in namespaces stay reserved.
 	if (
-		typeof path !== 'string' ||
-		!/^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/u.test(path) ||
-		['classes', 'operations'].includes(path.split('/')[1] ?? '')
+		Object.hasOwn(metadata, 'path') &&
+		(typeof path !== 'string' ||
+			!publicPathPattern.test(path) ||
+			reservedRoots.has(path.split('/')[1] ?? ''))
 	) {
-		throw new TypeError(
-			`REST binding for operation ${operation} has an invalid public path`,
-		)
+		throw invalid('has an invalid public path')
 	}
-	return immutableRecord({ errors: statuses, path, ...schema })
+	return immutableRecord({
+		errors: statuses,
+		...(typeof path === 'string' ? { path } : {}),
+		...(typeof inputSchema === 'string' ? { inputSchema } : {}),
+	})
 }
 
 /** Schema-derived operation input can reference only the operation owner's schema. */
@@ -88,35 +89,37 @@ export const readRestErrorStatusMap = (
 	if (
 		!isPlainRecord(metadata) ||
 		Object.keys(metadata).length !== 1 ||
-		!Object.hasOwn(metadata, 'errors') ||
 		!isPlainRecord(metadata.errors)
 	) {
 		throw new TypeError(
 			`REST binding for operation ${operation} must declare exact error status metadata`,
 		)
 	}
-	const statuses = metadata.errors
-	const keys = Object.keys(statuses)
+	const statuses: Record<string, unknown> = metadata.errors
 	if (
-		keys.length !== errors.length ||
+		Object.keys(statuses).length !== errors.length ||
 		errors.some((code) => !Object.hasOwn(statuses, code))
 	) {
 		throw new TypeError(
 			`REST binding for operation ${operation} must map every declared public error`,
 		)
 	}
-	for (const [code, status] of Object.entries(statuses)) {
-		if (
-			!errors.includes(code) ||
-			typeof status !== 'number' ||
-			!Number.isSafeInteger(status) ||
-			status < 400 ||
-			status > 599
-		) {
-			throw new TypeError(
-				`REST binding for operation ${operation} has an invalid status for ${code}`,
-			)
-		}
-	}
-	return immutableRecord(statuses as Readonly<Record<string, number>>)
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(statuses).map(([code, status]) => {
+				if (
+					!errors.includes(code) ||
+					typeof status !== 'number' ||
+					!Number.isSafeInteger(status) ||
+					status < 400 ||
+					status > 599
+				) {
+					throw new TypeError(
+						`REST binding for operation ${operation} has an invalid status for ${code}`,
+					)
+				}
+				return [code, status] as const
+			}),
+		),
+	)
 }

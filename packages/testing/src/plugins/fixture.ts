@@ -98,17 +98,3 @@ export const createPluginConformanceFixture = <
 		supportPlugins: support,
 	})
 }
-
-/** @internal Re-snapshots fixtures returned by untyped JavaScript factories. */
-export const normalizePluginConformanceFixture = <
-	TSubject extends PluginDefinition,
-	TSupport extends readonly PluginDefinition[],
-	TSchemas extends readonly SchemaDefinition[],
->(
-	fixture: PluginConformanceFixture<TSubject, TSupport, TSchemas>,
-): PluginConformanceFixture<TSubject, TSupport, TSchemas> =>
-	createPluginConformanceFixture({
-		schemas: fixture.schemas,
-		subject: fixture.subject,
-		supportPlugins: fixture.supportPlugins,
-	})

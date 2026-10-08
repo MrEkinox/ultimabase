@@ -1,28 +1,24 @@
-import type {
-	DatabaseOperationAst,
-	RuntimeFieldInputValue,
-	RuntimeOperationStageInput,
-	SchemaDefinition,
-	UpdateExpressionNode,
-} from '@ultimabase/core'
 import {
+	Pointer,
 	applyUpdateExpressionToRecord,
 	collectOperationFieldInputs,
 	collectRecordFieldValues,
 	isRelationUpdateExpression,
-	Pointer,
+	type DatabaseOperationAst,
+	type RuntimeFieldInputValue,
+	type RuntimeOperationStageInput,
+	type SchemaDefinition,
+	type UpdateExpressionNode,
 } from '@ultimabase/core'
-import type { FieldWriteAccessTransition } from '../authoring/field-declarations.js'
-import type {
-	AccessPlan,
-	FieldAccessPlan,
-	SchemaAccessPlan,
-} from '../authoring/plan.js'
-import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import type { AccessExecutionRuntime } from './execution-runtime.js'
-import { assertAccessDecisionRules } from './rule-evaluation.js'
+import type { FieldWriteAccessTransition } from '../authoring/field-declarations.js'
+import type { FieldAccessPlan } from '../authoring/plan.js'
+import {
+	assertAccessRules,
+	createAccessDeniedError,
+	type AccessScope,
+} from './rule-evaluation.js'
 
 /** Reuses Core's canonical traversal instead of decoding update expressions again. */
 export const collectUpdateFieldValues = (
@@ -30,10 +26,8 @@ export const collectUpdateFieldValues = (
 	itemIndex = 0,
 ): ReadonlyMap<string, unknown> => {
 	const values = new Map<string, unknown>()
-
 	for (const input of inputs) {
 		const [fieldName, nestedFieldName] = input.fieldPath
-
 		if (
 			input.mode === 'update' &&
 			input.itemIndex === itemIndex &&
@@ -43,7 +37,6 @@ export const collectUpdateFieldValues = (
 			values.set(fieldName, input.value)
 		}
 	}
-
 	return values
 }
 
@@ -58,65 +51,46 @@ export const createAccessUpdateCandidate = (
 		: applyUpdateExpressionToRecord(schema, originalItem, update)
 
 type RecordFieldValue = ReturnType<typeof collectRecordFieldValues>[number]
-type RecordFieldValuesByField = ReadonlyMap<
-	RecordFieldValue['field'],
-	ReadonlyMap<string, RecordFieldValue>
->
 
-/** Indexes each concrete value once for every Access field that consumes it. */
+/** Indexes each concrete value by field identity, then by its value path. */
 const indexRecordFieldValues = (
-	values: readonly RecordFieldValue[],
-): RecordFieldValuesByField => {
-	const indexed = new Map<
-		RecordFieldValue['field'],
-		Map<string, RecordFieldValue>
-	>()
-
-	for (const value of values) {
+	schema: SchemaDefinition,
+	record: Readonly<Record<string, unknown>>,
+): ReadonlyMap<RecordFieldValue['field'], ReadonlyMap<string, unknown>> => {
+	const indexed = new Map<RecordFieldValue['field'], Map<string, unknown>>()
+	for (const value of collectRecordFieldValues(
+		schema.fields,
+		record,
+		'parent-first',
+	)) {
 		let fieldValues = indexed.get(value.field)
-
 		if (fieldValues === undefined) {
 			fieldValues = new Map()
 			indexed.set(value.field, fieldValues)
 		}
-
-		fieldValues.set(JSON.stringify(value.valuePath), value)
+		fieldValues.set(JSON.stringify(value.valuePath), value.value)
 	}
-
 	return indexed
 }
 
-/** Evaluates callback transitions after a locked target yields final values. */
+/** Evaluates fill, replace, and clear once a locked target yields final values. */
 export const evaluateAccessPreparedUpdateFieldRules = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	schemaPlan: SchemaAccessPlan,
-	defaultFieldDecision: boolean,
+	scope: AccessScope,
 	originalItem: Readonly<Record<string, unknown>>,
 	item: Readonly<Record<string, unknown>>,
 	updateFields: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
-	const originalValues = indexRecordFieldValues(
-		collectRecordFieldValues(
-			schemaPlan.schema.fields,
-			originalItem,
-			'parent-first',
-		),
-	)
-	const values = indexRecordFieldValues(
-		collectRecordFieldValues(schemaPlan.schema.fields, item, 'parent-first'),
-	)
-
-	const updatedFields = new Set(updateFields.keys())
+	const { context, schemaPlan } = scope
+	const originalValues = indexRecordFieldValues(schemaPlan.schema, originalItem)
+	const values = indexRecordFieldValues(schemaPlan.schema, item)
 
 	for (const field of schemaPlan.fields) {
 		if (
-			!updatedFields.has(field.path[0] ?? '') ||
+			!updateFields.has(field.path[0] ?? '') ||
 			field.field.kind === 'relation'
 		) {
 			continue
 		}
-
 		const originalByPath = originalValues.get(field.field)
 		const valueByPath = values.get(field.field)
 		const valuePaths = new Set([
@@ -125,88 +99,53 @@ export const evaluateAccessPreparedUpdateFieldRules = async (
 		])
 
 		for (const valuePath of valuePaths) {
-			const originalValue = originalByPath?.get(valuePath)?.value ?? null
-			const value = valueByPath?.get(valuePath)?.value ?? null
+			const originalValue = originalByPath?.get(valuePath) ?? null
+			const value = valueByPath?.get(valuePath) ?? null
 			const transition: FieldWriteAccessTransition =
 				value === null ? 'clear' : originalValue === null ? 'fill' : 'replace'
-			const rules = field.write[transition]
-			const input =
+			await assertAccessRules(
+				scope,
+				field.write[transition],
+				{ branch: transition, field, phase: 'access-field-write' },
 				transition === 'clear'
-					? immutableRecord({
-							context: request.context,
-							originalValue,
-						})
+					? immutableRecord({ context, originalValue })
 					: transition === 'fill'
-						? immutableRecord({ context: request.context, value })
-						: immutableRecord({
-								context: request.context,
-								originalValue,
-								value,
-							})
-
-			await assertAccessDecisionRules(
-				runtime,
-				request,
-				rules,
-				{
-					branch: transition,
-					field,
-					phase: 'access-field-write',
-					schema: schemaPlan.schema,
-				},
-				input,
-				rules.length === 0 ? defaultFieldDecision : true,
+						? immutableRecord({ context, value })
+						: immutableRecord({ context, originalValue, value }),
 			)
 		}
 	}
 }
 
+/** Checks every non-null value a create input fills. */
 export const evaluateAccessCreateFillRules = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
 	inputs: readonly RuntimeFieldInputValue[],
 ): Promise<void> => {
 	for (const input of inputs) {
 		if (input.mode !== 'create' || input.value === null) continue
-
-		const field = plan.getField(schemaPlan.schema, input.fieldPath)
-
+		const field = scope.plan.getField(scope.schema, input.fieldPath)
 		if (field?.field !== input.field) {
 			throw new TypeError(
 				'Native Access field traversal resolved an inconsistent create target',
 			)
 		}
-
-		await assertAccessDecisionRules(
-			runtime,
-			request,
+		await assertAccessRules(
+			scope,
 			field.write.fill,
-			{
-				branch: 'fill',
-				field,
-				phase: 'access-field-write',
-				schema: schemaPlan.schema,
-			},
-			immutableRecord({
-				context: request.context,
-				value: input.value,
-			}),
-			allowUndeclaredFieldAccess,
+			{ branch: 'fill', field, phase: 'access-field-write' },
+			immutableRecord({ context: scope.context, value: input.value }),
 		)
 	}
 }
 
+/** Checks relation edge changes for every updated relation root field. */
 export const evaluateAccessRelationWriteRules = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
 	updateFields: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
-	for (const field of schemaPlan.fields) {
+	for (const field of scope.schemaPlan.fields) {
 		const [rootFieldName] = field.path
-
 		if (
 			field.field.kind !== 'relation' ||
 			rootFieldName === undefined ||
@@ -214,20 +153,14 @@ export const evaluateAccessRelationWriteRules = async (
 		) {
 			continue
 		}
-		const change = updateFields.get(rootFieldName)
-
-		await assertAccessDecisionRules(
-			runtime,
-			request,
+		await assertAccessRules(
+			scope,
 			field.relationWrite,
-			{
-				branch: 'write',
-				field,
-				phase: 'access-field-write',
-				schema: schemaPlan.schema,
-			},
-			immutableRecord({ change, context: request.context }),
-			field.relationWrite.length === 0 ? allowUndeclaredFieldAccess : true,
+			{ branch: 'write', field, phase: 'access-field-write' },
+			immutableRecord({
+				change: updateFields.get(rootFieldName),
+				context: scope.context,
+			}),
 		)
 	}
 }
@@ -237,110 +170,64 @@ export const readAccessStaticWriteDecision = (
 	field: FieldAccessPlan,
 ): boolean | undefined => {
 	let decision: boolean | undefined
-
 	for (const transition of ['fill', 'replace', 'clear'] as const) {
 		let transitionDecision = true
-
 		for (const { rule } of field.write[transition]) {
 			if (typeof rule === 'function') return undefined
 			if (!rule) transitionDecision = false
 		}
-
 		if (decision !== undefined && transitionDecision !== decision) {
 			return undefined
 		}
-
 		decision = transitionDecision
 	}
-
 	return decision
 }
 
-/** Owns early field references, static writes, create fills, and relations. */
+/** Owns early create fills, static write denials, and relation changes. */
 export const evaluateAccessMutationFieldRules = async (
-	runtime: AccessExecutionRuntime,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>,
-	plan: AccessPlan,
-	schemaPlan: SchemaAccessPlan,
+	scope: AccessScope,
+	operation: DatabaseOperationAst,
+	nestedWrite: RuntimeOperationStageInput<DatabaseOperationAst>['nestedWrite'],
 ): Promise<void> => {
-	const inputs = collectOperationFieldInputs(request.operation, 'parent-first')
-
+	const inputs = collectOperationFieldInputs(operation, 'parent-first')
 	await evaluateAccessCreateFillRules(
-		runtime,
-		request,
-		plan,
-		schemaPlan,
+		scope,
 		inputs.filter(
 			(input) => input.kind !== 'upsert-one' && input.kind !== 'upsert-many',
 		),
 	)
-
-	if (
-		request.operation.kind === 'upsert-one' ||
-		request.operation.kind === 'upsert-many'
-	) {
+	// Upsert values depend on the branch the database selects later.
+	if (operation.kind === 'upsert-one' || operation.kind === 'upsert-many') {
 		return
 	}
 
 	for (const input of inputs) {
 		if (input.mode !== 'update' || input.field.kind === 'relation') continue
-
-		const field = plan.getField(schemaPlan.schema, input.fieldPath)
-
+		const field = scope.plan.getField(scope.schema, input.fieldPath)
 		if (field?.field !== input.field) {
 			throw new TypeError(
 				'Native Access field traversal resolved an inconsistent update target',
 			)
 		}
-
-		const writeRules = Object.values(field.write)
-
-		if (writeRules.every((rules) => rules.length === 0)) {
-			await assertAccessDecisionRules(
-				runtime,
-				request,
-				[],
-				{
-					branch: 'write',
-					field,
-					phase: 'access-field-write',
-					schema: schemaPlan.schema,
-				},
-				immutableRecord({ context: request.context }),
-				allowUndeclaredFieldAccess,
-			)
-			continue
-		}
-
-		const staticDecision = readAccessStaticWriteDecision(field)
-
-		if (staticDecision === false) {
-			await assertAccessDecisionRules(
-				runtime,
-				request,
-				writeRules.flat(),
-				{
-					branch: 'write',
-					field,
-					phase: 'access-field-write',
-					schema: schemaPlan.schema,
-				},
-				immutableRecord({ context: request.context }),
-				true,
+		// Only a write denied by every transition can be rejected before the
+		// target is loaded; value-dependent rules wait for the prepared target.
+		if (readAccessStaticWriteDecision(field) === false) {
+			throw createAccessDeniedError(
+				'access-field-write',
+				scope.operation,
+				field,
 			)
 		}
 	}
 
 	await evaluateAccessRelationWriteRules(
-		runtime,
-		request,
-		schemaPlan,
+		scope,
 		collectUpdateFieldValues(inputs),
 	)
 
-	for (const relationship of request.nestedWrite?.node.relationships ?? []) {
+	for (const relationship of nestedWrite?.node.relationships ?? []) {
 		if (relationship.kind !== 'relation') continue
-
 		const targets =
 			relationship.command === 'create'
 				? relationship.children.map((child) => {
@@ -353,9 +240,7 @@ export const evaluateAccessMutationFieldRules = async (
 					})
 				: relationship.ids.map((id) => new Pointer(relationship.target, id))
 		await evaluateAccessRelationWriteRules(
-			runtime,
-			request,
-			schemaPlan,
+			scope,
 			new Map([
 				[
 					relationship.fieldName,

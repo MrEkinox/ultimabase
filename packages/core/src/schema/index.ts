@@ -66,9 +66,11 @@ export type {
 	PluginFieldDefinition,
 	PluginFieldNormalizers,
 	PluginFieldStructuralContains,
+} from './fields/plugin.js'
+export type {
 	AvailablePluginFieldKind,
 	ReservedFieldKind,
-} from './fields/plugin.js'
+} from './fields/base/kinds.js'
 export { dateField } from './fields/builtins/date.js'
 export type { DateField, DateFieldOptions } from './fields/builtins/date.js'
 export { decimalField } from './fields/builtins/decimal.js'
@@ -91,9 +93,10 @@ export {
 	getPluginFieldWireCodec,
 	getFieldSchemaTarget,
 	isFieldRequiredDeferred,
+	pluginFieldStructuralContainsProtocolVersion,
+	readFieldTypegenState,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
-export { pluginFieldStructuralContainsProtocolVersion } from './fields/base/definition.js'
 export type {
 	PluginFieldStorageCodec,
 	PluginFieldWireCodec,
@@ -137,7 +140,6 @@ export type {
 export type { FieldValueMode } from './fields/base/value-map.js'
 export type { FieldAtPath, SchemaFieldPath } from './fields/paths.js'
 export { assertFieldOptions, getFieldListDepth } from './fields/base/options.js'
-export { readFieldTypegenState } from './fields/base/definition.js'
 export { intField } from './fields/builtins/int.js'
 export type { IntField, IntFieldOptions } from './fields/builtins/int.js'
 export { jsonField } from './fields/builtins/json.js'
@@ -152,7 +154,9 @@ export type {
 } from './fields/builtins/json.js'
 export { floatField } from './fields/builtins/float.js'
 export type { FloatField, FloatFieldOptions } from './fields/builtins/float.js'
-export { Schema, SchemaCompilationError } from './schema/definition.js'
+export { Schema } from './schema/definition.js'
+export { SchemaCompilationError } from './schema/definition-compilation.js'
+export type { SchemaCompilationFailureReason } from './schema/definition-compilation.js'
 export { defineSchemaConstraint } from './schema/constraints.js'
 export type { SchemaConstraintDefinition } from './schema/constraints.js'
 export type {
@@ -208,7 +212,6 @@ export type {
 	SchemaReference,
 	SchemaFields,
 	SchemaVirtualFields,
-	SchemaCompilationFailureReason,
 	SchemaMetadata,
 	SchemaOptions,
 	SchemaStaticCapabilities,
@@ -358,7 +361,7 @@ export type {
 	SchemaResult,
 	SchemaResultCommands,
 	SchemaResultRelations,
-} from './schema/model.js'
+} from './schema/model-contracts.js'
 export {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,

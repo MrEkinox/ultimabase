@@ -32,7 +32,7 @@ import {
 	type HttpApplication,
 } from '@ultimabase/http-plugin'
 
-import { executeRestReadRequest } from './read-execution.js'
+import { executeRestReadRequest } from './reads.js'
 import { restPlugin } from './plugin.js'
 
 const recordId = '01991f00-0000-7000-8000-000000000010'

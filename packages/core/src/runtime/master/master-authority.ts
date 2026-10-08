@@ -4,11 +4,12 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
 import { createHash, timingSafeEqual } from 'node:crypto'
+
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import {
 	createTrustedMasterRequestContext,
@@ -109,18 +110,6 @@ const createPermissionDeniedError = (): FrameworkError<'PERMISSION_DENIED'> =>
 		{ publicMessage: 'Master authority is not available.' },
 	)
 
-const assertExactKeys = (
-	record: Readonly<Record<string, unknown>>,
-	allowedKeys: ReadonlySet<string>,
-	label: string,
-): void => {
-	for (const key of Object.keys(record)) {
-		if (!allowedKeys.has(key)) {
-			throw new TypeError(`${label} contains unknown key: ${key}`)
-		}
-	}
-}
-
 const normalizeMasterKeys = (
 	value: unknown,
 ): readonly NormalizedMasterKey[] => {
@@ -133,13 +122,12 @@ const normalizeMasterKeys = (
 	const digests = new Set<string>()
 
 	for (const [index, candidate] of value.entries()) {
-		if (!isPlainRecord(candidate)) {
-			throw new TypeError(
-				`Master authority keys[${String(index)}] must be a plain object`,
-			)
-		}
-
-		assertExactKeys(candidate, keyDefinitionKeys, 'Master key definition')
+		assertExactEnumerablePlainObject(
+			candidate,
+			keyDefinitionKeys,
+			`Master authority keys[${String(index)}] must be a plain object`,
+			'Master key definition contains unknown key: ',
+		)
 		assertNonEmptyString(candidate.id, 'Master key id')
 		assertNonEmptyString(candidate.value, 'Master key value')
 
@@ -177,11 +165,12 @@ export class MasterAuthority {
 	constructor(options: MasterAuthorityOptions) {
 		const untrustedOptions: unknown = options
 
-		if (!isPlainRecord(untrustedOptions)) {
-			throw new TypeError('Master authority options must be a plain object')
-		}
-
-		assertExactKeys(untrustedOptions, authorityOptionKeys, 'Master authority')
+		assertExactEnumerablePlainObject(
+			untrustedOptions,
+			authorityOptionKeys,
+			'Master authority options must be a plain object',
+			'Master authority contains unknown key: ',
+		)
 
 		if (typeof untrustedOptions.onUse !== 'function') {
 			throw new TypeError('Master authority onUse must be a function')

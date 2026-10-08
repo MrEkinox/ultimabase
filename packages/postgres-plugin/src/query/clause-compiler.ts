@@ -1,20 +1,15 @@
-import {
-	type QueryAst,
-	type QueryFilterNode,
-	type QueryOrderNode,
-} from '@ultimabase/core'
-import type { SchemaDefinition } from '@ultimabase/core'
+import type { QueryAst, QuerySelectionNode } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { asc, desc, sql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
-} from '../schema/field.js'
+	type CompiledPostgresSchema,
+} from '../schema/contracts.js'
 import {
-	compilePostgresFilter,
+	compilePostgresRowFilter,
 	type PostgresRelationPredicateCompiler,
 } from './filter-compiler.js'
 
@@ -27,55 +22,56 @@ export interface CompiledPostgresQueryClauses {
 	readonly where?: SQL
 }
 
-const compileSelection = <TSchema extends SchemaDefinition>(
-	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
+/**
+ * Lists the selected logical fields plus `id`. Object identity is retained
+ * privately by Runtime and removed from public projections when the developer
+ * did not explicitly select it.
+ */
+export const selectPostgresFieldNames = (
+	selection: QuerySelectionNode,
 	schema: CompiledPostgresSchema,
-): Readonly<Record<string, PgColumn>> => {
-	const requestedNames =
-		query.selection.fields.length === 0
+): readonly string[] => {
+	const requested =
+		selection.fields.length === 0
 			? Object.keys(schema.fields)
-			: query.selection.fields.map(({ field }) => field)
-	// Object identity is retained privately by Runtime and removed from public
-	// projections when the developer did not explicitly select it.
-	const names = requestedNames.includes('id')
-		? requestedNames
-		: [...requestedNames, 'id']
-	return compilePostgresSelection(schema, names)
+			: selection.fields.map(({ field }) => field)
+
+	return requested.includes('id') ? requested : [...requested, 'id']
 }
 
-const compileOrderBy = (
-	orders: readonly QueryOrderNode[],
-	schema: CompiledPostgresSchema,
-): readonly SQL[] =>
-	immutableArray(
-		orders.map((order) => {
-			const column = resolveCompiledPostgresField(schema, order.field).column
-
-			// Explicit null placement keeps ordering stable across directions.
-			return order.direction === 'ascending'
-				? sql`${asc(column)} NULLS LAST`
-				: sql`${desc(column)} NULLS LAST`
-		}),
-	)
-
 /** Compiles projection, ordering, limit, offset, and portable filters. */
-export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
-	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
+export const compilePostgresQueryClauses = (
+	query: QueryAst,
 	schema: CompiledPostgresSchema,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): CompiledPostgresQueryClauses => {
 	const filter =
 		query.where === undefined
 			? undefined
-			: compilePostgresFilter(query.where.expression, schema, relationCompiler)
+			: compilePostgresRowFilter(
+					query.where.expression,
+					schema,
+					relationCompiler,
+				)
+	const orderBy = query.ordering.orders.map(({ direction, field }) => {
+		const column = resolveCompiledPostgresField(schema, field).column
+
+		// Explicit null placement keeps ordering stable across directions.
+		return direction === 'ascending'
+			? sql`${asc(column)} NULLS LAST`
+			: sql`${desc(column)} NULLS LAST`
+	})
 
 	return immutableRecord({
 		...(query.limit === undefined ? {} : { limit: query.limit }),
 		...(query.pagination?.kind === 'offset-pagination'
 			? { offset: query.pagination.offset }
 			: {}),
-		orderBy: compileOrderBy(query.ordering.orders, schema),
-		selection: compileSelection(query, schema),
+		orderBy: immutableArray(orderBy),
+		selection: compilePostgresSelection(
+			schema,
+			selectPostgresFieldNames(query.selection, schema),
+		),
 		...(filter === undefined ? {} : { where: filter }),
 	})
 }

@@ -2,8 +2,9 @@ import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 } from '../../access/index.js'
+import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkError } from '../../errors/framework-error.js'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 import {
 	executeOperation,
 	normalizeOperationOptions,
@@ -17,16 +18,12 @@ import {
 	type CapabilityToken,
 } from '../../plugins/capability-token.js'
 import {
+	type CoreFoundationProvider,
+	defineCoreFoundationProvider,
 	provideCapability,
-	type CapabilityProviderDeclaration,
 } from '../../plugins/capability-providers.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -35,11 +32,10 @@ import type {
 	RequestContextOptions,
 } from '../context/request-context.js'
 import {
-	assertApplicationEngineAvailable,
 	assertApplicationRequestExecutionAvailable,
+	assertMasterElevationPrivilege,
 } from '../engine/application-binding.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
-import { assertMasterElevationPrivilege } from '../engine/framework-master-authority.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { reportFrameworkPublicTransportProtection } from '../plugin-operations/engine-integration.js'
 import type {
@@ -52,11 +48,11 @@ import {
 	type ApplicationSchemaMutationRequest,
 	type ApplicationSchemaMutationResult,
 } from './application-schema-mutation-execution.js'
-import type {
-	ApplicationSchemaMutationTransport,
-	SchemaMutationTransportExposureOptions,
+import {
+	exposeFrameworkSchemaMutations,
+	type ApplicationSchemaMutationTransport,
+	type SchemaMutationTransportExposureOptions,
 } from '../schema-mutations/transport.js'
-import { exposeFrameworkSchemaMutations } from '../schema-mutations/transport-exposure.js'
 
 /** Carries one raw credential only for immediate application-owned verification. */
 export interface ApplicationMasterKeyVerificationOptions<
@@ -141,48 +137,41 @@ const readExecutorState = (
 	return state
 }
 
-const readBoundFramework = (
+/** Resolves the bound framework for one attributed plugin callback. */
+const enterBoundFramework = (
 	executor: ApplicationRequestExecutor,
 	requireStarted: boolean,
 ): FrameworkEngine => {
-	const state = readExecutorState(executor)
-	if (state.framework === undefined) {
+	const { framework } = readExecutorState(executor)
+	if (framework === undefined) {
 		throw new TypeError('Application request executor is not bound')
 	}
 	if (requireStarted) {
-		assertApplicationRequestExecutionAvailable(state.framework.application)
+		assertApplicationRequestExecutionAvailable(framework.application)
 	} else {
-		assertApplicationEngineAvailable(state.framework.application)
+		assertApplicationExecution(framework.application)
 	}
-	return state.framework
-}
-
-const requireAttributedOwner = (framework: FrameworkEngine): PluginIdentity => {
-	const owner = readApplicationPluginOwner(framework.application)
-	if (owner !== undefined) return owner
-
-	throw new FrameworkError(
-		'PLUGIN_PRIVILEGE_DENIED',
-		'Application request execution requires an attributed plugin callback.',
-		{
-			internalDetails: {
-				kind: 'application-request-callback-owner-missing',
+	if (readApplicationPluginOwner(framework.application) === undefined) {
+		throw new FrameworkError(
+			'PLUGIN_PRIVILEGE_DENIED',
+			'Application request execution requires an attributed plugin callback.',
+			{
+				internalDetails: {
+					kind: 'application-request-callback-owner-missing',
+				},
 			},
-		},
-	)
+		)
+	}
+	return framework
 }
 
 const assertMasterVerificationOptions: (
 	options: unknown,
 ) => asserts options is ApplicationMasterKeyVerificationOptions = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(
-			'Master key verification options must be a plain object',
-		)
-	}
-	assertExactEnumerableKeys(
+	assertExactEnumerablePlainObject(
 		options,
 		masterVerificationOptionKeys,
+		'Master key verification options must be a plain object',
 		'Master key verification contains unknown option: ',
 	)
 	assertNonEmptyString(options.rawKey, 'Master key')
@@ -193,8 +182,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 	createAnonymousContext<const TSource extends string>(
 		options: RequestContextOptions<TSource>,
 	): RequestContext<AnonymousRequestAccess, TSource> {
-		const framework = readBoundFramework(this, true)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, true)
 		return framework.anonymous(options).context
 	}
 
@@ -202,8 +190,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		context: TContext,
 		callback: (context: TContext) => TResult,
 	): TResult {
-		const framework = readBoundFramework(this, true)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, true)
 		if (typeof callback !== 'function') {
 			throw new TypeError('Application request callback must be a function')
 		}
@@ -219,8 +206,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		operation: TOperation &
 			(TOperation['kind'] extends ReadOperationKind ? unknown : never),
 	): Promise<OperationResult<TOperation>> {
-		const framework = readBoundFramework(this, true)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, true)
 		const request = framework.withContext(context)
 		throwIfOperationCancelled(request.context.signal, {
 			phase: 'application-request-read-execution',
@@ -238,8 +224,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		schema: TSchema,
 		request: TRequest,
 	): Promise<ApplicationSchemaMutationResult<TRequest>> {
-		const framework = readBoundFramework(this, true)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, true)
 		const scoped = framework.withContext(context)
 		throwIfOperationCancelled(scoped.context.signal, {
 			phase: 'application-request-mutation-execution',
@@ -254,8 +239,7 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 		options: ApplicationMasterKeyVerificationOptions<TSource>,
 	): Promise<RequestContext<MasterRequestAccess, TSource>> {
 		assertMasterVerificationOptions(options)
-		const framework = readBoundFramework(this, true)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, true)
 		assertMasterElevationPrivilege(framework.application)
 		const request = framework.withContext(options.context)
 		const grant = framework.authorizeMasterKey(options.rawKey)
@@ -266,24 +250,21 @@ class CoreApplicationRequestExecutor implements ApplicationRequestExecutor {
 	exposeOperations<const TTransport extends OperationTransportProtocol>(
 		options: OperationTransportExposureOptions<TTransport>,
 	): ApplicationOperationTransport<TTransport> {
-		const framework = readBoundFramework(this, false)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, false)
 		return framework.exposeOperations(options)
 	}
 
 	exposeSchemaMutations<const TTransport extends OperationTransportProtocol>(
 		options: SchemaMutationTransportExposureOptions<TTransport>,
 	): ApplicationSchemaMutationTransport<TTransport> {
-		const framework = readBoundFramework(this, false)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, false)
 		return exposeFrameworkSchemaMutations(framework, options)
 	}
 
 	reportPublicTransportProtection<
 		const TTransport extends OperationTransportProtocol,
 	>(options: PublicTransportProtectionOptions<TTransport>): void {
-		const framework = readBoundFramework(this, false)
-		requireAttributedOwner(framework)
+		const framework = enterBoundFramework(this, false)
 		reportFrameworkPublicTransportProtection(framework, options)
 	}
 }
@@ -341,17 +322,9 @@ const canonicalApplicationRequestExecutor = provideCapability(
 )
 
 /** @internal Supplies the request facade only when a plugin consumes it. */
-export const canonicalApplicationRequestExecutionFoundation: Readonly<{
-	declaration: CapabilityProviderDeclaration<
-		typeof applicationRequestExecutionCapability
-	>
-	owner: PluginIdentity
-	version: string
-}> = immutableRecord({
-	declaration: canonicalApplicationRequestExecutor,
-	owner: immutableRecord({ pluginId: '@ultimabase/core' }),
-	version: '0.0.0',
-})
+export const canonicalApplicationRequestExecutionFoundation: CoreFoundationProvider<
+	typeof applicationRequestExecutionCapability
+> = defineCoreFoundationProvider(canonicalApplicationRequestExecutor)
 
 /** @internal Completes the one-time binding after FrameworkEngine construction. */
 export const bindApplicationRequestExecutor = (

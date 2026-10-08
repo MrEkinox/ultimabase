@@ -4,7 +4,8 @@ import type { RenderContext } from './types.js'
 
 export type FieldValueMode = 'create' | 'object' | 'update'
 
-const renderScalarValue = (
+/** Renders one element of a field value, before list and null wrapping. */
+export const renderScalarValue = (
 	field: TypegenFieldSnapshot,
 	mode: FieldValueMode,
 	context: RenderContext,
@@ -50,16 +51,13 @@ const renderScalarValue = (
 	}
 }
 
-export const isListField = (field: TypegenFieldSnapshot): boolean =>
-	field.typegen.list
-
 export const renderFieldValue = (
 	field: TypegenFieldSnapshot,
 	mode: FieldValueMode,
 	context: RenderContext,
 ): string => {
 	const scalar = renderScalarValue(field, mode, context)
-	const rendered = isListField(field) ? `ReadonlyArray<${scalar}>` : scalar
+	const rendered = field.typegen.list ? `ReadonlyArray<${scalar}>` : scalar
 
 	return field.typegen.nullable ? `${rendered} | null` : rendered
 }

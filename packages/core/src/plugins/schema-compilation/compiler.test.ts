@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
-import { prepareSchemaCompilation } from '../../schema/schema/definition.js'
+import { prepareSchemaCompilation } from '../../schema/schema/definition-compilation.js'
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
 import {
 	addSchemaField,

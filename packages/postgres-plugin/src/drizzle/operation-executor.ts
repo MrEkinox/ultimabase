@@ -1,91 +1,82 @@
-import { FrameworkError } from '@ultimabase/core'
-import type {
-	ExecutableOperationAst,
-	QueryAst,
-	QueryFilterNode,
-	UniqueUpsertTargetNode,
+import {
+	FrameworkError,
+	type DatabaseLogicalRecord,
+	type ExecutableOperationAst,
+	type QueryAst,
+	type UniqueUpsertTargetNode,
+	type UpdateExpressionNode,
 } from '@ultimabase/core'
-import type { SchemaDefinition } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
-import { and, asc, count, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, type SQL } from 'drizzle-orm'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import {
-	compilePostgresSelection,
-	resolveCompiledPostgresField,
-} from '../schema/field.js'
-import { readDrizzleIndexColumns } from '../schema/drizzle-table-metadata.js'
 import {
 	compilePostgresQueryClauses,
 	type CompiledPostgresQueryClauses,
 } from '../query/clause-compiler.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
+import { required } from '../required.js'
+import {
+	compilePostgresSelection,
+	resolveCompiledPostgresField,
+	type CompiledPostgresSchema,
+} from '../schema/contracts.js'
+import { readDrizzleIndexColumns } from '../schema/index-compiler.js'
 import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
-import { preparePostgresRecord, readPostgresRecord } from './record.js'
+import {
+	preparePostgresRecord,
+	projectPostgresRecord,
+	readPostgresRecord,
+} from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
-import { projectPostgresRecord } from './result-projection.js'
 
-type RuntimeOperation = ExecutableOperationAst
-type RuntimeTargetedMutation = Extract<
-	RuntimeOperation,
-	{
-		readonly kind: 'delete-many' | 'delete-one' | 'update-many' | 'update-one'
-	}
->
-type RuntimeQuery = QueryAst<
-	SchemaDefinition,
-	QueryFilterNode<SchemaDefinition>
->
-type TargetedMutationResult<TOperation extends RuntimeTargetedMutation> =
-	TOperation extends { readonly kind: 'delete-one' | 'update-one' }
-		? Readonly<Record<string, unknown>> | null
-		: readonly Readonly<Record<string, unknown>>[]
+/** Narrows the executable operation union to the listed discriminants. */
+export type PostgresOperation<TKind extends ExecutableOperationAst['kind']> =
+	Extract<ExecutableOperationAst, { readonly kind: TKind }>
 
-interface SelectOverrides {
-	readonly constraint?: SQL | undefined
-	readonly limit?: number
-	readonly stableOrdering?: true
-	readonly where?: SQL
+/** Binds one compiled schema to the client and relation compiler of a request. */
+export interface PostgresStatementContext {
+	readonly client: PostgresDrizzleClient
+	readonly relationCompiler: PostgresRelationPredicateCompiler | undefined
+	readonly schema: CompiledPostgresSchema
 }
 
-export const readBuiltInQuery = (query: QueryAst): RuntimeQuery => {
-	// Core normalizes the supported built-in filter nodes before adapter execution.
-	return query as RuntimeQuery
+type TargetedMutation = PostgresOperation<
+	'delete-many' | 'delete-one' | 'update-many' | 'update-one'
+>
+
+type TargetedMutationResult<TOperation extends TargetedMutation> =
+	TOperation extends { readonly kind: 'delete-one' | 'update-one' }
+		? DatabaseLogicalRecord | null
+		: readonly DatabaseLogicalRecord[]
+
+interface SelectOptions {
+	readonly constraint: SQL | undefined
+	readonly limit?: number
+	readonly stableOrdering?: true
 }
 
 const buildSelect = (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	selection: Readonly<Record<string, PgColumn>>,
 	clauses: CompiledPostgresQueryClauses,
-	overrides: SelectOverrides = {},
+	{ constraint, limit = clauses.limit, stableOrdering }: SelectOptions,
 ) => {
-	const where = and(clauses.where, overrides.constraint, overrides.where)
-	const limit = overrides.limit ?? clauses.limit
-	let statement = client.select(selection).from(schema.table).$dynamic()
-
-	if (where !== undefined) {
-		statement = statement.where(where)
-	}
+	const where = and(clauses.where, constraint)
 	const orderBy =
-		overrides.stableOrdering === true
+		stableOrdering === true
 			? [
 					...clauses.orderBy,
 					asc(resolveCompiledPostgresField(schema, 'id').column),
 				]
 			: clauses.orderBy
+	let statement = client.select(selection).from(schema.table).$dynamic()
 
-	if (orderBy.length > 0) {
-		statement = statement.orderBy(...orderBy)
-	}
-	if (limit !== undefined) {
-		statement = statement.limit(limit)
-	}
-	if (clauses.offset !== undefined) {
-		statement = statement.offset(clauses.offset)
-	}
+	if (where !== undefined) statement = statement.where(where)
+	if (orderBy.length > 0) statement = statement.orderBy(...orderBy)
+	if (limit !== undefined) statement = statement.limit(limit)
+	if (clauses.offset !== undefined) statement = statement.offset(clauses.offset)
 
 	return statement
 }
@@ -93,85 +84,43 @@ const buildSelect = (
 const decodeRows = (
 	schema: CompiledPostgresSchema,
 	rows: readonly unknown[],
-): readonly Readonly<Record<string, unknown>>[] =>
+): readonly DatabaseLogicalRecord[] =>
 	rows.map((row) => readPostgresRecord(schema, row))
 
-const executeCount = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'count' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<number> => {
-	const query = readBuiltInQuery(operation.query)
+/** Selects only target identities for aggregate reads and set-based writes. */
+const selectTargetIds = (
+	context: PostgresStatementContext,
+	query: QueryAst,
+	options: SelectOptions,
+) => {
+	const { relationCompiler, schema } = context
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const target = buildSelect(client, schema, { id }, clauses, {
-		constraint,
-	}).as('ultimabase_count_target')
-	const [row] = await client.select({ value: count() }).from(target)
 
-	if (row === undefined) {
-		throw new TypeError('PostgreSQL count query returned no aggregate row')
-	}
-
-	return row.value
-}
-
-const executeExists = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'exists' }>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<boolean> => {
-	const query = readBuiltInQuery(operation.query)
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const rows = await buildSelect(client, schema, { id }, clauses, {
-		constraint,
-		limit: 1,
-	})
-
-	return rows.length > 0
+	return { clauses, id, select: buildSelect(context, { id }, clauses, options) }
 }
 
 /** Persists one already normalized create candidate and decodes the complete row. */
 export const executeCreateInput = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	input: unknown,
-): Promise<Readonly<Record<string, unknown>>> => {
-	const values = preparePostgresRecord(schema, input)
-	const selection = compilePostgresSelection(schema)
+): Promise<DatabaseLogicalRecord> => {
 	const [row] = await client
 		.insert(schema.table)
-		.values(values)
-		.returning(selection)
+		.values(preparePostgresRecord(schema, input))
+		.returning(compilePostgresSelection(schema))
 
-	if (row === undefined) {
-		throw new TypeError('PostgreSQL create did not return the inserted row')
-	}
-
-	return readPostgresRecord(schema, row)
-}
-
-export const executeCreateOne = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'create-one' }>,
-): Promise<Readonly<Record<string, unknown>>> => {
-	const current = await executeCreateInput(client, schema, operation.input)
-
-	return projectPostgresRecord(current, operation)
+	return readPostgresRecord(
+		schema,
+		required(row, 'PostgreSQL create did not return the inserted row'),
+	)
 }
 
 /** Inserts one validated collection in one statement and preserves RETURNING order. */
 export const executeCreateMany = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'create-many' }>,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	{ client, schema }: PostgresStatementContext,
+	operation: PostgresOperation<'create-many'>,
+): Promise<readonly DatabaseLogicalRecord[]> => {
 	if (operation.inputs.length === 0) {
 		return []
 	}
@@ -183,12 +132,11 @@ export const executeCreateMany = async (
 
 		return input.id
 	})
-	const encodedInputs = operation.inputs.map((input) =>
-		preparePostgresRecord(schema, input),
-	)
 	const rows = await client
 		.insert(schema.table)
-		.values(encodedInputs)
+		.values(
+			operation.inputs.map((input) => preparePostgresRecord(schema, input)),
+		)
 		.returning(compilePostgresSelection(schema))
 	const decoded = decodeRows(schema, rows)
 
@@ -196,7 +144,7 @@ export const executeCreateMany = async (
 		throw new TypeError('PostgreSQL create-many returned an invalid row count')
 	}
 
-	const recordsById = new Map<unknown, Readonly<Record<string, unknown>>>()
+	const recordsById = new Map<unknown, DatabaseLogicalRecord>()
 
 	for (const record of decoded) {
 		if (!Object.hasOwn(record, 'id') || recordsById.has(record.id)) {
@@ -206,49 +154,35 @@ export const executeCreateMany = async (
 		recordsById.set(record.id, record)
 	}
 
-	return inputIds.map((id) => {
-		const record = recordsById.get(id)
-
-		if (record === undefined) {
-			throw new TypeError('PostgreSQL create-many returned an unknown identity')
-		}
-
-		return record
-	})
+	return inputIds.map((id) =>
+		required(
+			recordsById.get(id),
+			'PostgreSQL create-many returned an unknown identity',
+		),
+	)
 }
 
 /** Executes one query-targeted write without splitting update/delete cardinality mechanics. */
 export const executePostgresTargetedMutation = async <
-	const TOperation extends RuntimeTargetedMutation,
+	const TOperation extends TargetedMutation,
 >(
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	operation: TOperation,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<TargetedMutationResult<TOperation>> => {
-	const clauses = compilePostgresQueryClauses(
-		readBuiltInQuery(operation.query),
-		schema,
-		relationCompiler,
-	)
+	const { client, schema } = context
 	const singular =
 		operation.kind === 'delete-one' || operation.kind === 'update-one'
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildSelect(client, schema, { id }, clauses, {
+	const { clauses, id, select } = selectTargetIds(context, operation.query, {
 		constraint,
 		...(singular ? { limit: 1 } : {}),
 	})
-	const selectedTarget = inArray(id, target)
+	const selectedTarget = inArray(id, select)
 	// Set-based writes reapply protected constraints at the final statement.
-	const where = singular ? selectedTarget : and(selectedTarget, constraint)
-
-	if (where === undefined) {
-		throw new TypeError(
-			`PostgreSQL ${operation.kind} target could not be combined`,
-		)
-	}
-
+	const where = required(
+		singular ? selectedTarget : and(selectedTarget, constraint),
+		`PostgreSQL ${operation.kind} target could not be combined`,
+	)
 	const rows =
 		operation.kind === 'update-many' || operation.kind === 'update-one'
 			? await client
@@ -262,60 +196,115 @@ export const executePostgresTargetedMutation = async <
 					.returning(clauses.selection)
 	const records = decodeRows(schema, rows)
 
+	// The singular/plural split mirrors the conditional result type exactly.
 	return (
 		singular ? (records[0] ?? null) : records
 	) as TargetedMutationResult<TOperation>
 }
 
+/** Locks matching complete targets for prepared mutations and upserts. */
+const lockTargets = async (
+	context: PostgresStatementContext,
+	query: QueryAst,
+	options: SelectOptions,
+): Promise<readonly DatabaseLogicalRecord[]> => {
+	const { relationCompiler, schema } = context
+
+	return decodeRows(
+		schema,
+		await buildSelect(
+			context,
+			compilePostgresSelection(schema),
+			compilePostgresQueryClauses(query, schema, relationCompiler),
+			options,
+		).for('update'),
+	)
+}
+
 /** Locks one complete target for singular mutation and upsert preparation. */
 export const lockPostgresMutationTarget = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	query: QueryAst,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const clauses = compilePostgresQueryClauses(
-		readBuiltInQuery(query),
-		schema,
-		relationCompiler,
-	)
-	const [row] = await buildSelect(
-		client,
-		schema,
-		compilePostgresSelection(schema),
-		clauses,
-		{ constraint, limit: 1 },
-	).for('update')
+): Promise<DatabaseLogicalRecord | null> =>
+	(await lockTargets(context, query, { constraint, limit: 1 }))[0] ?? null
 
-	return row === undefined ? null : readPostgresRecord(schema, row)
+/** Locks complete set-based targets in one stable order for item hooks. */
+export const lockPostgresSetBasedMutationTargets = (
+	context: PostgresStatementContext,
+	operation: PostgresOperation<'delete-many' | 'update-many'>,
+	constraint: SQL | undefined,
+): Promise<readonly DatabaseLogicalRecord[]> =>
+	lockTargets(context, operation.query, { constraint, stableOrdering: true })
+
+/** Reads one retained logical identity only after verifying schema support. */
+export const readPreparedRecordId = (
+	schema: CompiledPostgresSchema,
+	record: DatabaseLogicalRecord,
+): unknown => {
+	if (!Object.hasOwn(record, 'id')) {
+		throw new TypeError('PostgreSQL prepared mutation target is missing its id')
+	}
+
+	resolveCompiledPostgresField(schema, 'id')
+	return record.id
+}
+
+/** Reuses one retained identifier while preserving every accumulated constraint. */
+export const createRetainedMutationTarget = (
+	schema: CompiledPostgresSchema,
+	previous: DatabaseLogicalRecord,
+	constraint: SQL | undefined,
+): SQL =>
+	required(
+		and(
+			eq(
+				resolveCompiledPostgresField(schema, 'id').column,
+				readPreparedRecordId(schema, previous),
+			),
+			constraint,
+		),
+		'PostgreSQL prepared mutation predicate could not be combined',
+	)
+
+/** Applies an update to one locked row and returns its complete current state. */
+export const executeRetainedUpdate = async (
+	{ client, schema }: PostgresStatementContext,
+	update: UpdateExpressionNode,
+	previous: DatabaseLogicalRecord,
+	constraint: SQL | undefined,
+): Promise<DatabaseLogicalRecord> => {
+	const [row] = await client
+		.update(schema.table)
+		.set(compilePostgresUpdate(schema, update))
+		.where(createRetainedMutationTarget(schema, previous, constraint))
+		.returning(compilePostgresSelection(schema))
+
+	return readPostgresRecord(
+		schema,
+		required(
+			row,
+			'PostgreSQL prepared update target disappeared before execution',
+		),
+	)
 }
 
 /** Attempts insertion; the caller resolves every conflict against the declared key. */
 export const tryCreatePostgresUpsert = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	{ client, schema }: PostgresStatementContext,
 	create: unknown,
 	target: UniqueUpsertTargetNode,
-): Promise<Readonly<Record<string, unknown>> | null> => {
+): Promise<DatabaseLogicalRecord | null> => {
 	const targetFields = target.fields
-	const targetsId = targetFields.length === 1 && targetFields[0] === 'id'
+	const matchesTarget = (fields: readonly string[]): boolean =>
+		fields.length === targetFields.length &&
+		fields.every((fieldName, index) => fieldName === targetFields[index])
 	const targetsUniqueIndex = getTableConfig(schema.table).indexes.some(
-		(index) => {
-			if (!index.config.unique) return false
-
-			const indexFields = readDrizzleIndexColumns(index)
-
-			return (
-				indexFields.length === targetFields.length &&
-				indexFields.every(
-					(fieldName, index) => fieldName === targetFields[index],
-				)
-			)
-		},
+		(index) =>
+			index.config.unique && matchesTarget(readDrizzleIndexColumns(index)),
 	)
 
-	if (!targetsId && !targetsUniqueIndex) {
+	if (!matchesTarget(['id']) && !targetsUniqueIndex) {
 		throw new TypeError(
 			'PostgreSQL upsert target must match id or one compiled unique index',
 		)
@@ -337,95 +326,65 @@ export const tryCreatePostgresUpsert = async (
 	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
-/** Locks complete set-based targets in one stable order for item hooks. */
-export const lockPostgresSetBasedMutationTargets = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
-	operation: Extract<
-		RuntimeOperation,
-		{ readonly kind: 'delete-many' | 'update-many' }
-	>,
-	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-	const clauses = compilePostgresQueryClauses(
-		readBuiltInQuery(operation.query),
-		schema,
-		relationCompiler,
-	)
-	const rows = await buildSelect(
-		client,
-		schema,
-		compilePostgresSelection(schema),
-		clauses,
-		{ constraint, stableOrdering: true },
-	).for('update')
-
-	return decodeRows(schema, rows)
-}
-
-const createPendingOperationError = (
-	operation: RuntimeOperation['kind'],
-): FrameworkError<'INTERNAL_ERROR'> =>
-	new FrameworkError(
-		'INTERNAL_ERROR',
-		`PostgreSQL operation is not implemented yet: ${operation}`,
-		{
-			publicMessage: 'The database operation is not available.',
-			internalDetails: {
-				kind: 'postgres-operation-not-implemented',
-				operation,
-			},
-		},
-	)
-
 /** Executes aggregate reads and mutations; object reads use the relational executor. */
 export const executePostgresOperation = async (
-	client: PostgresDrizzleClient,
-	schema: CompiledPostgresSchema,
+	context: PostgresStatementContext,
 	operation: Exclude<
-		RuntimeOperation,
+		ExecutableOperationAst,
 		{ readonly kind: 'find-many' | 'find-one' | 'get' }
 	>,
-	constraint?: SQL,
-	relationCompiler?: PostgresRelationPredicateCompiler,
+	constraint: SQL | undefined,
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
-			case 'count':
-				return await executeCount(
-					client,
-					schema,
-					operation,
+			case 'count': {
+				const { select } = selectTargetIds(context, operation.query, {
 					constraint,
-					relationCompiler,
-				)
-			case 'exists':
-				return await executeExists(
-					client,
-					schema,
-					operation,
+				})
+				const [row] = await context.client
+					.select({ value: count() })
+					.from(select.as('ultimabase_count_target'))
+
+				return required(row, 'PostgreSQL count query returned no aggregate row')
+					.value
+			}
+			case 'exists': {
+				const { select } = selectTargetIds(context, operation.query, {
 					constraint,
-					relationCompiler,
-				)
+					limit: 1,
+				})
+
+				return (await select).length > 0
+			}
 			case 'create-one':
-				return await executeCreateOne(client, schema, operation)
+				return projectPostgresRecord(
+					await executeCreateInput(context, operation.input),
+					operation.selection,
+				)
 			case 'create-many':
-				return await executeCreateMany(client, schema, operation)
+				return await executeCreateMany(context, operation)
 			case 'update-one':
 			case 'update-many':
 			case 'delete-one':
 			case 'delete-many':
 				return await executePostgresTargetedMutation(
-					client,
-					schema,
+					context,
 					operation,
 					constraint,
-					relationCompiler,
 				)
 			case 'upsert-one':
 			case 'upsert-many':
-				throw createPendingOperationError(operation.kind)
+				throw new FrameworkError(
+					'INTERNAL_ERROR',
+					`PostgreSQL operation is not implemented yet: ${operation.kind}`,
+					{
+						publicMessage: 'The database operation is not available.',
+						internalDetails: {
+							kind: 'postgres-operation-not-implemented',
+							operation: operation.kind,
+						},
+					},
+				)
 		}
 	} catch (error: unknown) {
 		throw mapPostgresOperationError(error, operation.kind)

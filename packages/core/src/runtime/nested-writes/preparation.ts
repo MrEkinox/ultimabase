@@ -13,6 +13,7 @@ import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
 	NestedWriteGraph,
 	NestedWriteObjectNode,
+	NestedWritePointerNode,
 	NestedWriteRelationshipNode,
 } from '../../schema/nested-writes/contracts.js'
 import { normalizeNestedWriteGraph } from '../../schema/nested-writes/normalization.js'
@@ -95,14 +96,22 @@ export const prepareRuntimeNestedWriteGraph = (
 	})
 }
 
-const createEmptyUpdateExpression = (): UpdateExpression<SchemaDefinition> =>
-	immutableRecord({
-		kind: 'update-expression' as const,
-		operations: immutableArray([]),
-	})
+/** Resolves the pointer that a nested connect or create relationship persists. */
+export const readNestedPointerTarget = (
+	relationship: NestedWritePointerNode,
+): Pointer | undefined => {
+	const id =
+		relationship.command === 'connect'
+			? relationship.id
+			: relationship.command === 'create'
+				? relationship.child?.reservedId
+				: undefined
+
+	return id === undefined ? undefined : new Pointer(relationship.target, id)
+}
 
 /** Converts one update node into the scalar and pointer work owned by its row. */
-export const createRuntimeNestedUpdateExpression = (
+const createRuntimeNestedUpdateExpression = (
 	node: NestedWriteObjectNode,
 	current?: Readonly<Record<string, unknown>>,
 	base?: UpdateExpression<SchemaDefinition>,
@@ -116,40 +125,33 @@ export const createRuntimeNestedUpdateExpression = (
 	const scalar =
 		base ??
 		(Object.keys(node.data).length === 0
-			? createEmptyUpdateExpression()
+			? immutableRecord({
+					kind: 'update-expression' as const,
+					operations: immutableArray([]),
+				})
 			: normalizeUpdateExpression(node.schema, node.data))
-	const pointerFields = new Set(
-		node.relationships
-			.filter((relationship) => relationship.kind === 'pointer')
-			.map((relationship) => relationship.fieldName),
+	const pointers = node.relationships.filter(
+		(relationship) => relationship.kind === 'pointer',
 	)
+	const pointerFields = new Set(pointers.map(({ fieldName }) => fieldName))
 	const operations = scalar.operations.filter(
 		(operation) => !pointerFields.has(operation.field),
 	)
 
-	for (const relationship of node.relationships) {
-		if (relationship.kind !== 'pointer') continue
-
-		let value: unknown
-		if (relationship.command === 'connect' && relationship.id !== undefined) {
-			value = new Pointer(relationship.target, relationship.id)
-		} else if (
-			relationship.command === 'create' &&
-			relationship.child?.reservedId !== undefined
-		) {
-			value = new Pointer(relationship.target, relationship.child.reservedId)
-		} else if (relationship.command === 'disconnect') {
+	for (const relationship of pointers) {
+		// Connect and create persist their prepared target identity.
+		let value: unknown = readNestedPointerTarget(relationship)
+		if (value === undefined && relationship.command === 'disconnect') {
 			value = null
-		} else if (relationship.command === 'update' && current !== undefined) {
+		} else if (value === undefined && relationship.command === 'update') {
+			if (current === undefined) continue
 			value = current[relationship.fieldName]
 			if (!Pointer.is(value) || value.schema !== relationship.target) {
 				throw new TypeError(
 					`Nested pointer update target is not available: ${node.schema.className}.${relationship.fieldName}`,
 				)
 			}
-		} else if (relationship.command === 'update') {
-			continue
-		} else {
+		} else if (value === undefined) {
 			throw new TypeError(
 				`Nested update contains unsupported pointer command: ${relationship.command}`,
 			)
@@ -192,28 +194,13 @@ export const createRuntimeNestedCreateInput = (
 	for (const relationship of node.relationships) {
 		if (relationship.kind !== 'pointer') continue
 
-		if (relationship.command === 'connect' && relationship.id !== undefined) {
-			input[relationship.fieldName] = new Pointer(
-				relationship.target,
-				relationship.id,
+		const target = readNestedPointerTarget(relationship)
+		if (target === undefined) {
+			throw new TypeError(
+				`Nested create contains unsupported pointer command: ${relationship.command}`,
 			)
-			continue
 		}
-
-		if (
-			relationship.command === 'create' &&
-			relationship.child?.reservedId !== undefined
-		) {
-			input[relationship.fieldName] = new Pointer(
-				relationship.target,
-				relationship.child.reservedId,
-			)
-			continue
-		}
-
-		throw new TypeError(
-			`Nested create contains unsupported pointer command: ${relationship.command}`,
-		)
+		input[relationship.fieldName] = target
 	}
 
 	return immutableRecord(input)

@@ -1,5 +1,11 @@
 # Test ownership
 
+The rebuild of this repository left every test under `tests/` and every
+package `tests/` directory unchanged: they are the parity oracle of the
+[rebuild protocol](../docs/rebuild/PROTOCOL.md). Only focused internal tests
+beside the source were ported when a module moved, without losing an assertion;
+each package `REBUILD*.md` lists those edits.
+
 - `e2e`: complete application behavior across multiple packages.
 - `fixtures`: schemas and application configurations shared by tests.
 - `performance`: guarded performance regression suites.
@@ -72,7 +78,7 @@ that invoke built exports exclusively through Node subprocesses: Vitest's source
 aliases cannot affect either path. They run once through the built E2E project,
 including in complete GitHub validation. The discovery guard keeps their explicit
 exceptions separate from source-coverable E2E; production coverage inclusion and
-thresholds stay unchanged. See the
+thresholds stay unchanged. See the archived
 [test audit](../docs/plans/2026-09-19-test-execution-audit.md).
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
@@ -97,6 +103,7 @@ Docker.
   worker for the serial performance project. Do not use `VITEST_MAX_WORKERS`:
   its native override also changes serial projects' resolved worker limit.
 - `yarn test:types`: run compile-time type tests only.
+- `yarn check:issues`: validate the archived issue backlog and checkpoint.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
 
 ## Package commands
@@ -138,3 +145,11 @@ manual workflow dispatch also runs the complete coverage gate. A targeted run do
 not measure or enforce global coverage. Local commands above keep their existing
 behavior. See [ADR-0251](../docs/adr/0251-affected-github-validation.md) and
 [the CI tooling guide](../tooling/ci/README.md).
+
+## Load-sensitive suites
+
+Some suites depend on machine load: the packed `create-app` graph test (120 s
+timeout), packed archive audits, the Typegen hybrid-authoring performance
+budget, and PostgreSQL suites that use Vitest's default 5 s timeout. Their
+known failure modes and qualification on the reference and the rebuild are in
+[the validation correspondence](../docs/rebuild/VALIDATIONS.md#known-load-sensitive-tests).

@@ -145,50 +145,18 @@ export interface RestRouteGraph {
 	readonly routes: readonly RestRouteDefinition[]
 }
 
-export interface RestSchemaRouteCandidate {
-	readonly kind: 'rest-schema-route'
-	readonly method: HttpMethod
-	readonly operation: RestSchemaOperation
-	readonly path: string
-	readonly plugin: RestRoutePlugin
-	readonly protocol: typeof restProtocol
-	readonly schema: string
-	readonly schemaProvenance: SchemaContributionProvenance
-	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
+type RouteCandidate<TRoute extends RestRouteDefinition> = Omit<
+	TRoute,
+	'provenance'
+> & {
+	readonly provenance: Omit<TRoute['provenance'], 'application'>
 }
 
-export interface RestPluginOperationRouteCandidate {
-	readonly errors: readonly string[]
-	readonly kind: 'rest-plugin-operation-route'
-	readonly method: 'POST'
-	readonly operation: string
-	readonly operationVersion: string
-	readonly path: string
-	readonly plugin: RestRoutePlugin
-	readonly protocol: typeof restProtocol
-}
-
-export interface RestSchemaMutationRouteCandidate {
-	readonly command: string
-	readonly errors: readonly string[]
-	readonly kind: 'rest-schema-mutation-route'
-	readonly method: 'POST'
-	readonly mutation: string
-	readonly mutationOwner: RestRoutePlugin
-	readonly mutationVersion: string
-	readonly operation: 'schemaMutation'
-	readonly path: string
-	readonly plugin: RestRoutePlugin
-	readonly protocol: typeof restProtocol
-	readonly schema: string
-	readonly schemaProvenance: SchemaContributionProvenance
-	readonly virtualFields: Readonly<Record<string, GenericOutputDescriptor>>
-}
-
-type RestRouteCandidate =
-	| RestPluginOperationRouteCandidate
-	| RestSchemaMutationRouteCandidate
-	| RestSchemaRouteCandidate
+/** @internal One compiled route before composition assigns its application. */
+export type RestRouteCandidate =
+	| RouteCandidate<RestPluginOperationRouteDefinition>
+	| RouteCandidate<RestSchemaMutationRouteDefinition>
+	| RouteCandidate<RestSchemaRouteDefinition>
 
 export interface RestRouteFragmentValue {
 	readonly routes: readonly RestRouteCandidate[]
@@ -205,9 +173,47 @@ export const createRestRouteFragment = (
 	return fragment
 }
 
-const assertRouteFragments = (
+/** @internal Snapshots the exact plugin identity and version owning a route. */
+export const createRestRoutePlugin = (
+	owner: PluginIdentity,
+	version: string,
+): RestRoutePlugin =>
+	immutableRecord({
+		...(owner.instanceId === undefined ? {} : { instanceId: owner.instanceId }),
+		pluginId: owner.pluginId,
+		version,
+	})
+
+const withApplication = (
+	candidate: RestRouteCandidate,
+	application: RestApplicationProvenance,
+): RestRouteDefinition => {
+	// Each branch keeps the route kind correlated with its provenance shape.
+	switch (candidate.kind) {
+		case 'rest-schema-route':
+			return immutableRecord({
+				...candidate,
+				provenance: immutableRecord({ ...candidate.provenance, application }),
+			})
+		case 'rest-schema-mutation-route':
+			return immutableRecord({
+				...candidate,
+				provenance: immutableRecord({ ...candidate.provenance, application }),
+			})
+		case 'rest-plugin-operation-route':
+			return immutableRecord({
+				...candidate,
+				provenance: immutableRecord({ ...candidate.provenance, application }),
+			})
+	}
+}
+
+const routeOwner = ({ provenance: { plugin } }: RestRouteCandidate): string =>
+	`${plugin.pluginId}${plugin.instanceId === undefined ? '' : `#${plugin.instanceId}`}`
+
+const composeRouteGraph = (
 	fragments: readonly RestRouteFragmentValue[],
-): void => {
+): RestRouteGraph => {
 	for (const fragment of fragments) {
 		if (!isPlainRecord(fragment) || !routeFragmentValues.has(fragment)) {
 			throw new TypeError('REST route fragment must use the official compiler')
@@ -216,138 +222,21 @@ const assertRouteFragments = (
 			throw new TypeError('REST route fragment routes must be an array')
 		}
 	}
-}
-
-const throwRouteCollision = (
-	left: RestRouteCandidate,
-	right: RestRouteCandidate,
-): never => {
-	const owner = (route: RestRouteCandidate): string =>
-		`${route.plugin.pluginId}${route.plugin.instanceId === undefined ? '' : `#${route.plugin.instanceId}`}`
-	throw new TypeError(
-		`REST route collision for ${right.method} "${right.path}" between ${owner(left)} and ${owner(right)}`,
-	)
-}
-
-const createSchemaRoute = (
-	application: RestApplicationProvenance,
-	candidate: RestSchemaRouteCandidate,
-): RestSchemaRouteDefinition => {
-	const provenance = immutableRecord({
-		application,
-		method: candidate.method,
-		operation: candidate.operation,
-		path: candidate.path,
-		plugin: candidate.plugin,
-		protocolVersion: restProtocol.version,
-		schema: candidate.schemaProvenance,
-	})
-	return immutableRecord({
-		kind: candidate.kind,
-		method: candidate.method,
-		operation: candidate.operation,
-		path: candidate.path,
-		protocol: restProtocol,
-		provenance,
-		schema: candidate.schema,
-		virtualFields: candidate.virtualFields,
-	})
-}
-
-const createOperationRoute = (
-	application: RestApplicationProvenance,
-	candidate: RestPluginOperationRouteCandidate,
-): RestPluginOperationRouteDefinition => {
-	const operation = immutableRecord({
-		errors: immutableArray(candidate.errors),
-		name: candidate.operation,
-		version: candidate.operationVersion,
-	})
-	const provenance = immutableRecord({
-		application,
-		method: candidate.method,
-		operation,
-		path: candidate.path,
-		plugin: candidate.plugin,
-		protocolVersion: restProtocol.version,
-	})
-	return immutableRecord({
-		errors: operation.errors,
-		kind: candidate.kind,
-		method: candidate.method,
-		operation: candidate.operation,
-		operationVersion: candidate.operationVersion,
-		path: candidate.path,
-		protocol: restProtocol,
-		provenance,
-	})
-}
-
-const createSchemaMutationRoute = (
-	application: RestApplicationProvenance,
-	candidate: RestSchemaMutationRouteCandidate,
-): RestSchemaMutationRouteDefinition => {
-	const mutation = immutableRecord({
-		command: candidate.command,
-		name: candidate.mutation,
-		owner: immutableRecord({
-			...(candidate.mutationOwner.instanceId === undefined
-				? {}
-				: { instanceId: candidate.mutationOwner.instanceId }),
-			pluginId: candidate.mutationOwner.pluginId,
-			version: candidate.mutationOwner.version,
-		}),
-		version: candidate.mutationVersion,
-	})
-	const provenance = immutableRecord({
-		application,
-		method: candidate.method,
-		mutation,
-		path: candidate.path,
-		plugin: candidate.plugin,
-		protocolVersion: restProtocol.version,
-		schema: candidate.schemaProvenance,
-	})
-	return immutableRecord({
-		command: candidate.command,
-		errors: immutableArray(candidate.errors),
-		kind: candidate.kind,
-		method: candidate.method,
-		mutation: candidate.mutation,
-		mutationVersion: candidate.mutationVersion,
-		operation: candidate.operation,
-		path: candidate.path,
-		protocol: restProtocol,
-		provenance,
-		schema: candidate.schema,
-		virtualFields: candidate.virtualFields,
-	})
-}
-
-const composeRouteGraph = (
-	fragments: readonly RestRouteFragmentValue[],
-): RestRouteGraph => {
-	assertRouteFragments(fragments)
+	// One application identity is shared by every route of this compilation.
 	const application = immutableRecord({ kind: 'application' as const })
 	const accepted = new Map<string, RestRouteCandidate>()
 	const routes: RestRouteDefinition[] = []
-
-	for (const fragment of fragments) {
-		for (const candidate of fragment.routes) {
-			const key = `${candidate.method}\0${candidate.path}`
-			const existing = accepted.get(key)
-			if (existing !== undefined) throwRouteCollision(existing, candidate)
-			accepted.set(key, candidate)
-			routes.push(
-				candidate.kind === 'rest-schema-route'
-					? createSchemaRoute(application, candidate)
-					: candidate.kind === 'rest-schema-mutation-route'
-						? createSchemaMutationRoute(application, candidate)
-						: createOperationRoute(application, candidate),
+	for (const candidate of fragments.flatMap(({ routes }) => routes)) {
+		const key = `${candidate.method}\0${candidate.path}`
+		const existing = accepted.get(key)
+		if (existing !== undefined) {
+			throw new TypeError(
+				`REST route collision for ${candidate.method} "${candidate.path}" between ${routeOwner(existing)} and ${routeOwner(candidate)}`,
 			)
 		}
+		accepted.set(key, candidate)
+		routes.push(withApplication(candidate, application))
 	}
-
 	return immutableRecord({
 		protocol: restProtocol,
 		routes: immutableArray(routes),
@@ -384,3 +273,7 @@ export const encodeRestPathSegment = (value: string, label: string): string => {
 		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
 	)
 }
+
+/** @internal Builds the encoded collection path shared by schema-bound routes. */
+export const restClassPath = (basePath: string, className: string): string =>
+	`${basePath}/classes/${encodeRestPathSegment(className, `REST schema className ${className}`)}`

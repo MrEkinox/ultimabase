@@ -1,11 +1,8 @@
 import {
 	requestSubjectReferenceCleanupCapability,
-	requestPrincipalResolverCapability,
-	requestRoleResolverCapability,
 	FrameworkError,
 	contributeDeclarations,
 	guard,
-	optionalCapability,
 	plugin,
 	preparedOperation,
 	protectedPolicy,
@@ -16,8 +13,8 @@ import {
 	withPluginPrivileges,
 	type DatabaseOperationAst,
 	type AddSchemaFieldOperation,
-	type CompiledSchemaRegistry,
 	type ExecutableOperationAst as ExecutableAst,
+	type RuntimeConstraintDefinition,
 	type RuntimeOperationStageInput,
 	type RuntimeOperationTransformStage,
 	type SchemaDefinition,
@@ -41,44 +38,50 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	createACLPermissionRowFilter,
+	requiredACLPermission,
+} from './acl-access.js'
+import {
 	aclChangedEventContract,
 	optionalACLChangedEvents,
 } from './acl-events.js'
-import {
-	createACLReferenceCleanups,
-	createACLReferenceRowFilter,
-	getACLReferenceScope,
-} from './acl-reference-cleanup.js'
+import { createACLFieldPolicy } from './acl-field-policy.js'
 import {
 	defaultACLEntryLimits,
 	normalizeACLEntryLimits,
 	resolveACLEntryLimits,
 	type ACLEntryLimits,
+	type ACLPluginOptions,
 } from './acl-limits.js'
-import { createACLRowFilter } from './acl-access.js'
-import { createACLFieldPolicy } from './acl-field-policy.js'
-import type { ACLPluginOptions } from './plugin-contracts.js'
 import {
 	aclField,
 	aclFieldFamily,
 	aclFieldName,
 	aclPluginId,
 	aclSchemaOption,
-	readACLSchemaOption,
+	readProtectedSchemaOptions,
 } from './acl-option.js'
 import {
-	hasStaticRoleGrant,
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
-	snapshotResolvedACL,
 	type ACLCreateOperation,
 } from './acl-operation-resolution.js'
+import {
+	createACLReferenceCleanups,
+	createACLReferenceRowFilter,
+	getACLReferenceScope,
+} from './acl-reference-cleanup.js'
+import {
+	createACLApplicationStateReader,
+	optionalPrincipalResolver,
+	optionalRoleResolver,
+	type ACLApplicationState,
+} from './application-state.js'
+
 export {
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 } from './acl-operation-resolution.js'
-import { readOperationSchema } from './runtime-operation.js'
-import { createAttributedACLApplicationStateReader } from './subject-resolver-attribution.js'
 
 const aclSchemaSelector = { option: { name: 'acl' } } as const
 const aclSchemaPatch: SchemaPatchBuilder<
@@ -126,46 +129,22 @@ export type ACLPlugin = PluginInstance<{
 	readonly source: ACLSource
 }>
 
-const optionalPrincipalResolver = optionalCapability(
-	requestPrincipalResolverCapability,
-	'^1.0.0',
-)
-const optionalRoleResolver = optionalCapability(
-	requestRoleResolverCapability,
-	'^1.0.0',
-)
-
-const readProtectedSchemas = (
-	schemas: CompiledSchemaRegistry,
-): readonly SchemaDefinition[] =>
-	schemas.values().filter((schema) => readACLSchemaOption(schema) !== undefined)
-
-const principalReferenceCleanupProvider = provideCapability(
-	requestSubjectReferenceCleanupCapability,
-	{
-		contributionId: 'principal-references',
+/** Lets subject owners inspect or cascade ACL references to one deleted subject. */
+const referenceCleanupProvider = (kind: 'principal' | 'role') =>
+	provideCapability(requestSubjectReferenceCleanupCapability, {
+		contributionId: `${kind}-references`,
 		create: ({ schemas }) => ({
 			value: immutableRecord({
-				cleanup: createACLReferenceCleanups(readProtectedSchemas(schemas))
-					.principal,
-				name: 'acl-principal-reference-cleanup',
+				cleanup: createACLReferenceCleanups([
+					...readProtectedSchemaOptions(schemas).keys(),
+				])[kind],
+				name: `acl-${kind}-reference-cleanup`,
 			}),
 		}),
-	},
-)
+	})
 
-const roleReferenceCleanupProvider = provideCapability(
-	requestSubjectReferenceCleanupCapability,
-	{
-		contributionId: 'role-references',
-		create: ({ schemas }) => ({
-			value: immutableRecord({
-				cleanup: createACLReferenceCleanups(readProtectedSchemas(schemas)).role,
-				name: 'acl-role-reference-cleanup',
-			}),
-		}),
-	},
-)
+const principalReferenceCleanupProvider = referenceCleanupProvider('principal')
+const roleReferenceCleanupProvider = referenceCleanupProvider('role')
 
 const normalizeACLPluginOptions = definePluginOptionsParser({
 	formatUnknownKey: (key) => `Unknown aclPlugin option: ${String(key)}`,
@@ -208,18 +187,15 @@ const updateTouchesACL = (update: unknown): boolean =>
 		(candidate) => isPlainRecord(candidate) && candidate.field === aclFieldName,
 	)
 
-/** @internal Rejects ACL replacement without one certain itemized update target. */
-export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
+/** Rejects ACL replacement without one certain itemized update target. */
+const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 	operation: ExecutableAst<TSchema>,
 ): void => {
 	const unsupported =
-		operation.kind === 'update-many'
+		operation.kind === 'update-many' || operation.kind === 'upsert-one'
 			? updateTouchesACL(operation.update)
-			: operation.kind === 'upsert-one'
-				? updateTouchesACL(operation.update)
-				: operation.kind === 'upsert-many'
-					? operation.items.some(({ update }) => updateTouchesACL(update))
-					: false
+			: operation.kind === 'upsert-many' &&
+				operation.items.some(({ update }) => updateTouchesACL(update))
 
 	if (!unsupported) return
 
@@ -246,77 +222,56 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
  * ```
  */
 export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
-	const normalizedOptions = normalizeACLPluginOptions(options)
-	const pluginLimits = resolveACLEntryLimits(
-		defaultACLEntryLimits,
-		normalizedOptions.limits,
+	const { limits } = normalizeACLPluginOptions(options)
+	const readState = createACLApplicationStateReader(
+		resolveACLEntryLimits(defaultACLEntryLimits, limits),
 	)
-	const readApplicationState = createAttributedACLApplicationStateReader({
-		hasStaticRoleGrant,
-		pluginLimits,
-		principalRequirement: optionalPrincipalResolver,
-		readProtectedSchemas,
-		roleRequirement: optionalRoleResolver,
-		snapshotACL: snapshotResolvedACL,
-	})
-	const replacementShapeProvider = provideRuntimeConstraint({
-		contributionId: 'acl-replacement-shape',
-		create: ({ callbacks, capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
-			return {
-				value: guard({
-					handler: ({ operation }) => {
-						if (!state.protectedSchemaSet.has(readOperationSchema(operation))) {
-							return
-						}
-
-						// Mutation shape is a data invariant, so trusted master execution must enforce it too.
+	const stateConstraint = (
+		contributionId: string,
+		build: (state: ACLApplicationState) => RuntimeConstraintDefinition,
+	) =>
+		provideRuntimeConstraint({
+			contributionId,
+			create: (context) => ({ value: build(readState(context)) }),
+		})
+	const replacementShapeProvider = stateConstraint(
+		'acl-replacement-shape',
+		(state) =>
+			guard({
+				handler: ({ operation }) => {
+					// Mutation shape is a data invariant, so trusted master execution must enforce it too.
+					if (state.protectedOption(operation) !== undefined) {
 						assertSingularACLReplacement(operation)
-					},
-					operations: aclReplacementInvariantOperationKinds,
-				}),
-			}
-		},
-	})
-	const fieldPolicyProvider = provideRuntimeConstraint({
-		contributionId: 'acl-protected-field',
-		create: ({ callbacks, capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
-
-			return {
-				value: createACLFieldPolicy(state.protectedSchemaSet),
-			}
-		},
-	})
+					}
+				},
+				operations: aclReplacementInvariantOperationKinds,
+			}),
+	)
+	const fieldPolicyProvider = stateConstraint('acl-protected-field', (state) =>
+		createACLFieldPolicy(state.protectedOption),
+	)
 	const inputProvider = provideRuntimeInterceptor({
 		contributionId: 'acl-input',
-		create: ({ callbacks, capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
+		create: (factoryContext) => {
+			const state = readState(factoryContext)
 			return {
 				value: preparedOperation({
 					handler: async ({ context, operation, target }) => {
-						const schema = readOperationSchema(operation)
-						if (!state.protectedSchemaSet.has(schema)) return { operation }
-
-						const schemaConfig = readACLSchemaOption(schema)
-						if (schemaConfig === undefined) {
-							throw new TypeError(
-								'ACL plugin lost its discovered schema option',
-							)
-						}
+						const option = state.protectedOption(operation)
+						if (option === undefined) return { operation }
 						const subjects = await state.resolveSubjects()
 
 						return {
 							operation: await resolvePreparedOperationACL(
 								operation,
 								target,
-								schemaConfig,
+								option.config,
 								subjects.principal,
 								context,
 								subjects.roleResolutionAvailable,
-								state.resolveSchemaLimits(schemaConfig),
-								state.readPersistentRoleResolver(),
-								getACLReferenceScope(schema),
+								option.limits,
+								state.persistentRoleResolver,
+								getACLReferenceScope(option.schema),
 							),
 						}
 					},
@@ -324,57 +279,52 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			}
 		},
 	})
-	const referenceRowsProvider = provideRuntimeConstraint({
-		contributionId: 'acl-reference-rows',
-		create: ({ callbacks, capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
-			return {
-				value: protectedPolicy({
-					evaluate: ({ operation }) => {
-						const schema = readOperationSchema(operation)
-						if (!state.protectedSchemaSet.has(schema)) return undefined
-						const referenceSubject = getACLReferenceScope(schema)
-						if (referenceSubject === undefined) return undefined
-						return immutableRecord({
-							rowFilter: createACLReferenceRowFilter(referenceSubject),
+	// Internal cleanup queries see only rows referencing the subject being removed.
+	const referenceRowsProvider = stateConstraint('acl-reference-rows', (state) =>
+		protectedPolicy({
+			evaluate: ({ operation }) => {
+				const option = state.protectedOption(operation)
+				const subject =
+					option === undefined ? undefined : getACLReferenceScope(option.schema)
+				return subject === undefined
+					? undefined
+					: immutableRecord({
+							rowFilter: createACLReferenceRowFilter(subject),
 						})
-					},
-					operations: aclConstraintOperationKinds,
-				}),
-			}
-		},
-	})
-	const rowsProvider = provideRuntimeConstraint({
-		contributionId: 'acl-rows',
-		create: ({ callbacks, capabilities, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
-			return {
-				value: protectedPolicy({
-					evaluate: async ({ operation }) => {
-						const schema = readOperationSchema(operation)
-						if (!state.protectedSchemaSet.has(schema)) return undefined
-						if (getACLReferenceScope(schema) !== undefined) return undefined
-						const rowFilter = createACLRowFilter(
-							operation as unknown as ExecutableAst,
-							await state.resolveSubjects(),
-						)
-						if (rowFilter === undefined) return undefined
-						return immutableRecord({ rowFilter })
-					},
-					master: 'bypass',
-					operations: aclConstraintOperationKinds,
-				}),
-			}
-		},
-	})
+			},
+			operations: aclConstraintOperationKinds,
+		}),
+	)
+	const rowsProvider = stateConstraint('acl-rows', (state) =>
+		protectedPolicy({
+			evaluate: async ({ operation }) => {
+				const option = state.protectedOption(operation)
+				if (option === undefined) return undefined
+				if (getACLReferenceScope(option.schema) !== undefined) return undefined
+				// `operations` limits this policy to executable terminals Core types broadly.
+				const permission = requiredACLPermission(
+					operation as unknown as ExecutableAst,
+				)
+				if (permission === undefined) return undefined
+				return immutableRecord({
+					rowFilter: createACLPermissionRowFilter(
+						permission,
+						await state.resolveSubjects(),
+					),
+				})
+			},
+			master: 'bypass',
+			operations: aclConstraintOperationKinds,
+		}),
+	)
 	const behaviorProvider = provideRuntimeBehavior({
 		contributionId: 'acl-input-and-change-lifecycle',
-		create: ({ assertPrivilege, callbacks, capabilities, owner, schemas }) => {
-			const state = readApplicationState(schemas, capabilities, callbacks)
+		create: (factoryContext) => {
+			const state = readState(factoryContext)
 			const events = createPluginEventDispatcher({
-				assertPrivilege,
-				capabilities,
-				owner,
+				assertPrivilege: factoryContext.assertPrivilege,
+				capabilities: factoryContext.capabilities,
+				owner: factoryContext.owner,
 				requirement: optionalACLChangedEvents,
 			})
 			const transformInput: RuntimeOperationTransformStage = async <
@@ -391,21 +341,17 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				) {
 					return operation
 				}
-				const schema = readOperationSchema(operation)
-				if (!state.protectedSchemaSet.has(schema)) return operation
-				const config = readACLSchemaOption(schema)
-				if (config === undefined) {
-					throw new TypeError('ACL plugin lost its discovered schema option')
-				}
+				const option = state.protectedOption(operation)
+				if (option === undefined) return operation
 				const subjects = await state.resolveSubjects()
 				const resolved = await resolveCreateOperationACL(
 					operation as unknown as ACLCreateOperation,
-					config,
+					option.config,
 					subjects.principal,
 					context,
 					subjects.roleResolutionAvailable,
-					state.resolveSchemaLimits(config),
-					state.readPersistentRoleResolver(),
+					option.limits,
+					state.persistentRoleResolver,
 				)
 				return resolved as unknown as TOperation
 			}
@@ -415,8 +361,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 					transformInput,
 					transformResult: async (input) => {
 						if (input.outcome === undefined) return input.result
-						const schema = readOperationSchema(input.operation)
-						if (!state.protectedSchemaSet.has(schema)) return input.result
+						const option = state.protectedOption(input.operation)
+						if (option === undefined) return input.result
 						const kind = input.operation.kind.startsWith('create')
 							? 'create'
 							: input.operation.kind.startsWith('upsert')
@@ -424,7 +370,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								: 'update'
 						const changes = await state.collectACLChanges(
 							input.context,
-							schema,
+							option.schema,
 							kind,
 							input.outcome,
 						)
@@ -438,11 +384,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		},
 	})
 
-	const privilegedBehavior = withPluginPrivileges(behaviorProvider, [
-		'authority:elevate',
-		'event:publish',
-	])
-	const instance = plugin({
+	return plugin({
 		id: aclPluginId,
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -468,9 +410,11 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			inputProvider,
 			referenceRowsProvider,
 			rowsProvider,
-			privilegedBehavior,
+			withPluginPrivileges(behaviorProvider, [
+				'authority:elevate',
+				'event:publish',
+			]),
 			aclDeclarations,
 		],
 	})
-	return instance
 }

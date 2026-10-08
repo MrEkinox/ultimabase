@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { snapshotPluginIdentity } from '../../plugins/manifest.js'
 
 import { FrameworkError } from '../../foundation.js'
 import {
@@ -11,10 +12,27 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import type { FrameworkApplication } from '../../application/framework-application.js'
+import type { PluginDefinition } from '../../foundation.js'
+import type { CapabilityToken } from '../../plugins/capability-token.js'
+import {
+	ownPluginContribution,
+	type OwnedPluginContribution,
+} from '../../plugins/setup-registries.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
-import { readApplicationRuntimeKernelState } from '../../application/application-kernel-state.js'
+import {
+	readApplicationKernelState,
+	readApplicationRuntimeKernelState,
+} from '../../application/application-kernel-state.js'
 import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
+
+/** Lets cancellation and recursion failures cross resolver error wrapping unchanged. */
+export const isFrameworkControlFailure = (error: unknown): boolean =>
+	error instanceof FrameworkError &&
+	(error.code === 'OPERATION_CANCELLED' ||
+		error.code === 'RUNTIME_CALLBACK_RECURSION')
 
 /** Identifies one callback without retaining request values or callback inputs. */
 export interface RuntimeCallbackDescriptor {
@@ -112,12 +130,7 @@ export class RuntimeCallbackExecutor {
 			? runWithApplicationOwner(this.application, execute)
 			: runWithApplicationPluginOwner(
 					this.application,
-					immutableRecord({
-						pluginId: descriptor.owner.pluginId,
-						...(descriptor.owner.instanceId === undefined
-							? {}
-							: { instanceId: descriptor.owner.instanceId }),
-					}),
+					snapshotPluginIdentity(descriptor.owner),
 					execute,
 				))
 
@@ -140,3 +153,70 @@ export const getApplicationRuntimeCallbackExecutor = (
 	state.runtimeCallbacks ??= new RuntimeCallbackExecutor(application)
 	return state.runtimeCallbacks
 }
+
+/** Pairs one validated protected implementation with its setup owner. */
+export interface OwnedRuntimeContribution<TImplementation> {
+	readonly contribution: OwnedPluginContribution
+	readonly implementation: TImplementation
+}
+
+/** Reads one Runtime capability in graph order and rejects foreign schema scopes. */
+export const readOwnedRuntimeContributions = <
+	TImplementation extends { readonly schema: SchemaDefinition | undefined },
+>(
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+	token: CapabilityToken,
+	label: 'Enforcement' | 'Runtime',
+	resolve: (
+		contribution: OwnedPluginContribution,
+	) => TImplementation | undefined,
+): readonly OwnedRuntimeContribution<TImplementation>[] => {
+	const owned: OwnedRuntimeContribution<TImplementation>[] = []
+
+	for (const { contributionId, owner, value } of readApplicationKernelState(
+		application,
+	).capabilityContributions(token)) {
+		const contribution = ownPluginContribution(contributionId, owner, value)
+		const implementation = resolve(contribution)
+		if (implementation === undefined) continue
+
+		if (
+			implementation.schema !== undefined &&
+			!application.ownsSchema(implementation.schema)
+		) {
+			throw new TypeError(
+				`${label} contribution "${contribution.name}" references a schema outside its application`,
+			)
+		}
+		owned.push(immutableRecord({ contribution, implementation }))
+	}
+
+	return immutableArray(owned)
+}
+
+/** Builds one redacted plugin callback identity without operation inputs or results. */
+export const createContributionCallbackDescriptor = (
+	contribution: OwnedPluginContribution,
+	phase: string,
+	schema: SchemaDefinition | undefined,
+	operationKind: RuntimeLogicalOperationKind,
+): RuntimeCallbackDescriptor =>
+	createRuntimeCallbackDescriptor({
+		operationKind,
+		owner: {
+			contributionId: contribution.name,
+			kind: 'plugin',
+			pluginId: contribution.ownerPlugin,
+			...(contribution.ownerInstanceId === undefined
+				? {}
+				: { instanceId: contribution.ownerInstanceId }),
+		},
+		phase,
+		target:
+			schema === undefined
+				? { kind: 'global' }
+				: { className: schema.className, kind: 'schema' },
+	})

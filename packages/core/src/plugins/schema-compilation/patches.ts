@@ -16,9 +16,10 @@ import type {
 	OptionDefinitionIndex,
 	OwnedSchemaPatch,
 } from '../schema-declaration-contracts.js'
+import { isSamePluginIdentity } from '../manifest.js'
 import {
+	optionDefinitionProvenance,
 	resolveOptionDefinition,
-	samePluginOwner,
 } from '../schema-declaration-contracts.js'
 import type { SchemaPatchOperation } from '../schema-patch-contracts.js'
 import type { SchemaCompilationValues } from './values.js'
@@ -41,7 +42,7 @@ const assertUnusedContributionId = (
 			(contribution) =>
 				contribution.contributionId === contributionId &&
 				contribution.owner.kind === 'plugin' &&
-				samePluginOwner(contribution.owner, patch.owner),
+				isSamePluginIdentity(contribution.owner, patch.owner),
 		)
 	)
 		throw new TypeError(
@@ -99,12 +100,7 @@ export const applySchemaPatchOperation = (
 														: patch.owner,
 													`field-option-definition:${field.kind}.${optionName}`,
 												)
-											: createSchemaContributionProvenance(
-													descriptor.owner,
-													descriptor.contributionId,
-													descriptor.staticOptions,
-													descriptor.definition.protocolVersion,
-												),
+											: optionDefinitionProvenance(descriptor),
 									value: createSchemaContributionProvenance(
 										patch.owner,
 										`${operation.contributionId}:option:${optionName}`,
@@ -250,12 +246,7 @@ export const applySchemaPatchOperation = (
 					`Field option "${operation.name}" does not support the stored context`,
 				)
 			const option = immutableRecord({
-				definition: createSchemaContributionProvenance(
-					descriptor.owner,
-					descriptor.contributionId,
-					descriptor.staticOptions,
-					descriptor.definition.protocolVersion,
-				),
+				definition: optionDefinitionProvenance(descriptor),
 				value: source,
 			})
 			if (operation.kind === 'schema-option:set') {

@@ -68,15 +68,13 @@ export const normalizeSoftDeletePluginOptions: PluginOptionsParser<
 			)
 		}
 
-		const normalized: NormalizedSoftDeletePluginOptions = {
+		return {
 			defaultMode:
 				defaultMode === undefined
 					? 'disabled'
 					: snapshotMode(defaultMode, 'softDeletePlugin defaultMode'),
 			...(instanceId === undefined ? {} : { instanceId }),
 		}
-
-		return normalized
 	},
 })
 

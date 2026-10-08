@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { SchemaRegistry } from '../../schema/index.js'
-import { fieldPath } from './factory.js'
+import { fieldPath } from './target.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
 import { readWhereBuilderState } from './where-builder-state.js'

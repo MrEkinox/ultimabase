@@ -60,7 +60,7 @@ export interface GraphqlSchemaExposure {
 
 export type GraphqlSchemaExposureOption = boolean | GraphqlSchemaExposure
 
-const operationKeys = new Set([
+const operationKeys: ReadonlySet<string> = new Set([
 	'bulk',
 	'count',
 	'create',
@@ -73,52 +73,78 @@ const operationKeys = new Set([
 	'update',
 	'upsert',
 ])
-const bulkKeys = new Set(['create', 'delete', 'update', 'upsert'])
+const bulkKeys: ReadonlySet<string> = new Set([
+	'create',
+	'delete',
+	'update',
+	'upsert',
+])
 const exposureKeys = new Set(['operations', 'typeName'])
 
-const assertBoolean = (value: unknown, path: string): boolean => {
+/** Returns one own key when it is a declared string key, otherwise rejects it. */
+export const readGraphqlKnownKey = (
+	key: string | symbol,
+	keys: ReadonlySet<string>,
+	path: string,
+	label = 'unknown option',
+): string => {
+	if (typeof key !== 'string' || !keys.has(key)) {
+		throw new TypeError(`${path} contains ${label}: ${String(key)}`)
+	}
+	return key
+}
+
+/** Rejects symbol and undeclared keys, naming the first offending key. */
+export const assertGraphqlKnownKeys = (
+	value: object,
+	keys: ReadonlySet<string>,
+	path: string,
+	label?: string,
+): void => {
+	for (const key of Reflect.ownKeys(value)) {
+		readGraphqlKnownKey(key, keys, path, label)
+	}
+}
+
+const readBoolean = (value: unknown, path: string): boolean => {
 	if (typeof value !== 'boolean') {
 		throw new TypeError(`${path} must be a boolean`)
 	}
 	return value
 }
 
-const normalizeBulk = (value: unknown, path: string): GraphqlBulkOperations => {
+// Snapshots one closed option object, validating each key before its value.
+const snapshotFlags = <TValue>(
+	value: unknown,
+	path: string,
+	keys: ReadonlySet<string>,
+	read: (option: unknown, key: string) => TValue,
+): Readonly<Record<string, TValue>> => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a boolean or plain object`)
 	}
-	const normalized: Record<string, boolean> = {}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !bulkKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-		normalized[key] = assertBoolean(value[key], `${path}.${key}`)
+	const entries: [string, TValue][] = []
+	for (const ownKey of Reflect.ownKeys(value)) {
+		const key = readGraphqlKnownKey(ownKey, keys, path)
+		entries.push([key, read(value[key], key)])
 	}
-	return immutableRecord(normalized)
+	return immutableRecord(Object.fromEntries(entries))
 }
 
 /** Snapshots sparse generated-operation selection without filling inheritance. */
 export const normalizeGraphqlSchemaOperations = (
 	value: unknown,
 	path: string,
-): boolean | GraphqlSchemaOperations => {
-	if (typeof value === 'boolean') return value
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a boolean or plain object`)
-	}
-	const normalized: Record<string, boolean | GraphqlBulkOperations> = {}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !operationKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-		const option = value[key]
-		normalized[key] =
-			key === 'bulk' && typeof option !== 'boolean'
-				? normalizeBulk(option, `${path}.bulk`)
-				: assertBoolean(option, `${path}.${key}`)
-	}
-	return immutableRecord(normalized)
-}
+): boolean | GraphqlSchemaOperations =>
+	typeof value === 'boolean'
+		? value
+		: snapshotFlags(value, path, operationKeys, (option, key) =>
+				key === 'bulk' && typeof option !== 'boolean'
+					? snapshotFlags(option, `${path}.bulk`, bulkKeys, (flag, name) =>
+							readBoolean(flag, `${path}.bulk.${name}`),
+						)
+					: readBoolean(option, `${path}.${key}`),
+			)
 
 /** Snapshots one direct schema GraphQL option. */
 export const normalizeGraphqlSchemaExposure = (
@@ -129,11 +155,7 @@ export const normalizeGraphqlSchemaExposure = (
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a boolean or plain object`)
 	}
-	for (const key of Reflect.ownKeys(value)) {
-		if (typeof key !== 'string' || !exposureKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
-		}
-	}
+	assertGraphqlKnownKeys(value, exposureKeys, path)
 	const typeName = value.typeName
 	if (
 		typeName !== undefined &&

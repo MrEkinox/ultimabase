@@ -76,8 +76,10 @@ const parseGraphqlYogaPluginOptions = definePluginOptionsParser({
 	},
 })
 
-/** @internal Rejects unknown options before the plugin can declare effects. */
+/**
+ * @internal Rejects unknown options before the plugin can declare effects.
+ * `graphqlYogaPlugin()` defaults omitted options to `{}`.
+ */
 export const normalizeGraphqlYogaPluginOptions = (
 	value: unknown,
-): NormalizedGraphqlYogaPluginOptions =>
-	parseGraphqlYogaPluginOptions(value === undefined ? {} : value)
+): NormalizedGraphqlYogaPluginOptions => parseGraphqlYogaPluginOptions(value)

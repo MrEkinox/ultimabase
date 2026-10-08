@@ -1,28 +1,26 @@
-import type { TypegenSchemaSnapshot } from '../snapshot.js'
+import type {
+	TypegenFieldSnapshot,
+	TypegenSchemaSnapshot,
+} from '../snapshot.js'
+import { collectObjectPathTypes, renderWhere } from './filters/field-filters.js'
 import {
 	nullProperties,
 	renderEqualityProperties,
 	renderNamedFilter,
 	renderStructuralProperties,
 } from './filters/operators.js'
-import { collectObjectPathTypes } from './filters/structural.js'
-import { renderWhere } from './filters/where.js'
+import { renderNestedWriteInputs } from './nested-writes.js'
 import {
 	propertyName,
 	quote,
 	renderDocumentation,
 	renderUnion,
 } from './syntax.js'
-import type {
-	EnumDescriptor,
-	ObjectDescriptor,
-	RenderContext,
-} from './types.js'
-import { renderNestedWriteInputs } from './nested-writes.js'
+import type { NamedDescriptor, RenderContext } from './types.js'
 import { renderProperties } from './values.js'
 
 const renderObject = (
-	descriptor: ObjectDescriptor,
+	descriptor: NamedDescriptor,
 	context: RenderContext,
 ): string => {
 	if (descriptor.field.value.kind !== 'object') {
@@ -30,55 +28,50 @@ const renderObject = (
 			`Generated object ${descriptor.ownerPath} is not an object`,
 		)
 	}
+
+	const { alias } = descriptor
+	const fields = descriptor.field.value.fields
+	const output = `export type ${alias} = ${renderProperties(fields, 'object', context)}`
+
 	if (descriptor.field.outputOnly === true) {
-		return `export type ${descriptor.alias} = ${renderProperties(descriptor.field.value.fields, 'object', context)}`
+		return output
 	}
 
-	const paths = collectObjectPathTypes(
-		descriptor.field.value.fields,
-		[],
-		context,
+	const structural = renderStructuralProperties(
+		`${alias}UpdateInput | null`,
+		`Extract<keyof ${alias}, string>`,
 	)
 
 	return [
-		`export type ${descriptor.alias} = ${renderProperties(descriptor.field.value.fields, 'object', context)}`,
-		`export type ${descriptor.alias}CreateInput = ${renderProperties(descriptor.field.value.fields, 'create', context)}`,
-		`export type ${descriptor.alias}UpdateInput = ${renderProperties(descriptor.field.value.fields, 'update', context)}`,
-		`export type ${descriptor.alias}PathFilter = ${renderUnion(paths)}`,
-		renderNamedFilter(`${descriptor.alias}PathValueFilter`, [
+		output,
+		`export type ${alias}CreateInput = ${renderProperties(fields, 'create', context)}`,
+		`export type ${alias}UpdateInput = ${renderProperties(fields, 'update', context)}`,
+		`export type ${alias}PathFilter = ${renderUnion(collectObjectPathTypes(fields, [], context))}`,
+		renderNamedFilter(`${alias}PathValueFilter`, [nullProperties, structural]),
+		renderNamedFilter(`${alias}Filter`, [
 			nullProperties,
-			renderStructuralProperties(
-				`${descriptor.alias}UpdateInput | null`,
-				`Extract<keyof ${descriptor.alias}, string>`,
-			),
-		]),
-		renderNamedFilter(`${descriptor.alias}Filter`, [
-			nullProperties,
-			renderStructuralProperties(
-				`${descriptor.alias}UpdateInput | null`,
-				`Extract<keyof ${descriptor.alias}, string>`,
-			),
-			`\treadonly at?: ReadonlyArray<${descriptor.alias}PathFilter>`,
+			structural,
+			`\treadonly at?: ReadonlyArray<${alias}PathFilter>`,
 		]),
 	].join('\n\n')
 }
 
-const renderEnum = (descriptor: EnumDescriptor): string => {
+const renderEnum = (descriptor: NamedDescriptor): string => {
 	if (descriptor.field.value.kind !== 'enum') {
 		throw new TypeError(`Generated enum ${descriptor.ownerPath} is not an enum`)
 	}
-	if (descriptor.field.outputOnly === true) {
-		return `export type ${descriptor.alias} = ${renderUnion(
-			descriptor.field.value.values.map(quote),
-		)}`
-	}
 
-	return `export type ${descriptor.alias} = ${renderUnion(
+	const { alias } = descriptor
+	const values = `export type ${alias} = ${renderUnion(
 		descriptor.field.value.values.map(quote),
-	)}\n\n${renderNamedFilter(`${descriptor.alias}Filter`, [
-		renderEqualityProperties(`${descriptor.alias} | null`),
-		nullProperties,
-	])}`
+	)}`
+
+	return descriptor.field.outputOnly === true
+		? values
+		: `${values}\n\n${renderNamedFilter(`${alias}Filter`, [
+				renderEqualityProperties(`${alias} | null`),
+				nullProperties,
+			])}`
 }
 
 export const hasRelationships = (schema: TypegenSchemaSnapshot): boolean =>
@@ -86,7 +79,7 @@ export const hasRelationships = (schema: TypegenSchemaSnapshot): boolean =>
 		({ value }) => value.kind === 'pointer' || value.kind === 'relation',
 	)
 
-export const includeType = (
+const includeType = (
 	schema: TypegenSchemaSnapshot,
 	context: RenderContext,
 ): string =>
@@ -123,30 +116,14 @@ const renderInclude = (
 	return properties.length === 0 ? 'never' : `{\n${properties.join('\n')}\n}`
 }
 
-const renderSelect = (schema: TypegenSchemaSnapshot): string => {
-	const properties = [...schema.fields, ...schema.virtualFields].flatMap(
-		(field) =>
-			field.typegen.object === 'forbidden'
-				? []
-				: [
-						`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
-					],
-	)
-
-	return `{\n${properties.join('\n')}\n}`
-}
-
-const renderDependencySelect = (schema: TypegenSchemaSnapshot): string => {
-	const properties = schema.fields.flatMap((field) =>
-		field.value.kind === 'relation'
-			? []
-			: [
-					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
-				],
-	)
-
-	return `{\n${properties.join('\n')}\n}`
-}
+/** Renders a selection map; `id` can only be selected, never deselected. */
+const renderSelection = (fields: readonly TypegenFieldSnapshot[]): string =>
+	`{\n${fields
+		.map(
+			(field) =>
+				`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
+		)
+		.join('\n')}\n}`
 
 const renderOrderBy = (schema: TypegenSchemaSnapshot): string => {
 	const properties = schema.fields.map(
@@ -161,26 +138,26 @@ export const renderSchemaPublic = (
 	context: RenderContext,
 ): string => {
 	const alias = context.identifiers.schema(schema)
+	const outputFields = [...schema.fields, ...schema.virtualFields]
 	const sections = [
-		...context.identifiers
-			.enumDefinitionsFor(schema)
-			.map((descriptor) => renderEnum(descriptor)),
+		...context.identifiers.enumDefinitionsFor(schema).map(renderEnum),
 		...context.identifiers
 			.objectDefinitionsFor(schema)
 			.map((descriptor) => renderObject(descriptor, context)),
-	]
-
-	sections.push(
 		`export type ${alias}Item = ${renderProperties(schema.fields, 'object', context)}`,
-		`export type ${alias}Output = ${renderProperties([...schema.fields, ...schema.virtualFields], 'object', context)}`,
+		`export type ${alias}Output = ${renderProperties(outputFields, 'object', context)}`,
 		`export type ${alias}CreateInput = ${renderProperties(schema.fields, 'create', context)}`,
 		`export type ${alias}UpdateInput = ${renderProperties(schema.fields, 'update', context)}`,
 		...renderNestedWriteInputs(schema, context),
 		renderWhere(schema, alias, context),
-		`export type ${alias}Select = ${renderSelect(schema)}`,
-		`export type ${alias}DependencySelect = ${renderDependencySelect(schema)}`,
+		`export type ${alias}Select = ${renderSelection(
+			outputFields.filter((field) => field.typegen.object !== 'forbidden'),
+		)}`,
+		`export type ${alias}DependencySelect = ${renderSelection(
+			schema.fields.filter((field) => field.value.kind !== 'relation'),
+		)}`,
 		`export type ${alias}OrderByInput = ${renderOrderBy(schema)}`,
-	)
+	]
 
 	if (hasRelationships(schema)) {
 		sections.push(

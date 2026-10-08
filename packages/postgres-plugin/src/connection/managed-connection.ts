@@ -4,7 +4,6 @@ import type {
 	PostgresConnectionService,
 	PostgresConnectionState,
 	PostgresPool,
-	PostgresPoolClient,
 } from './contracts.js'
 
 import { readPostgresDriverCode } from './driver-error.js'
@@ -18,45 +17,31 @@ export interface ManagedPostgresConnection extends PostgresConnectionService {
 
 /** Removes driver messages and causes because either may contain credentials. */
 const createSanitizedPostgresError = (
-	message: string,
-	publicMessage: string,
-	kind: 'postgres-connection-failed' | 'postgres-disposal-failed',
+	phase: 'connection' | 'disposal',
 	error: unknown,
-	retryable: boolean,
 ): FrameworkError<'INTERNAL_ERROR'> => {
 	const driverCode = readPostgresDriverCode(error)
+	const connecting = phase === 'connection'
 
-	return new FrameworkError('INTERNAL_ERROR', message, {
-		publicMessage,
-		retryable,
-		internalDetails: {
-			kind,
-			...(driverCode === undefined ? {} : { driverCode }),
+	return new FrameworkError(
+		'INTERNAL_ERROR',
+		connecting
+			? 'PostgreSQL connection verification failed.'
+			: 'PostgreSQL pool disposal failed.',
+		{
+			publicMessage: connecting
+				? 'The database connection could not be established.'
+				: 'The database connection could not be released.',
+			retryable: connecting,
+			internalDetails: {
+				kind: connecting
+					? 'postgres-connection-failed'
+					: 'postgres-disposal-failed',
+				...(driverCode === undefined ? {} : { driverCode }),
+			},
 		},
-	})
+	)
 }
-
-const createConnectionError = (
-	error: unknown,
-): FrameworkError<'INTERNAL_ERROR'> =>
-	createSanitizedPostgresError(
-		'PostgreSQL connection verification failed.',
-		'The database connection could not be established.',
-		'postgres-connection-failed',
-		error,
-		true,
-	)
-
-const createDisposalError = (
-	error: unknown,
-): FrameworkError<'INTERNAL_ERROR'> =>
-	createSanitizedPostgresError(
-		'PostgreSQL pool disposal failed.',
-		'The database connection could not be released.',
-		'postgres-disposal-failed',
-		error,
-		false,
-	)
 
 /** Owns one application pool without making it reachable through public context. */
 class ApplicationPostgresConnection
@@ -105,13 +90,11 @@ class ApplicationPostgresConnection
 	}
 
 	async #performConnect(): Promise<void> {
-		let client: PostgresPoolClient
-
 		try {
-			client = await this.#pool.connect()
+			const client = await this.#pool.connect()
 			client.release()
 		} catch (error: unknown) {
-			throw createConnectionError(error)
+			throw createSanitizedPostgresError('connection', error)
 		}
 
 		// A concurrent close owns the final state even if verification just succeeded.
@@ -140,7 +123,7 @@ class ApplicationPostgresConnection
 		try {
 			await this.#pool.end()
 		} catch (error: unknown) {
-			throw createDisposalError(error)
+			throw createSanitizedPostgresError('disposal', error)
 		}
 	}
 }

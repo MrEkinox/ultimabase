@@ -4,25 +4,10 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { bigintField } from '../fields/builtins/bigint.js'
-import type { binaryField } from '../fields/builtins/binary.js'
-import type { booleanField } from '../fields/builtins/boolean.js'
-import type { dateField } from '../fields/builtins/date.js'
-import type { dateTimeField } from '../fields/builtins/date-time.js'
-import type { decimalField } from '../fields/builtins/decimal.js'
-import type { enumField } from '../fields/builtins/enum.js'
-import type { floatField } from '../fields/builtins/float.js'
-import type { intField } from '../fields/builtins/int.js'
-import type { jsonField } from '../fields/builtins/json.js'
-import { objectField } from '../fields/builtins/object.js'
-import type { NamedPointerFieldBuilderMethod } from '../fields/builtins/pointer.js'
-import type { NamedRelationFieldBuilderMethod } from '../fields/builtins/relation.js'
-import type { stringField } from '../fields/builtins/string.js'
-import type { timeField } from '../fields/builtins/time.js'
-import type { uuidField } from '../fields/builtins/uuid.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type { RequestContext } from '../../runtime/context/request-context.js'
+import { builtInFieldKinds } from '../fields/base/kinds.js'
+import { objectField } from '../fields/builtins/object.js'
 import {
 	createCapturedBuilderCallRegistry,
 	type CapturedBuilderCall,
@@ -31,35 +16,28 @@ import {
 	captureOutputBuilderCallback,
 	resolveCapturedOutputDescriptor,
 } from '../output/builder.js'
+import {
+	snapshotCapturedFieldOptions,
+	snapshotCapturedFieldRecord,
+} from './captured-options.js'
 import type { SchemaDeclaredFields, SchemaFields } from './definition.js'
+import { assertEmbeddedBuiltInFieldOptions } from './embedded-field-options.js'
+import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
+import {
+	invokeFieldFactory,
+	isRelationshipMethod,
+	isUnknownCallable,
+	replayFieldBuilderMethod,
+	type FieldBuilderTargetResolver,
+} from './runtime-field-builder.js'
+import { systemFields } from './system-fields.js'
 import {
 	assertVirtualFieldDefinition,
 	createVirtualFieldDefinition,
 	normalizeVirtualFieldSelection,
 	type GenericVirtualField,
-	type VirtualFieldBuilderMethod,
+	type VirtualFieldResolver,
 } from './virtual-field.js'
-import { systemFields } from './system-fields.js'
-import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
-import { snapshotCapturedFieldOptions } from './captured-options.js'
-import {
-	assertEmbeddedBuiltInFieldOptions,
-	type EmbeddedBigintFieldFactory,
-	type EmbeddedIntFieldFactory,
-} from './embedded-field-options.js'
-import type {
-	EmbeddedFieldBuilder,
-	FieldBuilder,
-	ScalarFieldBuilderMethods,
-} from './field-builder-contract.js'
-import type { ObjectFieldBuilderMethod } from './object-field-builder.js'
-import {
-	createRuntimeFieldBuilder,
-	FieldBuilderMethodUnavailableError,
-	FieldBuilderTargetUnavailableError,
-	invokeFieldFactory,
-	type FieldBuilderTargetResolver,
-} from './runtime-field-builder.js'
 
 export type {
 	EmbeddedFieldBuilder,
@@ -67,21 +45,14 @@ export type {
 	ObjectFieldBuilderOptions,
 	SchemaFieldBuilderDeclaration,
 } from './field-builder-contract.js'
-export {
-	FieldBuilderMethodUnavailableError,
-	FieldBuilderTargetUnavailableError,
-}
-export type { FieldBuilderTargetResolver }
 
-type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
-
-const isUnknownCallable = (value: unknown): value is UnknownCallable =>
-	typeof value === 'function'
-
-type RuntimeFieldBuilderMethod = (options?: unknown) => GenericField
-
-const [createCapturedFieldBuilderCall, isCapturedFieldBuilderCall] =
-	createCapturedBuilderCallRegistry<GenericField | GenericVirtualField>()
+/*
+ * A schema `fields` callback runs exactly once, against a capturing builder:
+ * every method call returns an opaque captured call holding its snapshotted
+ * options. Compilation later replays those calls once the application has
+ * declared its plugin methods and schema registry, so the same declaration can
+ * be compiled by several applications without executing developer code again.
+ */
 
 /** Separates developer callback failures from validation of its returned map. */
 export class FieldBuilderDeclarationExecutionError extends Error {
@@ -91,135 +62,118 @@ export class FieldBuilderDeclarationExecutionError extends Error {
 	}
 }
 
-const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
-	const method = (optionsValue: unknown): GenericField => {
+type FieldMapEntry = CapturedBuilderCall | GenericField | GenericVirtualField
+
+const [createCapturedFieldBuilderCall, isCapturedFieldBuilderCall] =
+	createCapturedBuilderCallRegistry<CapturedBuilderCall>()
+
+/**
+ * Captures `object` or `virtual`, whose callback option (`fields`, `output`)
+ * must itself run now and be captured, while the other options are snapshotted.
+ */
+const captureCallbackMethod =
+	(path: string, methodName: 'object' | 'virtual') =>
+	(optionsValue: unknown): CapturedBuilderCall => {
 		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path}.object options must be a plain object`)
+			throw new TypeError(
+				`${path}.${methodName} options must be a plain object`,
+			)
 		}
 
-		const { fields: declaration, ...options } = optionsValue
-		const fields = captureFieldBuilderCallback(
-			declaration,
-			`${path}.object.fields`,
-			true,
-		)
+		const key = methodName === 'object' ? 'fields' : 'output'
+		const { [key]: callback, ...options } = optionsValue
+		const callbackPath = `${path}.${methodName}.${key}`
+		const captured =
+			methodName === 'object'
+				? captureFieldBuilderCallback(callback, callbackPath, true)
+				: captureOutputBuilderCallback(callback, callbackPath)
 
 		return createCapturedFieldBuilderCall(
-			'object',
+			methodName,
 			immutableRecord({
-				...(snapshotCapturedFieldOptions(options) as Readonly<
-					Record<string, unknown>
-				>),
-				fields,
+				...snapshotCapturedFieldRecord(options),
+				[key]: captured,
 			}),
 		)
 	}
 
-	return method as ObjectFieldBuilderMethod
-}
-
-const createCapturedVirtualMethod = (
-	path: string,
-): VirtualFieldBuilderMethod => {
-	const method = (optionsValue: unknown): GenericVirtualField => {
-		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path}.virtual options must be a plain object`)
-		}
-
-		const { output, ...options } = optionsValue
-		return createCapturedFieldBuilderCall(
-			'virtual',
-			immutableRecord({
-				...(snapshotCapturedFieldOptions(options) as Readonly<
-					Record<string, unknown>
-				>),
-				output: captureOutputBuilderCallback(output, `${path}.virtual.output`),
-			}),
-		) as GenericVirtualField
-	}
-
-	return method as VirtualFieldBuilderMethod
-}
-
+/**
+ * Creates the capturing builder handed to a developer callback. Known built-in
+ * methods are own properties; any other name is captured as a plugin method
+ * whose availability is only decided at replay time.
+ */
 const createCapturedFieldBuilder = (
 	path: string,
 	embedded: boolean,
-): FieldBuilder | EmbeddedFieldBuilder => {
-	const method =
-		(methodName: string): RuntimeFieldBuilderMethod =>
-		(options) =>
+): object => {
+	const capture =
+		(methodName: string) =>
+		(options?: unknown): CapturedBuilderCall =>
 			createCapturedFieldBuilderCall(
 				methodName,
 				snapshotCapturedFieldOptions(options),
 			)
-	const scalarMethods: ScalarFieldBuilderMethods = {
-		binary: method('binary') as typeof binaryField,
-		boolean: method('boolean') as typeof booleanField,
-		date: method('date') as typeof dateField,
-		dateTime: method('dateTime') as typeof dateTimeField,
-		decimal: method('decimal') as typeof decimalField,
-		enum: method('enum') as typeof enumField,
-		float: method('float') as typeof floatField,
-		json: method('json') as typeof jsonField,
-		object: createCapturedObjectMethod(path),
-		string: method('string') as typeof stringField,
-		time: method('time') as typeof timeField,
-		uuid: method('uuid') as typeof uuidField,
-	}
-	const known = embedded
-		? {
-				...scalarMethods,
-				bigint: method('bigint') as EmbeddedBigintFieldFactory,
-				int: method('int') as EmbeddedIntFieldFactory,
-			}
-		: {
-				...scalarMethods,
-				bigint: method('bigint') as typeof bigintField,
-				int: method('int') as typeof intField,
-				pointer: method('pointer') as NamedPointerFieldBuilderMethod,
-				relation: method('relation') as NamedRelationFieldBuilderMethod,
-				virtual: createCapturedVirtualMethod(path),
-			}
+	const methods: Record<string, unknown> = {}
 
-	return new Proxy(immutableRecord(known), {
+	for (const methodName of builtInFieldKinds) {
+		if (!embedded || !isRelationshipMethod(methodName)) {
+			methods[methodName] = capture(methodName)
+		}
+	}
+	methods.object = captureCallbackMethod(path, 'object')
+	if (!embedded) {
+		methods.virtual = captureCallbackMethod(path, 'virtual')
+	}
+
+	return new Proxy(immutableRecord(methods), {
 		get: (record, property, receiver): unknown => {
 			if (typeof property !== 'string' || Reflect.has(record, property)) {
 				return Reflect.get(record, property, receiver)
 			}
 
-			if (embedded && (property === 'pointer' || property === 'relation')) {
-				return undefined
-			}
-
-			return method(property)
+			return embedded && isRelationshipMethod(property)
+				? undefined
+				: capture(property)
 		},
 	})
 }
 
-const assertCapturedFieldMap: (
+const readFieldMapEntry = (field: unknown, path: string): FieldMapEntry => {
+	if (isCapturedFieldBuilderCall(field)) {
+		return field
+	}
+
+	if (
+		typeof field === 'object' &&
+		field !== null &&
+		'kind' in field &&
+		field.kind === 'virtual'
+	) {
+		assertVirtualFieldDefinition(field, path)
+		return field
+	}
+
+	assertFieldDefinition(field, path)
+	return field
+}
+
+/** Validates a returned map: captured calls or already-built definitions only. */
+const readFieldMap = (
 	value: unknown,
 	path: string,
-) => asserts value is Readonly<Record<string, unknown>> = (value, path) => {
+): Readonly<Record<string, FieldMapEntry>> => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must return a field map`)
 	}
 
-	for (const [name, field] of Object.entries(value)) {
-		assertNonEmptyString(name, `${path} field name`)
-
-		if (!isCapturedFieldBuilderCall(field)) {
-			if (
-				typeof field === 'object' &&
-				field !== null &&
-				'kind' in field &&
-				field.kind === 'virtual'
-			) {
-				assertVirtualFieldDefinition(field, `${path}.${name}`)
-			} else {
-				assertFieldDefinition(field, `${path}.${name}`)
-			}
-		}
-	}
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([name, field]) => {
+				assertNonEmptyString(name, `${path} field name`)
+				return [name, readFieldMapEntry(field, `${path}.${name}`)]
+			}),
+		),
+	)
 }
 
 /** Executes one declaration exactly once and snapshots its unresolved field calls. */
@@ -240,31 +194,33 @@ export const captureFieldBuilderCallback = (
 		throw new FieldBuilderDeclarationExecutionError(cause)
 	}
 
-	assertCapturedFieldMap(returned, path)
-
-	return immutableRecord(returned)
+	return readFieldMap(returned, path)
 }
 
+/** Replays one captured non-virtual call; `object` recurses into its captured map. */
 const resolveCapturedFieldBuilderCall = (
 	call: CapturedBuilderCall,
-	fieldPath: string,
+	path: string,
 	embedded: boolean,
 	fieldMethods: FieldBuilderMethodResolver | undefined,
 	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): GenericField => {
+	const { methodName, options } = call
+	const methodPath = `${path}.${methodName}`
+
 	if (embedded) {
-		assertEmbeddedBuiltInFieldOptions(call.methodName, call.options, fieldPath)
+		assertEmbeddedBuiltInFieldOptions(methodName, options, path)
 	}
 
-	if (call.methodName === 'object') {
-		if (!isPlainRecord(call.options)) {
-			throw new TypeError(`${fieldPath}.object options must be a plain object`)
+	if (methodName === 'object') {
+		if (!isPlainRecord(options)) {
+			throw new TypeError(`${methodPath} options must be a plain object`)
 		}
 
-		const { fields: capturedFields, ...options } = call.options
+		const { fields: capturedFields, ...objectOptions } = options
 		const fields = resolveCapturedFieldMap(
 			capturedFields,
-			`${fieldPath}.object.fields`,
+			`${methodPath}.fields`,
 			true,
 			fieldMethods,
 			resolveTarget,
@@ -272,34 +228,17 @@ const resolveCapturedFieldBuilderCall = (
 
 		return invokeFieldFactory(
 			objectField,
-			{ ...options, fields },
-			`${fieldPath}.object`,
+			{ ...objectOptions, fields },
+			methodPath,
 		)
 	}
 
-	const pluginMethod = fieldMethods?.get(call.methodName)
-	if (
-		pluginMethod !== undefined &&
-		pluginMethod.contexts[embedded ? 'embedded' : 'stored'] === undefined
-	) {
-		throw new TypeError(
-			`${fieldPath} FieldBuilder method "${call.methodName}" from "${pluginMethod.owner}" does not support the ${embedded ? 'embedded' : 'stored'} context`,
-		)
-	}
-
-	const builder = createRuntimeFieldBuilder(
-		fieldPath,
+	return replayFieldBuilderMethod(
+		call,
+		path,
 		embedded,
 		fieldMethods,
 		resolveTarget,
-		executeFieldBuilderCallback,
-	)
-	const factory = Reflect.get(builder, call.methodName) as unknown
-
-	return invokeFieldFactory(
-		factory,
-		call.options,
-		`${fieldPath}.${call.methodName}`,
 	)
 }
 
@@ -311,25 +250,20 @@ export const resolveCapturedFieldMap = (
 	fieldMethods?: FieldBuilderMethodResolver,
 	resolveTarget?: FieldBuilderTargetResolver,
 ): SchemaDeclaredFields => {
-	assertCapturedFieldMap(captured, path)
 	const fields: Record<string, GenericField | GenericVirtualField> = {}
 	const virtualCalls: [string, CapturedBuilderCall][] = []
 
-	for (const [name, field] of Object.entries(captured)) {
-		if (isCapturedFieldBuilderCall(field)) {
-			if (!embedded && field.methodName === 'virtual') {
-				virtualCalls.push([name, field])
-				continue
-			}
-			if (
-				embedded &&
-				(field.methodName === 'pointer' || field.methodName === 'relation')
-			) {
-				throw new TypeError(
-					`${path}.${name} cannot be a pointer or relation inside objectField`,
-				)
-			}
-
+	for (const [name, field] of Object.entries(readFieldMap(captured, path))) {
+		if (!isCapturedFieldBuilderCall(field)) {
+			fields[name] = field
+		} else if (!embedded && field.methodName === 'virtual') {
+			// Virtual fields select persisted dependencies, so they resolve last.
+			virtualCalls.push([name, field])
+		} else if (embedded && isRelationshipMethod(field.methodName)) {
+			throw new TypeError(
+				`${path}.${name} cannot be a pointer or relation inside objectField`,
+			)
+		} else {
 			fields[name] = resolveCapturedFieldBuilderCall(
 				field,
 				`${path}.${name}`,
@@ -337,62 +271,41 @@ export const resolveCapturedFieldMap = (
 				fieldMethods,
 				resolveTarget,
 			)
-			continue
 		}
-
-		fields[name] = field as GenericField | GenericVirtualField
 	}
 
-	const persistedFields = immutableRecord({
+	const persistedFields: SchemaFields = immutableRecord({
 		...Object.fromEntries(
-			Object.entries(fields).filter(([, field]) => field.kind !== 'virtual'),
+			Object.entries(fields).filter(
+				(entry): entry is [string, GenericField] => entry[1].kind !== 'virtual',
+			),
 		),
 		...systemFields,
-	}) as SchemaFields
+	})
 	for (const [name, call] of virtualCalls) {
+		const virtualPath = `${path}.${name}.virtual`
 		if (!isPlainRecord(call.options)) {
-			throw new TypeError(
-				`${path}.${name}.virtual options must be a plain object`,
-			)
+			throw new TypeError(`${virtualPath} options must be a plain object`)
 		}
 		const { output, resolve, select, ...options } = call.options
 		if (typeof resolve !== 'function') {
-			throw new TypeError(`${path}.${name}.virtual.resolve must be a function`)
+			throw new TypeError(`${virtualPath}.resolve must be a function`)
 		}
 		fields[name] = createVirtualFieldDefinition(
 			resolveCapturedOutputDescriptor(
 				output,
-				`${path}.${name}.virtual.output`,
+				`${virtualPath}.output`,
 				fieldMethods,
 			),
 			normalizeVirtualFieldSelection(
 				select,
 				persistedFields,
-				`${path}.${name}.virtual.select`,
+				`${virtualPath}.select`,
 			),
-			resolve as (input: {
-				readonly context: RequestContext
-				readonly item: Readonly<object>
-			}) => unknown,
+			resolve as VirtualFieldResolver<object, unknown>,
 			immutableRecord(options),
 		)
 	}
 
 	return immutableRecord(fields)
 }
-
-/** Executes and materializes one declaration for lower-level compatibility callers. */
-export const executeFieldBuilderCallback = (
-	declaration: unknown,
-	path: string,
-	embedded = false,
-	fieldMethods?: FieldBuilderMethodResolver,
-	resolveTarget?: FieldBuilderTargetResolver,
-): SchemaDeclaredFields =>
-	resolveCapturedFieldMap(
-		captureFieldBuilderCallback(declaration, path, embedded),
-		path,
-		embedded,
-		fieldMethods,
-		resolveTarget,
-	)

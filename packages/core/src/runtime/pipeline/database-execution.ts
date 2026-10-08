@@ -1,24 +1,21 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import {
-	type DatabaseConstraintNode,
-	type DatabaseInclusionPlan,
-	type DatabaseMutationLogicalRecord,
-	type DatabaseMutationOperationAst,
-	type DatabaseOperationAst,
-	type DatabaseOperationExecutor,
-	type DatabaseOperationOutcome,
-	type DatabaseOperationResult,
-	type DatabaseRelationPredicateScope,
-	type DatabaseRelationScope,
-	type DatabaseRowFilterNode,
-	type DatabaseTransactionAdapter,
-	type PreparedDatabaseOperation,
-} from '../database/contracts.js'
 import type {
-	ExecutableOperationAst,
-	QuerySelectionNode,
-} from '../../query/index.js'
+	DatabaseConstraintNode,
+	DatabaseInclusionPlan,
+	DatabaseMutationLogicalRecord,
+	DatabaseMutationOperationAst,
+	DatabaseOperationAst,
+	DatabaseOperationExecutor,
+	DatabaseOperationOutcome,
+	DatabaseOperationResult,
+	DatabaseRelationPredicateScope,
+	DatabaseRelationScope,
+	DatabaseRowFilterNode,
+	DatabaseTransactionAdapter,
+	PreparedDatabaseOperation,
+} from '../database/contracts.js'
+import type { QuerySelectionNode } from '../../query/index.js'
 import type { RuntimePersistencePlanRewriteStage } from '../persistence/contracts.js'
 import {
 	assertPersistencePlanCapability,
@@ -38,14 +35,13 @@ import type {
 	RuntimeEnforcementStages,
 	RuntimeMutationRevalidationStage,
 } from './contracts.js'
-import { loadSingularMutationInclusionSource } from './inclusion-projection.js'
+import { loadSingularMutationInclusionSource } from './mutation-inclusion-source.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
 import {
 	createRuntimeEnforcementInput,
-	createRuntimeMutationOutcomeInput,
-	createRuntimeMutationRevalidationInput,
 	createRuntimeOperationInput,
 	createRuntimePreparedMutationInput,
+	createRuntimeStageInput,
 	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
 
@@ -81,24 +77,6 @@ const assertPreparedMutationExecutor: (
 	}
 }
 
-/** Correlates validated prepared records with their adapter operation contract. */
-const readPreparedMutationRecords = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	prepared: PreparedDatabaseOperation<TOperation>,
-): Readonly<{
-	target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
-	targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
-}> => {
-	const records = readRuntimePreparedMutationRecords(prepared)
-
-	// The adapter contract ties these validated logical records to the operation schema.
-	return records as Readonly<{
-		target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
-		targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
-	}>
-}
-
 export interface RuntimeDatabaseExecutionRequest<
 	TOperation extends DatabaseOperationAst,
 > {
@@ -114,7 +92,7 @@ export interface RuntimeDatabaseExecutionRequest<
 }
 
 /** Interleaves Core-owned graph work without storing callbacks in the graph. */
-export interface RuntimeMutationExecutionLifecycle {
+interface RuntimeMutationExecutionLifecycle {
 	afterMutationOutcome(outcome: unknown): Promise<void>
 	afterMutationResolution(operation: DatabaseMutationOperationAst): void
 	beforeMutationResolution(
@@ -138,6 +116,9 @@ export const executeRuntimeDatabaseOperation = async <
 	nestedLifecycle?: RuntimeMutationExecutionLifecycle,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertDatabaseRequestCapabilities(executor, request)
+	const retainedEnforcement = () =>
+		enforcementState === undefined ? {} : { enforcement: enforcementState }
+
 	if (!isRuntimeMutationOperation(request.operation)) {
 		if (behaviors?.beforeOperation !== undefined) {
 			await behaviors.beforeOperation(
@@ -158,9 +139,7 @@ export const executeRuntimeDatabaseOperation = async <
 		)
 
 		return immutableRecord({
-			...(enforcementState === undefined
-				? {}
-				: { enforcement: enforcementState }),
+			...retainedEnforcement(),
 			objectIdentities: collectDatabaseObjectIdentities(
 				executor,
 				request.operation,
@@ -173,29 +152,37 @@ export const executeRuntimeDatabaseOperation = async <
 
 	assertPreparedMutationExecutor(executor)
 	type TMutationOperation = TOperation & DatabaseMutationOperationAst
+	type TMutationRecord = DatabaseMutationLogicalRecord<TMutationOperation>
 	// The operation-kind guard above narrows the generic request to its mutation branch.
 	const initialOperation: TMutationOperation = request.operation
-	let executableOperation: TMutationOperation = initialOperation
-	let operationTransformed = false
-	let finalConstraints = request.constraints
+	let operation: TMutationOperation = initialOperation
+	// Counts value-changing replacements; final validation never counts as one.
+	let replacements = 0
+	let constraints = request.constraints
+	let target: TMutationRecord | null | undefined
+	let targets: readonly TMutationRecord[] | undefined
+	const replaceOperation = (next: TMutationOperation): void => {
+		if (next !== operation) replacements += 1
+		operation = next
+	}
 	const prepareMutationItems =
 		behaviors?.requiresPreparedMutationItems?.(request.operation) === true ||
 		enforcement?.requiresPreparedMutationItems?.(request.operation) === true ||
 		(persistencePlanRewrite !== undefined &&
 			request.operation.kind === 'delete-many')
-	const prepareMutation = async (
-		operation: TMutationOperation,
-		constraints: readonly DatabaseConstraintNode[],
-	): Promise<PreparedDatabaseOperation<TMutationOperation>> => {
+	const prepareMutation = async (): Promise<
+		Readonly<{
+			prepared: PreparedDatabaseOperation<TMutationOperation>
+			target: TMutationRecord | null | undefined
+			targets?: readonly TMutationRecord[]
+		}>
+	> => {
 		const plan = createDatabasePersistencePlanWithSelection(
 			operation,
-			request.returningSelection ??
-				readOperationResultSelection(
-					operation as unknown as ExecutableOperationAst,
-				),
+			request.returningSelection ?? readOperationResultSelection(operation),
 		)
 		assertPersistencePlanCapability(executor, plan)
-		return executor.prepare(
+		const prepared = await executor.prepare(
 			immutableRecord({
 				constraints,
 				operation,
@@ -217,252 +204,177 @@ export const executeRuntimeDatabaseOperation = async <
 					: { rowFilter: request.rowFilter }),
 			}),
 		)
-	}
-	const resolveMutationInput = async (
-		target:
-			DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined,
-		targets:
-			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
-	): Promise<void> => {
-		if (
-			behaviors?.transformInput !== undefined &&
-			executableOperation.kind !== 'delete-one' &&
-			executableOperation.kind !== 'delete-many'
-		) {
-			const operationBeforeResolution = executableOperation
-			executableOperation = await behaviors.transformInput(
-				createRuntimeOperationInput(context, executableOperation),
-			)
-			operationTransformed ||= executableOperation !== operationBeforeResolution
-		}
+		// The adapter contract ties these validated logical records to the operation schema.
+		const records = readRuntimePreparedMutationRecords(prepared) as Readonly<{
+			target: TMutationRecord | null | undefined
+			targets?: readonly TMutationRecord[]
+		}>
+		const directed =
+			operation.kind === 'update-one' || operation.kind === 'delete-one'
 
 		if (
-			behaviors?.transformPreparedInput !== undefined &&
-			(executableOperation.kind === 'create-one' ||
-				executableOperation.kind === 'update-one' ||
-				executableOperation.kind === 'upsert-one') &&
-			!(executableOperation.kind === 'update-one' && target === null)
+			(directed || operation.kind === 'upsert-one') &&
+			records.target === undefined
 		) {
-			const operationBeforeResolution = executableOperation
-			executableOperation = await behaviors.transformPreparedInput(
+			throw new TypeError(
+				'Prepared directed mutation must expose its complete target',
+			)
+		}
+		if (
+			prepareMutationItems &&
+			(operation.kind === 'update-many' || operation.kind === 'delete-many') &&
+			records.targets === undefined
+		) {
+			throw new TypeError(
+				'Prepared set-based mutation must expose its complete targets',
+			)
+		}
+		if (directed && records.target === null && request.strictTarget === true) {
+			throw createProtectedObjectNotFoundError()
+		}
+		return { ...records, prepared }
+	}
+	const enforcePreparedMutation = async (): Promise<void> => {
+		if (
+			enforcement?.enforcePreparedMutation !== undefined &&
+			enforcementState !== undefined
+		) {
+			await enforcement.enforcePreparedMutation(
+				createRuntimePreparedMutationInput(context, operation, target, targets),
+			)
+		}
+	}
+
+	// Creates have no stable target, so they prepare only after input resolution.
+	const preparesAfterResolution =
+		operation.kind === 'create-one' || operation.kind === 'create-many'
+	let prepared: PreparedDatabaseOperation<TMutationOperation> | undefined
+
+	if (!preparesAfterResolution) {
+		;({ prepared, target, targets } = await prepareMutation())
+		await enforcePreparedMutation()
+	}
+	if (nestedLifecycle !== undefined) {
+		// Nested graph coordination proves it returns the same mutation terminal.
+		replaceOperation(
+			(await nestedLifecycle.beforeMutationResolution(
+				operation,
+				target,
+			)) as TMutationOperation,
+		)
+	}
+
+	if (
+		behaviors?.transformInput !== undefined &&
+		operation.kind !== 'delete-one' &&
+		operation.kind !== 'delete-many'
+	) {
+		replaceOperation(
+			await behaviors.transformInput(
+				createRuntimeOperationInput(context, operation),
+			),
+		)
+	}
+	if (
+		behaviors?.transformPreparedInput !== undefined &&
+		(operation.kind === 'create-one' ||
+			operation.kind === 'update-one' ||
+			operation.kind === 'upsert-one') &&
+		!(operation.kind === 'update-one' && target === null)
+	) {
+		replaceOperation(
+			await behaviors.transformPreparedInput(
 				createRuntimePreparedMutationInput(
 					context,
-					operationBeforeResolution,
-					executableOperation.kind === 'create-one' ? null : target,
+					operation,
+					operation.kind === 'create-one' ? null : target,
 					targets,
 				),
-			)
-			operationTransformed ||= executableOperation !== operationBeforeResolution
-		}
-
-		if (
-			target !== undefined &&
-			target !== null &&
-			behaviors?.transformPreparedOperation !== undefined
-		) {
-			const operationBeforeResolution = executableOperation
-			executableOperation = await behaviors.transformPreparedOperation(
+			),
+		)
+	}
+	if (
+		target !== undefined &&
+		target !== null &&
+		behaviors?.transformPreparedOperation !== undefined
+	) {
+		replaceOperation(
+			await behaviors.transformPreparedOperation(
 				createRuntimePreparedMutationInput(
 					context,
-					operationBeforeResolution,
+					operation,
 					target,
 					undefined,
 				),
-			)
-			operationTransformed ||= executableOperation !== operationBeforeResolution
-		}
-
-		executableOperation = await finalMutationValidation(
-			createRuntimeMutationRevalidationInput(
-				context,
-				initialOperation,
-				executableOperation,
-				target,
-				targets,
 			),
 		)
-
-		if (behaviors?.guardMutationInput !== undefined) {
-			throwIfOperationCancelled(context.signal, {
-				operationKind: executableOperation.kind,
-				phase: 'final-mutation-input-guard',
-			})
-			await behaviors.guardMutationInput(
-				createRuntimePreparedMutationInput(
-					context,
-					executableOperation,
-					target,
-					targets,
-				),
-			)
-			throwIfOperationCancelled(context.signal, {
-				operationKind: executableOperation.kind,
-				phase: 'final-mutation-input-guard',
-			})
-		}
-
-		if (
-			operationTransformed &&
-			enforcement !== undefined &&
-			enforcementState !== undefined
-		) {
-			enforcementState = await enforcement.reevaluate(
-				createRuntimeEnforcementInput(
-					context,
-					executableOperation,
-					enforcementState,
-				),
-			)
-			const enforced = await enforcement.enforceOperation(
-				createRuntimeEnforcementInput(
-					context,
-					executableOperation,
-					enforcementState,
-				),
-			)
-			executableOperation = enforced.operation
-			finalConstraints = snapshotRuntimeConstraints(enforced.constraints)
-		}
-
-		if (
-			operationTransformed &&
-			enforcement?.enforcePreparedMutation !== undefined &&
-			enforcementState !== undefined
-		) {
-			await enforcement.enforcePreparedMutation(
-				createRuntimePreparedMutationInput(
-					context,
-					executableOperation,
-					target,
-					targets,
-				),
-			)
-		}
 	}
-	const runMutationObservers = async (
-		target:
-			DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined,
-		targets:
-			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
-	): Promise<void> => {
-		if (behaviors?.beforeOperation !== undefined) {
-			await behaviors.beforeOperation(
-				createRuntimeOperationInput(context, executableOperation),
-			)
+
+	operation = await finalMutationValidation(
+		createRuntimeStageInput({
+			context,
+			operation,
+			previousOperation: initialOperation,
+			target,
+			...(targets === undefined ? {} : { targets }),
+		}),
+	)
+
+	if (behaviors?.guardMutationInput !== undefined) {
+		const cancellation = {
+			operationKind: operation.kind,
+			phase: 'final-mutation-input-guard',
 		}
-
-		if (
-			behaviors?.observePreparedMutation !== undefined &&
-			!(
-				(executableOperation.kind === 'update-one' ||
-					executableOperation.kind === 'delete-one') &&
-				target === null
-			)
-		) {
-			await behaviors.observePreparedMutation(
-				createRuntimePreparedMutationInput(
-					context,
-					executableOperation,
-					target,
-					targets,
-				),
-			)
-		}
-	}
-	const preparesAfterResolution =
-		executableOperation.kind === 'create-one' ||
-		executableOperation.kind === 'create-many'
-	let prepared: PreparedDatabaseOperation<TMutationOperation>
-
-	if (preparesAfterResolution) {
-		if (nestedLifecycle !== undefined) {
-			const operationBeforeNested = executableOperation
-			executableOperation = (await nestedLifecycle.beforeMutationResolution(
-				executableOperation,
-				undefined,
-			)) as TMutationOperation
-			operationTransformed ||= executableOperation !== operationBeforeNested
-		}
-		await resolveMutationInput(undefined, undefined)
-		nestedLifecycle?.afterMutationResolution(executableOperation)
-		await runMutationObservers(undefined, undefined)
-		prepared = await prepareMutation(executableOperation, finalConstraints)
-	} else {
-		prepared = await prepareMutation(executableOperation, finalConstraints)
-	}
-	const { target, targets } = readPreparedMutationRecords(prepared)
-
-	const requiresPreparedTarget =
-		executableOperation.kind === 'update-one' ||
-		executableOperation.kind === 'delete-one'
-	const requiresExposedTarget =
-		requiresPreparedTarget || executableOperation.kind === 'upsert-one'
-
-	if (requiresExposedTarget && target === undefined) {
-		throw new TypeError(
-			'Prepared directed mutation must expose its complete target',
+		throwIfOperationCancelled(context.signal, cancellation)
+		await behaviors.guardMutationInput(
+			createRuntimePreparedMutationInput(context, operation, target, targets),
 		)
+		throwIfOperationCancelled(context.signal, cancellation)
 	}
 
 	if (
-		prepareMutationItems &&
-		(executableOperation.kind === 'update-many' ||
-			executableOperation.kind === 'delete-many') &&
-		targets === undefined
+		replacements > 0 &&
+		enforcement !== undefined &&
+		enforcementState !== undefined
 	) {
-		throw new TypeError(
-			'Prepared set-based mutation must expose its complete targets',
+		enforcementState = await enforcement.reevaluate(
+			createRuntimeEnforcementInput(context, operation, enforcementState),
+		)
+		const enforced = await enforcement.enforceOperation(
+			createRuntimeEnforcementInput(context, operation, enforcementState),
+		)
+		operation = enforced.operation
+		constraints = snapshotRuntimeConstraints(enforced.constraints)
+	}
+	if (replacements > 0) await enforcePreparedMutation()
+	nestedLifecycle?.afterMutationResolution(operation)
+
+	if (behaviors?.beforeOperation !== undefined) {
+		await behaviors.beforeOperation(
+			createRuntimeOperationInput(context, operation),
+		)
+	}
+	if (
+		behaviors?.observePreparedMutation !== undefined &&
+		!(
+			(operation.kind === 'update-one' || operation.kind === 'delete-one') &&
+			target === null
+		)
+	) {
+		await behaviors.observePreparedMutation(
+			createRuntimePreparedMutationInput(context, operation, target, targets),
 		)
 	}
 
-	if (
-		requiresPreparedTarget &&
-		target === null &&
-		request.strictTarget === true
-	) {
-		throw createProtectedObjectNotFoundError()
-	}
-
-	if (!preparesAfterResolution) {
-		if (
-			enforcement?.enforcePreparedMutation !== undefined &&
-			enforcementState !== undefined
-		) {
-			await enforcement.enforcePreparedMutation(
-				createRuntimePreparedMutationInput(
-					context,
-					executableOperation,
-					target,
-					targets,
-				),
-			)
-		}
-
-		if (nestedLifecycle !== undefined) {
-			const operationBeforeNested = executableOperation
-			executableOperation = (await nestedLifecycle.beforeMutationResolution(
-				executableOperation,
-				target,
-			)) as TMutationOperation
-			operationTransformed ||= executableOperation !== operationBeforeNested
-		}
-
-		await resolveMutationInput(target, targets)
-		nestedLifecycle?.afterMutationResolution(executableOperation)
-		await runMutationObservers(target, targets)
-	}
-	const persistencePlan = await compileDatabasePersistencePlan(
+	prepared ??= (await prepareMutation()).prepared
+	const plan = await compileDatabasePersistencePlan(
 		executor,
-		executableOperation,
+		operation,
 		persistencePlanRewrite,
 		request.returningSelection,
 	)
 	let outcome = await prepared.execute(
-		immutableRecord({
-			constraints: finalConstraints,
-			operation: executableOperation,
-			plan: persistencePlan,
-		}),
+		immutableRecord({ constraints, operation, plan }),
 	)
 
 	if (
@@ -470,33 +382,35 @@ export const executeRuntimeDatabaseOperation = async <
 		enforcementState !== undefined
 	) {
 		outcome = await enforcement.enforceMutationOutcome(
-			createRuntimeMutationOutcomeInput(context, executableOperation, outcome),
+			createRuntimeStageInput({ context, operation, outcome }),
 		)
 	}
-
 	if (behaviors?.transformMutationOutcome !== undefined) {
+		const selectedFieldsOverride = request.returningSelection?.fields.map(
+			({ field }) => field,
+		)
 		outcome = await behaviors.transformMutationOutcome(
-			createRuntimeMutationOutcomeInput(
+			createRuntimeStageInput({
 				context,
-				request.operation,
+				operation: request.operation,
 				outcome,
-				request.returningSelection?.fields.map(({ field }) => field),
-			),
+				...(selectedFieldsOverride === undefined
+					? {}
+					: { selectedFieldsOverride }),
+			}),
 		)
 	}
 	await nestedLifecycle?.afterMutationOutcome(outcome)
 	const inclusionSource = await loadSingularMutationInclusionSource(
 		executor,
-		executableOperation,
+		operation,
 		outcome,
 		request.inclusions,
 		request.returningSelection,
 	)
 
 	return immutableRecord({
-		...(enforcementState === undefined
-			? {}
-			: { enforcement: enforcementState }),
+		...retainedEnforcement(),
 		...(inclusionSource === undefined ? {} : { inclusionSource }),
 		objectIdentities: collectDatabaseObjectIdentities(
 			executor,
@@ -505,7 +419,7 @@ export const executeRuntimeDatabaseOperation = async <
 			outcome,
 		),
 		outcome,
-		operation: executableOperation,
+		operation,
 		// With eager loading, the transaction-bound get is the authoritative result.
 		result: inclusionSource ?? outcome.result,
 	})

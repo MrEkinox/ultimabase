@@ -1,27 +1,27 @@
-import { immutableRecord } from '@ultimabase/shared'
-import type {
-	ApplicationCallbackExecutor,
-	DatabaseMutationOperationAst,
-	ProtectedPolicyEffects,
-	RuntimeBehaviorBoundaries,
-	RuntimeLogicalOperationAst,
-	RuntimeLogicalMutationOperationAst,
-	RuntimeMutationOutcomeStageInput,
-	RuntimeOperationStageInput,
-	RuntimePreparedMutationStageInput,
-	RuntimeRelationEnforcementStageInput,
-} from '@ultimabase/core'
 import {
 	createRuntimeBehaviorBoundaries,
 	readRuntimePreparedMutationRecords,
+	type ApplicationCallbackExecutor,
+	type DatabaseMutationOperationAst,
+	type ProtectedPolicyEffects,
+	type RequestContext,
+	type RuntimeBehaviorBoundaries,
+	type RuntimeLogicalMutationOperationAst,
+	type RuntimeLogicalOperationAst,
+	type RuntimeMutationOutcomeStageInput,
+	type RuntimeOperationStageInput,
+	type RuntimePreparedMutationStageInput,
+	type RuntimeRelationEnforcementStageInput,
+	type RuntimeResultStageInput,
 } from '@ultimabase/core'
-import { allowUndeclaredFieldAccess } from '../authoring/plan.js'
+import { immutableRecord } from '@ultimabase/shared'
+
 import type { AccessPlan } from '../authoring/plan.js'
 import type { AccessDiagnosticsObserver } from './diagnostics.js'
 import { AccessExecutionRuntime } from './execution-runtime.js'
 import {
-	enforceAccessMutationOutcome,
 	enforceAccessPreparedMutation,
+	enforceAccessUpsertOutcome,
 	evaluateAccessCreateItems,
 	requiresAccessPreparedMutationItems,
 } from './item-access.js'
@@ -32,32 +32,24 @@ import {
 	enforceAccessOutput,
 } from './output-access.js'
 import {
-	assertAccessDecisionRules,
-	evaluateAccessFieldReferenceRules,
-	evaluateAccessOperationAndFilter,
-	readNativeAccessRequest,
-	requireAccessSchemaPlan,
-	type AccessRuntimeRequest,
-} from './rule-evaluation.js'
-import {
+	assertAccessRules,
+	createAccessScope,
 	enforceSchemaMutationItemAccess,
+	evaluateAccessFieldReferenceRules,
+	evaluateAccessOperation,
 	evaluateSchemaMutationAccess,
-	isSchemaMutationAccessRequest,
-} from './schema-mutation-access.js'
+	readExecutableOperation,
+	type AccessScope,
+} from './rule-evaluation.js'
 
-const readNativeMutationOperation = (
-	operation: RuntimeLogicalMutationOperationAst,
-): DatabaseMutationOperationAst => {
-	if (operation.kind === 'plugin-schema-mutation') {
-		throw new TypeError('Native Access requires a database mutation')
-	}
-
-	return operation
-}
-
-/** Executes one application's immutable official Access plan at Runtime boundaries. */
+/**
+ * Executes one application's immutable official Access plan at Runtime
+ * boundaries. Guards resolve to `true` and signal denial by throwing
+ * `PERMISSION_DENIED`, which the protected policy adapter turns into `false`.
+ */
 export class AccessRuntime {
-	readonly #boundaries: RuntimeBehaviorBoundaries
+	readonly #boundaries: RuntimeBehaviorBoundaries =
+		createRuntimeBehaviorBoundaries()
 	readonly #plan: AccessPlan
 	readonly #runtime: AccessExecutionRuntime
 
@@ -66,114 +58,86 @@ export class AccessRuntime {
 		observer?: AccessDiagnosticsObserver,
 		callbacks?: ApplicationCallbackExecutor,
 	) {
-		this.#boundaries = createRuntimeBehaviorBoundaries()
 		this.#plan = plan
 		this.#runtime = new AccessExecutionRuntime(observer, callbacks)
 		Object.freeze(this)
 	}
 
+	#scope(
+		context: RequestContext,
+		operation: RuntimeLogicalOperationAst,
+	): AccessScope {
+		return createAccessScope(this.#runtime, this.#plan, context, operation)
+	}
+
 	async evaluate<const TOperation extends RuntimeLogicalOperationAst>(
 		request: RuntimeOperationStageInput<TOperation>,
 	): Promise<ProtectedPolicyEffects> {
-		const accessRequest: AccessRuntimeRequest = request
-		const schemaPlan = requireAccessSchemaPlan(
-			this.#plan,
-			accessRequest.operation,
-		)
-
-		const schemaMutation = isSchemaMutationAccessRequest(accessRequest)
+		const operation: RuntimeLogicalOperationAst = request.operation
+		const scope = this.#scope(request.context, operation)
 		let rowFilter
-		if (schemaMutation) {
-			rowFilter = await evaluateSchemaMutationAccess(
-				this.#runtime,
-				accessRequest,
-				this.#plan,
-				schemaPlan,
-			)
+		if (operation.kind === 'plugin-schema-mutation') {
+			rowFilter = await evaluateSchemaMutationAccess(scope, operation)
 		} else {
-			const nativeRequest = readNativeAccessRequest(accessRequest)
-			rowFilter = await evaluateAccessOperationAndFilter(
-				this.#runtime,
-				nativeRequest,
-				this.#plan,
-				schemaPlan,
-			)
-
+			rowFilter = await evaluateAccessOperation(scope, operation.kind)
 			// Native field transitions and create-item checks belong only to CRUD.
-			await evaluateAccessFieldReferenceRules(
-				this.#runtime,
-				nativeRequest,
-				this.#plan,
-				schemaPlan,
-			)
+			await evaluateAccessFieldReferenceRules(scope, operation)
 			await evaluateAccessMutationFieldRules(
-				this.#runtime,
-				nativeRequest,
-				this.#plan,
-				schemaPlan,
+				scope,
+				operation,
+				request.nestedWrite,
 			)
-			await evaluateAccessCreateItems(this.#runtime, nativeRequest, schemaPlan)
+			await evaluateAccessCreateItems(scope, operation)
 		}
 
-		const permitted = computeAccessStaticSelection(schemaPlan)
-		assertAccessExplicitSelection(request, this.#plan, schemaPlan, permitted)
+		const selectionFields = computeAccessStaticSelection(scope.schemaPlan)
+		assertAccessExplicitSelection(scope, operation, selectionFields)
 		return immutableRecord({
 			...(rowFilter === undefined ? {} : { rowFilter }),
-			...(permitted === undefined ? {} : { selectionFields: permitted }),
+			...(selectionFields === undefined ? {} : { selectionFields }),
 		})
 	}
 
 	async reevaluate<const TOperation extends RuntimeLogicalOperationAst>(
 		request: RuntimeOperationStageInput<TOperation>,
-	): Promise<boolean> {
-		const accessRequest: AccessRuntimeRequest = request
-		if (isSchemaMutationAccessRequest(accessRequest)) return true
-		const schemaPlan = requireAccessSchemaPlan(
-			this.#plan,
-			accessRequest.operation,
-		)
-		const nativeRequest = readNativeAccessRequest(accessRequest)
-
+	): Promise<true> {
+		const operation: RuntimeLogicalOperationAst = request.operation
+		if (operation.kind === 'plugin-schema-mutation') return true
+		const scope = this.#scope(request.context, operation)
 		await evaluateAccessMutationFieldRules(
-			this.#runtime,
-			nativeRequest,
-			this.#plan,
-			schemaPlan,
+			scope,
+			operation,
+			request.nestedWrite,
 		)
-		await evaluateAccessCreateItems(this.#runtime, nativeRequest, schemaPlan)
-
+		await evaluateAccessCreateItems(scope, operation)
 		return true
 	}
 
 	/** Enforces one relation source field absent from persisted row output. */
 	async enforceRelationRead(
 		request: RuntimeRelationEnforcementStageInput,
-	): Promise<void> {
+	): Promise<true> {
 		const { source, fieldPath } = request.relation
 		const field = this.#plan.getField(source, fieldPath)
 
 		// Pointer predicates are checked through their ordinary `where` channel;
 		// this guard owns only source relation handles that have no row value.
-		if (field?.field.kind === 'pointer') {
-			return
-		}
+		if (field?.field.kind === 'pointer') return true
 		if (field?.field.kind !== 'relation') {
 			throw new TypeError('Native Access relation field is unavailable')
 		}
-
-		await assertAccessDecisionRules(
-			this.#runtime,
-			request,
-			field.read.item,
+		await assertAccessRules(
 			{
-				branch: 'item',
-				field,
-				phase: 'access-field-read',
+				context: request.context,
+				operation: request.operation.kind,
+				runtime: this.#runtime,
 				schema: source,
 			},
+			field.read.item,
+			{ branch: 'item', field, phase: 'access-field-read' },
 			immutableRecord({ context: request.context }),
-			allowUndeclaredFieldAccess,
 		)
+		return true
 	}
 
 	/** Requests set preimages only when configured rules need item values. */
@@ -188,29 +152,23 @@ export class AccessRuntime {
 		const TTarget,
 	>(
 		request: RuntimePreparedMutationStageInput<TOperation, TTarget>,
-	): Promise<void> {
-		const accessRequest: AccessRuntimeRequest = request
-		if (isSchemaMutationAccessRequest(accessRequest)) {
-			return enforceSchemaMutationItemAccess(
+	): Promise<true> {
+		const operation: RuntimeLogicalMutationOperationAst = request.operation
+		if (operation.kind === 'plugin-schema-mutation') {
+			await enforceSchemaMutationItemAccess(
+				this.#scope(request.context, operation),
+				operation,
+			)
+		} else {
+			await enforceAccessPreparedMutation(
 				this.#runtime,
-				accessRequest,
-				requireAccessSchemaPlan(this.#plan, accessRequest.operation),
+				this.#plan,
+				request.context,
+				operation,
+				readRuntimePreparedMutationRecords(request),
 			)
 		}
-		const { targets, ...requestWithoutTargets } = request
-
-		return enforceAccessPreparedMutation(
-			this.#runtime,
-			this.#plan,
-			immutableRecord({
-				...requestWithoutTargets,
-				...readRuntimePreparedMutationRecords({
-					target: request.target,
-					targets,
-				}),
-				operation: readNativeMutationOperation(request.operation),
-			}),
-		)
+		return true
 	}
 
 	async enforceMutationOutcome<
@@ -218,40 +176,33 @@ export class AccessRuntime {
 		const TOutcome,
 	>(
 		request: RuntimeMutationOutcomeStageInput<TOperation, TOutcome>,
-	): Promise<void> {
-		const accessRequest: AccessRuntimeRequest = request
-		if (isSchemaMutationAccessRequest(accessRequest)) return
-		const operation = readNativeMutationOperation(request.operation)
-		if (operation.kind !== 'upsert-one' && operation.kind !== 'upsert-many') {
-			return
+	): Promise<true> {
+		const operation: RuntimeLogicalMutationOperationAst = request.operation
+		if (operation.kind === 'plugin-schema-mutation') return true
+		const executable = readExecutableOperation(operation)
+		if (executable.kind !== 'upsert-one' && executable.kind !== 'upsert-many') {
+			return true
 		}
 		const outcome = this.#boundaries.snapshotMutationOutcome(
 			operation,
 			request.outcome,
 			request.selectedFieldsOverride,
 		)
-
-		await enforceAccessMutationOutcome(this.#runtime, this.#plan, {
-			...request,
-			operation,
+		await enforceAccessUpsertOutcome(
+			this.#scope(request.context, operation),
+			executable,
 			outcome,
-		})
+		)
+		return true
 	}
 
 	async enforceOutput<
 		const TOperation extends RuntimeLogicalOperationAst,
 		const TResult,
-	>(
-		request: RuntimeOperationStageInput<TOperation> & {
-			readonly result: TResult
-		},
-	): Promise<TResult> {
-		const accessRequest: AccessRuntimeRequest = request
+	>(request: RuntimeResultStageInput<TOperation, TResult>): Promise<TResult> {
 		return enforceAccessOutput(
-			this.#runtime,
-			{ ...accessRequest, result: request.result },
-			this.#plan,
-			requireAccessSchemaPlan(this.#plan, accessRequest.operation),
+			this.#scope(request.context, request.operation),
+			request.result,
 		)
 	}
 }

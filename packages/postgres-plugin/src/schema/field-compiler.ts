@@ -1,9 +1,9 @@
-import type {
-	FieldValidationPlan,
-	GenericField,
-	SchemaDefinition,
+import {
+	getPluginFieldStorageCodec,
+	type FieldValidationPlan,
+	type GenericField,
+	type SchemaDefinition,
 } from '@ultimabase/core'
-import { getPluginFieldStorageCodec } from '@ultimabase/core'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -23,17 +23,18 @@ import {
 	uuid,
 	type AnyPgColumnBuilder,
 } from 'drizzle-orm/pg-core'
-import type { PostgresColumnType } from 'drizzle-orm/pg-core/codecs'
 
 import type {
 	PostgresFieldGeneration,
 	PostgresStorageKind,
 } from './contracts.js'
 import {
-	createPostgresValueCodec,
 	createPostgresPointerValueCodec,
+	createPostgresValueCodec,
 	type PostgresValueCodec,
 } from './value-codec.js'
+
+type FieldOptions = Readonly<Record<string, unknown>>
 
 type StaticDefault =
 	| { readonly present: false }
@@ -55,36 +56,51 @@ export interface PostgresPointerCompilerContext {
 	readonly target: SchemaDefinition
 }
 
-const readStaticDefault = (field: GenericField): StaticDefault => {
-	const options = readFieldOptions(field)
-
-	if (
-		!Object.hasOwn(options, 'default') ||
-		typeof options.default === 'function'
-	) {
-		return { present: false }
-	}
-
-	return { present: true, value: options.default }
+/** Builds one native column whose static default has already been validated. */
+interface NativeColumn {
+	readonly identity: boolean
+	readonly storage: PostgresStorageKind
+	readonly build: (
+		name: string,
+		options: FieldOptions,
+		declared: StaticDefault,
+		autoIncrement: boolean,
+	) => ConfigurableColumnBuilder
 }
 
-const requireDefault = <TValue>(
-	declared: StaticDefault,
-	guard: (value: unknown) => value is TValue,
-	fieldName: string,
-): TValue | undefined => {
-	if (!declared.present) {
-		return undefined
-	}
+const hasTrueOption = (options: FieldOptions, name: string): boolean =>
+	Object.hasOwn(options, name) && options[name] === true
 
-	if (!guard(declared.value)) {
-		throw new TypeError(
-			`Invalid static default for PostgreSQL field: ${fieldName}`,
-		)
-	}
+const nativeColumn = <TValue>(
+	storage: PostgresStorageKind,
+	accepts: (value: unknown) => value is TValue,
+	create: (
+		name: string,
+		options: FieldOptions,
+		autoIncrement: boolean,
+	) => ConfigurableColumnBuilder & {
+		readonly default: (value: TValue) => ConfigurableColumnBuilder
+	},
+	identity = false,
+): NativeColumn => ({
+	identity,
+	storage,
+	build: (name, options, declared, autoIncrement) => {
+		if (!declared.present) {
+			return create(name, options, autoIncrement)
+		}
 
-	return declared.value
-}
+		const value = declared.value
+
+		if (!accepts(value)) {
+			throw new TypeError(
+				`Invalid static default for PostgreSQL field: ${name}`,
+			)
+		}
+
+		return create(name, options, autoIncrement).default(value)
+	},
+})
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 const isNumber = (value: unknown): value is number => typeof value === 'number'
@@ -94,9 +110,116 @@ const isBoolean = (value: unknown): value is boolean =>
 const isBinary = (value: unknown): value is Uint8Array =>
 	value instanceof Uint8Array
 
-const readFieldOptions = (
-	field: GenericField,
-): Readonly<Record<string, unknown>> => {
+const readTimezone = (options: FieldOptions, fallback: boolean): boolean =>
+	Object.hasOwn(options, 'timezone') ? options.timezone === true : fallback
+
+const readOptionalNumber = (
+	options: FieldOptions,
+	name: 'precision' | 'scale',
+): Readonly<Partial<Record<typeof name, number>>> => {
+	const value = Object.hasOwn(options, name) ? options[name] : undefined
+
+	return typeof value === 'number' ? { [name]: value } : {}
+}
+
+const readEnumValues = (options: FieldOptions): [string, ...string[]] => {
+	const source = Object.hasOwn(options, 'values') ? options.values : undefined
+	const values: readonly unknown[] = isUnknownArray(source)
+		? source
+		: isPlainRecord(source)
+			? Object.values(source)
+			: []
+	const [first, ...rest] = values
+
+	if (
+		typeof first !== 'string' ||
+		!rest.every((value): value is string => typeof value === 'string')
+	) {
+		throw new TypeError(
+			'PostgreSQL enum fields require non-empty string values',
+		)
+	}
+
+	return [first, ...rest]
+}
+
+const nativeColumns: ReadonlyMap<string, NativeColumn> = new Map([
+	['string', nativeColumn('text', isString, (name) => text(name))],
+	[
+		'enum',
+		nativeColumn('text', isString, (name, options) =>
+			text(name, { enum: readEnumValues(options) }),
+		),
+	],
+	[
+		'int',
+		nativeColumn(
+			'bigint',
+			isNumber,
+			(name, _options, autoIncrement) => {
+				const builder = bigint(name, { mode: 'number' })
+
+				return autoIncrement ? builder.generatedByDefaultAsIdentity() : builder
+			},
+			true,
+		),
+	],
+	[
+		'bigint',
+		nativeColumn(
+			'bigint',
+			isBigint,
+			(name, _options, autoIncrement) => {
+				const builder = bigint(name, { mode: 'bigint' })
+
+				return autoIncrement ? builder.generatedByDefaultAsIdentity() : builder
+			},
+			true,
+		),
+	],
+	[
+		'float',
+		nativeColumn('double precision', isNumber, (name) => doublePrecision(name)),
+	],
+	[
+		'decimal',
+		nativeColumn('numeric', isString, (name, options) =>
+			numeric(name, {
+				mode: 'string',
+				...readOptionalNumber(options, 'precision'),
+				...readOptionalNumber(options, 'scale'),
+			}),
+		),
+	],
+	['boolean', nativeColumn('boolean', isBoolean, (name) => boolean(name))],
+	[
+		'binary',
+		nativeColumn('bytea', isBinary, (name) => bytea(name).$type<Uint8Array>()),
+	],
+	['uuid', nativeColumn('uuid', isString, (name) => uuid(name))],
+	[
+		'date',
+		nativeColumn('date', isString, (name) => date(name, { mode: 'string' })),
+	],
+	[
+		'time',
+		nativeColumn('time', isString, (name, options) =>
+			time(name, { precision: 3, withTimezone: readTimezone(options, false) }),
+		),
+	],
+	[
+		'dateTime',
+		nativeColumn('timestamp', isString, (name, options) =>
+			timestamp(name, {
+				mode: 'string',
+				precision: 3,
+				withTimezone: readTimezone(options, true),
+			}),
+		),
+	],
+])
+
+const readFieldOptions = (field: GenericField): FieldOptions => {
 	const options: unknown = field.options
 
 	if (!isPlainRecord(options)) {
@@ -106,180 +229,67 @@ const readFieldOptions = (
 	return options
 }
 
-const hasOption = (field: GenericField, name: string): boolean =>
-	Object.hasOwn(readFieldOptions(field), name)
-
-const optionIsTrue = (field: GenericField, name: string): boolean => {
-	const options = readFieldOptions(field)
-
-	return Object.hasOwn(options, name) && options[name] === true
-}
-
-const shouldBeNotNull = (plan: FieldValidationPlan): boolean =>
-	!plan.nullable &&
-	(plan.presence === 'required' ||
-		hasOption(plan.field, 'default') ||
-		optionIsTrue(plan.field, 'autoNow') ||
-		optionIsTrue(plan.field, 'autoIncrement') ||
-		hasOption(plan.field, 'generatedOn'))
-
-const finalizeBuilder = (
-	builder: ConfigurableColumnBuilder,
-	plan: FieldValidationPlan,
-	fieldName: string,
-): AnyPgColumnBuilder => {
-	if (
-		fieldName === 'id' &&
-		optionIsTrue(plan.field, 'system') &&
-		plan.field.kind === 'uuid'
-	) {
-		return builder.primaryKey()
-	}
-
-	return shouldBeNotNull(plan) ? builder.notNull() : builder
-}
-
 const readGeneration = (
 	field: GenericField,
+	options: FieldOptions,
 ): PostgresFieldGeneration | undefined => {
-	if (!hasOption(field, 'generatedOn')) {
+	if (!Object.hasOwn(options, 'generatedOn')) {
 		return undefined
 	}
 
-	const options = readFieldOptions(field)
 	const on = options.generatedOn
 
 	if (on !== 'create' && on !== 'createAndUpdate') {
 		throw new TypeError(`Invalid generatedOn metadata for field: ${field.kind}`)
 	}
 
-	if (hasOption(field, 'uuidVersion')) {
-		if (options.uuidVersion !== 7) {
-			throw new TypeError('System UUID fields must use UUID version 7')
-		}
-
-		return immutableRecord({ on, uuidVersion: 7 })
+	if (!Object.hasOwn(options, 'uuidVersion')) {
+		return immutableRecord({ on })
 	}
 
-	return immutableRecord({ on })
+	if (options.uuidVersion !== 7) {
+		throw new TypeError('System UUID fields must use UUID version 7')
+	}
+
+	return immutableRecord({ on, uuidVersion: 7 })
 }
 
-const readTimezone = (field: GenericField, fallback: boolean): boolean =>
-	hasOption(field, 'timezone')
-		? readFieldOptions(field).timezone === true
-		: fallback
-
-const readDecimalConfig = (
-	field: GenericField,
-): {
-	readonly precision?: number
-	readonly scale?: number
-	readonly mode: 'string'
-} => {
-	const options = readFieldOptions(field)
-	const precision =
-		Object.hasOwn(options, 'precision') && typeof options.precision === 'number'
-			? options.precision
-			: undefined
-	const scale =
-		Object.hasOwn(options, 'scale') && typeof options.scale === 'number'
-			? options.scale
-			: undefined
-
-	return {
-		mode: 'string',
-		...(precision === undefined ? {} : { precision }),
-		...(scale === undefined ? {} : { scale }),
-	}
-}
-
-const readEnumValues = (field: GenericField): [string, ...string[]] => {
-	const options = readFieldOptions(field)
-	const source = hasOption(field, 'values') ? options.values : undefined
-	const values: readonly unknown[] = isUnknownArray(source)
-		? source
-		: isPlainRecord(source)
-			? Object.values(source)
-			: []
-
-	if (
-		values.length === 0 ||
-		!values.every((value): value is string => typeof value === 'string')
-	) {
-		throw new TypeError(
-			'PostgreSQL enum fields require non-empty string values',
-		)
-	}
-
-	const [first, ...rest] = values
-
-	if (first === undefined) {
-		throw new TypeError('PostgreSQL enum fields require at least one value')
-	}
-
-	return [first, ...rest]
-}
-
-const createCompiledBuilder = (
+const finalizeBuilder = (
 	builder: ConfigurableColumnBuilder,
 	plan: FieldValidationPlan,
+	options: FieldOptions,
 	fieldName: string,
-	generation: PostgresFieldGeneration | undefined,
-	storage: PostgresStorageKind,
-): CompiledPostgresFieldBuilder => ({
-	builder: finalizeBuilder(builder, plan, fieldName),
-	generation,
-	storage,
-})
+): AnyPgColumnBuilder => {
+	if (
+		fieldName === 'id' &&
+		hasTrueOption(options, 'system') &&
+		plan.field.kind === 'uuid'
+	) {
+		return builder.primaryKey()
+	}
+
+	const notNull =
+		!plan.nullable &&
+		(plan.presence === 'required' ||
+			Object.hasOwn(options, 'default') ||
+			hasTrueOption(options, 'autoNow') ||
+			hasTrueOption(options, 'autoIncrement') ||
+			Object.hasOwn(options, 'generatedOn'))
+
+	return notNull ? builder.notNull() : builder
+}
 
 const createCodecColumnBuilder = (
 	fieldName: string,
-	type: string,
-	driverCodec: PostgresColumnType,
+	type: 'jsonb' | 'uuid',
 	codec: PostgresValueCodec,
-	mapEncodedValue: (value: unknown) => unknown = (value) => value,
 ) =>
 	customType<{ data: unknown; driverData: unknown }>({
-		codec: driverCodec,
+		codec: type,
 		dataType: () => type,
 		fromDriver: (value: unknown): unknown => codec.decode(value),
-		toDriver: (value: unknown): unknown => mapEncodedValue(codec.encode(value)),
+		toDriver: (value: unknown): unknown => codec.encode(value),
 	})(fieldName)
-
-const compileJsonbBuilder = (
-	fieldName: string,
-	plan: FieldValidationPlan,
-	declaredDefault: StaticDefault,
-): CompiledPostgresFieldBuilder => {
-	const codec = createPostgresValueCodec(plan, true)
-	const builder = createCodecColumnBuilder(fieldName, 'jsonb', 'jsonb', codec)
-	const withDefault = declaredDefault.present
-		? builder.default(declaredDefault.value)
-		: builder
-
-	return createCompiledBuilder(
-		withDefault,
-		plan,
-		fieldName,
-		readGeneration(plan.field),
-		'jsonb',
-	)
-}
-
-const assertScalarAutoIncrement = (
-	field: GenericField,
-	fieldName: string,
-): boolean => {
-	const autoIncrement = optionIsTrue(field, 'autoIncrement')
-
-	if (autoIncrement && hasOption(field, 'default')) {
-		throw new TypeError(
-			`PostgreSQL autoIncrement cannot be combined with default: ${fieldName}`,
-		)
-	}
-
-	return autoIncrement
-}
 
 /** Compiles one top-level built-in field into private Drizzle metadata. */
 export const compilePostgresFieldBuilder = (
@@ -288,165 +298,86 @@ export const compilePostgresFieldBuilder = (
 	pointerContext?: PostgresPointerCompilerContext,
 ): CompiledPostgresFieldBuilder => {
 	const field = plan.field
-	const declaredDefault = readStaticDefault(field)
-
-	if (plan.kind !== 'scalar') {
-		if (optionIsTrue(field, 'autoIncrement')) {
-			throw new TypeError(
-				`PostgreSQL autoIncrement is unavailable for JSONB fields: ${fieldName}`,
-			)
-		}
-
-		return compileJsonbBuilder(fieldName, plan, declaredDefault)
-	}
-
-	if (getPluginFieldStorageCodec(field) !== undefined) {
-		return compileJsonbBuilder(fieldName, plan, declaredDefault)
-	}
-
-	const pointerCodec =
-		field.kind === 'pointer'
-			? pointerContext === undefined
-				? undefined
-				: createPostgresPointerValueCodec(plan, pointerContext.target)
-			: undefined
-
-	const generation = readGeneration(field)
+	const options = readFieldOptions(field)
+	const declared: StaticDefault =
+		Object.hasOwn(options, 'default') && typeof options.default !== 'function'
+			? { present: true, value: options.default }
+			: { present: false }
 	const finish = (
 		builder: ConfigurableColumnBuilder,
 		storage: PostgresStorageKind,
-	): CompiledPostgresFieldBuilder =>
-		createCompiledBuilder(builder, plan, fieldName, generation, storage)
+		generation: PostgresFieldGeneration | undefined,
+	): CompiledPostgresFieldBuilder => ({
+		builder: finalizeBuilder(builder, plan, options, fieldName),
+		generation,
+		storage,
+	})
 
-	switch (field.kind) {
-		case 'string': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = text(fieldName)
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'text')
-		}
-		case 'enum': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = text(fieldName, { enum: readEnumValues(field) })
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'text')
-		}
-		case 'int': {
-			const autoIncrement = assertScalarAutoIncrement(field, fieldName)
-			const fallback = requireDefault(declaredDefault, isNumber, fieldName)
-			const builder = bigint(fieldName, { mode: 'number' })
-			const generated = autoIncrement
-				? builder.generatedByDefaultAsIdentity()
-				: builder
-			const configured =
-				fallback === undefined ? generated : generated.default(fallback)
-
-			return finish(configured, 'bigint')
-		}
-		case 'bigint': {
-			const autoIncrement = assertScalarAutoIncrement(field, fieldName)
-			const fallback = requireDefault(declaredDefault, isBigint, fieldName)
-			const builder = bigint(fieldName, { mode: 'bigint' })
-			const generated = autoIncrement
-				? builder.generatedByDefaultAsIdentity()
-				: builder
-			const configured =
-				fallback === undefined ? generated : generated.default(fallback)
-
-			return finish(configured, 'bigint')
-		}
-		case 'float': {
-			const fallback = requireDefault(declaredDefault, isNumber, fieldName)
-			const builder = doublePrecision(fieldName)
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'double precision')
-		}
-		case 'decimal': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = numeric(fieldName, readDecimalConfig(field))
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'numeric')
-		}
-		case 'boolean': {
-			const fallback = requireDefault(declaredDefault, isBoolean, fieldName)
-			const builder = boolean(fieldName)
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'boolean')
-		}
-		case 'binary': {
-			const fallback = requireDefault(declaredDefault, isBinary, fieldName)
-			const builder = bytea(fieldName).$type<Uint8Array>()
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'bytea')
-		}
-		case 'uuid': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = uuid(fieldName)
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'uuid')
-		}
-		case 'pointer':
-			if (pointerCodec === undefined) {
-				throw new TypeError(
-					`PostgreSQL pointer target is unavailable: ${fieldName}`,
-				)
-			}
-
-			// Referential metadata is attached at table level after every circular target exists.
-			return finish(
-				createCodecColumnBuilder(fieldName, 'uuid', 'uuid', pointerCodec),
-				'uuid',
-			)
-		case 'date': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = date(fieldName, { mode: 'string' })
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'date')
-		}
-		case 'time': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = time(fieldName, {
-				precision: 3,
-				withTimezone: readTimezone(field, false),
-			})
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'time')
-		}
-		case 'dateTime': {
-			const fallback = requireDefault(declaredDefault, isString, fieldName)
-			const builder = timestamp(fieldName, {
-				mode: 'string',
-				precision: 3,
-				withTimezone: readTimezone(field, true),
-			})
-			const configured =
-				fallback === undefined ? builder : builder.default(fallback)
-
-			return finish(configured, 'timestamp')
-		}
-		case 'json':
-			return compileJsonbBuilder(fieldName, plan, declaredDefault)
-		default:
-			throw new TypeError(
-				`No PostgreSQL field compiler is registered for kind: ${field.kind}`,
-			)
+	if (plan.kind !== 'scalar' && hasTrueOption(options, 'autoIncrement')) {
+		throw new TypeError(
+			`PostgreSQL autoIncrement is unavailable for JSONB fields: ${fieldName}`,
+		)
 	}
+
+	if (
+		plan.kind !== 'scalar' ||
+		field.kind === 'json' ||
+		getPluginFieldStorageCodec(field) !== undefined
+	) {
+		const builder = createCodecColumnBuilder(
+			fieldName,
+			'jsonb',
+			createPostgresValueCodec(plan),
+		)
+
+		return finish(
+			declared.present ? builder.default(declared.value) : builder,
+			'jsonb',
+			readGeneration(field, options),
+		)
+	}
+
+	const generation = readGeneration(field, options)
+
+	if (field.kind === 'pointer') {
+		if (pointerContext === undefined) {
+			throw new TypeError(
+				`PostgreSQL pointer target is unavailable: ${fieldName}`,
+			)
+		}
+
+		// Referential metadata is attached at table level after every circular target exists.
+		return finish(
+			createCodecColumnBuilder(
+				fieldName,
+				'uuid',
+				createPostgresPointerValueCodec(plan, pointerContext.target),
+			),
+			'uuid',
+			generation,
+		)
+	}
+
+	const column = nativeColumns.get(field.kind)
+
+	if (column === undefined) {
+		throw new TypeError(
+			`No PostgreSQL field compiler is registered for kind: ${field.kind}`,
+		)
+	}
+
+	const autoIncrement =
+		column.identity && hasTrueOption(options, 'autoIncrement')
+
+	if (autoIncrement && Object.hasOwn(options, 'default')) {
+		throw new TypeError(
+			`PostgreSQL autoIncrement cannot be combined with default: ${fieldName}`,
+		)
+	}
+
+	return finish(
+		column.build(fieldName, options, declared, autoIncrement),
+		column.storage,
+		generation,
+	)
 }

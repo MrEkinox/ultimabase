@@ -100,20 +100,15 @@ export const readRuntimeRelationMutation = (
 		!isPlainRecord(candidate.value) ||
 		typeof candidate.value.action !== 'string' ||
 		!isRelationMutationAction(candidate.value.action) ||
-		!isUnknownArray(candidate.value.targets) ||
-		!candidate.value.targets.every((target) => Pointer.is(target))
+		!isUnknownArray(candidate.value.targets)
 	) {
 		throw new TypeError('Runtime relation update contains an invalid delta')
 	}
 	const action = candidate.value.action
-	const targets: Pointer[] = []
+	const targets = candidate.value.targets.filter((target) => Pointer.is(target))
 
-	for (const target of candidate.value.targets) {
-		if (!Pointer.is(target)) {
-			throw new TypeError('Runtime relation update contains an invalid target')
-		}
-
-		targets.push(target)
+	if (targets.length !== candidate.value.targets.length) {
+		throw new TypeError('Runtime relation update contains an invalid delta')
 	}
 
 	return immutableRecord({
@@ -142,13 +137,6 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 		rowFilter,
 	})
 }
-
-/** Combines framework-owned identity and ownership predicates monotonically. */
-const combinePrivateFilters = (
-	first: DatabaseRowFilterNode,
-	second: DatabaseRowFilterNode,
-): DatabaseRowFilterNode =>
-	normalizeLogicalFilter({ kind: 'and', expressions: [first, second] })
 
 /** Builds the private target set used to implement inverse-pointer set and clear. */
 export const createInversePointerTargetLookup = <
@@ -206,25 +194,19 @@ export const createInversePointerUpdate = <
 		source,
 	) as DatabaseRowFilterNode
 	const field = target.schema.persistedFields[mappedFieldName]
-	const nullable = field !== undefined && isFieldNullable(field)
-	const fieldOperation =
-		action === 'connect'
-			? immutableRecord({
-					field: mappedFieldName,
-					kind: 'set' as const,
-					value: source,
-				})
-			: nullable
-				? immutableRecord({
-						field: mappedFieldName,
-						kind: 'set' as const,
-						value: null,
-					})
-				: (() => {
-						throw new TypeError(
-							'Inverse pointer disconnect requires an optional mapped field',
-						)
-					})()
+	if (
+		action === 'disconnect' &&
+		(field === undefined || !isFieldNullable(field))
+	) {
+		throw new TypeError(
+			'Inverse pointer disconnect requires an optional mapped field',
+		)
+	}
+	const fieldOperation = immutableRecord({
+		field: mappedFieldName,
+		kind: 'set' as const,
+		value: action === 'connect' ? source : null,
+	})
 	const update = immutableRecord({
 		kind: 'update-expression' as const,
 		operations: immutableArray([fieldOperation]),
@@ -239,7 +221,11 @@ export const createInversePointerUpdate = <
 		rowFilter:
 			action === 'connect'
 				? idFilter
-				: combinePrivateFilters(idFilter, ownerFilter),
+				: // Ownership is framework-owned: identity AND current owner, never widened.
+					normalizeLogicalFilter({
+						kind: 'and',
+						expressions: [idFilter, ownerFilter],
+					}),
 	})
 }
 

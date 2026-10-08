@@ -4,10 +4,9 @@ import { parseArgs } from 'node:util'
 import validatePackageName from 'validate-npm-package-name'
 
 import {
-	apiPlugins,
 	isPluginId,
 	officialPlugins,
-	pluginDependencies,
+	selectedPluginIds,
 	type ApiId,
 	type PluginId,
 } from './catalog.js'
@@ -160,49 +159,48 @@ export const resolveSelection = (
 	const apis = unique(input.apis ?? []).map((api) =>
 		oneOf(api, ['rest', 'graphql'], '--api'),
 	)
+	// Programmatic JavaScript callers can pass any string.
 	const requestedPluginValues: readonly string[] = input.plugins ?? []
 	const requestedPlugins = unique(requestedPluginValues).map((id) => {
 		if (!isPluginId(id)) throw new Error(`Unknown official plugin: ${id}`)
 		return id
 	})
-	const selected = new Set<PluginId>([
-		'postgres-plugin',
-		...requestedPlugins,
-		...apis.map((api) => apiPlugins[api]),
-	])
-	let count = -1
-	while (count !== selected.size) {
-		count = selected.size
-		for (const id of selected)
-			for (const dependency of pluginDependencies[id] ?? [])
-				selected.add(dependency)
-	}
+	const selected = selectedPluginIds(apis, requestedPlugins)
 	const plugins = officialPlugins
 		.map((plugin) => plugin.id)
 		.filter((id) => selected.has(id))
-	const automaticPlugins = plugins.filter(
-		(id) => !requestedPlugins.includes(id),
-	)
-	if (
-		(input.starter ?? 'task') === 'empty' &&
-		plugins.includes('graphql-plugin')
-	) {
+	const starter = input.starter ?? 'task'
+	if (starter === 'empty' && selected.has('graphql-plugin')) {
 		throw new Error(
 			'The empty starter cannot enable GraphQL: GraphQL requires at least one public query field. Choose --starter task.',
 		)
 	}
+	const language = input.language ?? 'ts'
 	return Object.freeze({
 		name: input.name,
 		destination,
-		language: input.language ?? 'ts',
+		language,
 		apis: Object.freeze(apis),
 		requestedPlugins: Object.freeze(requestedPlugins),
 		plugins: Object.freeze(plugins),
-		automaticPlugins: Object.freeze(automaticPlugins),
-		starter: input.starter ?? 'task',
+		automaticPlugins: Object.freeze(
+			plugins.filter((id) => !requestedPlugins.includes(id)),
+		),
+		starter,
 		database: input.database ?? 'existing',
 		packageManager: input.packageManager ?? 'npm',
 		install: input.install ?? true,
-		typegen: (input.language ?? 'ts') === 'ts',
+		typegen: language === 'ts',
 	})
 }
+
+/** Values whose condition holds, in declaration order. */
+export const included = <T>(entries: readonly (readonly [boolean, T])[]): T[] =>
+	entries.flatMap(([enabled, value]) => (enabled ? [value] : []))
+
+export const hasPlugin = (plan: InitializerPlan, id: PluginId): boolean =>
+	plan.plugins.includes(id)
+
+/** REST or GraphQL schema exposure, with or without an HTTP transport. */
+export const hasDataApi = (plan: InitializerPlan): boolean =>
+	hasPlugin(plan, 'rest-plugin') || hasPlugin(plan, 'graphql-plugin')

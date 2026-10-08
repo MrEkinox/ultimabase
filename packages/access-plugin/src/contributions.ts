@@ -1,7 +1,6 @@
 import {
 	defineCapability,
 	provideCapability,
-	type ApplicationCapabilityFactoryContext,
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 	type CompiledSchemaRegistry,
@@ -16,8 +15,7 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { FieldAccess } from './authoring/contracts.js'
-import type { SchemaAccess } from './authoring/contracts.js'
+import type { FieldAccess, SchemaAccess } from './authoring/contracts.js'
 import {
 	normalizeSchemaAccessDeclarations,
 	type SchemaAccessDeclarations,
@@ -91,22 +89,11 @@ export const accessContributionsCapability: AccessContributionsCapability =
 		compose: (providers) => immutableArray(providers.flat()),
 	})
 
-const requireSchemaAccess = (
-	access: unknown,
+/** Rejects empty provider policies, which would contribute no Access rule. */
+const requireDeclarations = <TDeclarations>(
+	declarations: TDeclarations | undefined,
 	path: string,
-): SchemaAccessDeclarations => {
-	const declarations = normalizeSchemaAccessDeclarations(access)
-	if (declarations === undefined) {
-		throw new TypeError(`${path} must declare at least one Access rule`)
-	}
-	return declarations
-}
-
-const requireFieldAccess = (
-	access: unknown,
-	path: string,
-): FieldAccessDeclarations => {
-	const declarations = normalizeFieldAccessDeclarations(access)
+): TDeclarations => {
 	if (declarations === undefined) {
 		throw new TypeError(`${path} must declare at least one Access rule`)
 	}
@@ -118,7 +105,10 @@ export const globalAccess = (
 	access: SchemaAccess<SchemaDefinition>,
 ): GlobalAccessContributionDefinition =>
 	immutableRecord({
-		declarations: requireSchemaAccess(access, 'global Access'),
+		declarations: requireDeclarations(
+			normalizeSchemaAccessDeclarations(access),
+			'global Access',
+		),
 		schema: undefined,
 		targetKind: 'global' as const,
 	})
@@ -129,7 +119,10 @@ export const schemaAccess = <TSchema extends SchemaDefinition>(
 	access: SchemaAccess<NoInfer<TSchema>>,
 ): SchemaAccessContributionDefinition =>
 	immutableRecord({
-		declarations: requireSchemaAccess(access, 'schema Access'),
+		declarations: requireDeclarations(
+			normalizeSchemaAccessDeclarations(access),
+			'schema Access',
+		),
 		schema,
 		targetKind: 'schema' as const,
 	})
@@ -142,7 +135,10 @@ export const fieldAccess = <TField extends GenericField>(
 	access: FieldAccess<NoInfer<TField>>,
 ): FieldAccessContributionDefinition =>
 	immutableRecord({
-		declarations: requireFieldAccess(access, 'field Access'),
+		declarations: requireDeclarations(
+			normalizeFieldAccessDeclarations(access),
+			'field Access',
+		),
 		field,
 		path: immutableArray(path),
 		schema,
@@ -182,15 +178,8 @@ export const provideAccessContributions = (
 ): CapabilityProviderDeclaration<typeof accessContributionsCapability> =>
 	provideCapability(accessContributionsCapability, {
 		contributionId,
-		create: async (
-			context: ApplicationCapabilityFactoryContext,
-		): Promise<
-			Readonly<{ readonly value: readonly AccessContributionDefinition[] }>
-		> => {
-			const created = await create({
-				capabilities: context.capabilities,
-				schemas: context.schemas,
-			})
+		create: async ({ capabilities, schemas }) => {
+			const created = await create({ capabilities, schemas })
 			return immutableRecord({
 				value: immutableArray(Array.isArray(created) ? created : [created]),
 			})

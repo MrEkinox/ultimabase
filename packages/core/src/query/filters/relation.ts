@@ -19,11 +19,12 @@ import {
 import type { QueryExpressionNode, QuerySchemaNode } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import type { QueryFilterNode } from './logical.js'
-import type {
-	QueryComparisonFilterOperator,
-	QueryEqualityFilterOperator,
-	QueryMembershipFilterOperator,
-	QueryRangeFilterOperator,
+import {
+	readWhereOperatorKind,
+	type QueryComparisonFilterOperator,
+	type QueryEqualityFilterOperator,
+	type QueryMembershipFilterOperator,
+	type QueryRangeFilterOperator,
 } from './primitive.js'
 import { traverseQueryExpression } from './traversal.js'
 
@@ -203,148 +204,121 @@ export const createQueryRelationComplexityError =
 			},
 		)
 
-const assertRelationCountValue = (value: unknown, path: string): number => {
-	if (!Number.isSafeInteger(value) || (value as number) < 0) {
+/**
+ * Resolves the declared target of one pointer or relation field.
+ *
+ * Returns `undefined` when the field is absent, has another kind, or its lazy
+ * target is not a compiled schema, so each caller keeps its own diagnostic.
+ */
+export const resolveRelationshipTarget = (
+	schema: SchemaDefinition,
+	fieldName: unknown,
+	kind: 'pointer' | 'relation',
+): SchemaDefinition | undefined => {
+	const field =
+		typeof fieldName === 'string'
+			? schema.persistedFields[fieldName]
+			: undefined
+	const target =
+		field?.kind === kind ? getFieldSchemaTarget(field)?.() : undefined
+
+	return Schema.is(target) ? target : undefined
+}
+
+/** Lists the `where` keys accepted inside one relation `count` object. */
+export const relationCountOperators: ReadonlySet<string> = new Set([
+	'eq',
+	'ne',
+	'gt',
+	'gte',
+	'lt',
+	'lte',
+	'in',
+	'notIn',
+	'between',
+	'notBetween',
+] satisfies readonly (keyof QueryRelationCountInput)[])
+
+const isRelationCountValue = (value: unknown): value is number =>
+	typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+
+const readRelationCountValue = (value: unknown, path: string): number => {
+	if (!isRelationCountValue(value)) {
 		throw new TypeError(`${path} must be a non-negative safe integer`)
 	}
 
-	return value as number
-}
-
-const relationCountOperator = (
-	operator: keyof QueryRelationCountInput,
-): QueryRelationCountOperator => {
-	switch (operator) {
-		case 'eq':
-			return 'equal'
-		case 'ne':
-			return 'not-equal'
-		case 'gt':
-			return 'greater-than'
-		case 'gte':
-			return 'greater-than-or-equal'
-		case 'lt':
-			return 'less-than'
-		case 'lte':
-			return 'less-than-or-equal'
-		case 'in':
-			return 'in'
-		case 'notIn':
-			return 'not-in'
-		case 'between':
-			return 'between'
-		case 'notBetween':
-			return 'not-between'
-	}
+	return value
 }
 
 const createRelationCountComparison = (
-	operator: keyof QueryRelationCountInput,
+	operator: string,
 	operand: unknown,
 ): QueryRelationCountComparison => {
-	const normalizedOperator = relationCountOperator(operator)
+	const kind = readWhereOperatorKind(operator)
+	const path = `relation count ${String(kind)}`
 
-	if (normalizedOperator === 'in' || normalizedOperator === 'not-in') {
-		if (!isUnknownArray(operand)) {
-			throw new TypeError(
-				`relation count ${normalizedOperator} must be an array`,
-			)
-		}
+	switch (kind) {
+		case 'in':
+		case 'not-in':
+			if (!isUnknownArray(operand)) {
+				throw new TypeError(`${path} must be an array`)
+			}
 
-		return immutableRecord({
-			operator: normalizedOperator,
-			values: immutableArray(
-				operand.map((value, index) =>
-					assertRelationCountValue(
-						value,
-						`relation count ${normalizedOperator}[${String(index)}]`,
+			return immutableRecord({
+				operator: kind,
+				values: immutableArray(
+					operand.map((value, index) =>
+						readRelationCountValue(value, `${path}[${String(index)}]`),
 					),
 				),
-			),
-		})
+			})
+		case 'between':
+		case 'not-between':
+			if (
+				!isPlainRecord(operand) ||
+				Object.keys(operand).length !== 2 ||
+				!Object.hasOwn(operand, 'lower') ||
+				!Object.hasOwn(operand, 'upper')
+			) {
+				throw new TypeError(`${path} must contain only lower and upper`)
+			}
+
+			return immutableRecord({
+				lower: readRelationCountValue(operand.lower, `${path}.lower`),
+				operator: kind,
+				upper: readRelationCountValue(operand.upper, `${path}.upper`),
+			})
+		case 'equal':
+		case 'not-equal':
+		case 'greater-than':
+		case 'greater-than-or-equal':
+		case 'less-than':
+		case 'less-than-or-equal':
+			return immutableRecord({
+				operator: kind,
+				value: readRelationCountValue(operand, path),
+			})
+		default:
+			throw new TypeError(`relation count operator is unsupported: ${operator}`)
 	}
-
-	if (
-		normalizedOperator === 'between' ||
-		normalizedOperator === 'not-between'
-	) {
-		if (
-			!isPlainRecord(operand) ||
-			Object.keys(operand).length !== 2 ||
-			!Object.hasOwn(operand, 'lower') ||
-			!Object.hasOwn(operand, 'upper')
-		) {
-			throw new TypeError(
-				`relation count ${normalizedOperator} must contain only lower and upper`,
-			)
-		}
-
-		return immutableRecord({
-			lower: assertRelationCountValue(
-				operand.lower,
-				`relation count ${normalizedOperator}.lower`,
-			),
-			operator: normalizedOperator,
-			upper: assertRelationCountValue(
-				operand.upper,
-				`relation count ${normalizedOperator}.upper`,
-			),
-		})
-	}
-
-	return immutableRecord({
-		operator: normalizedOperator,
-		value: assertRelationCountValue(
-			operand,
-			`relation count ${normalizedOperator}`,
-		),
-	})
 }
 
-/** Creates one exact immutable visible-cardinality leaf for a relation field. */
-export const createQueryRelationCount = <
-	TSource extends SchemaDefinition,
-	TFieldName extends SchemaRelationFieldName<TSource>,
->(
+/** Creates one immutable visible-cardinality leaf for a relation field. */
+export const createQueryRelationCount = <TSource extends SchemaDefinition>(
 	source: TSource,
-	fieldName: TFieldName,
+	fieldName: SchemaRelationFieldName<TSource>,
 	input: QueryRelationCountInput,
-	expression: QueryFilterNode<SchemaRelationTarget<TSource, TFieldName>>,
-): QueryRelationCountNode<
-	TSource,
-	TFieldName,
-	SchemaRelationTarget<TSource, TFieldName>
-> => {
-	const field = source.fields[fieldName]
-	const target =
-		field === undefined ? undefined : getFieldSchemaTarget(field)?.()
+	expression: QueryFilterNode<SchemaDefinition>,
+): QueryRelationCountNode<SchemaDefinition, string, SchemaDefinition> => {
+	const target = resolveRelationshipTarget(source, fieldName, 'relation')
 
-	if (field?.kind !== 'relation' || !Schema.is(target)) {
+	if (target === undefined) {
 		throw new TypeError('relation count field must reference a relation')
 	}
-	const exactTarget = target as unknown as SchemaRelationTarget<
-		TSource,
-		TFieldName
-	>
 
-	const comparisons = Object.entries(input).map(([operator, operand]) => {
-		if (
-			operator !== 'eq' &&
-			operator !== 'ne' &&
-			operator !== 'gt' &&
-			operator !== 'gte' &&
-			operator !== 'lt' &&
-			operator !== 'lte' &&
-			operator !== 'in' &&
-			operator !== 'notIn' &&
-			operator !== 'between' &&
-			operator !== 'notBetween'
-		) {
-			throw new TypeError(`relation count operator is unsupported: ${operator}`)
-		}
-
-		return createRelationCountComparison(operator, operand)
-	})
+	const comparisons = Object.entries(input).map(([operator, operand]) =>
+		createRelationCountComparison(operator, operand),
+	)
 
 	if (comparisons.length === 0) {
 		throw new TypeError('relation count must contain an operator')
@@ -354,94 +328,77 @@ export const createQueryRelationCount = <
 		comparisons: immutableArray(comparisons),
 		expression,
 		field: fieldName,
-		kind: 'relation-count' as const,
+		kind: 'relation-count',
 		source: createQueryAst(source).schema,
-		target: createQueryAst(exactTarget).schema,
+		target: createQueryAst(target).schema,
 	})
 }
 
-const isQueryRelationCountComparison = (
-	value: unknown,
-): value is QueryRelationCountComparison => {
+const isRelationCountComparison = (value: unknown): boolean => {
 	if (!isPlainRecord(value)) return false
 
 	switch (value.operator) {
+		case 'in':
+		case 'not-in':
+			return (
+				isUnknownArray(value.values) && value.values.every(isRelationCountValue)
+			)
+		case 'between':
+		case 'not-between':
+			return (
+				isRelationCountValue(value.lower) && isRelationCountValue(value.upper)
+			)
 		case 'equal':
 		case 'not-equal':
 		case 'greater-than':
 		case 'greater-than-or-equal':
 		case 'less-than':
 		case 'less-than-or-equal':
-			return Number.isSafeInteger(value.value) && (value.value as number) >= 0
-		case 'in':
-		case 'not-in':
-			return (
-				isUnknownArray(value.values) &&
-				value.values.every(
-					(candidate) =>
-						Number.isSafeInteger(candidate) && (candidate as number) >= 0,
-				)
-			)
-		case 'between':
-		case 'not-between':
-			return (
-				Number.isSafeInteger(value.lower) &&
-				(value.lower as number) >= 0 &&
-				Number.isSafeInteger(value.upper) &&
-				(value.upper as number) >= 0
-			)
+			return isRelationCountValue(value.value)
 		default:
 			return false
 	}
 }
 
+const isQuerySchemaNode = (value: unknown): boolean =>
+	isPlainRecord(value) && value.kind === 'schema' && Schema.is(value.definition)
+
+/** Checks the source, target, field, and nested expression shared by relation leaves. */
+const isRelationLeaf = (
+	value: unknown,
+	kind: 'relation-count' | 'relation-predicate',
+): value is Readonly<Record<string, unknown>> =>
+	isPlainRecord(value) &&
+	value.kind === kind &&
+	typeof value.field === 'string' &&
+	isQuerySchemaNode(value.source) &&
+	isQuerySchemaNode(value.target) &&
+	isPlainRecord(value.expression) &&
+	typeof value.expression.kind === 'string'
+
 /** Narrows portable visible-cardinality leaves before Runtime interprets them. */
 export const isQueryRelationCountNode = (
 	value: unknown,
-): value is QueryRelationCountNode => {
-	if (
-		!isPlainRecord(value) ||
-		value.kind !== 'relation-count' ||
-		typeof value.field !== 'string' ||
-		!isPlainRecord(value.source) ||
-		value.source.kind !== 'schema' ||
-		!Schema.is(value.source.definition) ||
-		!isPlainRecord(value.target) ||
-		value.target.kind !== 'schema' ||
-		!Schema.is(value.target.definition)
-	) {
-		return false
-	}
+): value is QueryRelationCountNode =>
+	isRelationLeaf(value, 'relation-count') &&
+	isUnknownArray(value.comparisons) &&
+	value.comparisons.length > 0 &&
+	value.comparisons.every(isRelationCountComparison)
 
-	return (
-		isUnknownArray(value.comparisons) &&
-		value.comparisons.length > 0 &&
-		value.comparisons.every(isQueryRelationCountComparison) &&
-		isPlainRecord(value.expression) &&
-		typeof value.expression.kind === 'string'
-	)
-}
+const relationPredicateOperators: ReadonlySet<unknown> = new Set([
+	'every',
+	'is',
+	'is-not',
+	'none',
+	'some',
+] satisfies readonly QueryRelationPredicateOperator[])
 
 /** Narrows portable expression leaves before Runtime or adapters interpret them. */
 export const isQueryRelationPredicateNode = (
 	value: unknown,
 ): value is QueryRelationshipPredicateNode =>
-	isPlainRecord(value) &&
-	value.kind === 'relation-predicate' &&
-	(value.operator === 'some' ||
-		value.operator === 'none' ||
-		value.operator === 'every' ||
-		value.operator === 'is' ||
-		value.operator === 'is-not') &&
-	typeof value.field === 'string' &&
-	isPlainRecord(value.source) &&
-	value.source.kind === 'schema' &&
-	Schema.is(value.source.definition) &&
-	isPlainRecord(value.target) &&
-	value.target.kind === 'schema' &&
-	Schema.is(value.target.definition) &&
-	isPlainRecord(value.expression) &&
-	typeof value.expression.kind === 'string'
+	isRelationLeaf(value, 'relation-predicate') &&
+	relationPredicateOperators.has(value.operator)
 
 /** Collects relation leaves in deterministic depth-first declaration order. */
 export const collectQueryRelationPredicates = (

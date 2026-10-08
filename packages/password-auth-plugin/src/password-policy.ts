@@ -40,6 +40,14 @@ export const defaultPasswordHashPolicy: ResolvedPasswordHashPolicy =
 		version: 19,
 	})
 
+// Inclusive bounds of each configurable parameter, enforcing the security floor.
+const policyBounds = {
+	memoryCostKiB: [19_456, 1_048_576],
+	parallelism: [1, 16],
+	policyVersion: [1, Number.MAX_SAFE_INTEGER],
+	timeCost: [2, 10],
+} as const
+
 const parsePasswordHashPolicy: (
 	options: unknown,
 ) => ResolvedPasswordHashPolicy = definePluginOptionsParser({
@@ -47,39 +55,27 @@ const parsePasswordHashPolicy: (
 	keys: ['memoryCostKiB', 'parallelism', 'policyVersion', 'timeCost'] as const,
 	formatUnknownKey: (key) =>
 		`passwordAuthPlugin password contains unknown option: ${String(key)}`,
-	normalize: ({ memoryCostKiB, parallelism, policyVersion, timeCost }) => ({
-		algorithm: 'argon2id',
-		hashLength: 32,
-		memoryCostKiB: resolveBoundedInteger(
-			memoryCostKiB,
-			defaultPasswordHashPolicy.memoryCostKiB,
-			19_456,
-			1_048_576,
-			'passwordAuthPlugin password.memoryCostKiB',
-		),
-		parallelism: resolveBoundedInteger(
-			parallelism,
-			defaultPasswordHashPolicy.parallelism,
-			1,
-			16,
-			'passwordAuthPlugin password.parallelism',
-		),
-		policyVersion: resolveBoundedInteger(
-			policyVersion,
-			defaultPasswordHashPolicy.policyVersion,
-			1,
-			Number.MAX_SAFE_INTEGER,
-			'passwordAuthPlugin password.policyVersion',
-		),
-		timeCost: resolveBoundedInteger(
-			timeCost,
-			defaultPasswordHashPolicy.timeCost,
-			2,
-			10,
-			'passwordAuthPlugin password.timeCost',
-		),
-		version: 19,
-	}),
+	normalize: (options) => {
+		const resolve = (key: keyof typeof policyBounds): number => {
+			const [minimum, maximum] = policyBounds[key]
+			return resolveBoundedInteger(
+				options[key],
+				defaultPasswordHashPolicy[key],
+				minimum,
+				maximum,
+				`passwordAuthPlugin password.${key}`,
+			)
+		}
+		return {
+			algorithm: 'argon2id',
+			hashLength: 32,
+			memoryCostKiB: resolve('memoryCostKiB'),
+			parallelism: resolve('parallelism'),
+			policyVersion: resolve('policyVersion'),
+			timeCost: resolve('timeCost'),
+			version: 19,
+		}
+	},
 })
 
 /** Validates and snapshots an application password policy. */

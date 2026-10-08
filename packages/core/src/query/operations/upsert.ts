@@ -5,6 +5,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { assertExactCommandKeys } from '../../exact-object-validation.js'
 
 import type { QueryAst } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -39,15 +40,6 @@ interface NormalizedUpsertInput<TSchema extends SchemaDefinition> {
 
 const idTargetFields = immutableArray(['id'] as const)
 
-const createUniqueUpsertTarget = <const TSchema extends SchemaDefinition>(
-	fields: readonly [string, ...string[]],
-): UniqueUpsertTargetNode<TSchema> =>
-	// Runtime matching below proves every retained name belongs to the exact schema key.
-	immutableRecord({
-		kind: 'unique-upsert-target',
-		fields,
-	})
-
 const hasSameFields = (
 	left: readonly string[],
 	right: readonly string[],
@@ -55,14 +47,13 @@ const hasSameFields = (
 	left.length === right.length &&
 	left.every((fieldName) => right.includes(fieldName))
 
+/** Reads the top-level conjunction members of one normalized unique target filter. */
 const readEqualityExpressions = (filter: unknown): readonly unknown[] => {
 	if (!isPlainRecord(filter)) {
 		throw new TypeError('upsert target must contain query filters')
 	}
 
-	if (filter.kind !== 'and') {
-		return immutableArray([filter])
-	}
+	if (filter.kind !== 'and') return immutableArray([filter])
 
 	if (!isUnknownArray(filter.expressions)) {
 		throw new TypeError('upsert target conjunction must contain filters')
@@ -115,36 +106,14 @@ export const readUniqueUpsertTargetValues = <
 	return immutableRecord(values)
 }
 
-function assertExactUpsertKeys(
-	input: unknown,
-	allowedKeys: ReadonlySet<string>,
-	path: string,
-): asserts input is Readonly<Record<string, unknown>> {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`${path} must be an object`)
-	}
-
-	for (const key of Object.keys(input)) {
-		if (!allowedKeys.has(key)) {
-			throw new TypeError(`${path} contains unknown key: ${key}`)
-		}
-	}
-
-	for (const key of allowedKeys) {
-		if (!Object.hasOwn(input, key)) {
-			throw new TypeError(`${path} must contain key: ${key}`)
-		}
-	}
-}
-
-const upsertInputKeys = new Set(['create', 'update'])
-
 /** Normalizes the shared create-or-update values used by singular and bulk upserts. */
 export const normalizeUpsertInput = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: UpsertInput<TSchema>,
 ): NormalizedUpsertInput<TSchema> => {
-	assertExactUpsertKeys(input, upsertInputKeys, 'upsert input')
+	const untrustedInput: unknown = input
+
+	assertExactCommandKeys(untrustedInput, 'upsert input', ['create', 'update'])
 
 	return immutableRecord({
 		create: input.create,
@@ -200,26 +169,16 @@ export const normalizeUniqueUpsertTarget = <
 		targetFields.push(expression.field)
 	}
 
-	let fields: readonly [string, ...string[]] | undefined = hasSameFields(
-		targetFields,
-		idTargetFields,
-	)
+	const fields = hasSameFields(targetFields, idTargetFields)
 		? idTargetFields
-		: undefined
-
-	for (const index of schema.indexes) {
-		if (
-			fields === undefined &&
-			index.unique &&
-			hasSameFields(targetFields, index.fields)
-		) {
-			fields = index.fields
-		}
-	}
+		: schema.indexes.find(
+				(index) => index.unique && hasSameFields(targetFields, index.fields),
+			)?.fields
 
 	if (fields === undefined) {
 		throw new TypeError(`${path} must match id or one declared unique index`)
 	}
 
-	return createUniqueUpsertTarget<TSchema>(fields)
+	// The matching above proves every retained name belongs to the exact schema key.
+	return immutableRecord({ kind: 'unique-upsert-target', fields })
 }

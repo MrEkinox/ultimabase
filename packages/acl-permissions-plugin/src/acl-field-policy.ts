@@ -3,6 +3,7 @@ import {
 	protectedPolicy,
 	readOperationResultSelection,
 	type ProtectedPolicyDefinition,
+	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
@@ -13,7 +14,6 @@ import {
 } from '@ultimabase/shared'
 
 import { aclFieldName } from './acl-option.js'
-import { readOperationSchema } from './runtime-operation.js'
 
 const restrictACLRecord = (
 	record: Readonly<Record<string, unknown>>,
@@ -39,12 +39,14 @@ const restrictACLResult = <const TResult>(result: TResult): TResult => {
 
 /** Creates ACL's independent deny-only Core policy without an Access dependency. */
 export const createACLFieldPolicy = (
-	protectedSchemas: ReadonlySet<SchemaDefinition>,
+	protectedSchemaOf: (
+		operation: RuntimeLogicalOperationAst,
+	) => Readonly<{ schema: SchemaDefinition }> | undefined,
 ): ProtectedPolicyDefinition =>
 	protectedPolicy({
 		evaluate: ({ operation }) => {
-			const schema = readOperationSchema(operation)
-			if (!protectedSchemas.has(schema)) return undefined
+			const schema = protectedSchemaOf(operation)?.schema
+			if (schema === undefined) return undefined
 
 			const selected = readOperationResultSelection(operation).fields
 			if (selected.some(({ field }) => field === aclFieldName)) {
@@ -71,7 +73,7 @@ export const createACLFieldPolicy = (
 				? false
 				: undefined,
 		restrictResult: ({ operation, result }) =>
-			protectedSchemas.has(readOperationSchema(operation))
-				? restrictACLResult(result)
-				: result,
+			protectedSchemaOf(operation) === undefined
+				? result
+				: restrictACLResult(result),
 	})

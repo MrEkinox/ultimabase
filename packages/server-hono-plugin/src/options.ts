@@ -53,7 +53,7 @@ const isHonoApplication = (value: unknown): value is Hono =>
 
 /** @internal Validates ownership before the plugin definition can have effects. */
 export const normalizeHonoServerPluginOptions: (
-	options: HonoServerPluginOptions,
+	options: unknown,
 ) => NormalizedHonoServerPluginOptions = definePluginOptionsParser({
 	name: 'Hono server plugin options',
 	keys: ['app', 'browserPolicyOwner', 'host', 'port'] as const,
@@ -110,9 +110,9 @@ export const normalizeHonoServerPluginOptions: (
 		}
 		return {
 			app: undefined,
-			browserPolicyOwner: 'ultimabase' as const,
-			host: typeof host === 'string' ? host : undefined,
-			port: typeof port === 'number' ? port : 1337,
+			browserPolicyOwner: 'ultimabase',
+			host,
+			port: port ?? 1337,
 		}
 	},
 })

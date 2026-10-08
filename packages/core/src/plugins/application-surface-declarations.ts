@@ -2,8 +2,9 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
+
+import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
 
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import { Schema, type SchemaDefinition } from '../schema/schema/definition.js'
@@ -20,20 +21,18 @@ import {
 	type PluginSchemaMutationSurfaceBinding,
 } from './schema-mutation-surface-declarations.js'
 import type {
-	PluginSourceMutationMethod,
 	PluginSourceReceipt,
-	PluginSourceSchemaMutationCarrier,
 	PluginSourceSchemaProjection,
 } from './source-projections.js'
+import type {
+	PluginSourceMutationMethod,
+	PluginSourceSchemaMutationCarrier,
+} from './source-schema-templates.js'
 import { pluginSourceReceipt } from './source-projections.js'
 import type {
 	SchemaSelection,
 	SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
-export type {
-	PluginSchemaMutationSurface,
-	PluginSchemaMutationSurfaceBinding,
-} from './schema-mutation-surface-declarations.js'
 
 export interface PluginOperationDeclarationRegistrar {
 	/** Declares one operation or schema-mutation token without installing a handler. */
@@ -194,19 +193,13 @@ export const createApplicationSurfaceRegistrars = (
 	return immutableRecord({
 		models: immutableRecord({
 			extend: (target, options) => {
-				if (!isPlainRecord(options)) {
-					throw new TypeError('model surface must be a plain object')
-				}
 				// Removed command maps must fail for JavaScript callers instead of becoming inert options.
-				for (const key of Object.keys(options)) {
-					if (
-						key !== 'contributionId' &&
-						key !== 'schemaMutations' &&
-						key !== 'staticOptions'
-					) {
-						throw new TypeError(`model surface contains unknown option: ${key}`)
-					}
-				}
+				assertExactEnumerablePlainObject(
+					options,
+					new Set(['contributionId', 'schemaMutations', 'staticOptions']),
+					'model surface must be a plain object',
+					'model surface contains unknown option: ',
+				)
 				assertNonEmptyString(
 					options.contributionId,
 					'model surface contributionId',

@@ -18,7 +18,7 @@ import {
 	RelationPost,
 	RelationTag,
 } from '../../../../tests/fixtures/relation-fixture.js'
-import { getRelationWhereDeclaration } from './relation.js'
+import { getRelationWhereDeclaration } from '../base/definition.js'
 
 describe('relationField', () => {
 	it('keeps targets private and compiles owning and inverse metadata', () => {

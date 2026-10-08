@@ -1,3 +1,5 @@
+import { immutableRecord } from '@ultimabase/shared'
+
 import type { OperationAstNode } from '../../query/operations/contracts.js'
 import type { NestedWriteRootCommand } from './contracts.js'
 
@@ -19,7 +21,7 @@ export const markNestedWriteRootOperation = <
 	operation: TOperation,
 	marker: NestedWriteRootOperationMarker,
 ): TOperation => {
-	nestedWriteRootOperations.set(operation, Object.freeze({ ...marker }))
+	nestedWriteRootOperations.set(operation, immutableRecord(marker))
 	return operation
 }
 

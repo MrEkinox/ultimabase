@@ -12,22 +12,48 @@ import {
 	retainSchemaModelAlias,
 	retainSchemaModelOwner,
 } from '../schema/schema/model-state.js'
+type ModelMutationsFor = (schema: SchemaDefinition) => ReadonlySet<string>
+type BindValue = (value: unknown) => unknown
+
 const applicationModelViewTargets = new WeakMap<object, object>()
 const directApplicationModelViews = new WeakMap<object, object>()
-const directApplicationCollectionViews = new WeakMap<
+/** Caches rebuilt result collections and records with their owning application. */
+const directApplicationResultViews = new WeakMap<
 	object,
-	Readonly<{
-		ownerToken: OperationExecutionOwnerToken
-		value: readonly unknown[]
-	}>
+	Readonly<{ ownerToken: OperationExecutionOwnerToken; value: object }>
 >()
-const directApplicationRecordViews = new WeakMap<
-	object,
-	Readonly<{
-		ownerToken: OperationExecutionOwnerToken
-		value: object
-	}>
->()
+
+/**
+ * Copies every own descriptor of `source` onto `target`, binding data values.
+ * Returns whether any value changed; accessors are copied without invocation.
+ */
+const copyBoundDescriptors = (
+	source: object,
+	target: object,
+	bind: BindValue,
+): boolean => {
+	let changed = false
+	for (const property of Reflect.ownKeys(source)) {
+		const descriptor = Object.getOwnPropertyDescriptor(source, property)
+		if (descriptor === undefined) continue
+		if ('value' in descriptor) {
+			const value = bind(descriptor.value)
+			if (value !== descriptor.value) changed = true
+			descriptor.value = value
+		}
+		Object.defineProperty(target, property, descriptor)
+	}
+	if (!Object.isExtensible(source)) Object.preventExtensions(target)
+	return changed
+}
+
+/** Creates an empty object sharing the prototype of `source`. */
+const emptyCopyOf = (source: object): object => {
+	const copy: object = {}
+	Object.setPrototypeOf(copy, Reflect.getPrototypeOf(source))
+	return copy
+}
+
 /**
  * Retains only inert command names and an opaque lifecycle token. Execution
  * resolves and verifies the current active application at each call boundary.
@@ -35,7 +61,7 @@ const directApplicationRecordViews = new WeakMap<
 export const bindDirectApplicationSchemaModel = <TModel extends object>(
 	model: TModel,
 	ownerToken: OperationExecutionOwnerToken,
-	modelMutationsFor: (schema: SchemaDefinition) => ReadonlySet<string>,
+	modelMutationsFor: ModelMutationsFor,
 	ancestors: ReadonlySet<object> = new Set<object>(),
 ): TModel => {
 	const target = applicationModelViewTargets.get(model) ?? model
@@ -49,8 +75,7 @@ export const bindDirectApplicationSchemaModel = <TModel extends object>(
 		string,
 		(...arguments_: readonly unknown[]) => unknown
 	>()
-	const boundTarget: object = {}
-	Object.setPrototypeOf(boundTarget, Reflect.getPrototypeOf(target))
+	const boundTarget = emptyCopyOf(target)
 	retainSchemaModelAlias(boundTarget, target)
 	const view: object = new Proxy(boundTarget, {
 		get: (current, property, receiver): unknown => {
@@ -93,130 +118,82 @@ export const bindDirectApplicationSchemaModel = <TModel extends object>(
 	directApplicationModelViews.set(target, view)
 
 	const descendants = new Set(ancestors).add(target)
-	for (const property of Reflect.ownKeys(target)) {
-		const descriptor = Object.getOwnPropertyDescriptor(target, property)
-		if (descriptor === undefined) continue
-		Object.defineProperty(
-			boundTarget,
-			property,
-			'value' in descriptor
-				? {
-						...descriptor,
-						value: bindDirectApplicationValueInternal(
-							descriptor.value,
-							ownerToken,
-							modelMutationsFor,
-							descendants,
-						),
-					}
-				: descriptor,
-		)
-	}
-	if (!Object.isExtensible(target)) Object.preventExtensions(boundTarget)
+	copyBoundDescriptors(target, boundTarget, (value) =>
+		bindDirectApplicationValueInternal(
+			value,
+			ownerToken,
+			modelMutationsFor,
+			descendants,
+		),
+	)
 	return view as TModel
 }
 
 const bindDirectApplicationValueInternal = (
 	value: unknown,
 	ownerToken: OperationExecutionOwnerToken,
-	modelMutationsFor: (schema: SchemaDefinition) => ReadonlySet<string>,
+	modelMutationsFor: ModelMutationsFor,
 	ancestors: ReadonlySet<object>,
 ): unknown => {
-	if (Array.isArray(value)) {
-		const existing = directApplicationCollectionViews.get(value)
-		if (existing !== undefined) {
-			if (existing.ownerToken !== ownerToken) {
-				throw new TypeError(
-					'Application result collection cannot be rebound to another application',
-				)
-			}
-			return existing.value
-		}
-		if (ancestors.has(value)) return value
-		const descendants = new Set(ancestors).add(value)
-		let changed = false
-		const entries: unknown[] = []
-		for (const entry of value) {
-			const boundEntry = bindDirectApplicationValueInternal(
-				entry,
+	const isCollection = Array.isArray(value)
+	if (!isCollection) {
+		if (
+			typeof value === 'object' &&
+			value !== null &&
+			findSchemaModelRecord(value) !== undefined
+		) {
+			return bindDirectApplicationSchemaModel(
+				value,
 				ownerToken,
 				modelMutationsFor,
-				descendants,
+				ancestors,
 			)
-			if (boundEntry !== entry) changed = true
-			entries.push(boundEntry)
 		}
-		if (!changed) return value
-		const bound = immutableArray(entries)
-		directApplicationCollectionViews.set(
-			value,
-			Object.freeze({ ownerToken, value: bound }),
-		)
-		return bound
+		if (!isPlainRecord(value)) return value
 	}
-	if (
-		typeof value === 'object' &&
-		value !== null &&
-		findSchemaModelRecord(value) !== undefined
-	) {
-		return bindDirectApplicationSchemaModel(
-			value,
+	const existing = directApplicationResultViews.get(value)
+	if (existing !== undefined) {
+		if (existing.ownerToken !== ownerToken) {
+			throw new TypeError(
+				isCollection
+					? 'Application result collection cannot be rebound to another application'
+					: 'Application result cannot be rebound to another application',
+			)
+		}
+		return existing.value
+	}
+	if (ancestors.has(value)) return value
+	const descendants = new Set(ancestors).add(value)
+	const bind: BindValue = (entry) =>
+		bindDirectApplicationValueInternal(
+			entry,
 			ownerToken,
 			modelMutationsFor,
-			ancestors,
+			descendants,
 		)
+	let bound: object | undefined
+	if (isCollection) {
+		const entries = Array.from(value, bind)
+		if (entries.some((entry, index) => entry !== value[index])) {
+			bound = immutableArray(entries)
+		}
+	} else {
+		const copy = emptyCopyOf(value)
+		if (copyBoundDescriptors(value, copy, bind)) bound = copy
 	}
-	if (isPlainRecord(value)) {
-		const existing = directApplicationRecordViews.get(value)
-		if (existing !== undefined) {
-			if (existing.ownerToken !== ownerToken) {
-				throw new TypeError(
-					'Application result cannot be rebound to another application',
-				)
-			}
-			return existing.value
-		}
-		if (ancestors.has(value)) return value
-		const descendants = new Set(ancestors).add(value)
-		let changed = false
-		const descriptors: [PropertyKey, PropertyDescriptor][] = []
-		for (const property of Reflect.ownKeys(value)) {
-			const descriptor = Object.getOwnPropertyDescriptor(value, property)
-			if (descriptor === undefined) continue
-			if (!('value' in descriptor)) {
-				descriptors.push([property, descriptor])
-				continue
-			}
-			const boundEntry = bindDirectApplicationValueInternal(
-				descriptor.value,
-				ownerToken,
-				modelMutationsFor,
-				descendants,
-			)
-			if (boundEntry !== descriptor.value) changed = true
-			descriptors.push([property, { ...descriptor, value: boundEntry }])
-		}
-		if (!changed) return value
-		const bound: object = {}
-		Object.setPrototypeOf(bound, Reflect.getPrototypeOf(value))
-		for (const [property, descriptor] of descriptors) {
-			Object.defineProperty(bound, property, descriptor)
-		}
-		if (!Object.isExtensible(value)) Object.preventExtensions(bound)
-		directApplicationRecordViews.set(
-			value,
-			Object.freeze({ ownerToken, value: bound }),
-		)
-		return bound
-	}
-	return value
+	if (bound === undefined) return value
+	directApplicationResultViews.set(
+		value,
+		Object.freeze({ ownerToken, value: bound }),
+	)
+	return bound
 }
 
 /** Binds every model in one result tree without changing non-record values. */
 export const bindDirectApplicationValue = (
 	value: unknown,
 	ownerToken: OperationExecutionOwnerToken,
-	modelMutationsFor: (schema: SchemaDefinition) => ReadonlySet<string>,
+	modelMutationsFor: ModelMutationsFor,
 ): unknown =>
 	bindDirectApplicationValueInternal(
 		value,

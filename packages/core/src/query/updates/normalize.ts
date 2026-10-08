@@ -3,6 +3,7 @@ import {
 	type FieldDefinition,
 	type SchemaDefinition,
 } from '../../schema/index.js'
+import { hasListOption } from '../../schema/fields/base/options.js'
 import {
 	assertNonEmptyString,
 	immutableArray,
@@ -12,7 +13,6 @@ import {
 
 import {
 	numericUpdateFieldKinds,
-	type NumericUpdateFieldName,
 	type UpdateExpression,
 	type UpdateExpressionInput,
 	type UpdateFieldName,
@@ -28,11 +28,6 @@ const includesString = (values: readonly string[], value: string): boolean =>
 
 const isImmutableField = (field: RuntimeUpdateField): boolean =>
 	'immutable' in field.options && field.options.immutable === true
-
-const isListField = (field: RuntimeUpdateField): boolean =>
-	'list' in field.options &&
-	field.options.list !== false &&
-	field.options.list !== undefined
 
 const resolveMutableField = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -56,71 +51,53 @@ const resolveMutableField = <const TSchema extends SchemaDefinition>(
 		throw new TypeError(`${path} must reference a mutable schema field`)
 	}
 
-	// Plugin inference may impose stricter rules that Runtime validates through its handler.
 	return [fieldName, field]
 }
 
-const resolveNumericField = <const TSchema extends SchemaDefinition>(
+/** Normalizes one field entry into a set or numeric update operation. */
+const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	fieldName: unknown,
-	path: string,
-): readonly [NumericUpdateFieldName<TSchema>, RuntimeUpdateField] => {
-	const [mutableFieldName, field] = resolveMutableField(schema, fieldName, path)
+	fieldName: string,
+	value: unknown,
+): UpdateOperationNode<TSchema> => {
+	if (value === undefined) {
+		throw new TypeError('update value must not be undefined')
+	}
+
+	if (!isNumericUpdateOperationValue(value)) {
+		const [mutableFieldName] = resolveMutableField(
+			schema,
+			fieldName,
+			'update field',
+		)
+
+		// Plugin inference may impose stricter value rules validated by Runtime.
+		return immutableRecord({
+			kind: 'set',
+			field: mutableFieldName,
+			value,
+		}) as UpdateOperationNode<TSchema>
+	}
+
+	const path = `update ${value.kind} field`
+	const [numericFieldName, field] = resolveMutableField(schema, fieldName, path)
 
 	if (
-		isListField(field) ||
+		hasListOption(field.options) ||
 		!includesString(numericUpdateFieldKinds, field.kind)
 	) {
 		throw new TypeError(`${path} must reference a mutable scalar numeric field`)
 	}
 
-	return [mutableFieldName as NumericUpdateFieldName<TSchema>, field]
-}
-
-const appendUpdateOperation = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	fieldName: string,
-	value: unknown,
-	operations: UpdateOperationNode<TSchema>[],
-): void => {
-	if (value === undefined) {
-		throw new TypeError('update value must not be undefined')
-	}
-
-	if (isNumericUpdateOperationValue(value)) {
-		const [numericFieldName, field] = resolveNumericField(
-			schema,
-			fieldName,
-			`update ${value.kind} field`,
-		)
-		const normalizedValue = snapshotScalarFieldValue(
+	return immutableRecord({
+		kind: value.kind,
+		field: numericFieldName,
+		value: snapshotScalarFieldValue(
 			field,
 			value.value,
 			`update ${value.kind} value`,
-		)
-
-		operations.push(
-			immutableRecord({
-				kind: value.kind,
-				field: numericFieldName,
-				value: normalizedValue,
-			}) as UpdateOperationNode<TSchema>,
-		)
-		return
-	}
-
-	const [mutableFieldName] = resolveMutableField(
-		schema,
-		fieldName,
-		'update field',
-	)
-	operations.push(
-		immutableRecord({
-			kind: 'set',
-			field: mutableFieldName,
-			value,
-		}) as UpdateOperationNode<TSchema>,
-	)
+		),
+	}) as UpdateOperationNode<TSchema>
 }
 
 /** Normalizes typed update data into one deterministic atomic AST. */
@@ -136,11 +113,9 @@ export const normalizeUpdateExpression = <
 		throw new TypeError('update expression must be an object')
 	}
 
-	const operations: UpdateOperationNode<TSchema>[] = []
-
-	for (const [fieldName, value] of Object.entries(untrustedInput)) {
-		appendUpdateOperation(schema, fieldName, value, operations)
-	}
+	const operations = Object.entries(untrustedInput).map(([fieldName, value]) =>
+		normalizeUpdateOperation(schema, fieldName, value),
+	)
 
 	if (operations.length === 0) {
 		throw new TypeError('update expression must contain at least one operation')

@@ -2,86 +2,114 @@ import { isDeepStrictEqual } from 'node:util'
 
 import {
 	FrameworkError,
-	requestRoleResolverCapability,
 	getCurrentEngine,
 	getCurrentRequest,
+	getOperationSchema,
+	optionalCapability,
+	requestPrincipalResolverCapability,
+	requestRoleResolverCapability,
+	Schema,
+	type ApplicationCapabilityFactoryContext,
+	type CapabilityRequirement,
 	type DatabaseMutationMaterializationSource,
-	type RequestSubjectContext,
 	type RequestPrincipalResolver,
 	type RequestRoleResolver,
-	type CompiledSchemaRegistry,
+	type RequestSubjectContext,
+	type RuntimeLogicalOperationAst,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
 import {
+	resolveACLAccessSubjects,
+	type ACLAccessSubjects,
+} from './acl-access.js'
+import {
 	createACLChangedEvent,
 	type ACLChangedEvent,
 	type ACLChangedOperation,
 } from './acl-events.js'
 import {
-	aclFieldName,
-	readACLSchemaOption,
-	type NormalizedACLSchemaOption,
-} from './acl-option.js'
-import {
 	resolveACLEntryLimits,
 	type ResolvedACLEntryLimits,
 } from './acl-limits.js'
-import { resolveACLAccessSubjects } from './acl-access.js'
+import {
+	aclFieldName,
+	readProtectedSchemaOptions,
+	type NormalizedACLSchemaOption,
+} from './acl-option.js'
+import {
+	hasStaticRoleGrant,
+	snapshotResolvedACL,
+	type PersistentRoleResolver,
+} from './acl-operation-resolution.js'
 
-export type PersistentRoleResolver = NonNullable<
-	RequestRoleResolver['resolvePersistentRole']
->
+/** Discovers the optional identity providers after setup, in any install order. */
+export const optionalPrincipalResolver: CapabilityRequirement<
+	typeof requestPrincipalResolverCapability,
+	true,
+	'^1.0.0',
+	'materialization'
+> = optionalCapability(requestPrincipalResolverCapability, '^1.0.0')
+export const optionalRoleResolver: CapabilityRequirement<
+	typeof requestRoleResolverCapability,
+	true,
+	'^1.0.0',
+	'materialization'
+> = optionalCapability(requestRoleResolverCapability, '^1.0.0')
 
-interface CreateACLApplicationStateOptions {
-	readonly schemas: CompiledSchemaRegistry
-	readonly protectedSchemas: readonly SchemaDefinition[]
-	readonly pluginLimits: ResolvedACLEntryLimits
-	readonly principalResolver: RequestPrincipalResolver | undefined
-	readonly roleResolver: RequestRoleResolver | undefined
-	readonly hasStaticRoleGrant: (config: NormalizedACLSchemaOption) => boolean
-	readonly snapshotACL: (value: unknown, path: string) => ACL
+/** Reads the exact application schema retained by a normalized operation. */
+const readOperationSchema = (
+	operation: RuntimeLogicalOperationAst,
+): SchemaDefinition => {
+	const schema: unknown = getOperationSchema(operation)
+	if (!Schema.is(schema)) {
+		throw new TypeError('Runtime operation schema node is invalid')
+	}
+	return schema
 }
 
+/** Describes one ACL-enabled schema with its effective entry limits. */
+interface ProtectedSchemaOption {
+	readonly config: NormalizedACLSchemaOption
+	readonly limits: ResolvedACLEntryLimits
+	readonly schema: SchemaDefinition
+}
+
+/** Holds the application-local facts shared by every ACL Runtime provider. */
 export interface ACLApplicationState {
+	/** Returns the ACL configuration of an operation's schema, if it is protected. */
+	readonly protectedOption: (
+		operation: RuntimeLogicalOperationAst,
+	) => ProtectedSchemaOption | undefined
+	readonly persistentRoleResolver: PersistentRoleResolver | undefined
+	/** Resolves request subjects once per engine, shared by every hook context. */
+	readonly resolveSubjects: () => Promise<ACLAccessSubjects>
 	readonly collectACLChanges: (
 		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		kind: ACLChangedOperation,
 		input: DatabaseMutationMaterializationSource,
 	) => Promise<readonly ACLChangedEvent[]>
-	readonly protectedSchemas: readonly SchemaDefinition[]
-	readonly protectedSchemaSet: ReadonlySet<SchemaDefinition>
-	readonly readPersistentRoleResolver: () => PersistentRoleResolver | undefined
-	readonly resolveSchemaLimits: (
-		config: NormalizedACLSchemaOption,
-	) => ResolvedACLEntryLimits
-	readonly resolveSubjects: () => ReturnType<typeof resolveACLAccessSubjects>
 }
 
-/** Creates the application-local identity cache shared by ACL capability factories and setup. */
-export const createACLApplicationState = (
-	options: CreateACLApplicationStateOptions,
+const emptyACL = new ACL()
+
+const createACLApplicationState = (
+	{ callbacks, capabilities, schemas }: ApplicationCapabilityFactoryContext,
+	pluginLimits: ResolvedACLEntryLimits,
 ): ACLApplicationState => {
-	const {
-		hasStaticRoleGrant,
-		pluginLimits,
-		principalResolver,
-		protectedSchemas,
-		roleResolver,
-		schemas,
-		snapshotACL,
-	} = options
-	const protectedSchemaSet = new Set(protectedSchemas)
-	const hasDeclaredRoleGrant = protectedSchemas.some((schema) => {
-		const option = readACLSchemaOption(schema)
+	const configs = readProtectedSchemaOptions(schemas)
+	const options = new Map<SchemaDefinition, ProtectedSchemaOption>()
+	for (const [schema, config] of configs) {
+		const limits = resolveACLEntryLimits(pluginLimits, config.limits)
+		options.set(schema, { config, limits, schema })
+	}
+	const principal = capabilities.contributions(optionalPrincipalResolver)[0]
+	const role = capabilities.contributions(optionalRoleResolver)[0]
 
-		return option !== undefined && hasStaticRoleGrant(option)
-	})
-
-	if (hasDeclaredRoleGrant && roleResolver === undefined) {
+	if (role === undefined && [...configs.values()].some(hasStaticRoleGrant)) {
 		throw new FrameworkError(
 			'PLUGIN_CAPABILITY_MISSING',
 			'ACL role grants require an active access role resolver capability.',
@@ -94,28 +122,33 @@ export const createACLApplicationState = (
 		)
 	}
 
-	const subjectCache = new WeakMap<
-		object,
-		ReturnType<typeof resolveACLAccessSubjects>
-	>()
-	const readPersistentRoleResolver = (): PersistentRoleResolver | undefined => {
-		const persistentRoleResolver =
-			roleResolver?.resolvePersistentRole?.bind(roleResolver)
+	// Provider callbacks keep their exact owner so Core attributes their effects.
+	const principalResolver: RequestPrincipalResolver | undefined =
+		principal === undefined
+			? undefined
+			: {
+					resolveCurrent: (input) =>
+						callbacks.runPlugin(principal.owner, () =>
+							principal.value.resolveCurrent(input),
+						),
+				}
+	const resolveCurrentRoles = role?.value.resolveCurrentRoles?.bind(role.value)
+	const resolvePersistentRole = role?.value.resolvePersistentRole?.bind(
+		role.value,
+	)
+	const roleResolver: Partial<RequestRoleResolver> =
+		role === undefined || resolveCurrentRoles === undefined
+			? {}
+			: {
+					resolveCurrentRoles: (input) =>
+						callbacks.runPlugin(role.owner, () => resolveCurrentRoles(input)),
+				}
 
-		if (persistentRoleResolver === undefined) return undefined
-
-		return ({ role }) =>
-			persistentRoleResolver({
-				// Providers resolve against the original request instead of a derived hook view.
-				context: getCurrentRequest(),
-				role,
-			})
-	}
-	const resolveSubjects = (): ReturnType<typeof resolveACLAccessSubjects> => {
+	const subjectCache = new WeakMap<object, Promise<ACLAccessSubjects>>()
+	const resolveSubjects = (): Promise<ACLAccessSubjects> => {
 		// The engine is the stable cache owner shared by every hook context in one operation.
 		const cacheKey = getCurrentEngine()
 		const cached = subjectCache.get(cacheKey)
-
 		if (cached !== undefined) return cached
 
 		const resolution = resolveACLAccessSubjects(
@@ -128,57 +161,72 @@ export const createACLApplicationState = (
 		subjectCache.set(cacheKey, resolution)
 		return resolution
 	}
-	const resolveSchemaLimits = (
-		config: NormalizedACLSchemaOption,
-	): ResolvedACLEntryLimits =>
-		resolveACLEntryLimits(pluginLimits, config.limits)
-	const emptyACLChangeValue = new ACL()
-	const collectACLChanges = async (
-		context: RequestSubjectContext,
-		schema: SchemaDefinition,
-		kind: ACLChangedOperation,
-		input: DatabaseMutationMaterializationSource,
-	): Promise<readonly ACLChangedEvent[]> => {
-		const events: ACLChangedEvent[] = []
-		// Core has already validated and frozen these complete mutation snapshots.
-		for (const materialization of input.materializations) {
-			if (materialization.kind === 'delete') continue
-
-			const item = materialization.current
-			const current = snapshotACL(item[aclFieldName], 'current acl')
-			const previous =
-				materialization.kind === 'create'
-					? emptyACLChangeValue
-					: snapshotACL(materialization.previous[aclFieldName], 'previous acl')
-
-			if (isDeepStrictEqual(previous.toJSON(), current.toJSON())) continue
-			const itemId: unknown = item.id
-			if (typeof itemId !== 'string' || itemId.length === 0) {
-				throw new TypeError('ACL change event requires a materialized item id')
-			}
-
-			const subjects = await resolveSubjects()
-			events.push(
-				createACLChangedEvent({
-					authority: context.access.mode,
-					className: schema.className,
-					current,
-					itemId,
-					operation: kind,
-					previous,
-					principal: subjects.principal,
-				}),
-			)
-		}
-		return immutableArray(events)
-	}
 
 	return {
-		collectACLChanges,
-		protectedSchemas,
-		protectedSchemaSet,
-		readPersistentRoleResolver,
-		resolveSchemaLimits,
+		protectedOption: (operation) => options.get(readOperationSchema(operation)),
+		persistentRoleResolver:
+			role === undefined || resolvePersistentRole === undefined
+				? undefined
+				: ({ role: reference }) => {
+						// Providers resolve against the original request, not a hook view.
+						const input = { context: getCurrentRequest(), role: reference }
+						return callbacks.runPlugin(role.owner, () =>
+							resolvePersistentRole(input),
+						)
+					},
 		resolveSubjects,
+		collectACLChanges: async (context, schema, kind, input) => {
+			const events: ACLChangedEvent[] = []
+			// Core has already validated and frozen these complete mutation snapshots.
+			for (const materialization of input.materializations) {
+				if (materialization.kind === 'delete') continue
+
+				const item = materialization.current
+				const current = snapshotResolvedACL(item[aclFieldName], 'current acl')
+				const previous =
+					materialization.kind === 'create'
+						? emptyACL
+						: snapshotResolvedACL(
+								materialization.previous[aclFieldName],
+								'previous acl',
+							)
+
+				if (isDeepStrictEqual(previous.toJSON(), current.toJSON())) continue
+				const itemId: unknown = item.id
+				if (typeof itemId !== 'string' || itemId.length === 0) {
+					throw new TypeError(
+						'ACL change event requires a materialized item id',
+					)
+				}
+
+				events.push(
+					createACLChangedEvent({
+						authority: context.access.mode,
+						className: schema.className,
+						current,
+						itemId,
+						operation: kind,
+						previous,
+						principal: (await resolveSubjects()).principal,
+					}),
+				)
+			}
+			return immutableArray(events)
+		},
+	}
+}
+
+/** Creates one application state per compiled schema registry, built on first use. */
+export const createACLApplicationStateReader = (
+	pluginLimits: ResolvedACLEntryLimits,
+): ((context: ApplicationCapabilityFactoryContext) => ACLApplicationState) => {
+	const states = new WeakMap<object, ACLApplicationState>()
+
+	return (context) => {
+		const existing = states.get(context.schemas)
+		if (existing !== undefined) return existing
+		const state = createACLApplicationState(context, pluginLimits)
+		states.set(context.schemas, state)
+		return state
 	}
 }

@@ -485,3 +485,31 @@ export const databaseAdapterCapability: CapabilityToken<
 	lifetime: 'application',
 	compose: ([provider]) => provider,
 })
+
+/** Checks one adapter-shaped value by its nominal kind and required methods. */
+const hasExecutorShape = (
+	value: object,
+	kind: string,
+	methods: readonly string[],
+): boolean =>
+	Reflect.get(value, 'kind') === kind &&
+	methods.every((method) => typeof Reflect.get(value, method) === 'function')
+
+/** @internal Recognizes a root adapter before Runtime assembly or a transaction. */
+export const isDatabaseAdapter = (value: unknown): value is DatabaseAdapter =>
+	((typeof value === 'object' && value !== null) ||
+		typeof value === 'function') &&
+	hasExecutorShape(value, 'database-adapter', ['execute', 'beginTransaction'])
+
+/** @internal Validates a plugin-owned transaction before any callback receives it. */
+export const isDatabaseTransactionAdapter = (
+	value: unknown,
+): value is DatabaseTransactionAdapter =>
+	typeof value === 'object' &&
+	value !== null &&
+	hasExecutorShape(value, 'database-transaction-adapter', [
+		'execute',
+		'prepare',
+		'commit',
+		'rollback',
+	])

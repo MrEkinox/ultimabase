@@ -1,5 +1,14 @@
 # Implementation plans
 
+> **Archive of the reference.** These plans and the root `CURRENT_PLAN.md` are
+> the frozen planning record of the reference implementation (commit
+> `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`). No plan is active in this
+> repository: the package-by-package rebuild is planned and tracked in
+> [`docs/rebuild/`](../rebuild/HANDOFF.md). Module paths named in these plans
+> describe the reference layout; see [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
+> for the current one. The catalog below is kept unchanged because the
+> checkpoint guard (`tooling/issues/current-plan.test.ts`) still checks it.
+
 `CURRENT_PLAN.md`, when present at the repository root, owns the active
 multi-issue objective. This directory preserves paused and completed plans so
 architectural context and verified developer flows are not lost when execution

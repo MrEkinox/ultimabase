@@ -1,9 +1,3 @@
-import {
-	assertFieldOptions,
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -13,10 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
+	type GeneratedScalarFieldOptions,
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
-	createGeneratedCompactScalarFieldFactory,
-	type GeneratedScalarFieldOptions,
 	type DefaultedCompactScalarFieldOptions,
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -45,11 +39,6 @@ export interface BigintFieldOptions extends FieldOptions<bigint> {
 export type BigintField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'bigint', bigint, BigintFieldOptions, TTypegen>
-
-const bigintFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'bigint',
-	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-}
 
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<
@@ -167,19 +156,6 @@ export interface BigintFieldFactory<
 	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }
 
-const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> => {
-	assertFieldOptions(options)
-	assertAutoIncrementOption(options)
-
-	return normalizeFieldOptions(
-		options,
-		normalizeBigintValue,
-		bigintFieldOptionsContract,
-	)
-}
-
 /**
  * Declares an exact native `bigint` for integer values outside JavaScript's safe-number range.
  *
@@ -188,11 +164,11 @@ const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
  * bigintField({ default: 9_007_199_254_740_993n })
  * ```
  */
-export const bigintField: BigintFieldFactory =
-	createGeneratedCompactScalarFieldFactory<
-		'bigint',
-		bigint,
-		BigintFieldOptions,
-		'autoIncrement',
-		false
-	>('bigint', normalizeBigintFieldOptions, normalizeBigintValue)
+export const bigintField: BigintFieldFactory = createScalarFieldFactory(
+	'bigint',
+	normalizeBigintValue,
+	{
+		optionKeys: ['autoIncrement'],
+		assertOptions: assertAutoIncrementOption,
+	},
+)

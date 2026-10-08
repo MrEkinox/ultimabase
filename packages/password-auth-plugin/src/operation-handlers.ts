@@ -3,19 +3,19 @@ import {
 	Pointer,
 	contributeOperation,
 	type PluginOperationContribution,
+	type RequestContext,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
-	advancePasswordSessionGeneration,
-	changePasswordCredential,
 	findPasswordCredentialByUserId,
 	findPasswordCredentialByUsername,
 	insertPasswordCredential,
 	retainPasswordSessionGeneration,
+	swapPasswordCredential,
 	upgradePasswordCredential,
-	type PasswordCredentialCollection,
 	type CreatePasswordCredentialInput,
+	type PasswordCredentialCollection,
 } from './credentials.js'
 import {
 	normalizePasswordInput,
@@ -33,13 +33,14 @@ import {
 	verifyNormalizedPasswordOrDummy,
 } from './password-hasher.js'
 import type { ResolvedPasswordHashPolicy } from './password-policy.js'
+import type { PasswordPrincipal } from './principal.js'
+import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
 	passwordPrincipal,
 	passwordSession,
 	readPasswordSessionGeneration,
+	type PasswordSession,
 } from './session.js'
-import { readPasswordAuthenticationResult } from './authentication-result.js'
-import type { ResolvedPasswordSessionPolicy } from './session-policy.js'
 import {
 	advanceCurrentPasswordSessionGeneration,
 	issuePasswordSession,
@@ -47,8 +48,9 @@ import {
 	rotatePasswordSession,
 	type PasswordSessionCollection,
 } from './sessions.js'
-import type { PasswordUserReference } from './user-schema.js'
 import { restorePasswordSignUpValue } from './sign-up-input.js'
+import { readPasswordAuthenticationResult } from './authentication-result.js'
+import type { PasswordUserReference } from './user-schema.js'
 
 interface PasswordOperationHandlerOptions<TUser extends PasswordUserReference> {
 	readonly credentials: PasswordCredentialCollection
@@ -58,21 +60,65 @@ interface PasswordOperationHandlerOptions<TUser extends PasswordUserReference> {
 	readonly user: TUser
 }
 
+/** Normalizes public credentials, mapping every failure to one uniform rejection. */
 const normalizeCredentials = (
 	input: Readonly<{ readonly password: string; readonly username: string }>,
-): Readonly<{ readonly password: string; readonly username: string }> =>
-	immutableRecord({
-		password: normalizePasswordInput(input.password),
-		username: normalizePasswordUsername(input.username),
-	})
+	reject: () => never,
+): Readonly<{ readonly password: string; readonly username: string }> => {
+	try {
+		return immutableRecord({
+			password: normalizePasswordInput(input.password),
+			username: normalizePasswordUsername(input.username),
+		})
+	} catch {
+		return reject()
+	}
+}
 
-const isValidationFailure = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'VALIDATION_ERROR'
+const unchangedCredential = (
+	left: CreatePasswordCredentialInput,
+	right: CreatePasswordCredentialInput,
+): boolean =>
+	left.passwordVerifier === right.passwordVerifier &&
+	left.policyVersion === right.policyVersion &&
+	left.sessionGeneration === right.sessionGeneration &&
+	left.userId === right.userId &&
+	left.username === right.username
 
-const readModelPointer = <TUser extends PasswordUserReference>(
-	user: TUser,
+/** Reads the authenticated identity that account-scoped operations require. */
+const requireAuthenticated = (
+	context: RequestContext,
+): Readonly<{ principal: PasswordPrincipal; session: PasswordSession }> => {
+	const principal = context.getValue(passwordPrincipal)
+	const session = context.getValue(passwordSession)
+	if (principal === undefined || session === undefined) {
+		return rejectPasswordSession()
+	}
+	return { principal, session }
+}
+
+/** Reads the credential only while the session's account generation is current. */
+const requireCurrentCredential = async (
+	credentials: PasswordCredentialCollection,
+	{ principal, session }: ReturnType<typeof requireAuthenticated>,
+): Promise<CreatePasswordCredentialInput> => {
+	const credential = await findPasswordCredentialByUserId(
+		credentials,
+		principal.user.id,
+	)
+	if (
+		credential?.sessionGeneration !== readPasswordSessionGeneration(session)
+	) {
+		return rejectPasswordSession()
+	}
+	return credential
+}
+
+/** Reads the id of a created User only from its own nominal model pointer. */
+const readCreatedUserId = (
+	user: PasswordUserReference,
 	model: unknown,
-): Pointer<TUser> => {
+): string => {
 	if (typeof model !== 'object' || model === null) {
 		throw new TypeError('Password Auth User creation returned no model')
 	}
@@ -84,309 +130,11 @@ const readModelPointer = <TUser extends PasswordUserReference>(
 	if (!Pointer.is(pointer) || pointer.schema !== user) {
 		throw new TypeError('Password Auth User result has a foreign pointer')
 	}
-	return pointer as Pointer<TUser>
+	return pointer.id
 }
 
-const createSignUpHandler = <TUser extends PasswordUserReference>(
-	options: PasswordOperationHandlerOptions<TUser>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.signUp,
-		execute: async ({ engine, input }) => {
-			let normalized: ReturnType<typeof normalizeCredentials>
-			try {
-				normalized = normalizeCredentials(input)
-			} catch {
-				return rejectPasswordSignUp()
-			}
-			const verifier = await createNormalizedPasswordVerifier(
-				normalized.password,
-				options.passwordPolicy,
-			)
-			try {
-				return await engine.transaction(async (transaction) => {
-					// Password material never enters User data, hooks, or field validation.
-					const data = Object.fromEntries(
-						Object.entries(input)
-							.filter(([name]) => name !== 'password' && name !== 'username')
-							.map(([name, value]) => [
-								name,
-								restorePasswordSignUpValue(value),
-							]),
-					)
-					const created = await options.user.createOne(
-						{ data: { ...data, username: normalized.username } },
-						transaction.context.access.mode === 'master'
-							? undefined
-							: { useMasterKey: true },
-					)
-					const pointer = readModelPointer(options.user, created)
-					await insertPasswordCredential(options.credentials, {
-						passwordVerifier: verifier.encoded,
-						policyVersion: verifier.policyVersion,
-						sessionGeneration: 0,
-						userId: pointer.id,
-						username: normalized.username,
-					})
-					const session = await issuePasswordSession(
-						options.sessions,
-						pointer.id,
-						0,
-						options.sessionPolicy,
-					)
-					return readPasswordAuthenticationResult(
-						options.user,
-						pointer.id,
-						session,
-						transaction.context,
-					)
-				})
-			} catch (error: unknown) {
-				if (isValidationFailure(error)) return rejectPasswordSignUp()
-				throw error
-			}
-		},
-	})
-
-const unchangedCredential = (
-	left: CreatePasswordCredentialInput,
-	right: typeof left,
-): boolean =>
-	left.passwordVerifier === right.passwordVerifier &&
-	left.policyVersion === right.policyVersion &&
-	left.sessionGeneration === right.sessionGeneration &&
-	left.userId === right.userId &&
-	left.username === right.username
-
-const createLoginHandler = <TUser extends PasswordUserReference>(
-	options: PasswordOperationHandlerOptions<TUser>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.login,
-		execute: async ({ engine, input }) => {
-			let normalized: ReturnType<typeof normalizeCredentials>
-			try {
-				normalized = normalizeCredentials(input)
-			} catch {
-				return rejectPasswordCredentials()
-			}
-			const credential = await findPasswordCredentialByUsername(
-				options.credentials,
-				normalized.username,
-			)
-			const verification = await verifyNormalizedPasswordOrDummy(
-				normalized.password,
-				credential === null
-					? null
-					: {
-							encoded: credential.passwordVerifier,
-							policyVersion: credential.policyVersion,
-						},
-				options.passwordPolicy,
-			)
-			if (credential === null || !verification.matches) {
-				return rejectPasswordCredentials()
-			}
-			const upgraded = verification.requiresUpgrade
-				? await createNormalizedPasswordVerifier(
-						normalized.password,
-						options.passwordPolicy,
-					)
-				: undefined
-			return engine.transaction(async (transaction) => {
-				const current = await findPasswordCredentialByUsername(
-					options.credentials,
-					normalized.username,
-				)
-				if (current === null || !unchangedCredential(current, credential)) {
-					return rejectPasswordCredentials()
-				}
-				if (
-					upgraded !== undefined &&
-					(await upgradePasswordCredential(options.credentials, current, {
-						passwordVerifier: upgraded.encoded,
-						policyVersion: upgraded.policyVersion,
-					})) === null
-				) {
-					return rejectPasswordCredentials()
-				}
-				const session = await issuePasswordSession(
-					options.sessions,
-					current.userId,
-					current.sessionGeneration,
-					options.sessionPolicy,
-				)
-				return readPasswordAuthenticationResult(
-					options.user,
-					current.userId,
-					session,
-					transaction.context,
-				)
-			})
-		},
-	})
-
-const createLogoutHandler = (
-	options: PasswordOperationHandlerOptions<PasswordUserReference>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.logout,
-		execute: async ({ context }) => {
-			const session = context.getValue(passwordSession)
-			if (
-				session === undefined ||
-				!(await revokePasswordSession(options.sessions, session))
-			) {
-				return rejectPasswordSession()
-			}
-			return immutableRecord({ revoked: true as const })
-		},
-	})
-
-const createLogoutEverywhereHandler = (
-	options: PasswordOperationHandlerOptions<PasswordUserReference>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.logoutEverywhere,
-		execute: async ({ context }) => {
-			const principal = context.getValue(passwordPrincipal)
-			const session = context.getValue(passwordSession)
-			if (principal === undefined || session === undefined) {
-				return rejectPasswordSession()
-			}
-			const credential = await findPasswordCredentialByUserId(
-				options.credentials,
-				principal.user.id,
-			)
-			if (
-				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
-			) {
-				return rejectPasswordSession()
-			}
-			if (
-				(await advancePasswordSessionGeneration(
-					options.credentials,
-					credential,
-				)) === null
-			) {
-				return rejectPasswordSession()
-			}
-			return immutableRecord({ revoked: true as const })
-		},
-	})
-
-const createChangePasswordHandler = (
-	options: PasswordOperationHandlerOptions<PasswordUserReference>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.changePassword,
-		execute: async ({ context, engine, input }) => {
-			const principal = context.getValue(passwordPrincipal)
-			const session = context.getValue(passwordSession)
-			if (principal === undefined || session === undefined) {
-				return rejectPasswordSession()
-			}
-			let currentPassword: string
-			let newPassword: string
-			try {
-				currentPassword = normalizePasswordInput(input.currentPassword)
-				newPassword = normalizePasswordInput(input.newPassword)
-			} catch {
-				return rejectPasswordChange()
-			}
-			const credential = await findPasswordCredentialByUserId(
-				options.credentials,
-				principal.user.id,
-			)
-			if (
-				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
-			) {
-				return rejectPasswordSession()
-			}
-			const verification = await verifyNormalizedPasswordOrDummy(
-				currentPassword,
-				{
-					encoded: credential.passwordVerifier,
-					policyVersion: credential.policyVersion,
-				},
-				options.passwordPolicy,
-			)
-			if (!verification.matches) return rejectPasswordChange()
-			const verifier = await createNormalizedPasswordVerifier(
-				newPassword,
-				options.passwordPolicy,
-			)
-			return engine.transaction(async () => {
-				const current = await findPasswordCredentialByUserId(
-					options.credentials,
-					credential.userId,
-				)
-				if (current?.sessionGeneration !== credential.sessionGeneration) {
-					return rejectPasswordSession()
-				}
-				if (!unchangedCredential(current, credential)) {
-					return rejectPasswordChange()
-				}
-				if (
-					(await changePasswordCredential(options.credentials, current, {
-						passwordVerifier: verifier.encoded,
-						policyVersion: verifier.policyVersion,
-					})) === null ||
-					!(await advanceCurrentPasswordSessionGeneration(
-						options.sessions,
-						session,
-						current.sessionGeneration + 1,
-					))
-				) {
-					return rejectPasswordSession()
-				}
-				return immutableRecord({ changed: true as const })
-			})
-		},
-	})
-
-const createRefreshHandler = <TUser extends PasswordUserReference>(
-	options: PasswordOperationHandlerOptions<TUser>,
-) =>
-	contributeOperation({
-		operation: passwordAuthOperations.refresh,
-		execute: async ({ context }) => {
-			const principal = context.getValue(passwordPrincipal)
-			const session = context.getValue(passwordSession)
-			if (principal === undefined || session === undefined) {
-				return rejectPasswordSession()
-			}
-			const credential = await findPasswordCredentialByUserId(
-				options.credentials,
-				principal.user.id,
-			)
-			if (
-				credential?.sessionGeneration !== readPasswordSessionGeneration(session)
-			) {
-				return rejectPasswordSession()
-			}
-			if (
-				(await retainPasswordSessionGeneration(
-					options.credentials,
-					credential,
-				)) === null
-			) {
-				return rejectPasswordSession()
-			}
-			const rotated = await rotatePasswordSession(
-				options.sessions,
-				session,
-				options.sessionPolicy,
-			)
-			if (rotated === undefined) return rejectPasswordSession()
-			return readPasswordAuthenticationResult(
-				options.user,
-				rotated.userId,
-				rotated,
-				context,
-			)
-		},
-	})
+const isValidationFailure = (error: unknown): boolean =>
+	error instanceof FrameworkError && error.code === 'VALIDATION_ERROR'
 
 /** Creates the six application-local handlers from one private auth state. */
 export const createPasswordOperationHandlers = <
@@ -400,11 +148,251 @@ export const createPasswordOperationHandlers = <
 	PluginOperationContribution<typeof passwordAuthOperations.logoutEverywhere>,
 	PluginOperationContribution<typeof passwordAuthOperations.changePassword>,
 	PluginOperationContribution<typeof passwordAuthOperations.refresh>,
-] => [
-	createSignUpHandler(options),
-	createLoginHandler(options),
-	createLogoutHandler(options),
-	createLogoutEverywhereHandler(options),
-	createChangePasswordHandler(options),
-	createRefreshHandler(options),
-]
+] => {
+	const { credentials, passwordPolicy, sessionPolicy, sessions, user } = options
+	return [
+		// Sign-up: hash first, then create the User, credential, and session atomically.
+		contributeOperation({
+			operation: passwordAuthOperations.signUp,
+			execute: async ({ engine, input }) => {
+				const { password, username } = normalizeCredentials(
+					input,
+					rejectPasswordSignUp,
+				)
+				const verifier = await createNormalizedPasswordVerifier(
+					password,
+					passwordPolicy,
+				)
+				try {
+					return await engine.transaction(async (transaction) => {
+						// Password material never enters User data, hooks, or field validation.
+						const data = Object.fromEntries(
+							Object.entries(input)
+								.filter(([name]) => name !== 'password' && name !== 'username')
+								.map(([name, value]) => [
+									name,
+									restorePasswordSignUpValue(value),
+								]),
+						)
+						const created = await user.createOne(
+							{ data: { ...data, username } },
+							transaction.context.access.mode === 'master'
+								? undefined
+								: { useMasterKey: true },
+						)
+						const userId = readCreatedUserId(user, created)
+						await insertPasswordCredential(credentials, {
+							passwordVerifier: verifier.encoded,
+							policyVersion: verifier.policyVersion,
+							sessionGeneration: 0,
+							userId,
+							username,
+						})
+						const session = await issuePasswordSession(
+							sessions,
+							userId,
+							0,
+							sessionPolicy,
+						)
+						return readPasswordAuthenticationResult(
+							user,
+							userId,
+							session,
+							transaction.context,
+						)
+					})
+				} catch (error: unknown) {
+					if (isValidationFailure(error)) return rejectPasswordSignUp()
+					throw error
+				}
+			},
+		}),
+		// Login: every rejection is identical, including for unknown usernames.
+		contributeOperation({
+			operation: passwordAuthOperations.login,
+			execute: async ({ engine, input }) => {
+				const { password, username } = normalizeCredentials(
+					input,
+					rejectPasswordCredentials,
+				)
+				const credential = await findPasswordCredentialByUsername(
+					credentials,
+					username,
+				)
+				// Unknown usernames still pay for one full dummy verification.
+				const verification = await verifyNormalizedPasswordOrDummy(
+					password,
+					credential === null
+						? null
+						: {
+								encoded: credential.passwordVerifier,
+								policyVersion: credential.policyVersion,
+							},
+					passwordPolicy,
+				)
+				if (credential === null || !verification.matches) {
+					return rejectPasswordCredentials()
+				}
+				const upgraded = verification.requiresUpgrade
+					? await createNormalizedPasswordVerifier(password, passwordPolicy)
+					: undefined
+				return engine.transaction(async (transaction) => {
+					// The verified credential must still be current inside the transaction.
+					const current = await findPasswordCredentialByUsername(
+						credentials,
+						username,
+					)
+					if (current === null || !unchangedCredential(current, credential)) {
+						return rejectPasswordCredentials()
+					}
+					if (
+						upgraded !== undefined &&
+						(await upgradePasswordCredential(credentials, current, {
+							passwordVerifier: upgraded.encoded,
+							policyVersion: upgraded.policyVersion,
+						})) === null
+					) {
+						return rejectPasswordCredentials()
+					}
+					const session = await issuePasswordSession(
+						sessions,
+						current.userId,
+						current.sessionGeneration,
+						sessionPolicy,
+					)
+					return readPasswordAuthenticationResult(
+						user,
+						current.userId,
+						session,
+						transaction.context,
+					)
+				})
+			},
+		}),
+		// Logout: revokes only the unchanged current session.
+		contributeOperation({
+			operation: passwordAuthOperations.logout,
+			execute: async ({ context }) => {
+				const session = context.getValue(passwordSession)
+				if (
+					session === undefined ||
+					!(await revokePasswordSession(sessions, session))
+				) {
+					return rejectPasswordSession()
+				}
+				return immutableRecord({ revoked: true as const })
+			},
+		}),
+		// Logout everywhere: advancing the account generation invalidates every session.
+		contributeOperation({
+			operation: passwordAuthOperations.logoutEverywhere,
+			execute: async ({ context }) => {
+				const credential = await requireCurrentCredential(
+					credentials,
+					requireAuthenticated(context),
+				)
+				// Advancing the account generation invalidates every issued session.
+				if (
+					(await swapPasswordCredential(credentials, credential, {
+						sessionGeneration: credential.sessionGeneration + 1,
+					})) === null
+				) {
+					return rejectPasswordSession()
+				}
+				return immutableRecord({ revoked: true as const })
+			},
+		}),
+		// Change password: the current session moves to the new account generation.
+		contributeOperation({
+			operation: passwordAuthOperations.changePassword,
+			execute: async ({ context, engine, input }) => {
+				const authenticated = requireAuthenticated(context)
+				let currentPassword: string
+				let newPassword: string
+				try {
+					currentPassword = normalizePasswordInput(input.currentPassword)
+					newPassword = normalizePasswordInput(input.newPassword)
+				} catch {
+					return rejectPasswordChange()
+				}
+				const credential = await requireCurrentCredential(
+					credentials,
+					authenticated,
+				)
+				const verification = await verifyNormalizedPasswordOrDummy(
+					currentPassword,
+					{
+						encoded: credential.passwordVerifier,
+						policyVersion: credential.policyVersion,
+					},
+					passwordPolicy,
+				)
+				if (!verification.matches) return rejectPasswordChange()
+				const verifier = await createNormalizedPasswordVerifier(
+					newPassword,
+					passwordPolicy,
+				)
+				return engine.transaction(async () => {
+					const current = await findPasswordCredentialByUserId(
+						credentials,
+						credential.userId,
+					)
+					if (current?.sessionGeneration !== credential.sessionGeneration) {
+						return rejectPasswordSession()
+					}
+					if (!unchangedCredential(current, credential)) {
+						return rejectPasswordChange()
+					}
+					// The new generation revokes every other session; only the current
+					// session moves along with it.
+					const sessionGeneration = current.sessionGeneration + 1
+					if (
+						(await swapPasswordCredential(credentials, current, {
+							passwordVerifier: verifier.encoded,
+							policyVersion: verifier.policyVersion,
+							sessionGeneration,
+						})) === null ||
+						!(await advanceCurrentPasswordSessionGeneration(
+							sessions,
+							authenticated.session,
+							sessionGeneration,
+						))
+					) {
+						return rejectPasswordSession()
+					}
+					return immutableRecord({ changed: true as const })
+				})
+			},
+		}),
+		// Refresh: rotates the current session token and rereads the profile.
+		contributeOperation({
+			operation: passwordAuthOperations.refresh,
+			execute: async ({ context }) => {
+				const authenticated = requireAuthenticated(context)
+				const credential = await requireCurrentCredential(
+					credentials,
+					authenticated,
+				)
+				// Locks the account generation so a concurrent invalidation cannot interleave.
+				if (
+					(await retainPasswordSessionGeneration(credentials, credential)) ===
+					null
+				) {
+					return rejectPasswordSession()
+				}
+				const rotated = await rotatePasswordSession(
+					sessions,
+					authenticated.session,
+					sessionPolicy,
+				)
+				if (rotated === undefined) return rejectPasswordSession()
+				return readPasswordAuthenticationResult(
+					user,
+					rotated.userId,
+					rotated,
+					context,
+				)
+			},
+		}),
+	]
+}

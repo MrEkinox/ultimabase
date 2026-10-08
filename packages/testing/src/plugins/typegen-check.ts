@@ -1,5 +1,5 @@
 import type { PluginDefinition, SchemaDefinition } from '@ultimabase/core'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord } from '@ultimabase/shared'
 import {
 	generateApplicationTypes,
 	type GeneratedApplicationTypes,
@@ -47,27 +47,24 @@ export const withPluginTypegenConformance = <
 		throw new TypeError('Typegen conformance options must be a plain object')
 	}
 	const applicationId = options.applicationId ?? 'plugin-conformance'
+	const verify = options.verify
 	if (applicationId.trim() === '') {
 		throw new TypeError('Typegen conformance applicationId must be non-empty')
 	}
-	if (options.verify !== undefined && typeof options.verify !== 'function') {
+	if (verify !== undefined && typeof verify !== 'function') {
 		throw new TypeError('Typegen conformance verify must be a function')
 	}
-	const normalized = immutableRecord({
-		applicationId,
-		...(options.verify === undefined ? {} : { verify: options.verify }),
-	})
 
 	return suite.check('typegen', async (context) => {
 		const first = context.createUltimaBase()
 		const second = context.createUltimaBase()
 		const firstGenerated = generateApplicationTypes({
 			ultimabase: first.ultimabase,
-			applicationId: normalized.applicationId,
+			applicationId,
 		})
 		const secondGenerated = generateApplicationTypes({
 			ultimabase: second.ultimabase,
-			applicationId: normalized.applicationId,
+			applicationId,
 		})
 
 		if (
@@ -76,6 +73,6 @@ export const withPluginTypegenConformance = <
 		) {
 			throw new TypeError('generic Typegen output is not deterministic')
 		}
-		await normalized.verify?.(firstGenerated)
+		await verify?.(firstGenerated)
 	})
 }

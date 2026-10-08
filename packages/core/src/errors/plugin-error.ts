@@ -1,11 +1,11 @@
 import { assertNonEmptyString } from '@ultimabase/shared'
 
-import type {
-	FrameworkErrorDetails,
-	FrameworkErrorOptions,
+import {
+	PublicError,
+	type FrameworkErrorDetails,
+	type FrameworkErrorOptions,
+	type PublicErrorPayload,
 } from './framework-error.js'
-import { PublicError } from './public-error-state.js'
-import type { PublicErrorPayload } from './public-error-state.js'
 
 /** Defines the safe payload a transport may serialize for one plugin domain failure. */
 export interface PluginErrorPayload<
@@ -17,6 +17,10 @@ export interface PluginErrorPayload<
 
 const pluginErrorCodePattern =
 	/^(?:[A-Z][A-Z0-9_]*|[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)$/u
+
+/** Constant identifiers or dot-namespaced codes accepted for plugin domain errors. */
+export const isPluginErrorCode = (value: string): boolean =>
+	pluginErrorCodePattern.test(value)
 
 const validatePluginErrorCode = (code: string): void => {
 	assertNonEmptyString(code, 'plugin error code')

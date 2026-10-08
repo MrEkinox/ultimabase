@@ -110,6 +110,28 @@ export const createSchemaContributionProvenance = (
 		protocolVersion,
 	})
 
+const mapRecord = <TValue>(
+	keys: readonly string[],
+	createValue: (key: string) => TValue,
+): Readonly<Record<string, TValue>> =>
+	immutableRecord(
+		Object.fromEntries(keys.map((key) => [key, createValue(key)])),
+	)
+
+const optionProvenance = (
+	definitionOwner: SchemaContributionOwner,
+	definitionId: string,
+	valueOwner: SchemaContributionOwner,
+	valueId: string,
+): SchemaOptionProvenance =>
+	immutableRecord({
+		definition: createSchemaContributionProvenance(
+			definitionOwner,
+			definitionId,
+		),
+		value: createSchemaContributionProvenance(valueOwner, valueId),
+	})
+
 /** Creates the application/Core baseline that plugins may immutably replace. */
 export const createInitialSchemaProvenance = (
 	className: string,
@@ -118,55 +140,32 @@ export const createInitialSchemaProvenance = (
 	indexes: readonly SchemaIndexDefinition[],
 	optionNames: readonly string[],
 ): SchemaCompilationProvenance => {
+	const application = applicationSchemaContributionOwner
 	const developerFields = new Set(developerFieldNames)
-	const schema = createSchemaContributionProvenance(
-		applicationSchemaContributionOwner,
-		`schema:${className}`,
-	)
-	const fields = immutableRecord(
-		Object.fromEntries(
-			Object.keys(declaredFields).map((name) => [
-				name,
-				createSchemaContributionProvenance(
-					developerFields.has(name)
-						? applicationSchemaContributionOwner
-						: coreSchemaContributionOwner,
-					`field:${className}.${name}`,
-				),
-			]),
-		),
-	)
+	const ownerOf = (fieldName: string): SchemaContributionOwner =>
+		developerFields.has(fieldName) ? application : coreSchemaContributionOwner
 
 	return immutableRecord({
 		constraints: immutableArray([]),
-		fields,
+		fields: mapRecord(Object.keys(declaredFields), (name) =>
+			createSchemaContributionProvenance(
+				ownerOf(name),
+				`field:${className}.${name}`,
+			),
+		),
 		fieldOptions: immutableRecord(
 			Object.fromEntries(
-				Object.entries(declaredFields).map(([fieldName, field]) => {
-					const valueOwner = developerFields.has(fieldName)
-						? applicationSchemaContributionOwner
-						: coreSchemaContributionOwner
-					return [
-						fieldName,
-						immutableRecord(
-							Object.fromEntries(
-								Object.keys(field.options).map((optionName) => [
-									optionName,
-									immutableRecord({
-										definition: createSchemaContributionProvenance(
-											coreSchemaContributionOwner,
-											`field-option-definition:${field.kind}.${optionName}`,
-										),
-										value: createSchemaContributionProvenance(
-											valueOwner,
-											`field-option:${className}.${fieldName}.${optionName}`,
-										),
-									}),
-								]),
-							),
+				Object.entries(declaredFields).map(([fieldName, field]) => [
+					fieldName,
+					mapRecord(Object.keys(field.options), (optionName) =>
+						optionProvenance(
+							coreSchemaContributionOwner,
+							`field-option-definition:${field.kind}.${optionName}`,
+							ownerOf(fieldName),
+							`field-option:${className}.${fieldName}.${optionName}`,
 						),
-					]
-				}),
+					),
+				]),
 			),
 		),
 		indexes: immutableArray(
@@ -174,30 +173,24 @@ export const createInitialSchemaProvenance = (
 				immutableRecord({
 					definition,
 					provenance: createSchemaContributionProvenance(
-						applicationSchemaContributionOwner,
+						application,
 						`index:${className}:${String(index)}`,
 					),
 				}),
 			),
 		),
-		options: immutableRecord(
-			Object.fromEntries(
-				optionNames.map((name) => [
-					name,
-					immutableRecord({
-						definition: createSchemaContributionProvenance(
-							applicationSchemaContributionOwner,
-							`schema-option-definition:${name}`,
-						),
-						value: createSchemaContributionProvenance(
-							applicationSchemaContributionOwner,
-							`schema-option:${className}.${name}`,
-						),
-					}),
-				]),
+		options: mapRecord(optionNames, (name) =>
+			optionProvenance(
+				application,
+				`schema-option-definition:${name}`,
+				application,
+				`schema-option:${className}.${name}`,
 			),
 		),
 		patches: immutableArray([]),
-		schema,
+		schema: createSchemaContributionProvenance(
+			application,
+			`schema:${className}`,
+		),
 	})
 }

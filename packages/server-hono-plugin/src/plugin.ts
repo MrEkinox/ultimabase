@@ -2,7 +2,6 @@ import {
 	contributeApplication,
 	plugin,
 	requireCapability,
-	type CapabilityRequirement,
 	type PluginInstance,
 } from '@ultimabase/core'
 import {
@@ -17,20 +16,16 @@ import {
 } from './options.js'
 import { HonoServerProvider } from './provider.js'
 
-const applicationRequirement: CapabilityRequirement<
-	typeof httpApplicationCapability,
-	false,
+const applicationRequirement = requireCapability(
+	httpApplicationCapability,
 	'^1.0.0',
-	'setup'
-> = requireCapability(httpApplicationCapability, '^1.0.0', { phase: 'setup' })
-const browserPolicyRequirement: CapabilityRequirement<
-	typeof httpBrowserPolicyCapability,
-	false,
+	{ phase: 'setup' },
+)
+const browserPolicyRequirement = requireCapability(
+	httpBrowserPolicyCapability,
 	'^1.0.0',
-	'setup'
-> = requireCapability(httpBrowserPolicyCapability, '^1.0.0', {
-	phase: 'setup',
-})
+	{ phase: 'setup' },
+)
 
 /** Names one exact Hono server provider definition. */
 export type HonoServerPlugin = PluginInstance<{
@@ -49,10 +44,9 @@ export const honoServerPlugin = <
 >(
 	options: HonoServerPluginOptions<TEnvironment, TSchema, TBasePath> = {},
 ): HonoServerPlugin => {
-	const normalized = normalizeHonoServerPluginOptions(
-		options as HonoServerPluginOptions,
+	const provider = new HonoServerProvider(
+		normalizeHonoServerPluginOptions(options),
 	)
-	const provider = new HonoServerProvider(normalized)
 	const application = contributeApplication(({ capabilities }) => {
 		const httpApplication = capabilities.get(applicationRequirement)
 		// Stop and disposal release the same exact owner, including failed-startup cleanup.
@@ -70,7 +64,7 @@ export const honoServerPlugin = <
 		}
 	})
 
-	const instance = plugin({
+	return plugin({
 		id: '@ultimabase/server-hono-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -81,5 +75,4 @@ export const honoServerPlugin = <
 		],
 		environment: ['environment:network'],
 	})
-	return instance
 }

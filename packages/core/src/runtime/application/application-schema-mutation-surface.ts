@@ -3,14 +3,16 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type {
 	CompiledApplicationSchemaSurface,
 	CompiledSchemaMutationCommand,
-} from '../../plugins/application-surface-registry.js'
+} from '../../plugins/application-surface-contracts.js'
 import {
 	defineCapability,
 	provideCapability,
-	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
-import type { PluginIdentity } from '../../plugins/manifest.js'
+import {
+	defineCoreFoundationProvider,
+	type CoreFoundationProvider,
+} from '../../plugins/capability-providers.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 
 /** Describes one final schema-local mutation without exposing its resolver. */
@@ -36,10 +38,7 @@ export type SchemaMutationSurfaceResolver = (
 	className: string,
 ) => CompiledApplicationSchemaSurface | undefined
 
-const surfaceStates = new WeakMap<
-	ApplicationSchemaMutationSurface,
-	SurfaceState
->()
+const surfaceStates = new WeakMap<object, SurfaceState>()
 
 const descriptorsFor = (
 	surface: CompiledApplicationSchemaSurface,
@@ -135,17 +134,9 @@ const canonicalSurface = provideCapability(
 )
 
 /** @internal Installs the Core provider only when a plugin consumes the surface. */
-export const canonicalApplicationSchemaMutationSurfaceFoundation: Readonly<{
-	declaration: CapabilityProviderDeclaration<
-		typeof applicationSchemaMutationSurfaceCapability
-	>
-	owner: PluginIdentity
-	version: string
-}> = immutableRecord({
-	declaration: canonicalSurface,
-	owner: immutableRecord({ pluginId: '@ultimabase/core' }),
-	version: '0.0.0',
-})
+export const canonicalApplicationSchemaMutationSurfaceFoundation: CoreFoundationProvider<
+	typeof applicationSchemaMutationSurfaceCapability
+> = defineCoreFoundationProvider(canonicalSurface)
 
 /** @internal Binds the final application-local surface after static compilation. */
 export const bindApplicationSchemaMutationSurface = (
@@ -156,7 +147,7 @@ export const bindApplicationSchemaMutationSurface = (
 	if (typeof surface !== 'object' || surface === null) {
 		throw new TypeError('Unknown application schema mutation surface')
 	}
-	const state = surfaceStates.get(surface as ApplicationSchemaMutationSurface)
+	const state = surfaceStates.get(surface)
 	if (state === undefined || state.disposed) {
 		throw new TypeError('Unknown application schema mutation surface')
 	}

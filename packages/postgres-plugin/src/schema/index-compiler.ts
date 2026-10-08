@@ -1,31 +1,28 @@
-import type { SchemaIndexDefinition } from '@ultimabase/core'
+import { immutableArray } from '@ultimabase/shared'
 import {
 	index,
 	uniqueIndex,
 	type ExtraConfigColumn,
+	type Index,
 	type PgTableExtraConfigValue,
 } from 'drizzle-orm/pg-core'
 
-import { createPostgresIndexName } from '../naming/index.js'
+import { createPostgresIndexName } from '../naming.js'
+import { required } from '../required.js'
 import type { PostgresIndexMethod, PostgresStorageKind } from './contracts.js'
 
-/** Uses GIN only for one non-unique JSONB containment index. */
-export const resolvePostgresIndexMethod = (
-	definition: SchemaIndexDefinition,
-	storageByField: Readonly<Record<string, PostgresStorageKind>>,
-): PostgresIndexMethod =>
-	!definition.unique &&
-	definition.fields.length === 1 &&
-	storageByField[definition.fields[0]] === 'jsonb'
-		? 'gin'
-		: 'btree'
+/** Accepts public schema indexes and owner-private unique indexes alike. */
+interface PostgresIndexDefinition {
+	readonly fields: readonly string[]
+	readonly unique: boolean
+}
 
 /** Compiles normalized logical indexes in their declaration order. */
 export const compilePostgresIndexBuilders = (
 	tableName: string,
-	definitions: readonly SchemaIndexDefinition[],
+	definitions: readonly PostgresIndexDefinition[],
 	columns: Readonly<Record<string, ExtraConfigColumn>>,
-	storageByField: Readonly<Record<string, PostgresStorageKind>>,
+	storageByField: ReadonlyMap<string, PostgresStorageKind>,
 ): PgTableExtraConfigValue[] => {
 	const names = new Set<string>()
 
@@ -41,28 +38,66 @@ export const compilePostgresIndexBuilders = (
 		}
 
 		names.add(name)
-		const indexedColumns = definition.fields.map((fieldName) => {
-			const column = columns[fieldName]
-
-			if (column === undefined) {
-				throw new TypeError(
-					`PostgreSQL index references missing field: ${fieldName}`,
-				)
-			}
-
-			return column
-		})
-		const [first, ...rest] = indexedColumns
+		const [first, ...rest] = definition.fields.map((fieldName) =>
+			required(
+				columns[fieldName],
+				`PostgreSQL index references missing field: ${fieldName}`,
+			),
+		)
 
 		if (first === undefined) {
 			throw new TypeError(`PostgreSQL index has no fields: ${name}`)
 		}
 
 		const builder = definition.unique ? uniqueIndex(name) : index(name)
-		const method = resolvePostgresIndexMethod(definition, storageByField)
 
-		return method === 'gin'
+		// GIN is used only for one non-unique JSONB containment index.
+		return !definition.unique &&
+			rest.length === 0 &&
+			definition.fields.every((field) => storageByField.get(field) === 'jsonb')
 			? builder.using('gin', first)
 			: builder.on(first, ...rest)
 	})
+}
+
+/** Reads the explicit name required by UltimaBase-generated Drizzle indexes. */
+export const readDrizzleIndexName = (index: Index): string =>
+	required(index.config.name, 'Drizzle omitted PostgreSQL index name')
+
+/** Narrows Drizzle's extensible index methods to direct-sync capabilities. */
+export const readDrizzleIndexMethod = (index: Index): PostgresIndexMethod => {
+	const method = index.config.method ?? 'btree'
+
+	if (method !== 'btree' && method !== 'gin') {
+		throw new TypeError(`Unsupported PostgreSQL index method: ${method}`)
+	}
+
+	return method
+}
+
+/** Extracts the simple physical column tuple retained by a Drizzle index. */
+export const readDrizzleIndexColumns = (
+	index: Index,
+): readonly [string, ...string[]] => {
+	const name = readDrizzleIndexName(index)
+	const [first, ...rest] = index.config.columns.map((column: unknown) => {
+		if (
+			typeof column !== 'object' ||
+			column === null ||
+			!('name' in column) ||
+			typeof column.name !== 'string'
+		) {
+			throw new TypeError(
+				`PostgreSQL synchronization cannot compile expression index: ${name}`,
+			)
+		}
+
+		return column.name
+	})
+
+	if (first === undefined) {
+		throw new TypeError(`Drizzle PostgreSQL index has no columns: ${name}`)
+	}
+
+	return immutableArray([first, ...rest])
 }

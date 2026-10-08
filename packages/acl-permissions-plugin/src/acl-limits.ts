@@ -21,6 +21,12 @@ export interface ACLEntryLimits {
 	readonly maxRoles?: number
 }
 
+/** Configures application-wide defaults for persisted ACL size. */
+export interface ACLPluginOptions {
+	/** Sets finite subject-entry limits inherited by every ACL-enabled schema. */
+	readonly limits?: ACLEntryLimits
+}
+
 /** Carries the effective finite limits used at mutation boundaries. */
 export interface ResolvedACLEntryLimits {
 	readonly maxPrincipals: number
@@ -33,46 +39,36 @@ export const defaultACLEntryLimits: ResolvedACLEntryLimits = immutableRecord({
 	maxRoles: 50,
 })
 
-const assertLimit = (value: unknown, path: string): number => {
-	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-		throw new RangeError(`${path} must be a non-negative safe integer`)
-	}
-
-	return value
-}
-
 /** Snapshots one untrusted limit object without applying inherited defaults. */
 export const normalizeACLEntryLimits = (
 	limits: ACLEntryLimits | undefined,
 	path: string,
 ): Readonly<ACLEntryLimits> | undefined => {
 	if (limits === undefined) return undefined
-
 	if (!isPlainRecord(limits)) {
 		throw new TypeError(`${path} must be a plain object`)
 	}
-
 	const unknownKey = Object.keys(limits).find(
 		(key) => key !== 'maxPrincipals' && key !== 'maxRoles',
 	)
-
 	if (unknownKey !== undefined) {
 		throw new TypeError(`Unknown ${path} option: ${unknownKey}`)
 	}
 
-	return immutableRecord({
-		...(limits.maxPrincipals === undefined
-			? {}
-			: {
-					maxPrincipals: assertLimit(
-						limits.maxPrincipals,
-						`${path}.maxPrincipals`,
-					),
-				}),
-		...(limits.maxRoles === undefined
-			? {}
-			: { maxRoles: assertLimit(limits.maxRoles, `${path}.maxRoles`) }),
-	})
+	const normalized: { maxPrincipals?: number; maxRoles?: number } = {}
+	for (const key of ['maxPrincipals', 'maxRoles'] as const) {
+		const value = limits[key]
+		if (value === undefined) continue
+		if (
+			typeof value !== 'number' ||
+			!Number.isSafeInteger(value) ||
+			value < 0
+		) {
+			throw new RangeError(`${path}.${key} must be a non-negative safe integer`)
+		}
+		normalized[key] = value
+	}
+	return immutableRecord(normalized)
 }
 
 /** Resolves schema overrides independently while inheriting omitted values. */
@@ -85,41 +81,26 @@ export const resolveACLEntryLimits = (
 		maxRoles: overrides?.maxRoles ?? base.maxRoles,
 	})
 
-const createLimitError = (
-	subject: 'principal' | 'role',
-	count: number,
-	limit: number,
-): FrameworkError =>
-	new FrameworkError(
-		'VALIDATION_ERROR',
-		`ACL ${subject} entry limit exceeded: received ${String(count)}, maximum ${String(limit)}.`,
-		{
-			publicMessage: 'The ACL contains too many subject entries.',
-			internalDetails: {
-				count,
-				kind: 'acl-entry-limit',
-				limit,
-				subject,
-			},
-		},
-	)
-
 /** Rejects oversized canonical ACL documents before adapter persistence. */
 export const assertACLEntryLimits = (
 	value: ACL,
 	limits: ResolvedACLEntryLimits,
 ): void => {
 	const document = value.toJSON()
+	const checks = [
+		['principal', document.principals.length, limits.maxPrincipals],
+		['role', document.roles.length, limits.maxRoles],
+	] as const
 
-	if (document.principals.length > limits.maxPrincipals) {
-		throw createLimitError(
-			'principal',
-			document.principals.length,
-			limits.maxPrincipals,
+	for (const [subject, count, limit] of checks) {
+		if (count <= limit) continue
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			`ACL ${subject} entry limit exceeded: received ${String(count)}, maximum ${String(limit)}.`,
+			{
+				publicMessage: 'The ACL contains too many subject entries.',
+				internalDetails: { count, kind: 'acl-entry-limit', limit, subject },
+			},
 		)
-	}
-
-	if (document.roles.length > limits.maxRoles) {
-		throw createLimitError('role', document.roles.length, limits.maxRoles)
 	}
 }

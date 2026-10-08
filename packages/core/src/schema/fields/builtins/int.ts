@@ -1,9 +1,3 @@
-import {
-	assertFieldOptions,
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -13,10 +7,10 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
+	type GeneratedScalarFieldOptions,
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
-	createGeneratedCompactScalarFieldFactory,
-	type GeneratedScalarFieldOptions,
 	type DefaultedCompactScalarFieldOptions,
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -44,11 +38,6 @@ export interface IntFieldOptions extends FieldOptions<number> {
  */
 export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'int', number, IntFieldOptions, TTypegen>
-
-const intFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'int',
-	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
-}
 
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<
@@ -157,19 +146,6 @@ export interface IntFieldFactory<
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }
 
-const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> => {
-	assertFieldOptions(options)
-	assertAutoIncrementOption(options)
-
-	return normalizeFieldOptions(
-		options,
-		normalizeSafeIntegerValue,
-		intFieldOptionsContract,
-	)
-}
-
 /**
  * Declares a safe JavaScript integer between `Number.MIN_SAFE_INTEGER` and `Number.MAX_SAFE_INTEGER`.
  *
@@ -178,11 +154,11 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
  * intField({ default: 0, indexed: true })
  * ```
  */
-export const intField: IntFieldFactory =
-	createGeneratedCompactScalarFieldFactory<
-		'int',
-		number,
-		IntFieldOptions,
-		'autoIncrement',
-		false
-	>('int', normalizeIntFieldOptions, normalizeSafeIntegerValue)
+export const intField: IntFieldFactory = createScalarFieldFactory(
+	'int',
+	normalizeSafeIntegerValue,
+	{
+		optionKeys: ['autoIncrement'],
+		assertOptions: assertAutoIncrementOption,
+	},
+)

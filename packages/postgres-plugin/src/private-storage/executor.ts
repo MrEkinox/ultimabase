@@ -5,33 +5,23 @@ import { and, eq, isNull, type SQL } from 'drizzle-orm'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 import type { PostgresDrizzleClient } from '../drizzle/client.js'
-import type {
-	CompiledPostgresPrivateCollection,
-	PostgresPrivateStorageCatalog,
-	PrivatePostgresSelection,
-} from './contracts.js'
+import { required } from '../required.js'
+import type { PostgresSchemaCatalog } from '../schema/catalog.js'
+import type { CompiledPostgresPrivateCollection } from './compiler.js'
 
-const selection = (
-	collection: CompiledPostgresPrivateCollection,
-): PrivatePostgresSelection =>
-	immutableRecord(
-		Object.fromEntries(
-			Object.entries(collection.fields).map(([name, field]) => [
-				name,
-				field.column,
-			]),
-		),
-	)
+type PrivateRecord = Readonly<Record<string, unknown>>
 
 const predicate = (
 	collection: CompiledPostgresPrivateCollection,
-	values: Readonly<Record<string, unknown>>,
+	values: PrivateRecord,
 ): SQL | undefined =>
 	and(
 		...Object.entries(values).map(([name, value]) => {
-			const field = collection.fields[name]
-			if (field === undefined)
-				throw new TypeError(`PostgreSQL private field is unavailable: ${name}`)
+			const field = required(
+				collection.fields[name],
+				`PostgreSQL private field is unavailable: ${name}`,
+			)
+
 			return value === null ? isNull(field.column) : eq(field.column, value)
 		}),
 	)
@@ -40,68 +30,69 @@ const execute = async (
 	client: PostgresDrizzleClient,
 	collection: CompiledPostgresPrivateCollection,
 	request: PrivateStorageOperationRequest,
-): Promise<Readonly<Record<string, unknown>> | null> => {
-	const returning = selection(collection)
+): Promise<readonly PrivateRecord[]> => {
+	const returning = Object.fromEntries(
+		Object.entries(collection.fields).map(([name, { column }]) => [
+			name,
+			column,
+		]),
+	)
+
 	switch (request.kind) {
-		case 'find-unique': {
-			const [row] = await client
+		case 'find-unique':
+			return client
 				.select(returning)
 				.from(collection.table)
 				.where(predicate(collection, request.where))
 				.limit(1)
-			return row === undefined ? null : immutableRecord(row)
-		}
-		case 'insert': {
-			const [row] = await client
+		case 'insert':
+			return client
 				.insert(collection.table)
 				.values(request.data)
 				.returning(returning)
-			if (row === undefined)
-				throw new TypeError('PostgreSQL private insert returned no row')
-			return immutableRecord(row)
-		}
-		case 'update': {
-			const [row] = await client
+		case 'update':
+			return client
 				.update(collection.table)
 				.set(request.data)
 				.where(predicate(collection, request.where))
 				.returning(returning)
-			return row === undefined ? null : immutableRecord(row)
-		}
-		case 'delete': {
-			const [row] = await client
+		case 'delete':
+			return client
 				.delete(collection.table)
 				.where(predicate(collection, request.where))
 				.returning(returning)
-			return row === undefined ? null : immutableRecord(row)
-		}
-		case 'compare-and-swap': {
-			const where = and(
-				predicate(collection, request.where),
-				predicate(collection, request.expected),
-			)
-			const [row] = await client
+		case 'compare-and-swap':
+			return client
 				.update(collection.table)
 				.set(request.data)
-				.where(where)
+				.where(
+					and(
+						predicate(collection, request.where),
+						predicate(collection, request.expected),
+					),
+				)
 				.returning(returning)
-			return row === undefined ? null : immutableRecord(row)
-		}
 	}
 }
 
 /** Executes one bounded private request and sanitizes every driver failure. */
 export const executePostgresPrivateStorage = async (
 	client: PostgresDrizzleClient,
-	catalog: PostgresPrivateStorageCatalog,
+	catalog: Pick<PostgresSchemaCatalog, 'getPrivateCollection'>,
 	request: PrivateStorageOperationRequest,
-): Promise<Readonly<Record<string, unknown>> | null> => {
+): Promise<PrivateRecord | null> => {
 	try {
-		return await execute(
+		const [row] = await execute(
 			client,
 			catalog.getPrivateCollection(request.collection),
 			request,
 		)
+
+		if (row === undefined && request.kind === 'insert') {
+			throw new TypeError('PostgreSQL private insert returned no row')
+		}
+
+		return row === undefined ? null : immutableRecord(row)
 	} catch (error: unknown) {
 		if (error instanceof FrameworkError) throw error
 		const driverCode = readPostgresDriverCode(error)

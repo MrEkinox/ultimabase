@@ -9,7 +9,6 @@ import {
 	type ApplicationRequestExecutor,
 	type CapabilityProviderDeclaration,
 	type PluginOperationBindingContribution,
-	type PluginOperationDefinition,
 	type PluginOperationInput,
 } from '@ultimabase/core'
 import {
@@ -28,11 +27,11 @@ import {
 	rejectPasswordCredentials,
 	rejectPasswordSignUp,
 } from './operations.js'
-import type {
-	PasswordAuthenticationResult,
-	PasswordChangeResult,
-	PasswordLogoutResult,
-} from './session.js'
+import type { PasswordAuthenticationResult } from './session.js'
+
+type PasswordAuthOperationKey = keyof typeof passwordAuthOperations
+type PasswordAuthOperation =
+	(typeof passwordAuthOperations)[PasswordAuthOperationKey]
 
 const passwordAuthHttpProtocol = defineOperationTransport({
 	name: 'ultimabase.password-auth.http-cookie',
@@ -43,7 +42,7 @@ const passwordAuthHttpEndpointProtocol = immutableRecord({
 	version: passwordAuthHttpProtocol.version,
 })
 
-const createHttpBinding = <TOperation extends PluginOperationDefinition>(
+const createHttpBinding = <TOperation extends PasswordAuthOperation>(
 	operation: TOperation,
 ) =>
 	operationTransportBinding({
@@ -61,57 +60,18 @@ const createHttpBinding = <TOperation extends PluginOperationDefinition>(
 		operation,
 	})
 
-const operationBindings = [
-	['change-password', createHttpBinding(passwordAuthOperations.changePassword)],
-	['login', createHttpBinding(passwordAuthOperations.login)],
-	['logout', createHttpBinding(passwordAuthOperations.logout)],
-	[
-		'logout-everywhere',
-		createHttpBinding(passwordAuthOperations.logoutEverywhere),
-	],
-	['refresh', createHttpBinding(passwordAuthOperations.refresh)],
-	['sign-up', createHttpBinding(passwordAuthOperations.signUp)],
-] as const
-
-const operationBindingContributions = operationBindings.map(([, binding]) =>
-	contributeOperationBinding(binding),
+// Bound in the same order as the operation record: change-password through sign-up.
+const operationBindingContributions = Object.values(passwordAuthOperations).map(
+	(operation) => contributeOperationBinding(createHttpBinding(operation)),
 )
 
-interface PasswordHttpOperationExecutor {
-	bind(transport: ApplicationOperationTransport): void
-	execute(
-		operation: PluginOperationDefinition,
-		input: unknown,
-	): Promise<unknown>
-}
-
-const createPasswordHttpOperationExecutor =
-	(): PasswordHttpOperationExecutor => {
-		let bound: ApplicationOperationTransport | undefined
-		return {
-			bind: (transport) => {
-				if (bound !== undefined) {
-					throw new TypeError(
-						'Password Auth HTTP operation executor is already bound',
-					)
-				}
-				bound = transport
-			},
-			execute: (operation, input) => {
-				if (bound === undefined) {
-					throw new TypeError(
-						'Password Auth HTTP operation executor is unavailable',
-					)
-				}
-				return bound.execute({
-					context: getCurrentRequest(),
-					input,
-					operation: operation.name,
-					version: operation.version,
-				})
-			},
-		}
-	}
+// Only routes that accept a JSON body map malformed input to a public failure;
+// refresh and both logouts consume the resolved session and never read a body.
+const bodyRejections = new Map<PasswordAuthOperation, () => never>([
+	[passwordAuthOperations.changePassword, rejectPasswordChange],
+	[passwordAuthOperations.login, rejectPasswordCredentials],
+	[passwordAuthOperations.signUp, rejectPasswordSignUp],
+])
 
 const sameSiteAttributes = immutableRecord({
 	lax: 'Lax',
@@ -131,6 +91,7 @@ const serializeExpiredCookie = (
 ): string =>
 	`${options.name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; Secure; SameSite=${sameSiteAttributes[options.sameSite]}`
 
+// The raw token travels only in the cookie, never in the JSON body.
 const authenticationBody = (result: PasswordAuthenticationResult) =>
 	immutableRecord({
 		principal: immutableRecord({ user: result.principal.user.toJSON() }),
@@ -141,6 +102,7 @@ const authenticationBody = (result: PasswordAuthenticationResult) =>
 		}),
 	})
 
+/** Maps the four declared failures to their status and hides every other error. */
 const errorResponse = (error: unknown): Response => {
 	const requestId = getCurrentRequest().requestId
 	if (error instanceof PluginError) {
@@ -172,115 +134,58 @@ const errorResponse = (error: unknown): Response => {
 	)
 }
 
-const readAuthenticationInput = async (
+const readInput = async (
 	request: Request,
-	operation:
-		| typeof passwordAuthOperations.login
-		| typeof passwordAuthOperations.signUp
-		| typeof passwordAuthOperations.refresh,
+	operation: PasswordAuthOperation,
 ): Promise<unknown> => {
-	// Refresh consumes the resolved session and never reads a request body.
-	if (operation === passwordAuthOperations.refresh) return null
+	const reject = bodyRejections.get(operation)
+	if (reject === undefined) return null
 	try {
 		return operation.input.snapshot(
 			await request.json(),
 			`${operation.name}.http-input`,
 		)
 	} catch {
-		return operation === passwordAuthOperations.login
-			? rejectPasswordCredentials()
-			: rejectPasswordSignUp()
+		return reject()
 	}
 }
 
-/** Keeps the cookie protocol and safe failure envelope identical for every route. */
-const cookieRoute = (
-	path: string,
-	handle: (request: Request) => Promise<Response>,
-): HttpEndpointDefinition =>
-	httpRoute({
-		handle: async (request) => {
-			try {
-				return await handle(request)
-			} catch (error: unknown) {
-				return errorResponse(error)
-			}
-		},
-		method: 'POST',
-		path,
-		protocol: passwordAuthHttpEndpointProtocol,
-	})
-
-const authenticationRoute = (
-	path: string,
-	operation:
-		| typeof passwordAuthOperations.login
-		| typeof passwordAuthOperations.signUp
-		| typeof passwordAuthOperations.refresh,
-	executor: PasswordHttpOperationExecutor,
+/** Snapshots one operation result and sets or expires the session cookie. */
+const respond = (
+	operation: PasswordAuthOperation,
+	value: unknown,
 	cookie: ResolvedPasswordAuthCookieOptions,
-): HttpEndpointDefinition =>
-	cookieRoute(path, async (request) => {
-		const input = await readAuthenticationInput(request, operation)
-		const result = operation.result.snapshot(
-			await executor.execute(operation, input),
-			`${operation.name}.http-result`,
-		)
-		return Response.json(
-			{ result: authenticationBody(result) },
-			{
-				headers: {
-					'Set-Cookie': serializeSessionCookie(
-						cookie,
-						result.session.token,
-						result.session.expiresAt,
-					),
+): Response => {
+	const path = `${operation.name}.http-result`
+	switch (operation.name) {
+		case 'ultimabase.password-auth.sign-up':
+		case 'ultimabase.password-auth.login':
+		case 'ultimabase.password-auth.refresh': {
+			const result = operation.result.snapshot(value, path)
+			return Response.json(
+				{ result: authenticationBody(result) },
+				{
+					headers: {
+						'Set-Cookie': serializeSessionCookie(
+							cookie,
+							result.session.token,
+							result.session.expiresAt,
+						),
+					},
 				},
-			},
-		)
-	})
-
-const changePasswordRoute = (
-	executor: PasswordHttpOperationExecutor,
-): HttpEndpointDefinition =>
-	cookieRoute(passwordAuthCookiePaths.changePassword, async (request) => {
-		const operation = passwordAuthOperations.changePassword
-		let input: unknown
-		try {
-			input = operation.input.snapshot(
-				await request.json(),
-				`${operation.name}.http-input`,
 			)
-		} catch {
-			return rejectPasswordChange()
 		}
-		const result: PasswordChangeResult = operation.result.snapshot(
-			await executor.execute(operation, input),
-			`${operation.name}.http-result`,
-		)
-		return Response.json({ result })
-	})
-
-const logoutRoute = (
-	operation:
-		| typeof passwordAuthOperations.logout
-		| typeof passwordAuthOperations.logoutEverywhere,
-	path:
-		| typeof passwordAuthCookiePaths.logout
-		| typeof passwordAuthCookiePaths.logoutEverywhere,
-	executor: PasswordHttpOperationExecutor,
-	cookie: ResolvedPasswordAuthCookieOptions,
-): HttpEndpointDefinition =>
-	cookieRoute(path, async () => {
-		const result: PasswordLogoutResult = operation.result.snapshot(
-			await executor.execute(operation, null),
-			`${operation.name}.http-result`,
-		)
-		return Response.json(
-			{ result },
-			{ headers: { 'Set-Cookie': serializeExpiredCookie(cookie) } },
-		)
-	})
+		// Password change keeps the current session, so its cookie stays unchanged.
+		case 'ultimabase.password-auth.change-password':
+			return Response.json({ result: operation.result.snapshot(value, path) })
+		case 'ultimabase.password-auth.logout':
+		case 'ultimabase.password-auth.logout-everywhere':
+			return Response.json(
+				{ result: operation.result.snapshot(value, path) },
+				{ headers: { 'Set-Cookie': serializeExpiredCookie(cookie) } },
+			)
+	}
+}
 
 /** Carries conditional declarations plus their one-time lifecycle binding. */
 export interface PasswordHttpCookieIntegration {
@@ -293,54 +198,63 @@ export interface PasswordHttpCookieIntegration {
 export const createPasswordHttpCookieIntegration = (
 	cookie: ResolvedPasswordAuthCookieOptions,
 ): PasswordHttpCookieIntegration => {
-	const executor = createPasswordHttpOperationExecutor()
+	let transport: ApplicationOperationTransport | undefined
+	const execute = (operation: PasswordAuthOperation, input: unknown) => {
+		if (transport === undefined) {
+			throw new TypeError(
+				'Password Auth HTTP operation executor is unavailable',
+			)
+		}
+		return transport.execute({
+			context: getCurrentRequest(),
+			input,
+			operation: operation.name,
+			version: operation.version,
+		})
+	}
+	// Every route shares the same safe failure envelope.
+	const route = (key: PasswordAuthOperationKey): HttpEndpointDefinition => {
+		const operation = passwordAuthOperations[key]
+		return httpRoute({
+			handle: async (request) => {
+				try {
+					const input = await readInput(request, operation)
+					return respond(operation, await execute(operation, input), cookie)
+				} catch (error: unknown) {
+					return errorResponse(error)
+				}
+			},
+			method: 'POST',
+			path: passwordAuthCookiePaths[key],
+			protocol: passwordAuthHttpEndpointProtocol,
+		})
+	}
 	const endpointProvider = provideHttpEndpoints({
 		contributionId: 'password-cookie-routes',
 		create: () =>
 			immutableArray([
-				authenticationRoute(
-					passwordAuthCookiePaths.signUp,
-					passwordAuthOperations.signUp,
-					executor,
-					cookie,
-				),
-				changePasswordRoute(executor),
-				authenticationRoute(
-					passwordAuthCookiePaths.login,
-					passwordAuthOperations.login,
-					executor,
-					cookie,
-				),
-				logoutRoute(
-					passwordAuthOperations.logout,
-					passwordAuthCookiePaths.logout,
-					executor,
-					cookie,
-				),
-				logoutRoute(
-					passwordAuthOperations.logoutEverywhere,
-					passwordAuthCookiePaths.logoutEverywhere,
-					executor,
-					cookie,
-				),
-				authenticationRoute(
-					passwordAuthCookiePaths.refresh,
-					passwordAuthOperations.refresh,
-					executor,
-					cookie,
-				),
+				route('signUp'),
+				route('changePassword'),
+				route('login'),
+				route('logout'),
+				route('logoutEverywhere'),
+				route('refresh'),
 			]),
 	})
 	return immutableRecord({
 		capabilities: immutableArray([endpointProvider]),
 		operations: immutableArray(operationBindingContributions),
 		start: (requestExecutor) => {
-			executor.bind(
-				requestExecutor.exposeOperations({
-					operations: Object.values(passwordAuthOperations),
-					transport: passwordAuthHttpProtocol,
-				}),
-			)
+			const exposed = requestExecutor.exposeOperations({
+				operations: Object.values(passwordAuthOperations),
+				transport: passwordAuthHttpProtocol,
+			})
+			if (transport !== undefined) {
+				throw new TypeError(
+					'Password Auth HTTP operation executor is already bound',
+				)
+			}
+			transport = exposed
 		},
 	})
 }

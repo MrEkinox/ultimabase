@@ -5,7 +5,6 @@ import {
 } from '@ultimabase/shared'
 
 import { createFieldDefinition } from '../base/definition.js'
-import { getFieldRelationWhere } from '../base/definition.js'
 import {
 	assertBuiltInFieldOptions,
 	assertFieldOptions,
@@ -16,11 +15,12 @@ import type {
 	FieldDefinition,
 	FieldOptionValueCarrier,
 	FieldTypegenState,
-	GenericField,
 	ResolveFieldSourceTemplate,
 } from '../base/contract.js'
-import type { SchemaDefinition } from '../../schema/definition.js'
-import type { SchemaReference } from '../../schema/definition.js'
+import type {
+	SchemaDefinition,
+	SchemaReference,
+} from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 import { snapshotCapturedOptionValue } from '../../schema/captured-options.js'
 import type { RequestContext } from '../../../runtime/context/request-context.js'
@@ -28,8 +28,8 @@ import type { WhereBuilder, WhereInput } from '../../../query/filters/where.js'
 import type {
 	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
+	UltimaBaseGeneratedFieldOptions,
 } from '../../type-info.js'
-import type { UltimaBaseGeneratedFieldOptions } from '../../type-info.js'
 
 declare const relationTargetMarker: unique symbol
 
@@ -263,25 +263,6 @@ const normalizeRelationWhereDeclaration = (
 		input: snapshot,
 		kind: 'static' as const,
 	})
-}
-
-/** @internal Returns the exact private declaration attached by `relationField`. */
-export const getRelationWhereDeclaration = (
-	field: GenericField,
-): RelationWhereDeclaration | undefined => {
-	const declaration = getFieldRelationWhere(field)
-
-	if (declaration === undefined) return undefined
-	if (
-		typeof declaration !== 'object' ||
-		declaration === null ||
-		!('kind' in declaration) ||
-		(declaration.kind !== 'static' && declaration.kind !== 'contextual')
-	) {
-		throw new TypeError('Invalid relation where declaration binding')
-	}
-
-	return declaration as RelationWhereDeclaration
 }
 
 /**

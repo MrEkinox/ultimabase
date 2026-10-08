@@ -5,7 +5,7 @@ import type {
 	PluginSchemaMutationDefinition,
 	PluginSchemaMutationInput,
 } from '../../plugins/plugin-schema-mutations.js'
-import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-registry.js'
+import type { CompiledSchemaMutationCommand } from '../../plugins/application-surface-contracts.js'
 import type { QueryAst, UpdateExpressionNode } from '../../query/index.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'

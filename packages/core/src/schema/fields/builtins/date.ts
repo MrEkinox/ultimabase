@@ -1,8 +1,3 @@
-import {
-	fieldOptionKeys,
-	normalizeFieldOptions,
-	type BuiltInFieldOptionsContract,
-} from '../base/options.js'
 import type {
 	CompatibleFieldOptionsExtension,
 	FieldDefinition,
@@ -11,9 +6,9 @@ import type {
 	ResolvedFieldSourceOptions,
 } from '../base/contract.js'
 import {
+	createScalarFieldFactory,
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
-	createGeneratedCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -33,11 +28,6 @@ export type DateFieldOptions = TemporalFieldOptions
  */
 export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'date', string, DateFieldOptions, TTypegen>
-
-const dateFieldOptionsContract: BuiltInFieldOptionsContract = {
-	kind: 'date',
-	optionKeys: [...fieldOptionKeys, 'autoNow'],
-}
 
 /** Provides date-specific names for compact auto-now inference. */
 type DefaultedDateFieldOptions<
@@ -156,18 +146,6 @@ export const normalizeCalendarDate = (value: unknown, path: string): string => {
 	return value
 }
 
-const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
-	options: TOptions,
-): Readonly<TOptions> => {
-	assertTemporalAutoNow(options)
-
-	return normalizeFieldOptions(
-		options,
-		normalizeCalendarDate,
-		dateFieldOptionsContract,
-	)
-}
-
 /**
  * Declares a calendar day in canonical `YYYY-MM-DD` form without a time of day.
  *
@@ -176,11 +154,11 @@ const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
  * dateField({ default: "2026-08-01" })
  * ```
  */
-export const dateField: DateFieldFactory =
-	createGeneratedCompactScalarFieldFactory<
-		'date',
-		string,
-		DateFieldOptions,
-		'autoNow',
-		true
-	>('date', normalizeDateFieldOptions, normalizeCalendarDate)
+export const dateField: DateFieldFactory = createScalarFieldFactory(
+	'date',
+	normalizeCalendarDate,
+	{
+		optionKeys: ['autoNow'],
+		assertOptions: assertTemporalAutoNow,
+	},
+)

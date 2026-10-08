@@ -2,7 +2,6 @@ import {
 	getFieldListDepth,
 	getPluginFieldStorageCodec,
 	getPluginFieldStructuralContains,
-	type CompiledSchemaRegistry,
 	type GenericField,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -12,107 +11,84 @@ import {
 	GraphQLID,
 	GraphQLInputObjectType,
 	GraphQLInt,
-	GraphQLList,
 	GraphQLNonNull,
 	GraphQLString,
 	type GraphQLInputFieldConfigMap,
-	type GraphQLNamedType,
 	type GraphQLNullableInputType,
 } from 'graphql'
 
+import {
+	assertSchemaFieldName,
+	fieldPathKey,
+	memoize,
+	nonNullList,
+	type GraphqlCompileContext,
+} from './compile-context.js'
 import type { GraphqlFieldTypeCompiler } from './field-compiler.js'
-import { GraphqlCompiledSchemaLookup } from './compiled-schema-lookup.js'
-import {
-	graphqlEqualityFieldKinds,
-	graphqlOrderedFieldKinds,
-} from './filter-capabilities.js'
-import { GraphqlFilterSharedTypes } from './filter-shared-types.js'
 import { GraphqlStructuralFilterInputCompiler } from './filter-structural-input-compiler.js'
-import {
-	isGraphqlBuiltInFieldKind,
-	readGraphqlFieldOwner,
-} from './field-metadata.js'
-import { assertGraphqlFieldName, graphqlFieldTypeSegment } from './names.js'
-import type { GraphqlNameRegistry } from './names.js'
 import { GraphqlJSON } from './scalars.js'
-import {
-	graphqlSourceDescription,
-	type GraphqlSchemaSurface,
-} from './surfaces.js'
+import { isGraphqlBuiltInFieldKind } from './scalar-types.js'
+
+// Mirrors the built-in field kinds accepted by Core equality normalization.
+const equalityFieldKinds: ReadonlySet<string> = new Set([
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'dateTime',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'pointer',
+	'string',
+	'time',
+	'uuid',
+])
+
+// Mirrors the built-in field kinds accepted by Core ordering comparisons.
+const orderedFieldKinds: ReadonlySet<string> = new Set([
+	'bigint',
+	'date',
+	'dateTime',
+	'decimal',
+	'float',
+	'int',
+	'string',
+	'time',
+])
+
+const nullOperators = (): GraphQLInputFieldConfigMap => ({
+	isNull: { type: GraphQLBoolean },
+	isNotNull: { type: GraphQLBoolean },
+})
+
+const equalityOperators = (
+	type: GraphQLNullableInputType,
+): GraphQLInputFieldConfigMap => ({
+	eq: { type },
+	in: { type: nonNullList(type) },
+	ne: { type },
+	notIn: { type: nonNullList(type) },
+})
 
 /** Generates schema-aware GraphQL filter and ordering input objects. */
 export class GraphqlFilterInputCompiler {
+	readonly #ctx: GraphqlCompileContext
 	readonly #fieldTypes: GraphqlFieldTypeCompiler
-	readonly #compiled: GraphqlCompiledSchemaLookup
-	readonly #names: GraphqlNameRegistry
-	readonly #types: GraphQLNamedType[] = []
 	readonly #whereTypes = new Map<SchemaDefinition, GraphQLInputObjectType>()
-	readonly #fieldFilters = new Map<string, GraphQLInputObjectType>()
 	readonly #orders = new Map<SchemaDefinition, GraphQLInputObjectType>()
-	readonly #shared: GraphqlFilterSharedTypes
+	readonly #fieldFilters = new Map<string, GraphQLInputObjectType>()
 	readonly #structural: GraphqlStructuralFilterInputCompiler
 
 	constructor(
-		options: Readonly<{
-			readonly fieldTypes: GraphqlFieldTypeCompiler
-			readonly names: GraphqlNameRegistry
-			readonly schemas: CompiledSchemaRegistry
-			readonly surfaces: ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface>
-		}>,
+		ctx: GraphqlCompileContext,
+		fieldTypes: GraphqlFieldTypeCompiler,
 	) {
-		this.#fieldTypes = options.fieldTypes
-		this.#compiled = new GraphqlCompiledSchemaLookup(
-			options.schemas,
-			options.surfaces,
-		)
-		this.#names = options.names
-		this.#shared = new GraphqlFilterSharedTypes(options.names)
-		this.#structural = new GraphqlStructuralFilterInputCompiler({
-			compiled: this.#compiled,
-			fieldTypes: options.fieldTypes,
-			names: options.names,
-			shared: this.#shared,
-		})
-	}
-
-	get types(): readonly GraphQLNamedType[] {
-		return [...this.#types, ...this.#shared.types, ...this.#structural.types]
-	}
-
-	#claim(
-		name: string,
-		schema?: SchemaDefinition,
-		path?: readonly string[],
-	): void {
-		this.#names.claimType(name, {
-			description:
-				schema === undefined
-					? `shared GraphQL read input ${name}`
-					: graphqlSourceDescription(schema, path),
-			...(schema === undefined
-				? {}
-				: { owner: schema.definition.provenance.schema.owner }),
-		})
-	}
-
-	#pathName(schema: SchemaDefinition, path: readonly string[]): string {
-		return `${this.#compiled.surface(schema).typeName}${path.map(graphqlFieldTypeSegment).join('')}`
-	}
-
-	#valueType(
-		field: GenericField,
-		schema: SchemaDefinition,
-		path: readonly string[],
-	): GraphQLNullableInputType {
-		return path.length === 1 && path[0] === 'id'
-			? GraphQLID
-			: this.#fieldTypes.inputElementType(field, schema, path)
-	}
-
-	#list(
-		type: GraphQLNullableInputType,
-	): GraphQLList<GraphQLNonNull<GraphQLNullableInputType>> {
-		return new GraphQLList(new GraphQLNonNull(type))
+		this.#ctx = ctx
+		this.#fieldTypes = fieldTypes
+		this.#structural = new GraphqlStructuralFilterInputCompiler(ctx, fieldTypes)
 	}
 
 	#range(
@@ -122,69 +98,46 @@ export class GraphqlFilterInputCompiler {
 		path: readonly string[],
 	): GraphQLInputObjectType {
 		const rangeName = `${name}Range`
-		this.#claim(rangeName, schema, path)
-		const range = new GraphQLInputObjectType({
-			name: rangeName,
-			fields: {
-				lower: { type: new GraphQLNonNull(type) },
-				upper: { type: new GraphQLNonNull(type) },
-			},
-		})
-		this.#types.push(range)
-		return range
-	}
-
-	#addNullOperators(fields: GraphQLInputFieldConfigMap): void {
-		fields.isNull = { type: GraphQLBoolean }
-		fields.isNotNull = { type: GraphQLBoolean }
-	}
-
-	#addEqualityOperators(
-		fields: GraphQLInputFieldConfigMap,
-		type: GraphQLNullableInputType,
-	): void {
-		fields.eq = { type }
-		fields.in = { type: this.#list(type) }
-		fields.ne = { type }
-		fields.notIn = { type: this.#list(type) }
-	}
-
-	#addStructuralOperators(fields: GraphQLInputFieldConfigMap): void {
-		fields.containedBy = { type: GraphqlJSON }
-		fields.contains = { type: GraphqlJSON }
-		fields.hasAllKeys = { type: this.#list(GraphQLString) }
-		fields.hasAnyKeys = { type: this.#list(GraphQLString) }
-		fields.hasKey = { type: GraphQLString }
-		fields.jsonPathExists = { type: this.#shared.jsonPath() }
-		fields.jsonPathMatches = { type: this.#shared.jsonPath() }
+		this.#ctx.claim(rangeName, schema, path)
+		return this.#ctx.add(
+			'filters',
+			new GraphQLInputObjectType({
+				name: rangeName,
+				fields: {
+					lower: { type: new GraphQLNonNull(type) },
+					upper: { type: new GraphQLNonNull(type) },
+				},
+			}),
+		)
 	}
 
 	#relationCount(
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const name = `${this.#pathName(schema, path)}CountWhere`
-		this.#claim(name, schema, path)
+		const name = `${this.#ctx.typeName(schema, path)}CountWhere`
+		this.#ctx.claim(name, schema, path)
 		const range = this.#range(name, GraphQLInt, schema, path)
-		const target = this.#compiled.target(schema, path)
-		const result: GraphQLInputObjectType = new GraphQLInputObjectType({
-			name,
-			fields: () => ({
-				between: { type: range },
-				eq: { type: GraphQLInt },
-				gt: { type: GraphQLInt },
-				gte: { type: GraphQLInt },
-				in: { type: this.#list(GraphQLInt) },
-				lt: { type: GraphQLInt },
-				lte: { type: GraphQLInt },
-				ne: { type: GraphQLInt },
-				notBetween: { type: range },
-				notIn: { type: this.#list(GraphQLInt) },
-				where: { type: this.where(target) },
+		const target = this.#ctx.target(schema, path)
+		return this.#ctx.add(
+			'filters',
+			new GraphQLInputObjectType({
+				name,
+				fields: () => ({
+					between: { type: range },
+					eq: { type: GraphQLInt },
+					gt: { type: GraphQLInt },
+					gte: { type: GraphQLInt },
+					in: { type: nonNullList(GraphQLInt) },
+					lt: { type: GraphQLInt },
+					lte: { type: GraphQLInt },
+					ne: { type: GraphQLInt },
+					notBetween: { type: range },
+					notIn: { type: nonNullList(GraphQLInt) },
+					where: { type: this.where(target) },
+				}),
 			}),
-		})
-		this.#types.push(result)
-		return result
+		)
 	}
 
 	#fieldFilter(
@@ -192,18 +145,17 @@ export class GraphqlFilterInputCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLInputObjectType {
-		const key = `${schema.className}\0${path.join('\0')}\0field`
-		const existing = this.#fieldFilters.get(key)
-		if (existing !== undefined) return existing
-		const name = `${this.#pathName(schema, path)}Where`
-		this.#claim(name, schema, path)
-		const result = new GraphQLInputObjectType({
-			name,
-			fields: () => this.#fieldFilterFields(field, schema, path, name),
+		return memoize(this.#fieldFilters, fieldPathKey(schema, path), () => {
+			const name = `${this.#ctx.typeName(schema, path)}Where`
+			this.#ctx.claim(name, schema, path)
+			return this.#ctx.add(
+				'filters',
+				new GraphQLInputObjectType({
+					name,
+					fields: () => this.#fieldFilterFields(field, schema, path, name),
+				}),
+			)
 		})
-		this.#fieldFilters.set(key, result)
-		this.#types.push(result)
-		return result
 	}
 
 	#fieldFilterFields(
@@ -213,16 +165,15 @@ export class GraphqlFilterInputCompiler {
 		name: string,
 	): GraphQLInputFieldConfigMap {
 		if (field.kind === 'pointer') {
-			const fields: GraphQLInputFieldConfigMap = {
-				is: { type: this.where(this.#compiled.target(schema, path)) },
-				isNot: { type: this.where(this.#compiled.target(schema, path)) },
+			return {
+				is: { type: this.where(this.#ctx.target(schema, path)) },
+				isNot: { type: this.where(this.#ctx.target(schema, path)) },
+				...equalityOperators(GraphQLID),
+				...nullOperators(),
 			}
-			this.#addEqualityOperators(fields, GraphQLID)
-			this.#addNullOperators(fields)
-			return fields
 		}
 		if (field.kind === 'relation') {
-			const targetWhere = this.where(this.#compiled.target(schema, path))
+			const targetWhere = this.where(this.#ctx.target(schema, path))
 			return {
 				count: { type: this.#relationCount(schema, path) },
 				every: { type: targetWhere },
@@ -232,46 +183,61 @@ export class GraphqlFilterInputCompiler {
 				some: { type: targetWhere },
 			}
 		}
-		const fields: GraphQLInputFieldConfigMap = {}
-		const valueType = this.#valueType(field, schema, path)
+		const valueType =
+			path.length === 1 && path[0] === 'id'
+				? GraphQLID
+				: this.#fieldTypes.inputElementType(field, schema, path)
 		if (getFieldListDepth(field.options) > 0) {
-			const listType = this.#list(valueType)
-			fields.eq = { type: listType }
-			fields.ne = { type: listType }
-			fields.has = { type: valueType }
-			fields.hasEvery = { type: listType }
-			fields.hasSome = { type: listType }
-			fields.isEmpty = { type: GraphQLBoolean }
-			this.#addNullOperators(fields)
-			return fields
+			const listType = nonNullList(valueType)
+			return {
+				eq: { type: listType },
+				ne: { type: listType },
+				has: { type: valueType },
+				hasEvery: { type: listType },
+				hasSome: { type: listType },
+				isEmpty: { type: GraphQLBoolean },
+				...nullOperators(),
+			}
 		}
+		const fields: GraphQLInputFieldConfigMap = {}
 		if (
-			graphqlEqualityFieldKinds.has(field.kind) ||
+			equalityFieldKinds.has(field.kind) ||
 			getPluginFieldStorageCodec(field) !== undefined
 		) {
-			this.#addEqualityOperators(fields, valueType)
+			Object.assign(fields, equalityOperators(valueType))
 		}
-		if (graphqlOrderedFieldKinds.has(field.kind)) {
+		if (orderedFieldKinds.has(field.kind)) {
 			const range = this.#range(name, valueType, schema, path)
-			fields.between = { type: range }
-			fields.gt = { type: valueType }
-			fields.gte = { type: valueType }
-			fields.lt = { type: valueType }
-			fields.lte = { type: valueType }
-			fields.notBetween = { type: range }
+			Object.assign(fields, {
+				between: { type: range },
+				gt: { type: valueType },
+				gte: { type: valueType },
+				lt: { type: valueType },
+				lte: { type: valueType },
+				notBetween: { type: range },
+			})
 		}
 		if (field.kind === 'string') {
-			fields.contains = { type: GraphQLString }
-			fields.endsWith = { type: GraphQLString }
-			fields.matches = { type: this.#shared.regex() }
-			fields.startsWith = { type: GraphQLString }
+			Object.assign(fields, {
+				contains: { type: GraphQLString },
+				endsWith: { type: GraphQLString },
+				matches: { type: this.#structural.regex() },
+				startsWith: { type: GraphQLString },
+			})
 		}
 		if (field.kind === 'json' || field.kind === 'object') {
-			this.#addStructuralOperators(fields)
-			fields.at = {
-				type: this.#list(this.#structural.pathFilter(schema, path)),
-			}
+			Object.assign(fields, {
+				containedBy: { type: GraphqlJSON },
+				contains: { type: GraphqlJSON },
+				hasAllKeys: { type: nonNullList(GraphQLString) },
+				hasAnyKeys: { type: nonNullList(GraphQLString) },
+				hasKey: { type: GraphQLString },
+				jsonPathExists: { type: this.#structural.jsonPath() },
+				jsonPathMatches: { type: this.#structural.jsonPath() },
+				at: { type: nonNullList(this.#structural.pathFilter(schema, path)) },
+			})
 			if (field.kind === 'object') {
+				// Embedded objects compare against a typed partial instead of JSON.
 				const partial = this.#structural.partialObject(schema, field, path)
 				fields.containedBy = { type: partial }
 				fields.contains = { type: partial }
@@ -282,75 +248,65 @@ export class GraphqlFilterInputCompiler {
 		) {
 			fields.contains = { type: GraphqlJSON }
 		}
-		this.#addNullOperators(fields)
-		return fields
+		return Object.assign(fields, nullOperators())
 	}
 
 	where(schema: SchemaDefinition): GraphQLInputObjectType {
-		const existing = this.#whereTypes.get(schema)
-		if (existing !== undefined) return existing
-		const name = `${this.#compiled.surface(schema).typeName}Where`
-		this.#claim(name, schema)
-		const result: GraphQLInputObjectType = new GraphQLInputObjectType({
-			name,
-			fields: () => ({
-				AND: { type: this.#list(result) },
-				OR: { type: this.#list(result) },
-				NOT: { type: result },
-				...Object.fromEntries(
-					Object.entries(schema.persistedFields).map(([fieldName, field]) => {
-						assertGraphqlFieldName(
-							fieldName,
-							graphqlSourceDescription(schema, [fieldName]),
-							readGraphqlFieldOwner(schema, [fieldName]),
-						)
-						return [
-							fieldName,
-							{ type: this.#fieldFilter(field, schema, [fieldName]) },
-						]
-					}),
-				),
-			}),
+		return memoize(this.#whereTypes, schema, () => {
+			const name = `${this.#ctx.typeName(schema)}Where`
+			this.#ctx.claim(name, schema)
+			const result: GraphQLInputObjectType = new GraphQLInputObjectType({
+				name,
+				fields: () => ({
+					AND: { type: nonNullList(result) },
+					OR: { type: nonNullList(result) },
+					NOT: { type: result },
+					...Object.fromEntries(
+						Object.entries(schema.persistedFields).map(([fieldName, field]) => {
+							assertSchemaFieldName(schema, [fieldName])
+							return [
+								fieldName,
+								{ type: this.#fieldFilter(field, schema, [fieldName]) },
+							]
+						}),
+					),
+				}),
+			})
+			return this.#ctx.add('filters', result)
 		})
-		this.#whereTypes.set(schema, result)
-		this.#types.push(result)
-		return result
 	}
 
 	order(schema: SchemaDefinition): GraphQLInputObjectType {
-		const existing = this.#orders.get(schema)
-		if (existing !== undefined) return existing
-		const typeName = this.#compiled.surface(schema).typeName
-		const enumName = `${typeName}OrderField`
-		this.#claim(enumName, schema)
-		const field = new GraphQLEnumType({
-			name: enumName,
-			values: Object.fromEntries(
-				Object.keys(schema.persistedFields).map((name) => [
+		return memoize(this.#orders, schema, () => {
+			const typeName = this.#ctx.typeName(schema)
+			const enumName = `${typeName}OrderField`
+			this.#ctx.claim(enumName, schema)
+			const field = this.#ctx.add(
+				'filters',
+				new GraphQLEnumType({
+					name: enumName,
+					values: Object.fromEntries(
+						Object.keys(schema.persistedFields).map((name) => [
+							name,
+							{ value: name },
+						]),
+					),
+				}),
+			)
+			const name = `${typeName}Order`
+			this.#ctx.claim(name, schema)
+			return this.#ctx.add(
+				'filters',
+				new GraphQLInputObjectType({
 					name,
-					{ value: name },
-				]),
-			),
+					fields: {
+						direction: {
+							type: new GraphQLNonNull(this.#structural.direction()),
+						},
+						field: { type: new GraphQLNonNull(field) },
+					},
+				}),
+			)
 		})
-		this.#types.push(field)
-		const name = `${typeName}Order`
-		this.#claim(name, schema)
-		const result = new GraphQLInputObjectType({
-			name,
-			fields: {
-				direction: { type: new GraphQLNonNull(this.#shared.direction()) },
-				field: { type: new GraphQLNonNull(field) },
-			},
-		})
-		this.#orders.set(schema, result)
-		this.#types.push(result)
-		return result
-	}
-
-	materialize(): void {
-		for (const type of this.#types) {
-			if (type instanceof GraphQLInputObjectType) type.getFields()
-		}
-		this.#structural.materialize()
 	}
 }

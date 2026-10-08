@@ -4,8 +4,11 @@ import type {
 	SchemaDefinition,
 } from '@ultimabase/core'
 
+import {
+	graphqlSourceDescription,
+	type GraphqlNameRegistry,
+} from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
-import type { GraphqlNameRegistry } from './names.js'
 import {
 	readGraphqlSchemaExposure,
 	type GraphqlBulkOperations,
@@ -18,6 +21,7 @@ type GeneratedOperation = Exclude<
 	'bulk' | 'mutations'
 >
 type BulkOperation = keyof GraphqlBulkOperations
+type OperationSelection = boolean | GraphqlSchemaOperations | undefined
 
 export interface GraphqlSchemaSurface {
 	readonly schema: SchemaDefinition
@@ -52,70 +56,59 @@ const builtInOperationDefaults: Readonly<Record<GeneratedOperation, boolean>> =
 		upsert: false,
 	}
 
-const directOperations = (
-	value: GraphqlSchemaExposureOption | undefined,
-): boolean | GraphqlSchemaOperations | undefined =>
-	typeof value === 'boolean' ? value : value?.operations
-
-const readOperation = (
-	value: boolean | GraphqlSchemaOperations | undefined,
-	operation: GeneratedOperation,
-): boolean | undefined =>
-	typeof value === 'boolean' ? value : value?.[operation]
-
-const readBulkOperation = (
-	value: boolean | GraphqlSchemaOperations | undefined,
-	operation: BulkOperation,
-): boolean | undefined => {
-	if (typeof value === 'boolean') return value
-	const bulk = value?.bulk
-	return typeof bulk === 'boolean' ? bulk : bulk?.[operation]
+// A boolean selects every operation; an object answers only what it declares.
+const resolveSelection = (
+	direct: GraphqlSchemaExposureOption | undefined,
+	pluginDefault: OperationSelection,
+	read: (operations: GraphqlSchemaOperations) => boolean | undefined,
+	fallback: boolean,
+): boolean => {
+	const pick = (value: OperationSelection): boolean | undefined =>
+		typeof value === 'boolean' || value === undefined ? value : read(value)
+	return (
+		pick(typeof direct === 'boolean' ? direct : direct?.operations) ??
+		pick(pluginDefault) ??
+		fallback
+	)
 }
 
 /** Resolves one operation through schema, plugin, then built-in defaults. */
 export const resolveGraphqlSchemaOperation = (
 	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: boolean | GraphqlSchemaOperations | undefined,
+	pluginDefault: OperationSelection,
 	operation: GeneratedOperation,
 ): boolean =>
-	readOperation(directOperations(direct), operation) ??
-	readOperation(pluginDefault, operation) ??
-	builtInOperationDefaults[operation]
+	resolveSelection(
+		direct,
+		pluginDefault,
+		(operations) => operations[operation],
+		builtInOperationDefaults[operation],
+	)
 
 /** Resolves one bulk operation through schema, plugin, then disabled default. */
 export const resolveGraphqlBulkOperation = (
 	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: boolean | GraphqlSchemaOperations | undefined,
+	pluginDefault: OperationSelection,
 	operation: BulkOperation,
 ): boolean =>
-	readBulkOperation(directOperations(direct), operation) ??
-	readBulkOperation(pluginDefault, operation) ??
-	false
+	resolveSelection(
+		direct,
+		pluginDefault,
+		({ bulk }) => (typeof bulk === 'boolean' ? bulk : bulk?.[operation]),
+		false,
+	)
 
 /** Resolves whether one application schema exposes its bound schema mutations. */
 export const resolveGraphqlSchemaMutations = (
 	direct: GraphqlSchemaExposureOption | undefined,
-	pluginDefault: boolean | GraphqlSchemaOperations | undefined,
-): boolean => {
-	const read = (
-		value: boolean | GraphqlSchemaOperations | undefined,
-	): boolean | undefined =>
-		typeof value === 'boolean' ? value : value?.mutations
-	return read(directOperations(direct)) ?? read(pluginDefault) ?? true
-}
-
-export const graphqlSourceDescription = (
-	schema: SchemaDefinition,
-	path?: readonly string[],
-): string =>
-	path === undefined
-		? `schema ${schema.className}`
-		: `field ${schema.className}.${path.join('.')}`
+	pluginDefault: OperationSelection,
+): boolean =>
+	resolveSelection(direct, pluginDefault, ({ mutations }) => mutations, true)
 
 /** Resolves GraphQL identities and public get roots from final provenance. */
 export const collectGraphqlSchemaSurfaces = (
 	schemas: CompiledSchemaRegistry,
-	pluginDefault: boolean | GraphqlSchemaOperations | undefined,
+	pluginDefault: OperationSelection,
 	names: GraphqlNameRegistry,
 ): ReadonlyMap<SchemaDefinition, GraphqlSchemaSurface> => {
 	const surfaces = new Map<SchemaDefinition, GraphqlSchemaSurface>()
@@ -133,56 +126,32 @@ export const collectGraphqlSchemaSurfaces = (
 			typeof direct === 'object' && direct.typeName !== undefined
 				? direct.typeName
 				: schema.className
-		names.claimType(typeName, {
-			description: graphqlSourceDescription(schema),
-			owner,
-		})
+		names.claimType(typeName, graphqlSourceDescription(schema), owner)
+		// Plugin-owned schemas are model types only: they never get generated roots.
+		const application = owner.kind === 'application'
+		const operation = (name: GeneratedOperation): boolean =>
+			application && resolveGraphqlSchemaOperation(direct, pluginDefault, name)
+		const bulk = (name: BulkOperation): boolean =>
+			application && resolveGraphqlBulkOperation(direct, pluginDefault, name)
 		surfaces.set(schema, {
-			bulkCreate:
-				owner.kind === 'application' &&
-				resolveGraphqlBulkOperation(direct, pluginDefault, 'create'),
-			bulkDelete:
-				owner.kind === 'application' &&
-				resolveGraphqlBulkOperation(direct, pluginDefault, 'delete'),
-			bulkUpdate:
-				owner.kind === 'application' &&
-				resolveGraphqlBulkOperation(direct, pluginDefault, 'update'),
-			bulkUpsert:
-				owner.kind === 'application' &&
-				resolveGraphqlBulkOperation(direct, pluginDefault, 'upsert'),
-			count:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'count'),
-			create:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'create'),
-			delete:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'delete'),
-			exists:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'exists'),
-			findMany:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'findMany'),
-			findOne:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'findOne'),
-			get:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'get'),
+			bulkCreate: bulk('create'),
+			bulkDelete: bulk('delete'),
+			bulkUpdate: bulk('update'),
+			bulkUpsert: bulk('upsert'),
+			count: operation('count'),
+			create: operation('create'),
+			delete: operation('delete'),
+			exists: operation('exists'),
+			findMany: operation('findMany'),
+			findOne: operation('findOne'),
+			get: operation('get'),
 			owner,
 			schema,
 			schemaMutations:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaMutations(direct, pluginDefault),
+				application && resolveGraphqlSchemaMutations(direct, pluginDefault),
 			typeName,
-			update:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'update'),
-			upsert:
-				owner.kind === 'application' &&
-				resolveGraphqlSchemaOperation(direct, pluginDefault, 'upsert'),
+			update: operation('update'),
+			upsert: operation('upsert'),
 		})
 	}
 	return surfaces

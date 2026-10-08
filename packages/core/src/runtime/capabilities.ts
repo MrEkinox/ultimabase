@@ -20,9 +20,10 @@ import {
 	type ProtectedPolicyDefinition,
 } from './enforcement/protected-policy.js'
 import { getRuntimeContributionImplementation } from './contributions/definitions.js'
-import type {
-	RuntimeBehaviorStages,
-	RuntimeLogicalOperationKind,
+import {
+	runtimeBehaviorStageNames,
+	type RuntimeBehaviorStages,
+	type RuntimeLogicalOperationKind,
 } from './pipeline/contracts.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
@@ -107,23 +108,12 @@ type RuntimeProviderOptions<TDefinition> = Readonly<{
 	create: ApplicationCapabilityFactory<TDefinition>
 }>
 
-const interceptorProviders = new WeakSet<object>()
-const constraintProviders = new WeakSet<object>()
-const behaviorProviders = new WeakSet<object>()
+// Declarations created only by the exact Runtime provider facades below.
+const runtimeProviders = new WeakSet<object>()
 
-const runtimeBehaviorKeys: ReadonlySet<string> = new Set([
-	'beforeOperation',
-	'guardMutationInput',
-	'observePreparedMutation',
-	'postCommit',
-	'requiresPreparedMutationItems',
-	'transformDatabaseResult',
-	'transformInput',
-	'transformMutationOutcome',
-	'transformPreparedInput',
-	'transformPreparedOperation',
-	'transformResult',
-])
+const runtimeBehaviorKeys: ReadonlySet<string> = new Set(
+	runtimeBehaviorStageNames,
+)
 
 const assertRuntimeBehavior = (value: unknown): RuntimeBehaviorStages => {
 	if (!isPlainRecord(value)) {
@@ -177,7 +167,7 @@ export const provideRuntimeInterceptor = <
 	options: RuntimeProviderOptions<TDefinition>,
 ): CapabilityProviderDeclaration<typeof runtimeInterceptorCapability> => {
 	const declaration = provideCapability(runtimeInterceptorCapability, options)
-	interceptorProviders.add(declaration)
+	runtimeProviders.add(declaration)
 	return declaration
 }
 
@@ -188,7 +178,7 @@ export const provideRuntimeConstraint = <
 	options: RuntimeProviderOptions<TDefinition>,
 ): CapabilityProviderDeclaration<typeof runtimeConstraintCapability> => {
 	const declaration = provideCapability(runtimeConstraintCapability, options)
-	constraintProviders.add(declaration)
+	runtimeProviders.add(declaration)
 	return declaration
 }
 
@@ -197,7 +187,7 @@ export const provideRuntimeBehavior = (
 	options: RuntimeProviderOptions<RuntimeBehaviorStages>,
 ): CapabilityProviderDeclaration<typeof runtimeBehaviorCapability> => {
 	const declaration = provideCapability(runtimeBehaviorCapability, options)
-	behaviorProviders.add(declaration)
+	runtimeProviders.add(declaration)
 	return declaration
 }
 
@@ -214,10 +204,7 @@ export const runtimeProviderPrivilege = (
 /** Rejects generic capability providers that would bypass an exact Runtime facade. */
 export const isAuthorizedRuntimeProvider = (
 	declaration: CapabilityProviderDeclaration,
-): boolean =>
-	interceptorProviders.has(declaration) ||
-	constraintProviders.has(declaration) ||
-	behaviorProviders.has(declaration)
+): boolean => runtimeProviders.has(declaration)
 
 /** Identifies every protected Core Runtime protocol token. */
 export const isRuntimeCapability = (token: CapabilityToken): boolean =>

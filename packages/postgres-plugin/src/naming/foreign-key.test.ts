@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import { describe, expect, it } from 'vitest'
 
-import { createPostgresForeignKeyName } from './foreign-key.js'
+import { createPostgresForeignKeyName } from '../naming.js'
 
 describe('PostgreSQL foreign-key naming', () => {
 	it('distinguishes relationship boundaries deterministically', () => {
