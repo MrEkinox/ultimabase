@@ -213,6 +213,16 @@ implémentation dès le choix de l'API cible, en parallèle de la phase 6.
 
 Sur l'API retenue, dans `plugin-kit`, sans dépendance vers un plugin concret.
 
+### Volet parallèle : organisation du dépôt
+
+S'inspirer aussi de l'organisation des dépôts de bibliothèques connues (Vite,
+Next.js, TanStack, Payload, Better Auth, Hono) : exemples et modèles de
+démarrage, fichiers de contribution (CODE_OF_CONDUCT, formulaires d'issues,
+modèle de PR), `playground/`, cache de tâches (Turborepo ou Nx) pour réduire
+le temps de validation, documentation incluant le code des exemples.
+Inventaire dans [repo-organization.md](repo-organization.md) ; chaque
+changement d'outillage passe par un ADR.
+
 ## Points de décision pour l'utilisateur
 
 1. Formes souhaitées après la phase 2.
