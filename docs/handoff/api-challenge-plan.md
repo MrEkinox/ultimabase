@@ -121,7 +121,8 @@ README et vérifié par la CI, qui servent aussi de bancs d'essai par problème 
 typage ; et `todo-backend` enrichi raisonnablement comme application complète
 et juge global. Piste : que les pages du site incluent le code des exemples
 (une seule source) au lieu de recopier des extraits ; vérifier ce que permet
-Fumadocs.
+Fumadocs. Piste liée : `create-app` qui démarre un projet depuis un
+exemple (`--example todo-backend`), comme `create-next-app --example`.
 
 Une petite application façon Parse, écrite comme on voudrait qu'elle
 s'écrive, avec plusieurs variantes là où le choix est ouvert :
