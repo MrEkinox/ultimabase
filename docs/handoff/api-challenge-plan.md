@@ -113,6 +113,16 @@ partagés), commentaires, soft delete, Password Auth, REST et GraphQL, un champ
 virtuel, une pièce jointe et une notification temps réel (API hypothétique),
 et le fichier de configuration.
 
+Rôle des exemples (utilisateur, 2026-10-08) : `examples/` sert aussi de
+documentation (« comment on fait ceci, cela »). Donc deux niveaux : de petits
+exemples ciblés par sujet (`relations`, `access-control`, `hooks`,
+`custom-field-plugin`, `testing`, puis `files` et `realtime`), chacun avec son
+README et vérifié par la CI, qui servent aussi de bancs d'essai par problème de
+typage ; et `todo-backend` enrichi raisonnablement comme application complète
+et juge global. Piste : que les pages du site incluent le code des exemples
+(une seule source) au lieu de recopier des extraits ; vérifier ce que permet
+Fumadocs.
+
 Une petite application façon Parse, écrite comme on voudrait qu'elle
 s'écrive, avec plusieurs variantes là où le choix est ouvert :
 
