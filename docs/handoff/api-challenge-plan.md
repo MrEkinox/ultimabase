@@ -147,6 +147,21 @@ Revue avec l'utilisateur : choix des formes souhaitées avant tout prototype.
 
 ### 3. Laboratoire de typage
 
+Références à étudier (utilisateur, 2026-10-08 : s'inspirer des formes de
+bibliothèques connues dont la DX est prouvée ; la cohérence de l'ensemble passe
+avant l'emprunt, chaque proposition indique sa référence et pourquoi elle reste
+cohérente avec le reste) :
+
+| Domaine                              | Références                                                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Schémas et inférence sans génération | Zod 4 (getters), Drizzle, Effect Schema                                                                          |
+| Requêtes et mutations                | Prisma (`findMany`, `where`, `include`), requêtes Drizzle                                                        |
+| Système de plugins                   | Better Auth (plugins qui ajoutent champs, routes et types client sans génération), Fastify, Vite/Rollup, Payload |
+| Hooks                                | Parse Cloud Code, Payload, extensions Prisma                                                                     |
+| Configuration et CLI                 | Vite `defineConfig`, Payload `buildConfig`, Next.js `dev`                                                        |
+| Migrations                           | Prisma Migrate, Drizzle Kit                                                                                      |
+| Exemples et démarrage                | `create-next-app --example`, templates Payload                                                                   |
+
 Prototypes de types (bibliothèque simulée, hors dépôt suivi), plusieurs
 variantes par problème :
 
