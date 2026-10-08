@@ -45,20 +45,28 @@ Décisions de l'utilisateur (2026-10-08) :
 
 ## État
 
-- Phase 1 : commit `ddc22c17`. Vérifié : tests `tooling/` 91/91,
-  `website:validate` 66/66, `website:typecheck`, `yarn install --immutable`.
-  `validate:full` complet à lancer après la référence.
-- Phase 2 : en cours. Fait : 8 dépendances inutilisées retirées (Core
-  `fast-equals`, pg-vector `plugin-kit`, graphiql/apollo `shared`,
-  graphql/yoga `typegen`, server-hono/validation `testing`, testing
-  `@testcontainers/postgresql`) avec leurs références tsconfig ; références
-  `shared` ajoutées à acl et roles ; préfixe `/__ultimabase/apps/` des pages
-  GraphiQL/Apollo lu depuis `httpBrowserBootstrapPathPrefix` (octets HTML
-  identiques) ; roles utilise `getOperationSchema` de Core ; code mort Core
-  (`isRuntimeCapability`, `SourceNamedRelationFieldBuilderMethod`) ;
-  `throwCleanupErrors` partagé ; 16 `export` inutiles retirés dans les
-  plugins ; `test:pack:built` = tout le projet `e2e` (la liste manuelle
-  avait dérivé : 14 suites sur 46 absentes).
+- Phases 1 à 4 : commits `ddc22c17`, `e73d2b48`, `de595ac0`, `68b3b18e`.
+  - `yarn validate:full` : exit 0 en 1 087 s (référence : exit 0 en 1 146 s).
+    `yarn test` 567 fichiers / 2 705 tests (référence 568 / 2 723 : −2 fichiers
+    et −22 tests de `tooling/issues`, −1 test CI de `check:issues`, +1 fichier
+    et +5 tests de limite de corps). Couverture 92,33 / 86,14 / 97,35 / 92,92
+    (référence 92,31 / 86,11 / 97,33 / 92,9).
+  - DX audit contre la référence : 0 différence (35 775 enregistrements).
+  - Contraintes Yarn : violations injectées détectées (dépendance Core →
+    plugin-kit, roles → graphql-plugin, plage TypeScript divergente,
+    `sideEffects`), puis exit 0 après restauration.
+  - Limite de corps password-auth : l'e2e échoue sans le correctif
+    (`expected 200 to be 401`) et passe avec (5/5).
+- Phase 5 : à faire (voir ci-dessous).
+
+## Constat : `typecheck` après `build`
+
+`tsc --build` émet dans `dist/`, puis tsdown (`clean: true`) remplace `dist/`
+par son bundle. Le `tsbuildinfo` reste et croit les fichiers par module
+présents : après un changement de forme d'un export, le `typecheck` suivant
+réémet seulement une partie des fichiers et échoue (TS7016 sur
+`dist/index.d.ts`). La CI n'est pas touchée (arbre propre). Contournement :
+supprimer `packages/*/dist` et les `*.tsbuildinfo` avant de valider.
 
 ## Approches rejetées
 
