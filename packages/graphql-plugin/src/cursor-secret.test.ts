@@ -1,3 +1,4 @@
+import { UltimaBase } from '@ultimabase/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { defaultGraphqlExecutionLimits } from './connection-limits.js'
@@ -6,11 +7,14 @@ import {
 	graphqlCursorSecretVariable,
 	resolveGraphqlCursorKey,
 } from './cursor-secret.js'
-import { UltimaBase } from '@ultimabase/core'
+import { graphqlPlugin } from './plugin.js'
 
 const secret = 'a-stable-secret-of-at-least-32-chars'
 
-const Record = UltimaBase.Schema.define({
+// The `graphql` schema option exists only on a factory that installs the plugin.
+const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
+
+const Record = GraphqlSchemaApplication.Schema.define({
 	className: 'GraphqlCursorSecretRecord',
 	fields: (field) => ({ rank: field.int() }),
 	graphql: true,
