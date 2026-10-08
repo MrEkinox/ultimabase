@@ -176,13 +176,24 @@ const parseNonNegativeInteger = (value: string): number => {
 	return parsed
 }
 
-type MutableInclude = Record<string, { include?: MutableInclude }>
+// Maps keep request-controlled relation names away from Object.prototype.
+type IncludeTree = Map<string, IncludeTree | undefined>
+
+const includeTreeToRecord = (
+	tree: IncludeTree,
+): Readonly<Record<string, unknown>> =>
+	Object.fromEntries(
+		Array.from(tree, ([name, nested]) => [
+			name,
+			nested === undefined ? {} : { include: includeTreeToRecord(nested) },
+		]),
+	)
 
 // Dotted paths such as `author.profile` become nested `{ include }` objects.
 const parseIncludePaths = (
 	value: string,
 ): Readonly<Record<string, unknown>> => {
-	const root: MutableInclude = {}
+	const root: IncludeTree = new Map()
 	for (const path of parseCommaList(value)) {
 		const segments = path.split('.')
 		if (segments.some((segment) => segment.length === 0)) {
@@ -190,21 +201,22 @@ const parseIncludePaths = (
 		}
 		let current = root
 		for (const [index, segment] of segments.entries()) {
-			const existing = current[segment]
+			const existing = current.get(segment)
 			if (index === segments.length - 1) {
-				if (existing !== undefined) throw invalidRestRead()
-				current[segment] = {}
+				if (current.has(segment)) throw invalidRestRead()
+				current.set(segment, undefined)
 				continue
 			}
-			if (existing !== undefined && existing.include === undefined) {
+			if (current.has(segment) && existing === undefined) {
 				throw invalidRestRead()
 			}
-			const next = existing ?? { include: {} }
-			current[segment] = next
-			current = next.include ?? {}
+			const next: IncludeTree =
+				existing ?? new Map<string, IncludeTree | undefined>()
+			current.set(segment, next)
+			current = next
 		}
 	}
-	return immutableRecord(root)
+	return immutableRecord(includeTreeToRecord(root))
 }
 
 /** @internal Accepts either JSON include arguments or dotted include paths. */
