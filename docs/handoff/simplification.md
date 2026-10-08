@@ -42,12 +42,26 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
   `contributions-observers.test.ts` (l'ordre global/schéma appartenait aux
   intercepteurs retirés) et message `protected policy selectionFields must be
 an array` (préexistant, `protected-policy.ts:253`) jugés corrects.
-- ADR-0289, seconde partie (agent) : chaînes réservées aux tests restantes —
-  effet `constraints` de `protectedPolicy`, `databaseConstraint`, registre de
-  compilateurs de contraintes, compilateur postgres ; `defineSchemaConstraint`,
-  `addSchemaConstraint`, `schemaPatch().addConstraint()`.
-- Pas encore de `validate:full` entièrement vert après la première partie
-  (l'agent l'a passé par morceaux) : à lancer après la seconde fusion.
+- ADR-0289, seconde partie fusionnée (`29fb7b14`, travail d'agent revu) :
+  production −1 256 lignes (Core −779, postgres −458), tests −1 140. Retirés :
+  effet `constraints` de `protectedPolicy`, `databaseConstraint`, registre et
+  compilateur de contraintes, privilège `adapter:consume`, contraintes de
+  schéma (`defineSchemaConstraint`, `schemaPatch().addConstraint()`). Revue :
+  test d'injection SQL conservé (valeur piégée déplacée dans le filtre de
+  lignes, jamais dans le texte SQL).
+- Validation plus rapide (ADR-0291, `b2a451b6`) : `validate:full` sans double
+  passage des tests ; `validate:affected` pour les commits intermédiaires.
+- Gate complet sur `29fb7b14` (arbre de build propre) : `validate:full` exit 0
+  en 742 s (avant : 1 085 s). Performance 180 s ; couverture 634 fichiers /
+  2 919 tests, 92,56 / 86,31 / 97,5 / 93,18.
+- DX audit contre `81e9bd04` : 1 452 différences, toutes sur des noms retirés ;
+  côté application, seule la statique `constraints` disparaît des classes de
+  schéma (17 complétions des exemples).
+- `validate:affected` sur une modification d'une ligne (graphiql) : 209 s,
+  après correction d'un bug latent de `main` révélé par l'outil
+  (`tests/tsconfig.json` ne compilait pas seul : l'option `acl` venait d'une
+  augmentation globale d'un support de test, voir commit du correctif).
+- Nombre de workers de la couverture : laissé à 4 (couverture à 291 s).
 
 ## Décisions de conception notées (à formaliser par ADR le moment venu)
 
@@ -106,6 +120,5 @@ l'utilisateur.
 
 ## Prochaine action vérifiable
 
-Relire le diff de l'agent ADR-0289 (fichiers supprimés, tests modifiés,
-résultats de `yarn validate:full` et du DX audit contre `81e9bd04`), le
-fusionner en `--no-ff`, puis implémenter l'ADR-0290.
+Raccourcir `AGENTS.md` et corriger les liens morts des ADR, puis implémenter
+l'ADR-0290 (privilèges dérivés).
