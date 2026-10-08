@@ -62,6 +62,14 @@ Condition : lire d'abord la preuve de l'échec et rouvrir avec une hypothèse
 nouvelle qui explique pourquoi la tentative précédente a échoué et ce qui
 change ; ne jamais refaire la même tentative à l'identique.
 
+## Décisions de sécurité à intégrer à l'API cible
+
+ADR-0292 (`schemaPolicy` selon `NODE_ENV` : `override` en développement,
+`fail` en production), ADR-0293 (`where` d'Access : `undefined` = pas de
+filtre, `false` = aucune ligne ; ne plus enseigner `default: true`), ADR-0294
+(écritures publiques explicites avec `publicWrites: true`, refus de démarrer
+sans politique ni option). Implémentées avec la migration vers l'API cible.
+
 ## Les deux problèmes de typage à résoudre sans génération
 
 1. Références entre schémas : relations circulaires, souvent entre deux
