@@ -209,7 +209,8 @@ const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
 export const snapshotUnresolvedSchemaOptions = (
 	options: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => {
-	const unresolved: Record<string, unknown> = {}
+	// Entries keep every option key, including `__proto__`, as an own key.
+	const unresolved: [string, unknown][] = []
 
 	for (const key of Reflect.ownKeys(options)) {
 		if (typeof key !== 'string') {
@@ -217,11 +218,11 @@ export const snapshotUnresolvedSchemaOptions = (
 		}
 
 		if (!coreSchemaOptionKeys.has(key)) {
-			unresolved[key] = snapshotCapturedOptionValue(options[key])
+			unresolved.push([key, snapshotCapturedOptionValue(options[key])])
 		}
 	}
 
-	return immutableRecord(unresolved)
+	return immutableRecord(Object.fromEntries(unresolved))
 }
 
 const resolveDeveloperFields = (

@@ -82,7 +82,8 @@ const snapshotDraftValues = (
 		}
 	}
 
-	const values: Record<string, unknown> = {}
+	// Entries keep every input name, including `__proto__`, as an own key.
+	const values: [string, unknown][] = []
 
 	for (const key of Reflect.ownKeys(input)) {
 		if (typeof key !== 'string') {
@@ -91,7 +92,8 @@ const snapshotDraftValues = (
 			)
 		}
 
-		const definition = fields[key]
+		// Inherited `Object.prototype` members are never declared fields.
+		const definition = Object.hasOwn(fields, key) ? fields[key] : undefined
 
 		if (definition === undefined) {
 			throw new TypeError(
@@ -101,13 +103,15 @@ const snapshotDraftValues = (
 
 		const value = input[key]
 
-		values[key] =
+		values.push([
+			key,
 			value === null && isFieldNullable(definition)
 				? null
-				: snapshotDeclaredFieldValue(definition, value, `input.${key}`)
+				: snapshotDeclaredFieldValue(definition, value, `input.${key}`),
+		])
 	}
 
-	return immutableRecord(values)
+	return immutableRecord(Object.fromEntries(values))
 }
 
 const snapshotMaterializedValues = (

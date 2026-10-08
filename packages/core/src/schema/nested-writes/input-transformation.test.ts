@@ -117,4 +117,41 @@ describe('transformSchemaMutationDataInput', () => {
 		})
 		expect(values).toStrictEqual([false, { create: false, update: true }])
 	})
+
+	it('classifies inherited names as unknown and keeps an own __proto__ key', () => {
+		const inputs: string[] = []
+		// `JSON.parse` creates own keys, as a transport body does.
+		const transformed = transformSchemaMutationDataInput(
+			Article,
+			JSON.parse('{"toString":1,"constructor":2,"__proto__":3,"unknown":4}'),
+			{
+				mode: 'create',
+				relationships: 'nested',
+				transformField: ({ field, kind, value }) => {
+					inputs.push(`${kind}:${field?.kind ?? 'none'}`)
+					return value
+				},
+			},
+		)
+
+		// Inherited `Object.prototype` members classify like any undeclared name.
+		expect(inputs).toStrictEqual([
+			'unknown:none',
+			'unknown:none',
+			'unknown:none',
+			'unknown:none',
+		])
+		expect(transformed).toBeTypeOf('object')
+		if (typeof transformed !== 'object' || transformed === null) return
+		expect(Object.keys(transformed)).toStrictEqual([
+			'toString',
+			'constructor',
+			'__proto__',
+			'unknown',
+		])
+		expect(
+			Object.getOwnPropertyDescriptor(transformed, '__proto__')?.value,
+		).toBe(3)
+		expect(Object.getPrototypeOf(transformed)).toBe(Object.prototype)
+	})
 })

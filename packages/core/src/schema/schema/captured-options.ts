@@ -23,13 +23,15 @@ export const snapshotCapturedOptionValue = (value: unknown): unknown => {
 		return value
 	}
 
-	const snapshot: Record<string, unknown> = {}
-
-	for (const [key, nestedValue] of Object.entries(value)) {
-		snapshot[key] = snapshotCapturedOptionValue(nestedValue)
-	}
-
-	return immutableRecord(snapshot)
+	// Entries keep every option key, including `__proto__`, as an own key.
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([key, nestedValue]): [string, unknown] => [
+				key,
+				snapshotCapturedOptionValue(nestedValue),
+			]),
+		),
+	)
 }
 
 const containsExecutableArtifact = (
@@ -58,16 +60,19 @@ const containsExecutableArtifact = (
 export const snapshotCapturedFieldRecord = (
 	value: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => {
-	const snapshot: Record<string, unknown> = {}
 	const seen = new WeakSet<object>()
 
-	for (const [key, nestedValue] of Object.entries(value)) {
-		snapshot[key] = containsExecutableArtifact(nestedValue, seen)
-			? nestedValue
-			: snapshotCapturedOptionValue(nestedValue)
-	}
-
-	return immutableRecord(snapshot)
+	// Entries keep every option key, including `__proto__`, as an own key.
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(value).map(([key, nestedValue]): [string, unknown] => [
+				key,
+				containsExecutableArtifact(nestedValue, seen)
+					? nestedValue
+					: snapshotCapturedOptionValue(nestedValue),
+			]),
+		),
+	)
 }
 
 /** Detaches field options while retaining callback-bearing values as opaque artifacts. */
