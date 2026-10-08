@@ -36,6 +36,14 @@ export default defineConfig(
 		files: ['**/*.cjs', '**/*.js', '**/*.mjs'],
 	},
 	{
+		// Yarn loads its constraints file as CommonJS.
+		files: ['yarn.config.cjs'],
+		languageOptions: {
+			globals: { module: 'writable' },
+			sourceType: 'commonjs',
+		},
+	},
+	{
 		files: ['**/*.{ts,tsx}'],
 		languageOptions: {
 			parserOptions: {

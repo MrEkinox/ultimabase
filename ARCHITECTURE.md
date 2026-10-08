@@ -130,6 +130,9 @@ community alternatives use the same public kernel.
 ## Package dependency graph
 
 An arrow means “imports or depends on” and always points toward a foundation.
+`yarn constraints` ([`yarn.config.cjs`](yarn.config.cjs)) rejects any runtime
+dependency outside this graph, and any workspace dependency of Shared, Core or
+Plugin Kit outside it, including development dependencies.
 
 ```text
 core ─────────────────→ shared
@@ -139,7 +142,7 @@ hooks-plugin ─────────→ plugin-kit, core, shared
 access-plugin ────────→ plugin-kit, core, shared
 validation-plugin ────→ plugin-kit, core, shared
 soft-delete-plugin ───→ plugin-kit, core, shared
-pg-vector-plugin ─────→ plugin-kit, core, shared
+pg-vector-plugin ─────→ core, shared
 roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
@@ -150,8 +153,8 @@ password-auth-plugin ─→ http-plugin, plugin-kit, core, shared
 graphql-plugin ───────→ plugin-kit, core, shared
 graphql-http ─────────→ core, shared
 graphql-yoga-plugin ──→ graphql-http, http-plugin, graphql-plugin, plugin-kit, core, shared
-graphiql-plugin ──────→ graphql-http, http-plugin, plugin-kit, core, shared
-apollo-sandbox-plugin → graphql-http, http-plugin, plugin-kit, core, shared
+graphiql-plugin ──────→ graphql-http, http-plugin, plugin-kit, core
+apollo-sandbox-plugin → graphql-http, http-plugin, plugin-kit, core
 testing ──────────────→ typegen, core, shared
 ```
 
