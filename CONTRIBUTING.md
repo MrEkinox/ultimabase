@@ -1,5 +1,8 @@
 # Contributing
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
 ## Workflow
 
 UltimaBase is pre-release. Proposed directions live in [ROADMAP.md](ROADMAP.md);

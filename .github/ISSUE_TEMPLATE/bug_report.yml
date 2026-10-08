@@ -1,0 +1,31 @@
+name: Bug report
+description: Report something that does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report security vulnerabilities privately through the repository's
+        Security tab, never in a public issue.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: The smallest schema, plugin list and code that shows the problem.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+      description: What you expected, what happened, and the exact error message.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: UltimaBase packages, Node.js and PostgreSQL versions, or the commit.
+    validations:
+      required: true
