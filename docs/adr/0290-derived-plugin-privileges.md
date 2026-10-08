@@ -1,9 +1,9 @@
 # ADR-0290: Derive plugin privileges instead of restating them
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-08
 - Refines: ADR-0191, ADR-0208, ADR-0270; applies ADR-0288 step 2
-- Approval: pending user validation
+- Approval: user validated on 2026-10-08
 
 ## Context
 

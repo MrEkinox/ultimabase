@@ -1,9 +1,9 @@
 # ADR-0288: Simplify public contracts before the first release
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-08
 - Refines: the "unchanged public contract" rule of the completed rebuild
-- Approval: pending user validation
+- Approval: user validated on 2026-10-08
 
 ## Context
 

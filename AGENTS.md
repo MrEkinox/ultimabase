@@ -6,10 +6,11 @@ but loaded only for the work in scope; history is evidence, never authorization.
 ## Start and resume
 
 UltimaBase is pre-release and unpublished. Its implementation is a completed
-package-by-package rebuild of a reference implementation; the public contract
+package-by-package rebuild of a reference implementation. The public contract
 (exports, types, inference, hovers, completions, diagnostics, behavior and
-errors) is the developer experience to preserve unless the user explicitly
-approves a change to it.
+errors) changes only through the pre-release simplification process of
+[ADR-0288](docs/adr/0288-pre-release-simplification.md): one ADR per change,
+validated by the user, with the DX audit differences it announces.
 
 1. Inspect Git status; preserve unrelated changes. Never push or publish
    without explicit user confirmation.

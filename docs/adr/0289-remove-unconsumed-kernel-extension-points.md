@@ -1,10 +1,9 @@
 # ADR-0289: Remove kernel extension points without a consumer
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-08
 - Refines: ADR-0102, ADR-0128, ADR-0193, ADR-0264; applies ADR-0288 step 1
-- Approval: pending user validation; the adapter bridge question below is
-  decided separately
+- Approval: user validated on 2026-10-08
 
 ## Evidence
 
@@ -29,26 +28,28 @@ Soft Delete) are used and stay.
 
 ## Decision
 
-Remove the listed exports, their type vocabularies and every Core mechanism
-that exists only to serve them. A mechanism that a kept contract uses
+Remove the listed exports, the adapter bridges below, their type
+vocabularies and every Core mechanism that exists only to serve them. The
+same rule applies to any other public contract this work finds that only
+tests consume. A mechanism that a kept contract uses
 internally (for example a primitive that `protectedPolicy` compiles to) stays
 internal instead of public. Tests that only exercise a removed export are
 deleted with it; tests of kept behavior are migrated to the kept contract
 without losing an assertion. Public documentation stops mentioning the
 removed names.
 
-## Adapter bridges (separate question)
+## Adapter bridges
 
 The PostgreSQL plugin provides raw-access and physical-schema contribution
 bridges (`postgresRawAdapterCapability`,
 `postgresPhysicalSchemaContributionCapability`) built on Core's adapter
 support protocols (`defineAdapterRawCapability`,
-`defineAdapterContributionCapability`, `adapterSupport` and the four
-`adapter*Capability` tokens). Only tests consume them; no plugin requests the
-`adapter:raw` privilege. They are an open-kernel power for future community
-plugins (raw SQL, physical columns), not dead code. Removing them requires an
-explicit user decision: keep them as is, or remove them until a real consumer
-exists.
+`defineAdapterContributionCapability`, `provideAdapterContribution`,
+`provideAdapterCapability`, `adapterSupport` and the `adapter*Capability`
+tokens). Only tests consume them and no plugin requests the `adapter:raw`
+privilege. The user decided to remove every contract that only tests use,
+including these bridges and the `adapter:raw` privilege; a future community
+need reopens them with a real consumer and a new ADR.
 
 ## Preserved boundaries
 
