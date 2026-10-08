@@ -62,7 +62,9 @@ Validate on a calm machine before concluding anything from these failures:
 the Typegen `hybrid-authoring` performance budget, and postgres-e2e cascades
 after a 5 s timeout. `Schema … has not been compiled by an application` in
 postgres-e2e is a pre-existing Vitest module-runner race, also present in the
-reference ([VALIDATIONS.md](docs/rebuild/VALIDATIONS.md)).
+reference ([VALIDATIONS.md](docs/rebuild/VALIDATIONS.md)). In GitHub CI the
+`Complete coverage` job excludes performance suites, which run uninstrumented
+in the package and transversal jobs instead.
 
 ## Project hook
 

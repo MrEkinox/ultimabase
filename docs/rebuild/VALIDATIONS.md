@@ -9,11 +9,23 @@ does not count as passed.
 ## Unchanged validation surface
 
 The rebuild changed no validation entry point. `git diff edf3032 -- package.json
-vitest.config.ts tooling/vitest tooling/ci tooling/issues tooling/documentation
-tooling/tsconfig .github eslint.config.ts tsconfig.json` is empty, and no test
+vitest.config.ts tooling/vitest tooling/issues tooling/documentation
+tooling/tsconfig eslint.config.ts tsconfig.json` is empty (for `tooling/ci` and
+`.github`, see the CI-only change below), and no test
 file, fixture or `*.test-d.ts` assertion was weakened (see the test mapping of
 each `REBUILD*.md`). Every command below therefore has the **same name and the
 same definition** on both trees; only the code under test differs.
+
+One CI-only change was made after the rebuild was published (2026-10-08): on
+GitHub-hosted runners, the Typegen performance suites
+(`hybrid-authoring`, `typegen-editor`) timed out or exceeded their ratio
+budgets under V8 coverage, on the reference's own `main` as well as on the
+rebuild. The `Complete coverage` job now runs
+`yarn test:coverage --exclude '**/*.performance.test.ts'`, and
+`tooling/ci/run.ts` runs performance suites in the package and transversal
+jobs instead (without instrumentation), so they still run once per CI plan.
+Root scripts, `vitest.config.ts` and every test are unchanged: locally,
+`yarn test:coverage` and `yarn test` still include the performance project.
 
 The only tooling the rebuild added is evidence tooling, which no root script
 runs: `tooling/measure-rebuild.mjs`, `tooling/rebuild-worktree.sh` and
