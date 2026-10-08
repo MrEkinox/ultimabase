@@ -281,10 +281,6 @@ plugin({
 				}),
 		}),
 	],
-	permissions: {
-		'operation:declare': 'Declares archive.',
-		'model:extend': 'Adds archive methods.',
-	},
 })
 ```
 

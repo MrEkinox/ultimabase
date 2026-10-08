@@ -243,9 +243,6 @@ export const editorialPolicyPlugin = plugin({
 	core: '^0.0.0',
 	id: 'community.editorial-policy',
 	peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-	permissions: {
-		'runtime:constrain': 'Contributes official Access policy.',
-	},
 	contributions: [
 		provideAccessContributions('published-posts', () =>
 			schemaAccess(Post, {

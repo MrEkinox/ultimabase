@@ -102,13 +102,6 @@ export const workflowPlugin = plugin({
 	],
 	core: '^0.0.0',
 	id: 'community.workflow',
-	permissions: [
-		{ name: 'operation:declare', reason: 'Declares archive.' },
-		{ name: 'model:extend', reason: 'Adds direct archive methods.' },
-		{ name: 'persistence:rewrite', reason: 'Persists the archive state.' },
-		{ name: 'schema:declare', reason: 'Adds the owned workflow field.' },
-		{ name: 'transport:expose', reason: 'Binds archive to REST v1.' },
-	],
 	version: '1.0.0',
 })
 ```

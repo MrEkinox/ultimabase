@@ -133,12 +133,6 @@ export const profilePolicy = plugin({
 	id: 'app.profile-policy',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: [
-		{
-			name: 'runtime:constrain',
-			reason: 'Restricts reads to the intended subjects and schemas.',
-		},
-	],
 	contributions: [
 		provideAccessContributions('read-policy', ({ schemas }) =>
 			schemas.values().map((schema) =>

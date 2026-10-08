@@ -127,12 +127,6 @@ const publishedOnlyPlugin = () =>
 		id: 'example.published-only',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: [
-			{
-				name: 'runtime:constrain',
-				reason: 'Applies published row and selection restrictions.',
-			},
-		],
 		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'example.published-policy',
