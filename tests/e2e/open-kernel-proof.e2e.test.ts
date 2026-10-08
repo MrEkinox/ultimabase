@@ -4,17 +4,13 @@ import {
 	FrameworkError,
 	RequestContext,
 	UltimaBase,
-	adapterPersistencePlanCapability,
-	adapterValueStorageCapability,
 	databaseAdapterCapability,
 	plugin,
 	getPluginFieldStorageCodec,
-	provideAdapterCapability,
 	provideCapability,
 	type PluginPrivilege,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	FakePublicOperationTransport,
 	createPluginConformanceFixture,
@@ -26,7 +22,6 @@ import { generateApplicationTypes } from '@ultimabase/typegen'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createValuePostgresPlugin } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
 import { createValuePlugin } from './fixtures/open-kernel-value.js'
 import {
@@ -56,23 +51,6 @@ const createKernelSupportPlugin = () =>
 			provideCapability(databaseAdapterCapability, {
 				contributionId: 'database',
 				create: () => ({ value: database }),
-			}),
-			provideAdapterCapability(adapterValueStorageCapability, {
-				contributionId: 'json-storage',
-				value: {
-					adapterId: 'fixture.open-kernel-adapter',
-					family: 'value-storage',
-					formats: ['json'],
-				},
-			}),
-			provideAdapterCapability(adapterPersistencePlanCapability, {
-				contributionId: 'persistence-plans',
-				value: {
-					adapterId: 'fixture.open-kernel-adapter',
-					family: 'persistence-plan',
-					kinds: ['update-one', 'delete-one'],
-					protocolVersion: 1,
-				},
 			}),
 		],
 		core: '^0.0.0',
@@ -109,9 +87,9 @@ describe('open-kernel workflow proof', () => {
 				privileges: [
 					'schema:declare',
 					'operation:declare',
-					'transport:expose',
-					'runtime:intercept',
 					'runtime:observe',
+					'runtime:intercept',
+					'transport:expose',
 					'typegen:reference',
 				],
 				version: '1.0.0',
@@ -255,7 +233,7 @@ describe('open-kernel workflow proof', () => {
 	})
 })
 
-describe('open-kernel Typegen and physical metadata proof', () => {
+describe('open-kernel Typegen proof', () => {
 	it('runs the value and soft-delete fixtures through public conformance', async () => {
 		const createValueFixture = () => {
 			const value = createValuePlugin({
@@ -285,7 +263,7 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 			expected: {
 				core: '^0.0.0',
 				pluginId: 'fixture.open-kernel-value',
-				privileges: ['adapter:consume', 'schema:declare', 'typegen:reference'],
+				privileges: ['schema:declare', 'typegen:reference'],
 				version: '1.0.0',
 			},
 		}).check('codec', ({ createUltimaBase }) => {
@@ -355,7 +333,6 @@ describe('open-kernel Typegen and physical metadata proof', () => {
 				core: '^0.0.0',
 				pluginId: 'fixture.open-kernel-soft-delete',
 				privileges: [
-					'adapter:consume',
 					'schema:declare',
 					'runtime:constrain',
 					'persistence:rewrite',
@@ -463,81 +440,5 @@ void invalidWhere
 			.createLanguageService(host)
 			.getSemanticDiagnostics(fileName)
 		expect(diagnostics).toStrictEqual([])
-	})
-
-	it('preserves physical provenance across configured provider changes', async () => {
-		const PostgresSchemaApplication = UltimaBase.use(
-			postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
-		)
-		const First = PostgresSchemaApplication.Schema.define({
-			className: 'OpenKernelMigrationFirst',
-			postgres: { table: 'open_kernel_migration_first' },
-			fields: (field) => ({ title: field.string() }),
-		})
-		const Second = PostgresSchemaApplication.Schema.define({
-			className: 'OpenKernelMigrationSecond',
-			postgres: { table: 'open_kernel_migration_second' },
-			fields: (field) => ({ title: field.string() }),
-		})
-		const createMetadata = async (version: '1.0.0' | '2.0.0') => {
-			const first = createValuePostgresPlugin({
-				instanceId: 'first',
-				table: 'open_kernel_migration_first',
-				version,
-			})
-			const second = createValuePostgresPlugin({
-				instanceId: 'second',
-				table: 'open_kernel_migration_second',
-				version: '1.0.0',
-			})
-			const Base = UltimaBase.use(
-				postgresPlugin({ url: 'postgresql://fixture.invalid/proof' }),
-			).use(first)
-			const Application = version === '1.0.0' ? Base.use(second) : Base
-			const application = new Application({
-				schemas: [First, Second],
-			})
-			await application.initialize()
-			const metadata = application.plugin(
-				'@ultimabase/postgres-plugin',
-			).adapterMetadata
-			await application.dispose()
-			return metadata
-		}
-		const previous = await createMetadata('1.0.0')
-		const current = await createMetadata('2.0.0')
-		expect(
-			previous.physicalSchema.map(({ instanceId }) => instanceId),
-		).toStrictEqual(['first', 'second'])
-		// Inspect configured metadata only; applied migrations and orphan planning are retired.
-		const first = previous.physicalSchema[0]
-		expect(first).toStrictEqual({
-			adapterId: 'ultimabase.postgres',
-			contributionId: 'decimal-sort-key',
-			family: 'physical-schema',
-			instanceId: 'first',
-			normalizedStaticOptions: { format: 'numeric-v1' },
-			packageVersion: '1.0.0',
-			payload: {
-				column: { name: 'amount_sort_key', nullable: true, type: 'numeric' },
-				kind: 'column',
-				table: 'open_kernel_migration_first',
-			},
-			pluginId: 'fixture.open-kernel-value-postgres',
-			protocolVersion: 1,
-		})
-		expect(current.physicalSchema).toStrictEqual([
-			{
-				...first,
-				normalizedStaticOptions: { format: 'numeric-v2' },
-				packageVersion: '2.0.0',
-			},
-		])
-		expect(previous.physicalSchema).toHaveLength(2)
-		expect(Object.isFrozen(previous.physicalSchema)).toBe(true)
-		expect(Object.isFrozen(first)).toBe(true)
-		expect(Object.isFrozen(first?.normalizedStaticOptions)).toBe(true)
-		expect(Object.isFrozen(first?.payload)).toBe(true)
-		expect(current).not.toHaveProperty('migrations')
 	})
 })

@@ -27,7 +27,6 @@ import {
 	type CapabilityProviderValue,
 	type CapabilityToken,
 } from './capability-token.js'
-import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import type { PluginIdentity, PluginPrivilege } from './manifest.js'
 
 /** Owns one application provider value and its optional deterministic cleanup. */
@@ -77,7 +76,6 @@ export interface ApplicationCapabilityFactoryContext {
 	readonly callbacks: ApplicationCallbackExecutor
 	readonly assertPrivilege: (privilege: PluginPrivilege) => void
 	readonly capabilities: PluginCapabilityReader<'materialization'>
-	readonly constraintCompilers: DatabaseConstraintCompilerReader
 	readonly schemas: CompiledSchemaRegistry
 }
 

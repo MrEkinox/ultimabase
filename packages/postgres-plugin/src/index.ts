@@ -1,18 +1,4 @@
 export { postgresConnectionCapability } from './connection/contracts.js'
-export {
-	postgresAdapterId,
-	postgresPhysicalColumn,
-	postgresPhysicalSchemaContributionCapability,
-	postgresRawAdapterCapability,
-} from './adapter-capabilities.js'
-export type {
-	PostgresAdapterMetadata,
-	PostgresPhysicalColumnType,
-	PostgresPhysicalColumnPayload,
-	PostgresRawAdapterFacade,
-	PostgresRawSetupFacade,
-	PostgresRawTransactionFacade,
-} from './adapter-capabilities.js'
 export { postgresPluginName } from './constants.js'
 export type {
 	PostgresConnectionService,
@@ -21,16 +7,6 @@ export type {
 	PostgresPoolClient,
 	PostgresQueryResult,
 } from './connection/contracts.js'
-export { postgresConstraintCompiler } from './constraints/definition.js'
-export type {
-	PostgresConstraintCompileContext,
-	PostgresConstraintCompilerDefinition,
-	PostgresConstraintCompilerOptions,
-	PostgresConstraintField,
-	PostgresConstraintInterpolation,
-	PostgresConstraintPredicate,
-	PostgresConstraintSqlTag,
-} from './constraints/definition.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
 
 export type { PostgresFieldOption, PostgresSchemaOption } from './options.js'

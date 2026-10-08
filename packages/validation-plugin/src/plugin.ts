@@ -15,12 +15,6 @@ import {
 	validateMutationInput,
 } from './operation-validation.js'
 
-const validationPluginPermissions = {
-	'schema:declare': 'Declares the official field validation option.',
-	'runtime:intercept':
-		'Rejects final mutation candidates using installed field validators.',
-} as const
-
 type ValidationOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-field-validation-option'
 	readonly field: Readonly<{ validation: typeof fieldValidationOption }>
@@ -68,7 +62,6 @@ export const validationPlugin = (): ValidationPlugin => {
 		id: '@ultimabase/validation-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: validationPluginPermissions,
 		contributions: [runtimeProvider, validationDeclarations],
 	})
 }

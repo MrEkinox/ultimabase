@@ -17,12 +17,12 @@ import type {
 
 const blockedPhase = 'before-static-declaration' as const
 
-interface InactivePluginPrivilegeDetails extends Readonly<
+interface MissingPluginPrivilegeDetails extends Readonly<
 	Record<string, unknown>
 > {
 	readonly blockedPhase: 'core-facade'
 	readonly identity: PluginIdentity
-	readonly kind: 'inactive-plugin-privilege'
+	readonly kind: 'missing-plugin-privilege'
 	readonly plugin: string
 	readonly privilege: PluginPrivilege
 	readonly reason: string
@@ -45,18 +45,17 @@ const denialDetails = (
 	})
 
 /** Creates one effect-time denial without exposing manifest or application state. */
-export const inactivePrivilegeDetails = (
+export const missingPrivilegeDetails = (
 	owner: PluginIdentity,
 	privilege: PluginPrivilege,
-	reason: string | undefined,
-): InactivePluginPrivilegeDetails =>
+): MissingPluginPrivilegeDetails =>
 	immutableRecord({
 		blockedPhase: 'core-facade' as const,
 		identity: snapshotPluginIdentity(owner),
-		kind: 'inactive-plugin-privilege' as const,
+		kind: 'missing-plugin-privilege' as const,
 		plugin: formatPluginIdentity(owner),
 		privilege,
-		reason: reason ?? 'Plugin manifest does not request this privilege.',
+		reason: 'Plugin manifest does not request this privilege.',
 		severity: pluginPrivilegeMetadata[privilege].severity,
 	})
 
@@ -81,9 +80,7 @@ export const assertPolicyAllowed = (report: PluginPrivilegeReport): void => {
 
 	const denials = report.plugins.flatMap((plugin) => [
 		...plugin.privileges
-			.filter(
-				(privilege) => privilege.active && privilege.policyResult === 'denied',
-			)
+			.filter((privilege) => privilege.policyResult === 'denied')
 			.map((privilege) =>
 				immutableRecord({
 					kind: 'privilege' as const,

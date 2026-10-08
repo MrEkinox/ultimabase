@@ -4,11 +4,11 @@
 - Date: 2026-10-02
 - Refines: ADR-0279's Milestone 63 completion budgets only
 - Approval: user explicitly accepted the final audit costs and deferred debt reduction
-- Decision issue: [6316](../../issues/6300-source-typed-application-authoring/6316-final-parity-and-complexity-audit.md)
+- Decision issue: 6316 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6316-final-parity-and-complexity-audit.md`)
 
 ## Context
 
-The [final audit](../../issues/6300-source-typed-application-authoring/evidence/6316-final-audit.md)
+The final audit (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/evidence/6316-final-audit.md`)
 proves the configured developer journey and inventories retained capabilities,
 but disproves the promised net implementation reduction. The architecture stop
 was raised before completion. After reviewing these findings, the user said:

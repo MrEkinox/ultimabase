@@ -9,9 +9,7 @@ describe('PluginSetupRegistries', () => {
 		const context = registries.forPlugin('fixture.plugin')
 
 		expect(Object.keys(context).sort()).toStrictEqual([
-			'adapters',
 			'capabilities',
-			'constraintCompilers',
 			'fieldBuilderMethods',
 			'pluginFieldTypes',
 			'schemas',

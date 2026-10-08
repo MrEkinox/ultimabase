@@ -8,7 +8,7 @@ import { PluginGraph } from './graph.js'
 import { normalizePlugins } from './normalization.js'
 
 describe('application capability factory context', () => {
-	it('enforces token-owned provider privileges before composition', () => {
+	it('derives token-owned provider privileges before composition', () => {
 		const token = defineCapability<string>()({
 			capabilityId: 'fixture.privileged-provider',
 			version: '1.0.0',
@@ -40,9 +40,22 @@ describe('application capability factory context', () => {
 				],
 			})
 
-		expect(() => provider(false)).toThrow(
-			'Missing plugin permission reason: runtime:intercept',
-		)
+		// Core derives the token-owned privilege; an author reason is optional.
+		expect(provider(false).manifest.privileges).toStrictEqual([
+			{
+				name: 'runtime:intercept',
+				reason: 'Provides the "fixture.privileged-provider" capability.',
+			},
+		])
+		expect(provider(true).manifest.privileges).toStrictEqual([
+			{
+				name: 'runtime:intercept',
+				reason: 'Provides the privileged fixture protocol.',
+			},
+		])
+		expect(
+			() => new PluginGraph(normalizePlugins([provider(false)])),
+		).not.toThrow()
 		expect(
 			() => new PluginGraph(normalizePlugins([provider(true)])),
 		).not.toThrow()
@@ -74,7 +87,7 @@ describe('application capability factory context', () => {
 							observedOwner = owner
 							assertPrivilege('event:publish')
 							try {
-								assertPrivilege('adapter:raw')
+								assertPrivilege('authority:elevate')
 							} catch (error: unknown) {
 								denied = error
 							}

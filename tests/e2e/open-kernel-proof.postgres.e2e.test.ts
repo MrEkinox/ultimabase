@@ -1,6 +1,5 @@
 import { UltimaBase, requestSources } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
-import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -8,10 +7,6 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import {
-	createSoftDeletePostgresPlugin,
-	createValuePostgresPlugin,
-} from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
 import { createValuePlugin } from './fixtures/open-kernel-value.js'
 import {
@@ -37,7 +32,7 @@ afterAll(async () => {
 })
 
 describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
-	it('runs workflow, logical value, and soft-delete plugins through public bridges', async () => {
+	it('runs workflow, logical value, and soft-delete plugins through public contracts', async () => {
 		const committed: WorkflowCommittedPayload[] = []
 		const deleteTrace: string[] = []
 		let rejectDelete = false
@@ -88,24 +83,12 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			onCommitted: (payload) => committed.push(payload),
 			stableSchema: WorkflowPost,
 		})
-		const valuePostgres = createValuePostgresPlugin({
-			instanceId: 'primary',
-			table: 'open_kernel_ledger_entries',
-			version: '1.0.0',
-		})
 		const softDelete = createSoftDeletePlugin({
 			instanceId: 'primary',
 			target: SoftPost,
 		})
-		const softDeletePostgres = createSoftDeletePostgresPlugin({
-			instanceId: 'primary',
-			schema: SoftPost,
-			table: 'open_kernel_soft_posts',
-		})
 		const Application = PostgresHookApplication.use(workflow.plugin)
 			.use(value)
-			.use(valuePostgres)
-			.use(softDeletePostgres)
 			.use(softDelete)
 		const ultimabase = new Application({
 			pluginPrivileges: { logger: false },
@@ -132,24 +115,10 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			expect(filtered.map(({ id }) => id)).toStrictEqual([entry.id])
 			const stored = await getFixture().pool.query<{
 				readonly amount: unknown
-				readonly amount_sort_key: null
-			}>(
-				'SELECT amount, amount_sort_key FROM open_kernel_ledger_entries WHERE id = $1',
-				[entry.id],
-			)
-			expect(stored.rows).toStrictEqual([{ amount, amount_sort_key: null }])
-			const postgres = ultimabase.plugin(
-				'@ultimabase/postgres-plugin',
-			) as PostgresPluginExports
-			const physical = postgres.adapterMetadata.physicalSchema.find(
-				({ contributionId }) => contributionId === 'decimal-sort-key',
-			)
-			expect(physical).toMatchObject({
-				contributionId: 'decimal-sort-key',
-				instanceId: 'primary',
-				pluginId: 'fixture.open-kernel-value-postgres',
-				protocolVersion: 1,
-			})
+			}>('SELECT amount FROM open_kernel_ledger_entries WHERE id = $1', [
+				entry.id,
+			])
+			expect(stored.rows).toStrictEqual([{ amount }])
 
 			const audit = await workflow.DynamicAudit.createOne({
 				data: { action: 'publish' },

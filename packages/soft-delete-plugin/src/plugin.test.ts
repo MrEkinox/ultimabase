@@ -57,31 +57,23 @@ describe('softDeletePlugin', () => {
 			privileges: [
 				{
 					name: 'schema:declare',
-					reason: 'Declares the direct soft-delete schema option.',
+					reason: 'Declares schema fields, options or schemas.',
 				},
+				{ name: 'model:extend', reason: 'Extends application model handles.' },
+				{ name: 'operation:declare', reason: 'Declares plugin operations.' },
 				{
 					name: 'runtime:constrain',
-					reason: 'Keeps tombstoned rows outside ordinary operations.',
+					reason: 'Registers protected Runtime constraints.',
 				},
 				{
 					name: 'persistence:rewrite',
-					reason: 'Persists soft-delete effects as atomic tombstone updates.',
+					reason:
+						'Declares schema mutations that rewrite persistence. Registers persistence plan rewriters.',
 				},
-				{
-					name: 'operation:declare',
-					reason: 'Declares soft-delete and administration mutations.',
-				},
-				{
-					name: 'model:extend',
-					reason: 'Adds soft-delete commands to enabled schema handles.',
-				},
-				{
-					name: 'transport:expose',
-					reason: 'Binds explicit soft delete to REST and GraphQL.',
-				},
+				{ name: 'transport:expose', reason: 'Binds operations to transports.' },
 				{
 					name: 'typegen:reference',
-					reason: 'Preserves payload-free soft-delete commands in Typegen.',
+					reason: 'References Typegen types in operations.',
 				},
 			],
 		})

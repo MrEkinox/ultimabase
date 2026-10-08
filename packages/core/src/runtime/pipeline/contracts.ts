@@ -7,7 +7,6 @@ import type {
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseRowFilterNode,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationMaterializationSource,
@@ -102,12 +101,11 @@ export interface RuntimeEnforcementStageInput<
 	readonly enforcement: EnforcementState
 }
 
-/** Reapplies every retained restriction and forwards accumulated constraints. */
+/** Reapplies every retained restriction and forwards accumulated row restrictions. */
 export interface RuntimeEnforcementOperationResult<
 	TOperation extends RuntimeLogicalOperationAst,
 > {
 	readonly operation: TOperation
-	readonly constraints: readonly DatabaseConstraintNode[]
 	/** Keeps private row restrictions outside business-transformable operation state. */
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Keeps target restrictions outside the source operation transformed by behaviors. */

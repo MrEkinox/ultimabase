@@ -189,10 +189,6 @@ const vectorFieldFamily = definePluginFieldFamily({
 	},
 })
 
-const pgVectorPluginPermissions = {
-	'schema:declare': 'Declares the vector FieldBuilder method.',
-} as const
-
 type PgVectorSource = Readonly<{
 	fieldBuilders: Readonly<{
 		stored: Readonly<{ vector: VectorFieldBuilderMethod }>
@@ -220,7 +216,6 @@ export const pgVectorPlugin = (): PgVectorPlugin => {
 		id: '@ultimabase/pg-vector-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: pgVectorPluginPermissions,
 		contributions: [vectorDeclarations],
 	})
 }

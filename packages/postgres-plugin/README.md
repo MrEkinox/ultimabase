@@ -16,8 +16,7 @@ privilege: Core exposes no network facade and does not claim to sandbox the
 in-process driver.
 
 It requests `schema:declare` to own the direct `postgres` schema and field
-options, and `adapter:consume` to compile protected database constraints. The
-options are recognized only when `postgresPlugin()` is installed; unknown keys
+options. The options are recognized only when `postgresPlugin()` is installed; unknown keys
 and empty identifiers fail static application compilation.
 
 The configured factory projects the schema-level `postgres.table` and stored
@@ -130,105 +129,27 @@ semantics. PostgreSQL rejects unsupported versions, statement kinds, target
 schemas, and result correlations before or inside the protected execution
 boundary.
 
-## Adapter bridge capabilities
+## Adapter boundaries
 
-`postgresPlugin` advertises PostgreSQL support separately for portable JSON
-value codecs, opaque constraints, persistence-plan kinds and physical schema.
-A logical plugin can require the corresponding neutral Core token without
-importing this package. PostgreSQL owns Drizzle compilation, physical column
-types and database effects.
-
-Database-specific bridge plugins contribute columns with
-`postgresPhysicalColumn()` under `adapter:consume`. The setup export exposes
-Core-attributed immutable snapshots at `adapterMetadata.physicalSchema`,
-including the actual plugin/instance identity, package/protocol versions,
-contribution ID, normalized options and payload. Direct preparation compiles
-these columns into desired state without changing their provenance.
+`postgresPlugin` implements Core's neutral `DatabaseAdapter` contract,
+advertises `databasePersistencePlanCapability`, and compiles the protected row
+filters that Runtime carries beside each request. PostgreSQL owns Drizzle
+compilation, physical column types and database effects.
 
 ADR-0266 removes `postgresUpgrade()`, the migration contribution protocol and
-`adapterMetadata.migrations`; no migration planner or history is shipped.
-Physical metadata and direct synchronization remain available.
+migration metadata; no migration planner or history is shipped. ADR-0289
+removes the test-only adapter support providers, `postgresPhysicalColumn()`
+physical-schema contributions with their `adapterMetadata` export, and the
+`postgresRawAdapterCapability` raw lease, and `postgresConstraintCompiler()`
+with the `adapter:consume` privilege. Direct synchronization remains
+available, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority nor
+a raw SQL API is exposed.
 
-Adapter-specific queries require the nominal
-`postgresRawAdapterCapability` and `adapter:raw`. The setup lease reports only
-the inert PostgreSQL dialect identity. Inside a transaction-required operation,
-the lease exposes a parameterized `query()` facade backed by the same borrowed
-client as Runtime:
-
-```ts
-const rawPostgres = requireCapability(postgresRawAdapterCapability, '^1.0.0')
-
-execute: ({ adapters }) =>
-	adapters.withRaw(rawPostgres, async (postgres) => {
-		if (postgres.scope !== 'transaction') return
-		await postgres.query('SELECT pg_advisory_xact_lock($1)', [lockId])
-	})
-```
-
-The facade is revoked when the callback settles, commits and rollbacks remain
-owned by Runtime, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority,
-nor a portable raw SQL API is exposed.
-
-Adapter integration plugins register exact kind-and-version compilers during
-application setup. PostgreSQL combines every resulting predicate with the
-developer query using parameterized logical `AND`:
-
-```ts
-import { contributeApplication, plugin } from '@ultimabase/core'
-import { postgresConstraintCompiler } from '@ultimabase/postgres-plugin'
-
-const tenantRows = postgresConstraintCompiler({
-	kind: 'tenant.rows',
-	version: 1,
-	decode: (payload) => {
-		if (
-			typeof payload !== 'object' ||
-			payload === null ||
-			!('tenantId' in payload) ||
-			typeof payload.tenantId !== 'string'
-		) {
-			throw new TypeError('Invalid tenant constraint payload')
-		}
-
-		return { tenantId: payload.tenantId }
-	},
-	compile: ({ field, payload, sql }) =>
-		sql`${field('tenantId')} = ${payload.tenantId}`,
-})
-
-const tenantPostgresPlugin = plugin({
-	id: 'example.tenant-postgres',
-	version: '1.0.0',
-	core: '^0.0.0',
-	contributions: [
-		contributeApplication(({ constraintCompilers }) => {
-			constraintCompilers.register(tenantRows)
-			return { exports: undefined }
-		}),
-	],
-})
-```
-
-When one policy has several accepted subject alternatives, `anyOf()` combines
-opaque predicates without exposing their underlying SQL representation:
-
-```ts
-compile: ({ anyOf, field, payload, sql }) =>
-	anyOf(
-		sql`${field('ownerId')} = ${payload.principalId}`,
-		sql`${field('visibility')} = ${'public'}`,
-	)
-```
-
-The callback cannot access Drizzle or return or interpolate raw SQL objects.
-The safe tag accepts code-owned static SQL fragments, `field()` resolves one
-logical schema field, and every portable dynamic interpolation becomes a driver
-parameter. SQL-like objects and class instances fail closed before Drizzle can
-interpret them. Unknown kinds, unsupported versions, invalid payloads, and
-invalid compiler results fail before database execution.
-Constraints are applied to reads, mutation targets, `FOR UPDATE` locks, and the
-final prepared update or delete statement. Row constraints on create operations
-fail closed because an insert has no existing target row to restrict.
+Protected row filters are combined with the developer query using
+parameterized logical `AND` and applied to reads, mutation targets,
+`FOR UPDATE` locks, and the final prepared update or delete statement. Row
+filters on create operations fail closed because an insert has no existing
+target row to restrict.
 
 Official ACL authorization and reference discovery use the same generic
 plugin-field containment path. PostgreSQL compiles the field-owned operand

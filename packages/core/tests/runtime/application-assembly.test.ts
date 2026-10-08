@@ -41,7 +41,6 @@ describe('public application Runtime assembly', () => {
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(publicArticleSchema)
 		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
-		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([])
 
 		await ultimabase.dispose()
 	})

@@ -1,28 +1,17 @@
 import {
-	adapterPersistencePlanCapability,
 	booleanField,
 	contributeDeclarations,
-	constraint,
-	databaseConstraint,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
+	protectedPolicy,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
 	plugin,
-	requireCapability,
 	rewriteDeletePersistencePlan,
 	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
-
-export const softDeleteVisibilityConstraintKind =
-	'fixture.open-kernel.soft-delete-visible' as const
-
-const persistence = requireCapability(
-	adapterPersistencePlanCapability,
-	'^1.0.0',
-)
 
 export interface SoftDeletePluginOptions {
 	readonly instanceId: string
@@ -42,11 +31,10 @@ export const createSoftDeletePlugin = (
 			),
 		schema: options.target,
 	})
-	const visible = constraint({
-		handler: () =>
-			databaseConstraint(softDeleteVisibilityConstraintKind, 1, {
-				field: 'isDeleted',
-			}),
+	const visible = protectedPolicy({
+		evaluate: () => ({
+			rowFilter: { field: 'isDeleted', kind: 'equal', value: false },
+		}),
 		operations: ['find-one', 'find-many', 'get', 'count', 'exists'],
 		schema: options.target,
 	})
@@ -64,7 +52,6 @@ export const createSoftDeletePlugin = (
 				contributionId: 'logical-delete',
 				create: () => ({ value: rewriter }),
 			}),
-			persistence,
 			contributeDeclarations({
 				schema: ({ schemas }) => {
 					schemas.patch(
@@ -84,7 +71,6 @@ export const createSoftDeletePlugin = (
 		],
 		instanceId: options.instanceId,
 		permissions: {
-			'adapter:consume': 'Requires delete-plan support.',
 			'schema:declare': 'Adds tombstone metadata.',
 			'runtime:constrain': 'Hides tombstones privately.',
 			'persistence:rewrite': 'Rewrites logical deletes.',

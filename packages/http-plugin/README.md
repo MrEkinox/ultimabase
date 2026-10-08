@@ -207,9 +207,6 @@ const statusPlugin = plugin({
 	id: 'example.status',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'transport:expose': 'Exposes the selected status routes over HTTP.',
-	},
 	contributions: [routes],
 })
 ```

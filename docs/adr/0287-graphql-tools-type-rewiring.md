@@ -4,7 +4,7 @@
 - Date: 2026-10-02
 - Refines: ADR-0238
 - Approval: user approved bounded behavior-preserving package replacements
-- Decision issue: [6502](../../issues/6500-standard-package-simplification/6502-graphql-tools-composition.md)
+- Decision issue: 6502 (archived at tag `reference-archive`: `issues/6500-standard-package-simplification/6502-graphql-tools-composition.md`)
 
 ## Decision
 

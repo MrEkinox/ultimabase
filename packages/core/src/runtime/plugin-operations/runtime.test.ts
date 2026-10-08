@@ -11,7 +11,6 @@ import { FrameworkApplication } from '../../application/framework-application.js
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { executeRequestPluginOperation } from './request-execution.js'
 import { PluginError } from '../../errors/plugin-error.js'
-import { requireCapability } from '../../plugins/capabilities.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { contributeDeclarations } from '../../plugins/plugin-contributions.js'
 import {
@@ -23,10 +22,6 @@ import {
 	defineOperationValue,
 } from '../../plugins/plugin-operations.js'
 
-import {
-	defineAdapterRawCapability,
-	provideAdapterRawCapability,
-} from '../adapters/raw-access.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import { readUltimaBaseKernel } from '../application/ultima-base.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -247,20 +242,11 @@ describe('plugin operation Runtime', () => {
 		await ultimabase.dispose()
 	})
 
-	it('opens raw adapter access only inside the active operation transaction', async () => {
-		interface RawFixture {
-			kind(): string
-		}
-		const rawCapability = defineAdapterRawCapability<RawFixture>()({
-			capabilityId: 'fixture.operation-raw-adapter',
-			version: '1.0.0',
-		})
-		const rawRequirement = requireCapability(rawCapability, '^1.0.0')
+	it('runs resource-backed handlers inside the transaction and disposes them once', async () => {
 		const adapter = new RecordingDatabaseAdapter([], [])
-		let escaped: RawFixture | undefined
-		const rawOperation = defineOperation({
+		const resourceOperation = defineOperation({
 			input: messageValue,
-			name: 'fixture.operations.raw-transaction',
+			name: 'fixture.operations.resource-transaction',
 			result: acceptedValue,
 			target: 'application',
 			transaction: 'required',
@@ -268,45 +254,27 @@ describe('plugin operation Runtime', () => {
 		})
 		const database = createPlugin({
 			core: '^0.0.0',
-			id: 'fixture.operation-raw-database',
+			id: 'fixture.operation-resource-database',
 			version: '1.0.0',
-			contributions: [
-				provideTestDatabaseAdapter(adapter),
-				provideAdapterRawCapability(rawCapability, {
-					contributionId: 'raw-adapter',
-					create: () => ({
-						transaction: (transaction) => ({
-							kind: () => transaction.kind,
-						}),
-					}),
-				}),
-			],
+			contributions: [provideTestDatabaseAdapter(adapter)],
 		})
 		let resourceDisposals = 0
 		const operation = createPlugin({
 			core: '^0.0.0',
-			id: 'fixture.operation-raw-consumer',
+			id: 'fixture.operation-resource-consumer',
 			permissions: {
-				'adapter:raw': 'Uses an exact transaction facade.',
-				'operation:declare': 'Declares the raw operation.',
+				'operation:declare': 'Declares the resource operation.',
 			},
 			version: '1.0.0',
 			contributions: [
-				rawRequirement,
 				contributeOperation({
 					create: () => ({
 						dispose: () => {
 							resourceDisposals += 1
 						},
-						execute: ({ adapters }) =>
-							adapters.withRaw(rawRequirement, (raw) => {
-								escaped = raw
-								return immutableRecord({
-									accepted: raw.kind() === 'database-transaction-adapter',
-								})
-							}),
+						execute: () => immutableRecord({ accepted: true }),
 					}),
-					operation: rawOperation,
+					operation: resourceOperation,
 				}),
 			],
 		})
@@ -319,11 +287,9 @@ describe('plugin operation Runtime', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.operation(rawOperation).execute({ message: 'lease' }),
+			ultimabase.operation(resourceOperation).execute({ message: 'lease' }),
 		).resolves.toStrictEqual({ accepted: true })
-		expect(() => escaped?.kind()).toThrow(
-			expect.objectContaining({ code: 'TRANSACTION_ERROR' }),
-		)
+		expect(adapter.transactions).toHaveLength(1)
 		await ultimabase.dispose()
 		expect(resourceDisposals).toBe(1)
 	})
@@ -586,8 +552,8 @@ describe('plugin operation Runtime', () => {
 		await second.ultimabase.dispose()
 	})
 
-	it('requires transport exposure privilege on the exact binding owner', () => {
-		expect(() =>
+	it('derives transport exposure privilege on the exact binding owner', () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.unprivileged-operation-transport',
@@ -602,12 +568,15 @@ describe('plugin operation Runtime', () => {
 						},
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: transport:expose')
+			}).manifest.privileges.find(({ name }) => name === 'transport:expose'),
+		).toStrictEqual({
+			name: 'transport:expose',
+			reason: 'Binds operations to transports.',
+		})
 	})
 
-	it('requires operation declaration privilege for owned contributions', () => {
-		expect(() =>
+	it('derives operation declaration privilege for owned contributions', () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.unprivileged-operation-owner',
@@ -618,7 +587,10 @@ describe('plugin operation Runtime', () => {
 						operation: applicationOperation,
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: operation:declare')
+			}).manifest.privileges.find(({ name }) => name === 'operation:declare'),
+		).toStrictEqual({
+			name: 'operation:declare',
+			reason: 'Declares plugin operations.',
+		})
 	})
 })

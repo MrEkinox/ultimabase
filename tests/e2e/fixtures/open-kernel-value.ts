@@ -1,12 +1,10 @@
 import {
-	adapterValueStorageCapability,
 	contributeDeclarations,
 	definePluginFieldFamily,
 	defineFieldOption,
 	definePluginField,
 	defineSchemaOption,
 	defineTypegenReference,
-	requireCapability,
 	plugin,
 	type FieldOptions,
 	type JsonObject,
@@ -135,7 +133,6 @@ const decimalBuilderMethod = definePluginFieldFamily({
 		},
 	},
 })
-const storage = requireCapability(adapterValueStorageCapability, '^1.0.0')
 
 export interface ValuePluginOptions {
 	readonly instanceId: string
@@ -149,7 +146,6 @@ export const createValuePlugin = (options: ValuePluginOptions) =>
 		id: 'fixture.open-kernel-value',
 		version: '1.0.0',
 		contributions: [
-			storage,
 			contributeDeclarations({
 				schema: ({ fields, schemas }) => {
 					const field = fields.register(decimalBuilderMethod)
@@ -181,7 +177,6 @@ export const createValuePlugin = (options: ValuePluginOptions) =>
 		],
 		instanceId: options.instanceId,
 		permissions: {
-			'adapter:consume': 'Requires portable JSON value storage.',
 			'schema:declare': 'Adds the decimal field and builder.',
 			'typegen:reference': 'References the exact public decimal value.',
 		},

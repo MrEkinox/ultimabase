@@ -122,8 +122,9 @@ declare: ({ schemas }) => {
 }
 ```
 
-The builder covers additive fields, indexes, constraints, and
-plugin-owned schema or field option values. These operations require the same
+The builder covers additive fields, indexes, and plugin-owned schema or field
+option values. ADR-0289 removed `addConstraint()` with Core's portable schema
+constraints, which no production plugin consumed. These operations require the same
 `schema:declare` privilege that Core would require
 without the helper. Destructive replacement, rename, and removal patches are
 not plugin powers; the helper does not reintroduce them. Core still validates
@@ -280,10 +281,6 @@ plugin({
 				}),
 		}),
 	],
-	permissions: {
-		'operation:declare': 'Declares archive.',
-		'model:extend': 'Adds archive methods.',
-	},
 })
 ```
 
@@ -308,7 +305,7 @@ Use `@ultimabase/core` directly for:
 
 - capability definitions, providers, and requirements;
 - Runtime middleware, protected constraints, and persistence rewrites;
-- raw adapter leases, transport bindings, and lifecycle;
+- transport bindings and lifecycle;
 - every privilege, owner, registry, Master, or security decision.
 
 `plugin-kit` intentionally contains no generic registry, service locator,

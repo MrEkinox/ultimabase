@@ -8,7 +8,6 @@ import {
 } from '@ultimabase/shared'
 import { haveSameEnumerableKeys } from '../../exact-object-validation.js'
 
-import type { RequestContext } from '../context/request-context.js'
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
@@ -30,14 +29,15 @@ type OwnedInterceptor = OwnedRuntimeContribution<
 
 const assertExactContributionOutput = (
 	output: unknown,
-	key: 'operation' | 'result',
 ): Readonly<Record<string, unknown>> => {
 	if (
 		!isPlainRecord(output) ||
-		!Object.hasOwn(output, key) ||
+		!Object.hasOwn(output, 'operation') ||
 		Object.keys(output).length !== 1
 	) {
-		throw new TypeError(`Runtime contribution must return exactly { ${key} }`)
+		throw new TypeError(
+			'Runtime contribution must return exactly { operation }',
+		)
 	}
 
 	return output
@@ -61,10 +61,7 @@ const normalizePreparedContributionOutput = <
 	previousOperation: TOperation,
 	output: unknown,
 ): TOperation => {
-	const candidate: unknown = assertExactContributionOutput(
-		output,
-		'operation',
-	).operation
+	const candidate: unknown = assertExactContributionOutput(output).operation
 
 	if (candidate === previousOperation) return previousOperation
 
@@ -173,111 +170,39 @@ export const composeRuntimeContributionBehavior = <
 	if (interceptors.length === 0) return undefined
 
 	const runtime = getApplicationRuntimeCallbackExecutor(application)
-	const select = (
-		kind: OwnedInterceptor['implementation']['kind'],
-		global: boolean,
-	): readonly OwnedInterceptor[] =>
-		interceptors.filter(
-			({ implementation }) =>
-				implementation.kind === kind &&
-				(implementation.schema === undefined) === global,
-		)
-	// Global observers wrap schema observers: global before first, global after last.
-	const before = [
-		...select('before-operation', true),
-		...select('before-operation', false),
-	]
-	const after = [
-		...select('after-operation', false),
-		...select('after-operation', true),
-	]
-	const prepared = interceptors.filter(
-		({ implementation }) => implementation.kind === 'prepared-operation',
-	)
-	const invoke = (
-		owned: OwnedInterceptor,
-		operation: RuntimeLogicalOperationAst,
-		context: RequestContext,
-		input: Parameters<OwnedInterceptor['implementation']['run']>[0],
-	): Promise<unknown> =>
-		runtime.invoke(
-			createContributionCallbackDescriptor(
-				owned.contribution,
-				owned.implementation.kind,
-				owned.implementation.schema,
-				operation.kind,
-			),
-			context,
-			() => owned.implementation.run(input),
-		)
-	const composed: {
-		-readonly [
-			TKey in keyof RuntimeBehaviorStages
-		]?: RuntimeBehaviorStages[TKey]
-	} = {}
 
-	if (before.length > 0) {
-		composed.beforeOperation = async ({ context, operation }) => {
-			for (const owned of before) {
-				if (!matchesContribution(owned, operation)) continue
-				const output = await invoke(
-					owned,
-					operation,
-					context,
-					immutableRecord({ context, operation }),
-				)
-				if (output !== undefined) {
-					throw new TypeError(
-						'before-operation contribution must return undefined',
-					)
-				}
-			}
-		}
-	}
-	if (after.length > 0) {
-		composed.transformResult = async (input) => {
-			const { context, operation } = input
-			let result = input.result
-			for (const owned of after) {
-				if (!matchesContribution(owned, operation)) continue
-				const output = await invoke(
-					owned,
-					operation,
-					context,
-					immutableRecord({ context, operation, result }),
-				)
-				// Result validation stays operation-specific; this enforces explicit replacement.
-				result = assertExactContributionOutput(output, 'result')
-					.result as typeof result
-			}
-			return result
-		}
-	}
-	if (prepared.length > 0) {
-		// Locked-target transformers run only for a materialized singular update.
-		composed.transformPreparedOperation = async (input) => {
-			const { context, target } = input
-			let operation = input.operation
-			if (
-				operation.kind !== 'update-one' ||
-				target === undefined ||
-				target === null
-			) {
-				return operation
-			}
-			for (const owned of prepared) {
-				if (!matchesContribution(owned, operation)) continue
-				const output = await invoke(
-					owned,
-					operation,
-					context,
-					immutableRecord({ context, operation, target }),
-				)
-				operation = normalizePreparedContributionOutput(operation, output)
-			}
+	// Locked-target transformers run only for a materialized singular update.
+	const transformPreparedOperation: NonNullable<
+		RuntimeBehaviorStages['transformPreparedOperation']
+	> = async (input) => {
+		const { context, target } = input
+		let operation = input.operation
+		if (
+			operation.kind !== 'update-one' ||
+			target === undefined ||
+			target === null
+		) {
 			return operation
 		}
+		for (const owned of interceptors) {
+			if (!matchesContribution(owned, operation)) continue
+			const output = await runtime.invoke(
+				createContributionCallbackDescriptor(
+					owned.contribution,
+					owned.implementation.kind,
+					owned.implementation.schema,
+					operation.kind,
+				),
+				context,
+				() =>
+					owned.implementation.run(
+						immutableRecord({ context, operation, target }),
+					),
+			)
+			operation = normalizePreparedContributionOutput(operation, output)
+		}
+		return operation
 	}
 
-	return immutableRecord(composed)
+	return immutableRecord({ transformPreparedOperation })
 }

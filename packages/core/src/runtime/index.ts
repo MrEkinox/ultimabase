@@ -42,9 +42,7 @@ export {
 	provideRuntimeConstraint,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
-	runtimeConstraintCapability,
 	runtimeBehaviorCapability,
-	runtimeInterceptorCapability,
 } from './capabilities.js'
 export type {
 	RuntimeConstraintDefinition,
@@ -83,8 +81,6 @@ export { requireCurrentRequestRoleResolver } from './context/subject-capabilitie
 export { RequestEngine } from './engine/request-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
 export type { RequestTransactionHandler } from './engine/request-engine.js'
-// Adapter protocols negotiate portable support while concrete bridges retain infrastructure ownership.
-export * from './adapters/index.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export {
 	databaseAdapterCapability,
@@ -103,9 +99,6 @@ export {
 export type {
 	DatabaseAdapterCapabilities,
 	DatabasePluginFieldStructuralContainsCapability,
-	DatabaseConstraintNode,
-	DatabaseConstraintPayload,
-	DatabaseConstraintPayloadObject,
 	DatabaseAdapter,
 	DatabaseCreateMaterialization,
 	DatabaseDeleteMaterialization,
@@ -133,7 +126,6 @@ export type {
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,
-	ImmutableDatabaseConstraintPayload,
 	PreparedDatabaseOperation,
 	PreparedDatabaseOperationExecution,
 } from './database/contracts.js'
@@ -203,38 +195,16 @@ export type {
 	PersistencePlanRewriterDefinition,
 } from './persistence/index.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.
-export {
-	constraint,
-	databaseConstraint,
-	guard,
-	restrictInput,
-	restrictOutput,
-	restrictSelection,
-} from './enforcement/definitions.js'
+export { guard } from './enforcement/definitions.js'
 export type {
-	ConstraintDefinition,
-	ConstraintOptions,
 	EnforcementDefinition,
-	EnforcementDefinitionUnion,
 	GuardDefinition,
 	GuardOptions,
-	InputRestrictionDefinition,
-	InputRestrictionOptions,
-	OutputRestrictionDefinition,
-	OutputRestrictionOptions,
-	SelectionRestrictionDefinition,
-	SelectionRestrictionOptions,
 } from './enforcement/definitions.js'
 export type {
-	EnforcementContributionKind,
-	EnforcementConstraintHandler,
-	EnforcementFieldBoundary,
-	EnforcementFieldRestrictionHandler,
 	EnforcementGuardHandler,
 	EnforcementOperation,
 	EnforcementOperationInput,
-	EnforcementOutputInput,
-	EnforcementOutputRestrictionHandler,
 } from './enforcement/contracts.js'
 export { protectedPolicy } from './enforcement/protected-policy.js'
 export type {
@@ -248,27 +218,14 @@ export type {
 	ProtectedPolicyRelationGuard,
 	ProtectedPolicyResultRestriction,
 } from './enforcement/protected-policy.js'
-// Generic operation interceptors retain plugin contribution ownership.
-export {
-	afterOperation,
-	beforeOperation,
-	preparedOperation,
-} from './contributions/definitions.js'
+// The prepared-operation interceptor retains plugin contribution ownership.
+export { preparedOperation } from './contributions/definitions.js'
 export type {
-	AfterOperationDefinition,
-	AfterOperationHandler,
-	AfterOperationOptions,
-	AfterOperationResult,
-	BeforeOperationDefinition,
-	BeforeOperationHandler,
-	BeforeOperationOptions,
 	PreparedOperationDefinition,
 	PreparedOperationHandler,
 	PreparedOperationOptions,
-	RuntimeContributionDefinitionUnion,
 	RuntimeInterceptorOperationInput,
 	RuntimePreparedOperationInput,
-	RuntimeInterceptorResultInput,
 } from './contributions/definitions.js'
 // Raw keys become framework-owned opaque grants before request elevation.
 export { MasterAuthority, MasterKeyGrant } from './master/master-authority.js'

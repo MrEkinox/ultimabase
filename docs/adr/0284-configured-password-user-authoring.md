@@ -4,7 +4,7 @@
 - Date: 2026-10-01
 - Refines: ADR-0279 and ADR-0254
 - Approval: user approved aligning PasswordUserSchema with RoleSchema's configured form
-- Decision issue: [6319](../../issues/6300-source-typed-application-authoring/6319-configured-password-user-schema.md)
+- Decision issue: 6319 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6319-configured-password-user-schema.md`)
 
 ## Context
 

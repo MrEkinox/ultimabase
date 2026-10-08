@@ -2,30 +2,19 @@ import {
 	databaseAdapterCapability,
 	contributeApplication,
 	contributeDeclarations,
-	optionalCapability,
 	plugin,
-	provideAdapterRawCapability,
 	provideCapability,
 	requireCapability,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginInstance,
 	type PluginDeclarationContribution,
-	type PluginPrivilegeRequest,
 	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
-import {
-	createPostgresRawSetupFacade,
-	createPostgresRawTransactionFacade,
-	postgresAdapterSupportProviders,
-	postgresPhysicalSchemaContributionCapability,
-	postgresRawAdapterCapability,
-	type PostgresAdapterMetadata,
-} from '../adapter-capabilities.js'
 import {
 	postgresConnectionCapability,
 	type PostgresConnectionService,
@@ -36,10 +25,7 @@ import {
 	type ManagedPostgresConnection,
 } from '../connection/managed-connection.js'
 import { postgresPluginName } from '../constants.js'
-import {
-	createPostgresDatabaseAdapter,
-	readPostgresTransactionClient,
-} from '../drizzle/adapter.js'
+import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import { postgresFieldOption, postgresSchemaOption } from '../options.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
@@ -67,8 +53,6 @@ export type PostgresPluginOptions =
 
 /** Exposes safe lifecycle state and control without publishing credentials or the pool. */
 export interface PostgresPluginExports {
-	/** Reports attributed physical metadata without exposing callbacks. */
-	readonly adapterMetadata: PostgresAdapterMetadata
 	readonly connection: PostgresConnectionService
 }
 
@@ -77,15 +61,6 @@ const postgresSchemaPolicies: ReadonlySet<unknown> =
 const isPostgresSchemaPolicy = (
 	value: unknown,
 ): value is PostgresSchemaPolicy => postgresSchemaPolicies.has(value)
-
-const optionalPhysicalSchemaContributions: CapabilityRequirement<
-	typeof postgresPhysicalSchemaContributionCapability,
-	true,
-	'^1.0.0',
-	'setup'
-> = optionalCapability(postgresPhysicalSchemaContributionCapability, '^1.0.0', {
-	phase: 'setup',
-})
 
 const isPostgresPool = (value: unknown): value is PostgresPool =>
 	((typeof value === 'object' && value !== null) ||
@@ -141,22 +116,10 @@ const connectionRequirement: CapabilityRequirement<
 	'materialization'
 > = requireCapability(postgresConnectionCapability, '^1.0.0')
 const postgresPluginEnvironment = ['environment:network'] as const
-const postgresPluginPermissions = {
-	'schema:declare':
-		'Declares the official PostgreSQL schema and field options.',
-	'adapter:consume':
-		'Compiles protected database constraints for the PostgreSQL adapter.',
-} as const
 
 type PostgresPluginCapabilities = readonly [
-	typeof optionalPhysicalSchemaContributions,
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
 	CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
-	typeof postgresAdapterSupportProviders.valueStorage,
-	typeof postgresAdapterSupportProviders.constraint,
-	typeof postgresAdapterSupportProviders.persistencePlan,
-	typeof postgresAdapterSupportProviders.physicalSchema,
-	CapabilityProviderDeclaration<typeof postgresRawAdapterCapability>,
 	typeof connectionRequirement,
 ]
 
@@ -174,7 +137,6 @@ export type PostgresPlugin = PluginInstance<{
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
 	readonly environment: typeof postgresPluginEnvironment
-	readonly privileges: readonly PluginPrivilegeRequest[]
 	readonly capabilities: PostgresPluginCapabilities
 	readonly source: PostgresOptionSource
 }>
@@ -214,7 +176,7 @@ export const postgresPlugin = (
 	})
 	const adapterProvider = provideCapability(databaseAdapterCapability, {
 		contributionId: 'database-adapter',
-		create: ({ capabilities, constraintCompilers, schemas }) => {
+		create: ({ capabilities, schemas }) => {
 			void capabilities.get(connectionRequirement)
 			const connection = connections.get(schemas)
 			if (connection === undefined) {
@@ -231,24 +193,10 @@ export const postgresPlugin = (
 				value: createPostgresDatabaseAdapter(
 					connection.getPool(),
 					schemaCatalog,
-					constraintCompilers,
 				),
 			}
 		},
 	})
-	const rawAdapterProvider = provideAdapterRawCapability(
-		postgresRawAdapterCapability,
-		{
-			contributionId: 'postgres-raw-adapter',
-			create: () => ({
-				setup: createPostgresRawSetupFacade,
-				transaction: (adapter) =>
-					createPostgresRawTransactionFacade(
-						readPostgresTransactionClient(adapter),
-					),
-			}),
-		},
-	)
 	const declarations: PluginDeclarationContribution<
 		readonly [],
 		PostgresOptionSource
@@ -272,21 +220,14 @@ export const postgresPlugin = (
 			)
 		}
 
-		const physicalSchema =
-			capabilities.get(optionalPhysicalSchemaContributions) ?? []
-
 		return {
-			exports: immutableRecord({
-				adapterMetadata: immutableRecord({ physicalSchema }),
-				connection,
-			}),
+			exports: immutableRecord({ connection }),
 			connect: () => connection.connect(),
 			prepareSchema: () =>
 				prepareDirectPostgresSchema(
 					managedConnection.getPool(),
 					schemaCatalog,
 					schemaPolicy,
-					physicalSchema,
 				),
 			stop: () => connection.close(),
 		}
@@ -297,16 +238,9 @@ export const postgresPlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		environment: postgresPluginEnvironment,
-		permissions: postgresPluginPermissions,
 		contributions: [
-			optionalPhysicalSchemaContributions,
 			connectionProvider,
 			adapterProvider,
-			postgresAdapterSupportProviders.valueStorage,
-			postgresAdapterSupportProviders.constraint,
-			postgresAdapterSupportProviders.persistencePlan,
-			postgresAdapterSupportProviders.physicalSchema,
-			rawAdapterProvider,
 			connectionRequirement,
 			declarations,
 			application,

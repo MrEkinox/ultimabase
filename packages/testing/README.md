@@ -236,7 +236,7 @@ shares only its connection URI. No mutable application, pool, container,
 schema registry, or plugin instance is shared between Vitest workers.
 
 The official Hooks PostgreSQL scenario uses this boundary to verify nested writes,
-rollback, post-commit delivery, opaque scope constraints, field restrictions,
+rollback, post-commit delivery, protected scope row filters, field restrictions,
 and atomic item-oriented collection behavior through built public package
 exports.
 
@@ -262,6 +262,5 @@ authority from wire-shaped input.
 
 ADR-0266 removes `FakeAdapterMigrationHistory` and its `snapshots`, `plan` and
 `accept` surfaces together with Core's migration-only planner. Tests can still
-inspect the existing attributed physical metadata and run real database
-checks; there is no replacement planning helper. The generic `migration`
+run real database checks; there is no replacement planning helper. The generic `migration`
 conformance category remains available for an explicit plugin-owned verifier.

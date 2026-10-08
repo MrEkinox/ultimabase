@@ -178,28 +178,24 @@ const assertCandidate = (
 		throw new TypeError(`${path}.provenance.options must match schema options`)
 	for (const [name, value] of Object.entries(options))
 		values.assertOption(value, `${path}.options.${name}`)
-	for (const key of ['constraints', 'indexes'] as const) {
-		const nodes = definition[key]
+	const indexes: unknown = definition.indexes
+	if (
+		!isUnknownArray(indexes) ||
+		!Object.isFrozen(indexes) ||
+		indexes.length !== definition.provenance.indexes.length
+	)
+		throw new TypeError(`${path}.provenance.indexes must match indexes`)
+	for (const [index, node] of indexes.entries()) {
+		assertFrozenPortable(node, `${path}.indexes.${String(index)}`)
 		if (
-			!isUnknownArray(nodes) ||
-			!Object.isFrozen(nodes) ||
-			nodes.length !== definition.provenance[key].length
-		)
-			throw new TypeError(`${path}.provenance.${key} must match ${key}`)
-		for (const [index, node] of nodes.entries()) {
-			assertFrozenPortable(node, `${path}.${key}.${String(index)}`)
-			if (key === 'constraints')
-				values.assertConstraint(node, `${path}.constraints.${String(index)}`)
-			if (
-				!areSchemaDeclarationValuesCompatible(
-					node,
-					definition.provenance[key][index]?.definition,
-				)
+			!areSchemaDeclarationValuesCompatible(
+				node,
+				definition.provenance.indexes[index]?.definition,
 			)
-				throw new TypeError(
-					`${path}.${key}[${String(index)}] has inconsistent provenance`,
-				)
-		}
+		)
+			throw new TypeError(
+				`${path}.indexes[${String(index)}] has inconsistent provenance`,
+			)
 	}
 }
 

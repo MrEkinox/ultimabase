@@ -3,7 +3,6 @@ import { vi } from 'vitest'
 import { applicationFixture } from '../application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../runtime/fixtures/database-adapter-capability.js'
-import { provideTestRuntimeInterceptor } from '../runtime/fixtures/runtime-capabilities.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -20,12 +19,10 @@ import {
 import type { SchemaDefinition } from '../../src/schema/index.js'
 import { stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
-import { provideRuntimeConstraint } from '../../src/runtime/capabilities.js'
 import {
-	afterOperation,
-	beforeOperation,
-} from '../../src/runtime/contributions/definitions.js'
-import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
+	provideRuntimeBehavior,
+	provideRuntimeConstraint,
+} from '../../src/runtime/capabilities.js'
 import { protectedPolicy } from '../../src/runtime/enforcement/protected-policy.js'
 import { MasterAuthority } from '../../src/runtime/master/master-authority.js'
 import {
@@ -57,7 +54,7 @@ export const createUpdateFixture = async (options: {
 	readonly observeResult?: (kind: string) => void
 	readonly observeRewrite?: (logicalKind: string, physicalKind: string) => void
 	readonly persistenceCapabilities?: RecordingAdapterCapabilityOptions
-	readonly protectedConstraint?: boolean
+	readonly protectedRowFilter?: boolean
 	readonly results: readonly QueuedAdapterResult[]
 	readonly start?: boolean
 }) => {
@@ -102,7 +99,7 @@ export const createUpdateFixture = async (options: {
 			'operation:declare': 'Declares archive.',
 			'persistence:rewrite': 'Persists the owner effect.',
 			'runtime:intercept': 'Observes logical identity.',
-			...(options.protectedConstraint === true
+			...(options.protectedRowFilter === true
 				? { 'runtime:constrain': 'Narrows protected execution.' }
 				: {}),
 			'schema:declare': 'Adds the owned workflow field.',
@@ -116,28 +113,34 @@ export const createUpdateFixture = async (options: {
 							resolve: handler,
 						}),
 					]),
-			provideTestRuntimeInterceptor(
-				'logical-operation-observer',
-				beforeOperation({
-					operations: ['plugin-schema-mutation'],
-					handler: ({ operation }) => {
-						options.observeOperation?.(operation.kind)
+			provideRuntimeBehavior({
+				contributionId: 'logical-operation-observer',
+				create: () => ({
+					value: {
+						beforeOperation: ({ operation }) => {
+							if (operation.kind === 'plugin-schema-mutation') {
+								options.observeOperation?.(operation.kind)
+							}
+						},
 					},
 				}),
-			),
+			}),
 			...(options.observeResult === undefined
 				? []
 				: [
-						provideTestRuntimeInterceptor(
-							'logical-result-observer',
-							afterOperation({
-								operations: ['plugin-schema-mutation'],
-								handler: ({ operation, result }) => {
-									options.observeResult?.(operation.kind)
-									return { result }
+						provideRuntimeBehavior({
+							contributionId: 'logical-result-observer',
+							create: () => ({
+								value: {
+									transformResult: ({ operation, result }) => {
+										if (operation.kind === 'plugin-schema-mutation') {
+											options.observeResult?.(operation.kind)
+										}
+										return result
+									},
 								},
 							}),
-						),
+						}),
 					]),
 			providePersistencePlanRewriter({
 				contributionId: 'logical-schema-mutation-rewriter',
@@ -151,7 +154,7 @@ export const createUpdateFixture = async (options: {
 					}),
 				}),
 			}),
-			...(options.protectedConstraint === true
+			...(options.protectedRowFilter === true
 				? [
 						provideRuntimeConstraint({
 							contributionId: 'schema-mutation-policy',
@@ -159,11 +162,11 @@ export const createUpdateFixture = async (options: {
 								value: protectedPolicy({
 									operations: ['plugin-schema-mutation'],
 									evaluate: () => ({
-										constraints: databaseConstraint(
-											'fixture.schema-mutation-tenant',
-											1,
-											{ tenant: 'visible' },
-										),
+										rowFilter: {
+											field: 'title',
+											kind: 'equal',
+											value: 'visible',
+										},
 									}),
 								}),
 							}),

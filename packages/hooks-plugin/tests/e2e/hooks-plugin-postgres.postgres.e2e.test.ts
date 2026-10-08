@@ -1,16 +1,11 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	constraint,
-	databaseConstraint,
 	plugin,
-	contributeApplication,
 	guard,
+	protectedPolicy,
 	requestSources,
-	restrictOutput,
-	restrictSelection,
 	runWithRequestEngine,
-	withPluginPrivileges,
 } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
@@ -20,10 +15,7 @@ import {
 	provideHookEvent,
 	schemaHooks,
 } from '@ultimabase/hooks-plugin'
-import {
-	postgresConstraintCompiler,
-	postgresPlugin,
-} from '@ultimabase/postgres-plugin'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -191,33 +183,31 @@ const HookArticleSchema = HookApplication.Schema.define({
 	},
 })
 
-const scopeConstraintCompiler = postgresConstraintCompiler({
-	kind: 'fixture.scope',
-	version: 1,
-	decode: (payload) => {
-		if (
-			typeof payload !== 'object' ||
-			payload === null ||
-			!('scopeId' in payload) ||
-			typeof payload.scopeId !== 'string'
-		) {
-			throw new TypeError('Invalid fixture scope constraint payload')
-		}
+const fixtureOutputFields: ReadonlySet<string> = new Set([
+	'id',
+	'title',
+	'profile',
+])
+const restrictFixtureRecord = (record: unknown): unknown =>
+	typeof record === 'object' && record !== null && !Array.isArray(record)
+		? Object.fromEntries(
+				Object.entries(record).filter(([field]) =>
+					fixtureOutputFields.has(field),
+				),
+			)
+		: record
+const restrictFixtureOutput = <const TResult>(result: TResult): TResult =>
+	// The protected-policy boundary validates that the projection only omits values.
+	(Array.isArray(result)
+		? result.map(restrictFixtureRecord)
+		: restrictFixtureRecord(result)) as TResult
 
-		return { scopeId: payload.scopeId }
-	},
-	compile: ({ field, payload, sql }) =>
-		sql`${field('scopeId')} = ${payload.scopeId}`,
-})
-
-// This optional fixture models one generic row scope; Runtime and PostgreSQL
-// know only the opaque constraint contract contributed by this plugin.
+// This optional fixture models one generic row scope as a protected row filter.
 const scopePolicyPlugin = plugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	id: 'fixture.hooks-plugin-scope-policy',
 	permissions: {
-		'adapter:consume': 'Compiles the fixture PostgreSQL scope constraint.',
 		'runtime:constrain':
 			'Applies the fixture scope guard and narrowing restrictions.',
 	},
@@ -233,14 +223,18 @@ const scopePolicyPlugin = plugin({
 			}),
 		),
 		provideTestRuntimeConstraint(
-			'fixture.hooks-plugin-constraint',
-			constraint({
-				handler: ({ context, operation }) => {
-					trace(`policy:constraint:${operation.kind}`)
+			'fixture.hooks-plugin-scope',
+			protectedPolicy({
+				evaluate: ({ context, operation }) => {
+					trace(`policy:scope:${operation.kind}`)
 
-					return databaseConstraint('fixture.scope', 1, {
-						scopeId: readScopeId(context.metadata),
-					})
+					return {
+						rowFilter: {
+							field: 'scopeId',
+							kind: 'equal',
+							value: readScopeId(context.metadata),
+						},
+					}
 				},
 				operations: [
 					'find-many',
@@ -258,32 +252,27 @@ const scopePolicyPlugin = plugin({
 		),
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-selection',
-			restrictSelection({
+			protectedPolicy({
 				// Selection hides the scope identity before output hooks observe a record.
-				handler: () => ['id', 'title', 'secret', 'profile'] as const,
+				evaluate: () => ({
+					selectionFields: ['id', 'title', 'secret', 'profile'],
+				}),
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
 		),
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-output',
-			restrictOutput({
-				handler: ({ operation }) => {
+			protectedPolicy({
+				// The final projection may only omit values after output hooks ran.
+				restrictResult: ({ operation, result }) => {
 					trace(`policy:restrictOutput:${operation.kind}`)
 
-					return ['id', 'title', 'profile'] as const
+					return restrictFixtureOutput(result)
 				},
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
-		),
-		withPluginPrivileges(
-			contributeApplication(({ constraintCompilers }) => {
-				constraintCompilers.register(scopeConstraintCompiler)
-				const exports = undefined
-				return { exports }
-			}),
-			['adapter:consume'],
 		),
 	],
 })
@@ -533,7 +522,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 		})
 		expectTraceSubsequence([
 			'policy:guard:find-many',
-			'policy:constraint:find-many',
+			'policy:scope:find-many',
 			'policy:restrictOutput:find-many',
 		])
 

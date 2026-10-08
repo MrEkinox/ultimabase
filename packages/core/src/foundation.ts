@@ -54,15 +54,11 @@ export type {
 	PluginSchemaContributionContext,
 	PluginTypegenContributionContext,
 } from './plugins/plugin-contributions.js'
-export type {
-	PluginPermissionReason,
-	PluginPermissionReasons,
-} from './plugins/plugin-permissions.js'
+export type { PluginPermissionReasons } from './plugins/plugin-permissions.js'
 export {
 	contributeOperation,
 	contributeOperationBinding,
 	contributeSchemaMutation,
-	contributeSchemaMutationBinding,
 } from './plugins/plugin-command-contributions.js'
 export type {
 	DirectPluginOperationContributionOptions,
@@ -72,8 +68,6 @@ export type {
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
-	PluginSchemaMutationAuthoringContribution,
-	PluginSchemaMutationBindingContribution,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
 	PluginSchemaMutationResource,
@@ -148,14 +142,6 @@ export type {
 	PluginCapabilityReader,
 } from './plugins/capabilities.js'
 export type { ApplicationCallbackExecutor } from './plugins/callback-execution.js'
-export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers.js'
-export type {
-	DatabaseConstraintCompilerContribution,
-	DatabaseConstraintCompilerDefinition,
-	DatabaseConstraintCompilerReader,
-	DefineDatabaseConstraintCompilerOptions,
-	PluginConstraintCompilerRegistry,
-} from './plugins/constraint-compilers.js'
 export type {
 	FrameworkPlugin,
 	FrameworkPluginContract,
@@ -194,7 +180,6 @@ export type {
 	TypegenReferenceRegistrar,
 } from './plugins/typegen-declarations.js'
 export {
-	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,
@@ -218,7 +203,6 @@ export type {
 	SchemaOptionTypegenDescriptor,
 } from './plugins/schema-option-definitions.js'
 export type {
-	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,
@@ -238,19 +222,13 @@ export { PluginGraph } from './plugins/graph.js'
 export {
 	formatPluginIdentity,
 	isSamePluginIdentity,
-	pluginEnvironmentClaimMetadata,
-	pluginEnvironmentClaims,
-	pluginPrivilegeMetadata,
 } from './plugins/manifest.js'
 export type {
 	PluginEnvironmentClaim,
-	PluginEnvironmentClaimMetadata,
 	PluginDependency,
 	PluginIdentity,
 	PluginManifest,
 	PluginPrivilege,
-	PluginPrivilegeFacade,
-	PluginPrivilegeMetadata,
 	PluginPrivilegeRequest,
 	PluginPrivilegeSeverity,
 } from './plugins/manifest.js'

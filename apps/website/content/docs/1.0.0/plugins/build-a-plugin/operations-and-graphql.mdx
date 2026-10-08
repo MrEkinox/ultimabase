@@ -112,9 +112,6 @@ export const workflowPlugin = () =>
 				operation: formatWorkflow,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares formatWorkflow.',
-		},
 	})
 ```
 
@@ -265,10 +262,6 @@ export const workflowPlugin = () =>
 				operation: formatWorkflow,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares formatWorkflow.',
-			'transport:expose': 'Exposes formatWorkflow in GraphQL.',
-		},
 	})
 ```
 
@@ -355,9 +348,6 @@ export const workflowGraphqlAddon = () =>
 		core: '^1.0.0',
 		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
 		id: 'community.workflow-graphql',
-		permissions: {
-			'transport:expose': 'Adds workflowHealth to GraphQL.',
-		},
 		version: '1.0.0',
 	})
 ```
@@ -378,8 +368,7 @@ transaction semantics. The owner adds one `contributeSchemaMutation()` entry
 to the plugin's `contributions` list; that one entry owns the token declaration,
 handler, optional bindings, and lifecycle. `models.extend({ schemaMutations: { ... } })` selects the
 schema and model surfaces. Optional GraphQL exposure adds a
-`schemaMutationWireCodec()` binding to that same contribution, or uses
-`contributeSchemaMutationBinding()` under the same owner. It uses the separate
+`schemaMutationWireCodec()` binding to that same contribution. It uses the separate
 canonical `ultimabase.graphql@1.0.0` protocol, is not an application operation,
 and does not enter `graphqlPlugin({ operations })`.
 
@@ -435,9 +424,6 @@ export const statusRoutePlugin = () =>
 		],
 		core: '^1.0.0',
 		id: 'community.status-route',
-		permissions: {
-			'transport:expose': 'Adds the GET /status route.',
-		},
 		version: '1.0.0',
 	})
 ```

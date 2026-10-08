@@ -42,7 +42,7 @@ test('infers exact plugin and instance policy targets on both application facade
 			plugins: {
 				'fixture.typed-policy': {
 					instances: {
-						primary: { deny: ['adapter:raw'] },
+						primary: { deny: ['authority:elevate'] },
 						secondary: { denyClaims: ['environment:process'] },
 					},
 				},

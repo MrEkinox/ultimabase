@@ -146,9 +146,10 @@ describe('PostgreSQL persistence plans', () => {
 			query: { selection: { fields: [{ field: 'secret' }, { field: 'id' }] } },
 		})
 		driver.respond([['private', id]])
-		await expect(
-			adapter.execute({ constraints: [], operation, plan }),
-		).resolves.toStrictEqual({ id, secret: 'private' })
+		await expect(adapter.execute({ operation, plan })).resolves.toStrictEqual({
+			id,
+			secret: 'private',
+		})
 		expect(driver.calls).toHaveLength(1)
 		expect(driver.calls[0]?.text).toContain('"secret"')
 		expect(driver.calls[0]?.text).toContain('"id"')
@@ -171,11 +172,10 @@ describe('PostgreSQL persistence plans', () => {
 		const plan = replaceReturningSelection(operation)
 
 		driver.respond([['private', id, timestamp, timestamp]])
-		const direct = await adapter.execute({ constraints: [], operation, plan })
+		const direct = await adapter.execute({ operation, plan })
 		const directStatement = driver.calls.at(-1)
 		const transaction = await adapter.beginTransaction()
 		const prepared = await transaction.prepare({
-			constraints: [],
 			operation,
 			plan,
 		})
@@ -225,13 +225,11 @@ describe('PostgreSQL persistence plans', () => {
 
 		driver.respond([['Visible', id, timestamp, timestamp]])
 		const prepared = await transaction.prepare({
-			constraints: [],
 			operation,
 			plan: canonical,
 		})
 		driver.respond([['TOMBSTONED', id, timestamp, timestamp]])
 		const outcome = await prepared.execute({
-			constraints: [],
 			operation,
 			plan: rewritten,
 		})

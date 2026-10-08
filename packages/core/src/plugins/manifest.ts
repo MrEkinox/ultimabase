@@ -7,11 +7,7 @@ import {
 import { valid, validRange } from 'semver'
 
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
-import type {
-	CapabilityRequirement,
-	CapabilityToken,
-	PluginCapabilityDeclarations,
-} from './capabilities.js'
+import type { PluginCapabilityDeclarations } from './capabilities.js'
 
 /** Identifies one installed plugin definition without constructing a string key. */
 export interface PluginIdentity<
@@ -43,7 +39,6 @@ export type PluginPrivilegeSeverity = 'critical' | 'sensitive' | 'standard'
 
 /** Names the Core-owned facade that enforces one plugin privilege. */
 export type PluginPrivilegeFacade =
-	| 'adapter'
 	| 'authority'
 	| 'capability'
 	| 'event'
@@ -76,8 +71,6 @@ const privilegeMetadata = (
  * ```
  */
 export type PluginPrivilege =
-	| 'adapter:consume'
-	| 'adapter:raw'
 	| 'authority:elevate'
 	| 'event:publish'
 	| 'model:extend'
@@ -106,8 +99,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'runtime:intercept': privilegeMetadata('runtime', 'sensitive'),
 	'runtime:constrain': privilegeMetadata('runtime', 'sensitive'),
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
-	'adapter:consume': privilegeMetadata('adapter', 'standard'),
-	'adapter:raw': privilegeMetadata('adapter', 'critical'),
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),
@@ -154,18 +145,17 @@ export const pluginEnvironmentClaimMetadata: Readonly<
 	),
 })
 
-/** Requests one exact Core-owned power for a documented purpose. */
+/** Records one exact Core-owned power derived from a plugin's contributions. */
 export interface PluginPrivilegeRequest<
 	TPrivilege extends PluginPrivilege = PluginPrivilege,
-	TWhen extends CapabilityRequirement<CapabilityToken, true> | undefined =
-		CapabilityRequirement<CapabilityToken, true> | undefined,
 > {
 	/** Names one exact privilege from Core's closed vocabulary. */
 	readonly name: TPrivilege
-	/** Explains why the plugin needs this power in startup inspection. */
+	/**
+	 * Explains the power in startup inspection: the author's reason, or a
+	 * description generated from the contributions that need it.
+	 */
 	readonly reason: string
-	/** Activates the request only when this declared optional capability is present. */
-	readonly when?: TWhen
 }
 
 /** Contains the inert immutable metadata inspected before plugin callbacks run. */

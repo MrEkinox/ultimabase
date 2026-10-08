@@ -45,13 +45,13 @@ export const publishPost = defineOperation({
 
 Generic operations target `application`; item-oriented commands use schema mutations. The
 provider receives the validated `input`, resolved `target`, immutable request
-`context`, `engine`, capability `adapters`, and exact contribution `owner`:
+`context`, `engine`, and exact contribution `owner`:
 
 ```ts
 const publishContribution = contributeOperation({
 	operation: publishPost,
-	execute: async ({ adapters, context, engine, input, owner, target }) =>
-		executePublish({ adapters, context, engine, input, owner, target }),
+	execute: async ({ context, engine, input, owner, target }) =>
+		executePublish({ context, engine, input, owner, target }),
 })
 ```
 
@@ -127,11 +127,6 @@ export const workflowPlugin = (options: WorkflowPluginOptions) =>
 		version: '1.0.0',
 		instanceId: options.instanceId,
 		contributions: [publishContribution, workflowDeclaration],
-		permissions: {
-			'schema:declare': 'Adds workflow options and fields.',
-			'operation:declare': 'Declares the publish operation.',
-			'typegen:reference': 'References public workflow types.',
-		},
 	})
 ```
 
@@ -170,15 +165,18 @@ setup registries, or generic service lookup remain.
 
 ## Configure privileges
 
-Requested privileges are allowed by default, reported, and cumulatively
-denyable:
+Core derives each privilege from the contribution that uses it. A plugin
+passes `permissions` reasons only to replace the generated description, and
+must pass one for the critical `authority:elevate` and `storage:private`
+privileges. Derived privileges are allowed by default, reported, and
+cumulatively denyable:
 
 ```ts
 const Application = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
 const ultimabase = new Application({
 	schemas: [PostSchema],
 	pluginPrivileges: {
-		deny: ['adapter:raw'],
+		deny: ['storage:private'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
@@ -192,9 +190,10 @@ const ultimabase = new Application({
 })
 ```
 
-Startup reports identity, version, requested privileges, reasons, severity,
-claims, and policy result. A denied active privilege prevents every later
-declaration, Typegen, setup, connection, Runtime, or transport effect. Supply
+Startup reports identity, version, derived privileges, author or generated
+reasons, severity, claims, and policy result. A denied privilege prevents
+every later declaration, Typegen, setup, connection, Runtime, or transport
+effect. Supply
 `pluginPrivileges.logger: false` for explicit silence or an `{ info, error }`
 logger; the detached report remains available through
 `ultimabase.application.pluginPrivilegeReport`.
@@ -218,10 +217,10 @@ ownership, capability versions, and application lifetime are validated at Runtim
 ## Adapter, transport, and community helpers
 
 A portable plugin declares logical values and operations independently. A
-database bridge contributes codecs, constraints, persistence plans, or physical
-schema metadata through versioned adapter capabilities. A
+database bridge contributes codecs or persistence-plan rewrites through Core's
+neutral adapter contracts. A
 transport bridge contributes an explicit wire codec and exposure binding.
-Installing the logical plugin alone exposes neither raw adapter access nor a
+Installing the logical plugin alone exposes neither adapter access nor a
 public endpoint.
 
 `@ultimabase/plugin-kit` removes repeated immutable declaration and composition

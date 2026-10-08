@@ -148,18 +148,7 @@ export interface PluginSchemaMutationContribution<
 	}>
 }
 
-export interface PluginSchemaMutationBindingContribution<
-	TBinding extends SchemaMutationTransportBindingDefinition =
-		SchemaMutationTransportBindingDefinition,
-> {
-	readonly kind: 'plugin-schema-mutation-binding-contribution'
-	readonly binding: TBinding
-}
-
-export type PluginSchemaMutationAuthoringContribution =
-	PluginSchemaMutationContribution | PluginSchemaMutationBindingContribution
-
 export type PluginOperationAuthoringContribution =
 	| PluginOperationContribution
 	| PluginOperationBindingContribution
-	| PluginSchemaMutationAuthoringContribution
+	| PluginSchemaMutationContribution

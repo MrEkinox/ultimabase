@@ -1,14 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-	constraint,
-	databaseConstraint,
 	getEnforcementContributionImplementation,
 	guard,
-	isDatabaseConstraintNode,
-	restrictInput,
-	restrictOutput,
-	restrictSelection,
 } from './definitions.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -43,8 +37,8 @@ describe('policy-neutral enforcement definitions', () => {
 	})
 
 	it('keeps explicit master behavior private beside executable handlers', () => {
-		const bypassed = constraint({
-			handler: () => databaseConstraint('fixture.master', 1, {}),
+		const bypassed = guard({
+			handler: () => undefined,
 			master: 'bypass',
 		})
 		const enforced = guard({ handler: () => undefined })
@@ -61,83 +55,12 @@ describe('policy-neutral enforcement definitions', () => {
 		).toThrow('enforcement contribution master must be bypass or enforce')
 	})
 
-	it('creates every generic category without attaching plugin provenance', () => {
-		const definitions = [
-			constraint({
-				handler: () => databaseConstraint('tenant.row', 1, { tenantId: 'one' }),
-			}),
-			guard({ handler: () => undefined }),
-			restrictInput({ handler: () => ['title'] }),
-			restrictSelection({ handler: () => ['title'] }),
-			restrictOutput({ handler: () => ['title'] }),
-		]
+	it('creates guards without attaching plugin provenance', () => {
+		const definition = guard({ handler: () => undefined })
 
-		expect(definitions.map(({ kind }) => kind)).toStrictEqual([
-			'constraint',
-			'guard',
-			'restrictInput',
-			'restrictSelection',
-			'restrictOutput',
-		])
-
-		for (const definition of definitions) {
-			expect(definition).not.toHaveProperty('ownerPlugin')
-			expect(Object.isFrozen(definition)).toBe(true)
-		}
-	})
-
-	it('creates detached immutable namespaced database constraint nodes', () => {
-		const payload = {
-			nested: { visible: true },
-			tags: ['first'],
-			tenantId: 'tenant-1',
-		}
-		const node = databaseConstraint('fixture.tenant-row', 1, payload)
-		payload.nested.visible = false
-		payload.tags.push('changed')
-
-		expect(node).toStrictEqual({
-			kind: 'fixture.tenant-row',
-			version: 1,
-			payload: {
-				nested: { visible: true },
-				tags: ['first'],
-				tenantId: 'tenant-1',
-			},
-		})
-		expect(Object.isFrozen(node)).toBe(true)
-		expect(Object.isFrozen(node.payload)).toBe(true)
-		expect(Object.isFrozen(node.payload.nested)).toBe(true)
-		expect(Object.isFrozen(node.payload.tags)).toBe(true)
-		expect(isDatabaseConstraintNode(node)).toBe(true)
-		expect(isDatabaseConstraintNode({ ...node })).toBe(false)
-		expect(() => databaseConstraint('tenant', 1, payload)).toThrow(
-			'database constraint kind must use lowercase dot-separated namespace segments',
-		)
-		expect(() => databaseConstraint('tenant..row', 1, payload)).toThrow(
-			'database constraint kind must use lowercase dot-separated namespace segments',
-		)
-		expect(() => databaseConstraint('Tenant.row value', 1, payload)).toThrow(
-			'database constraint kind must use lowercase dot-separated namespace segments',
-		)
-		expect(() =>
-			databaseConstraint('fixture.invalid-number', 1, { value: Number.NaN }),
-		).toThrow(
-			'database constraint payload.value must contain only finite numbers',
-		)
-		expect(() =>
-			databaseConstraint('fixture.class-instance', 1, {
-				value: new Date('2026-08-02T00:00:00.000Z'),
-			} as never),
-		).toThrow(
-			'database constraint payload.value must contain only portable scalar, array, and plain-object values',
-		)
-		expect(() => databaseConstraint('fixture.version', 0, payload)).toThrow(
-			'database constraint version must be a positive safe integer',
-		)
-		expect(() => databaseConstraint('fixture.version', 1.5, payload)).toThrow(
-			'database constraint version must be a positive safe integer',
-		)
+		expect(definition.kind).toBe('guard')
+		expect(definition).not.toHaveProperty('ownerPlugin')
+		expect(Object.isFrozen(definition)).toBe(true)
 	})
 
 	it.each([

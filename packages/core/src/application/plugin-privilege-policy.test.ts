@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { FrameworkError } from '../errors/framework-error.js'
-import {
-	defineCapability,
-	optionalCapability,
-	provideCapability,
-} from '../plugins/capabilities.js'
 import { plugin as createPlugin } from '../plugins/plugin.js'
 import {
 	contributeApplication,
+	contributeDeclarations,
 	withPluginPrivileges,
 } from '../plugins/plugin-contributions.js'
 import {
@@ -21,16 +17,6 @@ import type {
 	PluginPrivilegeLogger,
 	PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
-
-const optionalAuditToken = defineCapability<{
-	readonly record: (message: string) => void
-}>()({
-	capabilityId: 'fixture.optional-audit',
-	version: '1.0.0',
-	cardinality: 'single',
-	lifetime: 'application',
-	compose: ([provider]) => provider,
-})
 
 interface CapturedFrameworkError {
 	readonly code: unknown
@@ -162,7 +148,6 @@ describe('plugin privilege policy', () => {
 							name: 'runtime:observe',
 							reason: 'Records safe operation timings.',
 							severity: 'standard',
-							active: true,
 							policyResult: 'allowed',
 						},
 					],
@@ -184,7 +169,6 @@ describe('plugin privilege policy', () => {
 							name: 'transport:expose',
 							reason: 'Publishes the configured endpoint.',
 							severity: 'sensitive',
-							active: true,
 							policyResult: 'allowed',
 						},
 					],
@@ -219,7 +203,7 @@ describe('plugin privilege policy', () => {
 			core: '^0.0.0',
 			permissions: {
 				'runtime:observe': 'Global denial fixture.',
-				'adapter:raw': 'Instance denial fixture.',
+				'authority:elevate': 'Instance denial fixture.',
 			},
 			environment: ['environment:network'],
 			contributions: [
@@ -229,7 +213,7 @@ describe('plugin privilege policy', () => {
 						setupCalls += 1
 						return { exports: undefined }
 					}),
-					['runtime:observe', 'adapter:raw'],
+					['runtime:observe', 'authority:elevate'],
 				),
 			],
 		})
@@ -258,7 +242,7 @@ describe('plugin privilege policy', () => {
 							'fixture.policy-database': {
 								denyClaims: ['environment:network'],
 								instances: {
-									primary: { deny: ['adapter:raw'] },
+									primary: { deny: ['authority:elevate'] },
 								},
 							},
 						},
@@ -290,7 +274,7 @@ describe('plugin privilege policy', () => {
 					},
 					kind: 'privilege',
 					plugin: 'fixture.policy-database (instance primary)',
-					name: 'adapter:raw',
+					name: 'authority:elevate',
 					reason: 'Instance denial fixture.',
 					severity: 'critical',
 				},
@@ -333,71 +317,78 @@ describe('plugin privilege policy', () => {
 		expect(setupCalls).toBe(0)
 	})
 
-	it('reports denied inactive conditional privileges without failing', () => {
-		const optionalAudit = optionalCapability(optionalAuditToken, '^1.0.0')
+	it('reports generated descriptions for privileges without author reasons', () => {
 		const plugin = createPlugin({
-			id: 'fixture.conditional-typegen',
+			id: 'fixture.reasonless-plugin',
 			version: '1.0.0',
 			core: '^0.0.0',
-			permissions: {
-				'typegen:reference': {
-					reason: 'References audit declarations when installed.',
-					when: optionalAudit,
-				},
-			},
 			contributions: [
-				withPluginPrivileges(optionalAudit, ['typegen:reference']),
+				contributeDeclarations({ schema: () => undefined }),
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['event:publish', 'runtime:observe'],
+				),
 			],
 		})
 
 		const application = new FrameworkApplication({
 			schemas: [],
 			plugins: [plugin],
-			pluginPrivileges: {
-				deny: ['typegen:reference'],
-				logger: false,
-			},
+			pluginPrivileges: { logger: false },
 		})
 
-		expect(application.pluginPrivilegeReport.allowed).toBe(true)
-		expect(
-			application.pluginPrivilegeReport.plugins[0]?.privileges[0],
-		).toStrictEqual({
-			name: 'typegen:reference',
-			reason: 'References audit declarations when installed.',
-			severity: 'standard',
-			active: false,
-			policyResult: 'denied',
+		expect(application.pluginPrivilegeReport).toStrictEqual({
+			allowed: true,
+			plugins: [
+				{
+					order: 0,
+					identity: { pluginId: 'fixture.reasonless-plugin' },
+					version: '1.0.0',
+					privileges: [
+						{
+							name: 'schema:declare',
+							reason: 'Declares schema fields, options or schemas.',
+							severity: 'standard',
+							policyResult: 'allowed',
+						},
+						{
+							name: 'runtime:observe',
+							reason:
+								'Uses the Core runtime facade from a contribution callback.',
+							severity: 'standard',
+							policyResult: 'allowed',
+						},
+						{
+							name: 'event:publish',
+							reason:
+								'Uses the Core event facade from a contribution callback.',
+							severity: 'standard',
+							policyResult: 'allowed',
+						},
+					],
+					environment: [],
+				},
+			],
 		})
 	})
 
-	it('enforces a conditional privilege when its optional capability is present', () => {
-		const optionalAudit = optionalCapability(optionalAuditToken, '^1.0.0')
-		const provider = createPlugin({
-			id: 'fixture.audit-provider',
+	it('denies a privilege without an author reason before any plugin callback runs', () => {
+		const declare = vi.fn()
+		const setup = vi.fn()
+		const plugin = createPlugin({
+			id: 'fixture.reasonless-denied',
 			version: '1.0.0',
 			core: '^0.0.0',
 			contributions: [
-				provideCapability(optionalAuditToken, {
-					contributionId: 'primary',
-					create: () => ({
-						value: { record: () => undefined },
-					}),
+				contributeDeclarations({
+					schema: () => {
+						declare()
+					},
 				}),
-			],
-		})
-		const consumer = createPlugin({
-			id: 'fixture.active-conditional-typegen',
-			version: '1.0.0',
-			core: '^0.0.0',
-			permissions: {
-				'typegen:reference': {
-					reason: 'References the installed audit protocol.',
-					when: optionalAudit,
-				},
-			},
-			contributions: [
-				withPluginPrivileges(optionalAudit, ['typegen:reference']),
+				contributeApplication(() => {
+					setup()
+					return { exports: undefined }
+				}),
 			],
 		})
 
@@ -405,15 +396,27 @@ describe('plugin privilege policy', () => {
 			() =>
 				new FrameworkApplication({
 					schemas: [],
-					plugins: [consumer, provider],
-					pluginPrivileges: {
-						deny: ['typegen:reference'],
-						logger: false,
-					},
+					plugins: [plugin],
+					pluginPrivileges: { deny: ['schema:declare'], logger: false },
 				}),
 		)
 
 		expect(error.code).toBe('PLUGIN_PRIVILEGE_DENIED')
+		expect(error.internalDetails).toStrictEqual({
+			denials: [
+				{
+					blockedPhase: 'before-static-declaration',
+					identity: { pluginId: 'fixture.reasonless-denied' },
+					kind: 'privilege',
+					plugin: 'fixture.reasonless-denied',
+					name: 'schema:declare',
+					reason: 'Declares schema fields, options or schemas.',
+					severity: 'standard',
+				},
+			],
+		})
+		expect(declare).not.toHaveBeenCalled()
+		expect(setup).not.toHaveBeenCalled()
 	})
 
 	it('targets exact plugin instances from the flat graph', () => {

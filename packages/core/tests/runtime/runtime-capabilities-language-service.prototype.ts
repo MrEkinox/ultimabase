@@ -1,10 +1,9 @@
 import {
-	afterOperation,
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
-	beforeOperation,
 	plugin,
 	guard,
+	preparedOperation,
 	requireCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
@@ -23,19 +22,18 @@ const schema = UltimaBase.Schema.define({
 const interceptor = provideRuntimeInterceptor({
 	contributionId: 'typed-interceptor',
 	create: () => ({
-		value: afterOperation({
-			handler: ({ operation, result }) => {
-				const exactOperation: 'find-many' = operation.kind
-				const correlatedRows: readonly unknown[] = result
-				// @ts-expect-error A find-many result cannot be treated as one scalar value.
-				const scalarResult: string = result
+		value: preparedOperation({
+			handler: ({ operation, target }) => {
+				const exactOperation: 'update-one' = operation.kind
+				const lockedTarget: object = target
+				// @ts-expect-error A locked update target cannot be treated as one scalar value.
+				const scalarTarget: string = target
 
 				void exactOperation
-				void correlatedRows
-				void scalarResult
-				return { result }
+				void lockedTarget
+				void scalarTarget
+				return { operation }
 			},
-			operations: ['find-many'],
 			schema,
 		}),
 	}),
@@ -99,7 +97,6 @@ plugin({
 	],
 })
 
-beforeOperation({ handler: () => undefined })
 type InspectedFinalMutationGuard =
 	/* hover:runtime-final-mutation-guard */ RuntimeFinalMutationGuardStage
 type InspectedApplicationRequestExecutor =
@@ -234,10 +231,97 @@ void (undefined as unknown as RemovedMigration4)
 // @ts-expect-error Migration-only type contracts are retired.
 type RemovedMigration5 = core.PlannedAdapterUpgrade
 void (undefined as unknown as RemovedMigration5)
-// @ts-expect-error Migration is no longer an adapter support family.
+// @ts-expect-error Adapter support families were removed with their bridges (ADR-0289).
 const removedAdapterFamily: core.AdapterCapabilityFamily = 'migration'
-// @ts-expect-error Migration is no longer a contribution family.
+// @ts-expect-error Adapter contribution families were removed with their bridges (ADR-0289).
 const removedContributionFamily: core.AdapterContributionFamily = 'migration'
-// @ts-expect-error Migration no longer names a privilege facade.
+// @ts-expect-error Privilege facades are no longer public metadata (ADR-0289).
 const removedMigrationFacade: core.PluginPrivilegeFacade = 'migration'
 void [removedAdapterFamily, removedContributionFamily, removedMigrationFacade]
+
+// ADR-0289 removes kernel extension points that only tests consumed.
+// @ts-expect-error Generic before-operation interceptors were removed.
+void core.beforeOperation
+// @ts-expect-error Generic after-operation interceptors were removed.
+void core.afterOperation
+// @ts-expect-error Input field restrictions were removed; protected policies narrow input.
+void core.restrictInput
+// @ts-expect-error Selection restrictions were removed; protected policies narrow selection.
+void core.restrictSelection
+// @ts-expect-error Output restrictions were removed; protected policies restrict results.
+void core.restrictOutput
+// @ts-expect-error Constraint definitions were removed; protected policies narrow rows.
+void core.constraint
+// @ts-expect-error Runtime protocol tokens are internal to their exact provider facades.
+void core.runtimeInterceptorCapability
+// @ts-expect-error Runtime protocol tokens are internal to their exact provider facades.
+void core.runtimeConstraintCapability
+// @ts-expect-error Removed interceptor contracts are no longer public.
+type RemovedInterceptor0 = core.BeforeOperationDefinition
+void (undefined as unknown as RemovedInterceptor0)
+// @ts-expect-error Removed interceptor contracts are no longer public.
+type RemovedInterceptor1 = core.AfterOperationDefinition
+void (undefined as unknown as RemovedInterceptor1)
+// @ts-expect-error Removed restriction contracts are no longer public.
+type RemovedRestriction0 = core.InputRestrictionDefinition
+void (undefined as unknown as RemovedRestriction0)
+// @ts-expect-error Removed restriction contracts are no longer public.
+type RemovedRestriction1 = core.OutputRestrictionDefinition
+void (undefined as unknown as RemovedRestriction1)
+// @ts-expect-error Removed constraint contracts are no longer public.
+type RemovedConstraint0 = core.ConstraintDefinition
+void (undefined as unknown as RemovedConstraint0)
+// @ts-expect-error Separate schema-mutation bindings were removed; contributeSchemaMutation binds.
+void core.contributeSchemaMutationBinding
+// @ts-expect-error Privilege metadata stays internal to Core's policy reports.
+void core.pluginPrivilegeMetadata
+// @ts-expect-error Environment-claim metadata stays internal to Core's policy reports.
+void core.pluginEnvironmentClaimMetadata
+// @ts-expect-error The environment-claim vocabulary list stays internal.
+void core.pluginEnvironmentClaims
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterSupport
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.provideAdapterCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterConstraintCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterPersistencePlanCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterPhysicalSchemaCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterValueStorageCapability
+// @ts-expect-error Adapter contribution bridges had no production consumer.
+void core.defineAdapterContributionCapability
+// @ts-expect-error Adapter contribution bridges had no production consumer.
+void core.provideAdapterContribution
+// @ts-expect-error Raw adapter leases had no production consumer.
+void core.defineAdapterRawCapability
+// @ts-expect-error Raw adapter leases had no production consumer.
+void core.provideAdapterRawCapability
+// @ts-expect-error Raw adapter leases had no production consumer.
+type RemovedRawAccess = core.AdapterAccess
+void (undefined as unknown as RemovedRawAccess)
+// @ts-expect-error The raw adapter privilege was removed with raw leases.
+const removedRawPrivilege: core.PluginPrivilege = 'adapter:raw'
+void removedRawPrivilege
+// @ts-expect-error Opaque database constraint nodes had no production producer.
+void core.databaseConstraint
+// @ts-expect-error Opaque database constraint nodes had no production producer.
+type RemovedConstraintNode = core.DatabaseConstraintNode
+void (undefined as unknown as RemovedConstraintNode)
+// @ts-expect-error Adapter constraint compilers had no production consumer.
+void core.defineDatabaseConstraintCompiler
+// @ts-expect-error Adapter constraint compilers had no production consumer.
+type RemovedCompilerRegistry = core.PluginConstraintCompilerRegistry
+void (undefined as unknown as RemovedCompilerRegistry)
+// @ts-expect-error The adapter consumption privilege was removed with compilers.
+const removedConsumePrivilege: core.PluginPrivilege = 'adapter:consume'
+void removedConsumePrivilege
+// @ts-expect-error Portable schema constraints had no production consumer.
+void core.defineSchemaConstraint
+// @ts-expect-error Portable schema constraints had no production consumer.
+void core.addSchemaConstraint
+// @ts-expect-error Portable schema constraints had no production consumer.
+type RemovedSchemaConstraint = core.SchemaConstraintDefinition
+void (undefined as unknown as RemovedSchemaConstraint)

@@ -145,9 +145,6 @@ export const workflowPlugin = () =>
 		core: '^1.0.0',
 		id: 'community.workflow',
 		version: '1.0.0',
-		permissions: {
-			'schema:declare': 'Adds the workflow option, state field, and index.',
-		},
 	})
 ```
 
@@ -245,10 +242,10 @@ Typegen checks reference ownership before emitting the import. The reference
 adds no standalone alias or Runtime behavior. The input snapshot still runs
 without Typegen, including in JavaScript applications.
 
-Request this privilege directly: reference ownership belongs to your plugin's
-declaration, even when the application does not install Typegen. Use the
-`typegenReferences` registrar only for a public reference that is not reachable
-from an owned command contract.
+Core derives this privilege for your plugin: reference ownership belongs to
+your plugin's declaration, even when the application does not install Typegen.
+Use the `typegenReferences` registrar only for a public reference that is not
+reachable from an owned command contract.
 The former `typegenEmitterCapability` and `TypegenEmitterCapability` marker
 contracts are removed. Automatic generation still runs in `typegenPlugin()`
 setup; no emitter-selection capability is needed.

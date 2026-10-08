@@ -6,7 +6,6 @@ import {
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
-import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import {
 	PostgresRelationArticle,
@@ -55,13 +54,9 @@ const renderScoped = <
 			throw new TypeError('Scoped relation target filter is incomplete')
 		}
 
-		return { constraints: [], predicate, rowFilter }
+		return { predicate, rowFilter }
 	})
-	const compiler = createPostgresRelationPredicateCompiler(
-		catalog,
-		emptyPostgresConstraintCompilerRegistry,
-		scopes,
-	)
+	const compiler = createPostgresRelationPredicateCompiler(catalog, scopes)
 
 	return dialect.sqlToQuery(
 		compilePostgresFilter(

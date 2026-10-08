@@ -22,7 +22,7 @@ import type {
 	PluginEnvironmentClaim,
 	PluginPrivilege,
 } from './manifest.js'
-import { createPluginManifest } from './manifest.js'
+import { createPluginManifest, pluginPrivilegeMetadata } from './manifest.js'
 import {
 	readPluginCommandContribution,
 	type PluginCommandContributionPlan,
@@ -46,6 +46,7 @@ import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { PluginSourceProjection } from './source-projections.js'
 import {
 	normalizePluginPermissionRequests,
+	type DerivedPluginPrivilege,
 	type PluginPermissionReasons,
 } from './plugin-permissions.js'
 
@@ -117,23 +118,6 @@ type ContributionCapabilityOptions<
 	TContributions extends readonly PluginContribution[],
 > = CollectContributionCapabilities<TContributions>
 
-type PermissionRequest<TPermissions, TName extends PluginPrivilege> = Readonly<{
-	readonly name: TName
-	readonly reason: string
-	readonly when?: TPermissions extends Readonly<
-		Record<TName, infer TConfigured>
-	>
-		? TConfigured extends Readonly<{ readonly when?: infer TWhen }>
-			? TWhen
-			: never
-		: never
-}>
-
-type PermissionRequests<TPermissions> = readonly PermissionRequest<
-	TPermissions,
-	Extract<keyof TPermissions, PluginPrivilege>
->[]
-
 /** Defines one plugin directly from public facts and one contribution list. */
 export interface PluginOptions<
 	TPluginId extends string,
@@ -146,7 +130,6 @@ export interface PluginOptions<
 	TConflicts extends readonly string[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 	TContributions extends readonly PluginContribution[],
-	TPermissions extends PluginPermissionReasons | undefined,
 > {
 	/** Stable namespaced package identity. @example "community.workflow" */
 	readonly id: TPluginId
@@ -158,8 +141,11 @@ export interface PluginOptions<
 	readonly instanceId?: TInstanceId
 	/** One ordered list of every capability, declaration, operation, and resource. */
 	readonly contributions: TContributions
-	/** Human-readable reasons for exactly the privileges derived from contributions. */
-	readonly permissions?: TPermissions
+	/**
+	 * Optional reasons for privileges Core derives from `contributions`.
+	 * Required only for derived `authority:elevate` and `storage:private`.
+	 */
+	readonly permissions?: PluginPermissionReasons | undefined
 	readonly environment?: TEnvironment
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
@@ -179,7 +165,6 @@ const commandContributionKinds: ReadonlySet<unknown> = new Set([
 	'plugin-operation-contribution',
 	'plugin-operation-binding-contribution',
 	'plugin-schema-mutation-contribution',
-	'plugin-schema-mutation-binding-contribution',
 ])
 
 interface CompiledPluginContributions {
@@ -187,7 +172,7 @@ interface CompiledPluginContributions {
 	readonly capabilities: readonly PluginCapabilityDeclaration[]
 	readonly commands: PluginCommandPlan
 	readonly declare: PluginDeclaration | undefined
-	readonly privileges: PluginPrivilege[]
+	readonly privileges: DerivedPluginPrivilege[]
 }
 
 /** Compiles one public contribution list directly into Core's native plugin plan. */
@@ -198,9 +183,9 @@ const compilePluginContributions = (
 	if (!isUnknownArray(untrustedContributions)) {
 		throw new TypeError('plugin contributions must be an array')
 	}
-	const privileges: PluginPrivilege[] = []
-	const require = (privilege: PluginPrivilege): void => {
-		if (!privileges.includes(privilege)) privileges.push(privilege)
+	const privileges: DerivedPluginPrivilege[] = []
+	const derive = (privilege: PluginPrivilege, description: string): void => {
+		privileges.push({ privilege, description })
 	}
 	const capabilities: PluginCapabilityDeclaration[] = []
 	const declarations: Parameters<typeof runPluginDeclarationContribution>[0][] =
@@ -210,7 +195,12 @@ const compilePluginContributions = (
 	for (const [index, value] of untrustedContributions.entries()) {
 		let contribution = value as PluginContribution
 		if (isPluginPrivilegedContribution(contribution)) {
-			contribution.privileges.forEach(require)
+			for (const privilege of contribution.privileges) {
+				derive(
+					privilege,
+					`Uses the Core ${pluginPrivilegeMetadata[privilege].facade} facade from a contribution callback.`,
+				)
+			}
 			contribution = contribution.contribution
 		}
 		const forged = (): TypeError =>
@@ -232,7 +222,7 @@ const compilePluginContributions = (
 		}
 		const declaration = getPluginDeclarationContribution(contribution)
 		if (declaration !== undefined) {
-			declaration.privileges.forEach(require)
+			privileges.push(...declaration.privileges)
 			capabilities.push(...declaration.requires)
 			declarations.push(declaration)
 			continue
@@ -263,7 +253,9 @@ const compilePluginContributions = (
 	)
 	const commandSources = handlers.map(({ source }) => source)
 	const transports = commands.flatMap(({ transports }) => transports)
-	if (commandSources.length > 0) require('operation:declare')
+	if (commandSources.length > 0) {
+		derive('operation:declare', 'Declares plugin operations.')
+	}
 	if (
 		commandSources.some(
 			(source) =>
@@ -272,12 +264,17 @@ const compilePluginContributions = (
 					source.result.typegen !== undefined),
 		)
 	) {
-		require('typegen:reference')
+		derive('typegen:reference', 'References Typegen types in operations.')
 	}
 	if (handlers.some(({ source }) => source.kind === 'plugin-schema-mutation')) {
-		require('persistence:rewrite')
+		derive(
+			'persistence:rewrite',
+			'Declares schema mutations that rewrite persistence.',
+		)
 	}
-	if (transports.length > 0) require('transport:expose')
+	if (transports.length > 0) {
+		derive('transport:expose', 'Binds operations to transports.')
+	}
 
 	return {
 		applicationFactory: applicationFactories[0],
@@ -329,7 +326,6 @@ export const plugin = <
 	const TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
 		undefined,
 	const TContributions extends readonly PluginContribution[] = readonly [],
-	const TPermissions extends PluginPermissionReasons | undefined = undefined,
 >(
 	options: PluginOptions<
 		TPluginId,
@@ -341,8 +337,7 @@ export const plugin = <
 		TPeers,
 		TConflicts,
 		TEnvironment,
-		TContributions,
-		TPermissions
+		TContributions
 	>,
 ): PluginInstance<{
 	readonly id: TPluginId
@@ -355,7 +350,6 @@ export const plugin = <
 	readonly peers: TPeers
 	readonly conflicts: TConflicts
 	readonly environment: TEnvironment
-	readonly privileges: PermissionRequests<TPermissions>
 	readonly capabilities: ContributionCapabilityOptions<TContributions>
 	readonly source: ContributionSourceProjection<TContributions>
 }> => {
@@ -373,16 +367,11 @@ export const plugin = <
 		...capabilities.requires,
 		...capabilities.optional,
 	]) {
-		for (const privilege of capabilityDeclarationPrivileges(declaration)) {
-			if (!compiled.privileges.includes(privilege)) {
-				compiled.privileges.push(privilege)
-			}
-		}
+		compiled.privileges.push(...capabilityDeclarationPrivileges(declaration))
 	}
 	const privileges = normalizePluginPermissionRequests(
 		options.permissions,
 		compiled.privileges,
-		capabilities.optional,
 	)
 	const manifest = createPluginManifest({
 		pluginId: options.id,
@@ -425,7 +414,6 @@ export const plugin = <
 		readonly peers: TPeers
 		readonly conflicts: TConflicts
 		readonly environment: TEnvironment
-		readonly privileges: PermissionRequests<TPermissions>
 		readonly capabilities: ContributionCapabilityOptions<TContributions>
 		readonly source: ContributionSourceProjection<TContributions>
 	}>

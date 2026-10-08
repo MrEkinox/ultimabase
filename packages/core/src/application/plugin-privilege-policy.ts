@@ -25,7 +25,7 @@ import type {
 
 /** Denies enforceable privileges separately from informational environment claims. */
 export interface PluginPrivilegePolicyScope {
-	/** Denies exact Core-owned powers. @example `deny: ['adapter:raw']` */
+	/** Denies exact Core-owned powers. @example `deny: ['authority:elevate']` */
 	readonly deny?: readonly PluginPrivilege[]
 	/** Rejects plugins that announce these direct Node.js behaviors. @example `denyClaims: ['environment:network']` */
 	readonly denyClaims?: readonly PluginEnvironmentClaim[]
@@ -83,13 +83,13 @@ export interface PluginPrivilegePolicy<
 	readonly logger?: PluginPrivilegeLogger | false
 }
 
-/** Reports one requested privilege without retaining its capability condition token. */
+/** Reports one privilege derived from a plugin's contributions. */
 export interface PluginPrivilegeRequestReport {
 	readonly blockedPhase?: 'before-static-declaration'
 	readonly name: PluginPrivilege
+	/** Author reason, or a description generated from the contributions that need it. */
 	readonly reason: string
 	readonly severity: PluginPrivilegeSeverity
-	readonly active: boolean
 	readonly policyResult: 'allowed' | 'denied'
 }
 
@@ -326,7 +326,6 @@ const createPluginReport = (
 				? undefined
 				: pluginPolicy?.instances.get(identity.instanceId)
 		const privilegeReports = manifest.privileges.map((request) => {
-			const active = graph.capabilities.isPrivilegeActive(identity, request)
 			const denied = isDenied(
 				request.name,
 				policy.deny,
@@ -334,16 +333,15 @@ const createPluginReport = (
 				instancePolicy?.deny,
 			)
 
-			if (active && denied) allowed = false
+			if (denied) allowed = false
 
 			return immutableRecord({
-				...(active && denied
+				...(denied
 					? { blockedPhase: 'before-static-declaration' as const }
 					: {}),
 				name: request.name,
 				reason: request.reason,
 				severity: pluginPrivilegeMetadata[request.name].severity,
-				active,
 				policyResult: denied ? ('denied' as const) : ('allowed' as const),
 			})
 		})

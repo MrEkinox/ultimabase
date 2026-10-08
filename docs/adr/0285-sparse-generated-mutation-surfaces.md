@@ -4,7 +4,7 @@
 - Date: 2026-10-01
 - Refines: ADR-0279 and ADR-0197
 - Approval: user approved the bounded generated-surface cleanup
-- Decision issue: [6320](../../issues/6300-source-typed-application-authoring/6320-sparse-generated-mutation-surfaces.md)
+- Decision issue: 6320 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6320-sparse-generated-mutation-surfaces.md`)
 
 ## Decision
 

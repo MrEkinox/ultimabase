@@ -1,29 +1,12 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
-import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
-import { assertConstraintKind } from '../../schema/schema/constraints.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
-	EnforcementConstraintHandler,
 	EnforcementContributionKind,
-	EnforcementFieldRestrictionHandler,
 	EnforcementGuardHandler,
 	EnforcementOperationInput,
-	EnforcementOutputInput,
-	EnforcementOutputRestrictionHandler,
 } from './contracts.js'
-import type { DatabaseConstraintNode } from '../database/contracts.js'
-import type {
-	DatabaseConstraintPayload,
-	ImmutableDatabaseConstraintPayload,
-} from '../database/contracts.js'
 import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
 import { normalizeRuntimeOperationKinds } from '../operations/characteristics.js'
 
@@ -64,47 +47,6 @@ export type GuardOptions<
 	EnforcementGuardHandler<TSchema, TOperations[number]>
 >
 
-/** Configures opaque constraints that Runtime appends for the selected adapter. */
-export type ConstraintOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-	TConstraint extends DatabaseConstraintNode,
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementConstraintHandler<TSchema, TOperations[number], TConstraint>
->
-
-/** Configures a monotonic mutation-input field restriction. */
-export type InputRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementFieldRestrictionHandler<TSchema, TOperations[number]>
->
-
-/** Configures a monotonic query-selection field restriction. */
-export type SelectionRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementFieldRestrictionHandler<TSchema, TOperations[number]>
->
-
-/** Configures the final field restriction after every result transform. */
-export type OutputRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementOutputRestrictionHandler<TSchema, TOperations[number]>
->
-
 declare const enforcementDefinitionType: unique symbol
 
 /** Retains matching metadata while keeping the executable handler private. */
@@ -133,64 +75,8 @@ export type GuardDefinition<
 	EnforcementGuardHandler<TSchema, TOperationKind>
 >
 
-/** Represents a provenance-free opaque adapter-constraint declaration. */
-export type ConstraintDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
-> = EnforcementDefinition<
-	'constraint',
-	TSchema,
-	TOperationKind,
-	EnforcementConstraintHandler<TSchema, TOperationKind, TConstraint>
->
-
-/** Represents a provenance-free mutation-input restriction declaration. */
-export type InputRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictInput',
-	TSchema,
-	TOperationKind,
-	EnforcementFieldRestrictionHandler<TSchema, TOperationKind>
->
-
-/** Represents a provenance-free query-selection restriction declaration. */
-export type SelectionRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictSelection',
-	TSchema,
-	TOperationKind,
-	EnforcementFieldRestrictionHandler<TSchema, TOperationKind>
->
-
-/** Represents a provenance-free final-output restriction declaration. */
-export type OutputRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictOutput',
-	TSchema,
-	TOperationKind,
-	EnforcementOutputRestrictionHandler<TSchema, TOperationKind>
->
-
-export type EnforcementDefinitionUnion =
-	| ConstraintDefinition
-	| GuardDefinition
-	| InputRestrictionDefinition
-	| OutputRestrictionDefinition
-	| SelectionRestrictionDefinition
-
 type ErasedEnforcementHandler = (
-	input: EnforcementOperationInput<never> | EnforcementOutputInput<never>,
+	input: EnforcementOperationInput<never>,
 ) => MaybePromise<unknown>
 
 /** Supplies Runtime with the handler paired to a validated public definition. */
@@ -199,62 +85,14 @@ export interface EnforcementContributionImplementation {
 	readonly master: 'bypass' | 'enforce'
 	readonly schema: SchemaDefinition | undefined
 	readonly operations: readonly RuntimeLogicalOperationKind[] | undefined
-	run(
-		input: EnforcementOperationInput<never> | EnforcementOutputInput<never>,
-	): MaybePromise<unknown>
+	run(input: EnforcementOperationInput<never>): MaybePromise<unknown>
 }
 
 const implementations = new WeakMap<
 	object,
 	EnforcementContributionImplementation
 >()
-const databaseConstraintNodes = new WeakSet<object>()
 const optionKeys = new Set(['handler', 'master', 'operations', 'schema'])
-
-/** Detaches portable payload data so retained caller references cannot alter a plan. */
-const snapshotDatabaseConstraintPayload = (
-	payload: unknown,
-	path: string,
-): DatabaseConstraintPayload => {
-	if (
-		payload === null ||
-		typeof payload === 'bigint' ||
-		typeof payload === 'boolean' ||
-		typeof payload === 'string'
-	) {
-		return payload
-	}
-
-	if (typeof payload === 'number') {
-		if (!Number.isFinite(payload)) {
-			throw new TypeError(`${path} must contain only finite numbers`)
-		}
-
-		return payload
-	}
-
-	if (isUnknownArray(payload)) {
-		return immutableArray(
-			payload.map((value, index) =>
-				snapshotDatabaseConstraintPayload(value, `${path}[${String(index)}]`),
-			),
-		)
-	}
-
-	if (isPlainRecord(payload)) {
-		const snapshot: Record<string, DatabaseConstraintPayload> = {}
-
-		for (const [key, value] of Object.entries(payload)) {
-			snapshot[key] = snapshotDatabaseConstraintPayload(value, `${path}.${key}`)
-		}
-
-		return immutableRecord(snapshot)
-	}
-
-	throw new TypeError(
-		`${path} must contain only portable scalar, array, and plain-object values`,
-	)
-}
 
 const defineEnforcement = <
 	const TKind extends EnforcementContributionKind,
@@ -322,63 +160,6 @@ export const guard = <
 ): GuardDefinition<TSchema, TOperations[number]> =>
 	defineEnforcement('guard', options)
 
-/**
- * Declares opaque adapter constraints that Runtime can only append.
- *
- * @example `constraint({ schema: PostSchema, handler: () => databaseConstraint('tenant.rows', 1, { tenantId }) })`
- */
-export const constraint = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
-	const TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
->(
-	options: ConstraintOptions<TSchema, TOperations, TConstraint>,
-): ConstraintDefinition<TSchema, TOperations[number], TConstraint> =>
-	defineEnforcement('constraint', options)
-
-/**
- * Declares the permitted mutation-input fields for one independent policy.
- *
- * @example `restrictInput({ schema: PostSchema, handler: () => ['title'] })`
- */
-export const restrictInput = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: InputRestrictionOptions<TSchema, TOperations>,
-): InputRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictInput', options)
-
-/**
- * Declares the permitted selected fields for one independent policy.
- *
- * @example `restrictSelection({ schema: PostSchema, handler: () => ['id', 'title'] })`
- */
-export const restrictSelection = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: SelectionRestrictionOptions<TSchema, TOperations>,
-): SelectionRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictSelection', options)
-
-/**
- * Declares the permitted output fields after every result transformation.
- *
- * @example `restrictOutput({ schema: PostSchema, handler: () => ['id', 'title'] })`
- */
-export const restrictOutput = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: OutputRestrictionOptions<TSchema, TOperations>,
-): OutputRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictOutput', options)
-
 /** Resolves only definitions created by the policy-neutral public factories. */
 export const getEnforcementContributionImplementation = (
 	value: unknown,
@@ -406,48 +187,3 @@ export const matchesEnforcementContribution = (
 	(implementation.operations === undefined ||
 		implementation.operations.includes(operation.kind)) &&
 	(implementation.schema === undefined || implementation.schema === schema)
-
-/**
- * Creates one detached immutable payload for adapter constraint compilation.
- *
- * Kinds use lowercase dot-separated namespace segments. Payloads accept only
- * portable scalar, array, and plain-object values.
- *
- * @param kind - Names the adapter compiler contract, for example `tenant.rows`.
- * @param version - Selects the compiler's positive integer payload version.
- * @param payload - Supplies portable data interpreted only by the owning plugin.
- * @example `databaseConstraint('tenant.rows', 1, { tenantId: 'tenant-1' })`
- */
-export const databaseConstraint = <
-	const TKind extends string,
-	const TVersion extends number,
-	const TPayload extends DatabaseConstraintPayload,
->(
-	kind: TKind,
-	version: TVersion,
-	payload: TPayload,
-): DatabaseConstraintNode<
-	TKind,
-	TVersion,
-	ImmutableDatabaseConstraintPayload<TPayload>
-> => {
-	assertConstraintKind(kind, 'database constraint kind')
-	assertDatabaseConstraintVersion(version, 'database constraint version')
-
-	const detachedPayload = snapshotDatabaseConstraintPayload(
-		payload,
-		'database constraint payload',
-	) as ImmutableDatabaseConstraintPayload<TPayload>
-	const node = immutableRecord({ kind, version, payload: detachedPayload })
-	databaseConstraintNodes.add(node)
-
-	return node
-}
-
-/** Rejects structural lookalikes that bypassed the namespaced-node factory. */
-export const isDatabaseConstraintNode = (
-	value: unknown,
-): value is DatabaseConstraintNode =>
-	typeof value === 'object' &&
-	value !== null &&
-	databaseConstraintNodes.has(value)

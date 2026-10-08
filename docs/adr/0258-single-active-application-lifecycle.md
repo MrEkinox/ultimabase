@@ -5,7 +5,7 @@
 - Supersedes: ADR-0050 concurrent initialized applications; ADR-0197 concurrent execution only; ADR-0224 shared-server application selection; ADR-0226 cross-application browser-policy composition; ADR-0248 accumulated cross-application static method visibility
 - Refines: ADR-0049, ADR-0066, ADR-0071, ADR-0190, ADR-0201, ADR-0225, ADR-0241, ADR-0254
 - Implementation: issues 3006 and 3007; this decision does not change Runtime
-- Evidence: [compatibility and test audit](../plans/2026-09-20-single-active-application-impact.md)
+- Evidence: compatibility and test audit (archived at tag `reference-archive`: `docs/plans/2026-09-20-single-active-application-impact.md`)
 
 ## Context and approval
 
@@ -168,7 +168,7 @@ continues to describe the current implementation until each change is delivered.
 The implementation issues update the package READMEs, root architecture and
 transport concepts, website application/testing/plugin-authoring/HTTP/Hono
 journeys, and affected examples in the same audited commits. The
-[impact note](../plans/2026-09-20-single-active-application-impact.md) records
+impact note (archived at tag `reference-archive`: `docs/plans/2026-09-20-single-active-application-impact.md`) records
 their current source and test consumers. Older ADR prose remains history;
 only the concurrency/shared-hosting portions named above are superseded.
 Earlier concurrent-application language in ADR-0048, ADR-0066, ADR-0075,

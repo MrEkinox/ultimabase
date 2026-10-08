@@ -2,9 +2,9 @@
 
 - Status: accepted
 - Date: 2026-09-21
-- Decision issue: [3107](../../issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md), RC-05
-- Implementation: [3109](../../issues/3100-residual-complexity-simplification/3109-remove-unread-typegen-emitter-marker.md)
-- Reopens: C-039 in the [milestone 30 matrix](../plans/2026-09-20-architecture-contract-matrix.md)
+- Decision issue: 3107 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md`), RC-05
+- Implementation: 3109 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3109-remove-unread-typegen-emitter-marker.md`)
+- Reopens: C-039 in the milestone 30 matrix (archived at tag `reference-archive`: `docs/plans/2026-09-20-architecture-contract-matrix.md`)
 - Approval: user explicitly accepted all three separately presented RC-04/RC-05/RC-06 removals on 2026-09-21, including the engineering-consumer exceptions
 
 ## Evidence and correction to the inventory

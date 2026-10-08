@@ -26,6 +26,20 @@ all owner/version/options/payload snapshot fields, direct synchronization and
 migration privilege or replacement protocol exists; future migrations require
 an explicit architecture decision before implementation.
 
+ADR-0289 (pre-release simplification) removes kernel extension points that only
+tests consumed: the `restrictInput`/`restrictSelection`/`restrictOutput`/
+`constraint` enforcement factories, Core's `beforeOperation`/`afterOperation`
+interceptor factories, `contributeSchemaMutationBinding`, the adapter support
+tokens, physical-schema contributions and raw adapter leases with the
+`adapter:raw` privilege, the protected-policy `constraints` effect with
+`databaseConstraint`, adapter constraint compilers and the `adapter:consume`
+privilege, and portable schema constraints (`defineSchemaConstraint`,
+`addSchemaConstraint`, plugin-kit `schemaPatch().addConstraint()`). Protected
+policies (row filters and field narrowing), guards, prepared operations,
+Runtime behaviors, persistence rewrites, private storage and direct
+synchronization remain. Restoring a removed point requires a real
+consumer and a new ADR.
+
 ## Product rules
 
 - UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.
@@ -124,8 +138,10 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   name. Packages that are not plugins must not use this suffix.
 - A plugin factory returns a static typed definition.
 - A manifest declares structured plugin and optional instance identity,
-  compatibility ranges, requested privileges with reasons, environmental
-  claims, dependencies, and capabilities.
+  compatibility ranges, privileges derived from contributions with author or
+  generated reasons, environmental claims, dependencies, and capabilities.
+  Only the critical `authority:elevate` and `storage:private` privileges
+  require an explicit author reason (ADR-0290).
 - Every requested privilege from ADR-0191's closed vocabulary is validated and
   reported before any plugin static declaration, Typegen, setup, connection,
   Runtime, or transport effect.

@@ -44,12 +44,6 @@ export const workflowPlugin = plugin({
 	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: [
-		{
-			name: 'schema:declare',
-			reason: 'Adds workflow metadata and logical fields.',
-		},
-	],
 	contributions: [
 		contributeDeclarations({
 			schema({ schemas }) {

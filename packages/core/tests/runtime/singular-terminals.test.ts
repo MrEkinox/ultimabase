@@ -421,8 +421,7 @@ describe('read terminals and singular schema commands', () => {
 			requests.every(
 				(requestEnvelope) =>
 					Object.isFrozen(requestEnvelope) &&
-					Object.isFrozen(requestEnvelope.operation) &&
-					Object.isFrozen(requestEnvelope.constraints),
+					Object.isFrozen(requestEnvelope.operation),
 			),
 		).toBe(true)
 	})

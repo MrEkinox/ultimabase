@@ -74,8 +74,6 @@ describe('plugin manifest source language service', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
 		const privilegeCompletions = readStringCompletions('privilege')
 		expect(privilegeCompletions).toStrictEqual([
-			'adapter:consume',
-			'adapter:raw',
 			'authority:elevate',
 			'event:publish',
 			'model:extend',

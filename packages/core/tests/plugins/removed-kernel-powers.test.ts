@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { plugin, pluginPrivilegeMetadata } from '../../src/index.js'
+import { plugin } from '../../src/index.js'
+import { pluginPrivilegeMetadata } from '../../src/plugins/manifest.js'
 
 describe('removed kernel powers', () => {
 	it.each(['decorates', 'replaces'])(
@@ -21,6 +22,7 @@ describe('removed kernel powers', () => {
 		'capability:replace',
 		'schema:replace',
 		'runtime:replace',
+		'adapter:consume',
 	])('rejects the retired %s privilege', (name) => {
 		expect(() =>
 			plugin({
@@ -28,7 +30,7 @@ describe('removed kernel powers', () => {
 				version: '1.0.0',
 				core: '^0.0.0',
 				contributions: [],
-				permissions: { [name]: 'Invalid retired privilege.' } as never,
+				permissions: { [name]: 'Invalid retired privilege.' },
 			}),
 		).toThrow()
 		expect(pluginPrivilegeMetadata).not.toHaveProperty(name)

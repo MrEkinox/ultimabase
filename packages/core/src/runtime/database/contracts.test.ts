@@ -10,7 +10,6 @@ import {
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
 
-import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 import { createDatabasePersistencePlan } from '../persistence/plans.js'
 
@@ -162,7 +161,7 @@ describe('database adapter contracts', () => {
 		expect(Object.isFrozen(databaseRelationCapability)).toBe(true)
 	})
 
-	it('passes normalized operations and explicit constraints to an adapter', async () => {
+	it('passes normalized operations to an adapter', async () => {
 		const returnedArticles = [
 			{ id: 'article-1', title: 'UltimaBase', views: 10 },
 		]
@@ -173,15 +172,9 @@ describe('database adapter contracts', () => {
 				where.eq('views', 10),
 			).ast,
 		} satisfies FindManyOperationAst<typeof articleSchema>
-		const tenantConstraint = immutableRecord({
-			kind: 'fixture.tenant',
-			version: 1,
-			payload: immutableRecord({ tenantId: 'tenant-1' }),
-		})
 
 		const plan = createDatabasePersistencePlan(operation)
 		const result = await adapter.execute({
-			constraints: [tenantConstraint],
 			operation,
 			plan,
 		})
@@ -189,7 +182,6 @@ describe('database adapter contracts', () => {
 		expect(result).toBe(returnedArticles)
 		expect(adapter.requests).toStrictEqual([
 			{
-				constraints: [tenantConstraint],
 				operation,
 				plan,
 			},
@@ -210,14 +202,12 @@ describe('database adapter contracts', () => {
 
 		await expect(
 			adapter.execute({
-				constraints: [],
 				operation: countOperation,
 				plan: createDatabasePersistencePlan(countOperation),
 			}),
 		).resolves.toBe(3)
 		await expect(
 			adapter.execute({
-				constraints: [],
 				operation: existsOperation,
 				plan: createDatabasePersistencePlan(existsOperation),
 			}),
@@ -254,7 +244,6 @@ describe('database adapter contracts', () => {
 			schema: new QueryBuilder(articleSchema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 		const prepared = await transaction.prepare({
-			constraints: [],
 			operation,
 			plan: createDatabasePersistencePlan(operation),
 		})

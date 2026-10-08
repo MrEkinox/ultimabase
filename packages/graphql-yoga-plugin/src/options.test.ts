@@ -10,7 +10,7 @@ describe('graphqlYogaPlugin options', () => {
 			privileges: [
 				{
 					name: 'transport:expose',
-					reason: 'Mounts the selected application GraphQL schema over HTTP.',
+					reason: 'Provides the "ultimabase.http.endpoints" capability.',
 				},
 			],
 		})

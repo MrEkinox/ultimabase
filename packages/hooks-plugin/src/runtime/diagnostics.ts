@@ -25,22 +25,16 @@ export type HookDiagnosticPhase =
 	| FieldHookPhase
 	| SchemaHookPhase
 	| 'afterOperation'
-	| 'after-operation'
 	| 'access-field-read'
 	| 'access-field-write'
 	| 'access-filter'
 	| 'access-item'
 	| 'access-operation'
-	| 'before-operation'
 	| 'beforeOperation'
-	| 'constraint'
 	| 'guard'
 	| 'event'
 	| 'post-commit-event'
 	| 'prepared-operation'
-	| 'restrictInput'
-	| 'restrictOutput'
-	| 'restrictSelection'
 
 /** Contains timing and static identity only, making it safe for metric sinks. */
 export interface HookDiagnosticEvent {

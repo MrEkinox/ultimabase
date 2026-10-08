@@ -1,15 +1,14 @@
 import {
 	MasterAuthority,
 	UltimaBase,
-	afterOperation,
-	beforeOperation,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	plugin,
 	contributeApplication,
 	getCurrentRequest,
+	getOperationSchema,
 	provideCapability,
-	provideRuntimeInterceptor,
+	provideRuntimeBehavior,
 	requireCapability,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
@@ -18,6 +17,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PluginDefinition,
+	type RuntimeLogicalOperationAst,
 	type PreparedDatabaseOperation,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -34,6 +34,11 @@ const RuntimeProbe = UltimaBase.Schema.define({
 	className: 'HttpRuntimeSecretProbe',
 	fields: (field) => ({ title: field.string() }),
 })
+
+/** Limits the behavior observer to the probe's collection reads. */
+const isProbeRead = (operation: RuntimeLogicalOperationAst): boolean =>
+	operation.kind === 'find-many' &&
+	getOperationSchema(operation) === RuntimeProbe
 
 class ObservedTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
@@ -130,29 +135,22 @@ describe('HTTP Runtime propagation', () => {
 				'runtime:intercept': 'Observes safe HTTP Runtime propagation.',
 			},
 			contributions: [
-				provideRuntimeInterceptor({
-					contributionId: 'before-read',
+				provideRuntimeBehavior({
+					contributionId: 'read-observer',
 					create: () => ({
-						value: beforeOperation({
-							operations: ['find-many'],
-							schema: RuntimeProbe,
-							handler: (input) => {
-								observations.push({ kind: 'before-hook', input })
+						value: {
+							beforeOperation: (input) => {
+								if (isProbeRead(input.operation)) {
+									observations.push({ kind: 'before-hook', input })
+								}
 							},
-						}),
-					}),
-				}),
-				provideRuntimeInterceptor({
-					contributionId: 'after-read',
-					create: () => ({
-						value: afterOperation({
-							operations: ['find-many'],
-							schema: RuntimeProbe,
-							handler: (input) => {
-								observations.push({ kind: 'after-hook', input })
-								return { result: input.result }
+							transformResult: (input) => {
+								if (isProbeRead(input.operation)) {
+									observations.push({ kind: 'after-hook', input })
+								}
+								return input.result
 							},
-						}),
+						},
 					}),
 				}),
 			],

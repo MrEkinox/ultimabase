@@ -18,10 +18,10 @@ it('conforms to the public plugin and Typegen contracts', async () => {
 			pluginId: '@ultimabase/soft-delete-plugin',
 			privileges: [
 				'schema:declare',
+				'model:extend',
+				'operation:declare',
 				'runtime:constrain',
 				'persistence:rewrite',
-				'operation:declare',
-				'model:extend',
 				'transport:expose',
 				'typegen:reference',
 			],

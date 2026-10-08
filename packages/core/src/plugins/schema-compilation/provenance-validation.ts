@@ -22,7 +22,6 @@ const contributionKeys = new Set([
 	'protocolVersion',
 ])
 const compilationKeys = new Set([
-	'constraints',
 	'fieldOptions',
 	'fields',
 	'indexes',
@@ -193,12 +192,6 @@ export function assertSchemaCompilationProvenance(
 		)
 	}
 
-	assertProvenanceList(
-		value.constraints,
-		new Set(['definition', 'provenance']),
-		`${path}.constraints`,
-		allowedOwners,
-	)
 	assertProvenanceList(
 		value.indexes,
 		new Set(['definition', 'provenance']),

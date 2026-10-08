@@ -23,7 +23,7 @@ import {
 } from '../plugins/capabilities.js'
 import { RequestContext, requestSources } from './context/request-context.js'
 import { runWithRequestEngine } from './context/active-framework-context.js'
-import { beforeOperation } from './contributions/definitions.js'
+import { preparedOperation } from './contributions/definitions.js'
 import { composeRuntimeContributionBehavior } from './contributions/composition.js'
 import { createFrameworkEngine } from './application/create-framework-engine.js'
 import {
@@ -43,9 +43,13 @@ const runtimeSchema = UltimaBase.Schema.define({
 })
 
 const runtimeOperation = {
-	kind: 'find-many',
+	kind: 'update-one',
 	query: new QueryBuilder(runtimeSchema).ast,
+	update: { kind: 'update-expression', operations: [] },
 } as const
+
+// The locked preimage only needs to exist for the prepared boundary to run.
+const runtimeTarget = { id: 'runtime-target', title: 'Locked' } as never
 
 const createPluginApplication = (plugin: PluginDefinition) =>
 	applicationFixture(
@@ -93,9 +97,12 @@ describe('public Runtime capabilities', () => {
 		expect(runtimeCapabilities).toStrictEqual([])
 	})
 
-	it('rejects missing privileges and generic Runtime capability facades', () => {
-		const definition = beforeOperation({ handler: () => undefined })
-		expect(() =>
+	it('derives Runtime privileges and rejects generic Runtime capability facades', () => {
+		const definition = preparedOperation({
+			handler: ({ operation }) => ({ operation }),
+			schema: runtimeSchema,
+		})
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.runtime-missing-privilege',
@@ -106,8 +113,11 @@ describe('public Runtime capabilities', () => {
 						create: () => ({ value: definition }),
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: runtime:intercept')
+			}).manifest.privileges.find(({ name }) => name === 'runtime:intercept'),
+		).toStrictEqual({
+			name: 'runtime:intercept',
+			reason: 'Registers Runtime interceptors.',
+		})
 
 		const genericProvider = createPlugin({
 			core: '^0.0.0',
@@ -171,8 +181,8 @@ describe('public Runtime capabilities', () => {
 		},
 	)
 
-	it('requires Runtime interception privilege and validates mutation guards', async () => {
-		expect(() =>
+	it('derives Runtime interception privilege and validates mutation guards', async () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.runtime-guard-no-privilege',
@@ -185,8 +195,11 @@ describe('public Runtime capabilities', () => {
 						}),
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: runtime:intercept')
+			}).manifest.privileges.find(({ name }) => name === 'runtime:intercept'),
+		).toStrictEqual({
+			name: 'runtime:intercept',
+			reason: 'Registers Runtime behaviors.',
+		})
 
 		const malformed = createPlugin({
 			core: '^0.0.0',
@@ -248,10 +261,12 @@ describe('public Runtime capabilities', () => {
 					create: () => {
 						const id = ++nextId
 						return {
-							value: beforeOperation({
-								handler: () => {
+							value: preparedOperation({
+								handler: ({ operation }) => {
 									invocations.push(id)
+									return { operation }
 								},
+								schema: runtimeSchema,
 							}),
 							dispose: () => {
 								disposals.push(id)
@@ -269,16 +284,22 @@ describe('public Runtime capabilities', () => {
 			requestId: 'runtime-resource',
 			source: requestSources.internal,
 		})
-		await composeRuntimeContributionBehavior(first)?.beforeOperation?.({
+		await composeRuntimeContributionBehavior(
+			first,
+		)?.transformPreparedOperation?.({
 			context,
 			operation: runtimeOperation,
+			target: runtimeTarget,
 		})
 		await first.dispose()
 		expect(disposals).toStrictEqual([1])
 		await second.initialize()
-		await composeRuntimeContributionBehavior(second)?.beforeOperation?.({
+		await composeRuntimeContributionBehavior(
+			second,
+		)?.transformPreparedOperation?.({
 			context,
 			operation: runtimeOperation,
+			target: runtimeTarget,
 		})
 		expect(invocations).toStrictEqual([1, 2])
 

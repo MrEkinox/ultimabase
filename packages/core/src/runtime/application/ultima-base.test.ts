@@ -10,13 +10,13 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
 import { type DatabaseAdapter } from '../database/contracts.js'
-import { beforeOperation } from '../contributions/definitions.js'
+import { provideRuntimeBehavior } from '../capabilities.js'
+import { getOperationSchema } from '../operations/schema.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
-import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { UltimaBase } from './ultima-base.js'
 
 const articleSchema = UltimaBase.Schema.define({
@@ -59,16 +59,21 @@ const createDatabasePlugin = (
 			...(options.onContext === undefined
 				? []
 				: [
-						provideTestRuntimeInterceptor(
-							'fixture.ultimabase-context',
-							beforeOperation({
-								schema: articleSchema,
-								operations: ['find-many'],
-								handler: ({ context }) => {
-									options.onContext?.(context)
+						provideRuntimeBehavior({
+							contributionId: 'fixture.ultimabase-context',
+							create: () => ({
+								value: {
+									beforeOperation: ({ context, operation }) => {
+										if (
+											operation.kind === 'find-many' &&
+											getOperationSchema(operation) === articleSchema
+										) {
+											options.onContext?.(context)
+										}
+									},
 								},
 							}),
-						),
+						}),
 					]),
 			withPluginPrivileges(
 				contributeApplication((context) => {

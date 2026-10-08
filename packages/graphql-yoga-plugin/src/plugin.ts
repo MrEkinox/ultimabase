@@ -73,9 +73,5 @@ export const graphqlYogaPlugin = (
 			graphqlApplicationRequirement,
 		],
 		peers: graphqlYogaPeers,
-		permissions: {
-			'transport:expose':
-				'Mounts the selected application GraphQL schema over HTTP.',
-		},
 	})
 }

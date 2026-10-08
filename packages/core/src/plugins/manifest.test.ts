@@ -4,10 +4,12 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 	contributeDeclarations,
-	pluginEnvironmentClaimMetadata,
-	pluginPrivilegeMetadata,
 	withPluginPrivileges,
 } from '../index.js'
+import {
+	pluginEnvironmentClaimMetadata,
+	pluginPrivilegeMetadata,
+} from './manifest.js'
 
 const observeContribution = () =>
 	withPluginPrivileges(
@@ -26,8 +28,6 @@ describe('plugin manifests', () => {
 			'runtime:intercept',
 			'runtime:constrain',
 			'persistence:rewrite',
-			'adapter:consume',
-			'adapter:raw',
 			'transport:expose',
 			'event:publish',
 			'typegen:reference',
@@ -37,7 +37,7 @@ describe('plugin manifests', () => {
 			Object.entries(pluginPrivilegeMetadata)
 				.filter(([, metadata]) => metadata.severity === 'critical')
 				.map(([name]) => name),
-		).toStrictEqual(['storage:private', 'adapter:raw', 'authority:elevate'])
+		).toStrictEqual(['storage:private', 'authority:elevate'])
 		for (const metadata of Object.values(pluginPrivilegeMetadata)) {
 			expect(metadata.facade).toBeTruthy()
 			expect(['standard', 'sensitive', 'critical']).toContain(metadata.severity)
@@ -58,9 +58,7 @@ describe('plugin manifests', () => {
 				core: '^0.0.0',
 				id: 'fixture.retired-declaration-power',
 				version: '1.0.0',
-				permissions: {
-					[name]: 'Exercises a removed privilege.',
-				} as never,
+				permissions: { [name]: 'Exercises a removed privilege.' },
 				contributions: [
 					withPluginPrivileges(
 						contributeApplication(() => {

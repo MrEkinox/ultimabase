@@ -11,10 +11,7 @@ import {
 } from '../runtime/schema-mutations/transport-capabilities.js'
 import { plugin as createPlugin } from './plugin.js'
 import { defineOperation, defineOperationValue } from './plugin-operations.js'
-import {
-	contributeSchemaMutation,
-	contributeSchemaMutationBinding,
-} from './plugin-command-contributions.js'
+import { contributeSchemaMutation } from './plugin-command-contributions.js'
 import { defineSchemaMutation } from './plugin-schema-mutations.js'
 
 const input = defineOperationValue((value) => String(value))
@@ -67,7 +64,7 @@ describe('plugin schema-mutation contributions', () => {
 		expect(plugin.manifest.capabilities.provides).toStrictEqual([])
 	})
 
-	it('supports resource-backed resolvers and separately owned bindings', () => {
+	it('supports resource-backed resolvers', () => {
 		const resource = contributeSchemaMutation({
 			create: () => ({
 				dispose: () => undefined,
@@ -75,24 +72,18 @@ describe('plugin schema-mutation contributions', () => {
 			}),
 			mutation: archive,
 		})
-		const externalBinding = contributeSchemaMutationBinding(binding)
 		const plugin = createPlugin({
 			core: '^0.0.0',
 			id: 'fixture.schema-mutation-resource',
 			permissions: {
 				'operation:declare': 'Declares archive.',
 				'persistence:rewrite': 'Persists archive.',
-				'transport:expose': 'Exposes archive.',
 			},
 			version: '1.0.0',
-			contributions: [resource, externalBinding],
+			contributions: [resource],
 		})
 
 		expect(plugin.manifest.capabilities.provides).toHaveLength(0)
-		expect(externalBinding).toStrictEqual({
-			binding,
-			kind: 'plugin-schema-mutation-binding-contribution',
-		})
 	})
 
 	it('rejects forged options and bindings for another mutation family', () => {

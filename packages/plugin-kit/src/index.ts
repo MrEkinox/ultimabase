@@ -25,7 +25,6 @@ export {
 	patchSchemas,
 	schemaPatch,
 	SchemaPatchBuilder,
-	type AddPatchConstraintOptions,
 	type AddPatchFieldOptions,
 	type AddPatchIndexOptions,
 	type PatchSchemasOptions,

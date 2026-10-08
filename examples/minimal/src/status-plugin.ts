@@ -141,10 +141,5 @@ export const exampleStatusPlugin = plugin({
 	],
 	core: '^0.0.0',
 	id: 'example.status-plugin',
-	permissions: {
-		'operation:declare': 'Declares the status operation.',
-		'transport:expose':
-			'Exposes status through the selected REST and GraphQL transports.',
-	},
 	version: '1.0.0',
 })

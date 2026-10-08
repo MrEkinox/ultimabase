@@ -11,23 +11,9 @@ import {
 } from '@ultimabase/shared'
 
 import type { PluginCapabilityReader } from './capabilities.js'
-import {
-	createDatabaseConstraintCompilerReader,
-	createPluginConstraintCompilerRegistry,
-	type DatabaseConstraintCompilerReader,
-	type PluginConstraintCompilerRegistry,
-} from './constraint-compilers.js'
-import {
-	snapshotPluginIdentity,
-	type PluginIdentity,
-	type PluginPrivilege,
-} from './manifest.js'
+import { snapshotPluginIdentity, type PluginIdentity } from './manifest.js'
 import { PluginIdentityMap } from './plugin-identity-map.js'
 import type { CompiledTypegenGraph } from './typegen-declarations.js'
-import {
-	createAdapterAccess,
-	type AdapterAccess,
-} from '../runtime/adapters/raw-access.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
@@ -92,21 +78,11 @@ export interface PluginSetupContext {
 	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
-	/** Opens adapter-owned raw facades only for the lifetime of one setup callback. */
-	readonly adapters: AdapterAccess
-	/** Registers adapter constraint compilers with owner-derived provenance. */
-	readonly constraintCompilers: PluginConstraintCompilerRegistry
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
-	readonly #constraintCompilers: OwnedPluginContribution[] = []
 	readonly #contexts = new PluginIdentityMap<PluginSetupContext>()
-	#setupOpen = true
-	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader =
-		createDatabaseConstraintCompilerReader(() =>
-			immutableArray(this.#constraintCompilers),
-		)
 
 	constructor(
 		readonly schemas: SchemaRegistry,
@@ -117,60 +93,20 @@ export class PluginSetupRegistries {
 		readonly capabilitiesForPlugin: (
 			owner: PluginIdentity,
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
-		readonly assertPrivilegeForPlugin: (
-			owner: PluginIdentity,
-			privilege: PluginPrivilege,
-		) => void = () => undefined,
 		readonly typegenGraph: () => CompiledTypegenGraph = () => emptyTypegenGraph,
 	) {}
-
-	/** Supplies capability factories with live compilers but no registration method. */
-	getConstraintCompilerReader(): DatabaseConstraintCompilerReader {
-		return this.#constraintCompilerReader
-	}
-
-	/**
-	 * Closes typed setup-only facades before any infrastructure lifecycle phase,
-	 * or after a plugin failure without masking the original error.
-	 */
-	closeSetup(): void {
-		this.#setupOpen = false
-	}
 
 	/** Returns one stable owner-bound setup context for a structured plugin identity. */
 	forPlugin(ownerInput: PluginIdentity | string): PluginSetupContext {
 		const owner = toPluginIdentity(ownerInput)
 		return this.#contexts.getOrCreate(owner, () => {
 			const capabilities = this.capabilitiesForPlugin(owner)
-			const isOpen = (): boolean => this.#setupOpen
 			return immutableRecord({
 				schemas: this.schemas,
 				fieldBuilderMethods: this.fieldBuilderMethods(),
 				pluginFieldTypes: this.pluginFieldTypes(),
 				typegenGraph: this.typegenGraph(),
 				capabilities,
-				adapters: createAdapterAccess({
-					assertPrivilege: (privilege) => {
-						this.assertPrivilegeForPlugin(owner, privilege)
-					},
-					capabilities,
-					isOpen,
-					scope: () => immutableRecord({ kind: 'setup' as const }),
-				}),
-				constraintCompilers: createPluginConstraintCompilerRegistry({
-					assertPrivilege: () => {
-						this.assertPrivilegeForPlugin(owner, 'adapter:consume')
-					},
-					isOpen,
-					ownerPlugin: owner.pluginId,
-					// Compiler identities are unique application-wide, so ownership is the only key.
-					register: (name: string, value: unknown): void => {
-						this.#constraintCompilers.push(
-							ownPluginContribution(name, owner, value),
-						)
-					},
-					values: () => this.#constraintCompilers,
-				}),
 			})
 		})
 	}

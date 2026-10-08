@@ -9,7 +9,6 @@ import {
 } from '../../plugins/plugin-operations.js'
 import { contributeOperation } from '../../plugins/plugin-command-contributions.js'
 import type { JsonValue } from '../../schema/index.js'
-import type { AdapterAccess } from '../adapters/raw-access.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 import {
@@ -50,7 +49,6 @@ declare const masterContext: RequestContext<MasterRequestAccess>
 
 test('infers exact handler and wire boundary contracts', () => {
 	const execute = ({
-		adapters,
 		engine,
 		input: value,
 		target,
@@ -59,7 +57,6 @@ test('infers exact handler and wire boundary contracts', () => {
 			Parameters<typeof contributeOperation<typeof operation>>[0]['execute']
 		>
 	>[0]) => {
-		expectTypeOf(adapters).toEqualTypeOf<AdapterAccess>()
 		expectTypeOf(engine).toEqualTypeOf<RequestEngine>()
 		expectTypeOf(value).toEqualTypeOf<string>()
 		expectTypeOf(target.kind).toEqualTypeOf<'application'>()

@@ -4,7 +4,7 @@
 - Date: 2026-09-30
 - Refines: ADR-0279's single-plugin chaining syntax
 - Approval: user approved the bounded variadic `use` proof and migration for issue 6317
-- Decision issue: [6317](../../issues/6300-source-typed-application-authoring/6317-migrate-plugin-installation-consumers.md)
+- Decision issue: 6317 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6317-migrate-plugin-installation-consumers.md`)
 
 ## Context
 

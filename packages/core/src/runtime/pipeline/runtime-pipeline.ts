@@ -469,7 +469,6 @@ export class RuntimePipeline {
 			stages.behaviors,
 			stages.persistencePlanRewrite,
 			immutableRecord({
-				constraints: enforced.constraints,
 				operation,
 				...(request.protectedPolicyDeniedAsMissing === true
 					? { strictTarget: true as const }

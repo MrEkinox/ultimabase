@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	afterOperation,
-	beforeOperation,
 	getRuntimeContributionImplementation,
 	preparedOperation,
 } from './definitions.js'
@@ -18,40 +16,20 @@ const articleSchema = UltimaBase.Schema.define({
 describe('runtime contribution definitions', () => {
 	it('normalizes immutable scope and operation metadata without running handlers', () => {
 		let calls = 0
-		const definition = beforeOperation({
+		const definition = preparedOperation({
 			schema: articleSchema,
-			operations: ['create-one', 'create-one', 'update-one'],
 			handler: (input) => {
 				calls += 1
-				void input.operation
+				return { operation: input.operation }
 			},
 		})
 
-		expect(definition).toStrictEqual({
-			kind: 'before-operation',
-			schema: articleSchema,
-			operations: ['create-one', 'update-one'],
-		})
 		expect(calls).toBe(0)
 		expect(Object.isFrozen(definition)).toBe(true)
 		expect(Object.isFrozen(definition.operations)).toBe(true)
-		expect(getRuntimeContributionImplementation(definition)).toMatchObject({
-			kind: 'before-operation',
-			schema: articleSchema,
-			operations: ['create-one', 'update-one'],
-		})
 	})
 
-	it('creates nominal result interceptor definitions', () => {
-		const after = afterOperation({
-			handler: (input) => ({ result: input.result }),
-		})
-
-		expect(after).toStrictEqual({
-			kind: 'after-operation',
-			schema: undefined,
-			operations: undefined,
-		})
+	it('resolves only definitions created by the public factory', () => {
 		expect(getRuntimeContributionImplementation({})).toBeUndefined()
 		expect(getRuntimeContributionImplementation(null)).toBeUndefined()
 	})
@@ -80,49 +58,24 @@ describe('runtime contribution definitions', () => {
 			readonly message: string
 		}[] = [
 			{
-				create: () => beforeOperation(null as never),
-				message: 'runtime contribution options must be a plain object',
-			},
-			{
 				create: () =>
-					beforeOperation({
+					preparedOperation({
 						handler: () => undefined,
 						extra: true,
 					} as never),
 				message: 'runtime contribution contains unknown key: extra',
 			},
 			{
-				create: () => beforeOperation({ handler: true } as never),
+				create: () => preparedOperation({ handler: true } as never),
 				message: 'runtime contribution handler must be a function',
 			},
 			{
 				create: () =>
-					beforeOperation({ schema: {}, handler: () => undefined } as never),
+					preparedOperation({
+						schema: {},
+						handler: () => undefined,
+					} as never),
 				message: 'runtime contribution schema must be a schema definition',
-			},
-			{
-				create: () =>
-					beforeOperation({
-						operations: [],
-						handler: () => undefined,
-					}),
-				message: 'runtime contribution operations must be a non-empty array',
-			},
-			{
-				create: () =>
-					beforeOperation({
-						operations: 'create-one',
-						handler: () => undefined,
-					} as never),
-				message: 'runtime contribution operations must be a non-empty array',
-			},
-			{
-				create: () =>
-					beforeOperation({
-						operations: ['save'],
-						handler: () => undefined,
-					} as never),
-				message: 'Unknown runtime operation kind: save',
 			},
 		]
 

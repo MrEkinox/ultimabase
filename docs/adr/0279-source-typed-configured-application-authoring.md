@@ -4,8 +4,8 @@
 - Date: 2026-09-29
 - Supersedes: the authoring and application-selection clauses listed below
 - Approval: user approved the source-typed configured-application target after issue 6301 proved its TypeScript feasibility and limits
-- Decision issue: [6302](../../issues/6300-source-typed-application-authoring/6302-source-typed-application-adr.md)
-- Proof: [issue 6301 benchmark](../../issues/6300-source-typed-application-authoring/evidence/6301-hybrid-benchmark.md)
+- Decision issue: 6302 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6302-source-typed-application-adr.md`)
+- Proof: issue 6301 benchmark (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/evidence/6301-hybrid-benchmark.md`)
 
 ## Context
 

@@ -41,7 +41,6 @@ import type {
 import {
 	createRuntimeOperationInput,
 	createRuntimeStageInput,
-	emptyRuntimeConstraints,
 	enforceRuntimeOperation,
 	readRuntimeSchemaModelSelectedFields,
 	readRuntimeSelectedFieldsOverride,
@@ -153,7 +152,6 @@ export class RuntimeInclusionProjector {
 		const rawResult: unknown = await executor.execute(
 			createDatabasePersistenceRequest(
 				{
-					constraints: emptyRuntimeConstraints,
 					inclusions: immutableArray(
 						inclusions.map(({ database }) => database),
 					),
@@ -283,7 +281,6 @@ export class RuntimeInclusionProjector {
 							fieldPath,
 							kind: descriptor.kind,
 							request: createDatabasePersistenceRequest({
-								constraints: emptyRuntimeConstraints,
 								operation,
 							}),
 							unavailable: true as const,
@@ -300,8 +297,7 @@ export class RuntimeInclusionProjector {
 				continue
 			}
 
-			const { constraints, enforcement, relationPredicates, rowFilter } =
-				enforced
+			const { enforcement, relationPredicates, rowFilter } = enforced
 			operation = enforced.operation
 			const virtualProjection = prepareRuntimeVirtualFieldProjection(operation)
 			const nested = await this.prepare(
@@ -311,7 +307,6 @@ export class RuntimeInclusionProjector {
 			)
 			const request = createDatabasePersistenceRequest(
 				{
-					constraints,
 					operation,
 					...(nested.length === 0
 						? {}

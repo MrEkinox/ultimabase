@@ -4,7 +4,7 @@
 - Date: 2026-09-30
 - Refines: ADR-0279 and ADR-0280
 - Approval: user chose to keep all schema `WhereInput` contracts in Typegen until the final milestone audit
-- Decision issue: [6312](../../issues/6300-source-typed-application-authoring/6312-plugin-author-conformance.md)
+- Decision issue: 6312 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6312-plugin-author-conformance.md`)
 
 ## Context
 

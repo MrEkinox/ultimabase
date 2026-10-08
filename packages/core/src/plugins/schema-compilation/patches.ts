@@ -33,7 +33,6 @@ const assertUnusedContributionId = (
 	const contributions = [
 		provenance.schema,
 		...Object.values(provenance.fields),
-		...provenance.constraints.map((entry) => entry.provenance),
 		...provenance.indexes.map((entry) => entry.provenance),
 		...provenance.patches.map((entry) => entry.provenance),
 	]
@@ -157,25 +156,6 @@ export const applySchemaPatchOperation = (
 			developerFields = immutableRecord({ ...developerFields, [name]: field })
 			break
 		}
-		case 'constraint:add':
-			next = immutableRecord({
-				...definition,
-				constraints: immutableArray([
-					...definition.constraints,
-					operation.constraint,
-				]),
-			})
-			provenance = immutableRecord({
-				...provenance,
-				constraints: immutableArray([
-					...provenance.constraints,
-					immutableRecord({
-						definition: operation.constraint,
-						provenance: source,
-					}),
-				]),
-			})
-			break
 		case 'index:add': {
 			const { fields } = operation.index
 			if (fields.length < 2)

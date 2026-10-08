@@ -38,17 +38,20 @@ describe('plugin event authoring helpers', () => {
 		expect(handler).not.toHaveBeenCalled()
 	})
 
-	it('keeps observer execution behind runtime:observe provider privilege', async () => {
+	it('derives runtime:observe for observer providers', async () => {
 		const observer = observePluginEvent(published, () => undefined)
 		const provider = providePluginEvent(events, 'fixture-observer', observer)
-		expect(() =>
+		expect(
 			plugin({
 				id: 'fixture.unauthorized-event-observer',
 				version: '1.0.0',
 				core: '^0.0.0',
 				contributions: [provider],
-			}),
-		).toThrow('Missing plugin permission reason: runtime:observe')
+			}).manifest.privileges.find(({ name }) => name === 'runtime:observe'),
+		).toStrictEqual({
+			name: 'runtime:observe',
+			reason: 'Provides the "fixture.plugin-events" capability.',
+		})
 
 		const authorized = plugin({
 			id: 'fixture.authorized-event-observer',

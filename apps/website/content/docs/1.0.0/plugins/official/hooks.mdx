@@ -221,12 +221,6 @@ export const postCreatedConsumer = plugin({
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
-	permissions: [
-		{
-			name: 'runtime:observe',
-			reason: 'Deliver post.created after commit.',
-		},
-	],
 	contributions: [
 		provideHookEvent(
 			'post-created',
@@ -298,12 +292,6 @@ export const postRulesPlugin = plugin({
 	version: '1.0.0',
 	core: '^1.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^1.0.0' }],
-	permissions: [
-		{
-			name: 'runtime:intercept',
-			reason: 'Reject deletion of published posts.',
-		},
-	],
 	contributions: [
 		provideHookContributions('published-post-rule', () =>
 			schemaHooks(Post, {

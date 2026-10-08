@@ -55,10 +55,7 @@ const enforcedStages = {
 	enforcement: {
 		evaluate: () => createEnforcementState(),
 		reevaluate: (input) => input.enforcement,
-		enforceOperation: (input) => ({
-			constraints: [],
-			operation: input.operation,
-		}),
+		enforceOperation: (input) => ({ operation: input.operation }),
 		enforceSelectionResult: (input) => input.result,
 		enforceResult: (input) => input.result,
 	},

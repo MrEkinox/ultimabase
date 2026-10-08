@@ -182,9 +182,6 @@ const vectorPlugin = plugin({
 	id: '@ultimabase/pg-vector-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'schema:declare': 'Declares the vector FieldBuilder method.',
-	},
 	contributions: [
 		contributeDeclarations({
 			schema: ({ fields }) => fields.register(vectorFamily),
@@ -281,9 +278,6 @@ const workflowPlugin = plugin({
 	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'schema:declare': 'Declares workflow options and logical schema fields.',
-	},
 	contributions: [
 		contributeDeclarations({
 			schema: ({ schemas }) => {
@@ -394,7 +388,7 @@ permanently closes compilation, initialization, and startup for that application
 instance.
 
 `schema.definition.provenance` explains the final schema, fields, direct options,
-indexes, portable constraints, and applied patches. Typegen and
+indexes, and applied patches. Typegen and
 later migration bridges consume this inert logical snapshot; removing a plugin
 never authorizes Core to drop persisted data. Compilation registries are
 application-local. Reusing one stable schema class succeeds only when its whole
@@ -495,9 +489,6 @@ export const workflowPlugin = () =>
 				operation: publishPost,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares the publish operation.',
-		},
 	})
 ```
 
@@ -505,7 +496,7 @@ export const workflowPlugin = () =>
 and optional wire bindings. Core derives the static registrar call, nominal
 command plan, owner-local identifiers, and deterministic cleanup. Authors do
 not register a separate handler or transport provider.
-Core derives `operation:declare`; the author supplies its explicit reason. Then call
+Core derives `operation:declare` and reports it with a generated reason. Then call
 `ultimabase.operation(publishPost).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.
 
@@ -557,11 +548,6 @@ const workflowPlugin = plugin({
 	id: 'community.workflow',
 	version: '1.0.0',
 	core: '^1.0.0',
-	permissions: {
-		'model:extend': 'Adds the archive model command.',
-		'operation:declare': 'Declares archive.',
-		'persistence:rewrite': 'Persists the archive effect.',
-	},
 	contributions: [
 		archiveContribution,
 		contributeDeclarations({
@@ -672,7 +658,7 @@ decode, execute, or authorize anything.
 Plugin-owned schema mutations use a separate binding family under the same
 canonical transport identity. The mutation owner contributes one nominal
 `schemaMutationWireCodec()` through the mutation contribution's `bindings`
-list (or `contributeSchemaMutationBinding()`). The planner's
+list. The planner's
 `planSchemaMutations({ transport })` method returns only callback-free,
 schema-local descriptors; after startup,
 `ApplicationRequestExecutor.exposeSchemaMutations({ transport })` returns the
@@ -853,7 +839,7 @@ const memberships = await Membership.findMany({
 ```
 
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
-of the visible target and therefore apply installed target constraints. Pointer
+of the visible target and therefore apply installed target policies. Pointer
 nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID.
 Missing or row-filtered targets return `null` and `false`, respectively;
@@ -880,7 +866,7 @@ contains `id`, including nested pointer and relation results, so an explicit
 selection adds it implicitly. `id: false` is rejected rather than silently
 ignored. Relationship result shaping stays explicit through `include`.
 
-Runtime evaluates installed target policies, applies target constraints, and validates
+Runtime evaluates installed target policies, applies their row filters, and validates
 selected targets. Inclusion does not manufacture a target schema lifecycle;
 reads expose no official schema Hooks lifecycle. PostgreSQL loads the
 prepared tree through Drizzle relational `with`. Missing or inaccessible
@@ -1424,7 +1410,8 @@ optional rejection-only mutation guards and value-dependent installed field and
 item policy. A guard may receive the stable prepared target so an installed
 plugin can inspect projected atomic numeric values without converting them to
 `set` operations. The adapter
-receives the final operation and cumulative constraints for the write.
+receives the final operation for the write; protected row filters stay attached
+to the prepared target.
 The handler cannot change the query, target, fields, operators, schema, or
 terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.
@@ -1546,36 +1533,27 @@ repository protects this boundary with the deterministic
 
 ## Policy-neutral enforcement primitives
 
-Core exposes policy-neutral enforcement factories without adding product names to Runtime.
-Definitions are materialized through the exact privilege-scoped
-`provideRuntimeConstraint()` capability facade:
+Core exposes two policy-neutral enforcement factories without adding product
+names to Runtime: `guard()` and `protectedPolicy()`. Definitions are
+materialized through the exact privilege-scoped `provideRuntimeConstraint()`
+capability facade:
 
 ```ts
-const tenantPlugin = (tenantId: string) =>
+const publishedOnlyPlugin = () =>
 	plugin({
-		id: 'example.tenant',
+		id: 'example.published-only',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'runtime:constrain': 'Applies tenant row and field restrictions.',
-		},
 		contributions: [
 			provideRuntimeConstraint({
-				contributionId: 'tenant-row-filter',
+				contributionId: 'published-policy',
 				create: () => ({
-					value: constraint({
+					value: protectedPolicy({
 						schema: PostSchema,
-						handler: () =>
-							databaseConstraint('example.tenant', 1, { tenantId }),
-					}),
-				}),
-			}),
-			provideRuntimeConstraint({
-				contributionId: 'tenant-visible-fields',
-				create: () => ({
-					value: restrictSelection({
-						schema: PostSchema,
-						handler: () => ['id', 'title'],
+						evaluate: () => ({
+							rowFilter: { field: 'published', kind: 'equal', value: true },
+							selectionFields: ['id', 'title'],
+						}),
 					}),
 				}),
 			}),
@@ -1583,18 +1561,17 @@ const tenantPlugin = (tenantId: string) =>
 	})
 ```
 
-`guard` only allows or throws. `constraint` returns protected namespaced,
-versioned `databaseConstraint` nodes that Runtime appends for the adapter. The
-version selects the exact payload contract registered by its compiler.
-`restrictInput`, `restrictSelection`, and `restrictOutput` return allowed field
-names that compose by intersection. Restricted mutation input is rejected,
-while selection and output restrictions project excluded fields away. Runtime
-evaluates guards, constraints, input restrictions, and selection restrictions
-before business effects, keeps the accumulated state private, then reevaluates
-monotonically and reapplies input and selection limits after operation
-transforms. It evaluates output restrictions once against the fully transformed
-result. No policy
-contribution means no enforcement stage or permission placeholder.
+`guard` only allows or throws. A protected policy's `evaluate` effects may deny
+the request (`allowed: false`), AND private row filters, and return allowed
+`inputFields` and `selectionFields` that compose by intersection. ADR-0289
+removed the opaque `constraints` effect, `databaseConstraint` and the adapter
+constraint compilers: no production policy produced them. Restricted mutation
+input is rejected, while selection restrictions project excluded fields away,
+again after business result transforms. `restrictResult` may only omit values from the final result.
+Runtime evaluates guards and protected policies before business effects, keeps
+the accumulated state private, then reevaluates guards and reapplies input and
+selection limits after operation transforms. No policy contribution means no
+enforcement stage or permission placeholder.
 Each definition may opt into `master: "bypass"`; omission enforces it for
 master too, so trusted provider-internal queries skip only explicitly bypassable
 policy work before hook-recursion checks.
@@ -1730,11 +1707,14 @@ export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
 Capability providers and requirements, operations, static declarations, and
 the optional application resource all enter `contributions`. Core compiles that
 list once into its native immutable plugin plan; there is no second setup/hooks
-authoring model behind `plugin()`. It derives required privilege names from the
-contribution types; `permissions` supplies only their reviewable reasons. A
-callback that needs an additional privileged facade uses
-`withPluginPrivileges()` around that exact contribution, keeping the power next
-to the code that consumes it.
+authoring model behind `plugin()`. It derives every required privilege from the
+contribution types and reports each one with a description generated from the
+contribution that needs it. `permissions` optionally replaces that description
+with an author reason; it is required only for the critical `authority:elevate`
+and `storage:private` privileges, and a reason for a privilege the plugin does
+not derive fails construction. A callback that needs an additional privileged
+facade uses `withPluginPrivileges()` around that exact contribution, keeping
+the power next to the code that consumes it.
 
 An application resource that only owns lifecycle work may omit `exports`:
 
@@ -1763,45 +1743,21 @@ exclusive service maps to a `single` application capability, while behavior
 intended for application developers is exposed through the owning plugin's
 typed setup export.
 
-### Adapter bridge capabilities
+### Adapter boundaries
 
-Portable plugins negotiate adapter behavior through four independent Core
-tokens: `adapterValueStorageCapability`, `adapterConstraintCapability`,
-`adapterPersistencePlanCapability`, and `adapterPhysicalSchemaCapability`.
-Requiring one needs `adapter:consume` and fails during application assembly
-when no compatible provider exists. Providers use `provideAdapterCapability()`;
-a generic capability declaration cannot present itself as adapter support.
-
-Database-specific packages define physical-schema contribution tokens with
-`defineAdapterContributionCapability()`. Core attaches the actual plugin and
-instance IDs, package/protocol versions, contribution ID, adapter family,
-normalized static options and payload before composition. Providers cannot
-claim another owner. Both providing and consuming physical metadata require
-`adapter:consume`; all physical snapshot fields remain available.
+Portable plugins reach the database only through Core's neutral adapter
+contracts (`databaseAdapterCapability`, `databasePersistencePlanCapability`
+and the private-storage protocol). ADR-0289 removed the test-only adapter
+support tokens, attributed physical-schema contributions, raw adapter leases
+with the `adapter:raw` privilege, and database constraint compilers with the
+`adapter:consume` privilege; a future community need reopens them with a real
+consumer and a new ADR.
 
 ADR-0266 removes migration support/intent tokens, `planAdapterMigrations`,
 its exclusive types and `migration:contribute`. Core no longer classifies
 contribution upgrades or orphans. This does not authorize destructive storage
 cleanup: current PostgreSQL synchronization preserves unmatched storage.
 A future database migration product must decide its integration separately.
-
-Raw integration is deliberately adapter-specific. The adapter package exports
-a nominal token created with `defineAdapterRawCapability()`, and the consumer
-must require that exact token plus `adapter:raw`. Setup and operation handlers
-receive only the Core-owned lease callback:
-
-```ts
-const databaseRaw = requireCapability(databaseRawCapability, '^1.0.0')
-
-setup: ({ adapters }) =>
-	adapters.withRaw(databaseRaw, async (database) => {
-		return database.inspectDialect()
-	})
-```
-
-The facade is revoked when the callback settles. Runtime raw access additionally
-requires an active transaction and receives no request authority, Master grant,
-protected-constraint controls, or generic SQL contract from Core.
 
 ### Owner-private plugin storage
 
@@ -1878,7 +1834,6 @@ export const databasePlugin = () =>
 		id: 'fixture.database',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: { 'adapter:consume': 'Uses the configured database adapter.' },
 		environment: ['environment:network'],
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
 		contributions: [
@@ -1895,7 +1850,7 @@ export const databasePlugin = () =>
 
 The manifest snapshots a namespaced stable `pluginId`, an optional explicit
 `instanceId`, the plugin's canonical semantic version, its supported Core
-range, exact requested privileges with reasons, and direct Node.js environment
+range, exact derived privileges with reasons, and direct Node.js environment
 claims. Enforceable privileges and informational environment claims are
 separate contracts. The closed privilege vocabulary has documented Core facade
 ownership and severity; wildcard requests are invalid. Direct filesystem and
@@ -1908,7 +1863,7 @@ register arbitrary declarations or extra output files.
 ADR-0265 removes `typegenEmitterCapability` and `TypegenEmitterCapability`.
 Reference declarations request `typegen:reference` directly; they do not depend
 on an installed generator marker. Typegen generates from its setup callback.
-Generic capability conflicts, requirements and conditional privileges remain;
+Generic capability conflicts and requirements remain;
 Core no longer designates a unique emitter through a shared token. Repeating
 the official Typegen plugin still conflicts on its plugin identity.
 
@@ -1931,12 +1886,6 @@ const consumer = plugin({
 	id: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'event:publish': {
-			reason: 'Publishes audit records when a sink is installed.',
-			when: auditRequirement,
-		},
-	},
 	contributions: [auditRequirement],
 })
 ```
@@ -1997,11 +1946,10 @@ Core still validates the provider and version before materializing all
 application capabilities, but setup-phase requirements cannot be read by an
 application capability factory and do not establish `connect`, `stop`, or
 `dispose` order. Application resources are isolated per application and
-disposed after their owner's plugin `dispose` hook. A conditional privilege
-must reference the same optional requirement object listed by its manifest.
-Every application capability factory also receives its Core-bound `owner` and
-an `assertPrivilege(...)` function for exact effect-time checks; neither value
-can grant a privilege missing from the plugin's active manifest.
+disposed after their owner's plugin `dispose` hook. Every application
+capability factory also receives its Core-bound `owner` and an
+`assertPrivilege(...)` function for exact effect-time checks; neither value can
+grant a privilege missing from the plugin's manifest.
 
 Factories also receive `callbacks`, an application-bound execution-attribution
 helper for vertical engines that host callbacks from several owners. Use
@@ -2046,11 +1994,11 @@ const WorkflowApplication = UltimaBase.use(
 const ultimabase = new WorkflowApplication({
 	schemas: [PostSchema],
 	pluginPrivileges: {
-		deny: ['adapter:raw'],
+		deny: ['authority:elevate'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
-				deny: ['adapter:raw'],
+				deny: ['authority:elevate'],
 				instances: {
 					editorial: {
 						deny: ['transport:expose'],
@@ -2062,19 +2010,18 @@ const ultimabase = new WorkflowApplication({
 })
 ```
 
-`deny` prevents an active request for an enforceable Core facade.
+`deny` prevents a derived request for an enforceable Core facade.
 `denyClaims` rejects a plugin that announces direct filesystem, network,
 process, or native-code behavior; it never claims to sandbox trusted in-process
 JavaScript. Unknown privileges, claims, plugin IDs, and instance IDs are
-configuration errors. Denied active requests and claims produce one aggregate
-`PLUGIN_PRIVILEGE_DENIED` error, while a denied capability-conditioned request
-remains inspectable and harmless when its optional capability is absent.
-Every denial identifies the exact plugin and optional instance, reason, review
-severity, and whether policy blocked execution before static declaration or a
-later Core facade rejected the effect.
+configuration errors. Denied requests and claims produce one aggregate
+`PLUGIN_PRIVILEGE_DENIED` error before any plugin callback runs. Every denial
+identifies the exact plugin and optional instance, reason, review severity, and
+whether policy blocked execution before static declaration or a later Core
+facade rejected the effect.
 
 The default logger emits one ordered report through `console.info`, or through
-`console.error` when active requests are denied. Set
+`console.error` when requests are denied. Set
 `pluginPrivileges.logger: false` to silence it, or provide `{ info, error }` to
 route the same immutable report elsewhere. Logger failures are isolated from
 policy results. `application.pluginPrivilegeReport` exposes the detached report
@@ -2133,7 +2080,6 @@ Milestone 14 maps the removed generic paths as follows:
 - physical persistence rewrites use the ordered
   `persistencePlanRewriterCapability` and exact
   `providePersistencePlanRewriter()` facade under `persistence:rewrite`;
-- database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
   `requestSubjectReferenceCleanupCapability`;
 - legacy ownership claims disappear because compiled schemas already retain owner
@@ -2141,8 +2087,8 @@ Milestone 14 maps the removed generic paths as follows:
 - unused operator, generator, and transport registry categories are removed
   without replacement.
 
-Core owns normalization and transaction commit. Plugins use
-`beforeOperation`, `afterOperation` or `preparedOperation` with
+Core owns normalization and transaction commit. Plugins use Runtime behavior
+stages with `provideRuntimeBehavior()` or `preparedOperation` with
 `provideRuntimeInterceptor()` under `runtime:intercept`; they cannot contribute
 normalization/commit stages. ADR-0264 removes `runtimePipelineStage()` and its
 four authoring types. Transactions, Hook `beforeCommit`/`afterCommit`, callback
@@ -2154,8 +2100,8 @@ separating plugin-owned schema-mutation identity from its Core-compiled
 `delete-one` to `update-one` and `delete-many` to `update-many`. A rewriter
 receives the logical operation and an immutable
 target, data, returning, and provenance plan, but never receives protected row
-filters or adapter constraints. Core keeps those restrictions in the adapter
-request envelope and applies them to the final physical statement. Adapters
+filters. Core keeps those restrictions in the adapter request envelope and
+applies them to the final physical statement. Adapters
 must advertise `databasePersistencePlanCapability`; missing versions or plan
 kinds fail before an adapter effect. Rewrites use neither nested Runtime
 operations nor master authority.

@@ -69,7 +69,7 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: ['environment:network'],
 			pluginId: '@ultimabase/postgres-plugin',
-			privileges: ['schema:declare', 'adapter:consume'],
+			privileges: ['schema:declare'],
 		},
 		{
 			environment: [],
@@ -91,10 +91,10 @@ it('publishes the audited privilege and environment contract for every official 
 			pluginId: '@ultimabase/soft-delete-plugin',
 			privileges: [
 				'schema:declare',
+				'model:extend',
+				'operation:declare',
 				'runtime:constrain',
 				'persistence:rewrite',
-				'operation:declare',
-				'model:extend',
 				'transport:expose',
 				'typegen:reference',
 			],
@@ -134,10 +134,10 @@ it('publishes the audited privilege and environment contract for every official 
 			pluginId: '@ultimabase/acl-permissions-plugin',
 			privileges: [
 				'schema:declare',
-				'authority:elevate',
-				'runtime:constrain',
 				'runtime:intercept',
+				'runtime:constrain',
 				'event:publish',
+				'authority:elevate',
 			],
 		},
 		{
@@ -145,9 +145,9 @@ it('publishes the audited privilege and environment contract for every official 
 			pluginId: '@ultimabase/roles-plugin',
 			privileges: [
 				'schema:declare',
-				'authority:elevate',
 				'runtime:intercept',
 				'event:publish',
+				'authority:elevate',
 			],
 		},
 		{
@@ -162,10 +162,10 @@ it('publishes the audited privilege and environment contract for every official 
 				'schema:declare',
 				'storage:private',
 				'operation:declare',
+				'runtime:intercept',
 				'transport:expose',
 				'typegen:reference',
 				'authority:elevate',
-				'runtime:intercept',
 			],
 		},
 		{

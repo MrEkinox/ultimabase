@@ -32,10 +32,6 @@ import {
 	type PgTable,
 } from 'drizzle-orm/pg-core'
 
-import {
-	compilePostgresConstraints,
-	type PostgresConstraintCompilerRegistry,
-} from '../constraints/compiler.js'
 import { required } from '../required.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import {
@@ -164,7 +160,6 @@ const resolveRelatedTarget = (
 /** Creates one request-local compiler so nested aliases remain deterministic. */
 export const createPostgresRelationPredicateCompiler = (
 	catalog: PostgresSchemaCatalog,
-	constraintCompilers: PostgresConstraintCompilerRegistry,
 	scopes: readonly DatabaseRelationPredicateScope[],
 ): PostgresRelationPredicateCompiler => {
 	let relationDepth = 0
@@ -194,16 +189,10 @@ export const createPostgresRelationPredicateCompiler = (
 		// may allocate nested aliases from this same request-local counter.
 		const compileTargetPolicy = (
 			target: CompiledPostgresSchema,
-		): readonly [SQL | undefined, SQL | undefined] => [
-			compilePostgresConstraints(
-				constraintCompilers,
-				target,
-				scope.constraints,
-			),
+		): SQL | undefined =>
 			scope.rowFilter === undefined
 				? undefined
-				: compilePostgresRowFilter(scope.rowFilter, target, compile),
-		]
+				: compilePostgresRowFilter(scope.rowFilter, target, compile)
 
 		relationDepth += 1
 
@@ -218,7 +207,7 @@ export const createPostgresRelationPredicateCompiler = (
 				`__ultimabase_relation_target_${String(depth)}`,
 			)
 			const target = rebindCompiledPostgresSchema(relation.target, targetAlias)
-			const [targetConstraint, targetAccess] = compileTargetPolicy(target)
+			const targetAccess = compileTargetPolicy(target)
 			const sourceId = resolveCompiledPostgresField(source, 'id').column
 			const developerPredicate = compilePostgresFilter(
 				predicate.expression,
@@ -273,12 +262,7 @@ export const createPostgresRelationPredicateCompiler = (
 			return exists(
 				edges
 					.where(
-						and(
-							eq(sourceEdge, sourceId),
-							targetConstraint,
-							targetAccess,
-							developerPredicate,
-						),
+						and(eq(sourceEdge, sourceId), targetAccess, developerPredicate),
 					)
 					.having(comparisons),
 			)
@@ -295,7 +279,7 @@ export const createPostgresRelationPredicateCompiler = (
 					targetSchema,
 					table as PgTable,
 				)
-				const [targetConstraint, targetAccess] = compileTargetPolicy(target)
+				const targetAccess = compileTargetPolicy(target)
 				const developerPredicate = compilePostgresFilter(
 					predicate.expression,
 					target,
@@ -304,7 +288,6 @@ export const createPostgresRelationPredicateCompiler = (
 
 				return required(
 					and(
-						targetConstraint,
 						targetAccess,
 						predicate.operator === 'every'
 							? not(developerPredicate)

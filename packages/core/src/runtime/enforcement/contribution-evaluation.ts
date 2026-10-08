@@ -16,7 +16,6 @@ import {
 } from '@ultimabase/shared'
 
 import type { RequestContext } from '../context/request-context.js'
-import type { DatabaseConstraintNode } from '../database/contracts.js'
 import {
 	createContributionCallbackDescriptor,
 	readOwnedRuntimeContributions,
@@ -37,7 +36,6 @@ import {
 } from './definitions.js'
 import {
 	appendEnforcementRowFilter,
-	appendEnforcementConstraints,
 	createEnforcementState,
 	narrowEnforcementFields,
 	type EnforcementState,
@@ -204,7 +202,7 @@ export const normalizeEnforcementRestrictedFields = (
 	return immutableArray(normalized)
 }
 
-/** Evaluates every non-output policy once while keeping accumulated state private. */
+/** Evaluates every guard and protected policy once while keeping accumulated state private. */
 export const evaluateEnforcementContributions = async <
 	const TOperation extends RuntimeLogicalOperationAst,
 >(
@@ -256,9 +254,6 @@ export const evaluateEnforcementContributions = async <
 			if (effects.allowed === false) {
 				throw createProtectedPolicyDeniedError()
 			}
-			if (effects.constraints !== undefined) {
-				state = appendEnforcementConstraints(state, effects.constraints)
-			}
 			if (effects.rowFilter !== undefined) {
 				const rowFilter = normalizeWhereInput(
 					schema,
@@ -277,34 +272,19 @@ export const evaluateEnforcementContributions = async <
 			continue
 		}
 
-		if (
-			implementation.kind === 'restrictOutput' ||
-			!matchesEnforcementContribution(implementation, operation, schema)
-		) {
+		if (!matchesEnforcementContribution(implementation, operation, schema)) {
 			continue
 		}
 
+		// Guards are deny-only: they reject by throwing and never add an effect.
 		const output: unknown = await runtime.invoke(
 			createEnforcementExecutionDescriptor(owned, operation),
 			context,
 			() => implementation.run(createHandlerInput() as never),
 		)
-
-		if (implementation.kind === 'guard') {
-			if (output !== undefined) {
-				throw new TypeError(
-					`Enforcement guard "${contribution.name}" must return undefined`,
-				)
-			}
-		} else if (implementation.kind === 'constraint') {
-			state = appendEnforcementConstraints(
-				state,
-				output as DatabaseConstraintNode | readonly DatabaseConstraintNode[],
-			)
-		} else {
-			narrow(
-				implementation.kind === 'restrictInput' ? 'input' : 'selection',
-				output,
+		if (output !== undefined) {
+			throw new TypeError(
+				`Enforcement guard "${contribution.name}" must return undefined`,
 			)
 		}
 	}

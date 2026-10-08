@@ -99,9 +99,9 @@ it('generates and packs exact PostgreSQL option autocomplete', async () => {
 	const sourceWithMarkers = `${generated.contents}
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import type { PostgresAdapterMetadata } from '@ultimabase/postgres-plugin'
-// @ts-expect-error Migration metadata was removed by ADR-0266.
-void (undefined as unknown as PostgresAdapterMetadata).migrations
+import type { PostgresPluginExports } from '@ultimabase/postgres-plugin'
+// @ts-expect-error Migration (ADR-0266) and physical (ADR-0289) adapter metadata were removed.
+void (undefined as unknown as PostgresPluginExports).adapterMetadata
 declare const postgresField: Plugin0_PostgresFieldOption
 declare const postgresSchema: Plugin0_PostgresSchemaOption
 const App = UltimaBase.use(postgresPlugin({ url: 'postgresql://localhost/fixture' }))
