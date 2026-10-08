@@ -128,6 +128,13 @@ l'utilisateur.
 - Liens morts des ADR vers `issues/` et `docs/plans/` : remplacer par une
   mention du tag `reference-archive`.
 
+## À faire au moment de rendre le dépôt public
+
+- Activer le « private vulnerability reporting » de GitHub
+  (`gh api -X PUT repos/MrEkinox/ultimadatabase/private-vulnerability-reporting`) :
+  indisponible tant que le dépôt est privé (réponse 404 le 2026-10-08), alors
+  que `SECURITY.md` et le code de conduite y renvoient déjà.
+
 ## Prochaine action vérifiable
 
 Fait : branche fusionnée et poussée (`main` à `ebd9b4ef`, CI verte, 30 jobs).
