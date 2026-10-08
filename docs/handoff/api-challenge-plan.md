@@ -117,6 +117,12 @@ s'écrive, avec plusieurs variantes là où le choix est ouvert :
 - des tests de types : ce qui doit compiler, ce qui doit échouer
   (`@ts-expect-error`).
 
+Entrées de conception tirées du futur projet de l'utilisateur (à mettre en
+production) : un champ fichier, un abonnement temps réel et une évolution de
+schéma (ajout de colonne, renommage de champ) figurent dans l'application de
+référence. L'API cible doit pouvoir les accueillir sans contorsion, même s'ils
+sont construits plus tard.
+
 Revue avec l'utilisateur : choix des formes souhaitées avant tout prototype.
 
 ### 3. Laboratoire de typage
@@ -161,6 +167,13 @@ connaissance dans Core, exemples, `create-app`, site, tests publics (changés
 volontairement, chaque changement justifié). Le fichier de configuration et
 le CLI suivent sur décision de l'utilisateur.
 
+### Volet parallèle : migrations PostgreSQL
+
+Brique la plus bloquante pour la production. Elle dépend de la forme
+compilée des schémas et de PostgreSQL, peu de la syntaxe d'écriture :
+conception (ADR, l'ADR-0266 les avait reportées) pendant les phases 3 et 4,
+implémentation dès le choix de l'API cible, en parallèle de la phase 6.
+
 ### 7. Façade `definePlugin`
 
 Sur l'API retenue, dans `plugin-kit`, sans dépendance vers un plugin concret.
@@ -181,3 +194,9 @@ Sur l'API retenue, dans `plugin-kit`, sans dépendance vers un plugin concret.
   étape.
 - Migration large : faite par tranches, chacune validée par
   `yarn validate:full`.
+
+## Après la façade
+
+Fichiers puis temps réel, écrits comme des plugins sur la façade
+`definePlugin` : ils valident la façade et débloquent le projet de
+l'utilisateur, avec les migrations.
