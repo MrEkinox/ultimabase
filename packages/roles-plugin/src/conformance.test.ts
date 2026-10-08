@@ -18,9 +18,9 @@ it('conforms to the public plugin kernel contracts', async () => {
 				pluginId: '@ultimabase/roles-plugin',
 				privileges: [
 					'schema:declare',
-					'authority:elevate',
 					'runtime:intercept',
 					'event:publish',
+					'authority:elevate',
 				],
 				version: '0.0.0',
 			},

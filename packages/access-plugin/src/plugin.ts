@@ -157,12 +157,6 @@ const unlessDenied = async <TResult, TDenied>(
 	}
 }
 
-const accessPluginPermissions = {
-	'schema:declare': 'Declares the official schema and field Access options.',
-	'runtime:constrain':
-		'Applies official Access through protected Runtime policy.',
-} as const
-
 type AccessOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-access-options'
 	readonly field: Readonly<{ access: typeof fieldAccessOption }>
@@ -247,7 +241,6 @@ export const accessPlugin = (
 		id: '@ultimabase/access-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: accessPluginPermissions,
 		contributions: [
 			optionalAccessContributions,
 			optionalAccessDiagnostics,

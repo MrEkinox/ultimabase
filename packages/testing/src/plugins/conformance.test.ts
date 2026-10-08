@@ -295,10 +295,10 @@ describe('plugin conformance suite', () => {
 				core: '^0.0.0',
 				pluginId: 'fixture.conformance-schema-mutation',
 				privileges: [
+					'schema:declare',
 					'model:extend',
 					'operation:declare',
 					'persistence:rewrite',
-					'schema:declare',
 				],
 				version: '1.0.0',
 			},

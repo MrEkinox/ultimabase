@@ -30,7 +30,7 @@ describe('removed kernel powers', () => {
 				version: '1.0.0',
 				core: '^0.0.0',
 				contributions: [],
-				permissions: { [name]: 'Invalid retired privilege.' } as never,
+				permissions: { [name]: 'Invalid retired privilege.' },
 			}),
 		).toThrow()
 		expect(pluginPrivilegeMetadata).not.toHaveProperty(name)

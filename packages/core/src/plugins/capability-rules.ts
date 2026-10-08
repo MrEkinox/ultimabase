@@ -11,7 +11,7 @@ import type {
 	CapabilityToken,
 	PluginCapabilityDeclaration,
 } from './capabilities.js'
-import type { PluginPrivilege } from './manifest.js'
+import type { DerivedPluginPrivilege } from './plugin-permissions.js'
 
 /** Forbids plugin requirements from consuming one protected protocol family. */
 export type CapabilityRequirementRule = Readonly<{
@@ -24,7 +24,7 @@ export interface CapabilityProviderRule {
 	readonly authorized: (declaration: CapabilityProviderDeclaration) => boolean
 	readonly kind: string
 	readonly message: string
-	readonly privilege?: PluginPrivilege
+	readonly privilege?: DerivedPluginPrivilege
 	/** Omits the capability identity from diagnostics that name a fixed protocol. */
 	readonly reportsCapability: boolean
 }
@@ -70,7 +70,10 @@ export const capabilityFamilyRule = (
 				kind: 'persistence-rewriter-provider-factory',
 				message:
 					'Persistence plan rewriters must use providePersistencePlanRewriter.',
-				privilege: 'persistence:rewrite',
+				privilege: {
+					privilege: 'persistence:rewrite',
+					description: 'Registers persistence plan rewriters.',
+				},
 				reportsCapability: false,
 			},
 		}
@@ -81,12 +84,18 @@ export const capabilityFamilyRule = (
 /** Lists the privileges one capability declaration implies, in enforcement order. */
 export const capabilityDeclarationPrivileges = (
 	declaration: PluginCapabilityDeclaration,
-): readonly PluginPrivilege[] => {
-	const rule = capabilityFamilyRule(declaration.token)
+): readonly DerivedPluginPrivilege[] => {
 	// Protected requirements are forbidden outright, so only providers imply privileges.
-	const privileges =
-		declaration.kind === 'capability-provider'
-			? [declaration.token.providerPrivilege, rule?.provider?.privilege]
-			: []
-	return privileges.filter((privilege) => privilege !== undefined)
+	if (declaration.kind !== 'capability-provider') return []
+	const { token } = declaration
+	const derivations: DerivedPluginPrivilege[] = []
+	if (token.providerPrivilege !== undefined) {
+		derivations.push({
+			privilege: token.providerPrivilege,
+			description: `Provides the "${token.capabilityId}" capability.`,
+		})
+	}
+	const providerPrivilege = capabilityFamilyRule(token)?.provider?.privilege
+	if (providerPrivilege !== undefined) derivations.push(providerPrivilege)
+	return derivations
 }

@@ -289,11 +289,6 @@ export const graphqlPlugin = (
 		id: '@ultimabase/graphql-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'schema:declare': 'Declares the direct GraphQL schema exposure option.',
-			'transport:expose':
-				'Generates explicitly configured public GraphQL declarations.',
-		},
 		contributions: [
 			optionalSchemaContributions,
 			applicationProvider,

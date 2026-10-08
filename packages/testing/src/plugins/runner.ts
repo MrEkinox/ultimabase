@@ -264,11 +264,9 @@ export const runPluginConformance = async <
 						'Subject plugin is absent from the privilege report',
 					)
 				}
-				const active = report.privileges
-					.filter(({ active }) => active)
-					.map(({ name }) => name)
-				if (active.length > 0) {
-					await assertDenied(privilegeFixture, { deny: active })
+				const requested = report.privileges.map(({ name }) => name)
+				if (requested.length > 0) {
+					await assertDenied(privilegeFixture, { deny: requested })
 				}
 			})
 		})

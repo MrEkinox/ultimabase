@@ -302,7 +302,7 @@ describe('CapabilityInventory', () => {
 		)
 	})
 
-	it('validates providers, optional requirements, and conditional privileges statically', () => {
+	it('validates providers, optional requirements, and unconditional privileges statically', () => {
 		const optionalAudit = optionalCapability(declarationToken, '^1.0.0')
 		const provider = createPlugin({
 			id: 'fixture.audit-provider',
@@ -319,19 +319,10 @@ describe('CapabilityInventory', () => {
 			id: 'fixture.audit-consumer',
 			version: '1.0.0',
 			core: '^0.0.0',
-			permissions: {
-				'event:publish': {
-					reason: 'Forwards records when the audit sink is installed.',
-					when: optionalAudit,
-				},
-			},
 			contributions: [withPluginPrivileges(optionalAudit, ['event:publish'])],
 		})
 
 		const present = new PluginGraph(normalizePlugins([consumer, provider]))
-		const absent = new PluginGraph(normalizePlugins([consumer]))
-		const [privilege] = consumer.manifest.privileges
-		if (privilege === undefined) throw new TypeError('Missing test privilege')
 
 		expect(present.capabilities.entries).toHaveLength(1)
 		expect(
@@ -345,18 +336,15 @@ describe('CapabilityInventory', () => {
 				contributionId: 'primary',
 			},
 		])
-		expect(
-			present.capabilities.isPrivilegeActive(
-				consumer.manifest.identity,
-				privilege,
-			),
-		).toBe(true)
-		expect(
-			absent.capabilities.isPrivilegeActive(
-				consumer.manifest.identity,
-				privilege,
-			),
-		).toBe(false)
+		// Conditional reasons were removed (ADR-0290): a derived privilege is
+		// requested whether or not the optional protocol is installed.
+		expect(consumer.manifest.privileges).toStrictEqual([
+			{
+				name: 'event:publish',
+				reason: 'Uses the Core event facade from a contribution callback.',
+			},
+		])
+		expect(() => new PluginGraph(normalizePlugins([consumer]))).not.toThrow()
 		expect(Object.isFrozen(present.capabilities.entries)).toBe(true)
 	})
 
@@ -434,9 +422,8 @@ describe('CapabilityInventory', () => {
 		)
 	})
 
-	it('requires privilege conditions to reference the manifest optional declaration', () => {
+	it('rejects removed conditional privilege reasons', () => {
 		const declared = optionalCapability(declarationToken, '^1.0.0')
-		const other = optionalCapability(declarationToken, '^1.0.0')
 
 		expect(() =>
 			createPlugin({
@@ -444,16 +431,17 @@ describe('CapabilityInventory', () => {
 				version: '1.0.0',
 				core: '^0.0.0',
 				permissions: {
+					// @ts-expect-error -- Conditional `when` reasons were removed (ADR-0290).
 					'event:publish': {
-						reason: 'Invalid detached condition.',
-						when: other,
+						reason: 'Removed conditional reason.',
+						when: declared,
 					},
 				},
 				contributions: [withPluginPrivileges(declared, ['event:publish'])],
 			}),
 		).toThrow(
 			new TypeError(
-				'plugin permissions.event:publish.when must reference an optional capability contribution declared by the plugin',
+				'plugin permissions.event:publish must be a non-empty string',
 			),
 		)
 	})

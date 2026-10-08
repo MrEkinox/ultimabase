@@ -9,7 +9,6 @@ import {
 	type CapabilityRequirement,
 	type PluginInstance,
 	type PluginDeclarationContribution,
-	type PluginPrivilegeRequest,
 	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
@@ -117,10 +116,6 @@ const connectionRequirement: CapabilityRequirement<
 	'materialization'
 > = requireCapability(postgresConnectionCapability, '^1.0.0')
 const postgresPluginEnvironment = ['environment:network'] as const
-const postgresPluginPermissions = {
-	'schema:declare':
-		'Declares the official PostgreSQL schema and field options.',
-} as const
 
 type PostgresPluginCapabilities = readonly [
 	CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
@@ -142,7 +137,6 @@ export type PostgresPlugin = PluginInstance<{
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
 	readonly environment: typeof postgresPluginEnvironment
-	readonly privileges: readonly PluginPrivilegeRequest[]
 	readonly capabilities: PostgresPluginCapabilities
 	readonly source: PostgresOptionSource
 }>
@@ -244,7 +238,6 @@ export const postgresPlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		environment: postgresPluginEnvironment,
-		permissions: postgresPluginPermissions,
 		contributions: [
 			connectionProvider,
 			adapterProvider,

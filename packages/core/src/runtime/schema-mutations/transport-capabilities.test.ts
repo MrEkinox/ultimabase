@@ -56,7 +56,7 @@ describe('schema mutation transport binding capability', () => {
 	})
 
 	it('derives the transport privilege from the native contribution', () => {
-		expect(() =>
+		expect(
 			plugin({
 				contributions: [
 					contributeSchemaMutation({
@@ -72,7 +72,10 @@ describe('schema mutation transport binding capability', () => {
 					'persistence:rewrite': 'Persists archive.',
 				},
 				version: '1.0.0',
-			}),
-		).toThrow('Missing plugin permission reason: transport:expose')
+			}).manifest.privileges.find(({ name }) => name === 'transport:expose'),
+		).toStrictEqual({
+			name: 'transport:expose',
+			reason: 'Binds operations to transports.',
+		})
 	})
 })

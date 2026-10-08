@@ -43,14 +43,52 @@ describe('plugin', () => {
 			},
 		})
 
+		// Requests follow Core's privilege vocabulary order, not contribution order.
 		expect(definition.manifest.privileges).toStrictEqual([
-			{ name: 'runtime:observe', reason: 'Records the fixture value.' },
 			{ name: 'schema:declare', reason: 'Declares fixture schema metadata.' },
+			{ name: 'runtime:observe', reason: 'Records the fixture value.' },
 		])
 		expect(definition.manifest.capabilities.provides).toHaveLength(1)
 	})
 
-	it('rejects missing and detached permission reasons before callbacks run', () => {
+	it('generates a description for every derived privilege without a reason', () => {
+		const definition = plugin({
+			id: 'fixture.reasonless',
+			version: '1.0.0',
+			core: '^0.0.0',
+			contributions: [
+				provideCapability(observedCapability, {
+					contributionId: 'observed',
+					create: () => ({ value: 'ready' }),
+				}),
+				contributeDeclarations({
+					schema: () => undefined,
+					models: () => undefined,
+				}),
+				contributeDeclarations({ schema: () => undefined }),
+				withPluginPrivileges(
+					contributeApplication(() => ({ exports: undefined })),
+					['runtime:observe'],
+				),
+			],
+			permissions: { 'model:extend': 'Adds fixture model commands.' },
+		})
+
+		expect(definition.manifest.privileges).toStrictEqual([
+			{
+				name: 'schema:declare',
+				reason: 'Declares schema fields, options or schemas.',
+			},
+			{ name: 'model:extend', reason: 'Adds fixture model commands.' },
+			{
+				name: 'runtime:observe',
+				reason:
+					'Uses the Core runtime facade from a contribution callback. Provides the "fixture.observed-value" capability.',
+			},
+		])
+	})
+
+	it('rejects missing critical and detached permission reasons before callbacks run', () => {
 		let calls = 0
 		const application = contributeApplication(() => {
 			calls += 1
@@ -66,7 +104,36 @@ describe('plugin', () => {
 				contributions: [privileged],
 			}),
 		).toThrow(
-			new TypeError('Missing plugin permission reason: authority:elevate'),
+			new TypeError(
+				'Missing plugin permission reason: authority:elevate is critical and must be declared in permissions with a non-empty reason',
+			),
+		)
+		expect(() =>
+			plugin({
+				id: 'fixture.missing-storage-reason',
+				version: '1.0.0',
+				core: '^0.0.0',
+				contributions: [
+					contributeDeclarations({ privateStorage: () => undefined }),
+				],
+			}),
+		).toThrow(
+			new TypeError(
+				'Missing plugin permission reason: storage:private is critical and must be declared in permissions with a non-empty reason',
+			),
+		)
+		expect(() =>
+			plugin({
+				id: 'fixture.empty-reason',
+				version: '1.0.0',
+				core: '^0.0.0',
+				contributions: [privileged],
+				permissions: { 'authority:elevate': '' },
+			}),
+		).toThrow(
+			new TypeError(
+				'plugin permissions.authority:elevate must be a non-empty string',
+			),
 		)
 		expect(calls).toBe(0)
 

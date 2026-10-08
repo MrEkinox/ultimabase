@@ -87,9 +87,9 @@ describe('open-kernel workflow proof', () => {
 				privileges: [
 					'schema:declare',
 					'operation:declare',
-					'transport:expose',
-					'runtime:intercept',
 					'runtime:observe',
+					'runtime:intercept',
+					'transport:expose',
 					'typegen:reference',
 				],
 				version: '1.0.0',

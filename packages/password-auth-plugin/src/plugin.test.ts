@@ -72,10 +72,10 @@ describe('passwordAuthPlugin identity declaration', () => {
 				{ name: 'schema:declare' },
 				{ name: 'storage:private' },
 				{ name: 'operation:declare' },
+				{ name: 'runtime:intercept' },
 				{ name: 'transport:expose' },
 				{ name: 'typegen:reference' },
 				{ name: 'authority:elevate' },
-				{ name: 'runtime:intercept' },
 			],
 		})
 	})

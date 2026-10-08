@@ -97,73 +97,43 @@ describe('PluginDeclarationHost', () => {
 		)
 	})
 
-	it('exposes only active privilege facades and keeps applications isolated', async () => {
-		const conditionalRequirement = optionalCapability(
-			declarationCapability,
-			'^1.0.0',
-		)
+	it('exposes derived privilege facades and keeps applications isolated', async () => {
 		const plugin = () =>
 			createPlugin({
-				id: 'fixture.conditional-declarer',
+				id: 'fixture.derived-declarer',
 				version: '1.0.0',
 				core: '^0.0.0',
-				permissions: {
-					'schema:declare': {
-						reason: 'Declares alpha when the static protocol is present.',
-						when: conditionalRequirement,
-					},
-				},
 				contributions: [
-					conditionalRequirement,
 					contributeDeclarations({
-						schema: ({ fields }) => {
-							const availableFields: unknown = fields
-							if (availableFields !== undefined) {
-								;(availableFields as typeof fields).register(alphaMethod)
-							}
-
-							return undefined
-						},
+						schema: ({ fields }) => fields.register(alphaMethod),
 					}),
 				],
 			})
-		const provider = createPlugin({
-			id: 'fixture.static-provider',
-			version: '1.0.0',
-			core: '^0.0.0',
-			contributions: [
-				provideCapability(declarationCapability, {
-					contributionId: 'fixture',
-					value: { label: 'available' },
-				}),
-			],
-		})
 
-		const withoutProvider = applicationFixture(
+		const first = applicationFixture(
 			await createApplication({
 				plugins: [plugin()],
+				pluginPrivileges: { logger: false },
 				schemas: [],
 			}),
 		)
-		await withoutProvider.dispose()
-		const withProvider = applicationFixture(
+		await first.dispose()
+		const second = applicationFixture(
 			await createApplication({
-				plugins: [plugin(), provider],
+				plugins: [plugin()],
+				pluginPrivileges: { logger: false },
 				schemas: [],
 			}),
 		)
 
-		expect(withoutProvider.fieldBuilderMethods).toStrictEqual([])
-		expect(withProvider.fieldBuilderMethods.map(({ name }) => name)).toEqual([
+		expect(first.fieldBuilderMethods.map(({ name }) => name)).toEqual(['alpha'])
+		expect(second.fieldBuilderMethods.map(({ name }) => name)).toEqual([
 			'alpha',
 		])
+		await second.dispose()
 	})
 
-	it('resolves every declaration privilege through one active set', async () => {
-		const conditionalRequirement = optionalCapability(
-			declarationCapability,
-			'^1.0.0',
-		)
+	it('resolves every declaration privilege through one derived set', async () => {
 		const properties = [
 			'fields',
 			'models',
@@ -171,72 +141,39 @@ describe('PluginDeclarationHost', () => {
 			'privateStorage',
 			'typegenReferences',
 		] as const
-		const createDeclarer = (observed: boolean[]) => {
-			const observe =
-				(property: (typeof properties)[number]) =>
-				(context: object): undefined => {
-					observed.push(Object.hasOwn(context, property))
-					return undefined
-				}
-			const conditional = (reason: string) => ({
-				reason,
-				when: conditionalRequirement,
-			})
-			return createPlugin({
-				id: 'fixture.all-conditional-declarations',
-				version: '1.0.0',
-				core: '^0.0.0',
-				permissions: {
-					'model:extend': conditional('Extends models.'),
-					'operation:declare': conditional('Declares operations.'),
-					'schema:declare': conditional('Declares schemas.'),
-					'storage:private': conditional('Declares private storage.'),
-					'typegen:reference': conditional('References public types.'),
-				},
-				contributions: [
-					conditionalRequirement,
-					contributeDeclarations({
-						models: observe('models'),
-						operations: observe('operations'),
-						privateStorage: observe('privateStorage'),
-						schema: observe('fields'),
-						typegen: observe('typegenReferences'),
-					}),
-				],
-			})
-		}
-		const provider = createPlugin({
-			id: 'fixture.all-conditional-provider',
+		const observed: boolean[] = []
+		const observe =
+			(property: (typeof properties)[number]) =>
+			(context: object): undefined => {
+				observed.push(Object.hasOwn(context, property))
+				return undefined
+			}
+		const declarer = createPlugin({
+			id: 'fixture.all-declarations',
 			version: '1.0.0',
 			core: '^0.0.0',
+			// Only the critical private-storage privilege needs an author reason.
+			permissions: { 'storage:private': 'Declares private storage.' },
 			contributions: [
-				provideCapability(declarationCapability, {
-					contributionId: 'fixture',
-					value: { label: 'available' },
+				contributeDeclarations({
+					models: observe('models'),
+					operations: observe('operations'),
+					privateStorage: observe('privateStorage'),
+					schema: observe('fields'),
+					typegen: observe('typegenReferences'),
 				}),
 			],
 		})
-		const inactive: boolean[] = []
-		const active: boolean[] = []
-		const withoutProvider = applicationFixture(
+		const application = applicationFixture(
 			await createApplication({
-				plugins: [createDeclarer(inactive)],
-				pluginPrivileges: { logger: false },
-				schemas: [],
-			}),
-		)
-		await withoutProvider.dispose()
-		const withProvider = applicationFixture(
-			await createApplication({
-				plugins: [createDeclarer(active), provider],
+				plugins: [declarer],
 				pluginPrivileges: { logger: false },
 				schemas: [],
 			}),
 		)
 
-		expect(inactive).toEqual(properties.map(() => false))
-		expect(active).toEqual(properties.map(() => true))
-		await withProvider.dispose()
+		expect(observed).toEqual(properties.map(() => true))
+		await application.dispose()
 	})
 
 	it('reads only exact static requirements and closes captured readers', async () => {

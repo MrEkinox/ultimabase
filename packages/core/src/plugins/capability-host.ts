@@ -29,7 +29,7 @@ import {
 	type PluginCapabilityReader,
 } from './capabilities.js'
 import {
-	findActivePrivilegeRequest,
+	hasPluginPrivilege,
 	readCapabilityPlans,
 	readDeclarationCapability,
 	type CapabilityInventory,
@@ -108,7 +108,7 @@ const throwFactoryPrivilegeDenied = (
 ): never => {
 	throw new FrameworkError(
 		'PLUGIN_PRIVILEGE_DENIED',
-		`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" ${purpose}.`,
+		`Plugin "${formatPluginIdentity(owner)}" requires privilege "${privilege}" ${purpose}.`,
 		{
 			internalDetails: {
 				kind: 'capability-factory-privilege-missing',
@@ -437,13 +437,7 @@ export class ApplicationCapabilityHost {
 	#factoryContext(owner: PluginIdentity): ApplicationCapabilityFactoryContext {
 		return immutableRecord({
 			assertPrivilege: (privilege: PluginPrivilege): void => {
-				if (
-					findActivePrivilegeRequest(
-						this.#inventory,
-						this.#graph.get(owner),
-						privilege,
-					) === undefined
-				) {
+				if (!hasPluginPrivilege(this.#graph.get(owner), privilege)) {
 					throwFactoryPrivilegeDenied(
 						owner,
 						privilege,

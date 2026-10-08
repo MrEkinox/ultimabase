@@ -18,10 +18,10 @@ it('conforms to the public plugin kernel contracts', async () => {
 				pluginId: '@ultimabase/acl-permissions-plugin',
 				privileges: [
 					'schema:declare',
-					'authority:elevate',
-					'runtime:constrain',
 					'runtime:intercept',
+					'runtime:constrain',
 					'event:publish',
+					'authority:elevate',
 				],
 				version: '0.0.0',
 			},

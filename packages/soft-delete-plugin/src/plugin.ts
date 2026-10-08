@@ -42,18 +42,6 @@ import {
 	restoreMutation,
 } from './administration.js'
 
-const softDeletePluginPermissions = {
-	'schema:declare': 'Declares the direct soft-delete schema option.',
-	'runtime:constrain': 'Keeps tombstoned rows outside ordinary operations.',
-	'persistence:rewrite':
-		'Persists soft-delete effects as atomic tombstone updates.',
-	'operation:declare': 'Declares soft-delete and administration mutations.',
-	'model:extend': 'Adds soft-delete commands to enabled schema handles.',
-	'transport:expose': 'Binds explicit soft delete to REST and GraphQL.',
-	'typegen:reference':
-		'Preserves payload-free soft-delete commands in Typegen.',
-} as const
-
 const tombstoneField: BooleanField<
 	ScalarFieldTypegenState<true, false, false, true>
 > = booleanField({ default: false, required: true })
@@ -314,7 +302,6 @@ export const softDeletePlugin = <
 		...(normalized.instanceId === undefined
 			? {}
 			: { instanceId: normalized.instanceId }),
-		permissions: softDeletePluginPermissions,
 		contributions: [
 			visibilityProvider,
 			replaceDeleteProvider,

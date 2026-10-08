@@ -39,7 +39,7 @@ export interface CapabilityToken<
 	readonly version: TVersion
 	readonly cardinality: TCardinality
 	readonly lifetime: TLifetime
-	/** Requires every provider owner to declare this active privilege. */
+	/** Requires every provider owner to request this privilege. */
 	readonly providerPrivilege?: PluginPrivilege
 }
 

@@ -52,17 +52,10 @@ test('selects exact declaration facades from privileges and requirements', () =>
 	})
 
 	createPlugin({
-		id: 'fixture.conditional-schema-authority',
+		id: 'fixture.reasonless-schema-authority',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'schema:declare': {
-				reason: 'Declares fields only with the optional protocol.',
-				when: optionalStatic,
-			},
-		},
 		contributions: [
-			optionalStatic,
 			contributeDeclarations({
 				schema: ({ fields }) => {
 					expectTypeOf(fields).toEqualTypeOf<PluginFieldFamilyRegistrar>()
@@ -71,6 +64,20 @@ test('selects exact declaration facades from privileges and requirements', () =>
 				},
 			}),
 		],
+	})
+
+	createPlugin({
+		id: 'fixture.removed-conditional-reason',
+		version: '1.0.0',
+		core: '^0.0.0',
+		permissions: {
+			// @ts-expect-error -- Conditional `when` reasons were removed (ADR-0290).
+			'schema:declare': {
+				reason: 'Declares fields only with the optional protocol.',
+				when: optionalStatic,
+			},
+		},
+		contributions: [optionalStatic],
 	})
 })
 
