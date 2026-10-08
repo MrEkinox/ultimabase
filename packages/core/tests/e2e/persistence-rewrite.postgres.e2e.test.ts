@@ -93,7 +93,7 @@ describe(
 								transformResult: ({ operation, result }) => {
 									if (isSoftDeleteOne(operation)) {
 										const value: unknown = result
-										const title =
+										const title: unknown =
 											typeof value === 'object' && value !== null
 												? Reflect.get(value, 'title')
 												: undefined
