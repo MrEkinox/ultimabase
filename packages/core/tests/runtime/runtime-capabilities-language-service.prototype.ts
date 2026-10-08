@@ -235,7 +235,7 @@ void (undefined as unknown as RemovedMigration5)
 const removedAdapterFamily: core.AdapterCapabilityFamily = 'migration'
 // @ts-expect-error Migration is no longer a contribution family.
 const removedContributionFamily: core.AdapterContributionFamily = 'migration'
-// @ts-expect-error Migration no longer names a privilege facade.
+// @ts-expect-error Privilege facades are no longer public metadata (ADR-0289).
 const removedMigrationFacade: core.PluginPrivilegeFacade = 'migration'
 void [removedAdapterFamily, removedContributionFamily, removedMigrationFacade]
 
@@ -271,3 +271,11 @@ void (undefined as unknown as RemovedRestriction1)
 // @ts-expect-error Removed constraint contracts are no longer public.
 type RemovedConstraint0 = core.ConstraintDefinition
 void (undefined as unknown as RemovedConstraint0)
+// @ts-expect-error Separate schema-mutation bindings were removed; contributeSchemaMutation binds.
+void core.contributeSchemaMutationBinding
+// @ts-expect-error Privilege metadata stays internal to Core's policy reports.
+void core.pluginPrivilegeMetadata
+// @ts-expect-error Environment-claim metadata stays internal to Core's policy reports.
+void core.pluginEnvironmentClaimMetadata
+// @ts-expect-error The environment-claim vocabulary list stays internal.
+void core.pluginEnvironmentClaims

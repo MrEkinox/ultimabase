@@ -4,10 +4,12 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 	contributeDeclarations,
-	pluginEnvironmentClaimMetadata,
-	pluginPrivilegeMetadata,
 	withPluginPrivileges,
 } from '../index.js'
+import {
+	pluginEnvironmentClaimMetadata,
+	pluginPrivilegeMetadata,
+} from './manifest.js'
 
 const observeContribution = () =>
 	withPluginPrivileges(

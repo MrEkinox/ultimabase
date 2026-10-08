@@ -2,7 +2,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
-	contributeSchemaMutationBinding,
+	contributeSchemaMutation,
 	defineOperationValue,
 	plugin,
 	defineSchemaMutation,
@@ -58,9 +58,19 @@ describe('schema mutation transport binding capability', () => {
 	it('derives the transport privilege from the native contribution', () => {
 		expect(() =>
 			plugin({
-				contributions: [contributeSchemaMutationBinding(binding)],
+				contributions: [
+					contributeSchemaMutation({
+						bindings: [binding],
+						mutation,
+						resolve: () => ({ data: {} }),
+					}),
+				],
 				core: '^0.0.0',
 				id: 'fixture.schema-mutation-transport-no-privilege',
+				permissions: {
+					'operation:declare': 'Declares archive.',
+					'persistence:rewrite': 'Persists archive.',
+				},
 				version: '1.0.0',
 			}),
 		).toThrow('Missing plugin permission reason: transport:expose')

@@ -4,7 +4,6 @@ import {
 	contributeOperation,
 	contributeOperationBinding,
 	contributeSchemaMutation,
-	contributeSchemaMutationBinding,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
@@ -120,7 +119,6 @@ test('infers schema-mutation contributions through the same Core factory', () =>
 		},
 		mutation: archive,
 	})
-	const externalBinding = contributeSchemaMutationBinding(mutationBinding)
 
 	expectTypeOf(direct).toEqualTypeOf<
 		PluginSchemaMutationContribution<
@@ -129,7 +127,6 @@ test('infers schema-mutation contributions through the same Core factory', () =>
 		>
 	>()
 	expectTypeOf(resource.mutation).toEqualTypeOf<typeof archive>()
-	expectTypeOf(externalBinding.binding).toEqualTypeOf<typeof mutationBinding>()
 })
 
 test('rejects handlers whose results do not match the operation', () => {

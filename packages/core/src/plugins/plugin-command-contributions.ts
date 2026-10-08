@@ -20,7 +20,6 @@ import type {
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
-	PluginSchemaMutationBindingContribution,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
 	PluginSchemaMutationResource,
@@ -341,25 +340,5 @@ export const contributeSchemaMutation = <
 			}),
 			transports: immutableArray(bindings.map(planPluginCommandBinding)),
 		},
-	)
-}
-
-/** Contributes only one binding under the schema mutation's exact owner. */
-export const contributeSchemaMutationBinding = <
-	const TBinding extends SchemaMutationTransportBindingDefinition,
->(
-	binding: TBinding,
-): PluginSchemaMutationBindingContribution<TBinding> => {
-	if (!isSchemaMutationTransportBinding(binding)) {
-		throw new TypeError(
-			'plugin schema mutation binding contribution requires a schemaMutationTransportBinding',
-		)
-	}
-	return registerCommand(
-		immutableRecord({
-			binding,
-			kind: 'plugin-schema-mutation-binding-contribution' as const,
-		}),
-		{ transports: immutableArray([planPluginCommandBinding(binding)]) },
 	)
 }
