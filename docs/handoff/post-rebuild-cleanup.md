@@ -57,9 +57,27 @@ Décisions de l'utilisateur (2026-10-08) :
     `sideEffects`), puis exit 0 après restauration.
   - Limite de corps password-auth : l'e2e échoue sans le correctif
     (`expected 200 to be 401`) et passe avec (5/5).
-- Phase 5 : en cours. Fait : `assertPlainObject` remplace 86 gardes
-  (`1efe939b`, Core unit/types 276 fichiers / 1 417 tests) ; correction
-  `typecheck` après `build`.
+- Phase 5 : `1efe939b` (`assertPlainObject`, 86 gardes), `d348771b`
+  (`typecheck` après `build`), `18b4d8da` (import séquentiel de l'exemple
+  minimal, `testTimeout` 20 s des projets postgres-e2e : 55 suites / 191 tests
+  de `tests/e2e` passent).
+- Gate final sur `18b4d8da` (arbre de build propre) :
+  - premier `validate:full` : un seul échec, le budget relatif
+    `hybrid-authoring` de Typegen pendant la couverture (318,98 ms pour
+    318,59 ms, +0,12 %) ; relancé seul 3/3 réussis ;
+  - second `validate:full` complet : exit 0 en 1 085 s ; `yarn test` 567 /
+    2 705 ; couverture 646 / 2 969, 92,54 / 86,36 / 97,35 / 93,14 ;
+  - DX audit : 0 différence (35 775 enregistrements).
+- Taille (`yarn measure:size`, lignes non vides) : documentation 89 445 →
+  42 774, outillage 7 814 → 5 694, tests 128 181 → 127 803, production
+  104 141 → 104 099 ; fichiers suivis 3 068 → 2 090.
+
+## Prochaine action vérifiable
+
+Revue par l'utilisateur, puis fusion `--no-ff` de `cleanup/post-rebuild` dans
+`main` et suppression de ce fichier. Pousser la branche, `main` et les tags
+`reference-archive` / `rebuild-archive`, et fermer la PR GitHub #1, exigent
+chacun une confirmation explicite.
 
 ## Constat corrigé : `typecheck` après `build`
 
