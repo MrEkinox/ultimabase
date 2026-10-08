@@ -215,12 +215,12 @@ describe('plugin schema mutation Runtime', () => {
 		expect(rewrites).toStrictEqual(['plugin-schema-mutation:update-one'])
 	})
 
-	it('retains protected constraints from target lock through the final write', async () => {
+	it('retains the protected row filter on the target lock', async () => {
 		const id = '0199325a-0c00-7000-8000-000000000108'
 		const previous = row(id, 'published')
 		const current = row(id, 'archived')
 		const fixture = await createUpdateFixture({
-			protectedConstraint: true,
+			protectedRowFilter: true,
 			results: [
 				{
 					materializations: [{ current, kind: 'update', previous }],
@@ -237,20 +237,11 @@ describe('plugin schema mutation Runtime', () => {
 
 		await archive({ id, input: { reason: 'constrained' } })
 
-		expect(fixture.adapter.transactions[0]?.requests[0]?.constraints).toEqual([
-			expect.objectContaining({
-				kind: 'fixture.schema-mutation-tenant',
-				version: 1,
-			}),
-		])
-		expect(fixture.adapter.transactions[0]?.executions[0]?.constraints).toEqual(
-			[
-				expect.objectContaining({
-					kind: 'fixture.schema-mutation-tenant',
-					version: 1,
-				}),
-			],
-		)
+		expect(fixture.adapter.transactions[0]?.requests[0]?.rowFilter).toEqual({
+			field: 'title',
+			kind: 'equal',
+			value: 'visible',
+		})
 	})
 
 	it('rolls back cancellation after the owner handler and before persistence', async () => {

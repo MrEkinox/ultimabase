@@ -1,13 +1,7 @@
 import { SchemaRegistry, UltimaBase } from '@ultimabase/core'
-import { isPlainRecord } from '@ultimabase/shared'
 
 import { createPostgresDatabaseAdapter } from '../../src/drizzle/adapter.js'
 
-import type { PostgresConstraintCompilerRegistry } from '../../src/constraints/compiler.js'
-import {
-	postgresConstraintCompiler,
-	type PostgresConstraintCompilerDefinition,
-} from '../../src/constraints/definition.js'
 import { PostgresSchemaCatalog } from '../../src/schema/catalog.js'
 import {
 	FixtureDriver,
@@ -64,53 +58,7 @@ export const relationCatalog = new PostgresSchemaCatalog(
 	relationRegistry.resolveSchemaTargets(),
 )
 
-export const decodeTenantPayload = (
-	payload: unknown,
-): { readonly tenantId: string } => {
-	if (!isPlainRecord(payload) || typeof payload.tenantId !== 'string') {
-		throw new TypeError('invalid tenant payload')
-	}
-
-	return { tenantId: payload.tenantId }
-}
-
-export const tenantCompiler = postgresConstraintCompiler({
-	kind: 'fixture.tenant',
-	version: 1,
-	decode: decodeTenantPayload,
-	compile: ({ field, payload, sql }) =>
-		sql`${field('note')} = ${payload.tenantId}`,
-})
-export const visibilityCompiler = postgresConstraintCompiler({
-	kind: 'fixture.visibility',
-	version: 1,
-	decode: (payload) => {
-		if (typeof payload !== 'string') {
-			throw new TypeError('invalid visibility payload')
-		}
-
-		return payload
-	},
-	compile: ({ field, payload, sql }) => sql`${field('title')} = ${payload}`,
-})
-
-/** Creates one live-looking read view without duplicating Core registry behavior. */
-export const createConstraintCompilerRegistry = (
-	...definitions: readonly PostgresConstraintCompilerDefinition[]
-): PostgresConstraintCompilerRegistry => {
-	const contributions = definitions.map((definition) => ({
-		definition,
-		ownerPlugin: 'fixture.constraint-owner',
-	}))
-
-	return Object.freeze({ values: () => contributions })
-}
-
-export const createFixture = (
-	transactionCount = 1,
-	connectError?: Error,
-	constraintCompilers?: PostgresConstraintCompilerRegistry,
-) => {
+export const createFixture = (transactionCount = 1, connectError?: Error) => {
 	const driver = new FixtureDriver()
 	const transactionDrivers = Array.from(
 		{ length: transactionCount },
@@ -120,7 +68,6 @@ export const createFixture = (
 	const adapter = createPostgresDatabaseAdapter(
 		pool,
 		new PostgresSchemaCatalog([articleSchema]),
-		constraintCompilers,
 	)
 
 	return { adapter, driver, pool, transactionDrivers }

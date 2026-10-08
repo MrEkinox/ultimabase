@@ -4,8 +4,6 @@ import type { GenericField } from '../schema/fields/base/contract.js'
 
 import type { SchemaIndexOptions } from '../schema/schema/indexes.js'
 
-import { type SchemaConstraintDefinition } from '../schema/schema/constraints.js'
-
 import { type SchemaContributionOwnerReference } from '../schema/schema/provenance.js'
 
 /** Selects schemas where one normalized direct option is present. */
@@ -101,14 +99,7 @@ export interface SetSchemaFieldOptionOperation {
 	readonly value: unknown
 }
 
-export interface AddSchemaConstraintOperation {
-	readonly constraint: SchemaConstraintDefinition
-	readonly contributionId: string
-	readonly kind: 'constraint:add'
-}
-
 export type SchemaPatchOperation =
-	| AddSchemaConstraintOperation
 	| AddSchemaFieldOperation
 	| AddSchemaIndexOperation
 	| SetSchemaFieldOptionOperation

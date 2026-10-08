@@ -43,7 +43,6 @@ export type PluginPrivilegeSeverity = 'critical' | 'sensitive' | 'standard'
 
 /** Names the Core-owned facade that enforces one plugin privilege. */
 export type PluginPrivilegeFacade =
-	| 'adapter'
 	| 'authority'
 	| 'capability'
 	| 'event'
@@ -76,7 +75,6 @@ const privilegeMetadata = (
  * ```
  */
 export type PluginPrivilege =
-	| 'adapter:consume'
 	| 'authority:elevate'
 	| 'event:publish'
 	| 'model:extend'
@@ -105,7 +103,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'runtime:intercept': privilegeMetadata('runtime', 'sensitive'),
 	'runtime:constrain': privilegeMetadata('runtime', 'sensitive'),
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
-	'adapter:consume': privilegeMetadata('adapter', 'standard'),
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),

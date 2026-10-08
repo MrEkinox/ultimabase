@@ -201,6 +201,8 @@ const publishInputReference = defineTypegenReference({
 expectTypeOf(publishInputReference.exportName).toEqualTypeOf<'PublishInput'>()
 
 expectTypeOf(schemaPatch()).toEqualTypeOf<SchemaPatchBuilder>()
+// @ts-expect-error Portable schema constraints were removed by ADR-0289.
+void schemaPatch().addConstraint
 
 interface PublishedEvent extends JsonObject {
 	readonly id: string

@@ -23,7 +23,6 @@ import {
 	readOperationResultSelection,
 } from '../operations/queries.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
-import { emptyRuntimeConstraints } from './stage-inputs.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Rejects eager loading unless the adapter implements the complete side channel. */
@@ -84,7 +83,6 @@ export const loadSingularMutationInclusionSource = async <
 	const projected: unknown = await executor.execute(
 		createDatabasePersistenceRequest(
 			{
-				constraints: emptyRuntimeConstraints,
 				inclusions,
 				operation: immutableRecord({
 					id: identity,

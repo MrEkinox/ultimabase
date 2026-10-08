@@ -278,7 +278,6 @@ export const resolveCandidateOptions = (
 		definition: immutableRecord({
 			...schemaOptions,
 			className: candidate.definition.className,
-			constraints: candidate.definition.constraints,
 			fields: logicalFields,
 			indexes: candidate.definition.indexes,
 			persistedFields: fields,

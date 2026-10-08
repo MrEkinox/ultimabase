@@ -13,7 +13,6 @@ export const prepareCanonical = <
 	operation: TOperation,
 ): Promise<PreparedDatabaseOperation<TOperation>> =>
 	transaction.prepare({
-		constraints: [],
 		operation,
 		plan: createDatabasePersistencePlan(operation),
 	})

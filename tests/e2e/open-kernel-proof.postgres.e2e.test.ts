@@ -7,7 +7,6 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
-import { createSoftDeletePostgresPlugin } from './fixtures/open-kernel-postgres.js'
 import { createSoftDeletePlugin } from './fixtures/open-kernel-soft-delete.js'
 import { createValuePlugin } from './fixtures/open-kernel-value.js'
 import {
@@ -88,14 +87,8 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			instanceId: 'primary',
 			target: SoftPost,
 		})
-		const softDeletePostgres = createSoftDeletePostgresPlugin({
-			instanceId: 'primary',
-			schema: SoftPost,
-			table: 'open_kernel_soft_posts',
-		})
 		const Application = PostgresHookApplication.use(workflow.plugin)
 			.use(value)
-			.use(softDeletePostgres)
 			.use(softDelete)
 		const ultimabase = new Application({
 			pluginPrivileges: { logger: false },

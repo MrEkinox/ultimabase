@@ -11,7 +11,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
-import { databaseConstraint, guard } from '../enforcement/definitions.js'
+import { guard } from '../enforcement/definitions.js'
 import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { MasterAuthority } from '../master/master-authority.js'
@@ -155,18 +155,14 @@ describe('createFrameworkEngine', () => {
 					}),
 				),
 				provideTestRuntimeConstraint(
-					'fixture.tenant-constraint',
+					'fixture.tenant-policy',
 					protectedPolicy({
 						schema: articleSchema,
 						operations: ['create-one'],
 						evaluate: () => {
-							trace.push('enforcement:constraint')
+							trace.push('enforcement:policy')
 
-							return {
-								constraints: databaseConstraint('fixture.tenant', 1, {
-									tenantId: 'tenant-1',
-								}),
-							}
+							return undefined
 						},
 					}),
 				),
@@ -203,13 +199,6 @@ describe('createFrameworkEngine', () => {
 		// Application assembly must route root mutations through the transaction adapter.
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions).toHaveLength(1)
-		expect(adapter.transactions[0]?.requests[0]?.constraints).toStrictEqual([
-			{
-				kind: 'fixture.tenant',
-				version: 1,
-				payload: { tenantId: 'tenant-1' },
-			},
-		])
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
@@ -221,13 +210,6 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		expect(adapter.transactions[0]?.executions[0]).toMatchObject({
-			constraints: [
-				{
-					kind: 'fixture.tenant',
-					payload: { tenantId: 'tenant-1' },
-					version: 1,
-				},
-			],
 			operation: {
 				input: { title: 'assembled' },
 				kind: 'create-one',
@@ -236,7 +218,7 @@ describe('createFrameworkEngine', () => {
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'enforcement:guard',
-			'enforcement:constraint',
+			'enforcement:policy',
 			'before:dependency',
 			'before:consumer',
 			'hook:before',
@@ -275,16 +257,14 @@ describe('createFrameworkEngine', () => {
 			id: 'fixture.assembled-read-policy',
 			permissions: {
 				'runtime:constrain':
-					'Exercises read constraints and selection narrowing.',
+					'Exercises read row filters and selection narrowing.',
 			},
 			contributions: [
 				provideTestRuntimeConstraint(
-					'fixture.read-constraint',
+					'fixture.read-row-filter',
 					protectedPolicy({
 						evaluate: () => ({
-							constraints: databaseConstraint('fixture.read-tenant', 1, {
-								tenantId: 'tenant-1',
-							}),
+							rowFilter: { field: 'title', kind: 'equal', value: 'visible' },
 						}),
 						operations: ['find-many'],
 						schema,
@@ -320,13 +300,11 @@ describe('createFrameworkEngine', () => {
 		])
 		expect(adapter.transactions).toStrictEqual([])
 		expect(adapter.rootRequests).toHaveLength(1)
-		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([
-			{
-				kind: 'fixture.read-tenant',
-				payload: { tenantId: 'tenant-1' },
-				version: 1,
-			},
-		])
+		expect(adapter.rootRequests[0]?.rowFilter).toEqual({
+			field: 'title',
+			kind: 'equal',
+			value: 'visible',
+		})
 		expect(adapter.rootRequests[0]?.operation).toMatchObject({
 			kind: 'find-many',
 			query: {

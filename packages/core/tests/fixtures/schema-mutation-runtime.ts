@@ -23,7 +23,6 @@ import {
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
 } from '../../src/runtime/capabilities.js'
-import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
 import { protectedPolicy } from '../../src/runtime/enforcement/protected-policy.js'
 import { MasterAuthority } from '../../src/runtime/master/master-authority.js'
 import {
@@ -55,7 +54,7 @@ export const createUpdateFixture = async (options: {
 	readonly observeResult?: (kind: string) => void
 	readonly observeRewrite?: (logicalKind: string, physicalKind: string) => void
 	readonly persistenceCapabilities?: RecordingAdapterCapabilityOptions
-	readonly protectedConstraint?: boolean
+	readonly protectedRowFilter?: boolean
 	readonly results: readonly QueuedAdapterResult[]
 	readonly start?: boolean
 }) => {
@@ -100,7 +99,7 @@ export const createUpdateFixture = async (options: {
 			'operation:declare': 'Declares archive.',
 			'persistence:rewrite': 'Persists the owner effect.',
 			'runtime:intercept': 'Observes logical identity.',
-			...(options.protectedConstraint === true
+			...(options.protectedRowFilter === true
 				? { 'runtime:constrain': 'Narrows protected execution.' }
 				: {}),
 			'schema:declare': 'Adds the owned workflow field.',
@@ -155,7 +154,7 @@ export const createUpdateFixture = async (options: {
 					}),
 				}),
 			}),
-			...(options.protectedConstraint === true
+			...(options.protectedRowFilter === true
 				? [
 						provideRuntimeConstraint({
 							contributionId: 'schema-mutation-policy',
@@ -163,11 +162,11 @@ export const createUpdateFixture = async (options: {
 								value: protectedPolicy({
 									operations: ['plugin-schema-mutation'],
 									evaluate: () => ({
-										constraints: databaseConstraint(
-											'fixture.schema-mutation-tenant',
-											1,
-											{ tenant: 'visible' },
-										),
+										rowFilter: {
+											field: 'title',
+											kind: 'equal',
+											value: 'visible',
+										},
 									}),
 								}),
 							}),

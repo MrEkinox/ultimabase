@@ -4,17 +4,14 @@ import {
 	immutableRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { isDeepStrictEqual } from 'node:util'
 
 import type { EnforcementFieldBoundary } from './contracts.js'
-import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type {
 	DatabaseRelationPredicateScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import type { QueryExpressionNode } from '../../query/index.js'
-import { isDatabaseConstraintNode } from './definitions.js'
 
 declare const enforcementStateBrand: unique symbol
 
@@ -23,9 +20,8 @@ export interface EnforcementState {
 	readonly [enforcementStateBrand]: true
 }
 
-/** Supplies only Runtime assembly with the accumulated adapter and field effects. */
+/** Supplies only Runtime assembly with the accumulated row and field effects. */
 export interface EnforcementStateSnapshot {
-	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly inputFields: readonly string[] | undefined
 	readonly selectionFields: readonly string[] | undefined
 	readonly rowFilter: DatabaseRowFilterNode | undefined
@@ -58,7 +54,6 @@ export const getEnforcementStateSnapshot = (
 export const createEnforcementState = (): EnforcementState =>
 	createState(
 		immutableRecord({
-			constraints: immutableArray([]),
 			inputFields: undefined,
 			selectionFields: undefined,
 			rowFilter: undefined,
@@ -122,49 +117,6 @@ export const appendEnforcementRelationPredicates = (
 					]),
 				}),
 			)
-}
-
-const normalizeConstraints = (
-	constraints: DatabaseConstraintNode | readonly DatabaseConstraintNode[],
-): readonly DatabaseConstraintNode[] => {
-	const values: unknown = constraints
-	const normalized = isUnknownArray(values) ? values : [values]
-
-	for (const [index, constraint] of normalized.entries()) {
-		if (!isDatabaseConstraintNode(constraint)) {
-			throw new TypeError(
-				`enforcement constraint[${String(index)}] must be a database constraint node`,
-			)
-		}
-	}
-
-	return immutableArray(normalized as readonly DatabaseConstraintNode[])
-}
-
-/** Appends constraints in registration order and offers no removal operation. */
-export const appendEnforcementConstraints = (
-	state: EnforcementState,
-	constraints: DatabaseConstraintNode | readonly DatabaseConstraintNode[],
-): EnforcementState => {
-	const current = getEnforcementStateSnapshot(state)
-	const additions = normalizeConstraints(constraints)
-	const uniqueAdditions = additions.filter(
-		(addition, index) =>
-			![...current.constraints, ...additions.slice(0, index)].some(
-				(existing) =>
-					existing.kind === addition.kind &&
-					existing.version === addition.version &&
-					isDeepStrictEqual(existing.payload, addition.payload),
-			),
-	)
-
-	return createState(
-		immutableRecord({
-			...current,
-			// Structurally identical nodes express the same logical AND condition once.
-			constraints: immutableArray([...current.constraints, ...uniqueAdditions]),
-		}),
-	)
 }
 
 const normalizeFields = (fields: readonly string[]): readonly string[] => {

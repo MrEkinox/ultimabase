@@ -41,7 +41,6 @@ import type {
 import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
-import type { SchemaConstraintDefinition } from './constraints.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import {
 	prepareSchemaCompilation,
@@ -119,8 +118,6 @@ export interface SchemaMetadata<
 > {
 	/** The exact logical class name supplied to `App.Schema.define()`. */
 	readonly className: TClassName
-	/** The ordered adapter-neutral constraints contributed during compilation. */
-	readonly constraints: readonly SchemaConstraintDefinition[]
 	/** The immutable developer and framework-owned field map. */
 	readonly fields: Readonly<TFields> & Readonly<SystemFields>
 	/** The immutable normalized field-level and composite index declarations. */

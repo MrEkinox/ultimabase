@@ -181,7 +181,6 @@ export const createRelationPredicateEvaluator = (
 				const targetSnapshot = getEnforcementStateSnapshot(targetState)
 				state = appendEnforcementRelationPredicates(state, [
 					immutableRecord({
-						constraints: targetSnapshot.constraints,
 						predicate,
 						...(targetSnapshot.rowFilter === undefined
 							? {}

@@ -157,8 +157,6 @@ export type { FloatField, FloatFieldOptions } from './fields/builtins/float.js'
 export { Schema } from './schema/definition.js'
 export { SchemaCompilationError } from './schema/definition-compilation.js'
 export type { SchemaCompilationFailureReason } from './schema/definition-compilation.js'
-export { defineSchemaConstraint } from './schema/constraints.js'
-export type { SchemaConstraintDefinition } from './schema/constraints.js'
 export type {
 	SchemaCreateData,
 	SchemaItem,
@@ -223,7 +221,6 @@ export type {
 	CoreSchemaContributionOwner,
 	PluginSchemaContributionOwner,
 	SchemaCompilationProvenance,
-	SchemaConstraintProvenance,
 	SchemaContributionOwner,
 	SchemaContributionOwnerReference,
 	SchemaContributionProvenance,

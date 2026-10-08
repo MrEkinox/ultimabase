@@ -185,7 +185,7 @@ const ultimabase = new Application({
 Inline field callbacks infer the exact logical value. Cross-field behavior uses
 schema hooks. Plugins append to the same dispatcher with deterministic targets;
 they cannot replace developer Hooks. Policy plugins use Core's protected
-monotonic boundary: they may deny, append opaque adapter constraints, or narrow
+monotonic boundary: they may deny, AND private row filters, or narrow
 fields, but later behavior cannot reverse those decisions. Runtime never names
 concrete ACL, role, authentication, ownership, or community-provider behavior.
 Every generated-schema collection entry crosses the same field resolution,

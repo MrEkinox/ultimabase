@@ -263,10 +263,7 @@ describe('bulk result projection', () => {
 				return state
 			},
 			reevaluate: () => state,
-			enforceOperation: ({ operation }) => ({
-				constraints: [],
-				operation,
-			}),
+			enforceOperation: ({ operation }) => ({ operation }),
 			enforceSelectionResult: ({ result }) => result,
 			enforceResult: ({ result }) => result,
 		}

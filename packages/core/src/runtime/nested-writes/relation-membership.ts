@@ -6,7 +6,6 @@ import { Pointer } from '../../schema/relations/pointer.js'
 import type { NestedWriteRelationNode } from '../../schema/nested-writes/contracts.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
-import { emptyRuntimeConstraints } from '../pipeline/stage-inputs.js'
 import { executeRuntimeDatabaseOperation } from '../pipeline/database-execution.js'
 
 /** Applies an owning membership delta without starting a second source lifecycle. */
@@ -55,7 +54,6 @@ export const executeNestedOwningRelationMutation = async (
 		undefined,
 		stages.persistencePlanRewrite,
 		immutableRecord({
-			constraints: emptyRuntimeConstraints,
 			operation,
 			relation: immutableRecord({
 				fieldPath: immutableArray([relation.fieldName]),

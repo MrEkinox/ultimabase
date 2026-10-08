@@ -44,7 +44,6 @@ describe('schema definitions', () => {
 		expect(Object.keys(schema)).toStrictEqual([
 			'definition',
 			'className',
-			'constraints',
 			'fields',
 			'indexes',
 			'persistedFields',

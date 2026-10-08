@@ -215,10 +215,9 @@ weaken your protected policy or make transport input select Master.
 ### Adapter integration
 
 Portable plugins reach the database through Core's neutral adapter contracts.
-`adapter:consume` covers reading and registering database constraint
-compilers. Adapter support tokens, attributed physical-schema contributions and
-raw adapter leases had no production consumer and were removed before the
-first release.
+Adapter support tokens, attributed physical-schema contributions, raw adapter
+leases, database constraint compilers and the `adapter:consume` privilege had
+no production consumer and were removed before the first release.
 
 Migration intent, Core migration planning, the `migration:contribute` privilege
 and `FakeAdapterMigrationHistory` are removed. PostgreSQL preparation follows
@@ -309,7 +308,6 @@ privilege never transfers to your plugin.
 | `runtime:intercept`   | Mutable request behavior at an allowed stage.                      |
 | `runtime:constrain`   | Deny-only or narrowing protected constraints.                      |
 | `persistence:rewrite` | Physical plan rewrite without logical-policy changes.              |
-| `adapter:consume`     | Database constraint compilers.                                     |
 | `storage:private`     | Owner-private persistent collections.                              |
 | `transport:expose`    | HTTP routes, public operation bindings, or GraphQL contributions.  |
 | `event:publish`       | Core-checked transactional event publication.                      |

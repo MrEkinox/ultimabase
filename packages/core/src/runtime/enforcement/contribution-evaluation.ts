@@ -36,7 +36,6 @@ import {
 } from './definitions.js'
 import {
 	appendEnforcementRowFilter,
-	appendEnforcementConstraints,
 	createEnforcementState,
 	narrowEnforcementFields,
 	type EnforcementState,
@@ -254,9 +253,6 @@ export const evaluateEnforcementContributions = async <
 			)
 			if (effects.allowed === false) {
 				throw createProtectedPolicyDeniedError()
-			}
-			if (effects.constraints !== undefined) {
-				state = appendEnforcementConstraints(state, effects.constraints)
 			}
 			if (effects.rowFilter !== undefined) {
 				const rowFilter = normalizeWhereInput(

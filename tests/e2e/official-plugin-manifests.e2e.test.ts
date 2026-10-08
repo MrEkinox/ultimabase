@@ -69,7 +69,7 @@ it('publishes the audited privilege and environment contract for every official 
 		{
 			environment: ['environment:network'],
 			pluginId: '@ultimabase/postgres-plugin',
-			privileges: ['schema:declare', 'adapter:consume'],
+			privileges: ['schema:declare'],
 		},
 		{
 			environment: [],

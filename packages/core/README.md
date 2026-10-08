@@ -394,7 +394,7 @@ permanently closes compilation, initialization, and startup for that application
 instance.
 
 `schema.definition.provenance` explains the final schema, fields, direct options,
-indexes, portable constraints, and applied patches. Typegen and
+indexes, and applied patches. Typegen and
 later migration bridges consume this inert logical snapshot; removing a plugin
 never authorizes Core to drop persisted data. Compilation registries are
 application-local. Reusing one stable schema class succeeds only when its whole
@@ -853,7 +853,7 @@ const memberships = await Membership.findMany({
 ```
 
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
-of the visible target and therefore apply installed target constraints. Pointer
+of the visible target and therefore apply installed target policies. Pointer
 nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID.
 Missing or row-filtered targets return `null` and `false`, respectively;
@@ -880,7 +880,7 @@ contains `id`, including nested pointer and relation results, so an explicit
 selection adds it implicitly. `id: false` is rejected rather than silently
 ignored. Relationship result shaping stays explicit through `include`.
 
-Runtime evaluates installed target policies, applies target constraints, and validates
+Runtime evaluates installed target policies, applies their row filters, and validates
 selected targets. Inclusion does not manufacture a target schema lifecycle;
 reads expose no official schema Hooks lifecycle. PostgreSQL loads the
 prepared tree through Drizzle relational `with`. Missing or inaccessible
@@ -1424,7 +1424,8 @@ optional rejection-only mutation guards and value-dependent installed field and
 item policy. A guard may receive the stable prepared target so an installed
 plugin can inspect projected atomic numeric values without converting them to
 `set` operations. The adapter
-receives the final operation and cumulative constraints for the write.
+receives the final operation for the write; protected row filters stay attached
+to the prepared target.
 The handler cannot change the query, target, fields, operators, schema, or
 terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.
@@ -1552,24 +1553,22 @@ materialized through the exact privilege-scoped `provideRuntimeConstraint()`
 capability facade:
 
 ```ts
-const tenantPlugin = (tenantId: string) =>
+const publishedOnlyPlugin = () =>
 	plugin({
-		id: 'example.tenant',
+		id: 'example.published-only',
 		version: '1.0.0',
 		core: '^0.0.0',
 		permissions: {
-			'runtime:constrain': 'Applies tenant row and field restrictions.',
+			'runtime:constrain': 'Applies published row and field restrictions.',
 		},
 		contributions: [
 			provideRuntimeConstraint({
-				contributionId: 'tenant-policy',
+				contributionId: 'published-policy',
 				create: () => ({
 					value: protectedPolicy({
 						schema: PostSchema,
 						evaluate: () => ({
-							constraints: databaseConstraint('example.tenant', 1, {
-								tenantId,
-							}),
+							rowFilter: { field: 'published', kind: 'equal', value: true },
 							selectionFields: ['id', 'title'],
 						}),
 					}),
@@ -1579,13 +1578,13 @@ const tenantPlugin = (tenantId: string) =>
 	})
 ```
 
-`guard` only allows or throws. A protected policy's `evaluate` effects append
-namespaced, versioned `databaseConstraint` nodes for the adapter (the version
-selects the exact payload contract registered by its compiler), AND private
-row filters, and return allowed `inputFields` and `selectionFields` that
-compose by intersection. Restricted mutation input is rejected, while selection
-restrictions project excluded fields away, again after business result
-transforms. `restrictResult` may only omit values from the final result.
+`guard` only allows or throws. A protected policy's `evaluate` effects may deny
+the request (`allowed: false`), AND private row filters, and return allowed
+`inputFields` and `selectionFields` that compose by intersection. ADR-0289
+removed the opaque `constraints` effect, `databaseConstraint` and the adapter
+constraint compilers: no production policy produced them. Restricted mutation
+input is rejected, while selection restrictions project excluded fields away,
+again after business result transforms. `restrictResult` may only omit values from the final result.
 Runtime evaluates guards and protected policies before business effects, keeps
 the accumulated state private, then reevaluates guards and reapplies input and
 selection limits after operation transforms. No policy contribution means no
@@ -1761,11 +1760,12 @@ typed setup export.
 ### Adapter boundaries
 
 Portable plugins reach the database only through Core's neutral adapter
-contracts (`databaseAdapterCapability`, `databasePersistencePlanCapability`,
-constraint compilers and the private-storage protocol). ADR-0289 removed the
-test-only adapter support tokens, attributed physical-schema contributions and
-raw adapter leases with the `adapter:raw` privilege; a future community need
-reopens them with a real consumer and a new ADR.
+contracts (`databaseAdapterCapability`, `databasePersistencePlanCapability`
+and the private-storage protocol). ADR-0289 removed the test-only adapter
+support tokens, attributed physical-schema contributions, raw adapter leases
+with the `adapter:raw` privilege, and database constraint compilers with the
+`adapter:consume` privilege; a future community need reopens them with a real
+consumer and a new ADR.
 
 ADR-0266 removes migration support/intent tokens, `planAdapterMigrations`,
 its exclusive types and `migration:contribute`. Core no longer classifies
@@ -1848,7 +1848,6 @@ export const databasePlugin = () =>
 		id: 'fixture.database',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: { 'adapter:consume': 'Uses the configured database adapter.' },
 		environment: ['environment:network'],
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
 		contributions: [
@@ -2103,7 +2102,6 @@ Milestone 14 maps the removed generic paths as follows:
 - physical persistence rewrites use the ordered
   `persistencePlanRewriterCapability` and exact
   `providePersistencePlanRewriter()` facade under `persistence:rewrite`;
-- database constraint compilers retain their exact adapter-authorized facade;
 - cross-plugin commands become domain capabilities, such as
   `requestSubjectReferenceCleanupCapability`;
 - legacy ownership claims disappear because compiled schemas already retain owner
@@ -2124,8 +2122,8 @@ separating plugin-owned schema-mutation identity from its Core-compiled
 `delete-one` to `update-one` and `delete-many` to `update-many`. A rewriter
 receives the logical operation and an immutable
 target, data, returning, and provenance plan, but never receives protected row
-filters or adapter constraints. Core keeps those restrictions in the adapter
-request envelope and applies them to the final physical statement. Adapters
+filters. Core keeps those restrictions in the adapter request envelope and
+applies them to the final physical statement. Adapters
 must advertise `databasePersistencePlanCapability`; missing versions or plan
 kinds fail before an adapter effect. Rewrites use neither nested Runtime
 operations nor master authority.

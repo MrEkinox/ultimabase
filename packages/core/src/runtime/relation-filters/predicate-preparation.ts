@@ -190,7 +190,6 @@ class RuntimeRelationPredicatePreparer {
 			predicate,
 			includesCallerFilter,
 		)
-		let constraints = initialScope?.constraints ?? immutableArray([])
 		let policyRowFilter = initialScope?.rowFilter
 
 		if (initialScope === undefined && this.#contributions.length > 0) {
@@ -215,7 +214,6 @@ class RuntimeRelationPredicatePreparer {
 				createEnforcementState(),
 			)
 			const targetSnapshot = getEnforcementStateSnapshot(targetState)
-			constraints = targetSnapshot.constraints
 			policyRowFilter = targetSnapshot.rowFilter
 		}
 
@@ -225,7 +223,6 @@ class RuntimeRelationPredicatePreparer {
 				: await this.#resolver.resolve(this.#context, targetOperation, relation)
 		const rowFilter = combineDatabaseRowFilters(relationFilter, policyRowFilter)
 		const scope = immutableRecord({
-			constraints,
 			predicate,
 			...(rowFilter === undefined ? {} : { rowFilter }),
 		})

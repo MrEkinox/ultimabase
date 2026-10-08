@@ -31,9 +31,13 @@ tests consumed: the `restrictInput`/`restrictSelection`/`restrictOutput`/
 `constraint` enforcement factories, Core's `beforeOperation`/`afterOperation`
 interceptor factories, `contributeSchemaMutationBinding`, the adapter support
 tokens, physical-schema contributions and raw adapter leases with the
-`adapter:raw` privilege. Protected policies, guards, prepared operations,
-Runtime behaviors, persistence rewrites, constraint compilers, private storage
-and direct synchronization remain. Restoring a removed point requires a real
+`adapter:raw` privilege, the protected-policy `constraints` effect with
+`databaseConstraint`, adapter constraint compilers and the `adapter:consume`
+privilege, and portable schema constraints (`defineSchemaConstraint`,
+`addSchemaConstraint`, plugin-kit `schemaPatch().addConstraint()`). Protected
+policies (row filters and field narrowing), guards, prepared operations,
+Runtime behaviors, persistence rewrites, private storage and direct
+synchronization remain. Restoring a removed point requires a real
 consumer and a new ADR.
 
 ## Product rules

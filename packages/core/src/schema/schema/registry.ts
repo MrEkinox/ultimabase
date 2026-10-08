@@ -21,7 +21,6 @@ import { assertEmbeddedFieldDefinition } from '../fields/builtins/object.js'
 /** Names the compiled schema metadata keys; every other key is a schema option. */
 export const coreSchemaKeys: ReadonlySet<string> = new Set([
 	'className',
-	'constraints',
 	'fields',
 	'indexes',
 	'persistedFields',

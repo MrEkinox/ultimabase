@@ -99,9 +99,6 @@ export {
 export type {
 	DatabaseAdapterCapabilities,
 	DatabasePluginFieldStructuralContainsCapability,
-	DatabaseConstraintNode,
-	DatabaseConstraintPayload,
-	DatabaseConstraintPayloadObject,
 	DatabaseAdapter,
 	DatabaseCreateMaterialization,
 	DatabaseDeleteMaterialization,
@@ -129,7 +126,6 @@ export type {
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,
-	ImmutableDatabaseConstraintPayload,
 	PreparedDatabaseOperation,
 	PreparedDatabaseOperationExecution,
 } from './database/contracts.js'
@@ -199,7 +195,7 @@ export type {
 	PersistencePlanRewriterDefinition,
 } from './persistence/index.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.
-export { databaseConstraint, guard } from './enforcement/definitions.js'
+export { guard } from './enforcement/definitions.js'
 export type {
 	EnforcementDefinition,
 	GuardDefinition,

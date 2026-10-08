@@ -222,7 +222,6 @@ const createStaticSchemaMutationView = <
 
 // Metadata getters read the deferred compilation each time, in public key order.
 const definitionKeys = [
-	'constraints',
 	'fields',
 	'indexes',
 	'persistedFields',

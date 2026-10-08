@@ -1,14 +1,10 @@
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -35,10 +31,6 @@ import type {
 	RuntimePreparedMutationStageInput,
 } from './contracts.js'
 import { readOperationResultSelection } from '../operations/queries.js'
-import { assertPlainObject } from '../../exact-object-validation.js'
-
-export const emptyRuntimeConstraints: readonly DatabaseConstraintNode[] =
-	immutableArray([])
 
 /** Freezes one stage envelope beside the Core-owned nested node that is active. */
 export const createRuntimeStageInput = <const TInput extends object>(
@@ -53,38 +45,6 @@ export const createRuntimeStageInput = <const TInput extends object>(
 		...input,
 		...(nestedWrite === undefined ? {} : { nestedWrite }),
 	})
-}
-
-/** Copies constraint collections so plugins cannot mutate later adapter input. */
-export const snapshotRuntimeConstraints = (
-	constraints: readonly DatabaseConstraintNode[],
-): readonly DatabaseConstraintNode[] => {
-	const untrustedConstraints: unknown = constraints
-
-	if (!isUnknownArray(untrustedConstraints)) {
-		throw new TypeError('Runtime enforcement constraints must be an array')
-	}
-
-	for (const constraint of untrustedConstraints) {
-		assertPlainObject(
-			constraint,
-			'Runtime enforcement returned an invalid constraint',
-		)
-
-		assertNonEmptyString(constraint.kind, 'Runtime enforcement constraint kind')
-		assertDatabaseConstraintVersion(
-			constraint.version,
-			'Runtime enforcement constraint version',
-		)
-
-		if (!Object.hasOwn(constraint, 'payload')) {
-			throw new TypeError(
-				'Runtime enforcement constraint must contain an opaque payload',
-			)
-		}
-	}
-
-	return immutableArray(constraints)
 }
 
 export const createRuntimeOperationInput = <
@@ -126,7 +86,6 @@ export const createRuntimePreparedMutationInput = <
 export interface RuntimeOperationEnforcement<
 	TOperation extends DatabaseOperationAst,
 > {
-	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly enforcement: EnforcementState | undefined
 	readonly operation: TOperation
 	readonly relationPredicates:
@@ -150,7 +109,6 @@ export const enforceRuntimeOperation = async <
 ): Promise<RuntimeOperationEnforcement<TOperation>> => {
 	let operation = initialOperation
 	let enforcement: EnforcementState | undefined
-	let constraints = emptyRuntimeConstraints
 	let policyRowFilter: DatabaseRowFilterNode | undefined
 	let policyPredicates: readonly DatabaseRelationPredicateScope[] | undefined
 
@@ -162,7 +120,6 @@ export const enforceRuntimeOperation = async <
 			createRuntimeEnforcementInput(context, operation, enforcement),
 		)
 		operation = enforced.operation
-		constraints = snapshotRuntimeConstraints(enforced.constraints)
 		policyRowFilter = enforced.rowFilter
 		policyPredicates = enforced.relationPredicates
 	}
@@ -184,7 +141,6 @@ export const enforceRuntimeOperation = async <
 		})) ?? policyPredicates
 
 	return immutableRecord({
-		constraints,
 		enforcement,
 		operation,
 		relationPredicates,

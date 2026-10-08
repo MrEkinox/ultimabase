@@ -22,6 +22,7 @@ describe('removed kernel powers', () => {
 		'capability:replace',
 		'schema:replace',
 		'runtime:replace',
+		'adapter:consume',
 	])('rejects the retired %s privilege', (name) => {
 		expect(() =>
 			plugin({

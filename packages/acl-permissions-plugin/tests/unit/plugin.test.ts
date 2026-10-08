@@ -121,7 +121,6 @@ describe('aclPlugin create input resolution', () => {
 			await ultimabase.start()
 			const result = await ProtectedPost.findMany(undefined)
 			expect(result[0]?.acl).toBeUndefined()
-			expect(adapter.requests[0]?.constraints).toStrictEqual([])
 			const rowFilter = JSON.stringify(adapter.requests[0]?.rowFilter)
 			expect(rowFilter).toContain('contains')
 			expect(rowFilter).toContain(Principal.className)
@@ -138,7 +137,6 @@ describe('aclPlugin create input resolution', () => {
 				useMasterKey: true,
 			})
 			expect(masterResult[0]?.acl).toBe(storedACL)
-			expect(adapter.requests[1]?.constraints).toStrictEqual([])
 			expect(adapter.requests[1]?.rowFilter).toBeUndefined()
 		} finally {
 			await ultimabase.dispose()
@@ -164,7 +162,6 @@ describe('aclPlugin create input resolution', () => {
 				expect(JSON.stringify(adapter.requests[0]?.rowFilter)).toContain(
 					role.value,
 				)
-				expect(adapter.requests[0]?.constraints).toStrictEqual([])
 			}
 		} finally {
 			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.dispose()))

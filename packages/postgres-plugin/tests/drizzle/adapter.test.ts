@@ -2,7 +2,6 @@ import {
 	FrameworkError,
 	QueryBuilder,
 	Pointer,
-	databaseConstraint,
 	createDatabasePersistencePlan,
 	createRuntimeValidationStage,
 	increment,
@@ -33,9 +32,6 @@ import {
 	pointerUserSchema,
 	pointerPostSchema,
 	pointerCatalog,
-	tenantCompiler,
-	visibilityCompiler,
-	createConstraintCompilerRegistry,
 	createFixture,
 	firstId,
 	secondId,
@@ -68,7 +64,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
 		const created = await execute(adapter, {
-			constraints: [],
 			operation: normalized,
 		})
 
@@ -82,7 +77,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
 		const [found] = await execute(adapter, {
-			constraints: [],
 			operation: { kind: 'find-many', query: query.ast },
 		})
 
@@ -112,9 +106,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 			[firstId, 'First'],
 			[secondId, 'Second'],
 		])
-		await expect(
-			execute(adapter, { constraints: [], operation: find }),
-		).resolves.toStrictEqual([
+		await expect(execute(adapter, { operation: find })).resolves.toStrictEqual([
 			{ id: firstId, title: 'First' },
 			{ id: secondId, title: 'Second' },
 		])
@@ -136,7 +128,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([['Private identity', firstId]])
 		const projected = await execute(adapter, {
-			constraints: [],
 			operation: titleOnly,
 		})
 
@@ -156,7 +147,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.respond([['Public article', 3, firstId, timestamp, timestamp]])
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: { kind: 'find-many', query: withoutNote.ast },
 			}),
 		).resolves.toStrictEqual([
@@ -172,7 +162,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.respond([])
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: { kind: 'find-one', query: query.ast },
 			}),
 		).resolves.toBeNull()
@@ -180,7 +169,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.respond([])
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: { kind: 'get', query: query.ast, id: firstId },
 			}),
 		).resolves.toBeNull()
@@ -189,7 +177,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.respond([[2]])
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: { kind: 'count', query: query.ast },
 			}),
 		).resolves.toBe(2)
@@ -198,18 +185,13 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.respond([[firstId]])
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: { kind: 'exists', query: query.ast },
 			}),
 		).resolves.toBe(true)
 	})
 
-	it('combines registered constraints with query predicates using parameterized AND', async () => {
-		const compilerRegistry = createConstraintCompilerRegistry(
-			tenantCompiler,
-			visibilityCompiler,
-		)
-		const { adapter, driver } = createFixture(1, undefined, compilerRegistry)
+	it('combines the protected row filter with query predicates using parameterized AND', async () => {
+		const { adapter, driver } = createFixture()
 		const injectedTenant = "tenant' OR true --"
 		const operation = {
 			kind: 'find-many',
@@ -218,7 +200,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 			).ast,
 		} satisfies FindManyOperationAst<typeof articleSchema>
 		const rowFilter = new QueryBuilder(articleSchema).where((where) =>
-			where.eq('note', 'Access-visible'),
+			where.eq('note', injectedTenant),
 		).ast.where?.expression
 
 		if (rowFilter === undefined) {
@@ -227,24 +209,13 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([])
 		await execute(adapter, {
-			constraints: [
-				databaseConstraint('fixture.tenant', 1, {
-					tenantId: injectedTenant,
-				}),
-				databaseConstraint('fixture.visibility', 1, 'Visible'),
-			],
 			operation,
 			rowFilter,
 		})
 
 		const call = driver.calls[0]
 
-		expect(call?.params).toStrictEqual([
-			10,
-			injectedTenant,
-			'Visible',
-			'Access-visible',
-		])
+		expect(call?.params).toStrictEqual([10, injectedTenant])
 		// Redundant parentheses are a Drizzle rendering detail; every predicate is conjunctive here.
 		const queryText = call?.text.replaceAll(/[()]/gu, '')
 		const tableAlias = /from "articles" as "([^"]+)"/u.exec(
@@ -256,7 +227,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 		}
 
 		expect(queryText).toContain(
-			`where "${tableAlias}"."views" > $1 and "${tableAlias}"."note" = $2 and "${tableAlias}"."title" = $3 and "${tableAlias}"."note" = $4`,
+			`where "${tableAlias}"."views" > $1 and "${tableAlias}"."note" = $2`,
 		)
 		expect(call?.text).not.toContain(injectedTenant)
 	})
@@ -292,7 +263,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([[null, 'Created', null, firstId, timestamp, timestamp]])
 		await expect(
-			execute(adapter, { constraints: [], operation: normalized }),
+			execute(adapter, { operation: normalized }),
 		).resolves.toStrictEqual({
 			id: firstId,
 			title: 'Created',
@@ -329,7 +300,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([[firstId, 'Updated']])
 		await expect(
-			execute(adapter, { constraints: [], operation: updateOperation }),
+			execute(adapter, { operation: updateOperation }),
 		).resolves.toStrictEqual({ id: firstId, title: 'Updated' })
 		expect(driver.calls.at(-1)?.text).toMatch(
 			/update "articles" set .* where "articles"\."id" in \(select/u,
@@ -337,7 +308,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([[firstId, 'Updated']])
 		await expect(
-			execute(adapter, { constraints: [], operation: deleteOperation }),
+			execute(adapter, { operation: deleteOperation }),
 		).resolves.toStrictEqual({ id: firstId, title: 'Updated' })
 		expect(driver.calls.at(-1)?.text).toMatch(
 			/delete from "articles" where "articles"\."id" in \(select/u,
@@ -345,11 +316,11 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.respond([])
 		await expect(
-			execute(adapter, { constraints: [], operation: updateOperation }),
+			execute(adapter, { operation: updateOperation }),
 		).resolves.toBeNull()
 	})
 
-	it('fails closed for unsupported constraints, root upserts, and driver errors', async () => {
+	it('fails closed for root upserts and driver errors', async () => {
 		const { adapter, driver } = createFixture()
 		const operation = {
 			kind: 'find-many',
@@ -358,25 +329,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		await expect(
 			execute(adapter, {
-				constraints: [
-					databaseConstraint('fixture.future-row', 1, {
-						tenantId: 'tenant-1',
-					}),
-				],
-				operation,
-			}),
-		).rejects.toMatchObject({
-			code: 'INTERNAL_ERROR',
-			internalDetails: {
-				kind: 'postgres-constraint-compilation-failed',
-				reason: 'compiler-missing',
-			},
-		})
-		expect(driver.calls).toStrictEqual([])
-
-		await expect(
-			execute(adapter, {
-				constraints: [],
 				operation: {
 					create: { title: 'Pending' },
 					kind: 'upsert-one',
@@ -400,7 +352,6 @@ describe('internal PostgreSQL database adapter reads', () => {
 		driver.fail(Object.assign(new Error('secret'), { code: '23505' }))
 		await expect(
 			execute(adapter, {
-				constraints: [],
 				operation: {
 					input: { title: 'Duplicate' },
 					kind: 'create-one',
@@ -443,14 +394,12 @@ describe('internal PostgreSQL database adapter reads', () => {
 
 		driver.fail(Object.assign(new Error(secret), { code: '08006' }))
 		const failure: unknown = await execute(adapter, {
-			constraints: [],
 			operation: { kind: 'find-many', query: query.ast },
 			inclusions: [
 				{
 					fieldPath: ['author'],
 					kind: 'pointer',
 					request: {
-						constraints: [],
 						operation: targetOperation,
 						plan: createDatabasePersistencePlan(targetOperation),
 					},

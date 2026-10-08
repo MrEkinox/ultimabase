@@ -22,10 +22,6 @@ import {
 import type { PgTable } from 'drizzle-orm/pg-core'
 
 import {
-	compilePostgresConstraints,
-	type PostgresConstraintCompilerRegistry,
-} from '../constraints/compiler.js'
-import {
 	compilePostgresQueryClauses,
 	selectPostgresFieldNames,
 } from '../query/clause-compiler.js'
@@ -147,21 +143,14 @@ const createReadPlan = (
 
 const compileRequestPredicate = (
 	catalog: PostgresSchemaCatalog,
-	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: CompiledPostgresSchema,
 	{ operation, query, request }: RelationalReadPlan,
 ): SQL | undefined => {
 	const relationCompiler = createPostgresRelationPredicateCompiler(
 		catalog,
-		constraintCompilers,
 		request.relationPredicates ?? [],
 	)
 	const clauses = compilePostgresQueryClauses(query, schema, relationCompiler)
-	const contributed = compilePostgresConstraints(
-		constraintCompilers,
-		schema,
-		request.constraints,
-	)
 	const access =
 		request.rowFilter === undefined
 			? undefined
@@ -190,24 +179,18 @@ const compileRequestPredicate = (
 	const objectId =
 		operation.kind === 'get' ? eq(idField.column, operation.id) : undefined
 
-	return and(clauses.where, contributed, access, relation, objectId)
+	return and(clauses.where, access, relation, objectId)
 }
 
 const compileRelationalConfig = (
 	catalog: PostgresSchemaCatalog,
-	constraintCompilers: PostgresConstraintCompilerRegistry,
 	read: RelationalReadPlan,
 ): AnyDBQueryConfig => {
 	const withConfig = Object.fromEntries(
 		read.branches.flatMap(({ read: branch, relationName }) =>
 			branch === undefined
 				? []
-				: [
-						[
-							relationName,
-							compileRelationalConfig(catalog, constraintCompilers, branch),
-						],
-					],
+				: [[relationName, compileRelationalConfig(catalog, branch)]],
 		),
 	)
 	const { operation, query } = read
@@ -216,7 +199,6 @@ const compileRelationalConfig = (
 		RAW: (table: SchemaEntry): SQL =>
 			compileRequestPredicate(
 				catalog,
-				constraintCompilers,
 				rebindCompiledPostgresSchema(read.schema, table as PgTable),
 				read,
 			) ?? sql<boolean>`true`,
@@ -322,7 +304,6 @@ const decodeRelationalRecord = (
 export const executePostgresRelationalRead = async (
 	client: PostgresDrizzleClient,
 	catalog: PostgresSchemaCatalog,
-	constraintCompilers: PostgresConstraintCompilerRegistry,
 	request: DatabaseOperationRequest,
 ): Promise<unknown> => {
 	try {
@@ -349,7 +330,7 @@ export const executePostgresRelationalRead = async (
 			'PostgreSQL relational query builder is unavailable',
 		)
 		const read = createReadPlan(catalog, schema, request)
-		const config = compileRelationalConfig(catalog, constraintCompilers, read)
+		const config = compileRelationalConfig(catalog, read)
 
 		if (operation.kind === 'find-many') {
 			const raw = await builder.findMany(config)
