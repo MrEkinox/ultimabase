@@ -13,6 +13,31 @@ typage exact **sans génération de code**, pour qu'il n'y ait jamais de
 décalage entre les types utilisés et la réalité. La façade `definePlugin`
 pour les auteurs de plugins vient après et s'appuie sur l'API retenue.
 
+## Périmètre : tout, Core et chaque plugin
+
+L'utilisateur veut tout remettre en question (2026-10-08), pas seulement
+Core. Chaque plugin officiel est examiné pour lui-même :
+
+- comment on l'installe et ce que valent ses options (noms, valeurs par
+  défaut, options inutiles ou dangereuses, cohérence avec les autres plugins) ;
+- ce qu'il apporte sur les schémas et comment (options de schéma, champs,
+  opérations, routes) ;
+- son API pour le développeur : par exemple pour Hooks, les phases, les
+  signatures, le contexte reçu (élément avant et après, utilisateur courant,
+  requête), la façon de modifier ou de refuser une écriture ; pour Access,
+  ACL et Roles, l'expression des règles ; pour Password Auth, la
+  personnalisation de l'utilisateur et des routes ; pour REST et GraphQL, ce
+  qui est exposé par défaut ;
+- ce qui manque au développeur et ce qui est superflu.
+
+Plugins concernés : access, acl-permissions, roles, hooks, validation,
+soft-delete, password-auth, http, server-hono, rest, graphql, graphql-yoga,
+graphql-http, graphiql, apollo-sandbox, postgres, pg-vector, typegen (à
+retirer si possible), testing, create-app.
+
+Livrable par plugin, ajouté à l'inventaire (phase 1) : une fiche « API
+actuelle, frictions mesurées, propositions », notée sur la grille.
+
 ## Contraintes non négociables
 
 - Micro-noyau : Core ne connaît aucun plugin ; tout ce qu'un plugin ajoute
