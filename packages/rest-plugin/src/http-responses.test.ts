@@ -19,6 +19,7 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -44,6 +45,11 @@ const RestSchemaApplication = UltimaBase.use(restPlugin())
 const HttpRecord = RestSchemaApplication.Schema.define({
 	...countRouteOption,
 	className: 'RestHttpRecord',
+	fields: (field) => ({ title: field.string() }),
+})
+// Keeps the built-in route defaults, where `count` is disabled.
+const DefaultRoutesRecord = RestSchemaApplication.Schema.define({
+	className: 'RestDefaultRoutesRecord',
 	fields: (field) => ({ title: field.string() }),
 })
 
@@ -186,7 +192,9 @@ const capturePlugin = (capture: { current?: HttpApplication }) =>
 		],
 	})
 
-const createFixture = async () => {
+const createFixture = async (
+	schemas: readonly SchemaDefinition[] = [HttpRecord],
+) => {
 	const adapter = new ResponseDatabase()
 	const capture: { current?: HttpApplication } = {}
 	const application = new (UltimaBase.use(
@@ -200,7 +208,7 @@ const createFixture = async () => {
 		capturePlugin(capture),
 	))({
 		pluginPrivileges: { logger: false },
-		schemas: [HttpRecord],
+		schemas,
 	})
 	await application.start()
 	if (capture.current === undefined)
@@ -296,6 +304,26 @@ describe('REST HTTP response boundary', () => {
 		expect(await rejected.json()).toMatchObject({
 			error: { code: 'HTTP_APPLICATION_REJECTED' },
 		})
+		await fixture.application.dispose()
+	})
+
+	// Regression: a disabled collection route fell through to the `{id}` item
+	// route and answered 400 "invalid UUID" instead of 404.
+	it('answers not found for disabled collection routes instead of reading an id', async () => {
+		const fixture = await createFixture([HttpRecord, DefaultRoutesRecord])
+		const disabled = await fetchApplication(
+			fixture.http,
+			'/api/v1/classes/RestDefaultRoutesRecord/count',
+		)
+		expect(disabled.status).toBe(404)
+		expect(await disabled.json()).toMatchObject({
+			error: { code: 'REST_NOT_FOUND' },
+		})
+		const item = await fetchApplication(
+			fixture.http,
+			'/api/v1/classes/RestDefaultRoutesRecord/not-a-uuid',
+		)
+		expect(item.status).toBe(400)
 		await fixture.application.dispose()
 	})
 

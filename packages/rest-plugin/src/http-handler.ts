@@ -30,6 +30,7 @@ import {
 	type RestRouteDefinition,
 	type RestSchemaRouteDefinition,
 } from './routes.js'
+import { reservedSchemaRouteSegments } from './schema-routes.js'
 import type {
 	RestOperationTransport,
 	RestSchemaMutationTransport,
@@ -84,7 +85,15 @@ const matchRoute = (
 			id = requestSegment
 			return true
 		})
-		if (matches && id !== undefined) return { id, route }
+		if (!matches || id === undefined) continue
+		// A disabled collection route such as `/count` is not an item id: it must
+		// answer "route not found", not "invalid id".
+		if (
+			route.kind !== 'rest-plugin-operation-route' &&
+			reservedSchemaRouteSegments.has(id)
+		)
+			continue
+		return { id, route }
 	}
 	return undefined
 }

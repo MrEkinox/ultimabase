@@ -100,6 +100,14 @@ const routeTemplates: readonly Readonly<{
 	{ method: 'DELETE', operation: 'delete', suffix: '/{id}' },
 ]
 
+/** Collection-level segments (`count`, `first`, `bulk`…); never item identifiers. */
+export const reservedSchemaRouteSegments: ReadonlySet<string> = new Set(
+	routeTemplates.flatMap(({ suffix }) => {
+		const segment = suffix.split('/')[1]
+		return segment === undefined || segment === '{id}' ? [] : [segment]
+	}),
+)
+
 // Embedded object metadata is compiled by Core; REST only walks its children.
 const readNestedFields = (options: unknown): unknown =>
 	isPlainRecord(options) ? options.fields : undefined
