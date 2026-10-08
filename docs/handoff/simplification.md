@@ -38,6 +38,9 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
 
 ## Décisions de conception notées (à formaliser par ADR le moment venu)
 
+En attente : aucun de ces chantiers ne démarre sans décision explicite de
+l'utilisateur.
+
 - Enregistrement explicite des schémas conservé (`schemas: [...]`) : pas
   d'enregistrement à l'import ; piste ultérieure, un avertissement en
   développement pour un schéma défini mais non enregistré.
