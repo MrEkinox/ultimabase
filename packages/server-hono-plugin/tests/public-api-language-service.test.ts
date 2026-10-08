@@ -22,6 +22,7 @@ describe('@ultimabase/server-hono-plugin source declarations', () => {
 			'ExistingHonoServerPluginOptions',
 			'HonoBrowserPolicyOwner',
 			'HonoServerPlugin',
+			'HonoServerPluginExports',
 			'HonoServerPluginOptions',
 			'ManagedHonoServerPluginOptions',
 			'honoServerPlugin',

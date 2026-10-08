@@ -76,7 +76,7 @@ export class HonoServerProvider {
 		this.#port = options.port
 	}
 
-	/** @internal Reports the active listener address for focused provider tests. */
+	/** Reports the active framework-owned listener address, if any. */
 	get address(): AddressInfo | undefined {
 		const address = this.#server?.address()
 		return typeof address === 'object' && address !== null ? address : undefined

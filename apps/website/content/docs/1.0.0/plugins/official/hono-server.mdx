@@ -12,6 +12,8 @@ reviewedAt: 2026-09-21
 sources:
   - packages/server-hono-plugin/README.md
   - packages/server-hono-plugin/src/options.ts
+  - packages/server-hono-plugin/src/plugin.ts
+  - docs/adr/0295-hono-listener-address-export.md
   - docs/adr/0009-http-server-plugins.md
   - docs/adr/0226-http-browser-and-predispatch-boundaries.md
   - docs/adr/0260-single-owner-http-dispatch.md
@@ -94,7 +96,15 @@ serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` envi
 most hosting platforms set, then `1337`. The
 optional `host` is forwarded only when you set it; the loopback value above is
 appropriate for local development. Port `0` lets the operating system choose
-an ephemeral port for tests.
+an ephemeral port for tests. Once started, read the bound address through the
+plugin exports; it is `undefined` before start, after stop, and when you pass
+your own `app`:
+
+```ts
+await ultimabase.start()
+const address = ultimabase.plugin('@ultimabase/server-hono-plugin').address()
+console.log(`Listening on port ${String(address?.port)}`)
+```
 
 ### Start and stop the managed listener
 

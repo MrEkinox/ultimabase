@@ -8,7 +8,9 @@ import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,
 } from '@ultimabase/http-plugin'
+import { immutableRecord } from '@ultimabase/shared'
 import type { Env, Schema } from 'hono'
+import type { AddressInfo } from 'node:net'
 
 import {
 	normalizeHonoServerPluginOptions,
@@ -27,10 +29,27 @@ const browserPolicyRequirement = requireCapability(
 	{ phase: 'setup' },
 )
 
+/** Application-local view of the managed listener, read with `ultimabase.plugin(server)`. */
+export interface HonoServerPluginExports {
+	/**
+	 * Returns the bound listener address, like Node's `server.address()`, so a
+	 * `port: 0` listener can report the port the operating system chose.
+	 * `undefined` before start, after stop, and for an existing Hono `app`,
+	 * whose listener the plugin does not own.
+	 *
+	 * @example
+	 * ```ts
+	 * await ultimabase.start()
+	 * const { port } = ultimabase.plugin(server).address() ?? {}
+	 * ```
+	 */
+	address(): AddressInfo | undefined
+}
+
 /** Names one exact Hono server provider definition. */
 export type HonoServerPlugin = PluginInstance<{
 	readonly id: '@ultimabase/server-hono-plugin'
-	readonly exports: ReturnType<() => void>
+	readonly exports: HonoServerPluginExports
 	readonly version: '0.0.0'
 	readonly core: '^0.0.0'
 	readonly environment: readonly ['environment:network']
@@ -53,7 +72,7 @@ export const honoServerPlugin = <
 		const stop = (): Promise<void> => provider.stop(httpApplication)
 
 		return {
-			exports: undefined,
+			exports: immutableRecord({ address: () => provider.address }),
 			startTransports: () =>
 				provider.start(
 					httpApplication,
