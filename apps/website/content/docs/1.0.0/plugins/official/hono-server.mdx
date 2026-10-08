@@ -90,7 +90,8 @@ export const ultimabase = new Application({
 ```
 
 This starts the HTTP boundary, not an API route. Add a transport plugin to
-serve REST or GraphQL. Without `port`, the managed listener uses `1337`. The
+serve REST or GraphQL. Without `port`, the managed listener uses the `PORT` environment variable that
+most hosting platforms set, then `1337`. The
 optional `host` is forwarded only when you set it; the loopback value above is
 appropriate for local development. Port `0` lets the operating system choose
 an ephemeral port for tests.
