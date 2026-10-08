@@ -1,8 +1,29 @@
 # Plan : remise en question de l'API développeur, sans Typegen
 
-Statut : en attente. Démarre après la fusion de l'ADR-0289 et
-l'implémentation de l'ADR-0290, sur décision de l'utilisateur. Le programme
-global est dans [simplification.md](simplification.md).
+Statut : phase 1 terminée ; phase 2 (API idéale par l'exemple) à démarrer le
+2026-10-09 à 9 h avec l'utilisateur. Le programme global est dans
+[simplification.md](simplification.md).
+
+## Reprise du 2026-10-09 (état vérifiable)
+
+- Point de départ de la séance : la fiche
+  [api-avant-todo-backend.md](api-avant-todo-backend.md) (25 frictions
+  sourcées, 10 questions) et l'inventaire [api-inventory/](api-inventory/).
+- Prototype de typage sans Typegen lancé la nuit du 8 au 9 hors dépôt :
+  rapport attendu dans `/Users/mrekinox/Desktop/ub-typing-spike/RAPPORT.md`
+  (variantes getter, par valeur, chaînes résolues par l'application, deux
+  phases ; mesures à 10, 50 et 200 schémas contre les références ci-dessous).
+  Le lire avant d'écrire les exemples : il dit quelles formes se typent.
+- Audit des dépendances (rapport seul) :
+  `/Users/mrekinox/Desktop/ub-dependency-audit.md`.
+- `main` local a 30 commits d'avance sur `origin/main`, non poussés (accord de
+  l'utilisateur requis) : petits correctifs, ADR-0292 implémenté, ADR-0295
+  (`address()` du serveur Hono), ADR-0296 (contexte ajouté aux diagnostics =
+  correctif), famille « clés héritées » de Core, messages d'erreur, `engines`
+  Node 24, `--wait` dans create-app. `validate:full` et audit DX passés.
+- `api-challenge` contient `main` (fusion du 2026-10-09).
+- Worktree `/Users/mrekinox/Desktop/ub-small` sur `main` ; dépôt principal sur
+  `api-challenge`.
 
 ## Objectif
 
@@ -82,7 +103,9 @@ ADR-0292 (`schemaPolicy` selon `NODE_ENV` : `override` en développement,
 `fail` en production), ADR-0293 (`where` d'Access : `undefined` = pas de
 filtre, `false` = aucune ligne ; ne plus enseigner `default: true`), ADR-0294
 (écritures publiques explicites avec `publicWrites: true`, refus de démarrer
-sans politique ni option). Implémentées avec la migration vers l'API cible.
+sans politique ni option). ADR-0292 est implémenté dans `main` depuis le
+2026-10-08 ; 0293 et 0294 restent à implémenter avec la migration vers l'API
+cible.
 
 ## Les deux problèmes de typage à résoudre sans génération
 

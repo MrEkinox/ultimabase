@@ -4,7 +4,7 @@
 - Date: 2026-10-08
 - Refines: the `schemaPolicy` default of `@ultimabase/postgres-plugin`; applies ADR-0288
 - Approval: user validated on 2026-10-08
-- Implementation: with the developer-API challenge (`docs/handoff/api-challenge-plan.md`)
+- Implementation: done on 2026-10-08 (`@ultimabase/postgres-plugin`)
 
 ## Context
 
