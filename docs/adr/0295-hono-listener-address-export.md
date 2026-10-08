@@ -28,3 +28,10 @@ before the listener opens.
 The public type surface gains `HonoServerPluginExports`, as every other
 plugin with exports already does; the server package's export-completion test
 lists it. No option, behavior or Core contract changes.
+
+## Proof
+
+`yarn validate:full` passed on 2026-10-08. The DX audit against `origin/main`
+reports only the new `HonoServerPluginExports` declaration, export, completion
+and hovers, the `exports` member of `HonoServerPlugin`, and the new type-test
+usage sites.
