@@ -98,9 +98,6 @@ export const searchDocumentPlugin = () =>
 		id: '@community/search-document-plugin',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'schema:declare': 'Adds the search document field.',
-		},
 		contributions: [
 			contributeDeclarations({
 				schema: ({ fields }) => {

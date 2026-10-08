@@ -27,6 +27,7 @@ import {
 	snapshotVocabularyList,
 	type PluginPrivilege,
 } from './manifest.js'
+import type { DerivedPluginPrivilege } from './plugin-permissions.js'
 import type { PluginOperationAuthoringContribution } from './plugin-command-contribution-contracts.js'
 import type { PluginSchemaDeclarationRegistrar } from './schema-declaration-contracts.js'
 import type { PluginSetupContext } from './setup-registries.js'
@@ -170,7 +171,7 @@ type DeclarationCallback = (context: PluginDeclarationContext) => unknown
 
 interface DeclarationContributionRuntime {
 	readonly callbacks: readonly DeclarationCallback[]
-	readonly privileges: readonly PluginPrivilege[]
+	readonly privileges: readonly DerivedPluginPrivilege[]
 	readonly requires: readonly CapabilityRequirement[]
 }
 
@@ -178,14 +179,17 @@ const declarationContributions = new WeakMap<
 	object,
 	DeclarationContributionRuntime
 >()
-/** Maps each static declaration surface to the privilege it implies, in run order. */
+/**
+ * Maps each static declaration surface to the privilege it implies, in run
+ * order, with the report sentence used when the plugin gives no reason.
+ */
 const declarationSurfaces = [
-	['schema', 'schema:declare'],
-	['models', 'model:extend'],
-	['operations', 'operation:declare'],
-	['privateStorage', 'storage:private'],
-	['typegen', 'typegen:reference'],
-] as const satisfies readonly (readonly [string, PluginPrivilege])[]
+	['schema', 'schema:declare', 'Declares schema fields, options or schemas.'],
+	['models', 'model:extend', 'Extends application model handles.'],
+	['operations', 'operation:declare', 'Declares plugin operations.'],
+	['privateStorage', 'storage:private', 'Declares owner-private storage.'],
+	['typegen', 'typegen:reference', 'References public Typegen types.'],
+] as const satisfies readonly (readonly [string, PluginPrivilege, string])[]
 const declarationOptionKeys = new Set([
 	'requires',
 	...declarationSurfaces.map(([surface]) => surface),
@@ -245,8 +249,8 @@ export const contributeDeclarations = <
 	}
 
 	const callbacks: DeclarationCallback[] = []
-	const privileges: PluginPrivilege[] = []
-	for (const [surface, privilege] of declarationSurfaces) {
+	const privileges: DerivedPluginPrivilege[] = []
+	for (const [surface, privilege, description] of declarationSurfaces) {
 		const callback: unknown = options[surface]
 		if (callback === undefined) continue
 		if (!isDeclarationCallback(callback)) {
@@ -255,7 +259,7 @@ export const contributeDeclarations = <
 			)
 		}
 		callbacks.push(callback)
-		privileges.push(privilege)
+		privileges.push(immutableRecord({ privilege, description }))
 	}
 	if (callbacks.length === 0) {
 		throw new TypeError(

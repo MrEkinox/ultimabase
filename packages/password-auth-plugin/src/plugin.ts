@@ -60,20 +60,10 @@ const passwordAuthHttpPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
 const passwordAuthPluginPermissions = {
-	'schema:declare':
-		'Declares the exact plugin-owned local User identity schema.',
 	'storage:private':
 		'Stores password verifiers and session digests outside application schema surfaces.',
-	'operation:declare':
-		'Declares the exact Password Auth identity transition operations.',
-	'transport:expose':
-		'Binds Password Auth operations to REST v1, GraphQL v1, and optional owned cookie routes.',
-	'typegen:reference':
-		'References public Password Auth operation input and result types.',
 	'authority:elevate':
 		'Creates a public User through one audited sign-up transaction.',
-	'runtime:intercept':
-		'Preserves the canonical username invariant on direct User writes.',
 } as const
 
 const requestExecutionRequirement = requireCapability(

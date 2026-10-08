@@ -97,12 +97,12 @@ describe('public Runtime capabilities', () => {
 		expect(runtimeCapabilities).toStrictEqual([])
 	})
 
-	it('rejects missing privileges and generic Runtime capability facades', () => {
+	it('derives Runtime privileges and rejects generic Runtime capability facades', () => {
 		const definition = preparedOperation({
 			handler: ({ operation }) => ({ operation }),
 			schema: runtimeSchema,
 		})
-		expect(() =>
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.runtime-missing-privilege',
@@ -113,8 +113,11 @@ describe('public Runtime capabilities', () => {
 						create: () => ({ value: definition }),
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: runtime:intercept')
+			}).manifest.privileges.find(({ name }) => name === 'runtime:intercept'),
+		).toStrictEqual({
+			name: 'runtime:intercept',
+			reason: 'Registers Runtime interceptors.',
+		})
 
 		const genericProvider = createPlugin({
 			core: '^0.0.0',
@@ -178,8 +181,8 @@ describe('public Runtime capabilities', () => {
 		},
 	)
 
-	it('requires Runtime interception privilege and validates mutation guards', async () => {
-		expect(() =>
+	it('derives Runtime interception privilege and validates mutation guards', async () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.runtime-guard-no-privilege',
@@ -192,8 +195,11 @@ describe('public Runtime capabilities', () => {
 						}),
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: runtime:intercept')
+			}).manifest.privileges.find(({ name }) => name === 'runtime:intercept'),
+		).toStrictEqual({
+			name: 'runtime:intercept',
+			reason: 'Registers Runtime behaviors.',
+		})
 
 		const malformed = createPlugin({
 			core: '^0.0.0',

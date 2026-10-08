@@ -20,10 +20,6 @@ const endpointRequirement = requireCapability(
 	'^1.0.0',
 )
 
-const permissions = {
-	'transport:expose':
-		'Exposes the selected application GraphiQL browser route.',
-} as const
 const httpPeers = [
 	{ pluginId: '@ultimabase/http-plugin', version: '^0.0.0' },
 ] as const
@@ -71,6 +67,5 @@ export const graphiqlPlugin = (
 		contributions: [routes, endpointRequirement],
 		environment: ['environment:network'],
 		peers: httpPeers,
-		permissions,
 	})
 }

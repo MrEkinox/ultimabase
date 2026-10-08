@@ -182,9 +182,6 @@ const vectorPlugin = plugin({
 	id: '@ultimabase/pg-vector-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'schema:declare': 'Declares the vector FieldBuilder method.',
-	},
 	contributions: [
 		contributeDeclarations({
 			schema: ({ fields }) => fields.register(vectorFamily),
@@ -281,9 +278,6 @@ const workflowPlugin = plugin({
 	id: '@example/workflow-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'schema:declare': 'Declares workflow options and logical schema fields.',
-	},
 	contributions: [
 		contributeDeclarations({
 			schema: ({ schemas }) => {
@@ -495,9 +489,6 @@ export const workflowPlugin = () =>
 				operation: publishPost,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares the publish operation.',
-		},
 	})
 ```
 
@@ -505,7 +496,7 @@ export const workflowPlugin = () =>
 and optional wire bindings. Core derives the static registrar call, nominal
 command plan, owner-local identifiers, and deterministic cleanup. Authors do
 not register a separate handler or transport provider.
-Core derives `operation:declare`; the author supplies its explicit reason. Then call
+Core derives `operation:declare` and reports it with a generated reason. Then call
 `ultimabase.operation(publishPost).execute(input)`. Generic operations target
 the application. Item-specific commands use the schema-mutation contract below.
 
@@ -557,11 +548,6 @@ const workflowPlugin = plugin({
 	id: 'community.workflow',
 	version: '1.0.0',
 	core: '^1.0.0',
-	permissions: {
-		'model:extend': 'Adds the archive model command.',
-		'operation:declare': 'Declares archive.',
-		'persistence:rewrite': 'Persists the archive effect.',
-	},
 	contributions: [
 		archiveContribution,
 		contributeDeclarations({
@@ -1558,9 +1544,6 @@ const publishedOnlyPlugin = () =>
 		id: 'example.published-only',
 		version: '1.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'runtime:constrain': 'Applies published row and field restrictions.',
-		},
 		contributions: [
 			provideRuntimeConstraint({
 				contributionId: 'published-policy',
@@ -1724,11 +1707,14 @@ export type WorkflowPlugin = ReturnType<typeof workflowPlugin>
 Capability providers and requirements, operations, static declarations, and
 the optional application resource all enter `contributions`. Core compiles that
 list once into its native immutable plugin plan; there is no second setup/hooks
-authoring model behind `plugin()`. It derives required privilege names from the
-contribution types; `permissions` supplies only their reviewable reasons. A
-callback that needs an additional privileged facade uses
-`withPluginPrivileges()` around that exact contribution, keeping the power next
-to the code that consumes it.
+authoring model behind `plugin()`. It derives every required privilege from the
+contribution types and reports each one with a description generated from the
+contribution that needs it. `permissions` optionally replaces that description
+with an author reason; it is required only for the critical `authority:elevate`
+and `storage:private` privileges, and a reason for a privilege the plugin does
+not derive fails construction. A callback that needs an additional privileged
+facade uses `withPluginPrivileges()` around that exact contribution, keeping
+the power next to the code that consumes it.
 
 An application resource that only owns lifecycle work may omit `exports`:
 
@@ -1864,7 +1850,7 @@ export const databasePlugin = () =>
 
 The manifest snapshots a namespaced stable `pluginId`, an optional explicit
 `instanceId`, the plugin's canonical semantic version, its supported Core
-range, exact requested privileges with reasons, and direct Node.js environment
+range, exact derived privileges with reasons, and direct Node.js environment
 claims. Enforceable privileges and informational environment claims are
 separate contracts. The closed privilege vocabulary has documented Core facade
 ownership and severity; wildcard requests are invalid. Direct filesystem and
@@ -1877,7 +1863,7 @@ register arbitrary declarations or extra output files.
 ADR-0265 removes `typegenEmitterCapability` and `TypegenEmitterCapability`.
 Reference declarations request `typegen:reference` directly; they do not depend
 on an installed generator marker. Typegen generates from its setup callback.
-Generic capability conflicts, requirements and conditional privileges remain;
+Generic capability conflicts and requirements remain;
 Core no longer designates a unique emitter through a shared token. Repeating
 the official Typegen plugin still conflicts on its plugin identity.
 
@@ -1900,12 +1886,6 @@ const consumer = plugin({
 	id: 'fixture.audit-consumer',
 	version: '1.0.0',
 	core: '^0.0.0',
-	permissions: {
-		'event:publish': {
-			reason: 'Publishes audit records when a sink is installed.',
-			when: auditRequirement,
-		},
-	},
 	contributions: [auditRequirement],
 })
 ```
@@ -1966,11 +1946,10 @@ Core still validates the provider and version before materializing all
 application capabilities, but setup-phase requirements cannot be read by an
 application capability factory and do not establish `connect`, `stop`, or
 `dispose` order. Application resources are isolated per application and
-disposed after their owner's plugin `dispose` hook. A conditional privilege
-must reference the same optional requirement object listed by its manifest.
-Every application capability factory also receives its Core-bound `owner` and
-an `assertPrivilege(...)` function for exact effect-time checks; neither value
-can grant a privilege missing from the plugin's active manifest.
+disposed after their owner's plugin `dispose` hook. Every application
+capability factory also receives its Core-bound `owner` and an
+`assertPrivilege(...)` function for exact effect-time checks; neither value can
+grant a privilege missing from the plugin's manifest.
 
 Factories also receive `callbacks`, an application-bound execution-attribution
 helper for vertical engines that host callbacks from several owners. Use
@@ -2031,19 +2010,18 @@ const ultimabase = new WorkflowApplication({
 })
 ```
 
-`deny` prevents an active request for an enforceable Core facade.
+`deny` prevents a derived request for an enforceable Core facade.
 `denyClaims` rejects a plugin that announces direct filesystem, network,
 process, or native-code behavior; it never claims to sandbox trusted in-process
 JavaScript. Unknown privileges, claims, plugin IDs, and instance IDs are
-configuration errors. Denied active requests and claims produce one aggregate
-`PLUGIN_PRIVILEGE_DENIED` error, while a denied capability-conditioned request
-remains inspectable and harmless when its optional capability is absent.
-Every denial identifies the exact plugin and optional instance, reason, review
-severity, and whether policy blocked execution before static declaration or a
-later Core facade rejected the effect.
+configuration errors. Denied requests and claims produce one aggregate
+`PLUGIN_PRIVILEGE_DENIED` error before any plugin callback runs. Every denial
+identifies the exact plugin and optional instance, reason, review severity, and
+whether policy blocked execution before static declaration or a later Core
+facade rejected the effect.
 
 The default logger emits one ordered report through `console.info`, or through
-`console.error` when active requests are denied. Set
+`console.error` when requests are denied. Set
 `pluginPrivileges.logger: false` to silence it, or provide `{ info, error }` to
 route the same immutable report elsewhere. Logger failures are isolated from
 policy results. `application.pluginPrivilegeReport` exposes the detached report

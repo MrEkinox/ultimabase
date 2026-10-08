@@ -552,8 +552,8 @@ describe('plugin operation Runtime', () => {
 		await second.ultimabase.dispose()
 	})
 
-	it('requires transport exposure privilege on the exact binding owner', () => {
-		expect(() =>
+	it('derives transport exposure privilege on the exact binding owner', () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.unprivileged-operation-transport',
@@ -568,12 +568,15 @@ describe('plugin operation Runtime', () => {
 						},
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: transport:expose')
+			}).manifest.privileges.find(({ name }) => name === 'transport:expose'),
+		).toStrictEqual({
+			name: 'transport:expose',
+			reason: 'Binds operations to transports.',
+		})
 	})
 
-	it('requires operation declaration privilege for owned contributions', () => {
-		expect(() =>
+	it('derives operation declaration privilege for owned contributions', () => {
+		expect(
 			createPlugin({
 				core: '^0.0.0',
 				id: 'fixture.unprivileged-operation-owner',
@@ -584,7 +587,10 @@ describe('plugin operation Runtime', () => {
 						operation: applicationOperation,
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: operation:declare')
+			}).manifest.privileges.find(({ name }) => name === 'operation:declare'),
+		).toStrictEqual({
+			name: 'operation:declare',
+			reason: 'Declares plugin operations.',
+		})
 	})
 })

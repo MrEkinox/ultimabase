@@ -284,8 +284,8 @@ describe('GraphQL schema composition', () => {
 		},
 	)
 
-	it('enforces transport privilege on every schema provider', () => {
-		expect(() =>
+	it('derives transport privilege for every schema provider', () => {
+		expect(
 			plugin({
 				core: '^0.0.0',
 				id: 'fixture.denied-graphql-provider',
@@ -296,8 +296,11 @@ describe('GraphQL schema composition', () => {
 						create: () => schemaWithQuery('denied', 'no'),
 					}),
 				],
-			}),
-		).toThrow('Missing plugin permission reason: transport:expose')
+			}).manifest.privileges.find(({ name }) => name === 'transport:expose'),
+		).toStrictEqual({
+			name: 'transport:expose',
+			reason: 'Provides the "ultimabase.graphql.schemas" capability.',
+		})
 	})
 
 	it('rejects subscription roots outside the v1 contract', async () => {

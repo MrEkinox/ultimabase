@@ -112,9 +112,6 @@ export const workflowPlugin = () =>
 				operation: formatWorkflow,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares formatWorkflow.',
-		},
 	})
 ```
 
@@ -265,10 +262,6 @@ export const workflowPlugin = () =>
 				operation: formatWorkflow,
 			}),
 		],
-		permissions: {
-			'operation:declare': 'Declares formatWorkflow.',
-			'transport:expose': 'Exposes formatWorkflow in GraphQL.',
-		},
 	})
 ```
 
@@ -355,9 +348,6 @@ export const workflowGraphqlAddon = () =>
 		core: '^1.0.0',
 		peers: [{ pluginId: '@ultimabase/graphql-plugin', version: '^1.0.0' }],
 		id: 'community.workflow-graphql',
-		permissions: {
-			'transport:expose': 'Adds workflowHealth to GraphQL.',
-		},
 		version: '1.0.0',
 	})
 ```
@@ -434,9 +424,6 @@ export const statusRoutePlugin = () =>
 		],
 		core: '^1.0.0',
 		id: 'community.status-route',
-		permissions: {
-			'transport:expose': 'Adds the GET /status route.',
-		},
 		version: '1.0.0',
 	})
 ```

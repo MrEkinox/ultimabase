@@ -178,7 +178,6 @@ plugin({
 	version: '1.0.0',
 	core: '^0.0.0',
 	peers: [{ pluginId: '@ultimabase/hooks-plugin', version: '^0.0.0' }],
-	permissions: { 'runtime:intercept': 'Contributes workflow Hooks.' },
 	contributions: [provideHookContributions(/* ... */)],
 })
 ```

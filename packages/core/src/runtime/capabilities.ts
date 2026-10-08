@@ -7,7 +7,7 @@ import {
 	type CapabilityProviderDeclaration,
 	type CapabilityToken,
 } from '../plugins/capabilities.js'
-import type { PluginPrivilege } from '../plugins/manifest.js'
+import type { DerivedPluginPrivilege } from '../plugins/plugin-permissions.js'
 import type { SchemaDefinition } from '../schema/index.js'
 import type { EnforcementContributionKind } from './enforcement/contracts.js'
 import { getEnforcementContributionImplementation } from './enforcement/definitions.js'
@@ -192,10 +192,25 @@ export const provideRuntimeBehavior = (
 /** Resolves the exact privilege attached to a protected Runtime provider token. */
 export const runtimeProviderPrivilege = (
 	token: CapabilityToken,
-): PluginPrivilege | undefined => {
-	if (token === runtimeInterceptorCapability) return 'runtime:intercept'
-	if (token === runtimeConstraintCapability) return 'runtime:constrain'
-	if (token === runtimeBehaviorCapability) return 'runtime:intercept'
+): DerivedPluginPrivilege | undefined => {
+	if (token === runtimeInterceptorCapability) {
+		return {
+			privilege: 'runtime:intercept',
+			description: 'Registers Runtime interceptors.',
+		}
+	}
+	if (token === runtimeConstraintCapability) {
+		return {
+			privilege: 'runtime:constrain',
+			description: 'Registers protected Runtime constraints.',
+		}
+	}
+	if (token === runtimeBehaviorCapability) {
+		return {
+			privilege: 'runtime:intercept',
+			description: 'Registers Runtime behaviors.',
+		}
+	}
 	return undefined
 }
 

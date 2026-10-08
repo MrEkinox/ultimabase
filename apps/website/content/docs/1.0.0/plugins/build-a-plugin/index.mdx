@@ -94,8 +94,11 @@ enter one application's `.use()` chain.
 
 Every capability, operation, static declaration, and application resource goes
 into `contributions`. Core compiles that list once into its native plugin plan
-and derives the required privilege names. Authors add only the corresponding
-human-readable `permissions` reasons; missing and unused reasons fail while the
+and derives every privilege the plugin needs. The startup report shows each
+one with a description generated from the contribution that needs it, so most
+plugins need no `permissions` at all. Only the critical `authority:elevate` and
+`storage:private` privileges require an explicit reason; a missing critical
+reason, or a reason for a privilege the plugin does not use, fails while the
 definition is still inert. There is no separate setup/hooks authoring model
 behind this API.
 

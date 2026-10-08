@@ -81,12 +81,6 @@ export interface RestPluginExports {
 	readonly schemaMutationTransport?: RestSchemaMutationTransport
 }
 
-const restPluginPermissions = {
-	'schema:declare': 'Declares the direct REST schema route option.',
-	'transport:expose':
-		'Generates explicitly configured public REST route metadata.',
-} as const
-
 // The installed option definition is also the configured factory's type source.
 type RestOptionSource = PluginSchemaOptionSource<{
 	readonly contributionId: 'official-rest-schema-option'
@@ -283,7 +277,6 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		version: restPluginVersion,
 		core: '^0.0.0',
 		...(instanceId === undefined ? {} : { instanceId }),
-		permissions: restPluginPermissions,
 		contributions: [
 			...routeProviders,
 			httpEndpointProvider,

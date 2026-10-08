@@ -239,12 +239,8 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 })
 
 const rolesPluginPermissions = {
-	'schema:declare': 'Declares the nominal direct option owned by RoleSchema.',
 	'authority:elevate':
 		'Resolves and maintains persisted role membership through audited internal Master queries.',
-	'runtime:intercept':
-		'Maintains role invariants through generic Runtime behavior.',
-	'event:publish': 'Publishes committed role membership and hierarchy changes.',
 } as const
 
 /** Represents the exact option-light official stored-role provider. */

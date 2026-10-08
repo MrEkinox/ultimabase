@@ -22,7 +22,6 @@ import {
 	snapshotPluginIdentity,
 	type PluginIdentity,
 	type PluginPrivilege,
-	type PluginPrivilegeRequest,
 } from './manifest.js'
 import {
 	canonicalApplicationRequestExecutionFoundation,
@@ -147,43 +146,15 @@ const throwMissingCapability = (
 }
 
 /** Validates one token's providers against every ownership and privilege rule. */
-const validatePlan = (
-	plans: ReadonlyMap<CapabilityToken, CapabilityPlan>,
-	plan: CapabilityPlan,
-): void => {
+const validatePlan = (plan: CapabilityPlan): void => {
 	const { token } = plan
-	// A conditional request is active only when its optional protocol has a provider.
-	const isConditionActive = (
-		owner: PluginIdentity,
-		when: CapabilityRequirement,
-	): boolean => {
-		const condition = plans.get(when.token)
-		return (
-			condition !== undefined &&
-			condition.providers.length > 0 &&
-			condition.requirements.some(
-				(candidate) =>
-					candidate.requirement === when &&
-					isSamePluginIdentity(candidate.owner, owner),
-			)
-		)
-	}
-	const hasActivePrivilege = (
-		{ owner, plugin }: OwnedProvider | OwnedRequirement,
-		privilege: PluginPrivilege,
-	): boolean =>
-		plugin?.definition.manifest.privileges.some(
-			({ name, when }) =>
-				name === privilege &&
-				(when === undefined || isConditionActive(owner, when)),
-		) ?? false
 	const assertProviderPrivilege = (
 		provider: OwnedProvider,
 		privilege: PluginPrivilege,
 	): void => {
-		if (hasActivePrivilege(provider, privilege)) return
+		if (hasPluginPrivilege(provider.plugin, privilege)) return
 		throwCapabilityConflict(
-			`Plugin "${formatPluginIdentity(provider.owner)}" must declare active privilege "${privilege}" for capability contribution "${provider.declaration.contributionId}".`,
+			`Plugin "${formatPluginIdentity(provider.owner)}" must declare privilege "${privilege}" for capability contribution "${provider.declaration.contributionId}".`,
 			{
 				kind: 'capability-privilege-missing',
 				plugin: formatPluginIdentity(provider.owner),
@@ -256,7 +227,7 @@ const validatePlan = (
 			})
 		}
 		if (providerRule.privilege !== undefined) {
-			assertProviderPrivilege(provider, providerRule.privilege)
+			assertProviderPrivilege(provider, providerRule.privilege.privilege)
 		}
 	}
 
@@ -377,7 +348,7 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 			}
 		}
 
-		for (const plan of plans.values()) validatePlan(plans, plan)
+		for (const plan of plans.values()) validatePlan(plan)
 
 		this.entries = immutableArray(
 			[...plans.values()].map((plan) => {
@@ -431,33 +402,19 @@ export class CapabilityInventory implements Iterable<CapabilityInventoryEntry> {
 		)
 	}
 
-	/** Keeps inactive capability-conditioned privilege requests unenforceable. */
-	isPrivilegeActive(
-		owner: PluginIdentity,
-		request: PluginPrivilegeRequest,
-	): boolean {
-		return (
-			request.when === undefined ||
-			this.isRequirementActive(owner, request.when)
-		)
-	}
-
 	[Symbol.iterator](): Iterator<CapabilityInventoryEntry> {
 		return this.entries[Symbol.iterator]()
 	}
 }
 
-/** Finds one plugin's privilege request only while its capability condition holds. */
-export const findActivePrivilegeRequest = (
-	inventory: CapabilityInventory,
+/** Reports whether one plugin's manifest requests an exact privilege. */
+export const hasPluginPrivilege = (
 	plugin: NormalizedPlugin | undefined,
 	privilege: PluginPrivilege,
-): PluginPrivilegeRequest | undefined =>
-	plugin?.definition.manifest.privileges.find(
-		(request) =>
-			request.name === privilege &&
-			inventory.isPrivilegeActive(plugin.definition.manifest.identity, request),
-	)
+): boolean =>
+	plugin?.definition.manifest.privileges.some(
+		(request) => request.name === privilege,
+	) ?? false
 
 /** Executes pure declaration composition only after privilege policy succeeds. */
 export const composeDeclarationCapabilities = (

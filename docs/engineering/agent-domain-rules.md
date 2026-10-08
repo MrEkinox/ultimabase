@@ -138,8 +138,10 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   name. Packages that are not plugins must not use this suffix.
 - A plugin factory returns a static typed definition.
 - A manifest declares structured plugin and optional instance identity,
-  compatibility ranges, requested privileges with reasons, environmental
-  claims, dependencies, and capabilities.
+  compatibility ranges, privileges derived from contributions with author or
+  generated reasons, environmental claims, dependencies, and capabilities.
+  Only the critical `authority:elevate` and `storage:private` privileges
+  require an explicit author reason (ADR-0290).
 - Every requested privilege from ADR-0191's closed vocabulary is validated and
   reported before any plugin static declaration, Typegen, setup, connection,
   Runtime, or transport effect.

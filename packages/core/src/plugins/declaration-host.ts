@@ -74,46 +74,10 @@ type PrivilegeUnion<TPrivileges> =
 	TPrivileges extends readonly PluginPrivilegeRequest[]
 		? TPrivileges[number]
 		: never
-type SchemaDeclareRequest<TPrivileges> = Extract<
-	PrivilegeUnion<TPrivileges>,
-	Readonly<{ name: 'schema:declare' }>
->
-type UnconditionalSchemaDeclareRequest<TPrivileges> =
-	SchemaDeclareRequest<TPrivileges> extends infer TRequest
-		? TRequest extends Readonly<{ when: CapabilityRequirement }>
-			? never
-			: TRequest
-		: never
-
-type PluginFieldDeclarationContext<TPrivileges> = [
-	SchemaDeclareRequest<TPrivileges>,
-] extends [never]
-	? Readonly<Record<never, never>>
-	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
-		? Readonly<{ fields?: PluginFieldFamilyRegistrar }>
-		: Readonly<{ fields: PluginFieldFamilyRegistrar }>
-
-type PluginSchemaDeclarationContext<TPrivileges> = [
-	SchemaDeclareRequest<TPrivileges>,
-] extends [never]
-	? Readonly<Record<never, never>>
-	: [UnconditionalSchemaDeclareRequest<TPrivileges>] extends [never]
-		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
-		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
-
 type PrivilegeRequest<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
 > = Extract<PrivilegeUnion<TPrivileges>, Readonly<{ name: TName }>>
-type UnconditionalPrivilegeRequest<
-	TPrivileges,
-	TName extends PluginPrivilegeRequest['name'],
-> =
-	PrivilegeRequest<TPrivileges, TName> extends infer TRequest
-		? TRequest extends Readonly<{ when: CapabilityRequirement }>
-			? never
-			: TRequest
-		: never
 type PrivilegedDeclarationContext<
 	TPrivileges,
 	TName extends PluginPrivilegeRequest['name'],
@@ -121,10 +85,20 @@ type PrivilegedDeclarationContext<
 	TValue,
 > = [PrivilegeRequest<TPrivileges, TName>] extends [never]
 	? Readonly<Record<never, never>>
-	: [UnconditionalPrivilegeRequest<TPrivileges, TName>] extends [never]
-		? Readonly<Partial<Record<TProperty, TValue>>>
-		: Readonly<Record<TProperty, TValue>>
+	: Readonly<Record<TProperty, TValue>>
 
+type PluginFieldDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'schema:declare',
+	'fields',
+	PluginFieldFamilyRegistrar
+>
+type PluginSchemaDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'schema:declare',
+	'schemas',
+	PluginSchemaDeclarationRegistrar
+>
 type PluginModelDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
 	TPrivileges,
 	'model:extend',
@@ -229,11 +203,7 @@ export class PluginDeclarationHost {
 			const { identity: owner, capabilities: declared } = definition.manifest
 			const active = new Set(
 				definition.manifest.privileges
-					.filter(
-						(request) =>
-							declarationPrivileges.has(request.name) &&
-							this.graph.capabilities.isPrivilegeActive(owner, request),
-					)
+					.filter((request) => declarationPrivileges.has(request.name))
 					.map(({ name }) => name),
 			)
 			const canDeclare = active.has('schema:declare')

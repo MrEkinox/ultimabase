@@ -90,10 +90,16 @@ describe('persistence plan rewriter capability', () => {
 		)
 	})
 
-	it('requires the exact facade and persistence privilege', () => {
-		expect(() =>
-			defineRewriterPlugin('fixture.persistence-unprivileged', false),
-		).toThrow('Missing plugin permission reason: persistence:rewrite')
+	it('derives the persistence privilege and requires the exact facade', () => {
+		expect(
+			defineRewriterPlugin(
+				'fixture.persistence-unprivileged',
+				false,
+			).manifest.privileges.find(({ name }) => name === 'persistence:rewrite'),
+		).toStrictEqual({
+			name: 'persistence:rewrite',
+			reason: 'Registers persistence plan rewriters.',
+		})
 
 		const generic = createPlugin({
 			core: '^0.0.0',

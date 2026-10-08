@@ -127,11 +127,6 @@ export const workflowPlugin = (options: WorkflowPluginOptions) =>
 		version: '1.0.0',
 		instanceId: options.instanceId,
 		contributions: [publishContribution, workflowDeclaration],
-		permissions: {
-			'schema:declare': 'Adds workflow options and fields.',
-			'operation:declare': 'Declares the publish operation.',
-			'typegen:reference': 'References public workflow types.',
-		},
 	})
 ```
 
@@ -170,8 +165,11 @@ setup registries, or generic service lookup remain.
 
 ## Configure privileges
 
-Requested privileges are allowed by default, reported, and cumulatively
-denyable:
+Core derives each privilege from the contribution that uses it. A plugin
+passes `permissions` reasons only to replace the generated description, and
+must pass one for the critical `authority:elevate` and `storage:private`
+privileges. Derived privileges are allowed by default, reported, and
+cumulatively denyable:
 
 ```ts
 const Application = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
@@ -192,9 +190,10 @@ const ultimabase = new Application({
 })
 ```
 
-Startup reports identity, version, requested privileges, reasons, severity,
-claims, and policy result. A denied active privilege prevents every later
-declaration, Typegen, setup, connection, Runtime, or transport effect. Supply
+Startup reports identity, version, derived privileges, author or generated
+reasons, severity, claims, and policy result. A denied privilege prevents
+every later declaration, Typegen, setup, connection, Runtime, or transport
+effect. Supply
 `pluginPrivileges.logger: false` for explicit silence or an `{ info, error }`
 logger; the detached report remains available through
 `ultimabase.application.pluginPrivilegeReport`.

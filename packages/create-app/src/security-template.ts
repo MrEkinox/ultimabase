@@ -141,7 +141,6 @@ const profilePolicy = plugin({
   version: '1.0.0',
   core: '^0.0.0',
   peers: [{ pluginId: '@ultimabase/access-plugin', version: '^0.0.0' }],
-  permissions: { 'runtime:constrain': 'Restrict reads to the current session owner.' },
   contributions: [provideAccessContributions('own-profile', ({ schemas }) =>
       schemas.values().map((schema) => schema === AppUser
         ? schemaAccess(AppUser, {

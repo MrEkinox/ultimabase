@@ -173,11 +173,6 @@ export const hooksPlugin = (): HooksPlugin =>
 		id: '@ultimabase/hooks-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
-		permissions: {
-			'schema:declare': 'Declares the official schema and field Hooks options.',
-			'runtime:intercept':
-				'Runs official Hooks through the public Runtime behavior kernel.',
-		},
 		contributions: [
 			optionalHookContributions,
 			optionalHookEvents,

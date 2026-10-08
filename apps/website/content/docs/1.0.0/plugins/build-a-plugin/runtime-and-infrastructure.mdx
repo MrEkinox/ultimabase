@@ -257,9 +257,8 @@ export const sessionPlugin = plugin({
 	],
 	core: '^1.0.0',
 	id: 'community.sessions',
-	permissions: [
-		{ name: 'storage:private', reason: 'Stores revocable session verifiers.' },
-	] as const,
+	// Critical privileges are the only ones that need an explicit reason.
+	permissions: { 'storage:private': 'Stores revocable session verifiers.' },
 	version: '1.0.0',
 })
 ```
@@ -293,10 +292,11 @@ but trusted in-process JavaScript is not sandboxed. Core has no current
 
 ## Privilege and claim reference
 
-Request only the exact powers the plugin currently uses. Each requested
-privilege needs a human-readable reason, appears in the startup report, and
-may be denied globally, by plugin ID, or by exact instance. A dependency's
-privilege never transfers to your plugin.
+Core derives each privilege from the contribution that uses it. Every derived
+privilege appears in the startup report with your `permissions` reason or a
+generated description, and may be denied globally, by plugin ID, or by exact
+instance. `authority:elevate` and `storage:private` are critical and require an
+explicit reason. A dependency's privilege never transfers to your plugin.
 
 | Privilege             | Use only for                                                       |
 | --------------------- | ------------------------------------------------------------------ |

@@ -616,9 +616,9 @@ the same plugin can be configured several times only through distinct instance
 identities.
 
 Each plugin definition contains a static manifest with its structured identity,
-package and Core compatibility, requested privileges with reasons, environment
-claims, and provided and required capability tokens. An
-application may deny privileges globally, by plugin ID, or for an exact
+package and Core compatibility, derived privileges with author or generated
+reasons (ADR-0290), environment claims, and provided and required capability
+tokens. An application may deny privileges globally, by plugin ID, or for an exact
 instance. The default console logger reports every plugin and requested power,
 then one typed diagnostic aggregates denials before declarations, Typegen,
 setup, connections, Runtime, or transports can produce effects.

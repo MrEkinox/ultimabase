@@ -4,6 +4,7 @@
 - Date: 2026-10-08
 - Refines: ADR-0191, ADR-0208, ADR-0270; applies ADR-0288 step 2
 - Approval: user validated on 2026-10-08
+- Implementation: commit 8b811f32 and its documentation follow-up
 
 ## Context
 

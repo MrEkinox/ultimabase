@@ -58,9 +58,7 @@ describe('plugin manifests', () => {
 				core: '^0.0.0',
 				id: 'fixture.retired-declaration-power',
 				version: '1.0.0',
-				permissions: {
-					[name]: 'Exercises a removed privilege.',
-				} as never,
+				permissions: { [name]: 'Exercises a removed privilege.' },
 				contributions: [
 					withPluginPrivileges(
 						contributeApplication(() => {

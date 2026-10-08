@@ -14,7 +14,10 @@ import {
 import { isUnknownArray } from '@ultimabase/shared'
 
 import { type PluginDefinition } from '../plugins/definition.js'
-import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
+import {
+	composeDeclarationCapabilities,
+	hasPluginPrivilege,
+} from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declaration-registry.js'
@@ -155,24 +158,14 @@ export class FrameworkApplication<
 			owner: PluginIdentity,
 			privilege: PluginPrivilege,
 		): void => {
-			const plugin = graph.get(owner)
-			const request = plugin?.definition.manifest.privileges.find(
-				(candidate) => candidate.name === privilege,
-			)
-
-			if (
-				plugin === undefined ||
-				request === undefined ||
-				!graph.capabilities.isPrivilegeActive(owner, request)
-			) {
+			if (!hasPluginPrivilege(graph.get(owner), privilege)) {
 				throw new FrameworkError(
 					'PLUGIN_PRIVILEGE_DENIED',
-					`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this Core facade.`,
+					`Plugin "${formatPluginIdentity(owner)}" requires privilege "${privilege}" for this Core facade.`,
 					{
-						internalDetails: diagnostics.inactivePrivilegeDetails(
+						internalDetails: diagnostics.missingPrivilegeDetails(
 							owner,
 							privilege,
-							request?.reason,
 						),
 					},
 				)

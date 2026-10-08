@@ -54,10 +54,7 @@ export type {
 	PluginSchemaContributionContext,
 	PluginTypegenContributionContext,
 } from './plugins/plugin-contributions.js'
-export type {
-	PluginPermissionReason,
-	PluginPermissionReasons,
-} from './plugins/plugin-permissions.js'
+export type { PluginPermissionReasons } from './plugins/plugin-permissions.js'
 export {
 	contributeOperation,
 	contributeOperationBinding,
