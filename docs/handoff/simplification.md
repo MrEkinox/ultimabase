@@ -54,6 +54,18 @@ l'utilisateur.
     valeurs d'environnement surchargeables) ;
   - les tests importent la même config via `createTestApplication` de
     `@ultimabase/testing` (config et surcharges), sans CLI.
+- Chantier « API complète sans Typegen » (après ADR-0289 et ADR-0290, avant
+  la façade `definePlugin`) : remettre en question déclaration des plugins,
+  schémas, requêtes et mutations. Deux problèmes de typage à résoudre sans
+  génération : (1) références entre schémas (cibles en chaîne, cycles entre
+  fichiers) — pistes : getters, relations déclarées à part façon Drizzle,
+  autres formes ; (2) options de plugins qui exigent le schéma complet
+  (`access`, `hooks`, `acl`, champs virtuels, champs ajoutés par plugins) —
+  pistes : définition en deux temps `.with((schema) => ...)`, `NoInfer`.
+  Méthode : inventaire, 2 à 3 alternatives par domaine prouvées par
+  prototypes de types (compile sans génération, hovers, coût à 10/50/200
+  schémas), présentation côte à côte, choix de l'utilisateur, preuve sur le
+  vrai Core, ADR « API cible », migration.
 - `definePlugin` (plugin-kit) ne couvre que ce que Core fournit ; les
   capacités d'un transport viennent d'un helper du plugin concerné (ex.
   `httpRoutes` d'http-plugin), déclaré en pair explicite seulement si utilisé.
