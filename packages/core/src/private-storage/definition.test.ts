@@ -58,4 +58,34 @@ describe('definePrivateCollection', () => {
 			}),
 		).toThrow('unique fields must be required: label')
 	})
+
+	// Regression: Core rejected one plugin option by its name (`postgres`); it
+	// now rejects every non-Core option without knowing any plugin.
+	it('rejects plugin-contributed field options generically', () => {
+		for (const option of ['postgres', 'validation', 'community-option']) {
+			expect(() =>
+				definePrivateCollection({
+					contributionId: `plugin-option-${option}`,
+					fields: {
+						secret: stringField({ required: true, [option]: {} } as never),
+					},
+					indexes: [{ fields: ['secret'] }],
+				}),
+			).toThrow(
+				`private collection fields.secret.${option} is unavailable in private storage`,
+			)
+		}
+	})
+
+	it('keeps Core-owned descriptive options available', () => {
+		expect(() =>
+			definePrivateCollection({
+				contributionId: 'described',
+				indexes: [{ fields: ['secret'] }],
+				fields: {
+					secret: stringField({ description: 'Hashed secret', required: true }),
+				},
+			}),
+		).not.toThrow()
+	})
 })

@@ -238,16 +238,18 @@ const resolveDeveloperFields = (
 			resolveTarget,
 		)
 	} catch (cause: unknown) {
+		const reason =
+			cause instanceof FieldBuilderDeclarationExecutionError
+				? cause.cause
+				: cause
+		// Surface the precise reason (for example an unknown field method) instead
+		// of hiding it in the cause chain.
+		const detail = reason instanceof Error ? `: ${reason.message}` : ''
 		throw new SchemaCompilationError(
 			'callback-threw',
 			declaration.className,
-			`Schema ${declaration.className} fields declaration could not be resolved`,
-			{
-				cause:
-					cause instanceof FieldBuilderDeclarationExecutionError
-						? cause.cause
-						: cause,
-			},
+			`Schema ${declaration.className} fields declaration could not be resolved${detail}`,
+			{ cause: reason },
 		)
 	}
 }

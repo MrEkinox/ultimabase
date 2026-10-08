@@ -5,6 +5,7 @@ import {
 	included,
 	type InitializerPlan,
 } from './config.js'
+import type { NamedImport } from './source.js'
 
 export const hasHttpListener = (plan: InitializerPlan): boolean =>
 	has(plan, 'server-hono-plugin')
@@ -15,14 +16,14 @@ const hasGraphqlExplorer = (plan: InitializerPlan): boolean =>
 const hasPublishedAuth = (plan: InitializerPlan): boolean =>
 	has(plan, 'password-auth-plugin') && hasDataApi(plan)
 
-/** Import lines, in table order, for the selected plugins: [plugin, imported names]. */
+/** Imports, in table order, for the selected plugins: [plugin, imported names]. */
 export const pluginImports = (
 	plan: InitializerPlan,
 	entries: readonly (readonly [PluginId, string, ...string[]])[],
-): string[] =>
+): NamedImport[] =>
 	entries
 		.filter(([id]) => has(plan, id))
-		.map(([id, names]) => `import { ${names} } from '@ultimabase/${id}'`)
+		.map(([id, names]) => [`@ultimabase/${id}`, names] as const)
 
 /** Only an exact operation allowlist publishes Password Auth over a selected protocol. */
 const authOperations = (plan: InitializerPlan): string =>
@@ -46,7 +47,7 @@ const exposureEntry = (plan: InitializerPlan, factory: string): string =>
 const explorerEntry = (factory: string): string =>
 	`${factory}({ environment: process.env.NODE_ENV === 'production' ? 'production' : 'development' })`
 
-export const apiApplicationImports = (plan: InitializerPlan): string[] =>
+export const apiApplicationImports = (plan: InitializerPlan): NamedImport[] =>
 	pluginImports(plan, [
 		['http-plugin', 'httpPlugin'],
 		['server-hono-plugin', 'honoServerPlugin'],
@@ -56,15 +57,15 @@ export const apiApplicationImports = (plan: InitializerPlan): string[] =>
 	])
 
 /** Installs transport options before schema declaration so they are source typed. */
-export const apiSchemaPluginImports = (plan: InitializerPlan): string[] => [
+export const apiSchemaPluginImports = (
+	plan: InitializerPlan,
+): NamedImport[] => [
 	...pluginImports(plan, [
 		['rest-plugin', 'restPlugin'],
 		['graphql-plugin', 'graphqlPlugin'],
 	]),
 	...(hasPublishedAuth(plan)
-		? [
-				"import { passwordAuthOperations } from '@ultimabase/password-auth-plugin'",
-			]
+		? [['@ultimabase/password-auth-plugin', 'passwordAuthOperations'] as const]
 		: []),
 ]
 
@@ -92,11 +93,11 @@ export const apiPluginEntries = (plan: InitializerPlan): string[] =>
 	])
 
 /** Generated member and role models are never an implicit public CRUD surface. */
-export const privateSchemaApiOptions = (plan: InitializerPlan): string =>
+export const privateSchemaApiOptions = (plan: InitializerPlan): string[] =>
 	included([
 		[has(plan, 'rest-plugin'), '  rest: false,'],
 		[has(plan, 'graphql-plugin'), '  graphql: false,'],
-	]).join('\n')
+	])
 
 export const apiNextCommands = (plan: InitializerPlan): string[] => {
 	const task = plan.starter === 'task'
