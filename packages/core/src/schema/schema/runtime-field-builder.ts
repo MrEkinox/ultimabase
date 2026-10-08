@@ -63,6 +63,39 @@ const valueFieldFactories: ReadonlyMap<string, unknown> = new Map<
 	['uuid', uuidField],
 ])
 
+// Common names from other libraries, mapped to the built-in methods they mean.
+const builtInMethodAliases: ReadonlyMap<string, readonly string[]> = new Map([
+	['array', ['json']],
+	['bool', ['boolean']],
+	['datetime', ['dateTime']],
+	['double', ['float']],
+	['integer', ['int']],
+	['number', ['int', 'float', 'decimal']],
+	['object', ['object']],
+	['text', ['string']],
+	['timestamp', ['dateTime']],
+])
+
+/** Suggests built-in methods a developer most likely meant, if any. */
+const suggestBuiltInMethods = (
+	methodName: string,
+	embedded: boolean,
+): readonly string[] => {
+	const available = [
+		...valueFieldFactories.keys(),
+		'object',
+		...(embedded ? [] : ['pointer', 'relation']),
+	]
+	const lowerName = methodName.toLowerCase()
+	const suggestions = [
+		...(builtInMethodAliases.get(lowerName) ?? []),
+		...available.filter(
+			(name) => name !== methodName && name.toLowerCase() === lowerName,
+		),
+	]
+	return [...new Set(suggestions)].filter((name) => available.includes(name))
+}
+
 /** Calls one factory and proves it returned a field definition. */
 export const invokeFieldFactory = (
 	factory: unknown,
@@ -149,8 +182,13 @@ export const replayFieldBuilderMethod = (
 
 	const factory = valueFieldFactories.get(methodName)
 	if (factory === undefined) {
+		const suggestions = suggestBuiltInMethods(methodName, embedded)
+		const hint =
+			suggestions.length === 0
+				? ''
+				: `. Did you mean ${suggestions.map((name) => `field.${name}()`).join(' or ')}?`
 		throw new FieldBuilderMethodUnavailableError(
-			`${path} FieldBuilder method "${methodName}" is unavailable; configure the plugin that declares it`,
+			`${path} FieldBuilder method "${methodName}" is unavailable; configure the plugin that declares it${hint}`,
 		)
 	}
 
