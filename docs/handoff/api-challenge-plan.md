@@ -104,6 +104,15 @@ Livrable : `docs/handoff/api-inventory.md`.
 
 ### 2. Application de référence « idéale » (spécification par l'exemple)
 
+Décision (2026-10-08) : l'application de référence est `examples/todo-backend`,
+que l'utilisateur autorise à modifier librement. Elle sert de comparaison
+avant / après ligne à ligne et doit être enrichie de ce qui lui manque :
+schémas répartis dans plusieurs fichiers avec références en cycle,
+auto-relation (sous-tâches), plusieurs-à-plusieurs (étiquettes, projets
+partagés), commentaires, soft delete, Password Auth, REST et GraphQL, un champ
+virtuel, une pièce jointe et une notification temps réel (API hypothétique),
+et le fichier de configuration.
+
 Une petite application façon Parse, écrite comme on voudrait qu'elle
 s'écrive, avec plusieurs variantes là où le choix est ouvert :
 

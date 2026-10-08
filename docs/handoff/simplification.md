@@ -130,7 +130,7 @@ l'utilisateur.
 
 ## Prochaine action vérifiable
 
-`validate:full` sur la branche complète, DX audit contre `main`, puis fusion
-dans `main` (et push sur confirmation de l'utilisateur). Ensuite, sur décision
-de l'utilisateur : chantier « API complète sans Typegen »
-([plan](api-challenge-plan.md)).
+Fait : branche fusionnée et poussée (`main` à `ebd9b4ef`, CI verte, 30 jobs).
+En cours : chantier « API complète sans Typegen » sur la branche
+`api-challenge`, phase 1 (inventaire par trois agents en lecture seule, fiches
+dans `api-inventory/`). Voir le [plan](api-challenge-plan.md).
