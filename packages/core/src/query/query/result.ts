@@ -61,13 +61,18 @@ type IncludedPointerForField<TInclusion, TFieldName> = TInclusion extends {
 	? TInclusion
 	: never
 
-type MaterializeIncludedPointer<TValue, TInclusion> =
-	TInclusion extends QueryPointerResultInclusion<
-		string,
-		infer TTargetSchema,
-		infer TSelectedField,
-		infer TNestedInclusion
-	>
+// A field without an inclusion keeps its value: a bare conditional over `never`
+// would distribute to `never` and erase every non-included field.
+type MaterializeIncludedPointer<TValue, TInclusion> = [TInclusion] extends [
+	never,
+]
+	? TValue
+	: TInclusion extends QueryPointerResultInclusion<
+				string,
+				infer TTargetSchema,
+				infer TSelectedField,
+				infer TNestedInclusion
+		  >
 		? TValue extends Pointer<TTargetSchema>
 			? QueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
 			: TValue
@@ -98,15 +103,32 @@ type UnionToIntersection<TValue> = (
 	? TIntersection
 	: unknown
 
-type ApplyPointerInclusions<TRecord, TInclusion> = {
-	[TFieldName in keyof TRecord]: MaterializeIncludedPointer<
-		TRecord[TFieldName],
+type IncludedPointerFieldName<TInclusion> = TInclusion extends {
+	readonly kind: 'pointer'
+	readonly field: infer TFieldName
+}
+	? TFieldName
+	: never
+
+// The Runtime returns an included pointer even when `select` omits it, so the
+// projection gains every included pointer field from the complete output.
+type ApplyPointerInclusions<TRecord, TOutput, TInclusion> = {
+	readonly [
+		TFieldName in
+			| keyof TRecord
+			| Extract<IncludedPointerFieldName<TInclusion>, keyof TOutput>
+	]: MaterializeIncludedPointer<
+		TFieldName extends keyof TRecord
+			? TRecord[TFieldName]
+			: TFieldName extends keyof TOutput
+				? TOutput[TFieldName]
+				: never,
 		IncludedPointerForField<TInclusion, TFieldName>
 	>
 }
 
-type ApplyInclusions<TRecord, TInclusion> = Simplify<
-	ApplyPointerInclusions<TRecord, TInclusion> &
+type ApplyInclusions<TRecord, TOutput, TInclusion> = Simplify<
+	ApplyPointerInclusions<TRecord, TOutput, TInclusion> &
 		UnionToIntersection<MaterializeIncludedRelation<TInclusion>>
 >
 
@@ -135,6 +157,7 @@ export type QueryRecord<
 			? SelectedQueryRecord<TSchema, TSelectedField>
 			: ApplyInclusions<
 					SelectedQueryRecord<TSchema, TSelectedField>,
+					SchemaOutput<TSchema>,
 					TIncludedPointer
 				>
 

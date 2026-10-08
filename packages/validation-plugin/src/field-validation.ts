@@ -145,7 +145,10 @@ export const validateFieldStandardSchema = (
 	}
 
 	if (isPromiseLike(result)) {
-		return contractFailure(path, 'async validation is not supported')
+		return contractFailure(
+			path,
+			'async validation is not supported; validate asynchronously in a Hook instead',
+		)
 	}
 	if (!isPlainRecord(result)) {
 		return contractFailure(path, 'validate returned a malformed result')
@@ -155,7 +158,10 @@ export const validateFieldStandardSchema = (
 		return contractFailure(path, 'the success result has no value')
 	}
 	if (!equalCanonicalValues(value, result.value)) {
-		return contractFailure(path, 'field validators cannot transform values')
+		return contractFailure(
+			path,
+			'field validators cannot transform values (trim, coerce, default or transform); normalize the value in the field hooks.resolveInput instead',
+		)
 	}
 
 	return immutableArray([])
