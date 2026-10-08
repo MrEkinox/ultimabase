@@ -4,7 +4,7 @@
 - Date: 2026-09-29
 - Supersedes: ADR-0279 only where it assigned every plugin option to source projection
 - Approval: user approved retaining Typegen when exact schema callback typing cannot be expressed safely from source
-- Decision issue: [6307](../../issues/6300-source-typed-application-authoring/6307-official-plugin-source-typing.md)
+- Decision issue: 6307 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6307-official-plugin-source-typing.md`)
 
 ## Context
 

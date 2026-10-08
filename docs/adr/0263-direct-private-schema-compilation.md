@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-09-21
-- Decision issue: [3105](../../issues/3100-residual-complexity-simplification/3105-decide-direct-internal-schema-compilation.md)
-- Implementation: [3106](../../issues/3100-residual-complexity-simplification/3106-simplify-canonical-schema-compilation.md)
+- Decision issue: 3105 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3105-decide-direct-internal-schema-compilation.md`)
+- Implementation: 3106 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3106-simplify-canonical-schema-compilation.md`)
 - Partially supersedes: ADR-0196's internal IR requirement retained by ADR-0259
 - Approval: user explicitly accepted the concrete 3105 proposal on 2026-09-21
 

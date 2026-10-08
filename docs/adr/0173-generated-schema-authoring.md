@@ -244,7 +244,7 @@ This decision does not introduce:
 
 ## Evidence
 
-[Issue 801](../../issues/800-generated-types/801-deferred-schema-typegen-proof.md)
+Issue 801 (archived at tag `reference-archive`: `issues/800-generated-types/801-deferred-schema-typegen-proof.md`)
 records the disposable proof that established the lifecycle boundary,
 stable-TypeScript editor behavior, first generation through transpilation,
 plugin isolation, deterministic conflicts, and compatible schema reuse. The
@@ -253,7 +253,7 @@ it. Those contracts are protected by the focused
 [schema compilation](../../packages/core/src/schema/schema/compilation.test.ts),
 [plugin FieldBuilder](../../packages/core/src/schema/schema/plugin-field-builder-methods.test.ts),
 [type-generation loader](../../packages/typegen/src/loader.test.ts), and
-[generated public type](../../tests/e2e/typegen-generated-types.e2e.test.ts)
+[generated public type](../../packages/typegen/tests/e2e/typegen-generated-types.e2e.test.ts)
 regression suites.
 
 The historical prototype did not prove a TypeScript memory improvement. Issue

@@ -5,7 +5,7 @@
 - Refines: ADR-0186, ADR-0187, ADR-0188, ADR-0189, ADR-0190, ADR-0191, ADR-0192, ADR-0193, ADR-0194, ADR-0195, ADR-0196, ADR-0197, ADR-0198, ADR-0199, ADR-0200, ADR-0240, ADR-0245
 - Depends on: ADR-0258
 - Implementation: issues 3004, 3005, and 3008 through 3013
-- Evidence: [reviewed inventory and audit](../plans/2026-09-20-smaller-kernel-decision-proposal.md)
+- Evidence: reviewed inventory and audit (archived at tag `reference-archive`: `docs/plans/2026-09-20-smaller-kernel-decision-proposal.md`)
 
 ## Context and approval
 
@@ -91,7 +91,7 @@ removed route.
 
 ## Retained kernel
 
-The [contract matrix](../plans/2026-09-20-architecture-contract-matrix.md)
+The contract matrix (archived at tag `reference-archive`: `docs/plans/2026-09-20-architecture-contract-matrix.md`)
 names B-001 through B-012, P-001 through P-023, and C-001 through C-039.
 It remains the complete parity ledger, subject only to ADR-0258 and the exact
 removals above. C-034 and C-037 become direct Core implementation boundaries;
@@ -189,7 +189,7 @@ retaining their distinct lifecycle and authority boundaries.
 | Command authority stores                  | Operation and mutation maps, surface registries, Runtime handler/binding maps, transport planners | One private graph, private execution binding, and derived immutable views          |
 | Public authoring                          | Retained factories plus unused extension families                                                 | Retained factories minus exact removed families; no public generic graph registrar |
 
-The [baseline](../plans/2026-09-20-architecture-simplification-baseline.md)
+The baseline (archived at tag `reference-archive`: `docs/plans/2026-09-20-architecture-simplification-baseline.md`)
 measured 1,174 Core exports and source references across 21 operation-definition,
 8 handler, 11 transport-plan, 16 mutation-definition, 7 mutation-surface,
 5 mutation-handler, and 7 mutation-plan production files. These are baseline

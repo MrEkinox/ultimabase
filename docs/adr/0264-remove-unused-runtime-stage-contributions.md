@@ -2,9 +2,9 @@
 
 - Status: accepted
 - Date: 2026-09-21
-- Decision issue: [3107](../../issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md), RC-04
-- Implementation: [3108](../../issues/3100-residual-complexity-simplification/3108-remove-unused-runtime-stage-contributions.md)
-- Reopens: only the stage-definition branch of C-035 in the [milestone 30 matrix](../plans/2026-09-20-architecture-contract-matrix.md)
+- Decision issue: 3107 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md`), RC-04
+- Implementation: 3108 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3108-remove-unused-runtime-stage-contributions.md`)
+- Reopens: only the stage-definition branch of C-035 in the milestone 30 matrix (archived at tag `reference-archive`: `docs/plans/2026-09-20-architecture-contract-matrix.md`)
 - Approval: user explicitly accepted all three separately presented RC-04/RC-05/RC-06 removals on 2026-09-21, including the engineering-consumer exceptions
 
 ## Evidence and current behavior

@@ -2,10 +2,10 @@
 
 - Status: accepted
 - Date: 2026-09-21
-- Decision issue: [3107](../../issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md), RC-06
-- Implementation: [3110](../../issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md)
+- Decision issue: 3107 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3107-decide-unused-public-protocols.md`), RC-06
+- Implementation: 3110 (archived at tag `reference-archive`: `issues/3100-residual-complexity-simplification/3110-remove-unused-migration-anticipation.md`)
 - Partially supersedes: ADR-0191's migration privilege, ADR-0192/ADR-0193's implemented upgrade-planning contracts and ADR-0008's preinstalled preparation-claim assumption
-- Reopens: only migration support in P-016 and C-023/C-026 of the [milestone 30 matrix](../plans/2026-09-20-architecture-contract-matrix.md)
+- Reopens: only migration support in P-016 and C-023/C-026 of the milestone 30 matrix (archived at tag `reference-archive`: `docs/plans/2026-09-20-architecture-contract-matrix.md`)
 - Approval: user explicitly accepted all three separately presented RC-04/RC-05/RC-06 removals on 2026-09-21, including the engineering-consumer exceptions
 
 ## Evidence and current behavior
@@ -28,7 +28,7 @@ Sources: former Core planner `packages/core/src/runtime/adapters/migration.ts`
 and testing helper `packages/testing/src/adapters/fake-migration-history.ts`
 at commit `21094201`,
 [proof](../../tests/e2e/open-kernel-proof.e2e.test.ts),
-[PostgreSQL bridge](../../packages/postgres-plugin/src/adapter-capabilities.ts),
+PostgreSQL bridge (`packages/postgres-plugin/src/adapter-capabilities.ts`, removed by ADR-0289),
 [startup](../../packages/postgres-plugin/src/plugin/postgres-plugin.ts).
 
 ## Exact deletion boundary

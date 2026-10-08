@@ -4,7 +4,7 @@
 - Date: 2026-10-01
 - Refines: ADR-0280's classification of ACL schema options as entirely source-typed
 - Approval: user approved the existing Typegen fallback rather than repeating source-only inference attempts
-- Decision issue: [6318](../../issues/6300-source-typed-application-authoring/6318-migrate-schema-authoring-consumers.md)
+- Decision issue: 6318 (archived at tag `reference-archive`: `issues/6300-source-typed-application-authoring/6318-migrate-schema-authoring-consumers.md`)
 
 ## Context
 
