@@ -320,8 +320,10 @@ application, executor, adapter, grant, transaction, or lifecycle control.
 
 Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
 `first` defaults to 25 and is capped at 100 unless configured. Cursors are opaque,
-application-lifetime, integrity-protected offsets—not authorization tokens or
-database snapshots. Concurrent changes may shift later offset pages.
+integrity-protected offsets—not authorization tokens or database snapshots.
+They are signed with `cursorSecret` (default: the `ULTIMABASE_CURSOR_SECRET`
+environment variable), which production requires so that cursors survive
+restarts and work across instances. Concurrent changes may shift later offset pages.
 
 This differs from REST's `{ results }` array and numeric limit/offset representation,
 but the visible objects still pass through the same Query normalization, policies,
@@ -426,5 +428,6 @@ For HTTP selection errors, first check the exact
 `X-UltimaBase-Application-Id` header and configured `appId`. If an explorer
 loads without schema discovery, enable Yoga introspection in the intended
 environment and check its endpoint path. A missing explorer route in
-production is expected unless explicitly enabled. Cursors are opaque and
-application-lifetime: use a fresh one after restart.
+production is expected unless explicitly enabled. A cursor rejected after a
+restart means the cursor secret is missing or changed: set the same
+`ULTIMABASE_CURSOR_SECRET` on every instance.

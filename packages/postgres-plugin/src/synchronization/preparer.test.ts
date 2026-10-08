@@ -15,12 +15,28 @@ class PolicyFixturePool implements PostgresPool {
 	readonly poolQueries: string[] = []
 	readonly transactionQueries: string[] = []
 
-	constructor(private readonly columns: readonly unknown[] = []) {}
+	constructor(
+		private readonly columns: readonly unknown[] = [],
+		private readonly failingStatement?: Readonly<{
+			match: string
+			code: string
+		}>,
+	) {}
 
 	connect(): Promise<PostgresPoolClient> {
 		return Promise.resolve({
 			query: (queryText: string): Promise<PostgresQueryResult> => {
 				this.transactionQueries.push(queryText)
+				if (
+					this.failingStatement !== undefined &&
+					queryText.includes(this.failingStatement.match)
+				) {
+					return Promise.reject(
+						Object.assign(new Error('driver detail with a value'), {
+							code: this.failingStatement.code,
+						}),
+					)
+				}
 				return Promise.resolve({ rows: [] })
 			},
 			release: () => undefined,
@@ -87,6 +103,10 @@ describe('direct PostgreSQL schema preparation', () => {
 		}
 
 		expect(failure).toBeInstanceOf(FrameworkError)
+		expect(failure).toHaveProperty(
+			'message',
+			'PostgreSQL schema differs from the registered UltimaBase schemas. 1 change(s): create table "articles".',
+		)
 		expect(failure).toMatchObject({
 			code: 'VALIDATION_ERROR',
 			internalDetails: {
@@ -138,5 +158,27 @@ describe('direct PostgreSQL schema preparation', () => {
 			internalDetails: { kind: 'postgres-schema-unsupported' },
 		})
 		expect(pool.transactionQueries).toStrictEqual([])
+	})
+
+	// Regression: a failed synchronization did not say which change failed.
+	it('names the failing change and its SQLSTATE without driver text', async () => {
+		const pool = new PolicyFixturePool([], {
+			match: 'CREATE TABLE',
+			code: '42P07',
+		})
+
+		const failure = await prepareDirectPostgresSchema(
+			pool,
+			new PostgresSchemaCatalog([ArticleSchema]),
+			'override',
+		).catch((error: unknown) => error)
+
+		expect(failure).toMatchObject({
+			code: 'INTERNAL_ERROR',
+			message:
+				'PostgreSQL direct schema synchronization failed while applying: create table "articles" [SQLSTATE 42P07].',
+		})
+		expect(String(failure)).not.toContain('driver detail')
+		expect(pool.transactionQueries.at(-1)).toBe('ROLLBACK')
 	})
 })
