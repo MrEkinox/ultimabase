@@ -28,6 +28,15 @@ pour les auteurs de plugins vient après et s'appuie sur l'API retenue.
 - Un fichier de configuration (`ultimabase.config.ts`) doit rester possible
   sans cycle d'imports, même s'il est implémenté plus tard.
 
+## Pistes déjà rejetées
+
+L'utilisateur autorise explicitement (2026-10-08) à rouvrir une piste que les
+ADR ou les preuves archivées (tag `reference-archive`, jalon 63 : issues
+6301, 6310, 6312, 6316) déclarent avoir échoué, si elle paraît prometteuse.
+Condition : lire d'abord la preuve de l'échec et rouvrir avec une hypothèse
+nouvelle qui explique pourquoi la tentative précédente a échoué et ce qui
+change ; ne jamais refaire la même tentative à l'identique.
+
 ## Les deux problèmes de typage à résoudre sans génération
 
 1. Références entre schémas : relations circulaires, souvent entre deux
