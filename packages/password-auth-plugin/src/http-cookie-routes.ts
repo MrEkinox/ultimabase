@@ -18,6 +18,7 @@ import {
 } from '@ultimabase/http-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { readPasswordAuthJsonBody } from './http-json-body.js'
 import type { ResolvedPasswordAuthCookieOptions } from './http-options.js'
 import { passwordAuthCookiePaths } from './http-session-resolver.js'
 import {
@@ -65,8 +66,9 @@ const operationBindingContributions = Object.values(passwordAuthOperations).map(
 	(operation) => contributeOperationBinding(createHttpBinding(operation)),
 )
 
-// Only routes that accept a JSON body map malformed input to a public failure;
-// refresh and both logouts consume the resolved session and never read a body.
+// Only routes that accept a JSON body map malformed or oversized input to a
+// public failure; refresh and both logouts consume the resolved session and
+// never read a body.
 const bodyRejections = new Map<PasswordAuthOperation, () => never>([
 	[passwordAuthOperations.changePassword, rejectPasswordChange],
 	[passwordAuthOperations.login, rejectPasswordCredentials],
@@ -142,7 +144,7 @@ const readInput = async (
 	if (reject === undefined) return null
 	try {
 		return operation.input.snapshot(
-			await request.json(),
+			await readPasswordAuthJsonBody(request),
 			`${operation.name}.http-input`,
 		)
 	} catch {

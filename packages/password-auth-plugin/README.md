@@ -279,7 +279,9 @@ and `/auth/v1/refresh`. These routes execute the same six transport-neutral
 operations. Successful sign-up, login, and refresh responses
 set a `Secure`, `HttpOnly`, `Path=/`, host-only cookie whose expiration matches
 the rolling session; their JSON omits the raw token. Password change preserves
-the current cookie. Logout and logout everywhere expire it.
+the current cookie. Logout and logout everywhere expire it. Sign-up, login and
+password change read at most 1 MiB of JSON body: a larger or malformed body
+fails with the route's public rejection, without being buffered whole.
 
 The application's HTTP browser policy must enable credentials for explicit
 origins and allow `POST`, `Content-Type`, and

@@ -411,6 +411,18 @@ describe('Password Auth HTTP session resolution', { concurrent: false }, () => {
 					error: { code, requestId: stringMatcher, retryable: false },
 				})
 			}
+			// Regression: valid credentials padded past 1 MiB used to be buffered
+			// whole and accepted; the body is now bounded like malformed input.
+			const credentials = JSON.stringify({ password, username: 'cookie-user' })
+			const oversized = await http.fetch(
+				directRequest('password-cookie', '/auth/v1/login', {
+					body: `${' '.repeat(1_048_576)}${credentials}`,
+					headers: proofHeaders,
+					method: 'POST',
+				}),
+			)
+			expect(oversized.status).toBe(401)
+			expect(oversized.headers.has('Set-Cookie')).toBe(false)
 
 			const authenticated = await http.fetch(
 				directRequest('password-cookie', '/context', {
