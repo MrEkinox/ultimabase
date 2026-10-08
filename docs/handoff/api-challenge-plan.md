@@ -62,6 +62,20 @@ Condition : lire d'abord la preuve de l'échec et rouvrir avec une hypothèse
 nouvelle qui explique pourquoi la tentative précédente a échoué et ce qui
 change ; ne jamais refaire la même tentative à l'identique.
 
+## Mesures de référence (2026-10-08, machine sans agent, charge 2 à 4)
+
+Sonde Typegen actuelle (`node_modules/.cache/inventory-core/probe.mjs`,
+fichier généré, deux passages) :
+
+| Schémas | Typecheck à froid | Édition → diagnostic | Tas max | Fichier généré |
+| ------- | ----------------- | -------------------- | ------- | -------------- |
+| 10      | 3,5 s             | 2,0 s                | 830 Mio | 123 Ko         |
+| 50      | 8,1 à 9,3 s       | 6,8 à 7,3 s          | 1,5 Gio | 591 Ko         |
+| 200     | 44 s              | 50 s                 | 5,6 Gio | 2,35 Mo        |
+
+Sans fichier généré (non valide, 27/147/597 diagnostics, borne basse) :
+2,5 s / 3,7 s / 7,9 s à froid pour 10/50/200 schémas.
+
 ## Décisions de sécurité à intégrer à l'API cible
 
 ADR-0292 (`schemaPolicy` selon `NODE_ENV` : `override` en développement,
