@@ -153,14 +153,12 @@ concluding anything from a failure:
 - packed archive audits such as `core-archive-declarations` (10 s and 20 s
   timeouts);
 - the Typegen `hybrid-authoring` performance budget;
-- PostgreSQL E2E suites, which use Vitest's default 5 s timeout: one slow test
-  can leave its application active and cascade "Another UltimaBase application
-  is active" failures;
+- PostgreSQL E2E suites (20 s timeout): one test that still times out can
+  leave its application active and cascade "Another UltimaBase application is
+  active" failures;
 - `create-app-api.postgres.e2e.test.ts`, which listens on `127.0.0.1:1337`.
 
-PostgreSQL suites using the minimal example can also fail intermittently with
-`Schema ExampleArticle has not been compiled by an application`. This is a
-Vitest module-runner race, also present in the reference: parallel
-`vi.importActual` calls in `loadMinimalExample`
-(`tests/e2e/rest-public-vertical-support.ts`) can evaluate
-`examples/minimal/src/schema.ts` twice in one worker.
+`loadMinimalExample` (`tests/e2e/rest-public-vertical-support.ts`) imports
+the example modules sequentially, schemas first: parallel `vi.importActual`
+calls could evaluate `examples/minimal/src/schema.ts` twice in one worker and
+fail with `Schema ExampleArticle has not been compiled by an application`.

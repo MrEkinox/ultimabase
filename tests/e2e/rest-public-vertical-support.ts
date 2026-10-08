@@ -55,19 +55,20 @@ const isObjectLike = (value: unknown): value is object =>
 
 /** Loads the example through Vitest without adding its Typegen registry globally. */
 export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
-	const modulePaths = [
-		'../../examples/minimal/src/create-application.ts',
+	// Import sequentially, schemas first: parallel importActual calls can make
+	// Vitest's module runner evaluate schema.ts twice in one worker, leaving the
+	// test with schema classes the application never compiled.
+	const schemaModule = await vi.importActual<unknown>(
 		'../../examples/minimal/src/schema.ts',
+	)
+	const applicationModule = await vi.importActual<unknown>(
+		'../../examples/minimal/src/create-application.ts',
+	)
+	const clientModule = await vi.importActual<unknown>(
 		'../../examples/minimal/src/client.ts',
+	)
+	const softDeleteModule = await vi.importActual<unknown>(
 		'../../examples/minimal/src/soft-delete.ts',
-	]
-	const [
-		applicationModule,
-		schemaModule,
-		clientModule,
-		softDeleteModule,
-	]: unknown[] = await Promise.all(
-		modulePaths.map(async (path) => vi.importActual<unknown>(path)),
 	)
 	if (
 		typeof applicationModule !== 'object' ||

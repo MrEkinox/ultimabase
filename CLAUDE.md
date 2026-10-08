@@ -66,9 +66,7 @@ regressions that every suite missed:
 Validate on a calm machine before concluding anything from these failures:
 `create-app-packed` (120 s timeout), `core-archive-declarations` (10 s),
 the Typegen `hybrid-authoring` performance budget, and postgres-e2e cascades
-after a 5 s timeout. `Schema … has not been compiled by an application` in
-postgres-e2e is a pre-existing Vitest module-runner race, also present in the
-reference ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
+after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
 `Complete coverage` job excludes performance suites, which run uninstrumented
 in the package and transversal jobs instead.
 
