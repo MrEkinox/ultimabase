@@ -205,9 +205,3 @@ export const runtimeProviderPrivilege = (
 export const isAuthorizedRuntimeProvider = (
 	declaration: CapabilityProviderDeclaration,
 ): boolean => runtimeProviders.has(declaration)
-
-/** Identifies every protected Core Runtime protocol token. */
-export const isRuntimeCapability = (token: CapabilityToken): boolean =>
-	token === runtimeBehaviorCapability ||
-	token === runtimeInterceptorCapability ||
-	token === runtimeConstraintCapability

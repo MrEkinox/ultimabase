@@ -1,4 +1,7 @@
-import { httpApplicationIdHeader } from '@ultimabase/http-plugin'
+import {
+	httpApplicationIdHeader,
+	httpBrowserBootstrapPathPrefix,
+} from '@ultimabase/http-plugin'
 
 const serializeInline = (value: string): string =>
 	JSON.stringify(value)
@@ -47,7 +50,7 @@ export const createApolloSandboxPageResponse = (
 <div id="sandbox"></div>
 <script nonce="${nonce}" src="https://embeddable-sandbox.cdn.apollographql.com/v2/embeddable-sandbox.umd.production.min.js"></script>
 <script nonce="${nonce}">
-const prefix='/__ultimabase/apps/';
+const prefix='${httpBrowserBootstrapPathPrefix}/';
 const remainder=window.location.pathname.slice(prefix.length);
 const separator=remainder.indexOf('/');
 const appId=decodeURIComponent(remainder.slice(0,separator));

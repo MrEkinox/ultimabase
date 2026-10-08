@@ -104,7 +104,7 @@ export const aclChangedEventContract: PluginEventContract<
 })
 
 /** Carries independently owned ACL change observers into the ACL Runtime provider. */
-export const aclChangedEventsCapability: PluginEventCapability<
+const aclChangedEventsCapability: PluginEventCapability<
 	'ultimabase.acl-change-events',
 	'1.0.0'
 > = definePluginEventCapability({

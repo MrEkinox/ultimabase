@@ -122,7 +122,7 @@ const renderRootWhere = (
 }
 
 /** Resolves the filter applied to one embedded-object path. */
-export const renderPathOperators = (
+const renderPathOperators = (
 	field: TypegenFieldSnapshot,
 	context: RenderContext,
 ): string => {

@@ -93,15 +93,16 @@ const assertApplicationResource: (
 		)
 	}
 }
-const throwCleanupErrors = (errors: readonly unknown[]): void => {
+/** Rethrows one cleanup failure as-is, or several as one `AggregateError`. */
+export const throwCleanupErrors = (
+	errors: readonly unknown[],
+	message: string,
+): void => {
 	if (errors.length === 1) throw errors[0]
-	if (errors.length > 1) {
-		throw new AggregateError(
-			errors,
-			'Multiple application capabilities failed to dispose.',
-		)
-	}
+	if (errors.length > 1) throw new AggregateError(errors, message)
 }
+const capabilityDisposalFailure =
+	'Multiple application capabilities failed to dispose.'
 const throwFactoryPrivilegeDenied = (
 	owner: PluginIdentity,
 	privilege: PluginPrivilege,
@@ -246,7 +247,10 @@ export class ApplicationCapabilityHost {
 
 	/** Disposes resources owned by one plugin after its dispose hook completes. */
 	async disposeOwner(owner: PluginIdentity): Promise<void> {
-		throwCleanupErrors(await this.#drainResources(owner))
+		throwCleanupErrors(
+			await this.#drainResources(owner),
+			capabilityDisposalFailure,
+		)
 	}
 
 	/** Releases every resource left after partial setup or plugin cleanup failure. */
@@ -257,7 +261,7 @@ export class ApplicationCapabilityHost {
 		bindings?.dispose()
 		this.#resolved.clear()
 		this.#disposed = true
-		throwCleanupErrors(errors)
+		throwCleanupErrors(errors, capabilityDisposalFailure)
 	}
 
 	async #drainResources(owner?: PluginIdentity): Promise<unknown[]> {

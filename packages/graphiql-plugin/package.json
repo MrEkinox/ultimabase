@@ -31,8 +31,7 @@
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/graphql-http": "workspace:^",
 		"@ultimabase/http-plugin": "workspace:^",
-		"@ultimabase/plugin-kit": "workspace:^",
-		"@ultimabase/shared": "workspace:^"
+		"@ultimabase/plugin-kit": "workspace:^"
 	},
 	"devDependencies": {
 		"tsdown": "^0.22.14",

@@ -1,4 +1,7 @@
-import { ApplicationCapabilityHost } from './capability-host.js'
+import {
+	ApplicationCapabilityHost,
+	throwCleanupErrors,
+} from './capability-host.js'
 import { runWithApplicationPluginOwner } from './callback-execution.js'
 import { createPluginApplication, type PluginDefinition } from './definition.js'
 import type { PluginGraph } from './graph.js'
@@ -42,14 +45,6 @@ const collectFailure = async (
 	} catch (error: unknown) {
 		errors.push(error)
 	}
-}
-
-const throwCleanupErrors = (
-	errors: readonly unknown[],
-	message: string,
-): void => {
-	if (errors.length === 1) throw errors[0]
-	if (errors.length > 1) throw new AggregateError(errors, message)
 }
 
 const throwLifecycleFailure = (

@@ -1,5 +1,5 @@
 export const graphqlResponseMediaType = 'application/graphql-response+json'
-export const legacyGraphqlMediaType = 'application/json'
+const legacyGraphqlMediaType = 'application/json'
 
 export type GraphqlResponseMediaType =
 	typeof graphqlResponseMediaType | typeof legacyGraphqlMediaType

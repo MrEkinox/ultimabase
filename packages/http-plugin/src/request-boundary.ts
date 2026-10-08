@@ -84,7 +84,7 @@ const errorContracts: Readonly<
 })
 
 /** @internal Marks one sanitized failure without retaining its raw cause. */
-export class HttpPreDispatchFailure extends Error {
+class HttpPreDispatchFailure extends Error {
 	readonly code: HttpPreDispatchErrorCode
 
 	constructor(code: HttpPreDispatchErrorCode) {
@@ -95,7 +95,7 @@ export class HttpPreDispatchFailure extends Error {
 }
 
 /** @internal Creates correlation independently from application identity validation. */
-export const createHttpRequestId = (): string => globalThis.crypto.randomUUID()
+const createHttpRequestId = (): string => globalThis.crypto.randomUUID()
 
 const badRequest = (): HttpPreDispatchFailure =>
 	new HttpPreDispatchFailure(httpPreDispatchErrorCodes.badRequest)

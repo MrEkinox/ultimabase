@@ -92,7 +92,7 @@ Docker.
 - `yarn test`: run package unit tests, compile-time type tests, and deterministic performance budgets.
 - `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.
-- `yarn test:pack`: build and validate every publishable package archive.
+- `yarn test:pack`: build every package, then run every built-export E2E suite (archive checks, Node consumers, packed-declaration editor checks).
 - `yarn test:performance`: run deterministic performance regression budgets.
 - `yarn test:coverage`: run unit, type, performance, ordinary E2E, and PostgreSQL
   E2E projects with V8 coverage. Local execution uses four workers; the GitHub

@@ -11,11 +11,9 @@ import {
 	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
-	CompatiblePluginSourceFieldOptions,
 	FieldDefinition,
 	FieldOptionValueCarrier,
 	FieldTypegenState,
-	ResolveFieldSourceTemplate,
 } from '../base/contract.js'
 import type {
 	SchemaDefinition,
@@ -160,34 +158,6 @@ export type NamedRelationFieldBuilderMethod = <
 		undefined,
 >(
 	options: NamedRelationFieldOptions<TTargetName, TMappedBy>,
-) => RelationField<SchemaReference<TTargetName>, TMappedBy>
-
-/** Adds configured source options without changing the retained name graph. */
-export type SourceNamedRelationFieldBuilderMethod<
-	TSourceTemplate extends object,
-> = <
-	const TTargetName extends SchemaDeclarationTargetName,
-	const TMappedBy extends
-		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined =
-		undefined,
-	const TSourceOptions extends object = Extract<
-		ResolveFieldSourceTemplate<TSourceTemplate, never>,
-		object
-	>,
-	const TDeclaredOptions extends NamedRelationFieldOptions<
-		TTargetName,
-		TMappedBy
-	> &
-		TSourceOptions = NamedRelationFieldOptions<TTargetName, TMappedBy> &
-		TSourceOptions,
->(
-	options: TDeclaredOptions &
-		Readonly<{ target: TTargetName }> &
-		CompatiblePluginSourceFieldOptions<
-			TSourceOptions,
-			NoInfer<TDeclaredOptions>,
-			never
-		>,
 ) => RelationField<SchemaReference<TTargetName>, TMappedBy>
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {

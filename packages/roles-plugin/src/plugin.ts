@@ -2,6 +2,7 @@ import {
 	Pointer,
 	contributeApplication,
 	contributeDeclarations,
+	getOperationSchema,
 	requestSubjectReferenceCleanupCapability,
 	requestRoleResolverCapability,
 	materializeSchemaModel,
@@ -14,7 +15,6 @@ import {
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type CompiledSchemaRegistry,
-	type DatabaseOperationAst,
 	type NamedRequestSubjectReferenceCleanup,
 	type PluginInstance,
 	type RelationMutationAction,
@@ -150,21 +150,6 @@ const readRoleRelationChanges = (
 	return immutableArray(changes)
 }
 
-/** Reads the schema definition carried by a Core operation without trusting its shape. */
-const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
-	const query: unknown = Reflect.get(operation, 'query')
-	const schemaNode: unknown = isPlainRecord(query)
-		? query.schema
-		: Reflect.get(operation, 'schema')
-	if (
-		!isPlainRecord(schemaNode) ||
-		typeof schemaNode.definition !== 'function'
-	) {
-		throw new TypeError('Role Runtime operation is missing its schema')
-	}
-	return schemaNode.definition
-}
-
 const roleBehaviorProvider: CapabilityProviderDeclaration<
 	typeof runtimeBehaviorCapability
 > = provideRuntimeBehavior({
@@ -181,13 +166,13 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 		})
 		const value: RuntimeBehaviorStages = immutableRecord({
 			transformInput: (input) =>
-				roles.has(readOperationSchema(input.operation))
+				roles.has(getOperationSchema(input.operation))
 					? normalizeRoleOperation(input.operation)
 					: input.operation,
 			observePreparedMutation: async ({ context, operation, target }) => {
 				const role =
 					operation.kind === 'delete-one'
-						? roles.get(readOperationSchema(operation))
+						? roles.get(getOperationSchema(operation))
 						: undefined
 
 				if (role === undefined || target === null || target === undefined) {
@@ -211,7 +196,7 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 				if (outcome === undefined || operation.kind !== 'update-one') {
 					return result
 				}
-				const role = roles.get(readOperationSchema(operation))
+				const role = roles.get(getOperationSchema(operation))
 				if (role === undefined) return result
 
 				const changes = readRoleRelationChanges(operation)

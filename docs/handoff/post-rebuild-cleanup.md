@@ -45,7 +45,31 @@ Décisions de l'utilisateur (2026-10-08) :
 
 ## État
 
-- Phase 1 : en cours.
+- Phase 1 : commit `ddc22c17`. Vérifié : tests `tooling/` 91/91,
+  `website:validate` 66/66, `website:typecheck`, `yarn install --immutable`.
+  `validate:full` complet à lancer après la référence.
+- Phase 2 : en cours. Fait : 8 dépendances inutilisées retirées (Core
+  `fast-equals`, pg-vector `plugin-kit`, graphiql/apollo `shared`,
+  graphql/yoga `typegen`, server-hono/validation `testing`, testing
+  `@testcontainers/postgresql`) avec leurs références tsconfig ; références
+  `shared` ajoutées à acl et roles ; préfixe `/__ultimabase/apps/` des pages
+  GraphiQL/Apollo lu depuis `httpBrowserBootstrapPathPrefix` (octets HTML
+  identiques) ; roles utilise `getOperationSchema` de Core ; code mort Core
+  (`isRuntimeCapability`, `SourceNamedRelationFieldBuilderMethod`) ;
+  `throwCleanupErrors` partagé ; 16 `export` inutiles retirés dans les
+  plugins ; `test:pack:built` = tout le projet `e2e` (la liste manuelle
+  avait dérivé : 14 suites sur 46 absentes).
+
+## Approches rejetées
+
+- `create-app/tsdown.config.ts` qui étend la configuration racine : le
+  chargeur natif de Node ne résout pas `../../tsdown.config.js` vers le `.ts`,
+  et importer `.ts` exigerait `allowImportingTsExtensions` à la racine. Gain de
+  dix lignes, annulé.
+- Les helpers `includesString` dupliqués (deux lignes chacun) restent locaux :
+  un module partagé coûterait plus qu'il ne rapporte.
+- `revalidateRuntimeMutationOperation` reste : un test interne et l'audit
+  `single-pass-validation-audit` le référencent explicitement.
 
 ## Pistes notées pour plus tard
 

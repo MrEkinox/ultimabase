@@ -90,7 +90,7 @@ const matchRoute = (
 }
 
 /** @internal Resolves JSON compatibility using the most specific media range. */
-export const readRestAcceptQuality = (value: string | null): number => {
+const readRestAcceptQuality = (value: string | null): number => {
 	if (value === null) return 1
 	let specificity = -1
 	let quality = 0

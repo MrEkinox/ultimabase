@@ -1,4 +1,7 @@
-import { httpApplicationIdHeader } from '@ultimabase/http-plugin'
+import {
+	httpApplicationIdHeader,
+	httpBrowserBootstrapPathPrefix,
+} from '@ultimabase/http-plugin'
 
 const serializeInline = (value: string): string =>
 	JSON.stringify(value)
@@ -50,7 +53,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { GraphiQL } from 'graphiql';
 import 'graphiql/setup-workers/esm.sh';
-const prefix='/__ultimabase/apps/';
+const prefix='${httpBrowserBootstrapPathPrefix}/';
 const remainder=window.location.pathname.slice(prefix.length);
 const separator=remainder.indexOf('/');
 const appId=decodeURIComponent(remainder.slice(0,separator));
