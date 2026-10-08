@@ -57,16 +57,20 @@ Décisions de l'utilisateur (2026-10-08) :
     `sideEffects`), puis exit 0 après restauration.
   - Limite de corps password-auth : l'e2e échoue sans le correctif
     (`expected 200 to be 401`) et passe avec (5/5).
-- Phase 5 : à faire (voir ci-dessous).
+- Phase 5 : en cours. Fait : `assertPlainObject` remplace 86 gardes
+  (`1efe939b`, Core unit/types 276 fichiers / 1 417 tests) ; correction
+  `typecheck` après `build`.
 
-## Constat : `typecheck` après `build`
+## Constat corrigé : `typecheck` après `build`
 
-`tsc --build` émet dans `dist/`, puis tsdown (`clean: true`) remplace `dist/`
-par son bundle. Le `tsbuildinfo` reste et croit les fichiers par module
+`tsc --build` émet dans `dist/`, puis tsdown remplaçait `dist/` par son bundle
+en laissant le `tsbuildinfo`, qui croyait encore les fichiers par module
 présents : après un changement de forme d'un export, le `typecheck` suivant
-réémet seulement une partie des fichiers et échoue (TS7016 sur
-`dist/index.d.ts`). La CI n'est pas touchée (arbre propre). Contournement :
-supprimer `packages/*/dist` et les `*.tsbuildinfo` avant de valider.
+n'en réémettait qu'une partie et échouait. Reproduit (un export ajouté à
+http-plugin après `yarn build` : 126 erreurs TS2307), puis corrigé : tsdown
+supprime aussi `tsconfig.tsbuildinfo` en vidant `dist/`. Même scénario après
+correction : exit 0. Coût : le premier `typecheck` après un build recompile
+les packages reconstruits, comme la CI.
 
 ## Approches rejetées
 
@@ -76,6 +80,11 @@ supprimer `packages/*/dist` et les `*.tsbuildinfo` avant de valider.
   dix lignes, annulé.
 - Les helpers `includesString` dupliqués (deux lignes chacun) restent locaux :
   un module partagé coûterait plus qu'il ne rapporte.
+- Un helper générique pour les trois « bound Core foundation providers »
+  (`application-request-execution`, `-schema-mutation-surface`,
+  `-operation-transport-planning`) : états, libération et ordre des messages
+  diffèrent ; il faudrait une demi-douzaine de messages en paramètres pour un
+  gain net d'environ 60 lignes et un risque sur l'ordre des erreurs.
 - `revalidateRuntimeMutationOperation` reste : un test interne et l'audit
   `single-pass-validation-audit` le référencent explicitement.
 
