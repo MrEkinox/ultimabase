@@ -363,11 +363,14 @@ derive `hasNextPage`. Every edge cursor carries the offset immediately after
 that edge. Empty and exact-boundary pages therefore have deterministic page
 information without a count query.
 
-Cursors are opaque, signed with a random application-lifetime key, and bound to
-the generated model type, relationship path, normalized GraphQL wire filter,
-and effective order. A malformed, altered, foreign-application, or
-restarted-application cursor is rejected as `GRAPHQL_INVALID_CURSOR` before
-Runtime.
+Cursors are opaque, signed, and bound to the generated model type,
+relationship path, normalized GraphQL wire filter, and effective order. The
+signing key derives from `cursorSecret` (default: the `ULTIMABASE_CURSOR_SECRET`
+environment variable, at least 32 characters), so cursors stay valid across
+restarts and between instances that share it. Without a secret, development
+uses a random key per process and a production start (`NODE_ENV=production`)
+fails. A malformed, altered, or differently signed cursor is rejected as
+`GRAPHQL_INVALID_CURSOR` before Runtime.
 The key is cleared when the application is disposed. Relationship cursors are
 not bound to a parent ID because one eager Core inclusion may page the same
 relationship across several parents; target Access and ACL remain enforced by
