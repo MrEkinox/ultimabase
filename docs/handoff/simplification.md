@@ -63,6 +63,16 @@ an array` (préexistant, `protected-policy.ts:253`) jugés corrects.
   augmentation globale d'un support de test, voir commit du correctif).
 - Nombre de workers de la couverture : laissé à 4 (couverture à 291 s).
 
+- ADR-0290 fusionné (`ea1259f7`, travail d'agent revu) : justifications de
+  privilèges facultatives avec descriptions générées dans le rapport ;
+  `authority:elevate` et `storage:private` exigent toujours une justification ;
+  conditions `when` retirées ; 11 cartes de justifications supprimées dans les
+  plugins officiels, 3 réduites aux privilèges critiques. `validate:full` de
+  l'agent : exit 0 (634 fichiers / 2 920 tests). DX audit : 973 différences,
+  0 diagnostic modifié, toutes annoncées par l'ADR.
+- Documentation : liens morts des ADR corrigés (`6fc822b6`), `AGENTS.md`
+  réécrit en contrat plus court (`ccc14f4a`).
+
 ## Décisions de conception notées (à formaliser par ADR le moment venu)
 
 En attente : aucun de ces chantiers ne démarre sans décision explicite de
@@ -120,5 +130,7 @@ l'utilisateur.
 
 ## Prochaine action vérifiable
 
-Raccourcir `AGENTS.md` et corriger les liens morts des ADR, puis implémenter
-l'ADR-0290 (privilèges dérivés).
+`validate:full` sur la branche complète, DX audit contre `main`, puis fusion
+dans `main` (et push sur confirmation de l'utilisateur). Ensuite, sur décision
+de l'utilisateur : chantier « API complète sans Typegen »
+([plan](api-challenge-plan.md)).
