@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import { guard } from './enforcement/definitions.js'
-import { afterOperation, beforeOperation } from './contributions/definitions.js'
+import { preparedOperation } from './contributions/definitions.js'
 import {
 	provideRuntimeConstraint,
 	provideRuntimeInterceptor,
@@ -15,28 +15,13 @@ const schema = UltimaBase.Schema.define({
 
 test('retains exact operation correlation through every public Runtime facade', () => {
 	provideRuntimeInterceptor({
-		contributionId: 'before-create',
+		contributionId: 'prepared-update',
 		create: () => ({
-			value: beforeOperation({
+			value: preparedOperation({
 				handler: ({ operation }) => {
-					expectTypeOf(operation.kind).toEqualTypeOf<'create-one'>()
+					expectTypeOf(operation.kind).toEqualTypeOf<'update-one'>()
+					return { operation }
 				},
-				operations: ['create-one'],
-				schema,
-			}),
-		}),
-	})
-
-	provideRuntimeInterceptor({
-		contributionId: 'after-find',
-		create: () => ({
-			value: afterOperation({
-				handler: ({ operation, result }) => {
-					expectTypeOf(operation.kind).toEqualTypeOf<'find-many'>()
-					expectTypeOf(result).toExtend<readonly unknown[]>()
-					return { result }
-				},
-				operations: ['find-many'],
 				schema,
 			}),
 		}),

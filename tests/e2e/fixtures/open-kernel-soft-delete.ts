@@ -2,10 +2,10 @@ import {
 	adapterPersistencePlanCapability,
 	booleanField,
 	contributeDeclarations,
-	constraint,
 	databaseConstraint,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
+	protectedPolicy,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
 	plugin,
@@ -42,11 +42,12 @@ export const createSoftDeletePlugin = (
 			),
 		schema: options.target,
 	})
-	const visible = constraint({
-		handler: () =>
-			databaseConstraint(softDeleteVisibilityConstraintKind, 1, {
+	const visible = protectedPolicy({
+		evaluate: () => ({
+			constraints: databaseConstraint(softDeleteVisibilityConstraintKind, 1, {
 				field: 'isDeleted',
 			}),
+		}),
 		operations: ['find-one', 'find-many', 'get', 'count', 'exists'],
 		schema: options.target,
 	})

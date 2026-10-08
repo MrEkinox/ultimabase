@@ -1,12 +1,12 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
-	afterOperation,
-	beforeOperation,
+	getOperationSchema,
 	plugin,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
-	provideRuntimeInterceptor,
+	provideRuntimeBehavior,
+	type RuntimeLogicalOperationAst,
 	rewriteDeletePersistencePlan,
 	UltimaBase,
 } from '@ultimabase/core'
@@ -23,6 +23,11 @@ const SoftDeletePost = UltimaBase.Schema.define({
 		title: field.string({ required: true }),
 	}),
 })
+
+/** Limits the observer to logical single deletes of the soft-deleted schema. */
+const isSoftDeleteOne = (operation: RuntimeLogicalOperationAst): boolean =>
+	operation.kind === 'delete-one' &&
+	getOperationSchema(operation) === SoftDeletePost
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -74,32 +79,29 @@ describe(
 						contributionId: 'soft-delete',
 						create: () => ({ value: rewriter }),
 					}),
-					provideRuntimeInterceptor({
-						contributionId: 'delete-before',
+					provideRuntimeBehavior({
+						contributionId: 'delete-observer',
 						create: () => ({
-							value: beforeOperation({
-								operations: ['delete-one'],
-								schema: SoftDeletePost,
-								handler: ({ operation }) => {
+							value: {
+								beforeOperation: ({ operation }) => {
+									if (!isSoftDeleteOne(operation)) return
 									trace.push(`before:${operation.kind}`)
 									if (failBatch && ++batchBeforeCount === 2) {
 										throw new Error('fixture batch failure')
 									}
 								},
-							}),
-						}),
-					}),
-					provideRuntimeInterceptor({
-						contributionId: 'delete-after',
-						create: () => ({
-							value: afterOperation({
-								operations: ['delete-one'],
-								schema: SoftDeletePost,
-								handler: ({ operation, result }) => {
-									trace.push(`after:${operation.kind}:${String(result?.title)}`)
-									return { result }
+								transformResult: ({ operation, result }) => {
+									if (isSoftDeleteOne(operation)) {
+										const value: unknown = result
+										const title =
+											typeof value === 'object' && value !== null
+												? Reflect.get(value, 'title')
+												: undefined
+										trace.push(`after:${operation.kind}:${String(title)}`)
+									}
+									return result
 								},
-							}),
+							},
 						}),
 					}),
 				],

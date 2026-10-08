@@ -17,14 +17,8 @@ import {
 	readRuntimeSchemaModelMetadata,
 	retainRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
-import {
-	constraint,
-	databaseConstraint,
-	guard,
-	restrictInput,
-	restrictOutput,
-	restrictSelection,
-} from './definitions.js'
+import { databaseConstraint, guard } from './definitions.js'
+import { protectedPolicy } from './protected-policy.js'
 import { createEnforcementStages } from './dispatcher.js'
 import {
 	articleSchema,
@@ -62,22 +56,22 @@ describe('createEnforcementStages', () => {
 				)
 				provide(
 					'fixture.master-output-bypassed',
-					restrictOutput({
-						handler: () => {
+					protectedPolicy({
+						restrictResult: ({ result }) => {
 							trace.push('output-bypassed')
 
-							return []
+							return result
 						},
 						master: 'bypass',
 					}),
 				)
 				provide(
 					'fixture.master-output-enforced',
-					restrictOutput({
-						handler: () => {
+					protectedPolicy({
+						restrictResult: ({ result }) => {
 							trace.push('output-enforced')
 
-							return ['title']
+							return result
 						},
 					}),
 				)
@@ -134,11 +128,12 @@ describe('createEnforcementStages', () => {
 				contributions: createTestRuntimeConstraints((provide) => {
 					provide(
 						`${name}.constraint`,
-						constraint({
-							handler: () =>
-								databaseConstraint('fixture.ordered-policy', 1, {
+						protectedPolicy({
+							evaluate: () => ({
+								constraints: databaseConstraint('fixture.ordered-policy', 1, {
 									value,
 								}),
+							}),
 						}),
 					)
 				}),
@@ -200,58 +195,64 @@ describe('createEnforcementStages', () => {
 				)
 				provide(
 					'fixture.tenant',
-					constraint({
+					protectedPolicy({
 						schema: articleSchema,
-						handler: () => {
+						evaluate: () => {
 							trace.push('constraint:tenant')
 
-							return databaseConstraint('fixture.tenant', 1, {
-								tenantId: 'tenant-1',
-							})
+							return {
+								constraints: databaseConstraint('fixture.tenant', 1, {
+									tenantId: 'tenant-1',
+								}),
+							}
 						},
 					}),
 				)
 				provide(
 					'fixture.visibility',
-					constraint({
-						handler: () => {
+					protectedPolicy({
+						evaluate: () => {
 							trace.push('constraint:visibility')
 
-							return databaseConstraint('fixture.visibility', 1, {
-								published: true,
-							})
+							return {
+								constraints: databaseConstraint('fixture.visibility', 1, {
+									published: true,
+								}),
+							}
 						},
 					}),
 				)
 				provide(
 					'fixture.input-broad',
-					restrictInput({ handler: () => ['title', 'secret'] }),
-				)
-				provide(
-					'fixture.input-narrow',
-					restrictInput({ handler: () => ['title'] }),
-				)
-				provide(
-					'fixture.selection-broad',
-					restrictSelection({ handler: () => ['id', 'title', 'secret'] }),
-				)
-				provide(
-					'fixture.selection-narrow',
-					restrictSelection({ handler: () => ['id', 'title'] }),
-				)
-				provide(
-					'fixture.output-broad',
-					restrictOutput({
-						handler: (input) => {
-							observedOutputInputs.push(input)
-
-							return ['id', 'title']
-						},
+					protectedPolicy({
+						evaluate: () => ({ inputFields: ['title', 'secret'] }),
 					}),
 				)
 				provide(
-					'fixture.output-narrow',
-					restrictOutput({ handler: () => ['title'] }),
+					'fixture.input-narrow',
+					protectedPolicy({ evaluate: () => ({ inputFields: ['title'] }) }),
+				)
+				provide(
+					'fixture.selection-broad',
+					protectedPolicy({
+						evaluate: () => ({ selectionFields: ['id', 'title', 'secret'] }),
+					}),
+				)
+				provide(
+					'fixture.selection-narrow',
+					protectedPolicy({
+						evaluate: () => ({ selectionFields: ['id', 'title'] }),
+					}),
+				)
+				provide(
+					'fixture.output-observer',
+					protectedPolicy({
+						restrictResult: (input) => {
+							observedOutputInputs.push(input)
+
+							return input.result
+						},
+					}),
 				)
 			}),
 		})
@@ -310,10 +311,11 @@ describe('createEnforcementStages', () => {
 			{ kind: 'fixture.visibility', version: 1, payload: { published: true } },
 		])
 		expect(selectionResult).toStrictEqual({ id: 'article-1', title: 'Allowed' })
-		expect(result).toStrictEqual({ title: 'Allowed' })
+		// The final projection reapplies the selection intersection after transforms.
+		expect(result).toStrictEqual({ id: 'article-1', title: 'Allowed' })
 		expect(readRuntimeSchemaModelMetadata(result)).toStrictEqual({
 			objectId: 'article-1',
-			selectedFields: ['title'],
+			selectedFields: ['id', 'title'],
 		})
 		expect(trace).toStrictEqual([
 			'guard',
@@ -354,7 +356,7 @@ describe('createEnforcementStages', () => {
 			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.only-title',
-					restrictInput({ handler: () => ['title'] }),
+					protectedPolicy({ evaluate: () => ({ inputFields: ['title'] }) }),
 				)
 			}),
 		})
@@ -392,16 +394,16 @@ describe('createEnforcementStages', () => {
 			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.selection-broad',
-					restrictSelection({
+					protectedPolicy({
 						schema: articleSchema,
-						handler: () => ['id', 'title'] as const,
+						evaluate: () => ({ selectionFields: ['id', 'title'] }),
 					}),
 				)
 				provide(
 					'fixture.selection-narrow',
-					restrictSelection({
+					protectedPolicy({
 						schema: articleSchema,
-						handler: () => ['title'] as const,
+						evaluate: () => ({ selectionFields: ['title'] }),
 					}),
 				)
 			}),
@@ -628,69 +630,6 @@ describe('createEnforcementStages', () => {
 				operation: createOperation(),
 			}),
 		).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
-
-		await application.dispose()
-	})
-
-	it('retains pre-transform constraints when reevaluating transformed values', async () => {
-		const plugin = createPlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			id: 'fixture.value-derived-enforcement',
-			permissions: { 'runtime:constrain': constrainReason },
-			contributions: createTestRuntimeConstraints((provide) => {
-				provide(
-					'fixture.title-constraint',
-					constraint({
-						schema: articleSchema,
-						operations: ['create-one'],
-						handler: ({ operation }) => {
-							const title: unknown = operation.input.title
-							if (typeof title !== 'string') {
-								throw new TypeError('Expected a string title constraint')
-							}
-							return databaseConstraint('fixture.input-title', 1, { title })
-						},
-					}),
-				)
-			}),
-		})
-		const application = await createApplication({
-			schemas: [articleSchema],
-			plugins: [plugin],
-		})
-		const stages = requireEnforcementStages(
-			createEnforcementStages(application),
-		)
-		const initialOperation = createOperation({ title: 'Initial' })
-		const initialState = await stages.evaluate({
-			context,
-			operation: initialOperation,
-		})
-		const transformedOperation = createOperation({ title: 'Transformed' })
-		const reevaluatedState = await stages.reevaluate({
-			context,
-			enforcement: initialState,
-			operation: transformedOperation,
-		})
-		const enforced = await stages.enforceOperation({
-			context,
-			enforcement: reevaluatedState,
-			operation: transformedOperation,
-		})
-
-		expect(enforced.constraints).toStrictEqual([
-			{
-				kind: 'fixture.input-title',
-				version: 1,
-				payload: { title: 'Initial' },
-			},
-			{
-				kind: 'fixture.input-title',
-				version: 1,
-				payload: { title: 'Transformed' },
-			},
-		])
 
 		await application.dispose()
 	})

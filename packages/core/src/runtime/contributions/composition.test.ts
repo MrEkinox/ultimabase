@@ -10,19 +10,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { provideTestRuntimeInterceptor } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
-import type {
-	CreateOneOperationAst,
-	UpdateOneOperationAst,
-} from '../../query/index.js'
-import type {
-	RuntimeOperationStageInput,
-	RuntimeResultStageInput,
-} from '../pipeline/contracts.js'
-import {
-	afterOperation,
-	beforeOperation,
-	preparedOperation,
-} from './definitions.js'
+import type { UpdateOneOperationAst } from '../../query/index.js'
+import { preparedOperation } from './definitions.js'
 import { composeRuntimeContributionBehavior } from './composition.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -44,13 +33,6 @@ const context = RequestContext.anonymous({
 	requestId: 'contribution-stage-1',
 	source: requestSources.internal,
 })
-
-const operation: CreateOneOperationAst<typeof articleSchema> = {
-	kind: 'create-one',
-	selection: { fields: [], kind: 'selection' },
-	schema: new QueryBuilder(articleSchema).ast.schema,
-	input: { title: 'input' },
-}
 
 const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
 	kind: 'update-one',
@@ -145,9 +127,9 @@ describe('composeRuntimeContributionBehavior', () => {
 			contributions: [
 				provideTestRuntimeInterceptor(
 					'fixture.foreign',
-					beforeOperation({
+					preparedOperation({
 						schema: foreignSchema,
-						handler: () => undefined,
+						handler: ({ operation }) => ({ operation }),
 					}),
 				),
 			],
@@ -163,175 +145,6 @@ describe('composeRuntimeContributionBehavior', () => {
 			new TypeError(
 				'Runtime contribution "fixture.foreign" references a schema outside its application',
 			),
-		)
-	})
-
-	it('requires before observers to return nothing and exact after replacements', async () => {
-		const plugin = createPlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			id: 'fixture.invalid-output',
-			permissions: {
-				'runtime:intercept':
-					'Registers low-level Runtime contributions for tests.',
-			},
-			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.invalid-before-output',
-					beforeOperation({
-						operations: ['create-one'],
-						handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
-							input.operation) as never,
-					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.invalid-after-output',
-					afterOperation({
-						operations: ['create-one'],
-						handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
-							result: input.result,
-							extra: true,
-						})) as never,
-					}),
-				),
-			],
-		})
-		const application = applicationFixture(
-			await createApplication({
-				schemas: [articleSchema],
-				plugins: [plugin],
-			}),
-		)
-		const stages = composeRuntimeContributionBehavior(application)
-		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
-
-		await expect(
-			stages.beforeOperation?.({ context, operation }),
-		).rejects.toThrow(
-			new TypeError('before-operation contribution must return undefined'),
-		)
-		await expect(
-			stages.transformResult?.({
-				context,
-				operation,
-				result: {
-					id: 'article-1',
-					title: 'stored',
-					createdAt: '2026-08-01T00:00:00.000Z',
-					updatedAt: '2026-08-01T00:00:00.000Z',
-				},
-			}),
-		).rejects.toThrow(
-			new TypeError('Runtime contribution must return exactly { result }'),
-		)
-	})
-
-	it('preserves global and schema interceptor stage order', async () => {
-		const calls: string[] = []
-		const plugin = createPlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			id: 'fixture.ordered-contributions',
-			permissions: {
-				'runtime:intercept': 'Exercises Runtime interceptor ordering.',
-			},
-			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.global-after',
-					afterOperation({
-						handler: ({ result }) => {
-							calls.push('global-after')
-							return { result }
-						},
-					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.schema-before',
-					beforeOperation({
-						schema: articleSchema,
-						handler: () => {
-							calls.push('schema-before')
-						},
-					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.global-before',
-					beforeOperation({
-						handler: () => {
-							calls.push('global-before')
-						},
-					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.schema-after',
-					afterOperation({
-						schema: articleSchema,
-						handler: ({ result }) => {
-							calls.push('schema-after')
-							return { result }
-						},
-					}),
-				),
-			],
-		})
-		const application = applicationFixture(
-			await createApplication({
-				plugins: [plugin],
-				schemas: [articleSchema],
-			}),
-		)
-		const stages = composeRuntimeContributionBehavior(application)
-		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
-		const result = { ...updateTarget }
-
-		await stages.beforeOperation?.({ context, operation })
-		await stages.transformResult?.({ context, operation, result })
-
-		expect(calls).toStrictEqual([
-			'global-before',
-			'schema-before',
-			'schema-after',
-			'global-after',
-		])
-		await application.dispose()
-	})
-
-	it('rejects every attempted low-level before-operation replacement', async () => {
-		const plugin = createPlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			id: 'fixture.before-replacement',
-			permissions: {
-				'runtime:intercept':
-					'Registers low-level Runtime contributions for tests.',
-			},
-			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.before-replacement',
-					beforeOperation({
-						operations: ['update-one'],
-						handler: ((
-							input: RuntimeOperationStageInput<typeof updateOperation>,
-						) => ({
-							operation: input.operation,
-						})) as never,
-					}),
-				),
-			],
-		})
-		const application = applicationFixture(
-			await createApplication({
-				plugins: [plugin],
-				schemas: [articleSchema],
-			}),
-		)
-		const stages = composeRuntimeContributionBehavior(application)
-		if (stages === undefined) throw new TypeError('Expected Runtime behavior')
-
-		await expect(
-			stages.beforeOperation?.({ context, operation: updateOperation }),
-		).rejects.toThrow(
-			new TypeError('before-operation contribution must return undefined'),
 		)
 	})
 

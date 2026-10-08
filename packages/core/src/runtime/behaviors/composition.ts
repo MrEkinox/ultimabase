@@ -78,36 +78,33 @@ export const composeRuntimeBehaviors = (
 
 	if (behaviors.length === 0 && interceptors === undefined) return undefined
 
-	/** Lists providers of one stage; interceptors run before or after plugin behavior. */
+	/** Lists providers of one stage; prepared-operation interceptors run after plugin behavior. */
 	const collect = <const TKey extends keyof RuntimeBehaviorStages>(
 		key: TKey,
-		interceptorPosition?: 'first' | 'last',
+		includeInterceptors = false,
 	): readonly BehaviorProvider<NonNullable<RuntimeBehaviorStages[TKey]>>[] => {
 		const providers = behaviors.flatMap(({ run, value }) => {
 			const stage = value[key]
 			return stage === undefined ? [] : [{ run, stage }]
 		})
-		const interceptor =
-			interceptorPosition === undefined ? undefined : interceptors?.[key]
-		if (interceptor === undefined) return providers
-		const entry = { run: unattributed, stage: interceptor }
-		return interceptorPosition === 'first'
-			? [entry, ...providers]
-			: [...providers, entry]
+		const interceptor = includeInterceptors ? interceptors?.[key] : undefined
+		return interceptor === undefined
+			? providers
+			: [...providers, { run: unattributed, stage: interceptor }]
 	}
 
 	const inputTransforms = collect('transformInput')
 	const preparedInputTransforms = collect('transformPreparedInput')
 	const preparedOperationTransforms = collect(
 		'transformPreparedOperation',
-		'last',
+		true,
 	)
-	const beforeObservers = collect('beforeOperation', 'first')
+	const beforeObservers = collect('beforeOperation')
 	const mutationInputGuards = collect('guardMutationInput')
 	const preparedObservers = collect('observePreparedMutation')
 	const outcomeTransforms = collect('transformMutationOutcome')
 	const databaseResultTransforms = collect('transformDatabaseResult')
-	const resultTransforms = collect('transformResult', 'last')
+	const resultTransforms = collect('transformResult')
 	const postCommitObservers = collect('postCommit')
 	const preparationPredicates = collect('requiresPreparedMutationItems')
 

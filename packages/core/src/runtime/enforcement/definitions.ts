@@ -11,13 +11,9 @@ import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compil
 import { assertConstraintKind } from '../../schema/schema/constraints.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
-	EnforcementConstraintHandler,
 	EnforcementContributionKind,
-	EnforcementFieldRestrictionHandler,
 	EnforcementGuardHandler,
 	EnforcementOperationInput,
-	EnforcementOutputInput,
-	EnforcementOutputRestrictionHandler,
 } from './contracts.js'
 import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type {
@@ -64,47 +60,6 @@ export type GuardOptions<
 	EnforcementGuardHandler<TSchema, TOperations[number]>
 >
 
-/** Configures opaque constraints that Runtime appends for the selected adapter. */
-export type ConstraintOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-	TConstraint extends DatabaseConstraintNode,
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementConstraintHandler<TSchema, TOperations[number], TConstraint>
->
-
-/** Configures a monotonic mutation-input field restriction. */
-export type InputRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementFieldRestrictionHandler<TSchema, TOperations[number]>
->
-
-/** Configures a monotonic query-selection field restriction. */
-export type SelectionRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementFieldRestrictionHandler<TSchema, TOperations[number]>
->
-
-/** Configures the final field restriction after every result transform. */
-export type OutputRestrictionOptions<
-	TSchema extends SchemaDefinition,
-	TOperations extends readonly RuntimeLogicalOperationKind[],
-> = EnforcementOptions<
-	TSchema,
-	TOperations,
-	EnforcementOutputRestrictionHandler<TSchema, TOperations[number]>
->
-
 declare const enforcementDefinitionType: unique symbol
 
 /** Retains matching metadata while keeping the executable handler private. */
@@ -133,64 +88,8 @@ export type GuardDefinition<
 	EnforcementGuardHandler<TSchema, TOperationKind>
 >
 
-/** Represents a provenance-free opaque adapter-constraint declaration. */
-export type ConstraintDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
-> = EnforcementDefinition<
-	'constraint',
-	TSchema,
-	TOperationKind,
-	EnforcementConstraintHandler<TSchema, TOperationKind, TConstraint>
->
-
-/** Represents a provenance-free mutation-input restriction declaration. */
-export type InputRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictInput',
-	TSchema,
-	TOperationKind,
-	EnforcementFieldRestrictionHandler<TSchema, TOperationKind>
->
-
-/** Represents a provenance-free query-selection restriction declaration. */
-export type SelectionRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictSelection',
-	TSchema,
-	TOperationKind,
-	EnforcementFieldRestrictionHandler<TSchema, TOperationKind>
->
-
-/** Represents a provenance-free final-output restriction declaration. */
-export type OutputRestrictionDefinition<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-	TOperationKind extends RuntimeLogicalOperationKind =
-		RuntimeLogicalOperationKind,
-> = EnforcementDefinition<
-	'restrictOutput',
-	TSchema,
-	TOperationKind,
-	EnforcementOutputRestrictionHandler<TSchema, TOperationKind>
->
-
-export type EnforcementDefinitionUnion =
-	| ConstraintDefinition
-	| GuardDefinition
-	| InputRestrictionDefinition
-	| OutputRestrictionDefinition
-	| SelectionRestrictionDefinition
-
 type ErasedEnforcementHandler = (
-	input: EnforcementOperationInput<never> | EnforcementOutputInput<never>,
+	input: EnforcementOperationInput<never>,
 ) => MaybePromise<unknown>
 
 /** Supplies Runtime with the handler paired to a validated public definition. */
@@ -199,9 +98,7 @@ export interface EnforcementContributionImplementation {
 	readonly master: 'bypass' | 'enforce'
 	readonly schema: SchemaDefinition | undefined
 	readonly operations: readonly RuntimeLogicalOperationKind[] | undefined
-	run(
-		input: EnforcementOperationInput<never> | EnforcementOutputInput<never>,
-	): MaybePromise<unknown>
+	run(input: EnforcementOperationInput<never>): MaybePromise<unknown>
 }
 
 const implementations = new WeakMap<
@@ -321,63 +218,6 @@ export const guard = <
 	options: GuardOptions<TSchema, TOperations>,
 ): GuardDefinition<TSchema, TOperations[number]> =>
 	defineEnforcement('guard', options)
-
-/**
- * Declares opaque adapter constraints that Runtime can only append.
- *
- * @example `constraint({ schema: PostSchema, handler: () => databaseConstraint('tenant.rows', 1, { tenantId }) })`
- */
-export const constraint = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
-	const TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
->(
-	options: ConstraintOptions<TSchema, TOperations, TConstraint>,
-): ConstraintDefinition<TSchema, TOperations[number], TConstraint> =>
-	defineEnforcement('constraint', options)
-
-/**
- * Declares the permitted mutation-input fields for one independent policy.
- *
- * @example `restrictInput({ schema: PostSchema, handler: () => ['title'] })`
- */
-export const restrictInput = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: InputRestrictionOptions<TSchema, TOperations>,
-): InputRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictInput', options)
-
-/**
- * Declares the permitted selected fields for one independent policy.
- *
- * @example `restrictSelection({ schema: PostSchema, handler: () => ['id', 'title'] })`
- */
-export const restrictSelection = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: SelectionRestrictionOptions<TSchema, TOperations>,
-): SelectionRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictSelection', options)
-
-/**
- * Declares the permitted output fields after every result transformation.
- *
- * @example `restrictOutput({ schema: PostSchema, handler: () => ['id', 'title'] })`
- */
-export const restrictOutput = <
-	const TSchema extends SchemaDefinition = SchemaDefinition,
-	const TOperations extends readonly RuntimeLogicalOperationKind[] =
-		readonly RuntimeLogicalOperationKind[],
->(
-	options: OutputRestrictionOptions<TSchema, TOperations>,
-): OutputRestrictionDefinition<TSchema, TOperations[number]> =>
-	defineEnforcement('restrictOutput', options)
 
 /** Resolves only definitions created by the policy-neutral public factories. */
 export const getEnforcementContributionImplementation = (

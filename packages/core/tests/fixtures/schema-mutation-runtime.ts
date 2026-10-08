@@ -3,7 +3,6 @@ import { vi } from 'vitest'
 import { applicationFixture } from '../application-fixture.js'
 
 import { provideTestDatabaseAdapter } from '../runtime/fixtures/database-adapter-capability.js'
-import { provideTestRuntimeInterceptor } from '../runtime/fixtures/runtime-capabilities.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -20,11 +19,10 @@ import {
 import type { SchemaDefinition } from '../../src/schema/index.js'
 import { stringField } from '../../src/schema/index.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
-import { provideRuntimeConstraint } from '../../src/runtime/capabilities.js'
 import {
-	afterOperation,
-	beforeOperation,
-} from '../../src/runtime/contributions/definitions.js'
+	provideRuntimeBehavior,
+	provideRuntimeConstraint,
+} from '../../src/runtime/capabilities.js'
 import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
 import { protectedPolicy } from '../../src/runtime/enforcement/protected-policy.js'
 import { MasterAuthority } from '../../src/runtime/master/master-authority.js'
@@ -116,28 +114,34 @@ export const createUpdateFixture = async (options: {
 							resolve: handler,
 						}),
 					]),
-			provideTestRuntimeInterceptor(
-				'logical-operation-observer',
-				beforeOperation({
-					operations: ['plugin-schema-mutation'],
-					handler: ({ operation }) => {
-						options.observeOperation?.(operation.kind)
+			provideRuntimeBehavior({
+				contributionId: 'logical-operation-observer',
+				create: () => ({
+					value: {
+						beforeOperation: ({ operation }) => {
+							if (operation.kind === 'plugin-schema-mutation') {
+								options.observeOperation?.(operation.kind)
+							}
+						},
 					},
 				}),
-			),
+			}),
 			...(options.observeResult === undefined
 				? []
 				: [
-						provideTestRuntimeInterceptor(
-							'logical-result-observer',
-							afterOperation({
-								operations: ['plugin-schema-mutation'],
-								handler: ({ operation, result }) => {
-									options.observeResult?.(operation.kind)
-									return { result }
+						provideRuntimeBehavior({
+							contributionId: 'logical-result-observer',
+							create: () => ({
+								value: {
+									transformResult: ({ operation, result }) => {
+										if (operation.kind === 'plugin-schema-mutation') {
+											options.observeResult?.(operation.kind)
+										}
+										return result
+									},
 								},
 							}),
-						),
+						}),
 					]),
 			providePersistencePlanRewriter({
 				contributionId: 'logical-schema-mutation-rewriter',

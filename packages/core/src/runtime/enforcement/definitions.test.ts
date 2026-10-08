@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-	constraint,
 	databaseConstraint,
 	getEnforcementContributionImplementation,
 	guard,
 	isDatabaseConstraintNode,
-	restrictInput,
-	restrictOutput,
-	restrictSelection,
 } from './definitions.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -43,8 +39,8 @@ describe('policy-neutral enforcement definitions', () => {
 	})
 
 	it('keeps explicit master behavior private beside executable handlers', () => {
-		const bypassed = constraint({
-			handler: () => databaseConstraint('fixture.master', 1, {}),
+		const bypassed = guard({
+			handler: () => undefined,
 			master: 'bypass',
 		})
 		const enforced = guard({ handler: () => undefined })
@@ -61,29 +57,12 @@ describe('policy-neutral enforcement definitions', () => {
 		).toThrow('enforcement contribution master must be bypass or enforce')
 	})
 
-	it('creates every generic category without attaching plugin provenance', () => {
-		const definitions = [
-			constraint({
-				handler: () => databaseConstraint('tenant.row', 1, { tenantId: 'one' }),
-			}),
-			guard({ handler: () => undefined }),
-			restrictInput({ handler: () => ['title'] }),
-			restrictSelection({ handler: () => ['title'] }),
-			restrictOutput({ handler: () => ['title'] }),
-		]
+	it('creates guards without attaching plugin provenance', () => {
+		const definition = guard({ handler: () => undefined })
 
-		expect(definitions.map(({ kind }) => kind)).toStrictEqual([
-			'constraint',
-			'guard',
-			'restrictInput',
-			'restrictSelection',
-			'restrictOutput',
-		])
-
-		for (const definition of definitions) {
-			expect(definition).not.toHaveProperty('ownerPlugin')
-			expect(Object.isFrozen(definition)).toBe(true)
-		}
+		expect(definition.kind).toBe('guard')
+		expect(definition).not.toHaveProperty('ownerPlugin')
+		expect(Object.isFrozen(definition)).toBe(true)
 	})
 
 	it('creates detached immutable namespaced database constraint nodes', () => {

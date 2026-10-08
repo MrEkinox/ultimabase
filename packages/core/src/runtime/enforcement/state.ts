@@ -27,7 +27,6 @@ export interface EnforcementState {
 export interface EnforcementStateSnapshot {
 	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly inputFields: readonly string[] | undefined
-	readonly outputFields: readonly string[] | undefined
 	readonly selectionFields: readonly string[] | undefined
 	readonly rowFilter: DatabaseRowFilterNode | undefined
 	readonly relationPredicates: readonly DatabaseRelationPredicateScope[]
@@ -61,7 +60,6 @@ export const createEnforcementState = (): EnforcementState =>
 		immutableRecord({
 			constraints: immutableArray([]),
 			inputFields: undefined,
-			outputFields: undefined,
 			selectionFields: undefined,
 			rowFilter: undefined,
 			relationPredicates: immutableArray([]),

@@ -1,10 +1,9 @@
 import {
-	afterOperation,
 	applicationOperationTransportPlanningCapability,
 	applicationRequestExecutionCapability,
-	beforeOperation,
 	plugin,
 	guard,
+	preparedOperation,
 	requireCapability,
 	provideRuntimeBehavior,
 	provideRuntimeConstraint,
@@ -23,19 +22,18 @@ const schema = UltimaBase.Schema.define({
 const interceptor = provideRuntimeInterceptor({
 	contributionId: 'typed-interceptor',
 	create: () => ({
-		value: afterOperation({
-			handler: ({ operation, result }) => {
-				const exactOperation: 'find-many' = operation.kind
-				const correlatedRows: readonly unknown[] = result
-				// @ts-expect-error A find-many result cannot be treated as one scalar value.
-				const scalarResult: string = result
+		value: preparedOperation({
+			handler: ({ operation, target }) => {
+				const exactOperation: 'update-one' = operation.kind
+				const lockedTarget: object = target
+				// @ts-expect-error A locked update target cannot be treated as one scalar value.
+				const scalarTarget: string = target
 
 				void exactOperation
-				void correlatedRows
-				void scalarResult
-				return { result }
+				void lockedTarget
+				void scalarTarget
+				return { operation }
 			},
-			operations: ['find-many'],
 			schema,
 		}),
 	}),
@@ -99,7 +97,6 @@ plugin({
 	],
 })
 
-beforeOperation({ handler: () => undefined })
 type InspectedFinalMutationGuard =
 	/* hover:runtime-final-mutation-guard */ RuntimeFinalMutationGuardStage
 type InspectedApplicationRequestExecutor =
@@ -241,3 +238,36 @@ const removedContributionFamily: core.AdapterContributionFamily = 'migration'
 // @ts-expect-error Migration no longer names a privilege facade.
 const removedMigrationFacade: core.PluginPrivilegeFacade = 'migration'
 void [removedAdapterFamily, removedContributionFamily, removedMigrationFacade]
+
+// ADR-0289 removes kernel extension points that only tests consumed.
+// @ts-expect-error Generic before-operation interceptors were removed.
+void core.beforeOperation
+// @ts-expect-error Generic after-operation interceptors were removed.
+void core.afterOperation
+// @ts-expect-error Input field restrictions were removed; protected policies narrow input.
+void core.restrictInput
+// @ts-expect-error Selection restrictions were removed; protected policies narrow selection.
+void core.restrictSelection
+// @ts-expect-error Output restrictions were removed; protected policies restrict results.
+void core.restrictOutput
+// @ts-expect-error Constraint definitions were removed; protected policies append constraints.
+void core.constraint
+// @ts-expect-error Runtime protocol tokens are internal to their exact provider facades.
+void core.runtimeInterceptorCapability
+// @ts-expect-error Runtime protocol tokens are internal to their exact provider facades.
+void core.runtimeConstraintCapability
+// @ts-expect-error Removed interceptor contracts are no longer public.
+type RemovedInterceptor0 = core.BeforeOperationDefinition
+void (undefined as unknown as RemovedInterceptor0)
+// @ts-expect-error Removed interceptor contracts are no longer public.
+type RemovedInterceptor1 = core.AfterOperationDefinition
+void (undefined as unknown as RemovedInterceptor1)
+// @ts-expect-error Removed restriction contracts are no longer public.
+type RemovedRestriction0 = core.InputRestrictionDefinition
+void (undefined as unknown as RemovedRestriction0)
+// @ts-expect-error Removed restriction contracts are no longer public.
+type RemovedRestriction1 = core.OutputRestrictionDefinition
+void (undefined as unknown as RemovedRestriction1)
+// @ts-expect-error Removed constraint contracts are no longer public.
+type RemovedConstraint0 = core.ConstraintDefinition
+void (undefined as unknown as RemovedConstraint0)

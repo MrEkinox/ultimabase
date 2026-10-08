@@ -42,9 +42,7 @@ export {
 	provideRuntimeConstraint,
 	provideRuntimeBehavior,
 	provideRuntimeInterceptor,
-	runtimeConstraintCapability,
 	runtimeBehaviorCapability,
-	runtimeInterceptorCapability,
 } from './capabilities.js'
 export type {
 	RuntimeConstraintDefinition,
@@ -203,38 +201,16 @@ export type {
 	PersistencePlanRewriterDefinition,
 } from './persistence/index.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.
-export {
-	constraint,
-	databaseConstraint,
-	guard,
-	restrictInput,
-	restrictOutput,
-	restrictSelection,
-} from './enforcement/definitions.js'
+export { databaseConstraint, guard } from './enforcement/definitions.js'
 export type {
-	ConstraintDefinition,
-	ConstraintOptions,
 	EnforcementDefinition,
-	EnforcementDefinitionUnion,
 	GuardDefinition,
 	GuardOptions,
-	InputRestrictionDefinition,
-	InputRestrictionOptions,
-	OutputRestrictionDefinition,
-	OutputRestrictionOptions,
-	SelectionRestrictionDefinition,
-	SelectionRestrictionOptions,
 } from './enforcement/definitions.js'
 export type {
-	EnforcementContributionKind,
-	EnforcementConstraintHandler,
-	EnforcementFieldBoundary,
-	EnforcementFieldRestrictionHandler,
 	EnforcementGuardHandler,
 	EnforcementOperation,
 	EnforcementOperationInput,
-	EnforcementOutputInput,
-	EnforcementOutputRestrictionHandler,
 } from './enforcement/contracts.js'
 export { protectedPolicy } from './enforcement/protected-policy.js'
 export type {
@@ -248,27 +224,14 @@ export type {
 	ProtectedPolicyRelationGuard,
 	ProtectedPolicyResultRestriction,
 } from './enforcement/protected-policy.js'
-// Generic operation interceptors retain plugin contribution ownership.
-export {
-	afterOperation,
-	beforeOperation,
-	preparedOperation,
-} from './contributions/definitions.js'
+// The prepared-operation interceptor retains plugin contribution ownership.
+export { preparedOperation } from './contributions/definitions.js'
 export type {
-	AfterOperationDefinition,
-	AfterOperationHandler,
-	AfterOperationOptions,
-	AfterOperationResult,
-	BeforeOperationDefinition,
-	BeforeOperationHandler,
-	BeforeOperationOptions,
 	PreparedOperationDefinition,
 	PreparedOperationHandler,
 	PreparedOperationOptions,
-	RuntimeContributionDefinitionUnion,
 	RuntimeInterceptorOperationInput,
 	RuntimePreparedOperationInput,
-	RuntimeInterceptorResultInput,
 } from './contributions/definitions.js'
 // Raw keys become framework-owned opaque grants before request elevation.
 export { MasterAuthority, MasterKeyGrant } from './master/master-authority.js'

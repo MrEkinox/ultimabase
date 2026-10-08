@@ -22,7 +22,7 @@ const contribution = {
 }
 
 describe('normalizeEnforcementRestrictedFields', () => {
-	it('accepts virtual fields only at logical selection and output boundaries', () => {
+	it('accepts virtual fields only at the logical selection boundary', () => {
 		expect(
 			normalizeEnforcementRestrictedFields(
 				['label', 'title'],
@@ -31,14 +31,6 @@ describe('normalizeEnforcementRestrictedFields', () => {
 				'selection',
 			),
 		).toStrictEqual(['label', 'title'])
-		expect(
-			normalizeEnforcementRestrictedFields(
-				['label'],
-				schema,
-				contribution,
-				'output',
-			),
-		).toStrictEqual(['label'])
 		expect(() =>
 			normalizeEnforcementRestrictedFields(
 				['label'],

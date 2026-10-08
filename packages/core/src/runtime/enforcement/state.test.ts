@@ -25,7 +25,6 @@ describe('monotonic enforcement state', () => {
 		expect(snapshot).toStrictEqual({
 			constraints: [],
 			inputFields: undefined,
-			outputFields: undefined,
 			relationPredicates: [],
 			rowFilter: undefined,
 			selectionFields: undefined,
@@ -117,12 +116,10 @@ describe('monotonic enforcement state', () => {
 		const withInput = narrowEnforcementFields(attemptedBroadening, 'input', [
 			'title',
 		])
-		const complete = narrowEnforcementFields(withInput, 'output', [])
-		const snapshot = getEnforcementStateSnapshot(complete)
+		const snapshot = getEnforcementStateSnapshot(withInput)
 
 		expect(snapshot.selectionFields).toStrictEqual(['id', 'title'])
 		expect(snapshot.inputFields).toStrictEqual(['title'])
-		expect(snapshot.outputFields).toStrictEqual([])
 		expect(Object.isFrozen(snapshot.selectionFields)).toBe(true)
 	})
 

@@ -11,12 +11,8 @@ import {
 	requireEnforcementStages,
 	runtimeConstrainPrivileges,
 } from '../../../tests/fixtures/enforcement-dispatcher.js'
-import {
-	constraint,
-	guard,
-	restrictInput,
-	restrictSelection,
-} from './definitions.js'
+import { guard } from './definitions.js'
+import { protectedPolicy } from './protected-policy.js'
 import { createEnforcementStages } from './dispatcher.js'
 
 describe('createEnforcementStages mutation boundaries', () => {
@@ -32,9 +28,9 @@ describe('createEnforcementStages mutation boundaries', () => {
 			contributions: createTestRuntimeConstraints((provide) => {
 				provide(
 					'fixture.title-only',
-					restrictInput({
+					protectedPolicy({
 						schema: articleSchema,
-						handler: () => ['title'] as const,
+						evaluate: () => ({ inputFields: ['title'] }),
 					}),
 				)
 			}),
@@ -106,23 +102,29 @@ describe('createEnforcementStages mutation boundaries', () => {
 		],
 		[
 			'forged constraint',
-			constraint({
-				handler: () => ({
-					kind: 'fixture.forged',
-					version: 1,
-					payload: null,
+			protectedPolicy({
+				evaluate: () => ({
+					constraints: {
+						kind: 'fixture.forged',
+						version: 1,
+						payload: null,
+					},
 				}),
 			}),
 			'must be a database constraint node',
 		],
 		[
 			'non-array field restriction',
-			restrictSelection({ handler: (() => 'title') as never }),
-			'must return a field array',
+			protectedPolicy({
+				evaluate: (() => ({ selectionFields: 'title' })) as never,
+			}),
+			'protected policy selectionFields must be an array',
 		],
 		[
 			'unknown field',
-			restrictSelection({ handler: () => ['missing'] }),
+			protectedPolicy({
+				evaluate: () => ({ selectionFields: ['missing'] }),
+			}),
 			'returned an unknown schema field',
 		],
 	] as const)(
