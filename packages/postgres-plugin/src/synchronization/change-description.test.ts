@@ -58,7 +58,10 @@ describe('PostgreSQL schema change descriptions', () => {
 		).toBe('')
 		expect(
 			explainPostgresSynchronizationFailure(
-				{ ...requiredHeadline, column: { ...requiredHeadline.column, nullable: true } },
+				{
+					...requiredHeadline,
+					column: { ...requiredHeadline.column, nullable: true },
+				},
 				'23502',
 			),
 		).toBe('')

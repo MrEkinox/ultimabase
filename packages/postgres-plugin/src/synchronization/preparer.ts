@@ -91,7 +91,9 @@ const executeChanges = async (
 				: ` while applying: ${describePostgresSchemaChange(current)}`
 		const code = driverCode === undefined ? '' : ` [SQLSTATE ${driverCode}]`
 		const hint =
-			current === undefined ? '' : explainPostgresSynchronizationFailure(current, driverCode)
+			current === undefined
+				? ''
+				: explainPostgresSynchronizationFailure(current, driverCode)
 		throw new FrameworkError(
 			'INTERNAL_ERROR',
 			`PostgreSQL direct schema synchronization failed${failedStep}${code}.${hint}`,
