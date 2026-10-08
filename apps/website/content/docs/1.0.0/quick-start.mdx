@@ -16,6 +16,7 @@ sources:
   - packages/create-app/src/prompts.ts
   - packages/create-app/src/catalog.ts
   - packages/create-app/src/base-template.ts
+  - packages/create-app/src/main-template.ts
   - packages/create-app/src/api-template.ts
   - packages/create-app/src/security-template.ts
   - packages/create-app/tests/e2e/create-app-packed.e2e.test.ts
@@ -84,7 +85,7 @@ For a first run, answer the prompts as follows:
 | Language                           | TypeScript                            | Includes Typegen before typecheck and build.                                                      |
 | How will clients access your data? | None                                  | Uses direct application calls; no HTTP listener. REST and GraphQL can be selected together later. |
 | Official plugins                   | No additional plugins                 | PostgreSQL is included automatically.                                                             |
-| Starter                            | Runnable Task example                 | Defines `Task` and writes one record on start.                                                    |
+| Starter                            | Runnable Task example                 | Defines `Task` and seeds one record on the first start.                                           |
 | PostgreSQL                         | Local Docker Compose                  | Writes `compose.yaml` and a private `.env`.                                                       |
 | Install dependencies now?          | Yes                                   | Installs with the invoking package manager before creating the destination.                       |
 | Create this project?               | Yes                                   | Confirms the displayed plan.                                                                      |
@@ -232,8 +233,9 @@ to PostgreSQL. Starting the application connects to the database.
 ## Expected result
 
 The Task starter prints a new record with a generated `id`,
-`title: 'Ship the first feature'`, and `done: false`. Starting it again
-writes another record. The empty starter instead prints
+`title: 'Ship the first feature'`, and `done: false`. It seeds that record
+only when no Task exists, so starting it again prints the same record instead
+of writing another. The empty starter instead prints
 `UltimaBase is ready` and has no Task to query.
 
 If you selected REST or GraphQL, the application also listens on

@@ -10,6 +10,8 @@ the complete future reader path.
 The interactive and flag-only selection flows normalize to one project plan.
 The local executable now generates a PostgreSQL project in TypeScript
 or JavaScript, with either a runnable Task starter or an empty application.
+The Task starter seeds its example record only when no Task exists, so
+restarting the generated application never adds another record.
 The generated schema module owns one configured application factory so a
 plugin is declared once for both source inference and Runtime installation.
 When REST or GraphQL is selected, its exposure option and exact operation
