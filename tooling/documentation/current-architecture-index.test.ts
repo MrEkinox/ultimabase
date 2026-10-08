@@ -198,6 +198,11 @@ describe('current architecture documentation', () => {
 		const currentTargets = readCatalogTargets(
 			catalog,
 			'Current records (accepted or still active in part):',
+			'Proposed records (awaiting user validation):',
+		)
+		const proposedTargets = readCatalogTargets(
+			catalog,
+			'Proposed records (awaiting user validation):',
 			'Superseded records:',
 		)
 		const supersededTargets = readCatalogTargets(catalog, 'Superseded records:')
@@ -206,6 +211,12 @@ describe('current architecture documentation', () => {
 			expect(
 				await readAdrStatus(path.resolve(path.dirname(adrCatalogPath), target)),
 			).toMatch(/^(?:accepted|partially superseded)/u)
+		}
+
+		for (const target of proposedTargets) {
+			expect(
+				await readAdrStatus(path.resolve(path.dirname(adrCatalogPath), target)),
+			).toBe('proposed')
 		}
 
 		for (const target of supersededTargets) {
