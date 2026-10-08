@@ -7,7 +7,8 @@ REST, GraphQL, and the protocol-neutral HTTP package do not depend on them.
 ## Framework-owned listener
 
 Without an existing app, the plugin creates one Hono application and owns its
-Node listener. The default port is `1337`; `host` is forwarded only when the
+Node listener. The port is the configured `port`, else the `PORT` environment
+variable used by most hosting platforms, else `1337`; `host` is forwarded only when the
 developer configures it. The listener opens only during `startTransports`,
 after the complete application graph has validated, and closes when its
 application stops.

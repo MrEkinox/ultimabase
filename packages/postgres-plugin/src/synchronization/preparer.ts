@@ -6,6 +6,11 @@ import { readPostgresDriverCode } from '../connection/driver-error.js'
 import { readPostgresQueryRows } from '../connection/query-result.js'
 import { introspectPostgresDatabase } from '../introspection/introspector.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
+import {
+	describePostgresSchemaChange,
+	explainPostgresSynchronizationFailure,
+	summarizePostgresSchemaChanges,
+} from './change-description.js'
 import type { PostgresSchemaChange, PostgresSchemaPolicy } from './contracts.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
 import { planPostgresSchemaChanges } from './planner.js'
@@ -35,9 +40,11 @@ const rejectChanges = (
 	kind: 'postgres-schema-drift' | 'postgres-schema-unsupported',
 	changes: readonly PostgresSchemaChange[],
 ): never => {
-	throw new FrameworkError('VALIDATION_ERROR', message, {
-		internalDetails: { kind, changes: immutableArray(changes) },
-	})
+	throw new FrameworkError(
+		'VALIDATION_ERROR',
+		`${message} ${String(changes.length)} change(s): ${summarizePostgresSchemaChanges(changes)}.`,
+		{ internalDetails: { kind, changes: immutableArray(changes) } },
+	)
 }
 
 const executeChanges = async (
@@ -45,20 +52,26 @@ const executeChanges = async (
 	namespace: string,
 	changes: readonly PostgresSchemaChange[],
 ): Promise<void> => {
-	const statements = changes.flatMap((change) =>
-		renderPostgresSchemaChange(namespace, change),
+	const steps = changes.flatMap((change) =>
+		renderPostgresSchemaChange(namespace, change).map((statement) => ({
+			change,
+			statement,
+		})),
 	)
 
-	if (statements.length === 0) return
+	if (steps.length === 0) return
 
 	const client = await pool.connect()
+	let current: PostgresSchemaChange | undefined
 
 	try {
 		await client.query('BEGIN')
 
-		for (const statement of statements) {
+		for (const { change, statement } of steps) {
+			current = change
 			await client.query(statement)
 		}
+		current = undefined
 
 		await client.query('COMMIT')
 	} catch (error: unknown) {
@@ -70,10 +83,20 @@ const executeChanges = async (
 
 		const driverCode = readPostgresDriverCode(error)
 
-		// Driver messages and causes may contain values or connection details.
+		// Driver messages and causes may contain values or connection details:
+		// only the planned change, its physical names and SQLSTATE are reported.
+		const failedStep =
+			current === undefined
+				? ''
+				: ` while applying: ${describePostgresSchemaChange(current)}`
+		const code = driverCode === undefined ? '' : ` [SQLSTATE ${driverCode}]`
+		const hint =
+			current === undefined
+				? ''
+				: explainPostgresSynchronizationFailure(current, driverCode)
 		throw new FrameworkError(
 			'INTERNAL_ERROR',
-			'PostgreSQL direct schema synchronization failed.',
+			`PostgreSQL direct schema synchronization failed${failedStep}${code}.${hint}`,
 			{
 				internalDetails: {
 					kind: 'postgres-schema-synchronization-failed',

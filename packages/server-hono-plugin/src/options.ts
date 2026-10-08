@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import { assertNonEmptyString } from '@ultimabase/shared'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import type { Hono, Env, Schema } from 'hono'
@@ -6,7 +8,11 @@ import type { Hono, Env, Schema } from 'hono'
 export interface ManagedHonoServerPluginOptions {
 	/** Optional hostname passed to the Node listener. */
 	readonly host?: string
-	/** TCP port passed to the Node listener. Port zero requests an ephemeral port. @default 1337 */
+	/**
+	 * TCP port passed to the Node listener. Port zero requests an ephemeral port.
+	 * When omitted, the `PORT` environment variable is used, then `1337`.
+	 * @default process.env.PORT ?? 1337
+	 */
 	readonly port?: number
 	readonly app?: never
 	readonly browserPolicyOwner?: never
@@ -52,6 +58,22 @@ const isHonoApplication = (value: unknown): value is Hono =>
 	typeof Reflect.get(value, 'fetch') === 'function'
 
 /** @internal Validates ownership before the plugin definition can have effects. */
+const isPortNumber = (value: number): boolean =>
+	Number.isSafeInteger(value) && value >= 0 && value <= 65_535
+
+/** Reads the hosting convention `PORT` once, when the plugin is created. */
+const readEnvironmentPort = (): number | undefined => {
+	const raw = process.env.PORT
+	if (raw === undefined || raw === '') return undefined
+	const port = /^\d+$/u.test(raw) ? Number(raw) : Number.NaN
+	if (!isPortNumber(port)) {
+		throw new TypeError(
+			'PORT environment variable must be an integer from 0 through 65535',
+		)
+	}
+	return port
+}
+
 export const normalizeHonoServerPluginOptions: (
 	options: unknown,
 ) => NormalizedHonoServerPluginOptions = definePluginOptionsParser({
@@ -99,10 +121,7 @@ export const normalizeHonoServerPluginOptions: (
 		}
 		if (
 			port !== undefined &&
-			(typeof port !== 'number' ||
-				!Number.isSafeInteger(port) ||
-				port < 0 ||
-				port > 65_535)
+			(typeof port !== 'number' || !isPortNumber(port))
 		) {
 			throw new TypeError(
 				'Hono server plugin port must be an integer from 0 through 65535',
@@ -112,7 +131,8 @@ export const normalizeHonoServerPluginOptions: (
 			app: undefined,
 			browserPolicyOwner: 'ultimabase',
 			host,
-			port: port ?? 1337,
+			// An explicit port wins, then the hosting convention, then the default.
+			port: port ?? readEnvironmentPort() ?? 1337,
 		}
 	},
 })

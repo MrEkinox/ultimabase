@@ -61,12 +61,8 @@ async function publicPackageNames(): Promise<readonly string[]> {
 describe('documentation currency guardrails', () => {
 	it('keeps one prospective documentation-impact checkpoint', async () => {
 		const files = await Promise.all(
-			[
-				'AGENTS.md',
-				'CONTRIBUTING.md',
-				'.github/ISSUE_TEMPLATE/implementation.md',
-			].map((filePath) =>
-				readFile(path.join(repositoryRoot, filePath), 'utf8'),
+			['AGENTS.md', 'CONTRIBUTING.md', '.github/pull_request_template.md'].map(
+				(filePath) => readFile(path.join(repositoryRoot, filePath), 'utf8'),
 			),
 		)
 		const classifications = [

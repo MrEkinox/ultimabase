@@ -30,6 +30,7 @@ import {
 	type GraphqlExecutionLimits,
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
+import { resolveGraphqlCursorKey } from './cursor-secret.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
 import { GraphqlNetworklessExecution } from './networkless-execution.js'
 import { GraphqlOperationExecution } from './operation-execution.js'
@@ -48,6 +49,13 @@ import { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 export interface GraphqlPluginOptions {
 	/** Accepts Core's inability to prove complete public policy coverage. */
 	readonly acknowledgeUnverifiedProtection?: true
+	/**
+	 * Signs pagination cursors so they stay valid across restarts and instances.
+	 * Defaults to `ULTIMABASE_CURSOR_SECRET`; required in production
+	 * (`NODE_ENV=production`), random per process otherwise. At least 32 characters.
+	 * @example `cursorSecret: process.env.CURSOR_SECRET`
+	 */
+	readonly cursorSecret?: string
 	/** Supplies sparse generated-operation defaults for application schemas. */
 	readonly default?: boolean | GraphqlSchemaOperations
 	/** Configures the forward Relay page window. */
@@ -82,6 +90,7 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 	name: 'GraphQL plugin options',
 	keys: [
 		'acknowledgeUnverifiedProtection',
+		'cursorSecret',
 		'default',
 		'limits',
 		'operations',
@@ -96,6 +105,7 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 		}
 		return {
 			acknowledgeUnverifiedProtection: acknowledged,
+			cursorKey: resolveGraphqlCursorKey(options.cursorSecret),
 			defaultOperations:
 				options.default === undefined
 					? undefined
@@ -156,7 +166,10 @@ export const graphqlPlugin = (
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
 		create: ({ callbacks, capabilities: reader, owner, schemas }) => {
-			const connections = new GraphqlConnectionRuntime(normalized.limits)
+			const connections = new GraphqlConnectionRuntime(
+				normalized.limits,
+				normalized.cursorKey,
+			)
 			const planner = reader.get(operationPlanningRequirement)
 			const operationPlan = planner.plan({
 				operations: normalized.operations,

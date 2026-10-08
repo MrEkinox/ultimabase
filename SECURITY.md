@@ -2,7 +2,7 @@
 
 UltimaBase is pre-release software and should not yet be used to protect production data.
 
-Please report security vulnerabilities privately to the maintainers rather than opening a public issue. A dedicated security contact will be added before the first public release.
+Report security vulnerabilities privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** (<https://github.com/MrEkinox/ultimadatabase/security/advisories/new>). Never open a public issue for a vulnerability. Include the affected packages and versions, a reproduction, and the impact you observed.
 
 Security-sensitive areas include:
 
