@@ -62,6 +62,13 @@ Outils :
   « Unchanged test oracle »).
 - **Rapport final** : [RAPPORT_FINAL.md](RAPPORT_FINAL.md).
 
+- **Publication (2026-10-08, à la demande de l'utilisateur, après validation de la
+  reconstruction)** : `main` a été poussé sur la branche `rebuild` de
+  `MrEkinox/ultimadatabase` (commit `63cb5eb`). Le `main` distant (référence
+  `0ae7767f`) n'a pas été modifié. Le remote local `origin` suit `origin/rebuild`.
+  La règle « ne jamais pousser » de la mission initiale est levée pour cette
+  branche uniquement.
+
 Les sections suivantes sont l'historique du déroulement.
 
 ## État au 2026-10-07
