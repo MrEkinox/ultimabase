@@ -24,8 +24,6 @@ import {
 	type PluginPrivilege,
 	type PluginPrivilegeRequest,
 } from './manifest.js'
-import { isAdapterCapability } from '../runtime/adapters/capabilities.js'
-import { isAdapterContributionCapability } from '../runtime/adapters/contributions.js'
 import {
 	canonicalApplicationRequestExecutionFoundation,
 	isApplicationRequestExecutionCapability,
@@ -136,10 +134,7 @@ const throwMissingCapability = (
 	requirement: CapabilityRequirement,
 ): never => {
 	throw new FrameworkError(
-		isAdapterCapability(requirement.token) ||
-			isAdapterContributionCapability(requirement.token)
-			? 'PLUGIN_ADAPTER_CAPABILITY_MISSING'
-			: 'PLUGIN_CAPABILITY_MISSING',
+		'PLUGIN_CAPABILITY_MISSING',
 		`Plugin "${formatPluginIdentity(owner)}" requires capability "${requirement.token.capabilityId}" version "${requirement.version}", but no compatible provider is installed.`,
 		{
 			internalDetails: {
@@ -230,24 +225,11 @@ const validatePlan = (
 	const requirementRule = rule?.requirement
 	for (const requirement of plan.requirements) {
 		if (requirementRule === undefined) break
-		const plugin = formatPluginIdentity(requirement.owner)
-		if ('forbidden' in requirementRule) {
-			throwCapabilityConflict(requirementRule.forbidden, {
-				kind: requirementRule.kind,
-				plugin,
-				capabilityId: token.capabilityId,
-			})
-		} else if (!hasActivePrivilege(requirement, requirementRule.privilege)) {
-			throwCapabilityConflict(
-				`Plugin "${plugin}" must declare active privilege "${requirementRule.privilege}" ${requirementRule.purpose}.`,
-				{
-					kind: requirementRule.kind,
-					plugin,
-					capabilityId: token.capabilityId,
-					privilege: requirementRule.privilege,
-				},
-			)
-		}
+		throwCapabilityConflict(requirementRule.forbidden, {
+			kind: requirementRule.kind,
+			plugin: formatPluginIdentity(requirement.owner),
+			capabilityId: token.capabilityId,
+		})
 	}
 
 	const core = coreCapabilityDescription(token)

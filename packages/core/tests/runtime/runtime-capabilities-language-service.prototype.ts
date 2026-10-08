@@ -231,9 +231,9 @@ void (undefined as unknown as RemovedMigration4)
 // @ts-expect-error Migration-only type contracts are retired.
 type RemovedMigration5 = core.PlannedAdapterUpgrade
 void (undefined as unknown as RemovedMigration5)
-// @ts-expect-error Migration is no longer an adapter support family.
+// @ts-expect-error Adapter support families were removed with their bridges (ADR-0289).
 const removedAdapterFamily: core.AdapterCapabilityFamily = 'migration'
-// @ts-expect-error Migration is no longer a contribution family.
+// @ts-expect-error Adapter contribution families were removed with their bridges (ADR-0289).
 const removedContributionFamily: core.AdapterContributionFamily = 'migration'
 // @ts-expect-error Privilege facades are no longer public metadata (ADR-0289).
 const removedMigrationFacade: core.PluginPrivilegeFacade = 'migration'
@@ -279,3 +279,29 @@ void core.pluginPrivilegeMetadata
 void core.pluginEnvironmentClaimMetadata
 // @ts-expect-error The environment-claim vocabulary list stays internal.
 void core.pluginEnvironmentClaims
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterSupport
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.provideAdapterCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterConstraintCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterPersistencePlanCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterPhysicalSchemaCapability
+// @ts-expect-error Adapter support protocols had no production consumer.
+void core.adapterValueStorageCapability
+// @ts-expect-error Adapter contribution bridges had no production consumer.
+void core.defineAdapterContributionCapability
+// @ts-expect-error Adapter contribution bridges had no production consumer.
+void core.provideAdapterContribution
+// @ts-expect-error Raw adapter leases had no production consumer.
+void core.defineAdapterRawCapability
+// @ts-expect-error Raw adapter leases had no production consumer.
+void core.provideAdapterRawCapability
+// @ts-expect-error Raw adapter leases had no production consumer.
+type RemovedRawAccess = core.AdapterAccess
+void (undefined as unknown as RemovedRawAccess)
+// @ts-expect-error The raw adapter privilege was removed with raw leases.
+const removedRawPrivilege: core.PluginPrivilege = 'adapter:raw'
+void removedRawPrivilege

@@ -1,18 +1,4 @@
 export { postgresConnectionCapability } from './connection/contracts.js'
-export {
-	postgresAdapterId,
-	postgresPhysicalColumn,
-	postgresPhysicalSchemaContributionCapability,
-	postgresRawAdapterCapability,
-} from './adapter-capabilities.js'
-export type {
-	PostgresAdapterMetadata,
-	PostgresPhysicalColumnType,
-	PostgresPhysicalColumnPayload,
-	PostgresRawAdapterFacade,
-	PostgresRawSetupFacade,
-	PostgresRawTransactionFacade,
-} from './adapter-capabilities.js'
 export { postgresPluginName } from './constants.js'
 export type {
 	PostgresConnectionService,

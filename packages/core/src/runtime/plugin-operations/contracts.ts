@@ -7,7 +7,6 @@ import type {
 	PluginOperationResult,
 } from '../../plugins/plugin-operations.js'
 import type { JsonValue } from '../../schema/index.js'
-import type { AdapterAccess } from '../adapters/raw-access.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
 
@@ -20,8 +19,6 @@ export type PluginOperationExecutionTarget = Readonly<{
 export interface PluginOperationHandlerInput<
 	TOperation extends PluginOperationDefinition = PluginOperationDefinition,
 > {
-	/** Opens an adapter-owned facade only while this operation holds an active transaction. */
-	readonly adapters: AdapterAccess
 	readonly context: RequestContext
 	readonly engine: RequestEngine
 	readonly input: PluginOperationInput<TOperation>

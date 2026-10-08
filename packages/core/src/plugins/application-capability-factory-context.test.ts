@@ -74,7 +74,7 @@ describe('application capability factory context', () => {
 							observedOwner = owner
 							assertPrivilege('event:publish')
 							try {
-								assertPrivilege('adapter:raw')
+								assertPrivilege('authority:elevate')
 							} catch (error: unknown) {
 								denied = error
 							}

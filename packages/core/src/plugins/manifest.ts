@@ -77,7 +77,6 @@ const privilegeMetadata = (
  */
 export type PluginPrivilege =
 	| 'adapter:consume'
-	| 'adapter:raw'
 	| 'authority:elevate'
 	| 'event:publish'
 	| 'model:extend'
@@ -107,7 +106,6 @@ export const pluginPrivilegeMetadata: Readonly<
 	'runtime:constrain': privilegeMetadata('runtime', 'sensitive'),
 	'persistence:rewrite': privilegeMetadata('persistence', 'sensitive'),
 	'adapter:consume': privilegeMetadata('adapter', 'standard'),
-	'adapter:raw': privilegeMetadata('adapter', 'critical'),
 	'transport:expose': privilegeMetadata('transport', 'sensitive'),
 	'event:publish': privilegeMetadata('event', 'standard'),
 	'typegen:reference': privilegeMetadata('typegen', 'standard'),

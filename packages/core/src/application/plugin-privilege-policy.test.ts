@@ -219,7 +219,7 @@ describe('plugin privilege policy', () => {
 			core: '^0.0.0',
 			permissions: {
 				'runtime:observe': 'Global denial fixture.',
-				'adapter:raw': 'Instance denial fixture.',
+				'authority:elevate': 'Instance denial fixture.',
 			},
 			environment: ['environment:network'],
 			contributions: [
@@ -229,7 +229,7 @@ describe('plugin privilege policy', () => {
 						setupCalls += 1
 						return { exports: undefined }
 					}),
-					['runtime:observe', 'adapter:raw'],
+					['runtime:observe', 'authority:elevate'],
 				),
 			],
 		})
@@ -258,7 +258,7 @@ describe('plugin privilege policy', () => {
 							'fixture.policy-database': {
 								denyClaims: ['environment:network'],
 								instances: {
-									primary: { deny: ['adapter:raw'] },
+									primary: { deny: ['authority:elevate'] },
 								},
 							},
 						},
@@ -290,7 +290,7 @@ describe('plugin privilege policy', () => {
 					},
 					kind: 'privilege',
 					plugin: 'fixture.policy-database (instance primary)',
-					name: 'adapter:raw',
+					name: 'authority:elevate',
 					reason: 'Instance denial fixture.',
 					severity: 'critical',
 				},

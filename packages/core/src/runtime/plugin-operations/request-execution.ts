@@ -11,7 +11,6 @@ import type {
 	CompiledOperationCommand,
 } from '../../plugins/command-graph.js'
 import { formatPluginIdentity } from '../../plugins/manifest.js'
-import { createRequestAdapterAccess } from '../adapters/request-access.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { runWithRequestEngineScope } from '../context/active-framework-context.js'
 import type { RequestEngine } from '../engine/framework-engine.js'
@@ -63,7 +62,6 @@ const executeOperationHandler = async (
 			() =>
 				owned.execute(
 					immutableRecord({
-						adapters: createRequestAdapterAccess(engine, owned.owner),
 						context: engine.context,
 						engine,
 						input: envelope.payload,

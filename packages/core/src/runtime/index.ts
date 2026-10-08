@@ -81,8 +81,6 @@ export { requireCurrentRequestRoleResolver } from './context/subject-capabilitie
 export { RequestEngine } from './engine/request-engine.js'
 export { TrackedExecutionLifetime } from './engine/tracked-execution-lifetime.js'
 export type { RequestTransactionHandler } from './engine/request-engine.js'
-// Adapter protocols negotiate portable support while concrete bridges retain infrastructure ownership.
-export * from './adapters/index.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export {
 	databaseAdapterCapability,
