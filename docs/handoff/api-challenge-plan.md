@@ -10,12 +10,13 @@ Statut : phase 1 terminée ; phase 2 (API idéale par l'exemple) à démarrer le
   [api-avant-todo-backend.md](api-avant-todo-backend.md) (25 frictions
   sourcées, 10 questions) et l'inventaire [api-inventory/](api-inventory/).
 - Prototype de typage sans Typegen lancé la nuit du 8 au 9 hors dépôt :
-  rapport attendu dans `/Users/mrekinox/Desktop/ub-typing-spike/RAPPORT.md`
+  rapport copié dans [prototype-typage-sans-typegen.md](prototype-typage-sans-typegen.md)
+  (code rejouable hors dépôt dans `/Users/mrekinox/Desktop/ub-typing-spike`)
   (variantes getter, par valeur, chaînes résolues par l'application, deux
   phases ; mesures à 10, 50 et 200 schémas contre les références ci-dessous).
   Le lire avant d'écrire les exemples : il dit quelles formes se typent.
 - Audit des dépendances (rapport seul) :
-  `/Users/mrekinox/Desktop/ub-dependency-audit.md`.
+  [audit-dependances.md](audit-dependances.md).
 - `main` local a 30 commits d'avance sur `origin/main`, non poussés (accord de
   l'utilisateur requis) : petits correctifs, ADR-0292 implémenté, ADR-0295
   (`address()` du serveur Hono), ADR-0296 (contexte ajouté aux diagnostics =
