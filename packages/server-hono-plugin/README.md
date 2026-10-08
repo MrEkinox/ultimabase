@@ -40,7 +40,10 @@ startup when loading it for Typegen. The [website guide](../../apps/website/cont
 shows the managed entry point and awaited shutdown for both ownership modes.
 
 Port `0` is accepted for tests that need an operating-system-selected ephemeral
-port. An independently owned listener on the same fixed address produces the normal
+port. `ultimabase.plugin(server).address()` returns the bound Node
+`AddressInfo` while the managed listener is open, and `undefined` before start,
+after stop, or for an existing `app`
+([ADR-0295](../../docs/adr/0295-hono-listener-address-export.md)). An independently owned listener on the same fixed address produces the normal
 deterministic Node address-conflict failure.
 
 ## Application ownership

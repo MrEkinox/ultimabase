@@ -1,10 +1,13 @@
+import { UltimaBase } from '@ultimabase/core'
 import { Hono } from 'hono'
+import type { AddressInfo } from 'node:net'
 import { expectTypeOf, test } from 'vitest'
 
 import {
 	honoServerPlugin,
 	type ExistingHonoServerPluginOptions,
 	type HonoServerPlugin,
+	type HonoServerPluginExports,
 	type ManagedHonoServerPluginOptions,
 } from './index.js'
 
@@ -32,4 +35,15 @@ test('preserves managed and application-specific Hono option types', () => {
 	honoServerPlugin({ app })
 	// @ts-expect-error -- managed listeners always use UltimaBase browser policy ownership.
 	honoServerPlugin({ browserPolicyOwner: 'external' })
+})
+
+test('types the listener address export through plugin lookup', () => {
+	const server = honoServerPlugin({ port: 0 })
+	const application = new (UltimaBase.use(server))({ schemas: [] })
+	expectTypeOf(
+		application.plugin(server),
+	).toEqualTypeOf<HonoServerPluginExports>()
+	expectTypeOf(application.plugin(server).address()).toEqualTypeOf<
+		AddressInfo | undefined
+	>()
 })
