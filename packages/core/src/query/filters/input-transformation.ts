@@ -34,11 +34,15 @@ const transformRecord = (
 	record: Readonly<Record<string, unknown>>,
 	transform: (name: string, value: unknown) => unknown,
 ): Readonly<Record<string, unknown>> => {
-	const transformed: Record<string, unknown> = {}
-	for (const [name, value] of Object.entries(record)) {
-		transformed[name] = transform(name, value)
-	}
-	return immutableRecord(transformed)
+	// Entries keep every input name, including `__proto__`, as an own key.
+	return immutableRecord(
+		Object.fromEntries(
+			Object.entries(record).map(([name, value]): [string, unknown] => [
+				name,
+				transform(name, value),
+			]),
+		),
+	)
 }
 
 const resolveStructuredPathField = (
@@ -49,7 +53,7 @@ const resolveStructuredPathField = (
 	for (const segment of path) {
 		if (typeof segment !== 'string' || current?.kind !== 'object')
 			return undefined
-		current = readObjectChildFields(current)?.[segment]
+		current = readObjectChildFields(current)?.get(segment)
 	}
 	return current
 }
@@ -141,7 +145,10 @@ export const transformQueryFilterInput = (
 		if (name === 'NOT') {
 			return transformQueryFilterInput(schema, item, transformOperand)
 		}
-		const field = schema.persistedFields[name]
+		// Inherited `Object.prototype` members are never persisted fields.
+		const field = Object.hasOwn(schema.persistedFields, name)
+			? schema.persistedFields[name]
+			: undefined
 		return field === undefined
 			? item
 			: transformFieldOperators(field, item, transformOperand)

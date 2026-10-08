@@ -75,7 +75,8 @@ export const readUniqueUpsertTargetValues = <
 	}
 
 	const expressions = readEqualityExpressions(query.where.expression)
-	const values: Record<string, unknown> = {}
+	// Entries keep every target name, including `__proto__`, as an own key.
+	const values: [string, unknown][] = []
 
 	if (expressions.length !== target.fields.length) {
 		throw new TypeError('upsert target query contains incompatible equalities')
@@ -101,10 +102,10 @@ export const readUniqueUpsertTargetValues = <
 			)
 		}
 
-		values[fieldName] = expression.value
+		values.push([fieldName, expression.value])
 	}
 
-	return immutableRecord(values)
+	return immutableRecord(Object.fromEntries(values))
 }
 
 /** Normalizes the shared create-or-update values used by singular and bulk upserts. */

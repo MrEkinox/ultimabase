@@ -247,12 +247,13 @@ export const resolveCapturedFieldMap = (
 	fieldMethods?: FieldBuilderMethodResolver,
 	resolveTarget?: FieldBuilderTargetResolver,
 ): SchemaDeclaredFields => {
-	const fields: Record<string, GenericField | GenericVirtualField> = {}
+	// Entries keep every declared name, including `__proto__`, as an own key.
+	const fields: [string, GenericField | GenericVirtualField][] = []
 	const virtualCalls: [string, CapturedBuilderCall][] = []
 
 	for (const [name, field] of Object.entries(readFieldMap(captured, path))) {
 		if (!isCapturedFieldBuilderCall(field)) {
-			fields[name] = field
+			fields.push([name, field])
 		} else if (!embedded && field.methodName === 'virtual') {
 			// Virtual fields select persisted dependencies, so they resolve last.
 			virtualCalls.push([name, field])
@@ -261,19 +262,22 @@ export const resolveCapturedFieldMap = (
 				`${path}.${name} cannot be a pointer or relation inside objectField`,
 			)
 		} else {
-			fields[name] = resolveCapturedFieldBuilderCall(
-				field,
-				`${path}.${name}`,
-				embedded,
-				fieldMethods,
-				resolveTarget,
-			)
+			fields.push([
+				name,
+				resolveCapturedFieldBuilderCall(
+					field,
+					`${path}.${name}`,
+					embedded,
+					fieldMethods,
+					resolveTarget,
+				),
+			])
 		}
 	}
 
 	const persistedFields: SchemaFields = immutableRecord({
 		...Object.fromEntries(
-			Object.entries(fields).filter(
+			fields.filter(
 				(entry): entry is [string, GenericField] => entry[1].kind !== 'virtual',
 			),
 		),
@@ -289,21 +293,24 @@ export const resolveCapturedFieldMap = (
 		if (typeof resolve !== 'function') {
 			throw new TypeError(`${virtualPath}.resolve must be a function`)
 		}
-		fields[name] = createVirtualFieldDefinition(
-			resolveCapturedOutputDescriptor(
-				output,
-				`${virtualPath}.output`,
-				fieldMethods,
+		fields.push([
+			name,
+			createVirtualFieldDefinition(
+				resolveCapturedOutputDescriptor(
+					output,
+					`${virtualPath}.output`,
+					fieldMethods,
+				),
+				normalizeVirtualFieldSelection(
+					select,
+					persistedFields,
+					`${virtualPath}.select`,
+				),
+				resolve as VirtualFieldResolver<object, unknown>,
+				immutableRecord(options),
 			),
-			normalizeVirtualFieldSelection(
-				select,
-				persistedFields,
-				`${virtualPath}.select`,
-			),
-			resolve as VirtualFieldResolver<object, unknown>,
-			immutableRecord(options),
-		)
+		])
 	}
 
-	return immutableRecord(fields)
+	return immutableRecord(Object.fromEntries(fields))
 }

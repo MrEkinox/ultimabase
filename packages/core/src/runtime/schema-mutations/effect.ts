@@ -88,7 +88,10 @@ export const validateSchemaMutationEffect = (
 		readonly kind: 'set'
 		readonly value: unknown
 	}>[] = Object.entries(candidate.data).map(([fieldName, value]) => {
-		const field = schema.persistedFields[fieldName]
+		// Inherited `Object.prototype` members are never persisted fields.
+		const field = Object.hasOwn(schema.persistedFields, fieldName)
+			? schema.persistedFields[fieldName]
+			: undefined
 		if (
 			field === undefined ||
 			field.kind === 'pointer' ||

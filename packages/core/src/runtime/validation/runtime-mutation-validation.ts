@@ -39,6 +39,13 @@ const relationMutationActions: ReadonlySet<string> = new Set([
 	'set',
 ])
 
+/** Reads one declared field plan; inherited `Object.prototype` members never match. */
+const readFieldPlan = (
+	plan: SchemaValidationPlan,
+	fieldName: string,
+): FieldValidationPlan | undefined =>
+	Object.hasOwn(plan.fields, fieldName) ? plan.fields[fieldName] : undefined
+
 /** Validates one relation delta without routing it through scalar snapshots. */
 const validateRelationUpdateOperation = (
 	candidate: Readonly<Record<string, unknown>>,
@@ -187,7 +194,7 @@ export const validateUpdateExpression = (
 			if (
 				isPlainRecord(candidate) &&
 				typeof candidate.field === 'string' &&
-				plan.fields[candidate.field]?.presence === 'forbidden'
+				readFieldPlan(plan, candidate.field)?.presence === 'forbidden'
 			) {
 				retainedForbiddenOperations.set(candidate.field, candidate)
 			}
@@ -227,7 +234,7 @@ export const validateUpdateExpression = (
 			continue
 		}
 
-		const fieldPlan = plan.fields[candidate.field]
+		const fieldPlan = readFieldPlan(plan, candidate.field)
 		const fieldPath: ValidationIssuePath = [...operationPath, candidate.field]
 
 		if (fieldPlan === undefined) {
@@ -402,11 +409,12 @@ const prepareUpsertCreateInput = (
 		return undefined
 	}
 
-	const input: Record<string, unknown> = { ...suppliedCreate }
+	// Entries keep every target name, including `__proto__`, as an own key.
+	const seeded: [string, unknown][] = []
 	let valid = true
 
 	for (const [fieldName, value] of Object.entries(targetValues)) {
-		const fieldPlan = createPlan.fields[fieldName]
+		const fieldPlan = readFieldPlan(createPlan, fieldName)
 
 		if (fieldPlan === undefined) {
 			valid = false
@@ -434,7 +442,7 @@ const prepareUpsertCreateInput = (
 
 		if (fieldPlan.presence !== 'forbidden') {
 			// Required developer fields are present before the regular create validator.
-			input[fieldName] = value
+			seeded.push([fieldName, value])
 		}
 	}
 
@@ -443,7 +451,10 @@ const prepareUpsertCreateInput = (
 	}
 
 	return immutableRecord({
-		input: immutableRecord(input),
+		input: immutableRecord({
+			...suppliedCreate,
+			...Object.fromEntries(seeded),
+		}),
 		targetValues,
 	})
 }
@@ -456,11 +467,11 @@ const reconcileUpsertCreateTarget = (
 	execution: ValidationExecution,
 	createPlan: SchemaValidationPlan,
 ): Readonly<Record<string, unknown>> | undefined => {
-	const reconciled: Record<string, unknown> = { ...create }
+	const reconciled: [string, unknown][] = []
 	let valid = true
 
 	for (const [fieldName, value] of Object.entries(targetValues)) {
-		const fieldPlan = createPlan.fields[fieldName]
+		const fieldPlan = readFieldPlan(createPlan, fieldName)
 
 		if (fieldPlan === undefined) {
 			valid = false
@@ -481,10 +492,12 @@ const reconcileUpsertCreateTarget = (
 		}
 
 		// The query remains authoritative over generated values such as an id.
-		reconciled[fieldName] = fieldResult.value
+		reconciled.push([fieldName, fieldResult.value])
 	}
 
-	return valid ? immutableRecord(reconciled) : undefined
+	return valid
+		? immutableRecord({ ...create, ...Object.fromEntries(reconciled) })
+		: undefined
 }
 
 /** Runs target seeding and ordinary create validation through one shared path. */

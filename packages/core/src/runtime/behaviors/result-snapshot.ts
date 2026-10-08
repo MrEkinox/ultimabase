@@ -37,7 +37,8 @@ const separateVirtualResult = (
 	const selected =
 		selectedFields === undefined ? undefined : new Set(selectedFields)
 	const persisted: Record<string, unknown> = { ...value }
-	const virtual: Record<string, unknown> = {}
+	// Entries keep every virtual name, including `__proto__`, as an own key.
+	const virtual: [string, unknown][] = []
 
 	for (const name of Object.keys(schema.virtualFields)) {
 		if (!Object.hasOwn(value, name)) continue
@@ -56,11 +57,14 @@ const separateVirtualResult = (
 			throwBoundaryIssue([...path, name], 'Requested virtual field is missing')
 		}
 		try {
-			virtual[name] = snapshotOutputValue(
-				field.output,
-				value[name],
-				`${schema.className}.${name}`,
-			)
+			virtual.push([
+				name,
+				snapshotOutputValue(
+					field.output,
+					value[name],
+					`${schema.className}.${name}`,
+				),
+			])
 		} catch (error: unknown) {
 			throw new FrameworkError(
 				'VALIDATION_ERROR',
@@ -76,7 +80,7 @@ const separateVirtualResult = (
 
 	return immutableRecord({
 		persisted: immutableRecord(persisted),
-		virtual: immutableRecord(virtual),
+		virtual: immutableRecord(Object.fromEntries(virtual)),
 	})
 }
 

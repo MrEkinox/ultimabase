@@ -29,17 +29,18 @@ export interface ResolvedQueryTarget<TFieldName extends string = string> {
 	readonly terminalField: RuntimeQueryField | undefined
 }
 
+/** Reads declared object children; a map never exposes `Object.prototype` members. */
 export const readObjectChildFields = (
 	field: RuntimeQueryField,
-): Readonly<Record<string, GenericField>> | undefined => {
+): ReadonlyMap<string, GenericField> | undefined => {
 	if (field.kind !== 'object' || !('fields' in field.options)) return undefined
 	if (!isPlainRecord(field.options.fields)) return undefined
 
-	const fields: Record<string, GenericField> = {}
+	const fields = new Map<string, GenericField>()
 
 	for (const [name, child] of Object.entries(field.options.fields)) {
 		assertFieldDefinition(child, `query object field ${name}`)
-		fields[name] = child
+		fields.set(name, child)
 	}
 
 	return fields
@@ -140,7 +141,7 @@ export const resolveQueryTarget = <const TSchema extends SchemaDefinition>(
 		}
 
 		const child: GenericField | undefined =
-			readObjectChildFields(terminalField)?.[segment]
+			readObjectChildFields(terminalField)?.get(segment)
 		if (child === undefined) {
 			throw new TypeError(
 				`query field path references unknown object field ${JSON.stringify(segment)} at index ${String(index)}`,
