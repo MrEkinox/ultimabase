@@ -33,6 +33,32 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
 - ADR-0288, 0289, 0290 rédigés au statut `proposed`, en attente de
   validation. Aucune modification de code.
 
+## Décisions de conception notées (à formaliser par ADR le moment venu)
+
+- Enregistrement explicite des schémas conservé (`schemas: [...]`) : pas
+  d'enregistrement à l'import ; piste ultérieure, un avertissement en
+  développement pour un schéma défini mais non enregistré.
+- Fichier de configuration `ultimabase.config.ts` (`defineConfig`), à traiter
+  avec le volet « génération invisible » de Typegen (CLI `ultimabase dev`,
+  `ultimabase typegen --watch`, chargeur jiti existant de Typegen) :
+  - sucre fin au-dessus de l'API programmatique, qui reste la vérité ; aucun
+    effet à l'import ; le CLI reste facultatif ;
+  - trois fichiers pour éviter le cycle d'imports : `src/app.ts` (plugins),
+    les schémas (`App.Schema.define`), `ultimabase.config.ts` (app, schemas,
+    valeurs d'environnement surchargeables) ;
+  - les tests importent la même config via un `createTestApplication(config,
+overrides)` de `@ultimabase/testing`, sans CLI.
+- `definePlugin` (plugin-kit) ne couvre que ce que Core fournit ; les
+  capacités d'un transport viennent d'un helper du plugin concerné (ex.
+  `httpRoutes` d'http-plugin), déclaré en pair explicite seulement si utilisé.
+- Fuites de Core à corriger : connaissance de Typegen (52 fichiers), protocole
+  neutre de « rôle » hébergé dans Core, option `postgres` codée en dur dans
+  `private-storage/definition.ts`.
+- DX application (à mesurer par une sonde avant ADR, sur décision de
+  l'utilisateur) : presets de plugins, réglages par défaut sûrs, en-tête
+  d'application facultatif avec une seule application, opérations
+  d'authentification exposées par défaut.
+
 ## Prochaine action vérifiable
 
 Après validation : passer les ADR en `accepted`, puis implémenter l'ADR-0289
