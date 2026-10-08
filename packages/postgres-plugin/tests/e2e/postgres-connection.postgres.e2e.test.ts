@@ -85,7 +85,7 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 
 			expect(failure).toMatchObject({
 				code: 'INTERNAL_ERROR',
-				message: 'PostgreSQL connection verification failed.',
+				message: 'PostgreSQL connection verification failed [ECONNREFUSED].',
 				cause: undefined,
 			})
 			expect(String(failure)).not.toContain(secret)
