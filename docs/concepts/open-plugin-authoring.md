@@ -218,8 +218,8 @@ ownership, capability versions, and application lifetime are validated at Runtim
 ## Adapter, transport, and community helpers
 
 A portable plugin declares logical values and operations independently. A
-database bridge contributes codecs, constraint compilers, or persistence-plan
-rewrites through Core's neutral adapter contracts. A
+database bridge contributes codecs or persistence-plan rewrites through Core's
+neutral adapter contracts. A
 transport bridge contributes an explicit wire codec and exposure binding.
 Installing the logical plugin alone exposes neither adapter access nor a
 public endpoint.

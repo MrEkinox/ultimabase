@@ -5,7 +5,6 @@ import {
 	defineOperation,
 	defineOperationValue,
 	plugin,
-	defineSchemaConstraint,
 	defineSchemaOption,
 	defineTypegenReference,
 	stringField,
@@ -266,11 +265,6 @@ describe('plugin authoring helpers', () => {
 			},
 			valueKind: 'opaque',
 		})
-		const constraint = defineSchemaConstraint({
-			kind: 'fixture.workflow',
-			value: { required: true },
-			version: 1,
-		})
 		const empty = schemaPatch()
 		const patch = empty
 			.addField({
@@ -282,7 +276,6 @@ describe('plugin authoring helpers', () => {
 				contributionId: 'workflow-state-index',
 				fields: ['workflowState', 'createdAt'],
 			})
-			.addConstraint({ contributionId: 'workflow-constraint', constraint })
 			.setSchemaOption({
 				contributionId: 'workflow-option',
 				name: 'workflow',
@@ -299,7 +292,6 @@ describe('plugin authoring helpers', () => {
 		expect(patch.operations.map(({ kind }) => kind)).toStrictEqual([
 			'field:add',
 			'index:add',
-			'constraint:add',
 			'schema-option:set',
 			'field-option:set',
 		])

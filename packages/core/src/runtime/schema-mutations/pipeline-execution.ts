@@ -18,7 +18,6 @@ import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundari
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type { RequestContext } from '../context/request-context.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 	DatabaseRowFilterNode,
@@ -37,10 +36,7 @@ import type { RuntimeInclusionProjector } from '../pipeline/inclusion-projection
 import { loadSingularMutationInclusionSource } from '../pipeline/mutation-inclusion-source.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.js'
-import {
-	emptyRuntimeConstraints,
-	snapshotRuntimeConstraints,
-} from '../pipeline/stage-inputs.js'
+import {} from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
 import { createRuntimeVirtualFieldScheduler } from '../pipeline/application-bindings.js'
@@ -87,7 +83,6 @@ type SchemaMutationOutcome =
 interface SchemaMutationPreparedOperation {
 	readonly target: Readonly<Record<string, unknown>> | null
 	execute(request: {
-		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: SchemaMutationPhysicalOperation
 		readonly plan: DatabasePersistencePlan
 	}): Promise<SchemaMutationOutcome>
@@ -209,7 +204,6 @@ const createBeforeInclusionSource = async (
 		})
 	const result: unknown = await executor.execute(
 		createDatabasePersistenceRequest({
-			constraints: emptyRuntimeConstraints,
 			inclusions: immutableArray(inclusions.map(({ database }) => database)),
 			operation: get,
 		}),
@@ -245,7 +239,6 @@ export const executeRuntimeSchemaMutation = async (
 		query: envelope.query,
 	})
 	let enforcement: EnforcementState | undefined
-	let constraints: readonly DatabaseConstraintNode[] = emptyRuntimeConstraints
 	let rowFilter: DatabaseRowFilterNode | undefined
 
 	throwIfOperationCancelled(context.signal, {
@@ -262,7 +255,6 @@ export const executeRuntimeSchemaMutation = async (
 		const candidateOperation: unknown = enforced.operation
 		assertLogicalIdentity(command, schema, envelope, candidateOperation)
 		logical = candidateOperation
-		constraints = snapshotRuntimeConstraints(enforced.constraints)
 		rowFilter = enforced.rowFilter
 	}
 
@@ -281,7 +273,6 @@ export const executeRuntimeSchemaMutation = async (
 	assertPersistencePlanCapability(executor, preparationPlan)
 	const prepared = (await executor.prepare(
 		immutableRecord({
-			constraints,
 			operation: preparationOperation,
 			plan: preparationPlan,
 			...(rowFilter === undefined ? {} : { rowFilter }),
@@ -338,7 +329,6 @@ export const executeRuntimeSchemaMutation = async (
 		const candidateOperation: unknown = enforced.operation
 		assertLogicalIdentity(command, schema, envelope, candidateOperation)
 		logical = candidateOperation
-		constraints = snapshotRuntimeConstraints(enforced.constraints)
 		if (stages.enforcement.enforcePreparedMutation !== undefined) {
 			await stages.enforcement.enforcePreparedMutation(
 				createStageInput(context, logical, {
@@ -393,7 +383,6 @@ export const executeRuntimeSchemaMutation = async (
 	})
 	let outcome: SchemaMutationOutcome = await prepared.execute(
 		immutableRecord({
-			constraints,
 			operation: physical,
 			plan: persistencePlan,
 		}),

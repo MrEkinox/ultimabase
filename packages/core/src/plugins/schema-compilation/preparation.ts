@@ -67,11 +67,6 @@ export const snapshotPreparedSchema = (
 			...options,
 			fields,
 			persistedFields,
-			constraints: immutableArray(
-				candidate.definition.constraints.map((value) =>
-					values.constraint(value),
-				),
-			),
 		}),
 	})
 }
@@ -100,11 +95,6 @@ const prepareOperation = (
 					),
 					`${operationPath}.field`,
 				),
-			})
-		case 'constraint:add':
-			return immutableRecord({
-				...operation,
-				constraint: values.constraint(operation.constraint),
 			})
 		case 'index:add':
 			// Validate unused declarations too; an empty selection cannot hide executable data.

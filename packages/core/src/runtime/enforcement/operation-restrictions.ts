@@ -226,7 +226,6 @@ export const enforceOperationRestrictions = <
 	}
 
 	return immutableRecord({
-		constraints: snapshot.constraints,
 		operation: restrictOperationSelection(
 			input.operation,
 			snapshot.selectionFields,

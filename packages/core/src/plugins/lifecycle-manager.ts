@@ -92,7 +92,6 @@ export class PluginLifecycleManager {
 			new ApplicationCapabilityHost(
 				graph,
 				registries.schemas,
-				registries.getConstraintCompilerReader(),
 				this.#application,
 			)
 	}
@@ -209,12 +208,8 @@ export class PluginLifecycleManager {
 				this.#initializedPlugins.push({ definition, resource })
 			}
 
-			// Setup-only typed registries close before any infrastructure hook can run.
-			this.#registries.closeSetup()
 			this.#state = 'ready'
 		} catch (error: unknown) {
-			// Missing requirements must not replace the plugin error that prevented setup.
-			this.#registries.closeSetup()
 			const cleanupErrors = await this.#releaseResources()
 
 			throwLifecycleFailure(error, cleanupErrors)

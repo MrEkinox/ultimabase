@@ -145,14 +145,6 @@ export type {
 	PluginCapabilityReader,
 } from './plugins/capabilities.js'
 export type { ApplicationCallbackExecutor } from './plugins/callback-execution.js'
-export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers.js'
-export type {
-	DatabaseConstraintCompilerContribution,
-	DatabaseConstraintCompilerDefinition,
-	DatabaseConstraintCompilerReader,
-	DefineDatabaseConstraintCompilerOptions,
-	PluginConstraintCompilerRegistry,
-} from './plugins/constraint-compilers.js'
 export type {
 	FrameworkPlugin,
 	FrameworkPluginContract,
@@ -191,7 +183,6 @@ export type {
 	TypegenReferenceRegistrar,
 } from './plugins/typegen-declarations.js'
 export {
-	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,
@@ -215,7 +206,6 @@ export type {
 	SchemaOptionTypegenDescriptor,
 } from './plugins/schema-option-definitions.js'
 export type {
-	AddSchemaConstraintOperation,
 	AddSchemaFieldOperation,
 	AddSchemaFieldOptions,
 	AddSchemaIndexOperation,

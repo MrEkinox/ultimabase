@@ -189,13 +189,11 @@ export class FrameworkApplication<
 				}
 				return host.forPlugin(owner)
 			},
-			assertPluginPrivilege,
 			() => this.#schemaDeclarations.typegenGraph(),
 		)
 		const capabilityHost = new ApplicationCapabilityHost(
 			graph,
 			this.schemas,
-			setupRegistries.getConstraintCompilerReader(),
 			this,
 			(className) => this.getSchemaSurface(className),
 			() =>

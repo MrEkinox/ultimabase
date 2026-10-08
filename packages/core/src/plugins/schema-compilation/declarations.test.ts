@@ -3,9 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
-import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import { prepareSchemaCompilation } from '../../schema/schema/definition-compilation.js'
-import { addSchemaConstraint } from '../schema-field-patch-operations.js'
 import type { SchemaDeclarationBatch } from '../schema-declaration-contracts.js'
 import {
 	addSchemaField,
@@ -27,12 +25,7 @@ const owner = immutableRecord({
 })
 
 describe('direct schema compilation provenance', () => {
-	it('preserves additions, normalized options and all five additive patch families', () => {
-		const originalConstraint = defineSchemaConstraint({
-			kind: 'fixture.compiler-original',
-			value: { enabled: true },
-			version: 1,
-		})
+	it('preserves additions, normalized options and all four additive patch families', () => {
 		const Post = UltimaBase.Schema.define({
 			className: 'CompilerIrDeclarationPost',
 			fields: (field) => ({
@@ -63,11 +56,6 @@ describe('direct schema compilation provenance', () => {
 			addSchemaIndex({
 				contributionId: 'index-add',
 				fields: ['state', 'createdAt'],
-			}),
-
-			addSchemaConstraint({
-				constraint: originalConstraint,
-				contributionId: 'constraint-add',
 			}),
 
 			setSchemaOption({
@@ -148,8 +136,6 @@ describe('direct schema compilation provenance', () => {
 		const post = compiled.candidates[0]?.definition
 		const added = compiled.candidates[1]?.definition
 		expect(post?.fields.state?.kind).toBe('string')
-		expect(post?.constraints).toEqual([originalConstraint])
-		expect(post?.constraints[0]).toBe(originalConstraint)
 		expect(post?.indexes).toContainEqual({
 			fields: ['state', 'createdAt'],
 			unique: false,

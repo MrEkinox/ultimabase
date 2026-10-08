@@ -15,14 +15,12 @@ import {
 
 import type {
 	DatabaseAdapterCapabilities,
-	DatabaseConstraintNode,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 } from '../../src/runtime/database/contracts.js'
 import { databasePersistencePlanCapability } from '../../src/runtime/database/contracts.js'
-import { databaseConstraint } from '../../src/runtime/enforcement/definitions.js'
 import { createEnforcementState } from '../../src/runtime/enforcement/state.js'
 import type {
 	RuntimeEnforcementStages,
@@ -117,16 +115,12 @@ export const createGuard =
 
 export const createEnforcementStages = (
 	trace: string[],
-	finalConstraint?: DatabaseConstraintNode,
+	distinctReevaluation = false,
 ): RuntimeEnforcementStages => {
 	const state = createEnforcementState()
-	const reevaluatedState =
-		finalConstraint === undefined ? state : createEnforcementState()
-	const constraint: DatabaseConstraintNode = databaseConstraint(
-		'fixture.tenant',
-		1,
-		{ tenantId: 'tenant-1' },
-	)
+	const reevaluatedState = distinctReevaluation
+		? createEnforcementState()
+		: state
 
 	return {
 		evaluate: (input) => {
@@ -147,14 +141,7 @@ export const createEnforcementStages = (
 			expect(Object.isFrozen(input)).toBe(true)
 			expect([state, reevaluatedState]).toContain(input.enforcement)
 
-			return {
-				constraints:
-					finalConstraint !== undefined &&
-					input.enforcement === reevaluatedState
-						? [constraint, finalConstraint]
-						: [constraint],
-				operation: input.operation,
-			}
+			return { operation: input.operation }
 		},
 		enforceSelectionResult: (input) => {
 			trace.push('enforcement:selection-result')

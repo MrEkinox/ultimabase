@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { stringField } from '../../schema/fields/builtins/string.js'
 import { type PreparedSchemaCompilation } from '../../schema/schema/definition.js'
-import { defineSchemaConstraint } from '../../schema/schema/constraints.js'
 import { plugin as createPlugin } from '../plugin.js'
 import {
 	contributeApplication,
@@ -456,35 +455,6 @@ describe('mandatory direct compilation integrity', () => {
 			)
 		},
 	)
-
-	it('rejects an unrelated nominal constraint with apparently matching provenance', () => {
-		const { application } = fixture()
-		const constraint = defineSchemaConstraint({
-			kind: 'fixture.foreign',
-			version: 1,
-			value: true,
-		})
-		corrupt((result) =>
-			changeDefinition(result, (definition) =>
-				immutableRecord({
-					...definition,
-					constraints: immutableArray([constraint]),
-					provenance: immutableRecord({
-						...definition.provenance,
-						constraints: immutableArray([
-							immutableRecord({
-								definition: constraint,
-								provenance: definition.provenance.schema,
-							}),
-						]),
-					}),
-				}),
-			),
-		)
-		expect(() => application.compileSchemas()).toThrow(
-			'constraint absent from compilation input',
-		)
-	})
 
 	it('rejects nonportable patch data even when its selection is empty', () => {
 		const callback = vi.fn()

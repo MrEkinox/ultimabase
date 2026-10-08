@@ -1,7 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
-	DatabaseConstraintNode,
 	DatabaseInclusionPlan,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
@@ -42,7 +41,6 @@ import {
 	createRuntimeOperationInput,
 	createRuntimePreparedMutationInput,
 	createRuntimeStageInput,
-	snapshotRuntimeConstraints,
 } from './stage-inputs.js'
 
 export interface RuntimeDatabaseExecution<
@@ -80,7 +78,6 @@ const assertPreparedMutationExecutor: (
 export interface RuntimeDatabaseExecutionRequest<
 	TOperation extends DatabaseOperationAst,
 > {
-	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly operation: TOperation
 	readonly strictTarget?: true
 	readonly inclusions?: readonly DatabaseInclusionPlan[]
@@ -158,7 +155,6 @@ export const executeRuntimeDatabaseOperation = async <
 	let operation: TMutationOperation = initialOperation
 	// Counts value-changing replacements; final validation never counts as one.
 	let replacements = 0
-	let constraints = request.constraints
 	let target: TMutationRecord | null | undefined
 	let targets: readonly TMutationRecord[] | undefined
 	const replaceOperation = (next: TMutationOperation): void => {
@@ -184,7 +180,6 @@ export const executeRuntimeDatabaseOperation = async <
 		assertPersistencePlanCapability(executor, plan)
 		const prepared = await executor.prepare(
 			immutableRecord({
-				constraints,
 				operation,
 				plan,
 				...(prepareMutationItems
@@ -344,7 +339,6 @@ export const executeRuntimeDatabaseOperation = async <
 			createRuntimeEnforcementInput(context, operation, enforcementState),
 		)
 		operation = enforced.operation
-		constraints = snapshotRuntimeConstraints(enforced.constraints)
 	}
 	if (replacements > 0) await enforcePreparedMutation()
 	nestedLifecycle?.afterMutationResolution(operation)
@@ -373,9 +367,7 @@ export const executeRuntimeDatabaseOperation = async <
 		persistencePlanRewrite,
 		request.returningSelection,
 	)
-	let outcome = await prepared.execute(
-		immutableRecord({ constraints, operation, plan }),
-	)
+	let outcome = await prepared.execute(immutableRecord({ operation, plan }))
 
 	if (
 		enforcement?.enforceMutationOutcome !== undefined &&

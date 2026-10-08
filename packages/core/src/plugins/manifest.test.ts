@@ -28,7 +28,6 @@ describe('plugin manifests', () => {
 			'runtime:intercept',
 			'runtime:constrain',
 			'persistence:rewrite',
-			'adapter:consume',
 			'transport:expose',
 			'event:publish',
 			'typegen:reference',

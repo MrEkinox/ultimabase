@@ -53,9 +53,8 @@ separate logical `softDelete` command; it does not reinterpret native delete.
 
 ## Protected constraints stay outside the rewrite
 
-Row filters and adapter constraints accumulated by policy do not enter the
-replaceable plan. Core carries them beside it and the adapter combines every
-constraint with `AND`. A persistence rewrite therefore cannot drop an ACL
+Row filters accumulated by policy do not enter the replaceable plan. Core
+carries them beside it and the adapter combines every filter with `AND`. A persistence rewrite therefore cannot drop an ACL
 filter, bypass tenant-like restrictions, or turn a denied target into a visible
 one. The final physical write remains subject to those restrictions in the
 same transaction.

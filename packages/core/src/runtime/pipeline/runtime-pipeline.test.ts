@@ -11,7 +11,6 @@ import { describe, expect, it } from 'vitest'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
@@ -21,7 +20,6 @@ import type {
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import { databasePersistencePlanCapability } from '../database/contracts.js'
-import { databaseConstraint } from '../enforcement/definitions.js'
 
 import type {
 	RuntimeEnforcementStages,
@@ -136,8 +134,6 @@ describe('RuntimePipeline', () => {
 			'databaseOperation',
 			'commit',
 		])
-		expect(executor.requests[0]?.constraints).toStrictEqual([])
-		expect(Object.isFrozen(executor.requests[0]?.constraints)).toBe(true)
 	})
 
 	it('keeps validation, business hooks, adapter work, and effects for master', async () => {
@@ -175,7 +171,6 @@ describe('RuntimePipeline', () => {
 			updatedAt: '2026-08-02T00:00:00.000Z',
 		}
 		let executedOperation: DatabaseMutationOperationAst | undefined
-		let executedConstraints: readonly DatabaseConstraintNode[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
 			capabilities: { persistencePlans: databasePersistencePlanCapability },
 			kind: 'database-transaction-adapter',
@@ -190,7 +185,6 @@ describe('RuntimePipeline', () => {
 							),
 						onExecute: (request) => {
 							executedOperation = request?.operation
-							executedConstraints = request?.constraints
 						},
 						target,
 					}),
@@ -201,10 +195,7 @@ describe('RuntimePipeline', () => {
 			commit: () => Promise.resolve(),
 			rollback: () => Promise.resolve(),
 		}
-		const finalConstraint = databaseConstraint('fixture.resolved-title', 1, {
-			title: 'stored',
-		})
-		const enforcement = createEnforcementStages(trace, finalConstraint)
+		const enforcement = createEnforcementStages(trace, true)
 		let schemaResolveTarget: unknown
 		const transformPreparedInput: RuntimePreparedMutationTransformStage = (
 			input,
@@ -250,18 +241,6 @@ describe('RuntimePipeline', () => {
 		expect(
 			trace.filter((entry) => entry === 'enforcement:reevaluate'),
 		).toHaveLength(1)
-		expect(executedConstraints).toStrictEqual([
-			{
-				kind: 'fixture.tenant',
-				payload: { tenantId: 'tenant-1' },
-				version: 1,
-			},
-			{
-				kind: 'fixture.resolved-title',
-				payload: { title: 'stored' },
-				version: 1,
-			},
-		])
 	})
 
 	it('preserves the complete mandatory mutation stage order', async () => {

@@ -1,10 +1,8 @@
 import {
-	addSchemaConstraint,
 	addSchemaField,
 	addSchemaIndex,
 	setSchemaFieldOption,
 	setSchemaOption,
-	type AddSchemaConstraintOperation,
 	type AddSchemaFieldOperation,
 	type AddSchemaFieldOptions,
 	type AddSchemaIndexOperation,
@@ -31,12 +29,6 @@ export interface AddPatchIndexOptions {
 	readonly fields: readonly [string, string, ...string[]]
 	readonly unique?: boolean
 }
-
-/** Describes one additive portable constraint in an immutable schema patch. */
-export type AddPatchConstraintOptions = Omit<
-	AddSchemaConstraintOperation,
-	'kind'
->
 
 /** Describes one schema option value contributed by the current plugin. */
 export type SetPatchSchemaOptionOptions = Omit<SetSchemaOptionOperation, 'kind'>
@@ -95,15 +87,6 @@ export class SchemaPatchBuilder<
 		options: AddPatchIndexOptions,
 	): SchemaPatchBuilder<readonly [...TOperations, AddSchemaIndexOperation]> {
 		return this.append(addSchemaIndex(options))
-	}
-
-	/** Adds one portable constraint through Core's validated patch factory. */
-	addConstraint(
-		options: AddPatchConstraintOptions,
-	): SchemaPatchBuilder<
-		readonly [...TOperations, AddSchemaConstraintOperation]
-	> {
-		return this.append(addSchemaConstraint(options))
 	}
 
 	/** Sets one plugin-owned schema option through Core's validated patch factory. */

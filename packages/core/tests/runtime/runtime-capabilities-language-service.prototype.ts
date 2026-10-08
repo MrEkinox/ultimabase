@@ -250,7 +250,7 @@ void core.restrictInput
 void core.restrictSelection
 // @ts-expect-error Output restrictions were removed; protected policies restrict results.
 void core.restrictOutput
-// @ts-expect-error Constraint definitions were removed; protected policies append constraints.
+// @ts-expect-error Constraint definitions were removed; protected policies narrow rows.
 void core.constraint
 // @ts-expect-error Runtime protocol tokens are internal to their exact provider facades.
 void core.runtimeInterceptorCapability
@@ -305,3 +305,23 @@ void (undefined as unknown as RemovedRawAccess)
 // @ts-expect-error The raw adapter privilege was removed with raw leases.
 const removedRawPrivilege: core.PluginPrivilege = 'adapter:raw'
 void removedRawPrivilege
+// @ts-expect-error Opaque database constraint nodes had no production producer.
+void core.databaseConstraint
+// @ts-expect-error Opaque database constraint nodes had no production producer.
+type RemovedConstraintNode = core.DatabaseConstraintNode
+void (undefined as unknown as RemovedConstraintNode)
+// @ts-expect-error Adapter constraint compilers had no production consumer.
+void core.defineDatabaseConstraintCompiler
+// @ts-expect-error Adapter constraint compilers had no production consumer.
+type RemovedCompilerRegistry = core.PluginConstraintCompilerRegistry
+void (undefined as unknown as RemovedCompilerRegistry)
+// @ts-expect-error The adapter consumption privilege was removed with compilers.
+const removedConsumePrivilege: core.PluginPrivilege = 'adapter:consume'
+void removedConsumePrivilege
+// @ts-expect-error Portable schema constraints had no production consumer.
+void core.defineSchemaConstraint
+// @ts-expect-error Portable schema constraints had no production consumer.
+void core.addSchemaConstraint
+// @ts-expect-error Portable schema constraints had no production consumer.
+type RemovedSchemaConstraint = core.SchemaConstraintDefinition
+void (undefined as unknown as RemovedSchemaConstraint)

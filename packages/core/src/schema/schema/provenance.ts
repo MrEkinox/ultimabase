@@ -4,7 +4,6 @@ import type { JsonValue } from '../fields/builtins/json.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericVirtualField } from './virtual-field.js'
 import type { SchemaIndexDefinition } from './indexes.js'
-import type { SchemaConstraintDefinition } from './constraints.js'
 
 /** Identifies developer declarations owned by one application. */
 export interface ApplicationSchemaContributionOwner {
@@ -54,12 +53,6 @@ export interface SchemaIndexProvenance {
 	readonly provenance: SchemaContributionProvenance
 }
 
-/** Associates one portable constraint with its exact contribution source. */
-export interface SchemaConstraintProvenance {
-	readonly definition: SchemaConstraintDefinition
-	readonly provenance: SchemaContributionProvenance
-}
-
 /** Separates the value contributor from the plugin that defines its semantics. */
 export interface SchemaOptionProvenance {
 	readonly definition: SchemaContributionProvenance
@@ -75,7 +68,6 @@ export interface AppliedSchemaPatchProvenance {
 
 /** Explains every component of one final logical schema definition. */
 export interface SchemaCompilationProvenance {
-	readonly constraints: readonly SchemaConstraintProvenance[]
 	readonly fields: Readonly<Record<string, SchemaContributionProvenance>>
 	readonly fieldOptions: Readonly<
 		Record<string, Readonly<Record<string, SchemaOptionProvenance>>>
@@ -146,7 +138,6 @@ export const createInitialSchemaProvenance = (
 		developerFields.has(fieldName) ? application : coreSchemaContributionOwner
 
 	return immutableRecord({
-		constraints: immutableArray([]),
 		fields: mapRecord(Object.keys(declaredFields), (name) =>
 			createSchemaContributionProvenance(
 				ownerOf(name),

@@ -5,7 +5,6 @@ import {
 	plugin,
 	provideCapability,
 	requireCapability,
-	withPluginPrivileges,
 	type CapabilityProviderDeclaration,
 	type CapabilityRequirement,
 	type PluginInstance,
@@ -121,8 +120,6 @@ const postgresPluginEnvironment = ['environment:network'] as const
 const postgresPluginPermissions = {
 	'schema:declare':
 		'Declares the official PostgreSQL schema and field options.',
-	'adapter:consume':
-		'Compiles protected database constraints for the PostgreSQL adapter.',
 } as const
 
 type PostgresPluginCapabilities = readonly [
@@ -185,7 +182,7 @@ export const postgresPlugin = (
 	})
 	const adapterProvider = provideCapability(databaseAdapterCapability, {
 		contributionId: 'database-adapter',
-		create: ({ capabilities, constraintCompilers, schemas }) => {
+		create: ({ capabilities, schemas }) => {
 			void capabilities.get(connectionRequirement)
 			const connection = connections.get(schemas)
 			if (connection === undefined) {
@@ -202,7 +199,6 @@ export const postgresPlugin = (
 				value: createPostgresDatabaseAdapter(
 					connection.getPool(),
 					schemaCatalog,
-					constraintCompilers,
 				),
 			}
 		},
@@ -251,8 +247,7 @@ export const postgresPlugin = (
 		permissions: postgresPluginPermissions,
 		contributions: [
 			connectionProvider,
-			// The adapter factory reads registered constraint compilers through this facade.
-			withPluginPrivileges(adapterProvider, ['adapter:consume']),
+			adapterProvider,
 			connectionRequirement,
 			declarations,
 			application,

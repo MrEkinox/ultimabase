@@ -8,8 +8,6 @@ import {
 import { snapshotJsonValue } from '../../schema/fields/builtins/json.js'
 import type { JsonValue } from '../../schema/fields/builtins/json.js'
 import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
-import type { SchemaConstraintDefinition } from '../../schema/schema/constraints.js'
-import { isSchemaConstraintDefinition } from '../../schema/schema/constraints.js'
 
 /** Returns no projection for opaque values; selectors never inspect their contents. */
 const portableOptionValue = (
@@ -59,7 +57,6 @@ export const assertFrozenPortable = (
 /** Compilation-local membership proofs use actual values, with no artifact IDs or lookup table. */
 export class SchemaCompilationValues {
 	readonly #fields = new WeakSet<object>()
-	readonly #constraints = new WeakSet<object>()
 	readonly #opaque = new Set<unknown>()
 
 	snapshot(value: unknown, path: string): unknown {
@@ -127,24 +124,6 @@ export class SchemaCompilationValues {
 		if (!this.#fields.has(value))
 			throw new TypeError(
 				`${path} contains a field absent from compilation input`,
-			)
-	}
-
-	constraint(value: SchemaConstraintDefinition): SchemaConstraintDefinition {
-		if (!isSchemaConstraintDefinition(value))
-			throw new TypeError('Schema compiler constraint is invalid')
-		this.#constraints.add(value)
-		return value
-	}
-
-	assertConstraint(value: unknown, path: string): void {
-		if (
-			!isPlainRecord(value) ||
-			!isSchemaConstraintDefinition(value) ||
-			!this.#constraints.has(value)
-		)
-			throw new TypeError(
-				`${path} contains a constraint absent from compilation input`,
 			)
 	}
 

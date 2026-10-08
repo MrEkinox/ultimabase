@@ -101,17 +101,17 @@ describe('createEnforcementStages mutation boundaries', () => {
 			'must return undefined',
 		],
 		[
-			'forged constraint',
+			'removed constraints effect',
 			protectedPolicy({
-				evaluate: () => ({
+				evaluate: (() => ({
 					constraints: {
 						kind: 'fixture.forged',
 						version: 1,
 						payload: null,
 					},
-				}),
+				})) as never,
 			}),
-			'must be a database constraint node',
+			'protected policy effects contain unknown key: constraints',
 		],
 		[
 			'non-array field restriction',

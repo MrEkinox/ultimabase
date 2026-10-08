@@ -1,6 +1,5 @@
 import {
 	QueryBuilder,
-	databaseConstraint,
 	createDatabasePersistencePlan,
 	normalizeUpdateExpression,
 	type DeleteOneOperationAst,
@@ -17,8 +16,6 @@ import {
 
 import {
 	articleSchema,
-	tenantCompiler,
-	createConstraintCompilerRegistry,
 	createFixture,
 	getTransactionDriver,
 	firstId,
@@ -61,7 +58,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		driver.respond([])
 		driver.respond([articleRow(null, 'Created', 0, firstId)])
 		const preparedCreate = await prepare(transaction, {
-			constraints: [],
 			operation,
 		})
 		await expect(preparedCreate.execute()).resolves.toStrictEqual({
@@ -78,7 +74,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		driver.respond([articleRow(null, 'Created', 0, firstId)])
 		driver.respond([articleRow(null, 'Updated', 0, firstId)])
 		const preparedUpdate = await prepare(transaction, {
-			constraints: [],
 			operation,
 		})
 		await expect(preparedUpdate.execute()).resolves.toStrictEqual({
@@ -124,7 +119,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 			update,
 		})
 		const prepared = await prepare(transaction, {
-			constraints: [],
 			operation: {
 				items: [
 					item(firstId, first),
@@ -160,21 +154,17 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		await transaction.rollback()
 	})
 
-	it('reapplies constraints to prepared locks and final update or delete writes', async () => {
-		const fixture = createFixture(
-			1,
-			undefined,
-			createConstraintCompilerRegistry(tenantCompiler),
-		)
+	it('reapplies the row filter to prepared locks and final update or delete writes', async () => {
+		const fixture = createFixture()
 		const driver = getTransactionDriver(fixture)
 		const transaction = await fixture.adapter.beginTransaction()
-		const constraints = [
-			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' }),
-		]
-		const finalConstraints = [
-			...constraints,
-			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-final' }),
-		]
+		const rowFilter = new QueryBuilder(articleSchema).where((where) =>
+			where.eq('note', 'tenant-1'),
+		).ast.where?.expression
+
+		if (rowFilter === undefined) {
+			throw new TypeError('Tenant row-filter fixture requires an expression')
+		}
 		const query = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('title', 'Old'),
 		).ast
@@ -188,8 +178,8 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		driver.respond([['tenant-1', 'Old', 1, firstId, timestamp, timestamp]])
 		const preparedUpdate = await prepare(transaction, {
-			constraints,
 			operation: updateOperation,
+			rowFilter,
 		})
 		const lockCall = driver.calls.at(-1)
 
@@ -198,7 +188,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
 		await preparedUpdate.execute({
-			constraints: finalConstraints,
 			operation: updateOperation,
 			plan: createDatabasePersistencePlan(updateOperation),
 		})
@@ -207,7 +196,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		expect(updateCall?.text).toMatch(/update .* where \(.*id.* and .*note/u)
 		expect(updateCall?.params).toContain(firstId)
 		expect(updateCall?.params).toContain('tenant-1')
-		expect(updateCall?.params).toContain('tenant-final')
 
 		const deleteOperation = {
 			kind: 'delete-one',
@@ -218,8 +206,8 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
 		const preparedDelete = await prepare(transaction, {
-			constraints,
 			operation: deleteOperation,
+			rowFilter,
 		})
 
 		expect(driver.calls.at(-1)?.text).toMatch(
@@ -234,7 +222,7 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		expect(deleteCall?.params).toContain('tenant-1')
 
 		const preparedMany = await prepare(transaction, {
-			constraints,
+			rowFilter,
 			operation: {
 				kind: 'update-many',
 				query: new QueryBuilder(articleSchema)
@@ -282,8 +270,8 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		driver.respond([])
 		const preparedUpsert = await prepare(transaction, {
-			constraints,
 			operation: upsertOperation,
+			rowFilter,
 		})
 
 		// The empty insert models a concurrent winner between the two target locks.
@@ -320,7 +308,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		firstDriver.respond([])
 		const missing = await prepare(firstTransaction, {
-			constraints: [],
 			operation: deleteOperation,
 		})
 
@@ -340,7 +327,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 
 		firstDriver.respond([])
 		const missingUpdate = await prepare(firstTransaction, {
-			constraints: [],
 			operation: missingUpdateOperation,
 		})
 		const callCountBeforeExecution = firstDriver.calls.length
@@ -360,7 +346,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 			[null, 'Delete later', 1, firstId, timestamp, timestamp],
 		])
 		const escaped = await prepare(secondTransaction, {
-			constraints: [],
 			operation: deleteOperation,
 		})
 
@@ -424,7 +409,6 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		expect(commitDriver.releaseCalls).toBe(0)
 		expect(() =>
 			execute(commitTransaction, {
-				constraints: [],
 				operation: {
 					kind: 'find-many',
 					query: new QueryBuilder(articleSchema).ast,

@@ -18,10 +18,8 @@ import type {
 } from '../schema/fields/base/contract.js'
 
 import { snapshotCapturedOptionValue } from '../schema/schema/captured-options.js'
-import { isSchemaConstraintDefinition } from '../schema/schema/constraints.js'
 
 import {
-	type AddSchemaConstraintOperation,
 	type AddSchemaFieldOperation,
 	type AddSchemaFieldOptions,
 	type AddSchemaIndexOperation,
@@ -153,32 +151,6 @@ export const setSchemaFieldOption = (
 			kind: 'field-option:set',
 			name: options.name,
 			value: snapshotCapturedOptionValue(options.value),
-		}),
-	)
-}
-
-export const addSchemaConstraint = (
-	options: Omit<AddSchemaConstraintOperation, 'kind'>,
-): AddSchemaConstraintOperation => {
-	assertPlainObject(
-		options,
-		'Schema constraint addition must be a plain object',
-	)
-	assertNonEmptyString(
-		options.contributionId,
-		'Schema constraint contributionId',
-	)
-	if (!isSchemaConstraintDefinition(options.constraint)) {
-		throw new TypeError(
-			'Schema constraint must be created by defineSchemaConstraint',
-		)
-	}
-
-	return registerPatchOperation(
-		immutableRecord({
-			constraint: options.constraint,
-			contributionId: options.contributionId,
-			kind: 'constraint:add',
 		}),
 	)
 }

@@ -28,7 +28,6 @@ const prepareDelete = async (result: QueuedAdapterResult, trace: string[]) => {
 	const adapter = new RecordingDatabaseAdapter([result], trace)
 	const transaction = await adapter.beginTransaction()
 	const prepared = await transaction.prepare({
-		constraints: [],
 		operation: deleteOperation,
 		plan: createDatabasePersistencePlan(deleteOperation),
 	})

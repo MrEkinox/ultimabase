@@ -1,25 +1,12 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
-import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
-import { assertConstraintKind } from '../../schema/schema/constraints.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
 	EnforcementContributionKind,
 	EnforcementGuardHandler,
 	EnforcementOperationInput,
 } from './contracts.js'
-import type { DatabaseConstraintNode } from '../database/contracts.js'
-import type {
-	DatabaseConstraintPayload,
-	ImmutableDatabaseConstraintPayload,
-} from '../database/contracts.js'
 import type { RuntimeLogicalOperationKind } from '../pipeline/contracts.js'
 import { normalizeRuntimeOperationKinds } from '../operations/characteristics.js'
 
@@ -105,53 +92,7 @@ const implementations = new WeakMap<
 	object,
 	EnforcementContributionImplementation
 >()
-const databaseConstraintNodes = new WeakSet<object>()
 const optionKeys = new Set(['handler', 'master', 'operations', 'schema'])
-
-/** Detaches portable payload data so retained caller references cannot alter a plan. */
-const snapshotDatabaseConstraintPayload = (
-	payload: unknown,
-	path: string,
-): DatabaseConstraintPayload => {
-	if (
-		payload === null ||
-		typeof payload === 'bigint' ||
-		typeof payload === 'boolean' ||
-		typeof payload === 'string'
-	) {
-		return payload
-	}
-
-	if (typeof payload === 'number') {
-		if (!Number.isFinite(payload)) {
-			throw new TypeError(`${path} must contain only finite numbers`)
-		}
-
-		return payload
-	}
-
-	if (isUnknownArray(payload)) {
-		return immutableArray(
-			payload.map((value, index) =>
-				snapshotDatabaseConstraintPayload(value, `${path}[${String(index)}]`),
-			),
-		)
-	}
-
-	if (isPlainRecord(payload)) {
-		const snapshot: Record<string, DatabaseConstraintPayload> = {}
-
-		for (const [key, value] of Object.entries(payload)) {
-			snapshot[key] = snapshotDatabaseConstraintPayload(value, `${path}.${key}`)
-		}
-
-		return immutableRecord(snapshot)
-	}
-
-	throw new TypeError(
-		`${path} must contain only portable scalar, array, and plain-object values`,
-	)
-}
 
 const defineEnforcement = <
 	const TKind extends EnforcementContributionKind,
@@ -246,48 +187,3 @@ export const matchesEnforcementContribution = (
 	(implementation.operations === undefined ||
 		implementation.operations.includes(operation.kind)) &&
 	(implementation.schema === undefined || implementation.schema === schema)
-
-/**
- * Creates one detached immutable payload for adapter constraint compilation.
- *
- * Kinds use lowercase dot-separated namespace segments. Payloads accept only
- * portable scalar, array, and plain-object values.
- *
- * @param kind - Names the adapter compiler contract, for example `tenant.rows`.
- * @param version - Selects the compiler's positive integer payload version.
- * @param payload - Supplies portable data interpreted only by the owning plugin.
- * @example `databaseConstraint('tenant.rows', 1, { tenantId: 'tenant-1' })`
- */
-export const databaseConstraint = <
-	const TKind extends string,
-	const TVersion extends number,
-	const TPayload extends DatabaseConstraintPayload,
->(
-	kind: TKind,
-	version: TVersion,
-	payload: TPayload,
-): DatabaseConstraintNode<
-	TKind,
-	TVersion,
-	ImmutableDatabaseConstraintPayload<TPayload>
-> => {
-	assertConstraintKind(kind, 'database constraint kind')
-	assertDatabaseConstraintVersion(version, 'database constraint version')
-
-	const detachedPayload = snapshotDatabaseConstraintPayload(
-		payload,
-		'database constraint payload',
-	) as ImmutableDatabaseConstraintPayload<TPayload>
-	const node = immutableRecord({ kind, version, payload: detachedPayload })
-	databaseConstraintNodes.add(node)
-
-	return node
-}
-
-/** Rejects structural lookalikes that bypassed the namespaced-node factory. */
-export const isDatabaseConstraintNode = (
-	value: unknown,
-): value is DatabaseConstraintNode =>
-	typeof value === 'object' &&
-	value !== null &&
-	databaseConstraintNodes.has(value)

@@ -393,8 +393,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				'Declares the direct ACL option and its persisted field patch.',
 			'authority:elevate':
 				'Maintains persisted ACL references through audited internal Master queries.',
-			'runtime:constrain':
-				'Applies deny-only ACL guards and adapter constraints.',
+			'runtime:constrain': 'Applies deny-only ACL guards and row filters.',
 			'runtime:intercept':
 				'Resolves ACL input and publishes committed ACL changes.',
 			'event:publish': 'Publishes committed ACL change notifications.',

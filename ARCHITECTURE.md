@@ -460,7 +460,7 @@ The recurring changes are:
 
 - **One implementation per boundary check.** Exact-object and unknown-key
   validation, namespaced-name, plugin-identifier, error-code and TypeScript
-  identifier grammars, constraint kinds, behavior stage names, and owner and
+  identifier grammars, behavior stage names, and owner and
   identity snapshots each have one implementation in their owning domain. Each
   keeps the reference check order and message at every call site.
 - **Private state instead of side registrations.** `RequestEngine`,
@@ -727,7 +727,7 @@ authoring protocol and use the same generic capability.
 `@ultimabase/access-plugin` similarly owns the official `access` namespaces,
 policy compilation, provider protocol, diagnostics, and Runtime behavior. ACL
 does not depend on that product: it contributes Core `protectedPolicy()` values
-and adapter constraints directly. Roles and authentication may supply optional
+and row filters directly. Roles and authentication may supply optional
 request subjects but grant nothing by themselves.
 
 The low-level `preparedOperation()` factory is a generic Runtime

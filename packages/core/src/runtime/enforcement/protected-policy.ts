@@ -8,7 +8,6 @@ import { assertExactEnumerablePlainObject } from '../../exact-object-validation.
 
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
-	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
@@ -29,9 +28,6 @@ import { assertMasterMode } from './definitions.js'
 export interface ProtectedPolicyEffects {
 	/** False denies the request; true and omission cannot override an earlier denial. */
 	readonly allowed?: boolean
-	/** Appends opaque adapter constraints in declaration order. */
-	readonly constraints?:
-		DatabaseConstraintNode | readonly DatabaseConstraintNode[]
 	/** Intersects fields accepted by mutation input. */
 	readonly inputFields?: readonly string[]
 	/** ANDs one private row predicate outside the developer operation. */
@@ -228,7 +224,6 @@ export const getProtectedPolicyImplementation = (
 
 const effectKeys = new Set([
 	'allowed',
-	'constraints',
 	'inputFields',
 	'rowFilter',
 	'selectionFields',
@@ -256,13 +251,6 @@ export const normalizeProtectedPolicyEffects = (
 
 	return immutableRecord({
 		...(value.allowed === undefined ? {} : { allowed: value.allowed }),
-		...(value.constraints === undefined
-			? {}
-			: {
-					constraints: value.constraints as NonNullable<
-						ProtectedPolicyEffects['constraints']
-					>,
-				}),
 		...(value.inputFields === undefined
 			? {}
 			: {

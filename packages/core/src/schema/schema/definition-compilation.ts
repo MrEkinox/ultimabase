@@ -276,7 +276,6 @@ export const prepareSchemaCompilation = (
 		definition: immutableRecord({
 			...options,
 			className,
-			constraints: immutableArray([]),
 			fields,
 			indexes,
 			persistedFields: immutableRecord({ ...persisted, ...systemFields }),

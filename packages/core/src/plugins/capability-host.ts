@@ -12,7 +12,6 @@ import {
 import { assertExactPlainObject } from '../exact-object-validation.js'
 import { FrameworkError } from '../errors/framework-error.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
-import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import {
 	createApplicationCallbackExecutor,
 	runWithApplicationPluginOwner,
@@ -128,7 +127,6 @@ export class ApplicationCapabilityHost {
 	readonly #graph: PluginGraph
 	readonly #inventory: CapabilityInventory
 	readonly #schemas: CompiledSchemaRegistry
-	readonly #constraintCompilers: DatabaseConstraintCompilerReader
 	readonly #resolveSchemaSurface: mutation.SchemaMutationSurfaceResolver
 	readonly #readers = new PluginIdentityMap<PluginCapabilityReader>()
 	readonly #factoryReaders = new PluginIdentityMap<PluginCapabilityReader>()
@@ -142,7 +140,6 @@ export class ApplicationCapabilityHost {
 	constructor(
 		graph: PluginGraph,
 		schemas: CompiledSchemaRegistry,
-		constraintCompilers: DatabaseConstraintCompilerReader,
 		application?: object,
 		resolveSchemaSurface?: mutation.SchemaMutationSurfaceResolver,
 		commands?: () => CompiledCommandGraph | undefined,
@@ -152,7 +149,6 @@ export class ApplicationCapabilityHost {
 		this.#graph = graph
 		this.#inventory = graph.capabilities
 		this.#schemas = schemas
-		this.#constraintCompilers = constraintCompilers
 		this.#resolveSchemaSurface = resolveSchemaSurface ?? (() => undefined)
 		this.#callbacks = createApplicationCallbackExecutor(
 			this.#application,
@@ -336,7 +332,7 @@ export class ApplicationCapabilityHost {
 					const resource = await runWithApplicationPluginOwner(
 						this.#application,
 						owner,
-						() => handler.create(this.#factoryContext(owner, true)),
+						() => handler.create(this.#factoryContext(owner)),
 					)
 					handlers.push({
 						contributionId: handler.contributionId,
@@ -397,7 +393,7 @@ export class ApplicationCapabilityHost {
 			const createResource = () =>
 				runApplicationCapabilityFactory(
 					declaration,
-					this.#factoryContext(owner, attributed),
+					this.#factoryContext(owner),
 				)
 			const resource: unknown = await (attributed
 				? runWithApplicationPluginOwner(
@@ -438,23 +434,7 @@ export class ApplicationCapabilityHost {
 		return consumer
 	}
 
-	#factoryContext(
-		owner: PluginIdentity,
-		isPlugin: boolean,
-	): ApplicationCapabilityFactoryContext {
-		const canConsumeAdapter =
-			isPlugin &&
-			findActivePrivilegeRequest(
-				this.#inventory,
-				this.#graph.get(owner),
-				'adapter:consume',
-			) !== undefined
-		const deny = (): never =>
-			throwFactoryPrivilegeDenied(
-				owner,
-				'adapter:consume',
-				'to read database constraint compilers',
-			)
+	#factoryContext(owner: PluginIdentity): ApplicationCapabilityFactoryContext {
 		return immutableRecord({
 			assertPrivilege: (privilege: PluginPrivilege): void => {
 				if (
@@ -473,14 +453,6 @@ export class ApplicationCapabilityHost {
 			},
 			callbacks: this.#callbacks,
 			capabilities: this.#readerFor(owner, 'factory'),
-			constraintCompilers: canConsumeAdapter
-				? this.#constraintCompilers
-				: Object.freeze({
-						get size(): number {
-							return deny()
-						},
-						values: deny,
-					}),
 			owner,
 			schemas: this.#schemas,
 		})

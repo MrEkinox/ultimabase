@@ -122,28 +122,26 @@ post-commit delivery retain their existing boundaries. Policies provide
 protected definitions through the exact `provideRuntimeConstraint()` facade:
 
 ```ts
-const tenantPlugin = (tenantId: string) =>
+const publishedOnlyPlugin = () =>
 	plugin({
-		id: 'example.tenant-access',
+		id: 'example.published-only',
 		version: '1.0.0',
 		core: '^0.0.0',
 		permissions: [
 			{
 				name: 'runtime:constrain',
-				reason: 'Applies tenant row and selection restrictions.',
+				reason: 'Applies published row and selection restrictions.',
 			},
 		],
 		contributions: [
 			provideRuntimeConstraint({
-				contributionId: 'example.tenant-policy',
+				contributionId: 'example.published-policy',
 				create: () => ({
 					value: protectedPolicy({
 						schema: ArticleSchema,
 						operations: ['find-many', 'find-one', 'get'],
 						evaluate: () => ({
-							constraints: databaseConstraint('example.tenant', 1, {
-								tenantId,
-							}),
+							rowFilter: { field: 'published', kind: 'equal', value: true },
 							selectionFields: ['id', 'title'],
 						}),
 					}),
@@ -154,8 +152,8 @@ const tenantPlugin = (tenantId: string) =>
 ```
 
 Runtime uses versioned application capabilities. Product behavior and logical
-interceptors form ordered pipelines, constraints remain independent monotonic
-providers, and Core assembles its canonical executor directly.
+interceptors form ordered pipelines, protected policies remain independent
+monotonic providers, and Core assembles its canonical executor directly.
 Generic prepared-mutation consumers use
 `readRuntimePreparedMutationRecords()` to recover validated logical records;
 they do not need to duplicate Core's record checks. Complete adapter outcomes use
@@ -174,11 +172,11 @@ setup registry.
 
 `normalization` and `commit` contributions compose in dependency-first plugin
 order. Enforcement factories are `guard` and `protectedPolicy`. Their handlers
-never receive another plugin's accumulated state. Runtime appends constraints for adapter-side
-logical `AND`, intersects field restrictions, and creates no provider-specific
-enforcement stage when no constraint capability is present. An optional `MasterAuthority` may be
-supplied to `UltimaBase` without changing the trusted master
-boundary.
+never receive another plugin's accumulated state. Runtime combines private row
+filters with logical `AND`, intersects field restrictions, and creates no
+provider-specific enforcement stage when no constraint capability is present.
+An optional `MasterAuthority` may be supplied to `UltimaBase` without changing
+the trusted master boundary.
 
 Low-level enforcement is applied to master by default. A provider may declare
 `master: "bypass"` on one definition when its audited master contract requires
@@ -237,28 +235,24 @@ capabilities: [
 ```
 
 `guard` allows by returning nothing and denies by throwing; it has no
-grant-shaped return. A protected policy's `evaluate` effects may append one
-`databaseConstraint('namespace.kind', version, payload)` node or an array of
-nodes. The positive integer version selects the exact adapter compiler payload
-contract; an empty array lets that policy deliberately contribute nothing.
+grant-shaped return. A protected policy's `evaluate` effects may deny with
+`allowed: false` or AND one private `rowFilter`; returning nothing lets that
+policy deliberately contribute nothing. ADR-0289 removed the opaque
+`constraints` effect and its adapter compilers because no production policy
+used them.
 `inputFields` and `selectionFields` list allowed top-level schema field names,
 and Runtime intersects every matching list instead of letting a later plugin
 replace an earlier decision. Restricted mutation input is rejected; selection
 restrictions project excluded fields away, and `restrictResult` may only omit
 values from the final result.
 
-Constraint kinds use lowercase dot-separated namespace segments such as
-`tenant.rows`. Payloads contain portable scalar, array, and plain-object values;
-the factory detaches and deeply freezes them so a retained caller reference
-cannot alter the accumulated plan.
-
 Runtime evaluates guards and protected policies before effectful plugin
 behavior and retains the result in private immutable state. After operation
 transforms, it reruns guards and each policy's `reevaluate` check into the same
 monotonic state before reapplying input and selection limits. An earlier
-constraint is never replaced; a transformed value therefore cannot use a stale
-guard decision. Handlers never
-receive accumulated state or another plugin's opaque constraint payload. A
+restriction is never replaced; a transformed value therefore cannot use a stale
+guard decision. Handlers never receive accumulated state or another plugin's
+restrictions. A
 master request remains trusted authority, but only the contributing policy
 decides whether its own handler treats that authority differently.
 
@@ -288,9 +282,8 @@ const articles = await runWithRequestEngine(request, () =>
 // The exact result is readonly { id: string; title: string }[].
 ```
 
-Opaque adapter constraints remain in the private enforcement envelope and
-reach the database separately from Query, so developer code cannot see or
-remove them. For object-producing reads, Runtime validates and projects the
+Protected row filters remain in the private enforcement envelope and reach the
+database separately from Query, so developer code cannot see or remove them. For object-producing reads, Runtime validates and projects the
 adapter result to its effective selection, hydrates eager pointer and relation
 targets through their installed target-policy pipeline, then applies monotonic output
 restrictions. `count` and `exists` retain exact `number` and `boolean` results.
@@ -492,7 +485,7 @@ identity.
 Runtime never bypasses enforcement merely because the context is `master`.
 Each installed protected policy reads the trusted access mode and decides
 whether its own decision applies. Official Access and ACL authorization always
-choose bypass. Structural validation, generic behavior, adapter constraints,
+choose bypass. Structural validation, generic behavior, database constraints,
 transactions, commit, and observers remain part of the same pipeline.
 
 ## Optional behavior engines and observers
@@ -596,20 +589,20 @@ described above.
 
 Database plugins implement `DatabaseAdapter`; application developers normally
 receive one from a plugin such as `postgresPlugin`. The contract
-receives only a normalized operation and portable opaque constraints. SQL,
-Drizzle sessions, and transport state remain private to concrete plugins.
+receives only a normalized operation, its persistence plan, and private row
+filters. SQL, Drizzle sessions, and transport state remain private to concrete
+plugins.
 
 Every call keeps the operation-specific result type:
 
 ```ts
+const operation = {
+	kind: 'find-many',
+	query: new QueryBuilder(articleSchema).limit(20).ast,
+} as const
 const articles = await adapter.execute({
-	operation: {
-		kind: 'find-many',
-		query: new QueryBuilder(articleSchema).limit(20).ast,
-	},
-	constraints: [
-		databaseConstraint('example.tenant', 1, { tenantId: 'tenant-1' }),
-	],
+	operation,
+	plan: createDatabasePersistencePlan(operation),
 })
 
 // readonly Article[]
@@ -646,7 +639,7 @@ enforcement, locks mutation targets, and runs every input transformer. Every
 mutation then crosses the mandatory `finalMutationValidation` stage, which
 repeats structural snapshots before optional rejection-only mutation guards and
 value-dependent enforcement. Prepared adapters receive the final operation and
-cumulative `constraints` for the write. A guard may inspect the complete value
+plan for the write, while the prepared target keeps its protected row filter. A guard may inspect the complete value
 projected from a prepared locked target while retaining the original atomic
 delta for adapter execution.
 Runtime then runs every business result transform, applies final output
@@ -656,7 +649,7 @@ repeat structural snapshots without invoking application field validators. The
 behavior and enforcement groups are absent when no plugin contributes them;
 Runtime does not manufacture optional placeholders.
 
-Stage envelopes and constraint collections are immutable. A
+Stage envelopes and restriction collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while
 later stages do not run. In particular, a behavior result transform may prevent
 a commit and post-commit observers never observe uncommitted work. Inside an explicit

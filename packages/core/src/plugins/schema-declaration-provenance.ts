@@ -198,18 +198,6 @@ export const attachInitialContributionProvenance = (
 		),
 	)
 	const provenance: SchemaCompilationProvenance = immutableRecord({
-		constraints: immutableArray(
-			candidate.definition.constraints.map((definition, index) =>
-				immutableRecord({
-					definition,
-					provenance: createSchemaContributionProvenance(
-						sourceOwner,
-						`${sourceId}:constraint:${String(index)}`,
-						sourceStaticOptions,
-					),
-				}),
-			),
-		),
 		fieldOptions,
 		fields,
 		indexes: immutableArray(

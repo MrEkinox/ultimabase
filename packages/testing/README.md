@@ -236,7 +236,7 @@ shares only its connection URI. No mutable application, pool, container,
 schema registry, or plugin instance is shared between Vitest workers.
 
 The official Hooks PostgreSQL scenario uses this boundary to verify nested writes,
-rollback, post-commit delivery, opaque scope constraints, field restrictions,
+rollback, post-commit delivery, protected scope row filters, field restrictions,
 and atomic item-oriented collection behavior through built public package
 exports.
 

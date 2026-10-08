@@ -17,7 +17,7 @@ import {
 	readRuntimeSchemaModelMetadata,
 	retainRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
-import { databaseConstraint, guard } from './definitions.js'
+import { guard } from './definitions.js'
 import { protectedPolicy } from './protected-policy.js'
 import { createEnforcementStages } from './dispatcher.js'
 import {
@@ -119,6 +119,7 @@ describe('createEnforcementStages', () => {
 	})
 
 	it('preserves configuration order across independent policy plugins', async () => {
+		const order: string[] = []
 		const createPolicyPlugin = (name: string, value: string) =>
 			createPlugin({
 				version: '0.0.0',
@@ -129,11 +130,10 @@ describe('createEnforcementStages', () => {
 					provide(
 						`${name}.constraint`,
 						protectedPolicy({
-							evaluate: () => ({
-								constraints: databaseConstraint('fixture.ordered-policy', 1, {
-									value,
-								}),
-							}),
+							evaluate: () => {
+								order.push(value)
+								return undefined
+							},
 						}),
 					)
 				}),
@@ -149,25 +149,9 @@ describe('createEnforcementStages', () => {
 			createEnforcementStages(application),
 		)
 		const operation = createOperation()
-		const enforcement = await stages.evaluate({ context, operation })
-		const result = await stages.enforceOperation({
-			context,
-			enforcement,
-			operation,
-		})
+		await stages.evaluate({ context, operation })
 
-		expect(result.constraints).toStrictEqual([
-			{
-				kind: 'fixture.ordered-policy',
-				version: 1,
-				payload: { value: 'first' },
-			},
-			{
-				kind: 'fixture.ordered-policy',
-				version: 1,
-				payload: { value: 'second' },
-			},
-		])
+		expect(order).toStrictEqual(['first', 'second'])
 
 		await application.dispose()
 	})
@@ -198,13 +182,9 @@ describe('createEnforcementStages', () => {
 					protectedPolicy({
 						schema: articleSchema,
 						evaluate: () => {
-							trace.push('constraint:tenant')
+							trace.push('policy:tenant')
 
-							return {
-								constraints: databaseConstraint('fixture.tenant', 1, {
-									tenantId: 'tenant-1',
-								}),
-							}
+							return undefined
 						},
 					}),
 				)
@@ -212,13 +192,9 @@ describe('createEnforcementStages', () => {
 					'fixture.visibility',
 					protectedPolicy({
 						evaluate: () => {
-							trace.push('constraint:visibility')
+							trace.push('policy:visibility')
 
-							return {
-								constraints: databaseConstraint('fixture.visibility', 1, {
-									published: true,
-								}),
-							}
+							return {}
 						},
 					}),
 				)
@@ -306,10 +282,8 @@ describe('createEnforcementStages', () => {
 			result: protectedResult,
 		})
 
-		expect(enforced.constraints).toStrictEqual([
-			{ kind: 'fixture.tenant', version: 1, payload: { tenantId: 'tenant-1' } },
-			{ kind: 'fixture.visibility', version: 1, payload: { published: true } },
-		])
+		// Protected policies no longer carry adapter constraint nodes.
+		expect(enforced).not.toHaveProperty('constraints')
 		expect(selectionResult).toStrictEqual({ id: 'article-1', title: 'Allowed' })
 		// The final projection reapplies the selection intersection after transforms.
 		expect(result).toStrictEqual({ id: 'article-1', title: 'Allowed' })
@@ -317,11 +291,7 @@ describe('createEnforcementStages', () => {
 			objectId: 'article-1',
 			selectedFields: ['id', 'title'],
 		})
-		expect(trace).toStrictEqual([
-			'guard',
-			'constraint:tenant',
-			'constraint:visibility',
-		])
+		expect(trace).toStrictEqual(['guard', 'policy:tenant', 'policy:visibility'])
 		expect(Object.keys(observedInputs[0] ?? {})).toStrictEqual([
 			'context',
 			'operation',
@@ -338,11 +308,7 @@ describe('createEnforcementStages', () => {
 			enforcement,
 			operation,
 		})
-		expect(trace).toStrictEqual([
-			'guard',
-			'constraint:tenant',
-			'constraint:visibility',
-		])
+		expect(trace).toStrictEqual(['guard', 'policy:tenant', 'policy:visibility'])
 
 		await application.dispose()
 	})

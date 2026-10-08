@@ -158,50 +158,6 @@ export interface DatabaseMutationOperationAst extends DatabaseOperationAst {
 	readonly kind: DatabaseMutationOperationKind
 }
 
-/** Recursively lists portable object payloads without retaining class instances. */
-export interface DatabaseConstraintPayloadObject {
-	readonly [key: string]: DatabaseConstraintPayload
-}
-
-/** Lists the portable immutable values accepted inside opaque constraint nodes. */
-export type DatabaseConstraintPayload =
-	| bigint
-	| boolean
-	| null
-	| number
-	| string
-	| readonly DatabaseConstraintPayload[]
-	| DatabaseConstraintPayloadObject
-
-/** Recursively exposes the detached payload snapshot as immutable data. */
-export type ImmutableDatabaseConstraintPayload<
-	TPayload extends DatabaseConstraintPayload,
-> = TPayload extends bigint | boolean | null | number | string
-	? TPayload
-	: TPayload extends readonly (infer TItem extends DatabaseConstraintPayload)[]
-		? readonly ImmutableDatabaseConstraintPayload<TItem>[]
-		: TPayload extends DatabaseConstraintPayloadObject
-			? {
-					readonly [TKey in keyof TPayload]: ImmutableDatabaseConstraintPayload<
-						TPayload[TKey]
-					>
-				}
-			: never
-
-/** Keeps one plugin-owned constraint opaque until an adapter compiler claims it. */
-export interface DatabaseConstraintNode<
-	TKind extends string = string,
-	TVersion extends number = number,
-	TPayload extends DatabaseConstraintPayload = DatabaseConstraintPayload,
-> {
-	/** Names the opaque compiler contract without revealing policy semantics. */
-	readonly kind: TKind
-	/** Selects the exact payload contract understood by the adapter compiler. */
-	readonly version: TVersion
-	/** Carries detached portable data that Runtime transports without interpreting. */
-	readonly payload: TPayload
-}
-
 /** Erases schema inference only after Runtime has validated one private row predicate. */
 export type DatabaseRowFilterNode = QueryFilterExpression
 
@@ -219,7 +175,6 @@ export interface DatabaseRelationScope extends DatabaseRelationReference {
 
 /** Carries private target policy and relation shaping beside one public relation leaf. */
 export interface DatabaseRelationPredicateScope {
-	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly predicate: QueryRelationFilterNode
 	readonly rowFilter?: DatabaseRowFilterNode
 }
@@ -233,15 +188,10 @@ export interface DatabaseInclusionPlan {
 	readonly unavailable?: true
 }
 
-/**
- * Keeps the normalized operation and accumulated constraints together so an
- * adapter never receives one without the other.
- */
+/** Carries one normalized operation and its physical plan to an adapter. */
 export interface DatabaseOperationRequest<
 	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
-	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
 > {
-	readonly constraints: readonly TConstraint[]
 	/** Preserves logical semantics only for result correlation and diagnostics. */
 	readonly operation: TOperation
 	/** Selects the physical adapter statement independently from logical semantics. */
@@ -400,17 +350,16 @@ export type DatabaseOperationOutcome<
 interface PreparedDatabaseOperationHandle<
 	TOperation extends DatabaseMutationOperationAst,
 > {
-	/** Executes the retained target exactly once with the final resolved operation and constraints. */
+	/** Executes the retained target exactly once with the final resolved operation. */
 	execute(
 		request?: PreparedDatabaseOperationExecution<TOperation>,
 	): Promise<DatabaseOperationOutcome<TOperation>>
 }
 
-/** Carries the final candidate and monotonic constraints into one prepared write. */
+/** Carries the final candidate into one prepared write. */
 export interface PreparedDatabaseOperationExecution<
 	TOperation extends DatabaseMutationOperationAst,
 > {
-	readonly constraints: readonly DatabaseConstraintNode[]
 	readonly operation: TOperation
 	readonly plan: DatabasePersistencePlan<TOperation>
 }

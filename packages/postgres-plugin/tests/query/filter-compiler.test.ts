@@ -17,7 +17,6 @@ import {
 	compilePostgresRowFilter,
 } from '../../src/query/filter-compiler.js'
 import { PostgresSchemaCatalog } from '../../src/schema/catalog.js'
-import { emptyPostgresConstraintCompilerRegistry } from '../../src/constraints/compiler.js'
 import { createPostgresRelationPredicateCompiler } from '../../src/query/relation-predicate-compiler.js'
 import {
 	PostgresRelationArticle,
@@ -89,11 +88,9 @@ describe('PostgreSQL filter compiler', () => {
 			)
 		}
 
-		const compiler = createPostgresRelationPredicateCompiler(
-			catalog,
-			emptyPostgresConstraintCompilerRegistry,
-			[{ constraints: [], predicate, rowFilter: targetAccess }],
-		)
+		const compiler = createPostgresRelationPredicateCompiler(catalog, [
+			{ predicate, rowFilter: targetAccess },
+		])
 		const rendered = dialect.sqlToQuery(
 			compilePostgresRowFilter(rowFilter, catalog.get(Source), compiler),
 		)
@@ -137,11 +134,9 @@ describe('PostgreSQL filter compiler', () => {
 			throw new TypeError('Relation compiler fixture is incomplete')
 		}
 
-		const compiler = createPostgresRelationPredicateCompiler(
-			catalog,
-			emptyPostgresConstraintCompilerRegistry,
-			[{ constraints: [], predicate, rowFilter: targetAccess }],
-		)
+		const compiler = createPostgresRelationPredicateCompiler(catalog, [
+			{ predicate, rowFilter: targetAccess },
+		])
 		const rendered = dialect.sqlToQuery(
 			compilePostgresFilter(expression, catalog.get(Source), compiler),
 		)
@@ -186,9 +181,7 @@ describe('PostgreSQL filter compiler', () => {
 		const predicates = collectQueryRelationPredicates(expression)
 		const compiler = createPostgresRelationPredicateCompiler(
 			catalog,
-			emptyPostgresConstraintCompilerRegistry,
 			predicates.map((predicate) => ({
-				constraints: [],
 				predicate,
 				rowFilter: targetAccess,
 			})),
@@ -234,11 +227,9 @@ describe('PostgreSQL filter compiler', () => {
 				throw new TypeError('Relation count fixture requires a predicate')
 			}
 
-			const compiler = createPostgresRelationPredicateCompiler(
-				catalog,
-				emptyPostgresConstraintCompilerRegistry,
-				[{ constraints: [], predicate }],
-			)
+			const compiler = createPostgresRelationPredicateCompiler(catalog, [
+				{ predicate },
+			])
 
 			return dialect.sqlToQuery(
 				compilePostgresFilter(

@@ -108,7 +108,7 @@ describe('final mutation-input guard', () => {
 			},
 			enforceOperation: (input) => {
 				trace.push('enforcement:operation')
-				return { constraints: [], operation: input.operation }
+				return { operation: input.operation }
 			},
 			enforceSelectionResult: (input) => input.result,
 			enforceResult: (input) => input.result,
@@ -149,7 +149,7 @@ describe('final mutation-input guard', () => {
 			master,
 			behaviors,
 			undefined,
-			{ constraints: [], operation: updateOne },
+			{ operation: updateOne },
 			(input) => {
 				trace.push('final-validation')
 				return input.operation
@@ -226,7 +226,7 @@ describe('final mutation-input guard', () => {
 				requiresPreparedMutationItems: () => true,
 			},
 			undefined,
-			{ constraints: [], operation: updateMany },
+			{ operation: updateMany },
 			(input) => input.operation,
 			undefined,
 			undefined,
@@ -276,7 +276,7 @@ describe('final mutation-input guard', () => {
 					},
 				},
 				undefined,
-				{ constraints: [], operation: updateOne },
+				{ operation: updateOne },
 				(input) => input.operation,
 				undefined,
 				undefined,

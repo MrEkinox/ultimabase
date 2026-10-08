@@ -1,7 +1,6 @@
 import {
 	booleanField,
 	contributeDeclarations,
-	databaseConstraint,
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	protectedPolicy,
@@ -13,9 +12,6 @@ import {
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { patchSchemas, schemaPatch } from '@ultimabase/plugin-kit'
-
-export const softDeleteVisibilityConstraintKind =
-	'fixture.open-kernel.soft-delete-visible' as const
 
 export interface SoftDeletePluginOptions {
 	readonly instanceId: string
@@ -37,9 +33,7 @@ export const createSoftDeletePlugin = (
 	})
 	const visible = protectedPolicy({
 		evaluate: () => ({
-			constraints: databaseConstraint(softDeleteVisibilityConstraintKind, 1, {
-				field: 'isDeleted',
-			}),
+			rowFilter: { field: 'isDeleted', kind: 'equal', value: false },
 		}),
 		operations: ['find-one', 'find-many', 'get', 'count', 'exists'],
 		schema: options.target,

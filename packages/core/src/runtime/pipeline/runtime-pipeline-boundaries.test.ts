@@ -61,13 +61,6 @@ describe('RuntimePipeline boundaries', () => {
 			'commit',
 			'behavior:postCommit',
 		])
-		expect(executor.requests[0]?.constraints).toStrictEqual([
-			{
-				kind: 'fixture.tenant',
-				version: 1,
-				payload: { tenantId: 'tenant-1' },
-			},
-		])
 	})
 
 	it('keeps a relation scope private while enforcing and forwarding it', async () => {
@@ -282,65 +275,6 @@ describe('RuntimePipeline boundaries', () => {
 					'Runtime pipeline databaseOperation must be an operation executor',
 				),
 			)
-		}
-	})
-
-	it('rejects malformed constraint envelopes at the enforcement boundary', async () => {
-		const invalidCases: readonly {
-			readonly output: readonly unknown[] | string
-			readonly message: string
-		}[] = [
-			{
-				output: 'not-an-array',
-				message: 'Runtime enforcement constraints must be an array',
-			},
-			{
-				output: [null],
-				message: 'Runtime enforcement returned an invalid constraint',
-			},
-			{
-				output: [{ kind: '', payload: null }],
-				message:
-					'Runtime enforcement constraint kind must be a non-empty string',
-			},
-			{
-				output: [
-					{ kind: 'fixture.invalid-version', version: 0, payload: null },
-				],
-				message:
-					'Runtime enforcement constraint version must be a positive safe integer',
-			},
-			{
-				output: [{ kind: 'fixture.missing-payload', version: 1 }],
-				message:
-					'Runtime enforcement constraint must contain an opaque payload',
-			},
-		]
-
-		for (const invalidCase of invalidCases) {
-			const trace: string[] = []
-			const executor = new TraceDatabaseExecutor(trace, [])
-			const enforcement = createEnforcementStages(trace)
-			const pipeline = new RuntimePipeline(
-				createStages(trace, executor, {
-					enforcement: {
-						...enforcement,
-						enforceOperation: (input) => ({
-							// Runtime validation protects JavaScript plugin boundaries.
-							constraints: invalidCase.output as never,
-							operation: input.operation,
-						}),
-					},
-				}),
-			)
-
-			await expect(
-				pipeline.execute({
-					context: requestContext,
-					operation: articleOperation,
-				}),
-			).rejects.toThrow(new TypeError(invalidCase.message))
-			expect(executor.requests).toStrictEqual([])
 		}
 	})
 
