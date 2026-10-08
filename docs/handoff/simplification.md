@@ -81,6 +81,16 @@ l'utilisateur.
   d'application facultatif avec une seule application, opérations
   d'authentification exposées par défaut.
 
+## Après la fusion de l'ADR-0289 (décidé, à faire)
+
+- Retrait de l'héritage Codex : il ne reste que `AGENTS.md`, conservé comme
+  contrat multi-outils (lu par Codex, Cursor, Copilot, Gemini… et importé par
+  `CLAUDE.md`) mais raccourci ; `apps/website/AGENTS.md` est généré par
+  Next.js et le bouton « Open in ChatGPT » du site sert les lecteurs, tous deux
+  conservés.
+- Liens morts des ADR vers `issues/` et `docs/plans/` : remplacer par une
+  mention du tag `reference-archive`.
+
 ## Prochaine action vérifiable
 
 Relire le diff de l'agent ADR-0289 (fichiers supprimés, tests modifiés,
