@@ -25,6 +25,10 @@ import {
 	type HttpBrowserPolicy,
 	type HttpBrowserPolicyOptions,
 } from './browser-policy.js'
+import {
+	httpRequestTimeoutMsRange,
+	isHttpRequestTimeoutMs,
+} from './constants.js'
 import { httpContextResolverContributionsCapability } from './context.js'
 import { httpEndpointContributionsCapability } from './endpoints.js'
 
@@ -84,12 +88,10 @@ const parseHttpPluginOptions = definePluginOptionsParser({
 		}
 		if (
 			requestTimeoutMs !== undefined &&
-			(typeof requestTimeoutMs !== 'number' ||
-				!Number.isSafeInteger(requestTimeoutMs) ||
-				requestTimeoutMs <= 0)
+			!isHttpRequestTimeoutMs(requestTimeoutMs)
 		) {
 			throw new TypeError(
-				'HTTP plugin requestTimeoutMs must be a positive safe integer',
+				`HTTP plugin requestTimeoutMs must be ${httpRequestTimeoutMsRange}`,
 			)
 		}
 		return {

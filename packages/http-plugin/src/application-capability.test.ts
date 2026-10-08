@@ -84,4 +84,67 @@ describe('HTTP application capability compatibility', () => {
 			}
 		},
 	)
+
+	// The capability check mirrors httpPlugin() so foreign providers cannot pass an unusable deadline.
+	it.each([
+		{ requestTimeoutMs: 2_147_483_648, rejected: true },
+		{ requestTimeoutMs: 2_147_483_647, rejected: false },
+	])(
+		'bounds requestTimeoutMs $requestTimeoutMs by the largest timer delay',
+		async ({ requestTimeoutMs, rejected }) => {
+			const requirement = requireCapability(
+				httpApplicationCapability,
+				'^1.0.0',
+				{ phase: 'setup' },
+			)
+			const application = new (UltimaBase.use(
+				plugin({
+					id: 'fixture.http-provider',
+					version: '1.0.0',
+					core: '^0.0.0',
+					contributions: [
+						provideCapability(httpApplicationCapability, {
+							contributionId: 'http',
+							create: () => ({
+								value: {
+									appId: 'valid',
+									authority: { master: { enabled: false } },
+									protocolVersion: httpApplicationProtocolVersion,
+									originalHeaderMode: httpOriginalHeaderMode,
+									requestTimeoutMs,
+									routeGraph: {
+										browserBootstraps: [],
+										endpoints: [],
+										mounts: [],
+										routes: [],
+									},
+									fetch: () => Promise.resolve(new Response()),
+								},
+							}),
+						}),
+					],
+				}),
+				plugin({
+					id: 'fixture.server',
+					version: '1.0.0',
+					core: '^0.0.0',
+					contributions: [
+						requirement,
+						contributeApplication(() => ({ exports: undefined })),
+					],
+				}),
+			))({ schemas: [], pluginPrivileges: { logger: false } })
+			try {
+				if (rejected) {
+					await expect(application.initialize()).rejects.toThrow(
+						'capability is malformed',
+					)
+				} else {
+					await expect(application.initialize()).resolves.toBe(application)
+				}
+			} finally {
+				await application.dispose()
+			}
+		},
+	)
 })

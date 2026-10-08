@@ -62,7 +62,8 @@ string without registering behavior.
 Every accepted route begins with a new anonymous, application-bound Core
 context. `requestTimeoutMs` optionally composes one deadline with the Fetch
 signal; the resulting signal is shared by resolvers, handlers, Runtime work,
-transactions, and response completion.
+transactions, and response completion. It must be an integer from 1 through
+2147483647 milliseconds, the largest delay a JavaScript timer honors.
 
 `master: { enabled: true }` enables only the canonical
 `X-UltimaBase-Master-Key` header. The plugin then requests

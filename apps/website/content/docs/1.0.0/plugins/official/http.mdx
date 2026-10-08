@@ -77,6 +77,10 @@ export const Application = UltimaBase.use(
 )
 ```
 
+`requestTimeoutMs` is a whole number of milliseconds from 1 through
+2147483647, the largest delay a JavaScript timer honors; `httpPlugin()` rejects
+any other value instead of letting every request time out at once.
+
 `httpPlugin()` also accepts `master: { enabled: true }`, but only when the
 selected application has a configured `MasterAuthority`. Do not expose a raw
 Master key to browser code.
