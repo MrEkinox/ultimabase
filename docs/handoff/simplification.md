@@ -41,7 +41,7 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
   privilèges retirés de l'API publique. Revue : changements d'ordre dans
   `contributions-observers.test.ts` (l'ordre global/schéma appartenait aux
   intercepteurs retirés) et message `protected policy selectionFields must be
-  an array` (préexistant, `protected-policy.ts:253`) jugés corrects.
+an array` (préexistant, `protected-policy.ts:253`) jugés corrects.
 - ADR-0289, seconde partie (agent) : chaînes réservées aux tests restantes —
   effet `constraints` de `protectedPolicy`, `databaseConstraint`, registre de
   compilateurs de contraintes, compilateur postgres ; `defineSchemaConstraint`,
