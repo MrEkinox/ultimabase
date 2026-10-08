@@ -179,7 +179,11 @@ unique index, so also declare `required: true` when absence must be forbidden.
 
 A URL-backed pool belongs to the application; an injected pool stays yours.
 Neither connection URLs, raw pools, Drizzle objects, nor driver messages appear
-in public plugin exports or framework errors. Reads and mutations still use
+in public plugin exports or framework errors. The server-side message of a
+failed connection names only the driver code, such as
+`PostgreSQL connection verification failed [SQLSTATE 28P01].` for rejected
+credentials, `[SQLSTATE 3D000]` for a missing database, or `[ECONNREFUSED]`
+when nothing listens at the address. Reads and mutations still use
 Core's policy and Runtime pipeline. This provider never grants access or
 installs Access, ACL, authentication, REST, or GraphQL.
 

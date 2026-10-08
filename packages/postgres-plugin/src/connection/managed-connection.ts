@@ -15,6 +15,20 @@ export interface ManagedPostgresConnection extends PostgresConnectionService {
 	getPool(): PostgresPool
 }
 
+const sqlStatePattern = /^[0-9A-Z]{5}$/u
+const systemCodePattern = /^E[A-Z0-9_]{1,39}$/u
+
+/**
+ * Names a driver code without its message: an SQLSTATE such as `28P01`
+ * (authentication) or `3D000` (missing database), or a Node system code such
+ * as `ECONNREFUSED`. Any other shape is omitted, never echoed.
+ */
+const describeDriverCode = (driverCode: string | undefined): string => {
+	if (driverCode === undefined) return ''
+	if (sqlStatePattern.test(driverCode)) return ` [SQLSTATE ${driverCode}]`
+	return systemCodePattern.test(driverCode) ? ` [${driverCode}]` : ''
+}
+
 /** Removes driver messages and causes because either may contain credentials. */
 const createSanitizedPostgresError = (
 	phase: 'connection' | 'disposal',
@@ -26,7 +40,7 @@ const createSanitizedPostgresError = (
 	return new FrameworkError(
 		'INTERNAL_ERROR',
 		connecting
-			? 'PostgreSQL connection verification failed.'
+			? `PostgreSQL connection verification failed${describeDriverCode(driverCode)}.`
 			: 'PostgreSQL pool disposal failed.',
 		{
 			publicMessage: connecting
