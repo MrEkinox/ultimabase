@@ -24,7 +24,7 @@ content evidence.
 | `examples/minimal`              | Canonical runnable first application and API setup            | Does not demonstrate every optional capability                                   |
 | `examples/todo-backend`         | Broader application scenario                                  | Must be checked against the current minimal architecture before reuse            |
 | `docs/adr`                      | Decision rationale, invariants, and historical context        | Never the primary learning path; accepted history may include superseded choices |
-| `issues`                        | Shipped acceptance evidence and known documentation gaps      | Planning language is not a public compatibility promise                          |
+| `ROADMAP.md`                    | Proposed directions and their archived issue context          | Planning language is not a public compatibility promise                          |
 | Tests                           | Executable evidence for edge cases and regressions            | Not a canonical prose contract and may rely on test-only helpers                 |
 
 ## Sitemap coverage

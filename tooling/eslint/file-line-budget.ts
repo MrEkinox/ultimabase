@@ -11,7 +11,7 @@ export interface FileLineBudgetPolicy {
 const generatedArtifactPattern =
 	/(?:^|\/)(?:coverage|dist|node_modules)\/|\.generated(?:\.d)?\.ts$/u
 const testFilePattern =
-	/(?:^|\/)tests?\/|\.test(?:-d)?\.ts$|^tooling\/prototypes\/generated-schema-authoring\/|^tooling\/vitest\/typescript-language-service\.ts$/u
+	/(?:^|\/)tests?\/|\.test(?:-d)?\.ts$|^tooling\/vitest\/typescript-language-service\.ts$/u
 
 const relativeFilename = (repositoryRoot: string, filename: string): string =>
 	path.relative(repositoryRoot, filename).replaceAll(path.sep, '/')

@@ -134,7 +134,7 @@ describe('documentation page actions', () => {
 			)
 			expect(roadmapResponse.status()).toBe(200)
 			expect(await roadmapResponse.text()).toContain(
-				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md)',
+				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#file-fields)',
 			)
 
 			const fullResponse = await page.request.get(`${origin}/llms-full.txt`)
@@ -147,7 +147,7 @@ describe('documentation page actions', () => {
 			expect(full).toContain('**npm**\n\n```bash\nmkdir ultimabase-first-app')
 			expect(full).toContain('- src/\n  - schema.ts')
 			expect(full).toContain(
-				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/issues/700-extensions/705-file-plugin.md)',
+				'[File fields](https://github.com/MrEkinox/ultimadatabase/blob/main/ROADMAP.md#file-fields)',
 			)
 			expect(full).toContain('```mermaid\nflowchart')
 			expect(full).not.toContain('\0')

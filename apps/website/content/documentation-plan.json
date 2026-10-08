@@ -3,7 +3,6 @@
 		{
 			"slug": "core",
 			"label": "Core",
-			"owner": "2824",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "ready",
 			"sources": [
@@ -149,7 +148,6 @@
 		{
 			"slug": "plugins",
 			"label": "Plugins",
-			"owner": "2824",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "ready",
 			"sources": [
@@ -266,7 +264,6 @@
 		{
 			"slug": "guides",
 			"label": "Guides",
-			"owner": "2814",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "partial",
 			"sources": [
@@ -292,7 +289,6 @@
 		{
 			"slug": "operations",
 			"label": "Operations",
-			"owner": "2824",
 			"audiences": ["operator", "application-developer"],
 			"sourceStatus": "partial",
 			"sources": [
@@ -318,7 +314,6 @@
 		{
 			"slug": "reference",
 			"label": "Reference",
-			"owner": "2824",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "ready",
 			"sources": [
@@ -339,7 +334,6 @@
 		{
 			"slug": "project",
 			"label": "Project",
-			"owner": "2822",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"sourceStatus": "partial",
 			"sources": [
@@ -358,7 +352,7 @@
 				{
 					"slug": "roadmap",
 					"contentType": "reference",
-					"outcome": "Find proposed capabilities and their tracking issues without mistaking them for commitments."
+					"outcome": "Find proposed capabilities and their roadmap context without mistaking them for commitments."
 				},
 				{
 					"slug": "contributing",
@@ -374,7 +368,6 @@
 			"slug": "home",
 			"contentType": "concept",
 			"outcome": "Understand the product promise and choose a next step.",
-			"owner": "2803",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
@@ -385,7 +378,6 @@
 			"slug": "what-is-ultimabase",
 			"contentType": "concept",
 			"outcome": "Understand UltimaBase's core model and choose the right next path.",
-			"owner": "2806",
 			"audiences": ["application-developer", "plugin-author", "operator"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
@@ -396,7 +388,6 @@
 			"slug": "quick-start",
 			"contentType": "tutorial",
 			"outcome": "Understand the generated project's first-run path and use manual installation until packages are published.",
-			"owner": "2908",
 			"audiences": ["application-developer"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",
@@ -417,7 +408,6 @@
 			"slug": "manual-installation",
 			"contentType": "tutorial",
 			"outcome": "Start and verify a minimal schema-backed PostgreSQL application from a manually configured project.",
-			"owner": "2806",
 			"audiences": ["application-developer"],
 			"releaseStatus": "pre-release",
 			"sourceStatus": "ready",

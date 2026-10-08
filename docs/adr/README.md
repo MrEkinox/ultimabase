@@ -8,9 +8,8 @@ repository preserves its public contract and behavior, so every decision keeps
 the status listed here and accepted decisions remain in force. When an ADR names
 an internal module, file, or helper, it describes the reference implementation;
 the rebuilt module layout is documented in
-[`ARCHITECTURE.md`](../../ARCHITECTURE.md#module-layout), the
-[current architecture index](../current-architecture.md), and each package's
-`REBUILD*.md` file.
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md#module-layout) and the
+[current architecture index](../current-architecture.md).
 
 Current records (accepted or still active in part):
 

@@ -1,10 +1,9 @@
 # Test ownership
 
-The rebuild of this repository left every test under `tests/` and every
-package `tests/` directory unchanged: they are the parity oracle of the
-[rebuild protocol](../docs/rebuild/PROTOCOL.md). Only focused internal tests
-beside the source were ported when a module moved, without losing an assertion;
-each package `REBUILD*.md` lists those edits.
+Tests under `tests/`, package `tests/` directories, `*.test-d.ts` files and
+tests importing only public entries protect the public contract: change them
+only when that contract deliberately changes. Internal tests beside the source
+follow their modules and must not lose an assertion when they move.
 
 - `e2e`: complete application behavior across multiple packages.
 - `fixtures`: schemas and application configurations shared by tests.
@@ -78,8 +77,7 @@ that invoke built exports exclusively through Node subprocesses: Vitest's source
 aliases cannot affect either path. They run once through the built E2E project,
 including in complete GitHub validation. The discovery guard keeps their explicit
 exceptions separate from source-coverable E2E; production coverage inclusion and
-thresholds stay unchanged. See the archived
-[test audit](../docs/plans/2026-09-19-test-execution-audit.md).
+thresholds stay unchanged.
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
@@ -90,7 +88,7 @@ Docker.
 - `yarn validate`: run the ordinary repository format, type, unit/type/performance
   test, lint, and build contract in its canonical order.
 - `yarn validate:full`: extend `yarn validate` with complete source-mode coverage,
-  issue metadata, dependency constraints, and public-documentation validation.
+  dependency constraints, and public-documentation validation.
 - `yarn test`: run package unit tests, compile-time type tests, and deterministic performance budgets.
 - `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run ordinary and PostgreSQL E2E tests.
@@ -103,7 +101,6 @@ Docker.
   worker for the serial performance project. Do not use `VITEST_MAX_WORKERS`:
   its native override also changes serial projects' resolved worker limit.
 - `yarn test:types`: run compile-time type tests only.
-- `yarn check:issues`: validate the archived issue backlog and checkpoint.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.
 
 ## Package commands
@@ -148,8 +145,22 @@ behavior. See [ADR-0251](../docs/adr/0251-affected-github-validation.md) and
 
 ## Load-sensitive suites
 
-Some suites depend on machine load: the packed `create-app` graph test (120 s
-timeout), packed archive audits, the Typegen hybrid-authoring performance
-budget, and PostgreSQL suites that use Vitest's default 5 s timeout. Their
-known failure modes and qualification on the reference and the rebuild are in
-[the validation correspondence](../docs/rebuild/VALIDATIONS.md#known-load-sensitive-tests).
+Some suites depend on machine load. Rerun them alone on a calm machine before
+concluding anything from a failure:
+
+- `packages/create-app/tests/e2e/create-app-packed.e2e.test.ts` (120 s timeout,
+  dominated by building 16 generated projects);
+- packed archive audits such as `core-archive-declarations` (10 s and 20 s
+  timeouts);
+- the Typegen `hybrid-authoring` performance budget;
+- PostgreSQL E2E suites, which use Vitest's default 5 s timeout: one slow test
+  can leave its application active and cascade "Another UltimaBase application
+  is active" failures;
+- `create-app-api.postgres.e2e.test.ts`, which listens on `127.0.0.1:1337`.
+
+PostgreSQL suites using the minimal example can also fail intermittently with
+`Schema ExampleArticle has not been compiled by an application`. This is a
+Vitest module-runner race, also present in the reference: parallel
+`vi.importActual` calls in `loadMinimalExample`
+(`tests/e2e/rest-public-vertical-support.ts`) can evaluate
+`examples/minimal/src/schema.ts` twice in one worker.

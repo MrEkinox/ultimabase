@@ -68,7 +68,6 @@ const testProjects: TestProjectConfiguration[] = [
 				'tooling/ci/**/*.test.ts',
 				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
-				'tooling/issues/**/*.test.ts',
 				'tooling/vitest/**/*.test.ts',
 			],
 			exclude: ['**/*.e2e.test.ts', '**/*.performance.test.ts'],

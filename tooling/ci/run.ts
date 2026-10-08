@@ -10,15 +10,9 @@ const strings = (value: unknown): value is string[] =>
 	value.every((entry: unknown) => typeof entry === 'string')
 const validPlan = (value: unknown): value is CiPlan =>
 	record(value) &&
-	[
-		'full',
-		'build',
-		'coverage',
-		'tooling',
-		'documentation',
-		'issues',
-		'website',
-	].every((key) => typeof value[key] === 'boolean') &&
+	['full', 'build', 'coverage', 'tooling', 'documentation', 'website'].every(
+		(key) => typeof value[key] === 'boolean',
+	) &&
 	['changed', 'transversal', 'workspaceLint'].every((key) =>
 		strings(value[key]),
 	) &&
@@ -105,19 +99,10 @@ switch (process.argv[2]) {
 		if (plan.full) run(['format:check'])
 		else if (formatted.length > 0)
 			run(['prettier', '--check', '--ignore-unknown', '--', ...formatted])
-		if (plan.issues && !plan.documentation && !plan.tooling && !plan.coverage)
-			run(['check:issues'])
 		if (plan.documentation) {
 			// The complete tooling selection below already includes the documentation guards.
 			if (!plan.tooling && !plan.coverage)
-				run([
-					'vitest',
-					'run',
-					'--project',
-					'unit',
-					'tooling/documentation/',
-					'tooling/issues/',
-				])
+				run(['vitest', 'run', '--project', 'unit', 'tooling/documentation/'])
 			// Landing example compilation depends on built exports, not documentation prose.
 			run(
 				plan.build

@@ -11,12 +11,10 @@
 	"workspaces": [
 		"apps/*",
 		"examples/*",
-		"packages/*",
-		"tooling/*"
+		"packages/*"
 	],
 	"scripts": {
 		"build": "yarn workspaces foreach --all --topological --no-private run build",
-		"check:issues": "vitest run --project unit tooling/issues",
 		"changeset": "changeset",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
@@ -24,7 +22,7 @@
 		"lint:core": "eslint packages/core",
 		"lint:packages": "eslint packages --ignore-pattern 'packages/core/**'",
 		"lint:workspace": "eslint apps examples tests tooling eslint.config.ts tsdown.config.ts vitest.config.ts --no-error-on-unmatched-pattern",
-		"measure:simplification": "node tooling/architecture/measure-simplification.ts",
+		"measure:size": "node tooling/measure-size.mjs",
 		"measure:runtime-baseline": "tsc --ignoreConfig --module nodenext --moduleResolution nodenext --target es2023 --types node --skipLibCheck --strict --outDir node_modules/.cache/ultimabase-architecture tooling/architecture/measure-runtime-baseline.ts tests/performance/fixtures/deterministic-database.ts && node --expose-gc node_modules/.cache/ultimabase-architecture/tooling/architecture/measure-runtime-baseline.js",
 		"release:publish": "yarn test:all && changeset publish",
 		"test": "vitest run --project unit --project types --project performance",
@@ -39,7 +37,7 @@
 		"test:watch": "vitest --project unit --watch",
 		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json",
 		"validate": "yarn format:check && yarn typecheck && yarn test && yarn lint && yarn build",
-		"validate:full": "yarn validate && yarn test:coverage && yarn check:issues && yarn constraints && yarn website:validate",
+		"validate:full": "yarn validate && yarn test:coverage && yarn constraints && yarn website:validate",
 		"website:build": "yarn workspace @ultimabase/website build",
 		"website:build:public": "yarn workspace @ultimabase/website build:public",
 		"website:dev": "yarn workspace @ultimabase/website dev",

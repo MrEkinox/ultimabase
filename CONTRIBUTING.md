@@ -2,26 +2,23 @@
 
 ## Workflow
 
-This repository rebuilds the reference implementation package by package with
-an unchanged public contract. The issue backlog in `issues/`, `docs/plans/`
-and `CURRENT_PLAN.md` are the frozen archive of the reference's development:
-they explain past decisions but are not a source of new work.
+UltimaBase is pre-release. Proposed directions live in [ROADMAP.md](ROADMAP.md);
+the development history is archived in the Git tags `reference-archive` and
+`rebuild-archive` and is not a source of new work.
 
 1. Read `README.md` and the README of each package you will change. Coding
    agents must also follow `AGENTS.md`.
-2. Read [the rebuild protocol](docs/rebuild/PROTOCOL.md) and the `REBUILD*.md`
-   of the packages in scope. Take one scope agreed with the maintainer.
-3. Create a focused branch, for example with `tooling/rebuild-worktree.sh <name>`.
-4. Implement code, runtime tests, type tests, and documentation together. Keep
-   public tests unchanged; record the module mapping, removed checks and
-   parity evidence in the package `REBUILD.md`.
+2. Agree on the scope with the maintainer, through an issue or a roadmap entry.
+3. Create a focused branch.
+4. Implement code, runtime tests, type tests, and documentation together. A
+   behavior-preserving change keeps public tests unchanged and passes
+   [the DX audit](tooling/dx-audit/README.md) against a built baseline.
 5. Record one documentation-impact classification: `none`, `internal
 engineering documentation`, `public website documentation`, or `both`.
    Explain `none`; otherwise update the affected documentation in the change.
 6. Run `yarn validate` for ordinary work and `yarn validate:full` before
    completing a debt reduction or behavior-preserving refactor. The
-   [validation correspondence](docs/rebuild/VALIDATIONS.md) maps every command
-   to what it covers.
+   [test guide](tests/README.md) describes what each command covers.
 7. Add a Changeset when a public package contract changes.
 
 ## Definition of done
@@ -62,8 +59,7 @@ test(query): cover immutable branching
 ## Pull requests
 
 Describe the change, architectural impact, documentation-impact classification,
-tests run, and any temporary compromise. Link the affected `REBUILD*.md` files
-and ADRs. Internal
+tests run, and any temporary compromise. Link the affected ADRs. Internal
 refactors may classify documentation impact as `none` with a reason; they do not
 need meaningless prose changes.
 

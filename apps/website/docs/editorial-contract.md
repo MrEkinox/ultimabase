@@ -120,7 +120,6 @@ audience:
   - application-developer
 contentType: tutorial
 outcome: Start and verify a minimal UltimaBase application.
-owner: '2806'
 releaseStatus: pre-release
 reviewedAt: 2026-09-14
 sources:
@@ -128,8 +127,7 @@ sources:
 ```
 
 `audience` accepts `application-developer`, `plugin-author`, and `operator`.
-`contentType` accepts the five templates above. `owner` is the issue that owns
-the page's public contract. `sources` lists the repository paths that must be
+`contentType` accepts the five templates above. `sources` lists the repository paths that must be
 checked when behavior changes. `reviewedAt` records the last deliberate review
 of the complete page against those sources; it is rendered in the page footer
 beside the source-edit link.

@@ -5,41 +5,31 @@ followed by the module layout of the rebuilt implementation. Use the
 [current architecture index](docs/current-architecture.md) to locate a
 concept's maintained contract, responsible code, and accepted ADRs.
 
-## Reconstruction
+## History
 
-This repository is a reconstruction of the reference implementation at commit
-`0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`. The first commit of `main`
-(`edf3032`) imports that snapshot unchanged, so `git diff edf3032` shows the
-whole rebuild. The rebuild rewrote internal implementations only:
+The current implementation is a package-by-package rebuild of the reference
+implementation (commit `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`, tag
+`reference-archive`). The rebuild rewrote internal implementations only:
 
 - The public contract is unchanged: package exports and `package.json`
   exports, signatures, generics, literal types and JSDoc, inference,
   completion, hover text and diagnostics, observable behavior, error classes,
   codes and messages, ordering, transactions, and security guarantees.
-- Each package, and Core in five partitions plus one integration pass, was
-  rewritten in an isolated branch under the
-  [rebuild protocol](docs/rebuild/PROTOCOL.md). Public tests stayed unchanged
-  and served as the oracle; internal tests were ported without losing an
-  assertion; every validation was replayed before the merge.
-- Every package records its module mapping, removed checks with proofs, casts,
-  test mapping, parity evidence, and validation results in its own
-  `REBUILD.md` (Core: `packages/core/REBUILD-core-*.md`).
+- Public tests stayed unchanged and served as the oracle; internal tests were
+  ported without losing an assertion.
 - The few deliberate observable differences, all on untyped or forged inputs,
   are listed in [`docs/rebuild/DIFFERENCES.md`](docs/rebuild/DIFFERENCES.md).
-  Editor-visible parity is audited by `tooling/rebuild/dx-audit.mjs`
-  ([DX-AUDIT.md](docs/rebuild/DX-AUDIT.md)), and the validation correspondence
-  is in [`docs/rebuild/VALIDATIONS.md`](docs/rebuild/VALIDATIONS.md).
 - Production code went from 114,742 to 104,141 non-blank lines (731 to 622
-  files, `node tooling/measure-rebuild.mjs`). Test code keeps its size (127,477
-  lines): public tests are unchanged, and internal tests beside the source only
-  had import specifiers updated. The published runtime dependencies are the
+  files, `yarn measure:size`). The published runtime dependencies are the
   same 16 packages.
 
-Accepted ADRs remain in force: the rebuild preserves every decision they
-record. The issue backlog (`issues/`), `docs/plans/`, `CURRENT_PLAN.md`, and
-`HISTORIQUE_SUPPRESSIONS.md` are the frozen archive of the reference's
-development; when they or an ADR name an internal module, they describe the
-reference layout, not the [current one](#module-layout).
+The process records of that rebuild (protocol, per-package `REBUILD*.md`
+mappings and validation evidence) are archived at tag `rebuild-archive`; the
+reference's issue backlog and plans are archived at tag `reference-archive`.
+Accepted ADRs remain in force. When an ADR names an internal module, it
+describes the reference layout, not the [current one](#module-layout).
+Editor-visible behavior of later refactors is compared with
+[the DX audit](tooling/dx-audit/README.md).
 
 ## System shape
 
@@ -395,7 +385,8 @@ or a database implementation.
 This section describes the rebuilt source layout. Paths are relative to each
 package's `src/` directory. A module kept at a reference path is often kept
 because a website page lists it in its `sources` frontmatter or because a
-frozen test deep-imports it; the package `REBUILD*.md` files record each case.
+test deep-imports it; the package `REBUILD*.md` files archived at tag
+`rebuild-archive` record each case.
 
 ### Core domains
 
@@ -427,10 +418,8 @@ after the rebuild.
 
 Core production went from 63,660 to 58,694 non-blank lines (schema −1,349,
 plugins/application/errors −703, query −690, runtime application domain −916,
-runtime pipeline domain −1,029, then −279 in the integration pass). See
-`packages/core/REBUILD-core-schema.md`, `REBUILD-core-plugins.md`,
-`REBUILD-core-query.md`, `REBUILD-core-runtime-app.md`,
-`REBUILD-core-runtime-pipeline.md` and `REBUILD-core-integration.md`.
+runtime pipeline domain −1,029, then −279 in the integration pass). The
+per-domain records are archived at tag `rebuild-archive`.
 
 ### Official packages
 
@@ -463,7 +452,7 @@ runtime pipeline domain −1,029, then −279 in the integration pass). See
 
 The rebuild counts as simplification only what removes indirection or
 duplication; it never compacts formatting, moves code into tests, weakens a
-check, or adds `any` or unjustified casts ([protocol](docs/rebuild/PROTOCOL.md)).
+check, or adds `any` or unjustified casts.
 The recurring changes are:
 
 - **One implementation per boundary check.** Exact-object and unknown-key
@@ -489,7 +478,7 @@ The recurring changes are:
   paths alive were removed once the partitions were integrated. Production
   files went from 731 to 619.
 - **Unreachable checks removed with proof.** Each removed check is listed in
-  its package `REBUILD*.md` with the earlier check that already rejects the
+  its archived package `REBUILD*.md` with the earlier check that rejects the
   same input and the test that proves it.
 - **Prototype-safe copies.** Records keyed by developer-declared names are
   built with `Object.fromEntries` or `Map` instead of assignment loops. This
@@ -879,9 +868,10 @@ unmatched columns and private/orphaned storage for explicit external review.
 
 - [`docs/adr/`](docs/adr/README.md): decision records, which remain in force.
 - [`docs/concepts/`](docs/concepts/README.md): detailed contracts.
-- [`docs/rebuild/`](docs/rebuild/PROTOCOL.md): the rebuild protocol,
-  [behavior differences](docs/rebuild/DIFFERENCES.md),
-  [editor-visible parity audit](docs/rebuild/DX-AUDIT.md), and
-  [validation correspondence](docs/rebuild/VALIDATIONS.md).
-- `packages/*/REBUILD.md` and `packages/core/REBUILD-core-*.md`: per-package
-  module mapping, parity evidence, and validation results.
+- [`docs/rebuild/DIFFERENCES.md`](docs/rebuild/DIFFERENCES.md): deliberate
+  observable differences from the reference implementation.
+- [`tooling/dx-audit/`](tooling/dx-audit/README.md): the editor-visible audit
+  that compares a baseline checkout with a candidate.
+- [ROADMAP.md](ROADMAP.md): proposed directions.
+- Tags `reference-archive` and `rebuild-archive`: the reference's issue
+  backlog and plans, and the rebuild's per-package records.

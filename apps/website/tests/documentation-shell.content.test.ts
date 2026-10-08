@@ -186,7 +186,6 @@ describe('public documentation content contract', () => {
 				/^contentType: (tutorial|guide|concept|troubleshooting|reference)$/mu,
 			)
 			expect(page.source).toMatch(/^outcome: .+$/mu)
-			expect(page.source).toMatch(/^owner: ['"]?\d{4}['"]?$/mu)
 			expect(page.source).toMatch(/^releaseStatus: (pre-release|stable)$/mu)
 			expect(page.source).toMatch(/^reviewedAt: \d{4}-\d{2}-\d{2}$/mu)
 			expect(page.source).toMatch(/^sources:\n(?: {2}- .+\n?)+/mu)
