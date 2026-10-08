@@ -672,7 +672,7 @@ decode, execute, or authorize anything.
 Plugin-owned schema mutations use a separate binding family under the same
 canonical transport identity. The mutation owner contributes one nominal
 `schemaMutationWireCodec()` through the mutation contribution's `bindings`
-list (or `contributeSchemaMutationBinding()`). The planner's
+list. The planner's
 `planSchemaMutations({ transport })` method returns only callback-free,
 schema-local descriptors; after startup,
 `ApplicationRequestExecutor.exposeSchemaMutations({ transport })` returns the
@@ -1546,9 +1546,10 @@ repository protects this boundary with the deterministic
 
 ## Policy-neutral enforcement primitives
 
-Core exposes policy-neutral enforcement factories without adding product names to Runtime.
-Definitions are materialized through the exact privilege-scoped
-`provideRuntimeConstraint()` capability facade:
+Core exposes two policy-neutral enforcement factories without adding product
+names to Runtime: `guard()` and `protectedPolicy()`. Definitions are
+materialized through the exact privilege-scoped `provideRuntimeConstraint()`
+capability facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -1561,21 +1562,16 @@ const tenantPlugin = (tenantId: string) =>
 		},
 		contributions: [
 			provideRuntimeConstraint({
-				contributionId: 'tenant-row-filter',
+				contributionId: 'tenant-policy',
 				create: () => ({
-					value: constraint({
+					value: protectedPolicy({
 						schema: PostSchema,
-						handler: () =>
-							databaseConstraint('example.tenant', 1, { tenantId }),
-					}),
-				}),
-			}),
-			provideRuntimeConstraint({
-				contributionId: 'tenant-visible-fields',
-				create: () => ({
-					value: restrictSelection({
-						schema: PostSchema,
-						handler: () => ['id', 'title'],
+						evaluate: () => ({
+							constraints: databaseConstraint('example.tenant', 1, {
+								tenantId,
+							}),
+							selectionFields: ['id', 'title'],
+						}),
 					}),
 				}),
 			}),
@@ -1583,18 +1579,17 @@ const tenantPlugin = (tenantId: string) =>
 	})
 ```
 
-`guard` only allows or throws. `constraint` returns protected namespaced,
-versioned `databaseConstraint` nodes that Runtime appends for the adapter. The
-version selects the exact payload contract registered by its compiler.
-`restrictInput`, `restrictSelection`, and `restrictOutput` return allowed field
-names that compose by intersection. Restricted mutation input is rejected,
-while selection and output restrictions project excluded fields away. Runtime
-evaluates guards, constraints, input restrictions, and selection restrictions
-before business effects, keeps the accumulated state private, then reevaluates
-monotonically and reapplies input and selection limits after operation
-transforms. It evaluates output restrictions once against the fully transformed
-result. No policy
-contribution means no enforcement stage or permission placeholder.
+`guard` only allows or throws. A protected policy's `evaluate` effects append
+namespaced, versioned `databaseConstraint` nodes for the adapter (the version
+selects the exact payload contract registered by its compiler), AND private
+row filters, and return allowed `inputFields` and `selectionFields` that
+compose by intersection. Restricted mutation input is rejected, while selection
+restrictions project excluded fields away, again after business result
+transforms. `restrictResult` may only omit values from the final result.
+Runtime evaluates guards and protected policies before business effects, keeps
+the accumulated state private, then reevaluates guards and reapplies input and
+selection limits after operation transforms. No policy contribution means no
+enforcement stage or permission placeholder.
 Each definition may opt into `master: "bypass"`; omission enforces it for
 master too, so trusted provider-internal queries skip only explicitly bypassable
 policy work before hook-recursion checks.
@@ -1763,45 +1758,20 @@ exclusive service maps to a `single` application capability, while behavior
 intended for application developers is exposed through the owning plugin's
 typed setup export.
 
-### Adapter bridge capabilities
+### Adapter boundaries
 
-Portable plugins negotiate adapter behavior through four independent Core
-tokens: `adapterValueStorageCapability`, `adapterConstraintCapability`,
-`adapterPersistencePlanCapability`, and `adapterPhysicalSchemaCapability`.
-Requiring one needs `adapter:consume` and fails during application assembly
-when no compatible provider exists. Providers use `provideAdapterCapability()`;
-a generic capability declaration cannot present itself as adapter support.
-
-Database-specific packages define physical-schema contribution tokens with
-`defineAdapterContributionCapability()`. Core attaches the actual plugin and
-instance IDs, package/protocol versions, contribution ID, adapter family,
-normalized static options and payload before composition. Providers cannot
-claim another owner. Both providing and consuming physical metadata require
-`adapter:consume`; all physical snapshot fields remain available.
+Portable plugins reach the database only through Core's neutral adapter
+contracts (`databaseAdapterCapability`, `databasePersistencePlanCapability`,
+constraint compilers and the private-storage protocol). ADR-0289 removed the
+test-only adapter support tokens, attributed physical-schema contributions and
+raw adapter leases with the `adapter:raw` privilege; a future community need
+reopens them with a real consumer and a new ADR.
 
 ADR-0266 removes migration support/intent tokens, `planAdapterMigrations`,
 its exclusive types and `migration:contribute`. Core no longer classifies
 contribution upgrades or orphans. This does not authorize destructive storage
 cleanup: current PostgreSQL synchronization preserves unmatched storage.
 A future database migration product must decide its integration separately.
-
-Raw integration is deliberately adapter-specific. The adapter package exports
-a nominal token created with `defineAdapterRawCapability()`, and the consumer
-must require that exact token plus `adapter:raw`. Setup and operation handlers
-receive only the Core-owned lease callback:
-
-```ts
-const databaseRaw = requireCapability(databaseRawCapability, '^1.0.0')
-
-setup: ({ adapters }) =>
-	adapters.withRaw(databaseRaw, async (database) => {
-		return database.inspectDialect()
-	})
-```
-
-The facade is revoked when the callback settles. Runtime raw access additionally
-requires an active transaction and receives no request authority, Master grant,
-protected-constraint controls, or generic SQL contract from Core.
 
 ### Owner-private plugin storage
 
@@ -2046,11 +2016,11 @@ const WorkflowApplication = UltimaBase.use(
 const ultimabase = new WorkflowApplication({
 	schemas: [PostSchema],
 	pluginPrivileges: {
-		deny: ['adapter:raw'],
+		deny: ['authority:elevate'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
-				deny: ['adapter:raw'],
+				deny: ['authority:elevate'],
 				instances: {
 					editorial: {
 						deny: ['transport:expose'],
@@ -2141,8 +2111,8 @@ Milestone 14 maps the removed generic paths as follows:
 - unused operator, generator, and transport registry categories are removed
   without replacement.
 
-Core owns normalization and transaction commit. Plugins use
-`beforeOperation`, `afterOperation` or `preparedOperation` with
+Core owns normalization and transaction commit. Plugins use Runtime behavior
+stages with `provideRuntimeBehavior()` or `preparedOperation` with
 `provideRuntimeInterceptor()` under `runtime:intercept`; they cannot contribute
 normalization/commit stages. ADR-0264 removes `runtimePipelineStage()` and its
 four authoring types. Transactions, Hook `beforeCommit`/`afterCommit`, callback

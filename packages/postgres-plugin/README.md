@@ -130,44 +130,20 @@ semantics. PostgreSQL rejects unsupported versions, statement kinds, target
 schemas, and result correlations before or inside the protected execution
 boundary.
 
-## Adapter bridge capabilities
+## Adapter boundaries
 
-`postgresPlugin` advertises PostgreSQL support separately for portable JSON
-value codecs, opaque constraints, persistence-plan kinds and physical schema.
-A logical plugin can require the corresponding neutral Core token without
-importing this package. PostgreSQL owns Drizzle compilation, physical column
-types and database effects.
-
-Database-specific bridge plugins contribute columns with
-`postgresPhysicalColumn()` under `adapter:consume`. The setup export exposes
-Core-attributed immutable snapshots at `adapterMetadata.physicalSchema`,
-including the actual plugin/instance identity, package/protocol versions,
-contribution ID, normalized options and payload. Direct preparation compiles
-these columns into desired state without changing their provenance.
+`postgresPlugin` implements Core's neutral `DatabaseAdapter` contract,
+advertises `databasePersistencePlanCapability`, and compiles opaque protected
+constraints registered with `postgresConstraintCompiler()`. PostgreSQL owns
+Drizzle compilation, physical column types and database effects.
 
 ADR-0266 removes `postgresUpgrade()`, the migration contribution protocol and
-`adapterMetadata.migrations`; no migration planner or history is shipped.
-Physical metadata and direct synchronization remain available.
-
-Adapter-specific queries require the nominal
-`postgresRawAdapterCapability` and `adapter:raw`. The setup lease reports only
-the inert PostgreSQL dialect identity. Inside a transaction-required operation,
-the lease exposes a parameterized `query()` facade backed by the same borrowed
-client as Runtime:
-
-```ts
-const rawPostgres = requireCapability(postgresRawAdapterCapability, '^1.0.0')
-
-execute: ({ adapters }) =>
-	adapters.withRaw(rawPostgres, async (postgres) => {
-		if (postgres.scope !== 'transaction') return
-		await postgres.query('SELECT pg_advisory_xact_lock($1)', [lockId])
-	})
-```
-
-The facade is revoked when the callback settles, commits and rollbacks remain
-owned by Runtime, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority,
-nor a portable raw SQL API is exposed.
+migration metadata; no migration planner or history is shipped. ADR-0289
+removes the test-only adapter support providers, `postgresPhysicalColumn()`
+physical-schema contributions with their `adapterMetadata` export, and the
+`postgresRawAdapterCapability` raw lease. Direct synchronization remains
+available, and neither `pg.Pool`, `PoolClient`, Drizzle, Master authority nor
+a raw SQL API is exposed.
 
 Adapter integration plugins register exact kind-and-version compilers during
 application setup. PostgreSQL combines every resulting predicate with the

@@ -416,7 +416,7 @@ after the rebuild.
 | `runtime/transactions/`, `runtime/context/`, `runtime/master/`, `runtime/cancellation/`                | Transactions, request context, Master authority, cancellation                                    | `transactions/run-transaction.ts` (identity, callback, lifetime, commit, rollback and post-commit flush in one function), `transactions/pipeline-transaction.ts`, `context/active-framework-context.ts`, `master/master-authority.ts`                                                                                                                                            |
 | `runtime/nested-writes/`, `runtime/relations/`, `runtime/relation-filters/`, `runtime/virtual-fields/` | Nested-write execution, relation mutations and inclusions, contextual relation filters, virtuals | `nested-writes/runtime-host.ts`, `relations/relation-mutation.ts`, `relation-filters/execution.ts`, `virtual-fields/execution.ts`                                                                                                                                                                                                                                                |
 | `runtime/plugin-operations/`, `runtime/schema-mutations/`, `runtime/commands/`                         | Plugin operations, plugin schema mutations, command bindings and transport projections           | `plugin-operations/request-execution.ts`, `plugin-operations/engine-integration.ts`, `schema-mutations/runtime.ts`, `schema-mutations/request-execution.ts`, `schema-mutations/transport.ts`, `commands/transport-projection.ts`                                                                                                                                                 |
-| `runtime/database/`, `runtime/adapters/`, `runtime/persistence/`, `runtime/operations/`                | Database adapter contracts, raw access, persistence plans, result materialization                | `database/contracts.ts`, `adapters/raw-access.ts`, `persistence/plans.ts`, `persistence/execution.ts`, `operations/materialize-result.ts`                                                                                                                                                                                                                                        |
+| `runtime/database/`, `runtime/persistence/`, `runtime/operations/`                                     | Database adapter contracts, persistence plans, result materialization                            | `database/contracts.ts`, `persistence/plans.ts`, `persistence/execution.ts`, `operations/materialize-result.ts`                                                                                                                                                                                                                                                                  |
 | `private-storage/`                                                                                     | Owner-private plugin records                                                                     | `runtime.ts` (reads the engine internals instead of its own registration), `registry.ts`, `request.ts`                                                                                                                                                                                                                                                                           |
 
 Core production went from 63,660 to 58,694 non-blank lines (schema −1,349,
@@ -627,7 +627,7 @@ Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
 facades and make powers inspectable; separate environmental claims describe
 direct filesystem, network, process, or native-code behavior that Core cannot
 verify. Neither mechanism is an operating-system sandbox. Critical privileges
-include private storage, raw adapter access, and authority elevation. Core exposes no filesystem, network, or Typegen replacement
+are private storage and authority elevation. Core exposes no filesystem, network, or Typegen replacement
 privilege without a corresponding enforceable facade. Master credential
 verification and grant creation remain Core-owned. An explicitly configured
 HTTP plugin may pass one raw key to the exact application authority selected by
@@ -713,7 +713,7 @@ behavior composition, protected monotonic constraints, transactions,
 cancellation, persistence plans, result materialization, and post-commit
 observer boundaries. It installs no concrete behavior or policy engine.
 ADR-0264 removes plugin contribution of normalization/commit stages; Core owns
-these assembly boundaries. Logical before/after/prepared-operation interceptors
+these assembly boundaries. Runtime behaviors and prepared-operation interceptors
 retain their nominal capability, privileges, deterministic order and exact
 callback owner, as do Hook transaction callbacks and post-commit delivery.
 
@@ -730,10 +730,10 @@ does not depend on that product: it contributes Core `protectedPolicy()` values
 and adapter constraints directly. Roles and authentication may supply optional
 request subjects but grant nothing by themselves.
 
-The low-level `beforeOperation()`, `afterOperation()`,
-and `preparedOperation()` factories are generic Runtime
-contributions, not built-in schema Hooks. Their inputs use immutable
-`RequestContext`. Core executes such callbacks through a product-neutral
+The low-level `preparedOperation()` factory is a generic Runtime
+contribution, not a built-in schema Hook. Its input uses immutable
+`RequestContext`; ADR-0289 removed the unconsumed `beforeOperation()` and
+`afterOperation()` interceptor factories in favor of Runtime behaviors. Core executes such callbacks through a product-neutral
 cancellation and recursion boundary; concrete plugins may add stricter
 lifecycle contexts internally.
 
@@ -840,10 +840,10 @@ metadata, and `FakeAdapterMigrationHistory`. No migration product, history
 storage, SQL runner or replacement integration is introduced. Future migration
 work must decide its integration against the then-current kernel.
 
-Physical contribution snapshots retain every field: actual plugin/instance
-identity, package/protocol versions, contribution and adapter IDs, family,
-normalized static options and payload. Private storage descriptors, fingerprints,
-codecs, transaction leases and lifecycle preparation remain unchanged. Removing
+ADR-0289 also removes the test-only adapter support tokens, attributed
+physical-schema contributions and raw adapter leases. Private storage
+descriptors, fingerprints, codecs, transaction leases and lifecycle preparation
+remain unchanged. Removing
 a plugin does not authorize a destructive drop; existing synchronization keeps
 unmatched columns and private/orphaned storage for explicit external review.
 

@@ -45,13 +45,13 @@ export const publishPost = defineOperation({
 
 Generic operations target `application`; item-oriented commands use schema mutations. The
 provider receives the validated `input`, resolved `target`, immutable request
-`context`, `engine`, capability `adapters`, and exact contribution `owner`:
+`context`, `engine`, and exact contribution `owner`:
 
 ```ts
 const publishContribution = contributeOperation({
 	operation: publishPost,
-	execute: async ({ adapters, context, engine, input, owner, target }) =>
-		executePublish({ adapters, context, engine, input, owner, target }),
+	execute: async ({ context, engine, input, owner, target }) =>
+		executePublish({ context, engine, input, owner, target }),
 })
 ```
 
@@ -178,7 +178,7 @@ const Application = UltimaBase.use(workflowPlugin({ instanceId: 'editorial' }))
 const ultimabase = new Application({
 	schemas: [PostSchema],
 	pluginPrivileges: {
-		deny: ['adapter:raw'],
+		deny: ['storage:private'],
 		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
@@ -218,10 +218,10 @@ ownership, capability versions, and application lifetime are validated at Runtim
 ## Adapter, transport, and community helpers
 
 A portable plugin declares logical values and operations independently. A
-database bridge contributes codecs, constraints, persistence plans, or physical
-schema metadata through versioned adapter capabilities. A
+database bridge contributes codecs, constraint compilers, or persistence-plan
+rewrites through Core's neutral adapter contracts. A
 transport bridge contributes an explicit wire codec and exposure binding.
-Installing the logical plugin alone exposes neither raw adapter access nor a
+Installing the logical plugin alone exposes neither adapter access nor a
 public endpoint.
 
 `@ultimabase/plugin-kit` removes repeated immutable declaration and composition

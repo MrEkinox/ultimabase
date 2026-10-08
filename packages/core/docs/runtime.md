@@ -112,10 +112,12 @@ its exact schema and plugin tuples. A missing or malformed database adapter,
 invalid pipeline contribution, or unusable application state fails
 during assembly, before any operation can execute.
 
-Core owns normalization and transaction commit. Plugins contribute logical
-`beforeOperation`, `afterOperation` and `preparedOperation` definitions through
-`provideRuntimeInterceptor()`; the former `runtimePipelineStage()` factory and
-its types are removed by ADR-0264. Hook `beforeCommit`/`afterCommit` and
+Core owns normalization and transaction commit. Plugins contribute Runtime
+behavior stages through `provideRuntimeBehavior()` and the logical
+`preparedOperation` definition through `provideRuntimeInterceptor()`; the
+former `runtimePipelineStage()` factory and its types are removed by ADR-0264,
+and ADR-0289 removes the unconsumed `beforeOperation()`/`afterOperation()`
+interceptor factories. Hook `beforeCommit`/`afterCommit` and
 post-commit delivery retain their existing boundaries. Policies provide
 protected definitions through the exact `provideRuntimeConstraint()` facade:
 
@@ -133,22 +135,17 @@ const tenantPlugin = (tenantId: string) =>
 		],
 		contributions: [
 			provideRuntimeConstraint({
-				contributionId: 'example.tenant-constraint',
+				contributionId: 'example.tenant-policy',
 				create: () => ({
-					value: constraint({
+					value: protectedPolicy({
 						schema: ArticleSchema,
 						operations: ['find-many', 'find-one', 'get'],
-						handler: () =>
-							databaseConstraint('example.tenant', 1, { tenantId }),
-					}),
-				}),
-			}),
-			provideRuntimeConstraint({
-				contributionId: 'example.tenant-selection',
-				create: () => ({
-					value: restrictSelection({
-						schema: ArticleSchema,
-						handler: () => ['id', 'title'],
+						evaluate: () => ({
+							constraints: databaseConstraint('example.tenant', 1, {
+								tenantId,
+							}),
+							selectionFields: ['id', 'title'],
+						}),
 					}),
 				}),
 			}),
@@ -176,9 +173,8 @@ are materialized before setup; there is no `runtime`, `events`, or `pipeline`
 setup registry.
 
 `normalization` and `commit` contributions compose in dependency-first plugin
-order. Enforcement factories are `guard`, `constraint`, `restrictInput`,
-`restrictSelection`, and `restrictOutput`. Their handlers never receive another
-plugin's accumulated state. Runtime appends constraints for adapter-side
+order. Enforcement factories are `guard` and `protectedPolicy`. Their handlers
+never receive another plugin's accumulated state. Runtime appends constraints for adapter-side
 logical `AND`, intersects field restrictions, and creates no provider-specific
 enforcement stage when no constraint capability is present. An optional `MasterAuthority` may be
 supplied to `UltimaBase` without changing the trusted master
@@ -196,7 +192,7 @@ Access plugin compiles its package-owned schema and field declarations into the
 same monotonic machinery. ACL and community policy providers may contribute
 Core protected policies directly and do not depend on Access.
 
-Policy plugins register the same five public factories as any community tenant,
+Policy plugins register the same two public factories as any community tenant,
 ownership, moderation, or soft-delete capability. A definition may omit
 `schema` and `operations` to match every terminal, or retain an exact schema and
 terminal union for concise callback inference. In this example,
@@ -231,18 +227,9 @@ capabilities: [
 	provideRuntimeConstraint({
 		contributionId: 'articles.visible-fields',
 		create: () => ({
-			value: restrictSelection({
+			value: protectedPolicy({
 				schema: ArticleSchema,
-				handler: () => ['id', 'title', 'published'],
-			}),
-		}),
-	}),
-	provideRuntimeConstraint({
-		contributionId: 'articles.safe-output',
-		create: () => ({
-			value: restrictOutput({
-				schema: ArticleSchema,
-				handler: () => ['id', 'title'],
+				evaluate: () => ({ selectionFields: ['id', 'title', 'published'] }),
 			}),
 		}),
 	}),
@@ -250,27 +237,27 @@ capabilities: [
 ```
 
 `guard` allows by returning nothing and denies by throwing; it has no
-grant-shaped return. `constraint` returns one protected
+grant-shaped return. A protected policy's `evaluate` effects may append one
 `databaseConstraint('namespace.kind', version, payload)` node or an array of
 nodes. The positive integer version selects the exact adapter compiler payload
-contract; an empty array lets that policy deliberately contribute nothing. `restrictInput`,
-`restrictSelection`, and `restrictOutput` return allowed top-level schema field
-names, and Runtime intersects every matching list instead of letting a later
-plugin replace an earlier decision. Restricted mutation input is rejected;
-selection and output restrictions project excluded fields away.
+contract; an empty array lets that policy deliberately contribute nothing.
+`inputFields` and `selectionFields` list allowed top-level schema field names,
+and Runtime intersects every matching list instead of letting a later plugin
+replace an earlier decision. Restricted mutation input is rejected; selection
+restrictions project excluded fields away, and `restrictResult` may only omit
+values from the final result.
 
 Constraint kinds use lowercase dot-separated namespace segments such as
 `tenant.rows`. Payloads contain portable scalar, array, and plain-object values;
 the factory detaches and deeply freezes them so a retained caller reference
 cannot alter the accumulated plan.
 
-Runtime evaluates guards, constraints, input restrictions, and selection
-restrictions before effectful plugin behavior and retains the result in private
-immutable state. After operation transforms, it reevaluates those contributions
-into the same monotonic state before reapplying input and selection limits. An
-earlier constraint is never replaced; a transformed value therefore cannot use
-a stale guard decision. Output restriction handlers run once against the fully
-transformed result immediately before the final projection. Handlers never
+Runtime evaluates guards and protected policies before effectful plugin
+behavior and retains the result in private immutable state. After operation
+transforms, it reruns guards and each policy's `reevaluate` check into the same
+monotonic state before reapplying input and selection limits. An earlier
+constraint is never replaced; a transformed value therefore cannot use a stale
+guard decision. Handlers never
 receive accumulated state or another plugin's opaque constraint payload. A
 master request remains trusted authority, but only the contributing policy
 decides whether its own handler treats that authority differently.
@@ -523,10 +510,9 @@ materialize zero optional behavior or enforcement bundles and to invoke zero
 optional stages across a representative read and mutation. Mandatory Core
 stages and unrelated installed capabilities remain active.
 
-The convenience factories `beforeOperation()`, `afterOperation()`,
-and `preparedOperation()` are generic low-level Runtime definitions. Their
-inputs use `RequestContext` and they do not create schema or field option
-namespaces. The official Hooks package implements its richer
+The `preparedOperation()` factory is the remaining generic low-level Runtime
+interceptor definition. Its input uses `RequestContext` and it does not create
+schema or field option namespaces. The official Hooks package implements its richer
 lifecycle, event delivery, diagnostics, and transaction semantics through
 `provideRuntimeBehavior()` and package-owned contracts.
 

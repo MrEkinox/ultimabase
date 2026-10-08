@@ -54,4 +54,4 @@ in-process JavaScript.
 
 See [Open plugin authoring](open-plugin-authoring.md) for the implemented
 developer experience, including schema transformations, operations, Typegen,
-transport bindings, adapter bridges, and JavaScript use without generated code.
+transport bindings, adapter contracts, and JavaScript use without generated code.
