@@ -5,7 +5,10 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../exact-object-validation.js'
+import {
+	assertExactObjectKeys,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 
 import {
 	snapshotJsonValue,
@@ -152,9 +155,10 @@ export const provideCapability = <const TToken extends CapabilityToken>(
 ): CapabilityProviderDeclaration<TToken> => {
 	assertCapabilityToken(token, 'capability provider token')
 	const untrustedOptions: unknown = options
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('capability provider options must be a plain object')
-	}
+	assertPlainObject(
+		untrustedOptions,
+		'capability provider options must be a plain object',
+	)
 
 	if (options.contributionId !== undefined) {
 		assertNonEmptyString(options.contributionId, 'contributionId')

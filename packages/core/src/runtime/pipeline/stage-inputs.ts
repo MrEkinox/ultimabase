@@ -35,6 +35,7 @@ import type {
 	RuntimePreparedMutationStageInput,
 } from './contracts.js'
 import { readOperationResultSelection } from '../operations/queries.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 export const emptyRuntimeConstraints: readonly DatabaseConstraintNode[] =
 	immutableArray([])
@@ -65,9 +66,10 @@ export const snapshotRuntimeConstraints = (
 	}
 
 	for (const constraint of untrustedConstraints) {
-		if (!isPlainRecord(constraint)) {
-			throw new TypeError('Runtime enforcement returned an invalid constraint')
-		}
+		assertPlainObject(
+			constraint,
+			'Runtime enforcement returned an invalid constraint',
+		)
 
 		assertNonEmptyString(constraint.kind, 'Runtime enforcement constraint kind')
 		assertDatabaseConstraintVersion(

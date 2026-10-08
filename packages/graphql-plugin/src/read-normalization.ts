@@ -72,7 +72,7 @@ export interface GraphqlPreparedReadOperation<
 }
 
 /** Converts the ordered GraphQL representation into Core's object input. */
-export const normalizeGraphqlOrdering = (
+const normalizeGraphqlOrdering = (
 	value: unknown,
 ): Readonly<Record<string, 'asc' | 'desc'>> => {
 	if (!isUnknownArray(value)) {

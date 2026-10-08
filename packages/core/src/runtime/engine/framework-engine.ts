@@ -1,5 +1,3 @@
-import { isPlainRecord } from '@ultimabase/shared'
-
 import { assertApplicationExecution } from '../../application/active-application.js'
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
@@ -31,6 +29,7 @@ import {
 import { createRequestEngine, type RequestEngine } from './request-engine.js'
 import { readApplicationFacade } from '../context/current-ultima-base.js'
 import type { UltimaBase } from '../application/ultima-base.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 export { RequestEngine } from './request-engine.js'
 
@@ -46,9 +45,7 @@ export interface FrameworkEngineOptions<
 
 /** Rejects malformed low-level construction before it can bind request state. */
 const assertFrameworkEngineOptions = (options: unknown): void => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Framework engine options must be a plain object')
-	}
+	assertPlainObject(options, 'Framework engine options must be a plain object')
 	if (!(options.application instanceof FrameworkApplication)) {
 		throw new TypeError(
 			'Framework engine application must be a FrameworkApplication',

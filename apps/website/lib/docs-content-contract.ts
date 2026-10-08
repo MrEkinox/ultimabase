@@ -29,7 +29,6 @@ export const documentationMetadataFields = {
 	seoTitle: z.string().trim().min(1).optional(),
 	order: z.number().int().nonnegative().optional(),
 	outcome: z.string().trim().min(1),
-	owner: z.string().regex(/^\d{4}$/u),
 	releaseStatus: z.enum(documentationReleaseStatuses),
 	reviewedAt: z.iso.date(),
 	sources: z.array(z.string().trim().min(1)).min(1),
@@ -48,7 +47,6 @@ const plannedPageSchema = z.object({
 const plannedSectionSchema = z.object({
 	audiences: z.array(z.enum(documentationAudiences)).min(1),
 	label: z.string().trim().min(1),
-	owner: z.string().regex(/^\d{4}$/u),
 	pages: z.array(plannedPageSchema).min(1),
 	releaseStatus: z.enum(documentationReleaseStatuses),
 	slug: z.string().trim().min(1),
@@ -58,7 +56,6 @@ const plannedSectionSchema = z.object({
 
 const standalonePageSchema = plannedPageSchema.extend({
 	audiences: z.array(z.enum(documentationAudiences)).min(1),
-	owner: z.string().regex(/^\d{4}$/u),
 	path: z.string().startsWith('/'),
 	releaseStatus: z.enum(documentationReleaseStatuses),
 	sources: z.array(z.string().trim().min(1)).min(1),

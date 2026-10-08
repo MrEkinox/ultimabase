@@ -1,5 +1,8 @@
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
-import { haveSameEnumerableKeys } from '../../exact-object-validation.js'
+import {
+	assertPlainObject,
+	haveSameEnumerableKeys,
+} from '../../exact-object-validation.js'
 
 import { areSchemaDeclarationValuesCompatible } from '../../schema/schema/declaration-compatibility.js'
 import { Schema } from '../../schema/schema/definition.js'
@@ -19,8 +22,7 @@ import { assertFrozenPortable } from './values.js'
 import type { SchemaCompilationValues } from './values.js'
 
 const assertFrozenRecord = (value: unknown, path: string): void => {
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be a plain object`)
+	assertPlainObject(value, `${path} must be a plain object`)
 	if (!Object.isFrozen(value)) throw new TypeError(`${path} must be immutable`)
 }
 

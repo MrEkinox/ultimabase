@@ -74,7 +74,7 @@ async function publishedPageSlugs(
 }
 
 describe('documentation editorial contract', () => {
-	it('assigns every planned page a valid owner, outcome, type, and source', async () => {
+	it('assigns every planned page a valid outcome, type, and source', async () => {
 		const parsed = documentationPlanSchema.parse(
 			await readJson(path.join(websiteRoot, 'content/documentation-plan.json')),
 		)
@@ -94,18 +94,7 @@ describe('documentation editorial contract', () => {
 			...parsed.standalonePages.map(({ path: pagePath }) => pagePath),
 		]
 		expect(new Set(urls).size).toBe(urls.length)
-		// Page ownership can move to a later milestone as the public contract evolves.
-		const issueFiles = await readdir(path.join(repositoryRoot, 'issues'), {
-			recursive: true,
-		})
-
 		for (const item of [...parsed.sections, ...parsed.standalonePages]) {
-			expect(
-				issueFiles.some((fileName) =>
-					path.basename(fileName).startsWith(`${item.owner}-`),
-				),
-			).toBe(true)
-
 			for (const source of item.sources) {
 				expect(await sourcePathExists(source), source).toBe(true)
 			}

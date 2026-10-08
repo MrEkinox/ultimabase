@@ -3,11 +3,7 @@ import type {
 	SchemaTypeInfoSource,
 	SchemaTypeValue,
 } from '../../schema/type-info.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	QueryFieldName,
@@ -18,6 +14,7 @@ import {
 	assertQuerySchemaReference,
 	parseQueryFieldName,
 } from '../ast/schema.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /**
  * Describes one flat schema projection through literal inclusion or exclusion flags.
@@ -159,9 +156,7 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 
 	assertQuerySchemaReference(untrustedSchema)
 
-	if (!isPlainRecord(untrustedSelection)) {
-		throw new TypeError('query selection must be an object')
-	}
+	assertPlainObject(untrustedSelection, 'query selection must be an object')
 
 	const included: QueryFieldName<TSchema>[] = []
 	const excluded = new Set<string>()

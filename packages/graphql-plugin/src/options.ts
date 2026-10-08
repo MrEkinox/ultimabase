@@ -82,7 +82,7 @@ const bulkKeys: ReadonlySet<string> = new Set([
 const exposureKeys = new Set(['operations', 'typeName'])
 
 /** Returns one own key when it is a declared string key, otherwise rejects it. */
-export const readGraphqlKnownKey = (
+const readGraphqlKnownKey = (
 	key: string | symbol,
 	keys: ReadonlySet<string>,
 	path: string,

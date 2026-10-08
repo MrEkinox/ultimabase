@@ -2,12 +2,12 @@ import {
 	assertOptionalBoolean,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
 import { isStaticDefault } from './defaults.js'
 import type { GenericField } from './contract.js'
+import { assertPlainObject } from '../../../exact-object-validation.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -83,9 +83,7 @@ export const assertBuiltInFieldOptions = (
 export function assertFieldOptions(
 	options: unknown,
 ): asserts options is Readonly<Record<string, unknown>> {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('field options must be an object')
-	}
+	assertPlainObject(options, 'field options must be an object')
 }
 
 /**

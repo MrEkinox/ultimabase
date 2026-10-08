@@ -13,7 +13,6 @@ const projectSlugs = ['release-status', 'roadmap', 'contributing'] as const
 interface DocumentationPlan {
 	readonly sections: readonly {
 		readonly slug: string
-		readonly owner: string
 		readonly sources: readonly string[]
 		readonly pages: readonly { readonly slug: string }[]
 	}[]
@@ -29,7 +28,6 @@ describe('project documentation', () => {
 			),
 		) as DocumentationPlan
 		const project = plan.sections.find(({ slug }) => slug === 'project')
-		expect(project?.owner).toBe('2822')
 		expect(project?.pages.map(({ slug }) => slug)).toEqual(projectSlugs)
 		expect(plan.standalonePages.map(({ path: pagePath }) => pagePath)).toEqual([
 			'/',
@@ -66,7 +64,7 @@ describe('project documentation', () => {
 		expect(release).toContain('this site is not a release feed')
 		expect(release).toContain('does not prove an npm release')
 		expect(roadmap).toContain('Planned is not shipped')
-		expect(roadmap).toContain('708-realtime-contract.md')
+		expect(roadmap).toContain('ROADMAP.md#realtime')
 		expect(roadmap).toContain('no announced next-release feature list')
 		expect(contributing).toContain('community plugin proposal')
 		expect(contributing).toContain('yarn website:validate')

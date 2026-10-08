@@ -15,4 +15,5 @@ dist
 *.log
 .idea
 .vscode/*
+!.vscode/settings.json
 ultimabase/migrations/*.local.*

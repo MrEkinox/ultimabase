@@ -86,7 +86,7 @@ const decodeElements = (
 		: value
 
 /** Decodes one GraphQL field value through its canonical scalar or plugin codec. */
-export const decodeGraphqlFieldValue = (
+const decodeGraphqlFieldValue = (
 	field: GenericField,
 	value: unknown,
 	fromJson: boolean,

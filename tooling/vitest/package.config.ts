@@ -55,6 +55,8 @@ const config: ViteUserConfig = defineConfig({
 					name: 'e2e',
 					include: ['tests/e2e/**/*.e2e.test.ts'],
 					exclude: ['**/*.postgres.e2e.test.ts'],
+					// Same bound as the root E2E projects.
+					testTimeout: 20_000,
 				},
 			},
 			{
@@ -63,6 +65,7 @@ const config: ViteUserConfig = defineConfig({
 					name: 'postgres-e2e',
 					include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
 					globalSetup: [postgresSetup],
+					testTimeout: 20_000,
 				},
 			},
 		],

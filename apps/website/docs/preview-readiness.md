@@ -53,10 +53,6 @@ large-image X card. Its page title identifies UltimaBase as a TypeScript backend
 framework. The share image uses the provisional identity and must be reviewed
 with the name and domain before launch; its existence does not enable indexing.
 
-The [2026-09-18 landing redesign handoff](./landing-redesign.md) records the
-initial landing composition. The [audit improvements](./landing-audit-improvements.md)
-record the subsequent content, desktop composition, metadata, and visual checks.
-
 ## Production build snapshot
 
 The 2026-09-18 production build prerenders 122 application pages, including

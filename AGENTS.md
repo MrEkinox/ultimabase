@@ -5,37 +5,35 @@ but loaded only for the work in scope; history is evidence, never authorization.
 
 ## Start and resume
 
-This repository is a package-by-package rebuild of the reference
-implementation (commit `0ae7767f7b75dd6c640ca547f9ff85b60f46e69d`) with an
-unchanged public contract. The reference repository is read-only: never write
-to it, build in it, or run a Git command that modifies it.
+UltimaBase is pre-release and unpublished. Its implementation is a completed
+package-by-package rebuild of a reference implementation; the public contract
+(exports, types, inference, hovers, completions, diagnostics, behavior and
+errors) is the developer experience to preserve unless the user explicitly
+approves a change to it.
 
 1. Inspect Git status; preserve unrelated changes. Never push or publish
    without explicit user confirmation.
-2. Read `README.md`, [the rebuild handoff](docs/rebuild/HANDOFF.md) and
-   [the rebuild protocol](docs/rebuild/PROTOCOL.md). Work on the scope the user
-   or the coordinator assigns, in an isolated worktree created with
-   `tooling/rebuild-worktree.sh <name>` (branch `rebuild/<name>`).
+2. Read `README.md`. Work on the scope the user assigns, on a focused branch;
+   isolate parallel work in its own `git worktree`.
 3. Use [the current architecture index](docs/current-architecture.md#task-routing)
    to read the applicable maintained contracts, package READMEs, accepted ADRs
    and [domain rules](docs/engineering/agent-domain-rules.md). Read selected
    sections completely; full `ARCHITECTURE.md` is required for cross-domain
-   redesign, not for every narrow edit. Read applicable nested `AGENTS.md` too,
-   and the `REBUILD*.md` of every package you touch.
-4. Record exact scope, proof commands, decisions, rejected approaches and the
-   next verifiable action in the scope's `REBUILD*.md` before and during the
-   work, and commit checkpoints (`wip(<scope>): ...`) after each coherent step.
+   redesign, not for every narrow edit. Read applicable nested `AGENTS.md` too.
+4. For work spanning several sessions, record exact scope, proof commands,
+   decisions, rejected approaches and the next verifiable action in a handoff
+   under `docs/handoff/` before and during the work, commit checkpoints
+   (`wip(<scope>): ...`) after each coherent step, and delete the handoff when
+   the work is merged.
 5. On resumption, verify the checkpoint against the tree and evidence. Never
    infer completion from an earlier summary or restart an accepted limitation
    merely because its failed experiment is no longer in conversation context.
 
-The issue backlog (`issues/`), `docs/plans/`, `CURRENT_PLAN.md` and
-`HISTORIQUE_SUPPRESSIONS.md` are the frozen archive of the reference's
-development. Read them as history and evidence, never as active work. Their
-format rules ([issue metadata](issues/README.md#working-context), the 80-line
-checkpoint and the plan catalog) are still checked by `yarn check:issues`, so
-any correction to the archive must keep them valid; do not open new issues or
-plans there unless the user decides to resume that workflow.
+Development history is archived in Git, never in the active tree: tag
+`reference-archive` holds the reference's issue backlog, plans and removal log;
+tag `rebuild-archive` holds the rebuild protocol and per-package records. Read
+them as evidence, never as active work. Proposed directions live in
+[ROADMAP.md](ROADMAP.md).
 
 ## Scope, evidence and stop rules
 
@@ -57,8 +55,7 @@ plans there unless the user decides to resume that workflow.
   request direction. This never waives a test, budget or accepted constraint.
 - Do not retry a rejected approach without its recorded reopening condition.
   A recent user `stop` overrides every older autonomous continuation.
-- Temporary compromises must be explicit in comments, the scope's `REBUILD*.md`
-  or an ADR.
+- Temporary compromises must be explicit in comments, the handoff or an ADR.
   Report any necessary work beyond the original criteria in the handoff.
 
 ## Global product and security invariants
@@ -122,9 +119,6 @@ plans there unless the user decides to resume that workflow.
   behavior-preserving refactor must pass **`yarn validate:full` before completion
   or commit**. Ordinary `yarn test` excludes source E2E and cannot replace it.
   [ADR-0275](docs/adr/0275-canonical-repository-validation.md) defines the gate.
-  A rebuild scope runs the protocol's focused validation list on its branch;
-  the coordinator runs the complete gate after merging, as mapped in
-  [the validation correspondence](docs/rebuild/VALIDATIONS.md).
 - Launch infrastructure/listener checks with the required permissions from the
   first run. Run build and lint sequentially; preserve CI worker bounds and budgets.
   Report failed, skipped, flaky, interrupted or unavailable required checks;
@@ -132,13 +126,15 @@ plans there unless the user decides to resume that workflow.
 - Audit the whole diff against criteria, invariants and saved developer form.
   Fix findings, rerun invalidated checks and re-audit until no finding remains.
   Record exact commands, results, coverage and any limitations.
-- In a rebuild scope, public tests (package `tests/`, `*.test-d.ts`, and tests
-  importing only public entries) are the oracle and never change; internal
-  tests are ported without losing an assertion ([protocol](docs/rebuild/PROTOCOL.md)).
-  Record every observable difference in [DIFFERENCES.md](docs/rebuild/DIFFERENCES.md).
-- Update the scope's `REBUILD*.md` (results, mapping, differences) only after
-  this gate. Create one dedicated local commit, inspect it, and correct new
-  findings before advancing. Never push without explicit user confirmation.
+- Public tests (package `tests/`, `*.test-d.ts`, and tests importing only
+  public entries) protect the developer experience: a behavior-preserving
+  change never edits them beyond import specifiers. Internal tests move with
+  their module without losing an assertion. A refactor that must keep the
+  editor experience also passes [the DX audit](tooling/dx-audit/README.md)
+  against a built baseline of `main`.
+- Update the handoff (results, decisions, limits) only after this gate. Create
+  one dedicated local commit, inspect it, and correct new findings before
+  advancing. Never push without explicit user confirmation.
 
 ## Documentation and decisions
 

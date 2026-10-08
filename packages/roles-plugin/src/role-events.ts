@@ -76,7 +76,7 @@ export const roleDeletedEventContract: PluginEventContract<
 })
 
 /** Carries independently owned stored-role observers into the Roles Runtime provider. */
-export const roleEventsCapability: PluginEventCapability<
+const roleEventsCapability: PluginEventCapability<
 	'ultimabase.role-events',
 	'1.0.0'
 > = definePluginEventCapability({

@@ -46,7 +46,7 @@ export interface ACLJSON {
 }
 
 /** Identifies one principal entry; the same key orders entries canonically. */
-export const principalEntryKey = (entry: {
+const principalEntryKey = (entry: {
 	readonly className: string
 	readonly id: string
 }): string => JSON.stringify([entry.className, entry.id])

@@ -21,6 +21,7 @@ import {
 	type DatabasePersistenceProvenance,
 	type PersistenceLogicalOperationAst,
 } from './contracts.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 const canonicalPersistenceProvenance: DatabasePersistenceProvenance =
 	immutableRecord({
@@ -172,9 +173,10 @@ export const acceptDatabasePersistenceRewrite = <
 		pluginVersion: string
 	}>,
 ): DatabasePersistencePlan<TPhysicalOperation> => {
-	if (!isPlainRecord(candidate)) {
-		throw new TypeError('Persistence plan rewriters must return a plain object')
-	}
+	assertPlainObject(
+		candidate,
+		'Persistence plan rewriters must return a plain object',
+	)
 	if (candidate.version !== databasePersistencePlanVersion) {
 		throw new TypeError(
 			`Persistence plan rewriters must return protocol version ${String(databasePersistencePlanVersion)}`,

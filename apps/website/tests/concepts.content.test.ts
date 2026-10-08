@@ -18,7 +18,6 @@ const pages = [
 
 interface DocumentationPlan {
 	readonly sections: readonly {
-		readonly owner: string
 		readonly pages: readonly { readonly slug: string }[]
 		readonly slug: string
 	}[]
@@ -79,13 +78,12 @@ describe('cross-cutting concept documentation', () => {
 		}
 	})
 
-	it('records the corrective owner in the public documentation plan', async () => {
+	it('lists every concept page in the public documentation plan', async () => {
 		const plan = JSON.parse(
 			await readFile(planPath, 'utf8'),
 		) as DocumentationPlan
 		const core = plan.sections.find(({ slug }) => slug === 'core')
 		const reference = plan.sections.find(({ slug }) => slug === 'reference')
-		expect(core?.owner).toBe('2824')
 		expect([
 			...(core?.pages.map(({ slug }) => `core/${slug}`) ?? []),
 			...(reference?.pages.map(({ slug }) => `reference/${slug}`) ?? []),

@@ -1,8 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { isCoreFieldOptionKey } from '../schema/fields/base/options.js'
 import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
@@ -17,11 +13,10 @@ import {
 } from './schema-declaration-contracts.js'
 import { coreSchemaKeys } from '../schema/schema/registry.js'
 import { readDeclaredRuntimeCapability, sameOwner } from './schema-selectors.js'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 const readCompiledOptionValue = (source: unknown, name: string): unknown => {
-	if (!isPlainRecord(source)) {
-		throw new TypeError('Compiled schema options must be a plain object')
-	}
+	assertPlainObject(source, 'Compiled schema options must be a plain object')
 	return source[name]
 }
 

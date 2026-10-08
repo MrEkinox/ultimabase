@@ -4,7 +4,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactObjectKeys } from '../../exact-object-validation.js'
+import {
+	assertExactObjectKeys,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 import type {
 	PluginSchemaContributionOwner,
 	SchemaCompilationProvenance,
@@ -102,8 +105,7 @@ const assertContributionMap = (
 	path: string,
 	allowedOwners?: ReadonlySet<string>,
 ): void => {
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be a provenance map`)
+	assertPlainObject(value, `${path} must be a provenance map`)
 	for (const [name, provenance] of Object.entries(value)) {
 		assertSchemaContributionProvenance(
 			provenance,
@@ -119,8 +121,7 @@ export const assertSchemaOptionProvenance = (
 	path: string,
 	allowedOwners?: ReadonlySet<string>,
 ): void => {
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be option provenance`)
+	assertPlainObject(value, `${path} must be option provenance`)
 	assertExactKeys(value, new Set(['definition', 'value']), path)
 	assertSchemaContributionProvenance(
 		value.definition,
@@ -143,8 +144,7 @@ const assertProvenanceList = (
 	if (!isUnknownArray(value)) throw new TypeError(`${path} must be a list`)
 	for (const [index, entry] of value.entries()) {
 		const entryPath = `${path}[${String(index)}]`
-		if (!isPlainRecord(entry))
-			throw new TypeError(`${entryPath} must be provenance`)
+		assertPlainObject(entry, `${entryPath} must be provenance`)
 		assertExactKeys(entry, keys, entryPath)
 		assertSchemaContributionProvenance(
 			entry.provenance,
@@ -160,8 +160,7 @@ export function assertSchemaCompilationProvenance(
 	path: string,
 	allowedOwners?: ReadonlySet<string>,
 ): asserts value is SchemaCompilationProvenance {
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be schema provenance`)
+	assertPlainObject(value, `${path} must be schema provenance`)
 	assertExactKeys(value, compilationKeys, path)
 	assertSchemaContributionProvenance(
 		value.schema,
@@ -174,9 +173,10 @@ export function assertSchemaCompilationProvenance(
 		throw new TypeError(`${path} must contain option provenance maps`)
 	}
 	for (const [fieldName, options] of Object.entries(value.fieldOptions)) {
-		if (!isPlainRecord(options)) {
-			throw new TypeError(`${path}.fieldOptions.${fieldName} must be a map`)
-		}
+		assertPlainObject(
+			options,
+			`${path}.fieldOptions.${fieldName} must be a map`,
+		)
 		for (const [name, provenance] of Object.entries(options)) {
 			assertSchemaOptionProvenance(
 				provenance,

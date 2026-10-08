@@ -16,7 +16,10 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+import {
+	assertExactEnumerablePlainObject,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import type {
@@ -405,9 +408,7 @@ export const createQueryRegexFilter = <const TSchema extends SchemaDefinition>(
 		throw new TypeError('query regex requires a declared field')
 	}
 
-	if (!isPlainRecord(untrustedPattern)) {
-		throw new TypeError('query regex pattern must be an object')
-	}
+	assertPlainObject(untrustedPattern, 'query regex pattern must be an object')
 
 	if (typeof untrustedPattern.source !== 'string') {
 		throw new TypeError('query regex source must be a string')

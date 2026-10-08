@@ -1,7 +1,6 @@
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
@@ -14,6 +13,7 @@ import {
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
 import type { DatabasePersistencePlanKind } from '../persistence/contracts.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Names the independently negotiated portable adapter protocol families. */
 export type AdapterCapabilityFamily =
@@ -130,9 +130,7 @@ const assertSupport: (
 	token: AdapterSupportToken<AdapterSupport>,
 	value: unknown,
 ) => asserts value is AdapterSupport = (token, value) => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('adapter support must be a plain object')
-	}
+	assertPlainObject(value, 'adapter support must be a plain object')
 	assertAdapterId(value.adapterId, 'adapter support adapterId')
 	const family = adapterCapabilityFamilies.get(token)
 	if (value.family !== family) {

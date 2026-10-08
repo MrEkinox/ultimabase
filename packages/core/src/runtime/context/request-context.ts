@@ -9,11 +9,13 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+import {
+	assertExactEnumerablePlainObject,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 
 const declaredRequestSources = {
 	internal: 'internal',
@@ -156,9 +158,7 @@ const snapshotMetadata = (metadata: unknown): RequestMetadata => {
 		return emptyMetadata
 	}
 
-	if (!isPlainRecord(metadata)) {
-		throw new TypeError('Request context metadata must be a plain object')
-	}
+	assertPlainObject(metadata, 'Request context metadata must be a plain object')
 
 	for (const key of Object.keys(metadata)) {
 		const normalizedKey = normalizeSensitiveMetadataKey(key)

@@ -107,7 +107,7 @@ export const createPasswordSession = (
 }
 
 /** Recognizes only package-created context session values. */
-export const isPasswordSession = (value: unknown): value is PasswordSession =>
+const isPasswordSession = (value: unknown): value is PasswordSession =>
 	isPlainRecord(value) && passwordSessionGenerations.has(value)
 
 /** Reads package-private account invalidation state from one nominal session. */

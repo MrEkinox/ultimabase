@@ -38,6 +38,7 @@ import {
 	type GenericVirtualField,
 	type VirtualFieldResolver,
 } from './virtual-field.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 export type {
 	EmbeddedFieldBuilder,
@@ -162,9 +163,7 @@ const readFieldMap = (
 	value: unknown,
 	path: string,
 ): Readonly<Record<string, FieldMapEntry>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must return a field map`)
-	}
+	assertPlainObject(value, `${path} must return a field map`)
 
 	return immutableRecord(
 		Object.fromEntries(
@@ -213,9 +212,7 @@ const resolveCapturedFieldBuilderCall = (
 	}
 
 	if (methodName === 'object') {
-		if (!isPlainRecord(options)) {
-			throw new TypeError(`${methodPath} options must be a plain object`)
-		}
+		assertPlainObject(options, `${methodPath} options must be a plain object`)
 
 		const { fields: capturedFields, ...objectOptions } = options
 		const fields = resolveCapturedFieldMap(
@@ -284,9 +281,10 @@ export const resolveCapturedFieldMap = (
 	})
 	for (const [name, call] of virtualCalls) {
 		const virtualPath = `${path}.${name}.virtual`
-		if (!isPlainRecord(call.options)) {
-			throw new TypeError(`${virtualPath} options must be a plain object`)
-		}
+		assertPlainObject(
+			call.options,
+			`${virtualPath} options must be a plain object`,
+		)
 		const { output, resolve, select, ...options } = call.options
 		if (typeof resolve !== 'function') {
 			throw new TypeError(`${virtualPath}.resolve must be a function`)

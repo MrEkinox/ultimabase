@@ -3,13 +3,13 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
 import type { QueryExpressionNode } from '../ast/contracts.js'
 import type { QueryPrimitiveFilterNode } from './primitive.js'
 import type { QueryRelationFilterForSchema } from './relation.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Reserves structural discriminants so plugin leaves cannot shadow logic. */
 export type QueryLogicalFilterKind = 'and' | 'constant' | 'not' | 'or'
@@ -131,9 +131,7 @@ const assertFilterRecord: (
 ) => asserts filter is Record<string, unknown> & QueryExpressionNode = (
 	filter,
 ) => {
-	if (!isPlainRecord(filter)) {
-		throw new TypeError('filter must be a query expression')
-	}
+	assertPlainObject(filter, 'filter must be a query expression')
 
 	assertNonEmptyString(filter.kind, 'filter.kind')
 }

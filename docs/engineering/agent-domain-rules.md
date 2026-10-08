@@ -115,7 +115,7 @@ Key prohibitions:
 - database-specific migration logic stays in a database-specific migration plugin.
 - packages must import another package through its public export, never through `src/`.
 
-Run or update `yarn constraints` when dependency constraints exist. If a requested change would violate the graph, stop and propose an ADR instead.
+Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.md` together. If a requested change would violate the graph, stop and propose an ADR instead.
 
 ## Plugins
 

@@ -4,13 +4,13 @@
 
 The imported [AGENTS.md](AGENTS.md) is the project contract and wins over
 anything below. This file only adds how to work with Claude Code here, from
-what worked (and what went wrong) during the rebuild recorded in
-[docs/rebuild/HANDOFF.md](docs/rebuild/HANDOFF.md).
+what worked (and what went wrong) during the package-by-package rebuild.
 
 ## Working agreement
 
 - Answer the user in French; write code, comments, commits and repository
-  documentation in English (except `docs/rebuild/HANDOFF.md`, which is French).
+  documentation in English (except handoffs under `docs/handoff/`, which are
+  French).
 - Start every task by stating a verifiable "done" criterion (commands that must
   pass, files that must not change). If the request has none, propose one.
 - Prove, do not assert: quote the command and its result for every claim of
@@ -24,16 +24,20 @@ what worked (and what went wrong) during the rebuild recorded in
   settings, force-pushing and deleting branches require explicit user
   confirmation every time. No durable authorization exists unless it is
   written in this section.
-- The published rebuild lives on branch `rebuild` of
-  `MrEkinox/ultimadatabase`; its `main` is the reference and is never
-  rewritten without explicit confirmation.
+- `main` of `MrEkinox/ultimadatabase` holds the rebuilt implementation and is
+  never rewritten without explicit confirmation. Work happens on branches
+  merged into `main` after review.
+- The tags `reference-archive` and `rebuild-archive` hold the archived history;
+  pushing or moving them requires confirmation like any other push.
 
 ## Long tasks
 
-- Keep a handoff file current (scope, state, decisions, next verifiable
-  action) and commit checkpoints often, so work survives context compaction or
-  an interrupted session. Resume by verifying the handoff against the tree.
-- Sub-agents work in isolated worktrees (`tooling/rebuild-worktree.sh <name>`),
+- Keep a handoff file current under `docs/handoff/` (scope, state, decisions,
+  next verifiable action) and commit checkpoints often, so work survives
+  context compaction or an interrupted session. Resume by verifying the
+  handoff against the tree.
+- Sub-agents work in isolated worktrees (`git worktree add ../<name> -b <branch>`,
+  then `YARN_CACHE_FOLDER=<repo>/.yarn/cache yarn install --immutable`),
   at most 3 or 4 at once: more saturates the machine and turns load-sensitive
   tests into false failures. Each agent commits checkpoints and reports files
   touched outside its scope, casts added and tests edited; the coordinator
@@ -45,13 +49,15 @@ what worked (and what went wrong) during the rebuild recorded in
 Tests passing is necessary, not sufficient. During the rebuild these caught
 regressions that every suite missed:
 
-- `node tooling/rebuild/dx-audit.mjs <reference-root> .` compares hovers,
-  completions and diagnostics with a built reference; renaming or inlining a
-  private type alias can change editor text with every test green.
+- `node tooling/dx-audit/run.mjs <baseline-root> .` compares hovers,
+  completions and diagnostics with a built baseline (a worktree of `main`);
+  renaming or inlining a private type alias can change editor text with every
+  test green.
 - `yarn vitest run --project website-content`: website pages list source files
   in their `sources` frontmatter, so deleting or renaming a module breaks it.
-- `git diff -U0 <base> -- '*.test.ts' '*.test-d.ts'` must show only
-  import-specifier changes; never edit a test body.
+- For a behavior-preserving change, `git diff -U0 <base> -- '*.test.ts' '*.test-d.ts'`
+  must show only import-specifier changes; never edit a test body to make it
+  pass.
 - Copies of user-controlled keys use `Object.fromEntries` or `Map`, never
   `object[key] = value` (several reference defects came from `__proto__` keys).
 
@@ -60,9 +66,7 @@ regressions that every suite missed:
 Validate on a calm machine before concluding anything from these failures:
 `create-app-packed` (120 s timeout), `core-archive-declarations` (10 s),
 the Typegen `hybrid-authoring` performance budget, and postgres-e2e cascades
-after a 5 s timeout. `Schema … has not been compiled by an application` in
-postgres-e2e is a pre-existing Vitest module-runner race, also present in the
-reference ([VALIDATIONS.md](docs/rebuild/VALIDATIONS.md)). In GitHub CI the
+after a timeout ([load-sensitive suites](tests/README.md#load-sensitive-suites)). In GitHub CI the
 `Complete coverage` job excludes performance suites, which run uninstrumented
 in the package and transversal jobs instead.
 

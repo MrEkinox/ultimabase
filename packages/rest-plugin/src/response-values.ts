@@ -150,7 +150,7 @@ const encodeBuiltInScalar = (
 }
 
 /** Encodes one output-only value through the same canonical REST shapes. */
-export const encodeRestOutputValue = (
+const encodeRestOutputValue = (
 	descriptor: GenericOutputDescriptor,
 	value: unknown,
 	invalid: InvalidRestValue,
@@ -219,7 +219,7 @@ const encodeScalar = (
 }
 
 /** Encodes one complete schema field value using its exact REST v1 contract. */
-export const encodeRestFieldValue = (
+const encodeRestFieldValue = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,

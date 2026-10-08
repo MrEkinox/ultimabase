@@ -40,7 +40,6 @@
 	"devDependencies": {
 		"@hono/node-server": "^2.1.1",
 		"@ultimabase/server-hono-plugin": "workspace:^",
-		"@ultimabase/typegen": "workspace:^",
 		"hono": "^4.13.7",
 		"playwright": "^1.63.0",
 		"tsdown": "^0.22.14",

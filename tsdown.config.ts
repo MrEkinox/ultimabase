@@ -7,7 +7,9 @@ const config: UserConfig = defineConfig({
 		level: 'error',
 		profile: 'esm-only',
 	},
-	clean: true,
+	// tsc --build also emits into dist; its build info must go with the outputs it
+	// describes, or the next incremental typecheck re-emits only part of them.
+	clean: ['dist', 'tsconfig.tsbuildinfo'],
 	copy: [
 		{
 			// Every published archive must carry the repository's Apache license.

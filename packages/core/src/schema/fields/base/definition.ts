@@ -21,6 +21,7 @@ import type {
 import { snapshotJsonValue } from './portable-json.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 import type { RelationWhereDeclaration } from '../builtins/relation.js'
+import { assertPlainObject } from '../../../exact-object-validation.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -305,9 +306,7 @@ export function assertFieldDefinition(
 	value: unknown,
 	path: string,
 ): asserts value is GenericField {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a field definition`)
-	}
+	assertPlainObject(value, `${path} must be a field definition`)
 
 	const { kind, options } = value
 

@@ -1,8 +1,4 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import {
 	assertFieldDefinition,
@@ -30,6 +26,7 @@ import type {
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
 import type { FieldValueMap } from '../base/value-map.js'
+import { assertPlainObject } from '../../../exact-object-validation.js'
 
 /**
  * Names the child fields of one object definition.
@@ -193,9 +190,7 @@ function snapshotObjectValue(
 	fields: ObjectFields,
 	path: string,
 ): Readonly<Record<string, unknown>> {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
+	assertPlainObject(value, `${path} must be a plain object`)
 
 	for (const key of Object.keys(value)) {
 		if (!Object.hasOwn(fields, key)) {
@@ -269,9 +264,7 @@ export function objectField(
 	void invalidOptions
 	assertFieldOptions(options)
 
-	if (!isPlainRecord(options.fields)) {
-		throw new TypeError('fields must be a field map')
-	}
+	assertPlainObject(options.fields, 'fields must be a field map')
 
 	assertValidTypeName(options.typeName)
 	assertEmbeddedFieldMap(options.fields, '')
@@ -331,9 +324,7 @@ function assertEmbeddedFieldMap(
 	fields: unknown,
 	pathPrefix: string,
 ): asserts fields is ObjectFields {
-	if (!isPlainRecord(fields)) {
-		throw new TypeError(`${pathPrefix}fields must be a field map`)
-	}
+	assertPlainObject(fields, `${pathPrefix}fields must be a field map`)
 
 	for (const [name, field] of Object.entries(fields)) {
 		assertNonEmptyString(name, 'object field name')

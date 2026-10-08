@@ -23,6 +23,7 @@ import {
 	createInclusionOperation,
 	readInclusions,
 } from '../relations/inclusion.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 const readOperationSchema = (operation: OperationAstNode): SchemaDefinition => {
 	const schema = getOperationSchema(operation)
@@ -42,9 +43,7 @@ const materializeRecord = (
 	path: string,
 	operation?: OperationAstNode & { readonly kind: OperationKind },
 ): object => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain logical record`)
-	}
+	assertPlainObject(value, `${path} must be a plain logical record`)
 	let values = value
 
 	if (operation !== undefined) {

@@ -68,7 +68,6 @@ const testProjects: TestProjectConfiguration[] = [
 				'tooling/ci/**/*.test.ts',
 				'tooling/documentation/**/*.test.ts',
 				'tooling/eslint/**/*.test.ts',
-				'tooling/issues/**/*.test.ts',
 				'tooling/vitest/**/*.test.ts',
 			],
 			exclude: ['**/*.e2e.test.ts', '**/*.performance.test.ts'],
@@ -158,6 +157,9 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/*/tests/e2e/**/*.postgres.e2e.test.ts',
 			],
 			name: 'postgres-e2e',
+			// Matches coverage-postgres-e2e: one slow test must not time out and
+			// leave its application active for the next one.
+			testTimeout: 20_000,
 		},
 	},
 	{

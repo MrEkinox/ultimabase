@@ -12,11 +12,11 @@ import { snapshotJsonValue } from '../../schema/fields/base/portable-json.js'
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
 import { readObjectChildFields, type RuntimeQueryField } from './target.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /*
  * Operand snapshots shared by the filter factories: each operand is copied and
@@ -102,9 +102,7 @@ const snapshotPartialObject = (
 	value: unknown,
 	path: string,
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
+	assertPlainObject(value, `${path} must be a plain object`)
 
 	const fields = readObjectChildFields(field)
 

@@ -65,6 +65,7 @@ import {
 	type TypegenReferenceRegistrar,
 } from './typegen-declarations.js'
 import { pluginSourceReceipt } from './source-projections.js'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
@@ -172,9 +173,7 @@ export class SchemaDeclarationRegistry {
 		): void => {
 			assertDeclare()
 			const path = `Schema ${kind}`
-			if (!isPlainRecord(options)) {
-				throw new TypeError(`${path} must be a plain object`)
-			}
+			assertPlainObject(options, `${path} must be a plain object`)
 			assertNonEmptyString(options.contributionId, `${path} contributionId`)
 			const sources: OwnedSchemaSource[] =
 				kind === 'addition' ? batch.additions : batch.claims
@@ -199,9 +198,10 @@ export class SchemaDeclarationRegistry {
 			},
 			defineOptions: (options) => {
 				assertDeclare()
-				if (!isPlainRecord(options)) {
-					throw new TypeError('Schema option namespace must be a plain object')
-				}
+				assertPlainObject(
+					options,
+					'Schema option namespace must be a plain object',
+				)
 				assertNonEmptyString(
 					options.contributionId,
 					'Schema option namespace contributionId',
@@ -264,9 +264,7 @@ export class SchemaDeclarationRegistry {
 				if (!batch.canDeclare) {
 					throw new TypeError('schema:declare is required for patches')
 				}
-				if (!isPlainRecord(options)) {
-					throw new TypeError('Schema patch must be a plain object')
-				}
+				assertPlainObject(options, 'Schema patch must be a plain object')
 				if (!schemaSelections.has(options.targets)) {
 					throw new TypeError(
 						'Schema patch targets must be created by schemas.select',

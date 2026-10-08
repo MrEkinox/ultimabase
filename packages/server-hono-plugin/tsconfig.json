@@ -10,7 +10,6 @@
 		{ "path": "../shared" },
 		{ "path": "../core" },
 		{ "path": "../plugin-kit" },
-		{ "path": "../http-plugin" },
-		{ "path": "../testing" }
+		{ "path": "../http-plugin" }
 	]
 }

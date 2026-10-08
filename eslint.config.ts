@@ -36,6 +36,14 @@ export default defineConfig(
 		files: ['**/*.cjs', '**/*.js', '**/*.mjs'],
 	},
 	{
+		// Yarn loads its constraints file as CommonJS.
+		files: ['yarn.config.cjs'],
+		languageOptions: {
+			globals: { module: 'writable' },
+			sourceType: 'commonjs',
+		},
+	},
+	{
 		files: ['**/*.{ts,tsx}'],
 		languageOptions: {
 			parserOptions: {
@@ -71,9 +79,7 @@ export default defineConfig(
 			'tooling/ci/**/*.ts',
 			'tooling/vitest/**/*.test.ts',
 			'tooling/documentation/**/*.test.ts',
-			'tooling/prototypes/generated-schema-authoring/**/*.ts',
 			'tooling/eslint/**/*.test.ts',
-			'tooling/issues/**/*.ts',
 			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/password-auth-public-api.ts',
 			'tooling/vitest/prepared-mutation-adapter.ts',
@@ -94,7 +100,6 @@ export default defineConfig(
 			'**/{test,tests}/**/*.{ts,tsx}',
 			'**/*.test.ts',
 			'**/*.test-d.ts',
-			'tooling/prototypes/generated-schema-authoring/**/*.{ts,tsx}',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		rules: {

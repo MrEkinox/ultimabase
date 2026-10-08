@@ -6,17 +6,22 @@ import * as ts from 'typescript'
 import { createLanguageServiceWorkspace } from '../vitest/typescript-language-service.js'
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
-const historicalRoots = ['docs/adr', 'docs/plans', 'issues'] as const
+const historicalRoots = ['docs/adr'] as const
 const activeRoots = [
 	'AGENTS.md',
+	'CLAUDE.md',
 	'CONTRIBUTING.md',
-	'CURRENT_PLAN.md',
 	'README.md',
 	'ARCHITECTURE.md',
+	'ROADMAP.md',
+	'SECURITY.md',
 	'docs/README.md',
 	'docs/current-architecture.md',
 	'docs/engineering',
 	'docs/concepts',
+	'docs/PRODUCT_SPEC.md',
+	'docs/rebuild',
+	'docs/RELEASING.md',
 	'packages',
 	'examples',
 	'apps',

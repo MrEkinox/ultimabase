@@ -1,6 +1,9 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
-import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
+import { immutableRecord } from '@ultimabase/shared'
+import {
+	assertExactEnumerablePlainObject,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 
 import type {
 	QueryAst,
@@ -144,9 +147,7 @@ const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: unknown,
 ): QueryInputAst<TSchema>['ordering'] => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('query.orderBy must be an object')
-	}
+	assertPlainObject(input, 'query.orderBy must be an object')
 
 	const orders: QueryOrderInput<QueryFieldName<TSchema>>[] = []
 
@@ -175,15 +176,14 @@ const normalizeInputInclusion = <const TSchema extends SchemaDefinition>(
 	input: unknown,
 	selection: QueryInputAst<TSchema>['selection'],
 ): Pick<QueryInputAst<TSchema>, 'inclusion' | 'selection'> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('query.include must be an object')
-	}
+	assertPlainObject(input, 'query.include must be an object')
 
 	const pointerFields: QueryFieldName<TSchema>[] = []
 	const inclusions = Object.entries(input).map(([fieldName, targetInput]) => {
-		if (!isPlainRecord(targetInput)) {
-			throw new TypeError(`query.include.${fieldName} must be an object`)
-		}
+		assertPlainObject(
+			targetInput,
+			`query.include.${fieldName} must be an object`,
+		)
 
 		const { field, target } = resolveQueryInclusionTarget(schema, fieldName)
 

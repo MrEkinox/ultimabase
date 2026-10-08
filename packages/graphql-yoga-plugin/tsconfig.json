@@ -16,7 +16,6 @@
 		{ "path": "../http-plugin" },
 		{ "path": "../graphql-http" },
 		{ "path": "../graphql-plugin" },
-		{ "path": "../server-hono-plugin" },
-		{ "path": "../typegen" }
+		{ "path": "../server-hono-plugin" }
 	]
 }

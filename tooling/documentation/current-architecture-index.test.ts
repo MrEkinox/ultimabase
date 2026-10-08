@@ -126,14 +126,11 @@ const readCatalogTargets = (
 }
 
 describe('current architecture documentation', () => {
-	it('resolves scoped agent routes, conformance paths and historical handoff links', async () => {
+	it('resolves scoped agent routes and conformance paths', async () => {
 		for (const relative of [
 			'AGENTS.md',
-			'CURRENT_PLAN.md',
 			'docs/current-architecture.md',
 			'docs/engineering/agent-domain-rules.md',
-			'docs/plans/README.md',
-			'docs/plans/completed/source-typed-application-authoring-execution-log.md',
 		]) {
 			const source = path.join(repositoryRoot, relative)
 			for (const target of readLinks(await readFile(source, 'utf8'))) {

@@ -53,7 +53,7 @@ export interface GraphqlRelationFields {
 }
 
 /** Requires the GraphQL v1 wire codec of every plugin-owned field kind. */
-export const readGraphqlPluginFieldCodec = (
+const readGraphqlPluginFieldCodec = (
 	field: GenericField,
 	schema: SchemaDefinition,
 	path: readonly string[],

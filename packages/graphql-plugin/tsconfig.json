@@ -9,7 +9,6 @@
 	"references": [
 		{ "path": "../shared" },
 		{ "path": "../core" },
-		{ "path": "../plugin-kit" },
-		{ "path": "../typegen" }
+		{ "path": "../plugin-kit" }
 	]
 }

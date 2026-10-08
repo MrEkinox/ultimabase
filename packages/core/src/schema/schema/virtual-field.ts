@@ -22,6 +22,7 @@ import type {
 	UltimaBaseGeneratedVirtualFieldBuilderMethods,
 	UltimaBaseGeneratedVirtualFieldOptions,
 } from '../type-info.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 type MaybePromise<TValue> = TValue | PromiseLike<TValue>
 
@@ -121,9 +122,7 @@ export const createVirtualFieldDefinition = <
 	if (typeof resolver !== 'function') {
 		throw new TypeError('virtual.resolve must be a function')
 	}
-	if (!isPlainRecord(options)) {
-		throw new TypeError('virtual options must be a plain object')
-	}
+	assertPlainObject(options, 'virtual options must be a plain object')
 
 	const field = immutableRecord({
 		kind: 'virtual' as const,
@@ -169,9 +168,7 @@ export const normalizeVirtualFieldSelection = (
 	persistedFields: Readonly<Record<string, GenericField>>,
 	path: string,
 ): readonly string[] => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a flat boolean selection`)
-	}
+	assertPlainObject(value, `${path} must be a flat boolean selection`)
 
 	const entries = Object.entries(value)
 	for (const [name, selected] of entries) {

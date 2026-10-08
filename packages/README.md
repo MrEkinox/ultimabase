@@ -92,7 +92,7 @@ Focused runtime and compile-time tests live beside the source they protect.
 Package-level public-export and cross-domain tests remain under the package's
 `tests/` directory.
 
-From the repository root, `yarn test:pack` builds and validates every public archive with publint, Are The Types Wrong, an archive allowlist, and a Vitest Node consumer.
+From the repository root, `yarn test:pack` builds every package, then runs every built-export E2E suite: archive validation with publint, Are The Types Wrong and an archive allowlist, Node consumers, and packed-declaration editor checks.
 
 ## Repository tests
 

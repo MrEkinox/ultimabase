@@ -1,8 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
 	defineCapability,
@@ -25,6 +21,7 @@ import {
 	type RuntimeBehaviorStages,
 	type RuntimeLogicalOperationKind,
 } from './pipeline/contracts.js'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
 export type RuntimeInterceptorDefinition = Readonly<{
@@ -116,9 +113,10 @@ const runtimeBehaviorKeys: ReadonlySet<string> = new Set(
 )
 
 const assertRuntimeBehavior = (value: unknown): RuntimeBehaviorStages => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('runtime behavior providers must return a plain object')
-	}
+	assertPlainObject(
+		value,
+		'runtime behavior providers must return a plain object',
+	)
 
 	for (const key of Object.keys(value)) {
 		if (!runtimeBehaviorKeys.has(key)) {
@@ -205,9 +203,3 @@ export const runtimeProviderPrivilege = (
 export const isAuthorizedRuntimeProvider = (
 	declaration: CapabilityProviderDeclaration,
 ): boolean => runtimeProviders.has(declaration)
-
-/** Identifies every protected Core Runtime protocol token. */
-export const isRuntimeCapability = (token: CapabilityToken): boolean =>
-	token === runtimeBehaviorCapability ||
-	token === runtimeInterceptorCapability ||
-	token === runtimeConstraintCapability

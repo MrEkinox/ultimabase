@@ -2,7 +2,6 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
@@ -16,6 +15,7 @@ import {
 	assertQuerySchemaReference,
 	parsePersistedQueryFieldName,
 } from '../ast/schema.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Describes one caller-owned order request before AST normalization. */
 export interface QueryOrderInput<TFieldName extends string = string> {
@@ -62,9 +62,7 @@ export const normalizeQueryOrdering = <const TSchema extends SchemaDefinition>(
 	>()
 
 	for (const [index, order] of untrustedOrders.entries()) {
-		if (!isPlainRecord(order)) {
-			throw new TypeError(`query.orders[${String(index)}] must be an object`)
-		}
+		assertPlainObject(order, `query.orders[${String(index)}] must be an object`)
 
 		const fieldName = parsePersistedQueryFieldName(
 			schema,

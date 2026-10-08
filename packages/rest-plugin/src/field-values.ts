@@ -165,7 +165,7 @@ export const decodeRestFieldValue = (
 	)
 
 /** Decodes one element operand for a list field without erasing nested depth. */
-export const decodeRestListElement = (
+const decodeRestListElement = (
 	field: GenericField,
 	value: unknown,
 	invalid: InvalidRestValue,

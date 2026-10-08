@@ -2,7 +2,6 @@ import {
 	assertOptionalBoolean,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
@@ -15,6 +14,7 @@ import {
 	reservedSystemFieldNames,
 	type ReservedSystemFieldName,
 } from './system-fields.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /**
  * Includes developer and framework-owned fields in top-level index declarations.
@@ -80,9 +80,7 @@ function assertSchemaIndexes(
 	for (const [indexPosition, index] of indexes.entries()) {
 		const indexPath = `indexes[${String(indexPosition)}]`
 
-		if (!isPlainRecord(index)) {
-			throw new TypeError(`${indexPath} must be an object`)
-		}
+		assertPlainObject(index, `${indexPath} must be an object`)
 
 		if (!isUnknownArray(index.fields)) {
 			throw new TypeError(`${indexPath}.fields must be a list`)

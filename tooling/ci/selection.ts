@@ -17,7 +17,6 @@ export interface CiPlan {
 	readonly coverage: boolean
 	readonly tooling: boolean
 	readonly documentation: boolean
-	readonly issues: boolean
 	readonly website: boolean
 	readonly workspaceLint: readonly string[]
 }
@@ -187,7 +186,6 @@ export const selectCi = (input: SelectionInput): CiPlan => {
 					file.startsWith('packages/') ||
 					file.startsWith('apps/website/'),
 			),
-		issues: full || changed.some((file) => file.startsWith('issues/')),
 		website,
 		workspaceLint,
 	}

@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown'
 // The CLI needs two entries; keep the repository's ESM archive checks for both.
 export default defineConfig({
 	attw: { level: 'error', profile: 'esm-only' },
-	clean: true,
+	clean: ['dist', 'tsconfig.tsbuildinfo'],
 	copy: [{ from: '../../LICENSE' }],
 	dts: { generator: 'oxc' },
 	entry: ['src/index.ts', 'src/cli.ts'],
