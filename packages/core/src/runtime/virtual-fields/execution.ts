@@ -20,6 +20,7 @@ import { throwIfOperationCancelled } from '../cancellation/operation-cancellatio
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { RuntimeVirtualFieldProjection } from './projection.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 const virtualResolverBatchSize = 16
 
@@ -175,9 +176,7 @@ export class RuntimeVirtualFieldScheduler {
 		const values = await this.#runInvocations(context, operation, invocations)
 		let valueIndex = 0
 		const resolvedRecords = resultRecords.map((record) => {
-			if (!isPlainRecord(record)) {
-				throw new TypeError('Runtime virtual result must be a record')
-			}
+			assertPlainObject(record, 'Runtime virtual result must be a record')
 			const virtualValues: Record<string, unknown> = {}
 			for (const virtual of projection.virtualFields) {
 				virtualValues[virtual.name] = values[valueIndex]

@@ -1,6 +1,7 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type { QueryOffsetPaginationNode } from '../ast/contracts.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Describes an optional offset without duplicating the independent limit. */
 export interface QueryOffsetPaginationInput {
@@ -46,9 +47,7 @@ export const normalizeQueryOffsetPagination = (
 
 	const untrustedInput: unknown = input
 
-	if (!isPlainRecord(untrustedInput)) {
-		throw new TypeError('offset pagination must be an object')
-	}
+	assertPlainObject(untrustedInput, 'offset pagination must be an object')
 
 	const offset =
 		parseOptionalPaginationInteger(

@@ -48,6 +48,7 @@ import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pip
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
 import { resolveSchemaMutation } from './runtime.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 interface SchemaMutationPipelineBinding {
 	readonly boundaries: RuntimeBehaviorBoundaries
@@ -213,9 +214,7 @@ const createBeforeInclusionSource = async (
 			operation: get,
 		}),
 	)
-	if (!isPlainRecord(result)) {
-		throw new TypeError('Schema mutation inclusion source must be a record')
-	}
+	assertPlainObject(result, 'Schema mutation inclusion source must be a record')
 	return result
 }
 
@@ -488,9 +487,7 @@ export const executeRuntimeSchemaMutation = async (
 		virtualProjection,
 		virtualScheduler,
 	})
-	if (!isPlainRecord(result)) {
-		throw new TypeError('Schema mutation result must be a record')
-	}
+	assertPlainObject(result, 'Schema mutation result must be a record')
 
 	return immutableRecord({ operation: physical, result })
 }

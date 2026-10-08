@@ -5,7 +5,10 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { assertExactCommandKeys } from '../../exact-object-validation.js'
+import {
+	assertExactCommandKeys,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 
 import type { QueryAst } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -49,9 +52,7 @@ const hasSameFields = (
 
 /** Reads the top-level conjunction members of one normalized unique target filter. */
 const readEqualityExpressions = (filter: unknown): readonly unknown[] => {
-	if (!isPlainRecord(filter)) {
-		throw new TypeError('upsert target must contain query filters')
-	}
+	assertPlainObject(filter, 'upsert target must contain query filters')
 
 	if (filter.kind !== 'and') return immutableArray([filter])
 

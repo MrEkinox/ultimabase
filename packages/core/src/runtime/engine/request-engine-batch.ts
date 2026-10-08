@@ -1,8 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import type { ExecutableOperationAst } from '../../query/index.js'
 import type {
 	OperationBatchEntry,
@@ -17,6 +13,7 @@ import {
 	projectRuntimeMutationBatch,
 	type RuntimePipeline,
 } from '../pipeline/runtime-pipeline.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Retains one item's unmaterialized result and its effective request context. */
 export interface RuntimeTerminalExecution {
@@ -75,9 +72,10 @@ export const executeRequestTerminalBatch = async (
 		if (entry.requireResult === true && execution.result === null) {
 			throw createProtectedObjectNotFoundError()
 		}
-		if (!isPlainRecord(execution.result)) {
-			throw new TypeError('Mutation batch projection requires record results')
-		}
+		assertPlainObject(
+			execution.result,
+			'Mutation batch projection requires record results',
+		)
 		const identity = readRuntimeSchemaModelMetadata(execution.result)?.objectId
 		if (typeof identity !== 'string') {
 			throw new TypeError(

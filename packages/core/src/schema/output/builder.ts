@@ -1,10 +1,9 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { assertExactPlainObject } from '../../exact-object-validation.js'
+import {
+	assertExactPlainObject,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 import { createCapturedBuilderCallRegistry } from '../captured-builder-call.js'
 
 import type { GenericField } from '../fields/base/contract.js'
@@ -95,9 +94,10 @@ const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 			)
 	// Nested object properties are captured eagerly because they are callbacks too.
 	const object = (optionsValue: unknown): GenericOutputDescriptor => {
-		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path}.object options must be a plain object`)
-		}
+		assertPlainObject(
+			optionsValue,
+			`${path}.object options must be a plain object`,
+		)
 
 		const { fields: declaration, ...options } = optionsValue
 		const fieldsPath = `${path}.object.fields`
@@ -108,9 +108,10 @@ const createCapturedOutputBuilder = (path: string): OutputBuilder => {
 		const returned: unknown = (
 			declaration as (output: OutputBuilder) => unknown
 		)(createCapturedOutputBuilder(fieldsPath))
-		if (!isPlainRecord(returned)) {
-			throw new TypeError(`${fieldsPath} must return an output descriptor map`)
-		}
+		assertPlainObject(
+			returned,
+			`${fieldsPath} must return an output descriptor map`,
+		)
 
 		const fields = mapOutputFields(
 			returned,
@@ -235,9 +236,7 @@ const createSimpleScalarField = (kind: string): GenericField | undefined => {
 const snapshotObjectElement =
 	(fields: OutputFields) =>
 	(value: unknown, path: string): Readonly<Record<string, unknown>> => {
-		if (!isPlainRecord(value)) {
-			throw new TypeError(`${path} must be a plain object`)
-		}
+		assertPlainObject(value, `${path} must be a plain object`)
 
 		for (const key of Object.keys(value)) {
 			if (!Object.hasOwn(fields, key)) {
@@ -417,9 +416,7 @@ const resolveCapturedOutputFields = (
 	path: string,
 	fieldMethods?: FieldBuilderMethodResolver,
 ): OutputFields => {
-	if (!isPlainRecord(captured)) {
-		throw new TypeError(`${path} must be an output descriptor map`)
-	}
+	assertPlainObject(captured, `${path} must be an output descriptor map`)
 
 	return mapOutputFields(captured, path, (descriptor, descriptorPath) =>
 		resolveCapturedOutputDescriptor(descriptor, descriptorPath, fieldMethods),

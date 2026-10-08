@@ -56,6 +56,7 @@ import {
 } from '../virtual-fields/projection.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { assertDatabaseInclusionCapability } from './mutation-inclusion-source.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 type LogicalRecord = Readonly<Record<string, unknown>>
 
@@ -169,9 +170,10 @@ export class RuntimeInclusionProjector {
 		const sources = new Map<string, LogicalRecord>()
 
 		for (const candidate of rawResult) {
-			if (!isPlainRecord(candidate)) {
-				throw new TypeError('Mutation batch projection must return records')
-			}
+			assertPlainObject(
+				candidate,
+				'Mutation batch projection must return records',
+			)
 
 			const identity = executor.readObjectIdentity?.(candidate) ?? candidate.id
 			assertNonEmptyString(identity, 'Mutation batch projected object id')

@@ -25,6 +25,14 @@ export const assertExactEnumerableKeys = (
 		throw new TypeError(`${unknownKeyPrefix}${unknownKey}`)
 }
 
+/** @internal Rejects every value that is not a plain object with one exact message. */
+export const assertPlainObject: (
+	value: unknown,
+	message: string,
+) => asserts value is Record<string, unknown> = (value, message) => {
+	if (!isPlainRecord(value)) throw new TypeError(message)
+}
+
 /** @internal Combines the shared plain-object and exact-key boundary. */
 export const assertExactPlainObject: (
 	value: unknown,
@@ -37,7 +45,7 @@ export const assertExactPlainObject: (
 	notPlainObject,
 	unknownKeyPrefix,
 ) => {
-	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
+	assertPlainObject(value, notPlainObject)
 	assertExactObjectKeys(value, keys, unknownKeyPrefix)
 }
 
@@ -53,7 +61,7 @@ export const assertExactEnumerablePlainObject: (
 	notPlainObject,
 	unknownKeyPrefix,
 ) => {
-	if (!isPlainRecord(value)) throw new TypeError(notPlainObject)
+	assertPlainObject(value, notPlainObject)
 	assertExactEnumerableKeys(value, keys, unknownKeyPrefix)
 }
 

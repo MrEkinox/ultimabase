@@ -68,14 +68,13 @@ import {
 	preparedDraftConstructionKey,
 	registerSchemaModelClass,
 } from './model-state.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 const snapshotDraftValues = (
 	fields: SchemaFields,
 	input: unknown,
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('Schema model input must be a plain object')
-	}
+	assertPlainObject(input, 'Schema model input must be a plain object')
 
 	for (const [field, definition] of Object.entries(fields)) {
 		if (!Object.hasOwn(input, field) && isRequiredOnCreate(definition)) {

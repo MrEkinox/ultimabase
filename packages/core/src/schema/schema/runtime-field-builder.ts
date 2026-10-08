@@ -1,8 +1,4 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
@@ -25,6 +21,7 @@ import type { CapturedBuilderCall } from '../captured-builder-call.js'
 import type { SchemaDefinition } from './definition.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import { createNamedSchemaTarget } from './targets.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Identifies the one expected failure when an application omitted a used field plugin. */
 export class FieldBuilderMethodUnavailableError extends TypeError {}
@@ -87,9 +84,10 @@ const resolveNamedTargetOptions = (
 	path: string,
 	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError(`${path} relationship options must be a plain object`)
-	}
+	assertPlainObject(
+		options,
+		`${path} relationship options must be a plain object`,
+	)
 
 	const { target, ...rest } = options
 	assertNonEmptyString(target, `${path} target`)

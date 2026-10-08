@@ -21,6 +21,7 @@ import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata
 import { isRecordOperationResult } from '../operations/characteristics.js'
 import { readOperationResultSelection } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Separates one authorized logical projection from its private persisted superset. */
 export interface RuntimeVirtualFieldProjection {
@@ -123,9 +124,7 @@ export const projectRuntimePublicPersistedResult = <
 		) as DatabaseOperationResult<TOperation>
 	}
 
-	if (!isPlainRecord(candidate)) {
-		throw new TypeError('Runtime virtual source must be a record')
-	}
+	assertPlainObject(candidate, 'Runtime virtual source must be a record')
 
 	return projectRecord(
 		candidate,

@@ -1,6 +1,9 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
-import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
+import {
+	assertExactEnumerablePlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 
 import {
 	assertOperationIdentity,
@@ -133,9 +136,7 @@ const snapshotSelection = (
 	value: PluginSchemaMutationDependencySelection | undefined,
 ): PluginSchemaMutationDependencySelection => {
 	if (value === undefined) return immutableRecord({})
-	if (!isPlainRecord(value)) {
-		throw new TypeError('schema mutation select must be a plain object')
-	}
+	assertPlainObject(value, 'schema mutation select must be a plain object')
 	const untrustedSelection: Readonly<Record<string, unknown>> = value
 	for (const [name, selected] of Object.entries(untrustedSelection)) {
 		if (name.trim() === '') {

@@ -42,6 +42,7 @@ import {
 	type QueryRelationPredicateOperator,
 } from './relation.js'
 import type { WhereInput } from './where-contracts.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 type WhereTarget<TSchema extends SchemaDefinition> =
 	QueryFieldName<TSchema> | QueryFieldPath
@@ -150,9 +151,7 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 		case 'not-between': {
 			assertRootWhereTarget(target, path)
 
-			if (!isPlainRecord(operand)) {
-				throw new TypeError(`${path} must be an object`)
-			}
+			assertPlainObject(operand, `${path} must be an object`)
 
 			if (
 				Object.keys(operand).length !== 2 ||
@@ -282,9 +281,7 @@ const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
 ): QueryFilterNode<TSchema> => {
 	const path = `where.${fieldName}.count`
 
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`${path} must be an object`)
-	}
+	assertPlainObject(input, `${path} must be an object`)
 
 	const target = resolveRelationshipTarget(
 		context.schema,
@@ -443,9 +440,7 @@ const normalizeWhereField = <TSchema extends SchemaDefinition>(
 	fieldName: QueryFieldName<TSchema>,
 	input: unknown,
 ): QueryFilterNode<TSchema> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(`where.${fieldName} must be an object`)
-	}
+	assertPlainObject(input, `where.${fieldName} must be an object`)
 
 	let expression: QueryFilterNode<TSchema> | undefined
 
@@ -500,9 +495,7 @@ const normalizeWhereRecord = <TSchema extends SchemaDefinition>(
 	context: WhereContext<TSchema>,
 	input: unknown,
 ): QueryFilterNode<TSchema> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError('where must be an object')
-	}
+	assertPlainObject(input, 'where must be an object')
 
 	if (context.ancestors.has(input)) {
 		throw new TypeError('where must not contain circular references')

@@ -1,10 +1,12 @@
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../exact-object-validation.js'
+import {
+	assertExactEnumerableKeys,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 
 import { snapshotScalarFieldValue } from '../schema/fields/base/definition.js'
 import type { FieldValidationPlan } from '../schema/plans/contracts.js'
@@ -19,8 +21,7 @@ const assertPlainOperationValue = (
 	value: unknown,
 	path: string,
 ): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(value))
-		throw new TypeError(`${path} must be a plain object`)
+	assertPlainObject(value, `${path} must be a plain object`)
 	return value
 }
 

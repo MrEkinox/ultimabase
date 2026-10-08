@@ -3,7 +3,10 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { assertExactEnumerableKeys } from '../../exact-object-validation.js'
+import {
+	assertExactEnumerableKeys,
+	assertPlainObject,
+} from '../../exact-object-validation.js'
 
 import {
 	createFieldDefinition,
@@ -158,9 +161,10 @@ const normalizePluginFieldStorageCodec = <TValue>(
 ): PluginFieldStorageCodec => {
 	const candidate: unknown = codec
 
-	if (!isPlainRecord(candidate)) {
-		throw new TypeError('Plugin field storageCodec must be a plain object')
-	}
+	assertPlainObject(
+		candidate,
+		'Plugin field storageCodec must be a plain object',
+	)
 
 	assertExactEnumerableKeys(
 		candidate,

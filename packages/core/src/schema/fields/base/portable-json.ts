@@ -1,8 +1,5 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { assertPlainObject } from '../../../exact-object-validation.js'
 
 /** Represents values that have a lossless, portable JSON encoding. */
 export type JsonPrimitive = boolean | null | number | string
@@ -56,9 +53,7 @@ const normalizeJsonValue = (
 			)
 		}
 
-		if (!isPlainRecord(value)) {
-			throw new TypeError(`${path} must contain only plain JSON objects`)
-		}
+		assertPlainObject(value, `${path} must contain only plain JSON objects`)
 
 		const entries: [string, JsonValue][] = Object.entries(value).map(
 			([key, item]) => [

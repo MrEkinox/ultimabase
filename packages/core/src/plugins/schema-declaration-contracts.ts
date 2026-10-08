@@ -44,6 +44,7 @@ import type {
 	MutableTypegenDeclarations,
 	TypegenDeclarations,
 } from './typegen-declarations.js'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 export interface PluginSchemaSourceOptions<
 	TSchema extends SchemaDefinition = SchemaDefinition,
@@ -402,9 +403,7 @@ export const snapshotStaticOptions = (
 	if (options === undefined) return emptyStaticOptions
 
 	const snapshot = snapshotJsonValue(options, path)
-	if (!isPlainRecord(snapshot)) {
-		throw new TypeError(`${path} must be a JSON object`)
-	}
+	assertPlainObject(snapshot, `${path} must be a JSON object`)
 
 	return snapshot
 }

@@ -1,8 +1,4 @@
-import {
-	assertNonEmptyString,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
 import type { GenericVirtualField } from './virtual-field.js'
@@ -56,6 +52,7 @@ import {
 	storeProvisionalSchemaCompilation,
 	storeSchemaDeclaration,
 } from './definition-compilation.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 export type {
 	ConfiguredFieldDeclaration,
@@ -214,9 +211,7 @@ const defineSchemaModel = <
 >(
 	options: SchemaOptions<TClassName, TFields>,
 ): SchemaReference<TClassName, TFields> => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('schema options must be an object')
-	}
+	assertPlainObject(options, 'schema options must be an object')
 
 	assertNonEmptyString(options.className, 'className')
 
@@ -370,18 +365,21 @@ export class Schema {
 			createSchemaModelCapabilityContext(schema),
 		)
 
-		if (!isPlainRecord(capabilities)) {
-			throw new TypeError('schema class capabilities must be a plain object')
-		}
+		assertPlainObject(
+			capabilities,
+			'schema class capabilities must be a plain object',
+		)
 		const staticCapabilities = capabilities.statics
 		const resultCapabilities = capabilities.results
 
-		if (!isPlainRecord(staticCapabilities)) {
-			throw new TypeError('schema static capabilities must be a plain object')
-		}
-		if (!isPlainRecord(resultCapabilities)) {
-			throw new TypeError('schema result capabilities must be a plain object')
-		}
+		assertPlainObject(
+			staticCapabilities,
+			'schema static capabilities must be a plain object',
+		)
+		assertPlainObject(
+			resultCapabilities,
+			'schema result capabilities must be a plain object',
+		)
 
 		for (const name of Reflect.ownKeys(staticCapabilities)) {
 			if (typeof name === 'string') {

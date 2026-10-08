@@ -1,11 +1,8 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from './base/contract.js'
 import { assertFieldDefinition } from './base/definition.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Identifies one declared field without flattening its structural path. */
 export interface FieldTraversalEntry {
@@ -29,9 +26,10 @@ const collectFieldEntries = (
 
 		const nestedFields: unknown = Reflect.get(field.options, 'fields')
 
-		if (!isPlainRecord(nestedFields)) {
-			throw new TypeError(`${path.join('.')} must contain a field map`)
-		}
+		assertPlainObject(
+			nestedFields,
+			`${path.join('.')} must contain a field map`,
+		)
 
 		const declaredNestedFields: Record<string, GenericField> = {}
 

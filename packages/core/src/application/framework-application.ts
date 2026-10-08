@@ -11,7 +11,7 @@ import {
 	type SchemaDefinition,
 	type SchemaTargetGraph,
 } from '../schema/index.js'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import { isUnknownArray } from '@ultimabase/shared'
 
 import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
@@ -61,6 +61,7 @@ import {
 	bindApplicationKernelState,
 	readApplicationKernelState,
 } from './application-kernel-state.js'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -89,9 +90,7 @@ const assertApplicationOptions: (
 	readonly SchemaDefinition[],
 	readonly PluginDefinition[]
 > = (options) => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('application options must be a plain object')
-	}
+	assertPlainObject(options, 'application options must be a plain object')
 
 	if (!isUnknownArray(options.schemas)) {
 		throw new TypeError('schemas must be an array')

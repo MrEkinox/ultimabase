@@ -28,6 +28,7 @@ import type {
 	SchemaRelationshipFieldName,
 	UltimaBaseGeneratedFieldOptions,
 } from '../../type-info.js'
+import { assertPlainObject } from '../../../exact-object-validation.js'
 
 declare const relationTargetMarker: unique symbol
 
@@ -225,9 +226,7 @@ const normalizeRelationWhereDeclaration = (
 	}
 
 	const snapshot = snapshotCapturedOptionValue(value)
-	if (!isPlainRecord(snapshot)) {
-		throw new TypeError('relationField where must be a plain object')
-	}
+	assertPlainObject(snapshot, 'relationField where must be a plain object')
 
 	return immutableRecord({
 		input: snapshot,

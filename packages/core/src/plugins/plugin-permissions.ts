@@ -2,10 +2,12 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactPlainObject } from '../exact-object-validation.js'
+import {
+	assertExactPlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 import {
 	assertOptionalCapabilityRequirement,
 	type CapabilityRequirement,
@@ -36,9 +38,10 @@ export const normalizePluginPermissionRequests = (
 	optionalCapabilities: readonly CapabilityRequirement<CapabilityToken, true>[],
 ): readonly PluginPrivilegeRequest[] => {
 	const untrustedPermissions: unknown = permissions ?? {}
-	if (!isPlainRecord(untrustedPermissions)) {
-		throw new TypeError('plugin permissions must be a plain object')
-	}
+	assertPlainObject(
+		untrustedPermissions,
+		'plugin permissions must be a plain object',
+	)
 	for (const key of Reflect.ownKeys(untrustedPermissions)) {
 		if (
 			typeof key !== 'string' ||

@@ -6,7 +6,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactPlainObject } from '../exact-object-validation.js'
+import {
+	assertExactPlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 import { assertFieldDefinition } from '../schema/fields/base/definition.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import {
@@ -63,9 +66,7 @@ const assertPortableField = (field: GenericField, path: string): void => {
 	}
 	if (field.kind === 'object') {
 		const children: unknown = Reflect.get(field.options, 'fields')
-		if (!isPlainRecord(children)) {
-			throw new TypeError(`${path}.fields must be a plain object`)
-		}
+		assertPlainObject(children, `${path}.fields must be a plain object`)
 		for (const [name, child] of Object.entries(children)) {
 			assertPortableField(child as GenericField, `${path}.fields.${name}`)
 		}

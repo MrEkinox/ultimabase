@@ -5,6 +5,7 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { assertPlainObject } from '../exact-object-validation.js'
 
 type ErrorDetails = Readonly<Record<string, unknown>>
 
@@ -30,8 +31,7 @@ const snapshotDetails = <const TDetails extends ErrorDetails>(
 	path: string,
 ): Readonly<TDetails> | undefined => {
 	if (details === undefined) return undefined
-	if (!isPlainRecord(details))
-		throw new TypeError(`${path} must be a plain object`)
+	assertPlainObject(details, `${path} must be a plain object`)
 	return immutableRecord(details)
 }
 

@@ -1,11 +1,13 @@
 import {
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { assertExactEnumerablePlainObject } from '../exact-object-validation.js'
+import {
+	assertExactEnumerablePlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 
 import {
 	isPluginSchemaMutationDefinition,
@@ -32,9 +34,10 @@ export const snapshotSchemaMutationMap = (
 		Readonly<Record<string, PluginSchemaMutationSurfaceBinding>> | undefined,
 ): Readonly<Record<string, PluginSchemaMutationSurfaceBinding>> => {
 	if (value === undefined) return immutableRecord({})
-	if (!isPlainRecord(value)) {
-		throw new TypeError('model surface schemaMutations must be a plain object')
-	}
+	assertPlainObject(
+		value,
+		'model surface schemaMutations must be a plain object',
+	)
 	const snapshot: Record<string, PluginSchemaMutationSurfaceBinding> = {}
 	for (const [name, binding] of Object.entries(value)) {
 		if (!schemaMutationCommandNamePattern.test(name)) {

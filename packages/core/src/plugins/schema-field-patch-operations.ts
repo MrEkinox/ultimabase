@@ -2,10 +2,12 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
 
-import { assertExactPlainObject } from '../exact-object-validation.js'
+import {
+	assertExactPlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 import {
 	assertFieldDefinition,
 	forbidFieldMutationInput,
@@ -89,9 +91,7 @@ export const addSchemaIndex = (
 		readonly unique?: boolean
 	},
 ): AddSchemaIndexOperation => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Schema index addition must be a plain object')
-	}
+	assertPlainObject(options, 'Schema index addition must be a plain object')
 
 	assertNonEmptyString(options.contributionId, 'Schema index contributionId')
 	const index = immutableRecord({
@@ -160,9 +160,10 @@ export const setSchemaFieldOption = (
 export const addSchemaConstraint = (
 	options: Omit<AddSchemaConstraintOperation, 'kind'>,
 ): AddSchemaConstraintOperation => {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('Schema constraint addition must be a plain object')
-	}
+	assertPlainObject(
+		options,
+		'Schema constraint addition must be a plain object',
+	)
 	assertNonEmptyString(
 		options.contributionId,
 		'Schema constraint contributionId',

@@ -1,8 +1,4 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import type {
@@ -73,6 +69,7 @@ import {
 	enforceRuntimeOperation,
 } from './stage-inputs.js'
 import { finalizeRuntimeOperationResult } from './result-finalization.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Identifies one Core-owned nested mutation while it uses the ordinary pipeline. */
 interface ActiveNestedWrite {
@@ -129,9 +126,10 @@ const assertStageFunctions = (
 const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	const untrustedStages: unknown = stages
 
-	if (!isPlainRecord(untrustedStages)) {
-		throw new TypeError('Runtime pipeline stages must be a plain object')
-	}
+	assertPlainObject(
+		untrustedStages,
+		'Runtime pipeline stages must be a plain object',
+	)
 
 	assertStageFunctions(
 		untrustedStages,
@@ -147,9 +145,10 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	const { behaviors, enforcement }: Record<string, unknown> = untrustedStages
 
 	if (behaviors !== undefined) {
-		if (!isPlainRecord(behaviors)) {
-			throw new TypeError('Runtime pipeline behaviors must be a plain object')
-		}
+		assertPlainObject(
+			behaviors,
+			'Runtime pipeline behaviors must be a plain object',
+		)
 		assertStageFunctions(
 			behaviors,
 			runtimeBehaviorStageNames,
@@ -159,9 +158,10 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	}
 
 	if (enforcement !== undefined) {
-		if (!isPlainRecord(enforcement)) {
-			throw new TypeError('Runtime pipeline enforcement must be a plain object')
-		}
+		assertPlainObject(
+			enforcement,
+			'Runtime pipeline enforcement must be a plain object',
+		)
 		assertStageFunctions(
 			enforcement,
 			[
@@ -276,9 +276,10 @@ export class RuntimePipeline {
 	): Promise<RuntimeOperationResult<TOperation>> {
 		const untrustedRequest: unknown = request
 
-		if (!isPlainRecord(untrustedRequest)) {
-			throw new TypeError('Runtime pipeline request must be a plain object')
-		}
+		assertPlainObject(
+			untrustedRequest,
+			'Runtime pipeline request must be a plain object',
+		)
 
 		if (!(untrustedRequest.context instanceof RequestContext)) {
 			throw new TypeError('Runtime pipeline context must be a RequestContext')

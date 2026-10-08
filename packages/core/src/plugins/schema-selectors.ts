@@ -2,13 +2,13 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
 import {
 	assertExactObjectKeys,
 	assertExactPlainObject,
+	assertPlainObject,
 } from '../exact-object-validation.js'
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
 
@@ -119,9 +119,10 @@ export const normalizeSelector = (selector: unknown): SchemaSelectorOptions => {
 	const ownerInput = untrustedSelector.owner
 	let owner: SchemaContributionOwnerReference | undefined
 	if (ownerInput !== undefined) {
-		if (!isPlainRecord(ownerInput)) {
-			throw new TypeError('Schema selector owner must be a plain object')
-		}
+		assertPlainObject(
+			ownerInput,
+			'Schema selector owner must be a plain object',
+		)
 		if (ownerInput.kind === 'application') {
 			assertExactObjectKeys(
 				ownerInput,

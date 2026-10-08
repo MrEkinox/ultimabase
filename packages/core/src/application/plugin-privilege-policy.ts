@@ -1,10 +1,9 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { assertExactPlainObject } from '../exact-object-validation.js'
+import {
+	assertExactPlainObject,
+	assertPlainObject,
+} from '../exact-object-validation.js'
 import type { PluginDefinition } from '../plugins/definition.js'
 import type { PluginGraph } from '../plugins/graph.js'
 import {
@@ -221,15 +220,14 @@ const normalizePluginPolicy = (
 	configuredInstances: ReadonlySet<string>,
 ): NormalizedPluginPolicy => {
 	const scope = normalizeScope(value, path, pluginPolicyKeys)
-	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a plain object`)
-	}
+	assertPlainObject(value, `${path} must be a plain object`)
 
 	const instances = new Map<string, NormalizedPolicyScope>()
 	if (value.instances !== undefined) {
-		if (!isPlainRecord(value.instances)) {
-			throw new TypeError(`${path}.instances must be a plain object`)
-		}
+		assertPlainObject(
+			value.instances,
+			`${path}.instances must be a plain object`,
+		)
 
 		for (const [instanceId, instancePolicy] of Object.entries(
 			value.instances,
@@ -263,9 +261,7 @@ const normalizePolicy = (
 		}
 	}
 
-	if (!isPlainRecord(policy)) {
-		throw new TypeError('pluginPrivileges must be a plain object')
-	}
+	assertPlainObject(policy, 'pluginPrivileges must be a plain object')
 
 	const scope = normalizeScope(policy, 'pluginPrivileges', rootPolicyKeys)
 	const plugins = new Map<string, NormalizedPluginPolicy>()
@@ -279,9 +275,10 @@ const normalizePolicy = (
 	}
 
 	if (policy.plugins !== undefined) {
-		if (!isPlainRecord(policy.plugins)) {
-			throw new TypeError('pluginPrivileges.plugins must be a plain object')
-		}
+		assertPlainObject(
+			policy.plugins,
+			'pluginPrivileges.plugins must be a plain object',
+		)
 
 		for (const [pluginId, pluginPolicy] of Object.entries(policy.plugins)) {
 			const configuredInstances = graphPluginsById.get(pluginId)

@@ -8,7 +8,6 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 } from '@ultimabase/shared'
 
 import {
@@ -20,6 +19,7 @@ import {
 } from './contracts.js'
 import { readPersistedQueryFields } from '../ast/schema.js'
 import { isNumericUpdateOperationValue } from './operators.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 type RuntimeUpdateField = FieldDefinition<string, unknown, object>
 
@@ -109,9 +109,7 @@ export const normalizeUpdateExpression = <
 ): UpdateExpression<TSchema> => {
 	const untrustedInput: unknown = input
 
-	if (!isPlainRecord(untrustedInput)) {
-		throw new TypeError('update expression must be an object')
-	}
+	assertPlainObject(untrustedInput, 'update expression must be an object')
 
 	const operations = Object.entries(untrustedInput).map(([fieldName, value]) =>
 		normalizeUpdateOperation(schema, fieldName, value),

@@ -24,6 +24,7 @@ import {
 } from '../operations/queries.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 import { emptyRuntimeConstraints } from './stage-inputs.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Rejects eager loading unless the adapter implements the complete side channel. */
 export const assertDatabaseInclusionCapability = (
@@ -101,9 +102,10 @@ export const loadSingularMutationInclusionSource = async <
 		),
 	)
 
-	if (!isPlainRecord(projected)) {
-		throw new TypeError('Mutation inclusion projection must return one record')
-	}
+	assertPlainObject(
+		projected,
+		'Mutation inclusion projection must return one record',
+	)
 
 	// The private get uses the same schema and projection as the singular mutation.
 	return projected as DatabaseOperationResult<TOperation>
