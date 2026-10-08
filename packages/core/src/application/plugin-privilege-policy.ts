@@ -25,7 +25,7 @@ import type {
 
 /** Denies enforceable privileges separately from informational environment claims. */
 export interface PluginPrivilegePolicyScope {
-	/** Denies exact Core-owned powers. @example `deny: ['adapter:raw']` */
+	/** Denies exact Core-owned powers. @example `deny: ['authority:elevate']` */
 	readonly deny?: readonly PluginPrivilege[]
 	/** Rejects plugins that announce these direct Node.js behaviors. @example `denyClaims: ['environment:network']` */
 	readonly denyClaims?: readonly PluginEnvironmentClaim[]

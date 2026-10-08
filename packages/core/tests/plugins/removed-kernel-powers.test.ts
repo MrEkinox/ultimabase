@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { plugin, pluginPrivilegeMetadata } from '../../src/index.js'
+import { plugin } from '../../src/index.js'
+import { pluginPrivilegeMetadata } from '../../src/plugins/manifest.js'
 
 describe('removed kernel powers', () => {
 	it.each(['decorates', 'replaces'])(

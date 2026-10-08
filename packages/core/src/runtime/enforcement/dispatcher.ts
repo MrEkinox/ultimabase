@@ -64,7 +64,7 @@ export const createEnforcementStages = <
 			immutableRecord({
 				context: input.context,
 				operation: input.operation,
-				result: await enforceOutputRestrictions(contributions, runtime, input),
+				result: enforceOutputRestrictions(input),
 			}),
 		)
 

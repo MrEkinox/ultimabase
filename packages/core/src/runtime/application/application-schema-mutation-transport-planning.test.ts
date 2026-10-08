@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	contributeDeclarations,
-	contributeSchemaMutationBinding,
+	contributeSchemaMutation,
 	defineCapability,
 	defineOperationValue,
 	plugin as createPlugin,
@@ -63,24 +63,19 @@ const createOwnerPlugin = (bindingCount = 1, selected = true) =>
 		permissions: {
 			'model:extend': 'Attaches archive.',
 			'operation:declare': 'Declares archive.',
+			'persistence:rewrite': 'Persists archive.',
 			'schema:declare': 'Adds workflow state.',
 			...(bindingCount > 0
 				? { 'transport:expose': 'Binds the transport.' }
 				: {}),
 		},
 		contributions: [
-			...(bindingCount > 0
-				? [
-						contributeSchemaMutationBinding(binding),
-						...(bindingCount > 1
-							? [contributeSchemaMutationBinding(binding)]
-							: []),
-					]
-				: []),
+			contributeSchemaMutation({
+				bindings: Array.from({ length: bindingCount }, () => binding),
+				mutation: archive,
+				resolve: () => ({ data: { workflowState: 'archived' } }),
+			}),
 			contributeDeclarations({
-				operations: ({ operations }) => {
-					operations.declare(archive)
-				},
 				schema: ({ schemas }) => {
 					schemas.patch({
 						operations: [
@@ -205,29 +200,6 @@ describe('application schema mutation transport planning', () => {
 		// A provider factory alone cannot add a route or a second execution registry.
 		expect(runPlanning(harness)?.mutations).toEqual([])
 		await application.dispose()
-	})
-
-	it('rejects an owner mismatch before transport startup', async () => {
-		const foreign = createPlugin({
-			core: '^0.0.0',
-			id: 'fixture.schema-mutation-planning.foreign',
-			permissions: { 'transport:expose': 'Exercises owner validation.' },
-			version: '1.0.0',
-			contributions: [contributeSchemaMutationBinding(binding)],
-		})
-		const harness: Harness = {}
-		// Ownership now fails at materialization, before a transport can obtain its planner.
-		await expect(
-			createApplication({
-				pluginPrivileges: { logger: false },
-				plugins: [createOwnerPlugin(0), foreign, consumerPlugin(harness)],
-				schemas: [Document],
-			}),
-		).rejects.toMatchObject({
-			code: 'PLUGIN_OPERATION_INVALID',
-			internalDetails: { kind: 'schema-mutation-transport-owner-invalid' },
-		})
-		expect(harness.planner).toBeUndefined()
 	})
 
 	it('rejects duplicate bindings before transport startup', async () => {

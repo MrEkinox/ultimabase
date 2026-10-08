@@ -2,7 +2,6 @@ import type { PrivateStorageRegistry } from '../private-storage/registry.js'
 import type {
 	CapabilityConsumerValue,
 	CapabilityToken,
-	PluginCapabilityReader,
 } from '../plugins/capabilities.js'
 import type {
 	ApplicationCapabilityHost,
@@ -65,10 +64,6 @@ export class ApplicationKernelState {
 		token: TToken,
 	): readonly MaterializedCapabilityContribution<TToken>[] {
 		return this.#requireOptions().capabilities.readContributions(token)
-	}
-
-	pluginCapabilities(owner: PluginIdentity): PluginCapabilityReader {
-		return this.#requireOptions().capabilities.forPlugin(owner)
 	}
 
 	assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {

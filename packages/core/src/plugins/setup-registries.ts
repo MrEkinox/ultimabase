@@ -24,10 +24,6 @@ import {
 } from './manifest.js'
 import { PluginIdentityMap } from './plugin-identity-map.js'
 import type { CompiledTypegenGraph } from './typegen-declarations.js'
-import {
-	createAdapterAccess,
-	type AdapterAccess,
-} from '../runtime/adapters/raw-access.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
@@ -92,8 +88,6 @@ export interface PluginSetupContext {
 	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
-	/** Opens adapter-owned raw facades only for the lifetime of one setup callback. */
-	readonly adapters: AdapterAccess
 	/** Registers adapter constraint compilers with owner-derived provenance. */
 	readonly constraintCompilers: PluginConstraintCompilerRegistry
 }
@@ -149,14 +143,6 @@ export class PluginSetupRegistries {
 				pluginFieldTypes: this.pluginFieldTypes(),
 				typegenGraph: this.typegenGraph(),
 				capabilities,
-				adapters: createAdapterAccess({
-					assertPrivilege: (privilege) => {
-						this.assertPrivilegeForPlugin(owner, privilege)
-					},
-					capabilities,
-					isOpen,
-					scope: () => immutableRecord({ kind: 'setup' as const }),
-				}),
 				constraintCompilers: createPluginConstraintCompilerRegistry({
 					assertPrivilege: () => {
 						this.assertPrivilegeForPlugin(owner, 'adapter:consume')

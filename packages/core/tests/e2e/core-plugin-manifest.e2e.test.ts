@@ -20,7 +20,6 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			languageFixture.readStringCompletions('privilege')
 		expect(privilegeCompletions).toStrictEqual([
 			'adapter:consume',
-			'adapter:raw',
 			'authority:elevate',
 			'event:publish',
 			'model:extend',

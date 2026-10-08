@@ -45,7 +45,6 @@ import {
 	type PluginPrivilege,
 } from './manifest.js'
 import { PluginIdentityMap } from './plugin-identity-map.js'
-import { materializeAdapterContribution } from '../runtime/adapters/contributions.js'
 import {
 	bindApplicationOperationTransportPlanner,
 	isApplicationOperationTransportPlanningCapability,
@@ -408,17 +407,12 @@ export class ApplicationCapabilityHost {
 					)
 				: createResource())
 			assertApplicationResource(resource, token.capabilityId)
-			const value = materializeAdapterContribution(token, resource.value, {
-				contributionId: declaration.contributionId,
-				owner,
-				packageVersion: version,
-			})
 			contributions.push(
 				immutableRecord({
 					contributionId: declaration.contributionId,
 					owner,
 					pluginVersion: version,
-					value,
+					value: resource.value,
 				}),
 			)
 			this.#retain(owner, resource.dispose, attributed)

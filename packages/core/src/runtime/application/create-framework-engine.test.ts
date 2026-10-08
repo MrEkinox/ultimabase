@@ -11,16 +11,9 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
-import {
-	constraint,
-	databaseConstraint,
-	guard,
-	restrictSelection,
-} from '../enforcement/definitions.js'
-import {
-	afterOperation,
-	beforeOperation,
-} from '../contributions/definitions.js'
+import { databaseConstraint, guard } from '../enforcement/definitions.js'
+import { protectedPolicy } from '../enforcement/protected-policy.js'
+import { getOperationSchema } from '../operations/schema.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
@@ -72,23 +65,20 @@ describe('createFrameworkEngine', () => {
 				'runtime:intercept': 'Exercises ordered Runtime pipeline handlers.',
 			},
 			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.dependency-before',
-					beforeOperation({
-						handler: () => {
-							trace.push('before:dependency')
+				provideRuntimeBehavior({
+					contributionId: 'fixture.dependency-behavior',
+					create: () => ({
+						value: {
+							beforeOperation: () => {
+								trace.push('before:dependency')
+							},
+							transformResult: ({ result }) => {
+								trace.push('after:dependency')
+								return result
+							},
 						},
 					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.dependency-after',
-					afterOperation({
-						handler: ({ result }) => {
-							trace.push('after:dependency')
-							return { result }
-						},
-					}),
-				),
+				}),
 			],
 		})
 		const consumer = createPlugin({
@@ -102,23 +92,20 @@ describe('createFrameworkEngine', () => {
 				'runtime:intercept': 'Exercises ordered Runtime pipeline handlers.',
 			},
 			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.consumer-before',
-					beforeOperation({
-						handler: () => {
-							trace.push('before:consumer')
+				provideRuntimeBehavior({
+					contributionId: 'fixture.consumer-behavior',
+					create: () => ({
+						value: {
+							beforeOperation: () => {
+								trace.push('before:consumer')
+							},
+							transformResult: ({ result }) => {
+								trace.push('after:consumer')
+								return result
+							},
 						},
 					}),
-				),
-				provideTestRuntimeInterceptor(
-					'fixture.consumer-after',
-					afterOperation({
-						handler: ({ result }) => {
-							trace.push('after:consumer')
-							return { result }
-						},
-					}),
-				),
+				}),
 			],
 		})
 		const automation = createPlugin({
@@ -129,20 +116,18 @@ describe('createFrameworkEngine', () => {
 				'runtime:intercept': 'Exercises low-level before-operation hooks.',
 			},
 			contributions: [
-				provideTestRuntimeInterceptor(
-					'fixture.trim-title',
-					beforeOperation({
-						schema: articleSchema,
-						operations: ['create-one'],
-						handler: () => {
-							trace.push('hook:before')
-						},
-					}),
-				),
 				provideRuntimeBehavior({
 					contributionId: 'fixture.created-event',
 					create: () => ({
 						value: {
+							beforeOperation: ({ operation }) => {
+								if (
+									operation.kind === 'create-one' &&
+									getOperationSchema(operation) === articleSchema
+								) {
+									trace.push('hook:before')
+								}
+							},
 							postCommit: () => {
 								trace.push('event:post-commit')
 							},
@@ -171,15 +156,17 @@ describe('createFrameworkEngine', () => {
 				),
 				provideTestRuntimeConstraint(
 					'fixture.tenant-constraint',
-					constraint({
+					protectedPolicy({
 						schema: articleSchema,
 						operations: ['create-one'],
-						handler: () => {
+						evaluate: () => {
 							trace.push('enforcement:constraint')
 
-							return databaseConstraint('fixture.tenant', 1, {
-								tenantId: 'tenant-1',
-							})
+							return {
+								constraints: databaseConstraint('fixture.tenant', 1, {
+									tenantId: 'tenant-1',
+								}),
+							}
 						},
 					}),
 				),
@@ -293,19 +280,20 @@ describe('createFrameworkEngine', () => {
 			contributions: [
 				provideTestRuntimeConstraint(
 					'fixture.read-constraint',
-					constraint({
-						handler: () =>
-							databaseConstraint('fixture.read-tenant', 1, {
+					protectedPolicy({
+						evaluate: () => ({
+							constraints: databaseConstraint('fixture.read-tenant', 1, {
 								tenantId: 'tenant-1',
 							}),
+						}),
 						operations: ['find-many'],
 						schema,
 					}),
 				),
 				provideTestRuntimeConstraint(
 					'fixture.read-selection',
-					restrictSelection({
-						handler: () => ['title'] as const,
+					protectedPolicy({
+						evaluate: () => ({ selectionFields: ['title'] }),
 						operations: ['find-many'],
 						schema,
 					}),
@@ -377,19 +365,25 @@ describe('createFrameworkEngine', () => {
 			withPrivilege: boolean,
 			requestElevation: boolean,
 		) => {
-			const interceptor = provideTestRuntimeInterceptor(
-				'nested-master-query',
-				beforeOperation({
-					handler: async () => {
-						await articleSchema.count(
-							{},
-							requestElevation ? { useMasterKey: true } : undefined,
-						)
+			const interceptor = provideRuntimeBehavior({
+				contributionId: 'nested-master-query',
+				create: () => ({
+					value: {
+						beforeOperation: async ({ operation }) => {
+							if (
+								operation.kind !== 'find-many' ||
+								getOperationSchema(operation) !== articleSchema
+							) {
+								return
+							}
+							await articleSchema.count(
+								{},
+								requestElevation ? { useMasterKey: true } : undefined,
+							)
+						},
 					},
-					operations: ['find-many'],
-					schema: articleSchema,
 				}),
-			)
+			})
 			return createPlugin({
 				core: '^0.0.0',
 				id: pluginId,

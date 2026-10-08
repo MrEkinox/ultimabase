@@ -308,7 +308,7 @@ Use `@ultimabase/core` directly for:
 
 - capability definitions, providers, and requirements;
 - Runtime middleware, protected constraints, and persistence rewrites;
-- raw adapter leases, transport bindings, and lifecycle;
+- transport bindings and lifecycle;
 - every privilege, owner, registry, Master, or security decision.
 
 `plugin-kit` intentionally contains no generic registry, service locator,

@@ -1,14 +1,12 @@
 import {
 	FrameworkError,
 	UltimaBase,
-	constraint,
 	databaseConstraint,
 	plugin,
 	contributeApplication,
 	guard,
+	protectedPolicy,
 	requestSources,
-	restrictOutput,
-	restrictSelection,
 	runWithRequestEngine,
 	withPluginPrivileges,
 } from '@ultimabase/core'
@@ -210,6 +208,25 @@ const scopeConstraintCompiler = postgresConstraintCompiler({
 		sql`${field('scopeId')} = ${payload.scopeId}`,
 })
 
+const fixtureOutputFields: ReadonlySet<string> = new Set([
+	'id',
+	'title',
+	'profile',
+])
+const restrictFixtureRecord = (record: unknown): unknown =>
+	typeof record === 'object' && record !== null && !Array.isArray(record)
+		? Object.fromEntries(
+				Object.entries(record).filter(([field]) =>
+					fixtureOutputFields.has(field),
+				),
+			)
+		: record
+const restrictFixtureOutput = <const TResult>(result: TResult): TResult =>
+	// The protected-policy boundary validates that the projection only omits values.
+	(Array.isArray(result)
+		? result.map(restrictFixtureRecord)
+		: restrictFixtureRecord(result)) as TResult
+
 // This optional fixture models one generic row scope; Runtime and PostgreSQL
 // know only the opaque constraint contract contributed by this plugin.
 const scopePolicyPlugin = plugin({
@@ -234,13 +251,15 @@ const scopePolicyPlugin = plugin({
 		),
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-constraint',
-			constraint({
-				handler: ({ context, operation }) => {
+			protectedPolicy({
+				evaluate: ({ context, operation }) => {
 					trace(`policy:constraint:${operation.kind}`)
 
-					return databaseConstraint('fixture.scope', 1, {
-						scopeId: readScopeId(context.metadata),
-					})
+					return {
+						constraints: databaseConstraint('fixture.scope', 1, {
+							scopeId: readScopeId(context.metadata),
+						}),
+					}
 				},
 				operations: [
 					'find-many',
@@ -258,20 +277,23 @@ const scopePolicyPlugin = plugin({
 		),
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-selection',
-			restrictSelection({
+			protectedPolicy({
 				// Selection hides the scope identity before output hooks observe a record.
-				handler: () => ['id', 'title', 'secret', 'profile'] as const,
+				evaluate: () => ({
+					selectionFields: ['id', 'title', 'secret', 'profile'],
+				}),
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
 		),
 		provideTestRuntimeConstraint(
 			'fixture.hooks-plugin-output',
-			restrictOutput({
-				handler: ({ operation }) => {
+			protectedPolicy({
+				// The final projection may only omit values after output hooks ran.
+				restrictResult: ({ operation, result }) => {
 					trace(`policy:restrictOutput:${operation.kind}`)
 
-					return ['id', 'title', 'profile'] as const
+					return restrictFixtureOutput(result)
 				},
 				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,

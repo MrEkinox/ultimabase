@@ -62,7 +62,6 @@ export {
 	contributeOperation,
 	contributeOperationBinding,
 	contributeSchemaMutation,
-	contributeSchemaMutationBinding,
 } from './plugins/plugin-command-contributions.js'
 export type {
 	DirectPluginOperationContributionOptions,
@@ -72,8 +71,6 @@ export type {
 	PluginOperationContribution,
 	PluginOperationContributionOptions,
 	PluginOperationHandlerResource,
-	PluginSchemaMutationAuthoringContribution,
-	PluginSchemaMutationBindingContribution,
 	PluginSchemaMutationContribution,
 	PluginSchemaMutationContributionOptions,
 	PluginSchemaMutationResource,
@@ -238,19 +235,13 @@ export { PluginGraph } from './plugins/graph.js'
 export {
 	formatPluginIdentity,
 	isSamePluginIdentity,
-	pluginEnvironmentClaimMetadata,
-	pluginEnvironmentClaims,
-	pluginPrivilegeMetadata,
 } from './plugins/manifest.js'
 export type {
 	PluginEnvironmentClaim,
-	PluginEnvironmentClaimMetadata,
 	PluginDependency,
 	PluginIdentity,
 	PluginManifest,
 	PluginPrivilege,
-	PluginPrivilegeFacade,
-	PluginPrivilegeMetadata,
 	PluginPrivilegeRequest,
 	PluginPrivilegeSeverity,
 } from './plugins/manifest.js'

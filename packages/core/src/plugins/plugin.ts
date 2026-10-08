@@ -179,7 +179,6 @@ const commandContributionKinds: ReadonlySet<unknown> = new Set([
 	'plugin-operation-contribution',
 	'plugin-operation-binding-contribution',
 	'plugin-schema-mutation-contribution',
-	'plugin-schema-mutation-binding-contribution',
 ])
 
 interface CompiledPluginContributions {

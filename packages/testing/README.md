@@ -262,6 +262,5 @@ authority from wire-shaped input.
 
 ADR-0266 removes `FakeAdapterMigrationHistory` and its `snapshots`, `plan` and
 `accept` surfaces together with Core's migration-only planner. Tests can still
-inspect the existing attributed physical metadata and run real database
-checks; there is no replacement planning helper. The generic `migration`
+run real database checks; there is no replacement planning helper. The generic `migration`
 conformance category remains available for an explicit plugin-owned verifier.

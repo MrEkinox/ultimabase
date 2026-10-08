@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { provideTestRuntimeInterceptor } from '../../tests/runtime/fixtures/runtime-capabilities.js'
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
-import { beforeOperation } from '../runtime/contributions/definitions.js'
+import { preparedOperation } from '../runtime/contributions/definitions.js'
 
 import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { plugin as createPlugin } from './plugin.js'
@@ -198,9 +198,8 @@ describe('application-owned plugin surfaces', () => {
 				contributions: [
 					provideTestRuntimeInterceptor(
 						'forged-interceptor',
-						beforeOperation({
-							handler: () => undefined,
-							operations: ['find-many'],
+						preparedOperation({
+							handler: ({ operation }) => ({ operation }),
 							schema: LocalSchema,
 						}),
 					),

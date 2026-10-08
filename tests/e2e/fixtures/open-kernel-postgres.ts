@@ -4,20 +4,10 @@ import {
 	withPluginPrivileges,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import {
-	postgresConstraintCompiler,
-	postgresPhysicalColumn,
-} from '@ultimabase/postgres-plugin'
+import { postgresConstraintCompiler } from '@ultimabase/postgres-plugin'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { softDeleteVisibilityConstraintKind } from './open-kernel-soft-delete.js'
-
-const assertIdentifier = (value: string, path: string): string => {
-	if (!/^[a-z][a-z0-9_]*$/u.test(value)) {
-		throw new TypeError(`${path} must be a lowercase PostgreSQL identifier`)
-	}
-	return value
-}
 
 export interface SoftDeletePostgresOptions {
 	readonly instanceId: string
@@ -57,34 +47,5 @@ export const createSoftDeletePostgresPlugin = (
 			),
 		],
 		version: '1.0.0',
-	})
-}
-
-export interface ValuePostgresOptions {
-	readonly instanceId: string
-	readonly table: string
-	readonly version: '1.0.0' | '2.0.0'
-}
-
-/** Contributes inspectable physical metadata with exact instance and version attribution. */
-export const createValuePostgresPlugin = (options: ValuePostgresOptions) => {
-	const table = assertIdentifier(options.table, 'value metadata table')
-	const physical = postgresPhysicalColumn({
-		column: { name: 'amount_sort_key', nullable: true, type: 'numeric' },
-		contributionId: 'decimal-sort-key',
-		normalizedStaticOptions: {
-			format: options.version === '1.0.0' ? 'numeric-v1' : 'numeric-v2',
-		},
-		table,
-	})
-	return plugin({
-		contributions: [physical],
-		core: '^0.0.0',
-		instanceId: options.instanceId,
-		id: 'fixture.open-kernel-value-postgres',
-		permissions: {
-			'adapter:consume': 'Adds decimal physical metadata.',
-		},
-		version: options.version,
 	})
 }

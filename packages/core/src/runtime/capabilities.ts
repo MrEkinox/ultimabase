@@ -25,7 +25,7 @@ import { assertPlainObject } from '../exact-object-validation.js'
 
 /** Lists the public logical boundaries that authorized middleware may intercept. */
 export type RuntimeInterceptorDefinition = Readonly<{
-	kind: 'after-operation' | 'before-operation' | 'prepared-operation'
+	kind: 'prepared-operation'
 	operations: readonly RuntimeLogicalOperationKind[] | undefined
 	schema: SchemaDefinition | undefined
 }>

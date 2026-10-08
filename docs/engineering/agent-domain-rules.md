@@ -26,6 +26,16 @@ all owner/version/options/payload snapshot fields, direct synchronization and
 migration privilege or replacement protocol exists; future migrations require
 an explicit architecture decision before implementation.
 
+ADR-0289 (pre-release simplification) removes kernel extension points that only
+tests consumed: the `restrictInput`/`restrictSelection`/`restrictOutput`/
+`constraint` enforcement factories, Core's `beforeOperation`/`afterOperation`
+interceptor factories, `contributeSchemaMutationBinding`, the adapter support
+tokens, physical-schema contributions and raw adapter leases with the
+`adapter:raw` privilege. Protected policies, guards, prepared operations,
+Runtime behaviors, persistence rewrites, constraint compilers, private storage
+and direct synchronization remain. Restoring a removed point requires a real
+consumer and a new ADR.
+
 ## Product rules
 
 - UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.

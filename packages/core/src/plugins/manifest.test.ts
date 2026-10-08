@@ -4,10 +4,12 @@ import {
 	plugin as createPlugin,
 	contributeApplication,
 	contributeDeclarations,
-	pluginEnvironmentClaimMetadata,
-	pluginPrivilegeMetadata,
 	withPluginPrivileges,
 } from '../index.js'
+import {
+	pluginEnvironmentClaimMetadata,
+	pluginPrivilegeMetadata,
+} from './manifest.js'
 
 const observeContribution = () =>
 	withPluginPrivileges(
@@ -27,7 +29,6 @@ describe('plugin manifests', () => {
 			'runtime:constrain',
 			'persistence:rewrite',
 			'adapter:consume',
-			'adapter:raw',
 			'transport:expose',
 			'event:publish',
 			'typegen:reference',
@@ -37,7 +38,7 @@ describe('plugin manifests', () => {
 			Object.entries(pluginPrivilegeMetadata)
 				.filter(([, metadata]) => metadata.severity === 'critical')
 				.map(([name]) => name),
-		).toStrictEqual(['storage:private', 'adapter:raw', 'authority:elevate'])
+		).toStrictEqual(['storage:private', 'authority:elevate'])
 		for (const metadata of Object.values(pluginPrivilegeMetadata)) {
 			expect(metadata.facade).toBeTruthy()
 			expect(['standard', 'sensitive', 'critical']).toContain(metadata.severity)

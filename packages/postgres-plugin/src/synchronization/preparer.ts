@@ -1,10 +1,6 @@
-import {
-	FrameworkError,
-	type AdapterContributionSnapshot,
-} from '@ultimabase/core'
+import { FrameworkError } from '@ultimabase/core'
 import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 
-import type { PostgresPhysicalColumnPayload } from '../adapter-capabilities.js'
 import type { PostgresPool } from '../connection/contracts.js'
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 import { readPostgresQueryRows } from '../connection/query-result.js'
@@ -12,7 +8,6 @@ import { introspectPostgresDatabase } from '../introspection/introspector.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaChange, PostgresSchemaPolicy } from './contracts.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
-import { applyPostgresPhysicalContributions } from './physical-contributions.js'
 import { planPostgresSchemaChanges } from './planner.js'
 import { renderPostgresSchemaChange } from './sql-renderer.js'
 
@@ -96,17 +91,13 @@ export const prepareDirectPostgresSchema = async (
 	pool: PostgresPool,
 	catalog: PostgresSchemaCatalog,
 	policy: PostgresSchemaPolicy,
-	physicalContributions: readonly AdapterContributionSnapshot<PostgresPhysicalColumnPayload>[] = [],
 ): Promise<void> => {
 	if (policy === 'ignore') return
 
 	const namespace = await readCurrentNamespace(pool)
-	const desired = applyPostgresPhysicalContributions(
-		compileDesiredPostgresTables(
-			[...catalog.values(), ...catalog.privateValues()],
-			catalog.relationValues(),
-		),
-		physicalContributions,
+	const desired = compileDesiredPostgresTables(
+		[...catalog.values(), ...catalog.privateValues()],
+		catalog.relationValues(),
 	)
 	const live = await introspectPostgresDatabase(
 		pool,
