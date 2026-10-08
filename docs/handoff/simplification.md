@@ -58,8 +58,12 @@ l'utilisateur.
   la façade `definePlugin`) : remettre en question déclaration des plugins,
   schémas, requêtes et mutations. Deux problèmes de typage à résoudre sans
   génération : (1) références entre schémas (cibles en chaîne, cycles entre
-  fichiers) — pistes : getters, relations déclarées à part façon Drizzle,
-  autres formes ; (2) options de plugins qui exigent le schéma complet
+  fichiers) — contrainte de l'utilisateur : colocalisation, les champs de
+  relation restent dans le schéma qu'ils concernent (relations déclarées à
+  part façon Drizzle écartées) ; pistes : getters, cibles par valeur avec une
+  autre technique d'inférence différée, cibles en chaîne résolues au niveau
+  de l'application par la liste `schemas` (erreurs croisées signalées sur
+  l'application plutôt que sur le champ, à mesurer) ; (2) options de plugins qui exigent le schéma complet
   (`access`, `hooks`, `acl`, champs virtuels, champs ajoutés par plugins) —
   pistes : définition en deux temps `.with((schema) => ...)`, `NoInfer`.
   Méthode : inventaire, 2 à 3 alternatives par domaine prouvées par
