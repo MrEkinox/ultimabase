@@ -122,19 +122,22 @@ const buildQueryInput = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
 	kind: 'collection' | 'pointer',
 ): Readonly<Record<string, unknown>> => {
-	const selection: Record<string, true> = {}
-	const include: Record<string, Readonly<Record<string, unknown>>> = {}
-
-	for (const field of ast.selection.fields) {
-		selection[field.field] = true
-	}
-
-	for (const inclusion of ast.inclusion.fields) {
-		include[inclusion.field] = buildQueryInput(
-			inclusion.query as QueryBuilderAst<SchemaDefinition>,
-			inclusion.kind === 'included-pointer' ? 'pointer' : 'collection',
+	// Entries keep every field name, including `__proto__`, as an own key.
+	const selection: Readonly<Record<string, true>> = Object.fromEntries(
+		ast.selection.fields.map((field): [string, true] => [field.field, true]),
+	)
+	const include: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
+		Object.fromEntries(
+			ast.inclusion.fields.map(
+				(inclusion): [string, Readonly<Record<string, unknown>>] => [
+					inclusion.field,
+					buildQueryInput(
+						inclusion.query as QueryBuilderAst<SchemaDefinition>,
+						inclusion.kind === 'included-pointer' ? 'pointer' : 'collection',
+					),
+				],
+			),
 		)
-	}
 
 	return immutableRecord({
 		...(kind === 'pointer' || ast.where === undefined

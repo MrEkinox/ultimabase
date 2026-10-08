@@ -113,7 +113,7 @@ const snapshotPartialObject = (
 	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(value).map(([name, item]) => {
-				const child = fields[name]
+				const child = fields.get(name)
 
 				if (child === undefined) {
 					throw new TypeError(`${path}.${name} is not a declared field`)
