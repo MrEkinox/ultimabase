@@ -47,7 +47,33 @@ class FixturePool implements PostgresPool {
 
 afterEach(() => {
 	vi.restoreAllMocks()
+	vi.unstubAllEnvs()
 })
+
+/** Starts one fixture application and returns its startup failure messages. */
+const startupFailure = async (
+	plugin: ReturnType<typeof postgresPlugin>,
+	className: string,
+): Promise<string> => {
+	const application = new (UltimaBase.use(plugin))({
+		schemas: [
+			UltimaBase.Schema.define({
+				className,
+				fields: (field) => ({ title: field.string() }),
+			}),
+		],
+	})
+	await application.initialize()
+	const failure = await application.start().then(
+		() => undefined,
+		(error: unknown) => error,
+	)
+	await application.dispose()
+	const messages: string[] = []
+	for (let error = failure; error instanceof Error; error = error.cause)
+		messages.push(error.message)
+	return messages.join(' <- ')
+}
 
 describe('postgresPlugin', () => {
 	it('defers connection verification to lifecycle connect', async () => {
@@ -151,6 +177,35 @@ describe('postgresPlugin', () => {
 		await application.dispose()
 
 		expect(pool.queryCalls).toBe(0)
+	})
+
+	// ADR-0292: an omitted policy must not alter a production database.
+	it('defaults schemaPolicy to fail in production and override elsewhere', async () => {
+		vi.stubEnv('NODE_ENV', 'production')
+		expect(
+			await startupFailure(
+				postgresPlugin({ pool: new FixturePool() }),
+				'ProductionArticle',
+			),
+		).toMatch(
+			/PostgreSQL schema differs from the registered UltimaBase schemas\..*production_article/u,
+		)
+		// An explicit policy always wins over the environment default; `override`
+		// tries to apply the change, which the fixture transaction refuses.
+		expect(
+			await startupFailure(
+				postgresPlugin({ pool: new FixturePool(), schemaPolicy: 'override' }),
+				'ExplicitArticle',
+			),
+		).toBe('PostgreSQL direct schema synchronization failed.')
+
+		vi.stubEnv('NODE_ENV', 'development')
+		expect(
+			await startupFailure(
+				postgresPlugin({ pool: new FixturePool() }),
+				'DevelopmentArticle',
+			),
+		).toBe('PostgreSQL direct schema synchronization failed.')
 	})
 
 	it('captures schemaPolicy before caller mutation', async () => {

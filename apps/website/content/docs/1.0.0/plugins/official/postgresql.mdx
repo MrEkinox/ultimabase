@@ -12,6 +12,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-21
 sources:
   - docs/adr/0266-defer-migration-only-protocols.md
+  - docs/adr/0292-environment-aware-postgres-schema-policy.md
   - packages/postgres-plugin/README.md
   - packages/postgres-plugin/src/plugin/postgres-plugin.ts
   - packages/postgres-plugin/src/options.ts
@@ -98,11 +99,11 @@ try {
 	without reviewing the proposed schema and a recovery plan.
 </Callout>
 
-| Plugin option  | Purpose                                                               |
-| -------------- | --------------------------------------------------------------------- |
-| `url`          | Non-empty connection URL. The plugin creates and closes its own pool. |
-| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.   |
-| `schemaPolicy` | `'override'` (default), `'fail'`, or `'ignore'`; see below.           |
+| Plugin option  | Purpose                                                                              |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `url`          | Non-empty connection URL. The plugin creates and closes its own pool.                |
+| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.                  |
+| `schemaPolicy` | `'override'`, `'fail'`, or `'ignore'`; the default depends on `NODE_ENV`, see below. |
 
 Do not pass both `url` and `pool`. Creating `UltimaBase` does not contact the
 database. `start()` verifies a connection, returns the borrowed client to its
@@ -140,6 +141,12 @@ Field-level `postgres` is limited to stored fields.
 | `override` | Inspect the current schema and transactionally apply supported changes.  | Reviewed development or maintenance database.     |
 | `fail`     | Inspect and reject any drift without changing the database.              | Guard an already prepared database.               |
 | `ignore`   | Skip structural inspection and preparation; still verify the connection. | Another reviewed process owns schema preparation. |
+
+When you omit `schemaPolicy`, the plugin reads `NODE_ENV` when it is created:
+`production` selects `fail`, so a deployed application never changes its
+schema by itself, and any other value selects `override`. An explicit
+`schemaPolicy` always wins, so a production deployment that should synchronize
+on startup must write `schemaPolicy: 'override'` deliberately.
 
 `override` can create missing tables and apply supported column type,
 nullability, default, identity, primary-key, foreign-key, and index changes.

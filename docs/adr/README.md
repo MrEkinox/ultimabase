@@ -280,6 +280,7 @@ Current records (accepted or still active in part):
 - [ADR-0289: Remove kernel extension points without a consumer](0289-remove-unconsumed-kernel-extension-points.md)
 - [ADR-0290: Derive plugin privileges instead of restating them](0290-derived-plugin-privileges.md)
 - [ADR-0291: Run each suite once and validate fully before merging](0291-faster-validation-cadence.md)
+- [ADR-0292: Default the PostgreSQL schema policy from the environment](0292-environment-aware-postgres-schema-policy.md)
 
 Proposed records (awaiting user validation):
 

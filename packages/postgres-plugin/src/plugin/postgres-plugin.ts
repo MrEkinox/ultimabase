@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import {
 	databaseAdapterCapability,
 	contributeApplication,
@@ -33,6 +35,11 @@ import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
 
 /** Configures the explicit direct schema synchronization policy. */
 export interface PostgresSchemaPolicyOptions {
+	/**
+	 * How startup reconciles the database with the registered schemas.
+	 *
+	 * @default `'fail'` when `NODE_ENV` is `production`, otherwise `'override'`
+	 */
 	readonly schemaPolicy?: PostgresSchemaPolicy
 }
 
@@ -147,7 +154,10 @@ export const postgresPlugin = (
 ): PostgresPlugin => {
 	// Validated values are captured so later caller mutation cannot alter setup.
 	const source = normalizePostgresPluginOptions(options)
-	const schemaPolicy = source.schemaPolicy ?? 'override'
+	// ADR-0292: production never alters its schema unless the developer opts in.
+	const schemaPolicy =
+		source.schemaPolicy ??
+		(process.env.NODE_ENV === 'production' ? 'fail' : 'override')
 	// Application-scoped state is keyed by the schema registry of each application.
 	const connections = new WeakMap<object, ManagedPostgresConnection>()
 	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
