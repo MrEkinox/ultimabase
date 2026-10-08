@@ -69,6 +69,7 @@ describe('definePrivateCollection', () => {
 					fields: {
 						secret: stringField({ required: true, [option]: {} } as never),
 					},
+					indexes: [{ fields: ['secret'] }],
 				}),
 			).toThrow(
 				`private collection fields.secret.${option} is unavailable in private storage`,
