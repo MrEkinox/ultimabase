@@ -116,10 +116,11 @@ them as evidence, never as active work. Proposed directions live in
   capability ownership/order, distinct plugin instances, conflicts, removed powers,
   cleanup, upgrades, orphaned contributions and no legacy registry bypasses.
 - PostgreSQL tests use Testcontainers and one schema per worker; preserve isolation.
-- Run focused checks, then `yarn validate`. Every debt reduction or
-  behavior-preserving refactor must pass **`yarn validate:full` before completion
-  or commit**. Ordinary `yarn test` excludes source E2E and cannot replace it.
-  [ADR-0275](docs/adr/0275-canonical-repository-validation.md) defines the gate.
+- Run focused checks, then `yarn validate:affected` before each intermediate
+  commit. **`yarn validate:full` must pass before any merge into `main`**;
+  ordinary `yarn test` excludes source E2E and cannot replace it.
+  [ADR-0275](docs/adr/0275-canonical-repository-validation.md) and
+  [ADR-0291](docs/adr/0291-faster-validation-cadence.md) define the gate.
 - Launch infrastructure/listener checks with the required permissions from the
   first run. Run build and lint sequentially; preserve CI worker bounds and budgets.
   Report failed, skipped, flaky, interrupted or unavailable required checks;

@@ -41,9 +41,10 @@ to compete with other suites. The discovery regression resolves the real Yarn
 command and Vitest projects for both environments without executing their tests.
 
 Use `yarn validate` for the ordinary local format, type, test, lint, and build
-contract. Use `yarn validate:full` before completing a debt reduction or
-behavior-preserving refactor; it extends that contract with complete coverage,
-issue metadata, dependency constraints, and public-documentation validation.
+contract. `yarn validate:affected` (`local.ts`) runs this planner and `run.ts`
+locally for the changes since the merge base with `main`, including uncommitted
+files. `yarn validate:full` is the complete gate before merging into `main`
+([ADR-0291](../../docs/adr/0291-faster-validation-cadence.md)).
 
 See [ADR-0251](../../docs/adr/0251-affected-github-validation.md) for fallback and
 coverage semantics. A partial run intentionally does not report global coverage.

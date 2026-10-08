@@ -16,8 +16,8 @@ the development history is archived in the Git tags `reference-archive` and
 5. Record one documentation-impact classification: `none`, `internal
 engineering documentation`, `public website documentation`, or `both`.
    Explain `none`; otherwise update the affected documentation in the change.
-6. Run `yarn validate` for ordinary work and `yarn validate:full` before
-   completing a debt reduction or behavior-preserving refactor. The
+6. Run focused tests and `yarn validate:affected` while working, and
+   `yarn validate:full` before the change is merged into `main`. The
    [test guide](tests/README.md) describes what each command covers.
 7. Add a Changeset when a public package contract changes.
 
@@ -35,7 +35,7 @@ A change is complete only when:
   supported integrations have been reviewed against `apps/website`;
 - architectural decisions are recorded or linked;
 - no unrelated changes are bundled into the work.
-- `yarn validate:full` passes for debt reduction and behavior-preserving refactors.
+- `yarn validate:full` passes before the merge into `main`.
 
 ## Editor setup
 
