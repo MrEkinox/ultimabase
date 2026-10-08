@@ -16,7 +16,7 @@ const IncludeArticle = UltimaBase.Schema.define({
 	}),
 })
 
-const findWithAuthor = () =>
+export const findWithAuthor = () =>
 	IncludeArticle.findMany({
 		include: { author: { select: { name: true } } },
 		select: { editor: true, title: true },
