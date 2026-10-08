@@ -282,6 +282,7 @@ Current records (accepted or still active in part):
 - [ADR-0291: Run each suite once and validate fully before merging](0291-faster-validation-cadence.md)
 - [ADR-0292: Default the PostgreSQL schema policy from the environment](0292-environment-aware-postgres-schema-policy.md)
 - [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
+- [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
 
 Proposed records (awaiting user validation):
 

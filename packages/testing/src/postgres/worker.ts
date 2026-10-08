@@ -37,7 +37,13 @@ const normalizePrefix = (value: unknown): string => {
 
 /** Reads Vitest's reusable worker-slot identifier from the current process. */
 export const readVitestPoolId = (value: string | undefined): number => {
-	if (value === undefined || !/^\d+$/u.test(value)) {
+	if (value === undefined) {
+		throw new TypeError(
+			'VITEST_POOL_ID is not set; call readVitestPoolId inside a Vitest worker or pass workerId to PostgresTestWorker explicitly',
+		)
+	}
+
+	if (!/^\d+$/u.test(value)) {
 		throw new TypeError('VITEST_POOL_ID must be a positive integer')
 	}
 

@@ -140,7 +140,11 @@ export const compileSchemaRelations = (
 			continue
 		}
 
-		const mappedField = readFields(target)[mappedBy]
+		const targetFields = readFields(target)
+		// Inherited `Object.prototype` members are never declared fields.
+		const mappedField = Object.hasOwn(targetFields, mappedBy)
+			? targetFields[mappedBy]
+			: undefined
 		const mappedLocation = mappedRelationKey(target, mappedBy)
 		const previousInverse = inverseByOwner.get(mappedLocation)
 

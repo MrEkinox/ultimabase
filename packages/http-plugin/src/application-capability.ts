@@ -5,6 +5,7 @@ import type { HttpApplication } from './application.js'
 import {
 	httpApplicationProtocolVersion,
 	httpOriginalHeaderMode,
+	isHttpRequestTimeoutMs,
 } from './constants.js'
 
 const assertHttpApplication: (
@@ -31,9 +32,7 @@ const assertHttpApplication: (
 		!isPlainRecord(application.authority.master) ||
 		typeof application.authority.master.enabled !== 'boolean' ||
 		(application.requestTimeoutMs !== undefined &&
-			(typeof application.requestTimeoutMs !== 'number' ||
-				!Number.isSafeInteger(application.requestTimeoutMs) ||
-				application.requestTimeoutMs <= 0)) ||
+			!isHttpRequestTimeoutMs(application.requestTimeoutMs)) ||
 		!isPlainRecord(application.routeGraph) ||
 		typeof application.fetch !== 'function'
 	) {

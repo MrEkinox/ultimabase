@@ -5,6 +5,7 @@ import {
 	type CreateOneOperationAst,
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
+	type UpsertOneOperationAst,
 } from '../../query/index.js'
 import { createRuntimeValidationStage } from './runtime-validation.js'
 import {
@@ -116,5 +117,72 @@ describe('runtime validation boundaries', () => {
 		expect(() => createRuntimeValidationStage({ timezone: '' })).toThrow(
 			new TypeError('Runtime validation timezone must be a non-empty string'),
 		)
+	})
+
+	it('reports inherited Object.prototype update fields as unknown', async () => {
+		const stage = createRuntimeValidationStage()
+		const query = new QueryBuilder(validationSchema).ast
+
+		for (const field of ['missing', 'toString', 'constructor', '__proto__']) {
+			const operation = {
+				kind: 'update-one',
+				query,
+				update: {
+					kind: 'update-expression',
+					operations: [{ field, kind: 'set', value: 'value' }],
+				},
+			} as unknown as UpdateOneOperationAst<typeof validationSchema>
+
+			await expect(executeStage(stage, operation)).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				publicDetails: {
+					issues: [
+						expect.objectContaining({
+							code: 'field.unknown',
+							path: ['update', 0, field],
+						}),
+					],
+				},
+			})
+		}
+	})
+
+	it('reports inherited Object.prototype upsert target fields as undeclared', async () => {
+		const stage = createRuntimeValidationStage()
+		const where = new QueryBuilder(validationSchema).where((where) =>
+			where.eq('immutableCode', 'public-code'),
+		).ast.where
+
+		for (const field of ['missing', 'toString']) {
+			const operation = {
+				kind: 'upsert-one',
+				query: {
+					...new QueryBuilder(validationSchema).ast,
+					where: {
+						...where,
+						expression: { ...where?.expression, field },
+					},
+				},
+				target: { kind: 'unique-upsert-target', fields: [field] },
+				create: validCreateInput(),
+				update: {
+					kind: 'update-expression',
+					operations: [{ field: 'title', kind: 'set', value: 'updated' }],
+				},
+			} as unknown as UpsertOneOperationAst<typeof validationSchema>
+
+			await expect(executeStage(stage, operation)).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				publicDetails: {
+					issues: [
+						expect.objectContaining({
+							code: 'field.unknown',
+							message: 'Upsert target field is not declared by the schema',
+							path: ['create', field],
+						}),
+					],
+				},
+			})
+		}
 	})
 })

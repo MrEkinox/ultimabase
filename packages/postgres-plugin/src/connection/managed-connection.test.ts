@@ -132,7 +132,7 @@ describe('managed PostgreSQL connection', () => {
 		expect(failure).toBeInstanceOf(FrameworkError)
 		expect(failure).toMatchObject({
 			code: 'INTERNAL_ERROR',
-			message: 'PostgreSQL connection verification failed.',
+			message: 'PostgreSQL connection verification failed [SQLSTATE 28P01].',
 			retryable: true,
 			cause: undefined,
 			internalDetails: {
@@ -144,6 +144,29 @@ describe('managed PostgreSQL connection', () => {
 		expect(JSON.stringify(failure)).not.toContain(secret)
 
 		await connection.close()
+	})
+
+	// The driver code is the actionable, credential-free part of the failure.
+	it('names system codes and omits codes of any other shape', async () => {
+		const messageFor = async (code: string): Promise<unknown> => {
+			const connection = createManagedPostgresConnection(
+				new FixturePool({ connectError: createDriverError('hidden', code) }),
+				true,
+			)
+			const failure = await connection.connect().then(
+				() => undefined,
+				(error: unknown) => (error instanceof Error ? error.message : error),
+			)
+			await connection.close()
+			return failure
+		}
+
+		expect(await messageFor('ECONNREFUSED')).toBe(
+			'PostgreSQL connection verification failed [ECONNREFUSED].',
+		)
+		expect(await messageFor('password=leaked')).toBe(
+			'PostgreSQL connection verification failed.',
+		)
 	})
 
 	it('sanitizes owned-pool disposal failures and remains finalized', async () => {

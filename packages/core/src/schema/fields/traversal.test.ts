@@ -39,4 +39,26 @@ describe('field traversal', () => {
 		expect(entries.every(Object.isFrozen)).toBe(true)
 		expect(entries.every(({ path }) => Object.isFrozen(path))).toBe(true)
 	})
+
+	it('collects a declared __proto__ object child field', () => {
+		const schema = UltimaBase.Schema.define({
+			className: 'TraversalProtoFixture',
+			fields: (field) => ({
+				profile: field.object({
+					// A computed key declares an own `__proto__` property.
+					fields: (field) => ({ ['__proto__']: field.string() }),
+				}),
+			}),
+		})
+
+		expect(
+			collectFieldTraversalEntries(schema.fields).map(({ path }) => path),
+		).toStrictEqual([
+			['profile'],
+			['profile', '__proto__'],
+			['id'],
+			['createdAt'],
+			['updatedAt'],
+		])
+	})
 })

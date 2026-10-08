@@ -55,7 +55,9 @@ const oneOf = <const T extends string>(
 ): T => {
 	const match = options.find((option) => option === value)
 	if (match === undefined)
-		throw new Error(`${flag} must be one of: ${options.join(', ')}`)
+		throw new Error(
+			`${flag} must be one of: ${options.join(', ')} (received ${JSON.stringify(value)})`,
+		)
 	return match
 }
 

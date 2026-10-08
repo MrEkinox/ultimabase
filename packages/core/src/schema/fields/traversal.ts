@@ -31,12 +31,16 @@ const collectFieldEntries = (
 			`${path.join('.')} must contain a field map`,
 		)
 
-		const declaredNestedFields: Record<string, GenericField> = {}
-
-		for (const [nestedName, nestedField] of Object.entries(nestedFields)) {
-			assertFieldDefinition(nestedField, [...path, nestedName].join('.'))
-			declaredNestedFields[nestedName] = nestedField
-		}
+		// Entries keep every child name, including `__proto__`, as an own key.
+		const declaredNestedFields: Readonly<Record<string, GenericField>> =
+			Object.fromEntries(
+				Object.entries(nestedFields).map(
+					([nestedName, nestedField]): [string, GenericField] => {
+						assertFieldDefinition(nestedField, [...path, nestedName].join('.'))
+						return [nestedName, nestedField]
+					},
+				),
+			)
 
 		// List metadata wraps values, but never adds a structural path segment.
 		collectFieldEntries(declaredNestedFields, path, entries)

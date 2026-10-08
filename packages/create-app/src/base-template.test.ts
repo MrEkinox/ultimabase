@@ -94,6 +94,16 @@ describe('base project templates', () => {
 		)
 	})
 
+	// `up -d` returns before PostgreSQL accepts connections; `--wait` uses the
+	// generated healthcheck so the next start cannot race the database.
+	it('waits for the Compose healthcheck before the next command', () => {
+		const plan = resolveSelection({ name: 'notes', database: 'docker' }, '/tmp')
+		const files = renderBaseFiles(plan, 'fixed-test-password')
+		expect(files.get('compose.yaml')).toContain('healthcheck:')
+		expect(nextCommands(plan)).toContain('docker compose up -d --wait')
+		expect(files.get('README.md')).toContain('docker compose up -d --wait')
+	})
+
 	it('keeps Docker credentials private and Compose mapped to loopback', () => {
 		const plan = resolveSelection({ name: 'notes', database: 'docker' }, '/tmp')
 		const files = renderBaseFiles(plan, 'fixed-test-password')

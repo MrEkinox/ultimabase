@@ -88,7 +88,7 @@ const useChain = (entries: readonly string[]): string =>
 export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	`cd ${path.relative(process.cwd(), plan.destination) || plan.destination}`,
 	...(plan.database === 'docker'
-		? ['docker compose up -d']
+		? ['docker compose up -d --wait']
 		: [
 				`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
 			]),
@@ -266,7 +266,7 @@ ${plan.starter === 'task' ? 'The Task starter seeds one record on its first run;
 		[
 			'Node.js 24 or newer.',
 			plan.database === 'docker'
-				? 'Docker Compose. Run docker compose up -d to start the disposable local PostgreSQL 17 service. Its credentials live only in the ignored .env file.'
+				? 'Docker Compose. Run docker compose up -d --wait to start the disposable local PostgreSQL 17 service and wait until it is ready. Its credentials live only in the ignored .env file.'
 				: 'A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.',
 			'The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.',
 			plan.typegen

@@ -63,7 +63,8 @@ const snapshotField = (
 		case 'object': {
 			const input = assertPlainOperationValue(value, path)
 			for (const name of Object.keys(input)) {
-				if (plan.fields[name] === undefined) {
+				// Inherited `Object.prototype` members are never declared fields.
+				if (!Object.hasOwn(plan.fields, name)) {
 					throw new TypeError(`${path} contains unknown field: ${name}`)
 				}
 			}
@@ -111,7 +112,9 @@ const snapshotPartial = (
 	return immutableRecord(
 		Object.fromEntries(
 			entries.map(([name, candidate]) => {
-				const plans = collection.fields[name]
+				const plans = Object.hasOwn(collection.fields, name)
+					? collection.fields[name]
+					: undefined
 				if (plans === undefined) {
 					throw new TypeError(`${path} contains unknown field: ${name}`)
 				}
@@ -158,7 +161,7 @@ const snapshotInsert = (
 ): Readonly<Record<string, unknown>> => {
 	const input = assertPlainOperationValue(value, 'private storage data')
 	for (const name of Object.keys(input)) {
-		if (collection.fields[name] === undefined) {
+		if (!Object.hasOwn(collection.fields, name)) {
 			throw new TypeError(
 				`private storage data contains unknown field: ${name}`,
 			)

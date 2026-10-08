@@ -123,6 +123,8 @@ const constrainPublishedManifests = ({ Yarn }) => {
 		workspace.set('type', 'module')
 		workspace.set('license', 'Apache-2.0')
 		workspace.set('files', ['dist'])
+		// Consumers on an older Node get an install-time warning, not a runtime crash.
+		workspace.set(['engines', 'node'], '>=24.0.0')
 		workspace.set('repository', {
 			type: 'git',
 			url: 'git+https://github.com/MrEkinox/ultimadatabase.git',

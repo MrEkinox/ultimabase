@@ -141,6 +141,13 @@ describe('initializer flags', () => {
 		).toThrow('GraphQL requires at least one public query field')
 	})
 
+	// Regression: an invalid choice did not say which value was rejected.
+	it('echoes the rejected choice', () => {
+		expect(() => parseOptions(['--language', 'python'])).toThrow(
+			new Error('--language must be one of: ts, js (received "python")'),
+		)
+	})
+
 	it('detects only an unambiguous invoking manager', () => {
 		expect(detectPackageManager('npm/11.0.0 node/v24')).toBe('npm')
 		expect(detectPackageManager('yarn/4.9.2 npm/? node/v24')).toBe('yarn')

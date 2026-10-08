@@ -29,3 +29,9 @@ Development keeps automatic synchronization. A production deployment must
 apply schema changes deliberately (manually today, through the planned
 migration plugin later) or opt into `override` explicitly. Documentation and
 `create-app` templates explain both modes.
+
+## Proof
+
+`yarn validate:full` passed on 2026-10-08. The DX audit against `origin/main`
+(`node tooling/dx-audit/run.mjs`) reports only the new `schemaPolicy`
+documentation and `@default` tag in hovers.

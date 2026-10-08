@@ -117,4 +117,20 @@ describe('httpPlugin', () => {
 		expect(application.pluginPrivilegeReport.plugins).toStrictEqual([])
 		await application.dispose()
 	})
+
+	// Node timers clamp delays above 2^31 - 1 to 1 ms, so every request would time out at once.
+	it('bounds requestTimeoutMs by the largest timer delay', () => {
+		expect(() =>
+			httpPlugin({ appId: 'blog', requestTimeoutMs: 2_147_483_648 }),
+		).toThrow(
+			'HTTP plugin requestTimeoutMs must be a positive safe integer no greater than 2147483647',
+		)
+		expect(() =>
+			httpPlugin({ appId: 'blog', requestTimeoutMs: 2 ** 32 }),
+		).toThrow('no greater than 2147483647')
+		expect(
+			httpPlugin({ appId: 'blog', requestTimeoutMs: 2_147_483_647 }).manifest
+				.identity.pluginId,
+		).toBe('@ultimabase/http-plugin')
+	})
 })

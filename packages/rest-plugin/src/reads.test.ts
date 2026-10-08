@@ -12,6 +12,7 @@ import {
 	restFieldCodec,
 	restReadErrorCodes,
 } from './index.js'
+import { parseRestIncludeParameter } from './reads.js'
 
 const authorId = '01991f00-0000-7000-8000-000000000001'
 const recordId = '01991f00-0000-7000-8000-000000000002'
@@ -413,5 +414,43 @@ describe('REST read normalization', () => {
 		if (expression?.kind !== 'equal') throw new Error('expected equality')
 		expect(Pointer.is(expression.value)).toBe(true)
 		expect(expression.value).toMatchObject({ id: authorId })
+	})
+
+	// Relation names are request-controlled, so Object.prototype names must stay ordinary keys.
+	it('parses dotted include paths named like Object.prototype members', () => {
+		// JSON text shows own keys only, including an own `__proto__` key.
+		expect(
+			JSON.stringify(parseRestIncludeParameter('constructor.author,toString')),
+		).toBe('{"constructor":{"include":{"author":{}}},"toString":{}}')
+		const parsed = parseRestIncludeParameter('__proto__.author,a.__proto__')
+		expect(JSON.stringify(parsed)).toBe(
+			'{"__proto__":{"include":{"author":{}}},"a":{"include":{"__proto__":{}}}}',
+		)
+		expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype)
+		expect(() => parseRestIncludeParameter('constructor,constructor')).toThrow(
+			'malformed',
+		)
+	})
+
+	it('includes relations named like Object.prototype members end to end', async () => {
+		const Reader = UltimaBase.Schema.define({
+			className: 'RestReadPrototypeNames',
+			fields: (field) => ({
+				constructor: field.pointer({ target: 'RestReadAuthor' }),
+				toString: field.relation({ target: 'RestReadAuthor' }),
+			}),
+		})
+		new SchemaRegistry([Author, Reader]).resolveSchemaTargets()
+
+		const operation = await normalizeRestReadRequest(Reader, {
+			operation: 'find',
+			request: new Request(
+				'https://example.test/query?include=constructor,toString',
+			),
+		})
+
+		expect(
+			operation.query.inclusion.fields.map(({ field }) => field),
+		).toStrictEqual(['constructor', 'toString'])
 	})
 })

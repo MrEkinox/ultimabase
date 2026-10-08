@@ -526,4 +526,41 @@ describe('Runtime virtual fields', () => {
 			runtime.pipeline.execute({ context, operation: nestedOperation }),
 		).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_RECURSION' })
 	})
+
+	it('keeps a resolved __proto__ virtual field as an own key', async () => {
+		const protoField = '__proto__'
+		const Item = UltimaBase.Schema.define({
+			className: 'VirtualRuntimeProtoItem',
+			fields: (field) => ({
+				title: field.string({ required: true }),
+				[protoField]: field.virtual({
+					output: (output) => output.string({ nullable: false }),
+					select: { title: true },
+					resolve: ({ item }) =>
+						`virtual:${String(Reflect.get(item, 'title'))}`,
+				}),
+			}),
+		})
+		new SchemaRegistry([Item]).resolveSchemaTargets()
+		const executor = createReadExecutor([
+			immutableRecord({
+				id: '0199f090-2a50-7000-8000-000000000001',
+				title: 'Ada',
+			}),
+		])
+		const { pipeline } = createPipeline(executor)
+		const operation = immutableRecord({
+			kind: 'find-one' as const,
+			query: new QueryBuilder(Item).select({ [protoField]: true }).ast,
+		})
+
+		const result: unknown = await pipeline.execute({ context, operation })
+
+		expect(result).toBeTypeOf('object')
+		if (typeof result !== 'object' || result === null) return
+		expect(Object.getOwnPropertyDescriptor(result, protoField)?.value).toBe(
+			'virtual:Ada',
+		)
+		expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
+	})
 })

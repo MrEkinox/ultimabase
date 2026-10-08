@@ -53,11 +53,21 @@ export interface LoadTypegenApplicationOptions {
 export const loadTypegenApplication = async (
 	options: LoadTypegenApplicationOptions,
 ): Promise<TypegenApplication> => {
-	if (options.sourcePath.trim() === '') {
+	// JavaScript callers can omit either option despite the declared type.
+	const untrustedSourcePath: unknown = options.sourcePath
+	const untrustedExportName: unknown = options.exportName
+
+	if (
+		typeof untrustedSourcePath !== 'string' ||
+		untrustedSourcePath.trim() === ''
+	) {
 		throw new TypeError('sourcePath must be a non-empty string')
 	}
 
-	if (options.exportName.trim() === '') {
+	if (
+		typeof untrustedExportName !== 'string' ||
+		untrustedExportName.trim() === ''
+	) {
 		throw new TypeError('exportName must be a non-empty string')
 	}
 
