@@ -24,8 +24,15 @@ rebuild. The `Complete coverage` job now runs
 `yarn test:coverage --exclude '**/*.performance.test.ts'`, and
 `tooling/ci/run.ts` runs performance suites in the package and transversal
 jobs instead (without instrumentation), so they still run once per CI plan.
-Root scripts, `vitest.config.ts` and every test are unchanged: locally,
+Root scripts and `vitest.config.ts` are unchanged: locally,
 `yarn test:coverage` and `yarn test` still include the performance project.
+
+Uninstrumented, `hybrid-authoring` still exceeded its own 180 s test timeout on
+a hosted runner. On a quiet 12-core machine the test takes about 160 s on both
+trees (reference 161.2 s and 159.2 s, rebuild 159.7 s and 160.0 s), so the
+timeout leaves no margin for slower runners. At the user's explicit request,
+its timeout was raised to 360 s. This is the only post-rebuild test edit: the
+budgets and every assertion are unchanged.
 
 The only tooling the rebuild added is evidence tooling, which no root script
 runs: `tooling/measure-rebuild.mjs`, `tooling/rebuild-worktree.sh` and

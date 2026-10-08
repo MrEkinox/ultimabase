@@ -199,5 +199,7 @@ describe('hybrid source-plugin authoring performance', () => {
 		}
 
 		console.info(JSON.stringify({ raw, summaries }, undefined, 2))
-	}, 180_000)
+		// The whole run takes about 160 s on a quiet 12-core machine; hosted CI
+		// runners are slower. The timeout only guards a hung run, not the budgets.
+	}, 360_000)
 })

@@ -169,3 +169,8 @@ earlier rebuild had edited `packages/acl-permissions-plugin/src/acl-limits.test.
 (an `as never` cast removed from a call); this audit found it, and the
 coordinator restored the reference test byte for byte together with the
 reference parameter type and call-site casts (commit `5192be4`).
+
+After publication, at the user's explicit request, the timeout of
+`packages/typegen/tests/performance/hybrid-authoring.performance.test.ts` was
+raised from 180 s to 360 s because hosted CI runners exceeded it on both trees
+(see [VALIDATIONS.md](VALIDATIONS.md)). No assertion or budget changed.
