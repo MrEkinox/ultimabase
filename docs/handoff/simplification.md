@@ -30,8 +30,11 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
 
 ## État
 
-- ADR-0288, 0289, 0290 rédigés au statut `proposed`, en attente de
-  validation. Aucune modification de code.
+- ADR-0288, 0289, 0290 acceptés (2026-10-08). L'utilisateur a aussi décidé
+  de retirer tout ce que seuls des tests utilisent, passerelles d'adaptateur
+  et privilège `adapter:raw` compris.
+- ADR-0289 en cours d'implémentation par un agent dans un worktree isolé
+  (`.claude/worktrees/`) ; revue du diff avant fusion.
 
 ## Décisions de conception notées (à formaliser par ADR le moment venu)
 
@@ -46,8 +49,8 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
   - trois fichiers pour éviter le cycle d'imports : `src/app.ts` (plugins),
     les schémas (`App.Schema.define`), `ultimabase.config.ts` (app, schemas,
     valeurs d'environnement surchargeables) ;
-  - les tests importent la même config via un `createTestApplication(config,
-overrides)` de `@ultimabase/testing`, sans CLI.
+  - les tests importent la même config via `createTestApplication` de
+    `@ultimabase/testing` (config et surcharges), sans CLI.
 - `definePlugin` (plugin-kit) ne couvre que ce que Core fournit ; les
   capacités d'un transport viennent d'un helper du plugin concerné (ex.
   `httpRoutes` d'http-plugin), déclaré en pair explicite seulement si utilisé.
@@ -61,5 +64,6 @@ overrides)` de `@ultimabase/testing`, sans CLI.
 
 ## Prochaine action vérifiable
 
-Après validation : passer les ADR en `accepted`, puis implémenter l'ADR-0289
-(suppression) avec `yarn validate:full` et le DX audit contre `main`.
+Relire le diff de l'agent ADR-0289 (fichiers supprimés, tests modifiés,
+résultats de `yarn validate:full` et du DX audit contre `81e9bd04`), le
+fusionner en `--no-ff`, puis implémenter l'ADR-0290.
