@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { SchemaRegistry } from '../schema/schema/registry.js'
+import { objectField } from '../schema/fields/builtins/object.js'
 import { stringField } from '../schema/fields/builtins/string.js'
 import { uuidField } from '../schema/fields/builtins/uuid.js'
 import { definePrivateCollection } from './definition.js'
@@ -128,5 +129,62 @@ describe('private storage request validation', () => {
 				secret: 'digest',
 			})
 		}).toThrow('must be a valid UUID')
+	})
+
+	it('rejects inherited Object.prototype names as unknown fields', () => {
+		const { descriptor } = createFixture()
+		const id = '0198c000-0000-7000-8000-000000000001'
+		for (const name of ['toString', 'constructor']) {
+			for (const [kind, options, message] of [
+				[
+					'insert',
+					{ data: { id, secret: 'digest', [name]: 'value' } },
+					`private storage data contains unknown field: ${name}`,
+				],
+				[
+					'update',
+					{ data: { [name]: 'value' }, where: { secret: 'digest' } },
+					`private storage data contains unknown field: ${name}`,
+				],
+			] as const) {
+				expect(() => {
+					normalizePrivateStorageRequest(descriptor, kind, options)
+				}).toThrow(new TypeError(message))
+			}
+		}
+	})
+
+	it('rejects inherited Object.prototype names inside object fields', () => {
+		const collection = definePrivateCollection({
+			contributionId: 'request-object-validation',
+			fields: {
+				id: uuidField({ immutable: true, required: true }),
+				profile: objectField({
+					fields: { label: stringField() },
+					typeName: 'PrivateProfile',
+				}),
+			},
+			indexes: [{ fields: ['id'] }],
+		})
+		const registry = new PrivateStorageRegistry()
+		const owner = { pluginId: 'fixture.private-object-request' }
+		const session = registry.beginDeclaration(owner, '1.0.0')
+		session.registrar.register(collection)
+		session.close()
+		registry.close(new SchemaRegistry())
+		const descriptor = registry.resolve(collection, owner)
+
+		expect(() => {
+			normalizePrivateStorageRequest(descriptor, 'insert', {
+				data: {
+					id: '0198c000-0000-7000-8000-000000000001',
+					profile: { label: 'visible', toString: 'value' },
+				},
+			})
+		}).toThrow(
+			new TypeError(
+				'private storage data.profile contains unknown field: toString',
+			),
+		)
 	})
 })

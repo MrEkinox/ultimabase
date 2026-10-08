@@ -68,7 +68,7 @@ const readEnvironmentPort = (): number | undefined => {
 	const port = /^\d+$/u.test(raw) ? Number(raw) : Number.NaN
 	if (!isPortNumber(port)) {
 		throw new TypeError(
-			'PORT environment variable must be an integer from 0 through 65535',
+			`PORT environment variable must be an integer from 0 through 65535 (received ${JSON.stringify(raw)})`,
 		)
 	}
 	return port

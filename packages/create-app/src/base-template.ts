@@ -7,7 +7,6 @@ import {
 	apiReadmeNotes,
 	apiSchemaPluginEntries,
 	apiSchemaPluginImports,
-	hasHttpListener,
 	pluginImports,
 } from './api-template.js'
 import type { PluginId } from './catalog.js'
@@ -31,6 +30,8 @@ import {
 	securitySchemaNames,
 	taskSecurityOptions,
 } from './security-template.js'
+import { mainSource } from './main-template.js'
+import { joinSections, renderImports } from './source.js'
 
 export type ProjectFiles = ReadonlyMap<string, string>
 
@@ -87,7 +88,7 @@ const useChain = (entries: readonly string[]): string =>
 export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	`cd ${path.relative(process.cwd(), plan.destination) || plan.destination}`,
 	...(plan.database === 'docker'
-		? ['docker compose up -d']
+		? ['docker compose up -d --wait']
 		: [
 				`Create .env from .env.example and set DATABASE_URL for a disposable PostgreSQL database${needsMasterKey(plan) ? ' and a private random ULTIMABASE_MASTER_KEY' : ''}.`,
 			]),
@@ -102,62 +103,62 @@ export const nextCommands = (plan: InitializerPlan): readonly string[] => [
 	...apiNextCommands(plan),
 ]
 
-const applicationSource = (
-	plan: InitializerPlan,
-): string => `import { postgresPlugin } from '@ultimabase/postgres-plugin'
-${securityApplicationImports(plan).join('\n')}
-${apiApplicationImports(plan).join('\n')}
-import { ${['SchemaApplication', ...applicationSchemaNames(plan)].join(', ')} } from './schema.js'
-
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-${securityMasterSource(plan)}
-${securityPolicySource(plan)}
-
-const Application = SchemaApplication${useChain([
-	...securityPluginEntries(plan),
-	"postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })",
-	...apiPluginEntries(plan),
-])}
-
-// Override synchronization is only suitable for this disposable development database.
+const applicationSource = (plan: InitializerPlan): string =>
+	joinSections([
+		renderImports([
+			['@ultimabase/postgres-plugin', 'postgresPlugin'],
+			...securityApplicationImports(plan),
+			...apiApplicationImports(plan),
+			[
+				'./schema.js',
+				['SchemaApplication', ...applicationSchemaNames(plan)].join(', '),
+			],
+		]),
+		[
+			'const databaseUrl = process.env.DATABASE_URL',
+			"if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')",
+			securityMasterSource(plan),
+		]
+			.filter((line) => line !== '')
+			.join('\n'),
+		securityPolicySource(plan),
+		`const Application = SchemaApplication${useChain([
+			...securityPluginEntries(plan),
+			"postgresPlugin({ schemaPolicy: 'override', url: databaseUrl })",
+			...apiPluginEntries(plan),
+		])}`,
+		`// Override synchronization is only suitable for this disposable development database.
 export const ultimabase = new Application({
-  schemas: [${applicationSchemaNames(plan).join(', ')}],
-${securityApplicationOption(plan)}
-})
-`
+${[
+	`  schemas: [${applicationSchemaNames(plan).join(', ')}],`,
+	securityApplicationOption(plan),
+]
+	.filter((line) => line !== '')
+	.join('\n')}
+})`,
+	])
 
-const baseSchemaSource = (plan: InitializerPlan): string =>
-	plan.starter === 'task'
-		? `${has(plan, 'validation-plugin') ? "import { z } from 'zod'" : ''}
-
-// The same declaration drives TypeScript inference and Runtime validation.
+const taskSchemaSource = (
+	plan: InitializerPlan,
+): string => `// The same declaration drives TypeScript inference and Runtime validation.
 export const Task = SchemaApplication.Schema.define({
-  className: 'Task',
-${has(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete',\n" : ''}
-${taskSecurityOptions(plan)}
-  fields: (f) => ({
+${[
+	"  className: 'Task',",
+	has(plan, 'soft-delete-plugin') ? "  softDelete: 'replace-delete'," : '',
+	taskSecurityOptions(plan),
+	`  fields: (f) => ({
     title: f.string({
       required: true,
 ${has(plan, 'hooks-plugin') ? '      hooks: { resolveInput: ({ value }) => value?.trim() ?? null },\n' : ''}${has(plan, 'validation-plugin') ? '      validation: z.string().min(1).max(200),\n' : ''}    }),
     done: f.boolean({ default: false }),
-  }),
-})
-`
-		: `// Add your first SchemaApplication.Schema.define() declaration here.
-export {}
-`
+  }),`,
+]
+	.filter((line) => line !== '')
+	.join('\n')}
+})`
 
 const schemaSource = (plan: InitializerPlan): string => {
-	const imports = [
-		"import { UltimaBase } from '@ultimabase/core'",
-		...(plan.typegen
-			? ["import { typegenPlugin } from '@ultimabase/typegen'"]
-			: []),
-		...pluginImports(plan, behaviorPlugins),
-		...securitySchemaImports(plan),
-		...apiSchemaPluginImports(plan),
-	]
+	const task = plan.starter === 'task'
 	const entries = [
 		...(plan.typegen ? ['typegenPlugin()'] : []),
 		...behaviorPlugins
@@ -166,36 +167,27 @@ const schemaSource = (plan: InitializerPlan): string => {
 		...securitySchemaPluginEntries(plan),
 		...apiSchemaPluginEntries(plan),
 	]
-	return `${imports.join('\n')}\n\nexport const SchemaApplication = UltimaBase${useChain(entries)}\n\n${baseSchemaSource(plan)}\n${securitySchemaDeclarations(plan)}\n`
+	return joinSections([
+		renderImports([
+			['@ultimabase/core', 'UltimaBase'],
+			...(plan.typegen
+				? [['@ultimabase/typegen', 'typegenPlugin'] as const]
+				: []),
+			...pluginImports(plan, behaviorPlugins),
+			...(task && has(plan, 'validation-plugin')
+				? [['zod', 'z'] as const]
+				: []),
+			...securitySchemaImports(plan),
+			...apiSchemaPluginImports(plan),
+		]),
+		`export const SchemaApplication = UltimaBase${useChain(entries)}`,
+		task
+			? taskSchemaSource(plan)
+			: `// Add your first SchemaApplication.Schema.define() declaration here.
+export {}`,
+		securitySchemaDeclarations(plan),
+	])
 }
-
-const taskCommand = (plan: InitializerPlan): string =>
-	`  const task = await Task.createOne(
-    { data: { title: 'Ship the first feature' } }${needsMasterKey(plan) ? ',\n    { useMasterKey: true }' : ''},
-  )
-  console.log(task.toJSON())
-`
-
-const mainSource = (
-	plan: InitializerPlan,
-): string => `${plan.starter === 'task' ? "import { Task } from './schema.js'\n" : ''}import { ultimabase } from './ultimabase.js'
-
-try {
-  await ultimabase.start()
-${plan.starter === 'task' ? taskCommand(plan) : "  console.log('UltimaBase is ready')\n"}${
-	hasHttpListener(plan)
-		? `  console.log('Local API listening on http://127.0.0.1:1337')
-  // Keep the managed listener alive until the local process is stopped.
-  await new Promise${plan.language === 'ts' ? '<void>' : ''}((resolve) => {
-    process.once('SIGINT', () => resolve())
-    process.once('SIGTERM', () => resolve())
-  })
-`
-		: ''
-}} finally {
-  await ultimabase.dispose()
-}
-`
 
 const typegenScript = `import path from 'node:path'
 import {
@@ -265,38 +257,37 @@ const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 	])
 }
 
-const projectReadme = (plan: InitializerPlan): string => `# ${plan.name}
-
-Generated UltimaBase ${plan.language === 'ts' ? 'TypeScript' : 'JavaScript'} application.
-${plan.starter === 'task' ? 'The Task starter writes one record on each run.' : 'This empty application starts and stops without a data operation.'}
-
-## Before running
-
-- Node.js 24 or newer.
-${plan.database === 'docker' ? '- Docker Compose. Run docker compose up -d to start the disposable local PostgreSQL 17 service. Its credentials live only in the ignored .env file.' : '- A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.'}
-- The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.
-${plan.typegen ? '- Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.' : '- JavaScript runs the same application graph without Typegen or generated declarations.'}
-${behaviorReadmeNotes(plan)
-	.map((note) => `- ${note}\n`)
-	.join('')}
-${securityReadmeNotes(plan)
-	.map((note) => `- ${note}`)
-	.join('\n')}
-${apiReadmeNotes(plan)
-	.map((note) => `- ${note}`)
-	.join('\n')}
-
-## Run
-
-Commands:
-${nextCommands(plan)
-	.slice(1)
-	.map((command) => '    ' + command)
-	.join('\n')}
-
-
-${plan.database === 'docker' ? 'When finished, docker compose down -v removes the disposable database volume.' : 'Keep .env private. It is ignored by Git.'}
-`
+const projectReadme = (plan: InitializerPlan): string =>
+	joinSections([
+		`# ${plan.name}`,
+		`Generated UltimaBase ${plan.language === 'ts' ? 'TypeScript' : 'JavaScript'} application.
+${plan.starter === 'task' ? 'The Task starter seeds one record on its first run; later runs print that record instead of writing another.' : 'This empty application starts and stops without a data operation.'}`,
+		'## Before running',
+		[
+			'Node.js 24 or newer.',
+			plan.database === 'docker'
+				? 'Docker Compose. Run docker compose up -d --wait to start the disposable local PostgreSQL 17 service and wait until it is ready. Its credentials live only in the ignored .env file.'
+				: 'A dedicated disposable PostgreSQL database. Copy .env.example to .env and set DATABASE_URL; the initializer does not create your database.',
+			'The application uses direct schema synchronization with override for a disposable development database. Do not point it at production or shared data.',
+			plan.typegen
+				? 'Typegen generates replaceable declarations before typecheck and build; it does not create a Runtime client or connect to PostgreSQL.'
+				: 'JavaScript runs the same application graph without Typegen or generated declarations.',
+			...behaviorReadmeNotes(plan),
+			...securityReadmeNotes(plan),
+			...apiReadmeNotes(plan),
+		]
+			.map((note) => `- ${note}`)
+			.join('\n'),
+		'## Run',
+		'Commands:',
+		nextCommands(plan)
+			.slice(1)
+			.map((command) => '    ' + command)
+			.join('\n'),
+		plan.database === 'docker'
+			? 'When finished, docker compose down -v removes the disposable database volume.'
+			: 'Keep .env private. It is ignored by Git.',
+	])
 
 /** Render the PostgreSQL project with its currently supported plugin choices. */
 export const renderBaseFiles = (

@@ -120,4 +120,15 @@ export const ultimabase = new UltimaBase({ schemas: [Document] })
 		expect(first.contents).not.toContain(path.dirname(firstPath))
 		expect(second.contents).not.toContain(path.dirname(secondPath))
 	})
+
+	// Regression: an omitted option crashed on `.trim()` with a generic
+	// "Cannot read properties of undefined" error from JavaScript callers.
+	it('names an omitted sourcePath or exportName from JavaScript callers', async () => {
+		await expect(
+			loadTypegenApplication({ exportName: 'ultimabase' } as never),
+		).rejects.toThrow(new TypeError('sourcePath must be a non-empty string'))
+		await expect(
+			loadTypegenApplication({ sourcePath: './application.ts' } as never),
+		).rejects.toThrow(new TypeError('exportName must be a non-empty string'))
+	})
 })

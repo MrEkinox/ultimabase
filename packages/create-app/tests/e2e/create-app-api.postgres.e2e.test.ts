@@ -164,6 +164,54 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 		}
 	}, 60_000)
 
+	it.each([
+		['create_app_seed', []],
+		// An empty ACL hides the seed from anonymous reads; the check must use Master.
+		['create_app_seed_acl', ['acl-permissions-plugin']],
+	] as const)(
+		'keeps one seeded Task across restarts (%s)',
+		async (prefix, plugins) => {
+			const project = await setupProject(prefix, { language: 'js', plugins })
+			try {
+				const run = async (): Promise<string> => {
+					const { stdout } = await execFileAsync(
+						process.execPath,
+						['--env-file=.env', 'src/main.js'],
+						{ cwd: project.destination },
+					)
+					const id = /id: '([^']+)'/u.exec(stdout)?.[1]
+					if (id === undefined)
+						throw new TypeError(`Seeded Task was not printed: ${stdout}`)
+					return id
+				}
+				const first = await run()
+				expect(await run()).toBe(first)
+				await writeFile(
+					path.join(project.destination, 'verify.mjs'),
+					`import { ultimabase } from './src/ultimabase.js'
+import { Task } from './src/schema.js'
+
+await ultimabase.start()
+try {
+  console.log('TASKS=' + (await Task.count({}${plugins.length > 0 ? ', { useMasterKey: true }' : ''})))
+} finally {
+  await ultimabase.dispose()
+}
+`,
+				)
+				const { stdout } = await execFileAsync(
+					process.execPath,
+					['--env-file=.env', 'verify.mjs'],
+					{ cwd: project.destination },
+				)
+				expect(stdout).toContain('TASKS=1')
+			} finally {
+				await project.dispose()
+			}
+		},
+		60_000,
+	)
+
 	it('serves GraphQL reads while keeping introspection off without an explorer', async () => {
 		const project = await setupProject('create_app_graphql', {
 			language: 'js',

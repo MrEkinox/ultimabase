@@ -1,5 +1,6 @@
 import { pluginImports, privateSchemaApiOptions } from './api-template.js'
 import { hasPlugin as has, included, type InitializerPlan } from './config.js'
+import type { NamedImport } from './source.js'
 
 export const needsMasterKey = (plan: InitializerPlan): boolean =>
 	has(plan, 'access-plugin') ||
@@ -19,7 +20,7 @@ const hasMember = (plan: InitializerPlan): boolean =>
 	has(plan, 'roles-plugin') && !hasAuth(plan)
 
 /** These declarations stay in application source; plugin imports alone grant nothing. */
-export const securitySchemaImports = (plan: InitializerPlan): string[] => [
+export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 	...pluginImports(plan, [
 		['access-plugin', 'accessPlugin'],
 		['acl-permissions-plugin', 'ACL, aclPlugin'],
@@ -27,7 +28,7 @@ export const securitySchemaImports = (plan: InitializerPlan): string[] => [
 		['roles-plugin', 'RoleSchema, rolesPlugin'],
 	]),
 	...(has(plan, 'roles-plugin') && hasAuth(plan)
-		? ["import { passwordPrincipal } from '@ultimabase/password-auth-plugin'"]
+		? [['@ultimabase/password-auth-plugin', 'passwordPrincipal'] as const]
 		: []),
 ]
 
@@ -63,20 +64,24 @@ export const AppUser = PasswordUserSchema.define(SchemaApplication.Schema, {
 			hasMember(plan),
 			`// A local member model keeps Roles useful without installing authentication.
 export const Member = SchemaApplication.Schema.define({
-  className: 'Member',
-${privateSchemaApiOptions(plan)}
-  fields: (f) => ({ name: f.string({ required: true }) }),
+${[
+	"  className: 'Member',",
+	...privateSchemaApiOptions(plan),
+	'  fields: (f) => ({ name: f.string({ required: true }) }),',
+].join('\n')}
 })`,
 		],
 		[
 			has(plan, 'roles-plugin'),
 			`// Role membership is data, not an authorization grant by itself.
 export const AppRole = RoleSchema.define(SchemaApplication.Schema, {
-  className: 'Role',
-${privateSchemaApiOptions(plan)}
-  members: { schema: ${roleMembers(plan)} },
-  deletion: { references: 'fail' },
-  fields: (f) => ({ description: f.string() }),
+${[
+	"  className: 'Role',",
+	...privateSchemaApiOptions(plan),
+	`  members: { schema: ${roleMembers(plan)} },`,
+	"  deletion: { references: 'fail' },",
+	'  fields: (f) => ({ description: f.string() }),',
+].join('\n')}
 })`,
 		],
 	]).join('\n\n')
@@ -98,24 +103,20 @@ export const taskSecurityOptions = (plan: InitializerPlan): string =>
 		],
 	]).join('\n')
 
-export const securityApplicationImports = (plan: InitializerPlan): string[] =>
-	included([
-		[
-			needsMasterKey(plan),
-			"import { MasterAuthority } from '@ultimabase/core'",
-		],
-		[
-			hasProfilePolicy(plan),
-			"import { provideAccessContributions, schemaAccess } from '@ultimabase/access-plugin'",
-		],
-		[
-			hasAuth(plan),
-			"import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'",
-		],
-		[hasProfilePolicy(plan), "import { plugin } from '@ultimabase/core'"],
+export const securityApplicationImports = (
+	plan: InitializerPlan,
+): NamedImport[] =>
+	included<NamedImport>([
+		[needsMasterKey(plan), ['@ultimabase/core', 'MasterAuthority']],
 		[
 			hasProfilePolicy(plan),
-			"import { passwordPrincipal } from '@ultimabase/password-auth-plugin'",
+			['@ultimabase/access-plugin', 'provideAccessContributions, schemaAccess'],
+		],
+		[hasAuth(plan), ['@ultimabase/password-auth-plugin', 'passwordAuthPlugin']],
+		[hasProfilePolicy(plan), ['@ultimabase/core', 'plugin']],
+		[
+			hasProfilePolicy(plan),
+			['@ultimabase/password-auth-plugin', 'passwordPrincipal'],
 		],
 	])
 
@@ -153,8 +154,7 @@ const profilePolicy = plugin({
           })
         : schemaAccess(schema, { read: false })),
     )],
-})
-`
+})`
 		: ''
 
 export const securityMasterSource = (plan: InitializerPlan): string =>
@@ -162,9 +162,7 @@ export const securityMasterSource = (plan: InitializerPlan): string =>
 		? `const masterKey = process.env.ULTIMABASE_MASTER_KEY
 if (masterKey === undefined || masterKey === '<generate-a-random-local-key>') {
   throw new TypeError('Set ULTIMABASE_MASTER_KEY to a private random value')
-}
-
-`
+}`
 		: ''
 
 export const securityApplicationOption = (plan: InitializerPlan): string =>
@@ -175,8 +173,7 @@ export const securityApplicationOption = (plan: InitializerPlan): string =>
       // Replace this development console record with a durable audit sink before deployment.
       console.info('Master authority used', { kind: event.kind, keyId: event.keyId, requestId: event.requestId })
     },
-  }),
-`
+  }),`
 		: ''
 
 export const securityReadmeNotes = (plan: InitializerPlan): string[] =>

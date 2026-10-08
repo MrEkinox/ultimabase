@@ -11,6 +11,7 @@ import {
 	assertPlainObject,
 } from '../exact-object-validation.js'
 import { assertFieldDefinition } from '../schema/fields/base/definition.js'
+import { isCoreFieldOptionKey } from '../schema/fields/base/options.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import {
 	snapshotJsonValue,
@@ -38,14 +39,13 @@ export interface PrivateCollectionDefinition {
 
 // Only nominal tokens minted by definePrivateCollection resolve to a descriptor.
 const collectionDefinitions = new WeakMap<object, PrivateCollectionDefinition>()
-const forbiddenFieldOptions = new Set([
+// Core options that private records cannot honor. Every option a plugin
+// contributes is rejected generically below, so Core names no plugin here.
+const forbiddenCoreFieldOptions = new Set([
 	'autoIncrement',
 	'autoNow',
 	'default',
-	'generatedOn',
 	'indexed',
-	'postgres',
-	'system',
 ])
 
 const assertPortableField = (field: GenericField, path: string): void => {
@@ -60,7 +60,7 @@ const assertPortableField = (field: GenericField, path: string): void => {
 		)
 	}
 	for (const key of Object.keys(field.options)) {
-		if (forbiddenFieldOptions.has(key)) {
+		if (forbiddenCoreFieldOptions.has(key) || !isCoreFieldOptionKey(key)) {
 			throw new TypeError(`${path}.${key} is unavailable in private storage`)
 		}
 	}

@@ -66,4 +66,14 @@ describe('PostgreSQL test worker', () => {
 			new TypeError('PostgreSQL test workerId must be a positive integer'),
 		)
 	})
+
+	// Regression: running outside Vitest reported a malformed value instead of
+	// the missing variable.
+	it('names a missing VITEST_POOL_ID and its explicit alternative', () => {
+		expect(() => readVitestPoolId(undefined)).toThrow(
+			new TypeError(
+				'VITEST_POOL_ID is not set; call readVitestPoolId inside a Vitest worker or pass workerId to PostgresTestWorker explicitly',
+			),
+		)
+	})
 })

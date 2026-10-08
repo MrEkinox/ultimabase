@@ -442,7 +442,11 @@ prepares the configured schemas.
 ## Direct schema policies
 
 `postgresPlugin` synchronizes registered schemas according to `schemaPolicy`
-through the `prepareSchema` lifecycle phase. The default `override` policy
+through the `prepareSchema` lifecycle phase. When `schemaPolicy` is omitted,
+the factory reads `NODE_ENV` once: `production` selects `fail`, so a deployed
+application never alters its schema implicitly, and any other value selects
+`override` ([ADR-0292](../../docs/adr/0292-environment-aware-postgres-schema-policy.md)).
+An explicit `schemaPolicy` always wins. The `override` policy
 creates missing tables and transactionally applies supported column, primary
 key, default, identity, nullability, and index changes:
 

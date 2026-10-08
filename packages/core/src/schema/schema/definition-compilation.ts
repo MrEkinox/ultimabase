@@ -209,7 +209,8 @@ const coreSchemaOptionKeys = new Set(['className', 'fields', 'indexes'])
 export const snapshotUnresolvedSchemaOptions = (
 	options: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => {
-	const unresolved: Record<string, unknown> = {}
+	// Entries keep every option key, including `__proto__`, as an own key.
+	const unresolved: [string, unknown][] = []
 
 	for (const key of Reflect.ownKeys(options)) {
 		if (typeof key !== 'string') {
@@ -217,11 +218,11 @@ export const snapshotUnresolvedSchemaOptions = (
 		}
 
 		if (!coreSchemaOptionKeys.has(key)) {
-			unresolved[key] = snapshotCapturedOptionValue(options[key])
+			unresolved.push([key, snapshotCapturedOptionValue(options[key])])
 		}
 	}
 
-	return immutableRecord(unresolved)
+	return immutableRecord(Object.fromEntries(unresolved))
 }
 
 const resolveDeveloperFields = (
@@ -238,16 +239,18 @@ const resolveDeveloperFields = (
 			resolveTarget,
 		)
 	} catch (cause: unknown) {
+		const reason =
+			cause instanceof FieldBuilderDeclarationExecutionError
+				? cause.cause
+				: cause
+		// Surface the precise reason (for example an unknown field method) instead
+		// of hiding it in the cause chain.
+		const detail = reason instanceof Error ? `: ${reason.message}` : ''
 		throw new SchemaCompilationError(
 			'callback-threw',
 			declaration.className,
-			`Schema ${declaration.className} fields declaration could not be resolved`,
-			{
-				cause:
-					cause instanceof FieldBuilderDeclarationExecutionError
-						? cause.cause
-						: cause,
-			},
+			`Schema ${declaration.className} fields declaration could not be resolved${detail}`,
+			{ cause: reason },
 		)
 	}
 }

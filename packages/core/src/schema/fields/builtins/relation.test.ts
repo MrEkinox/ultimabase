@@ -271,6 +271,32 @@ describe('relationField', () => {
 		).toThrow(expect.objectContaining({ reason: 'incompatible-mapping' }))
 	})
 
+	it('reports inherited Object.prototype mappings as missing fields', () => {
+		const Target = UltimaBase.Schema.define({
+			className: 'InheritedMappingRelationTarget',
+			fields: (field) => ({ scalar: field.string() }),
+		})
+		const Source = UltimaBase.Schema.define({
+			className: 'InheritedMappingRelationSource',
+			fields: (field) => ({
+				inverse: field.relation({
+					target: 'InheritedMappingRelationTarget',
+					mappedBy: 'toString',
+				}),
+			}),
+		})
+
+		expect(() =>
+			new SchemaRegistry([Source, Target]).resolveSchemaTargets(),
+		).toThrow(
+			expect.objectContaining({
+				code: 'SCHEMA_RELATION_MAPPING_FAILED',
+				mappedBy: 'toString',
+				reason: 'missing-mapped-field',
+			}),
+		)
+	})
+
 	it('rejects wrong targets and inverse-to-inverse cycles', () => {
 		const ExpectedSource = UltimaBase.Schema.define({
 			className: 'ExpectedRelationSource',

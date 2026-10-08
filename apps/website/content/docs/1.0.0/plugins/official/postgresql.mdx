@@ -12,6 +12,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-09-21
 sources:
   - docs/adr/0266-defer-migration-only-protocols.md
+  - docs/adr/0292-environment-aware-postgres-schema-policy.md
   - packages/postgres-plugin/README.md
   - packages/postgres-plugin/src/plugin/postgres-plugin.ts
   - packages/postgres-plugin/src/options.ts
@@ -98,11 +99,11 @@ try {
 	without reviewing the proposed schema and a recovery plan.
 </Callout>
 
-| Plugin option  | Purpose                                                               |
-| -------------- | --------------------------------------------------------------------- |
-| `url`          | Non-empty connection URL. The plugin creates and closes its own pool. |
-| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.   |
-| `schemaPolicy` | `'override'` (default), `'fail'`, or `'ignore'`; see below.           |
+| Plugin option  | Purpose                                                                              |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `url`          | Non-empty connection URL. The plugin creates and closes its own pool.                |
+| `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.                  |
+| `schemaPolicy` | `'override'`, `'fail'`, or `'ignore'`; the default depends on `NODE_ENV`, see below. |
 
 Do not pass both `url` and `pool`. Creating `UltimaBase` does not contact the
 database. `start()` verifies a connection, returns the borrowed client to its
@@ -141,6 +142,12 @@ Field-level `postgres` is limited to stored fields.
 | `fail`     | Inspect and reject any drift without changing the database.              | Guard an already prepared database.               |
 | `ignore`   | Skip structural inspection and preparation; still verify the connection. | Another reviewed process owns schema preparation. |
 
+When you omit `schemaPolicy`, the plugin reads `NODE_ENV` when it is created:
+`production` selects `fail`, so a deployed application never changes its
+schema by itself, and any other value selects `override`. An explicit
+`schemaPolicy` always wins, so a production deployment that should synchronize
+on startup must write `schemaPolicy: 'override'` deliberately.
+
 `override` can create missing tables and apply supported column type,
 nullability, default, identity, primary-key, foreign-key, and index changes.
 It does not infer that unmatched tables or columns should be dropped. Removed
@@ -172,7 +179,11 @@ unique index, so also declare `required: true` when absence must be forbidden.
 
 A URL-backed pool belongs to the application; an injected pool stays yours.
 Neither connection URLs, raw pools, Drizzle objects, nor driver messages appear
-in public plugin exports or framework errors. Reads and mutations still use
+in public plugin exports or framework errors. The server-side message of a
+failed connection names only the driver code, such as
+`PostgreSQL connection verification failed [SQLSTATE 28P01].` for rejected
+credentials, `[SQLSTATE 3D000]` for a missing database, or `[ECONNREFUSED]`
+when nothing listens at the address. Reads and mutations still use
 Core's policy and Runtime pipeline. This provider never grants access or
 installs Access, ACL, authentication, REST, or GraphQL.
 

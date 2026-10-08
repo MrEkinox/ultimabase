@@ -123,4 +123,31 @@ describe('transformQueryFilterInput', () => {
 			profile: { at: [{ path: ['missing'], eq: 'raw' }] },
 		})
 	})
+
+	it('leaves inherited names untouched and keeps an own __proto__ key', () => {
+		const visited: string[] = []
+		// `JSON.parse` creates own keys, as a transport query string does.
+		const input: unknown = JSON.parse(
+			'{"toString":{"eq":"1"},"__proto__":{"eq":"2"},' +
+				'"profile":{"at":[{"path":["toString"],"eq":"3"}]}}',
+		)
+		const transformed = transformQueryFilterInput(
+			Article,
+			input,
+			({ operator, value }) => {
+				visited.push(`${operator}:${String(value)}`)
+				return value
+			},
+		)
+
+		// Inherited `Object.prototype` members are undeclared like any unknown name.
+		expect(visited).toStrictEqual([])
+		expect(transformed).toStrictEqual(input)
+		expect(transformed).toBeTypeOf('object')
+		if (typeof transformed !== 'object' || transformed === null) return
+		expect(
+			Object.getOwnPropertyDescriptor(transformed, '__proto__')?.value,
+		).toStrictEqual({ eq: '2' })
+		expect(Object.getPrototypeOf(transformed)).toBe(Object.prototype)
+	})
 })

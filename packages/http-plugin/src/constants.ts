@@ -36,3 +36,17 @@ export const isHttpMethod = (value: unknown): value is HttpMethod =>
 export const isReservedHttpPath = (path: string): boolean =>
 	path === httpBrowserBootstrapPathPrefix ||
 	path.startsWith(`${httpBrowserBootstrapPathPrefix}/`)
+
+// Timers clamp larger delays to 1 ms, so a larger deadline would expire at once.
+const maximumHttpRequestTimeoutMs = 2_147_483_647
+
+/** @internal Describes the accepted request deadline range in error messages. */
+export const httpRequestTimeoutMsRange =
+	'a positive safe integer no greater than 2147483647'
+
+/** @internal Accepts only deadlines that `AbortSignal.timeout()` honors exactly. */
+export const isHttpRequestTimeoutMs = (value: unknown): value is number =>
+	typeof value === 'number' &&
+	Number.isSafeInteger(value) &&
+	value > 0 &&
+	value <= maximumHttpRequestTimeoutMs

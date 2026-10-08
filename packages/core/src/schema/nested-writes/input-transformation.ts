@@ -80,10 +80,17 @@ export const transformSchemaMutationDataInput = (
 	options: SchemaMutationDataTransformOptions,
 ): unknown => {
 	if (!isPlainRecord(value)) return value
-	const transformed: Record<string, unknown> = {}
+	// Entries keep every input name, including `__proto__`, as an own key.
+	const transformed: [string, unknown][] = []
 
 	for (const [name, item] of Object.entries(value)) {
-		const field: GenericField | undefined = schema.persistedFields[name]
+		// Inherited `Object.prototype` members are never persisted fields.
+		const field: GenericField | undefined = Object.hasOwn(
+			schema.persistedFields,
+			name,
+		)
+			? schema.persistedFields[name]
+			: undefined
 		const decoded = options.transformField({
 			field,
 			kind:
@@ -96,12 +103,14 @@ export const transformSchemaMutationDataInput = (
 			relationships: options.relationships,
 			value: item,
 		})
-		transformed[name] =
+		transformed.push([
+			name,
 			options.relationships === 'nested' &&
 			field !== undefined &&
 			(field.kind === 'pointer' || field.kind === 'relation')
 				? transformNestedData(field, decoded, options)
-				: decoded
+				: decoded,
+		])
 	}
-	return immutableRecord(transformed)
+	return immutableRecord(Object.fromEntries(transformed))
 }

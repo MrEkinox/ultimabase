@@ -283,6 +283,8 @@ Current records (accepted or still active in part):
 - [ADR-0292: Default the PostgreSQL schema policy from the environment](0292-environment-aware-postgres-schema-policy.md)
 - [ADR-0293: Let Access row filters deny explicitly and stop teaching open defaults](0293-explicit-empty-access-filters.md)
 - [ADR-0294: Make public transport writes an explicit choice](0294-explicit-public-writes.md)
+- [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
+- [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
 
 Proposed records (awaiting user validation):
 

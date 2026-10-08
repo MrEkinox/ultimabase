@@ -177,12 +177,16 @@ export class RuntimeVirtualFieldScheduler {
 		let valueIndex = 0
 		const resolvedRecords = resultRecords.map((record) => {
 			assertPlainObject(record, 'Runtime virtual result must be a record')
-			const virtualValues: Record<string, unknown> = {}
+			// Entries keep every virtual name, including `__proto__`, as an own key.
+			const virtualValues: [string, unknown][] = []
 			for (const virtual of projection.virtualFields) {
-				virtualValues[virtual.name] = values[valueIndex]
+				virtualValues.push([virtual.name, values[valueIndex]])
 				valueIndex += 1
 			}
-			const resolved = immutableRecord({ ...record, ...virtualValues })
+			const resolved = immutableRecord({
+				...record,
+				...Object.fromEntries(virtualValues),
+			})
 			transferRuntimeSchemaModelMetadata(record, resolved)
 			return resolved
 		})

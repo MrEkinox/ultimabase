@@ -41,6 +41,16 @@ describe('Hono server plugin options', () => {
 				)
 			},
 		)
+
+		// Regression: the message did not show the rejected value.
+		it('echoes the received PORT value', () => {
+			vi.stubEnv('PORT', '80.5')
+			expect(() => normalizeHonoServerPluginOptions({})).toThrow(
+				new TypeError(
+					'PORT environment variable must be an integer from 0 through 65535 (received "80.5")',
+				),
+			)
+		})
 	})
 
 	it('retains an existing Hono app with external ownership', () => {
