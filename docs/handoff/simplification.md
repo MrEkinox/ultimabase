@@ -33,8 +33,21 @@ l'ordre de l'ADR-0288 ; Typegen sur deux voies ; privilèges en rapport dérivé
 - ADR-0288, 0289, 0290 acceptés (2026-10-08). L'utilisateur a aussi décidé
   de retirer tout ce que seuls des tests utilisent, passerelles d'adaptateur
   et privilège `adapter:raw` compris.
-- ADR-0289 en cours d'implémentation par un agent dans un worktree isolé
-  (`.claude/worktrees/`) ; revue du diff avant fusion.
+- ADR-0289, première partie fusionnée (`535bc3ee`, travail d'agent revu) :
+  production −1 849 lignes (Core −1 416, postgres −427), tests −1 421. Fait :
+  fabriques `restrict*`/`constraint`, intercepteurs `before/afterOperation`
+  de Core, `contributeSchemaMutationBinding`, passerelles d'adaptateur et
+  privilège `adapter:raw` retirés ; tokens Runtime et métadonnées de
+  privilèges retirés de l'API publique. Revue : changements d'ordre dans
+  `contributions-observers.test.ts` (l'ordre global/schéma appartenait aux
+  intercepteurs retirés) et message `protected policy selectionFields must be
+  an array` (préexistant, `protected-policy.ts:253`) jugés corrects.
+- ADR-0289, seconde partie (agent) : chaînes réservées aux tests restantes —
+  effet `constraints` de `protectedPolicy`, `databaseConstraint`, registre de
+  compilateurs de contraintes, compilateur postgres ; `defineSchemaConstraint`,
+  `addSchemaConstraint`, `schemaPatch().addConstraint()`.
+- Pas encore de `validate:full` entièrement vert après la première partie
+  (l'agent l'a passé par morceaux) : à lancer après la seconde fusion.
 
 ## Décisions de conception notées (à formaliser par ADR le moment venu)
 
