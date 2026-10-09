@@ -79,7 +79,7 @@ documentation explique quand utiliser l'un ou l'autre.
 10. **Rejeté** : raccourci `owner: 'author'` (le cas propriétaire tient en une
     ligne avec 1 et 4 ; deuxième forme pour le même besoin).
 
-11. **`can()` à prévoir** : savoir si une action est permise sans l'exécuter,
+11. **`can()` à prévoir** (déplacé dans Core par la revue ACL, décision 11 : il interroge toutes les politiques installées) : savoir si une action est permise sans l'exécuter,
     pour l'interface (afficher un bouton) et pour tester ses règles :
     `ultimabase.plugin(accessPlugin).can({ principal, operation, schema, item })`.
 12. **`isAuthenticated`** : prédicat fourni (`create: isAuthenticated`),
