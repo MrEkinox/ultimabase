@@ -22,12 +22,13 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
 
 ## État
 
-- [~] 1 Core : cibles, chaîne, emplacements faits ; `Register` à faire
-- [~] 2 Plugins : Access, Hooks, Soft Delete faits ; opérateur `where` à faire
-- [ ] 3 Fixture
-- [ ] 4 Construit
-- [ ] 5 Infobulles
-- [ ] 6 Exécution
+- [x] 1 Core : cibles, chaîne, emplacements, `Register`, types nommés, contrôle `mappedBy`
+- [x] 2 Plugins : Access, Hooks, Soft Delete (`.softDelete()`), ACL (`.acl()` + règle,
+  opérateur `contains` typé sans Typegen)
+- [x] 3 Fixture `examples/schema-form-d` (TodoUser, Todo, Tag ; 8 fautes en `@ts-expect-error`)
+- [x] 4 Construit : 0 erreur contre `dist/*.d.ts`
+- [x] 5 Infobulles TS6/TS7 source/construit (`examples/schema-form-d/results/`)
+- [x] 6 Exécution : `tests/e2e/schema-form-d.postgres.e2e.test.ts` 5/5 (construit et source)
 - [ ] 7 Mesures
 
 ## Décisions
@@ -79,6 +80,22 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
   (`rejects value-level target callbacks…` : l'ancien contrat refusait les
   thunks, ADR-0297 les impose ; corps de test non modifié).
 
+- Registre : alias génériques par nom de classe et arrêt sur clé non littérale
+  (`string extends TKey`) ; sinon la mesure de variance au moment de la
+  déclaration lisait `typeof ultimabase` (TS7022). Diagnostic obtenu avec une
+  copie instrumentée de `_tsc.js` (pile de résolution au cycle).
+- `SchemaRef<"Todo">` est une interface : l'emplacement HKT intersecte le schéma
+  avec `unknown`, ce qui faisait perdre l'alias d'une intersection.
+- `Item`/`CreateInput`/`Model`… : type mappé comme corps d'alias (un résultat de
+  branche conditionnelle perd le nom de l'alias) ; `CreateInput<typeof Todo>`
+  écrit par le développeur reste long (argument imprimé tel quel).
+- Mesure indicative (1 exécution) : sans `Register` la vérification des règles
+  Access croît de façon quadratique (inférence du retour contextuel qui parcourt
+  l'anneau : `isDeeplyNestedType` 4,7 s sur 18 s à 100) ; avec `Register`
+  linéaire (10 → 1,69 s, 50 → 5,04 s, 100 → 9,89 s de check).
+- `pnpm vitest --project postgres-e2e …schema-form-d…` : 5 tests verts.
+
 ## Prochaine action vérifiable
 
-`Register` + types nommés : `where` affiché `WhereBuilder<SchemaReference<"Todo">>`.
+Campagne de mesures 10/50/200 (form D avec et sans `Register`, Typegen réel)
+TS6 et TS7, méthode de BENCH.md.

@@ -22,28 +22,59 @@ type FieldsOf<TSchema> =
 		? TFields
 		: never
 
-type ClassNameOf<TSchema> = TSchema extends {
+type RegistrationClassNameOf<TSchema> = TSchema extends {
 	readonly className: infer TClassName extends string
 }
 	? TClassName
 	: never
 
+// Only exact declarations are checked: widened field maps and targets whose
+// declared fields are unknown here (generated or bootstrap contracts) are skipped.
+type IsExactFieldMap<TFields> = [TFields] extends [never]
+	? false
+	: unknown extends TFields
+		? false
+		: string extends keyof TFields
+			? false
+			: true
+
+type MappedByIssue<
+	TSchema,
+	TName extends PropertyKey,
+	TTarget,
+	TMappedBy,
+> = TMappedBy extends string
+	? string extends TMappedBy
+		? never
+		: IsExactFieldMap<FieldsOf<TTarget>> extends true
+			? TMappedBy extends keyof FieldsOf<TTarget>
+				? never
+				: `${RegistrationClassNameOf<TSchema>}.${TName & string}: mappedBy '${TMappedBy}' is not a field of ${RegistrationClassNameOf<TTarget>}`
+			: never
+	: never
+
 // A thunk target is not read while its schema is declared, so `mappedBy` is
 // checked here, once every registered schema is typed (ADR-0297).
-type MappedByIssues<TSchema> = {
-	[
-		TName in keyof FieldsOf<TSchema>
-	]: FieldsOf<TSchema>[TName] extends RelationField<
-		infer TTarget,
-		infer TMappedBy
-	>
-		? TMappedBy extends string
-			? TMappedBy extends keyof FieldsOf<ResolveSchemaTarget<TTarget>>
-				? never
-				: `${ClassNameOf<TSchema>}.${TName & string}: mappedBy '${TMappedBy}' is not a field of ${ClassNameOf<ResolveSchemaTarget<TTarget>>}`
+type MappedByIssues<TSchema> =
+	string extends RegistrationClassNameOf<TSchema>
+		? never
+		: IsExactFieldMap<FieldsOf<TSchema>> extends true
+			? {
+					[
+						TName in keyof FieldsOf<TSchema>
+					]: FieldsOf<TSchema>[TName] extends RelationField<
+						infer TTarget,
+						infer TMappedBy
+					>
+						? MappedByIssue<
+								TSchema,
+								TName,
+								ResolveSchemaTarget<TTarget>,
+								TMappedBy
+							>
+						: never
+				}[keyof FieldsOf<TSchema>]
 			: never
-		: never
-}[keyof FieldsOf<TSchema>]
 
 /** Each registered schema, or a readable registration error in its place. */
 export type CheckedSchemas<TSchemas extends readonly SchemaDefinition[]> = {
@@ -58,5 +89,6 @@ export type CheckedSchemas<TSchemas extends readonly SchemaDefinition[]> = {
 export interface SchemaRegistrationCheck<
 	TSchemas extends readonly SchemaDefinition[],
 > {
-	readonly schemas: CheckedSchemas<TSchemas>
+	// Never an inference source: the schema tuple is inferred from `schemas` alone.
+	readonly schemas: NoInfer<CheckedSchemas<TSchemas>>
 }

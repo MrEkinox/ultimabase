@@ -37,6 +37,8 @@ export const Todo = App.Schema.define({
 			beforeOperation: {
 				update: ({ item }) => {
 					if (item.isDeleted) throw new TypeError('Deleted todos are read-only')
+					if (item.title.trim() === '')
+						throw new TypeError('Todo title is empty')
 				},
 			},
 		},
