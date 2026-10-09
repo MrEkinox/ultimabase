@@ -59,9 +59,30 @@ hooks des mutations de plugin, contributions des plugins tiers par
     les suivants ; opérations en masse = un `afterCommit` par ligne après le
     commit de toute la transaction ; la réponse au client n'attend pas les
     `afterCommit` (utilitaire de test pour les attendre).
-14. **À vérifier dans le code** : limite de récursion des hooks avec message
-    clair ; appel des hooks et contenu de `changes` lors d'un lien de relation
-    stocké dans une table de jointure ; garantie de livraison des événements.
+14. **Vérification du code (2026-10-09, lecture seule, `main` 116cf14e)** :
+    - Récursion : une écriture faite dans un hook rejoint la transaction et
+      redéclenche les hooks. Garde par identité du hook (pas de profondeur) :
+      réentrer le même hook lève `RUNTIME_CALLBACK_RECURSION` et annule tout,
+      donc aucune boucle infinie possible ; mais un cas légitime est bloqué
+      (un `afterUpdate` de Todo qui met à jour un **autre** Todo, son parent).
+      À décider.
+    - Liens de relation par table de jointure : seuls les hooks de mise à jour
+      de Todo s'exécutent, Tag n'en voit rien ; le changement n'apparaît que
+      dans l'arbre interne (`nestedWrite` / `operation`), pas dans `item`. Par
+      pointeur inverse, les hooks de Tag s'exécutent normalement. À décider
+      avec la décision 1 (`changes`).
+    - Événements : **pas de livraison garantie**. `delivery` vaut seulement
+      `optional`/`required` (exiger un consommateur) ; livraison en mémoire,
+      après commit, au plus une fois, sans file durable ni nouvel essai,
+      perdue si le processus s'arrête ; les consommateurs sont **attendus**
+      sur le chemin de la requête et leur échec fait **rejeter l'appel alors
+      que l'écriture est enregistrée** (risque de nouvel essai client et de
+      doublon) ; ils ne peuvent pas interroger la base. Corrige la prémisse de
+      la décision 5.
+    - Tests manquants relevés : auto-écriture et cycle via l'API de modèle,
+      hooks lors de `connect`/`disconnect`/`set` en mise à jour, consommateur
+      d'événement en échec, événement requis sans consommateur.
+
 15. **Absent volontairement** : aucune option pour désactiver les hooks
     (`skipHooks`) ; Master contourne les droits, jamais les hooks ; la doc
     explique pourquoi.
