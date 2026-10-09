@@ -157,6 +157,16 @@ export type {
 	PluginSourceRelationChange,
 	PluginSourceState,
 } from './plugins/source-projections.js'
+export { provideSchemaShapeMethods } from './plugins/schema-extensions.js'
+export type {
+	PluginSchemaRulesSource,
+	PluginSchemaShapeSource,
+	SchemaRulesFor,
+	SchemaRulesHKT,
+	SchemaShapeMethod,
+	SchemaShapeMethodImplementation,
+	SchemaShapeMethodImplementations,
+} from './plugins/schema-extensions.js'
 export type {
 	PluginSourceSchemaFieldValues,
 	PluginSourceSchemaMutationCarrier,

@@ -5,12 +5,15 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 import type { UltimaBase } from './ultima-base.js'
 import type { UltimaBaseInstanceOptions } from './ultima-base-contracts.js'
+import type { SchemaRegistrationChecks } from './schema-registration-checks.js'
 import type {
 	EmptyPluginSourceState,
 	MergePluginSourceState,
 	PluginSourceState,
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
+import { readSchemaShapeMethods } from '../../plugins/schema-extensions.js'
+import { createConfiguredSchemaNamespace } from '../../schema/schema/schema-declaration-chain.js'
 
 type AppendPlugins<
 	TPlugins extends readonly PluginDefinition[],
@@ -60,7 +63,8 @@ export interface ConfiguredUltimaBaseFactory<
 	 * @example `const application = new Api({ schemas: [Post] })`
 	 */
 	new <const TSchemas extends readonly SchemaDefinition[]>(
-		options: UltimaBaseInstanceOptions<TSchemas, TPlugins>,
+		options: UltimaBaseInstanceOptions<TSchemas, TPlugins> &
+			SchemaRegistrationChecks<TSchemas>,
 	): UltimaBase<TSchemas, TPlugins, TSource>
 }
 
@@ -97,6 +101,17 @@ export const appendConfiguredPlugins = <
 	const ConfiguredApplication = class extends parent {}
 
 	configuredPlugins.set(ConfiguredApplication, plugins)
+	// A factory whose plugins add shape methods (`.softDelete()`) declares
+	// schemas through its own namespace; others share their parent's.
+	const shapes = readSchemaShapeMethods(plugins)
+	if (shapes.size > 0) {
+		Object.defineProperty(ConfiguredApplication, 'Schema', {
+			configurable: false,
+			enumerable: true,
+			value: createConfiguredSchemaNamespace(shapes),
+			writable: false,
+		})
+	}
 	return Object.freeze(
 		ConfiguredApplication,
 	) as unknown as ConfiguredUltimaBaseFactory<

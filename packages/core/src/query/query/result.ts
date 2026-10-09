@@ -3,9 +3,14 @@ import type {
 	SchemaDefinition,
 	SchemaResult,
 } from '../../schema/index.js'
-import type { Pointer } from '../../schema/relations/pointer.js'
+import type { PointerValue } from '../../schema/relations/pointer.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
+import type {
+	IsRegisteredSchema,
+	Model,
+	SchemaClassNameOf,
+} from '../../schema/schema/registered-schemas.js'
 
 /** Materializes one projection so editor QuickInfo hides the complete source object. */
 type Simplify<TValue> = {
@@ -73,7 +78,9 @@ type MaterializeIncludedPointer<TValue, TInclusion> = [TInclusion] extends [
 				infer TSelectedField,
 				infer TNestedInclusion
 		  >
-		? TValue extends Pointer<TTargetSchema>
+		? // Any pointer value: a deferred target (`() => User`) is not the
+			// resolved schema type, but this field's inclusion already names it.
+			TValue extends PointerValue
 			? QueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
 			: TValue
 		: TValue
@@ -169,9 +176,19 @@ export type QueryResult<
 > =
 	string extends QueryFieldName<TSchema>
 		? Simplify<SchemaResult<TSchema, SchemaOutput<TSchema>>>
-		: Simplify<
-				SchemaResult<
-					TSchema,
-					QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+		: [TSelectedField | TIncludedPointer] extends [never]
+			? // A complete result of a registered schema prints `Model<"Todo">`.
+				IsRegisteredSchema<TSchema> extends true
+				? Model<SchemaClassNameOf<TSchema>>
+				: Simplify<
+						SchemaResult<
+							TSchema,
+							QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+						>
+					>
+			: Simplify<
+					SchemaResult<
+						TSchema,
+						QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+					>
 				>
-			>

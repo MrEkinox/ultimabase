@@ -1,0 +1,283 @@
+{
+	"version": "7",
+	"dir": "/Users/mrekinox/Desktop/ub-slice/examples/schema-form-d/gen/view-src",
+	"baseline": [],
+	"hovers": [
+		{
+			"name": "where (builder)",
+			"text": "(parameter) where: WhereBuilder<SchemaRef<\"Todo\">>",
+			"length": 50
+		},
+		{
+			"name": "cross builder Todo -> User",
+			"text": "(parameter) user: WhereBuilder<SchemaRef<\"TodoUser\">>",
+			"length": 53
+		},
+		{
+			"name": "cross builder User -> Todo",
+			"text": "(parameter) todo: WhereBuilder<SchemaRef<\"Todo\">>",
+			"length": 49
+		},
+		{
+			"name": "two-hop builder Tag -> Todo -> User",
+			"text": "(parameter) user: WhereBuilder<SchemaRef<\"TodoUser\">>",
+			"length": 53
+		},
+		{
+			"name": "hook item",
+			"text": "(parameter) item: Readonly<Item<\"Todo\">>",
+			"length": 40
+		},
+		{
+			"name": "schema constant",
+			"text": "const Todo: ConfiguredSchemaResult<{\n    readonly fieldBuilders: Readonly<Record<never, never>> & object;\n    readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"access\", SourceFieldAccessOption>>>>> & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"hooks\", SourceFieldHooksOption>>>>> & Readonly<...>;\n    ... 6 more ...;\n    readonly shapeMethods: Readonly<...> & ... 2 more ... & {\n        ...;\n    };\n}, \"Todo\", {\n    ...;\n}, Readonly<...>>",
+			"length": 583
+		},
+		{
+			"name": "rules entry .with(",
+			"text": "(method) SchemaRulesMethod<{ readonly fieldBuilders: Readonly<Record<never, never>> & object; readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<...> & Readonly<...> & Readonly<...>; ... 6 more ...; readonly shapeMethods: Readonly<...> & ... 2 more ... & { ...; }; }, \"Todo\", { ...; }, Readonly<...>>.with(rules: AccessRules<SchemaRef<\"Todo\">> & HooksRules<SchemaRef<\"Todo\">> & ACLRules<SchemaRef<\"Todo\">> & ConfiguredSchemaRuleOptions<{\n    readonly fieldBuilders: Readonly<Record<never, never>> & object;\n    readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"access\", SourceFieldAccessOption>>>>> & Readonly<...> & Readonly<...>;\n    ... 6 more ...;\n    readonly shapeMethods: Readonly<...> & ... 2 more ... & {\n        ...;\n    };\n}, \"Todo\", {\n    ...;\n}, Readonly<...>>): ConfiguredSchemaResult<...>",
+			"length": 928
+		},
+		{
+			"name": "findMany() full result",
+			"text": "const allTodos: readonly Model<\"Todo\">[]",
+			"length": 40
+		},
+		{
+			"name": "findOne full result",
+			"text": "const oneTodo: Model<\"Todo\"> | null",
+			"length": 35
+		},
+		{
+			"name": "findMany select result",
+			"text": "const titles: readonly {\n    readonly [schemaModelStateType]: Readonly<{\n        readonly className: \"Todo\";\n        readonly state: \"persisted\";\n    }>;\n    readonly [schemaModelPointerType]: Pointer<ConfiguredSchemaResult<{\n        readonly fieldBuilders: Readonly<Record<never, never>> & object;\n        readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"access\", SourceFieldAccessOption>>>>> & Readonly<...> & Readonly<...>;\n        ... 6 more ...;\n        readonly shapeMethods: Readonly<...> & ... 2 more ... & {\n            ...;\n        };\n    }, \"Todo\", {\n        ...;\n    }, Readonly<...>>>;\n    ... 10 more ...;\n    readonly title: string;\n}[]",
+			"length": 754
+		},
+		{
+			"name": "CreateInput<'Todo'>",
+			"text": "const namedCreate: CreateInput<\"Todo\">",
+			"length": 38
+		},
+		{
+			"name": "CreateInput<typeof Todo>",
+			"text": "const schemaCreate: CreateInput<ConfiguredSchemaResult<{\n    readonly fieldBuilders: Readonly<Record<never, never>> & object;\n    readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"access\", SourceFieldAccessOption>>>>> & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<Partial<Record<\"hooks\", SourceFieldHooksOption>>>>> & Readonly<...>;\n    ... 6 more ...;\n    readonly shapeMethods: Readonly<...> & ... 2 more ... & {\n        ...;\n    };\n}, \"Todo\", {\n    ...;\n}, Readonly<...>>>",
+			"length": 604
+		}
+	],
+	"hoverSets": [],
+	"completions": [],
+	"cases": [
+		{
+			"name": "1 target typo",
+			"file": "src/todo.ts",
+			"faultyLine": 17,
+			"count": 2,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 17,
+				"col": 43,
+				"code": 2552,
+				"message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 5,
+					"col": 10,
+					"code": 6133,
+					"message": "'TodoUser' is declared but its value is never read."
+				},
+				{
+					"file": "src/todo.ts",
+					"line": 17,
+					"col": 43,
+					"code": 2552,
+					"message": "Cannot find name 'TodoUsr'. Did you mean 'TodoUser'?"
+				}
+			]
+		},
+		{
+			"name": "2 local where field",
+			"file": "src/todo.ts",
+			"faultyLine": 27,
+			"count": 1,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 27,
+				"col": 43,
+				"code": 2345,
+				"message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<\"Todo\">, \"eq\">'."
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 27,
+					"col": 43,
+					"code": 2345,
+					"message": "Argument of type '\"archivd\"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<\"Todo\">, \"eq\">'."
+				}
+			]
+		},
+		{
+			"name": "3 cross field",
+			"file": "src/todo.ts",
+			"faultyLine": 30,
+			"count": 1,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 30,
+				"col": 51,
+				"code": 2345,
+				"message": "Argument of type '\"emial\"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<\"TodoUser\">, \"endsWith\">'."
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 30,
+					"col": 51,
+					"code": 2345,
+					"message": "Argument of type '\"emial\"' is not assignable to parameter of type 'WhereBuilderTarget<SchemaRef<\"TodoUser\">, \"endsWith\">'."
+				}
+			]
+		},
+		{
+			"name": "4 plugin field in hook",
+			"file": "src/todo.ts",
+			"faultyLine": 39,
+			"count": 1,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 39,
+				"col": 15,
+				"code": 2551,
+				"message": "Property 'isDeletd' does not exist on type 'Readonly<Item<\"Todo\">>'. Did you mean 'isDeleted'?"
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 39,
+					"col": 15,
+					"code": 2551,
+					"message": "Property 'isDeletd' does not exist on type 'Readonly<Item<\"Todo\">>'. Did you mean 'isDeleted'?"
+				}
+			]
+		},
+		{
+			"name": "5 mappedBy (registration)",
+			"file": "src/todo-user.ts",
+			"faultyLine": 10,
+			"count": 1,
+			"onLine": false,
+			"primary": {
+				"file": "src/ultimabase.ts",
+				"line": 6,
+				"col": 47,
+				"code": 2375,
+				"message": "Type 'ConfiguredSchemaResult<{ readonly fieldBuilders: Readonly<Record<never, never>> & object; readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<...>>> & Readonly<...> & Readonly<...>; ... 6 more ...; readonly shapeMethods: Readonly<......' is not assignable to type 'SchemaClass<SourceSchemaTypeInfo<\"TodoUser\", Readonly<{ readonly email: NonDefaultedStringField<true, false, false>; readonly displayName: NonDefaultedStringField<false, false, false>; readonly assignedTodos: RelationField<...>; } & Readonly<...>>>> & Readonly<...> & object & SchemaResultCapabilityCarrier<...> & Sch...' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type 'ConfiguredSchemaResult<{ readonly fieldBuilders: Readonly<Record<never, never>> & object; readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<...>>> & Readonly<...> & Readonly<...>; ... 6 more ...; readonly shapeMethods: Readonly<......' is not assignable to type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+			},
+			"diagnostics": [
+				{
+					"file": "src/ultimabase.ts",
+					"line": 6,
+					"col": 47,
+					"code": 2375,
+					"message": "Type 'ConfiguredSchemaResult<{ readonly fieldBuilders: Readonly<Record<never, never>> & object; readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<...>>> & Readonly<...> & Readonly<...>; ... 6 more ...; readonly shapeMethods: Readonly<......' is not assignable to type 'SchemaClass<SourceSchemaTypeInfo<\"TodoUser\", Readonly<{ readonly email: NonDefaultedStringField<true, false, false>; readonly displayName: NonDefaultedStringField<false, false, false>; readonly assignedTodos: RelationField<...>; } & Readonly<...>>>> & Readonly<...> & object & SchemaResultCapabilityCarrier<...> & Sch...' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type 'ConfiguredSchemaResult<{ readonly fieldBuilders: Readonly<Record<never, never>> & object; readonly fieldOptions: Readonly<Record<never, never>> & object & Readonly<Record<\"embedded\" | \"output\" | \"stored\" | \"virtual\", Readonly<...>>> & Readonly<...> & Readonly<...>; ... 6 more ...; readonly shapeMethods: Readonly<......' is not assignable to type 'SchemaRegistrationError<\"TodoUser.assignedTodos: mappedBy 'asignee' is not a field of Todo\">'."
+				}
+			]
+		},
+		{
+			"name": "6 rules key",
+			"file": "src/todo.ts",
+			"faultyLine": 26,
+			"count": 4,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 26,
+				"col": 3,
+				"code": 2561,
+				"message": "Object literal may only specify known properties, but 'acess' does not exist in type 'AccessRules<SchemaRef<\"Todo\">> & HooksRules<SchemaRef<\"Todo\">> & ACLRules<SchemaRef<\"Todo\">> & ConfiguredSchemaRuleOptions<...>'. Did you mean to write 'access'?"
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 26,
+					"col": 3,
+					"code": 2561,
+					"message": "Object literal may only specify known properties, but 'acess' does not exist in type 'AccessRules<SchemaRef<\"Todo\">> & HooksRules<SchemaRef<\"Todo\">> & ACLRules<SchemaRef<\"Todo\">> & ConfiguredSchemaRuleOptions<...>'. Did you mean to write 'access'?"
+				},
+				{
+					"file": "src/todo.ts",
+					"line": 27,
+					"col": 22,
+					"code": 7031,
+					"message": "Binding element 'where' implicitly has an 'any' type."
+				},
+				{
+					"file": "src/todo.ts",
+					"line": 29,
+					"col": 15,
+					"code": 7031,
+					"message": "Binding element 'where' implicitly has an 'any' type."
+				},
+				{
+					"file": "src/todo.ts",
+					"line": 30,
+					"col": 28,
+					"code": 7006,
+					"message": "Parameter 'user' implicitly has an 'any' type."
+				}
+			]
+		},
+		{
+			"name": "7 wrong filter return",
+			"file": "src/todo.ts",
+			"faultyLine": 27,
+			"count": 1,
+			"onLine": true,
+			"primary": {
+				"file": "src/todo.ts",
+				"line": 27,
+				"col": 12,
+				"code": 2322,
+				"message": "Type '() => number' is not assignable to type 'AccessWhereRule<SchemaRef<\"Todo\">> | undefined'.\n  Type '() => number' is not assignable to type '(input: SchemaWhereAccessInput<SchemaRef<\"Todo\">>) => MaybePromise<Where<\"Todo\"> | WhereBuilder<SchemaRef<\"Todo\">> | undefined>'.\n    Type 'number' is not assignable to type 'MaybePromise<Where<\"Todo\"> | WhereBuilder<SchemaRef<\"Todo\">> | undefined>'."
+			},
+			"diagnostics": [
+				{
+					"file": "src/todo.ts",
+					"line": 27,
+					"col": 12,
+					"code": 2322,
+					"message": "Type '() => number' is not assignable to type 'AccessWhereRule<SchemaRef<\"Todo\">> | undefined'.\n  Type '() => number' is not assignable to type '(input: SchemaWhereAccessInput<SchemaRef<\"Todo\">>) => MaybePromise<Where<\"Todo\"> | WhereBuilder<SchemaRef<\"Todo\">> | undefined>'.\n    Type 'number' is not assignable to type 'MaybePromise<Where<\"Todo\"> | WhereBuilder<SchemaRef<\"Todo\">> | undefined>'."
+				}
+			]
+		},
+		{
+			"name": "8 select typo",
+			"file": "src/hovers.ts",
+			"faultyLine": 8,
+			"count": 1,
+			"onLine": true,
+			"primary": {
+				"file": "src/hovers.ts",
+				"line": 8,
+				"col": 55,
+				"code": 2769,
+				"message": "No overload matches this call.\n  The last overload gave the following error.\n    Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ acl?: boolean; archived?: boolean; assignee?: boolean; createdAt?: boolean; id?: true; isDeleted?: boolean; parent?: boolean; priority?: boolean; title?: boolean; updatedAt?: boolean; }>'. Did you mean to write 'title'?"
+			},
+			"diagnostics": [
+				{
+					"file": "src/hovers.ts",
+					"line": 8,
+					"col": 55,
+					"code": 2769,
+					"message": "No overload matches this call.\n  The last overload gave the following error.\n    Object literal may only specify known properties, but 'titel' does not exist in type 'Readonly<{ acl?: boolean; archived?: boolean; assignee?: boolean; createdAt?: boolean; id?: true; isDeleted?: boolean; parent?: boolean; priority?: boolean; title?: boolean; updatedAt?: boolean; }>'. Did you mean to write 'title'?"
+				}
+			]
+		}
+	]
+}

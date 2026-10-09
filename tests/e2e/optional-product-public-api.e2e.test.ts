@@ -105,6 +105,7 @@ const fixtures: readonly OptionalProductFixture[] = [
 				'SoftDeleteMode',
 				'SoftDeletePlugin',
 				'SoftDeletePluginOptions',
+				'SoftDeleteShapeSource',
 				'SoftDeleteSchemaOption',
 				'softDeletePlugin',
 			],

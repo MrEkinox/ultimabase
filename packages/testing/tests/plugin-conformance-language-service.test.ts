@@ -62,7 +62,7 @@ describe('@ultimabase/testing plugin conformance language service', () => {
 		expect(display).toContain('PluginInstance<{')
 		expect(display).toContain('readonly id: "community.search"')
 		expect(display).toContain(
-			'readonly [ConfiguredSchemaResult<EmptyPluginSourceState, "ConformanceArticle"',
+			'readonly [DeclaredSchema<EmptyPluginSourceState, "ConformanceArticle"',
 		)
 		expect(
 			quickInfo('suite.check', 'suite.'.length)

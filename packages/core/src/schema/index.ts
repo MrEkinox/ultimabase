@@ -131,6 +131,8 @@ export type {
 	PluginSourceFieldOption,
 	PluginSourceFieldOptionConstraint,
 	FieldScalarValue,
+	FieldContainsInput,
+	FieldContainsInputCarrier,
 	FieldStructuralContainsOperand,
 	FieldValue,
 	ResolveFieldTypegenState,
@@ -337,6 +339,32 @@ export {
 } from './schema/field-contexts.js'
 export type { FieldDeclarationContext } from './schema/field-contexts.js'
 export { generatedApplicationContractVersion } from './type-info.js'
+export { isConfiguredSchemaNamespace } from './schema/schema-declaration-chain.js'
+export type {
+	DeclaredSchema,
+	SchemaRulesMethod,
+	SchemaShapeMethods,
+} from './schema/schema-declaration-chain.js'
+export type {
+	CreateInput,
+	IsRegisteredSchema,
+	Item,
+	Model,
+	Register,
+	RegisteredSchema,
+	RegisteredSchemaInputs,
+	RegisteredSchemaName,
+	RegisteredSchemaTypeInfo,
+	SchemaRef,
+	SchemaRulesTarget,
+	Select,
+	UpdateInput,
+	Where,
+} from './schema/registered-schemas.js'
+export type {
+	DeferredSchemaTarget,
+	ResolveSchemaTarget,
+} from './schema/deferred-targets.js'
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,

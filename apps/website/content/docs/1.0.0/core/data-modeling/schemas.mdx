@@ -8,7 +8,7 @@ contentType: concept
 order: 1
 outcome: Define and register a schema, choose its declaration options, and understand when its fields and application handle become available.
 releaseStatus: pre-release
-reviewedAt: 2026-10-01
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -20,6 +20,8 @@ sources:
   - docs/adr/0248-application-selected-schema-class-mutations.md
   - docs/adr/0279-source-typed-configured-application-authoring.md
   - docs/adr/0281-retain-generated-where-contracts.md
+  - docs/adr/0297-declare-schemas-without-typegen.md
+  - packages/core/src/schema/schema/schema-declaration-chain.ts
   - packages/typegen/README.md
 ---
 
@@ -197,6 +199,46 @@ without one exact installed owner. These failures occur before plugin setup or
 database connection, not on the first request. See
 [Relationships](./relationships) for target declarations and
 [Using Plugins](/docs/1.0.0/plugins/using-plugins) for installation and ownership.
+
+## Declare without Typegen
+
+UltimaBase is moving to a declaration form that needs no generated file.
+`define` holds the data, relation targets are functions that return the target
+schema, plugins add methods such as `.softDelete()`, and a final `.with` holds
+the plugin rules:
+
+```ts title="src/todo.ts"
+export const Todo = App.Schema.define({
+	className: 'Todo',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		archived: field.boolean({ default: false }),
+		assignee: field.pointer({ target: () => TodoUser }),
+	}),
+})
+	.softDelete()
+	.with({
+		access: { read: { where: ({ where }) => where.eq('archived', false) } },
+	})
+```
+
+Declare the application once for short, name-keyed editor types such as
+`Model<'Todo'>`:
+
+```ts title="src/ultimabase.ts"
+export const ultimabase = new App({ schemas: [TodoUser, Todo] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+Both forms work side by side while the official plugins migrate: the form
+shown above this section, with plugin options in `define` and generated types,
+stays supported until the migration ends. Role and Password User schemas keep
+their current form for now.
 
 ## Optional generated types
 

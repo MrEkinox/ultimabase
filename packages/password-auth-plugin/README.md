@@ -91,6 +91,11 @@ without importing the final application. Exact User query and authentication
 results still use the generated User contract. The standalone
 `PasswordUserSchema.define(options)` form remains supported and retains its
 generated plugin-builder and option contracts.
+The generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) will provide
+an `App.PasswordUserSchema.define` factory once Password Auth migrates; until
+then use the forms above. The configured form accepts the `Schema` namespace of
+any configured factory, including one whose plugins add shape methods.
 Outside a request, these methods resolve the sole started application. Inside a
 request, they retain that request's exact application, subject, transaction,
 cancellation, and authority. A foreign User class is rejected before credential

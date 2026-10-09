@@ -4,6 +4,7 @@ import {
 	definePluginFieldWireProtocol,
 	defineSchemaOption,
 	type CompiledSchemaRegistry,
+	type FieldContainsInputCarrier,
 	type FieldValueMap,
 	type PluginFieldDefinition,
 	type PluginFieldFamilyDefinition,
@@ -56,19 +57,20 @@ interface ACLFieldOptions {
 }
 
 /** Carries one non-null immutable ACL through ordinary schema inference. */
-export type ACLField = PluginFieldDefinition<
-	typeof aclFieldKind,
-	ACL,
-	ACLFieldOptions,
-	Readonly<{
-		readonly create: 'optional'
-		readonly object: 'required'
-		readonly update: 'optional'
-		readonly nullable: false
-		readonly list: false
-	}>,
-	ACLContainmentOperand
->
+export type ACLField = FieldContainsInputCarrier<ACLContainmentOperand> &
+	PluginFieldDefinition<
+		typeof aclFieldKind,
+		ACL,
+		ACLFieldOptions,
+		Readonly<{
+			readonly create: 'optional'
+			readonly object: 'required'
+			readonly update: 'optional'
+			readonly nullable: false
+			readonly list: false
+		}>,
+		ACLContainmentOperand
+	>
 
 const snapshotACL = (value: unknown, path: string): ACL => {
 	if (!(value instanceof ACL)) {

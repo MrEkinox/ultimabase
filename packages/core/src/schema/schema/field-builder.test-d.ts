@@ -33,19 +33,51 @@ test('declares circular relationships by schema name without local annotations',
 	expectTypeOf(Post.className).toEqualTypeOf<'NamedCircularPost'>()
 })
 
-test('rejects value-level target callbacks from the application FieldBuilder', () => {
-	const Target = UltimaBase.Schema.define({
-		className: 'CallbackTarget',
-		fields: () => ({}),
-	})
-
-	UltimaBase.Schema.define({
-		className: 'CallbackSource',
+test('accepts deferred target thunks and keeps the targets typed (ADR-0297)', () => {
+	const Author = UltimaBase.Schema.define({
+		className: 'ThunkAuthor',
 		fields: (field) => ({
-			// @ts-expect-error -- Application relationships use stable schema names.
-			target: field.pointer({ target: () => Target }),
+			name: field.string({ required: true }),
+			posts: field.relation({ target: () => Post, mappedBy: 'author' }),
 		}),
 	})
+	const Post = UltimaBase.Schema.define({
+		className: 'ThunkPost',
+		fields: (field) => ({
+			title: field.string({ required: true }),
+			author: field.pointer({ target: () => Author, required: true }),
+			parent: field.pointer({ target: () => Post }),
+		}),
+	})
+	const posts = Post.findMany({
+		select: { title: true },
+		include: {
+			author: { select: { name: true } },
+			parent: { select: { title: true } },
+		},
+	})
+	const authors = Author.findMany({
+		select: { name: true },
+		include: { posts: { select: { title: true } } },
+	})
+
+	expectTypeOf(posts)
+		.resolves.items.toHaveProperty('author')
+		.exclude<null>()
+		.toHaveProperty('name')
+		.toEqualTypeOf<string>()
+	expectTypeOf(posts)
+		.resolves.items.toHaveProperty('parent')
+		.exclude<null>()
+		.toHaveProperty('title')
+		.toEqualTypeOf<string>()
+	expectTypeOf(authors)
+		.resolves.items.toHaveProperty('posts')
+		.items.toHaveProperty('title')
+		.toEqualTypeOf<string>()
+	void Post.findMany({ where: { author: { is: { name: { eq: 'Ada' } } } } })
+	// @ts-expect-error -- Filters through a thunk target still reject unknown fields.
+	void Post.findMany({ where: { author: { is: { nam: { eq: 'Ada' } } } } })
 })
 
 test('keeps every supported built-in option on the embedded builder', () => {

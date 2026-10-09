@@ -1,6 +1,10 @@
 import type { ApplicationSchemaMutationMethod } from '../application/application-schema-mutations.js'
 import type { PluginSchemaMutationDefinition } from '../plugins/plugin-schema-mutations.js'
 import type { SchemaClass } from './schema/definition.js'
+import type {
+	DeferredSchemaTarget,
+	ResolveSchemaTarget,
+} from './schema/deferred-targets.js'
 
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
 export const generatedApplicationContractVersion = 21 as const
@@ -281,11 +285,22 @@ export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
 					infer TContract extends SchemaTypeInfo
 			  >
 			? TContract
-			: TSource extends { readonly className: infer TClassName extends string }
-				? [SchemaTypeInfoForLiteral<TClassName>] extends [never]
-					? BaseSchemaTypeInfo<TClassName>
-					: SchemaTypeInfoForLiteral<TClassName>
-				: never
+			: TSource extends DeferredSchemaTarget<unknown>
+				? SchemaTypeInfoForDeferred<ResolveSchemaTarget<TSource>>
+				: TSource extends {
+							readonly className: infer TClassName extends string
+					  }
+					? [SchemaTypeInfoForLiteral<TClassName>] extends [never]
+						? BaseSchemaTypeInfo<TClassName>
+						: SchemaTypeInfoForLiteral<TClassName>
+					: never
+
+// A deferred target is read only from lazy positions, after its schema is typed.
+// Reading the carrier directly avoids re-entering SchemaTypeInfoFor (unbounded for `any`).
+type SchemaTypeInfoForDeferred<TTarget> =
+	TTarget extends SchemaTypeInfoCarrier<infer TContract extends SchemaTypeInfo>
+		? TContract
+		: BaseSchemaTypeInfo<string>
 
 /** Reads an exact generated relationship target without inspecting local callbacks. */
 export type SchemaRelationshipTargetName<
@@ -316,7 +331,7 @@ export type SchemaRelationshipSource<
 			? TRelationships[TFieldName] extends SchemaRelationshipSourceCarrier<
 					infer TSource
 				>
-				? TSource
+				? ResolveSchemaTarget<TSource>
 				: never
 			: never
 		: never

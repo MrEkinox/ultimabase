@@ -24,6 +24,7 @@ export type {
 declare const fieldValueMarker: unique symbol
 declare const fieldTypegenMarker: unique symbol
 declare const fieldStructuralContainsOperandMarker: unique symbol
+declare const fieldContainsInputMarker: unique symbol
 declare const fieldOptionsValueType: unique symbol
 /** Resolves one source option template against the scalar or list field value. */
 export type ResolvedFieldSourceOptions<
@@ -470,6 +471,23 @@ export type FieldStructuralContainsOperand<TField> = TField extends {
 	readonly [fieldStructuralContainsOperandMarker]?: infer TOperand
 }
 	? TOperand
+	: never
+
+/**
+ * Declares the developer operand of one plugin `contains` filter on a field
+ * type, so a source schema types it exactly without generated declarations
+ * (ADR-0297). The structural operand above is the snapshot output, which can
+ * differ from what developers write.
+ */
+export interface FieldContainsInputCarrier<TInput> {
+	readonly [fieldContainsInputMarker]?: TInput
+}
+
+/** Extracts the developer `contains` operand a field type declares, if any. */
+export type FieldContainsInput<TField> = TField extends {
+	readonly [fieldContainsInputMarker]?: infer TInput
+}
+	? TInput
 	: never
 
 /** Extracts the compact operation state carried by a declared field. */

@@ -28,6 +28,9 @@ export default defineConfig(
 			'**/node_modules/**',
 			'**/*.generated.d.ts',
 			'**/*.generated.ts',
+			// Deliberate type errors (ADR-0297 typo cases) and generated benchmark projects.
+			'examples/schema-form-d/src/typos.ts',
+			'examples/schema-form-d/gen/**',
 		],
 	},
 	{

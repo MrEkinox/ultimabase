@@ -1,6 +1,6 @@
 import {
 	Schema,
-	UltimaBase,
+	isConfiguredSchemaNamespace,
 	relationField,
 	stringField,
 	type RequestRoleReferenceCarrier,
@@ -376,7 +376,7 @@ export class RoleSchema {
 		// class is no longer an authoring namespace.
 		if (
 			configuredOptions !== undefined &&
-			!Object.is(optionsOrSchema, UltimaBase.Schema)
+			!isConfiguredSchemaNamespace(optionsOrSchema)
 		) {
 			throw new TypeError(
 				'RoleSchema configured declarations require an UltimaBase Schema namespace',

@@ -20,6 +20,7 @@ import type {
 	SchemaReference,
 } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import type { DeclaredSchemaTarget } from '../../schema/deferred-targets.js'
 import { snapshotCapturedOptionValue } from '../../schema/captured-options.js'
 import type { RequestContext } from '../../../runtime/context/request-context.js'
 import type { WhereBuilder, WhereInput } from '../../../query/filters/where.js'
@@ -139,27 +140,44 @@ export interface RelationField<
 	readonly [relationTargetMarker]?: TTarget
 }
 
+/** Accepts a target thunk (`() => Post`) or a generated registry name. */
+export type RelationTargetDeclaration = SchemaDeclarationTargetName | object
+
+/**
+ * Names the inverse field accepted by `mappedBy`. A thunk target is never read
+ * while its schema is declared, so its `mappedBy` is checked at registration.
+ */
+export type RelationMappedByDeclaration<TTarget> = TTarget extends string
+	? RelationMappedFieldName<SchemaReference<TTarget>>
+	: string
+
 type NamedRelationFieldOptions<
-	TTargetName extends SchemaDeclarationTargetName,
-	TMappedBy extends
-		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined,
+	TTarget extends RelationTargetDeclaration,
+	TMappedBy extends RelationMappedByDeclaration<TTarget> | undefined,
 > = Omit<
-	RelationFieldOptions<SchemaReference<TTargetName>, TMappedBy>,
-	'target'
+	RelationFieldOptions<DeclaredSchemaTarget<TTarget>, undefined>,
+	'mappedBy' | 'target'
 > & {
-	/** Names the target schema registered in the same application. */
-	readonly target: TTargetName
+	/**
+	 * Names the exact pointer or owning relation field that stores an inverse edge.
+	 * @example `mappedBy: "author"`
+	 */
+	readonly mappedBy?: TMappedBy
+	/**
+	 * Lazily returns the target schema, or names a generated registry schema.
+	 * @example `target: () => Post`
+	 */
+	readonly target: TTarget
 }
 
 /** Declares one application relation without introducing a value-level schema cycle. */
 export type NamedRelationFieldBuilderMethod = <
-	const TTargetName extends SchemaDeclarationTargetName,
-	const TMappedBy extends
-		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined =
+	const TTarget extends RelationTargetDeclaration,
+	const TMappedBy extends RelationMappedByDeclaration<TTarget> | undefined =
 		undefined,
 >(
-	options: NamedRelationFieldOptions<TTargetName, TMappedBy>,
-) => RelationField<SchemaReference<TTargetName>, TMappedBy>
+	options: NamedRelationFieldOptions<TTarget, TMappedBy>,
+) => RelationField<DeclaredSchemaTarget<TTarget>, TMappedBy>
 
 const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'relation',

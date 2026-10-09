@@ -32,6 +32,31 @@ const ultimabase = new Application({
 })
 ```
 
+## Rules in `.with` (ADR-0297)
+
+With the generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), schema rules
+move to the final `.with` call, typed by `AccessRules` and contributed through
+`AccessSchemaRules`. Filters may cross thunk targets in both directions without
+Typegen. The `access` option of `define` above keeps working during the
+migration.
+
+```ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+
+const App = UltimaBase.use(accessPlugin())
+export const Post = App.Schema.define({
+	className: 'Post',
+	fields: (field) => ({
+		published: field.boolean({ default: false }),
+		author: field.pointer({ target: () => Author }),
+	}),
+}).with({
+	access: { read: { where: ({ where }) => where.eq('published', true) } },
+})
+```
+
 ## Public surface
 
 The root export has three deliberate groups:

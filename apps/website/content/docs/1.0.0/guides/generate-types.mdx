@@ -7,7 +7,7 @@ contentType: guide
 order: 7
 outcome: Generate and verify replaceable declarations for one configured UltimaBase application.
 releaseStatus: pre-release
-reviewedAt: 2026-10-01
+reviewedAt: 2026-10-09
 sources:
   - packages/typegen/README.md
   - packages/typegen/src/plugin.ts
@@ -21,6 +21,7 @@ sources:
   - packages/create-app/src/base-template.ts
   - docs/adr/0281-retain-generated-where-contracts.md
   - docs/adr/0285-sparse-generated-mutation-surfaces.md
+  - docs/adr/0297-declare-schemas-without-typegen.md
   - packages/typegen/src/generator/contributions.ts
   - packages/core/src/schema/type-info.ts
 ---
@@ -34,6 +35,11 @@ relations, and circular schemas, and plugin-owned contracts that have not yet
 moved to source projection. Typegen does not
 generate an executable client or change Runtime behavior. A missing or stale
 declaration affects TypeScript and editor completion, not what UltimaBase executes.
+
+Schemas written in the
+[declaration form without Typegen](/docs/1.0.0/core/data-modeling/schemas#declare-without-typegen)
+need no generation. Typegen remains required for the current form until every
+official plugin has migrated.
 
 Configured `App.Schema.define()` callbacks infer local plugin builders and
 options from the installed plugins. Typegen still supplies complete

@@ -52,7 +52,12 @@ the complete validation gate or the affected package's full conformance matrix.
 
 ## Retained typing boundaries
 
-These are accepted limits, not fresh experiments to repeat on each task:
+These are accepted limits, not fresh experiments to repeat on each task.
+[ADR-0297](adr/0297-declare-schemas-without-typegen.md) supersedes the
+Typegen-based items below for the generation-free declaration form
+(`define({ className, fields })`, thunk targets, shape methods, final `.with`,
+`Register`). Both forms coexist during the Core migration; the items below keep
+governing the previous form and Typegen until they are removed.
 
 - Named/circular/cross-file schema graph: [ADR-0279](adr/0279-source-typed-configured-application-authoring.md).
   No parallel source registry or export-name-equals-className restriction.

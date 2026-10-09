@@ -283,6 +283,7 @@ Current records (accepted or still active in part):
 - [ADR-0292: Default the PostgreSQL schema policy from the environment](0292-environment-aware-postgres-schema-policy.md)
 - [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
 - [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
+- [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
 - [ADR-0298: Withhold the pg-vector plugin from create-app](0298-withhold-pg-vector-from-create-app.md)
 
 Proposed records (awaiting user validation):

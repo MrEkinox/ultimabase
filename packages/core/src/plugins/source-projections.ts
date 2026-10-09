@@ -18,6 +18,7 @@ import type {
 } from '../schema/fields/base/contract.js'
 import type { RelationMutationDelta } from '../schema/relations/mutation.js'
 import type { ResolveSourceSchemaTemplate } from './source-schema-templates.js'
+import type { SchemaRulesHKT, SchemaShapeMethod } from './schema-extensions.js'
 
 declare const pluginSourceReceiptType: unique symbol
 declare const pluginSourceRelationChangeType: unique symbol
@@ -66,6 +67,10 @@ export interface PluginSourceProjection {
 	readonly schemaClass?: PluginSourceSchemaProjection
 	readonly schemaFields?: PluginSourceSchemaProjection
 	readonly schemaOptions?: PluginSourceSchemaProjection
+	/** Rule entries accepted by the final `.with({ ... })` (ADR-0297). */
+	readonly schemaRules?: SchemaRulesHKT
+	/** Callback-free shape methods chained before `.with(...)` (ADR-0297). */
+	readonly shapeMethods?: Readonly<Record<string, SchemaShapeMethod>>
 }
 
 /** Carries one registrar call's source projection without exposing Runtime state. */
@@ -105,6 +110,8 @@ export interface EmptyPluginSourceState {
 	readonly schemaClass: never
 	readonly schemaFields: never
 	readonly schemaOptions: never
+	readonly schemaRules: readonly []
+	readonly shapeMethods: Readonly<Record<never, never>>
 }
 
 /** Complete source aggregate carried once by one configured factory. */
@@ -120,6 +127,8 @@ export interface PluginSourceState {
 	readonly schemaClass: PluginSourceSchemaProjection
 	readonly schemaFields: PluginSourceSchemaProjection
 	readonly schemaOptions: PluginSourceSchemaProjection
+	readonly schemaRules: readonly SchemaRulesHKT[]
+	readonly shapeMethods: object
 }
 
 /** Reads one contextual field or option surface from a configured source state. */
@@ -177,7 +186,7 @@ type UnionToIntersection<TValue> = (
 
 type ObjectProjection<
 	TProjection,
-	TKey extends 'fieldBuilders' | 'fieldOptions' | 'operations',
+	TKey extends 'fieldBuilders' | 'fieldOptions' | 'operations' | 'shapeMethods',
 > =
 	UnionToIntersection<
 		TProjection extends Readonly<Record<TKey, infer TValue extends object>>
@@ -217,7 +226,15 @@ export type MergePluginSourceState<
 				TCurrent['schemaFields'] | SchemaProjection<TAdded, 'schemaFields'>
 			readonly schemaOptions:
 				TCurrent['schemaOptions'] | SchemaProjection<TAdded, 'schemaOptions'>
+			readonly schemaRules: [RulesProjection<TAdded>] extends [never]
+				? TCurrent['schemaRules']
+				: readonly [...TCurrent['schemaRules'], RulesProjection<TAdded>]
+			readonly shapeMethods: TCurrent['shapeMethods'] &
+				ObjectProjection<TAdded, 'shapeMethods'>
 		}
+
+type RulesProjection<TProjection> =
+	TProjection extends Readonly<{ schemaRules: infer TRules }> ? TRules : never
 
 type ValueAtPath<TValue, TPath> = TPath extends readonly [
 	infer TKey extends PropertyKey,

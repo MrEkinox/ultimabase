@@ -109,6 +109,30 @@ comes from the completed application Typegen graph; regenerate it after schema
 changes. Typegen references the public `ACLSchemaOption` type without copying
 callbacks or producing a Runtime client. JavaScript needs no generation.
 
+With the generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), the `.acl()`
+shape method adds the field (`ACLShapeSource`) and the final `.with` carries the
+`acl` rule (`ACLRules`, contributed through `ACLSchemaRules`), with sibling
+fields typed without Typegen. Filters use the plugin's typed `contains`
+operator: `where: { acl: { contains: { public: ['read'] } } }`. The direct
+`acl` option keeps working during the migration.
+
+```ts
+export const Post = ACLApplication.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ visibility: field.string() }),
+})
+	.acl()
+	.with({
+		acl: {
+			default: ({ data }) =>
+				data.visibility === 'public'
+					? new ACL().grantPublic('read')
+					: new ACL(),
+		},
+	})
+```
+
 The update candidate includes unchanged fields and applies `set` (including
 `null` clears) and numeric operations before the callback. Framework-generated timestamps remain
 visible in `update.operations` but are not mixed into schema-local `data`.

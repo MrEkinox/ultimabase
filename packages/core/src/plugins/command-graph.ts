@@ -1,3 +1,4 @@
+import { isSchemaDeclarationMethod } from '../schema/schema/declaration-methods.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { CommandBindings } from '../runtime/commands/bindings.js'
@@ -162,7 +163,11 @@ export class CompiledCommandGraph {
 			for (const kind of surface.surfaces) {
 				const index =
 					kind === 'schema' ? target.schemaMutations : target.modelMutations
-				if (kind === 'schema' && Reflect.has(target.schema, surface.name)) {
+				if (
+					kind === 'schema' &&
+					Reflect.has(target.schema, surface.name) &&
+					!isSchemaDeclarationMethod(Reflect.get(target.schema, surface.name))
+				) {
 					throw new TypeError(
 						`Reserved schema static mutation: ${surface.name}`,
 					)

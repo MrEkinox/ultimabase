@@ -123,6 +123,10 @@ const resolveNamedTargetOptions = (
 	)
 
 	const { target, ...rest } = options
+
+	// A thunk already designates its exact schema; the target graph validates it.
+	if (typeof target === 'function') return options
+
 	assertNonEmptyString(target, `${path} target`)
 
 	if (resolveTarget === undefined) {

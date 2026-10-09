@@ -1,3 +1,4 @@
+import { isSchemaDeclarationMethod } from './declaration-methods.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -209,7 +210,8 @@ const createStaticSchemaMutationView = <
 		get: (constructor, property, receiver): unknown => {
 			if (
 				typeof property === 'string' &&
-				!Reflect.has(constructor, property) &&
+				(!Reflect.has(constructor, property) ||
+					isSchemaDeclarationMethod(Reflect.get(constructor, property))) &&
 				resolveStaticMutation(readSchema(), className, property) === true
 			)
 				return (input: unknown, options?: OperationOptions) =>

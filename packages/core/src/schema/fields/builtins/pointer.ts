@@ -7,6 +7,7 @@ import {
 	type SchemaReference,
 } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import type { DeclaredSchemaTarget } from '../../schema/deferred-targets.js'
 import type {
 	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
@@ -150,55 +151,67 @@ type CompatibleCompactPointerFieldOptions<
 > = CompactPointerFieldOptions<TTarget, TRequired, TImmutable, TOnDelete> &
 	CompatiblePointerOptions<TRequired, TOnDelete>
 
+/** Accepts a target thunk (`() => User`) or a generated registry name. */
+export type PointerTargetDeclaration = SchemaDeclarationTargetName | object
+
 type NamedCompactPointerFieldOptions<
-	TTargetName extends SchemaDeclarationTargetName,
+	TTarget extends PointerTargetDeclaration,
 	TRequired extends boolean,
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
 > = Omit<
 	CompatibleCompactPointerFieldOptions<
-		SchemaReference<TTargetName>,
+		DeclaredSchemaTarget<TTarget>,
 		TRequired,
 		TImmutable,
 		TOnDelete
 	>,
 	'target'
 > & {
-	/** Names the target schema registered in the same application. */
-	readonly target: TTargetName
+	/**
+	 * Lazily returns the target schema, or names a generated registry schema.
+	 * @example `target: () => User`
+	 */
+	// Non-generic here: plugin option extensions remap these options, and a
+	// generic target there gives the thunk a contextual signature whose return
+	// type TypeScript then evaluates while the schema is declared (TS7022).
+	readonly target: PointerTargetDeclaration
 }
 
 /** Declares one application pointer without introducing a value-level schema cycle. */
 export type NamedPointerFieldBuilderMethod<
 	TSourceTemplate extends object = Readonly<Record<never, never>>,
 > = <
-	const TTargetName extends SchemaDeclarationTargetName,
+	const TTarget extends PointerTargetDeclaration,
 	const TRequired extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = PointerReferentialAction,
 	const TExtensionOptions extends object = object,
 >(
 	options: CompatibleFieldOptionsExtension<
-		NamedCompactPointerFieldOptions<
-			TTargetName,
-			TRequired,
-			TImmutable,
-			TOnDelete
+		NoInfer<
+			NamedCompactPointerFieldOptions<TTarget, TRequired, TImmutable, TOnDelete>
 		>,
 		TExtensionOptions,
-		Pointer<SchemaReference<TTargetName>>,
+		Pointer<DeclaredSchemaTarget<TTarget>>,
 		Extract<
 			ResolveFieldSourceTemplate<
 				TSourceTemplate,
-				Pointer<SchemaReference<TTargetName>>,
+				Pointer<DeclaredSchemaTarget<TTarget>>,
 				TRequired extends true
-					? Pointer<SchemaReference<TTargetName>>
-					: Pointer<SchemaReference<TTargetName>> | null
+					? Pointer<DeclaredSchemaTarget<TTarget>>
+					: Pointer<DeclaredSchemaTarget<TTarget>> | null
 			>,
 			object
 		>
-	>,
-) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
+	> &
+		Readonly<{
+			target: TTarget
+			required?: TRequired
+			immutable?: TImmutable
+			onDelete?: TOnDelete
+		}>,
+) => ResolvedPointerField<DeclaredSchemaTarget<TTarget>, TRequired, TImmutable>
 
 interface PointerFieldMetadataInput extends FieldOptionsBase<false, Pointer> {
 	readonly onDelete?: PointerReferentialAction

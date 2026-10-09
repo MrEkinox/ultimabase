@@ -42,6 +42,7 @@ import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
+import type { SchemaTypeInfoByNameOrRegistered } from './registered-schemas.js'
 import {
 	prepareSchemaCompilation,
 	readCompiledSchemaRecord,
@@ -159,7 +160,8 @@ type SchemaReferenceTypeInfo<
 			? SchemaTypeInfoByNameOrBase<TClassName>
 			: SourceSchemaTypeInfo<TClassName, TFields>
 		: SchemaTypeInfoByName<TClassName>
-	: SchemaTypeInfoByNameOrBase<TClassName>
+	: // A name alone also resolves through the application `Register` (ADR-0297).
+		SchemaTypeInfoByNameOrRegistered<TClassName>
 
 /** Resolves one public schema class from source, Typegen, or the bootstrap contract. */
 export type SchemaReference<
@@ -414,9 +416,22 @@ export const defineOrdinarySchemaModel = <
 >(
 	options: SchemaOptions<TClassName, TFields> &
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
+	declarationStatics: Readonly<Record<string, unknown>> = {},
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options)
 	finalizeSchemaModelClass(schema)
+	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
+	for (const [name, value] of Object.entries(declarationStatics)) {
+		if (Object.hasOwn(schema, name)) {
+			throw new TypeError(`Reserved schema declaration method: ${name}`)
+		}
+		Object.defineProperty(schema, name, {
+			configurable: false,
+			enumerable: false,
+			value,
+			writable: false,
+		})
+	}
 	Object.freeze(schema)
 	return schema as unknown as SchemaReference<TClassName>
 }

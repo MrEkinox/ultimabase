@@ -2,9 +2,7 @@ import {
 	Schema,
 	type SchemaDefinition,
 	type SchemaPointerFieldName,
-	type SchemaPointerTarget,
 	type SchemaRelationFieldName,
-	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -26,6 +24,8 @@ import type {
 	WhereOperatorFieldName,
 	WhereRangeBound,
 	WhereSource,
+	WherePointerSource,
+	WhereRelationSource,
 } from './where-contracts.js'
 import {
 	combineWhereExpressions,
@@ -466,7 +466,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	some<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('some', fieldName, input)
 	}
@@ -477,7 +477,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('none', fieldName, input)
 	}
@@ -488,7 +488,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('every', fieldName, input)
 	}
@@ -499,7 +499,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	is<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
+		input: WherePointerSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('is', fieldName, input)
 	}
@@ -510,7 +510,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	isNot<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
+		input: WherePointerSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('is-not', fieldName, input)
 	}
