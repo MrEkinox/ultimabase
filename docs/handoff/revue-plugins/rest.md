@@ -41,3 +41,16 @@ publiques n'ont ni politique ni `publicWrites: true` (ADR-0294),
 8. **Gardé** : routes `/classes/{Schema}`, réponses `{ results }` /
    `{ result }`, codecs de champ, `basePath`, `maxLimit`, `instanceId` (deux
    API distinctes, publique et interne).
+9. **OpenAPI** : `restPlugin({ openapi: true })` publie
+   `/api/v1/openapi.json` (routes exposées, champs, types, contraintes de
+   validation quand le validateur sait les décrire) ; aucune règle d'accès
+   révélée.
+10. **Pagination par curseur** (`?after=…`, même mécanisme que GraphQL), en
+    plus de l'`offset`.
+11. **Plus tard** : client typé sans génération par `import type` (à la Hono
+    RPC ou tRPC : `createClient<typeof ultimabase>(url)`) ; lot multi-schéma
+    à la `/batch` de Parse.
+12. **Documenté** : `where` en JSON reste la seule forme de filtre (pas de
+    filtres simples dans l'URL, conflits avec les paramètres réservés).
+
+Revue validée par l'utilisateur le 2026-10-09.
