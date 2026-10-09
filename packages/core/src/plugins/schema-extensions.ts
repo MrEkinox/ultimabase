@@ -185,7 +185,11 @@ export const provideSchemaShapeMethods = <
 /** One collected runtime shape method. */
 export type SchemaShapeMethodRuntime = RuntimeShapeMethod
 
-/** @internal Collects shape methods of an installed plugin tuple; names must be unique. */
+/**
+ * @internal Collects the shape methods of one installed plugin tuple. Several
+ * instances of one plugin declare the same method: the first one is kept, and
+ * methods setting different options under one name are rejected.
+ */
 export const readSchemaShapeMethods = (
 	plugins: readonly PluginDefinition[],
 ): ReadonlyMap<string, SchemaShapeMethodRuntime> => {
@@ -194,10 +198,11 @@ export const readSchemaShapeMethods = (
 		for (const [name, method] of Object.entries(
 			shapeMethodsByPlugin.get(plugin) ?? {},
 		)) {
-			if (methods.has(name)) {
-				throw new TypeError(`Duplicate schema shape method: ${name}`)
+			const existing = methods.get(name)
+			if (existing === undefined) methods.set(name, method)
+			else if (existing.sets.join() !== method.sets.join()) {
+				throw new TypeError(`Conflicting schema shape method: ${name}`)
 			}
-			methods.set(name, method)
 		}
 	}
 	return methods

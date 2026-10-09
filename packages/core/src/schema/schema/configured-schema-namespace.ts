@@ -361,9 +361,9 @@ export type ConfiguredSchemaNamespace<
 > = Pick<typeof Schema, 'is' | 'defineSpecialized'> &
 	Readonly<{
 		/**
-		 * Defines one schema class with typed drafts and QueryBuilder access.
-		 * The configured application projects its installed plugin fields and options here;
-		 * chain plugin shape methods, then end with `.with({ ...rules })` (ADR-0297).
+		 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
+		 * The configured application projects its installed plugin fields and options here.
+		 * Chain plugin shape methods, then end with `.with({ ...rules })` (ADR-0297).
 		 *
 		 * @example
 		 * ```ts

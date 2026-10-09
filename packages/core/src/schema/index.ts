@@ -339,6 +339,7 @@ export {
 } from './schema/field-contexts.js'
 export type { FieldDeclarationContext } from './schema/field-contexts.js'
 export { generatedApplicationContractVersion } from './type-info.js'
+export { isConfiguredSchemaNamespace } from './schema/schema-declaration-chain.js'
 export type {
 	DeclaredSchema,
 	SchemaRulesMethod,

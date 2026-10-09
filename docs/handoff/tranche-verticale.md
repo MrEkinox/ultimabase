@@ -29,7 +29,7 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
 - [x] 4 Construit : 0 erreur contre `dist/*.d.ts`
 - [x] 5 Infobulles TS6/TS7 source/construit (`examples/schema-form-d/results/`)
 - [x] 6 Exécution : `tests/e2e/schema-form-d.postgres.e2e.test.ts` 5/5 (construit et source)
-- [ ] 7 Mesures
+- [x] 7 Mesures : `examples/schema-form-d/results/{campaign.jsonl,summary.md}`
 
 ## Décisions
 
@@ -95,7 +95,46 @@ packages/core/src/schema/schema/field-builder.test-d.ts` : 1 échec attendu
   linéaire (10 → 1,69 s, 50 → 5,04 s, 100 → 9,89 s de check).
 - `yarn vitest run --project postgres-e2e tests/e2e/schema-form-d.postgres.e2e.test.ts` : 5/5 (et `coverage-postgres-e2e`, depuis les sources : 5/5).
 
+## Mesures (même session, séquentiel, 3 exécutions, médianes ; écart ≤ 6 %)
+
+`node examples/schema-form-d/tools/campaign.mjs` (charge 1 min 1,3–3,6). Typegen
+réel = sonde `ub-typing-spike/tools/real-baseline` (graphe différent, comme
+BENCH.md) + son programme écrit sur disque pour `tsc` (`tools/typegen-dump.mjs`).
+
+| N   | Variante        | Froid TS6 | Éd.→diag TS6 | tsc6 check | tsc7 check | TS7 LSP éd.→diag |
+| --- | --------------- | --------- | ------------ | ---------- | ---------- | ---------------- |
+| 10  | D + Register    | 2,63      | 1,13         | 1,86       | 0,55       | 0,38             |
+| 10  | D sans Register | 2,88      | 0,93         | 2,08       | 0,54       | 0,31             |
+| 10  | Typegen réel    | 3,55      | 2,02         | 3,11       | 0,69       | —                |
+| 50  | D + Register    | 6,35      | 2,75         | 5,29       | 1,56       | 0,97             |
+| 50  | D sans Register | 8,49      | 2,45         | 7,52       | 1,57       | 0,87             |
+| 50  | Typegen réel    | 8,08      | 6,74         | 7,50       | 2,31       | —                |
+| 200 | D + Register    | 23,33     | 9,13         | 22,15      | 6,57       | 3,29             |
+| 200 | D sans Register | 73,14     | 8,41         | 70,32      | 7,43       | 3,06             |
+| 200 | Typegen réel    | 43,26     | 49,40        | 42,00      | 14,92      | —                |
+
+Lecture : avec `Register`, D est 1,9× plus rapide que Typegen à froid et 5,4×
+à l'édition à 200 (TS6), 2,3× en `tsc` TS7, sans génération ; mais 14× plus
+lent que le prototype (1,6 s) : coût propre des types source du vrai Core
+(≈ 0,1 s par schéma). Sans `Register`, croissance quadratique des règles
+Access (70 s à 200).
+
+## Validation (fin de tranche)
+
+- `yarn typecheck` : 1 erreur attendue (`field-builder.test-d.ts:45`, l'ancien
+  contrat refusait les thunks ; ADR-0297 les impose ; corps de test non modifié).
+- `yarn vitest run --project unit --project types` : 5 échecs attendus
+  (ci-dessus + listes d'exports publics Core/Access/Hooks + infobulle
+  `DeclaredSchema` de `@ultimabase/testing`), 2784 verts.
+- `yarn vitest run --project e2e --project postgres-e2e` : 4 échecs attendus après
+  correction de la JSDoc (infobulle `SchemaTarget<DeclaredSchema…>`, archives
+  publiques Access/Hooks/Soft Delete qui exportent les nouveaux types), 411 verts.
+- `yarn validate:affected` : plan complet → `validate:full`, arrêté à
+  `yarn typecheck` (même erreur attendue). `validate:full` non relancé au-delà.
+- `yarn constraints`, `prettier --check`, ESLint des fichiers touchés : 0 erreur.
+
 ## Prochaine action vérifiable
 
-Campagne de mesures 10/50/200 (form D avec et sans `Register`, Typegen réel)
-TS6 et TS7, méthode de BENCH.md.
+Décision du propriétaire (gel de la forme D ou repli classe) ; ensuite ADR de
+remplacement de Typegen, mise à jour des listes d'exports et des tests de
+contrat, audit `freetp` des autres types mappés dans des branches `infer`.

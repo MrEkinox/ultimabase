@@ -1,6 +1,6 @@
 import {
 	Schema,
-	UltimaBase,
+	isConfiguredSchemaNamespace,
 	stringField,
 	type ConfiguredFieldDeclaration,
 	type ConfiguredSchemaDeclarationOptions,
@@ -148,7 +148,7 @@ export class PasswordUserSchema {
 		// specialization compiler retains generated User results and Runtime identity.
 		if (
 			configuredOptions !== undefined &&
-			!Object.is(optionsOrSchema, UltimaBase.Schema)
+			!isConfiguredSchemaNamespace(optionsOrSchema)
 		) {
 			throw new TypeError(
 				'Password User configured declarations require an UltimaBase Schema namespace',

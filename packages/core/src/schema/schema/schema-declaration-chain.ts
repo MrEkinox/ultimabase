@@ -17,6 +17,7 @@ import {
 	type SchemaFields,
 	type SchemaOptions,
 } from './definition.js'
+import { markSchemaDeclarationMethod } from './declaration-methods.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
 
 /** The final rules call of one schema declaration (ADR-0297). */
@@ -110,12 +111,12 @@ const defineDeclaredSchema = (
 	const statics: [string, unknown][] = [
 		[
 			'with',
-			(rules: unknown) => {
+			markSchemaDeclarationMethod((rules: unknown) => {
 				if (typeof rules !== 'object' || rules === null) {
 					throw new TypeError('schema rules must be an object')
 				}
 				return defineOrdinarySchemaModel({ ...options, ...rules })
-			},
+			}),
 		],
 	]
 	for (const [name, method] of shapes) {
@@ -125,24 +126,39 @@ const defineDeclaredSchema = (
 		remaining.delete(name)
 		statics.push([
 			name,
-			(...arguments_: readonly unknown[]) =>
+			markSchemaDeclarationMethod((...arguments_: readonly unknown[]) =>
 				defineDeclaredSchema(
 					{ ...options, ...method.apply(...arguments_) },
 					remaining,
 				),
+			),
 		])
 	}
 	return defineOrdinarySchemaModel(options, Object.fromEntries(statics))
 }
 
+const configuredSchemaNamespaces = new WeakSet<object>()
+
+/**
+ * Checks that one value is a Schema namespace of an UltimaBase factory: the
+ * root one, or the one of a factory whose plugins add shape methods.
+ */
+export const isConfiguredSchemaNamespace = (value: unknown): boolean =>
+	typeof value === 'object' &&
+	value !== null &&
+	configuredSchemaNamespaces.has(value)
+
 /** @internal Creates the schema namespace of one configured factory. */
 export const createConfiguredSchemaNamespace = (
 	shapes: ReadonlyMap<string, SchemaShapeMethodRuntime>,
-): ConfiguredSchemaNamespace =>
-	// The runtime accepts every declaration; the static type comes from the factory's plugins.
-	Object.freeze({
+): ConfiguredSchemaNamespace => {
+	const namespace = Object.freeze({
 		define: (options: DeclarationOptions) =>
 			defineDeclaredSchema(options, shapes),
 		defineSpecialized: Schema.defineSpecialized.bind(Schema),
 		is: Schema.is.bind(Schema),
-	}) as unknown as ConfiguredSchemaNamespace
+	})
+	configuredSchemaNamespaces.add(namespace)
+	// The runtime accepts every declaration; the static type comes from the factory's plugins.
+	return namespace as unknown as ConfiguredSchemaNamespace
+}

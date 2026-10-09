@@ -101,13 +101,17 @@ export const appendConfiguredPlugins = <
 	const ConfiguredApplication = class extends parent {}
 
 	configuredPlugins.set(ConfiguredApplication, plugins)
-	// Each factory declares schemas with the shape methods of its own plugins.
-	Object.defineProperty(ConfiguredApplication, 'Schema', {
-		configurable: false,
-		enumerable: true,
-		value: createConfiguredSchemaNamespace(readSchemaShapeMethods(plugins)),
-		writable: false,
-	})
+	// A factory whose plugins add shape methods (`.softDelete()`) declares
+	// schemas through its own namespace; others share their parent's.
+	const shapes = readSchemaShapeMethods(plugins)
+	if (shapes.size > 0) {
+		Object.defineProperty(ConfiguredApplication, 'Schema', {
+			configurable: false,
+			enumerable: true,
+			value: createConfiguredSchemaNamespace(shapes),
+			writable: false,
+		})
+	}
 	return Object.freeze(
 		ConfiguredApplication,
 	) as unknown as ConfiguredUltimaBaseFactory<

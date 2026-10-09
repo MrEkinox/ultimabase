@@ -422,7 +422,7 @@ export const defineOrdinarySchemaModel = <
 	finalizeSchemaModelClass(schema)
 	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
 	for (const [name, value] of Object.entries(declarationStatics)) {
-		if (name in schema) {
+		if (Object.hasOwn(schema, name)) {
 			throw new TypeError(`Reserved schema declaration method: ${name}`)
 		}
 		Object.defineProperty(schema, name, {

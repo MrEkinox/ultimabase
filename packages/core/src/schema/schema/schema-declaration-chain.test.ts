@@ -76,6 +76,12 @@ describe('schema declaration chain (ADR-0297)', () => {
 				'mark',
 			),
 		).toBe(false)
+		expectTypeOf(
+			UltimaBase.Schema.define({
+				className: 'PlainDocument',
+				fields: () => ({}),
+			}),
+		).not.toHaveProperty('mark')
 	})
 
 	it('omits a shape method whose options the declaration already sets', () => {
