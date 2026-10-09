@@ -297,7 +297,13 @@ Current records (accepted or still active in part):
 
 Proposed records (awaiting user validation):
 
-- None.
+- [ADR-0307: Prisma-aligned equality filters, atomic updates and required reads](0307-prisma-aligned-filters-updates-and-required-reads.md)
+- [ADR-0308: One checked vocabulary for pointer and relation links](0308-one-checked-link-vocabulary.md)
+- [ADR-0309: Cursor pagination in Core, shared by REST and GraphQL](0309-core-cursor-pagination.md)
+- [ADR-0310: Plain data results, named model types and shared enums](0310-plain-data-results-and-named-types.md)
+- [ADR-0311: Application lifecycle, explicit transactions and the authority surface](0311-application-lifecycle-and-authority-surface.md)
+- [ADR-0312: Environment-dependent plugin defaults](0312-environment-dependent-plugin-defaults.md)
+- [ADR-0313: Readable startup diagnostics and capability hints](0313-readable-startup-diagnostics.md)
 
 Superseded records:
 
