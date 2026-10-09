@@ -159,3 +159,17 @@ Amendments:
 4. Hovers on the real Core print `WhereBuilder<SchemaRef<"Todo">>` and
    `Readonly<Item<"Todo">>` (40 to 53 characters); `CreateInput<typeof Todo>`
    and the `select` typo message stay long and are migration work items.
+
+## Step 0 editor differences accepted (2026-10-09)
+
+The DX audit of migration step 0 against `main` reported two differences this
+record did not announce; the user accepted both:
+
+1. **Known regression, fixed in migration step 5:** 69 hovers of plugin
+   options and callbacks (ACL `default`/`resolveInput`, `rest`, `graphql`,
+   `postgres`, examples) print `ResolveSourceSchemaObject<…>` instead of the
+   expanded object. It is a side effect of the fix for the TS2589/TS2615
+   self-relation cycles; two bounded attempts did not remove it entirely.
+2. **Property order** changes in a few result and input hovers of the old
+   declaration form (same properties, different truncation); the old form is
+   removed at the end of the migration.

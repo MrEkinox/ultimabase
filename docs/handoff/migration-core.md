@@ -35,8 +35,9 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 
 ## État
 
-- Étape 0 : lancée le 2026-10-09.
+- Étape 0 : fusionnée dans `main` local le 2026-10-09 (f631f8fe) : `validate:full` vert (3 058 tests), e2e sur paquets construits verts (418), audit DX expliqué ; deux différences acceptées et inscrites dans ADR-0297 (69 infobulles `ResolveSourceSchemaObject<…>` à corriger à l'étape 5, ordre de propriétés de l'ancienne forme). Reportés : `Register` obligatoire (étape 4), protection TS 7 des tests de typage, fabriques de plugins (amendement 3), outils de campagne autonomes, audit DX acceptant un exemple présent d'un seul côté.
+- Étape 1 : lancée le 2026-10-09.
 
 ## Prochaine action vérifiable
 
-Rapport de l'étape 0 : diff relu, `validate:full` vert, audit DX expliqué.
+Rapport de l'étape 1 (contrats d'adaptateur avec PostgreSQL, ADR-0299 à 0303) : diff relu, `validate:full` vert, audit DX expliqué.
