@@ -3,7 +3,7 @@ import type {
 	SchemaDefinition,
 	SchemaResult,
 } from '../../schema/index.js'
-import type { Pointer } from '../../schema/relations/pointer.js'
+import type { PointerValue } from '../../schema/relations/pointer.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import type {
@@ -78,7 +78,9 @@ type MaterializeIncludedPointer<TValue, TInclusion> = [TInclusion] extends [
 				infer TSelectedField,
 				infer TNestedInclusion
 		  >
-		? TValue extends Pointer<TTargetSchema>
+		? // Any pointer value: a deferred target (`() => User`) is not the
+			// resolved schema type, but this field's inclusion already names it.
+			TValue extends PointerValue
 			? QueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
 			: TValue
 		: TValue

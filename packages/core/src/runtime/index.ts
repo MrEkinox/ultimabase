@@ -55,6 +55,11 @@ export type {
 	UltimaBaseInstanceOptions,
 } from './application/ultima-base-contracts.js'
 export type { ConfiguredUltimaBaseFactory } from './application/configured-application-factory.js'
+export type {
+	CheckedSchemas,
+	SchemaRegistrationCheck,
+	SchemaRegistrationError,
+} from './application/schema-registration-checks.js'
 export {
 	ApplicationModelHandle,
 	ApplicationOperationHandle,

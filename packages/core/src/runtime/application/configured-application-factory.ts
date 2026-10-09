@@ -5,6 +5,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 import type { UltimaBase } from './ultima-base.js'
 import type { UltimaBaseInstanceOptions } from './ultima-base-contracts.js'
+import type { SchemaRegistrationCheck } from './schema-registration-checks.js'
 import type {
 	EmptyPluginSourceState,
 	MergePluginSourceState,
@@ -62,7 +63,8 @@ export interface ConfiguredUltimaBaseFactory<
 	 * @example `const application = new Api({ schemas: [Post] })`
 	 */
 	new <const TSchemas extends readonly SchemaDefinition[]>(
-		options: UltimaBaseInstanceOptions<TSchemas, TPlugins>,
+		options: UltimaBaseInstanceOptions<TSchemas, TPlugins> &
+			SchemaRegistrationCheck<TSchemas>,
 	): UltimaBase<TSchemas, TPlugins, TSource>
 }
 
