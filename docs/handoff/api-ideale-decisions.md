@@ -57,13 +57,36 @@ implémentation.
    `Todo.master.createOne()` (moins pratique en conditionnel) et une portée
    ambiante `asMaster(() => …)` (élévation invisible du code appelé).
 
+9. **Schémas d'identité : fabrique apportée par le plugin** (Q7 ; F12) :
+   `App.RoleSchema.define({ className, members: () => TodoUser, fields })` et
+   `App.PasswordUserSchema.define({ className, fields })`, puis les méthodes
+   de plugin habituelles (`.access(...)`). Le nom dit ce qu'est le schéma ;
+   une méthode de chaîne (`.roles()`) se lisait comme « appliquer des rôles »
+   et aurait permis plusieurs schémas. Le plugin vérifie à l'enregistrement
+   qu'il y a exactement un schéma de son type. Supprime aussi la double liste
+   de plugins du README Password Auth (`Base` puis `Base.use(authPlugin)`).
+   Plusieurs tables d'utilisateurs (instances multiples) : hors périmètre.
+10. **Enums** (Q7 ; F11) : une seule signature, `values` accepte un tableau
+    (enum local, nom dérivé, le cas courant) ou un enum partagé
+    `defineEnum('TodoPriority', [...])`, utilisé seulement pour mutualiser.
+11. **Pointeurs** (Q7 ; F21) : lier = `TodoUser.pointer(id)` partout (création,
+    mise à jour, brouillons, ACL) ; créer et lier = `{ create: { … } }` ;
+    `{ connect }` reste réservé aux relations multiples.
+12. **Access sans configuration** (Q8 ; F14) : inchangé, déjà fixé par
+    ADR-0293 et ADR-0294 (refus par défaut, `where` peut renvoyer `false`,
+    écritures publiques explicites).
+13. **Rôles inopérants** (Q8 ; F13) : erreur au démarrage quand une règle
+    Access ou ACL cite un rôle et que le schéma de rôles n'a pas de
+    `resolveCurrent`, avec la marche à suivre. Plus tard (architecture, à
+    part) : une capacité neutre de Core « utilisateur courant » fournie par
+    l'authentification et consommée par les rôles, sans lien entre plugins.
+14. **Hooks de champ et `null`** (Q8 ; F17) : `resolveInput` n'est appelé que
+    pour une valeur non nulle fournie ; `null` passe tel quel. À vérifier
+    dans le plugin Hooks qu'aucun usage n'en dépend avant l'ADR.
+
 ## Ouvert
 
-- Résultat des variantes D (infobulles) et F (méthodes de plugin) du
-  prototype, puis tranche verticale sur le vrai Core, en commençant par les
-  champs ajoutés par un plugin (`softDelete`).
-- Q7 restant : `RoleSchema.define`, enum répété et `typeName` (F11, F12),
-  `TodoUser.pointer(id)` contre `{ connect }` (F21).
-- Q8 : valeurs par défaut (Access selon ADR-0293, `resolveCurrent` des rôles,
-  hooks de champ nullables) (F13, F14, F17).
+- Résultat des variantes D (infobulles) et F (méthodes et fabriques de
+  plugin) du prototype, puis tranche verticale sur le vrai Core, en
+  commençant par les champs ajoutés par un plugin (`softDelete`).
 - Q10 : alignement de la documentation sur les exemples (F25).
