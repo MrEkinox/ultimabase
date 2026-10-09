@@ -84,9 +84,17 @@ implémentation.
     pour une valeur non nulle fournie ; `null` passe tel quel. À vérifier
     dans le plugin Hooks qu'aucun usage n'en dépend avant l'ADR.
 
+15. **Documentation vérifiée** (Q10 ; F25) : tutoriels pas à pas en extraits
+    Twoslash compilés au build du site (contexte caché par `// ---cut---`,
+    types au survol) ; pages de référence et recettes par régions incluses
+    depuis les exemples exécutables ; README des paquets recopiés depuis ces
+    régions par un script vérifié en CI. Un extrait non vérifié doit être
+    marqué explicitement ; la CI refuse les autres. À mettre en place pendant
+    la migration (vérifier l'intégration Twoslash de Fumadocs et l'inclusion
+    de régions).
+
 ## Ouvert
 
 - Résultat des variantes D (infobulles) et F (méthodes et fabriques de
   plugin) du prototype, puis tranche verticale sur le vrai Core, en
   commençant par les champs ajoutés par un plugin (`softDelete`).
-- Q10 : alignement de la documentation sur les exemples (F25).
