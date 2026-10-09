@@ -2,10 +2,7 @@ import {
 	Schema,
 	type SchemaDefinition,
 	type SchemaPointerFieldName,
-	type SchemaPointerTarget,
 	type SchemaRelationFieldName,
-	type SchemaRelationTarget,
-	type SchemaRulesTarget,
 } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -27,6 +24,8 @@ import type {
 	WhereOperatorFieldName,
 	WhereRangeBound,
 	WhereSource,
+	WherePointerSource,
+	WhereRelationSource,
 } from './where-contracts.js'
 import {
 	combineWhereExpressions,
@@ -109,17 +108,6 @@ const createWhereTargetInput = <TSchema extends SchemaDefinition>(
 		}),
 	})
 }
-
-/**
- * Builder schema of one relationship target: `SchemaReference<"User">` once
- * the application is registered (short hovers, name-keyed contract), else the
- * target schema itself. Applied only here, a lazy position, never while a
- * schema is declared (ADR-0297).
- */
-type RelationshipFilterTarget<TTarget extends SchemaDefinition> = Extract<
-	SchemaRulesTarget<TTarget>,
-	SchemaDefinition
->
 
 /** Builds schema-correlated where objects without becoming a second AST source. */
 export class WhereBuilder<TSchema extends SchemaDefinition> {
@@ -478,9 +466,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	some<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<
-			RelationshipFilterTarget<SchemaRelationTarget<TSchema, TFieldName>>
-		>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('some', fieldName, input)
 	}
@@ -491,9 +477,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<
-			RelationshipFilterTarget<SchemaRelationTarget<TSchema, TFieldName>>
-		>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('none', fieldName, input)
 	}
@@ -504,9 +488,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<
-			RelationshipFilterTarget<SchemaRelationTarget<TSchema, TFieldName>>
-		>,
+		input: WhereRelationSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('every', fieldName, input)
 	}
@@ -517,9 +499,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	is<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<
-			RelationshipFilterTarget<SchemaPointerTarget<TSchema, TFieldName>>
-		>,
+		input: WherePointerSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('is', fieldName, input)
 	}
@@ -530,9 +510,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 */
 	isNot<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
-		input: WhereSource<
-			RelationshipFilterTarget<SchemaPointerTarget<TSchema, TFieldName>>
-		>,
+		input: WherePointerSource<TSchema, TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#relationship('is-not', fieldName, input)
 	}

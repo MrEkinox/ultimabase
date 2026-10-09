@@ -1,4 +1,11 @@
-import type { SchemaDefinition } from '../../schema/index.js'
+import type {
+	SchemaDefinition,
+	SchemaPointerFieldName,
+	SchemaPointerTarget,
+	SchemaRelationFieldName,
+	SchemaRelationTarget,
+	SchemaRulesTarget,
+} from '../../schema/index.js'
 import type {
 	SchemaTypeInfoSource,
 	SchemaTypeValue,
@@ -131,3 +138,30 @@ export type WhereCallback<TSchema extends SchemaDefinition> = (
 /** Accepts direct, reusable, or callback-built forms of the same where contract. */
 export type WhereSource<TSchema extends SchemaDefinition> =
 	WhereBuilder<TSchema> | WhereInput<TSchema> | WhereCallback<TSchema>
+
+/**
+ * Builder schema of one relationship target: `SchemaRef<"User">` once the
+ * application is registered (short hovers, name-keyed contract), else the
+ * target schema itself. Applied only in builder parameters, a lazy position,
+ * never while a schema is declared (ADR-0297).
+ */
+type RelationshipFilterTarget<TTarget extends SchemaDefinition> = Extract<
+	SchemaRulesTarget<TTarget>,
+	SchemaDefinition
+>
+
+/** Accepts one filter of the target of a relation field. */
+export type WhereRelationSource<
+	TSchema extends SchemaDefinition,
+	TFieldName extends SchemaRelationFieldName<TSchema>,
+> = WhereSource<
+	RelationshipFilterTarget<SchemaRelationTarget<TSchema, TFieldName>>
+>
+
+/** Accepts one filter of the target of a pointer field. */
+export type WherePointerSource<
+	TSchema extends SchemaDefinition,
+	TFieldName extends SchemaPointerFieldName<TSchema>,
+> = WhereSource<
+	RelationshipFilterTarget<SchemaPointerTarget<TSchema, TFieldName>>
+>

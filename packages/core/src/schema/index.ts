@@ -131,6 +131,8 @@ export type {
 	PluginSourceFieldOption,
 	PluginSourceFieldOptionConstraint,
 	FieldScalarValue,
+	FieldContainsInput,
+	FieldContainsInputCarrier,
 	FieldStructuralContainsOperand,
 	FieldValue,
 	ResolveFieldTypegenState,

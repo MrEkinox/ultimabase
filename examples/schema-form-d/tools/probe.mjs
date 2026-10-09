@@ -2,6 +2,7 @@
 // (JS language service, like forms/d-hybrid/tools/probe.mjs) or TypeScript 7.0.2
 // (native LSP server, see lsp.mjs). Prints one JSON document.
 // Usage: node ts7/tools/probe-both.mjs <6|7> <project-dir> [probe.json] [tsconfig-name]
+import process from 'node:process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -109,7 +110,7 @@ const makeTs6 = () => {
 			)
 				.filter((e) => e.kind !== 'keyword')
 				.map((e) => e.name),
-		close: async () => {},
+		close: async () => undefined,
 	}
 }
 

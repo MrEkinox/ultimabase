@@ -1,4 +1,5 @@
 import type {
+	FieldContainsInput,
 	FieldList,
 	FieldStructuralContainsOperand,
 	FieldTypegenStateOf,
@@ -108,9 +109,9 @@ type SourceScalarFilter<TField extends GenericField> =
 					: SourcePluginContainmentFilter<TField>
 
 /**
- * Plugin-owned structural containment (for example ACL `contains`): the field
- * type carries the developer operand the plugin declares, so a source schema
- * gets the exact `where` operator without generated declarations (ADR-0297).
+ * Plugin-owned structural containment (for example ACL `contains`): a field
+ * type that declares its developer operand gets the exact `where` operator
+ * without generated declarations (ADR-0297); otherwise the operand stays open.
  */
 type SourcePluginContainmentFilter<TField extends GenericField> = [
 	FieldStructuralContainsOperand<TField>,
@@ -118,7 +119,9 @@ type SourcePluginContainmentFilter<TField extends GenericField> = [
 	? NullFilter
 	: EqualityFilter<SourceFieldObjectValue<TField>> &
 			Readonly<{
-				readonly contains?: FieldStructuralContainsOperand<TField>
+				readonly contains?: [FieldContainsInput<TField>] extends [never]
+					? unknown
+					: FieldContainsInput<TField>
 			}> &
 			NullFilter
 

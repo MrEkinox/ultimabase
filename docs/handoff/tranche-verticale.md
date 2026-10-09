@@ -24,7 +24,7 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
 
 - [x] 1 Core : cibles, chaîne, emplacements, `Register`, types nommés, contrôle `mappedBy`
 - [x] 2 Plugins : Access, Hooks, Soft Delete (`.softDelete()`), ACL (`.acl()` + règle,
-  opérateur `contains` typé sans Typegen)
+      opérateur `contains` typé sans Typegen)
 - [x] 3 Fixture `examples/schema-form-d` (TodoUser, Todo, Tag ; 8 fautes en `@ts-expect-error`)
 - [x] 4 Construit : 0 erreur contre `dist/*.d.ts`
 - [x] 5 Infobulles TS6/TS7 source/construit (`examples/schema-form-d/results/`)
@@ -76,7 +76,7 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
 - `npx tsc --noEmit -p examples/schema-form-d/tsconfig.source.json` : 0 erreur
   (Todo ↔ TodoUser, auto-relation, `.softDelete().with({ access, hooks })`).
 - `yarn vitest run --project types packages/soft-delete-plugin
-  packages/core/src/schema/schema/field-builder.test-d.ts` : 1 échec attendu
+packages/core/src/schema/schema/field-builder.test-d.ts` : 1 échec attendu
   (`rejects value-level target callbacks…` : l'ancien contrat refusait les
   thunks, ADR-0297 les impose ; corps de test non modifié).
 
@@ -93,7 +93,7 @@ ADR-0297 (`docs/adr/0297-declare-schemas-without-typegen.md` sur la branche
   Access croît de façon quadratique (inférence du retour contextuel qui parcourt
   l'anneau : `isDeeplyNestedType` 4,7 s sur 18 s à 100) ; avec `Register`
   linéaire (10 → 1,69 s, 50 → 5,04 s, 100 → 9,89 s de check).
-- `pnpm vitest --project postgres-e2e …schema-form-d…` : 5 tests verts.
+- `yarn vitest run --project postgres-e2e tests/e2e/schema-form-d.postgres.e2e.test.ts` : 5/5 (et `coverage-postgres-e2e`, depuis les sources : 5/5).
 
 ## Prochaine action vérifiable
 

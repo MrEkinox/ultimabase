@@ -12,6 +12,6 @@ export const App = UltimaBase.use(
 	softDeletePlugin(),
 	aclPlugin(),
 	postgresPlugin({
-		url: process.env['DATABASE_URL'] ?? 'postgres://localhost/form-d',
+		url: process.env.DATABASE_URL ?? 'postgres://localhost/form-d',
 	}),
 )

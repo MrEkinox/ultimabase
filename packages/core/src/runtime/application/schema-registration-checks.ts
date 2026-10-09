@@ -85,7 +85,17 @@ export type CheckedSchemas<TSchemas extends readonly SchemaDefinition[]> = {
 		: SchemaRegistrationError<MappedByIssues<TSchemas[TIndex]>>
 }
 
-/** Registration-time checks added to `new App({ schemas })`. */
+/**
+ * Registration-time checks added to `new App({ schemas })` for an exact tuple;
+ * an open array (built generically) is checked only at runtime.
+ */
+export type SchemaRegistrationChecks<
+	TSchemas extends readonly SchemaDefinition[],
+> = number extends TSchemas['length']
+	? unknown
+	: SchemaRegistrationCheck<TSchemas>
+
+/** Registration-time checks of one exact schema tuple. */
 export interface SchemaRegistrationCheck<
 	TSchemas extends readonly SchemaDefinition[],
 > {

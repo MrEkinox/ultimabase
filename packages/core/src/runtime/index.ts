@@ -58,6 +58,7 @@ export type { ConfiguredUltimaBaseFactory } from './application/configured-appli
 export type {
 	CheckedSchemas,
 	SchemaRegistrationCheck,
+	SchemaRegistrationChecks,
 	SchemaRegistrationError,
 } from './application/schema-registration-checks.js'
 export {

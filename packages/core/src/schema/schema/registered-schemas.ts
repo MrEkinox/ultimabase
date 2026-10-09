@@ -227,7 +227,10 @@ export type SchemaTypeInfoByNameOrRegistered<TClassName extends string> = [
  */
 export interface SchemaRef<TClassName extends string> extends SchemaClass<
 	RegisteredSchemaTypeInfo<TClassName>
-> {}
+> {
+	/** Registered class name of the referenced schema. */
+	readonly className: TClassName
+}
 
 /**
  * The schema reference given to plugin rules and relationship builders:

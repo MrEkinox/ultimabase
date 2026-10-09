@@ -5,6 +5,9 @@
 // hooks, acl, postgres })`; one file per schema, one findMany per schema in
 // usage.ts, and the one-time Register line (unless --no-register).
 // Usage: node tools/gen.mjs <N> [--no-register]  -> gen/form-d[-noreg]-<N>/
+import process from 'node:process'
+import console from 'node:console'
+import { URL } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
 
