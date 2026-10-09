@@ -42,19 +42,35 @@ pour l'utilisateur et les rôles. `resolveInput` recalcule l'ACL à chaque
    décidé pour Hooks), refus de remplacer une ACL par `upsert` ou mise à jour
    ensembliste.
 10. **Partage depuis le client, sur autorisation explicite** :
-    `acl: { clientChanges: ({ principal, currentAcl }) => … }` autorise les
-    opérations `grant`/`revoke` venant d'un client ; fermé sans elle ; garde-fou
+    `acl: { clientSharing: ({ principal, currentAcl }) => … }` autorise un
+    client à lire l'ACL des lignes concernées et à y appliquer les
+    opérations `grant`/`revoke` ; fermé sans elle ; garde-fou
     permanent : un client ne peut jamais accorder plus de droits qu'il n'en a
     lui-même (pas d'escalade).
 11. **`can()` dans Core** (corrige la décision 11 de la revue Access) :
     `ultimabase.can({ principal, operation, schema, item })` interroge toutes
     les politiques installées (Access, ACL, futures) comme à l'exécution ;
     Core ne nomme aucun plugin.
-12. **À vérifier** : ACL des lignes existantes quand on active l'ACL sur un
-    schéma qui a des données (remplissage par un `default` statique, sinon
-    refus de démarrer avec un message clair) ; lecture pratique des entrées
-    d'une ACL pour une fenêtre de partage (`entries()` si les méthodes
-    actuelles ne suffisent pas).
+12. **Vérifié le 2026-10-09, corrigé** :
+    - Activer l'ACL sur une table non vide laissait les lignes existantes à
+      `NULL` (invisibles aux clients ; lecture ou modification par Master en
+      erreur ; README faux). Correctif : la colonne devient vraiment
+      `NOT NULL`. Le contrôle ne s'exécute que lorsque la synchronisation
+      ajoute la colonne : `SELECT EXISTS (SELECT 1 FROM … LIMIT 1)` ; table
+      vide → ajout simple ; valeur fixe (`default` statique ou
+      `existingRows`) → `ADD COLUMN … NOT NULL DEFAULT '…'` (sans réécriture
+      de la table depuis PostgreSQL 11) ; `default` en fonction sans
+      `existingRows` → refus de démarrer avec la marche à suivre. En
+      `schemaPolicy: 'fail'`, rien n'est modifié et le message indique la
+      valeur à prévoir. Ensuite, aucun contrôle au démarrage.
+    - Lister les entrées : seulement par `toJSON()`, rôles en chaînes
+      internes opaques. Ajout de `entries()` typé (utilisateurs en pointeurs,
+      rôles en références dont on obtient le nom, public et connectés avec
+      leurs droits).
+    - Désactiver l'ACL plus tard : la colonne et ses données restent (aucune
+      suppression destructive), l'index est retiré.
 13. **Plus tard** : partage temporaire (droit avec date de fin), seulement sur
     besoin réel. Un droit « partager » distinct est inutile (`clientChanges`
     le permet par une règle).
+
+Revue validée par l'utilisateur le 2026-10-09.
