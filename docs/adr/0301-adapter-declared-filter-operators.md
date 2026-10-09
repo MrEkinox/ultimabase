@@ -1,12 +1,12 @@
 # ADR-0301: Database adapters declare the filter operators they execute
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0136 where it defines `jsonPathExists`, `jsonPathMatches` and
   `containedBy` on the encoded JSONB representation
 - Refines: ADR-0118 and ADR-0212 (capability checks); applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
-  (`docs/handoff/revue-plugins/adaptateurs.md`, point 3); awaiting validation of this record
+  (`docs/handoff/revue-plugins/adaptateurs.md`, point 3); record accepted by the user on 2026-10-09
 - Evidence: `docs/handoff/audit-adaptateurs-base.md`, section 4 (`main` 116cf14e)
 
 ## Context

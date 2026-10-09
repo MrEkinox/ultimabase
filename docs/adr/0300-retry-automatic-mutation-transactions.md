@@ -1,12 +1,12 @@
 # ADR-0300: Retry automatic mutation transactions on transient conflicts
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0042 (`retryable` flag), ADR-0164 (atomic item-oriented mutations), the Runtime
   order of `docs/engineering/agent-domain-rules.md`; applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
   (`docs/handoff/revue-plugins/adaptateurs.md`, point 2, and the transversal rules of
-  `docs/handoff/revue-plugins/README.md`); awaiting validation of this record
+  `docs/handoff/revue-plugins/README.md`); record accepted by the user on 2026-10-09
 - Evidence: `docs/handoff/audit-adaptateurs-base.md`, section 3 (`main` 116cf14e)
 
 ## Context

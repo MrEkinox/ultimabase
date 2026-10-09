@@ -1,6 +1,6 @@
 # ADR-0304: Neutral current principal and policy predicates
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0113 (plugin-owned authentication), ADR-0117 (subject capabilities, now
   `requestPrincipalResolverCapability` in `packages/core/src/access/subject/contracts.ts`);

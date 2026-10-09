@@ -286,9 +286,6 @@ Current records (accepted or still active in part):
 - [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
 - [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
 - [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
-
-Proposed records (awaiting user validation):
-
 - [ADR-0299: Database adapters enforce a written referential-integrity contract](0299-adapter-enforced-referential-integrity.md)
 - [ADR-0300: Retry automatic mutation transactions on transient conflicts](0300-retry-automatic-mutation-transactions.md)
 - [ADR-0301: Database adapters declare the filter operators they execute](0301-adapter-declared-filter-operators.md)
@@ -297,6 +294,10 @@ Proposed records (awaiting user validation):
 - [ADR-0304: Neutral current principal and policy predicates](0304-neutral-current-principal-and-policy-predicates.md)
 - [ADR-0305: Public application errors and policy queries in Core](0305-public-errors-and-can.md)
 - [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
+
+Proposed records (awaiting user validation):
+
+- None.
 
 Superseded records:
 

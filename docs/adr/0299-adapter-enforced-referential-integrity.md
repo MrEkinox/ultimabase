@@ -1,10 +1,10 @@
 # ADR-0299: Database adapters enforce a written referential-integrity contract
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0118 (referential actions), ADR-0278 (private-storage references); applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
-  (`docs/handoff/revue-plugins/adaptateurs.md`, point 1); awaiting validation of this record
+  (`docs/handoff/revue-plugins/adaptateurs.md`, point 1); record accepted by the user on 2026-10-09
 - Evidence: `docs/handoff/audit-adaptateurs-base.md`, section 1 (`main` 116cf14e)
 
 ## Context

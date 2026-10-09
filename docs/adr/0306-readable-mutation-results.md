@@ -1,13 +1,13 @@
 # ADR-0306: Mutation results obey row read rules
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0180 where the internal result projection "does not replay
   source operation Access" for the root row
 - Refines: ADR-0144 and ADR-0146 (mutation result selections), ADR-0164; applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
   (`docs/handoff/revue-plugins/access.md`, decision 14, fault 1; confirmed neutral in
-  `adaptateurs.md`); awaiting validation of this record
+  `adaptateurs.md`); record accepted by the user on 2026-10-09
 
 ## Context
 

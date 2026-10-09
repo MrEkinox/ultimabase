@@ -1,12 +1,12 @@
 # ADR-0305: Public application errors and policy queries in Core
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0042 (error boundary), ADR-0102 (policy contributions), ADR-0116 (Access);
   applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
   (`docs/handoff/revue-plugins/hooks.md` decision 6; `access.md` decision 11 as moved to Core by
-  `acl.md` decision 11); awaiting validation of this record
+  `acl.md` decision 11); record accepted by the user on 2026-10-09
 
 ## Context
 
@@ -37,8 +37,10 @@ and the answer must combine every installed policy (Access, ACL, Soft Delete, fu
 
 **`ultimabase.can()`.**
 
-- Signature: `ultimabase.can({ principal, operation, schema, item })`. `principal` is required
-  (`Principal | undefined`) so the identity asked about is explicit;
+- Signature: `ultimabase.can({ principal, operation, schema, item })`. `principal` is optional:
+  omitted, it is the principal of the current request (the usual interface case); passed
+  explicitly (`Principal`, or `undefined` for an anonymous caller), it names the identity asked
+  about (user's amendment at validation, 2026-10-09);
   `operation` is an Access operation key (`read`, `one`, `many`, `count`, `exists`, `create`,
   `update`, `upsert`, `delete`, plugin mutation keys); `item` is optional. Returns
   `Promise<boolean>` for a non-Master caller.

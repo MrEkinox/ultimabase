@@ -1,6 +1,6 @@
 # ADR-0303: Partial indexes and application health in Core
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: the schema `indexes` contract (`packages/core/src/schema/schema/indexes.ts`), ADR-0080
   (PostgreSQL index compilation), ADR-0297 (placement of `indexes`); applies ADR-0288

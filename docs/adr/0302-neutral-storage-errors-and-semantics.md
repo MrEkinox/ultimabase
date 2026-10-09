@@ -1,10 +1,10 @@
 # ADR-0302: Neutral storage errors and written storage semantics
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0042, ADR-0133 (canonical null), ADR-0278; applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
-  (`docs/handoff/revue-plugins/adaptateurs.md`, point 4); awaiting validation of this record
+  (`docs/handoff/revue-plugins/adaptateurs.md`, point 4); record accepted by the user on 2026-10-09
 - Evidence: `docs/handoff/audit-adaptateurs-base.md`, sections 3, 4, 6 and 7 (`main` 116cf14e)
 
 ## Context
