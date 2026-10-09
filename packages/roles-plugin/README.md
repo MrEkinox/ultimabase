@@ -76,6 +76,13 @@ await Editor.addMember(User.pointer(user.id), {
 await Administrator.addRole(Editor, { useMasterKey: true })
 ```
 
+The generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) will provide
+role schemas through an `App.RoleSchema.define` factory once Roles migrates;
+until then declare roles as above. `RoleSchema.define` accepts the `Schema`
+namespace of any configured factory, including one whose plugins add shape
+methods such as `.softDelete()`.
+
 `RoleSchema.define()` injects `name`, `members`, and `roles`. Role names are
 stored as their NFKC-normalized, trimmed, lower-case identity and are unique in
 their schema. The framework-owned UUID remains stable when a role is renamed.

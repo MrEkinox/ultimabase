@@ -15,6 +15,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 
 import { generate } from './gen.mjs'
 
@@ -38,7 +39,9 @@ const scratch = option(
 )
 const labels = argv.length > 0 ? argv : ['form-d', 'form-d-noreg', 'typegen']
 const out = path.join(exampleDir, 'results/campaign.jsonl')
-const tsc6 = '/Users/mrekinox/Desktop/ub-slice/node_modules/typescript/bin/tsc'
+const tsc6 = createRequire(import.meta.url).resolve('typescript/bin/tsc')
+// The TypeScript 7 binary, the Typegen baseline and `ub-small` (a checkout of
+// `main` for Typegen) come from local probe workspaces outside this repository.
 const tsc6Main =
 	'/Users/mrekinox/Desktop/ub-small/node_modules/typescript/bin/tsc'
 const tsc7 =

@@ -36,6 +36,29 @@ const ultimabase = new Application({
 })
 ```
 
+## Rules in `.with` (ADR-0297)
+
+With the generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), schema
+`hooks` move to the final `.with` call, typed by `HooksRules` and contributed
+through `HooksSchemaRules`; their items are typed without Typegen. The `hooks`
+option of `define` above keeps working during the migration.
+
+```ts
+export const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string({ required: true }) }),
+}).with({
+	hooks: {
+		beforeOperation: {
+			update: ({ item }) => {
+				if (item.title.trim() === '') throw new TypeError('Empty title')
+			},
+		},
+	},
+})
+```
+
 ## Public surface
 
 The root export has three deliberate groups:

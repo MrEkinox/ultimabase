@@ -13,7 +13,7 @@ import { performance } from 'node:perf_hooks'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const ts = require('/Users/mrekinox/Desktop/ub-slice/node_modules/typescript')
+const ts = require('typescript')
 
 const dir = path.resolve(process.argv[2])
 let peak = process.memoryUsage().heapUsed

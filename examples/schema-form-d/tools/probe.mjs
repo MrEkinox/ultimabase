@@ -12,7 +12,7 @@ import {
 } from '/Users/mrekinox/Desktop/ub-typing-spike/ts7/tools/lsp.mjs'
 
 const require = createRequire(import.meta.url)
-const ts6 = require('/Users/mrekinox/Desktop/ub-slice/node_modules/typescript')
+const ts6 = require('typescript')
 
 const version = process.argv[2]
 const dir = path.resolve(process.argv[3])

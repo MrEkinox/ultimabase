@@ -34,6 +34,55 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and optional behavior](docs/runtime.md).
 
+## Declare schemas without Typegen
+
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) adds the
+declaration form that replaces Typegen. Data goes in `define`, relation targets
+are thunks, plugins add callback-free shape methods, and a final non-generic
+`.with` carries the rules of the installed plugins:
+
+```ts
+// src/todo.ts
+export const Todo = App.Schema.define({
+	className: 'Todo',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		assignee: field.pointer({ target: () => TodoUser }),
+		parent: field.pointer({ target: () => Todo }),
+	}),
+})
+	.softDelete()
+	.with({
+		access: { read: { where: ({ where }) => where.eq('archived', false) } },
+		hooks: { beforeOperation: { update: ({ item }) => {} } },
+	})
+
+// src/ultimabase.ts
+export const ultimabase = new App({ schemas: [TodoUser, Todo] })
+
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+- `field.pointer` and `field.relation` accept `target: () => Schema`; Core
+  captures the thunk type without resolving it, so schemas in separate files
+  may reference each other. `mappedBy` of a thunk target is checked when the
+  application is constructed.
+- Plugins contribute shape methods through `provideSchemaShapeMethods` and
+  `.with` entries through `PluginSchemaRulesSource`; Core never names them.
+  `.with` must be the last call. `define` returns a `DeclaredSchema`.
+- The `Register` declaration gives name-keyed types (`Model<'Todo'>`,
+  `Item<'Todo'>`, `CreateInput<'Todo'>`, `Where<'Todo'>`, `Select<'Todo'>`).
+  ADR-0297 makes it required; that type error is not enforced yet.
+
+Both forms coexist during the Core migration: the declaration below, with
+plugin options in `define` and the Typegen graph, keeps working unchanged until
+every consumer is migrated. Plugin schema factories (`App.RoleSchema`,
+`App.PasswordUserSchema`) are not available in the new form yet.
+
 ## Static schema compilation and relationship targets
 
 `UltimaBase.Schema.define()` captures a synchronous field declaration without

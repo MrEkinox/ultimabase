@@ -8,6 +8,7 @@ import {
 } from '../../plugins/schema-extensions.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 import { Schema } from './definition.js'
+import { isConfiguredSchemaNamespace } from './schema-declaration-chain.js'
 
 type MarkSource = PluginSchemaShapeSource<{
 	readonly mark: SchemaShapeMethod<readonly [], Readonly<{ marked: true }>>
@@ -82,6 +83,18 @@ describe('schema declaration chain (ADR-0297)', () => {
 				fields: () => ({}),
 			}),
 		).not.toHaveProperty('mark')
+	})
+
+	it('recognizes every factory Schema namespace and nothing else', () => {
+		const Application = UltimaBase.use(markPlugin())
+
+		// A shape-method factory owns its namespace; plugin schema factories accept both.
+		expect(Application.Schema).not.toBe(UltimaBase.Schema)
+		expect(isConfiguredSchemaNamespace(UltimaBase.Schema)).toBe(true)
+		expect(isConfiguredSchemaNamespace(Application.Schema)).toBe(true)
+		expect(isConfiguredSchemaNamespace({ ...Application.Schema })).toBe(false)
+		expect(isConfiguredSchemaNamespace(Schema)).toBe(false)
+		expect(isConfiguredSchemaNamespace(null)).toBe(false)
 	})
 
 	it('omits a shape method whose options the declaration already sets', () => {

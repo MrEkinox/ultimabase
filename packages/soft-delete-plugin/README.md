@@ -39,6 +39,25 @@ proves both modes, authenticated REST and GraphQL execution, direct generated
 handles, transactional Hook evidence, and private Master administration against
 PostgreSQL.
 
+## `.softDelete()` shape method (ADR-0297)
+
+With the generation-free declaration form of
+[ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md), a schema opts
+in with the `.softDelete()` shape method, chained before `.with`. It sets
+`softDelete: 'replace-delete'` and adds `isDeleted` to the schema types; its
+shape is described by `SoftDeleteShapeSource`. The method exists only when
+`defaultMode` is `disabled` and the declaration does not already set
+`softDelete`. The direct option above keeps working during the migration.
+
+```ts
+export const Post = Application.Schema.define({
+	className: 'Post',
+	fields: (field) => ({ title: field.string() }),
+})
+	.softDelete()
+	.with({})
+```
+
 ## Mode inheritance
 
 `defaultMode` accepts `disabled`, `replace-delete`, or `explicit` and defaults to
