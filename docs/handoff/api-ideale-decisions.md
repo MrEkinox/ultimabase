@@ -19,23 +19,48 @@ implémentation.
 3. **Relations** (Q3 ; F10) : le côté inverse reste facultatif ; `mappedBy`
    reste une chaîne vérifiée à l'enregistrement (`new App(...)`), pas sur la
    ligne (prix de l'absence de cycle).
-4. **Forme du schéma : direction « méthodes de plugin »** (Q4 ; F15) —
-   préférée par l'utilisateur à `define(...).with(...)`, sous réserve de
-   preuve :
+4. **Forme du schéma : D, décidée le 2026-10-09** (Q4 ; F15) après comparaison
+   de toutes les formes ([formes/comparatif.md](formes/comparatif.md),
+   [formes/d-named.md](formes/d-named.md), [formes/d-class.md](formes/d-class.md)) :
 
    ```ts
-   App.Schema.define({ className: 'Todo', fields: (field) => ({ … }) })
-     .softDelete() // change la forme : ajoute isDeleted
-     .access({ … })
-     .acl({ … })
-     .hooks({ … })
+   export const Todo = App.Schema.define({
+     className: 'Todo',
+     fields: (field) => ({ … }),
+   })
+     .softDelete() // méthodes de forme sans callback, avant .with
+     .with({ access: { … }, acl: { … }, hooks: { … }, postgres: { … } })
+
+   // ultimabase.ts, une ligne par application (fournie par create-app) :
+   declare module '@ultimabase/core' {
+     interface Register {
+       readonly app: typeof ultimabase
+     }
+   }
    ```
 
-   Chaque plugin apporte sa méthode (Core générique, comme les méthodes de
-   champ), la complétion liste les plugins installés, le type coule dans
-   l'ordre de la chaîne (l'utilisateur accepte que l'ordre compte). Évaluation
-   en cours dans le prototype (variante F, section 10 du rapport). Repli :
-   D (`define(...).with(...)`), avec infobulles raccourcies (section 9).
+   - Les cycles sont évités par la capture du type des cibles `() => X` et par
+     `.with` dernier appel non générique ; `Register` ne sert qu'aux types
+     nommés.
+   - Types nommés via `Register` : `WhereBuilder<"Todo">`, `Model<"Todo">`
+     (hooks, résultats complets), `CreateInput<"Todo">`, `Select<"Todo">`
+     (arguments de requête nommés, variante la plus rapide). Texte identique
+     sous TypeScript 6 et 7.
+   - Limites acceptées : infobulle de la constante `Todo` longue (≈ 860
+     caractères, impossible à raccourcir pour une `const`) ; `mappedBy` vérifié
+     à l'enregistrement ; `.with` doit rester le dernier appel ; sans
+     `Register`, tout compile mais les infobulles redeviennent structurelles.
+   - Méthodes personnalisées : fonctions exportées dans le même fichier (pas
+     de méthodes d'instance).
+   - Alternative prouvée et réversible par codemod : la forme classe
+     `class Todo extends App.Schema.define({…}).softDelete() { static rules = this.with({…}) }`
+     (infobulle `class Todo`, méthodes statiques, sans `Register`), écartée
+     pour ses deux contournements fragiles du vérificateur et +22 % de temps.
+   - Écartées avec preuves : chaîne de méthodes de plugin (cycle), tout dans
+     un seul `define` (cycle, casse vers 25 schémas), classe vide autour de D
+     (TS2506), `.build()` (cycle ou nom perdu), règles séparées, règles
+     d'application, chaînes typées, getters.
+   - Gel définitif après la tranche verticale sur le vrai Core.
 
 5. **`where` : raccourci d'égalité à la Prisma** (Q7 ; F19) :
    `where: { id }`, `where: { completed: false }`. Les champs `json` et
@@ -95,6 +120,5 @@ implémentation.
 
 ## Ouvert
 
-- Résultat des variantes D (infobulles) et F (méthodes et fabriques de
-  plugin) du prototype, puis tranche verticale sur le vrai Core, en
-  commençant par les champs ajoutés par un plugin (`softDelete`).
+- Tranche verticale de la forme D sur le vrai Core (puis gel de la décision
+  4 et ADR de remplacement de Typegen).
