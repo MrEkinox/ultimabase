@@ -33,7 +33,7 @@ hooks des mutations de plugin, contributions des plugins tiers par
 5. **Événements garantis typés** : `defineEvent<P>('todo.created')`,
    `context.emit(todoCreated, payload)`, consommateur déclaré dans
    l'application sans écrire de plugin :
-   `new App({ schemas, events: [onEvent(todoCreated, handler)] })` ; liaison
+   `hooksPlugin({ events: [onEvent(todoCreated, handler)] })` (corrigé pendant la revue HTTP : pas dans `new App`, Core ne connaît pas les événements du plugin Hooks) ; liaison
    par valeur (charge utile typée), plus par chaîne. Garantie de livraison
    actuelle à vérifier avant migration.
 6. **`PublicError` dans Core** : `throw new PublicError(message, { code? })`
