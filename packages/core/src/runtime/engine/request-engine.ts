@@ -40,7 +40,9 @@ import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
 	createNestedTransactionError,
+	runAutomaticRequestTransaction,
 	runRequestTransaction,
+	type AutomaticTransactionLabel,
 	type TransactionLifetime,
 } from '../transactions/run-transaction.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
@@ -92,6 +94,11 @@ export interface RequestEngineInternals {
 	readonly pipeline: RuntimePipeline
 	/** Derives one engine with another context and this engine's transaction lifetime. */
 	readonly derive: (context: RequestContext) => RequestEngine
+	/** Opens one automatic mutation transaction retried on transient conflicts. */
+	readonly automaticTransaction: <TResult>(
+		label: AutomaticTransactionLabel,
+		handler: (engine: RequestEngine) => MaybePromise<TResult>,
+	) => Promise<TResult>
 }
 
 let readInternals: (engine: RequestEngine) => RequestEngineInternals
@@ -107,6 +114,18 @@ const asMissing = (error: unknown, strictMissing: boolean): unknown =>
 	strictMissing && isProtectedPolicyDenied(error)
 		? createProtectedObjectNotFoundError()
 		: error
+
+/** Names an operation's schema in retry diagnostics without reading values. */
+const readOperationSchemaName = (operation: unknown): string | undefined => {
+	if (operation === undefined) return undefined
+	const schema: unknown = getOperationSchema(operation)
+	return (typeof schema === 'object' || typeof schema === 'function') &&
+		schema !== null &&
+		'className' in schema &&
+		typeof schema.className === 'string'
+		? schema.className
+		: undefined
+}
 
 const isStrictObjectOperation = (operation: ExecutableOperationAst): boolean =>
 	operation.kind === 'get' ||
@@ -178,8 +197,12 @@ export class RequestEngine<
 								})
 							},
 						})
+					const [first] = entries
 					return this.#lifetime === undefined
-						? this.transaction(executeItems)
+						? this.#openTransaction(executeItems, {
+								operation: 'collection-command',
+								schema: readOperationSchemaName(first?.operation),
+							})
 						: executeItems(this)
 				}),
 		)
@@ -308,7 +331,11 @@ export class RequestEngine<
 		if (this.#lifetime === undefined && isRuntimeMutationOperation(operation)) {
 			// Every root mutation reuses the exact public transaction lifecycle, and
 			// a hidden strict target fails inside it so the transaction rolls back.
-			return this.transaction(async (transaction) => {
+			const label = {
+				operation: operation.kind,
+				schema: readOperationSchemaName(operation),
+			}
+			return this.#openTransaction(async (transaction) => {
 				let result: RuntimeOperationResult<TOperation>
 				try {
 					result = await transaction.#executeRuntimeOperation(operation, scope)
@@ -319,7 +346,7 @@ export class RequestEngine<
 					throw createProtectedObjectNotFoundError()
 				}
 				return result
-			})
+			}, label)
 		}
 
 		const relation =
@@ -390,6 +417,17 @@ export class RequestEngine<
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
+		return this.#openTransaction(handler, undefined)
+	}
+
+	/**
+	 * Opens the explicit transaction (`label` absent, never replayed) or one
+	 * automatic mutation transaction retried on transient conflicts (ADR-0300).
+	 */
+	#openTransaction<TResult>(
+		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
+		label: AutomaticTransactionLabel | undefined,
+	): Promise<TResult> {
 		assertApplicationExecution(this.#application)
 		if (typeof handler !== 'function') {
 			throw new TypeError(
@@ -406,14 +444,31 @@ export class RequestEngine<
 			throw error
 		}
 
+		const createEngine = (
+			pipeline: RuntimePipeline,
+			lifetime: TransactionLifetime,
+		): RequestEngine<TSchemas, TPlugins, TContext> =>
+			this.#derive(this.context, pipeline, lifetime)
+		const run = (
+			transaction: RequestEngine<TSchemas, TPlugins, TContext>,
+		): MaybePromise<TResult> =>
+			runWithRequestEngineScope(transaction, () => handler(transaction))
+
 		return runApplicationWork(this.#application, () =>
-			runRequestTransaction(
-				this.#pipeline,
-				(pipeline, lifetime) => this.#derive(this.context, pipeline, lifetime),
-				(transaction) =>
-					runWithRequestEngineScope(transaction, () => handler(transaction)),
-				this.context.signal,
-			),
+			label === undefined
+				? runRequestTransaction(
+						this.#pipeline,
+						createEngine,
+						run,
+						this.context.signal,
+					)
+				: runAutomaticRequestTransaction(
+						this.#pipeline,
+						createEngine,
+						run,
+						this.context.signal,
+						label,
+					),
 		)
 	}
 
@@ -427,6 +482,8 @@ export class RequestEngine<
 		}
 		readInternals = (engine) => ({
 			application: readFramework(engine).application,
+			automaticTransaction: (label, handler) =>
+				engine.#openTransaction(handler, label),
 			framework: engine.#framework,
 			lifetime: engine.#lifetime,
 			pipeline: engine.#pipeline,

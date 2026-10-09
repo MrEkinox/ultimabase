@@ -1,5 +1,4 @@
 import {
-	FrameworkError,
 	Pointer,
 	contributeOperation,
 	type PluginOperationContribution,
@@ -48,7 +47,10 @@ import {
 	rotatePasswordSession,
 	type PasswordSessionCollection,
 } from './sessions.js'
-import { restorePasswordSignUpValue } from './sign-up-input.js'
+import {
+	isDuplicateIdentifier,
+	restorePasswordSignUpValue,
+} from './sign-up-input.js'
 import { readPasswordAuthenticationResult } from './authentication-result.js'
 import type { PasswordUserReference } from './user-schema.js'
 
@@ -133,9 +135,6 @@ const readCreatedUserId = (
 	return pointer.id
 }
 
-const isValidationFailure = (error: unknown): boolean =>
-	error instanceof FrameworkError && error.code === 'VALIDATION_ERROR'
-
 /** Creates the six application-local handlers from one private auth state. */
 export const createPasswordOperationHandlers = <
 	TUser extends PasswordUserReference,
@@ -202,7 +201,7 @@ export const createPasswordOperationHandlers = <
 						)
 					})
 				} catch (error: unknown) {
-					if (isValidationFailure(error)) return rejectPasswordSignUp()
+					if (isDuplicateIdentifier(error, user)) return rejectPasswordSignUp()
 					throw error
 				}
 			},

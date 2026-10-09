@@ -1,4 +1,5 @@
 import {
+	FrameworkError,
 	Pointer,
 	type FieldValueMap,
 	type SchemaFields,
@@ -15,6 +16,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { PasswordCredentialsInput } from './operations.js'
+import type { PasswordUserReference } from './user-schema.js'
 
 // Keep relationship commands identical to ordinary schema creation.
 type CreateValue<TValue> =
@@ -118,5 +120,21 @@ export const restorePasswordSignUpValue = (value: unknown): unknown => {
 			key,
 			restorePasswordSignUpValue(item),
 		]),
+	)
+}
+
+/** Recognizes a duplicate identifier by the neutral error of its unique index (ADR-0302). */
+export const isDuplicateIdentifier = (
+	error: unknown,
+	user: PasswordUserReference,
+): boolean => {
+	if (!(error instanceof FrameworkError) || error.code !== 'UNIQUE_VIOLATION')
+		return false
+	const fields: unknown = error.publicDetails?.fields
+	return (
+		error.publicDetails?.schema === user.className &&
+		isUnknownArray(fields) &&
+		fields.length === 1 &&
+		fields[0] === 'username'
 	)
 }

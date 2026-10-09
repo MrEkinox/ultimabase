@@ -23,7 +23,10 @@ import {
 } from '../schema/contracts.js'
 import { readDrizzleIndexColumns } from '../schema/index-compiler.js'
 import type { PostgresDrizzleClient } from './client.js'
-import { mapPostgresOperationError } from './operation-error.js'
+import {
+	mapPostgresStatementError,
+	type PostgresConstraintLookup,
+} from './operation-error.js'
 import {
 	preparePostgresRecord,
 	projectPostgresRecord,
@@ -38,6 +41,7 @@ export type PostgresOperation<TKind extends ExecutableOperationAst['kind']> =
 /** Binds one compiled schema to the client and relation compiler of a request. */
 export interface PostgresStatementContext {
 	readonly client: PostgresDrizzleClient
+	readonly constraints?: PostgresConstraintLookup
 	readonly relationCompiler: PostgresRelationPredicateCompiler | undefined
 	readonly schema: CompiledPostgresSchema
 }
@@ -387,6 +391,6 @@ export const executePostgresOperation = async (
 				)
 		}
 	} catch (error: unknown) {
-		throw mapPostgresOperationError(error, operation.kind)
+		throw mapPostgresStatementError(error, operation.kind, context)
 	}
 }

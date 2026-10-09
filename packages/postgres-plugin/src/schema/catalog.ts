@@ -5,11 +5,13 @@ import type {
 	SchemaTargetGraph,
 } from '@ultimabase/core'
 import { immutableArray } from '@ultimabase/shared'
+import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core'
 
 import {
 	compilePostgresPrivateCollection,
 	type CompiledPostgresPrivateCollection,
 } from '../private-storage/compiler.js'
+import type { PostgresConstraintDescription } from '../drizzle/operation-error.js'
 import { required } from '../required.js'
 import type {
 	CompiledPostgresJoinRelation,
@@ -24,6 +26,10 @@ import {
 	type PostgresDrizzleRelationBinding,
 } from './drizzle-relations.js'
 import { compilePostgresRelations } from './relation-compiler.js'
+import {
+	readDrizzleIndexColumns,
+	readDrizzleIndexName,
+} from './index-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
 
 const isSameFieldPath = (
@@ -42,6 +48,7 @@ export class PostgresSchemaCatalog {
 		PrivateStorageAdapterCollection,
 		CompiledPostgresPrivateCollection
 	>()
+	readonly #constraints = new Map<string, PostgresConstraintDescription>()
 	#privateConfigured = false
 
 	constructor(
@@ -94,6 +101,49 @@ export class PostgresSchemaCatalog {
 			relations,
 			pointers,
 		)
+		for (const schema of compiled) {
+			this.#registerConstraints(schema.table, {
+				schema: schema.definition.className,
+			})
+		}
+	}
+
+	/** Records unique indexes and foreign keys in logical names for error mapping. */
+	#registerConstraints(
+		table: PgTable,
+		owner: Readonly<{ schema: string } | { collection: string }>,
+	): void {
+		const config = getTableConfig(table)
+		for (const index of config.indexes) {
+			if (index.config.unique) {
+				this.#constraints.set(readDrizzleIndexName(index), {
+					kind: 'unique',
+					...owner,
+					fields: readDrizzleIndexColumns(index),
+				})
+			}
+		}
+		for (const foreignKey of config.foreignKeys) {
+			const reference = foreignKey.reference()
+			const targetTable = getTableConfig(reference.foreignTable).name
+			const target = [...this.#schemas.values()].find(
+				(schema) => schema.tableName === targetTable,
+			)
+			this.#constraints.set(foreignKey.getName(), {
+				kind: 'reference',
+				...owner,
+				field: required(
+					reference.columns[0],
+					'PostgreSQL foreign key has no column',
+				).name,
+				target: target?.definition.className ?? targetTable,
+			})
+		}
+	}
+
+	/** Resolves one adapter-generated constraint name to logical schema fields. */
+	describeConstraint(name: string): PostgresConstraintDescription | undefined {
+		return this.#constraints.get(name)
 	}
 
 	/** Compiles owner-private tables once before PostgreSQL setup begins. */
@@ -113,6 +163,9 @@ export class PostgresSchemaCatalog {
 			}
 			tableNames.add(compiled.tableName)
 			this.#privateCollections.set(collection, compiled)
+			this.#registerConstraints(compiled.table, {
+				collection: collection.contributionId,
+			})
 		}
 		this.#privateConfigured = true
 	}

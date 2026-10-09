@@ -1,8 +1,13 @@
 import {
+	FrameworkError,
+	MasterAuthority,
 	RequestContext,
 	UltimaBase,
 	plugin,
 	runWithRequestEngine,
+	withPluginPrivileges,
+	type DatabaseTransactionAdapter,
+	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -109,5 +114,101 @@ describe('Password Auth refresh concurrency', () => {
 			retain.mockRestore()
 			rotate.mockRestore()
 		}
+	})
+})
+
+/** Fails every prepared write with one neutral storage error, as any adapter would. */
+class FailingWriteDatabaseAdapter extends DeterministicDatabaseAdapter {
+	readonly #failure: FrameworkError
+
+	constructor(failure: FrameworkError) {
+		super()
+		this.#failure = failure
+	}
+
+	override async beginTransaction(): Promise<DatabaseTransactionAdapter> {
+		const transaction = await super.beginTransaction()
+		const failure = this.#failure
+		return Object.freeze({
+			kind: transaction.kind,
+			capabilities: transaction.capabilities,
+			execute: transaction.execute.bind(transaction),
+			commit: transaction.commit.bind(transaction),
+			rollback: transaction.rollback.bind(transaction),
+			prepare: () =>
+				Promise.resolve({
+					execute: () => Promise.reject(failure),
+				} as unknown as PreparedDatabaseOperation<never>),
+		}) as DatabaseTransactionAdapter
+	}
+}
+
+describe('Password Auth sign-up duplicates', () => {
+	const signUpWith = async (failure: FrameworkError): Promise<unknown> => {
+		const [signUp] = createPasswordOperationHandlers({
+			credentials: credentials.createPasswordCredentialCollection(
+				PasswordUser,
+				defaultPasswordHashPolicy,
+			),
+			passwordPolicy: defaultPasswordHashPolicy,
+			sessionPolicy: defaultPasswordSessionPolicy,
+			sessions: sessions.createPasswordSessionCollection(
+				PasswordUser,
+				defaultPasswordSessionPolicy,
+			),
+			user: PasswordUser,
+		})
+		const App = UltimaBase.use(
+			deterministicDatabasePlugin(new FailingWriteDatabaseAdapter(failure)),
+			plugin({
+				core: '^0.0.0',
+				id: 'fixture.password-sign-up',
+				version: '0.0.0',
+				permissions: {
+					'authority:elevate': 'Creates the User with Master authority.',
+					'operation:declare': 'Tests the sign-up handler.',
+					'typegen:reference': 'Retains the operation result contract.',
+				},
+				contributions: [withPluginPrivileges(signUp, ['authority:elevate'])],
+			}),
+		)
+		await using app = new App({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'password-sign-up', value: 'fixture-secret' }],
+				onUse: () => undefined,
+			}),
+			pluginPrivileges: { logger: false },
+			schemas: [PasswordUser],
+		})
+		await app.start()
+		const context = RequestContext.anonymous({
+			requestId: 'sign-up-duplicate',
+			source: 'fixture',
+		})
+		return await runWithRequestEngine(app.withContext(context), () =>
+			app
+				.operation(passwordAuthOperations.signUp)
+				.execute({ username: 'ada', password: 'a long enough password' }),
+		)
+	}
+
+	it('rejects a duplicate identifier by its neutral unique index error (ADR-0302)', async () => {
+		await expect(
+			signUpWith(
+				new FrameworkError('UNIQUE_VIOLATION', 'Duplicate username.', {
+					publicDetails: { schema: 'User', fields: ['username'] },
+				}),
+			),
+		).rejects.toMatchObject({ code: 'PASSWORD_AUTH_SIGN_UP_REJECTED' })
+	})
+
+	it('propagates other storage and validation failures unchanged', async () => {
+		const otherIndex = new FrameworkError('UNIQUE_VIOLATION', 'Duplicate.', {
+			publicDetails: { schema: 'User', fields: ['email'] },
+		})
+		const validation = new FrameworkError('VALIDATION_ERROR', 'Invalid.')
+
+		await expect(signUpWith(otherIndex)).rejects.toBe(otherIndex)
+		await expect(signUpWith(validation)).rejects.toBe(validation)
 	})
 })

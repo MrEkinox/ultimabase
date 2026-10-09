@@ -99,7 +99,8 @@ const executeOperationRequest = async (
 	compiled: CompiledOperationCommand,
 	envelope: PluginOperationEnvelope,
 ): Promise<unknown> => {
-	const { application, lifetime } = readRequestEngineInternals(engine)
+	const { application, automaticTransaction, lifetime } =
+		readRequestEngineInternals(engine)
 	const { definition } = compiled
 	const targetKind: unknown = envelope.target.kind
 	if (
@@ -127,7 +128,7 @@ const executeOperationRequest = async (
 	})
 
 	if (definition.transaction === 'required' && lifetime === undefined) {
-		return engine.transaction((transaction) =>
+		return automaticTransaction({ operation: definition.name }, (transaction) =>
 			executeRequestPluginOperation(transaction, compiled, envelope),
 		)
 	}

@@ -162,7 +162,12 @@ const executePostgresRequest = async <
 		}
 
 		result = await executePostgresOperation(
-			{ client, relationCompiler, schema },
+			{
+				client,
+				constraints: (name) => schemas.describeConstraint(name),
+				relationCompiler,
+				schema,
+			},
 			operation,
 			and(constraint, relationPredicate),
 		)
@@ -302,6 +307,7 @@ class DrizzlePostgresTransactionAdapter
 				this.#assertActive()
 			},
 			client: context.client,
+			constraints: (name) => context.schemas.describeConstraint(name),
 			compileConstraint: (execution) => {
 				if (
 					execution.plan.target.schema.definition !==
@@ -357,7 +363,7 @@ class DrizzlePostgresTransactionAdapter
 		}
 
 		this.#state = 'rolling-back'
-		let failure: FrameworkError<'TRANSACTION_ERROR'> | undefined
+		let failure: FrameworkError | undefined
 
 		try {
 			await this.#client.query('ROLLBACK')

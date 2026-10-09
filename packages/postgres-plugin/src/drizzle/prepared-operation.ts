@@ -34,7 +34,11 @@ import {
 	type PostgresOperation,
 	type PostgresStatementContext,
 } from './operation-executor.js'
-import { mapPostgresOperationError } from './operation-error.js'
+import {
+	mapPostgresOperationError,
+	readPostgresErrorScope,
+	type PostgresOperationErrorScope,
+} from './operation-error.js'
 import { readPostgresPreparedOperation } from './persistence-plan.js'
 import {
 	projectPostgresRecord,
@@ -130,13 +134,14 @@ const created = (current: DatabaseLogicalRecord): PersistedMutationItem =>
 
 /** Reuses PostgreSQL error sanitization for every database step. */
 const runStep = async <TResult>(
+	scope: PostgresOperationErrorScope,
 	kind: OperationKind,
 	run: () => Promise<TResult>,
 ): Promise<TResult> => {
 	try {
 		return await run()
 	} catch (error: unknown) {
-		throw mapPostgresOperationError(error, kind)
+		throw mapPostgresOperationError(error, kind, scope)
 	}
 }
 
@@ -354,8 +359,9 @@ const prepareMutationState = async (
 	prepared: ExecutableOperationAst,
 ): Promise<PreparedMutationState> => {
 	const { constraint, relation } = options
+	const errorScope = readPostgresErrorScope(options)
 	const lock = (query: QueryAst): Promise<DatabaseLogicalRecord | null> =>
-		runStep(prepared.kind, () =>
+		runStep(errorScope, prepared.kind, () =>
 			lockPostgresMutationTarget(options, query, constraint),
 		)
 
@@ -369,7 +375,7 @@ const prepareMutationState = async (
 					return operation.kind === 'create-one'
 						? itemOutcome(
 								created(
-									await runStep(operation.kind, () =>
+									await runStep(errorScope, operation.kind, () =>
 										executeCreateInput(options, operation.input),
 									),
 								),
@@ -377,7 +383,7 @@ const prepareMutationState = async (
 							)
 						: itemsOutcome(
 								(
-									await runStep(operation.kind, () =>
+									await runStep(errorScope, operation.kind, () =>
 										executeCreateMany(options, operation),
 									)
 								).map(created),
@@ -402,7 +408,7 @@ const prepareMutationState = async (
 
 					if (previous === null) return outcome(null, [])
 
-					const item = await runStep(operation.kind, () =>
+					const item = await runStep(errorScope, operation.kind, () =>
 						executeLockedMutation(
 							options,
 							operation,
@@ -420,7 +426,7 @@ const prepareMutationState = async (
 		case 'delete-many':
 		case 'update-many': {
 			const targets = options.prepareMutationItems
-				? await runStep(prepared.kind, () =>
+				? await runStep(errorScope, prepared.kind, () =>
 						lockPostgresSetBasedMutationTargets(options, prepared, constraint),
 					)
 				: undefined
@@ -431,7 +437,7 @@ const prepareMutationState = async (
 					const operation = requireKind(resolved, 'delete-many', 'update-many')
 
 					if (targets !== undefined) {
-						return runStep(operation.kind, () =>
+						return runStep(errorScope, operation.kind, () =>
 							executeRetainedSetBasedMutation(
 								options,
 								operation,
@@ -442,7 +448,7 @@ const prepareMutationState = async (
 						)
 					}
 
-					const result = await runStep(operation.kind, () => {
+					const result = await runStep(errorScope, operation.kind, () => {
 						if (plan.kind !== operation.kind) {
 							throw new TypeError(
 								'PostgreSQL rewritten set-based mutations require retained targets',
@@ -467,7 +473,7 @@ const prepareMutationState = async (
 				target: previous,
 				execute: async (resolved, plan, finalConstraint) => {
 					const operation = requireKind(resolved, 'upsert-one')
-					const item = await runStep(operation.kind, async () => {
+					const item = await runStep(errorScope, operation.kind, async () => {
 						if (previous === null) {
 							return executeUpsertItem(options, operation, finalConstraint)
 						}
@@ -494,7 +500,7 @@ const prepareMutationState = async (
 
 					for (const item of operation.items) {
 						items.push(
-							await runStep(operation.kind, () =>
+							await runStep(errorScope, operation.kind, () =>
 								executeUpsertItem(options, item, finalConstraint),
 							),
 						)

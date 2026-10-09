@@ -4,6 +4,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { and, eq, isNull, type SQL } from 'drizzle-orm'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
+import { mapPostgresStorageError } from '../drizzle/operation-error.js'
 import type { PostgresDrizzleClient } from '../drizzle/client.js'
 import { required } from '../required.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
@@ -78,7 +79,10 @@ const execute = async (
 /** Executes one bounded private request and sanitizes every driver failure. */
 export const executePostgresPrivateStorage = async (
 	client: PostgresDrizzleClient,
-	catalog: Pick<PostgresSchemaCatalog, 'getPrivateCollection'>,
+	catalog: Pick<
+		PostgresSchemaCatalog,
+		'describeConstraint' | 'getPrivateCollection'
+	>,
 	request: PrivateStorageOperationRequest,
 ): Promise<PrivateRecord | null> => {
 	try {
@@ -96,6 +100,18 @@ export const executePostgresPrivateStorage = async (
 	} catch (error: unknown) {
 		if (error instanceof FrameworkError) throw error
 		const driverCode = readPostgresDriverCode(error)
+		const internalDetails = {
+			...(driverCode === undefined ? {} : { driverCode }),
+			kind: 'postgres-private-storage-failed',
+			operation: request.kind,
+		}
+		const storageError = mapPostgresStorageError(
+			error,
+			request.kind === 'delete',
+			internalDetails,
+			{ constraints: (name) => catalog.describeConstraint(name) },
+		)
+		if (storageError !== undefined) throw storageError
 		const developerData =
 			driverCode?.startsWith('22') === true ||
 			driverCode?.startsWith('23') === true
@@ -104,15 +120,7 @@ export const executePostgresPrivateStorage = async (
 			developerData
 				? 'PostgreSQL rejected a private record constraint.'
 				: 'PostgreSQL private storage operation failed.',
-			{
-				cause: error,
-				internalDetails: {
-					...(driverCode === undefined ? {} : { driverCode }),
-					kind: 'postgres-private-storage-failed',
-					operation: request.kind,
-				},
-				retryable: driverCode === '40001' || driverCode === '40P01',
-			},
+			{ cause: error, internalDetails },
 		)
 	}
 }
