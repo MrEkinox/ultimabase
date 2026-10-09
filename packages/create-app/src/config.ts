@@ -7,6 +7,7 @@ import {
 	isPluginId,
 	officialPlugins,
 	selectedPluginIds,
+	withheldPlugins,
 	type ApiId,
 	type PluginId,
 } from './catalog.js'
@@ -61,6 +62,15 @@ const oneOf = <const T extends string>(
 	return match
 }
 
+/** An offered plugin ID; `label` is how the caller spelled the request. */
+const offeredPluginId = (id: string, label: string): PluginId => {
+	const reason = withheldPlugins.get(id)
+	if (reason !== undefined)
+		throw new Error(`${label} is not offered by create-app yet: ${reason}`)
+	if (!isPluginId(id)) throw new Error(`Unknown official plugin: ${label}`)
+	return id
+}
+
 /** Parse only declared automation flags; unknown values fail before any destination write. */
 export const parseOptions = (args: readonly string[]): ParsedOptions => {
 	const parsed = parseArgs({
@@ -91,9 +101,7 @@ export const parseOptions = (args: readonly string[]): ParsedOptions => {
 	const pluginValues = values.plugin?.map((value) => {
 		if (!value.startsWith('@ultimabase/'))
 			throw new Error(`Use the full official package ID for --plugin: ${value}`)
-		const id = value.slice('@ultimabase/'.length)
-		if (!isPluginId(id)) throw new Error(`Unknown official plugin: ${value}`)
-		return id
+		return offeredPluginId(value.slice('@ultimabase/'.length), value)
 	})
 	return {
 		...(values.name !== undefined && { name: values.name }),
@@ -163,10 +171,9 @@ export const resolveSelection = (
 	)
 	// Programmatic JavaScript callers can pass any string.
 	const requestedPluginValues: readonly string[] = input.plugins ?? []
-	const requestedPlugins = unique(requestedPluginValues).map((id) => {
-		if (!isPluginId(id)) throw new Error(`Unknown official plugin: ${id}`)
-		return id
-	})
+	const requestedPlugins = unique(requestedPluginValues).map((id) =>
+		offeredPluginId(id, id),
+	)
 	const selected = selectedPluginIds(apis, requestedPlugins)
 	const plugins = officialPlugins
 		.map((plugin) => plugin.id)

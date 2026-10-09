@@ -165,10 +165,6 @@ const capabilityNotes = (plan: InitializerPlan): string[] => {
 	const has = (id: PluginId): boolean => hasPlugin(plan, id)
 	return included([
 		[
-			has('pg-vector-plugin'),
-			'Vector values are logical only; this starter does not store or search vectors.',
-		],
-		[
 			has('password-auth-plugin'),
 			'Password Auth adds identity and sessions, not CRUD permission.',
 		],

@@ -141,6 +141,26 @@ describe('initializer flags', () => {
 		).toThrow('GraphQL requires at least one public query field')
 	})
 
+	// Regression: create-app offered pg-vector although it cannot persist vectors.
+	it('explains why a withheld official plugin is not offered', () => {
+		expect(() =>
+			parseOptions(['--plugin', '@ultimabase/pg-vector-plugin']),
+		).toThrow(
+			new Error(
+				'@ultimabase/pg-vector-plugin is not offered by create-app yet: it does not persist vector fields',
+			),
+		)
+		// Programmatic JavaScript callers bypass flag parsing.
+		const plugins: readonly string[] = ['pg-vector-plugin']
+		expect(() =>
+			resolveSelection(
+				// @ts-expect-error -- the withheld plugin is not a PluginId.
+				{ name: 'notes', plugins },
+				root(),
+			),
+		).toThrow('pg-vector-plugin is not offered by create-app yet')
+	})
+
 	// Regression: an invalid choice did not say which value was rejected.
 	it('echoes the rejected choice', () => {
 		expect(() => parseOptions(['--language', 'python'])).toThrow(
