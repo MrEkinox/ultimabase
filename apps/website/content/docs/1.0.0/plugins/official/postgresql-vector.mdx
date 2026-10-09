@@ -7,12 +7,13 @@ audience:
 contentType: concept
 outcome: Declare a dimension-safe vector field and recognize the current physical storage limit.
 releaseStatus: pre-release
-reviewedAt: 2026-09-22
+reviewedAt: 2026-10-09
 sources:
   - packages/pg-vector-plugin/README.md
   - packages/pg-vector-plugin/src/index.ts
   - packages/pg-vector-plugin/tests/vector-field.test.ts
   - packages/pg-vector-plugin/tests/field-builder.test.ts
+  - packages/create-app/src/catalog.ts
   - docs/adr/0029-plugin-defined-logical-fields.md
 ---
 
@@ -28,7 +29,8 @@ and that the array has exactly the declared length. Core does not provide
 **You cannot persist this field with the PostgreSQL plugin yet.** There is no
 PostgreSQL vector column compiler or similarity-search operator. Use the plugin
 to declare and test the logical value contract, not as a working pgvector
-storage feature.
+storage feature. The [project initializer](/docs/1.0.0/quick-start) does not
+offer this plugin until vector storage ships.
 
 ## Installation
 

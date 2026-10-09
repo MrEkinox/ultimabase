@@ -6,7 +6,6 @@ import { resolveSelection } from './config.js'
 describe('base project templates', () => {
 	it.each([
 		['hooks-plugin', 'hooksPlugin()'],
-		['pg-vector-plugin', 'pgVectorPlugin()'],
 		['soft-delete-plugin', "softDeletePlugin({ defaultMode: 'disabled' })"],
 		['validation-plugin', 'validationPlugin()'],
 	] as const)(
@@ -121,12 +120,7 @@ describe('base project templates', () => {
 		const plan = resolveSelection(
 			{
 				name: 'behavior-notes',
-				plugins: [
-					'hooks-plugin',
-					'pg-vector-plugin',
-					'soft-delete-plugin',
-					'validation-plugin',
-				],
+				plugins: ['hooks-plugin', 'soft-delete-plugin', 'validation-plugin'],
 			},
 			'/tmp',
 		)
@@ -139,14 +133,11 @@ describe('base project templates', () => {
 			expect(manifest.dependencies).toHaveProperty(`@ultimabase/${id}`)
 		expect(manifest.dependencies).toHaveProperty('zod')
 		expect(schema).toContain('hooksPlugin()')
-		expect(schema).toContain('pgVectorPlugin()')
 		expect(schema).toContain("softDeletePlugin({ defaultMode: 'disabled' })")
 		expect(schema).toContain('validationPlugin()')
 		expect(schema).toContain("softDelete: 'replace-delete'")
 		expect(schema).toContain('resolveInput:')
 		expect(schema).toContain('validation: z.string().min(1).max(200)')
-		expect(schema).not.toContain('f.vector(')
-		expect(files.get('README.md')).toContain('does not persist vectors')
 	})
 
 	it('keeps schema-local options out of an empty JavaScript project', () => {

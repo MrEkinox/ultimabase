@@ -8,7 +8,7 @@ contentType: tutorial
 order: 1
 outcome: Understand the generated project's first-run path and use manual installation until packages are published.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-09
 sources:
   - docs/adr/0249-interactive-project-initializer.md
   - packages/create-app/README.md
@@ -104,12 +104,14 @@ Install dependencies: yes
 The manager line reads `yarn` or `pnpm` when launched through those
 managers. Cancelling before confirmation leaves the destination untouched.
 
-The official plugin question groups all 16 shipped plugins. The earlier API
+The official plugin question groups 15 of the 16 shipped plugins. PostgreSQL
+Vector is not offered until vector storage ships, and
+`--plugin @ultimabase/pg-vector-plugin` fails with that reason. The earlier API
 answer and this selector share one selection:
 
 | Group            | Available choices                                                        |
 | ---------------- | ------------------------------------------------------------------------ |
-| Data & behavior  | PostgreSQL, Hooks, Validation, Soft Delete, PostgreSQL Vector            |
+| Data & behavior  | PostgreSQL, Hooks, Validation, Soft Delete                               |
 | Security         | Password Auth, Access, Roles, Object ACLs                                |
 | HTTP & explorers | HTTP, Hono server, REST, GraphQL, GraphQL Yoga, GraphiQL, Apollo Sandbox |
 
@@ -266,10 +268,9 @@ documented defaults. With `--yes` and no API flags, no HTTP API is selected.
 `--yes` never permits overwriting an existing directory. Repeat
 `--plugin @ultimabase/<id>` for multiple official plugins.
 
-The selector does not invent capabilities. PostgreSQL Vector does not add
-persisted vector search. Password Auth identifies callers but does not grant
-Task access; Roles do not grant permission by themselves. Selecting Password
-Auth with Access generates a User read policy limited to the current session
+The selector does not invent capabilities. Password Auth identifies callers
+but does not grant Task access; Roles do not grant permission by themselves.
+Selecting Password Auth with Access generates a User read policy limited to the current session
 owner, allowing authentication to return the required profile. Other User
 operations remain denied. Access or Object ACLs may intentionally deny Task
 reads. Password Auth operations appear over a selected API only through an

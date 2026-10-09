@@ -90,7 +90,7 @@ describe('selection flow', () => {
 			}),
 		)
 		const choices = selected[0] ?? []
-		expect(choices).toHaveLength(16)
+		expect(choices).toHaveLength(15)
 		expect(
 			choices.filter((choice) => choice.required).map((choice) => choice.id),
 		).toEqual(
@@ -106,6 +106,13 @@ describe('selection flow', () => {
 		expect(
 			pluginChoices([]).find((choice) => choice.id === 'rest-plugin')?.required,
 		).toBe(false)
+	})
+
+	// Regression: the selector offered pg-vector although it cannot persist vectors.
+	it('does not offer the withheld pg-vector plugin', () => {
+		expect(
+			pluginChoices(['rest', 'graphql']).map((choice) => choice.id),
+		).not.toContain('pg-vector-plugin')
 	})
 
 	it('requires explicit non-TTY choices unless --yes supplies documented defaults', async () => {

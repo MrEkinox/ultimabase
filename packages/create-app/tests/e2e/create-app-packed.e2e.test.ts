@@ -26,7 +26,6 @@ const officialPluginIds = [
 	'hooks-plugin',
 	'http-plugin',
 	'password-auth-plugin',
-	'pg-vector-plugin',
 	'postgres-plugin',
 	'rest-plugin',
 	'roles-plugin',
@@ -218,6 +217,26 @@ describe('packed initializer outside the repository', () => {
 			})
 		}
 	}, 120_000)
+
+	// Regression: the packed CLI offered pg-vector although it cannot persist vectors.
+	it('rejects a withheld official plugin before writing', async () => {
+		await expect(
+			runCli(
+				[
+					'--name',
+					'withheld-vector',
+					'--yes',
+					'--no-install',
+					'--plugin',
+					'@ultimabase/pg-vector-plugin',
+				],
+				'npm',
+			),
+		).rejects.toThrow(
+			'@ultimabase/pg-vector-plugin is not offered by create-app yet: it does not persist vector fields',
+		)
+		expect(await readdir(consumerRoot)).not.toContain('withheld-vector')
+	})
 
 	it('preserves occupied paths and rolls back failed installs', async () => {
 		const occupied = path.join(consumerRoot, 'occupied')
