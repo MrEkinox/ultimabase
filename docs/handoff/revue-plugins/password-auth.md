@@ -70,3 +70,59 @@ plusieurs méthodes liées au même utilisateur.
   e-mail vérifié des deux côtés (défaut).
 - Le paquet `password-auth-plugin` se scinde en `auth-plugin` et méthode
   `password`.
+
+## Liaison de comptes : choix argumenté
+
+La collection privée de comptes (modèle Better Auth, Auth.js, Lucia) est
+préférée aux `authData` de Parse et à un champ par fournisseur : secrets hors
+de la ligne utilisateur, unicité garantie par index, aucun changement de
+schéma pour un nouveau fournisseur, plusieurs comptes par fournisseur. On
+garde l'idée des `authData` de vérifier côté serveur un jeton obtenu par le
+client (connexion mobile).
+
+## Fonctionnalités ajoutées (validées le 2026-10-09)
+
+Première publication : 1 à 6, 8 et 9 ; plus tard : 7. L'envoi des e-mails
+reste à l'application (rappels), le plugin n'embarque aucun service d'e-mail.
+
+1. **Réinitialisation du mot de passe** : `requestPasswordReset({ email })`
+   (même réponse que le compte existe ou non), `resetPassword({ token,
+newPassword })` ; jeton aléatoire stocké haché, usage unique, expiration
+   courte (1 h par défaut), nouveaux jetons annulant les anciens ; toutes les
+   sessions révoquées après réinitialisation ; soumis à la limitation des
+   tentatives ; rappel `sendResetEmail`.
+2. **Vérification d'e-mail** : champ `emailVerified` (et date) ajouté par le
+   socle ; `sendVerificationEmail` + `verifyEmail({ token })` ;
+   `requireVerifiedEmail` optionnel ; e-mail garanti par le fournisseur ou
+   réinitialisation réussie = vérifié.
+3. **Limitation des tentatives** : par compte en base (délais croissants,
+   remis à zéro au succès, partagé entre serveurs), par paire compte et IP
+   pour éviter le blocage volontaire d'une victime ; limite globale par IP
+   dans le plugin HTTP (proxys de confiance configurables, stockage en
+   mémoire par défaut, remplaçable pour plusieurs serveurs).
+4. **Gestion des sessions** : `listSessions()` (appareil, IP, création,
+   dernier usage), `revokeSession(id)`, `logoutEverywhere()` ; administrateur
+   (Master) : `auth.listSessions(user)`, `auth.revokeSessions(user)` ;
+   `revokeOnPasswordChange` activé par défaut.
+5. **Événements** `afterSignUp`, `afterLogin`, `afterLoginFailed`,
+   `afterLogout`, `afterPasswordReset`, `afterEmailVerified`,
+   `afterEmailChanged` : écoutés par l'application, charge utile typée sans
+   secret, « au mieux ».
+6. **OAuth** : redirection web (code d'autorisation, PKCE, `state`, `nonce`)
+   et jeton mobile (`loginWithIdToken`, signature vérifiée) ; préréglages
+   Google et GitHub, fournisseur OpenID Connect générique ; `mapProfile` ;
+   adresses de retour en liste autorisée ; jetons des fournisseurs non
+   conservés par défaut (`storeTokens` chiffré avec une clé de
+   l'application) ; impossible de retirer sa dernière méthode ; liaison
+   automatique seulement par e-mail vérifié.
+7. **Plus tard** : double authentification (TOTP, codes de secours) et
+   passkeys, comme méthodes.
+8. **Changer son mot de passe et son e-mail** : `changePassword({
+currentPassword, newPassword })` (autres sessions révoquées, limitation des
+   tentatives) ; `requestEmailChange({ currentPassword, newEmail })` puis
+   confirmation sur la nouvelle adresse, notification de l'ancienne.
+   **Réauthentification récente** pour les opérations sensibles : mot de passe
+   actuel ou connexion de moins de quelques minutes (utilisateurs sans mot de
+   passe, connectés par un fournisseur).
+9. **Supprimer son compte** avec réauthentification récente : révocation des
+   sessions, suppression des comptes liés et des secrets.
