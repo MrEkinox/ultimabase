@@ -83,6 +83,20 @@ hooks des mutations de plugin, contributions des plugins tiers par
       hooks lors de `connect`/`disconnect`/`set` en mise à jour, consommateur
       d'événement en échec, événement requis sans consommateur.
 
-15. **Absent volontairement** : aucune option pour désactiver les hooks
+15. **Décisions après vérification** :
+    - Un échec après commit (consommateur d'événement, `afterCommit`) ne
+      rejette jamais l'appel : il est journalisé. Les événements gardent leur
+      rôle de découplage avec la même garantie « au mieux » qu'`afterCommit`,
+      écrite noir sur blanc ; la décision 5 ne parle plus de livraison
+      garantie. Une livraison durable (outbox écrite dans la transaction,
+      nouveaux essais, au moins une fois) sera un futur plugin de file
+      d'attente, noté pour plus tard.
+    - Récursion : limite de profondeur (par exemple 16) avec la chaîne
+      affichée dans le message, au lieu de la garde par identité qui
+      bloquait les cascades légitimes (enfant → parent).
+    - Liens de relation : `changes.tags` les montre sous forme lisible
+      (`{ connect: [...], disconnect: [...] }`, différence calculée pour
+      `set`), y compris pour une table de jointure.
+16. **Absent volontairement** : aucune option pour désactiver les hooks
     (`skipHooks`) ; Master contourne les droits, jamais les hooks ; la doc
     explique pourquoi.
