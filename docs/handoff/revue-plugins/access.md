@@ -51,7 +51,13 @@ documentation explique quand utiliser l'un ou l'autre.
    - Valeurs : `true` (autorisé partout, y compris en production),
      `'development'` (autorisé hors production ; refus de démarrer en
      production avec un message explicite), `false` ou absent (refusé).
-   - Journal au démarrage, production comprise, listant ce qui est ouvert.
+   - Une valeur peut aussi être un prédicat de contexte qui renvoie un
+     booléen (pas de filtre : le repli vaut pour tous les schémas, dont les
+     champs ne sont pas connus) : `write: isAuthenticated`,
+     `delete: hasRole(Admin)`. Ce sont les mêmes prédicats que dans les règles
+     de schéma ; ils reçoivent `principal`, l'opération et le nom du schéma.
+   - Journal au démarrage, production comprise, listant ce qui est ouvert
+     (avec le nom du prédicat le cas échéant).
    - Une ouverture de `write` est une politique explicite au sens d'ADR-0294 :
      les transports n'exigent pas `publicWrites: true` en plus.
 
@@ -72,6 +78,17 @@ documentation explique quand utiliser l'un ou l'autre.
    (« tout refusé »), informatif.
 10. **Rejeté** : raccourci `owner: 'author'` (le cas propriétaire tient en une
     ligne avec 1 et 4 ; deuxième forme pour le même besoin).
+
+11. **`can()` à prévoir** : savoir si une action est permise sans l'exécuter,
+    pour l'interface (afficher un bouton) et pour tester ses règles :
+    `ultimabase.plugin(accessPlugin).can({ principal, operation, schema, item })`.
+12. **`isAuthenticated`** : prédicat fourni (`create: isAuthenticated`),
+    utilisable aussi dans `allowWithoutRule`.
+13. **Hors périmètre** : l'isolation multi-tenant sera un plugin séparé, prévu
+    plus tard par l'utilisateur.
+14. **À vérifier dans le code** : écritures imbriquées soumises aux règles du
+    schéma cible, `include` filtrés par les règles du schéma cible, résultat
+    d'une création ou mise à jour non relisible par l'appelant.
 
 Les mutations de plugin (`softDelete`, `archive`…) gardent leur clé propre
 dans `access`, avec la même forme (fonction ou `{ where, item }`) ; leur
