@@ -126,3 +126,5 @@ currentPassword, newPassword })` (autres sessions révoquées, limitation des
    passe, connectés par un fournisseur).
 9. **Supprimer son compte** avec réauthentification récente : révocation des
    sessions, suppression des comptes liés et des secrets.
+
+Revue validée par l'utilisateur le 2026-10-09.
