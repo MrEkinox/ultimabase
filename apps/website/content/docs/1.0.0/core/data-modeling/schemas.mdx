@@ -212,6 +212,7 @@ export const Todo = App.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({ required: true }),
+		archived: field.boolean({ default: false }),
 		assignee: field.pointer({ target: () => TodoUser }),
 	}),
 })

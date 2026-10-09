@@ -45,7 +45,11 @@ through `HooksSchemaRules`; their items are typed without Typegen. The `hooks`
 option of `define` above keeps working during the migration.
 
 ```ts
-export const Post = Application.Schema.define({
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+
+const App = UltimaBase.use(hooksPlugin())
+export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({ title: field.string({ required: true }) }),
 }).with({

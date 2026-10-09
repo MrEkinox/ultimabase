@@ -42,7 +42,11 @@ Typegen. The `access` option of `define` above keeps working during the
 migration.
 
 ```ts
-export const Post = Application.Schema.define({
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+
+const App = UltimaBase.use(accessPlugin())
+export const Post = App.Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		published: field.boolean({ default: false }),

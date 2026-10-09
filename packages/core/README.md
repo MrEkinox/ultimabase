@@ -42,11 +42,24 @@ are thunks, plugins add callback-free shape methods, and a final non-generic
 `.with` carries the rules of the installed plugins:
 
 ```ts
+// src/app.ts
+import { accessPlugin } from '@ultimabase/access-plugin'
+import { UltimaBase } from '@ultimabase/core'
+import { hooksPlugin } from '@ultimabase/hooks-plugin'
+import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
+
+export const App = UltimaBase.use(
+	accessPlugin(),
+	hooksPlugin(),
+	softDeletePlugin(),
+)
+
 // src/todo.ts
 export const Todo = App.Schema.define({
 	className: 'Todo',
 	fields: (field) => ({
 		title: field.string({ required: true }),
+		archived: field.boolean({ default: false }),
 		assignee: field.pointer({ target: () => TodoUser }),
 		parent: field.pointer({ target: () => Todo }),
 	}),
