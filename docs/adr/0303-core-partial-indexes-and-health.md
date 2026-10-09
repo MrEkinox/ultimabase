@@ -6,8 +6,7 @@
   (PostgreSQL index compilation), ADR-0297 (placement of `indexes`); applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
   (`docs/handoff/revue-plugins/adaptateurs.md`, point 5, correcting PostgreSQL decisions 5 and
-  10 and Soft Delete decision 7; `http.md` decision 5; `graphql.md` decision 2); awaiting
-  validation of this record
+  10 and Soft Delete decision 7; `http.md` decision 5; `graphql.md` decision 2); record accepted by the user on 2026-10-09
 - Evidence: `docs/handoff/audit-adaptateurs-base.md`, section 10 (`main` 116cf14e)
 
 ## Context
