@@ -49,8 +49,6 @@ test('accepts deferred target thunks and keeps the targets typed (ADR-0297)', ()
 			parent: field.pointer({ target: () => Post }),
 		}),
 	})
-	type Row<TResult> =
-		Awaited<TResult> extends readonly (infer TRow)[] ? TRow : never
 	const posts = Post.findMany({
 		select: { title: true },
 		include: {
@@ -63,18 +61,23 @@ test('accepts deferred target thunks and keeps the targets typed (ADR-0297)', ()
 		include: { posts: { select: { title: true } } },
 	})
 
-	expectTypeOf<
-		NonNullable<Row<typeof posts>['author']>['name']
-	>().toEqualTypeOf<string>()
-	expectTypeOf<
-		NonNullable<Row<typeof posts>['parent']>['title']
-	>().toEqualTypeOf<string>()
-	expectTypeOf<
-		Row<typeof authors>['posts'][number]['title']
-	>().toEqualTypeOf<string>()
-	Post.findMany({ where: { author: { is: { name: { eq: 'Ada' } } } } })
+	expectTypeOf(posts)
+		.resolves.items.toHaveProperty('author')
+		.exclude<null>()
+		.toHaveProperty('name')
+		.toEqualTypeOf<string>()
+	expectTypeOf(posts)
+		.resolves.items.toHaveProperty('parent')
+		.exclude<null>()
+		.toHaveProperty('title')
+		.toEqualTypeOf<string>()
+	expectTypeOf(authors)
+		.resolves.items.toHaveProperty('posts')
+		.items.toHaveProperty('title')
+		.toEqualTypeOf<string>()
+	void Post.findMany({ where: { author: { is: { name: { eq: 'Ada' } } } } })
 	// @ts-expect-error -- Filters through a thunk target still reject unknown fields.
-	Post.findMany({ where: { author: { is: { nam: { eq: 'Ada' } } } } })
+	void Post.findMany({ where: { author: { is: { nam: { eq: 'Ada' } } } } })
 })
 
 test('keeps every supported built-in option on the embedded builder', () => {

@@ -12,20 +12,19 @@ const exampleDirectory = path.resolve(
 )
 
 const readExampleProgram = (): ts.Program => {
-	const configFile = path.join(exampleDirectory, 'tsconfig.json')
-	const { config, error } = ts.readConfigFile(configFile, ts.sys.readFile)
-	if (error !== undefined) {
-		throw new TypeError(
-			ts.flattenDiagnosticMessageText(error.messageText, '\n'),
-		)
-	}
-	const parsed = ts.parseJsonConfigFileContent(
-		config,
-		ts.sys,
-		exampleDirectory,
-		undefined,
-		configFile,
+	const parsed = ts.getParsedCommandLineOfConfigFile(
+		path.join(exampleDirectory, 'tsconfig.json'),
+		{},
+		{
+			...ts.sys,
+			onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
+				throw new TypeError(
+					ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+				)
+			},
+		},
 	)
+	if (parsed === undefined) throw new TypeError('Missing example tsconfig')
 	return ts.createProgram(parsed.fileNames, parsed.options)
 }
 
@@ -37,7 +36,7 @@ const formatDiagnostic = (diagnostic: ts.Diagnostic): string => {
 	const { line } = diagnostic.file.getLineAndCharacterOfPosition(
 		diagnostic.start,
 	)
-	return `${path.relative(exampleDirectory, diagnostic.file.fileName)}:${line + 1} ${message}`
+	return `${path.relative(exampleDirectory, diagnostic.file.fileName)}:${String(line + 1)} ${message}`
 }
 
 describe('schema declaration form without Typegen (ADR-0297)', () => {
