@@ -33,6 +33,7 @@ import {
 	alternativeTenantPolicy,
 	createAlternativePolicyEngine,
 } from './fixtures/alternative-policy-engine.js'
+import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
 
 const alternativeFixturePath = path.join(
 	import.meta.dirname,
@@ -47,6 +48,7 @@ class AlternativeReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
 		pluginFieldStructuralContains:
 			databasePluginFieldStructuralContainsCapability,

@@ -171,7 +171,7 @@ describe(
 					},
 				}),
 			).rejects.toMatchObject({
-				code: 'VALIDATION_ERROR',
+				code: 'UNIQUE_VIOLATION',
 				internalDetails: { driverCode: '23505' },
 			})
 			await expect(

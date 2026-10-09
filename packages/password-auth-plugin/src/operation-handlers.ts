@@ -48,7 +48,7 @@ import {
 	type PasswordSessionCollection,
 } from './sessions.js'
 import {
-	isDuplicateIdentifier,
+	isRejectedSignUpFailure,
 	restorePasswordSignUpValue,
 } from './sign-up-input.js'
 import { readPasswordAuthenticationResult } from './authentication-result.js'
@@ -201,7 +201,8 @@ export const createPasswordOperationHandlers = <
 						)
 					})
 				} catch (error: unknown) {
-					if (isDuplicateIdentifier(error, user)) return rejectPasswordSignUp()
+					if (isRejectedSignUpFailure(error, user))
+						return rejectPasswordSignUp()
 					throw error
 				}
 			},

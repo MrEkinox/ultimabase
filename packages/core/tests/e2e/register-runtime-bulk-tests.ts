@@ -163,7 +163,7 @@ export const registerRuntimeBulkTests = (): void => {
 						},
 					],
 				}),
-			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 			await expect(
 				BulkAccountSchema.exists({
 					where: { tenantId: { eq: 'tenant-atomic' } },

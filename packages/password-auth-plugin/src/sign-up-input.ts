@@ -124,7 +124,7 @@ export const restorePasswordSignUpValue = (value: unknown): unknown => {
 }
 
 /** Recognizes a duplicate identifier by the neutral error of its unique index (ADR-0302). */
-export const isDuplicateIdentifier = (
+const isDuplicateIdentifier = (
 	error: unknown,
 	user: PasswordUserReference,
 ): boolean => {
@@ -138,3 +138,14 @@ export const isDuplicateIdentifier = (
 		fields[0] === 'username'
 	)
 }
+
+/**
+ * Invalid sign-up data and a duplicate identifier share one opaque rejection;
+ * other storage failures, such as another unique index, propagate.
+ */
+export const isRejectedSignUpFailure = (
+	error: unknown,
+	user: PasswordUserReference,
+): boolean =>
+	(error instanceof FrameworkError && error.code === 'VALIDATION_ERROR') ||
+	isDuplicateIdentifier(error, user)

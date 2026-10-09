@@ -202,13 +202,15 @@ describe('Password Auth sign-up duplicates', () => {
 		).rejects.toMatchObject({ code: 'PASSWORD_AUTH_SIGN_UP_REJECTED' })
 	})
 
-	it('propagates other storage and validation failures unchanged', async () => {
+	it('rejects invalid data opaquely and propagates other unique indexes', async () => {
 		const otherIndex = new FrameworkError('UNIQUE_VIOLATION', 'Duplicate.', {
 			publicDetails: { schema: 'User', fields: ['email'] },
 		})
 		const validation = new FrameworkError('VALIDATION_ERROR', 'Invalid.')
 
 		await expect(signUpWith(otherIndex)).rejects.toBe(otherIndex)
-		await expect(signUpWith(validation)).rejects.toBe(validation)
+		await expect(signUpWith(validation)).rejects.toMatchObject({
+			code: 'PASSWORD_AUTH_SIGN_UP_REJECTED',
+		})
 	})
 })
