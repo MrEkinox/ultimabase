@@ -34,13 +34,27 @@ documentation explique quand utiliser l'un ou l'autre.
    },
    ```
 
-3. **Ouverture globale réservée au développement** : `default: true` devient
-   `accessPlugin({ openInDevelopment: true })` ; le nom dit la règle, la JSDoc
-   aussi ; avertissement visible au démarrage en développement (nombre de
-   schémas ouverts) ; refus de démarrer en production avec un message qui
-   explique quoi faire ; présenté comme mode prototype dans la doc et
-   create-app. La forme détaillée de `default` (`read.count`,
-   `schemaMutations`…) est supprimée.
+3. **Ouverture sans règle, explicite et par opération** : l'option `default`
+   (et sa forme détaillée) est remplacée par `allowWithoutRule`. Sans elle,
+   tout est refusé.
+
+   ```ts
+   accessPlugin({ allowWithoutRule: { all: true, write: false } }) // tout sauf les écritures
+   accessPlugin({ allowWithoutRule: { read: true, count: false } }) // lecture publique sauf count
+   accessPlugin({ allowWithoutRule: { all: 'development' } }) // prototype
+   ```
+
+   - Clés : `all` ; groupes `read` (`one`, `many`, `count`, `exists`) et
+     `write` (`create`, `update`, `upsert`, `delete` et mutations de plugin) ;
+     chaque opération seule. Priorité : opération > groupe > `all` ; une règle
+     de schéma l'emporte toujours.
+   - Valeurs : `true` (autorisé partout, y compris en production),
+     `'development'` (autorisé hors production ; refus de démarrer en
+     production avec un message explicite), `false` ou absent (refusé).
+   - Journal au démarrage, production comprise, listant ce qui est ouvert.
+   - Une ouverture de `write` est une politique explicite au sens d'ADR-0294 :
+     les transports n'exigent pas `publicWrites: true` en plus.
+
 4. **`principal` neutre** : capacité de Core « principal courant »
    (`{ id, schema }` ou `undefined`), fournie par l'authentification et lue par
    Access, Hooks et Roles ; plus d'import de `passwordPrincipal` dans les
