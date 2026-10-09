@@ -98,13 +98,25 @@ documentation explique quand utiliser l'un ou l'autre.
       cible (décision, filtre `read.where` dans la requête, règles de sortie
       des champs) ; une cible cachée devient `null` (pointeur) ou `[]`
       (relation), sans fuite. Quelques branches sans test.
-    - **Faille 1, à décider** : le résultat d'une création, mise à jour,
+    - **Faille 1, décidée : sémantique PostgreSQL `RETURNING`.** Avant le
+      commit, Core évalue la règle `read` sur la ligne résultante (version
+      avant suppression pour `delete`). Si elle n'est pas lisible et que
+      l'appel demande autre chose que `id`, `PERMISSION_DENIED`, transaction
+      annulée, rien n'est écrit ; le message indique de demander
+      `select: { id: true }` ou de revoir `read`. `select: { id: true }` est
+      toujours permis (formulaire anonyme, archivage qui rend la ligne
+      invisible). Les règles de champ gardent leur comportement (champs
+      lisibles sans `select`, refus avant écriture d'un champ caché demandé).
+      Remplace ADR-0180 sur ce point (nouvel ADR).
+    - Constat initial de la faille 1 : le résultat d'une création, mise à jour,
       upsert ou suppression n'applique pas les règles `read` de ligne
       (voulu par ADR-0180) ; seules les règles de champ masquent. Qui peut
       créer ou modifier peut relire toute la ligne que `read` lui cache
       (valeurs par défaut, valeurs posées par les hooks, colonnes non
       modifiées).
-    - **Faille 2, à décider** : affecter un `Pointer` brut
+    - **Faille 2, décidée : liaison unique à la Prisma** (voir la décision 11
+      des formes) ; tout lien passe par `connect`, qui vérifie la visibilité
+      de la cible (`NOT_FOUND` si cachée). Constat initial : affecter un `Pointer` brut
       (`author: Author.pointer(id)`) ne vérifie pas que la cible est
       visible ; on peut lier une ligne cachée et deviner son existence
       (succès contre erreur de clé étrangère). Seul `{ connect }` vérifie.

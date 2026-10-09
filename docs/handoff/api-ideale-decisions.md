@@ -7,6 +7,13 @@ les frictions (F) et questions (Q) de la fiche « avant ». Une décision qui
 change un contrat public donnera lieu à un ADR (ADR-0288) au moment de son
 implémentation.
 
+## Principe
+
+Les requêtes et écritures suivent le vocabulaire de Prisma (`where`,
+`select`, `include`, écritures imbriquées `connect`/`disconnect`/`set`/
+`create`), proche de la façon de penser GraphQL que l'utilisateur pratique ;
+toute divergence est justifiée et documentée.
+
 ## Décidé
 
 1. **Plugins déclarés une seule fois** (Q1 ; F1, F2, F16, F22) :
@@ -94,9 +101,16 @@ implémentation.
 10. **Enums** (Q7 ; F11) : une seule signature, `values` accepte un tableau
     (enum local, nom dérivé, le cas courant) ou un enum partagé
     `defineEnum('TodoPriority', [...])`, utilisé seulement pour mutualiser.
-11. **Pointeurs** (Q7 ; F21) : lier = `TodoUser.pointer(id)` partout (création,
-    mise à jour, brouillons, ACL) ; créer et lier = `{ create: { … } }` ;
-    `{ connect }` reste réservé aux relations multiples.
+11. **Liaison des pointeurs et relations : vocabulaire unique à la Prisma**
+    (révisée le 2026-10-09 ; F21) : pointeur `assignee: { connect: id }`,
+    `{ create: { … } }`, `null` pour délier ; relation
+    `tags: { connect: [a, b] }`, `{ disconnect: [a] }`, `{ set: [a] }`
+    (liens visibles), `{ create: [ … ] }`. `connect` accepte un identifiant ou
+    un pointeur de la cible déjà en main (`{ connect: todo.assignee }`) ; un
+    pointeur d'un autre schéma est une erreur de type. Tout lien vérifie la
+    visibilité de la cible (`NOT_FOUND` si cachée), ce qui ferme la faille 2
+    de la revue Access. `TodoUser.pointer(id)` reste une valeur (ACL,
+    comparaisons), plus une façon de lier dans `data`.
 12. **Access sans configuration** (Q8 ; F14) : inchangé, déjà fixé par
     ADR-0293 et ADR-0294 (refus par défaut, `where` peut renvoyer `false`,
     écritures publiques explicites).
