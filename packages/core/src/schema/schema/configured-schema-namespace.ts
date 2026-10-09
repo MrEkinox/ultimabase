@@ -192,6 +192,26 @@ type ConfiguredSourceSchemaOptions<
 	>
 >
 
+/**
+ * Installed plugin schema options accepted by the final `.with(...)` call,
+ * resolved against the complete schema. Options read by schema selectors (for
+ * example `softDelete`) change the schema shape, so they belong to shape
+ * methods called before `.with` (ADR-0297).
+ */
+export type ConfiguredSchemaRuleOptions<
+	TSource extends PluginSourceState,
+	TClassName extends string,
+	TFields extends SchemaDeclaredFields,
+	TOptions extends object,
+> = Omit<
+	ResolvePluginSchemaProjection<
+		TSource['schemaOptions'],
+		ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
+		TOptions
+	>,
+	SchemaFieldSelectorOptionName<TSource>
+>
+
 type KeysOfUnion<TValue> = TValue extends unknown ? keyof TValue : never
 
 type UnionValueAtKey<TValue, TKey extends PropertyKey> = TValue extends unknown

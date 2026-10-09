@@ -6,6 +6,11 @@ import type {
 import type { Pointer } from '../../schema/relations/pointer.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
+import type {
+	IsRegisteredSchema,
+	Model,
+	SchemaClassNameOf,
+} from '../../schema/schema/registered-schemas.js'
 
 /** Materializes one projection so editor QuickInfo hides the complete source object. */
 type Simplify<TValue> = {
@@ -169,9 +174,19 @@ export type QueryResult<
 > =
 	string extends QueryFieldName<TSchema>
 		? Simplify<SchemaResult<TSchema, SchemaOutput<TSchema>>>
-		: Simplify<
-				SchemaResult<
-					TSchema,
-					QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+		: [TSelectedField | TIncludedPointer] extends [never]
+			? // A complete result of a registered schema prints `Model<"Todo">`.
+				IsRegisteredSchema<TSchema> extends true
+				? Model<SchemaClassNameOf<TSchema>>
+				: Simplify<
+						SchemaResult<
+							TSchema,
+							QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+						>
+					>
+			: Simplify<
+					SchemaResult<
+						TSchema,
+						QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+					>
 				>
-			>

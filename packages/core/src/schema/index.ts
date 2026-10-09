@@ -343,6 +343,22 @@ export type {
 	SchemaShapeMethods,
 } from './schema/schema-declaration-chain.js'
 export type {
+	CreateInput,
+	IsRegisteredSchema,
+	Item,
+	Model,
+	Register,
+	RegisteredSchema,
+	RegisteredSchemaInputs,
+	RegisteredSchemaName,
+	RegisteredSchemaTypeInfo,
+	SchemaRef,
+	SchemaRulesTarget,
+	Select,
+	UpdateInput,
+	Where,
+} from './schema/registered-schemas.js'
+export type {
 	DeferredSchemaTarget,
 	ResolveSchemaTarget,
 } from './schema/deferred-targets.js'

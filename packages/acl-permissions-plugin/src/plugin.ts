@@ -22,7 +22,13 @@ import {
 	type PluginInstance,
 	type PluginSchemaOptionSource,
 	type PluginSchemaPatchSource,
+	type PluginSchemaRulesSource,
+	type PluginSchemaShapeSource,
+	type SchemaItem,
+	type SchemaRulesHKT,
 	type SchemaSelection,
+	type SchemaShapeMethod,
+	provideSchemaShapeMethods,
 } from '@ultimabase/core'
 import {
 	createPluginEventDispatcher,
@@ -60,7 +66,11 @@ import {
 	aclPluginId,
 	aclSchemaOption,
 	readProtectedSchemaOptions,
+	type ACLDefaultFactory,
+	type ACLInputResolver,
+	type ACLSchemaLimits,
 } from './acl-option.js'
+import type { ACL } from './acl.js'
 import {
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
@@ -100,7 +110,47 @@ type ACLFieldSource = PluginSchemaPatchSource<
 	typeof aclSchemaPatch.operations,
 	SchemaSelection<typeof aclSchemaSelector>
 >
-type ACLSource = ACLOptionSource | ACLFieldSource
+/** Values an ACL default sees: the persisted developer fields, without the ACL. */
+type ACLRuleData<TSchema> = TSchema extends SchemaDefinition
+	? Omit<
+			SchemaItem<TSchema>,
+			typeof aclFieldName | 'createdAt' | 'id' | 'updatedAt'
+		>
+	: Readonly<Record<string, unknown>>
+
+/** Entry of `.with({ ... })` owned by ACL, for one schema. */
+export interface ACLRules<TSchema> {
+	/**
+	 * Supplies the default ACL, optionally derived from the created values.
+	 * Call `.acl()` before `.with(...)` to add the `acl` field.
+	 * @example `acl: { default: ({ data }) => new ACL().grantPublic('read') }`
+	 */
+	readonly acl?: {
+		readonly default?: ACL | ACLDefaultFactory<ACLRuleData<TSchema>>
+		readonly resolveInput?: ACLInputResolver<ACLRuleData<TSchema>>
+		readonly limits?: ACLSchemaLimits
+	}
+}
+
+/** Contributes `acl` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+export interface ACLSchemaRules extends SchemaRulesHKT {
+	readonly rules: ACLRules<this['schema']>
+}
+
+/** Shape method chained before `.with(...)`: `.acl()` adds the `acl` field. */
+export type ACLShapeSource = PluginSchemaShapeSource<{
+	/**
+	 * Adds the ACL field; configure its default in `.with({ acl })`.
+	 * @example `App.Schema.define({ className: 'Todo', fields }).acl().with({})`
+	 */
+	readonly acl: SchemaShapeMethod<readonly [], Readonly<{ acl: object }>>
+}>
+
+type ACLSource =
+	| ACLOptionSource
+	| ACLFieldSource
+	| PluginSchemaRulesSource<ACLSchemaRules>
+	| ACLShapeSource
 
 const aclDeclarations: PluginDeclarationContribution<readonly [], ACLSource> =
 	contributeDeclarations({
@@ -384,7 +434,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		},
 	})
 
-	return plugin({
+	const instance: ACLPlugin = plugin({
 		id: aclPluginId,
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -409,5 +459,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 			]),
 			aclDeclarations,
 		],
+	})
+	return provideSchemaShapeMethods<ACLPlugin, ACLShapeSource>(instance, {
+		acl: { sets: ['acl'], apply: () => ({ acl: {} }) },
 	})
 }

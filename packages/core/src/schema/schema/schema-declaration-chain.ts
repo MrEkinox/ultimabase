@@ -8,6 +8,7 @@ import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type {
 	ConfiguredSchemaNamespace,
 	ConfiguredSchemaResult,
+	ConfiguredSchemaRuleOptions,
 	ConfiguredSchemaSelectorOptions,
 } from './configured-schema-namespace.js'
 import {
@@ -39,7 +40,8 @@ export interface SchemaRulesMethod<
 			SchemaRulesTarget<
 				ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 			>
-		>,
+		> &
+			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions>,
 	): ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 }
 

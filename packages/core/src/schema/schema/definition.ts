@@ -42,6 +42,7 @@ import type { SchemaAPI } from './schema-api.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaCompilationProvenance } from './provenance.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
+import type { SchemaTypeInfoByNameOrRegistered } from './registered-schemas.js'
 import {
 	prepareSchemaCompilation,
 	readCompiledSchemaRecord,
@@ -159,7 +160,8 @@ type SchemaReferenceTypeInfo<
 			? SchemaTypeInfoByNameOrBase<TClassName>
 			: SourceSchemaTypeInfo<TClassName, TFields>
 		: SchemaTypeInfoByName<TClassName>
-	: SchemaTypeInfoByNameOrBase<TClassName>
+	: // A name alone also resolves through the application `Register` (ADR-0297).
+		SchemaTypeInfoByNameOrRegistered<TClassName>
 
 /** Resolves one public schema class from source, Typegen, or the bootstrap contract. */
 export type SchemaReference<

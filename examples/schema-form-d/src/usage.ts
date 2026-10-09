@@ -16,3 +16,8 @@ export const second = async () => {
 	)
 	return users
 }
+export const full = async () => {
+	const allTodos = await Todo.findMany()
+	const one = await Todo.findOne({ where: { title: { eq: 'x' } } })
+	return [allTodos, one] as const
+}
