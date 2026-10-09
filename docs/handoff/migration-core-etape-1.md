@@ -21,58 +21,41 @@ ADR acceptés, copiés dans `docs/adr/` au fil de l'implémentation :
 
 ## État
 
-- Installation et construction faites.
-- Point de contrôle 1 (ADR-0302 erreurs, ADR-0300, ADR-0299) :
-  - Core : codes `UNIQUE_VIOLATION`, `REFERENCE_VIOLATION`,
-    `TRANSACTION_CONFLICT` ; `runAutomaticRequestTransaction` (3 essais,
-    attente aléatoire, journal debug/warn) branché sur les mutations, les
-    commandes de collection, les mutations de schéma, les opérations de plugin
-    `transaction: 'required'` et le stockage privé ; `transaction()` explicite
-    inchangé.
-  - PostgreSQL : 23505/23503/40001/40P01 mappés (catalogue de contraintes en
-    noms logiques, stockage privé inclus) ; COMMIT en 40001/40P01 →
-    `TRANSACTION_CONFLICT`.
-  - Password Auth : doublon détecté par `UNIQUE_VIOLATION` sur l'index
-    `username` du schéma User uniquement.
-  - REST : 409 pour les trois nouveaux codes.
-  - Tests : `packages/core/tests/runtime/automatic-transaction-retries.test.ts`,
-    `tests/e2e/referential-integrity.postgres.e2e.test.ts` (12 cas, dont
-    concurrence dans les deux ordres pour restrict/cascade/setNull),
-    `tests/e2e/storage-semantics.postgres.e2e.test.ts` (NULL multiples, nulls
-    en dernier, égalité de liste, décimal exact, interblocage résolu par
-    rejeu).
-  - Preuves : `yarn vitest run --project unit packages/core
-packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
-    tests verts ; `--project postgres-e2e` sur les deux nouveaux fichiers et
-    `private-storage-postgres` → verts.
-- Point de contrôle 2 (ADR-0301, ADR-0302 regex, ADR-0303) :
-  - Core : opérateurs retirés (constructeur, `where` sérialisé, types source,
-    exports `QueryJsonPath*`) ; capacité `filterOperators` par famille
-    (`runtime/database/adapter-capabilities.ts`) ; contrôle à la requête
-    (`runtime/pipeline/filter-operator-validation.ts`, appelant :
-    `VALIDATION_ERROR` + `publicDetails { field, operator }`, filtre protégé :
-    message générique + journal) ; contrôles de démarrage
-    (`runtime/application/adapter-capability-checks.ts` : index partiels et
-    leurs opérateurs, champs plugin à `contains`, champs relation) ;
-    sous-ensemble regex portable (`query/filters/portable-regex.ts`) ;
-    index partiels (`schema/schema/index-predicates.ts`, `indexes` dans le
-    `.with` final avec champs de forme, vérifiés après compilation de
-    l'application ; minimum de deux champs levé ; doublon d'un index de champ
-    refusé) ; `ultimabase.health()` et `DatabaseAdapter.checkHealth` requis.
-  - PostgreSQL : table d'opérateurs, `partialIndexes`, `CREATE INDEX … WHERE`
-    (nom haché avec le prédicat, l'introspection relève le prédicat),
-    `checkHealth` par `SELECT 1`.
-  - REST/GraphQL : opérateurs retirés ; Typegen ne les génère plus ;
-    fichiers générés des exemples régénérés.
-  - Faux adaptateurs : `checkHealth` ajouté partout ; déclaration
-    d'opérateurs via `tooling/vitest/database-filter-operators.ts` (ou locale
-    dans les tests `src/` des paquets).
-  - Preuves : `yarn typecheck` vert ; `yarn vitest run --project unit
---project types` → 573 fichiers, 2860 tests verts ; postgres-e2e
-    `partial-indexes`, `referential-integrity`, `storage-semantics`,
-    `private-storage-postgres` verts.
-- Reste : documentation (READMEs Core/PostgreSQL, site, docs/concepts),
-  porte complète, audit DX, mesures.
+Étape 1 terminée sur la branche (dernier commit de code d8912f35), à relire
+par le coordinateur.
+
+- ADR-0299, 0300, 0302 : codes neutres, catalogue de contraintes PostgreSQL,
+  nouvelles tentatives des transactions automatiques (mutations, commandes de
+  collection, mutations de schéma, opérations de plugin `required`, stockage
+  privé), Password Auth sans classes d'erreurs PostgreSQL, REST 409.
+- ADR-0301 : opérateurs retirés (Core, REST, GraphQL, Typegen, exemples
+  régénérés), capacité `filterOperators`, contrôle à la requête et au
+  démarrage, sous-ensemble regex portable (ADR-0302).
+- ADR-0303 : index partiels (`indexes` du `.with` final typés par
+  `SchemaRuleIndexOptions`, `indexes` de `define` inchangés en type),
+  compilation et synchronisation PostgreSQL, `ultimabase.health()` et
+  `checkHealth` requis.
+- Documentation : READMEs Core, PostgreSQL, Hooks, REST, Soft Delete,
+  `packages/core/docs/schema.md`, `docs/concepts/query-runtime.md`, 13 pages
+  du site.
+
+Preuves (sur `dist` et `*.tsbuildinfo` nettoyés) :
+
+- `yarn validate:full` : exit 0 ; couverture 657 fichiers, 3151 tests ;
+  website 17 fichiers, 66 tests ; lint 0 erreur.
+- `yarn test:e2e:built` : exit 0, 107 fichiers, 438 tests.
+- Après le dernier changement de types (d8912f35) : `yarn typecheck` vert,
+  `vitest --project unit --project types packages/core
+packages/soft-delete-plugin` : 292 fichiers, 1500 tests, aucune erreur de
+  type.
+- Audit DX contre `main` construit (f631f8fe), `--only` tous les paquets,
+  `tests`, `examples/minimal`, `examples/todo-backend` (l'exemple
+  `schema-form-d` fait planter l'outil : clé dupliquée `ACLContainmentOperand`
+  dans `usage.ts`, présent des deux côtés) : 385 différences, toutes
+  rattachées à ADR-0299 à 0303 ou à des fichiers de test nouveaux/modifiés.
+- Banc forme D (TS6, même session) : 50 schémas, édition→diagnostic 2,81 s
+  (main) / 2,83 s ; froid 6,01 / 6,06 s ; 200 schémas, édition 8,61 / 8,63 s ;
+  froid 22,50 / 22,49 s. Aucune régression mesurable.
 
 ## Décisions
 
@@ -90,6 +73,21 @@ packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
 - Une écriture `connect` vers une ligne absente échoue en `NOT_FOUND` (contrôle
   de Core) avant l'adaptateur ; `REFERENCE_VIOLATION` ne survient qu'en
   concurrence.
+- Password Auth garde le rejet opaque d'inscription pour `VALIDATION_ERROR`
+  (données invalides) et l'ajoute pour `UNIQUE_VIOLATION` de l'index
+  `username` ; un autre index unique se propage.
+- Une absence totale de `filterOperators` vaut « aucun opérateur » ; les faux
+  adaptateurs déclarent leur table (`tooling/vitest/database-filter-operators.ts`).
+- Contrôle de démarrage des champs relation : `relations` et
+  `relationPredicates` exigés (lecture littérale d'ADR-0301).
+- `COMMIT` en 40001/40P01 devient `TRANSACTION_CONFLICT` (rollback garanti par
+  PostgreSQL), donc rejoué pour les transactions automatiques.
+- Les index d'un `define` gardent leur type (prédicat limité aux champs
+  système) ; les index partiels sur tout le schéma passent par le `.with`
+  final (`SchemaRuleIndexOptions`), pour ne pas allonger les diagnostics de
+  l'ancienne forme.
+- Nom physique d'un index partiel haché avec son prédicat : un prédicat modifié
+  remplace l'index sous `override`.
 
 ## Tentatives écartées
 
@@ -99,7 +97,8 @@ packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
   materialization ») et avant la liaison de l'exécuteur de requêtes
   (« Application request executor is not bound »). Deux variantes essayées
   (méthode sur l'exécuteur, lecture par le planificateur) : la première échoue
-  à l'exécution, la seconde exige le même accès. Reporté : il faut une
+  à l'exécution ; la seconde, examinée dans le code de l'hôte de capacités,
+  se heurte au même refus avant la fin de la matérialisation. Reporté : il faut une
   déclaration statique (durée de vie `declaration`) des opérateurs ou une
   compilation GraphQL après matérialisation — changement d'architecture hors
   périmètre. PostgreSQL déclarant tous les opérateurs restants, le schéma
@@ -108,5 +107,5 @@ packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
 
 ## Prochaine action vérifiable
 
-Documentation (README Core et PostgreSQL, site), puis `yarn validate:full` et
-`yarn test:e2e:built` sur `dist` nettoyés.
+Relecture du diff par le coordinateur, puis fusion `--no-ff` dans `main` après
+validation de l'utilisateur ; décider du report GraphQL (ADR-0301, décision 5).
