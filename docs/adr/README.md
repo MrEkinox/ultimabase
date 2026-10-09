@@ -288,7 +288,7 @@ Current records (accepted or still active in part):
 
 Proposed records (awaiting user validation):
 
-- None.
+- [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
 
 Superseded records:
 

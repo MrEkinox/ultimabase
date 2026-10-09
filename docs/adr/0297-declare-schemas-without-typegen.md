@@ -1,0 +1,125 @@
+# ADR-0297: Declare schemas without Typegen
+
+- Status: proposed (accepted after the vertical slice on the real packages)
+- Date: 2026-10-09
+- Supersedes, once accepted: ADR-0280, ADR-0281 and ADR-0283 where they retain
+  Typegen for the named-schema graph; the retained typing boundaries of
+  `docs/current-architecture.md`
+- Applies: ADR-0288 (pre-release simplification)
+- Approval: the user chose the declaration form on 2026-10-09; acceptance
+  waits for the vertical slice below
+- Evidence: `docs/handoff/formes/` (comparison, common benchmark, TypeScript 7
+  test, name-keyed hovers, class experiments) and
+  `docs/handoff/prototype-typage-sans-typegen.md`
+
+## Context
+
+Typegen generates the application-wide schema graph so that relation targets
+and complete-schema plugin callbacks (Access filters, hooks, ACL) are typed.
+Developers must run generation, commit a large declaration file (1,535 lines
+for the three-schema `todo-backend`, 2.3 MB at 200 schemas) and wait for it:
+on the reference machine the real Typegen probe takes 3.6 s cold and 2.0 s per
+edit at 10 schemas, and 42.7 s cold and 49.0 s per edit at 200 schemas.
+
+The reference implementation rejected generation-free typing after three
+failures (archived issues 6301 and 6307, ADR-0280). A prototype reproduced all
+three and isolated their causes, none fundamental:
+
+1. `pointer<T>(target: () => T)` infers and therefore resolves the target while
+   the declaring schema is still being typed; capturing the thunk type and
+   reading it later removes the cycle.
+2. A generic call must check its callbacks to type the declared constant;
+   callbacks placed in a final non-generic call are checked after every schema
+   is typed.
+3. `NoInfer` around field callbacks produces the "bootstrap schema" of
+   ADR-0280.
+
+Eleven declaration forms were then implemented against one fixture (four
+cyclic schemas, self and many-to-many relations, cross-schema filters in both
+directions and over two hops, a shape-changing plugin, plugin schema
+factories), eight typo probes, hover and completion probes, and one
+sequential benchmark at 10, 50 and 200 schemas, on TypeScript 6.0.3 and
+7.0.2.
+
+## Decision
+
+Schemas are declared with `define` for data and a final `.with` for rules:
+
+```ts
+export const Todo = App.Schema.define({
+	className: 'Todo',
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		assignee: field.pointer({ target: () => TodoUser }),
+	}),
+})
+	.softDelete()
+	.with({
+		access: { read: { where: ({ where }) => where.eq('archived', false) } },
+		hooks: { beforeUpdate: ({ item }) => {} },
+	})
+```
+
+- Relation targets are thunks whose type Core captures without resolving it.
+- Plugins contribute two kinds of schema extension through generic Core slots
+  (Core never names a plugin): callback-free shape methods chained before
+  `.with` (`softDelete()` adds `isDeleted`), and rule entries accepted by the
+  final non-generic `.with`. Identity plugins contribute schema factories on
+  the configured application (`App.RoleSchema.define`,
+  `App.PasswordUserSchema.define`) with a cardinality the plugin declares.
+- One optional declaration per application gives name-keyed types:
+
+  ```ts
+  declare module '@ultimabase/core' {
+  	interface Register {
+  		readonly app: typeof ultimabase
+  	}
+  }
+  ```
+
+  Filters, hook records, full results, inputs and query arguments then print
+  as `WhereBuilder<"Todo">`, `Model<"Todo">`, `CreateInput<"Todo">`,
+  `Select<"Todo">`. Without it everything compiles with structural types.
+  `create-app` writes the line.
+
+- Typegen, its plugin, generated files and generation steps are removed once
+  every consumer is migrated.
+
+## Consequences
+
+- No generation step and no generated file. In the prototype at 200 schemas
+  the check takes about 1.6 s on TypeScript 6 (0.3 s on TypeScript 7) instead
+  of 42.7 s, with the same growth for every valid form; absolute numbers will
+  be re-measured on the real packages.
+- Hovers and messages are short and identical on TypeScript 6 and 7 for
+  name-keyed types. The hover of the schema constant itself stays structural
+  (about 860 characters): a `const` cannot print a short name.
+- Accepted limits: `mappedBy` is checked when the application is constructed,
+  not on its line; `.with` must stay the last call (a shape method after it
+  recreates the cycle); the form relies on TypeScript typing a final
+  non-generic call without reading its arguments, confirmed on 6.0.3 and
+  7.0.2 and to be protected by compile-time tests on both.
+- Custom schema behaviour is written as exported functions next to the schema;
+  schemas gain no instance methods.
+- Reversible: the class form
+  `class Todo extends App.Schema.define({…}).softDelete() { static rules = this.with({…}) }`
+  was proven viable (short constant hover, static methods, no `Register`) and
+  can be reached by a mechanical codemod; it was not chosen because it needed
+  two fragile checker workarounds and costs about 22 % more check time.
+- Rejected with evidence: plugin-method chains and a single `define` with
+  callbacks (cycles; the latter also fails beyond about 25 linked schemas), a
+  class wrapper around this form (TS2506), `.build()` (cycle or lost name),
+  separate rule declarations or statements, application-level rules,
+  string-typed fields and getter targets.
+
+## Proof required before acceptance
+
+A vertical slice in the real Core and official plugins, alongside Typegen:
+thunk capture in Core targets, `define(...).with(...)`, shape methods,
+schema factories, `Register` and name-keyed types; the real Soft Delete and
+Access plugins with cross-schema filters in both directions across files; one
+plugin-contributed `where` operator; compiled declarations (`dist/*.d.ts`)
+and editor behaviour from the built packages; measurements at 10, 50 and 200
+schemas against the real Typegen baseline on TypeScript 6 and 7. A blocker
+the prototype could not show stops the slice and reopens the choice with the
+class form as fallback.
