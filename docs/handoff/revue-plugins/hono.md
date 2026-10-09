@@ -37,3 +37,6 @@ le mode « application existante » (revue HTTP).
 7. **Paquet renommé** `hono-server-plugin` (cohérent avec `honoServerPlugin`).
 8. **Plus tard** : serveurs pour Bun, Deno, Cloudflare Workers (socle Fetch
    standard).
+9. **Documenté** : HTTPS (TLS) et HTTP/2 absents volontairement, assurés par le proxy ou la plateforme.
+
+Revue validée par l'utilisateur le 2026-10-09.
