@@ -133,8 +133,80 @@ Access (70 s à 200).
   `yarn typecheck` (même erreur attendue). `validate:full` non relancé au-delà.
 - `yarn constraints`, `prettier --check`, ESLint des fichiers touchés : 0 erreur.
 
+## Étape 0 de la migration de Core (2026-10-09)
+
+Plan : `docs/handoff/migration-core.md` (branche `api-challenge`). But : rendre
+la tranche fusionnable dans `main` sans implémenter ADR-0299 à 0313.
+
+- Fusion de `main` (`5c10a4c0`, retrait de pg-vector de create-app) : aucun
+  conflit (`git merge --no-ff main`).
+- ADR-0297 accepté (avec amendements) copié depuis `api-challenge` dans
+  `docs/adr/`, ajouté à `docs/adr/README.md` ; `docs/current-architecture.md`
+  signale qu'il remplace les limites Typegen pour la forme D, l'ancienne forme
+  restant régie par ADR-0279/0280/0281/0283 jusqu'au retrait.
+- Tests de l'ancien contrat mis à jour (seulement les assertions changées par
+  ADR-0297) : `field-builder.test-d.ts` (le test qui refusait les thunks devient
+  un test de régression : thunks acceptés, inclusions et filtres typés, faute de
+  champ refusée), liste d'exports Core (+`isConfiguredSchemaNamespace`, +`provideSchemaShapeMethods`), surfaces Access (+`AccessRules`, +`AccessSchemaRules`), Hooks (+`HooksRules`, +`HooksSchemaRules`), Soft Delete
+  empaqueté (+`SoftDeleteShapeSource`), infobulles `DeclaredSchema` (testing,
+  `SchemaTarget<DeclaredSchema<`).
+- Ajouts : test d'exécution `isConfiguredSchemaNamespace` ;
+  `tests/e2e/schema-form-d-types.e2e.test.ts` vérifie le fixture (assertions et
+  8 fautes) contre les paquets construits (TS 6 seulement ; TS 7 n'est pas une
+  dépendance du dépôt).
+- Docs : sections courtes forme D dans les README core, access, hooks,
+  soft-delete, acl (exemples avec installation du plugin, exigée par
+  `active-contracts.test.ts`), note d'attente dans roles et password-auth
+  (fabriques non couvertes, amendement 3) ; site : section « Declare without
+  Typegen » dans `core/data-modeling/schemas.mdx`, renvoi dans
+  `guides/generate-types.mdx` ; `examples/schema-form-d/README.md`.
+- Outils de mesure : chemins `ub-slice` remplacés par la résolution de
+  `typescript` depuis l'exemple ; les chemins vers `ub-typing-spike` et
+  `ub-small` restent (espaces de sonde locaux, documentés).
+- Amendement 1 (`Register` obligatoire) **non implémenté** : rendre l'absence
+  de `Register` erronée casserait chaque application de l'ancienne forme et
+  les centaines de tests qui construisent plusieurs applications dans un même
+  programme (une seule augmentation globale) ; reporté à l'étape 4.
+
+Validation :
+
+- `yarn validate:full` (dist et `*.tsbuildinfo` supprimés avant) : 1er passage
+  code 1 (`active-contracts.test.ts` : exemples README sans `accessPlugin()`/
+  `hooksPlugin()`, corrigé) ; 2e passage code 0 (unit/types/coverage-e2e/
+  coverage-postgres-e2e 647 fichiers, 3058 tests ; performance 3/3 ; website
+  66/66 ; constraints).
+- `yarn test:e2e:built` (hors `validate:full`) : 104 fichiers, 418 tests verts.
+- Remarque : `yarn typecheck` émet dans `packages/*/dist` (tsc --build) ; lancer
+  `yarn build` après lui avant tout test empaqueté.
+
+Audit DX (`node tooling/dx-audit/run.mjs ../ub-dx-baseline . --only <tous sauf
+examples/schema-form-d>` ; l'outil plante si un exemple n'existe que d'un côté) :
+3348 différences, toutes rattachées à une cause :
+
+- attendues par ADR-0297 : `DeclaredSchema` au lieu de
+  `ConfiguredSchemaResult` (1028) ; emplacements `schemaRules`/`shapeMethods`
+  dans l'état source des plugins, avec troncatures décalées (997) ; nouveaux
+  exports, déclarations et membres (524 ajouts) ; JSDoc de `define` et de
+  `target` (233) ; types nommés `Select<"X">`/`Where<"X">`/`Item<"X">` imprimés
+  aussi dans l'ancienne forme (108) ; `.with`, `.acl()`, `.softDelete()` dans
+  les complétions de schémas (≈118) ; contrôle d'enregistrement au
+  constructeur (37) ; sources de filtres différées (33) ; définition
+  conditionnelle de `QueryResult` (31) ; signature `field.pointer` avec
+  `NoInfer<…> & Readonly<{ target }>` (≈15) ; `ACLField` porte son opérande
+  `contains` ;
+- artefacts : renumérotation `Simplify$2/$3` privée (8) ; `usage.ts` du fixture
+  lu sans son tsconfig (TS5097) ; fixture Soft Delete dont le texte Typegen est
+  calculé à l'exécution (vide dans l'audit) ;
+- **non annoncées par ADR-0297** : (1) `ResolveSourceSchemaObject<…>` imprimé au
+  lieu de l'objet dans 69 infobulles d'options et callbacks de plugins (ACL
+  `default`/`resolveInput`, GraphQL, REST, Postgres) — conséquence du correctif
+  TS2589 ; essai borné : envelopper le type mappé dans `[T] extends [unknown]`
+  restaure les options simples (`workflow`) sans coût mesuré sur le fixture
+  (6,62 s) mais pas les entrées ACL ; annulé, décision requise ; (2) ordre des
+  propriétés dans certaines infobulles de résultat/entrée de l'ancienne forme
+  (todo-backend : `completed`, `dueAt` passent dans « N more »).
+
 ## Prochaine action vérifiable
 
-Décision du propriétaire (gel de la forme D ou repli classe) ; ensuite ADR de
-remplacement de Typegen, mise à jour des listes d'exports et des tests de
-contrat, audit `freetp` des autres types mappés dans des branches `infer`.
+Revue du coordinateur ; décision sur les deux différences d'éditeur non
+annoncées (ADR ou correctif en étape 5) ; puis fusion `--no-ff` dans `main`.
