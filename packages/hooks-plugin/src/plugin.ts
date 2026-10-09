@@ -11,6 +11,8 @@ import {
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
+	type PluginSchemaRulesSource,
+	type SchemaRulesHKT,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
@@ -153,7 +155,23 @@ const hooksDeclarations: PluginDeclarationContribution<
 })
 
 // The named alias keeps the reference hover (`source: HooksOptionSource`).
-type HooksSource = PluginDeclarationSource<typeof hooksDeclarations>
+/** Entry of `.with({ ... })` owned by Hooks, for one schema. */
+export interface HooksRules<TSchema> {
+	/**
+	 * Declares schema-owned business behavior run around each operation.
+	 * @example `hooks: { beforeOperation: { update: ({ item }) => {} } }`
+	 */
+	readonly hooks?: SchemaHooks<Extract<TSchema, SchemaDefinition>>
+}
+
+/** Contributes `hooks` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+export interface HooksSchemaRules extends SchemaRulesHKT {
+	readonly rules: HooksRules<this['schema']>
+}
+
+type HooksSource =
+	| PluginDeclarationSource<typeof hooksDeclarations>
+	| PluginSchemaRulesSource<HooksSchemaRules>
 
 /** Names the exact configured official Hooks engine. */
 export type HooksPlugin = PluginInstance<{

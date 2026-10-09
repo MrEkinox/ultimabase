@@ -22,8 +22,10 @@ import type {
 	NamedRelationFieldBuilderMethod,
 	RelationField,
 	RelationFieldOptions,
-	RelationMappedFieldName,
+	RelationMappedByDeclaration,
+	RelationTargetDeclaration,
 } from '../fields/builtins/relation.js'
+import type { DeclaredSchemaTarget } from './deferred-targets.js'
 import type { StringFieldFactory } from '../fields/builtins/string.js'
 import type { TimeFieldFactory } from '../fields/builtins/time.js'
 import type { UuidFieldFactory } from '../fields/builtins/uuid.js'
@@ -41,7 +43,6 @@ import type {
 } from '../output/contracts.js'
 import type { ConfiguredOutputBuilder } from '../output/source-builder-contract.js'
 import type {
-	SchemaDeclarationTargetName,
 	SchemaTypeInfo,
 	SchemaTypeInfoByNameOrBase,
 	SchemaTypeInfoSource,
@@ -49,7 +50,7 @@ import type {
 	UltimaBaseGeneratedFieldBuilderMethods,
 	UltimaBaseGeneratedVirtualFieldBuilderMethods,
 } from '../type-info.js'
-import type { SchemaDeclaredFields, SchemaReference } from './definition.js'
+import type { SchemaDeclaredFields } from './definition.js'
 import type {
 	EmbeddedBigintFieldFactory,
 	EmbeddedBinaryFieldFactory,
@@ -241,30 +242,40 @@ type ConfiguredPluginMethods<
 
 type ConfiguredNamedRelationFieldOptions<
 	TSource extends PluginSourceState,
-	TTargetName extends SchemaDeclarationTargetName,
-	TMappedBy extends
-		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined,
+	TTarget extends RelationTargetDeclaration,
+	TMappedBy extends RelationMappedByDeclaration<TTarget> | undefined,
 > = Omit<
-	RelationFieldOptions<SchemaReference<TTargetName>, TMappedBy>,
+	RelationFieldOptions<DeclaredSchemaTarget<TTarget>, undefined>,
+	| 'mappedBy'
 	| 'target'
 	| keyof ResolvePluginRelationSourceOptions<
 			TSource,
-			SchemaReference<TTargetName>
+			DeclaredSchemaTarget<TTarget>
 	  >
 > &
-	ResolvePluginRelationSourceOptions<TSource, SchemaReference<TTargetName>> &
-	Readonly<{ target: TTargetName }>
+	ResolvePluginRelationSourceOptions<TSource, DeclaredSchemaTarget<TTarget>> &
+	Readonly<{
+		/**
+		 * Names the exact pointer or owning relation field that stores an inverse edge.
+		 * @example `mappedBy: "author"`
+		 */
+		mappedBy?: TMappedBy
+		/**
+		 * Lazily returns the target schema, or names a generated registry schema.
+		 * @example `target: () => Post`
+		 */
+		target: TTarget
+	}>
 
 type ConfiguredNamedRelationFieldBuilderMethod<
 	TSource extends PluginSourceState,
 > = <
-	const TTargetName extends SchemaDeclarationTargetName,
-	const TMappedBy extends
-		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined =
+	const TTarget extends RelationTargetDeclaration,
+	const TMappedBy extends RelationMappedByDeclaration<TTarget> | undefined =
 		undefined,
 >(
-	options: ConfiguredNamedRelationFieldOptions<TSource, TTargetName, TMappedBy>,
-) => RelationField<SchemaReference<TTargetName>, TMappedBy>
+	options: ConfiguredNamedRelationFieldOptions<TSource, TTarget, TMappedBy>,
+) => RelationField<DeclaredSchemaTarget<TTarget>, TMappedBy>
 
 /** Builds one application-local field surface from installed source receipts. */
 export type ConfiguredFieldBuilder<

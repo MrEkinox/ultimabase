@@ -4,10 +4,13 @@ import {
 	plugin,
 	providePersistencePlanRewriter,
 	provideRuntimeConstraint,
+	provideSchemaShapeMethods,
 	type PluginDeclarationContribution,
 	type PluginInstance,
 	type PluginModelSurfaceSource,
 	type PluginSchemaOptionSource,
+	type PluginSchemaShapeSource,
+	type SchemaShapeMethod,
 	type PluginSchemaPatchSource,
 	type SchemaSelection,
 	type AddSchemaFieldOperation,
@@ -166,9 +169,24 @@ type DefaultSoftDeleteAdministrationSource = PluginModelSurfaceSource<
 	typeof defaultSoftDeleteSelector,
 	typeof softDeleteAdministrationSurface.schemaMutations
 >
+/** Shape method chained before `.with(...)`: `.softDelete()` (ADR-0297). */
+export type SoftDeleteShapeSource = PluginSchemaShapeSource<{
+	/**
+	 * Hides deleted rows and replaces deletes with the `isDeleted` tombstone.
+	 * Call it before `.with(...)`.
+	 * @example `App.Schema.define({ className: 'Todo', fields }).softDelete().with({})`
+	 */
+	readonly softDelete: SchemaShapeMethod<
+		readonly [],
+		Readonly<{ softDelete: 'replace-delete' }>
+	>
+}>
+
 // Widened modes expose only commands guaranteed for every possible default.
+// `.softDelete()` opts one schema in, so it exists only when the default is off.
 type SoftDeleteSource<TMode extends SoftDeleteMode> =
 	| ExplicitSoftDeleteSource
+	| ([TMode] extends ['disabled'] ? SoftDeleteShapeSource : never)
 	| ([TMode] extends ['explicit' | 'replace-delete']
 			? DefaultSoftDeleteFieldSource | DefaultSoftDeleteAdministrationSource
 			: never)
@@ -295,7 +313,7 @@ export const softDeletePlugin = <
 
 	// The parser validates the same mode captured by TMode before Core receives
 	// this immutable definition; no default surface is added at Runtime by typing.
-	return plugin({
+	const instance: SoftDeletePlugin<TMode> = plugin({
 		id: '@ultimabase/soft-delete-plugin',
 		version: '0.0.0',
 		core: '^0.0.0',
@@ -309,5 +327,16 @@ export const softDeletePlugin = <
 			...administrationContributions,
 			declarations,
 		],
+	})
+	// `.softDelete()` opts one schema in, so it exists only when the default is off.
+	if (normalized.defaultMode !== 'disabled') return instance
+	return provideSchemaShapeMethods<
+		SoftDeletePlugin<TMode>,
+		SoftDeleteShapeSource
+	>(instance, {
+		softDelete: {
+			sets: ['softDelete'],
+			apply: () => ({ softDelete: 'replace-delete' }),
+		},
 	})
 }

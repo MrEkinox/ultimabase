@@ -13,6 +13,7 @@ import type {
 	UltimaBaseGeneratedSchemas,
 } from '../type-info.js'
 import type { SourceSchemaTypeInfo } from './source-type-info.js'
+import type { DeclaredSchema } from './schema-declaration-chain.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
 import type { SchemaResultCapabilityCarrier } from './model-contracts.js'
@@ -64,7 +65,8 @@ type SchemaFieldEqualityOptionName<TSource extends PluginSourceState> =
 			: never
 		: never
 
-type ConfiguredSchemaSelectorOptions<
+/** Keeps only the declared options that plugin schema selectors read. */
+export type ConfiguredSchemaSelectorOptions<
 	TSource extends PluginSourceState,
 	TOptions extends object,
 > = Readonly<{
@@ -339,8 +341,9 @@ export type ConfiguredSchemaNamespace<
 > = Pick<typeof Schema, 'is' | 'defineSpecialized'> &
 	Readonly<{
 		/**
-		 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
-		 * The configured application projects its installed plugin fields and options here.
+		 * Defines one schema class with typed drafts and QueryBuilder access.
+		 * The configured application projects its installed plugin fields and options here;
+		 * chain plugin shape methods, then end with `.with({ ...rules })` (ADR-0297).
 		 *
 		 * @example
 		 * ```ts
@@ -361,7 +364,7 @@ export type ConfiguredSchemaNamespace<
 				ConfiguredFieldDeclaration<TSource, TClassName, TFields>,
 				TDeclaredOptions
 			>,
-		) => ConfiguredSchemaResult<
+		) => DeclaredSchema<
 			TSource,
 			TClassName,
 			TFields,

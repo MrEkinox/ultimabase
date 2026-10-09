@@ -109,13 +109,24 @@ export type ResolveSourceSchemaTemplate<
 											TSchema
 										>[]
 									: TTemplate extends object
-										? {
-												readonly [
-													TKey in keyof TTemplate
-												]: ResolveSourceSchemaTemplate<
-													TTemplate[TKey],
-													TContract,
-													TSchema
-												>
-											}
+										? ResolveSourceSchemaObject<TTemplate, TContract, TSchema>
 										: TTemplate
+
+/**
+ * Resolves one object template member by member. Declared outside the
+ * conditional above on purpose: a mapped type written inside conditional
+ * branches captures their unresolved `infer` parameters, which makes every
+ * schema type containing it look generic. TypeScript then re-instantiates whole
+ * schemas when a relationship target thunk is resolved (TS2589 on self relations).
+ */
+type ResolveSourceSchemaObject<
+	TTemplate,
+	TContract extends SchemaTypeInfo,
+	TSchema extends SchemaDefinition,
+> = {
+	readonly [TKey in keyof TTemplate]: ResolveSourceSchemaTemplate<
+		TTemplate[TKey],
+		TContract,
+		TSchema
+	>
+}

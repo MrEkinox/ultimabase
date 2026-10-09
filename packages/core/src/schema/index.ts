@@ -338,6 +338,15 @@ export {
 export type { FieldDeclarationContext } from './schema/field-contexts.js'
 export { generatedApplicationContractVersion } from './type-info.js'
 export type {
+	DeclaredSchema,
+	SchemaRulesMethod,
+	SchemaShapeMethods,
+} from './schema/schema-declaration-chain.js'
+export type {
+	DeferredSchemaTarget,
+	ResolveSchemaTarget,
+} from './schema/deferred-targets.js'
+export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,
 	PersistedSchemaReference,

@@ -11,10 +11,14 @@ import {
 	type PluginDeclarationSource,
 	type PluginInstance,
 	type PluginSchemaOptionSource,
+	type PluginSchemaRulesSource,
+	type SchemaDefinition,
+	type SchemaRulesHKT,
 } from '@ultimabase/core'
 import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
+import type { SchemaAccess } from './authoring/contracts.js'
 import type { AccessDefaultPolicy } from './authoring/plan.js'
 import {
 	schemaAccessFamilies,
@@ -175,7 +179,23 @@ const accessDeclarations: PluginDeclarationContribution<
 		}),
 })
 
-type AccessSource = PluginDeclarationSource<typeof accessDeclarations>
+/** Entry of `.with({ ... })` owned by Access, for one schema. */
+export interface AccessRules<TSchema> {
+	/**
+	 * Declares schema operation rules; omitted families use the plugin default.
+	 * @example `access: { read: { where: ({ where }) => where.eq('archived', false) } }`
+	 */
+	readonly access?: SchemaAccess<Extract<TSchema, SchemaDefinition>>
+}
+
+/** Contributes `access` to `.with({ ... })` through Core's rules slot (ADR-0297). */
+export interface AccessSchemaRules extends SchemaRulesHKT {
+	readonly rules: AccessRules<this['schema']>
+}
+
+type AccessSource =
+	| PluginDeclarationSource<typeof accessDeclarations>
+	| PluginSchemaRulesSource<AccessSchemaRules>
 
 /** Names the exact configured official Access engine. */
 export type AccessPlugin = PluginInstance<{

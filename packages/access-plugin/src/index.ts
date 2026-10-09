@@ -4,6 +4,8 @@ export { accessPlugin } from './plugin.js'
 export type {
 	AccessPlugin,
 	AccessPluginOptions,
+	AccessRules,
+	AccessSchemaRules,
 	SchemaAccessDefaults,
 	SchemaReadAccessDefaults,
 } from './plugin.js'

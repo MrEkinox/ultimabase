@@ -414,9 +414,22 @@ export const defineOrdinarySchemaModel = <
 >(
 	options: SchemaOptions<TClassName, TFields> &
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
+	declarationStatics: Readonly<Record<string, unknown>> = {},
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options)
 	finalizeSchemaModelClass(schema)
+	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
+	for (const [name, value] of Object.entries(declarationStatics)) {
+		if (name in schema) {
+			throw new TypeError(`Reserved schema declaration method: ${name}`)
+		}
+		Object.defineProperty(schema, name, {
+			configurable: false,
+			enumerable: false,
+			value,
+			writable: false,
+		})
+	}
 	Object.freeze(schema)
 	return schema as unknown as SchemaReference<TClassName>
 }

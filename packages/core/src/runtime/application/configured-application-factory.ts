@@ -11,6 +11,8 @@ import type {
 	PluginSourceState,
 } from '../../plugins/source-projections.js'
 import type { PluginSource } from '../../plugins/definition.js'
+import { readSchemaShapeMethods } from '../../plugins/schema-extensions.js'
+import { createConfiguredSchemaNamespace } from '../../schema/schema/schema-declaration-chain.js'
 
 type AppendPlugins<
 	TPlugins extends readonly PluginDefinition[],
@@ -97,6 +99,13 @@ export const appendConfiguredPlugins = <
 	const ConfiguredApplication = class extends parent {}
 
 	configuredPlugins.set(ConfiguredApplication, plugins)
+	// Each factory declares schemas with the shape methods of its own plugins.
+	Object.defineProperty(ConfiguredApplication, 'Schema', {
+		configurable: false,
+		enumerable: true,
+		value: createConfiguredSchemaNamespace(readSchemaShapeMethods(plugins)),
+		writable: false,
+	})
 	return Object.freeze(
 		ConfiguredApplication,
 	) as unknown as ConfiguredUltimaBaseFactory<
