@@ -43,8 +43,17 @@ plugin propriétaire (F1), `defineOperation` (fin des descriptions de type
 8. **Plus tard** : abonnements avec le futur plugin Realtime (prise de
    connexion WebSocket notée dans la revue HTTP) ; requêtes persistées avec
    la revue Yoga.
-9. **À vérifier** : chargement groupé des inclusions et des relations
-   (problème N+1) quand une liste demande une relation par nœud ; à corriger
-   avant la publication si chaque nœud déclenche sa propre requête.
+9. **Vérifié le 2026-10-09 : pas de N+1.** GraphQL (la sélection devient un
+   `include` Core), REST `?include=` et `findMany({ include })` donnent une
+   seule requête SQL (jointures `LATERAL` imbriquées, filtres Access de chaque
+   cible compilés dans la requête). Points à traiter :
+   - champs virtuels résolus ligne par ligne (aucune variante groupée) ; sur
+     une cible incluse, appels en série par parent : prévoir un résolveur
+     groupé optionnel (`resolveMany`) et la parallélisation sur les cibles
+     incluses ;
+   - aucun test ne fixe le nombre de requêtes d'une lecture avec `include`
+     (seules les inclusions de mutation sont fixées) : en ajouter ;
+   - documenter que `todo.relation('tags').findMany()` dans une boucle reste
+     un N+1 du code applicatif.
 
 Revue validée par l'utilisateur le 2026-10-09 (sous réserve du point 9).
