@@ -48,3 +48,20 @@ option.
 6. **Gardé** : références par nom et par identifiant, héritage borné, trois
    modes de suppression, aucune option de plugin, événements de rôle
    consommables depuis l'application (« au mieux », comme Hooks).
+7. **Rôles accessibles hors des règles** :
+   `ultimabase.plugin(rolesPlugin)` expose `has(Admin)` (requête en cours),
+   `has(Admin, { principal })` (utilisateur donné) et `current(TodoRole)`
+   (rôles de la requête en cours, héritage compris), avec le même calcul et
+   le même cache que les règles.
+8. **`ensure: ['admin', 'editor']`** sur `App.RoleSchema.define` : le plugin
+   crée au démarrage les rôles manquants, sans toucher aux existants
+   (idempotent). Les données initiales en général relèveront du futur plugin
+   de migrations.
+9. **Contrainte notée pour le futur plugin multi-tenant** : unicité du nom
+   par organisation et références de rôle liées à une organisation
+   (aujourd'hui `name` est unique dans toute la table).
+10. **Piste pour plus tard** : permissions attachées aux rôles
+    (`hasPermission('todo.update')`, à la Better Auth ou CASL), réalisable
+    aujourd'hui par un champ personnalisé et un prédicat.
+
+Revue validée par l'utilisateur le 2026-10-09.
