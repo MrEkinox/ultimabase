@@ -35,7 +35,7 @@
 		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
 		"graphql": "^17.0.2",
-		"graphql-yoga": "^5.22.0"
+		"graphql-yoga": "^5.24.4"
 	},
 	"devDependencies": {
 		"@hono/node-server": "^2.1.1",
