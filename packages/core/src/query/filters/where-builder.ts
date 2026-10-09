@@ -12,7 +12,7 @@ import {
 } from '@ultimabase/shared'
 
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
-import type { QueryJsonPathExpression, QueryRegexPattern } from './primitive.js'
+import type { QueryRegexPattern } from './primitive.js'
 import {
 	resolveRelationshipTarget,
 	type QueryRelationPredicateOperator,
@@ -320,17 +320,6 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	}
 
 	/**
-	 * Requires one structured target to be contained by the operand.
-	 * @example `where.containedBy('metadata', { public: true })`
-	 */
-	containedBy<TTarget extends WhereBuilderTarget<TSchema, 'containedBy'>>(
-		target: TTarget,
-		value: WhereBuilderOperand<TSchema, 'containedBy', TTarget>,
-	): WhereBuilder<TSchema> {
-		return this.#operator(target, 'containedBy', value)
-	}
-
-	/**
 	 * Adds one prefix match.
 	 * @example `where.startsWith('title', 'Ultima')`
 	 */
@@ -383,28 +372,6 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		keys: WhereBuilderOperand<TSchema, 'hasAllKeys', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#operator(target, 'hasAllKeys', keys)
-	}
-
-	/**
-	 * Tests whether one JSONPath expression returns an item.
-	 * @example `where.jsonPathExists('metadata', { source: '$.items[*]' })`
-	 */
-	jsonPathExists(
-		target: WhereBuilderTarget<TSchema, 'jsonPathExists'>,
-		expression: QueryJsonPathExpression,
-	): WhereBuilder<TSchema> {
-		return this.#operator(target, 'jsonPathExists', expression)
-	}
-
-	/**
-	 * Tests one JSONPath boolean expression.
-	 * @example `where.jsonPathMatches('metadata', { source: '$.published == true' })`
-	 */
-	jsonPathMatches(
-		target: WhereBuilderTarget<TSchema, 'jsonPathMatches'>,
-		expression: QueryJsonPathExpression,
-	): WhereBuilder<TSchema> {
-		return this.#operator(target, 'jsonPathMatches', expression)
 	}
 
 	/**

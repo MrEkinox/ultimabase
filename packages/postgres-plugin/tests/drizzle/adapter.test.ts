@@ -359,7 +359,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 					schema: operation.query.schema,
 				},
 			}),
-		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+		).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 	})
 
 	it('sanitizes eager pointer query failures through the shared operation boundary', async () => {

@@ -368,25 +368,12 @@ describe('QueryBuilder', () => {
 		const partial = { label: 'typed' }
 		const query = new QueryBuilder(postSchema)
 			.where((where) => where.contains('metadata', partial))
-			.where((where) => where.containedBy('metadata', { label: 'typed' }))
 			.where((where) => where.hasKey('metadata', 'label'))
 			.where((where) => where.hasAnyKeys('payload', keys))
 			.where((where) => where.hasAllKeys('payload', ['theme']))
 			.where((where) => where.eq(fieldPath('metadata', ['label']), 'typed'))
 			.where((where) =>
 				where.contains(fieldPath('payload', ['nested']), { enabled: true }),
-			)
-			.where((where) =>
-				where.jsonPathExists('payload', {
-					source: '$.items[*] ? (@.price > $minimum)',
-					variables: { minimum: 10 },
-				}),
-			)
-			.where((where) =>
-				where.jsonPathMatches('metadata', {
-					source: 'exists($.label ? (@ == $expected))',
-					variables: { expected: 'typed' },
-				}),
 			)
 
 		keys.push('mutated')
@@ -398,7 +385,6 @@ describe('QueryBuilder', () => {
 
 		expect(query.ast.where.expression.expressions).toStrictEqual([
 			{ kind: 'contains', field: 'metadata', value: { label: 'typed' } },
-			{ kind: 'contained-by', field: 'metadata', value: { label: 'typed' } },
 			{ kind: 'has-key', field: 'metadata', value: 'label' },
 			{
 				kind: 'has-any-keys',
@@ -418,23 +404,11 @@ describe('QueryBuilder', () => {
 				path: ['nested'],
 				value: { enabled: true },
 			},
-			{
-				field: 'payload',
-				kind: 'json-path-exists',
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			},
-			{
-				field: 'metadata',
-				kind: 'json-path-matches',
-				source: 'exists($.label ? (@ == $expected))',
-				variables: { expected: 'typed' },
-			},
 		])
 		expect(Object.isFrozen(query.ast.where.expression.expressions[0])).toBe(
 			true,
 		)
-		const keyExpression = query.ast.where.expression.expressions[3]
+		const keyExpression = query.ast.where.expression.expressions[2]
 
 		if (keyExpression?.kind !== 'has-any-keys') {
 			throw new TypeError('Structured query fixture requires a key expression')

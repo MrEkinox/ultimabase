@@ -55,25 +55,19 @@ export type ExampleArticlePresentationPathFilter = Readonly<{ readonly path: rea
 export type ExampleArticlePresentationPathValueFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: ExampleArticlePresentationUpdateInput | null
 	readonly contains?: ExampleArticlePresentationUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof ExampleArticlePresentation, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof ExampleArticlePresentation, string>>
 	readonly hasKey?: Extract<keyof ExampleArticlePresentation, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 }
 
 export type ExampleArticlePresentationFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: ExampleArticlePresentationUpdateInput | null
 	readonly contains?: ExampleArticlePresentationUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof ExampleArticlePresentation, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof ExampleArticlePresentation, string>>
 	readonly hasKey?: Extract<keyof ExampleArticlePresentation, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly at?: ReadonlyArray<ExampleArticlePresentationPathFilter>
 }
 
@@ -796,11 +790,6 @@ export type DateTimeFilter = {
 export type JsonValue = boolean | number | string | null | JsonObject | ReadonlyArray<JsonValue>
 
 export type JsonObject = { readonly [key: string]: JsonValue }
-
-export type JsonPathExpression = {
-	readonly source: string
-	readonly variables?: JsonObject
-}
 
 export type PointerFilter<TWhere> = {
 	readonly eq?: string | null

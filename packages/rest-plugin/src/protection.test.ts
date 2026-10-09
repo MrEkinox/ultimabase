@@ -11,6 +11,7 @@ import { restPlugin } from './plugin.js'
 
 const unavailableAdapter: DatabaseAdapter = {
 	kind: 'database-adapter',
+	checkHealth: (): Promise<void> => Promise.resolve(),
 	beginTransaction: () => {
 		throw new TypeError('Protection diagnostics do not open transactions')
 	},

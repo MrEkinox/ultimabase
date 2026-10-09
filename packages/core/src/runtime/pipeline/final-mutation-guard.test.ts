@@ -25,6 +25,7 @@ import type {
 } from './contracts.js'
 import { executeRuntimeDatabaseOperation } from './database-execution.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { testDatabaseFilterOperators } from '../../../../../tooling/vitest/database-filter-operators.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
 const Article = UltimaBase.Schema.define({
@@ -76,7 +77,10 @@ describe('final mutation-input guard', () => {
 			}),
 		)
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>() => {
 				trace.push('database:prepare')
@@ -187,7 +191,10 @@ describe('final mutation-input guard', () => {
 		let preparedRequest: DatabaseOperationRequest | undefined
 		let guardedTargets: readonly unknown[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -247,7 +254,10 @@ describe('final mutation-input guard', () => {
 		})
 		let executeCalls = 0
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>() =>
 				Promise.resolve(

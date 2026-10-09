@@ -3,6 +3,7 @@ import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	contributeApplication,
 	contributeOperation,
 	contributeSchemaMutation,
@@ -31,6 +32,7 @@ import {
 	runPluginConformance,
 	withPluginTypegenConformance,
 } from '../index.js'
+import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
 
 const expectedContracts = [
 	'application-isolation',
@@ -330,9 +332,13 @@ describe('plugin conformance suite', () => {
 		const sourceId = '0198f090-2a50-7000-8000-000000000093'
 		class RelationAdapter implements DatabaseAdapter {
 			readonly kind = 'database-adapter' as const
+			readonly checkHealth = (): Promise<void> => Promise.resolve()
 			readonly capabilities = Object.freeze({
+				filterOperators: testDatabaseFilterOperators,
 				persistencePlans: databasePersistencePlanCapability,
 				relations: databaseRelationCapability,
+				// Relation fields require predicates at startup (ADR-0301).
+				relationPredicates: databaseRelationPredicateCapability,
 			})
 			readonly requests: DatabaseOperationRequest[] = []
 			whereInvocations = 0

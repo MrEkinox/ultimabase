@@ -23,6 +23,7 @@
 		"../documentation/**/*.test.ts",
 		"../eslint/**/*.test.ts",
 		"../vitest/**/*.test.ts",
+		"../vitest/database-filter-operators.ts",
 		"../vitest/optional-product-public-api.ts",
 		"../vitest/prepared-mutation-adapter.ts",
 		"../vitest/typescript-language-service.ts"

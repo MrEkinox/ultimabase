@@ -2,6 +2,7 @@ import type {
 	DatabaseAdapter,
 	DatabaseAdapterCapabilities,
 	DatabaseCreateMaterialization,
+	DatabaseFilterOperatorCapability,
 	DatabaseDeleteMaterialization,
 	DatabaseLogicalRecord,
 	DatabaseMutationMaterialization,
@@ -21,12 +22,14 @@ import type {
 import {
 	databasePointerCapability,
 	databaseInclusionCapability,
+	databasePartialIndexCapability,
 	databasePersistencePlanCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	RuntimePipeline,
 } from '../../../src/runtime/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { testDatabaseFilterOperators } from '../../../../../tooling/vitest/database-filter-operators.js'
 
 type QueuedMutationMaterialization =
 	| DatabaseCreateMaterialization
@@ -78,7 +81,9 @@ export interface TransactionFailureOptions {
 
 /** Lets capability-boundary tests model an older adapter deliberately. */
 export interface RecordingAdapterCapabilityOptions {
+	readonly filterOperators?: DatabaseFilterOperatorCapability
 	readonly inclusions?: boolean
+	readonly partialIndexes?: boolean
 	readonly persistencePlans?: boolean
 	readonly relations?: boolean
 	readonly relationPredicates?: boolean
@@ -102,6 +107,10 @@ const createRecordingCapabilities = (
 		...(options.relationPredicates === false
 			? {}
 			: { relationPredicates: databaseRelationPredicateCapability }),
+		filterOperators: options.filterOperators ?? testDatabaseFilterOperators,
+		...(options.partialIndexes === false
+			? {}
+			: { partialIndexes: databasePartialIndexCapability }),
 	})
 
 const recordingIncludedValues = new WeakMap<
@@ -357,6 +366,7 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 /** Starts fresh transaction adapters while retaining root read execution. */
 export class RecordingDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities: DatabaseAdapterCapabilities
 	readonly rootRequests: DatabaseOperationRequest[] = []
 	readonly transactions: RecordingTransactionAdapter[] = []

@@ -18,8 +18,10 @@ import {
 	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
 	type SchemaIndexDefinition,
+	type SchemaIndexInput,
 	type SchemaIndexOptions,
 } from './indexes.js'
+import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SystemFields } from './system-fields.js'
 import {
 	captureFieldBuilderCallback,
@@ -100,13 +102,14 @@ export interface SchemaOptions<
 	 */
 	readonly fields: SchemaFieldBuilderDeclaration<TFields, TClassName>
 	/**
-	 * Declares adapter-neutral composite indexes containing at least two fields.
-	 * Single-field indexes belong on the corresponding field through `indexed`.
+	 * Declares adapter-neutral schema-level indexes, optionally partial.
+	 * Plain single-field indexes belong on the field through `indexed`.
 	 *
 	 * @example `indexes: [{ fields: ["authorId", "createdAt"] }]`
 	 */
 	readonly indexes?: readonly SchemaIndexOptions<
-		SchemaFieldName<NoInfer<TFields>>
+		SchemaFieldName<NoInfer<TFields>>,
+		SchemaIndexWhere<NoInfer<TFields>>
 	>[]
 }
 
@@ -209,6 +212,7 @@ const defineSchemaModel = <
 	const TFields extends SchemaDeclaredFields,
 >(
 	options: SchemaOptions<TClassName, TFields>,
+	ruleIndexes?: readonly SchemaIndexInput[],
 ): SchemaReference<TClassName, TFields> => {
 	assertPlainObject(options, 'schema options must be an object')
 
@@ -258,6 +262,9 @@ const defineSchemaModel = <
 			className: options.className,
 			fields,
 			indexes: snapshotSchemaIndexOptions(options.indexes),
+			...(ruleIndexes === undefined
+				? {}
+				: { ruleIndexes: snapshotSchemaIndexOptions(ruleIndexes) }),
 			options: snapshotUnresolvedSchemaOptions(options),
 		}),
 	)
@@ -417,8 +424,9 @@ export const defineOrdinarySchemaModel = <
 	options: SchemaOptions<TClassName, TFields> &
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	declarationStatics: Readonly<Record<string, unknown>> = {},
+	ruleIndexes?: readonly SchemaIndexInput[],
 ): SchemaReference<TClassName> => {
-	const schema = defineSchemaModel<TClassName, TFields>(options)
+	const schema = defineSchemaModel<TClassName, TFields>(options, ruleIndexes)
 	finalizeSchemaModelClass(schema)
 	// Declaration chain methods (`.with`, shape methods) follow class-method visibility.
 	for (const [name, value] of Object.entries(declarationStatics)) {

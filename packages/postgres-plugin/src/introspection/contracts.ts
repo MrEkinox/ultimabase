@@ -14,6 +14,8 @@ export interface PostgresIndexSnapshot {
 	readonly definition: string
 	readonly method: string
 	readonly name: string
+	/** PostgreSQL's normalized `WHERE` of a partial index. */
+	readonly predicate?: string
 	readonly primary: boolean
 	readonly unique: boolean
 }
@@ -47,7 +49,6 @@ export type PostgresUnsupportedStructureKind =
 	| 'index-expression'
 	| 'index-included-columns'
 	| 'index-method'
-	| 'index-partial'
 	| 'partitioned-table'
 	| 'table-kind'
 

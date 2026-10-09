@@ -186,8 +186,6 @@ const untouchedOperators = new Set([
 	'isNotEmpty',
 	'isNotNull',
 	'isNull',
-	'jsonPathExists',
-	'jsonPathMatches',
 	'matches',
 ])
 
@@ -230,7 +228,6 @@ const decodeOperand = (
 		case 'hasEvery':
 			return decodeEach(decodeElement)
 		case 'contains':
-		case 'containedBy':
 			// JSON and plugin containment operands keep their logical JSON shape.
 			return field.kind === 'json' || field.kind.includes('.')
 				? value

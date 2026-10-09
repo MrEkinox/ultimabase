@@ -15,7 +15,7 @@ import {
 } from './field-builder.js'
 import type { FieldBuilderTargetResolver } from './runtime-field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
-import { normalizeSchemaIndexes, type SchemaIndexOptions } from './indexes.js'
+import { normalizeSchemaIndexes, type SchemaIndexInput } from './indexes.js'
 import { createInitialSchemaProvenance } from './provenance.js'
 import {
 	isReservedQueryLogicalFieldName,
@@ -74,7 +74,9 @@ export const schemaDefinitionMarker: symbol = Symbol.for(
 export interface NormalizedSchemaDeclaration {
 	readonly className: string
 	readonly fields: Readonly<Record<string, unknown>>
-	readonly indexes: readonly SchemaIndexOptions[] | undefined
+	readonly indexes: readonly SchemaIndexInput[] | undefined
+	/** Indexes of the final `.with`, checked against the compiled fields. */
+	readonly ruleIndexes?: readonly SchemaIndexInput[] | undefined
 	readonly options: Readonly<Record<string, unknown>>
 }
 
@@ -273,7 +275,11 @@ export const prepareSchemaCompilation = (
 		className,
 	)
 	const fields = immutableRecord({ ...declared, ...systemFields })
-	const indexes = normalizeSchemaIndexes(persisted, declaration.indexes)
+	const indexes = normalizeSchemaIndexes(
+		persisted,
+		declaration.indexes,
+		declaration.ruleIndexes,
+	)
 
 	return immutableRecord({
 		definition: immutableRecord({

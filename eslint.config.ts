@@ -83,6 +83,7 @@ export default defineConfig(
 			'tooling/vitest/**/*.test.ts',
 			'tooling/documentation/**/*.test.ts',
 			'tooling/eslint/**/*.test.ts',
+			'tooling/vitest/database-filter-operators.ts',
 			'tooling/vitest/optional-product-public-api.ts',
 			'tooling/vitest/password-auth-public-api.ts',
 			'tooling/vitest/prepared-mutation-adapter.ts',

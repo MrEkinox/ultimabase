@@ -10,24 +10,17 @@ import {
 import { hasListOption } from '../../schema/fields/base/options.js'
 import { snapshotJsonValue } from '../../schema/fields/base/portable-json.js'
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import {
-	assertExactEnumerablePlainObject,
-	assertPlainObject,
-} from '../../exact-object-validation.js'
+import { assertPlainObject } from '../../exact-object-validation.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import type {
 	QueryBuiltInFilterOperator,
 	QueryComparisonFilterOperator,
 	QueryEqualityFilterOperator,
-	QueryJsonPathExpression,
-	QueryJsonPathFilterOperator,
 	QueryKeyFilterOperator,
 	QueryListFilterOperator,
 	QueryMembershipFilterOperator,
@@ -38,6 +31,7 @@ import type {
 	QueryStringFilterOperator,
 	QueryStructuralContainmentFilterOperator,
 } from './primitive.js'
+import { assertPortableRegexSource } from './portable-regex.js'
 import {
 	snapshotFieldValue,
 	snapshotList,
@@ -91,7 +85,7 @@ const supportsScalarOperator = (
 		case 'regex':
 			return field.kind === 'string'
 		default:
-			// Key, JSONPath, and contained-by predicates inspect structured values only.
+			// Key predicates inspect structured values only.
 			return field.kind === 'json' || field.kind === 'object'
 	}
 }
@@ -284,23 +278,8 @@ export const createQueryStructuralFilter = <
 	operator: QueryStructuralContainmentFilterOperator,
 	target: unknown,
 	value: unknown,
-): QueryPrimitiveFilterNode<TSchema> => {
-	if (operator === 'contains') {
-		return createQueryValueFilter(schema, 'contains', target, value)
-	}
-
-	const resolved = resolveOperatorTarget(schema, target, operator)
-
-	return immutableRecord({
-		kind: operator,
-		...targetProperties(resolved),
-		value: snapshotStructuralValue(
-			resolved.terminalField,
-			value,
-			'query filter value',
-		),
-	})
-}
+): QueryPrimitiveFilterNode<TSchema> =>
+	createQueryValueFilter(schema, operator, target, value)
 
 /** Creates one immutable top-level key or key-collection predicate. */
 export const createQueryKeyFilter = <const TSchema extends SchemaDefinition>(
@@ -339,57 +318,6 @@ export const createQueryKeyFilter = <const TSchema extends SchemaDefinition>(
 	})
 }
 
-/** Creates one immutable advanced JSONPath leaf without interpreting its source. */
-export const createQueryJsonPathFilter = <
-	const TSchema extends SchemaDefinition,
->(
-	schema: TSchema,
-	operator: QueryJsonPathFilterOperator,
-	target: unknown,
-	expression: QueryJsonPathExpression,
-): QueryPrimitiveFilterNode<TSchema> => {
-	const resolved = resolveOperatorTarget(schema, target, operator)
-	const untrustedExpression: unknown = expression
-
-	assertExactEnumerablePlainObject(
-		untrustedExpression,
-		jsonPathExpressionKeys,
-		'query JSONPath expression must be an object',
-		'query JSONPath expression contains unknown key: ',
-	)
-
-	const { source, variables } = untrustedExpression
-
-	assertNonEmptyString(source, 'query JSONPath source')
-
-	if (variables !== undefined && !isPlainRecord(variables)) {
-		throw new TypeError('query JSONPath variables must be an object')
-	}
-
-	const normalizedVariables =
-		variables === undefined
-			? undefined
-			: snapshotJsonValue(variables, 'query JSONPath variables')
-
-	if (
-		normalizedVariables !== undefined &&
-		!isPlainRecord(normalizedVariables)
-	) {
-		throw new TypeError('query JSONPath variables must be an object')
-	}
-
-	return immutableRecord({
-		kind: operator,
-		...targetProperties(resolved),
-		source,
-		...(normalizedVariables === undefined
-			? {}
-			: { variables: normalizedVariables }),
-	})
-}
-
-const jsonPathExpressionKeys = new Set(['source', 'variables'])
-
 const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
 	value === 'case-insensitive' ||
 	value === 'dot-matches-newline' ||
@@ -413,6 +341,8 @@ export const createQueryRegexFilter = <const TSchema extends SchemaDefinition>(
 	if (typeof untrustedPattern.source !== 'string') {
 		throw new TypeError('query regex source must be a string')
 	}
+
+	assertPortableRegexSource(untrustedPattern.source, resolved.fieldName)
 
 	if (!isUnknownArray(untrustedPattern.flags)) {
 		throw new TypeError('query regex flags must be an array')

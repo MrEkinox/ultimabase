@@ -28,6 +28,7 @@ import {
 } from './schema-compilation/preparation.js'
 import { SchemaCompilationValues } from './schema-compilation/values.js'
 import { assertSchemaCompilationResult } from './schema-compilation/validation.js'
+import { assertCompiledSchemaIndexes } from '../schema/schema/indexes.js'
 
 /** Contains every artifact produced by one successful static schema compilation. */
 export interface CompiledSchemaDeclarations {
@@ -124,6 +125,13 @@ export const compileSchemaDeclarations = (
 		values,
 	)
 	assertSchemaCompilationResult(candidates, declarations, output, values)
+	for (const { definition } of output.candidates) {
+		assertCompiledSchemaIndexes(
+			definition.className,
+			definition.indexes,
+			definition.persistedFields,
+		)
+	}
 
 	return immutableRecord({
 		candidates: output.candidates,

@@ -19,6 +19,7 @@ import {
 
 import { RuntimePipeline } from './runtime-pipeline.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { testDatabaseFilterOperators } from '../../../../../tooling/vitest/database-filter-operators.js'
 
 import {
 	articleOperation,
@@ -314,6 +315,7 @@ describe('RuntimePipeline boundaries', () => {
 
 		const invalidAdapter = {
 			kind: 'database-adapter' as const,
+			checkHealth: (): Promise<void> => Promise.resolve(),
 			execute: <const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<DatabaseOperationResult<TOperation>> =>
@@ -336,7 +338,10 @@ describe('RuntimePipeline boundaries', () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -355,6 +360,7 @@ describe('RuntimePipeline boundaries', () => {
 		}
 		const adapter: DatabaseAdapter = {
 			kind: 'database-adapter',
+			checkHealth: (): Promise<void> => Promise.resolve(),
 			execute: <const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<DatabaseOperationResult<TOperation>> =>

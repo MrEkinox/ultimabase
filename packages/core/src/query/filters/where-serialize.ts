@@ -6,7 +6,6 @@ import {
 	readWhereOperatorKey,
 	type QueryComparisonFilterNode,
 	type QueryEqualityFilterNode,
-	type QueryJsonPathFilterNode,
 	type QueryKeyFilterNode,
 	type QueryKeysFilterNode,
 	type QueryListEmptyFilterNode,
@@ -50,7 +49,6 @@ const serializeCountComparison = (
 type SerializableWherePrimitive =
 	| QueryComparisonFilterNode
 	| QueryEqualityFilterNode
-	| QueryJsonPathFilterNode
 	| QueryKeyFilterNode
 	| QueryKeysFilterNode
 	| QueryListEmptyFilterNode
@@ -79,12 +77,6 @@ const serializePrimitiveOperand = (
 		case 'has-all-keys':
 		case 'has-any-keys':
 			return node.keys
-		case 'json-path-exists':
-		case 'json-path-matches':
-			return immutableRecord({
-				source: node.source,
-				...(node.variables === undefined ? {} : { variables: node.variables }),
-			})
 		case 'regex':
 			return node.pattern
 		case 'null':

@@ -19,6 +19,10 @@ import type {
 	DatabasePersistencePlanKind,
 } from '../persistence/contracts.js'
 import { databasePersistencePlanVersion } from '../persistence/contracts.js'
+import type {
+	DatabaseFilterOperatorCapability,
+	DatabasePartialIndexCapability,
+} from './adapter-capabilities.js'
 
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
 export const databasePointerCapabilityVersion = 1 as const
@@ -80,6 +84,10 @@ export interface DatabaseAdapterCapabilities {
 	readonly relationPredicates?: DatabaseRelationPredicateCapability
 	readonly pluginFieldStructuralContains?: DatabasePluginFieldStructuralContainsCapability
 	readonly persistencePlans?: DatabasePersistencePlanCapability
+	/** Lists the filter operators executed per field family (ADR-0301). */
+	readonly filterOperators?: DatabaseFilterOperatorCapability
+	/** Executes and synchronizes indexes restricted by `where` (ADR-0303). */
+	readonly partialIndexes?: DatabasePartialIndexCapability
 }
 
 /** Reuses one frozen capability declaration across root and transaction adapters. */
@@ -399,10 +407,23 @@ export interface DatabaseOperationExecutor {
 	): DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null | undefined
 }
 
-/** Owns regular operations and starts isolated adapter transactions. */
+/**
+ * Owns regular operations and starts isolated adapter transactions.
+ *
+ * Every adapter honors the storage contract written in the Core README
+ * ("Database adapter contract"): referential integrity (ADR-0299), transient
+ * conflicts reported as `TRANSACTION_CONFLICT` (ADR-0300), neutral
+ * `UNIQUE_VIOLATION` and `REFERENCE_VIOLATION` errors and the storage
+ * semantics of ADR-0302.
+ */
 export interface DatabaseAdapter extends DatabaseOperationExecutor {
 	readonly kind: 'database-adapter'
 	beginTransaction(): Promise<DatabaseTransactionAdapter>
+	/**
+	 * Resolves when the database answers; rejects otherwise. Core aborts
+	 * `signal` after two seconds and reports `DEGRADED` (ADR-0303).
+	 */
+	checkHealth(signal: AbortSignal): Promise<void>
 }
 
 /**

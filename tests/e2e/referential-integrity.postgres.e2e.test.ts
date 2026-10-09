@@ -277,7 +277,7 @@ describe(
 						release.promise,
 					)
 					await deleted.promise
-					const insert = settle(
+					const insert = settle<unknown>(
 						Child.createOne({ data: { parent: { connect: parentId } } }),
 					)
 					await letCompetitorBlock()

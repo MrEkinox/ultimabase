@@ -45,8 +45,34 @@ ADR acceptés, copiés dans `docs/adr/` au fil de l'implémentation :
     packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
     tests verts ; `--project postgres-e2e` sur les deux nouveaux fichiers et
     `private-storage-postgres` → verts.
-- Reste : ADR-0301, ADR-0303, documentation (READMEs Core/PostgreSQL, site),
-  porte complète.
+- Point de contrôle 2 (ADR-0301, ADR-0302 regex, ADR-0303) :
+  - Core : opérateurs retirés (constructeur, `where` sérialisé, types source,
+    exports `QueryJsonPath*`) ; capacité `filterOperators` par famille
+    (`runtime/database/adapter-capabilities.ts`) ; contrôle à la requête
+    (`runtime/pipeline/filter-operator-validation.ts`, appelant :
+    `VALIDATION_ERROR` + `publicDetails { field, operator }`, filtre protégé :
+    message générique + journal) ; contrôles de démarrage
+    (`runtime/application/adapter-capability-checks.ts` : index partiels et
+    leurs opérateurs, champs plugin à `contains`, champs relation) ;
+    sous-ensemble regex portable (`query/filters/portable-regex.ts`) ;
+    index partiels (`schema/schema/index-predicates.ts`, `indexes` dans le
+    `.with` final avec champs de forme, vérifiés après compilation de
+    l'application ; minimum de deux champs levé ; doublon d'un index de champ
+    refusé) ; `ultimabase.health()` et `DatabaseAdapter.checkHealth` requis.
+  - PostgreSQL : table d'opérateurs, `partialIndexes`, `CREATE INDEX … WHERE`
+    (nom haché avec le prédicat, l'introspection relève le prédicat),
+    `checkHealth` par `SELECT 1`.
+  - REST/GraphQL : opérateurs retirés ; Typegen ne les génère plus ;
+    fichiers générés des exemples régénérés.
+  - Faux adaptateurs : `checkHealth` ajouté partout ; déclaration
+    d'opérateurs via `tooling/vitest/database-filter-operators.ts` (ou locale
+    dans les tests `src/` des paquets).
+  - Preuves : `yarn typecheck` vert ; `yarn vitest run --project unit
+    --project types` → 573 fichiers, 2860 tests verts ; postgres-e2e
+    `partial-indexes`, `referential-integrity`, `storage-semantics`,
+    `private-storage-postgres` verts.
+- Reste : documentation (READMEs Core/PostgreSQL, site, docs/concepts),
+  porte complète, audit DX, mesures.
 
 ## Décisions
 
@@ -67,8 +93,20 @@ ADR acceptés, copiés dans `docs/adr/` au fil de l'implémentation :
 
 ## Tentatives écartées
 
-(aucune)
+- GraphQL limité aux opérateurs déclarés (ADR-0301, décision 5) : le schéma
+  GraphQL est compilé pendant la matérialisation des capacités, avant que
+  l'adaptateur soit lisible (« Application capabilities require completed
+  materialization ») et avant la liaison de l'exécuteur de requêtes
+  (« Application request executor is not bound »). Deux variantes essayées
+  (méthode sur l'exécuteur, lecture par le planificateur) : la première échoue
+  à l'exécution, la seconde exige le même accès. Reporté : il faut une
+  déclaration statique (durée de vie `declaration`) des opérateurs ou une
+  compilation GraphQL après matérialisation — changement d'architecture hors
+  périmètre. PostgreSQL déclarant tous les opérateurs restants, le schéma
+  GraphQL reste exact pour lui ; tout opérateur non déclaré échoue en
+  `VALIDATION_ERROR` à la requête (REST et GraphQL).
 
 ## Prochaine action vérifiable
 
-ADR-0302 (codes d'erreur) puis ADR-0300 : tests ciblés verts.
+Documentation (README Core et PostgreSQL, site), puis `yarn validate:full` et
+`yarn test:e2e:built` sur `dist` nettoyés.

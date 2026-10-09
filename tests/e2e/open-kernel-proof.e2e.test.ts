@@ -44,6 +44,7 @@ const database = {
 	execute: () =>
 		Promise.reject(new Error('Unexpected fixture database execution')),
 	kind: 'database-adapter' as const,
+	checkHealth: (): Promise<void> => Promise.resolve(),
 }
 const createKernelSupportPlugin = () =>
 	plugin({

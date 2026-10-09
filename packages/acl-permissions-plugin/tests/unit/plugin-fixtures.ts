@@ -25,6 +25,7 @@ import {
 import { ACL } from '../../src/acl.js'
 
 import { aclPlugin } from '../../src/plugin.js'
+import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
 
 export const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
 	provideCapability(databaseAdapterCapability, {
@@ -59,6 +60,7 @@ export const ProtectedPost = ACLSchemaApplication.Schema.define({
 })
 export const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
 export const aclAdapterCapabilities = {
+	filterOperators: testDatabaseFilterOperators,
 	persistencePlans: planCapability,
 	pluginFieldStructuralContains:
 		databasePluginFieldStructuralContainsCapability,
@@ -66,6 +68,7 @@ export const aclAdapterCapabilities = {
 
 export class ACLReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = aclAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 
@@ -149,6 +152,7 @@ export class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 
 export class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = aclAdapterCapabilities
 	readonly transactions: ACLRejectedWriteTransaction[] = []
 

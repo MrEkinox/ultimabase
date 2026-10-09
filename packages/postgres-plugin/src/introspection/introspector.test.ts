@@ -272,11 +272,6 @@ describe('PostgreSQL catalog introspection', () => {
 				table: 'legacy_records',
 			},
 			{
-				kind: 'index-partial',
-				name: 'legacy_lower_idx',
-				table: 'legacy_records',
-			},
-			{
 				kind: 'index-expression',
 				name: 'legacy_lower_idx',
 				table: 'legacy_records',

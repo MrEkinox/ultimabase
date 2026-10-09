@@ -26,6 +26,7 @@ const fixedInstant = '2026-08-20T12:00:00.000Z'
 /** Supplies deterministic logical rows without reproducing a database engine. */
 export class OfficialConformanceDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
 		relations: databaseRelationCapability,

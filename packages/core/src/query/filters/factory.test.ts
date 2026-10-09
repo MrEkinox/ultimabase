@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createQueryNullFilter,
-	createQueryJsonPathFilter,
 	createQueryKeyFilter,
 	createQueryListFilter,
 	createQueryMembershipFilter,
@@ -145,14 +144,6 @@ describe('query filter factories', () => {
 				{ prefix: 'valid', invalid: new Date() },
 			),
 		).toThrow('must contain only plain JSON objects')
-		expect(() =>
-			createQueryStructuralFilter(
-				pluginFieldSchema,
-				'contained-by',
-				'containedCodeField',
-				{ prefix: 'nope' },
-			),
-		).toThrow('does not support fixture.query.contained-code fields')
 	})
 
 	it('grants portable plugin scalars complete-value equality only', () => {
@@ -406,78 +397,5 @@ describe('query filter factories', () => {
 				['valid', 42],
 			),
 		).toThrow(new TypeError('query keys must be an array of strings'))
-	})
-
-	it('snapshots advanced JSONPath expressions without interpreting their source', () => {
-		const variables = { minimum: 10, options: { active: true } }
-		const filter = createQueryJsonPathFilter(
-			fixtureSchema,
-			'json-path-exists',
-			'payload',
-			{
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables,
-			},
-		)
-
-		expect(filter).toStrictEqual({
-			field: 'payload',
-			kind: 'json-path-exists',
-			source: '$.items[*] ? (@.price > $minimum)',
-			variables,
-		})
-		expect(filter).not.toHaveProperty('expression')
-		expect(Object.isFrozen(filter)).toBe(true)
-
-		if (!('variables' in filter)) {
-			throw new TypeError('JSONPath fixture must retain variables')
-		}
-
-		expect(Object.isFrozen(filter.variables)).toBe(true)
-		expect(filter.variables).not.toBe(variables)
-
-		variables.minimum = 99
-		variables.options.active = false
-
-		expect(filter.variables).toStrictEqual({
-			minimum: 10,
-			options: { active: true },
-		})
-	})
-
-	it('rejects malformed JSONPath expression boundaries', () => {
-		expect(() =>
-			createQueryJsonPathFilter(
-				fixtureSchema,
-				'json-path-exists',
-				'payload',
-				// @ts-expect-error -- Runtime validation protects JavaScript callers.
-				null,
-			),
-		).toThrow(new TypeError('query JSONPath expression must be an object'))
-		expect(() =>
-			createQueryJsonPathFilter(fixtureSchema, 'json-path-exists', 'payload', {
-				source: '',
-			}),
-		).toThrow(new TypeError('query JSONPath source must be a non-empty string'))
-		expect(() =>
-			createQueryJsonPathFilter(fixtureSchema, 'json-path-matches', 'payload', {
-				source: '$.active == true',
-				// @ts-expect-error -- Variables must be a JSON object.
-				variables: [],
-			}),
-		).toThrow(new TypeError('query JSONPath variables must be an object'))
-		expect(() =>
-			createQueryJsonPathFilter(
-				fixtureSchema,
-				'json-path-exists',
-				'documents',
-				{ source: '$[*]' },
-			),
-		).toThrow(
-			new TypeError(
-				'query operator json-path-exists does not support list fields',
-			),
-		)
 	})
 })

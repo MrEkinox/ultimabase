@@ -13,6 +13,7 @@ import {
 
 class GraphqlFixtureDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
 	}

@@ -34,10 +34,17 @@ export const createPostgresIndexName = (
 	tableName: string,
 	fields: readonly string[],
 	unique: boolean,
+	predicate?: string,
 ): string =>
 	createPostgresIdentifier(
-		`${tableName}_${fields.join('_')}_${unique ? 'uidx' : 'idx'}`,
-		[tableName, unique ? 'unique' : 'ordinary', ...fields],
+		`${tableName}_${fields.join('_')}_${predicate === undefined ? '' : 'p'}${unique ? 'uidx' : 'idx'}`,
+		[
+			tableName,
+			unique ? 'unique' : 'ordinary',
+			...fields,
+			// A changed predicate yields a new name, so synchronization replaces it.
+			...(predicate === undefined ? [] : ['where', predicate]),
+		],
 	)
 
 /** Names one managed pointer constraint without relying on PostgreSQL truncation. */

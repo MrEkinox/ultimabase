@@ -56,7 +56,6 @@ type FilterLeaf<TLeaf> = Readonly<
 type RuntimePrimitiveFilter = FilterLeaf<
 	| {
 			kind:
-				| 'contained-by'
 				| 'contains'
 				| 'ends-with'
 				| 'equal'
@@ -77,11 +76,6 @@ type RuntimePrimitiveFilter = FilterLeaf<
 	| { kind: 'list-empty' }
 	| { kind: 'has-key'; value: string }
 	| { kind: 'has-all-keys' | 'has-any-keys'; keys: readonly string[] }
-	| {
-			kind: 'json-path-exists' | 'json-path-matches'
-			source: string
-			variables?: Readonly<Record<string, unknown>>
-	  }
 	| {
 			kind: 'regex'
 			pattern: Readonly<{ flags: readonly QueryRegexFlag[]; source: string }>
@@ -301,7 +295,6 @@ const assertStructuredTarget = (
 }
 
 const compileStructural = (
-	kind: 'contained-by' | 'contains',
 	value: unknown,
 	target: PostgresFilterTarget,
 ): SQL => {
@@ -314,9 +307,7 @@ const compileStructural = (
 				: createPostgresValueCodec(target.plan).encode(value),
 	)
 
-	return kind === 'contains'
-		? sql`${target.jsonb} @> ${encoded}::jsonb`
-		: sql`${target.jsonb} <@ ${encoded}::jsonb`
+	return sql`${target.jsonb} @> ${encoded}::jsonb`
 }
 
 const compileContains = (value: unknown, target: PostgresFilterTarget): SQL => {
@@ -329,7 +320,7 @@ const compileContains = (value: unknown, target: PostgresFilterTarget): SQL => {
 
 	if (pluginContains !== undefined) return pluginContains
 	if (isStructuredTarget(target)) {
-		return compileStructural('contains', value, target)
+		return compileStructural(value, target)
 	}
 	if (target.plan?.kind !== 'scalar' || target.plan.field.kind !== 'string') {
 		throw new TypeError(
@@ -338,28 +329,6 @@ const compileContains = (value: unknown, target: PostgresFilterTarget): SQL => {
 	}
 
 	return compileString('contains', value, target)
-}
-
-const compileJsonPath = (
-	kind: 'json-path-exists' | 'json-path-matches',
-	source: string,
-	variables: Readonly<Record<string, unknown>> | undefined,
-	target: PostgresFilterTarget,
-): SQL => {
-	assertStructuredTarget(target, 'JSONPath')
-
-	if (variables === undefined) {
-		return kind === 'json-path-exists'
-			? sql`${target.jsonb} @? ${source}::jsonpath`
-			: sql`${target.jsonb} @@ ${source}::jsonpath`
-	}
-
-	const encoded = stringifyJsonbParameter(variables)
-
-	// Function forms preserve operator-style error suppression when variables are required.
-	return kind === 'json-path-exists'
-		? sql`jsonb_path_exists(${target.jsonb}, ${source}::jsonpath, ${encoded}::jsonb, ${true})`
-		: sql`jsonb_path_match(${target.jsonb}, ${source}::jsonpath, ${encoded}::jsonb, ${true})`
 }
 
 const compileRegex = (
@@ -431,8 +400,6 @@ const compilePrimitive = (
 			)
 		case 'contains':
 			return compileContains(filter.value, target)
-		case 'contained-by':
-			return compileStructural(filter.kind, filter.value, target)
 		case 'has-key':
 			assertStructuredTarget(target, 'key')
 			return sql`${target.jsonb} ? ${filter.value}`
@@ -442,14 +409,6 @@ const compilePrimitive = (
 		case 'has-all-keys':
 			assertStructuredTarget(target, 'key')
 			return sql`${target.jsonb} ?& ${sql.param(filter.keys)}::text[]`
-		case 'json-path-exists':
-		case 'json-path-matches':
-			return compileJsonPath(
-				filter.kind,
-				filter.source,
-				filter.variables,
-				target,
-			)
 		case 'starts-with':
 		case 'ends-with':
 			return compileString(filter.kind, filter.value, target)

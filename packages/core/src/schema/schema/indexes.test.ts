@@ -165,18 +165,37 @@ describe('schema indexes', () => {
 			}),
 		).toThrow(new TypeError('indexes[0].fields[1] must be a string'))
 
-		expect(() =>
+		// ADR-0303 lifts the two-field minimum; an empty list stays invalid.
+		expect(
 			UltimaBase.Schema.define({
 				className: 'ShortIndex',
 				fields: (field) => ({
 					title: field.string(),
 				}),
+				indexes: [{ fields: ['title'] }],
+			}).definition.indexes,
+		).toStrictEqual([{ fields: ['title'], unique: false }])
+		expect(() =>
+			UltimaBase.Schema.define({
+				className: 'EmptyIndex',
+				fields: (field) => ({
+					title: field.string(),
+				}),
 				indexes: [
-					// @ts-expect-error -- Composite indexes require two fields statically.
-					{ fields: ['title'] },
+					// @ts-expect-error -- An index names at least one field.
+					{ fields: [] },
 				],
 			}),
-		).toThrow(new TypeError('Composite index must contain at least two fields'))
+		).toThrow(new TypeError('Index must contain at least one field'))
+		expect(() =>
+			UltimaBase.Schema.define({
+				className: 'DuplicateFieldLevelIndex',
+				fields: (field) => ({
+					title: field.string({ indexed: 'unique' }),
+				}),
+				indexes: [{ fields: ['title'], unique: true }],
+			}),
+		).toThrow(new TypeError('Index duplicates the field-level index of title'))
 
 		expect(() =>
 			UltimaBase.Schema.define({

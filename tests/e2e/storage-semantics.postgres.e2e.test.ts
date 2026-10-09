@@ -163,18 +163,19 @@ describe('written storage semantics (ADR-0302)', { concurrent: false }, () => {
 				{ code: 'list-ba', tags: ['b', 'a'] },
 			],
 		})
-		const codes = async (where: Parameters<typeof Item.findMany>[0]['where']) =>
-			(await Item.findMany({ where, orderBy: { code: 'asc' } })).map(
-				({ code }) => code,
-			)
+		const codes = async (
+			filter: Readonly<{ eq: readonly string[] } | { has: string }>,
+		) =>
+			(
+				await Item.findMany({
+					where: { tags: filter },
+					orderBy: { code: 'asc' },
+				})
+			).map(({ code }) => code)
 
-		await expect(codes({ tags: { eq: ['a'] } })).resolves.toStrictEqual([
-			'list-a',
-		])
-		await expect(codes({ tags: { eq: ['a', 'b'] } })).resolves.toStrictEqual([
-			'list-ab',
-		])
-		await expect(codes({ tags: { has: 'a' } })).resolves.toStrictEqual([
+		await expect(codes({ eq: ['a'] })).resolves.toStrictEqual(['list-a'])
+		await expect(codes({ eq: ['a', 'b'] })).resolves.toStrictEqual(['list-ab'])
+		await expect(codes({ has: 'a' })).resolves.toStrictEqual([
 			'list-a',
 			'list-ab',
 			'list-ba',

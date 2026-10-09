@@ -28,6 +28,7 @@ const createDatabaseSupport = () => {
 	}
 	const adapter: DatabaseAdapter = {
 		kind: 'database-adapter',
+		checkHealth: (): Promise<void> => Promise.resolve(),
 		beginTransaction: () => Promise.resolve(transaction),
 		execute: unavailable,
 	}

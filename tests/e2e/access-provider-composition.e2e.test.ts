@@ -33,6 +33,7 @@ const editor = new RequestSubjectReference('role', 'fixture.editor')
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities: DatabaseAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 
@@ -110,6 +111,7 @@ class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 
 class CompositionWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
 		pluginFieldStructuralContains:

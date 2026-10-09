@@ -19,6 +19,7 @@ import {
 	readDrizzleIndexColumns,
 	readDrizzleIndexMethod,
 	readDrizzleIndexName,
+	readPostgresIndexPredicate,
 } from '../schema/index-compiler.js'
 import type { DesiredPostgresTable } from './contracts.js'
 
@@ -138,14 +139,17 @@ const compileDesiredTable = (
 			}),
 		),
 		indexes: immutableArray(
-			config.indexes.map((index) =>
-				immutableRecord({
+			config.indexes.map((index) => {
+				const name = readDrizzleIndexName(index)
+				const predicate = readPostgresIndexPredicate(name)
+				return immutableRecord({
 					columns: readDrizzleIndexColumns(index),
 					method: readDrizzleIndexMethod(index),
-					name: readDrizzleIndexName(index),
+					name,
+					...(predicate === undefined ? {} : { predicate }),
 					unique: index.config.unique,
-				}),
-			),
+				})
+			}),
 		),
 		name: config.name,
 	})

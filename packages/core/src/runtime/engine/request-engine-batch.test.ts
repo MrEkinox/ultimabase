@@ -22,6 +22,7 @@ describe('request engine batch boundary', () => {
 		let transactionStarts = 0
 		const database: DatabaseAdapter = {
 			kind: 'database-adapter',
+			checkHealth: (): Promise<void> => Promise.resolve(),
 			execute: () =>
 				Promise.reject(new Error('Empty batch must not execute SQL')),
 			beginTransaction: () => {

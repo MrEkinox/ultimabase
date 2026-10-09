@@ -243,6 +243,30 @@ describe('WhereInput', () => {
 		})
 	})
 
+	it('no longer accepts the operators removed by ADR-0301', () => {
+		for (const operator of [
+			'containedBy',
+			'jsonPathExists',
+			'jsonPathMatches',
+		]) {
+			expect(() =>
+				normalizeWhereInput(Post, {
+					metadata: { [operator]: { source: '$.a' } },
+				}),
+			).toThrow(`where.metadata.${operator} is not a supported where operator`)
+		}
+		const where = new WhereBuilder(Post)
+		expect('containedBy' in where).toBe(false)
+		expect('jsonPathExists' in where).toBe(false)
+		expect('jsonPathMatches' in where).toBe(false)
+		expect(() =>
+			normalizeWhereInput(Post, {
+				// @ts-expect-error -- ADR-0301 removes PostgreSQL-specific JSONPath.
+				metadata: { jsonPathExists: { source: '$' } },
+			}),
+		).toThrow('is not a supported where operator')
+	})
+
 	it('rejects malformed, unsupported, and circular objects', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {

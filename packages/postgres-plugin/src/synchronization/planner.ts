@@ -111,6 +111,7 @@ const planIndexes = (
 		if (
 			expected?.method === index.method &&
 			expected.unique === index.unique &&
+			(expected.predicate === undefined) === (index.predicate === undefined) &&
 			arraysEqual(index.columns, expected.columns)
 		) {
 			missing.delete(index.name)

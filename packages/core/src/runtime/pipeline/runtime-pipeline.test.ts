@@ -28,6 +28,7 @@ import type {
 } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { testDatabaseFilterOperators } from '../../../../../tooling/vitest/database-filter-operators.js'
 import { readRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 
 import {
@@ -57,7 +58,10 @@ describe('RuntimePipeline', () => {
 			[second, '0198f090-2a50-7000-8000-000000000092'],
 		])
 		const executor: DatabaseOperationExecutor = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			execute: <const TOperation extends DatabaseOperationAst>() =>
 				Promise.resolve(
 					immutableArray([
@@ -172,7 +176,10 @@ describe('RuntimePipeline', () => {
 		}
 		let executedOperation: DatabaseMutationOperationAst | undefined
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <
 				const TOperation extends DatabaseMutationOperationAst,
@@ -252,7 +259,10 @@ describe('RuntimePipeline', () => {
 			updatedAt: '2026-08-11T00:00:00.000Z',
 		})
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>() => {
 				trace.push('database:prepare')
@@ -331,7 +341,10 @@ describe('RuntimePipeline', () => {
 		const trace: string[] = []
 		let preparedRequest: DatabaseOperationRequest | undefined
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -388,7 +401,10 @@ describe('RuntimePipeline', () => {
 		let preparedRequest: DatabaseOperationRequest | undefined
 		let observedTargets: readonly unknown[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
-			capabilities: { persistencePlans: databasePersistencePlanCapability },
+			capabilities: {
+				filterOperators: testDatabaseFilterOperators,
+				persistencePlans: databasePersistencePlanCapability,
+			},
 			kind: 'database-transaction-adapter',
 			prepare: <const TOperation extends DatabaseMutationOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
