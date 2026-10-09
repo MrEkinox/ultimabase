@@ -26,6 +26,31 @@ Statut : phase 1 terminée ; phase 2 (API idéale par l'exemple) à démarrer le
 - Worktree `/Users/mrekinox/Desktop/ub-small` sur `main` ; dépôt principal sur
   `api-challenge`.
 
+## Suite décidée le 2026-10-09 (ordre)
+
+1. Finir la tranche verticale de la forme D (branche `spike/schema-form-d`),
+   puis accepter ADR-0297 et écrire les ADR des décisions de
+   [api-ideale-decisions.md](api-ideale-decisions.md), regroupés par thème.
+2. Migrer Core vers la forme D (fondation commune).
+3. **Revoir chaque plugin avec l'utilisateur, puis le migrer** en une seule
+   passe (forme D + API revue), à partir de sa fiche
+   [api-inventory/](api-inventory/) : présentation de ce qu'il propose, de ses
+   options et frictions, propositions argumentées (simplifier, supprimer,
+   renommer), décision, ADR, migration. Ordre : Access, Hooks, Validation ;
+   ACL, Roles, Password Auth ; Soft Delete, PostgreSQL, pg-vector ; HTTP,
+   REST, GraphQL, Hono ; Yoga, GraphiQL, Apollo Sandbox. ADR-0293 et ADR-0294
+   s'implémentent avec Access et les transports.
+4. create-app, exemples (`todo-backend` réécrit = spécification par
+   l'exemple), suppression de Typegen.
+5. Documentation (Twoslash pour les tutoriels, régions pour la référence,
+   README vérifiés en CI).
+6. Chantiers parallèles : façade `definePlugin`, TypeScript 7 pour l'outillage
+   du dépôt (LSP), migrations PostgreSQL.
+
+La préparation de la publication n'est pas planifiée : elle viendra quand tout
+le reste sera fait (changesets, audit en CI, `peerDependencies`, tests e2e de
+Core qui importent des plugins, signalement privé des failles).
+
 ## Objectif
 
 Trouver la meilleure API possible pour le développeur d'application :
