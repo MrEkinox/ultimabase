@@ -50,3 +50,18 @@ hooks des mutations de plugin, contributions des plugins tiers par
     besoin réel.
 11. **Gardé** : noms de phases Keystone, listes de hooks par phase (ordre de
     déclaration), hooks des mutations de plugin, API des plugins tiers.
+12. **Hooks globaux d'application** : `hooksPlugin({ global: { … } })` avec
+    les mêmes phases et la clé `all` ; `item` générique et `schema` pour savoir
+    lequel ; plus besoin d'écrire un plugin ni de recopier un hook d'audit
+    dans chaque schéma.
+13. **Règles d'`afterCommit` à spécifier** : exécution séquentielle dans
+    l'ordre global → `all` → opération, une erreur journalisée n'empêche pas
+    les suivants ; opérations en masse = un `afterCommit` par ligne après le
+    commit de toute la transaction ; la réponse au client n'attend pas les
+    `afterCommit` (utilitaire de test pour les attendre).
+14. **À vérifier dans le code** : limite de récursion des hooks avec message
+    clair ; appel des hooks et contenu de `changes` lors d'un lien de relation
+    stocké dans une table de jointure ; garantie de livraison des événements.
+15. **Absent volontairement** : aucune option pour désactiver les hooks
+    (`skipHooks`) ; Master contourne les droits, jamais les hooks ; la doc
+    explique pourquoi.
