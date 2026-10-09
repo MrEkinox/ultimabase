@@ -70,7 +70,7 @@ pour l'utilisateur et les rôles. `resolveInput` recalcule l'ACL à chaque
     - Désactiver l'ACL plus tard : la colonne et ses données restent (aucune
       suppression destructive), l'index est retiré.
 13. **Plus tard** : partage temporaire (droit avec date de fin), seulement sur
-    besoin réel. Un droit « partager » distinct est inutile (`clientChanges`
+    besoin réel. Un droit « partager » distinct est inutile (`clientSharing`
     le permet par une règle).
 
 Revue validée par l'utilisateur le 2026-10-09.
