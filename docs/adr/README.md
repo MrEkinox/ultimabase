@@ -289,7 +289,14 @@ Current records (accepted or still active in part):
 
 Proposed records (awaiting user validation):
 
-- None.
+- [ADR-0299: Database adapters enforce a written referential-integrity contract](0299-adapter-enforced-referential-integrity.md)
+- [ADR-0300: Retry automatic mutation transactions on transient conflicts](0300-retry-automatic-mutation-transactions.md)
+- [ADR-0301: Database adapters declare the filter operators they execute](0301-adapter-declared-filter-operators.md)
+- [ADR-0302: Neutral storage errors and written storage semantics](0302-neutral-storage-errors-and-semantics.md)
+- [ADR-0303: Partial indexes and application health in Core](0303-core-partial-indexes-and-health.md)
+- [ADR-0304: Neutral current principal and policy predicates](0304-neutral-current-principal-and-policy-predicates.md)
+- [ADR-0305: Public application errors and policy queries in Core](0305-public-errors-and-can.md)
+- [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
 
 Superseded records:
 
