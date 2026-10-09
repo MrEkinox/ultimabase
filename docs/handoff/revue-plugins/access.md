@@ -86,9 +86,35 @@ documentation explique quand utiliser l'un ou l'autre.
     utilisable aussi dans `allowWithoutRule`.
 13. **Hors périmètre** : l'isolation multi-tenant sera un plugin séparé, prévu
     plus tard par l'utilisateur.
-14. **À vérifier dans le code** : écritures imbriquées soumises aux règles du
-    schéma cible, `include` filtrés par les règles du schéma cible, résultat
-    d'une création ou mise à jour non relisible par l'appelant.
+14. **Vérification du code (2026-10-09, lecture seule, `main` 116cf14e)** :
+    - Écritures imbriquées : **couvertes**. Chaque enfant est une opération
+      à part entière évaluée contre les règles de **son** schéma (création,
+      mise à jour, `item`, règles d'écriture de champ) ; une cible cachée de
+      `connect`/`set` répond `NOT_FOUND` comme une cible absente ; tout le
+      graphe est annulé en cas de refus. Asymétrie voulue : une arête de
+      relation propriétaire (table de jointure) n'exige pas le droit `update`
+      de la cible, une arête par pointeur inverse l'exige.
+    - `include` : **couverts**. Chaque inclusion est une lecture du schéma
+      cible (décision, filtre `read.where` dans la requête, règles de sortie
+      des champs) ; une cible cachée devient `null` (pointeur) ou `[]`
+      (relation), sans fuite. Quelques branches sans test.
+    - **Faille 1, à décider** : le résultat d'une création, mise à jour,
+      upsert ou suppression n'applique pas les règles `read` de ligne
+      (voulu par ADR-0180) ; seules les règles de champ masquent. Qui peut
+      créer ou modifier peut relire toute la ligne que `read` lui cache
+      (valeurs par défaut, valeurs posées par les hooks, colonnes non
+      modifiées).
+    - **Faille 2, à décider** : affecter un `Pointer` brut
+      (`author: Author.pointer(id)`) ne vérifie pas que la cible est
+      visible ; on peut lier une ligne cachée et deviner son existence
+      (succès contre erreur de clé étrangère). Seul `{ connect }` vérifie.
+      Lié à la décision 11 des formes (un `Pointer` partout pour lier) :
+      la vérification de visibilité doit s'appliquer à toute affectation de
+      pointeur.
+    - Tests manquants relevés : règles d'écriture de champ et `update.where` /
+      `update.item` sur des enfants imbriqués, pointeur caché par `where`,
+      règles de sortie sur les lignes incluses, résultat illisible d'une
+      mutation, `select` d'un champ caché dans une mutation.
 
 Les mutations de plugin (`softDelete`, `archive`…) gardent leur clé propre
 dans `access`, avec la même forme (fonction ou `{ where, item }`) ; leur
