@@ -40,3 +40,17 @@ validation sur mesure reste un plugin (micro-noyau).
 8. **Gardé** : format `VALIDATION_ERROR` avec `{ path, message }` (400 en REST) ;
    aucune option de plugin ; pas de déduction des types de champ depuis le
    validateur (`field.zod()` rejeté).
+9. **`check()`** : valider sans écrire (formulaires, imports, tests),
+   mêmes validations de champ et de schéma, sans transaction :
+   `ultimabase.plugin(validationPlugin).check(Todo, { data })` →
+   `{ valid: true }` ou `{ valid: false, issues }`.
+10. **Toutes les erreurs en une réponse** : à vérifier dans le code ; correctif
+    si le plugin s'arrête à la première.
+11. **Code stable par erreur** : un validateur-fonction peut renvoyer
+    `{ message, code }`, transmis au client (traduction, réaction ciblée).
+12. **Plus tard** : contraintes sur le nombre d'éléments d'une relation
+    (« 10 tags maximum »), si le besoin se présente.
+13. **Revue des transports** : partager les contraintes avec les clients
+    (export OpenAPI pour REST, équivalent GraphQL).
+
+Revue validée par l'utilisateur le 2026-10-09.
