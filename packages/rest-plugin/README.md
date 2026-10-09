@@ -296,8 +296,10 @@ the fixed non-retryable `REST_INTERNAL_ERROR` response.
 
 Malformed input and unsupported versions return `400`; permission and Master
 denials return `403`; missing routes and targets return `404`; unacceptable
-representations return `406`; oversized bodies return `413`; unsupported media
-returns `415`; validation returns `422`; and unexpected failures return `500`.
+representations return `406`; unique, reference and transient transaction
+conflicts (`UNIQUE_VIOLATION`, `REFERENCE_VIOLATION`, `TRANSACTION_CONFLICT`)
+return `409`; oversized bodies return `413`; unsupported media returns `415`;
+validation returns `422`; and unexpected failures return `500`.
 HTTP-owned application or credential rejection remains `401`, while its
 deadline boundary remains `408`.
 

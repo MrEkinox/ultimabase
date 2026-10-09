@@ -7,7 +7,7 @@ contentType: concept
 order: 7
 outcome: Group related writes, handle failures, and place external effects after commit.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/docs/runtime.md
@@ -17,6 +17,8 @@ sources:
   - docs/adr/0099-automatic-mutation-transactions.md
   - docs/adr/0107-hook-context-capabilities-and-events.md
   - docs/adr/0172-focused-schema-hook-results.md
+  - docs/adr/0300-retry-automatic-mutation-transactions.md
+  - docs/adr/0302-neutral-storage-errors-and-semantics.md
 ---
 
 Every root create, update, upsert, or delete runs in a database transaction.
@@ -131,6 +133,59 @@ External effects such as emails or HTTP requests made directly inside a
 transaction callback are not undone by a database rollback. Keep those
 effects behind post-commit delivery. Public schema `beforeCommit` and
 `afterCommit` callbacks do not exist.
+
+## Conflicts and retries
+
+When the database aborts a transaction because of a concurrent one (a
+serialization failure or a deadlock in PostgreSQL), the adapter reports
+`TRANSACTION_CONFLICT` with `retryable: true`, after a complete rollback.
+Core replays an automatic mutation transaction (one schema mutation, a
+collection command, a nested write graph or a transactional plugin operation)
+at most three times in total, after a short random delay. Each attempt starts
+again from normalization: Access, Hooks, `resolveInput` and nested writes run
+again and generated identifiers and timestamps are regenerated. Events of a
+failed attempt are discarded; those of the committed attempt are delivered
+once. No attempt starts after the request is cancelled or past its deadline.
+
+Every callback that runs inside the transaction may therefore run several
+times for one call: keep it free of effects outside the transaction. Writes
+through the UltimaBase API are fine because they join the transaction; send
+emails, queue messages or HTTP calls from post-commit events.
+
+`request.transaction(callback)` is never replayed, because Core cannot know
+whether your callback is safe to run twice. It rejects with
+`TRANSACTION_CONFLICT`; retry the whole callback yourself when it is safe:
+
+```ts title="src/transfer-with-retry.ts"
+import { FrameworkError, requestSources } from '@ultimabase/core'
+
+import { ultimabase } from './ultimabase.js'
+
+export const runWithRetry = async <TResult>(
+	work: () => Promise<TResult>,
+): Promise<TResult> => {
+	for (let attempt = 1; ; attempt += 1) {
+		try {
+			return await ultimabase
+				.anonymous({
+					requestId: crypto.randomUUID(),
+					source: requestSources.internal,
+				})
+				.transaction(work)
+		} catch (error: unknown) {
+			const conflict =
+				error instanceof FrameworkError && error.code === 'TRANSACTION_CONFLICT'
+			if (!conflict || attempt === 3) throw error
+		}
+	}
+}
+```
+
+Isolation is at least read-committed: each statement sees committed data and
+its own transaction's writes, the target of an update, delete or upsert stays
+stable from loading to commit, and atomic updates such as `increment` never
+lose a concurrent update. Transactions are not serializable: two transactions
+reading different rows and writing based on what they read can both commit.
 
 ## Next steps
 

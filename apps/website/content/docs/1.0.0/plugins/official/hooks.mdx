@@ -8,7 +8,7 @@ audience:
 contentType: concept
 outcome: Choose and configure the right Hook phase for input, mutation, or post-commit behavior.
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-09
 sources:
   - packages/hooks-plugin/README.md
   - packages/hooks-plugin/src/authoring/contracts.ts
@@ -22,6 +22,7 @@ sources:
   - examples/minimal/src/schema.ts
   - docs/adr/0161-compact-field-operation-hooks.md
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
+  - docs/adr/0300-retry-automatic-mutation-transactions.md
   - docs/adr/0172-focused-schema-hook-results.md
   - docs/adr/0202-hooks-are-one-vertical-plugin.md
   - docs/adr/0274-canonical-operation-cancellation.md
@@ -196,6 +197,13 @@ Both operation groups run before commit. In the configuration example,
 throwing from either Hook rolls back both the post and its title-change row.
 Do not send email or publish to an external broker directly from
 `afterOperation`: that effect cannot be rolled back if the transaction fails.
+
+Every callback except post-commit event consumers may also run several times
+for one call: when the database reports a transient conflict, Core replays the
+whole automatic mutation transaction, Hooks included (at most three attempts).
+Keep Hooks free of effects outside the transaction; writes through UltimaBase
+join it and are rolled back with each failed attempt. Events emitted by a
+failed attempt are discarded.
 
 Use `context.emit()` to queue a JSON event for delivery after a successful
 commit. The provider ranges below target this `1.0.0` documentation line.

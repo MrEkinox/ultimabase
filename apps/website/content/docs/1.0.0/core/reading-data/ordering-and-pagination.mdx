@@ -7,7 +7,7 @@ contentType: guide
 order: 4
 outcome: Request a bounded Core page with an explicit, unique order and a valid offset.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-09
 sources:
   - packages/core/docs/query.md
   - packages/core/src/query/query/input.ts
@@ -15,6 +15,7 @@ sources:
   - packages/core/src/query/clauses/pagination.ts
   - docs/adr/0174-object-ordering-inputs.md
   - docs/adr/0227-core-query-exposes-offset-not-cursors.md
+  - docs/adr/0302-neutral-storage-errors-and-semantics.md
 ---
 
 ## Outcome
@@ -70,7 +71,8 @@ also rejects invalid page indexes before executing a read.
 `null` skips that field. The first non-null property has highest priority.
 Core adds neither default ordering nor an `id` tie-breaker: without a complete
 order, two reads may return tied records in different positions. A field may be
-used for ordering without being included in `select`.
+used for ordering without being included in `select`. Every database adapter
+sorts `null` last, in ascending and descending order alike.
 
 ## Verify
 

@@ -9,7 +9,7 @@ contentType: guide
 order: 3
 outcome: Configure the PostgreSQL plugin, choose a direct schema policy, and diagnose startup failures.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-09
 sources:
   - docs/adr/0266-defer-migration-only-protocols.md
   - docs/adr/0292-environment-aware-postgres-schema-policy.md
@@ -19,6 +19,12 @@ sources:
   - packages/postgres-plugin/src/connection/managed-connection.ts
   - packages/postgres-plugin/src/synchronization/preparer.ts
   - docs/adr/0080-postgres-index-compilation.md
+  - docs/adr/0299-adapter-enforced-referential-integrity.md
+  - docs/adr/0300-retry-automatic-mutation-transactions.md
+  - docs/adr/0301-adapter-declared-filter-operators.md
+  - docs/adr/0302-neutral-storage-errors-and-semantics.md
+  - docs/adr/0303-core-partial-indexes-and-health.md
+  - packages/postgres-plugin/src/drizzle/operation-error.ts
 ---
 
 ## Overview
@@ -172,8 +178,27 @@ target used by [Unique Upserts](/docs/1.0.0/core/writing-data/upserts).
 A declaration does not prove that an existing database already has the index.
 `override` applies supported changes; `fail` reports drift; `ignore` does
 not check. Review existing data before adding uniqueness: duplicate values
-make index creation fail. PostgreSQL permits multiple `NULL` values in a
-unique index, so also declare `required: true` when absence must be forbidden.
+make index creation fail. Several `NULL` values never conflict in a unique
+index, so also declare `required: true` when absence must be forbidden.
+
+A partial index compiles to `CREATE [UNIQUE] INDEX ... WHERE ...`. Its physical
+name includes a hash of the predicate, so `override` replaces an index whose
+predicate changed.
+
+### Errors, conflicts, and health
+
+PostgreSQL enforces referential actions with foreign keys inside the
+operation's transaction. Driver failures become neutral Core errors: SQLSTATE
+23505 is `UNIQUE_VIOLATION` (with the logical schema and index fields), 23503 is
+`REFERENCE_VIOLATION`, and 40001 or 40P01 (serialization failure, deadlock) is
+the retryable `TRANSACTION_CONFLICT`, which Core retries for automatic
+mutation transactions. Other data and integrity errors stay
+`VALIDATION_ERROR`. Each statement runs at `READ COMMITTED`, and mutation
+targets are locked with `SELECT ... FOR UPDATE` until commit.
+
+The adapter declares every built-in filter operator and partial indexes, and
+answers `ultimabase.health()` with a trivial query on its pool. No `ping()`
+helper is exported.
 
 ### Connection and data boundaries
 

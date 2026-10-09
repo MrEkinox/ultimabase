@@ -1079,8 +1079,8 @@ const matching = await Post.findMany({
 `eq` and `ne` compare the complete list, `has` tests one element, and
 `hasSome`/`hasEvery` test candidate sets. `isEmpty: true` applies only to a
 non-null empty list; `isNull` and `isNotNull` retain complete-value nullability
-semantics. Multidimensional data uses `jsonField()` and its structural or
-JSONPath filters instead of typed list operators.
+semantics. Multidimensional data uses `jsonField()` and its structural
+filters instead of typed list operators.
 
 Structured filters use the same flat vocabulary for dynamic JSON and typed
 objects. Object containment accepts recursive partial values, and object keys
@@ -1092,10 +1092,6 @@ const visible = await Post.findMany({
 		metadata: {
 			contains: { visibility: 'public' },
 			hasAllKeys: ['visibility', 'category'],
-			jsonPathExists: {
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			},
 		},
 		profile: {
 			at: [
@@ -1119,11 +1115,13 @@ schema fields. Since persisted typed objects contain every declared key,
 their root key checks are normally redundant; the same operators are primarily
 useful for dynamic JSON branches.
 
-`jsonPathExists()` and `jsonPathMatches()` are explicit advanced escape hatches.
-Their JSONPath source string is intentionally untyped, but the target remains a
-JSON or object structure and variables remain immutable portable JSON. On an
-`objectField`, the expression observes encoded JSONB values, including child
-storage codecs such as bigint strings.
+ADR-0301 removed the PostgreSQL-specific `jsonPathExists`, `jsonPathMatches`
+and `containedBy` operators from the builder, serialized `where`, REST and
+GraphQL. Each database adapter declares the operators it executes per field
+family (`filterOperators`); Core rejects any other operator with a public
+`VALIDATION_ERROR` naming the field and operator before the adapter runs, and a
+protected filter with an undeclared operator with a generic message. `matches`
+accepts only the portable regular-expression subset of ADR-0302.
 
 Relation handles expose atomic logical mutations without join-row commands:
 
@@ -1367,6 +1365,18 @@ const imported = await PostSchema.createMany({
 	select: { id: true, title: true },
 })
 ```
+
+When the adapter reports a transient `TRANSACTION_CONFLICT` (ADR-0300), Core
+replays an automatic mutation transaction — one schema mutation, collection
+command, nested write graph, schema-mutation command, transactional plugin
+operation or private-storage write — at most three times in total after a short
+random delay. Each attempt restarts from normalization, so Access, Hooks,
+`resolveInput` and nested writes run again and generated identifiers are
+regenerated; post-commit effects of failed attempts are discarded. No attempt
+starts after cancellation. Callbacks running inside a transaction must have no
+effect outside it. An explicit `transaction()` callback is never replayed and
+rejects with `TRANSACTION_CONFLICT`. Retries log at debug level and exhaustion
+logs a warning, with operation, schema, attempt and code only.
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
@@ -1727,6 +1737,12 @@ includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
 
+Database adapters report three neutral storage failures (ADR-0302):
+`UNIQUE_VIOLATION` with `publicDetails: { schema, fields }` (index fields,
+never values), `REFERENCE_VIOLATION` naming only the schema of the deleted or
+written row, and the retryable `TRANSACTION_CONFLICT`. Other rejections stay
+`VALIDATION_ERROR`.
+
 Plugin engines that observe an `AbortSignal` at a safe cooperative boundary can
 use the same cancellation failure as Core Runtime:
 
@@ -1804,6 +1820,42 @@ Legacy service tokens and string slots have no compatibility bridge. A former
 exclusive service maps to a `single` application capability, while behavior
 intended for application developers is exposed through the owning plugin's
 typed setup export.
+
+### Database adapter contract
+
+Core owns the storage contract; each adapter enforces it with what its database
+offers and Core does not emulate it.
+
+- **Referential integrity (ADR-0299).** After every commit, each non-null
+  pointer and private-storage reference designates an existing row. `restrict`
+  (default) and private `fail` reject deleting a referenced row with
+  `REFERENCE_VIOLATION`; `cascade` deletes referencing rows transitively in the
+  same transaction (a `restrict` in the chain fails everything); `setNull`
+  clears optional pointers. Cascades are physical: no Hooks, Access, ACL, Soft
+  Delete rewrite or event on referencing rows. A write referencing a row and a
+  concurrent deletion of that row never both commit with a dangling reference.
+  Soft deletion triggers no referential action.
+- **Conflicts (ADR-0300).** A failure is transient only when the adapter
+  guarantees a complete rollback; it reports `TRANSACTION_CONFLICT` with
+  `retryable: true`. An unknown commit outcome is never transient.
+- **Semantics (ADR-0302).** Several `null`s never conflict in a unique index;
+  a partial unique index applies only to matching rows; `null` sorts last in
+  both directions; equality on a list or JSON array compares the whole value;
+  each statement sees committed data and its own writes, mutation targets stay
+  stable from loading to commit and atomic updates never lose a concurrent
+  update (serializability is not promised); decimals are stored and returned
+  exactly, and an adapter that cannot hold a declared precision refuses to
+  start.
+- **Capabilities (ADR-0301, ADR-0303).** `filterOperators` lists the built-in
+  filter discriminants executed per field family (a missing entry means
+  unsupported); `partialIndexes` allows indexes with `where`. Application start
+  fails with `PLUGIN_ADAPTER_CAPABILITY_MISSING` when a partial index, its
+  operators, a plugin containment field or a relation field needs a capability
+  the adapter lacks.
+- **Health (ADR-0303).** `checkHealth(signal)` is required; it backs
+  `ultimabase.health()`, which resolves to `'OK'` when the application is
+  started and the database answers within two seconds and to `'DEGRADED'`
+  otherwise, never throwing and logging the cause only on the server.
 
 ### Adapter boundaries
 
@@ -2251,7 +2303,7 @@ JSON fragment. Query and protected `rowFilter` authoring reuse the ordinary
 inert schema and generated artifacts retain no callback. Adapters must announce
 the exact `databasePluginFieldStructuralContainsCapability` marker before Core
 sends such a leaf. Lists remain unsupported, and the opt-in does not grant
-`containedBy` or other operators. See the
+any other operator. See the
 [`community field example`](examples/schema/plugin-field-containment.md).
 
 ## Plugin-owned declaration targets

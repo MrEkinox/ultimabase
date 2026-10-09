@@ -22,6 +22,8 @@ sources:
   - docs/adr/0281-retain-generated-where-contracts.md
   - docs/adr/0297-declare-schemas-without-typegen.md
   - packages/core/src/schema/schema/schema-declaration-chain.ts
+  - packages/core/src/schema/schema/index-predicates.ts
+  - docs/adr/0303-core-partial-indexes-and-health.md
   - packages/typegen/README.md
 ---
 
@@ -78,13 +80,15 @@ Set `indexed: true` on a stored field for an ordinary index, or
 use `indexed: false` when no index is needed. The `slug` field in the first
 example is unique across all `DocsArticle` records; `published` is not unique.
 An index does not make a field required: `required` and uniqueness are separate
-decisions. If absence must be forbidden, also set `required: true`; an
-adapter's treatment of nulls in a unique index is a physical database rule.
+decisions. If absence must be forbidden, also set `required: true`. A row with
+`null` in an indexed field never conflicts: several rows may hold `null` in a
+unique field. A duplicate fails with `UNIQUE_VIOLATION`, whose public details
+list the schema and the index fields, never the values.
 
 ### Index a combination
 
-Use the schema-level `indexes` array when the index covers at least two
-distinct top-level fields. The first example indexes `published` together with
+Use the schema-level `indexes` array when the index covers several distinct
+top-level fields or needs a `where` predicate. The first example indexes `published` together with
 the framework-owned `createdAt` field. The order in `fields` is preserved;
 put the columns in the order that serves your common query pattern, then check
 the database's query plan when performance matters. The database planner, not
@@ -113,10 +117,39 @@ export const TenantArticle = UltimaBase.Schema.define({
 The first index forbids two articles with the same `tenantId` **and** `slug`,
 but permits the same slug in different tenants. The second is an ordinary
 index for tenant-scoped chronological reads; it permits duplicates. `unique`
-defaults to `false`. Core rejects repeated or unknown fields and a composite
-entry with fewer than two fields. Index only top-level stored fields or
-framework-owned system fields, not an embedded child, relation, or virtual
-result.
+defaults to `false`. Core rejects repeated or unknown fields, an empty `fields`
+list, and an entry identical to a field-level `indexed` declaration. Index only
+top-level stored fields or framework-owned system fields, not an embedded
+child, relation, or virtual result.
+
+### Index part of the rows
+
+A `where` predicate restricts an index to the rows it matches; with `unique`,
+values must be distinct only among those rows. With the generation-free form,
+declare `indexes` in the final `.with`, which sees every field, including
+fields added by shape methods such as `.softDelete()`:
+
+```ts title="src/article.ts"
+import { App } from './app.js'
+
+export const Article = App.Schema.define({
+	className: 'Article',
+	fields: (f) => ({ slug: f.string({ required: true }) }),
+})
+	.softDelete()
+	.with({
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	})
+```
+
+A deleted article no longer reserves its slug. The predicate is static and
+portable: equality (a literal or `eq`), `gt`, `gte`, `lt` and `lte` on scalar
+non-list fields, null tests (`null`, `isNull`, `isNotNull`) and conjunction
+(several keys or `AND`). `OR`, `NOT`, `ne`, `in`, string, list, JSON, relation
+and plugin operators are rejected by type and when the schema is compiled. The
+database adapter must support partial indexes and the predicate's operators;
+otherwise the application refuses to start with
+`PLUGIN_ADAPTER_CAPABILITY_MISSING`.
 
 Every unique declaration can be an exact [upsert target](/docs/1.0.0/core/writing-data/upserts#choose-a-valid-target).
 The database plugin creates and enforces physical indexes; Core records
