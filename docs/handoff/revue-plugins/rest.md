@@ -6,7 +6,7 @@ Les décisions qui changent un contrat public donneront un ADR à la migration.
 
 ## Concept
 
-Conservé : routes générées par schéma à la Parse (`/api/v1/classes/{Schema}`),
+Conservé : routes générées par schéma à la Parse (`/api/classes/{Schema}`, voir décision 13),
 opérations des plugins et commandes de schéma exposées, exécution par Core
 (jamais de SQL), exposition réglable par schéma. Déjà réglé : `/count`
 désactivé → 404 (2026-10-08) ; refus de démarrer quand des écritures
@@ -42,7 +42,7 @@ publiques n'ont ni politique ni `publicWrites: true` (ADR-0294),
    `{ result }`, codecs de champ, `basePath`, `maxLimit`, `instanceId` (deux
    API distinctes, publique et interne).
 9. **OpenAPI** : `restPlugin({ openapi: true })` publie
-   `/api/v1/openapi.json` (routes exposées, champs, types, contraintes de
+   `/api/openapi.json` (routes exposées, champs, types, contraintes de
    validation quand le validateur sait les décrire) ; aucune règle d'accès
    révélée.
 10. **Pagination par curseur** (`?after=…`, même mécanisme que GraphQL), en
@@ -52,5 +52,14 @@ publiques n'ont ni politique ni `publicWrites: true` (ADR-0294),
     à la `/batch` de Parse.
 12. **Documenté** : `where` en JSON reste la seule forme de filtre (pas de
     filtres simples dans l'URL, conflits avec les paramètres réservés).
+
+13. **Plus de version dans l'URL** (décidé après la revue) : préfixe par
+    défaut `/api` (`/api/classes/Todo`, `/api/auth/login`) au lieu de
+    `/api/v1`, car le `v1` est la version du protocole REST d'UltimaBase, lue
+    à tort comme celle de l'API de l'application ; version du protocole dans
+    l'en-tête `X-UltimaBase-Rest-Version` ; `basePath` entièrement libre
+    (`/api/v1` possible pour versionner sa propre API) ; un éventuel
+    changement de format se choisira par option (`protocol: 2`) sans changer
+    les URL. La route de santé reste `/health` à la racine.
 
 Revue validée par l'utilisateur le 2026-10-09.
