@@ -45,3 +45,15 @@ chaque réponse.
 9. **Fin de la revue des transports** : un utilitaire ou un paquet regroupé
    pour lancer REST et GraphQL sans déclarer les sept paquets un à un
    (demande de l'utilisateur).
+10. **En-têtes de sécurité par défaut** (réglables) : `X-Content-Type-Options:
+nosniff`, interdiction d'affichage en `iframe`, HSTS en HTTPS.
+11. **Journal des requêtes** `accessLog: true` : méthode, chemin, statut,
+    durée, identifiant de requête ; jamais le corps ni les secrets.
+12. **Taille maximale du corps** au niveau HTTP (1 Mo par défaut), réglable
+    globalement et par route ; REST garde la sienne.
+13. **Contraintes notées** : un plugin doit pouvoir prendre la main sur une
+    connexion (futur plugin Realtime : WebSocket, SSE) ; envoi de fichiers
+    `multipart` pour le futur plugin Files ; compression vue avec Hono.
+14. **Plus tard** : ETag et cache conditionnel, traçage OpenTelemetry.
+
+Revue validée par l'utilisateur le 2026-10-09.
