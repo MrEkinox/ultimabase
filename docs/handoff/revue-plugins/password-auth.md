@@ -36,3 +36,37 @@ authentification HTTP par `Bearer` et cookie `__Host-` en option.
    cookie `__Host-`, stockage privé, exposition seulement si listée.
 9. **Reporté à la revue des transports** : la liste d'opérations répétée dans
    `restPlugin({ operations })` et `graphqlPlugin({ operations })`.
+
+## Restructuration décidée : socle d'authentification et méthodes
+
+Décidée le 2026-10-09 (ADR à la migration ; remplace la décision 1 pour le
+nom de la fabrique et déplace la décision 3) : besoin proche d'OAuth et de
+plusieurs méthodes liées au même utilisateur.
+
+- **Socle `authPlugin`** : schéma utilisateur (`App.UserSchema.define`, un par
+  instance), sessions uniques quelle que soit la méthode, principal courant
+  (capacité neutre), transport HTTP (`Bearer`, cookie, un seul préfixe),
+  liaison de comptes.
+- **Méthodes en paquets séparés**, qui dépendent du socle mais jamais les unes
+  des autres : `password` (code actuel déplacé ; `identifier: 'username' |
+'email'`), `oauth` (Google, GitHub et fournisseur OpenID Connect générique),
+  puis méthodes de la communauté (lien magique, passkeys, SAML…).
+
+  ```ts
+  authPlugin({
+  	methods: [
+  		password({ identifier: 'email' }),
+  		oauth.google({ clientId, clientSecret }),
+  	],
+  })
+  ```
+
+- **Liaison de comptes** : même concept que les `authData` de Parse, mais en
+  collection privée (une ligne `{ user, provider, providerUserId, … }`, index
+  unique `(provider, providerUserId)`, jetons des fournisseurs jamais dans la
+  ligne utilisateur, plusieurs comptes par fournisseur possibles) ; fonction
+  listant les méthodes liées d'un utilisateur. Option
+  `linking: 'verified-email' | 'manual'`, liaison automatique seulement par
+  e-mail vérifié des deux côtés (défaut).
+- Le paquet `password-auth-plugin` se scinde en `auth-plugin` et méthode
+  `password`.
