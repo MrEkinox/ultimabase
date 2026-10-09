@@ -36,7 +36,7 @@ et GraphQL (découverte générique des commandes), `purge` réservé à Master.
 6. **Restauration par l'utilisateur** : règle `restore` dans Access, fermée
    par défaut ; `purge` reste réservé à Master.
 7. **Index uniques partiels** : par le mécanisme générique d'index partiel
-   du plugin PostgreSQL (revue PostgreSQL, décision 5) :
+   de Core (voir adaptateurs.md) :
    `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]` ;
    jamais automatique ; la doc de Soft Delete montre cet exemple.
 8. **Plus tard** : suppression en cascade, purge automatique après N jours

@@ -36,7 +36,7 @@ propose pourtant.
    aux résultats ; extension `vector` vérifiée au démarrage avec un message
    clair ; codecs REST et GraphQL fournis par le plugin.
 
-4. **Neutre ou propre à PostgreSQL** (plugin `vector` neutre implémenté par
+4. **Neutre (tranché par l'audit : plugin `vector` neutre et une implémentation par adaptateur, voir adaptateurs.md)** — question initiale : neutre ou propre à PostgreSQL (plugin `vector` neutre implémenté par
    chaque adaptateur, ou plugin PostgreSQL) : tranché avec l'audit des
    adaptateurs de base.
 

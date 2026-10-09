@@ -32,7 +32,7 @@ l'échec de connexion (ADR-0296).
    le résumé n'existe que dans les erreurs) : une ligne par modification.
 4. **Réglages de connexion en mode `url`** :
    `postgresPlugin({ connection: { max, ssl, statementTimeoutMs, … } })`.
-5. **Index partiels génériques** :
+5. **Index partiels génériques** (déplacés dans Core par l'audit des adaptateurs, voir adaptateurs.md) :
    `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`,
    filtre typé avec le vocabulaire `where` ; remplace `ignoreDeleted` de la
    revue Soft Delete (aucun lien entre les deux plugins).
@@ -47,7 +47,7 @@ l'échec de connexion (ADR-0296).
 9. **Nouvelles tentatives de connexion au démarrage** :
    `connection: { connectRetries: 5 }` (délai croissant), utile avec Docker et
    Kubernetes en production.
-10. **`ping()`** sur l'export du plugin, pour les sondes de santé (la route
+10. **Santé** (remplacé par `ultimabase.health()` neutre de Core, voir adaptateurs.md) : `ping()` sur l'export du plugin, pour les sondes de santé (la route
     `/health` relève des transports).
 11. **Débogage** : `debug: { logQueries, slowQueryMs }` (requêtes et durées,
     jamais les valeurs ; le seuil de lenteur est utilisable en production).
