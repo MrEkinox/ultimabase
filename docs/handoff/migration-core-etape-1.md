@@ -44,10 +44,9 @@ Preuves (sur `dist` et `*.tsbuildinfo` nettoyés) :
 - `yarn validate:full` : exit 0 ; couverture 657 fichiers, 3151 tests ;
   website 17 fichiers, 66 tests ; lint 0 erreur.
 - `yarn test:e2e:built` : exit 0, 107 fichiers, 438 tests.
-- Après le dernier changement de types (d8912f35) : `yarn typecheck` vert,
-  `vitest --project unit --project types packages/core
-packages/soft-delete-plugin` : 292 fichiers, 1500 tests, aucune erreur de
-  type.
+- Relancés sur 1e34b854 (après le dernier changement de types) :
+  `yarn validate:full` exit 0 (mêmes comptes) et `yarn test:e2e:built` exit 0
+  (107 fichiers, 438 tests).
 - Audit DX contre `main` construit (f631f8fe), `--only` tous les paquets,
   `tests`, `examples/minimal`, `examples/todo-backend` (l'exemple
   `schema-form-d` fait planter l'outil : clé dupliquée `ACLContainmentOperand`
