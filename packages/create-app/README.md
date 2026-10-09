@@ -18,10 +18,10 @@ When REST or GraphQL is selected, its exposure option and exact operation
 allowlist join that factory before schema declaration. The Runtime module extends the same
 flat chain with database, HTTP, Hono, and other selected plugins instead of
 repeating a plugin list.
-Hooks, Validation, Soft Delete, and PostgreSQL Vector can be selected today.
-The Task example configures schema-local Hooks, Validation, and recoverable
-native deletes when selected. Vector remains a logical value contract here;
-the starter does not persist vectors or claim vector search. Password Auth,
+Hooks, Validation, and Soft Delete can be selected today. The Task example
+configures schema-local Hooks, Validation, and recoverable native deletes when
+selected. PostgreSQL Vector is not offered until it persists vector fields;
+`--plugin @ultimabase/pg-vector-plugin` fails with that reason. Password Auth,
 Access, Roles, and Object ACLs also generate valid application graphs. Password
 Auth declares User through `PasswordUserSchema.define(SchemaApplication.Schema, ...)`,
 matching the configured Role form, and adds sessions without granting Task access. When Access

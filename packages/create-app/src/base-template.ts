@@ -49,7 +49,6 @@ const dependencyOrder: readonly PluginId[] = [
 	'graphiql-plugin',
 	'apollo-sandbox-plugin',
 	'hooks-plugin',
-	'pg-vector-plugin',
 	'soft-delete-plugin',
 	'validation-plugin',
 ]
@@ -57,7 +56,6 @@ const dependencyOrder: readonly PluginId[] = [
 /** Data and behavior plugins installed on the schema factory: [plugin, factory, entry]. */
 const behaviorPlugins: readonly (readonly [PluginId, string, string])[] = [
 	['hooks-plugin', 'hooksPlugin', 'hooksPlugin()'],
-	['pg-vector-plugin', 'pgVectorPlugin', 'pgVectorPlugin()'],
 	[
 		'soft-delete-plugin',
 		'softDeletePlugin',
@@ -245,10 +243,6 @@ const behaviorReadmeNotes = (plan: InitializerPlan): string[] => {
 		[
 			has(plan, 'soft-delete-plugin') && task,
 			`Soft Delete replaces native Task deletion with a recoverable tombstone. Restore and purge require trusted, audited Master access; ${needsMasterKey(plan) ? 'this starter configures local Master for development but does not add restore or purge commands.' : 'this starter does not configure it.'}`,
-		],
-		[
-			has(plan, 'pg-vector-plugin'),
-			'PostgreSQL Vector is installed for its logical value contract only. This starter does not persist vectors or offer vector search.',
 		],
 		[
 			plan.starter === 'empty' && plan.plugins.length > 1,

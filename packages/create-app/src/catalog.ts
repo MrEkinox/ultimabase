@@ -55,12 +55,6 @@ export const officialPlugins = [
 		hint: 'Local passwords and sessions; no CRUD permission',
 	},
 	{
-		id: 'pg-vector-plugin',
-		label: 'PostgreSQL Vector',
-		group: 'Data & behavior',
-		hint: 'Logical vector values; no persisted vector search',
-	},
-	{
 		id: 'postgres-plugin',
 		label: 'PostgreSQL',
 		group: 'Data & behavior',
@@ -109,6 +103,15 @@ export const pluginGroups = [
 
 export const isPluginId = (value: string): value is PluginId =>
 	officialPlugins.some((plugin) => plugin.id === value)
+
+/**
+ * Shipped official plugins the initializer deliberately does not offer, with
+ * the reason given to callers who request one. A plugin returns to
+ * `officialPlugins` once a generated application can actually use it.
+ */
+export const withheldPlugins: ReadonlyMap<string, string> = new Map([
+	['pg-vector-plugin', 'it does not persist vector fields'],
+])
 
 // Each dependency is a real packaged plugin; GraphQL alone remains network-independent.
 const pluginDependencies: Readonly<
