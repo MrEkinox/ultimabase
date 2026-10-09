@@ -285,10 +285,11 @@ Current records (accepted or still active in part):
 - [ADR-0294: Make public transport writes an explicit choice](0294-explicit-public-writes.md)
 - [ADR-0295: Export the Hono listener address](0295-hono-listener-address-export.md)
 - [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
+- [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
 
 Proposed records (awaiting user validation):
 
-- [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
+- None.
 
 Superseded records:
 

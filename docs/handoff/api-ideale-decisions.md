@@ -67,7 +67,10 @@ toute divergence est justifiée et documentée.
      un seul `define` (cycle, casse vers 25 schémas), classe vide autour de D
      (TS2506), `.build()` (cycle ou nom perdu), règles séparées, règles
      d'application, chaînes typées, getters.
-   - Gel définitif après la tranche verticale sur le vrai Core.
+   - **Gelée le 2026-10-09** : tranche verticale réussie, ADR-0297 accepté
+     avec amendements (`Register` obligatoire, objectifs de performance pour
+     les types de Core, fabriques prouvées en tête de la migration de Roles et
+     Password Auth).
 
 5. **`where` : raccourci d'égalité à la Prisma** (Q7 ; F19) :
    `where: { id }`, `where: { completed: false }`. Les champs `json` et
@@ -134,5 +137,4 @@ toute divergence est justifiée et documentée.
 
 ## Ouvert
 
-- Tranche verticale de la forme D sur le vrai Core (puis gel de la décision
-  4 et ADR de remplacement de Typegen).
+- Revue des plugins (Access, Hooks, Validation faits ; ACL ensuite).

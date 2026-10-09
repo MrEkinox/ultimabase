@@ -1,13 +1,13 @@
 # ADR-0297: Declare schemas without Typegen
 
-- Status: proposed (accepted after the vertical slice on the real packages)
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0280, ADR-0281 and ADR-0283 where they retain
   Typegen for the named-schema graph; the retained typing boundaries of
   `docs/current-architecture.md`
 - Applies: ADR-0288 (pre-release simplification)
-- Approval: the user chose the declaration form on 2026-10-09; acceptance
-  waits for the vertical slice below
+- Approval: the user chose the declaration form and accepted this record
+  with the amendments below on 2026-10-09, after the vertical slice
 - Evidence: `docs/handoff/formes/` (comparison, common benchmark, TypeScript 7
   test, name-keyed hovers, class experiments) and
   `docs/handoff/prototype-typage-sans-typegen.md`
@@ -123,3 +123,39 @@ and editor behaviour from the built packages; measurements at 10, 50 and 200
 schemas against the real Typegen baseline on TypeScript 6 and 7. A blocker
 the prototype could not show stops the slice and reopens the choice with the
 class form as fallback.
+
+## Vertical slice result and amendments (2026-10-09)
+
+The slice (branch `spike/schema-form-d`, handoff
+`docs/handoff/tranche-verticale.md` on that branch) passed on the real Core and
+official plugins: cyclic schemas across files with cross-schema filters in
+both directions and over two hops, `.softDelete()`, `.acl()` with a typed
+plugin `contains` operator, hooks, the eight typo probes (seven on their line)
+on TypeScript 6 and 7 from source and built packages, and a PostgreSQL
+end-to-end test. Measured on the same machine and session (TypeScript 6,
+seconds):
+
+| Schemas | Form D + `Register`, cold / edit | Form D without `Register`, cold / edit | Typegen, cold / edit |
+| ------- | -------------------------------- | -------------------------------------- | -------------------- |
+| 10      | 2.6 / 1.1                        | 2.9 / 0.9                              | 3.6 / 2.0            |
+| 50      | 6.4 / 2.8                        | 8.5 / 2.5                              | 8.1 / 6.7            |
+| 200     | 23.3 / 9.1                       | 73.1 / 8.4                             | 43.3 / 49.4          |
+
+TypeScript 7 checks the 200-schema project in 6.6 s (Typegen: 14.9 s) and
+reports edit diagnostics in 3.3 s.
+
+Amendments:
+
+1. `Register` is required, not optional: without it, Access rule checking grows
+   quadratically. `create-app` writes it, and constructing an application
+   without it is a clear type error.
+2. The real Core source types cost about 0.1 s per schema, independently of
+   the declaration form. The Core migration reduces them with measured
+   targets: edit diagnostics within 1 s at 50 schemas on TypeScript 6 (0.5 s
+   on TypeScript 7) and within 3 s at 200 schemas on TypeScript 6.
+3. Plugin schema factories (`App.RoleSchema`, `App.PasswordUserSchema`) were not
+   covered by the slice; they are proven first when Roles and Password Auth
+   migrate, with the same stop rule.
+4. Hovers on the real Core print `WhereBuilder<SchemaRef<"Todo">>` and
+   `Readonly<Item<"Todo">>` (40 to 53 characters); `CreateInput<typeof Todo>`
+   and the `select` typo message stay long and are migration work items.
