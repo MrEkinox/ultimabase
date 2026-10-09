@@ -31,16 +31,16 @@ test('types the portable where of a partial index in the final .with (ADR-0303)'
 	})
 	// @ts-expect-error -- disjunction is not portable.
 	declare().with({ indexes: [{ fields: ['slug'], where: { OR: [] } }] })
-	// @ts-expect-error -- `ne` is not portable.
 	declare().with({
+		// @ts-expect-error -- `ne` is not portable.
 		indexes: [{ fields: ['slug'], where: { slug: { ne: 'a' } } }],
 	})
 	declare().with({
 		// @ts-expect-error -- string operators are not portable.
 		indexes: [{ fields: ['slug'], where: { slug: { startsWith: 'a' } } }],
 	})
-	// @ts-expect-error -- booleans have no order.
 	declare().with({
+		// @ts-expect-error -- booleans have no order.
 		indexes: [{ fields: ['slug'], where: { archived: { gt: true } } }],
 	})
 	// @ts-expect-error -- list fields cannot appear in a partial-index predicate.

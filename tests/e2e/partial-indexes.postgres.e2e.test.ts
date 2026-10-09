@@ -8,8 +8,12 @@ import {
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
 
-// Partial indexes and application health of ADR-0303 on PostgreSQL.
-const App = UltimaBase.use(softDeletePlugin())
+// Partial indexes and application health of ADR-0303 on PostgreSQL. The
+// declaring factory installs PostgreSQL for its `postgres` schema option only.
+const App = UltimaBase.use(
+	softDeletePlugin(),
+	postgresPlugin({ url: 'postgres://declaration.invalid/ultimabase' }),
+)
 
 const UniqueActiveSlug = App.Schema.define({
 	className: 'PartialIndexArticle',
