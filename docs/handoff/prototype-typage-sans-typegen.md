@@ -325,3 +325,276 @@ actuelle.
 Prochaine action : tranche verticale E (puis D) sur le vrai Core (worktree) —
 deux schémas en cycle dans deux fichiers, `access`/`hooks`, un champ de plugin
 conditionnel, mesures 10/50/200 contre `tools/real-baseline`.
+
+## 9. Infobulles courtes pour D
+
+**`WhereBuilder<"Todo">` (39 caractères) est atteignable pour D, mais seulement avec
+un registre déclaré une fois par application** ; sans aucune ligne de plus, c'est
+impossible. Code : `lib-short/`, `lib-named/`, `variants/d9-*`, `short/m1-printing/`.
+
+### Pourquoi D ne peut pas, tel quel
+
+TypeScript imprime un type par son identité : interface ou alias **avec tous ses
+arguments** (l'élision des arguments par défaut n'existe que pour `Iterable` et
+ses variantes, `typeReferenceToTypeNode`), et `typeof X` seulement si `X` est une
+classe, un enum, un namespace ou une fonction déclarée (`createAnonymousTypeNode`).
+Une `const` n'en fait pas partie. Donc un type imprimé `WhereBuilder<"Todo">`
+dépend **uniquement** de `"Todo"` : ses champs ne peuvent venir que d'une table
+globale nom → schéma, c'est-à-dire d'une fusion de déclarations écrite quelque
+part. Rien dans le code de D n'en crée.
+
+| Essai                                                                                            | Code développeur vs D                  | `where` / cible croisée          | Verdict                                                                                              |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Idée 1 pure : nom + membre fantôme (`WhereBuilder<'Todo', S>`)                                   | aucun                                  | `S` imprimé (≈ D)                | impossible sans table (argument d'identité ci-dessus)                                                |
+| Idée 2 : `declare()` → `DeclaredSchema<'Todo', F, AppTypes<…>>` (interface nommée, champs bruts) | aucun                                  | 833 / 857 (D : 945 / 969)        | échec : `F` imprimé en entier ; idem avec une `declare class` (micro m1 : 338 = 338)                 |
+| Idée 3 : enveloppe opaque `Opaque<'Todo'> & { '~fields': F }`                                    | aucun                                  | micro m1 : 378 (idée 2 : 338)    | échec, pire                                                                                          |
+| Idée 4 : réglages d'impression                                                                   | —                                      | —                                | aucun réglage par type ; troncature fixe (survol 500, erreurs 160) ; `noErrorTruncation` non utilisé |
+| Idée 4 bis : callback générique `<TSchema extends S>(ctx) => …`                                  | aucun                                  | **40** (`WhereBuilder<TSchema>`) | échec : 2 erreurs TS2345 sur du code **valide** (clés différées), nom du schéma perdu                |
+| **Registre par nom, lu paresseusement**                                                          | +5 lignes, une fois (`application.ts`) | **39 / 38**                      | **réussi**                                                                                           |
+
+### Ce qui marche : registre d'application + références par nom
+
+Seule différence du code développeur avec D (chemins d'import mis à part) :
+
+```ts
+// application.ts, une fois par application (pas par schéma, pas de `as const`)
+export const app = new App({ schemas: [User, Role, Todo, Tag] })
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof app
+	}
+}
+```
+
+Forme côté Core (`lib-short/types.ts`, `core.ts`) ; **plugins inchangés**, Core ne
+nomme toujours aucun plugin :
+
+```ts
+export interface Register {}
+type RegisteredList = Register extends {
+	readonly app: { readonly schemas: infer L extends readonly unknown[] }
+}
+	? L
+	: readonly []
+type SchemasByName = {
+	readonly [S in RegisteredList[number] as ClassNameOf<S>]: S
+} // calculé une fois
+type RegisteredNames = ClassNameOf<RegisteredList[number]>
+/** Le nom si le schéma est enregistré, sinon le type complet (repli silencieux). */
+export type SchemaRef<S> = S extends string
+	? S
+	: ClassNameOf<S> extends RegisteredNames
+		? ClassNameOf<S>
+		: S
+export type FieldsOf<TRef> =
+	SchemaOf<TRef> extends { readonly '~fields': infer F } ? F : never // accepte nom ou schéma
+// ConfigurableSchemaClass : with(options: SchemaOptionsFor<THKTs, SchemaRef<this>>): this
+// Where/Include : cibles en SchemaRef ; Item<S> = Readonly<Writable<Result<S, {}>>>
+// WhereBuilder.is/some : target: (where: TargetBuilders<S>[K]) => NoInfer<TargetExpressions<S>[K]>
+```
+
+Registre lu seulement en positions paresseuses (paramètre de `.with`, callbacks,
+requêtes), jamais en typant une constante de schéma : 0 cycle/TS7022 (E10 évité).
+Identique sur les `.d.ts` émis (`scratch/dts/`), sans `declarationMap`.
+
+### Avant / après (fixture User/Role/Todo/Tag)
+
+| Point de sonde (§4)             | D     | D + registre                                                                      | E   |
+| ------------------------------- | ----- | --------------------------------------------------------------------------------- | --- |
+| `where` (callback)              | 945   | **39** `WhereBuilder<"Todo">`                                                     | 44  |
+| cible croisée `(user) =>`       | 969   | **38** `WhereBuilder<"User">`                                                     | 43  |
+| `item` (hook)                   | 427   | **329** `Readonly<{ acl: ACL; assignee: PointerRef \| null; … }>`                 | 427 |
+| `const Todo`                    | 924   | 924 (irréductible : c'est le type que le registre désigne)                        | 10  |
+| `.with({`                       | 1 385 | 887 (`with(options: AccessSchemaOption<"Todo"> & HooksSchemaOption<"Todo"> & …)`) | 45  |
+| résultat `findMany` + `include` | 307   | 307                                                                               | 307 |
+
+Diagnostics (8/8 sur la ligne fautive, sauf `mappedBy` comme avant) :
+
+| Faute                                  | D + registre                                                                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `() => Usr`                            | `Cannot find name 'Usr'. Did you mean 'User'?`                                                                                                                |
+| `where.eq('archivd', …)`               | `…not assignable to parameter of type 'ScalarKeys<"Todo">'.`                                                                                                  |
+| croisé builder `todo.eq('archivd', …)` | idem, `ScalarKeys<"Todo">`                                                                                                                                    |
+| croisé objet `emial`                   | `'emial' does not exist in type 'Where<"User">'. Did you mean to write 'email'?`                                                                              |
+| `item.isDeletd`                        | `…on type 'Readonly<{ acl: ACL; … }>'. Did you mean 'isDeleted'?`                                                                                             |
+| `mappedBy: 'asignee'`                  | à l'enregistrement, long (inchangé)                                                                                                                           |
+| `acess:`                               | `'acess' does not exist in type 'AccessSchemaOption<"Todo"> & HooksSchemaOption<"Todo"> & …'. Did you mean to write 'access'?` (+4 `any` implicites, comme D) |
+| `where: () => 42`                      | `Type 'number' is not assignable to type 'AccessFilterResult<"Tag">'.`                                                                                        |
+
+En plus : mauvais schéma retourné dans `is` → `'WhereExpression<"Todo">' is not assignable to type 'WhereExpression<"User">'` ;
+`item.title = ''` → TS2540 ; schéma hors `new App` ou registre absent → 0 erreur, hovers de D.
+
+### Performance (même machine, charge 2,2–3,1, 3 processus neufs, médianes)
+
+| Schémas | Variante     | Froid | Édition → diag | Édition, tout | Champ édité + hover | Tas max | tsc check | Instanciations |
+| ------- | ------------ | ----- | -------------- | ------------- | ------------------- | ------- | --------- | -------------- |
+| 10      | D            | 0,40  | 0,07           | 0,14          | 0,07                | 97      | 0,23      | 29 708         |
+| 10      | D + registre | 0,43  | 0,08           | 0,14          | 0,07                | 89      | 0,24      | 31 611         |
+| 50      | D            | 0,72  | 0,19           | 0,41          | 0,17                | 165     | 0,52      | 113 380        |
+| 50      | D + registre | 0,74  | 0,21           | 0,40          | 0,21                | 161     | 0,57      | 126 667        |
+| 200     | D            | 1,58  | 0,61           | 1,38          | 0,56                | 275     | 1,31      | 427 150        |
+| 200     | D + registre | 1,80  | 0,72           | 1,41          | 0,69                | 379     | **1,50**  | 483 127        |
+
+**Régression à 200** : check +15 % (1,50 s, cible 1,3 s non tenue), édition
++18 % (0,72 s, cible 0,7 s dépassée de peu), tas +100 Mio. Croissance toujours
+linéaire. ~0,07 s viennent de l'évaluation du registre, ~0,07 s de
+l'indirection `FieldsOf` (`scratch/rtoggle.py`) ; `Extract` par nom (1,94 s) et
+table nom → champs (2,29 s) sont plus lents.
+
+Piège (à reporter dans Core) : `is`/`some` typés `WhereBuilder<TargetRef<FieldsOf<S>[K]>>`
+avec `K` générique élargissent la contrainte à l'union de **tous** les schémas
+enregistrés à chaque appel : 5,5 s à 200 ; indexer `TargetBuilders<S>[K]` : 1,5 s.
+
+### Risques
+
+- Une déclaration de module par application, à ne pas oublier ; l'oubli ne
+  casse rien mais rend les hovers longs sans avertissement (un diagnostic
+  « application non enregistrée » serait à concevoir). Peut venir du gabarit
+  `create-app`.
+- Invariant à garder dans Core : aucune contrainte ni type de déclaration ne lit
+  le registre (sinon E10 : TS7022). À protéger par un test de cycle.
+- Deux schémas de même `className` : le registre les confondrait ;
+  l'enregistrement doit le refuser.
+- `const Todo`, `.with(` et l'erreur `mappedBy` restent longs ; E reste meilleur
+  sur ces points sans registre. `lib-short` abandonne les cibles en chaîne (C).
+
+## 10. Variante F : méthodes de plugin
+
+Code : `lib-f/`, `variants/f-plugin-methods/` (forme demandée), `variants/f-last-call/`
+(forme qui compile), `variants/f-factories/` (fabriques), `results/probe-f-*.md`.
+
+**Verdict : la forme demandée échoue sur la fixture (TS7022).** TypeScript ne type
+« sans lire les arguments » que le **dernier** appel de la chaîne (le chemin rapide
+qui fait marcher D) ; chaque appel précédent est le récepteur du suivant et est
+vérifié entièrement — callbacks compris — pendant le typage de la constante.
+`User…access(filtre vers Todo).hooks(…)` et `Todo…access(filtre vers User).acl(…).hooks(…)`
+forment donc le cycle d’E3 : TS7022 sur `User`/`Todo`, TS7023, cascades (40 erreurs,
+avec ou sans registre). Le registre du §9 est **incompatible** : tout appel non
+final dont le paramètre dépend du schéma lit `typeof app` pendant le typage
+(TS7022 sur `app`), même sans filtre croisé.
+
+F compile (0 erreur) **sans registre**, si les callbacks qui lisent un autre
+schéma sont dans le dernier appel, ou ne vont que dans un sens (Tag → Todo dans un
+appel non final : 0 erreur ; User → Todo non final avec Todo → User final : 0
+erreur). La règle dépend du graphe : invisible, et sa violation donne un TS7022 loin
+de la cause.
+
+### Code développeur (forme qui compile)
+
+```ts
+export const Todo = App.Schema.define({ className: 'Todo', fields: (field) => ({ /* … */ }) })
+	.softDelete()                                   // méthode de forme : ajoute isDeleted
+	.indexes([{ fields: ['completed', 'dueAt'] }])  // clés vérifiées : ScalarKeys<schema>
+	.postgres({ table: 'todos' })
+	.acl({ default: (data) => /* … */ })
+	.hooks({ beforeSave: ({ item }) => { if (item.isDeleted) throw new TypeError('deleted') } })
+	.access({ update: { where: ({ where, userId }) => where.is('assignee', (u) => u.eq('id', userId ?? '')) } }) // filtres croisés : en dernier
+export const TodoRole = App.RoleSchema.define({ className: 'TodoRole', members: () => TodoUser,
+	fields: (field) => ({ description: field.string() }) }).access({ read: { where: … } })
+export const TodoUser = App.PasswordUserSchema.define({ className: 'User', fields: (field) => ({ /* … */ }) })
+	.postgres({ table: 'users' }).hooks({ … }).access({ … where.some('roles', (role) => role.eq('name', 'admin')) … })
+```
+
+### Code auteur de plugin
+
+```ts
+// Méthode : une interface d'arguments (`this` est interdit dans un littéral imbriqué : TS2526).
+export interface AccessMethodTypes<TSchema> {
+	readonly access: SchemaMethod<[options: AccessOptions<TSchema>]>
+}
+export interface AccessMethods extends SchemaMethodsHKT {
+	readonly methods: AccessMethodTypes<this['schema']>
+}
+export declare const accessPlugin: () => PluginDefinition<
+	'access',
+	AccessMethods
+>
+// Méthode de forme : deuxième argument = champs ajoutés.
+export interface SoftDeleteMethods extends SchemaMethodsHKT {
+	readonly methods: {
+		readonly softDelete: SchemaMethod<
+			[],
+			{ readonly isDeleted: ScalarField<'boolean', boolean, true> }
+		>
+	}
+}
+// Fabrique : une signature `define` écrite par le plugin, retour construit par Core.
+export interface RoleSchemaFactory<TApp extends AppTypes> {
+	define<
+		const TName extends string,
+		const TMembers extends object,
+		const TFields = {},
+	>(declaration: {
+		readonly className: TName
+		readonly members: TMembers
+		readonly fields?: (field: FieldBuilder) => TFields
+	}): FactorySchema<
+		'RoleSchema',
+		TName,
+		TFields & RoleOwnedFields<TMembers>,
+		TApp,
+		RoleModel
+	>
+}
+export interface RoleFactoryTypes<TApp extends AppTypes> {
+	readonly RoleSchema: RoleSchemaFactory<TApp>
+}
+export interface RoleFactories extends SchemaFactoriesHKT {
+	readonly factories: RoleFactoryTypes<this['app']>
+}
+export declare const rolesPlugin: () => PluginDefinition<
+	'roles',
+	NoSchemaMethods,
+	object,
+	RoleFactories
+>
+```
+
+Côté Core (générique, aucun nom de plugin) : `SchemaMethodsHKT`, `SchemaMethod<Args, Fields>`,
+`SchemaFactoriesHKT`, `FactorySchema`, et `SchemaChain` = type mappé dont les **clés et
+retours** viennent d'une instanciation indépendante du schéma (`SchemaMethodsFor<HKTs, never>`)
+et dont seuls les **paramètres** lisent le schéma ; un état de chaîne
+`ChainState<used, shapeOpen>` retire les méthodes appelées et, après la première méthode
+de comportement, les méthodes de forme. Toutes les méthodes sont non génériques.
+
+### Réponses
+
+| Question                         | Résultat (sonde)                                                                                                                                                                                                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Méthodes = plugins installés  | Complétion après `define(…).` : `access, acl, hooks, indexes, postgres, softDelete` (+ `className, findMany, createOne`) ; fabrique à un plugin : `access` seul ; après `.acl(…)` : `access, hooks`                                                                                |
+| 1. Fabriques = plugins installés | `App.` : `PasswordUserSchema, RoleSchema, Schema, use` (+ membres de `Function`, déjà présents en D) ; sans ces plugins : `Schema, use` ; `MiniApp.RoleSchema` → TS2339 sur la ligne                                                                                               |
+| 2. Forme / visibilité            | `item.isDeleted` typé après `.softDelete()` ; hook placé avant → `Property 'isDeleted' does not exist` puis `softDelete` refusé (TS2339)                                                                                                                                           |
+| 2. Cycles                        | voir verdict ; fabriques : TodoUser ↔ TodoRole (`members: () => TodoUser`, filtres croisés vers le rôle dans les deux sens, en dernier appel) : 0 erreur                                                                                                                           |
+| 2. Fabriques typées              | `username`/`email` (propriétaire) dans `item` et les résultats ; `TodoUser.signUp(...)` typé par le `CreateInput` du schéma (mot de passe et champs requis vérifiés par 2 `@ts-expect-error`) ; `TodoRole.addMember('r1', …)` → TS2345 ; les méthodes de plugin restent chaînables |
+| 3. Deux fois / ordre / inconnue  | TS2339 `Property 'access' does not exist on type 'Schema<"Tag", …>'` (long) ; idem `softDelete` après `.access` ; `.hooks` sans le plugin : TS2339                                                                                                                                 |
+| 3. Une seule fabrique par plugin | `new App({ schemas: [TodoUser, …, Customer] })` → TS2322 sur les deux, dont `SchemaRegistrationError<"Customer: factory 'PasswordUserSchema' already created another registered schema">` (texte dans l'élaboration, après le type long)                                           |
+| 4. Hovers (sans registre)        | `where` 864, croisé 914, `item` 329, `const Todo` 861, `.access(` 891 ; rôle : `where` 931, `role` 965                                                                                                                                                                             |
+| 4. 8 fautes                      | 8/8 sur la ligne (`mappedBy` à l'enregistrement comme D), messages longs (`ScalarKeys<DefinedSchema<"Todo", { … }>>`) ; `.acess(` : `Did you mean 'access'?` + 10 en cascade (D : 4) car `Todo` devient `any`                                                                      |
+| 4. `isolatedDeclarations`        | `lib-f` passe ; application : TS9010 par constante + TS9007 par thunk, comme D (9 + 8)                                                                                                                                                                                             |
+
+### Performance (charge 3,2–5,4 ; 3 processus neufs, médianes)
+
+| Schémas | Variante  | Froid              | Édition → diag         | Édition, tout      | Champ édité + hover    | Tas max         | tsc check          | Instanciations              |
+| ------- | --------- | ------------------ | ---------------------- | ------------------ | ---------------------- | --------------- | ------------------ | --------------------------- |
+| 10      | D / E / F | 0,39 / 0,40 / 0,41 | 0,07 / 0,08 / 0,10     | 0,14 / 0,15 / 0,15 | 0,07 / 0,08 / 0,11     | 97 / 85 / 124   | 0,23 / 0,24 / 0,26 | 29 708 / 27 403 / 37 068    |
+| 50      | D / E / F | 0,69 / 0,71 / 0,80 | 0,18 / 0,21 / 0,31     | 0,41 / 0,44 / 0,45 | 0,17 / 0,20 / 0,31     | 165 / 157 / 175 | 0,52 / 0,54 / 0,61 | 113 380 / 101 747 / 155 988 |
+| 200     | D / E / F | 1,57 / 1,66 / 1,87 | 0,58 / 0,66 / **1,08** | 1,34 / 1,38 / 1,60 | 0,54 / 0,66 / **1,06** | 280 / 327 / 488 | 1,29 / 1,38 / 1,60 | 427 150 / 380 537 / 601 938 |
+
+Générateur F : `.softDelete().postgres().acl().hooks().access()` par schéma, filtre
+croisé dans `.access` final. Linéaire, mais édition ×1,9 par rapport à D à 200. Deux
+pièges corrigés (`scratch/ftoggle.py`) : un schéma vu par les méthodes qui dépendait
+de l'état de chaîne recalculait filtres/items à chaque appel (check 1,69 → 1,33 s sans
+`usage.ts`) ; une vérification « une fabrique » par paires était quadratique
+(1,0 M → 0,6 M instanciations).
+
+### Risques et options
+
+- Règle d'ordre implicite (callbacks croisés en dernier) imposée par un détail de
+  TypeScript ; erreur TS7022 loin de la cause ; aucun moyen de la diagnostiquer
+  proprement côté Core.
+- Pas de hovers courts (registre impossible), messages et cascades plus longs que D.
+- Une seule méthode de comportement « libre » par chaîne en pratique : c'est `.with`.
+- Option F-b (non mesurée) : chaîner seulement les méthodes **sans callback**
+  (`softDelete`, `indexes`, `postgres`, fabriques) et finir par **un** appel qui porte
+  tous les callbacks (`.with({ access, hooks, acl })`, D + registre) : garde les
+  fabriques et les méthodes de forme, retrouve les hovers courts du §9.
