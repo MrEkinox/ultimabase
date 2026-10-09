@@ -44,8 +44,19 @@ validation sur mesure reste un plugin (micro-noyau).
    mêmes validations de champ et de schéma, sans transaction :
    `ultimabase.plugin(validationPlugin).check(Todo, { data })` →
    `{ valid: true }` ou `{ valid: false, issues }`.
-10. **Toutes les erreurs en une réponse** : à vérifier dans le code ; correctif
-    si le plugin s'arrête à la première.
+10. **Toutes les erreurs en une réponse (vérifié le 2026-10-09)** : le plugin
+    rassemble toutes les erreurs de tous les champs (et toutes celles que
+    renvoie chaque validateur), Core aussi pour ses contrôles structurels ;
+    REST (422, `details.issues`) et GraphQL (`extensions.details.issues`)
+    transmettent la liste entière. Deux défauts à corriger :
+    - Core s'exécute avant le plugin et lève seul : un champ requis manquant
+      masque les erreurs des validateurs de la même requête. Correctif :
+      rassembler les erreurs de Core et du plugin dans une seule réponse.
+    - `updateMany` : le chemin d'une erreur n'inclut pas l'index de la
+      cible, donc plusieurs erreurs partagent le même chemin. Correctif :
+      ajouter l'index.
+    - Tests manquants : deux champs en échec dans une mutation, erreurs Core
+      et plugin ensemble, contenu de `details.issues` en REST et GraphQL.
 11. **Code stable par erreur** : un validateur-fonction peut renvoyer
     `{ message, code }`, transmis au client (traduction, réaction ciblée).
 12. **Plus tard** : contraintes sur le nombre d'éléments d'une relation
