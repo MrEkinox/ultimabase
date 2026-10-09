@@ -34,7 +34,7 @@ chaque réponse.
    (dans les options du plugin HTTP, pas dans `new App` : Core ne connaît pas
    HTTP) ; le gestionnaire reçoit le contexte de la requête ; plus de
    `protocol` ni d'identifiant de plugin à inventer ; route de santé intégrée
-   `health: '/health'` (200 ou 503 selon `ultimabase.health()`).
+   **activée par défaut** sur `/health` (200 ou 503 selon `ultimabase.health()`, chemin réglable, `health: false` pour la couper ; précisé pendant la revue GraphQL).
 6. **Délai par défaut de 30 s** (`requestTimeoutMs` réglable).
 7. **Limitation par IP** (décidée avec l'authentification) :
    `trustProxy` (nombre ou adresses des proxys de confiance),
