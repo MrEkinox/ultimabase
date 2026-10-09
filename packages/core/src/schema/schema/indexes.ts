@@ -41,13 +41,11 @@ export type SchemaFieldName<TFields extends object> =
 	IndexableDeclaredFieldName<TFields> | ReservedSystemFieldName
 
 /**
- * Declares one schema-level index, optionally restricted to the rows its
- * portable `where` matches (ADR-0303).
+ * Declares one schema-level index of `define`. Its `where` sees only the
+ * framework-owned system fields; partial indexes over the complete shape are
+ * declared in the final `.with` (ADR-0303).
  */
-export interface SchemaIndexOptions<
-	TFieldName extends string = string,
-	TWhere extends object = SchemaIndexWhere<Readonly<Record<never, never>>>,
-> {
+export interface SchemaIndexOptions<TFieldName extends string = string> {
 	/**
 	 * Lists one or more distinct top-level fields in index-column order.
 	 * Developer fields and framework-owned system fields are accepted; a plain
@@ -66,6 +64,35 @@ export interface SchemaIndexOptions<
 	/**
 	 * Restricts the index to matching rows: equality, `gt`, `gte`, `lt`, `lte`,
 	 * null tests and `AND` on scalar non-list fields, with literal values.
+	 *
+	 * @example `where: { createdAt: { gte: '2026-01-01T00:00:00.000Z' } }`
+	 */
+	readonly where?: SchemaIndexWhere<Readonly<Record<never, never>>>
+}
+
+/**
+ * Declares one index in the final `.with`, optionally partial: its `where`
+ * sees the complete schema shape, plugin shape fields included (ADR-0303).
+ */
+export interface SchemaRuleIndexOptions<
+	TFieldName extends string,
+	TWhere extends object,
+> {
+	/**
+	 * Lists one or more distinct top-level fields in index-column order.
+	 *
+	 * @example `fields: ['slug']`
+	 */
+	readonly fields: readonly [TFieldName, ...TFieldName[]]
+	/**
+	 * Requests uniqueness among the rows `where` matches. Defaults to `false`.
+	 *
+	 * @example `unique: true`
+	 */
+	readonly unique?: boolean
+	/**
+	 * Restricts the index to matching rows: equality (a literal or `eq`), `gt`,
+	 * `gte`, `lt`, `lte`, null tests and `AND` on scalar non-list fields.
 	 *
 	 * @example `where: { isDeleted: false }`
 	 */

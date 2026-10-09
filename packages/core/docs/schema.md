@@ -569,9 +569,10 @@ boolean `unique` value and, for a partial index, its `where` conjunction.
 
 A partial index (ADR-0303) adds a static, portable `where`: equality (a literal
 or `eq`), `gt`, `gte`, `lt`, `lte` on scalar non-list fields, null tests and
-conjunction. With the generation-free form, declare `indexes` in the final
-`.with`, whose type sees fields added by shape methods; those indexes are
-checked against the compiled fields when the application compiles:
+conjunction. Declare partial indexes in the final `.with`, whose type sees
+fields added by shape methods (the `indexes` of `define` keep their previous
+type); those indexes are checked against the compiled fields when the
+application compiles:
 
 ```ts
 export const Article = App.Schema.define({

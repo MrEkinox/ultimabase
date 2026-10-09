@@ -23,7 +23,7 @@ import { markSchemaDeclarationMethod } from './declaration-methods.js'
 import type {
 	SchemaFieldName,
 	SchemaIndexInput,
-	SchemaIndexOptions,
+	SchemaRuleIndexOptions,
 } from './indexes.js'
 import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
@@ -43,7 +43,7 @@ export type ConfiguredSchemaIndexRules<
 	 *
 	 * @example `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`
 	 */
-	readonly indexes?: readonly SchemaIndexOptions<
+	readonly indexes?: readonly SchemaRuleIndexOptions<
 		SchemaFieldName<
 			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
 		>,

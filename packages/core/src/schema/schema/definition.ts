@@ -21,7 +21,6 @@ import {
 	type SchemaIndexInput,
 	type SchemaIndexOptions,
 } from './indexes.js'
-import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SystemFields } from './system-fields.js'
 import {
 	captureFieldBuilderCallback,
@@ -102,14 +101,14 @@ export interface SchemaOptions<
 	 */
 	readonly fields: SchemaFieldBuilderDeclaration<TFields, TClassName>
 	/**
-	 * Declares adapter-neutral schema-level indexes, optionally partial.
-	 * Plain single-field indexes belong on the field through `indexed`.
+	 * Declares adapter-neutral schema-level indexes. Plain single-field indexes
+	 * belong on the field through `indexed`; partial indexes, whose `where`
+	 * sees every field, are declared in the final `.with` (ADR-0303).
 	 *
 	 * @example `indexes: [{ fields: ["authorId", "createdAt"] }]`
 	 */
 	readonly indexes?: readonly SchemaIndexOptions<
-		SchemaFieldName<NoInfer<TFields>>,
-		SchemaIndexWhere<NoInfer<TFields>>
+		SchemaFieldName<NoInfer<TFields>>
 	>[]
 }
 

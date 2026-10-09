@@ -395,6 +395,7 @@ export type {
 	SchemaFieldName,
 	SchemaIndexDefinition,
 	SchemaIndexOptions,
+	SchemaRuleIndexOptions,
 } from './schema/indexes.js'
 export type {
 	SchemaIndexCondition,

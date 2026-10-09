@@ -79,6 +79,7 @@ describe('partial indexes (ADR-0303)', () => {
 		[{ missing: true }, 'Unknown index field: missing'],
 		[{}, 'where must not be empty'],
 	])('rejects the non-portable where %j', (where, message) => {
+		// Old-form `define` indexes are checked eagerly, without typed fields.
 		expect(() =>
 			UltimaBase.Schema.define({
 				className: 'NonPortablePartialIndex',
