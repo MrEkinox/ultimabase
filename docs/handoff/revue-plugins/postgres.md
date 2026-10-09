@@ -44,3 +44,17 @@ l'échec de connexion (ADR-0296).
    renommage appliqué partout.
 8. **Gardé** : `url` ou `pool`, trois politiques, aucune suppression
    destructive, aucun SQL brut ni type Drizzle exposé.
+9. **Nouvelles tentatives de connexion au démarrage** :
+   `connection: { connectRetries: 5 }` (délai croissant), utile avec Docker et
+   Kubernetes en production.
+10. **`ping()`** sur l'export du plugin, pour les sondes de santé (la route
+    `/health` relève des transports).
+11. **Débogage** : `debug: { logQueries, slowQueryMs }` (requêtes et durées,
+    jamais les valeurs ; le seuil de lenteur est utilisable en production).
+12. **Documenté** : pas de SQL manuel via UltimaBase (contournerait Access,
+    ACL, Soft Delete et les hooks) ; pour un rapport, le mode `pool` et ses
+    propres requêtes hors d'UltimaBase, sans aucune règle ; schéma PostgreSQL
+    dédié via `search_path` dans l'URL.
+13. **Plus tard** : répliques en lecture. Migrations : chantier dédié.
+
+Revue validée par l'utilisateur le 2026-10-09.
