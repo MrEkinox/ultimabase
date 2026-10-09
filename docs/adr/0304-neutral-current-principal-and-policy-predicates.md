@@ -7,8 +7,7 @@
   applies ADR-0288
 - Approval: decided by the user on 2026-10-09 in the plugin review
   (`docs/handoff/revue-plugins/access.md` decisions 3, 4 and 12; `hooks.md` decision 2;
-  `acl.md` decision 6; `roles.md` decisions 2 and 4; `password-auth.md` decision 2);
-  awaiting validation of this record
+  `acl.md` decision 6; `roles.md` decisions 2 and 4; `password-auth.md` decision 2); record accepted by the user on 2026-10-09
 
 ## Context
 
