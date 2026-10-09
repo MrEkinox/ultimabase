@@ -42,7 +42,7 @@ ADR acceptés, copiés dans `docs/adr/` au fil de l'implémentation :
     en dernier, égalité de liste, décimal exact, interblocage résolu par
     rejeu).
   - Preuves : `yarn vitest run --project unit packages/core
-    packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
+packages/password-auth-plugin packages/rest-plugin` → 239 fichiers, 1447
     tests verts ; `--project postgres-e2e` sur les deux nouveaux fichiers et
     `private-storage-postgres` → verts.
 - Point de contrôle 2 (ADR-0301, ADR-0302 regex, ADR-0303) :
@@ -68,7 +68,7 @@ ADR acceptés, copiés dans `docs/adr/` au fil de l'implémentation :
     d'opérateurs via `tooling/vitest/database-filter-operators.ts` (ou locale
     dans les tests `src/` des paquets).
   - Preuves : `yarn typecheck` vert ; `yarn vitest run --project unit
-    --project types` → 573 fichiers, 2860 tests verts ; postgres-e2e
+--project types` → 573 fichiers, 2860 tests verts ; postgres-e2e
     `partial-indexes`, `referential-integrity`, `storage-semantics`,
     `private-storage-postgres` verts.
 - Reste : documentation (READMEs Core/PostgreSQL, site, docs/concepts),
