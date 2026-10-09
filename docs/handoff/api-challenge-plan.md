@@ -32,7 +32,7 @@ Statut : phase 1 terminée ; phase 2 (API idéale par l'exemple) à démarrer le
    puis accepter ADR-0297 et écrire les ADR des décisions de
    [api-ideale-decisions.md](api-ideale-decisions.md), regroupés par thème.
 2. Migrer Core vers la forme D (fondation commune).
-3. **Revoir chaque plugin avec l'utilisateur, puis le migrer** en une seule
+3. **Revoir chaque plugin avec l'utilisateur (revue terminée le 2026-10-09, voir [revue-plugins/](revue-plugins/README.md)), puis le migrer** en une seule
    passe (forme D + API revue), à partir de sa fiche
    [api-inventory/](api-inventory/) : présentation de ce qu'il propose, de ses
    options et frictions, propositions argumentées (simplifier, supprimer,
