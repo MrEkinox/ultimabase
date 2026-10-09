@@ -40,3 +40,13 @@ et GraphQL (découverte générique des commandes), `purge` réservé à Master.
    jamais automatique.
 8. **Plus tard** : suppression en cascade, purge automatique après N jours
    (planificateur de tâches).
+9. **Restauration en conflit** : message clair quand une valeur unique a été
+   reprise entre-temps (`Cannot restore Todo 123: slug 'my-task' is now used
+by another row`) au lieu d'une violation de contrainte brute.
+10. **Documenter les pointeurs vers une ligne supprimée** : le pointeur reste,
+    l'`include` renvoie `null`, et `onDelete` ne se déclenche pas pour une
+    suppression logique (traitement avec la cascade, plus tard).
+11. **Plus tard** : `deletedBy` (principal ayant supprimé), sur besoin d'audit
+    (faisable aujourd'hui par un hook).
+
+Revue validée par l'utilisateur le 2026-10-09.
