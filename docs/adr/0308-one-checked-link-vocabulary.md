@@ -1,15 +1,15 @@
 # ADR-0308: One checked vocabulary for pointer and relation links
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0243 where pointer `disconnect: true` and relation
   `clear: true` are commands, where explicit `null` is an invalid pointer command and where
   `connect` accepts only an identifier; every path that stores a raw `Pointer` in mutation data
 - Refines: ADR-0118 (pointers and relations), ADR-0243 (bounded nested writes), ADR-0299 and
   ADR-0306 (the `connect` visibility check they leave to their own record); applies ADR-0288
-- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, decision
-  11 as revised; `docs/handoff/revue-plugins/access.md`, decision 14, fault 2;
-  `docs/handoff/revue-plugins/roles.md`, decision 3); awaiting validation of this record
+- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, decision 11
+  as revised; `docs/handoff/revue-plugins/access.md`, decision 14, fault 2;
+  `docs/handoff/revue-plugins/roles.md`, decision 3); record accepted by the user on 2026-10-09
 
 ## Context
 

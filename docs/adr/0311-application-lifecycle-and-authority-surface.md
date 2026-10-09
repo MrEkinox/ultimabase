@@ -1,6 +1,6 @@
 # ADR-0311: Application lifecycle, explicit transactions and the authority surface
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: the literal-`true` `useMasterKey` rule of ADR-0114, retained by
   ADR-0153; ADR-0094 and ADR-0066 where they place `anonymous` and `withContext` on the public
@@ -8,9 +8,9 @@
 - Refines: ADR-0258 (lifecycle phases), ADR-0068 (request transactions), ADR-0071 and ADR-0206
   (Master), ADR-0300 (explicit transactions are not retried), ADR-0016 (controlled exports);
   applies ADR-0288
-- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, decisions
-  7 and 8; `docs/handoff/revue-plugins/core.md`, decisions 4, 6, 8 and 9); awaiting validation of
-  this record
+- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, decisions 7
+  and 8; `docs/handoff/revue-plugins/core.md`, decisions 4, 6, 8 and 9); record accepted by the user
+  on 2026-10-09
 
 ## Context
 

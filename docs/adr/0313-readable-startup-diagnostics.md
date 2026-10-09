@@ -1,6 +1,6 @@
 # ADR-0313: Readable startup diagnostics and capability hints
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0191 where the complete privilege report is printed by default
   and configured through `pluginPrivileges.logger`
@@ -8,7 +8,7 @@
   ADR-0300 and ADR-0305 (the logs they require); applies ADR-0288
 - Approval: decided by the user on 2026-10-09 (`docs/handoff/revue-plugins/core.md`, decision 7;
   `hono.md`, decision 6; `http.md`, decision 8; `access.md`, decisions 3 and 9; `graphql.md`,
-  decision 2); awaiting validation of this record
+  decision 2); record accepted by the user on 2026-10-09
 
 ## Context
 

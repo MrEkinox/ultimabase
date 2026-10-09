@@ -1,15 +1,15 @@
 # ADR-0312: Environment-dependent plugin defaults
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Refines: ADR-0292 (generalized from the PostgreSQL schema policy to every plugin), ADR-0208
   (environment truth), ADR-0295 (Hono listener address), ADR-0241 (GraphQL explorers); applies
   ADR-0288
 - Approval: decided by the user on 2026-10-09 (`docs/handoff/revue-plugins/graphql-yoga.md`,
-  decisions 1 to 3; transversal rule of `docs/handoff/revue-plugins/README.md`; `hono.md`,
-  decision 1; `graphql-explorers.md`, concept and decision 3; `access.md`, decision 3;
-  `postgres.md`, already settled; `docs/handoff/api-ideale-decisions.md`, decision 1;
-  `testing.md`, decision 1; `create-app.md`, decision 3); awaiting validation of this record
+  decisions 1 to 3; transversal rule of `docs/handoff/revue-plugins/README.md`; `hono.md`, decision
+  1; `graphql-explorers.md`, concept and decision 3; `access.md`, decision 3; `postgres.md`, already
+  settled; `docs/handoff/api-ideale-decisions.md`, decision 1; `testing.md`, decision 1;
+  `create-app.md`, decision 3); record accepted by the user on 2026-10-09
 
 ## Context
 

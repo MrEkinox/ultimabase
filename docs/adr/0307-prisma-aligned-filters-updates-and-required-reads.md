@@ -1,14 +1,14 @@
 # ADR-0307: Prisma-aligned equality filters, atomic updates and required reads
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Supersedes, once accepted: ADR-0134 where it defines the `increment`, `decrement` and `unset`
   factories; the `get` read of ADR-0152 and ADR-0067; ADR-0182 (top-level `id` target alias)
 - Refines: ADR-0143 (canonical object `where`), ADR-0160 (pointer identity operands); applies
   ADR-0288
-- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, principle
-  and decision 5; `docs/handoff/revue-plugins/core.md`, decisions 2 and 3; transversal rule of
-  `docs/handoff/revue-plugins/README.md`); awaiting validation of this record
+- Approval: decided by the user on 2026-10-09 (`docs/handoff/api-ideale-decisions.md`, principle and
+  decision 5; `docs/handoff/revue-plugins/core.md`, decisions 2 and 3; transversal rule of
+  `docs/handoff/revue-plugins/README.md`); record accepted by the user on 2026-10-09
 
 ## Context
 
