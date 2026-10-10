@@ -1039,8 +1039,10 @@ const users = await UserSchema.findMany({
 ```
 
 Unlike a pointer, an included relation supports `where`, `orderBy`, `skip`,
-`take`, `select`, and nested `include`, but no `after` position. Its `skip` is
-applied independently to every parent collection. Installed source-relation field policy runs once
+`take`, `after`, `select`, and nested `include`. Its `skip` and `after` apply
+independently to every parent collection, `after` with the same keyset rules as
+a root `findMany` (the order is completed by `id`; `after` and `skip` are
+exclusive). Installed source-relation field policy runs once
 before loading. Target policy and output resolution still apply through the
 target read pipeline. The field's declared relation `where` narrows that same
 target collection before ordering, `skip`, and `take`. Core resolves a contextual

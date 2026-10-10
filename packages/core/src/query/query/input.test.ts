@@ -110,7 +110,11 @@ describe('canonical read inputs', () => {
 				take: 3,
 				pagination: { kind: 'skip-pagination', skip: 2 },
 				ordering: {
-					orders: [{ direction: 'descending', field: 'createdAt' }],
+					// Included collections are completed by `id` too (ADR-0309).
+					orders: [
+						{ direction: 'descending', field: 'createdAt' },
+						{ direction: 'ascending', field: 'id' },
+					],
 				},
 				selection: { fields: [{ field: 'title' }, { field: 'id' }] },
 				where: {
@@ -122,6 +126,56 @@ describe('canonical read inputs', () => {
 				},
 			},
 		})
+	})
+
+	// ADR-0309 step 3b amendment: an included collection pages by position.
+	it('turns an included relation `after` into a position filter per parent', () => {
+		const after = {
+			createdAt: '2026-10-10T10:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000001',
+		}
+		const query = queryFromFindManyInput(Feed, {
+			include: {
+				posts: { orderBy: { createdAt: 'desc' }, take: 2, after },
+			},
+		})
+		const included = query.ast.inclusion.fields[0]
+
+		expect(included).toMatchObject({
+			field: 'posts',
+			query: {
+				take: 2,
+				ordering: {
+					orders: [
+						{ direction: 'descending', field: 'createdAt' },
+						{ direction: 'ascending', field: 'id' },
+					],
+				},
+				where: { expression: { kind: 'or' } },
+			},
+		})
+		expect(() =>
+			queryFromFindManyInput(Feed, {
+				include: { posts: { after, skip: 1 } },
+			}),
+		).toThrow(
+			expect.objectContaining({
+				code: 'VALIDATION_ERROR',
+				publicDetails: { parameter: 'after' },
+			}),
+		)
+		expect(() =>
+			queryFromFindManyInput(Feed, {
+				include: {
+					posts: { orderBy: { title: 'asc' }, after: { id: after.id } },
+				},
+			}),
+		).toThrow(
+			expect.objectContaining({
+				code: 'VALIDATION_ERROR',
+				publicDetails: { parameter: 'after' },
+			}),
+		)
 	})
 
 	it('keeps operation-specific inputs free of irrelevant clauses', () => {

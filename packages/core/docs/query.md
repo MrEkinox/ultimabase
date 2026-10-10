@@ -75,8 +75,9 @@ const stableFeed = await Post.findMany({
 })
 ```
 
-Relation inclusions accept the same `take` and `skip` names, but no `after`.
-The adapter applies them independently to every parent collection.
+Relation inclusions accept the same `take`, `skip` and `after` clauses, with
+the same keyset rules as a root `findMany`. The adapter applies them
+independently to every parent collection, without `OFFSET` for `after`.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` and the implicit `id` remain

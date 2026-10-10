@@ -66,7 +66,9 @@ see [Filters](./filters).
 
 Relation filtering runs before ordering, `skip`, and `take`. Its `skip` applies
 independently to each parent's comment collection, not across all comments.
-An inclusion accepts no `after` position.
+An included relation also pages by position: pass the last member received as
+`after` (with `take`, never with `skip`) and each parent's collection continues
+strictly after it, in the order completed by `id`, as a root `findMany` does.
 The `id` tie-breaker makes a page deterministic when several comments share a
 timestamp. An inclusion filter does not remove a parent post whose included
 collection is empty.

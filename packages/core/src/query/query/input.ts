@@ -130,6 +130,7 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		get: new Set(['id', 'include', 'select']),
 		'pointer-target': new Set(['include', 'select']),
 		'relation-target': new Set([
+			'after',
 			'include',
 			'orderBy',
 			'select',
@@ -244,9 +245,10 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 		input.orderBy === undefined
 			? initial.ordering
 			: normalizeInputOrdering(schema, input.orderBy)
-	// A collection read has a total order, so `after` positions are stable.
+	// A collection read, root or included, has a total order, so `after`
+	// positions are stable (ADR-0309).
 	const ordering =
-		kind === 'find-many'
+		kind === 'find-many' || kind === 'relation-target'
 			? completeQueryOrdering(requestedOrdering)
 			: requestedOrdering
 	const filter =

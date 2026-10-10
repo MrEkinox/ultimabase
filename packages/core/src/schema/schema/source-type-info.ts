@@ -8,6 +8,7 @@ import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 } from '../type-info.js'
+import type { QueryPosition } from '../../query/query/input-contracts.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type {
 	SourceDependencySelect,
@@ -41,6 +42,8 @@ type SourceIncludeTarget<TTarget extends SchemaTypeInfoSource> = Readonly<{
 type SourceRelationIncludeTarget<TTarget extends SchemaTypeInfoSource> =
 	SourceIncludeTarget<TTarget> &
 		Readonly<{
+			/** Members strictly after this included row; not with `skip`. */
+			readonly after?: QueryPosition
 			readonly take?: number
 			readonly skip?: number
 			readonly orderBy?: SchemaTypeInfoFor<TTarget>['inputs']['orderBy']

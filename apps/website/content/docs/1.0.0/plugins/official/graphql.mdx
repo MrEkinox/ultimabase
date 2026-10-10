@@ -353,7 +353,9 @@ not request as a filter, so they stay valid across restarts and instances.
 Inserts and deletes between pages never repeat or skip an unchanged node. A
 malformed cursor, or one for another type or ordering, fails with
 `VALIDATION_ERROR` and `details: { parameter: "after" }`. A relation
-connection inside a node accepts `first`, `orderBy`, and `where` but no `after`.
+connection inside a node accepts the same `first`, `after`, `orderBy`, and
+`where`: its edge cursors are positions of the target schema and `after`
+continues every parent's collection after that position.
 
 REST returns the same pages as a `{ results, nextCursor }` envelope; the visible
 objects pass through the same Query normalization, policies, Runtime, and

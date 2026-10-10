@@ -45,6 +45,15 @@ const Item = App.Schema.define({
 	}),
 })
 
+// ADR-0309 step 3b amendment: included relations page by position too.
+const Group = App.Schema.define({
+	className: 'KeysetGroup',
+	fields: (field) => ({
+		items: field.relation({ target: 'KeysetItem' }),
+		name: field.string({ required: true }),
+	}),
+})
+
 const httpRequirement = requireCapability(httpApplicationCapability, '^1.0.0', {
 	phase: 'setup',
 })
@@ -76,7 +85,7 @@ const createApplication = (pool: RecordingPostgresPool) =>
 			onUse: () => undefined,
 		}),
 		pluginPrivileges: { logger: false },
-		schemas: [Item],
+		schemas: [Item, Group],
 	})
 
 let fixture: PostgresWorkerFixture | undefined
@@ -343,6 +352,96 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 		pool.reset()
 		await Item.findMany({ orderBy: { rank: 'desc' }, take: 2, skip: 1 })
 		expect(pool.statements.join('\n').toLowerCase()).toMatch(/\boffset\b/u)
+	})
+
+	it('pages an included relation by position in every parent, without OFFSET', async () => {
+		const items = await Item.createMany(
+			{
+				data: [
+					{ group: 'g', rank: 3, title: 'g1-3' },
+					{ group: 'g', rank: 2, title: 'g1-2' },
+					{ group: 'g', rank: 1, title: 'g1-1' },
+					{ group: 'g', rank: 3, title: 'g2-3' },
+					{ group: 'g', rank: 1, title: 'g2-1' },
+				],
+			},
+			master,
+		)
+		const [g1a, g1b, g1c, g2a, g2b] = items.map(({ id }) => id)
+		if (
+			g1a === undefined ||
+			g1b === undefined ||
+			g1c === undefined ||
+			g2a === undefined ||
+			g2b === undefined
+		) {
+			throw new TypeError('Expected five items')
+		}
+		const first = await Group.createOne(
+			{
+				data: {
+					items: { connect: [g1a, g1b, g1c] },
+					name: 'first',
+				},
+			},
+			master,
+		)
+		const second = await Group.createOne(
+			{ data: { items: { connect: [g2a, g2b] }, name: 'second' } },
+			master,
+		)
+		const readItems = async (after?: Row) =>
+			(
+				await Group.findMany({
+					where: { id: { in: [first.id, second.id] } },
+					orderBy: { name: 'asc' },
+					select: { name: true },
+					include: {
+						items: {
+							orderBy: { rank: 'desc' },
+							select: { rank: true, title: true },
+							take: 1,
+							...(after === undefined ? {} : { after }),
+						},
+					},
+				})
+			).map(({ items: page }) => page.map(({ title }) => title))
+
+		// Each parent reads its own first member; `after` continues each one.
+		expect(await readItems()).toStrictEqual([['g1-3'], ['g2-3']])
+		const position = items[1]
+		if (position === undefined) throw new TypeError('Expected the position')
+		const pool = recorder
+		if (pool === undefined) throw new TypeError('Recorder unavailable')
+		pool.reset()
+		expect(await readItems(position)).toStrictEqual([['g1-1'], ['g2-1']])
+		expect(pool.statements.join('\n').toLowerCase()).not.toMatch(/\boffset\b/u)
+
+		// Walking one parent's collection visits every member exactly once.
+		const visited: unknown[] = []
+		let after: Readonly<{ id: string; [field: string]: unknown }> | undefined
+		for (;;) {
+			const group = await Group.findOneOrThrow({
+				where: { id: { eq: first.id } },
+				include: {
+					items: {
+						orderBy: { rank: 'desc' },
+						select: { rank: true, title: true },
+						take: 1,
+						...(after === undefined ? {} : { after }),
+					},
+				},
+			})
+			const member = group.items[0]
+			if (member === undefined) break
+			visited.push(member.title)
+			after = member
+		}
+		expect(visited).toStrictEqual(['g1-3', 'g1-2', 'g1-1'])
+		await Group.deleteMany(
+			{ where: [{ id: { eq: first.id } }, { id: { eq: second.id } }] },
+			master,
+		)
 	})
 
 	it('returns the same pages through Core, REST and GraphQL', async () => {

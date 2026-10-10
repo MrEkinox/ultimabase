@@ -233,7 +233,10 @@ describe('Runtime relation-filter inclusions', () => {
 				query: {
 					take: 2,
 					ordering: {
-						orders: [{ direction: 'descending', field: 'name' }],
+						orders: [
+							{ direction: 'descending', field: 'name' },
+							{ direction: 'ascending', field: 'id' },
+						],
 					},
 					pagination: { kind: 'skip-pagination', skip: 1 },
 					selection: {

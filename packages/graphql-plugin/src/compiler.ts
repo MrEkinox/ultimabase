@@ -56,8 +56,7 @@ export const compileGraphqlSchema = (
 	)
 	const { execution } = options
 	const fields: GraphqlFieldTypeCompiler = new GraphqlFieldTypeCompiler(ctx, {
-		arguments: (target) =>
-			graphqlCollectionArguments(roots, target, 'relation'),
+		arguments: (target) => graphqlCollectionArguments(roots, target),
 		resolver: (source, fieldName, target, targetTypeName) =>
 			execution.relation(source, fieldName, target, targetTypeName),
 	})

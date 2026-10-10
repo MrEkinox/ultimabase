@@ -228,26 +228,28 @@ describe('GraphQL connection runtime', () => {
 		await application.dispose()
 	})
 
-	it('accepts no after on a nested relation connection', async () => {
+	// ADR-0309 step 3b amendment: nested connections page by position too.
+	it('maps after on a nested relation connection to the include position', async () => {
 		const { application, runtime } = await prepareRuntime()
 		const relationScope = {
 			relationPath: ['posts', 'comments'],
 			typeName: 'GraphqlConnectionRecord',
 		} as const
+		const first = runtime.prepare({
+			arguments: { first: 1 },
+			schema: ConnectionRecord,
+			...relationScope,
+		})
+		expect(first.clauses).toStrictEqual({ orderBy: { id: 'asc' }, take: 2 })
+		const page = runtime.page(first.page, [{ id: a }, { id: b }])
+		expect(page.pageInfo).toMatchObject({ hasNextPage: true })
 		expect(
 			runtime.prepare({
-				arguments: { first: 1 },
+				arguments: { after: page.pageInfo.endCursor, first: 1 },
 				schema: ConnectionRecord,
 				...relationScope,
 			}).clauses,
-		).toStrictEqual({ orderBy: { id: 'asc' }, take: 2 })
-		expect(() =>
-			runtime.prepare({
-				arguments: { after: 'cursor', first: 1 },
-				schema: ConnectionRecord,
-				...relationScope,
-			}),
-		).toThrow('an unknown argument')
+		).toStrictEqual({ after: { id: a }, orderBy: { id: 'asc' }, take: 2 })
 
 		runtime.dispose()
 		await application.dispose()

@@ -68,3 +68,23 @@ Pages shift under inserts, and ADR-0227 asks for a complete keyset design; here 
 ## Out of scope
 
 Backward pagination, `totalCount` (GraphQL decision 4), positions in `include`, page sizes.
+
+## Step 3b amendment (2026-10-10)
+
+Decided by the user on 2026-10-10.
+
+1. **`after` in relation includes.** An included relation accepts `after` with `take`,
+   mutually exclusive with `skip`, under the same keyset rules as a root `findMany`: the
+   included order is completed by `id` ascending, the position is validated and turned into
+   an ordinary filter of the included read, and it applies to every parent collection.
+   PostgreSQL compiles it without `OFFSET`. GraphQL relation connections map `first` and
+   `after` to it again, encode edge cursors with the target schema and set `hasNextPage` from
+   one extra row.
+2. **Common transport page window.** REST and GraphQL take one identical option,
+   `restPlugin({ pagination: { defaultTake, maxTake } })` and
+   `graphqlPlugin({ pagination: { defaultTake, maxTake } })`, defaults 100 and 1000. Both
+   values are positive safe integers and `defaultTake` must not exceed `maxTake`. It replaces
+   REST `maxLimit` and GraphQL `limits.defaultPageSize` / `limits.maxPageSize`, without
+   aliases. A request above `maxTake` keeps each transport's behaviour: REST answers
+   `REST_READ_INVALID_INPUT` (400), GraphQL returns a GraphQL error ("GraphQL first must be an
+   integer from 0 to <maxTake>"). Server-side `findMany` keeps no default `take`.

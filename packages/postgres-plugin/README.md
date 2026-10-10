@@ -846,7 +846,8 @@ normalization before PostgreSQL compiles SQL.
 `.skip()` selects offset pagination. A `findMany({ after })` position reaches
 PostgreSQL as an ordinary keyset predicate in the `where` filter (strictly
 greater or lower ordered values, `IS NULL` for the null-last tail, `id` as the
-last term) with no `OFFSET` (ADR-0309). To compare positions, the adapter
+last term) with no `OFFSET` (ADR-0309). An included relation's `after` compiles
+the same predicate inside each parent's collection query. To compare positions, the adapter
 declares `greater-than` and `less-than` for the `binary`, `boolean`, `enum`,
 and `uuid` families as well; public filters still refuse ranges on those
 kinds. Transport cursors are decoded by Core's shared encoder before PostgreSQL

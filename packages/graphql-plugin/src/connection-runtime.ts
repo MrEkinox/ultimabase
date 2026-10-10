@@ -16,9 +16,7 @@ import { assertGraphqlKnownKeys } from './options.js'
 import { effectiveGraphqlConnectionOrdering } from './read-normalization.js'
 import { decodeGraphqlWhere } from './wire-values.js'
 
-const rootArgumentKeys = new Set(['after', 'first', 'orderBy', 'where'])
-// Core reads no position inside an `include` (ADR-0309, out of scope).
-const relationArgumentKeys = new Set(['first', 'orderBy', 'where'])
+const argumentKeys = new Set(['after', 'first', 'orderBy', 'where'])
 
 interface PagePlanState {
 	readonly after: boolean
@@ -63,7 +61,7 @@ export interface GraphqlConnection<TNode> {
 
 export interface GraphqlConnectionPreparation {
 	readonly arguments: unknown
-	/** Names a nested relationship connection, which accepts no `after`. */
+	/** Names a nested relationship connection, paged per parent. */
 	readonly relationPath?: readonly string[]
 	readonly schema: SchemaDefinition
 	readonly typeName: string
@@ -107,11 +105,7 @@ export class GraphqlConnectionRuntime {
 
 	prepare(options: GraphqlConnectionPreparation): GraphqlPreparedConnection {
 		this.#assertActive()
-		const nested = (options.relationPath ?? []).length > 0
-		const args = readArguments(
-			options.arguments,
-			nested ? relationArgumentKeys : rootArgumentKeys,
-		)
+		const args = readArguments(options.arguments, argumentKeys)
 		const first = args.first ?? this.#limits.defaultTake
 		if (
 			typeof first !== 'number' ||

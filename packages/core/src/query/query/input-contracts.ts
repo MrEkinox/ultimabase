@@ -43,6 +43,12 @@ export type QueryPointerTargetInput<TSchema extends SchemaTypeInfoSource> =
 export type QueryRelationTargetInput<TSchema extends SchemaTypeInfoSource> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
+		/**
+		 * Returns, in every parent collection, the members strictly after this
+		 * previously included row, in the order completed by `id`. Cannot be
+		 * combined with `skip` (ADR-0309).
+		 */
+		readonly after?: QueryPosition
 		/** Skips the same number of rows independently in every parent collection. */
 		readonly skip?: number
 		readonly take?: number
@@ -252,7 +258,13 @@ type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 					Readonly<Record<Exclude<keyof TInput, keyof TContract>, never>> &
 					Readonly<{
 						readonly [TKey in keyof TInput]: TKey extends keyof TContract
-							? ExactGeneratedValue<TInput[TKey], NonNullable<TContract[TKey]>>
+							? // An `unknown` value (a position's ordered fields) is not narrowed.
+								unknown extends TContract[TKey]
+								? TInput[TKey]
+								: ExactGeneratedValue<
+										TInput[TKey],
+										NonNullable<TContract[TKey]>
+									>
 							: never
 					}>
 			: never

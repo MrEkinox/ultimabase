@@ -389,9 +389,9 @@ or ordering, fails with Core's `VALIDATION_ERROR`
 pages never repeat or skip an unchanged node; a node whose ordered values
 change may move.
 
-A relation connection inside a node accepts `first`, `orderBy`, and `where` but
-no `after`: Core reads no position inside an `include`. Its edge cursors are
-still positions of the target schema.
+A relation connection inside a node accepts the same `first`, `after`,
+`orderBy`, and `where`: Core reads its position inside the `include`, per
+parent. Its edge cursors are positions of the target schema.
 
 Yoga is shipped as a separate optional adapter. Compiling this package performs
 no application request; networkless execution, generated fields, and selected

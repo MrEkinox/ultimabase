@@ -125,8 +125,8 @@ describe('GraphQL read input compilation', () => {
 			]),
 		)
 		expect(orderField.getValues().map(({ name }) => name)).toContain('title')
-		// A relation connection has no `after` position (ADR-0309).
 		expect(relation.getFields().related?.args.map(({ name }) => name)).toEqual([
+			'after',
 			'first',
 			'orderBy',
 			'where',
