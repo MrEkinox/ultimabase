@@ -159,10 +159,7 @@ export const assertReadableMutationRows = async (
 		unique.length === 1 && first !== undefined
 			? createQueryValueFilter(check.schema, 'equal', 'id', first)
 			: createQueryMembershipFilter(check.schema, 'in', 'id', unique)
-	const rowFilter = combineDatabaseRowFilters(
-		identity,
-		constraints.rowFilter,
-	)
+	const rowFilter = combineDatabaseRowFilters(identity, constraints.rowFilter)
 	const query = createQueryAst(check.schema)
 	const readable: unknown =
 		unique.length === 1
