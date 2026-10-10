@@ -104,6 +104,12 @@ export const storeSchemaDeclaration = (
 	schemaDeclarations.set(schema, declaration)
 }
 
+/** Reads the fields captured when one schema was declared, before compilation. */
+export const readSchemaDeclaredFields = (
+	schema: SchemaDefinition,
+): Readonly<Record<string, unknown>> =>
+	schemaDeclarations.get(schema)?.fields ?? {}
+
 /** Publishes a candidate resolved without application-owned field methods. */
 export const storeProvisionalSchemaCompilation = (
 	prepared: PreparedSchemaCompilation,

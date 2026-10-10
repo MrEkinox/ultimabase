@@ -25,6 +25,7 @@ import {
 	assertSchemaFieldName,
 	fieldPathKey,
 	graphqlEnumValueName,
+	readGraphqlSharedEnum,
 	graphqlFieldOwner,
 	memoize,
 	readGraphqlEnumValues,
@@ -261,29 +262,49 @@ export class GraphqlFieldTypeCompiler {
 		schema: SchemaDefinition,
 		path: readonly string[],
 	): GraphQLEnumType {
+		const shared = readGraphqlSharedEnum(field.options)
+		if (shared !== undefined) {
+			// A shared enum names one GraphQL type for every field (ADR-0310).
+			return this.#ctx.sharedEnum(
+				shared.name,
+				() => {
+					this.#ctx.claim(shared.name, schema, path)
+				},
+				() => this.#createEnum(shared.name, field, schema, path),
+			)
+		}
 		return memoize(this.#enums, fieldPathKey(schema, path), () => {
-			const name = this.#fieldTypeName(field, schema, path)
+			const name = this.#ctx.typeName(schema, path)
 			this.#ctx.claim(name, schema, path)
-			const values = new Map<string, { readonly value: string }>()
-			for (const value of readGraphqlEnumValues(field.options)) {
-				const enumName = graphqlEnumValueName(value)
-				if (values.has(enumName)) {
-					throw new GraphqlSchemaCompilationError(
-						'name-collision',
-						`GraphQL enum value "${enumName}" collides in ${schema.className}.${path.join('.')}`,
-						{
-							owner: graphqlFieldOwner(schema, path),
-							path: `${name}.${enumName}`,
-						},
-					)
-				}
-				values.set(enumName, { value })
-			}
 			return this.#ctx.add(
 				'models',
-				new GraphQLEnumType({ name, values: Object.fromEntries(values) }),
+				this.#createEnum(name, field, schema, path),
 			)
 		})
+	}
+
+	#createEnum(
+		name: string,
+		field: GenericField,
+		schema: SchemaDefinition,
+		path: readonly string[],
+	): GraphQLEnumType {
+		const values = new Map<string, { readonly value: string }>()
+		for (const value of readGraphqlEnumValues(field.options)) {
+			const enumName = graphqlEnumValueName(value)
+			if (values.has(enumName)) {
+				throw new GraphqlSchemaCompilationError(
+					'name-collision',
+					`GraphQL enum value "${enumName}" collides in ${schema.className}.${path.join('.')}`,
+					{
+						owner: graphqlFieldOwner(schema, path),
+						path: `${name}.${enumName}`,
+					},
+				)
+			}
+			values.set(enumName, { value })
+		}
+		return new GraphQLEnumType({ name, values: Object.fromEntries(values) })
 	}
 
 	#embeddedOutput(

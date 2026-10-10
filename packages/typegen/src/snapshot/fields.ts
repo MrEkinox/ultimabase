@@ -196,12 +196,21 @@ const snapshotValue = (
 		)
 
 	switch (field.kind) {
-		case 'enum':
+		case 'enum': {
+			// A shared enum (ADR-0310) names one generated type for every field.
+			const shared: unknown =
+				'sharedEnum' in options ? options.sharedEnum : undefined
 			return immutableRecord({
 				kind: 'enum',
-				typeName: typeName(),
+				typeName: readOptionalString(
+					typeof shared === 'object' && shared !== null
+						? Reflect.get(shared, 'name')
+						: undefined,
+					`${displayPath}.sharedEnum.name`,
+				),
 				values: readEnumValues(field, displayPath),
 			})
+		}
 		case 'object': {
 			const fields: unknown = 'fields' in options ? options.fields : undefined
 

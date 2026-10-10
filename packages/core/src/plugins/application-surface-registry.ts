@@ -2,7 +2,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaRegistry } from '../schema/schema/registry.js'
 import {
-	reservedModelHandleNames,
 	reservedSchemaHandleNames,
 } from './application-surface-contracts.js'
 import {
@@ -138,10 +137,6 @@ export const compileCommandGraph = (
 							`Missing compiled model surface schema: ${className}`,
 						)
 					}
-					const fieldNames = new Set([
-						...Object.keys(outputSchema.persistedFields),
-						...Object.keys(outputSchema.virtualFields),
-					])
 					for (const [name, binding] of Object.entries(
 						surface.schemaMutations,
 					)) {
@@ -181,23 +176,10 @@ export const compileCommandGraph = (
 							}),
 						)
 						surfaces.set(binding.mutation.name, selected)
-						for (const mutationSurface of binding.surfaces) {
-							if (mutationSurface === 'schema') {
-								if (reservedSchemaHandleNames.has(name)) {
-									throw new TypeError(
-										`${className} schema mutation uses reserved handle method: ${name}`,
-									)
-								}
-							} else {
-								if (
-									reservedModelHandleNames.has(name) ||
-									fieldNames.has(name)
-								) {
-									throw new TypeError(
-										`${className} model mutation uses reserved handle method: ${name}`,
-									)
-								}
-							}
+						if (reservedSchemaHandleNames.has(name)) {
+							throw new TypeError(
+								`${className} schema mutation uses reserved handle method: ${name}`,
+							)
 						}
 					}
 				}

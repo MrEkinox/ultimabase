@@ -140,10 +140,7 @@ const readRequiredSchemaMutationPlans = (
 	const required = new Set<DatabasePersistencePlanKind>()
 	for (const schema of application.schemas.values()) {
 		const surface = application.getSchemaSurface(schema.className)
-		for (const command of [
-			...(surface?.schemaMutations.values() ?? []),
-			...(surface?.modelMutations.values() ?? []),
-		]) {
+		for (const command of surface?.schemaMutations.values() ?? []) {
 			// Schema-mutation protocol 1 locks a visible target through a prepared
 			// singular delete shape before choosing its final update or delete effect.
 			required.add('delete-one')

@@ -257,7 +257,7 @@ const executeRoute = async (
 			limits,
 		)
 		return createRestJsonResponse(
-			{ result: encodeRestJsonValue(result, invalidResult, schemas) },
+			{ result: encodeRestJsonValue(result, invalidResult) },
 			200,
 		)
 	}

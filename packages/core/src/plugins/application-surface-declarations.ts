@@ -45,7 +45,7 @@ export interface PluginOperationDeclarationRegistrar {
 }
 
 export interface PluginModelSurfaceRegistrar {
-	/** Adds schema-mutation methods to selected schema and model handles. */
+	/** Adds schema-mutation methods to selected schemas and schema handles. */
 	extend<
 		const TTarget extends SchemaDefinition | SchemaSelectorOptions,
 		const TMutations extends Readonly<
@@ -72,22 +72,13 @@ type SurfaceMutationTemplate<
 	TMutations extends Readonly<
 		Record<string, PluginSchemaMutationSurfaceBinding>
 	>,
-	TSurface extends 'model' | 'schema',
 > = {
-	readonly [
-		TName in keyof TMutations as TSurface extends TMutations[TName]['surfaces'][number]
-			? TName
-			: never
-	]: PluginSourceMutationMethod<TMutations[TName]['mutation'], TSurface>
-} & (TSurface extends 'schema'
-	? PluginSourceSchemaMutationCarrier<{
-			readonly [
-				TName in keyof TMutations as TSurface extends TMutations[TName]['surfaces'][number]
-					? TName
-					: never
-			]: TMutations[TName]['mutation']
-		}>
-	: object)
+	readonly [TName in keyof TMutations]: PluginSourceMutationMethod<
+		TMutations[TName]['mutation']
+	>
+} & PluginSourceSchemaMutationCarrier<{
+	readonly [TName in keyof TMutations]: TMutations[TName]['mutation']
+}>
 
 type TargetClassNames<TTarget> =
 	TTarget extends SchemaDefinition<infer TClassName>
@@ -102,41 +93,21 @@ type TargetSelector<TTarget> = TTarget extends SchemaSelectorOptions
 		: TTarget
 	: undefined
 
-type SurfaceProjection<
-	TTarget,
-	TMutations extends Readonly<
-		Record<string, PluginSchemaMutationSurfaceBinding>
-	>,
-	TSurface extends 'model' | 'schema',
-> = keyof SurfaceMutationTemplate<TMutations, TSurface> extends never
-	? never
-	: PluginSourceSchemaProjection<
-			SurfaceMutationTemplate<TMutations, TSurface>,
-			TargetClassNames<TTarget>,
-			TargetSelector<TTarget>
-		>
-
-/** Derives source methods and mutation identity from one model-surface declaration. */
+/** Derives schema methods and mutation identity from one surface declaration. */
 export type PluginModelSurfaceSource<
 	TTarget,
 	TMutations extends Readonly<
 		Record<string, PluginSchemaMutationSurfaceBinding>
 	>,
-> =
-	| (SurfaceProjection<
-			TTarget,
-			TMutations,
-			'schema'
-	  > extends infer TProjection extends PluginSourceSchemaProjection
-			? Readonly<{ schemaClass: TProjection }>
-			: never)
-	| (SurfaceProjection<
-			TTarget,
-			TMutations,
-			'model'
-	  > extends infer TProjection extends PluginSourceSchemaProjection
-			? Readonly<{ model: TProjection }>
-			: never)
+> = keyof TMutations extends never
+	? never
+	: Readonly<{
+			schemaClass: PluginSourceSchemaProjection<
+				SurfaceMutationTemplate<TMutations>,
+				TargetClassNames<TTarget>,
+				TargetSelector<TTarget>
+			>
+		}>
 
 export interface OwnedPluginOperationDeclaration {
 	readonly operation: PluginOperationDefinition | PluginSchemaMutationDefinition

@@ -53,9 +53,16 @@ const snapshotOutputValue = (
 				)
 			}
 
+			// A shared enum (ADR-0310) names one generated type for every use.
+			const shared: unknown = Reflect.get(options, 'sharedEnum')
 			return immutableRecord({
 				kind: 'enum',
-				typeName: typeName(),
+				typeName: readOptionalString(
+					typeof shared === 'object' && shared !== null
+						? Reflect.get(shared, 'name')
+						: undefined,
+					`${displayPath}.sharedEnum.name`,
+				),
 				values: immutableArray([...values].sort()),
 			})
 		}

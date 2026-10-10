@@ -25,7 +25,7 @@ export const readPasswordProfile = async <
 	userId: string,
 	options?: OperationOptions,
 ): Promise<SchemaResult<TUser>> => {
-	const profile = await user.pointer(userId).findOne(undefined, options)
+	const profile = await user.findOne({ where: { id: userId } }, options)
 	if (profile === null) {
 		throw new FrameworkError(
 			'NOT_FOUND',

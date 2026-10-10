@@ -2,16 +2,10 @@ import type {
 	SchemaDefinition,
 	SchemaReference,
 } from '../schema/schema/definition.js'
-import type { SchemaModelState } from '../schema/schema/model-contracts.js'
-import {
-	isSchemaModelInstance,
-	readSchemaModelRecord,
-} from '../schema/schema/model-state.js'
 
 import {
 	type CompiledApplicationSchemaSurface,
 	type CompiledPluginOperation,
-	type CompiledSchemaMutationCommand,
 } from '../plugins/application-surface-contracts.js'
 import {
 	readOperationCommand,
@@ -139,7 +133,7 @@ export type ApplicationSchemaHandle<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > = ApplicationSchemaHandleBase<TSchema> & SurfacePart<TSchema, 'schema'>
 
-/** Owns application-specific schema mutations and immutable model binding. */
+/** Owns application-specific schema mutations. */
 export class ApplicationSchemaHandleBase<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > {
@@ -169,30 +163,6 @@ export class ApplicationSchemaHandleBase<
 		return handle
 	}
 
-	/** Binds one trusted draft or persisted model without copying its identity. */
-	for(model: object): ApplicationModelHandleFor<TSchema> {
-		assertHandleAvailable(this.lifetime)
-		if (!isSchemaModelInstance(this.schema, model)) {
-			throw new TypeError(
-				`Model handle requires an exact ${this.schema.className} model`,
-			)
-		}
-		const record = readSchemaModelRecord(model)
-		if (record.state !== 'draft' && record.state !== 'persisted') {
-			throw new TypeError(
-				'Model handle requires draft or persisted model state',
-			)
-		}
-		return new ApplicationModelHandle(
-			this.lifetime,
-			this.schema,
-			model,
-			record.state,
-			this.surface,
-			this.executeSchemaMutation,
-		) as ApplicationModelHandleFor<TSchema>
-	}
-
 	private createSchemaMutationMethod(name: string) {
 		const command = this.surface.schemaMutations.get(name)
 		if (command === undefined) {
@@ -209,59 +179,6 @@ export class ApplicationSchemaHandleBase<
 		})
 	}
 }
-
-/** Binds plugin commands to one exact immutable draft or persisted model. */
-export class ApplicationModelHandle<
-	TSchema extends SchemaDefinition = SchemaDefinition,
-> {
-	constructor(
-		private readonly lifetime: ApplicationHandleLifetime,
-		readonly schema: TSchema,
-		readonly model: object,
-		readonly state: Extract<SchemaModelState, 'draft' | 'persisted'>,
-		private readonly surface: CompiledApplicationSchemaSurface,
-		private readonly executeSchemaMutation: ApplicationSchemaMutationExecutor,
-	) {
-		Object.freeze(this)
-		return new Proxy(this, {
-			get: (target, property, receiver): unknown => {
-				if (
-					typeof property === 'string' &&
-					target.surface.modelMutations.has(property)
-				) {
-					return target.createSchemaMutationMethod(property)
-				}
-				return Reflect.get(target, property, receiver)
-			},
-			has: (target, property): boolean =>
-				(typeof property === 'string' &&
-					target.surface.modelMutations.has(property)) ||
-				Reflect.has(target, property),
-		})
-	}
-
-	private createSchemaMutationMethod(name: string) {
-		const command: CompiledSchemaMutationCommand | undefined =
-			this.surface.modelMutations.get(name)
-		if (command === undefined) {
-			throw new TypeError(`Unknown ${this.schema.className} mutation: ${name}`)
-		}
-		return createApplicationSchemaMutationMethod({
-			assertAvailable: () => {
-				assertHandleAvailable(this.lifetime)
-			},
-			command,
-			execute: this.executeSchemaMutation,
-			model: this.model,
-			name,
-			schema: this.schema,
-		})
-	}
-}
-
-/** Resolves exact generated direct methods for one immutable model handle. */
-export type ApplicationModelHandleFor<TSchema extends SchemaDefinition> =
-	ApplicationModelHandle<TSchema> & SurfacePart<TSchema, 'model'>
 
 /** Resolves one exact generated operation from its stable namespaced name. */
 export type ApplicationOperationHandleForName<TName extends string> =

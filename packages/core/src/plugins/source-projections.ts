@@ -62,7 +62,6 @@ export interface PluginSourceProjection {
 	readonly fieldOptions?: Readonly<
 		Partial<Record<FieldDeclarationContext, object>>
 	>
-	readonly model?: PluginSourceSchemaProjection
 	readonly operations?: Readonly<Record<string, PluginOperationDefinition>>
 	readonly schemaClass?: PluginSourceSchemaProjection
 	readonly schemaFields?: PluginSourceSchemaProjection
@@ -105,7 +104,6 @@ export type PluginSourceProjectionFromResult<TResult> =
 export interface EmptyPluginSourceState {
 	readonly fieldBuilders: Readonly<Record<never, never>>
 	readonly fieldOptions: Readonly<Record<never, never>>
-	readonly model: never
 	readonly operations: Readonly<Record<never, never>>
 	readonly schemaClass: never
 	readonly schemaFields: never
@@ -122,7 +120,6 @@ export interface PluginSourceState {
 	readonly fieldOptions: Readonly<
 		Partial<Record<FieldDeclarationContext, object>>
 	>
-	readonly model: PluginSourceSchemaProjection
 	readonly operations: Readonly<Record<string, PluginOperationDefinition>>
 	readonly schemaClass: PluginSourceSchemaProjection
 	readonly schemaFields: PluginSourceSchemaProjection
@@ -198,7 +195,7 @@ type ObjectProjection<
 
 type SchemaProjection<
 	TProjection,
-	TKey extends 'model' | 'schemaClass' | 'schemaFields' | 'schemaOptions',
+	TKey extends 'schemaClass' | 'schemaFields' | 'schemaOptions',
 > =
 	TProjection extends Readonly<
 		Record<TKey, infer TValue extends PluginSourceSchemaProjection>
@@ -217,7 +214,6 @@ export type MergePluginSourceState<
 				ObjectProjection<TAdded, 'fieldBuilders'>
 			readonly fieldOptions: TCurrent['fieldOptions'] &
 				ObjectProjection<TAdded, 'fieldOptions'>
-			readonly model: TCurrent['model'] | SchemaProjection<TAdded, 'model'>
 			readonly operations: TCurrent['operations'] &
 				ObjectProjection<TAdded, 'operations'>
 			readonly schemaClass:

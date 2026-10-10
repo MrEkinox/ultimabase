@@ -3,7 +3,6 @@ import {
 	isConfiguredSchemaNamespace,
 	relationField,
 	stringField,
-	type RequestRoleReferenceCarrier,
 	type RequestSubjectContext,
 	type ConfiguredFieldDeclaration,
 	type ConfiguredSchemaDeclarationOptions,
@@ -18,10 +17,8 @@ import {
 	type SchemaFieldBuilderDeclaration,
 	type SchemaFieldName,
 	type SchemaIndexOptions,
-	type SchemaModelCapabilityContext,
 	type SchemaOptions,
 	type ReservedSchemaFieldCollision,
-	type SchemaResultCapabilityCarrier,
 	type ScalarFieldTypegenState,
 	type StringField,
 	type UltimaBaseGeneratedSchemaOptions,
@@ -33,11 +30,6 @@ import {
 	type RoleNameSelector,
 	type RoleReference,
 } from './role-reference.js'
-import {
-	createRoleRelationCommands,
-	type RoleMemberCommands,
-} from './role-member.js'
-import type { RoleHierarchyCommands } from './role-hierarchy.js'
 import {
 	createRoleSchemaIdentity,
 	roleSchemaIdentityOptionName,
@@ -155,16 +147,6 @@ export type RoleSchemaClass<
 > = ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields> &
 	RoleSchemaStatics<
 		ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
-	> &
-	SchemaResultCapabilityCarrier<
-		RequestRoleReferenceCarrier &
-			RoleMemberCommands<
-				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>,
-				TMemberSchema
-			> &
-			RoleHierarchyCommands<
-				ExactRoleSchemaDefinition<TClassName, TMemberSchema, TCustomFields>
-			>
 	>
 
 type ConfiguredRoleSchemaOptions<
@@ -221,24 +203,6 @@ type ConfiguredRoleSchemaClass<
 			TMemberSchema,
 			ReturnType<TFieldDeclaration>
 		>
-	> &
-	SchemaResultCapabilityCarrier<
-		RequestRoleReferenceCarrier &
-			RoleMemberCommands<
-				ExactRoleSchemaDefinition<
-					TClassName,
-					TMemberSchema,
-					ReturnType<TFieldDeclaration>
-				>,
-				TMemberSchema
-			> &
-			RoleHierarchyCommands<
-				ExactRoleSchemaDefinition<
-					TClassName,
-					TMemberSchema,
-					ReturnType<TFieldDeclaration>
-				>
-			>
 	>
 
 /** Declares the developer-owned portion of a role-aware schema. */
@@ -448,9 +412,7 @@ export class RoleSchema {
 				}),
 			}
 		}
-		const createCapabilities = (
-			context: SchemaModelCapabilityContext<SelfSchema>,
-		) => {
+		const createStatics = (schema: SelfSchema) => {
 			function role<const TName extends string>(
 				name: TName,
 			): RoleReference<SelfSchema, RoleNameSelector<TName>>
@@ -461,35 +423,12 @@ export class RoleSchema {
 				selector: string | RoleIdSelector,
 			): RoleReference<SelfSchema> {
 				return createRoleReference(
-					context.schema,
+					schema,
 					typeof selector === 'string' ? { name: selector } : selector,
 				)
 			}
 
-			const results: RequestRoleReferenceCarrier &
-				RoleMemberCommands<SelfSchema, TMemberSchema> &
-				RoleHierarchyCommands<SelfSchema> = {
-				toRequestRoleReference(
-					this: object,
-				): RoleReference<SelfSchema, RoleIdSelector> {
-					context.assertPersisted(this, 'toRequestRoleReference')
-
-					if (!('id' in this) || typeof this.id !== 'string') {
-						throw new TypeError(
-							'Persisted role has no valid framework identifier',
-						)
-					}
-
-					// The neutral reference keeps ACL and other consumers independent from roles.
-					return createRoleReference(context.schema, { id: this.id })
-				},
-				...createRoleRelationCommands(context, members.schema),
-			}
-
-			return {
-				statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-				results,
-			}
+			return { role } satisfies RoleSchemaStatics<SelfSchema>
 		}
 		const roleSchema = Schema.defineSpecialized(
 			{
@@ -500,7 +439,7 @@ export class RoleSchema {
 				...(indexes === undefined ? {} : { indexes }),
 			} as unknown as SchemaOptions<TClassName, Fields> &
 				ReservedSchemaFieldCollision<Fields>,
-			createCapabilities,
+			createStatics,
 		)
 		self.schema = roleSchema
 		roleSchemaDeclarations.set(

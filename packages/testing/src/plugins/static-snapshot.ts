@@ -83,7 +83,6 @@ export const createPluginStaticConformanceSnapshot = (
 		})),
 		surfaces: graph.schemaSurfaces.map((surface) => ({
 			className: surface.schema.className,
-			modelMutations: snapshotMutations(surface.modelMutations),
 			schemaMutations: snapshotMutations(surface.schemaMutations),
 		})),
 	}

@@ -1,12 +1,5 @@
-import { createPointer, Pointer } from '../relations/pointer.js'
-import { getFieldSchemaTarget } from '../fields/base/definition.js'
-import { Schema } from './definition.js'
+import { createPointer, type Pointer } from '../relations/pointer.js'
 import { isSchemaDeclarationMethod } from './declaration-methods.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
 
 import {
 	createSchemaRecord,
@@ -49,162 +42,13 @@ import {
 import { readActiveApplicationOwner } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { executeStaticSchemaMutation } from '../../query/operations/execution.js'
-import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
-import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
 	SchemaFields,
-	SchemaMetadata,
 	SchemaReference,
 } from './definition.js'
-import type {
-	SchemaModelDefinitionReader,
-	SchemaModelMaterialization,
-	SchemaModelState,
-} from './model-contracts.js'
-import { SchemaModelPrototype } from './model-commands.js'
-import {
-	persistedModelConstructionKey,
-	preparedDraftConstructionKey,
-	registerSchemaModelClass,
-} from './model-state.js'
-import { assertPlainObject } from '../../exact-object-validation.js'
-
-/**
- * Snapshots a draft pointer as its `{ connect }` link (ADR-0308), which the
- * draft passes unchanged to its create or upsert command.
- */
-const snapshotDraftLink = (
-	definition: SchemaFields[string],
-	value: unknown,
-	path: string,
-): Readonly<{ readonly connect: unknown }> => {
-	if (
-		!isPlainRecord(value) ||
-		Object.keys(value).length !== 1 ||
-		!Object.hasOwn(value, 'connect')
-	) {
-		throw new TypeError(`${path} must be a link such as { connect: id }`)
-	}
-	const target = getFieldSchemaTarget(definition)?.()
-	const link = value.connect
-	if (!Schema.is(target)) {
-		throw new TypeError(`${path} requires a registered pointer target`)
-	}
-	if (Pointer.is(link) ? link.schema !== target : typeof link !== 'string') {
-		throw new TypeError(
-			`${path}.connect must be a ${target.className} Pointer or object ID`,
-		)
-	}
-	return immutableRecord({ connect: link })
-}
-
-const snapshotDraftValues = (
-	fields: SchemaFields,
-	input: unknown,
-): Readonly<Record<string, unknown>> => {
-	assertPlainObject(input, 'Schema model input must be a plain object')
-
-	for (const [field, definition] of Object.entries(fields)) {
-		if (!Object.hasOwn(input, field) && isRequiredOnCreate(definition)) {
-			throw new TypeError(`Schema model input field is required: ${field}`)
-		}
-	}
-
-	// Entries keep every input name, including `__proto__`, as an own key.
-	const values: [string, unknown][] = []
-
-	for (const key of Reflect.ownKeys(input)) {
-		if (typeof key !== 'string') {
-			throw new TypeError(
-				`Schema model input contains an unknown field: ${String(key)}`,
-			)
-		}
-
-		// Inherited `Object.prototype` members are never declared fields.
-		const definition = Object.hasOwn(fields, key) ? fields[key] : undefined
-
-		if (definition === undefined) {
-			throw new TypeError(
-				`Schema model input contains an unknown field: ${key}`,
-			)
-		}
-
-		const value = input[key]
-
-		values.push([
-			key,
-			value === null && isFieldNullable(definition)
-				? null
-				: definition.kind === 'pointer'
-					? snapshotDraftLink(definition, value, `input.${key}`)
-					: snapshotDeclaredFieldValue(definition, value, `input.${key}`),
-		])
-	}
-
-	return immutableRecord(Object.fromEntries(values))
-}
-
-const snapshotMaterializedValues = (
-	definition: SchemaMetadata,
-	input: unknown,
-	materializationKind: 'Persisted' | 'Prepared draft',
-): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(input)) {
-		throw new TypeError(
-			`${materializationKind} schema model values must be a plain object`,
-		)
-	}
-
-	for (const key of Reflect.ownKeys(input)) {
-		if (typeof key !== 'string' || !Object.hasOwn(definition.fields, key)) {
-			throw new TypeError(
-				`${materializationKind} schema model contains an unknown field: ${String(key)}`,
-			)
-		}
-	}
-
-	// Runtime already validated and deeply detached every visible logical value.
-	return immutableRecord(input)
-}
-
-const snapshotSchemaModelMaterialization = (
-	definition: SchemaMetadata,
-	values: Readonly<Record<string, unknown>>,
-	materialization: SchemaModelMaterialization | undefined,
-): Readonly<{
-	readonly objectId: unknown
-	readonly selectedFields: readonly string[] | undefined
-}> => {
-	const visibleObjectId = Object.hasOwn(values, 'id') ? values.id : undefined
-	const candidateObjectId = materialization?.objectId ?? visibleObjectId
-	const objectId =
-		candidateObjectId === undefined
-			? undefined
-			: snapshotDeclaredFieldValue(
-					definition.fields.id,
-					candidateObjectId,
-					'model.identity.id',
-				)
-
-	if (
-		visibleObjectId !== undefined &&
-		objectId !== undefined &&
-		visibleObjectId !== objectId
-	) {
-		throw new TypeError(
-			'Persisted schema model visible id does not match protected identity',
-		)
-	}
-
-	const selectedFields =
-		materialization?.selectedFields === undefined
-			? undefined
-			: immutableArray(materialization.selectedFields)
-
-	return immutableRecord({ objectId, selectedFields })
-}
+import type { SchemaModelDefinitionReader } from './model-contracts.js'
 
 /** Tests whether the sole active compiled application exposes one class mutation. */
 const resolveStaticMutation = (
@@ -224,20 +68,12 @@ const resolveStaticMutation = (
 }
 
 /** Resolves class-level mutations from the sole active compiled application. */
-const createStaticSchemaMutationView = <
-	TSchema extends new (input: unknown) => object,
->(
+const createStaticSchemaMutationView = <TSchema extends object>(
 	target: TSchema,
 	className: string,
 	readSchema: () => SchemaDefinition,
 ): TSchema => {
 	const view: TSchema = new Proxy(target, {
-		construct: (constructor, arguments_, newTarget): object =>
-			Reflect.construct(
-				constructor,
-				arguments_,
-				newTarget === view ? constructor : newTarget,
-			) as object,
 		get: (constructor, property, receiver): unknown => {
 			if (
 				typeof property === 'string' &&
@@ -339,47 +175,12 @@ export const createSchemaModelClass = <
 >(
 	reader: SchemaModelDefinitionReader<TClassName, TFields>,
 ): SchemaReference<TClassName> => {
-	class DefinedSchemaModel extends SchemaModelPrototype {
-		constructor(
-			input: unknown,
-			constructionKey?: symbol,
-			materialization?: SchemaModelMaterialization,
-		) {
-			if (new.target !== DefinedSchemaModel) {
-				throw new TypeError('Schema model classes cannot be subclassed')
-			}
-
-			const state: SchemaModelState =
-				constructionKey === persistedModelConstructionKey
-					? 'persisted'
-					: constructionKey === preparedDraftConstructionKey
-						? 'prepared-draft'
-						: 'draft'
-			const schema = readDefinedSchema()
-			const definition = reader.readDefinition()
-			const values =
-				state === 'draft'
-					? snapshotDraftValues(reader.readDeveloperFields(), input)
-					: snapshotMaterializedValues(
-							definition,
-							input,
-							state === 'persisted' ? 'Persisted' : 'Prepared draft',
-						)
-			const protectedState =
-				state === 'persisted'
-					? snapshotSchemaModelMaterialization(
-							definition,
-							values,
-							materialization,
-						)
-					: undefined
-
-			super(
-				schema,
-				values,
-				state,
-				protectedState?.objectId,
-				protectedState?.selectedFields,
+	// A schema is a class value for its static API only: results are plain
+	// data and nothing constructs a model (ADR-0310).
+	class DefinedSchemaModel {
+		constructor() {
+			throw new TypeError(
+				`${reader.className} is not constructible: create rows with ${reader.className}.createOne({ data })`,
 			)
 		}
 	}
@@ -391,7 +192,6 @@ export const createSchemaModelClass = <
 		reader.className,
 		() => schema,
 	) as unknown as SchemaReference<TClassName>
-	const readDefinedSchema = (): SchemaReference<TClassName> => schema
 	const definitionProperties = Object.fromEntries(
 		definitionKeys.map((key) => [
 			key,
@@ -419,6 +219,5 @@ export const createSchemaModelClass = <
 		...definitionProperties,
 	})
 
-	registerSchemaModelClass(schema)
 	return schema
 }

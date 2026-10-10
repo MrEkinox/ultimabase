@@ -1,14 +1,8 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord, isUnknownArray } from '@ultimabase/shared'
 
 import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertFieldOptions,
-	assertValidTypeName,
 	fieldOptionKeys,
 	normalizeFieldOptions,
 	type BuiltInFieldOptionsContract,
@@ -21,27 +15,37 @@ import type {
 	FieldOptions,
 } from '../base/contract.js'
 import {
+	isSharedEnum,
+	snapshotEnumValueList,
+	type SharedEnum,
+} from './shared-enum.js'
+import {
 	type CompactScalarFieldDefinition,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 
-export type EnumValues = readonly string[] | Readonly<Record<string, string>>
-
 /**
- * Infers persisted values from either a tuple or a symbolic key-value mapping.
+ * The values of one enum field: a non-empty string array (a local enum,
+ * named by generators from schema and field path) or a shared enum from
+ * `defineEnum` (ADR-0310).
  */
+export type EnumValues = readonly string[] | SharedEnum
+
+/** Infers the persisted values of one enum source. */
 export type EnumValue<TValues extends EnumValues> =
-	TValues extends readonly string[]
-		? TValues[number]
-		: TValues[keyof TValues] & string
+	TValues extends SharedEnum<string, infer TShared>
+		? TShared[number]
+		: TValues extends readonly string[]
+			? TValues[number]
+			: never
 
 interface EnumValuesOption<TValues extends EnumValues> {
 	/**
-	 * Declares persisted values as a non-empty string tuple or a symbolic key-value mapping.
+	 * Declares persisted values as a non-empty string array or a shared enum.
 	 *
 	 * @example `values: ["draft", "published"]`
-	 * @example `values: { Draft: "draft", Published: "published" }`
+	 * @example `values: TodoPriority // defineEnum('TodoPriority', [...])`
 	 */
 	readonly values: TValues
 }
@@ -50,14 +54,7 @@ interface EnumValuesOption<TValues extends EnumValues> {
  * Combines the exact enum source with field options constrained to its values.
  */
 export interface EnumFieldOptions<TValues extends EnumValues = EnumValues>
-	extends FieldOptions<EnumValue<TValues>>, EnumValuesOption<TValues> {
-	/**
-	 * Overrides the stable generated type name used by schema generators.
-	 *
-	 * @example `typeName: "ProductStatus"`
-	 */
-	readonly typeName?: string
-}
+	extends FieldOptions<EnumValue<TValues>>, EnumValuesOption<TValues> {}
 
 /**
  * Carries the inferred string union and exact options through schema inference.
@@ -74,17 +71,11 @@ export type EnumField<
 
 const enumFieldOptionsContract: BuiltInFieldOptionsContract = {
 	kind: 'enum',
-	optionKeys: [...fieldOptionKeys, 'typeName', 'values'],
+	optionKeys: [...fieldOptionKeys, 'values'],
 }
 
 type NonEmptyMapping<TValues extends EnumValues> =
-	TValues extends readonly string[]
-		? TValues extends readonly []
-			? never
-			: TValues
-		: keyof TValues extends never
-			? never
-			: TValues
+	TValues extends readonly [] ? never : TValues
 
 export type CompatibleEnumFieldOptions<TValues extends EnumValues> =
 	NonEmptyMapping<TValues> extends never ? { readonly values: never } : object
@@ -149,64 +140,30 @@ type NonDefaultedEnumField<
 > = ResolvedEnumField<TValues, TRequired, TList, TImmutable, false>
 
 interface NormalizedEnumSource {
-	readonly metadata: EnumValues
+	readonly shared: SharedEnum | undefined
 	readonly values: readonly string[]
 }
 
 const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
-	const list = isUnknownArray(source)
-
-	if (!list && !isPlainRecord(source)) {
-		throw new TypeError('Enum values must be a string list or mapping')
+	if (isSharedEnum(source)) return { shared: source, values: source.values }
+	if (!isUnknownArray(source)) {
+		throw new TypeError(
+			'Enum values must be a non-empty string array or a shared enum from defineEnum',
+		)
 	}
-
-	const declared = list ? source : Object.values(source)
-
-	if (declared.length === 0) {
-		throw new TypeError('Enum values cannot be empty')
-	}
-
-	if (!declared.every((value) => typeof value === 'string')) {
-		throw new TypeError('Enum values must contain only strings')
-	}
-
-	const duplicate = declared.find(
-		(value, index) => declared.indexOf(value) !== index,
-	)
-
-	if (duplicate !== undefined) {
-		throw new TypeError(`Duplicate enum value: ${duplicate}`)
-	}
-
-	const values = immutableArray(declared)
-
-	// Mapping keys remain available to future schema and SDK generators; every
-	// entry value was proven to be a string above.
 	return {
-		metadata: list
-			? values
-			: immutableRecord(
-					Object.fromEntries(
-						Object.entries(source).filter(
-							(entry): entry is [string, string] =>
-								typeof entry[1] === 'string',
-						),
-					),
-				),
-		values,
+		shared: undefined,
+		values: snapshotEnumValueList(source, 'Enum values'),
 	}
 }
 
 /**
- * Declares a closed string domain from a tuple, string enum, or key-value mapping.
+ * Declares a closed string domain from a string array or a shared enum.
  *
  * @example
  * ```ts
- * enumField({
- *   typeName: "ProductStatus",
- *   values: { Draft: "draft", Published: "published" },
- *   default: "draft",
- * })
+ * enumField({ values: ["draft", "published"], default: "draft" })
+ * enumField({ values: defineEnum("ProductStatus", ["draft", "published"]) })
  * ```
  */
 export function enumField<
@@ -239,9 +196,8 @@ export function enumField<
 
 export function enumField(options: EnumFieldOptions): EnumField {
 	assertFieldOptions(options)
-	assertValidTypeName(options.typeName)
 
-	const { metadata, values } = normalizeEnumValues(options.values)
+	const { shared, values } = normalizeEnumValues(options.values)
 	const snapshotValue = (value: unknown, path: string): string => {
 		if (typeof value !== 'string' || !values.includes(value)) {
 			const location = path === 'default' ? '' : ` at ${path}`
@@ -259,9 +215,15 @@ export function enumField(options: EnumFieldOptions): EnumField {
 
 	// Like object and pointer fields, enum fields record no Core options contract,
 	// so application compilation keeps their unresolved option keys.
+	// `values` is stored as the flat list every consumer reads; a shared enum
+	// stays available as `sharedEnum` so generators emit one named type.
 	return createFieldDefinition(
 		'enum',
-		immutableRecord({ ...normalized, values: metadata }),
+		immutableRecord({
+			...normalized,
+			values,
+			...(shared === undefined ? {} : { sharedEnum: shared }),
+		}),
 		snapshotValue,
 	)
 }

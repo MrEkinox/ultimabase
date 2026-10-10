@@ -14,7 +14,6 @@ import {
 	type ApplicationSchemaHandleForName,
 	type PluginOperationEnvelope,
 } from '../../application/application-handles.js'
-import { bindDirectApplicationValue } from '../../application/application-model-views.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import {
 	type ConfiguredPluginExports,
@@ -35,7 +34,6 @@ import type { PluginOperationDefinition } from '../../plugins/plugin-operations.
 import {
 	normalizeOperationOptions,
 	registerQueryExecutionOwner,
-	type OperationExecutionOwnerToken,
 } from '../../query/operations/execution.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -160,7 +158,6 @@ export class UltimaBase<
 	#frameworkEngine: FrameworkEngine<TSchemas, TPlugins> | undefined
 	#compiledApplication: CompiledApplication<TSchemas> | undefined
 	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
-	readonly #operationOwnerToken: OperationExecutionOwnerToken
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
 
 	constructor(options: RootUltimaBaseOptions<TSchemas, TPlugins>) {
@@ -177,25 +174,12 @@ export class UltimaBase<
 			plugins,
 		})
 		this.#engineOptions = readEngineOptions(options)
-		this.#operationOwnerToken = registerQueryExecutionOwner({
+		registerQueryExecutionOwner({
 			application: this.#application,
-			bindResult: (value, ownerToken) =>
-				this.#bindQueryResult(value, ownerToken),
-			executeModelSchemaMutation: (model, schema, name, input, options) =>
-				this.#invokeSchemaMutation(
-					schema,
-					name,
-					'model',
-					(handle) => handle.for(model),
-					input,
-					options,
-				),
 			executeSchemaMutation: (schema, name, input, options) =>
 				this.#invokeSchemaMutation(
 					schema,
 					name,
-					'schema',
-					(handle) => handle,
 					input,
 					options,
 				),
@@ -320,19 +304,6 @@ export class UltimaBase<
 			this.#operationHandles.set(name, handle)
 		}
 		return handle
-	}
-
-	/** Reuses one application-owned immutable view for every Runtime model result. */
-	#bindQueryResult(
-		value: unknown,
-		ownerToken: OperationExecutionOwnerToken,
-	): unknown {
-		return bindDirectApplicationValue(value, ownerToken, (schema) => {
-			const surface = this.#application.ownsSchema(schema)
-				? this.#application.getSchemaSurface(schema.className)
-				: undefined
-			return new Set(surface?.modelMutations.keys() ?? [])
-		})
 	}
 
 	/** Resolves one exact stable schema class through its application-owned handle. */
@@ -500,57 +471,47 @@ export class UltimaBase<
 	#invokeSchemaMutation(
 		schema: SchemaDefinition,
 		name: string,
-		target: 'model' | 'schema',
-		select: (handle: ApplicationSchemaHandle) => object,
 		input: unknown,
 		options: OperationOptions | undefined,
 	): Promise<unknown> {
 		const surface = this.#application.getSchemaSurface(schema.className)
-		const installed =
-			target === 'model' ? surface?.modelMutations : surface?.schemaMutations
 		const handle =
-			surface?.schema === schema && installed?.has(name) === true
-				? select(this.schema(schema))
+			surface?.schema === schema && surface.schemaMutations.has(name)
+				? this.schema(schema)
 				: undefined
 		const method: unknown =
 			handle === undefined ? undefined : Reflect.get(handle, name)
 		if (handle === undefined || typeof method !== 'function') {
 			throw new TypeError(
-				`${target === 'model' ? 'Model' : 'Schema'} mutation ${schema.className}.${name} is not installed in this application`,
+				`Schema mutation ${schema.className}.${name} is not installed in this application`,
 			)
 		}
 		return Reflect.apply(method, handle, [input, options]) as Promise<unknown>
 	}
 
-	async #executePluginOperation(
+	#executePluginOperation(
 		compiled: CompiledOperationCommand,
 		envelope: PluginOperationEnvelope,
 	): Promise<unknown> {
-		return this.#bindQueryResult(
-			await executeRequestPluginOperation(
-				this.#requestEngine(),
-				compiled,
-				envelope,
-			),
-			this.#operationOwnerToken,
+		return executeRequestPluginOperation(
+			this.#requestEngine(),
+			compiled,
+			envelope,
 		)
 	}
 
-	async #executeSchemaMutation(
+	#executeSchemaMutation(
 		command: CompiledSchemaMutationCommand,
 		schema: SchemaDefinition,
 		envelope: PluginSchemaMutationEnvelope,
 		options: OperationOptions | undefined,
 	): Promise<unknown> {
-		return this.#bindQueryResult(
-			await executeRequestSchemaMutation(
-				this.#requestEngine(),
-				readMutationCommand(command).command,
-				schema,
-				envelope,
-				normalizeOperationOptions(options),
-			),
-			this.#operationOwnerToken,
+		return executeRequestSchemaMutation(
+			this.#requestEngine(),
+			readMutationCommand(command).command,
+			schema,
+			envelope,
+			normalizeOperationOptions(options),
 		)
 	}
 

@@ -315,25 +315,18 @@ const resolveOutputCall = (
 
 	if (methodName === 'enum') {
 		const { common, options } = normalizeOutputOptions(value, methodPath, [
-			'typeName',
 			'values',
 		])
-		const field = enumField({
-			...(options.typeName === undefined
-				? {}
-				: { typeName: options.typeName as string }),
-			values: options.values as EnumValues,
-		})
-		const declaredValues = field.options.values
-		const acceptedValues = Array.isArray(declaredValues)
-			? declaredValues
-			: Object.values(declaredValues)
+		// The enum factory validates the untrusted array or shared enum.
+		const field = enumField({ values: options.values as EnumValues })
+		const stored: Readonly<Record<string, unknown>> = field.options
+		const acceptedValues = stored.values as readonly string[]
 		const descriptorOptions = immutableRecord({
 			...common,
-			...(field.options.typeName === undefined
+			values: acceptedValues,
+			...(stored.sharedEnum === undefined
 				? {}
-				: { typeName: field.options.typeName }),
-			values: declaredValues,
+				: { sharedEnum: stored.sharedEnum }),
 		})
 
 		return createOutputDescriptor(

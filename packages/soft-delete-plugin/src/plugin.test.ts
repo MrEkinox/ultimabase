@@ -59,7 +59,7 @@ describe('softDeletePlugin', () => {
 					name: 'schema:declare',
 					reason: 'Declares schema fields, options or schemas.',
 				},
-				{ name: 'model:extend', reason: 'Extends application model handles.' },
+				{ name: 'model:extend', reason: 'Adds plugin commands to application schemas.' },
 				{ name: 'operation:declare', reason: 'Declares plugin operations.' },
 				{
 					name: 'runtime:constrain',

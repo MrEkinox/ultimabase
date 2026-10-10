@@ -67,18 +67,7 @@ export const normalizeOperationOptions = (
 
 interface QueryExecutionOwnerRegistrationInput {
 	readonly application: object
-	readonly bindResult: (
-		value: unknown,
-		ownerToken: OperationExecutionOwnerToken,
-	) => unknown
 	readonly createRootExecutor: () => QueryExecutionDispatcher
-	readonly executeModelSchemaMutation: (
-		model: object,
-		schema: SchemaDefinition,
-		name: string,
-		input: unknown,
-		options: OperationOptions | undefined,
-	) => Promise<unknown>
 	readonly executeSchemaMutation: (
 		schema: SchemaDefinition,
 		name: string,
@@ -222,59 +211,6 @@ const resolveOperationExecution = (): Readonly<{
 	}
 }
 
-/** Verifies that an application-bound value belongs to the current owner. */
-const requireOwnerRegistration = (
-	ownerToken: OperationExecutionOwnerToken,
-	options: OperationOptions | undefined,
-	subject: 'model' | 'value',
-): QueryExecutionOwnerRegistration => {
-	normalizeOperationOptions(options)
-	const { registration } = resolveOperationExecution()
-
-	if (registration === undefined) {
-		throw missingExecutionContext(
-			'No initialized active application owns this operation.',
-			'No application execution context is available.',
-			'operation-owner-missing',
-		)
-	}
-
-	if (registration.ownerToken !== ownerToken) {
-		throw new FrameworkError(
-			'VALIDATION_ERROR',
-			`Application-bound ${subject} belongs to another application lifecycle.`,
-			{ publicMessage: 'The requested schema is not available.' },
-		)
-	}
-
-	return registration
-}
-
-/** @internal Rejects stale application-bound values before any Runtime effect. */
-export const assertOperationExecutionOwnerToken = (
-	ownerToken: OperationExecutionOwnerToken | undefined,
-	options?: OperationOptions,
-): void => {
-	if (ownerToken !== undefined) {
-		requireOwnerRegistration(ownerToken, options, 'value')
-	}
-}
-
-/** @internal Executes a model mutation through the current verified owner only. */
-export const executeActiveModelSchemaMutation = (
-	model: object,
-	schema: SchemaDefinition,
-	ownerToken: OperationExecutionOwnerToken,
-	name: string,
-	input: unknown,
-	options?: OperationOptions,
-): Promise<unknown> =>
-	requireOwnerRegistration(
-		ownerToken,
-		options,
-		'model',
-	).executeModelSchemaMutation(model, schema, name, input, options)
-
 /** Dispatches one class-level plugin method through the selected application only. */
 export const executeStaticSchemaMutation = async (
 	schema: SchemaDefinition,
@@ -416,14 +352,9 @@ export const runWithQueryExecutionGuard = <TResult>(
 
 const bindExecutionResult = async <TResult>(
 	result: Promise<unknown>,
-	registration: QueryExecutionOwnerRegistration | undefined,
-): Promise<TResult> => {
-	const value = await result
-
-	// Runtime binds the erased dispatcher result to the exact requested shape.
-	return (registration?.bindResult(value, registration.ownerToken) ??
-		value) as TResult
-}
+): Promise<TResult> =>
+	// Runtime returns the erased dispatcher result in the exact requested shape.
+	(await result) as TResult
 
 /**
  * Runs one dispatch on the active executor, or on a fresh root executor of the
@@ -436,15 +367,12 @@ const executeWithAmbientExecutor = <TResult>(
 	const { active, registration } = resolveOperationExecution()
 
 	if (active !== undefined) {
-		return bindExecutionResult(dispatch(active.executor), registration)
+		return bindExecutionResult(dispatch(active.executor))
 	}
 
 	if (registration === undefined) throw missingOwner(missingReason)
 
-	return bindExecutionResult(
-		dispatch(registration.createRootExecutor()),
-		registration,
-	)
+	return bindExecutionResult(dispatch(registration.createRootExecutor()))
 }
 
 /** Executes ordered item operations inside one all-or-nothing Runtime transaction. */

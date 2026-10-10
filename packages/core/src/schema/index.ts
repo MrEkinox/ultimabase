@@ -47,18 +47,13 @@ export type {
 	PointerTarget,
 	PointerValue,
 } from './relations/pointer.js'
-export { Relation } from './relations/relation.js'
-export type {
-	SchemaRelationFieldName,
-	SchemaRelationTarget,
-} from './relations/relation.js'
 export type {
 	RelationMutationAction,
 	RelationMutationDelta,
-	RelationMutationOptions,
-	RelationMutationTargets,
 	RelationUpdateExpression,
 	RelationUpdateOperationNode,
+	SchemaRelationFieldName,
+	SchemaRelationTarget,
 } from './relations/mutation.js'
 export { isRelationUpdateExpression } from './relations/mutation.js'
 export { definePluginField } from './fields/plugin.js'
@@ -209,8 +204,8 @@ export type {
 	ConfiguredSchemaResult,
 	SchemaAPI,
 	SchemaClass,
-	SchemaClassCapabilities,
-	SchemaClassCapabilityFactory,
+
+	SchemaStaticCapabilityFactory,
 	SchemaDefinition,
 	SchemaDeclaredFields,
 	SchemaReference,
@@ -370,31 +365,17 @@ export type {
 	ResolveSchemaTarget,
 } from './schema/deferred-targets.js'
 export type {
-	CompactSchemaModelUpdateInput,
-	PersistedSchemaModel,
-	PersistedSchemaReference,
-	SchemaDraft,
-	SchemaDraftCommands,
-	SchemaDraftUpsertFields,
-	SchemaDraftUpsertInput,
-	SchemaModelCreateInput,
-	SchemaModelDeleteInput,
-	SchemaModelFetchInput,
-	SchemaModelUpdateCommandInput,
-	SchemaModelUpdateInput,
-	SchemaModelSelection,
-	SchemaModelCapabilityContext,
 	SchemaPreparedDraft,
-	SchemaResultCapabilitiesOf,
-	SchemaResultCapabilityCarrier,
 	SchemaResult,
-	SchemaResultCommands,
-	SchemaResultRelations,
 } from './schema/model-contracts.js'
 export {
 	materializePreparedSchemaDraft,
 	materializeSchemaModel,
 } from './schema/model-materialization.js'
+export { toJSON } from './schema/result-json.js'
+export { defineEnum } from './fields/builtins/shared-enum.js'
+export type { SharedEnum } from './fields/builtins/shared-enum.js'
+export type { BinaryJSON, JsonOf } from './schema/result-json.js'
 export type {
 	SchemaFieldName,
 	SchemaIndexDefinition,

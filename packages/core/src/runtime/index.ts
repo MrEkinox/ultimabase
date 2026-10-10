@@ -69,13 +69,11 @@ export type {
 	SchemaRegistrationError,
 } from './application/schema-registration-checks.js'
 export {
-	ApplicationModelHandle,
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
 } from '../application/application-handles.js'
 export type {
 	ApplicationContributionOwner,
-	ApplicationModelHandleFor,
 	ApplicationOperationHandleForName,
 	ApplicationSchemaHandle,
 	ApplicationSchemaHandleForName,
@@ -83,9 +81,7 @@ export type {
 	PluginOperationEnvelopeTarget,
 } from '../application/application-handles.js'
 export type {
-	ApplicationModelSchemaMutationMethod,
 	ApplicationSchemaMutationMethod,
-	PluginSchemaMutationModelInput,
 	PluginSchemaMutationResult,
 	PluginSchemaMutationSchemaInput,
 } from '../application/application-schema-mutations.js'

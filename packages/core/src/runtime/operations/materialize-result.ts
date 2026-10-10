@@ -12,7 +12,6 @@ import type {
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
-import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
 import {
 	isCollectionOperationResult,
@@ -83,14 +82,10 @@ const materializeRecord = (
 		values = hydrated
 	}
 
-	return materializeSchemaModel(
-		schema,
-		values,
-		readRuntimeSchemaModelMetadata(value),
-	)
+	return materializeSchemaModel(schema, values)
 }
 
-/** Materializes public model instances only after Runtime finishes result behaviors. */
+/** Freezes plain result objects only after Runtime finishes result behaviors (ADR-0310). */
 export const materializeOperationResult = <
 	const TOperation extends OperationAstNode & { readonly kind: OperationKind },
 >(

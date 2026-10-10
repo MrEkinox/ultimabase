@@ -1,22 +1,5 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import type { OperationOptions } from '../../query/operations/options.js'
-import type { OperationObjectId } from '../../query/operations/contracts.js'
-import type { QueryResult } from '../../query/query/result.js'
-import {
-	executeQueryExists,
-	executeQueryFindOne,
-} from '../../query/query/operation-execution.js'
-import { scopeQueryToObjectId } from '../../query/query/private-scope.js'
-import {
-	queryFromExistsInput,
-	queryFromFindOneInput,
-	type ExactReadInput,
-	type ExistsInput,
-	type FindOneInput,
-	type QueryIncludedFieldFromInput,
-	type QuerySelectedFieldFromInput,
-} from '../../query/query/input.js'
 import {
 	Schema,
 	type SchemaReference,
@@ -174,49 +157,6 @@ export class Pointer<
 			other.schema === this.#schema &&
 			other.id === this.#id
 		)
-	}
-
-	/** Reads this exact target through the ordinary read pipeline. */
-	findOne<const TInput extends FindOneInput<PointerSchema<TSchema>>>(
-		input: ExactReadInput<
-			PointerSchema<TSchema>,
-			TInput,
-			FindOneInput<PointerSchema<TSchema>>
-		>,
-		options?: OperationOptions,
-	): Promise<QueryResult<
-		PointerSchema<TSchema>,
-		QuerySelectedFieldFromInput<PointerSchema<TSchema>, TInput>,
-		QueryIncludedFieldFromInput<PointerSchema<TSchema>, TInput>
-	> | null>
-	/** Reads this exact target without applying a projection. */
-	findOne(
-		input?: undefined,
-		options?: OperationOptions,
-	): Promise<QueryResult<PointerSchema<TSchema>> | null>
-	findOne(
-		input: FindOneInput<PointerSchema<TSchema>> = {},
-		options?: OperationOptions,
-	): Promise<object | null> {
-		const query = scopeQueryToObjectId(
-			queryFromFindOneInput(this.#schema, input),
-			this.#id as OperationObjectId<PointerSchema<TSchema>>,
-		)
-
-		return executeQueryFindOne(query, options)
-	}
-
-	/** Tests whether this exact target exists and remains visible. */
-	exists(
-		input: ExistsInput<PointerSchema<TSchema>> = {},
-		options?: OperationOptions,
-	): Promise<boolean> {
-		const query = scopeQueryToObjectId(
-			queryFromExistsInput(this.#schema, input),
-			this.#id as OperationObjectId<PointerSchema<TSchema>>,
-		)
-
-		return executeQueryExists(query, options)
 	}
 
 	/** Serializes the logical identity without exposing database representation. */
