@@ -67,7 +67,7 @@ Current records (accepted or still active in part):
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
 - [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
-- [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md)
+- [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md), `get` read superseded by ADR-0307
 - [ADR-0068: RequestEngine transaction lifetime](0068-request-engine-transactions.md)
 - [ADR-0069: Atomic bulk writes and unique upsert targets](0069-atomic-bulk-and-unique-upserts.md)
 - [ADR-0070: Plugin hooks and post-commit events](0070-plugin-hooks-and-post-commit-events.md)
@@ -124,7 +124,7 @@ Current records (accepted or still active in part):
 - [ADR-0131: Optional committed event delivery](0131-optional-committed-event-delivery.md)
 - [ADR-0132: Read-only queries and schema-owned write commands](0132-read-only-queries-and-schema-write-commands.md)
 - [ADR-0133: Canonical null for optional field values](0133-canonical-null-for-optional-fields.md)
-- [ADR-0134: Unified field-oriented update data](0134-unified-update-data.md)
+- [ADR-0134: Unified field-oriented update data](0134-unified-update-data.md), `increment`/`decrement`/`unset` factories superseded by ADR-0307
 - [ADR-0135: First-class Query range filters](0135-first-class-query-range-filters.md)
 - [ADR-0136: Structured Query targets for JSON and object fields](0136-structured-query-targets.md)
 - [ADR-0137: Drizzle-native PostgreSQL relation compilation](0137-drizzle-native-relation-compilation.md)
@@ -140,7 +140,7 @@ Current records (accepted or still active in part):
 - [ADR-0149: Explicit operation cardinality names](0149-explicit-operation-cardinality-names.md)
 - [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md)
 - [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md)
-- [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md)
+- [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md), `get` read superseded by ADR-0307
 - [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
 - [ADR-0154: Unified eager relationship inclusion](0154-unified-eager-relationship-inclusion.md)
 - [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md)
@@ -170,7 +170,6 @@ Current records (accepted or still active in part):
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
 - [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md), root-row read rules superseded by ADR-0306
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
-- [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md)
 - [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
 - [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md)
 - [ADR-0185: Generated schema aliases expose canonical values only](0185-canonical-generated-schema-aliases.md)
@@ -230,7 +229,7 @@ Current records (accepted or still active in part):
 - [ADR-0240: Core plans static operation transport descriptors](0240-static-operation-transport-planning.md)
 - [ADR-0241: GraphQL HTTP explorers use a provider-neutral endpoint contract](0241-provider-neutral-graphql-http-explorers.md)
 - [ADR-0242: Request source names belong to their producers](0242-request-source-ownership.md)
-- [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md)
+- [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md), pointer `disconnect`, relation `clear` and identifier-only `connect` superseded by ADR-0308
 - [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
 - [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md)
 - [ADR-0246: Schema option absence is selectable and plugin powers are static](0246-schema-option-absence-and-static-plugin-powers.md)
@@ -293,6 +292,8 @@ Current records (accepted or still active in part):
 - [ADR-0304: Neutral current principal and policy predicates](0304-neutral-current-principal-and-policy-predicates.md)
 - [ADR-0305: Public application errors and policy queries in Core](0305-public-errors-and-can.md)
 - [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
+- [ADR-0307: Prisma-aligned equality filters, atomic updates and required reads](0307-prisma-aligned-filters-updates-and-required-reads.md)
+- [ADR-0308: One checked vocabulary for pointer and relation links](0308-one-checked-link-vocabulary.md)
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 
 Proposed records (awaiting user validation):
@@ -325,6 +326,7 @@ Superseded records:
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
+- [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md), superseded by ADR-0307.
 - [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.
