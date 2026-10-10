@@ -66,7 +66,7 @@ const embeddedSpecificOptions: Readonly<Record<string, readonly string[]>> = {
 	date: ['autoNow'],
 	'date-time': ['autoNow', 'timezone'],
 	decimal: ['precision', 'scale'],
-	enum: ['typeName', 'values'],
+	enum: ['values'],
 	float: [],
 	int: [],
 	json: [],

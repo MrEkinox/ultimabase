@@ -252,7 +252,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(schema.display).toContain('(property) define: <')
 		expect(schema.display).toContain('ConfiguredSchemaDeclarationOptions<')
 		expect(schema.documentation).toContain(
-			'Defines one final schema-specific class',
+			'Defines one final schema with typed static commands',
 		)
 	}, 10_000)
 
@@ -285,7 +285,6 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(result.display).toContain('readonly title: string')
 		expect(result.display).not.toContain('update(')
 		expect(pointer.display).toContain('Pointer<')
-		expect(create.display).not.toContain('NonDefaultedStringField<')
 	})
 
 	it('preserves the atomic bulk array result', () => {
@@ -329,7 +328,8 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(deleted.display).toContain('readonly title: string;')
 		expect(deleted.display).toContain('} | null')
 		expect(bulkUpdated.display).toContain('readonly id: string;')
-		expect(bulkUpdated.display).toContain('className: "RuntimeBulkAccount"')
+		// ADR-0310: results are plain data, without class identity members.
+		expect(bulkUpdated.display).not.toContain('className:')
 		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('.createOne<')
 		expect(create.display).toContain('input: SchemaCreateOneInput<')
@@ -452,10 +452,12 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})
 
-	it('preserves ambient hook model typing without context plumbing', () => {
-		const result = readFixtureQuickInfo('create({})')
+	it('preserves ambient hook schema command typing without context plumbing', () => {
+		const result = readFixtureQuickInfo(
+			'createOne({\n\t\t\t\t\tdata: { action:',
+		)
 
-		expect(result.display).toContain('create(input:')
+		expect(result.display).toContain('createOne<')
 		expect(result.display).toContain('options?: OperationOptions')
 		expect(result.display).not.toContain('RequestEngine<')
 	})

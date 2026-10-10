@@ -30,7 +30,7 @@ const factoryNames = [
 const specificOptions: Readonly<Record<string, readonly string[]>> = {
 	dateTime: ['timezone'],
 	decimal: ['precision', 'scale'],
-	enum: ['typeName', 'values'],
+	enum: ['values'],
 	object: ['fields', 'typeName'],
 	time: ['timezone'],
 }
