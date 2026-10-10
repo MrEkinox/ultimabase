@@ -36,8 +36,9 @@ ADR-0299 à ADR-0313 (acceptés), revues dans [revue-plugins/](revue-plugins/REA
 ## État
 
 - Étape 0 : fusionnée dans `main` local le 2026-10-09 (f631f8fe) : `validate:full` vert (3 058 tests), e2e sur paquets construits verts (418), audit DX expliqué ; deux différences acceptées et inscrites dans ADR-0297 (69 infobulles `ResolveSourceSchemaObject<…>` à corriger à l'étape 5, ordre de propriétés de l'ancienne forme). Reportés : `Register` obligatoire (étape 4), protection TS 7 des tests de typage, fabriques de plugins (amendement 3), outils de campagne autonomes, audit DX acceptant un exemple présent d'un seul côté.
-- Étape 1 : lancée le 2026-10-09.
+- Étape 1 : fusionnée dans `main` local le 2026-10-10 (c1098e7e) : `validate:full` vert (3 151 tests), e2e sur paquets construits verts (438), audit DX relancé par le coordinateur (385 différences, toutes rattachées à ADR-0299 à 0303), banc sans régression (50 schémas : 2,81 → 2,83 s ; 200 : 8,61 → 8,63 s). Écarts acceptés et inscrits dans ADR-0301 : décision 5 reportée pour GraphQL à l'étape 6, absence de `filterOperators` = aucun opérateur, `relations` et `relationPredicates` exigés. REST 409 pour les trois nouveaux codes. À surveiller : `framework-engine.test.ts` à 698 lignes (limite 700).
+- Étape 2 : lancée le 2026-10-10 (branche `migration/principal-policies`, worktree `../ub-step2`).
 
 ## Prochaine action vérifiable
 
-Rapport de l'étape 1 (contrats d'adaptateur avec PostgreSQL, ADR-0299 à 0303) : diff relu, `validate:full` vert, audit DX expliqué.
+Rapport de l'étape 2 (principal neutre, prédicats, `PublicError`, `can()`, sémantique `RETURNING`, ADR-0304 à 0306) : diff relu, `validate:full` vert, e2e construits verts, audit DX relancé et expliqué. Push de `main` (c1098e7e) en attente de la confirmation de l'utilisateur.
