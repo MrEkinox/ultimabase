@@ -1,8 +1,6 @@
 import {
-	decrement,
 	getFieldListDepth,
 	getPluginFieldWireCodec,
-	increment,
 	transformQueryFilterInput,
 	transformSchemaMutationDataInput,
 	type GenericField,
@@ -162,9 +160,7 @@ const decodeUpdateValue = (field: GenericField, value: unknown): unknown => {
 		numericKinds.has(field.kind) &&
 		(operator === 'increment' || operator === 'decrement')
 	) {
-		// The GraphQL input type of a numeric field yields bigint, number or string.
-		const numeric = operand as bigint | number | string
-		return operator === 'increment' ? increment(numeric) : decrement(numeric)
+		return immutableRecord({ [operator]: operand })
 	}
 	return value
 }

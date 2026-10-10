@@ -245,7 +245,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 						},
 						title: { set: 'Updated' },
 					},
-					id: createdPost.id,
+					where: { id: { eq: createdPost.id } },
 				},
 			},
 		)
@@ -263,24 +263,24 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		).toEqual(['First', 'Relation updated', 'Update created'])
 
 		for (const data of [
-			{ primary: { disconnect: true } },
+			{ primary: null },
 			{ primary: { connect: second.id } },
 			{ primary: { create: { name: 'Pointer replaced' } } },
 			{ targets: { set: [first.id, second.id] } },
-			{ targets: { clear: true } },
+			{ targets: { set: [] } },
 		]) {
 			const result = await execute(
 				`mutation Update($input: GraphqlNestedPostUpdateOneInput!) {
 					updateGraphqlNestedPost(input: $input) { id }
 				}`,
-				{ input: { data, id: createdPost.id } },
+				{ input: { data, where: { id: { eq: createdPost.id } } } },
 			)
 			expect(result.errors).toBeUndefined()
 		}
 
-		const final = await Post.get(
+		const final = await Post.findOneOrThrow(
 			{
-				id: createdPost.id,
+				where: { id: createdPost.id },
 				include: { primary: {}, targets: {} },
 			},
 			{ context: context() },
@@ -317,8 +317,8 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 		for (const targets of [
 			{ connect: [target.id, target.id] },
 			{ connect: [target.id], disconnect: [target.id] },
-			{ clear: false },
-			{ clear: true, set: [] },
+			{ connect: [target.id], set: [target.id] },
+			{ disconnect: [target.id], set: [] },
 		]) {
 			const result = await executeYoga(
 				`mutation Update($input: GraphqlNestedPostUpdateOneInput!) {
@@ -327,7 +327,7 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 				{
 					input: {
 						data: { targets, title: { set: 'Must roll back' } },
-						id: post.id,
+						where: { id: { eq: post.id } },
 					},
 				},
 			)
@@ -352,7 +352,10 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			).toBe('string')
 		}
 		expect(
-			await Post.get({ id: post.id }, { context: context() }),
+			await Post.findOneOrThrow(
+				{ where: { id: post.id } },
+				{ context: context() },
+			),
 		).toMatchObject({ title: 'Yoga created' })
 
 		let nested: unknown = { name: 'Depth 6' }

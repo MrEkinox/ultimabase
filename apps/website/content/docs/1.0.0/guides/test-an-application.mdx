@@ -147,7 +147,7 @@ it('creates and reads a Task through one application', async () => {
 	const created = await Task.createOne({
 		data: { title: 'Test the application' },
 	})
-	const saved = await Task.get({ id: created.id })
+	const saved = await Task.findOneOrThrow({ where: { id: created.id } })
 
 	expect(saved.get('title')).toBe('Test the application')
 	expect(saved.get('done')).toBe(false)
@@ -157,7 +157,7 @@ it('stores a completed Task independently of the previous test', async () => {
 	const created = await Task.createOne({
 		data: { title: 'Another task', done: true },
 	})
-	const saved = await Task.get({ id: created.id })
+	const saved = await Task.findOneOrThrow({ where: { id: created.id } })
 	expect(saved.get('done')).toBe(true)
 })
 ```

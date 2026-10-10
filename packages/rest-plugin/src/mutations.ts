@@ -211,7 +211,10 @@ export const normalizeRestMutationRequest = async <
 		let commandInput: unknown
 		if (input.operation === 'delete') {
 			await assertEmptyRestBody(request, invalidRestMutation)
-			commandInput = immutableRecord({ id: input.id, ...projection })
+			commandInput = immutableRecord({
+				where: immutableRecord({ id: immutableRecord({ eq: input.id }) }),
+				...projection,
+			})
 		} else {
 			const body = await readRestJsonBody(
 				request,
@@ -227,7 +230,9 @@ export const normalizeRestMutationRequest = async <
 					: input.operation === 'update'
 						? immutableRecord({
 								data: dataDecoder(schema, 'update', 'nested')(body),
-								id: input.id,
+								where: immutableRecord({
+									id: immutableRecord({ eq: input.id }),
+								}),
 								...projection,
 							})
 						: input.operation === 'upsert'

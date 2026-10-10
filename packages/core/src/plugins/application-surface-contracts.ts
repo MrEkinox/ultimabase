@@ -51,7 +51,7 @@ const coreSchemaCommandNames = [
 	'exists',
 	'findMany',
 	'findOne',
-	'get',
+	'findOneOrThrow',
 	'updateMany',
 	'updateOne',
 	'upsertMany',

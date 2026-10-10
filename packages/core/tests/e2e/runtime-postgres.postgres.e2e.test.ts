@@ -1,7 +1,6 @@
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import {
 	type DatabaseTransactionAdapter,
-	increment,
 	normalizeUpdateExpression,
 	QueryBuilder,
 	RequestContext,
@@ -72,7 +71,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				tenantId: 'model-commands',
 			}).upsert({
 				select: { email: true, id: true, visits: true },
-				update: { visits: increment(1) },
+				update: { visits: { increment: 1 } },
 				where: { email: { eq: 'model-upsert@example.com' } },
 			})
 			const selected = await BulkAccountSchema.findOne({
@@ -98,7 +97,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const updated = await selected.update(
 				{
-					data: { visits: increment(2) },
+					data: { visits: { increment: 2 } },
 					select: { email: true, id: true, visits: true },
 				},
 				{ useMasterKey: true },
@@ -392,9 +391,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).toStrictEqual([])
 
 			const updated = await PostSchema.updateOne({
-				id: created.id,
+				where: { id: created.id },
 				data: {
-					views: increment(2),
+					views: { increment: 2 },
 					published: true,
 					title: 'Persisted E2E',
 				},
@@ -409,7 +408,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 
 			const deleted = await PostSchema.deleteOne({
-				id: created.id,
+				where: { id: created.id },
 				select: { id: true, title: true },
 			})
 

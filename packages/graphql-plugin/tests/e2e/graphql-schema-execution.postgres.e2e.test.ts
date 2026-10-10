@@ -216,7 +216,7 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 		const updated = await execute(
 			`mutation Update($id: ID!) {
 			updateGraphqlExecutionPost(input: {
-				id: $id
+				where: { id: { eq: $id } }
 				data: { counter: { increment: 2 }, title: { set: "Updated" } }
 			}) { id slug title counter contextLabel }
 		}`,
@@ -294,7 +294,7 @@ describe('GraphQL generated schema execution with PostgreSQL', () => {
 
 		const deleted = await execute(
 			`mutation Delete($id: ID!) {
-			deleteGraphqlExecutionPost(input: { id: $id }) { id slug }
+			deleteGraphqlExecutionPost(input: { where: { id: { eq: $id } } }) { id slug }
 		}`,
 			context('anonymous'),
 			{ id: first.id },

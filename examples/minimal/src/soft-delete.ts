@@ -59,4 +59,7 @@ export const purgeArticle = (id: string) =>
 
 /** Keeps native delete syntax while replace mode writes an author tombstone. */
 export const softDeleteAuthor = (id: string) =>
-	ExampleAuthor.deleteOne({ id, select: { id: true, name: true } })
+	ExampleAuthor.deleteOne({
+		where: { id: { eq: id } },
+		select: { id: true, name: true },
+	})

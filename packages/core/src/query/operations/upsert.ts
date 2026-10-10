@@ -1,4 +1,7 @@
-import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
+import type {
+	SchemaDefinition,
+	SchemaStoredCreateData,
+} from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -24,9 +27,12 @@ export interface UpsertTargetQuery<TSchema extends SchemaDefinition> {
 	readonly ast: QueryAst<TSchema, QueryFilterNode<TSchema>>
 }
 
-/** Keeps create and update behavior explicit when the unique target is absent or present. */
+/**
+ * Keeps create and update behavior explicit when the unique target is absent
+ * or present; the create links are already stored Pointers (ADR-0308).
+ */
 export type UpsertInput<TSchema extends SchemaDefinition> = {
-	readonly create: SchemaCreateData<TSchema>
+	readonly create: SchemaStoredCreateData<TSchema>
 	readonly update: UpdateExpressionInput<TSchema> & {}
 } & {}
 
@@ -37,7 +43,7 @@ export type UpsertManyItemInput<TSchema extends SchemaDefinition> =
 	}
 
 interface NormalizedUpsertInput<TSchema extends SchemaDefinition> {
-	readonly create: SchemaCreateData<TSchema>
+	readonly create: SchemaStoredCreateData<TSchema>
 	readonly update: UpdateExpression<TSchema>
 }
 

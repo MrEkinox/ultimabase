@@ -236,12 +236,13 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 					?.entries.map(({ name }) => name),
 			).toContain('include')
 		}
+		// ADR-0307: `where` is the only singular mutation target.
 		for (const position of mutationTargetPositions) {
-			expect(
-				service
-					.getCompletionsAtPosition(fileName, position, {})
-					?.entries.map(({ name }) => name),
-			).toEqual(expect.arrayContaining(['id', 'where']))
+			const names = service
+				.getCompletionsAtPosition(fileName, position, {})
+				?.entries.map(({ name }) => name)
+			expect(names).toContain('where')
+			expect(names).not.toContain('id')
 		}
 
 		const hover = service.getQuickInfoAtPosition(

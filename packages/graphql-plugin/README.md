@@ -220,11 +220,13 @@ retain Core's flat result contract: relation hydration and pointer expansion
 beyond `id` are rejected before Runtime instead of issuing a second read.
 
 Singular create and update inputs expose recursive, source-field-specific
-nested commands. Pointer fields accept `connect` or `create` during create and
-add `update` plus nullable-only `disconnect` during update. Relation fields
-accept incremental `create` and `connect`; updates additionally expose target
-`update` items and, when the mapped relationship can be cleared,
-`disconnect`, `set`, and `clear`:
+nested commands (ADR-0308). Pointer fields accept `connect` or `create` during
+create and add `update` during update; `null` unlinks an optional pointer.
+Relation fields accept incremental `create` and `connect`; updates
+additionally expose target `update` items and, when the mapped relationship
+can be cleared, `disconnect` and `set`, where `set: []` removes every visible
+member. A `connect`, `set` or `disconnect` target that is hidden from the
+caller fails with the same `NOT_FOUND` as a missing one:
 
 ```graphql
 mutation CreatePost($authorId: ID!) {
@@ -252,8 +254,8 @@ mutation CreatePost($authorId: ID!) {
 Nested scalar values reuse the target schema's ordinary create inputs and
 update wrappers. An inverse relation's injected pointer is omitted from its
 source-specific target input. GraphQL coercion provides the structural shape;
-Core then enforces command exclusivity, literal `true` sentinels, duplicate and
-contradictory IDs, recursion depth, operation budgets, authorization, Hooks,
+Core then enforces command exclusivity, duplicate and contradictory IDs, link
+target visibility, recursion depth, operation budgets, authorization, Hooks,
 and the single transaction. Bulk create/update and every upsert input remain
 flat and omit pointer and relation fields.
 

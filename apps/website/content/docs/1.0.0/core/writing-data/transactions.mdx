@@ -58,7 +58,7 @@ export const createPostAndRenameAuthor = (
 
 		const updatedAuthor = await Account.updateOne({
 			data: { displayName: 'Published author' },
-			id: authorId,
+			where: { id: authorId },
 		})
 		if (updatedAuthor === null) {
 			throw new Error('Author is no longer available for update')

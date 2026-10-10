@@ -284,7 +284,7 @@ describe(
 						'PATCH',
 						'/posts/item?select=id,slug,title,counter',
 						{
-							counter: { type: 'increment', value: 2 },
+							counter: { increment: 2 },
 							title: 'REST updated',
 						},
 					),
@@ -293,7 +293,7 @@ describe(
 			const directUpdated = await MutationPost.updateOne(
 				{
 					data: { counter: 2, title: 'Direct updated' },
-					id: directCreated.id,
+					where: { id: directCreated.id },
 					select: { counter: true, id: true, slug: true, title: true },
 				},
 				{ context },
@@ -379,7 +379,7 @@ describe(
 						request: jsonRequest('POST', '/posts/bulk/update', {
 							data: [
 								{
-									data: { counter: { type: 'increment', value: 5 } },
+									data: { counter: { increment: 5 } },
 									where: { id: { eq: ids[0] } },
 								},
 								{
@@ -412,7 +412,7 @@ describe(
 					operation: 'bulk-update',
 					request: jsonRequest('POST', '/posts/bulk/update', {
 						data: ids.map((id, index) => ({
-							data: { counter: { type: 'increment', value: index + 1 } },
+							data: { counter: { increment: index + 1 } },
 							where: { id: { eq: id } },
 						})),
 						select: { counter: true, id: true, slug: true },

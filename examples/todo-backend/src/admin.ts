@@ -7,27 +7,33 @@ const masterOptions = { useMasterKey: true } as const
 export const createTodoUser = (data: TodoUserCreateInput) =>
 	TodoUser.createOne({ data }, masterOptions)
 
-/** Creates a persisted role whose result exposes role-specific model commands. */
+/** Creates one persisted role through the schema-owned mutation API. */
 export const createTodoRole = (
 	name: string,
 	description: string | null = null,
 ) => new TodoRole({ description, name }).create({}, masterOptions)
 
-/** Adds one exact TodoUser pointer to a persisted role relation. */
-export const addUserToRole = async (
-	role: Awaited<ReturnType<typeof createTodoRole>>,
-	userId: string,
-): Promise<void> => {
-	await role.addMember(TodoUser.pointer(userId), masterOptions)
-}
+/** Links one user to a role through the checked `connect` command. */
+export const addUserToRole = (roleId: string, userId: string) =>
+	TodoRole.updateOne(
+		{
+			data: { members: { connect: [userId] } },
+			select: { id: true },
+			where: { id: { eq: roleId } },
+		},
+		masterOptions,
+	)
 
 /** Makes every direct and inherited child member belong to the parent role. */
-export const addChildRole = async (
-	parent: Awaited<ReturnType<typeof createTodoRole>>,
-	child: Awaited<ReturnType<typeof createTodoRole>>,
-): Promise<void> => {
-	await parent.addRole(child, masterOptions)
-}
+export const addChildRole = (parentId: string, childId: string) =>
+	TodoRole.updateOne(
+		{
+			data: { roles: { connect: [childId] } },
+			select: { id: true },
+			where: { id: { eq: parentId } },
+		},
+		masterOptions,
+	)
 
 /** Replaces a Todo ACL immutably while retaining all of its existing grants. */
 export const grantTodoToUser = async (todoId: string, userId: string) => {

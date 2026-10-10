@@ -112,7 +112,7 @@ describe('generated nested-write contracts', () => {
 	it('provides exact recursive autocomplete and rejects superseded inputs', () => {
 		const registry = createNestedWriteRegistry()
 		const source = `${registry}
-import { UltimaBase, increment } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 const GeneratedNestedAuthor = UltimaBase.Schema.define({
   className: 'GeneratedNestedAuthor',
@@ -155,10 +155,10 @@ GeneratedNestedPost.createOne({
 })
 
 GeneratedNestedPost.updateOne({
-  id: 'post-1',
+  where: { id: { eq: 'post-1' } },
   data: {
     author: { /* pointer-update */update: { name: 'Renamed' } },
-    reviewer: { disconnect: true },
+    reviewer: null,
     tags: {
       /* relation-update */connect: ['tag-2'],
       update: [{ id: 'tag-1', data: { label: 'Edited' } }],
@@ -167,20 +167,20 @@ GeneratedNestedPost.updateOne({
 })
 
 GeneratedNestedPost.updateOne({
-  id: 'post-1',
-  data: { title: 'Updated', views: increment(1) },
+  where: { id: { eq: 'post-1' } },
+  data: { title: 'Updated', views: { increment: 1 } },
 })
 
-// @ts-expect-error -- A required pointer cannot disconnect.
-const requiredDisconnect: GeneratedNestedPostNestedUpdateData = { author: { disconnect: true } }
+// @ts-expect-error -- A required pointer cannot be unlinked with null.
+const requiredDisconnect: GeneratedNestedPostNestedUpdateData = { author: null }
 // @ts-expect-error -- Pointer commands are exclusive.
-const pointerConflict: GeneratedNestedPostNestedUpdateData = { reviewer: { connect: 'one', disconnect: true } }
+const pointerConflict: GeneratedNestedPostNestedUpdateData = { reviewer: { connect: 'one', update: { name: 'Ada' } } }
 // @ts-expect-error -- Relation replacement commands are exclusive.
-const relationConflict: GeneratedNestedPostNestedUpdateData = { tags: { clear: true, connect: ['tag-1'] } }
+const relationConflict: GeneratedNestedPostNestedUpdateData = { tags: { set: [], connect: ['tag-1'] } }
 // @ts-expect-error -- Inverse create input omits its injected pointer.
 const inverseOverride: GeneratedNestedAuthorNestedCreateInput = { name: 'Ada', posts: { create: [{ author: { connect: 'other' }, title: 'Invalid' }] } }
 // @ts-expect-error -- Singular updates require at least one field.
-GeneratedNestedPost.updateOne({ id: 'post-1', data: {} })
+GeneratedNestedPost.updateOne({ where: { id: { eq: 'post-1' } }, data: {} })
 
 declare const post: Core.SchemaResult<typeof GeneratedNestedPost>
 post.relation('tags').connect('tag-1')
@@ -223,14 +223,10 @@ void inverseOverride
 		expect(completionNames('/* pointer-update */')).not.toContain('disconnect')
 		expect(completionNames('/* relation-create */')).toContain('connect')
 		expect(completionNames('/* relation-update */')).toEqual(
-			expect.arrayContaining([
-				'clear',
-				'connect',
-				'create',
-				'disconnect',
-				'set',
-			]),
+			expect.arrayContaining(['connect', 'create', 'disconnect', 'set']),
 		)
+		// ADR-0308: `{ set: [] }` replaced `{ clear: true }`.
+		expect(completionNames('/* relation-update */')).not.toContain('clear')
 		// The existing update key is correctly omitted from sibling completions.
 		expect(completionNames('/* relation-update */')).not.toContain('update')
 

@@ -90,7 +90,6 @@ describe('@ultimabase/core public entry point', () => {
 			'dateField',
 			'dateTimeField',
 			'decimalField',
-			'decrement',
 			'defaultNestedWriteLimits',
 			'deferCurrentTransactionEffect',
 			'defineCapability',
@@ -127,7 +126,6 @@ describe('@ultimabase/core public entry point', () => {
 			'getPluginFieldWireCodec',
 			'getRequestPrincipal',
 			'guard',
-			'increment',
 			'intField',
 			'isAuthenticated',
 			'isConfiguredSchemaNamespace',
@@ -214,7 +212,6 @@ describe('@ultimabase/core public entry point', () => {
 			'transformQueryFilterInput',
 			'transformSchemaMutationDataInput',
 			'traverseQueryExpression',
-			'unset',
 			'uuidField',
 			'withPluginPrivileges',
 		])

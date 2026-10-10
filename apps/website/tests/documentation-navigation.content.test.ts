@@ -162,7 +162,7 @@ describe('documentation navigation architecture', () => {
 		)
 		expect(page).toContain('PostgresTestWorker')
 		expect(page).toContain('Task.createOne(')
-		expect(page).toContain('Task.get(')
+		expect(page).toContain('Task.findOneOrThrow(')
 		expect(page).not.toContain('yarn test:e2e:built')
 	})
 

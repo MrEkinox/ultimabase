@@ -23,6 +23,8 @@ sources:
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
 ---
 
 ## Overview
@@ -133,13 +135,13 @@ schema omits that decision, it uses the plugin's `default`. With plain
 `accessPlugin()`, that fallback is `false`. A compatible Access provider runs
 afterward and can only narrow an allowed decision.
 
-| Schema key | Applies to                                                              |
-| ---------- | ----------------------------------------------------------------------- |
-| `read`     | `one` (`get` and `findOne`), `many` (`findMany`), `count`, and `exists` |
-| `create`   | Singular and itemized bulk creates                                      |
-| `update`   | Singular and itemized bulk updates                                      |
-| `upsert`   | Singular and itemized bulk upserts                                      |
-| `delete`   | Singular and itemized bulk deletes                                      |
+| Schema key | Applies to                                                                         |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `read`     | `one` (`findOne` and `findOneOrThrow`), `many` (`findMany`), `count`, and `exists` |
+| `create`   | Singular and itemized bulk creates                                                 |
+| `update`   | Singular and itemized bulk updates                                                 |
+| `upsert`   | Singular and itemized bulk upserts                                                 |
+| `delete`   | Singular and itemized bulk deletes                                                 |
 
 Each schema key accepts a boolean, a request-aware boolean callback, or a
 detailed object. A detailed `read` rule can grant only selected capabilities:
@@ -200,7 +202,9 @@ export const EditableArticle = Application.Schema.define({
 })
 ```
 
-`where` can be a static filter or a callback using the typed `where` builder.
+`where` can be a static filter or a callback using the typed `where` builder;
+a filter object takes the same equality shorthand as a query
+(`where: () => ({ locked: false })`).
 A callback may return `undefined` to add no row restriction. It does **not**
 grant an operation: `where` without `allow` still needs an allowed default.
 Row rules also constrain mutation targets; a target outside the visible row
@@ -318,7 +322,17 @@ await AuditEntry.createOne({
 ```
 
 Collection commands are atomic, Master skips the check, and field rules keep
-their behavior. Use `ultimabase.can({ operation, schema, item })` to ask
+their behavior.
+
+### Links obey read rules
+
+Linking a row is reading it: each target named by `connect` or `set`, in a
+singular, nested or collection command, must be visible to the caller as a
+single-row (`one`) read under every installed policy, and `disconnect` names
+only visible linked targets. A hidden target fails with the same `NOT_FOUND`
+as a missing one, naming the field and target schema, so a link never reveals
+that a row exists (ADR-0308). Master skips visibility but still fails on a
+missing target. Use `ultimabase.can({ operation, schema, item })` to ask
 whether an operation would be permitted without executing it.
 
 Access checks run around Core's prepared mutation pipeline, including a

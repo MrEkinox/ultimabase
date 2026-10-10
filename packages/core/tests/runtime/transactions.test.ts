@@ -1,5 +1,5 @@
 import { applicationFixture } from '../application-fixture.js'
-import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
+import { QueryBuilder, RequestCapability } from '../../src/index.js'
 import { FrameworkError } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 
@@ -105,7 +105,7 @@ describe('RequestEngine transactions', () => {
 
 					await articleSchema.updateOne({
 						where: { id: { eq: article.id } },
-						data: { views: increment(1) },
+						data: { views: { increment: 1 } },
 					})
 
 					return article

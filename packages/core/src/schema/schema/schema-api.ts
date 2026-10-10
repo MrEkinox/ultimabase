@@ -14,7 +14,6 @@ import type { OperationOptions } from '../../query/operations/options.js'
 import type {
 	ExactGeneratedFindManyInput,
 	ExactGeneratedFindOneInput,
-	ExactGeneratedGetInput,
 	QueryBuilderInput,
 	QueryIncludedFieldFromInput,
 	QuerySelectedFieldFromInput,
@@ -168,14 +167,19 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaReadResult<TContract, this, TSelection, TInclude> | null>
 
-	/** Reads one required row by identifier. */
-	get<
+	/**
+	 * Reads the first matching row or fails with `NOT_FOUND`, also when the row
+	 * exists but is hidden from the caller.
+	 *
+	 * @example `await Todo.findOneOrThrow({ where: { id } })`
+	 */
+	findOneOrThrow<
 		const TSelection extends TContract['inputs']['select'] | undefined =
 			undefined,
 		const TInclude extends TContract['inputs']['include'] | undefined =
 			undefined,
 	>(
-		input: ExactGeneratedGetInput<TContract, TSelection, TInclude>,
+		input?: ExactGeneratedFindOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<SchemaReadResult<TContract, this, TSelection, TInclude>>
 

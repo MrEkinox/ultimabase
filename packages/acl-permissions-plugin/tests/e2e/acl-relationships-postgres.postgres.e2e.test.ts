@@ -188,19 +188,25 @@ beforeAll(async () => {
 			data: [
 				{
 					acl: editableACL,
-					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					author: {
+						connect: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					},
 					title: 'Visible article',
 				},
 				{
 					acl: readACL,
-					author: Author.pointer(
-						requireFixture(hiddenAuthor, 'hidden author').id,
-					),
+					author: {
+						connect: Author.pointer(
+							requireFixture(hiddenAuthor, 'hidden author').id,
+						),
+					},
 					title: 'Hidden author article',
 				},
 				{
 					acl: emptyACL,
-					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					author: {
+						connect: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					},
 					title: 'Hidden article',
 				},
 			],

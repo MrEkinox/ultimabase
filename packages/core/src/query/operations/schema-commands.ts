@@ -19,7 +19,6 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import type { ExactGeneratedInclusionInput } from '../query/input.js'
-import type { OperationObjectId } from './contracts.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
 export type SchemaWhere<TSchema extends SchemaDefinition> =
@@ -28,7 +27,7 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
 /**
  * Describes one canonical schema-aware mutation predicate.
  *
- * @example `{ id: { eq: postId } }`
+ * @example `{ id: postId }`
  */
 export type SchemaWhereInput<TSchema extends SchemaTypeInfoSource> =
 	WhereInput<TSchema>
@@ -107,27 +106,20 @@ export type SchemaCreateManyExecutionInput<
 		select?: QuerySelection<TSchema>
 	}>
 
-type SchemaSingularTarget<TSchema extends SchemaTypeInfoSource> =
-	| Readonly<{
-			/** Targets one row through the same schema-aware identifier accepted by `get`. */
-			readonly id: OperationObjectId<TSchema>
-			readonly where?: never
-	  }>
-	| Readonly<{
-			readonly id?: never
-			/**
-			 * Selects exactly one row by `id`, one unique field, or one complete unique index.
-			 *
-			 * @example `{ id: { eq: postId } }`
-			 */
-			readonly where: SchemaWhereInput<TSchema>
-	  }>
+type SchemaSingularTarget<TSchema extends SchemaTypeInfoSource> = Readonly<{
+	/**
+	 * Selects exactly one row by `id`, one unique field, or one complete unique index.
+	 *
+	 * @example `{ id: postId }`
+	 */
+	readonly where: SchemaWhereInput<TSchema>
+}>
 
 interface SchemaUpdateFields<TSchema extends SchemaTypeInfoSource> {
 	/**
 	 * Applies typed atomic field operations when the target exists.
 	 *
-	 * @example `{ published: true, views: increment(1) }`
+	 * @example `{ published: true, views: { increment: 1 } }`
 	 */
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }

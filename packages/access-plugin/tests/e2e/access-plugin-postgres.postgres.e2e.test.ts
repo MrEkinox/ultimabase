@@ -8,7 +8,6 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	plugin,
-	increment,
 	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -240,7 +239,9 @@ describe('Access plugin with PostgreSQL', () => {
 		await expect(
 			AccessArticle.exists({ where: { id: { eq: privateId } } }),
 		).resolves.toBe(false)
-		await expect(AccessArticle.get({ id: publicId })).resolves.toMatchObject({
+		await expect(
+			AccessArticle.findOneOrThrow({ where: { id: publicId } }),
+		).resolves.toMatchObject({
 			title: 'public',
 		})
 	})
@@ -305,7 +306,10 @@ describe('Access plugin with PostgreSQL', () => {
 			title: 'master-updated',
 		})
 		await expect(
-			AccessArticle.get({ id: privateId }, { useMasterKey: true }),
+			AccessArticle.findOneOrThrow(
+				{ where: { id: privateId } },
+				{ useMasterKey: true },
+			),
 		).resolves.toMatchObject({ secret: 'private-secret', title: 'private' })
 		await expect(
 			AccessArticle.exists(
@@ -349,7 +353,7 @@ describe('Access plugin with PostgreSQL', () => {
 			BulkDocument.updateMany({
 				data: visibleDocumentIds.map((id) => ({
 					where: { id: { eq: id } },
-					data: { value: increment(10) },
+					data: { value: { increment: 10 } },
 				})),
 			}),
 		).resolves.toHaveLength(2)
@@ -357,7 +361,7 @@ describe('Access plugin with PostgreSQL', () => {
 			BulkDocument.upsertOne({
 				where: { key: { eq: 'visible-a' } },
 				create: { key: 'visible-a', value: 0, visible: true },
-				update: { value: increment(1) },
+				update: { value: { increment: 1 } },
 			}),
 		).resolves.toMatchObject({ value: 12 })
 		await expect(BulkDocument.count({})).resolves.toBe(2)
@@ -396,7 +400,7 @@ describe('Access plugin with PostgreSQL', () => {
 			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			UpsertDecisionDocument.get({ id: existing.id }),
+			UpsertDecisionDocument.findOneOrThrow({ where: { id: existing.id } }),
 		).resolves.toMatchObject({ score: 1 })
 		await expect(
 			UpsertDecisionDocument.findOne({ where: { key: { eq: 'denied' } } }),

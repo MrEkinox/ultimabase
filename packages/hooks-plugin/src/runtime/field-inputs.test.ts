@@ -1,6 +1,5 @@
 import {
 	collectOperationFieldInputs,
-	increment,
 	normalizeUpdateExpression,
 	QueryBuilder,
 	transformOperationFieldInputs,
@@ -199,7 +198,7 @@ describe('runtime field inputs', () => {
 				contact: { email: 'updated@example.com' },
 			},
 			removable: null,
-			count: increment(2),
+			count: { increment: 2 },
 		})
 		const operation = {
 			kind: 'update-one',

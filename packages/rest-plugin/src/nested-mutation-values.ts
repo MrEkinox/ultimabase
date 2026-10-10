@@ -1,8 +1,6 @@
 import {
-	decrement,
 	getFieldListDepth,
 	getFieldSchemaTarget,
-	increment,
 	transformSchemaMutationDataInput,
 	type GenericField,
 	type SchemaMutationDataFieldInput,
@@ -23,22 +21,16 @@ import {
 
 const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
 
-// ADR-0243 command allowlists; Core validates their payloads and exclusivity.
+// ADR-0308 command allowlists; Core validates their payloads and exclusivity.
+// An optional pointer unlinks with `null`; `{ set: [] }` empties a relation.
 const nestedCommands = {
 	pointer: {
 		create: new Set(['connect', 'create']),
-		update: new Set(['connect', 'create', 'disconnect', 'update']),
+		update: new Set(['connect', 'create', 'update']),
 	},
 	relation: {
 		create: new Set(['connect', 'create']),
-		update: new Set([
-			'clear',
-			'connect',
-			'create',
-			'disconnect',
-			'set',
-			'update',
-		]),
+		update: new Set(['connect', 'create', 'disconnect', 'set', 'update']),
 	},
 } as const
 
@@ -83,7 +75,7 @@ const decodeRelationCommand = (
 				})
 			})
 	}
-	// Core Runtime owns literal-true and replacement-exclusivity validation.
+	// Core Runtime owns replacement-exclusivity validation.
 	return input
 }
 
@@ -117,6 +109,7 @@ const decodeRelationshipCommands = (
 	)
 }
 
+// ADR-0307: a numeric field's object value is exactly one atomic operation.
 const decodeNumericUpdate = (
 	field: GenericField,
 	value: unknown,
@@ -125,17 +118,17 @@ const decodeNumericUpdate = (
 	if (
 		getFieldListDepth(field.options) !== 0 ||
 		!numericKinds.has(field.kind) ||
-		!isPlainRecord(value) ||
-		Object.keys(value).length !== 2 ||
-		!Object.hasOwn(value, 'value') ||
-		(value.type !== 'increment' && value.type !== 'decrement')
+		!isPlainRecord(value)
 	) {
 		return undefined
 	}
-	// Numeric field codecs only produce bigint, number, or decimal strings.
-	const operand = decodeRestFieldValue(field, value.value, invalid) as
-		bigint | number | string
-	return value.type === 'increment' ? increment(operand) : decrement(operand)
+	const [kind, ...rest] = Object.keys(value)
+	if (rest.length !== 0 || (kind !== 'increment' && kind !== 'decrement')) {
+		throw invalid()
+	}
+	return immutableRecord({
+		[kind]: decodeRestFieldValue(field, value[kind], invalid),
+	})
 }
 
 const decodeMutationField = (
@@ -150,6 +143,8 @@ const decodeMutationField = (
 	if (field.kind === 'pointer' || field.kind === 'relation') {
 		// ADR-0243 keeps bulk and upsert roots flat.
 		if (relationships === 'flat') throw invalid()
+		// Core rejects `null` on a required pointer (ADR-0308).
+		if (field.kind === 'pointer' && value === null) return null
 		return decodeRelationshipCommands(field, field.kind, value, mode, invalid)
 	}
 	if (mode === 'update') {

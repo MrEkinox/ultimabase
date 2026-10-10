@@ -122,7 +122,7 @@ await ultimabase.schema(Post).archive({
 	select: { title: true, workflowState: true },
 })
 
-const post = await Post.get({ id: postId })
+const post = await Post.findOneOrThrow({ where: { id: postId } })
 await post.archive({ input: { reason: 'superseded' } })
 ```
 

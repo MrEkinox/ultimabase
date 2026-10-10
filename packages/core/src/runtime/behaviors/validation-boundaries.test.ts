@@ -1,5 +1,4 @@
 import {
-	increment,
 	normalizeUpdateExpression,
 	QueryBuilder,
 	type CountOperationAst,
@@ -320,7 +319,7 @@ describe('runtime behavior boundaries', () => {
 		const operation = immutableRecord({
 			kind: 'update-one',
 			query: new QueryBuilder(schema).select({ id: true }).ast,
-			update: normalizeUpdateExpression(schema, { score: increment(2) }),
+			update: normalizeUpdateExpression(schema, { score: { increment: 2 } }),
 		}) satisfies UpdateOneOperationAst<typeof schema>
 		const previous = immutableRecord({
 			createdAt: fixedInstant.toISOString(),

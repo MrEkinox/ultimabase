@@ -416,6 +416,35 @@ describe('REST read normalization', () => {
 		expect(expression.value).toMatchObject({ id: authorId })
 	})
 
+	it('decodes the equality shorthand of where JSON (ADR-0307)', async () => {
+		const read = (where: unknown) =>
+			normalizeRestReadRequest(RecordSchema, {
+				operation: 'find',
+				request: jsonRequest('https://example.test/query', { where }),
+			})
+		const shorthand = await read({
+			active: false,
+			author: authorId,
+			huge: '9007199254740993',
+			name: null,
+		})
+		const explicit = await read({
+			active: { eq: false },
+			author: { eq: pointerWire },
+			huge: { eq: '9007199254740993' },
+			name: { isNull: true },
+		})
+
+		expect(shorthand.query.where).toStrictEqual(explicit.query.where)
+		// A pointer shorthand is its target id; the tagged JSON reads as operators.
+		await expect(read({ author: pointerWire })).rejects.toMatchObject({
+			code: restReadErrorCodes.invalidInput,
+		})
+		await expect(read({ author: 'not-an-id' })).rejects.toMatchObject({
+			code: restReadErrorCodes.invalidInput,
+		})
+	})
+
 	// Relation names are request-controlled, so Object.prototype names must stay ordinary keys.
 	it('parses dotted include paths named like Object.prototype members', () => {
 		// JSON text shows own keys only, including an own `__proto__` key.

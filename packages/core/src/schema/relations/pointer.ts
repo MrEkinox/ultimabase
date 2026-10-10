@@ -22,6 +22,10 @@ import {
 	type SchemaReference,
 	type SchemaDefinition,
 } from '../schema/definition.js'
+import type {
+	DeferredSchemaTarget,
+	ResolveSchemaTarget,
+} from '../schema/deferred-targets.js'
 import type { SchemaRef } from '../schema/registered-schemas.js'
 
 /** Describes the stable transport-neutral JSON identity of one pointer. */
@@ -70,14 +74,18 @@ export type GeneratedPointerHandle<TClassName extends string> = Pointer<
 >
 
 /**
- * The schema a Pointer targets: a schema type, or the registered schema of a
- * class name, so that `Pointer<"TodoUser">` reads as the identity it names
+ * The schema a Pointer targets: a schema type, the schema a deferred
+ * relationship target returns (so a result's pointer links back through
+ * `{ connect: todo.assignee }`, ADR-0308), or the registered schema of a class
+ * name, so that `Pointer<"TodoUser">` reads as the identity it names
  * (ADR-0304).
  */
 export type PointerSchema<TSchema extends SchemaDefinition | string> =
-	TSchema extends SchemaDefinition
-		? TSchema
-		: SchemaRef<Extract<TSchema, string>>
+	TSchema extends DeferredSchemaTarget<unknown>
+		? Extract<ResolveSchemaTarget<TSchema>, SchemaDefinition>
+		: TSchema extends SchemaDefinition
+			? TSchema
+			: SchemaRef<Extract<TSchema, string>>
 
 const pointerInstances = new WeakSet<object>()
 const pointerConstruction: unique symbol = Symbol('ultimabase.pointer')

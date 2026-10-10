@@ -1,5 +1,5 @@
 import type {
-	SchemaCreateData,
+	SchemaStoredCreateData,
 	SchemaItem,
 	SchemaDefinition,
 } from '../../schema/index.js'
@@ -168,7 +168,7 @@ export interface CreateOneOperationAst<
 	TIncludedField
 > {
 	readonly kind: 'create-one'
-	readonly input: SchemaCreateData<TSchema>
+	readonly input: SchemaStoredCreateData<TSchema>
 }
 
 /** Creates one ordered all-or-nothing collection. */
@@ -177,7 +177,7 @@ export interface CreateManyOperationAst<
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'create-many'
-	readonly inputs: readonly SchemaCreateData<TSchema>[]
+	readonly inputs: readonly SchemaStoredCreateData<TSchema>[]
 }
 
 /** Applies one atomic update expression to at most one selected object. */
@@ -223,7 +223,7 @@ export interface UpsertOneOperationAst<
 > {
 	readonly kind: 'upsert-one'
 	readonly target: UniqueUpsertTargetNode<TSchema>
-	readonly create: SchemaCreateData<TSchema>
+	readonly create: SchemaStoredCreateData<TSchema>
 	readonly update: TUpdate
 }
 
@@ -235,7 +235,7 @@ export interface UpsertOperationItem<
 > {
 	readonly query: OperationQuery<TSchema, TFilter>
 	readonly target: UniqueUpsertTargetNode<TSchema>
-	readonly create: SchemaCreateData<TSchema>
+	readonly create: SchemaStoredCreateData<TSchema>
 	readonly update: TUpdate
 }
 

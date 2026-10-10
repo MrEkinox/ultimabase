@@ -307,13 +307,13 @@ const projectedCreates = PackedGeneratedDocument.createMany({
   include: { owner: { select: { name: true } } },
 })
 const projectedUpdate = PackedGeneratedDocument.${updateOneHoverMarker}updateOne({
-  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
   data: { title: 'Updated projection' },
   select: { title: true },
   include: { owner: { select: { name: true } } },
 })
 const projectedDelete = PackedGeneratedDocument.deleteOne({
-  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
   select: { title: true },
 })
 const projectedUpdates = PackedGeneratedDocument.updateMany({
@@ -378,7 +378,7 @@ PackedGeneratedDocument.createMany({
   ${createManyOptionsMarker}
 })
 PackedGeneratedDocument.updateOne({
-  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
   data: { title: 'Update completion' },
   ${updateOneOptionsMarker}
 })
@@ -397,16 +397,14 @@ PackedGeneratedDocument.updateMany({
   ${updateManyOptionsMarker}
 })
 
-// @ts-expect-error -- Packed singular targets remain mutually exclusive.
 PackedGeneratedDocument.updateOne({
+  // @ts-expect-error -- The top-level id alias was removed (ADR-0307).
   id: 'document-1',
-  where: { id: { eq: 'document-1' } },
   data: { title: 'Invalid target' },
 })
-// @ts-expect-error -- Packed singular targets remain mutually exclusive.
 PackedGeneratedDocument.deleteOne({
+  // @ts-expect-error -- The top-level id alias was removed (ADR-0307).
   id: 'document-1',
-  where: { id: { eq: 'document-1' } },
 })
 
 // @ts-expect-error -- The packed generator retains exact enum literals.

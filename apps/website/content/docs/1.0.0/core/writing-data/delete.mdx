@@ -39,7 +39,7 @@ and `title` fields, in a started application with a persistence plugin.
 import { Post } from './schemas.js'
 
 export const deletePost = (postId: string) =>
-	Post.deleteOne({ id: postId, select: { slug: true, title: true } })
+	Post.deleteOne({ where: { id: postId }, select: { slug: true, title: true } })
 ```
 
 `id` is shorthand for `where: { id: { eq: postId } }`. You may instead pass a
@@ -73,12 +73,13 @@ When you already have a persisted `Post`, call its strict identity command:
 import { Post } from './schemas.js'
 
 export const deleteLoadedPost = async (postId: string) => {
-	const post = await Post.get({ id: postId })
+	const post = await Post.findOneOrThrow({ where: { id: postId } })
 	return post.delete({ select: { title: true } })
 }
 ```
 
-`get()` throws `NOT_FOUND` if the record is already absent or inaccessible.
+`findOneOrThrow()` throws `NOT_FOUND` if the record is already absent or
+inaccessible.
 Once loaded, `post.delete()` also throws `NOT_FOUND` if that protected target
 disappears or becomes inaccessible before deletion. Unlike `deleteOne()`, it
 never returns `null`. The prior `post` snapshot remains unchanged.

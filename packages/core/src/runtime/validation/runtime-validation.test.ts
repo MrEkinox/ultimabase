@@ -1,7 +1,6 @@
 import { FrameworkError } from '../../foundation.js'
 import {
 	QueryBuilder,
-	increment,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -170,7 +169,7 @@ describe('runtime validation', () => {
 			title: 'new title',
 			profile: { name: 'Grace' },
 			note: null,
-			score: increment(100),
+			score: { increment: 100 },
 		})
 		const operation: UpdateOneOperationAst<
 			typeof validationSchema,

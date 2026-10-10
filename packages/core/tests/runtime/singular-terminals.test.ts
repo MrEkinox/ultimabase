@@ -1,9 +1,5 @@
 import { applicationFixture } from '../application-fixture.js'
-import {
-	increment,
-	QueryBuilder,
-	type ExecutableOperationAst,
-} from '../../src/index.js'
+import { QueryBuilder, type ExecutableOperationAst } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 
 import { describe, expect, it } from 'vitest'
@@ -30,7 +26,7 @@ const articleSchema = UltimaBase.Schema.define({
 })
 
 describe('read terminals and singular schema commands', () => {
-	it('normalizes singular identifier aliases into canonical where operations', async () => {
+	it('normalizes equality shorthand targets into canonical where operations', async () => {
 		const objectId = '0198f090-2a50-7000-8000-000000000019'
 		const results: readonly QueuedAdapterResult[] = [
 			{ status: 'fulfilled', target: null, value: null },
@@ -55,7 +51,10 @@ describe('read terminals and singular schema commands', () => {
 
 		await runWithRequestEngine(request, async () => {
 			await expect(
-				articleSchema.updateOne({ id: objectId, data: { views: 1 } }),
+				articleSchema.updateOne({
+					where: { id: objectId },
+					data: { views: 1 },
+				}),
 			).resolves.toBeNull()
 			await expect(
 				articleSchema.updateOne({
@@ -64,7 +63,7 @@ describe('read terminals and singular schema commands', () => {
 				}),
 			).resolves.toBeNull()
 			await expect(
-				articleSchema.deleteOne({ id: objectId }),
+				articleSchema.deleteOne({ where: { id: objectId } }),
 			).resolves.toBeNull()
 			await expect(
 				articleSchema.deleteOne({ where: { id: { eq: objectId } } }),
@@ -284,7 +283,10 @@ describe('read terminals and singular schema commands', () => {
 			)
 			await expect(articleSchema.findOne(readInput)).resolves.toBeNull()
 			await expect(
-				articleSchema.get({ id: 'missing', select: readInput.select }),
+				articleSchema.findOneOrThrow({
+					where: { id: 'missing' },
+					select: readInput.select,
+				}),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			await expect(
 				articleSchema.count({ where: readInput.where }),
@@ -305,7 +307,7 @@ describe('read terminals and singular schema commands', () => {
 			await expect(
 				articleSchema.updateOne({
 					where: { title: { eq: 'Updated target' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				}),
 			).resolves.toBeNull()
 			const selectedUpdateResult = await articleSchema.updateOne({
@@ -343,12 +345,12 @@ describe('read terminals and singular schema commands', () => {
 
 		expect(
 			adapter.rootRequests.map(({ operation }) => operation.kind),
-		).toStrictEqual(['find-many', 'find-one', 'get', 'count', 'exists'])
+		).toStrictEqual(['find-many', 'find-one', 'find-one', 'count', 'exists'])
 		expect(adapter.transactions).toHaveLength(5)
 		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
 			'find-many',
 			'find-one',
-			'get',
+			'find-one',
 			'count',
 			'exists',
 			'create-one',
@@ -368,9 +370,18 @@ describe('read terminals and singular schema commands', () => {
 				},
 			},
 		})
+		// ADR-0307: findOneOrThrow is the `one` read of findOne.
 		expect(requests[2]?.operation).toMatchObject({
-			kind: 'get',
-			id: 'missing',
+			kind: 'find-one',
+			query: {
+				where: {
+					expression: {
+						field: 'id',
+						kind: 'equal',
+						value: 'missing',
+					},
+				},
+			},
 		})
 		expect(requests[5]?.operation).toMatchObject({
 			kind: 'create-one',

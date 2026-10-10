@@ -1,4 +1,7 @@
-import type { SchemaDefinition } from '../../schema/index.js'
+import type {
+	SchemaDefinition,
+	SchemaStoredCreateData,
+} from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { QueryFieldName } from '../ast/contracts.js'
@@ -24,8 +27,11 @@ import {
 import type { OperationOptions } from '../operations/options.js'
 import type { OperationResult } from '../operations/results.js'
 import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
-import { markNestedWriteRootOperation } from '../../schema/nested-writes/operation-markers.js'
-import { Pointer } from '../../schema/relations/pointer.js'
+import {
+	markLinkTargetOperation,
+	markNestedWriteRootOperation,
+	type LinkTargetMarker,
+} from '../../schema/nested-writes/operation-markers.js'
 import {
 	normalizeUniqueUpsertTarget,
 	normalizeUpsertInput,
@@ -36,6 +42,7 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
+import { createProtectedObjectNotFoundError } from '../../runtime/operations/target-errors.js'
 import { queryFromFindOneInput } from './input.js'
 import {
 	readQueryPrivateScope,
@@ -44,22 +51,19 @@ import {
 import type { QueryResult } from './result.js'
 
 /**
- * Marks a root write whose data carries nested relationship commands rather
- * than already normalized Pointer values, so Runtime can orchestrate them.
+ * Marks a root write whose data names a pointer or relation, so Runtime
+ * normalizes and checks its link commands (ADR-0308).
  */
 const markNestedWrite = <TOperation extends OperationAstNode>(
 	schema: SchemaDefinition,
 	operation: TOperation,
 	command: 'create' | 'update',
 	input: Readonly<Record<string, unknown>>,
-	inputMode: 'flat' | 'nested',
 ): TOperation =>
-	inputMode === 'nested' &&
 	Object.entries(schema.persistedFields).some(
 		([fieldName, field]) =>
 			(field.kind === 'pointer' || field.kind === 'relation') &&
-			Object.hasOwn(input, fieldName) &&
-			!Pointer.is(input[fieldName]),
+			Object.hasOwn(input, fieldName),
 	)
 		? markNestedWriteRootOperation(operation, { command, input })
 		: operation
@@ -126,6 +130,15 @@ export const executeQueryFindOne = <
 	return executeQueryWithPrivateScope(query, operation, options)
 }
 
+/**
+ * Turns the `null` of a first-match read into `NOT_FOUND`, which also hides
+ * whether a matching row exists but is not visible (ADR-0307).
+ */
+export const requireFoundRow = <TResult>(result: TResult | null): TResult => {
+	if (result === null) throw createProtectedObjectNotFoundError()
+	return result
+}
+
 /** Executes one exact identifier read while retaining private QueryBuilder filters. */
 export const executeQueryGet = <
 	const TSchema extends SchemaDefinition,
@@ -177,7 +190,6 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
-	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<object> => {
 	const projection = queryFromFindOneInput(schema, {
 		...(input.include === undefined ? {} : { include: input.include }),
@@ -189,13 +201,14 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	> = immutableRecord({
 		kind: 'create-one',
 		schema: createQueryAst(schema).schema,
-		input: input.data,
+		// Runtime replaces linked data with its stored Pointers (ADR-0308).
+		input: input.data as SchemaStoredCreateData<TSchema>,
 		inclusion: projection.ast.inclusion,
 		selection: projection.ast.selection,
 	})
 
 	return executeOperation(
-		markNestedWrite(schema, operation, 'create', input.data, inputMode),
+		markNestedWrite(schema, operation, 'create', input.data),
 		normalizeOperationOptions(options),
 	)
 }
@@ -209,7 +222,6 @@ export const executeQueryUpdateOne = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: OperationOptions,
-	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
 	const operation: UpdateOneOperationAst<
 		TSchema,
@@ -230,7 +242,6 @@ export const executeQueryUpdateOne = <
 			operation,
 			'update',
 			input as Readonly<Record<string, unknown>>,
-			inputMode,
 		),
 		options,
 	)
@@ -245,6 +256,7 @@ export const executeQueryUpsertOne = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpsertInput<TSchema> & {},
 	options?: OperationOptions,
+	links: readonly LinkTargetMarker[] = [],
 ): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
 	const normalizedInput = normalizeUpsertInput(query.schema, input)
 	const operation: UpsertOneOperationAst<
@@ -260,7 +272,11 @@ export const executeQueryUpsertOne = <
 		...normalizedInput,
 	})
 
-	return executeQueryWithPrivateScope(query, operation, options)
+	return executeQueryWithPrivateScope(
+		query,
+		markLinkTargetOperation(operation, links),
+		options,
+	)
 }
 
 /** Executes one singular delete while retaining private QueryBuilder restrictions. */

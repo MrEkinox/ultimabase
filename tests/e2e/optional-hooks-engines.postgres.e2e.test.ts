@@ -83,13 +83,13 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 					const committed = await Post.createOne({
 						data: { title: 'TypeScript committed' },
 					})
-					return Post.get({ id: committed.id })
+					return Post.findOneOrThrow({ where: { id: committed.id } })
 				}),
 			).resolves.toMatchObject({ title: 'TypeScript committed' })
 			await expect(
 				Post.updateOne({
 					data: { title: 'TypeScript update' },
-					id: created.id,
+					where: { id: created.id },
 				}),
 			).resolves.toMatchObject({ title: 'TypeScript update' })
 			await expect(
@@ -103,7 +103,9 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			await expect(
 				Post.count({ where: { title: { eq: 'TypeScript rollback' } } }),
 			).resolves.toBe(0)
-			await expect(Post.deleteOne({ id: created.id })).resolves.toMatchObject({
+			await expect(
+				Post.deleteOne({ where: { id: created.id } }),
+			).resolves.toMatchObject({
 				id: created.id,
 			})
 			await expect(
@@ -227,9 +229,9 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 
 			await Post.updateOne({
 				data: { title: 'Alternative update' },
-				id: created.id,
+				where: { id: created.id },
 			})
-			await Post.deleteOne({ id: created.id })
+			await Post.deleteOne({ where: { id: created.id } })
 			expect(
 				await engine.Audit.findMany({ orderBy: { createdAt: 'asc' } }),
 			).toEqual(

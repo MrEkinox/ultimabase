@@ -38,7 +38,7 @@ try {
 	})
 	const updated = await Post.updateOne({
 		data: { title: 'JavaScript update' },
-		id: created.id,
+		where: { id: created.id },
 	})
 	let rollbackMessage = ''
 	try {
@@ -53,7 +53,7 @@ try {
 		where: { title: { eq: 'JavaScript rollback' } },
 	})
 	const deleted = await Post.deleteOne({
-		id: created.id,
+		where: { id: created.id },
 		select: { id: true, title: true },
 	})
 	const existsAfterDelete = await Post.exists({

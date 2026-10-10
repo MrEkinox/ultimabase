@@ -141,7 +141,10 @@ test('drives operation inputs, projections, and results from the source contract
 		select: { displayName: true },
 		where: { status: { eq: 'draft' } },
 	})
-	void SourceContract.get({ id: 'source-1', select: { displayName: true } })
+	void SourceContract.findOneOrThrow({
+		where: { id: 'source-1' },
+		select: { displayName: true },
+	})
 	void SourceContract.count({ where: { active: { eq: true } } })
 	void SourceContract.exists({ where: { displayName: { eq: 'Ada' } } })
 	void SourceContract.updateMany({
@@ -182,14 +185,15 @@ test('drives operation inputs, projections, and results from the source contract
 test('keeps direct relationship targets exact without a generated registry', () => {
 	type Article = SchemaItem<typeof SourceArticle>
 	const draft = new SourceArticle({
-		author: SourceAuthor.pointer('author-1'),
+		author: { connect: SourceAuthor.pointer('author-1') },
 		title: 'Source relationships',
 	})
 
 	expectTypeOf<Article['author']['schema']>().toEqualTypeOf<
 		typeof SourceAuthor
 	>()
-	expectTypeOf(draft.author.id).toBeString()
+	// A draft keeps its pointer as the `connect` link it creates (ADR-0308).
+	expectTypeOf(draft.author).toHaveProperty('connect')
 
 	void SourceArticle.createOne({
 		data: {

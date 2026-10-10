@@ -2,7 +2,7 @@
 
 `createOne` and `updateOne` accept relationship commands beside ordinary
 scalar data. The relationship field already fixes the target schema, so every
-identity command carries only a string ID.
+identity command carries a string ID or a `Pointer` of that target (ADR-0308).
 
 ```ts
 const post = await PostSchema.createOne({
@@ -29,11 +29,14 @@ await PostSchema.updateOne({
 })
 ```
 
-Pointer command objects contain exactly one of `connect`, `create`, `update`,
-or `disconnect`; create roots expose only the first two and required pointers
-omit `disconnect`. Relation `create`, `connect`, `update`, and `disconnect`
-may coexist. `set` and `clear` are exclusive replacement commands. Inverse
+Pointer command objects contain exactly one of `connect`, `create` or
+`update`; create roots expose only the first two, and `null` unlinks an
+optional pointer. A raw `Pointer` or ID is not a link. Relation `create`,
+`connect`, `update`, and `disconnect` may coexist. `set` is the exclusive
+replacement command, and `{ set: [] }` removes every visible member. Inverse
 relations backed by a required pointer omit commands that would clear it.
+Every `connect`, `set` and `disconnect` target must be visible to the caller;
+a hidden target fails with the same `NOT_FOUND` as a missing one.
 
 Core validates the complete command tree and creates an immutable graph before
 effects. By default a root at depth zero may contain five nested target levels

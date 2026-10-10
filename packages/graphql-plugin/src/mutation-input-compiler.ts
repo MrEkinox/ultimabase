@@ -4,7 +4,6 @@ import {
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
-	GraphQLBoolean,
 	GraphQLID,
 	GraphQLInputObjectType,
 	GraphQLNonNull,
@@ -152,7 +151,6 @@ export class GraphqlMutationInputCompiler {
 		schema: SchemaDefinition,
 		fieldName: string,
 		mode: MutationInputMode,
-		field: GenericField,
 	): GraphQLInputObjectType {
 		const target = this.#ctx.target(schema, [fieldName])
 		const suffix = `Nested${mode === 'create' ? 'Create' : 'Update'}Input`
@@ -161,13 +159,11 @@ export class GraphqlMutationInputCompiler {
 			const create = owned ? this.createInput(target) : undefined
 			const update =
 				mode === 'update' && owned ? this.updateInput(target) : undefined
+			// An optional pointer unlinks with `null` (ADR-0308).
 			return {
 				connect: { type: GraphQLID },
 				...(create === undefined ? {} : { create: { type: create } }),
 				...(update === undefined ? {} : { update: { type: update } }),
-				...(mode === 'update' && readFieldTypegenState(field).nullable
-					? { disconnect: { type: GraphQLBoolean } }
-					: {}),
 			}
 		})
 	}
@@ -212,12 +208,9 @@ export class GraphqlMutationInputCompiler {
 				...(updateItem === undefined
 					? {}
 					: { update: { type: nonNullList(updateItem) } }),
+				// `{ set: [] }` removes every visible member (ADR-0308).
 				...(mode === 'update' && canDisconnect
-					? {
-							disconnect: { type: ids },
-							set: { type: ids },
-							clear: { type: GraphQLBoolean },
-						}
+					? { disconnect: { type: ids }, set: { type: ids } }
 					: {}),
 			}
 		})
@@ -242,7 +235,7 @@ export class GraphqlMutationInputCompiler {
 			assertSchemaFieldName(schema, path)
 			const type =
 				field.kind === 'pointer'
-					? this.#pointerInput(schema, fieldName, mode, field)
+					? this.#pointerInput(schema, fieldName, mode)
 					: field.kind === 'relation'
 						? this.#relationInput(schema, fieldName, mode)
 						: mode === 'create'

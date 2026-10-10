@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
-import { increment } from '../updates/operators.js'
 import {
 	normalizeUniqueUpsertTarget,
 	readUniqueUpsertTargetValues,
@@ -26,7 +25,7 @@ const foreignSchema = UltimaBase.Schema.define({
 })
 
 const createInput = { email: 'dev@ultimabase.dev' }
-const updateInput = { visits: increment(1) } as const
+const updateInput = { visits: { increment: 1 } } as const
 
 describe('unique upsert targets', () => {
 	it('normalizes id, unique fields, and composite indexes in declaration order', () => {

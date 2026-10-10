@@ -64,7 +64,7 @@ export const writeCapabilities = [
 		description:
 			'Update counters and exact decimals without a separate read-and-write cycle.',
 		href: 'core/writing-data/update',
-		label: 'increment(1)',
+		label: '{ increment: 1 }',
 	},
 	{
 		title: 'Unique upserts',

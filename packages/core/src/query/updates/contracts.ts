@@ -1,5 +1,6 @@
 import type {
 	SchemaNestedUpdateData,
+	SchemaStoredUpdateData,
 	SchemaUpdateData,
 } from '../../schema/index.js'
 import type {
@@ -7,7 +8,6 @@ import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 } from '../../schema/type-info.js'
-import type { DecrementUpdateValue, IncrementUpdateValue } from './operators.js'
 
 /** Leaves concrete update expressions structurally extensible for Operation AST. */
 export interface UpdateExpressionNode {
@@ -23,6 +23,14 @@ type UpdateFieldValue<
 	TFieldName extends string,
 > = TFieldName extends keyof SchemaUpdateData<TSchema>
 	? Exclude<SchemaUpdateData<TSchema>[TFieldName], undefined>
+	: never
+
+/** One field value as a normalized update operation stores it (ADR-0308). */
+type StoredUpdateFieldValue<
+	TSchema extends SchemaTypeInfoSource,
+	TFieldName extends string,
+> = TFieldName extends keyof SchemaStoredUpdateData<TSchema>
+	? Exclude<SchemaStoredUpdateData<TSchema>[TFieldName], undefined>
 	: never
 
 /** Lists built-in scalar kinds with portable addition and subtraction semantics. */
@@ -54,12 +62,29 @@ type SimplifyUpdateInput<TInput> = TInput extends object
 	? { [TKey in keyof TInput]: TInput[TKey] } & {}
 	: TInput
 
+/**
+ * One atomic operation on a non-list numeric field, with an operand of the
+ * field's value type (ADR-0307).
+ *
+ * @example `{ views: { increment: 1 } }`
+ */
+export type NumericUpdateOperation<TValue> =
+	| Readonly<{
+			/** Adds this operand atomically. */
+			increment: TValue
+			decrement?: never
+	  }>
+	| Readonly<{
+			/** Subtracts this operand atomically. */
+			decrement: TValue
+			increment?: never
+	  }>
+
 type CompactUpdateDataFields<TSet extends object, TNumeric extends object> = {
 	readonly [TFieldName in keyof TSet]?:
 		| Exclude<TSet[TFieldName], undefined>
 		| (TFieldName extends keyof TNumeric
-				? | IncrementUpdateValue<Exclude<TNumeric[TFieldName], undefined>>
-					| DecrementUpdateValue<Exclude<TNumeric[TFieldName], undefined>>
+				? NumericUpdateOperation<Exclude<TNumeric[TFieldName], undefined>>
 				: never)
 }
 
@@ -114,7 +139,7 @@ export type SetUpdateOperationNode<
 > =
 	TFieldName extends UpdateFieldName<TSchema>
 		? UpdateFieldOperationNode<'set', TFieldName> & {
-				readonly value: UpdateFieldValue<TSchema, TFieldName>
+				readonly value: StoredUpdateFieldValue<TSchema, TFieldName>
 			}
 		: never
 

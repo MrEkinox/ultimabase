@@ -97,11 +97,15 @@ const visible = await Post.findMany({
 ```
 
 Autocomplete exposes only operators supported by the selected field kind.
-`AND`, `OR`, and `NOT` are reserved schema field names. Object identity uses the
-same canonical filter contract:
+`AND`, `OR`, and `NOT` are reserved schema field names. On a non-list scalar,
+enum or pointer field, a plain value means `eq` and `null` means `isNull: true`
+(ADR-0307); list, `json`, `object` and relation fields keep explicit operators.
+`findOneOrThrow` reads like `findOne` but fails with `NOT_FOUND` instead of
+returning `null`:
 
 ```ts
-const post = await Post.get({ id: postId })
+const drafts = await Post.findMany({ where: { published: false } })
+const post = await Post.findOneOrThrow({ where: { id: postId } })
 ```
 
 Pointer identity filters accept target object IDs directly. Target traversal
@@ -221,13 +225,13 @@ const created = await Post.createOne({
 })
 
 const updated = await Post.updateOne({
-	id: created.id,
+	where: { id: created.id },
 	data: { title: 'Updated' },
 	select: { id: true, title: true },
 })
 
 const deleted = await Post.deleteOne({
-	id: created.id,
+	where: { id: created.id },
 	select: { id: true, title: true },
 })
 ```
@@ -267,36 +271,35 @@ await Post.findMany({ where: reusable.build() })
 
 Update `data` is one field-oriented map. A direct value replaces the field,
 an omitted property remains unchanged, and `null` clears an optional field.
-Arithmetic operations stay explicit values, while `unset()` is a readable
-alias for the same canonical `null` clear:
+A numeric field also accepts an atomic `{ increment: n }` or
+`{ decrement: n }` object (ADR-0307):
 
 ```ts
-import { decrement, increment, unset } from '@ultimabase/core'
-
 await Post.updateOne({
-	id: postId,
+	where: { id: postId },
 	data: {
 		title: 'Updated',
-		views: increment(2),
-		stock: decrement(1),
-		summary: unset(),
+		views: { increment: 2 },
+		stock: { decrement: 1 },
+		summary: null,
 	},
 })
 ```
 
-`increment()` and `decrement()` are accepted only by mutable scalar numeric
-fields and preserve the field's exact type: numbers for integer and float
-fields, strings for decimals, and bigint values for bigint fields. `unset()` is
-accepted only where `null` is accepted, so required fields cannot be cleared.
+`{ increment }` and `{ decrement }` are accepted only by mutable scalar numeric
+fields, take exactly one key, and preserve the field's exact type: numbers for
+integer and float fields, strings for decimals, and bigint values for bigint
+fields. A numeric field has no other object value, so the form is unambiguous.
+`null` is accepted only by optional fields, so required fields cannot be
+cleared.
 
 An empty object or builder is rejected. Collection updates and deletes require
 one unique predicate per item; this API intentionally has no implicit
 "all rows" target.
 
-`updateOne` and `deleteOne` accept exactly one of a top-level `id` alias or the
-canonical `where` object. The alias normalizes to `{ id: { eq: id } }` before
-Query construction. Their `where` form and `upsertOne` require an exact unique
-target: `id`, one unique field, or all fields of one declared unique composite
+`updateOne`, `deleteOne` and `upsertOne` take their target only through
+`where` (ADR-0307); `where: { id }` is the equality shorthand of
+`{ id: { eq: id } }`. They require an exact unique target: `id`, one unique field, or all fields of one declared unique composite
 index. This keeps singular cardinality independent from ordering, pagination,
 or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
 `null` when no target matches and does not invoke optional item behavior.
@@ -319,14 +322,14 @@ const created = await Post.createOne({
 })
 
 const post = await Post.updateOne({
-	id: postId,
+	where: { id: postId },
 	data: { title: 'Updated' },
 	select: { id: true, title: true },
 	include: { author: { select: { name: true } } },
 })
 
 const deleted = await Post.deleteOne({
-	id: postId,
+	where: { id: postId },
 	select: { id: true, title: true },
 })
 

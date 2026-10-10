@@ -60,21 +60,30 @@ const ultimabase = new Application({
 	schemas: [User, AppRole, Post],
 })
 
-const Editor = await new AppRole({
-	name: 'editor',
-	description: 'Content editors',
-}).create({}, { useMasterKey: true })
-const Administrator = await new AppRole({ name: 'administrator' }).create(
-	{},
-	{ useMasterKey: true },
+const master = { useMasterKey: true } as const
+const Editor = await AppRole.createOne(
+	{
+		data: {
+			name: 'editor',
+			description: 'Content editors',
+			members: { connect: [User.pointer(user.id)] },
+		},
+	},
+	master,
+)
+const Administrator = await AppRole.createOne(
+	{ data: { name: 'administrator', roles: { connect: [Editor.id] } } },
+	master,
 )
 const EditorById = AppRole.role({ id: Editor.id })
-
-await Editor.addMember(User.pointer(user.id), {
-	useMasterKey: true,
-})
-await Administrator.addRole(Editor, { useMasterKey: true })
 ```
+
+Members and included roles link through the same relation commands as any
+schema (ADR-0308): `members` and `roles` take `connect`, `disconnect` and
+`set` in `createOne` and `updateOne` data. Every target must be visible to the
+caller, the plugin rejects hierarchy cycles, and membership and hierarchy
+events are emitted for these links as for the `addMember`, `removeMember`,
+`addRole` and `removeRole` shortcuts that persisted role results keep.
 
 The generation-free declaration form of
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) will provide

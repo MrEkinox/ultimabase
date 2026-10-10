@@ -1,4 +1,6 @@
-import { createPointer } from '../relations/pointer.js'
+import { createPointer, Pointer } from '../relations/pointer.js'
+import { getFieldSchemaTarget } from '../fields/base/definition.js'
+import { Schema } from './definition.js'
 import { isSchemaDeclarationMethod } from './declaration-methods.js'
 import {
 	immutableArray,
@@ -32,26 +34,23 @@ import {
 	executeQueryExists,
 	executeQueryFindMany,
 	executeQueryFindOne,
-	executeQueryGet,
+	requireFoundRow,
 } from '../../query/query/operation-execution.js'
 import {
 	queryFromCountInput,
 	queryFromExistsInput,
 	queryFromFindManyInput,
 	queryFromFindOneInput,
-	queryFromGetInput,
 	type CountInput,
 	type ExistsInput,
 	type FindManyInput,
 	type FindOneInput,
-	type GetInput,
 } from '../../query/query/input.js'
 import { readActiveApplicationOwner } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { executeStaticSchemaMutation } from '../../query/operations/execution.js'
 import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
 import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
-import type { Pointer } from '../relations/pointer.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
@@ -71,6 +70,35 @@ import {
 	registerSchemaModelClass,
 } from './model-state.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
+
+/**
+ * Snapshots a draft pointer as its `{ connect }` link (ADR-0308), which the
+ * draft passes unchanged to its create or upsert command.
+ */
+const snapshotDraftLink = (
+	definition: SchemaFields[string],
+	value: unknown,
+	path: string,
+): Readonly<{ readonly connect: unknown }> => {
+	if (
+		!isPlainRecord(value) ||
+		Object.keys(value).length !== 1 ||
+		!Object.hasOwn(value, 'connect')
+	) {
+		throw new TypeError(`${path} must be a link such as { connect: id }`)
+	}
+	const target = getFieldSchemaTarget(definition)?.()
+	const link = value.connect
+	if (!Schema.is(target)) {
+		throw new TypeError(`${path} requires a registered pointer target`)
+	}
+	if (Pointer.is(link) ? link.schema !== target : typeof link !== 'string') {
+		throw new TypeError(
+			`${path}.connect must be a ${target.className} Pointer or object ID`,
+		)
+	}
+	return immutableRecord({ connect: link })
+}
 
 const snapshotDraftValues = (
 	fields: SchemaFields,
@@ -109,7 +137,9 @@ const snapshotDraftValues = (
 			key,
 			value === null && isFieldNullable(definition)
 				? null
-				: snapshotDeclaredFieldValue(definition, value, `input.${key}`),
+				: definition.kind === 'pointer'
+					? snapshotDraftLink(definition, value, `input.${key}`)
+					: snapshotDeclaredFieldValue(definition, value, `input.${key}`),
 		])
 	}
 
@@ -248,14 +278,13 @@ const createStaticCommands = (schema: SchemaDefinition) => ({
 		options?: OperationOptions,
 	): Promise<object | null> =>
 		executeQueryFindOne(queryFromFindOneInput(schema, input), options),
-	get: (
-		input: GetInput<SchemaDefinition>,
+	findOneOrThrow: async (
+		input: FindOneInput<SchemaDefinition> = {},
 		options?: OperationOptions,
-	): Promise<object> => {
-		const normalized = queryFromGetInput(schema, input)
-
-		return executeQueryGet(normalized.query, normalized.id, options)
-	},
+	): Promise<object> =>
+		requireFoundRow(
+			await executeQueryFindOne(queryFromFindOneInput(schema, input), options),
+		),
 	count: (
 		input: CountInput<SchemaDefinition> = {},
 		options?: OperationOptions,

@@ -1,7 +1,8 @@
 # ADR-0182: Singular mutations accept an identifier target alias
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-10
+- Superseded by: ADR-0307
 - Refines: ADR-0132, ADR-0144, ADR-0146, ADR-0178
 
 ## Context

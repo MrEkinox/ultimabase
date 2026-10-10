@@ -299,15 +299,6 @@ export type ExactGeneratedFindOneInput<
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
 
-/** Describes one exact identifier read from its resolved contract. */
-export type ExactGeneratedGetInput<
-	TContract extends SchemaTypeInfo,
-	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends TContract['inputs']['include'] | undefined = undefined,
-> = Readonly<{ readonly id: OperationObjectId<TContract> }> &
-	ExactReadSelectionInput<TContract, TSelection> &
-	ExactReadInclusionInput<TContract, TInclude>
-
 /** Describes one exact collection read using optional offset pagination. */
 export type ExactGeneratedFindManyInput<
 	TContract extends SchemaTypeInfo,

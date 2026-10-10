@@ -202,7 +202,6 @@ export type {
 	ExistsInput,
 	FindManyInput,
 	FindOneInput,
-	GetInput,
 	QueryIncludeInput,
 	QueryIncludedFieldFromInput,
 	QueryBuilderInput,
@@ -217,16 +216,12 @@ export type { QueryPointerTargetBuilder } from './query/query-contracts.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export { applyUpdateExpressionToRecord } from './updates/apply.js'
-export { decrement, increment, unset } from './updates/operators.js'
-export type {
-	DecrementUpdateValue,
-	IncrementUpdateValue,
-} from './updates/operators.js'
 export type {
 	DecrementUpdateOperationNode,
 	IncrementUpdateOperationNode,
 	NestedUpdateExpressionInput,
 	NumericUpdateFieldName,
+	NumericUpdateOperation,
 	NumericUpdateInput,
 	SetUpdateOperationNode,
 	UpdateExpression,

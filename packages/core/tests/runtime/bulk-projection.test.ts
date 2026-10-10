@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { increment } from '../../src/index.js'
 
 import { createEnforcementState } from '../../src/runtime/enforcement/state.js'
 import {
@@ -13,8 +12,23 @@ import {
 	accountRecord,
 	accountSchema,
 	createRequest,
+	fixtureInstant,
 	managerSchema,
 } from './fixtures/bulk-terminals.js'
+import type { QueuedAdapterResult } from './fixtures/recording-database-adapter.js'
+
+/** Answers the visibility read of one `connect` target (ADR-0308). */
+const managerLookup = (
+	manager: Readonly<{ id: string }>,
+): QueuedAdapterResult => ({
+	status: 'fulfilled',
+	value: {
+		createdAt: fixtureInstant,
+		id: manager.id,
+		name: 'Manager',
+		updatedAt: fixtureInstant,
+	},
+})
 import { readRequestEngineApplication } from '../../src/runtime/engine/request-engine.js'
 // Grouped reads retain the original item order and transaction failure semantics.
 describe('bulk result projection', () => {
@@ -96,11 +110,13 @@ describe('bulk result projection', () => {
 		const { adapter: createAdapter, request: createRequestEngine } =
 			await createRequest(
 				[
+					managerLookup(firstManager),
 					{
 						materializations: [{ current: first, kind: 'create' }],
 						status: 'fulfilled',
 						value: firstCreateResult,
 					},
+					managerLookup(secondManager),
 					{
 						materializations: [{ current: second, kind: 'create' }],
 						status: 'fulfilled',
@@ -143,8 +159,8 @@ describe('bulk result projection', () => {
 		const created = await runWithRequestEngine(createRequestEngine, () =>
 			accountSchema.createMany({
 				data: [
-					{ email: first.email, manager: firstManager },
-					{ email: second.email, manager: secondManager },
+					{ email: first.email, manager: { connect: firstManager } },
+					{ email: second.email, manager: { connect: secondManager } },
 				],
 				include,
 				select: { email: true },
@@ -202,7 +218,7 @@ describe('bulk result projection', () => {
 		const updated = await runWithRequestEngine(updateRequest, () =>
 			accountSchema.updateMany({
 				data: [first, second].map(({ id }) => ({
-					data: { visits: increment(1) },
+					data: { visits: { increment: 1 } },
 					where: { id: { eq: id } },
 				})),
 				include,
@@ -235,12 +251,23 @@ describe('bulk result projection', () => {
 			createAdapter.transactions[0]?.requests.map(
 				({ operation }) => operation.kind,
 			),
-		).toStrictEqual(['create-one', 'create-one', 'find-many'])
+			// ADR-0308: each `connect` target is read before its write.
+		).toStrictEqual([
+			'find-one',
+			'create-one',
+			'find-one',
+			'create-one',
+			'find-many',
+		])
 		expect(createTrace).toContain('execute:find-many')
 		expect(updateTrace).toContain('execute:find-many')
 		expect(createHookKinds).toStrictEqual([
+			'before:find-one',
+			'after:find-one',
 			'before:create-one',
 			'after:create-one',
+			'before:find-one',
+			'after:find-one',
 			'before:create-one',
 			'after:create-one',
 		])
@@ -282,6 +309,7 @@ describe('bulk result projection', () => {
 		const projectionResult = mutationResult
 		const { request } = await createRequest(
 			[
+				managerLookup(manager),
 				{
 					materializations: [{ current: created, kind: 'create' }],
 					status: 'fulfilled',
@@ -311,7 +339,7 @@ describe('bulk result projection', () => {
 		await runWithRequestEngine(request, () =>
 			accountSchema.createMany(
 				{
-					data: [{ email: created.email, manager }],
+					data: [{ email: created.email, manager: { connect: manager } }],
 					include: { manager: { select: { name: true } } },
 					select: { email: true },
 				},
@@ -319,8 +347,10 @@ describe('bulk result projection', () => {
 			),
 		)
 
-		// The third evaluation decides whether the created rows are readable (ADR-0306).
+		// The third evaluation decides whether the created rows are readable
+		// (ADR-0306); the first reads the `connect` target (ADR-0308).
 		expect(observedRequestIds).toStrictEqual([
+			'explicit-grouped-context',
 			'explicit-grouped-context',
 			'explicit-grouped-context',
 			'explicit-grouped-context',
@@ -352,11 +382,13 @@ describe('bulk result projection', () => {
 		const secondResult = { email: second.email, id: second.id, manager }
 		const { adapter, request } = await createRequest(
 			[
+				managerLookup(manager),
 				{
 					materializations: [{ current: first, kind: 'create' }],
 					status: 'fulfilled',
 					value: firstResult,
 				},
+				managerLookup(manager),
 				{
 					materializations: [{ current: second, kind: 'create' }],
 					status: 'fulfilled',
@@ -374,8 +406,8 @@ describe('bulk result projection', () => {
 			runWithRequestEngine(request, () =>
 				accountSchema.createMany({
 					data: [
-						{ email: first.email, manager },
-						{ email: second.email, manager },
+						{ email: first.email, manager: { connect: manager } },
+						{ email: second.email, manager: { connect: manager } },
 					],
 					include: { manager: { select: { name: true } } },
 					select: { email: true },
@@ -403,6 +435,7 @@ describe('bulk result projection', () => {
 		const unknownId = '0198f090-2a50-7000-8000-000000000111'
 		const { adapter, request } = await createRequest(
 			[
+				managerLookup(manager),
 				{
 					materializations: [{ current: created, kind: 'create' }],
 					status: 'fulfilled',
@@ -419,7 +452,7 @@ describe('bulk result projection', () => {
 		await expect(
 			runWithRequestEngine(request, () =>
 				accountSchema.createMany({
-					data: [{ email: created.email, manager }],
+					data: [{ email: created.email, manager: { connect: manager } }],
 					include: { manager: { select: { name: true } } },
 					select: { email: true },
 				}),
@@ -471,7 +504,7 @@ describe('bulk result projection', () => {
 			runWithRequestEngine(request, () =>
 				accountSchema.updateMany({
 					data: [0, 1].map(() => ({
-						data: { visits: increment(1) },
+						data: { visits: { increment: 1 } },
 						where: { id: { eq: previous.id } },
 					})),
 					include: { manager: { select: { name: true } } },

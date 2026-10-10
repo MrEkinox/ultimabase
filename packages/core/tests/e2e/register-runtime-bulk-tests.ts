@@ -1,5 +1,5 @@
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import { increment, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 import { expect, it } from 'vitest'
 
@@ -54,7 +54,7 @@ export const registerRuntimeBulkTests = (): void => {
 			const bulkUpdated = await BulkAccountSchema.updateMany({
 				data: ordered.map(({ id }) => ({
 					where: { id: { eq: id } },
-					data: { visits: increment(2) },
+					data: { visits: { increment: 2 } },
 				})),
 			})
 
@@ -69,7 +69,7 @@ export const registerRuntimeBulkTests = (): void => {
 					handle: 'upsert',
 					tenantId: 'tenant-b',
 				},
-				update: { visits: increment(1) },
+				update: { visits: { increment: 1 } },
 				select: { email: true, visits: true },
 			})
 			expect(createdUpsert.toJSON()).toStrictEqual({
@@ -85,7 +85,7 @@ export const registerRuntimeBulkTests = (): void => {
 					handle: 'upsert',
 					tenantId: 'tenant-b',
 				},
-				update: { visits: increment(1) },
+				update: { visits: { increment: 1 } },
 				select: { email: true, visits: true },
 			})
 			expect(updatedUpsert.toJSON()).toStrictEqual({
@@ -103,7 +103,7 @@ export const registerRuntimeBulkTests = (): void => {
 							handle: 'upsert',
 							tenantId: 'tenant-b',
 						},
-						update: { visits: increment(1) },
+						update: { visits: { increment: 1 } },
 					},
 					{
 						where: { email: { eq: 'bulk-upsert@example.com' } },
@@ -112,7 +112,7 @@ export const registerRuntimeBulkTests = (): void => {
 							handle: 'bulk-upsert',
 							tenantId: 'tenant-b',
 						},
-						update: { visits: increment(1) },
+						update: { visits: { increment: 1 } },
 					},
 				],
 				select: { email: true, visits: true },
@@ -140,7 +140,7 @@ export const registerRuntimeBulkTests = (): void => {
 					handle: 'composite',
 					tenantId: 'tenant-c',
 				},
-				update: { visits: increment(1) },
+				update: { visits: { increment: 1 } },
 			})
 			expect(composite).toMatchObject({
 				handle: 'composite',
@@ -180,7 +180,7 @@ export const registerRuntimeBulkTests = (): void => {
 					BulkAccountSchema.upsertOne({
 						where: { email: { eq: email } },
 						create: { email, handle, tenantId: 'tenant-e' },
-						update: { visits: increment(1) },
+						update: { visits: { increment: 1 } },
 					})
 				const concurrent = await Promise.all([upsert(), upsert()])
 				expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([
@@ -195,7 +195,7 @@ export const registerRuntimeBulkTests = (): void => {
 						handle: 'concurrent-0',
 						tenantId: 'tenant-e',
 					},
-					update: { visits: increment(1) },
+					update: { visits: { increment: 1 } },
 				}),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',

@@ -400,6 +400,57 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		).resolves.toBe(true)
 	})
 
+	it('links members and included roles through connect (ADR-0308)', async () => {
+		const app = getApplication()
+		const master = { useMasterKey: true } as const
+		const member = await RoleMember.createOne(
+			{ data: { email: 'linked@example.test' } },
+			master,
+		)
+		const eventCount = committedRoleEvents.length
+		const linked = await AppRole.createOne(
+			{
+				data: {
+					members: { connect: [RoleMember.pointer(member.id)] },
+					name: 'linked',
+				},
+			},
+			master,
+		)
+		const context = createMemberContext(member.id, 'roles-e2e-linked')
+		const resolver = requireRoleResolver(
+			app.plugin(roleResolverConsumerPluginName),
+		)
+		const hasLinkedRole = () =>
+			runWithRequestEngine(app.withContext(context), () =>
+				resolver.hasRole({ context, role: AppRole.role('linked') }),
+			)
+
+		await expect(hasLinkedRole()).resolves.toBe(true)
+		expect(committedRoleEvents.slice(eventCount)).toContain(
+			'ultimabase.roles.membership.changed',
+		)
+		// The hierarchy invariant applies to included roles linked by `connect`.
+		await expect(
+			AppRole.updateOne(
+				{
+					where: { id: requireRole(editor, 'editor').id },
+					data: {
+						roles: {
+							connect: [requireRole(administrator, 'administrator').id],
+						},
+					},
+				},
+				master,
+			),
+		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
+		await AppRole.updateOne(
+			{ where: { id: linked.id }, data: { members: { set: [] } } },
+			master,
+		)
+		await expect(hasLinkedRole()).resolves.toBe(false)
+	})
+
 	it('enforces fail, preserve, and cascade deletion policies atomically', async () => {
 		const currentAlice = requireMember(alice, 'Alice')
 		const failRole = await new FailRole({ name: 'fail-policy' }).create(

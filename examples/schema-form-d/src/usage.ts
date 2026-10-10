@@ -27,9 +27,8 @@ export const listAssignedTodos = (email: string) =>
 /** Reads every todo as complete models. */
 export const listTodos = () => Todo.findMany()
 
-/** Reads one todo by title. */
-export const findTodo = (title: string) =>
-	Todo.findOne({ where: { title: { eq: title } } })
+/** Reads one todo by title; a plain value means `eq`. */
+export const findTodo = (title: string) => Todo.findOne({ where: { title } })
 
 /** Creates one todo; nested create data connects the assignee by id. */
 export const createTodo = (title: string, assigneeId: string) =>

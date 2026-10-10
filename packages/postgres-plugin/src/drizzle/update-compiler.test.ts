@@ -1,8 +1,4 @@
-import {
-	decrement,
-	increment,
-	normalizeUpdateExpression,
-} from '@ultimabase/core'
+import { normalizeUpdateExpression } from '@ultimabase/core'
 import { UltimaBase } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -40,8 +36,8 @@ describe('PostgreSQL update compiler', () => {
 		const update = normalizeUpdateExpression(updateSchemaDefinition, {
 			note: null,
 			title: 'Updated',
-			views: increment(2),
-			balance: decrement('1.25'),
+			views: { increment: 2 },
+			balance: { decrement: '1.25' },
 		})
 		const compiled = compilePostgresUpdate(updateSchema, update)
 		const incrementSql = compiled.views

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { decrement, increment, unset } from './operators.js'
 import { normalizeUpdateExpression } from './normalize.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
@@ -29,12 +28,12 @@ const accountSchema = UltimaBase.Schema.define({
 describe('normalizeUpdateExpression', () => {
 	it('normalizes field values in deterministic declaration order', () => {
 		const expression = normalizeUpdateExpression(accountSchema, {
-			rating: decrement(0.5),
-			visits: increment(2),
-			balance: increment('1.25'),
+			rating: { decrement: 0.5 },
+			visits: { increment: 2 },
+			balance: { increment: '1.25' },
 			name: 'Updated account',
-			nickname: unset(),
-			sequence: decrement(1n),
+			nickname: null,
+			sequence: { decrement: 1n },
 		})
 
 		expect(expression).toStrictEqual({
@@ -53,11 +52,9 @@ describe('normalizeUpdateExpression', () => {
 		expect(
 			expression.operations.every((operation) => Object.isFrozen(operation)),
 		).toBe(true)
-		expect(Object.isFrozen(increment(1))).toBe(true)
-
-		// The explicit helper remains exactly the canonical null replacement.
+		// `null` is the canonical replacement that clears an optional field.
 		expect(
-			normalizeUpdateExpression(accountSchema, { rating: unset() }).operations,
+			normalizeUpdateExpression(accountSchema, { rating: null }).operations,
 		).toStrictEqual([{ kind: 'set', field: 'rating', value: null }])
 	})
 
@@ -87,11 +84,9 @@ describe('normalizeUpdateExpression', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects unknown update fields.
-				multiply: increment(2),
+				multiply: { increment: 2 },
 			})
-		}).toThrow(
-			new TypeError('update increment field must reference a schema field'),
-		)
+		}).toThrow(new TypeError('update field must reference a schema field'))
 		expect(() => {
 			// @ts-expect-error -- A required field is missing; Runtime still rejects empty input.
 			normalizeUpdateExpression(accountSchema, {})
@@ -133,38 +128,51 @@ describe('normalizeUpdateExpression', () => {
 	})
 
 	it('restricts arithmetic to scalar numeric fields and exact deltas', () => {
-		expect(() => {
+		// Non-numeric fields keep object values as replacements validated by Runtime.
+		expect(
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects numeric deltas on strings.
-				name: increment(1),
-			})
-		}).toThrow(
-			new TypeError(
-				'update increment field must reference a mutable scalar numeric field',
-			),
-		)
-		expect(() => {
+				name: { increment: 1 },
+			}).operations,
+		).toStrictEqual([{ kind: 'set', field: 'name', value: { increment: 1 } }])
+		expect(
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects numeric deltas on lists.
-				scores: increment(1),
-			})
-		}).toThrow(
-			new TypeError(
-				'update increment field must reference a mutable scalar numeric field',
-			),
-		)
+				scores: { increment: 1 },
+			}).operations,
+		).toStrictEqual([{ kind: 'set', field: 'scores', value: { increment: 1 } }])
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects string deltas on integers.
-				visits: increment('1'),
+				visits: { increment: '1' },
 			})
 		}).toThrow(new TypeError('update increment value must be a safe integer'))
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
 				// The assertion simulates an untyped JavaScript boundary.
-				rating: decrement(null as unknown as number),
+				rating: { decrement: null as unknown as number },
 			})
 		}).toThrow(new TypeError('update decrement value must be a number'))
+		expect(() => {
+			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Exactly one operation key is accepted.
+				visits: { increment: 1, decrement: 1 },
+			})
+		}).toThrow(
+			new TypeError(
+				'update field visits must contain exactly one of increment or decrement',
+			),
+		)
+		expect(() => {
+			normalizeUpdateExpression(accountSchema, {
+				// @ts-expect-error -- Numeric fields have no other object values.
+				visits: { multiply: 2 },
+			})
+		}).toThrow(
+			new TypeError(
+				'update field visits must contain exactly one of increment or decrement',
+			),
+		)
 	})
 
 	it('rejects malformed field definitions after resolving an owned key', () => {
@@ -177,10 +185,8 @@ describe('normalizeUpdateExpression', () => {
 
 		expect(() =>
 			normalizeUpdateExpression(malformedSchema, {
-				visits: increment(1),
+				visits: { increment: 1 },
 			}),
-		).toThrow(
-			new TypeError('update increment field must reference a field definition'),
-		)
+		).toThrow(new TypeError('update field must reference a field definition'))
 	})
 })

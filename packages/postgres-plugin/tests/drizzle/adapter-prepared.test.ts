@@ -1,7 +1,6 @@
 import {
 	QueryBuilder,
 	createDatabasePersistencePlan,
-	increment,
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
@@ -202,7 +201,7 @@ describe('internal PostgreSQL database adapter preparation', () => {
 			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Updated',
-			views: increment(1),
+			views: { increment: 1 },
 		})
 		const updateOperation = {
 			kind: 'update-one',
@@ -234,7 +233,7 @@ describe('internal PostgreSQL database adapter preparation', () => {
 			...updateOperation,
 			update: normalizeUpdateExpression(articleSchema, {
 				title: 'Updated',
-				views: increment(1),
+				views: { increment: 1 },
 			}),
 		}
 		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
@@ -362,7 +361,7 @@ describe('internal PostgreSQL database adapter preparation', () => {
 			.select({ id: true, title: true })
 			.limit(10)
 		const update = normalizeUpdateExpression(articleSchema, {
-			views: increment(1),
+			views: { increment: 1 },
 		})
 		const preparedUpdate = await prepare(transaction, {
 			operation: { kind: 'update-many', query: query.ast, update },
@@ -437,7 +436,7 @@ describe('internal PostgreSQL database adapter preparation', () => {
 				kind: 'update-many',
 				query: query.ast,
 				update: normalizeUpdateExpression(articleSchema, {
-					views: increment(1),
+					views: { increment: 1 },
 				}),
 			},
 			prepareMutationItems: true,

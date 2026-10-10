@@ -115,9 +115,9 @@ public-package suite.
 
 For nested singular writes, source relation `access.write` runs during initial
 enforcement before any child Hook or write. It receives immutable `create`,
-`connect`, `update`, `disconnect`, `set`, and `clear` changes in deterministic
-command order. `create` carries framework-reserved target Pointers, identity
-commands carry their declared targets, and `clear` carries an empty target
+`connect`, `update`, `disconnect`, and `set` changes in deterministic command
+order. `create` carries framework-reserved target Pointers, identity commands
+carry their declared targets, and `set: []` carries an empty target
 collection. Each child then evaluates its own complete Access policy as an
 ordinary `createOne` or `updateOne`; relation updates additionally prove exact
 visible source membership. Master bypass remains uniform across the whole
@@ -148,6 +148,12 @@ export const Note = App.Schema.define({
 	},
 })
 ```
+
+Every `connect` and `set` target, in singular, nested and collection commands,
+must be visible to the caller as a `one` read under every installed policy;
+`disconnect` names only visible members. A hidden target fails with the same
+`NOT_FOUND` as a missing one (ADR-0308). Rule filter objects accept the
+equality shorthand (`where: () => ({ published: true })`, ADR-0307).
 
 Mutation results obey the row `read` rules (ADR-0306): a write whose result
 the caller cannot read, selected beyond `id`, fails with `PERMISSION_DENIED`

@@ -237,7 +237,7 @@ const createdContributor = article.contributors.find(
 if (createdContributor === undefined) throw new Error('Missing contributor')
 
 const updated = await ExampleArticle.updateOne({
-	id: article.id,
+	where: { id: article.id },
 	data: {
 		contributors: {
 			update: [

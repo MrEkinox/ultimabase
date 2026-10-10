@@ -17,11 +17,14 @@ sources:
   - docs/adr/0160-pointer-identity-and-target-filters.md
   - docs/adr/0301-adapter-declared-filter-operators.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
 ---
 
 Pass a `where` object to a read to match records. Its field names and available
 operators follow the schema. Fields and operators at the same level combine with
-`AND`; use `AND`, `OR`, and `NOT` for nested groups.
+`AND`; use `AND`, `OR`, and `NOT` for nested groups. A plain value on a scalar,
+enum, or pointer field means equality, as in Prisma: `where: { id }` or
+`where: { published: true }`.
 
 This example assumes `Post` declares `published` as a boolean, `title` as a
 string, `views` as an integer, and `tags` as a string list. It also assumes a
@@ -33,7 +36,7 @@ import { Post } from './schemas.js'
 export const readDiscoverablePosts = () =>
 	Post.findMany({
 		where: {
-			published: { eq: true },
+			published: true,
 			views: { between: { lower: 100, upper: 10_000 } },
 			OR: [
 				{ title: { contains: 'TypeScript' } },
@@ -49,6 +52,29 @@ least one `OR` branch, and does not have a title starting with `Archive`. An
 empty match returns `[]`. Core validates the filter before execution and
 intersects it with installed access restrictions; a `where` clause never grants
 access to otherwise hidden records.
+
+## Equality shorthand
+
+On a non-list scalar, enum, or pointer field, a value that is not a plain
+object means `eq`, and `null` means `isNull: true`:
+
+```ts title="src/find-drafts.ts"
+import { Post } from './schemas.js'
+
+export const readDrafts = (authorId: string) =>
+	Post.findMany({
+		where: { author: authorId, published: false, summary: null },
+	})
+```
+
+This is exactly `{ author: { eq: authorId }, published: { eq: false },
+summary: { isNull: true } }`; Core normalizes both forms to the same filter.
+List, `json`, `object`, and relation fields keep explicit operators, because a
+value there can look like an operator object (`{ tags: { eq: ['a'] } }`,
+`{ metadata: { eq: { a: 1 } } }`). GraphQL filter inputs keep `{ eq }`, since a
+GraphQL input value is either a scalar or an object. REST `where` JSON accepts
+the shorthand; a pointer's shorthand is its target id there, because the
+tagged pointer JSON object would read as operators.
 
 ## Scalar and list operators
 
@@ -112,8 +138,11 @@ how nested values are declared.
 ## Pointers and relations
 
 A pointer stores one target ID. Its `eq`, `ne`, `in`, and `notIn` operators take
-target IDs, not `Pointer` objects. `is` and `isNot` instead test a nested filter
-against the visible target:
+target IDs. The equality shorthand also accepts a `Pointer` of the declared
+target already in hand, such as the current principal (`where: { author:
+principal }`); a `Pointer` of another schema is a type error and a
+`VALIDATION_ERROR`. `is` and `isNot` instead test a nested filter against the
+visible target:
 
 ```ts title="src/filter-memberships.ts"
 import { Membership } from './schemas.js'
@@ -123,7 +152,7 @@ export const readActiveMemberships = (projectId: string) =>
 		where: {
 			project: {
 				eq: projectId,
-				is: { archived: { eq: false } },
+				is: { archived: false },
 			},
 		},
 	})
@@ -133,7 +162,7 @@ This assumes `Membership.project` points to a `Project` with an `archived`
 boolean. `eq` checks stored identity without reading the target. `is` and
 `isNot` apply target visibility and policy. `isNot` also matches a null pointer
 or a target hidden by policy; add `isNotNull: true` if a null pointer must not
-match. Use `isNull: true` to find null pointers, not `eq: null`.
+match. Use `null` or `isNull: true` to find null pointers, not `eq: null`.
 
 A to-many relation is not a stored list. It supports `some`, `none`, and
 `every` with a target-schema `where` object; `count` compares the number of

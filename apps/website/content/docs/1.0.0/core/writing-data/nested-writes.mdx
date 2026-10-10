@@ -13,6 +13,7 @@ sources:
   - packages/core/examples/schema/nested-writes.md
   - packages/core/docs/runtime.md
   - docs/adr/0243-bounded-singular-nested-writes.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
 ---
 
 Use a nested write when one post command must also create, connect, or update
@@ -58,7 +59,8 @@ export const createPostGraph = (existingCommentId: string) =>
 `author.create` creates an author and stores its pointer on the post.
 `comments.create` creates two comments and connects them; `comments.connect`
 adds an existing, visible comment by ID. These are different operations:
-`connect` never creates a target. The final returned post includes the
+`connect` never creates a target. A `connect` target is an ID or a `Pointer`
+of the declared target already in hand, such as `{ connect: post.author }`. The final returned post includes the
 requested author and comments when they are visible to the caller; read
 policy may omit some included targets.
 
@@ -81,7 +83,7 @@ export const revisePostGraph = (
 				disconnect: [oldCommentId],
 			},
 		},
-		id: postId,
+		where: { id: postId },
 	})
 ```
 
@@ -92,29 +94,46 @@ the comment. Each ID in this example must refer to a distinct target.
 
 ## Choose a relationship command
 
-| Field    | On `createOne`                    | On `updateOne` or a persisted model's `update()`                                                               |
-| -------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Pointer  | `connect: id` or `create: data`   | `connect: id`, `create: data`, `update: data`, or `disconnect: true`                                           |
-| Relation | `create: [data]`, `connect: [id]` | `create: [data]`, `connect: [id]`, `update: [{ id, data }]`, `disconnect: [id]`, `set: [id]`, or `clear: true` |
+| Field    | On `createOne`                                                  | On `updateOne` or a persisted model's `update()`                                                         |
+| -------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Pointer  | `connect: target`, `create: data`, or `null` (optional pointer) | `connect: target`, `create: data`, `update: data`, or `null` (optional pointer)                          |
+| Relation | `create: [data]`, `connect: [target]`                           | `create: [data]`, `connect: [target]`, `update: [{ id, data }]`, `disconnect: [target]`, `set: [target]` |
 
-A pointer command object contains exactly one command. `disconnect: true` is
-available only for an optional pointer. Relation `create`, `connect`, `update`,
-and `disconnect` may coexist; their arrays must be non-empty. Core runs them
-in that order regardless of property order, preserving order within each
-array. Identity commands take the target's ID string, not a model or a
-`{ id }` object. Do not name the same target ID twice across those commands.
+This is the only way to link rows (ADR-0308). A pointer command object
+contains exactly one command, and `null` unlinks an optional pointer; a
+required pointer cannot be `null`. A `Pointer` or an ID assigned directly to a
+pointer field (`author: Author.pointer(id)`) is a type error and a
+`VALIDATION_ERROR` whose message shows `{ connect: id }`; `Schema.pointer(id)`
+stays a value for filters, comparisons, and ACL entries. Relation `create`,
+`connect`, `update`, and `disconnect` may coexist; their arrays must be
+non-empty. Core runs them in that order regardless of property order,
+preserving order within each array. A `connect`, `disconnect`, or `set`
+target is an ID or a `Pointer` of the declared target; another schema's
+`Pointer` is a type error and a `VALIDATION_ERROR` naming the field. Do not
+name the same target twice across those commands.
 
 Pointer child creates and updates run before the root write. Relation child
 mutations and membership changes run after it. The root's after-hooks see the
 completed graph, and `select` / `include` project the final result.
 
-`set` and `clear` must each be the sole command in their relation object.
-`set: []` and `clear: true` both remove visible memberships; `set` can also
-replace them with specified visible targets. Neither command deletes targets
-or removes policy-hidden memberships. A relation mapped by a required inverse
-pointer cannot use `disconnect`, `set`, or `clear`, because that would clear a
-required field. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
-for owning and inverse relations.
+`set` must be the sole command in its relation object. `set: []` removes every
+visible membership; `set` can also replace them with specified visible
+targets. It never deletes targets or removes policy-hidden memberships. A
+relation mapped by a required inverse pointer cannot use `disconnect` or
+`set`, because that would clear a required field. See
+[Relationships](/docs/1.0.0/core/data-modeling/relationships) for owning and
+inverse relations.
+
+## Every link checks visibility
+
+For a caller without Master authority, each target named by `connect` or `set`
+must be visible as a single-row read under every installed policy, checked
+in the mutation's transaction before the write. `disconnect` names only
+visible linked targets. A missing or hidden target fails with the same
+`NOT_FOUND`, whose public details name the field and target schema
+(`{ field: 'author', schema: 'Author' }`), and the whole graph rolls back, so
+a link never reveals that a hidden row exists. Master skips visibility but
+never existence: it can link a hidden row and still fails on a missing one.
 
 ## Bounds and failure behavior
 
@@ -131,9 +150,10 @@ business hook or write. A missing or inaccessible related target, conflicting ID
 limit violation, failed validation, policy rejection, or hook failure aborts
 the whole transaction: there is no partial-success branch.
 
-Nested delete and upsert commands are not available. Bulk roots, upserts, and
-draft construction accept only flat data, not nested relationship commands.
-Use a singular root command when you need this graph behavior.
+Nested delete and upsert commands are not available. Bulk roots and upserts
+accept pointer links (`{ connect: target }` or `null`), checked like any other
+link, but no nested `create`, `update`, or relation command. Use a singular
+root command when you need this graph behavior.
 
 To verify atomicity, make a child fail validation in a disposable test
 database. After the command rejects, read the root, child, and relation

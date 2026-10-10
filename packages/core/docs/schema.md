@@ -214,11 +214,12 @@ const PostSchema = UltimaBase.Schema.define({
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
-const post = new PostSchema({ author })
+const post = new PostSchema({ author: { connect: author } })
 ```
 
 `UserSchema.pointer(id)` is the only way to create a pointer (ADR-0314); the
-`Pointer` constructor is not public. It produces `Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
+`Pointer` constructor is not public. Data links it through
+`{ connect: author }` (ADR-0308), never as a raw value. It produces `Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
 types preserve that target. `pointer.equals(other)` compares exact schema
 identity and ID. `pointer.toJSON()` returns the frozen logical shape
 `{ type: "pointer", className, id }`; it is not a database foreign-key or a
@@ -303,7 +304,10 @@ Runtime-materialized models expose independently queryable relations without
 adding a collection property:
 
 ```ts
-const user = await UserSchema.get({ id: userId, select: { name: true } })
+const user = await UserSchema.findOneOrThrow({
+	where: { id: userId },
+	select: { name: true },
+})
 
 const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
@@ -397,15 +401,13 @@ models expose `fetch`, `exists`, `update`, and `delete`, plus local identity
 helpers:
 
 ```ts
-import { increment } from '@ultimabase/core'
-
 const draft = new PostSchema({ title: 'Hello' })
 const created = await draft.create({ select: { id: true, title: true } })
 
 const imported = await new PostSchema({ title: 'Imported' }).upsert({
 	select: { id: true, title: true },
 	where: { slug: { eq: 'imported' } },
-	update: { imports: increment(1) },
+	update: { imports: { increment: 1 } },
 })
 
 const updated = await created.update({

@@ -874,8 +874,11 @@ const PostSchema = UltimaBase.Schema.define({
 	}),
 })
 
-const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
-const draft = new PostSchema({ author })
+const authorId = '0198f090-2a50-7000-8000-000000000034'
+const post = await PostSchema.createOne({
+	data: { author: { connect: authorId } },
+})
+const author = UserSchema.pointer(authorId)
 ```
 
 `Pointer<TSchema>` contains only immutable logical schema identity and an object
@@ -885,19 +888,25 @@ throws a `TypeError` pointing to `Schema.pointer(id)`. `Pointer` stays exported
 for annotations, including `Pointer<"User">` for a registered class name, and
 for `instanceof Pointer` checks.
 Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
-schema identity plus ID.
+schema identity plus ID. A `Pointer` is a value for filters, comparisons and
+ACL entries; mutation data links rows only through `{ connect: target }`, where
+the target is an ID or a `Pointer` of the declared target already in hand
+(`{ connect: post.author }`), and `null` unlinks an optional pointer. A raw
+`Pointer` or ID assigned to a pointer field is a type error and a
+`VALIDATION_ERROR` whose message shows `{ connect: id }` (ADR-0308).
 
 Pointers participate in reads without revealing physical foreign-key names.
-Equality and membership predicates accept target object IDs directly; ordered
-and string comparisons are rejected. Target traversal stays explicit and
-target-typed:
+Equality and membership predicates accept target object IDs directly; the
+equality shorthand (`where: { author: authorId }`) also accepts a `Pointer` of
+the declared target (ADR-0307). Ordered and string comparisons are rejected.
+Target traversal stays explicit and target-typed:
 
 ```ts
 const memberships = await Membership.findMany({
 	where: {
 		project: {
 			eq: projectId,
-			is: { archived: { eq: false } },
+			is: { archived: false },
 		},
 	},
 })
@@ -905,7 +914,8 @@ const memberships = await Membership.findMany({
 
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
 of the visible target and therefore apply installed target policies. Pointer
-nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
+nullability uses `null` (the shorthand of `isNull: true`) or `isNull` and
+`isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID.
 Missing or row-filtered targets return `null` and `false`, respectively;
 explicit policy denials, callback errors, and adapter errors still fail the operation. Meanwhile,
@@ -1054,11 +1064,24 @@ const recentPosts = await posts.findMany({
 `relation()` autocomplete excludes pointers and scalar fields. Drafts cannot
 create a handle, while selected persisted models retain a protected source ID
 without adding it to their visible values. The handle is opaque, frozen, and
-never serializes a related collection. Its direct `findMany`, `findOne`, `get`,
-`count`, and `exists` methods accept the same canonical object inputs as the
+never serializes a related collection. Its direct `findMany`, `findOne`,
+`findOneOrThrow`, `count`, and `exists` methods accept the same canonical object inputs as the
 target schema. The source edge stays in private Runtime state across every
 public input and hook transformation; it never appears in the developer AST
 and cannot be replaced by a `QueryBuilder` scope.
+
+Queries and writes follow Prisma's vocabulary (ADR-0307). In every `where`
+input (reads, mutation targets, relation filters, Access rule objects, REST
+`where` JSON, partial-index predicates), a value that is not a plain object on
+a non-list scalar, enum or pointer field means `eq`, and `null` means
+`isNull: true`: `where: { id }`, `where: { completed: false }`. List, `json`,
+`object` and relation fields keep explicit operators, and normalization
+produces the same canonical filter, so serialization and adapters are
+unchanged; GraphQL filter inputs keep `{ eq }`. `findOneOrThrow` takes the
+input of `findOne` and fails with `NOT_FOUND`, also for a hidden row, where
+`findOne` returns `null`. In update data, a numeric field takes
+`{ increment: n }` or `{ decrement: n }` with an operand of its value type, and
+`null` clears an optional field.
 
 Ordered scalar filters include explicit inclusive ranges. `between` keeps
 values inside the interval, while `notBetween` keeps values strictly outside
@@ -1448,14 +1471,14 @@ const created = await PostSchema.createOne({
 })
 
 const updated = await PostSchema.updateOne({
-	id: postId,
+	where: { id: postId },
 	data: { title: 'Updated' },
 	select: { title: true },
 	include: { author: { select: { name: true } } },
 })
 
 const deleted = await PostSchema.deleteOne({
-	id: postId,
+	where: { id: postId },
 	select: { id: true, title: true },
 })
 
@@ -1475,9 +1498,13 @@ const publishedAuthorNames = published.map((post) => post.author?.name)
 ```
 
 Singular creates and updates accept schema-aware nested pointer and relation
-commands inside `data`. A pointer command is exclusive, while relation
-`create`, `connect`, `update`, and `disconnect` commands may compose in that
-fixed order. Field-bound identities are plain target IDs:
+commands inside `data` (ADR-0308): a pointer takes `connect`, `create`,
+`update` (updates only) or `null` (unlinks an optional pointer); a relation
+takes `connect`, `disconnect`, `create`, `update` (`{ id, data }` items), or
+the exclusive `set`, where `{ set: [] }` empties it. A pointer command is
+exclusive, while relation `create`, `connect`, `update`, and `disconnect`
+commands may compose in that fixed order. `connect`, `disconnect` and `set`
+targets are IDs or `Pointer`s of the declared target:
 
 ```ts
 await PostSchema.createOne({
@@ -1495,8 +1522,17 @@ await PostSchema.createOne({
 Core separates scalar candidates from relationship commands in one immutable,
 application-owned graph before effects. The default ceiling is five nested
 target levels and 100 statically declared operations; applications can set
-`validation.nestedWrites.maxDepth` and `maxOperations`. Bulk mutations,
-upserts, and draft construction retain their existing flat inputs.
+`validation.nestedWrites.maxDepth` and `maxOperations`. Bulk mutations and
+upserts accept pointer links (`{ connect: target }` or `null`) but no nested
+`create`, `update` or relation command.
+
+Every link checks visibility (ADR-0308): for a non-Master caller, each target
+named by `connect` or `set` must be visible as a single-row read under every
+installed policy, in the mutation's transaction and before the write;
+`disconnect` names only visible linked targets. A missing or hidden target
+fails with the same `NOT_FOUND`, whose public details name the field and target
+schema, and the whole graph rolls back. Master skips visibility, never
+existence.
 
 For `createOne`, `create` and `connect` now execute recursively inside the
 root's automatic transaction. Core verifies every existing target before the
@@ -1508,9 +1544,9 @@ materialization lifecycle. Any descendant, edge, projection, cancellation, or
 finalization failure rolls the complete graph back.
 
 For `updateOne`, pointer `update` keeps the currently linked visible identity
-and `disconnect` stores `null` only on optional pointers. Relation `update` is
-limited to exact visible current membership, while `disconnect`, `set`, and
-`clear` change membership without deleting target objects. Replacement changes
+and `null` is accepted only on optional pointers. Relation `update` is
+limited to exact visible current membership, while `disconnect` and `set`
+change membership without deleting target objects. Replacement changes
 only the membership visible to the request, so a policy-hidden edge is never
 silently removed. Owning, inverse-relation, and inverse-pointer mappings all
 reuse ordinary object lifecycles and relation deltas in the same transaction.
@@ -1586,10 +1622,11 @@ commands remain immutable conveniences: a mutation starts without the receiver's
 read selection and returns a new model.
 `get(field)` reads the visible snapshot locally and throws when the field is
 absent. `fetch`, `update`, and `delete` target one exact identity and throw
-`NOT_FOUND` when it no longer exists. Schema `updateOne` and `deleteOne` accept
-exactly one of `id` or `where`; `id` is only a concise alias for
-`where: { id: { eq: id } }`. They remain nullable conditional mutations and
-skip installed item lifecycle behavior when no row matches.
+`NOT_FOUND` when it no longer exists. Schema `updateOne`, `deleteOne` and
+`upsertOne` take their target only through `where` (`where: { id }`, ADR-0307).
+`updateOne` and `deleteOne` remain nullable conditional mutations and skip
+installed item lifecycle behavior when no row matches; use `findOneOrThrow`
+for a required read.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 

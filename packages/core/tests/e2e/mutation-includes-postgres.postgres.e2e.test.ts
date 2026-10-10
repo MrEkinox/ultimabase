@@ -12,7 +12,8 @@ import { RecordingPostgresPool } from '../../../../tests/fixtures/recording-post
 const projectionAccessError = new Error(
 	'mutation inclusion target Access rejected the projection',
 )
-let rejectAuthorProjection = false
+// Counts the Author reads still allowed before the projection is rejected.
+let authorReadsBeforeRejection: number | undefined
 const MutationIncludeApplication = UltimaBase.use(accessPlugin())
 
 const Author = MutationIncludeApplication.Schema.define({
@@ -27,7 +28,10 @@ const Author = MutationIncludeApplication.Schema.define({
 	access: {
 		read: {
 			allow: () => {
-				if (rejectAuthorProjection) throw projectionAccessError
+				if (authorReadsBeforeRejection === 0) throw projectionAccessError
+				if (authorReadsBeforeRejection !== undefined) {
+					authorReadsBeforeRejection -= 1
+				}
 
 				return true
 			},
@@ -216,11 +220,11 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const created = await Post.createMany({
 			data: [
 				{
-					author: Author.pointer(firstAuthor.id),
+					author: { connect: Author.pointer(firstAuthor.id) },
 					title: 'Grouped first post',
 				},
 				{
-					author: Author.pointer(secondAuthor.id),
+					author: { connect: Author.pointer(secondAuthor.id) },
 					title: 'Grouped second post',
 				},
 			],
@@ -228,7 +232,8 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			include: { author: { select: { name: true } } },
 		})
 
-		expect(countingPool.selectCount()).toBe(1)
+		// Two `connect` target reads (ADR-0308), then one grouped projection.
+		expect(countingPool.selectCount()).toBe(3)
 		expect(created.map(({ title }) => title)).toStrictEqual([
 			'Grouped first post',
 			'Grouped second post',
@@ -282,18 +287,19 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const author = await Author.createOne({ data: { name: 'Rollback author' } })
 
 		countingPool.reset()
-		rejectAuthorProjection = true
+		// The two `connect` target reads pass (ADR-0308); the projection fails.
+		authorReadsBeforeRejection = 2
 
 		try {
 			await expect(
 				Post.createMany({
 					data: [
 						{
-							author: Author.pointer(author.id),
+							author: { connect: Author.pointer(author.id) },
 							title: 'Rollback first',
 						},
 						{
-							author: Author.pointer(author.id),
+							author: { connect: Author.pointer(author.id) },
 							title: 'Rollback second',
 						},
 					],
@@ -302,7 +308,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 				}),
 			).rejects.toBe(projectionAccessError)
 		} finally {
-			rejectAuthorProjection = false
+			authorReadsBeforeRejection = undefined
 		}
 
 		expect(

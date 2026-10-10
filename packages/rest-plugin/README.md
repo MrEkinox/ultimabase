@@ -228,15 +228,18 @@ its strict JSON representations and `INVALID_REST_INPUT` boundary.
 delete, upsert, and their homogeneous bulk forms. Create and update retain the
 concise REST bodies fixed by ADR-0228; upsert and bulk retain the corresponding
 schema-command wrappers. Item update and delete require the route-captured UUID
-v7 identifier. Only create and update accept `select` and `include` query
+v7 identifier, which becomes the command's `where: { id }` target (ADR-0307).
+Only create and update accept `select` and `include` query
 parameters, delete accepts `select`, and upsert or bulk projections remain in
 their JSON bodies.
 
-Singular create and update bodies accept ADR-0243's nested relationship commands
-directly beside scalar fields. A pointer accepts `connect` or `create` during
-create and additionally `update` or nullable `disconnect` during update. A
-relation accepts `create` and `connect` during create and additionally `update`,
-`disconnect`, `set`, or `clear` during update. Field-bound identities are UUID v7
+Singular create and update bodies accept the nested relationship commands of
+ADR-0308 directly beside scalar fields. A pointer accepts `connect` or `create`
+during create and additionally `update` during update; `null` unlinks an
+optional pointer. A relation accepts `create` and `connect` during create and
+additionally `update`, `disconnect`, or `set` during update, where `set: []`
+removes every visible member. A hidden `connect`, `set` or `disconnect` target
+answers 404 exactly like a missing one. Field-bound identities are UUID v7
 strings, so mutation input no longer accepts the former tagged
 `{ type: "pointer", className, id }` representation. Bulk and upsert inputs stay
 flat and cannot carry relationship fields in this version.
@@ -252,8 +255,9 @@ flat and cannot carry relationship fields in this version.
 ```
 
 Nested target data recursively reuses the target schema's bigint, binary,
-embedded-object, list, and plugin-field codecs. Numeric increment/decrement
-tags remain available in update data. REST preserves the declarative command
+embedded-object, list, and plugin-field codecs. A numeric field in update data
+accepts `{ "increment": n }` or `{ "decrement": n }`, with the operand encoded
+like the field's value (ADR-0307). REST preserves the declarative command
 objects and delegates them through the application request executor; Core alone
 normalizes the bounded graph, rejects conflicts and duplicate identities, and
 executes its one transaction. Core also continues to enforce system, generated,

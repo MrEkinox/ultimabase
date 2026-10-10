@@ -17,6 +17,7 @@ import type {
 import { createRuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
+import { verifyRuntimeLinkTargets } from '../nested-writes/link-targets.js'
 import {
 	inheritRuntimeNestedWrites,
 	readRuntimeNestedWrites,
@@ -309,12 +310,15 @@ export class RuntimePipeline {
 		try {
 			const marker = readNestedWriteRootOperation(operation)
 			if (marker === undefined) {
-				return await runWithRuntimeNestedWriteStageContext(undefined, () =>
-					this.#executeOperation(request, {
-						nested: undefined,
-						relationFilters,
-						virtualFields,
-					}),
+				const scope = { nested: undefined, relationFilters, virtualFields }
+				return await runWithRuntimeNestedWriteStageContext(
+					undefined,
+					async () => {
+						await verifyRuntimeLinkTargets(context, operation, (lookup) =>
+							this.#executeOperation(lookup, scope),
+						)
+						return this.#executeOperation(request, scope)
+					},
 				)
 			}
 

@@ -1,5 +1,4 @@
 import {
-	increment,
 	QueryBuilder,
 	type QueryResult,
 	type OperationOptions,
@@ -41,7 +40,10 @@ test('preserves schema selection across every root read terminal', () => {
 		Promise<QueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
 	expectTypeOf(
-		articleSchema.get({ id: 'article-1', select: input.select }),
+		articleSchema.findOneOrThrow({
+			where: { id: 'article-1' },
+			select: input.select,
+		}),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id' | 'title'>>>()
 	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()
@@ -60,7 +62,7 @@ test('preserves schema selection across every root read terminal', () => {
 				{
 					create: { title: 'Unique' },
 					where: { title: { eq: 'Unique' } },
-					update: { views: increment(1) },
+					update: { views: { increment: 1 } },
 				},
 			],
 		}),
@@ -70,7 +72,7 @@ test('preserves schema selection across every root read terminal', () => {
 			data: [
 				{
 					where: { title: { eq: 'Unique' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				},
 			],
 		}),
@@ -79,7 +81,7 @@ test('preserves schema selection across every root read terminal', () => {
 		articleSchema.upsertOne({
 			where: { title: { eq: 'Unique' } },
 			create: { title: 'Unique' },
-			update: { views: increment(1) },
+			update: { views: { increment: 1 } },
 		}),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
@@ -96,8 +98,8 @@ test('preserves schema selection across every root read terminal', () => {
 	// Every terminal shares the same final trusted-backend authority boundary.
 	void articleSchema.findMany(input, masterOptions)
 	void articleSchema.findOne(input, contextOptions)
-	void articleSchema.get(
-		{ id: 'article-1', select: input.select },
+	void articleSchema.findOneOrThrow(
+		{ where: { id: 'article-1' }, select: input.select },
 		contextualMasterOptions,
 	)
 	void articleSchema.count({}, masterOptions)
@@ -113,15 +115,15 @@ test('preserves schema selection across every root read terminal', () => {
 	void articleSchema.updateOne(
 		{
 			where: { title: { eq: 'Unique' } },
-			data: { views: increment(1) },
+			data: { views: { increment: 1 } },
 		},
 		masterOptions,
 	)
 	expectTypeOf(
 		articleSchema.updateOne(
 			{
-				id: 'article-1',
-				data: { views: increment(1) },
+				where: { id: 'article-1' },
+				data: { views: { increment: 1 } },
 				select: { id: true, title: true },
 			},
 			contextOptions,
@@ -134,7 +136,7 @@ test('preserves schema selection across every root read terminal', () => {
 			data: [
 				{
 					where: { id: { eq: 'article-1' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				},
 			],
 		},
@@ -144,7 +146,7 @@ test('preserves schema selection across every root read terminal', () => {
 		{
 			where: { title: { eq: 'Unique' } },
 			create: { title: 'Unique' },
-			update: { views: increment(1) },
+			update: { views: { increment: 1 } },
 		},
 		contextOptions,
 	)
@@ -154,7 +156,7 @@ test('preserves schema selection across every root read terminal', () => {
 				{
 					create: { title: 'Unique' },
 					where: { title: { eq: 'Unique' } },
-					update: { views: increment(1) },
+					update: { views: { increment: 1 } },
 				},
 			],
 		},
@@ -166,7 +168,7 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	expectTypeOf(
 		articleSchema.deleteOne(
-			{ id: 'article-1', select: { id: true, title: true } },
+			{ where: { id: 'article-1' }, select: { id: true, title: true } },
 			contextOptions,
 		),
 	).toEqualTypeOf<
@@ -186,23 +188,21 @@ test('preserves schema selection across every root read terminal', () => {
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void articleSchema.createOne({ data: { ultimabase } }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
-	void articleSchema.updateOne([{ views: increment(1) }])
+	void articleSchema.updateOne([{ views: { increment: 1 } }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
 	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Singular updates accept exactly one target form.
 	void articleSchema.updateOne({ data: { views: 1 } })
-	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
 	void articleSchema.updateOne({
+		// @ts-expect-error -- The top-level id alias was removed (ADR-0307).
 		id: 'article-1',
-		where: { id: { eq: 'article-1' } },
 		data: { views: 1 },
 	})
 	// @ts-expect-error -- Singular deletes accept exactly one target form.
 	void articleSchema.deleteOne({})
-	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
 	void articleSchema.deleteOne({
+		// @ts-expect-error -- The top-level id alias was removed (ADR-0307).
 		id: 'article-1',
-		where: { id: { eq: 'article-1' } },
 	})
 	// @ts-expect-error -- Terminal ownership never becomes a QueryBuilder constructor option.
 	new QueryBuilder(articleSchema, { ultimabase })

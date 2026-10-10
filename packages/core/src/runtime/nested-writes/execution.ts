@@ -285,9 +285,9 @@ export class RuntimeNestedWriteCoordinator {
 			if (current === undefined) {
 				throw new TypeError('Nested relation replacement was not preflighted')
 			}
+			// Only `set` remains: it replaces the visible membership (ADR-0308).
 			const currentIds = current.map(readNestedWriteRecordId)
-			const requestedIds =
-				relationship.command === 'set' ? relationship.ids : []
+			const requestedIds = relationship.ids
 			const requested = new Set(requestedIds)
 			const existing = new Set(currentIds)
 			await this.#host.mutateRelation(

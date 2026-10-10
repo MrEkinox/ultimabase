@@ -175,19 +175,19 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createMany({
 			data: [
 				{
-					author: Author.pointer(author.id),
+					author: { connect: Author.pointer(author.id) },
 					title: 'Included first',
 				},
 				{
-					author: Author.pointer(author.id),
+					author: { connect: Author.pointer(author.id) },
 					title: 'Included second',
 				},
 				{
-					author: Author.pointer(otherAuthor.id),
+					author: { connect: Author.pointer(otherAuthor.id) },
 					title: 'Other first',
 				},
 				{
-					author: Author.pointer(otherAuthor.id),
+					author: { connect: Author.pointer(otherAuthor.id) },
 					title: 'Other second',
 				},
 			],

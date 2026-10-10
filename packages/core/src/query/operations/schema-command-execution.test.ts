@@ -96,36 +96,26 @@ describe('schema command execution boundaries', () => {
 			updateSchemaRecord(Post, {
 				data: { title: 'Updated' },
 			} as never),
-		).toThrow(
-			new TypeError(
-				'schema updateOne input must contain exactly one of id or where',
-			),
-		)
+		).toThrow(new TypeError('schema updateOne input must contain key: where'))
+		// ADR-0307 removed the top-level id alias: `where` is the only target.
 		expect(() =>
 			updateSchemaRecord(Post, {
 				id: 'post-1',
 				where: { id: { eq: 'post-1' } },
 				data: { title: 'Updated' },
 			} as never),
-		).toThrow(
-			new TypeError(
-				'schema updateOne input must contain exactly one of id or where',
-			),
-		)
-		expect(() => deleteSchemaRecord(Post, {} as never)).toThrow(
-			new TypeError(
-				'schema deleteOne input must contain exactly one of id or where',
-			),
-		)
+		).toThrow(new TypeError('schema updateOne input contains unknown key: id'))
 		expect(() =>
-			deleteSchemaRecord(Post, {
+			updateSchemaRecord(Post, {
 				id: 'post-1',
-				where: { id: { eq: 'post-1' } },
+				data: { title: 'Updated' },
 			} as never),
-		).toThrow(
-			new TypeError(
-				'schema deleteOne input must contain exactly one of id or where',
-			),
+		).toThrow(new TypeError('schema updateOne input contains unknown key: id'))
+		expect(() => deleteSchemaRecord(Post, {} as never)).toThrow(
+			new TypeError('schema deleteOne input must contain key: where'),
+		)
+		expect(() => deleteSchemaRecord(Post, { id: 'post-1' } as never)).toThrow(
+			new TypeError('schema deleteOne input contains unknown key: id'),
 		)
 
 		expect(() =>

@@ -1,6 +1,5 @@
 import {
 	QueryBuilder,
-	increment,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -137,7 +136,7 @@ it('keeps collection item and nested list paths distinct', () => {
 
 it('keeps create and update values separate for every bulk upsert item', () => {
 	const update = normalizeUpdateExpression(TraversalRecord, {
-		count: increment(1),
+		count: { increment: 1 },
 	})
 	const operation = {
 		kind: 'upsert-many',
@@ -177,7 +176,7 @@ it('keeps create and update values separate for every bulk upsert item', () => {
 
 it('normalizes every singular and set-based field-input root', () => {
 	const update = normalizeUpdateExpression(TraversalRecord, {
-		count: increment(1),
+		count: { increment: 1 },
 	})
 	const target = { kind: 'unique-upsert-target', fields: ['title'] } as const
 	const createOne = {
@@ -242,7 +241,7 @@ it('normalizes every singular and set-based field-input root', () => {
 
 it('collects plugin schema mutation effect fields through the logical operation', () => {
 	const update = normalizeUpdateExpression(TraversalRecord, {
-		count: increment(1),
+		count: { increment: 1 },
 	})
 	const operation = {
 		command: 'archive',

@@ -163,6 +163,9 @@ export type {
 	SchemaCreateData,
 	SchemaItem,
 	SchemaOutput,
+	SchemaStoredCreateData,
+	SchemaStoredData,
+	SchemaStoredUpdateData,
 	SchemaUpdateData,
 } from './schema/values.js'
 export type {
@@ -171,6 +174,7 @@ export type {
 	NestedRelationCreateInput,
 	NestedRelationUpdateInput,
 	NestedRelationUpdateItemInput,
+	PointerLinkInput,
 	NestedWriteNonEmptyArray,
 	SchemaNestedCreateData,
 	SchemaNestedUpdateData,

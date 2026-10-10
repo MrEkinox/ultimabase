@@ -166,8 +166,8 @@ describe('REST mutation normalization', () => {
 			request: jsonRequest(
 				'PATCH',
 				{
-					huge: { type: 'decrement', value: '2' },
-					views: { type: 'increment', value: 3 },
+					huge: { decrement: '2' },
+					views: { increment: 3 },
 				},
 				'?select=views,huge',
 			),
@@ -177,10 +177,10 @@ describe('REST mutation normalization', () => {
 			kind: 'update-one',
 			input: {
 				data: {
-					huge: { kind: 'decrement', value: 2n },
-					views: { kind: 'increment', value: 3 },
+					huge: { decrement: 2n },
+					views: { increment: 3 },
 				},
-				id: recordId,
+				where: { id: { eq: recordId } },
 				select: { huge: true, views: true },
 			},
 		})
@@ -232,7 +232,7 @@ describe('REST mutation normalization', () => {
 			request: jsonRequest('PATCH', {
 				author: {
 					update: {
-						huge: { type: 'decrement', value: '2' },
+						huge: { decrement: '2' },
 						name: 'Updated',
 					},
 				},
@@ -244,7 +244,7 @@ describe('REST mutation normalization', () => {
 						{
 							data: {
 								code: { code: 'def' },
-								huge: { type: 'increment', value: '3' },
+								huge: { increment: '3' },
 							},
 							id: recordId,
 						},
@@ -255,7 +255,7 @@ describe('REST mutation normalization', () => {
 
 		expect(update.input.data).toMatchObject({
 			author: {
-				update: { huge: { kind: 'decrement', value: 2n }, name: 'Updated' },
+				update: { huge: { decrement: 2n }, name: 'Updated' },
 			},
 			related: {
 				connect: [authorId],
@@ -265,7 +265,7 @@ describe('REST mutation normalization', () => {
 					{
 						data: {
 							code: 'DEF',
-							huge: { kind: 'increment', value: 3n },
+							huge: { increment: 3n },
 						},
 						id: recordId,
 					},
@@ -273,12 +273,12 @@ describe('REST mutation normalization', () => {
 			},
 		})
 
+		// ADR-0308: `null` unlinks a pointer and `{ set: [] }` empties a relation.
 		for (const [field, command] of [
 			['author', { connect: authorId }],
 			['author', { create: { name: 'Created' } }],
-			['author', { disconnect: true }],
+			['author', null],
 			['related', { set: [] }],
-			['related', { clear: true }],
 		] as const) {
 			const normalized = await normalizeRestMutationRequest(RecordSchema, {
 				id: recordId,
@@ -286,6 +286,18 @@ describe('REST mutation normalization', () => {
 				request: jsonRequest('PATCH', { [field]: command }),
 			})
 			expect(normalized.input.data[field]).toStrictEqual(command)
+		}
+		for (const [field, command] of [
+			['author', { disconnect: true }],
+			['related', { clear: true }],
+		] as const) {
+			await expect(
+				normalizeRestMutationRequest(RecordSchema, {
+					id: recordId,
+					operation: 'update',
+					request: jsonRequest('PATCH', { [field]: command }),
+				}),
+			).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
 		}
 	})
 
@@ -300,7 +312,10 @@ describe('REST mutation normalization', () => {
 		})
 		expect(deletion).toStrictEqual({
 			kind: 'delete-one',
-			input: { id: recordId, select: { id: true, title: true } },
+			input: {
+				select: { id: true, title: true },
+				where: { id: { eq: recordId } },
+			},
 		})
 		const streamedDeleteRequest = new Request(
 			'https://example.test/records/item',
@@ -345,7 +360,7 @@ describe('REST mutation normalization', () => {
 			request: jsonRequest('POST', {
 				create: { slug: 'one', title: 'Created' },
 				select: { slug: true },
-				update: { views: { type: 'increment', value: 1 } },
+				update: { views: { increment: 1 } },
 				where: { slug: { eq: 'one' } },
 			}),
 		})
@@ -354,7 +369,7 @@ describe('REST mutation normalization', () => {
 			input: {
 				create: { slug: 'one', title: 'Created' },
 				select: { slug: true },
-				update: { views: { kind: 'increment', value: 1 } },
+				update: { views: { increment: 1 } },
 				where: { slug: { eq: 'one' } },
 			},
 		})
@@ -375,7 +390,7 @@ describe('REST mutation normalization', () => {
 				request: jsonRequest('POST', {
 					data: [
 						{
-							data: { views: { type: 'increment', value: 1 } },
+							data: { views: { increment: 1 } },
 							where: { id: { eq: recordId } },
 						},
 					],
@@ -393,7 +408,7 @@ describe('REST mutation normalization', () => {
 					data: [
 						{
 							create: { slug: 'a' },
-							update: { huge: { type: 'decrement', value: '1' } },
+							update: { huge: { decrement: '1' } },
 							where: { slug: { eq: 'a' } },
 						},
 					],
@@ -411,10 +426,10 @@ describe('REST mutation normalization', () => {
 			data: [{ huge: 1n }, { huge: 2n }],
 		})
 		expect(commands[1].input).toMatchObject({
-			data: [{ data: { views: { kind: 'increment', value: 1 } } }],
+			data: [{ data: { views: { increment: 1 } } }],
 		})
 		expect(commands[3].input).toMatchObject({
-			data: [{ update: { huge: { kind: 'decrement', value: 1n } } }],
+			data: [{ update: { huge: { decrement: 1n } } }],
 		})
 	})
 

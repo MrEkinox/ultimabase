@@ -617,8 +617,8 @@ describe(
 				await second.dispose()
 				first = createApplication(firstUri, 'ignore')
 				await first.start()
-				const freshPrincipal = await CascadePrincipal.get(
-					{ id: principal.id },
+				const freshPrincipal = await CascadePrincipal.findOneOrThrow(
+					{ where: { id: principal.id } },
 					{ useMasterKey: true },
 				)
 				await freshPrincipal.delete({}, { useMasterKey: true })

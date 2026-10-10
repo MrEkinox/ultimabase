@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { increment, type FrameworkError } from '../../src/index.js'
+import { type FrameworkError } from '../../src/index.js'
 
 import { runWithRequestEngine } from '../../src/runtime/index.js'
 import { type RecordingPipelineBehaviorStages } from './fixtures/recording-database-adapter.js'
@@ -89,12 +89,12 @@ describe('bulk and upsert terminals', () => {
 					{
 						where: { email: { eq: 'first@example.com' } },
 						create: { email: 'first@example.com' },
-						update: { visits: increment(1) },
+						update: { visits: { increment: 1 } },
 					},
 					{
 						where: { email: { eq: 'second@example.com' } },
 						create: { email: 'second@example.com' },
-						update: { visits: increment(1) },
+						update: { visits: { increment: 1 } },
 					},
 				],
 			}),
@@ -174,11 +174,11 @@ describe('bulk and upsert terminals', () => {
 					data: [
 						{
 							where: { id: { eq: firstId } },
-							data: { visits: increment(1) },
+							data: { visits: { increment: 1 } },
 						},
 						{
 							where: { id: { eq: missingId } },
-							data: { visits: increment(1) },
+							data: { visits: { increment: 1 } },
 						},
 					],
 				}),
@@ -269,7 +269,7 @@ describe('bulk and upsert terminals', () => {
 					where: {
 						id: { eq: `0198f090-2a50-7000-8000-00000000004${String(suffix)}` },
 					},
-					data: { visits: increment(1) },
+					data: { visits: { increment: 1 } },
 				})),
 				select: { id: true, visits: true },
 			}),

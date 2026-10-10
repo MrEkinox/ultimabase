@@ -251,21 +251,21 @@ beforeAll(async () => {
 			data: [
 				{
 					acl: publicAcl,
-					author: RestAuthor.pointer(visibleAuthor.id),
+					author: { connect: RestAuthor.pointer(visibleAuthor.id) },
 					published: true,
 					secret: 'visible-secret',
 					title: 'Visible Post',
 				},
 				{
 					acl: publicAcl,
-					author: RestAuthor.pointer(visibleAuthor.id),
+					author: { connect: RestAuthor.pointer(visibleAuthor.id) },
 					published: false,
 					secret: 'access-secret',
 					title: 'Access Hidden',
 				},
 				{
 					acl: privateAcl,
-					author: RestAuthor.pointer(visibleAuthor.id),
+					author: { connect: RestAuthor.pointer(visibleAuthor.id) },
 					published: true,
 					secret: 'acl-secret',
 					title: 'ACL Hidden',

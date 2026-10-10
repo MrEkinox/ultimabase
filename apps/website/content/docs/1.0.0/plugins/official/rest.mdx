@@ -20,6 +20,8 @@ sources:
   - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
 ---
 
 ## Overview
@@ -179,11 +181,13 @@ handles it. For a filtered read, use simple GET parameters or the JSON
 curl -i -X POST \
   -H 'X-UltimaBase-Application-Id: blog' \
   -H 'Content-Type: application/json' \
-  --data '{"where":{"title":{"eq":"Hello"}},"select":{"id":true,"title":true},"limit":10}' \
+  --data '{"where":{"title":"Hello"},"select":{"id":true,"title":true},"limit":10}' \
   http://127.0.0.1:1337/api/v1/classes/Post/query
 ```
 
-GET accepts `where` as URL-encoded JSON, `orderBy` and `select` as
+`"title": "Hello"` is the equality shorthand of `{ "eq": "Hello" }`; on a
+pointer field the shorthand value is the target's UUID string. GET accepts
+`where` as URL-encoded JSON, `orderBy` and `select` as
 comma-separated fields, `include` as relationship paths or JSON, and
 non-negative `limit` and `offset`. POST reads accept the corresponding typed
 Query input as JSON. Collection reads default to 100 items; the default

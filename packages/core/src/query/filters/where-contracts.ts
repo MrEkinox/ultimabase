@@ -10,6 +10,7 @@ import type {
 	SchemaTypeInfoSource,
 	SchemaTypeValue,
 } from '../../schema/type-info.js'
+import type { PointerValue } from '../../schema/relations/pointer.js'
 import type { ReservedQueryLogicalFieldName } from '../../schema/schema/reserved-field-names.js'
 import type { QueryFieldPath } from './primitive.js'
 import type { WhereBuilder } from './where-builder.js'
@@ -27,11 +28,18 @@ type WhereFieldName<TSchema extends SchemaDefinition> = Exclude<
 	WhereLogicalKey
 >
 
+/** Values of the equality shorthand (ADR-0307), which carry no operator. */
+type WhereEqualityShorthand =
+	bigint | boolean | number | PointerValue | string | Uint8Array
+
 type WhereFieldFilter<
 	TSchema extends SchemaDefinition,
 	TFieldName extends string,
 > = TFieldName extends keyof WhereInput<TSchema>
-	? NonNullable<WhereInput<TSchema>[TFieldName]>
+	? Exclude<
+			NonNullable<WhereInput<TSchema>[TFieldName]>,
+			WhereEqualityShorthand
+		>
 	: unknown
 
 export type WhereOperatorFieldName<

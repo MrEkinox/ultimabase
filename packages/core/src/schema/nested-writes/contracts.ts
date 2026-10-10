@@ -5,9 +5,12 @@ import type { SchemaContributionProvenance } from '../schema/provenance.js'
 /** Selects the singular root mutation whose data produced one nested graph. */
 export type NestedWriteRootCommand = 'create' | 'update'
 
-/** Names every command that can appear below a relationship field. */
+/**
+ * Names every command of a normalized relationship node. A pointer's
+ * `disconnect` is the normalized form of its `null` (ADR-0308).
+ */
 export type NestedWriteRelationshipCommand =
-	'clear' | 'connect' | 'create' | 'disconnect' | 'set' | 'update'
+	'connect' | 'create' | 'disconnect' | 'set' | 'update'
 
 /** Locates one value inside the caller-owned nested input. */
 export type NestedWriteInputPath = readonly (number | string)[]
@@ -65,8 +68,7 @@ export interface NestedWritePointerNode extends NestedWriteRelationshipNodeBase 
 /** Records one ordered relation command and all of its target object mutations. */
 export interface NestedWriteRelationNode extends NestedWriteRelationshipNodeBase {
 	readonly children: readonly NestedWriteObjectNode[]
-	readonly command:
-		'clear' | 'connect' | 'create' | 'disconnect' | 'set' | 'update'
+	readonly command: 'connect' | 'create' | 'disconnect' | 'set' | 'update'
 	readonly dependency: 'after-source'
 	readonly ids: readonly string[]
 	readonly kind: 'relation'

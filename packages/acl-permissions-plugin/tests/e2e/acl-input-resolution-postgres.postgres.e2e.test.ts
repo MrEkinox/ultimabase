@@ -4,8 +4,6 @@ import {
 	type ACLNormalizedUpdateInput,
 } from '@ultimabase/acl-permissions-plugin'
 import {
-	decrement,
-	increment,
 	MasterAuthority,
 	UltimaBase,
 	type PluginSourceState,
@@ -169,8 +167,8 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					labels: ['stable', 'typed'],
 					title: 'resolved-candidate',
 					note: null,
-					balance: increment('1.50'),
-					views: increment(3),
+					balance: { increment: '1.50' },
+					views: { increment: 3 },
 				},
 			},
 			masterOptions,
@@ -238,8 +236,8 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: { eq: id } },
 					data: {
-						balance: decrement('0.25'),
-						views: decrement(1),
+						balance: { decrement: '0.25' },
+						views: { decrement: 1 },
 						acl: new ACL(),
 						title: 'rollback-candidate',
 					},

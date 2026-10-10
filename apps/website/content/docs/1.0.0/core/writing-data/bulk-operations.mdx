@@ -17,6 +17,8 @@ sources:
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
 ---
 
 Bulk commands execute an ordered list of singular record operations in one
@@ -67,9 +69,9 @@ export const renamePostBatch = (
 	})
 ```
 
-`updateMany` entries and the `deleteMany` target list use `where`, even when
-targeting an ID; they do not accept the top-level `id` shortcut of the singular
-commands. Each `where` must identify one unique target, not a broad filter.
+`updateMany` entries and the `deleteMany` target list use `where`, like the
+singular commands; `where: { id }` is the equality shorthand of an ID target.
+Each `where` must identify one unique target, not a broad filter.
 
 ## Upsert and delete records
 
@@ -115,9 +117,14 @@ writes and Hook-started database work in that batch roll back; there is no
 partial-success mode or public `atomic: false` option. A root batch starts an
 automatic transaction, while a batch inside an explicit transaction reuses it.
 
-Bulk create, update, and upsert inputs may contain ordinary pointer values, but
-not nested relationship commands. Use singular [Nested Writes](./nested-writes)
-when one root operation must create or connect related records.
+Bulk create, update, and upsert inputs link a pointer with
+`{ connect: target }` (an ID or a `Pointer` of the declared target) or unlink
+it with `null`, never with a raw `Pointer` or ID. Each `connect` target must be
+visible to the caller and is checked before the write; a hidden or missing
+target fails the batch with `NOT_FOUND`. Nested `create`, `update`, and
+relation commands are not available on bulk inputs. Use singular
+[Nested Writes](./nested-writes) when one root operation must create related
+records.
 
 ## Next steps
 
