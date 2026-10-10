@@ -122,6 +122,7 @@ const testProjects: TestProjectConfiguration[] = [
 				'packages/soft-delete-plugin/tests/e2e/soft-delete-plugin.e2e.test.ts',
 				'packages/validation-plugin/tests/e2e/standard-schema-validation.e2e.test.ts',
 				'tests/e2e/optional-product-public-api.e2e.test.ts',
+				'tests/e2e/register-required.e2e.test.ts',
 			],
 			include: [
 				'tests/e2e/**/*.e2e.test.ts',

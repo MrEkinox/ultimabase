@@ -1,6 +1,7 @@
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
 import type { LogLevel, Logger } from '../../application/application-log.js'
+import type { RegisterDeclarationCheck } from './schema-registration-checks.js'
 import type { FrameworkApplicationOptions } from '../../application/framework-application.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
@@ -62,6 +63,7 @@ export type RootUltimaBaseOptions<
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
 > = UltimaBaseInstanceOptions<TSchemas, TPlugins> &
+	RegisterDeclarationCheck<TSchemas> &
 	([TPlugins] extends [readonly []] ? unknown : never)
 
 /** Immutable callback-free application facts available without starting resources. */

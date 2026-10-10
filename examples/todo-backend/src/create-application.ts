@@ -17,7 +17,8 @@ const defaultGeneratedTypesPath = fileURLToPath(
 
 /** Configures the infrastructure values that vary between Todo deployments. */
 export interface TodoApplicationOptions {
-	readonly databaseUrl: string
+	/** Connection URL; without it, `DATABASE_URL` is read at start (ADR-0312). */
+	readonly databaseUrl?: string
 	readonly generatedTypesPath?: string
 }
 
@@ -28,7 +29,7 @@ export const todoSchemas = [TodoUser, TodoRole, Todo] as const
 export const createTodoPlugins = ({
 	databaseUrl,
 	generatedTypesPath = defaultGeneratedTypesPath,
-}: TodoApplicationOptions) =>
+}: TodoApplicationOptions = {}) =>
 	[
 		accessPlugin({ default: true }),
 		hooksPlugin(),
@@ -39,14 +40,25 @@ export const createTodoPlugins = ({
 			applicationId: 'todo-backend',
 			outputPath: generatedTypesPath,
 		}),
-		postgresPlugin({
-			schemaPolicy: 'override',
-			url: databaseUrl,
-		}),
+		postgresPlugin(
+			databaseUrl === undefined
+				? { schemaPolicy: 'override' }
+				: { schemaPolicy: 'override', url: databaseUrl },
+		),
 	] as const
 
 /** Builds one isolated Todo application with every schema-owning official plugin. */
-export const createTodoApplication = (options: TodoApplicationOptions) => {
+export const createTodoApplication = (options: TodoApplicationOptions = {}) => {
 	const Application = UltimaBase.use(...createTodoPlugins(options))
 	return new Application({ schemas: todoSchemas })
+}
+
+// One declaration per application (ADR-0297 amendment 1). Typegen names these
+// old-form schemas; registering the real application would make the Role
+// schema reference itself through the registry (TS7022) until Roles moves to
+// its schema factory.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: UltimaBase<readonly []>
+	}
 }

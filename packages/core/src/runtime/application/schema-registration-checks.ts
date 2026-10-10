@@ -3,8 +3,10 @@ import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type { ResolveSchemaTarget } from '../../schema/schema/deferred-targets.js'
 import type { SourceSchemaTypeInfo } from '../../schema/schema/source-type-info.js'
 import type { SchemaTypeInfoCarrier } from '../../schema/type-info.js'
+import type { Register } from '../../schema/schema/registered-schemas.js'
 
 declare const schemaRegistrationErrorType: unique symbol
+declare const registerDeclarationRequiredType: unique symbol
 
 /**
  * Takes the place of one invalid schema in `new App({ schemas })`; the message
@@ -102,3 +104,26 @@ export interface SchemaRegistrationCheck<
 	// Never an inference source: the schema tuple is inferred from `schemas` alone.
 	readonly schemas: NoInfer<CheckedSchemas<TSchemas>>
 }
+
+/**
+ * Takes the place of the application options until the application is
+ * declared once in `Register` (ADR-0297 amendment 1): without it, rule
+ * checking grows quadratically with the number of schemas.
+ */
+export interface RegisterDeclarationRequired<TMessage extends string> {
+	readonly [registerDeclarationRequiredType]: TMessage
+}
+
+/**
+ * Requires the `Register` declaration for an exact schema tuple. Only the
+ * declared keys are read, never `typeof ultimabase`, so the check does not
+ * depend on the application it constructs; an open array (built
+ * generically) is not checked, like the other registration checks.
+ */
+export type RegisterDeclarationCheck<
+	TSchemas extends readonly SchemaDefinition[],
+> = number extends TSchemas['length']
+	? unknown
+	: 'app' extends keyof Register
+		? unknown
+		: RegisterDeclarationRequired<"Declare the application in Register: declare module '@ultimabase/core' { interface Register { readonly app: typeof ultimabase } }">

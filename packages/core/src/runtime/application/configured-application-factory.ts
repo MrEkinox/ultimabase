@@ -5,7 +5,10 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { ConfiguredSchemaNamespace } from '../../schema/schema/definition.js'
 import type { UltimaBase } from './ultima-base.js'
 import type { UltimaBaseInstanceOptions } from './ultima-base-contracts.js'
-import type { SchemaRegistrationChecks } from './schema-registration-checks.js'
+import type {
+	RegisterDeclarationCheck,
+	SchemaRegistrationChecks,
+} from './schema-registration-checks.js'
 import type {
 	EmptyPluginSourceState,
 	MergePluginSourceState,
@@ -64,7 +67,8 @@ export interface ConfiguredUltimaBaseFactory<
 	 */
 	new <const TSchemas extends readonly SchemaDefinition[]>(
 		options: UltimaBaseInstanceOptions<TSchemas, TPlugins> &
-			SchemaRegistrationChecks<TSchemas>,
+			SchemaRegistrationChecks<TSchemas> &
+			RegisterDeclarationCheck<TSchemas>,
 	): UltimaBase<TSchemas, TPlugins, TSource>
 }
 

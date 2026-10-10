@@ -161,7 +161,11 @@ void revoked
 void invalid
 void dynamicToken
 `
-	const operationService = createLanguageService(operationFile, operationSource)
+	const operationService = createLanguageService(
+		operationFile,
+		operationSource,
+		{ register: true },
+	)
 	try {
 		expect(
 			operationService

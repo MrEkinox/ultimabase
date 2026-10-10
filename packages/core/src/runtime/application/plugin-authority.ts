@@ -11,10 +11,7 @@ import type {
 } from '../context/request-context.js'
 import type { RequestEngine } from '../engine/request-engine.js'
 import type { MasterKeyGrant } from '../master/master-authority.js'
-import {
-	readStartedUltimaBaseEngine,
-	type UltimaBase,
-} from './ultima-base.js'
+import { readStartedUltimaBaseEngine, type UltimaBase } from './ultima-base.js'
 
 // Request-context machinery is for plugin authors (ADR-0311): applications use
 // `useMasterKey` and `ultimabase.transaction(fn)` instead.
@@ -53,11 +50,8 @@ export const withContext = <
 >(
 	app: UltimaBase<TSchemas, TPlugins, TSource>,
 	context: RequestContext<TAccess, TRequestSource>,
-): RequestEngine<
-	TSchemas,
-	TPlugins,
-	RequestContext<TAccess, TRequestSource>
-> => readStartedUltimaBaseEngine(app).withContext(context)
+): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TRequestSource>> =>
+	readStartedUltimaBaseEngine(app).withContext(context)
 
 /**
  * Verifies one configured raw Master credential for a transport without

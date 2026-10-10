@@ -1,4 +1,8 @@
-import { MasterAuthority, type MasterAccessEvent } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	type MasterAccessEvent,
+	type UltimaBase,
+} from '@ultimabase/core'
 import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import { passwordAuthPlugin } from '@ultimabase/password-auth-plugin'
@@ -20,11 +24,14 @@ interface MinimalApplicationBaseOptions {
 	readonly server?: HonoServerPlugin
 }
 
-/** Selects either a managed URL or a developer-owned pool for the example. */
+/**
+ * Selects a managed URL, a developer-owned pool, or neither: `DATABASE_URL`
+ * is then read when the application starts (ADR-0312).
+ */
 export type MinimalApplicationOptions = MinimalApplicationBaseOptions &
 	(
 		| { readonly databasePool: PostgresPool; readonly databaseUrl?: never }
-		| { readonly databasePool?: never; readonly databaseUrl: string }
+		| { readonly databasePool?: never; readonly databaseUrl?: string }
 	)
 
 /** Builds the complete public REST and GraphQL graph without starting it. */
@@ -77,9 +84,11 @@ export const createMinimalApplication = ({
 		.use(server)
 		.use(
 			postgresPlugin(
-				databasePool === undefined
-					? { schemaPolicy: 'override', url: databaseUrl }
-					: { pool: databasePool, schemaPolicy: 'override' },
+				databasePool !== undefined
+					? { pool: databasePool, schemaPolicy: 'override' }
+					: databaseUrl === undefined
+						? { schemaPolicy: 'override' }
+						: { schemaPolicy: 'override', url: databaseUrl },
 			),
 		)
 
@@ -90,4 +99,14 @@ export const createMinimalApplication = ({
 		}),
 		schemas: minimalSchemas,
 	})
+}
+
+// One declaration per application (ADR-0297 amendment 1). Typegen names these
+// old-form schemas; registering the real application would make the Role
+// schema reference itself through the registry (TS7022) until Roles moves to
+// its schema factory.
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: UltimaBase<readonly []>
+	}
 }

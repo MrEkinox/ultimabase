@@ -44,8 +44,9 @@ const exposureEntry = (plan: InitializerPlan, factory: string): string =>
       default: { create: false, update: false, delete: false, upsert: false, bulk: false, mutations: false }${authOperations(plan)},
     })`
 
-const explorerEntry = (factory: string): string =>
-	`${factory}({ environment: process.env.NODE_ENV === 'production' ? 'production' : 'development' })`
+// Explorers, introspection and the listen address follow NODE_ENV themselves
+// (ADR-0312): the template writes no environment expression.
+const explorerEntry = (factory: string): string => `${factory}()`
 
 export const apiApplicationImports = (plan: InitializerPlan): NamedImport[] =>
 	pluginImports(plan, [
@@ -78,18 +79,10 @@ export const apiSchemaPluginEntries = (plan: InitializerPlan): string[] =>
 export const apiPluginEntries = (plan: InitializerPlan): string[] =>
 	included([
 		[has(plan, 'http-plugin'), "httpPlugin({ appId: 'main' })"],
-		[
-			has(plan, 'graphql-yoga-plugin'),
-			hasGraphqlExplorer(plan)
-				? "graphqlYogaPlugin({ introspection: process.env.NODE_ENV !== 'production' })"
-				: 'graphqlYogaPlugin()',
-		],
+		[has(plan, 'graphql-yoga-plugin'), 'graphqlYogaPlugin()'],
 		[has(plan, 'graphiql-plugin'), explorerEntry('graphiqlPlugin')],
 		[has(plan, 'apollo-sandbox-plugin'), explorerEntry('apolloSandboxPlugin')],
-		[
-			hasHttpListener(plan),
-			"honoServerPlugin({ host: '127.0.0.1', port: 1337 })",
-		],
+		[hasHttpListener(plan), 'honoServerPlugin()'],
 	])
 
 /** Generated member and role models are never an implicit public CRUD surface. */
@@ -135,7 +128,7 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasHttpListener(plan),
-			'The Hono listener binds to `127.0.0.1:1337` for development. It is not a public deployment configuration; keep it local until you add and review complete protection, rate limits, TLS, and hosting policy.',
+			'The Hono listener binds to `127.0.0.1:1337` in development (`HOST` and `PORT` override it; `NODE_ENV=production` listens on every interface). Keep it local until you add and review complete protection, rate limits, TLS, and hosting policy.',
 		],
 		[
 			hasDataApi(plan),
@@ -171,6 +164,6 @@ export const apiReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			hasGraphqlExplorer(plan),
-			'GraphQL introspection and the selected explorer are enabled only for development. Production mode contributes no explorer route.',
+			'GraphQL introspection and the selected explorer follow `NODE_ENV`: enabled in development, absent when `NODE_ENV=production`.',
 		],
 	])

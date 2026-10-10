@@ -1,15 +1,16 @@
+import process from 'node:process'
+
 import { ultimabase } from './application.ts'
 
-await ultimabase.start()
+// start() resolves to the application; leaving this scope disposes it.
+await using app = await ultimabase.start()
 
 process.stdout.write(
-	'Todo backend started. Generated types are available in .ultimabase/schema.generated.d.ts.\n',
+	`Todo backend ${app.state}. Generated types are available in .ultimabase/schema.generated.d.ts.\n`,
 )
 
-const shutdown = async (): Promise<void> => {
-	await ultimabase.dispose()
-}
-
-// Keep framework-owned resources consistent when the development process stops.
-process.once('SIGINT', () => void shutdown())
-process.once('SIGTERM', () => void shutdown())
+// Keep framework-owned resources until the development process stops.
+await new Promise<void>((resolve) => {
+	process.once('SIGINT', () => resolve())
+	process.once('SIGTERM', () => resolve())
+})
