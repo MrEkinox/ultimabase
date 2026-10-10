@@ -307,7 +307,7 @@ const projectedCreates = PackedGeneratedDocument.createMany({
   include: { owner: { select: { name: true } } },
 })
 const projectedUpdate = PackedGeneratedDocument.${updateOneHoverMarker}updateOne({
-  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
   data: { title: 'Updated projection' },
   select: { title: true },
   include: { owner: { select: { name: true } } },
