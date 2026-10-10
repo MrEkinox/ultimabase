@@ -119,9 +119,11 @@ const failure = async (run: () => Promise<unknown>) => {
 		(caught: unknown) => caught,
 	)
 	if (!(error instanceof FrameworkError)) throw error
+	const code: unknown = error.code
+	const publicDetails: unknown = error.publicDetails
 	return {
-		code: error.code,
-		publicDetails: error.publicDetails,
+		code,
+		publicDetails,
 		publicMessage: error.publicMessage,
 	}
 }
@@ -379,15 +381,13 @@ describe(
 					typeof body === 'object' && body !== null
 						? Reflect.get(body, 'error')
 						: undefined
+				const read = (key: string): unknown =>
+					typeof error === 'object' && error !== null
+						? Reflect.get(error, key)
+						: undefined
 				return {
-					code:
-						typeof error === 'object' && error !== null
-							? Reflect.get(error, 'code')
-							: undefined,
-					message:
-						typeof error === 'object' && error !== null
-							? Reflect.get(error, 'message')
-							: undefined,
+					code: read('code'),
+					message: read('message'),
 					status: response.status,
 				}
 			}
