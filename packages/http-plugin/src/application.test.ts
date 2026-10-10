@@ -1,5 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
+	PublicError,
 	RequestContext,
 	UltimaBase,
 	plugin,
@@ -159,6 +160,43 @@ describe('HTTP application graph', () => {
 		expect(await missing.json()).toMatchObject({
 			error: { code: 'HTTP_NOT_FOUND' },
 		})
+		await fixture.application.dispose()
+	})
+
+	it('answers a PublicError from a route handler as a client error (ADR-0305)', async () => {
+		const refused = httpRoute({
+			method: 'POST',
+			path: '/refused',
+			protocol,
+			handle: () => {
+				throw new PublicError('The webhook signature is invalid.', {
+					code: 'webhook.signature',
+					details: { header: 'X-Signature' },
+					cause: new Error('hmac mismatch secret'),
+				})
+			},
+		})
+		const fixture = await initialize([
+			endpointPlugin('fixture.refused-route', refused),
+			httpPlugin({ appId: 'hooks' }),
+		])
+
+		const response = await fixture.http.fetch(
+			serverRequest('hooks', '/refused', 'POST'),
+		)
+		const body = await response.text()
+
+		expect(response.status).toBe(400)
+		expect(JSON.parse(body)).toStrictEqual({
+			error: {
+				code: 'webhook.signature',
+				details: { header: 'X-Signature' },
+				message: 'The webhook signature is invalid.',
+				requestId: response.headers.get('X-UltimaBase-Request-Id'),
+				retryable: false,
+			},
+		})
+		expect(body).not.toContain('hmac mismatch secret')
 		await fixture.application.dispose()
 	})
 

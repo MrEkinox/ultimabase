@@ -87,7 +87,9 @@ plan becomes one atomic update that sets the plugin-owned `isDeleted` field.
 Native update policy, Hooks, validators, defaults, and generators are not run.
 
 The update receives the same Core-owned target restrictions as the logical
-delete and returns its pre-delete record. A second delete cannot distinguish the
+delete. Core checks the pre-delete record against the read rules, then the
+delete returns the record as written, with `isDeleted: true` (ADR-0306, step 2
+amendment); a physical delete still returns its pre-delete record. A second delete cannot distinguish the
 now-hidden row from an absent row. Itemized batches remain one transaction, so
 one rejected item rolls back every earlier tombstone written by that batch.
 Schemas in `explicit` or `disabled` mode do not enter the rewriter target plan
@@ -114,7 +116,9 @@ await ultimabase.schema(Post).for(post).softDelete()
 
 The command has the stable logical identity
 `ultimabase.soft-delete.soft-delete`, loads one currently visible target, sets
-only `isDeleted: true`, and returns the postimage. It does not replay native
+only `isDeleted: true`, and returns the postimage. Mutation results obey the
+row read rules (ADR-0306): the command declares `checkReadable: 'before'`, so
+Core checks the row while it is still visible, before it becomes a tombstone. It does not replay native
 update or delete policy and Hooks. A repeated call receives the ordinary
 non-disclosing missing-target error because the tombstone is already hidden.
 

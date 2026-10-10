@@ -1,5 +1,5 @@
 import {
-	Pointer,
+	Schema,
 	type NamedRequestSubjectReferenceCleanup,
 	type OperationOptions,
 	type RequestSubjectContext,
@@ -116,7 +116,11 @@ const cascadeReferences = async (
 		)
 	}
 
-	const rolePointer = new Pointer(schema, readRoleId(role))
+	// Its schema creates every Pointer (ADR-0314).
+	if (!Schema.is(schema)) {
+		throw new TypeError('Role deletion requires a role schema')
+	}
+	const rolePointer = schema.pointer(readRoleId(role))
 	const parentRoles = await readParentRoles(schema, rolePointer.id)
 
 	await readRelation(role, 'members').clear(masterOptions)

@@ -1,4 +1,5 @@
 import {
+	PublicError,
 	type AnonymousRequestAccess,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
@@ -25,6 +26,7 @@ import type { HttpBrowserPolicy } from './browser-policy.js'
 import type { HttpEndpointContributionsCapability } from './endpoints.js'
 import {
 	createHttpPreDispatchErrorResponse,
+	createHttpPublicErrorResponse,
 	finalizeHttpResponse,
 	httpPreDispatchErrorCodes,
 	prepareHttpServerRequestOrReject,
@@ -275,6 +277,9 @@ const dispatchPreparedRequest = async (
 			: finalizeHttpResponse(response, prepared.requestId)
 	} catch (error: unknown) {
 		if (timedOut()) return reject(httpPreDispatchErrorCodes.requestTimeout)
+		if (error instanceof PublicError) {
+			return createHttpPublicErrorResponse(error.toJSON(), prepared.requestId)
+		}
 		throw error
 	}
 }

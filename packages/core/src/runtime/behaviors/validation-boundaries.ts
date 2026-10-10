@@ -1,5 +1,6 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import { isDeepStrictEqual } from 'node:util'
-import { Pointer, type ValidationIssuePath } from '../../schema/index.js'
+import type { ValidationIssuePath } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -187,7 +188,7 @@ const snapshotIncludedRecord = (
 				targetValue === null ? null : snapshotTarget(targetValue, targetPath),
 			)
 			// Parent validation still proves that the declared field itself is a pointer.
-			parentCandidate[inclusion.field] = new Pointer(
+			parentCandidate[inclusion.field] = createPointer(
 				targetSchema,
 				'__ultimabase_hook_boundary__',
 			)

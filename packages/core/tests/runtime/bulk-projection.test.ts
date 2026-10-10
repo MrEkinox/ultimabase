@@ -319,7 +319,9 @@ describe('bulk result projection', () => {
 			),
 		)
 
+		// The third evaluation decides whether the created rows are readable (ADR-0306).
 		expect(observedRequestIds).toStrictEqual([
+			'explicit-grouped-context',
 			'explicit-grouped-context',
 			'explicit-grouped-context',
 		])

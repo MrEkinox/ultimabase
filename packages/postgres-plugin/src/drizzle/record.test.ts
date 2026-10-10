@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import { Pointer, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
@@ -27,9 +27,10 @@ const recordSchema = compilePostgresSchema(
 
 describe('PostgreSQL logical records', () => {
 	it('keeps pointer values logical for Drizzle column mapping', () => {
-		const { catalog, Post, User } = createPostgresPointerFixture()
+		const { catalog, Post, postPointer, userPointer } =
+			createPostgresPointerFixture()
 		const schema = catalog.get(Post)
-		const pointer = new Pointer(User, '018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const pointer = userPointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
 		const prepared = preparePostgresRecord(schema, { author: pointer })
 		const column = schema.fields.author?.column
 
@@ -45,7 +46,7 @@ describe('PostgreSQL logical records', () => {
 		expect(() =>
 			mapPostgresColumnToDriver(
 				column,
-				new Pointer(Post, '018f0f8c-7b5a-7cc9-98db-123456789abc'),
+				postPointer('018f0f8c-7b5a-7cc9-98db-123456789abc'),
 			),
 		).toThrow(
 			new TypeError('PostgreSQL pointer value must point to PointerUser'),

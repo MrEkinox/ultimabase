@@ -13,6 +13,7 @@ export type { SchemaAccessOption } from './options.js'
 export type { AccessContext } from './context.js'
 export type {
 	AccessDecisionRule,
+	AccessPolicyInput,
 	AccessWhereRule,
 	FieldAccess,
 	FieldAccessDeclaration,

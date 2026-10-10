@@ -1,4 +1,8 @@
-import { UltimaBase, type PluginExports } from '@ultimabase/core'
+import {
+	UltimaBase,
+	type PluginExports,
+	type PolicyPredicate,
+} from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import { RoleSchema, hasRole } from './index.js'
@@ -25,6 +29,8 @@ const AppRole = RoleSchema.define({
 test('keeps role statics available without reconstructing local item types', () => {
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
 	expectTypeOf(hasRole(AppRole.role('editor'))).toBeFunction()
+	// A Core predicate: no package link from Roles to Access (ADR-0304).
+	expectTypeOf(hasRole(AppRole.role('editor'))).toEqualTypeOf<PolicyPredicate>()
 })
 
 test('rejects invalid deletion policies before code generation', () => {

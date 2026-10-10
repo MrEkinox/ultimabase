@@ -63,6 +63,15 @@ export const Post = App.Schema.define({
 })
 ```
 
+## Principal and public errors
+
+`HookContext.principal` is the request principal resolved by Core
+(`undefined` when anonymous) and stays the same under `useMasterKey`
+(ADR-0304). Throw a `PublicError` from a hook to refuse an operation with a
+client-visible message and code (REST `400`, GraphQL `extensions.code`); any
+other error stays masked. A `PublicError` thrown by an event consumer after
+commit is only logged (ADR-0305).
+
 ## Public surface
 
 The root export has three deliberate groups:

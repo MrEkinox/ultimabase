@@ -17,6 +17,7 @@ import { FrameworkError } from '../../foundation.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'
 import { createQueryAst } from '../../query/ast/factory.js'
+import { readPointerSchema } from '../../schema/relations/pointer.js'
 import {
 	Pointer,
 	Schema,
@@ -124,9 +125,10 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	operation: FindOneOperationAst<TSchema>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = createQueryAst(pointer.schema)
+	const schema = readPointerSchema(pointer)
+	const query = createQueryAst(schema)
 	const rowFilter = createQueryValueFilter(
-		pointer.schema,
+		schema,
 		'equal',
 		'id',
 		pointer.id,
@@ -180,20 +182,21 @@ export const createInversePointerUpdate = <
 	operation: UpdateOneOperationAst<TTarget, UpdateExpressionNode>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = createQueryAst(target.schema)
+	const targetSchema = readPointerSchema(target)
+	const query = createQueryAst(targetSchema)
 	const idFilter = createQueryValueFilter(
-		target.schema,
+		targetSchema,
 		'equal',
 		'id',
 		target.id,
 	) as DatabaseRowFilterNode
 	const ownerFilter = createQueryValueFilter(
-		target.schema,
+		targetSchema,
 		'equal',
 		mappedFieldName as QueryFieldName<TTarget>,
 		source,
 	) as DatabaseRowFilterNode
-	const field = target.schema.persistedFields[mappedFieldName]
+	const field = targetSchema.persistedFields[mappedFieldName]
 	if (
 		action === 'disconnect' &&
 		(field === undefined || !isFieldNullable(field))

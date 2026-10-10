@@ -22,6 +22,7 @@ sources:
   - docs/adr/0119-developer-defined-role-schemas.md
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0205-protected-policy-contributions.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
 ---
 
 ## Overview
@@ -56,34 +57,29 @@ yarn add @ultimabase/roles-plugin
 pnpm add @ultimabase/roles-plugin
 ```
 
-Role storage and administration work without Access. Install
-`@ultimabase/access-plugin` separately if you use `hasRole()` in an Access
-rule. The example below also uses
+Role storage and administration work without Access, and Roles does not
+depend on the Access package: `hasRole()` returns a Core policy predicate that
+Access, ACL and other policy plugins accept. The example below also uses
 [Password Authentication](./password-authentication) to identify the current
-member; you can supply another exact member resolver instead. Roles' internal
+member. Roles' internal
 membership queries need configured, audited
 [Master Authority](/docs/1.0.0/core/security-foundations/master-authority).
 
 ## Configuration
 
-Define a role domain for the exact member schema. Here the Password
-Authentication principal points to the same `PasswordUser` class declared in
-`members.schema`, so `hasRole()` can evaluate the caller's membership:
+Define a role domain for the exact member schema. The current member is the
+request principal resolved by Core when it belongs to `members.schema`; here
+the Password Authentication principal points to the same `PasswordUser` class,
+so `hasRole()` can evaluate the caller's membership:
 
 ```ts title="src/roles.ts"
-import {
-	PasswordUser,
-	passwordPrincipal,
-} from '@ultimabase/password-auth-plugin'
+import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { RoleSchema, hasRole } from '@ultimabase/roles-plugin'
 import { Application } from './application.js'
 
 export const AppRole = RoleSchema.define(Application.Schema, {
 	className: 'Role',
-	members: {
-		schema: PasswordUser,
-		resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user,
-	},
+	members: { schema: PasswordUser },
 	deletion: { references: 'fail' },
 	fields: (f) => ({
 		description: f.string(),
@@ -122,10 +118,7 @@ import {
 	schemaAccess,
 } from '@ultimabase/access-plugin'
 import { plugin } from '@ultimabase/core'
-import {
-	PasswordUser,
-	passwordPrincipal,
-} from '@ultimabase/password-auth-plugin'
+import { PasswordUser } from '@ultimabase/password-auth-plugin'
 
 import { AppRole, Post } from './roles.js'
 
@@ -139,13 +132,8 @@ export const profilePolicy = plugin({
 				schema === PasswordUser
 					? schemaAccess(PasswordUser, {
 							read: {
-								where: ({ context, where }) => {
-									const principal = context.getValue(passwordPrincipal)
-									return where.in(
-										'id',
-										principal === undefined ? [] : [principal.user.id],
-									)
-								},
+								where: ({ principal, where }) =>
+									where.in('id', principal === undefined ? [] : [principal.id]),
 							},
 						})
 					: schemaAccess(schema, {
@@ -217,12 +205,12 @@ never send Master credentials to a browser. `rolesPlugin()` takes no factory
 options. Role behavior is selected by the registered `RoleSchema.define()`
 declaration:
 
-| Role schema option                     | Purpose                                                                                                                   |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `members.schema`                       | The exact schema of persisted direct members                                                                              |
-| `members.resolveCurrent`               | Maps request-local identity to a Pointer of that exact member schema; omit it only when no current-member check is needed |
-| `deletion.references`                  | External-reference policy: `fail` (default), `preserve`, or `cascade`                                                     |
-| `fields`, `indexes`, `access`, `hooks` | Ordinary custom schema features beside generated role fields, when their owning plugins are installed                     |
+| Role schema option                     | Purpose                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `members.schema`                       | The exact schema of persisted direct members                                                          |
+| `members.resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the Core principal     |
+| `deletion.references`                  | External-reference policy: `fail` (default), `preserve`, or `cascade`                                 |
+| `fields`, `indexes`, `access`, `hooks` | Ordinary custom schema features beside generated role fields, when their owning plugins are installed |
 
 `RoleSchema.define()` injects `name`, `members`, and `roles`. Do not redeclare
 those reserved fields. Role schemas remain available to trusted server Query,
@@ -286,14 +274,15 @@ matching role exists.
 
 ### Use roles in policy
 
-`hasRole(EditorRole)` is one ordinary official Access boolean decision. In
-the example, it grants `Post.update` only when the request's Password
-Authentication principal resolves to a direct or inherited Editor member.
-`members.resolveCurrent` may be asynchronous but must return a Pointer from
-the exact `members.schema`, or `undefined` when there is no current member.
-Omitting it leaves storage and administration available, while current-member
-checks deny normally. A configured resolver with no member or no membership
-also returns `false`.
+`hasRole(EditorRole)` returns a named Core
+[policy predicate](/docs/1.0.0/core/security-foundations/request-identity#policy-predicates),
+accepted wherever an Access rule returns a decision. In the example, it grants
+`Post.update` only when the request principal is a direct or inherited Editor
+member. Without `members.resolveCurrent`, the current member is the request
+principal when it belongs to `members.schema`; a principal of another schema,
+or none, denies. `members.resolveCurrent` remains for special cases: it may be
+asynchronous but must return a Pointer from the exact `members.schema`, or
+`undefined` when there is no current member.
 
 If a rule uses `hasRole()` without any application-local role-resolver
 provider, execution raises `PLUGIN_CAPABILITY_MISSING` before business Hooks
@@ -332,8 +321,9 @@ it exceeds 64 levels or 10,000 visited roles.
   is installed, `AppRole` is registered, and `members.schema` is the exact
   registered member class. Generated `name`, `members`, and `roles` cannot be
   replaced by custom fields.
-- **`hasRole()` always denies:** verify `members.resolveCurrent` returns the
-  exact member Pointer from the active request context. A session by itself
+- **`hasRole()` always denies:** verify that the request principal (or
+  `members.resolveCurrent`, if declared) is a Pointer of the exact member
+  schema. A session by itself
   supplies identity, not a role grant; confirm the persisted membership and
   hierarchy in the same application.
 - **`PLUGIN_CAPABILITY_MISSING`:** the Access rule ran without an installed

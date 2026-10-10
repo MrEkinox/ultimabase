@@ -1,4 +1,4 @@
-import { FrameworkError, PluginError } from '@ultimabase/core'
+import { FrameworkError, PluginError, PublicError } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 
 import {
@@ -137,6 +137,8 @@ const isFrameworkError = (error: unknown): error is FrameworkError =>
 	error instanceof FrameworkError
 const isPluginError = (error: unknown): error is PluginError =>
 	error instanceof PluginError
+const isPublicError = (error: unknown): error is PublicError<string> =>
+	error instanceof PublicError
 
 const caughtFailure = (
 	error: unknown,
@@ -158,6 +160,8 @@ const caughtFailure = (
 		const payload = error.toJSON()
 		return publicFailure(payload, frameworkStatuses.get(payload.code) ?? 500)
 	}
+	// Application errors are client errors with their own code (ADR-0305).
+	if (isPublicError(error)) return publicFailure(error.toJSON(), 400)
 	if (!isPluginError(error) || route === undefined) {
 		return internalFailure()
 	}
@@ -214,8 +218,11 @@ export const createRestCaughtErrorResponse = (
 		route?: RestPluginErrorRoute
 		statusFor: (operation: string, code: string) => number | undefined
 	}>,
-): Response =>
-	createRestErrorResponse(
-		caughtFailure(error, options.route, options.statusFor),
-		requestId,
-	)
+): Response => {
+	const failure = caughtFailure(error, options.route, options.statusFor)
+	if (failure.code === restResponseErrorCodes.internalError) {
+		// Masked failures keep their stack in server logs only (ADR-0305).
+		console.error(`[UltimaBase] REST request ${requestId} failed`, error)
+	}
+	return createRestErrorResponse(failure, requestId)
+}

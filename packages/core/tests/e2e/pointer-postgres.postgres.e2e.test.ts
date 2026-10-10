@@ -518,7 +518,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('hides denied and deleted included targets behind the same null result', async () => {
-		const target = await PrivateTarget.createOne({ data: { label: 'private' } })
+		// A write-only schema answers only `select: { id: true }` (ADR-0306).
+		const target = await PrivateTarget.createOne({
+			data: { label: 'private' },
+			select: { id: true },
+		})
 		const source = await PrivateSource.createOne(
 			{ data: { target: { connect: target.id } } },
 			{ useMasterKey: true },
@@ -566,7 +570,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		})
 		const updatedLeft = await CircularLeft.updateOne({
 			where: { id: { eq: left.id } },
-			data: { right: new Pointer(CircularRight, right.id) as never },
+			data: { right: CircularRight.pointer(right.id) as never },
 		})
 		if (!Pointer.is(updatedLeft?.right)) {
 			throw new TypeError(

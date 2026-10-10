@@ -2,17 +2,16 @@ import {
 	RequestSubjectReference,
 	getCurrentEngine,
 	getCurrentRequest,
+	getRequestPrincipal,
 	Pointer,
 	requireCurrentRequestRoleResolver,
+	type PolicyPredicate,
 	type RequestRoleReference,
 	type RequestRoleResolver,
+	type RequestSubjectContext,
 	type OperationOptions,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import type {
-	AccessContext,
-	AccessDecisionInput,
-} from '@ultimabase/access-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { resolveStoredRoleMembership } from './role-membership.js'
@@ -36,21 +35,18 @@ const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 
-/** Represents one compact decision compatible with every official Access level. */
-export type RoleAccessDecision = (
-	input: AccessDecisionInput,
-) => Promise<boolean>
-
 /**
- * Creates one official Access decision backed by `requestRoleResolverCapability`.
+ * Returns a policy predicate (ADR-0304) that holds when the current request's
+ * member belongs to `role`, directly or through included roles. Access, ACL
+ * and other policy plugins accept it wherever a rule returns a decision.
  *
- * The helper captures no application or request. At execution it requires the
- * application-local capability, so a missing provider raises
- * `PLUGIN_CAPABILITY_MISSING` before business hooks or storage.
+ * The predicate captures no application or request. At execution it requires
+ * the application-local `requestRoleResolverCapability`, so a missing provider
+ * raises `PLUGIN_CAPABILITY_MISSING` before business hooks or storage.
  *
  * @example `update: hasRole(AppRole.role("editor"))`
  */
-export const hasRole = (role: RequestRoleReference): RoleAccessDecision => {
+export const hasRole = (role: RequestRoleReference): PolicyPredicate => {
 	const candidate: unknown = role
 
 	if (
@@ -60,17 +56,36 @@ export const hasRole = (role: RequestRoleReference): RoleAccessDecision => {
 		throw new TypeError('hasRole requires an Access role reference')
 	}
 
-	return async ({ context }): Promise<boolean> =>
-		requireCurrentRequestRoleResolver().hasRole({ context, role })
+	const predicate: PolicyPredicate = async (): Promise<boolean> =>
+		requireCurrentRequestRoleResolver().hasRole({
+			// Role providers receive the original request, not a derived hook view.
+			context: getCurrentRequest(),
+			role,
+		})
+	// Startup logs name predicates: `hasRole(TodoRole editor)`.
+	const state = getRoleReferenceState(role)
+	const selector =
+		state === undefined
+			? undefined
+			: 'name' in state.selector
+				? state.selector.name
+				: state.selector.id
+	Object.defineProperty(predicate, 'name', {
+		value:
+			state === undefined
+				? 'hasRole'
+				: `hasRole(${state.schema.className} ${String(selector)})`,
+	})
+	return predicate
 }
 
 /** Supplies storage work behind an injectable boundary for deterministic tests. */
 export interface StoredRoleResolverDependencies {
-	getRequestCacheKey(context: AccessContext): object
+	getRequestCacheKey(context: RequestSubjectContext): object
 	resolveMembership(
 		schema: SchemaDefinition,
 		declaration: RoleSchemaDeclaration,
-		context: AccessContext,
+		context: RequestSubjectContext,
 	): Promise<readonly string[] | undefined>
 	resolveReferenceId(reference: RoleReference): Promise<string | undefined>
 }
@@ -93,11 +108,19 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 		return getCurrentEngine()
 	},
 	async resolveMembership(schema, declaration, context) {
-		if (declaration.resolveCurrent === undefined) {
+		// The Core principal is the current member when it belongs to the member
+		// schema; `resolveCurrent` remains for special cases (ADR-0304).
+		const member: unknown =
+			declaration.resolveCurrent === undefined
+				? await getRequestPrincipal(getCurrentRequest())
+				: await declaration.resolveCurrent({ context })
+		if (
+			declaration.resolveCurrent === undefined &&
+			Pointer.is(member) &&
+			member.schema !== declaration.memberSchema
+		) {
 			return undefined
 		}
-
-		const member: unknown = await declaration.resolveCurrent({ context })
 
 		if (member === undefined) {
 			return undefined
@@ -139,7 +162,7 @@ export const createStoredRoleResolver = (
 	>()
 	/** Reuses one membership snapshot across every role lookup in a request domain. */
 	const getDomain = (
-		context: AccessContext,
+		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 	): RoleDomainRequestCache | undefined => {
 		const declaration = getRoleSchemaDeclaration(schema)
@@ -165,7 +188,7 @@ export const createStoredRoleResolver = (
 	}
 	// Membership remains lazy because persistence needs role identity, not a principal.
 	const resolveMembership = (
-		context: AccessContext,
+		context: RequestSubjectContext,
 		schema: SchemaDefinition,
 		domain: RoleDomainRequestCache,
 	): Promise<readonly string[] | undefined> =>

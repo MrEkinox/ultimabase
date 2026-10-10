@@ -1,3 +1,4 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import { createQueryAst } from '../../query/ast/factory.js'
@@ -8,7 +9,7 @@ import type {
 	FindManyOperationAst,
 	FindOneOperationAst,
 } from '../../query/operations/contracts.js'
-import { Pointer } from '../../schema/relations/pointer.js'
+import type { Pointer } from '../../schema/relations/pointer.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
 	NestedWriteGraph,
@@ -196,9 +197,9 @@ export const createRuntimeNestedWriteHost = (
 			}
 			for (const id of targetIds) {
 				const update = createInversePointerUpdate(
-					new Pointer(relation.target, id),
+					createPointer(relation.target, id),
 					mappedFieldName,
-					new Pointer(relation.source, sourceId),
+					createPointer(relation.source, sourceId),
 					action,
 				)
 				await executeDetached(update.operation, update.rowFilter, true)

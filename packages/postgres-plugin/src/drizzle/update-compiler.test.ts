@@ -1,5 +1,4 @@
 import {
-	Pointer,
 	decrement,
 	increment,
 	normalizeUpdateExpression,
@@ -27,8 +26,8 @@ const dialect = new PgDialect()
 
 describe('PostgreSQL update compiler', () => {
 	it('leaves pointer replacements logical for Drizzle column mapping', () => {
-		const { catalog, Post, User } = createPostgresPointerFixture()
-		const pointer = new Pointer(User, '018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const { catalog, Post, userPointer } = createPostgresPointerFixture()
+		const pointer = userPointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
 		const compiled = compilePostgresUpdate(catalog.get(Post), {
 			kind: 'update-expression',
 			operations: [{ field: 'author', kind: 'set', value: pointer }],

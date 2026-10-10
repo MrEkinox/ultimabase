@@ -289,10 +289,16 @@ Every response is JSON with `Content-Type: application/json; charset=utf-8`.
 The HTTP application adds the final `X-UltimaBase-Request-Id` and
 `Cache-Control: private, no-store` headers. Errors use
 `{ error: { code, message, retryable, requestId, details? } }`. Only a
-`FrameworkError` public payload or a declared operation `PluginError` may retain
-its safe message, details, and retryability. Unknown exceptions, internal
-details, unrepresentable output, and undeclared or unmapped plugin errors become
-the fixed non-retryable `REST_INTERNAL_ERROR` response.
+`FrameworkError` public payload, a declared operation `PluginError` or an
+application `PublicError` (status `400`, ADR-0305) may retain its safe
+message, details, and retryability. Unknown exceptions, internal details,
+unrepresentable output, and undeclared or unmapped plugin errors become the
+fixed non-retryable `REST_INTERNAL_ERROR` response and are logged with their
+stack and request ID.
+
+Mutation results obey the row read rules (ADR-0306): a client allowed to write
+a row it cannot read requests the identifier alone, `?select=id` on create,
+update and delete or `"select": { "id": true }` in an upsert or bulk body.
 
 Malformed input and unsupported versions return `400`; permission and Master
 denials return `403`; missing routes and targets return `404`; unacceptable

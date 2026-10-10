@@ -278,6 +278,11 @@ return `HTTP_REQUEST_TIMEOUT`; and other pre-dispatch failures return
 `Cache-Control: private, no-store`, and a validated or generated
 `X-UltimaBase-Request-Id`.
 
+A route handler that throws a Core `PublicError` receives a `400` response
+with the same envelope carrying its `code`, `message` and `details`
+(ADR-0305); its cause is never serialized. Any other handler failure keeps
+propagating to the server provider.
+
 ## Lifecycle and isolation
 
 The HTTP application capability is materialized once per UltimaBase

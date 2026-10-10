@@ -236,7 +236,7 @@ const createSchema = ({ name, validators }: LibraryFixture) => {
 describe.each(fixtures)('$name Standard Schema conformance', (fixture) => {
 	it('validates every canonical built-in and plugin field family', () => {
 		const schema = createSchema(fixture)
-		const pointer = new Pointer(Target, 'target-1')
+		const pointer = Target.pointer('target-1')
 		const plugin = new LibraryPluginValue('plugin')
 
 		expect(

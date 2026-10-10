@@ -1,3 +1,4 @@
+import { createPointer } from './pointer.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -10,7 +11,7 @@ import type {
 	UpdateOperationNode,
 } from '../../query/updates/contracts.js'
 import type { SchemaDefinition } from '../schema/definition.js'
-import { Pointer } from './pointer.js'
+import type { Pointer } from './pointer.js'
 import type {
 	SchemaRelationFieldName,
 	SchemaRelationTarget,
@@ -107,7 +108,7 @@ const normalizeTargets = <TTarget extends SchemaDefinition>(
 		}
 
 		ids.add(candidate)
-		targets.push(new Pointer(target, candidate))
+		targets.push(createPointer(target, candidate))
 	}
 
 	return immutableArray(targets)

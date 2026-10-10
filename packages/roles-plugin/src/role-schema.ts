@@ -4,6 +4,7 @@ import {
 	relationField,
 	stringField,
 	type RequestRoleReferenceCarrier,
+	type RequestSubjectContext,
 	type ConfiguredFieldDeclaration,
 	type ConfiguredSchemaDeclarationOptions,
 	type ConfiguredSchemaNamespace,
@@ -25,7 +26,6 @@ import {
 	type StringField,
 	type UltimaBaseGeneratedSchemaOptions,
 } from '@ultimabase/core'
-import type { AccessContext, SchemaAccess } from '@ultimabase/access-plugin'
 
 import {
 	createRoleReference,
@@ -61,7 +61,7 @@ export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
 
 /** Resolves the current request member without coupling roles to authentication. */
 export interface RoleCurrentMemberInput {
-	readonly context: AccessContext
+	readonly context: RequestSubjectContext
 }
 
 /** Configures the exact schema accepted by one independent role domain. */
@@ -71,12 +71,13 @@ export interface RoleMemberOptions<
 	/** The exact schema whose persisted objects may become direct role members. */
 	readonly schema: TMemberSchema
 	/**
-	 * Maps immutable request-local plugin state to one exact member Pointer.
+	 * Maps immutable request-local plugin state to one exact member Pointer, for
+	 * special cases only.
 	 *
-	 * Omission makes current-member Access checks deny normally while retaining
-	 * every administrative RoleSchema and QueryBuilder capability.
+	 * Omitted, the current member is the request principal resolved by Core
+	 * when it belongs to `schema` (ADR-0304); otherwise role checks deny.
 	 *
-	 * @example `resolveCurrent: ({ context }) => toUserPointer(context.getValue(principal))`
+	 * @example `resolveCurrent: ({ context }) => toMemberPointer(context.getValue(delegate))`
 	 */
 	readonly resolveCurrent?: (
 		input: RoleCurrentMemberInput,
@@ -145,10 +146,6 @@ export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 		selector: RoleIdSelector<TId>,
 	): RoleReference<TSchema, RoleIdSelector<TId>>
 }
-
-/** Represents one exact constructible role schema declared by the application. */
-type RoleSchemaBaseClass<TClassName extends string = string> =
-	SchemaReference<TClassName>
 
 /** Represents one exact constructible role schema declared by the application. */
 export type RoleSchemaClass<
@@ -251,7 +248,7 @@ export interface RoleSchemaOptions<
 	TCustomFields extends SchemaFields = SchemaFields,
 > extends Omit<
 	UltimaBaseGeneratedSchemaOptions,
-	'access' | typeof roleSchemaIdentityOptionName
+	typeof roleSchemaIdentityOptionName
 > {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
@@ -271,8 +268,6 @@ export interface RoleSchemaOptions<
 			>
 		>
 	>[]
-	/** Protects role administration when the official Access plugin is installed. */
-	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -382,8 +377,8 @@ export class RoleSchema {
 				'RoleSchema configured declarations require an UltimaBase Schema namespace',
 			)
 		}
+		// Any `access` option travels with the generated options to Access.
 		const {
-			access,
 			className,
 			deletion,
 			fields: defineFields,
@@ -503,7 +498,6 @@ export class RoleSchema {
 				className,
 				fields,
 				...(indexes === undefined ? {} : { indexes }),
-				...(access === undefined ? {} : { access }),
 			} as unknown as SchemaOptions<TClassName, Fields> &
 				ReservedSchemaFieldCollision<Fields>,
 			createCapabilities,

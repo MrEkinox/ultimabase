@@ -879,8 +879,11 @@ const draft = new PostSchema({ author })
 ```
 
 `Pointer<TSchema>` contains only immutable logical schema identity and an object
-ID. It never loads the target. `new Pointer(UserSchema, id)` provides the
-general constructor, while `UserSchema.pointer(id)` is the concise typed form.
+ID. It never loads the target. `UserSchema.pointer(id)` is the only way to
+create one (ADR-0314): the constructor is not public, and `new Pointer(...)`
+throws a `TypeError` pointing to `Schema.pointer(id)`. `Pointer` stays exported
+for annotations, including `Pointer<"User">` for a registered class name, and
+for `instanceof Pointer` checks.
 Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
 schema identity plus ID.
 
@@ -1281,10 +1284,44 @@ provideCapability(requestPrincipalResolverCapability, {
 })
 ```
 
-Policy providers declare the capability as optional and call
-`resolveRequestPrincipal()`. The helper rejects forged Pointers and schemas not
-owned by the consuming application. An absent provider or absent request-local
-identity returns `undefined`; neither creates authenticated authority.
+The capability is `single`: a second provider fails at startup. Core resolves
+the current principal at most once per request context
+(`getRequestPrincipal(context)`)
+and rejects forged Pointers and schemas not owned by the application. Nested,
+hook-issued and transactional operations inherit it, and Master elevation keeps
+it: authority changes, identity does not. An absent provider or absent
+request-local identity gives `undefined`; neither creates authenticated
+authority. `context.withPrincipal(pointer)` names the principal of a context
+explicitly (server-side only), and `Register` types it by name
+(ADR-0304):
+
+```ts
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+		readonly principal: 'TodoUser' // principal: Pointer<"TodoUser">
+	}
+}
+```
+
+Consumers receive it as `principal` and never import the provider: Access
+rules, the Hooks `context.principal`, ACL callbacks, Roles and GraphQL
+`execute({ principal })`. A `PolicyPredicate` is a named, side-effect-free
+`({ principal, operation, schema }) => boolean | Promise<boolean>` decision
+that policy plugins accept wherever a rule returns a decision without a
+filter; Core exports `isAuthenticated`. A predicate that throws rejects the
+operation.
+
+`ultimabase.can({ principal, operation, schema, item })` asks whether an
+operation would be permitted without executing it (ADR-0305). It evaluates
+every installed policy as at execution time, runs no hook, input resolution,
+validation, write or event, and ignores field rules; policies recognize its
+operations with `readPolicyQuery(operation)`. `principal` defaults to the
+current request's principal. With `item`, create checks run on the candidate
+data, and other operations read the row named by `item.id` in a rolled-back
+transaction: a missing or hidden row answers `false`. A `PERMISSION_DENIED` or
+`PublicError` answers `false`; other errors propagate. Master is always
+permitted.
 
 Role-aware configuration declares an optional or required
 `requestRoleResolverCapability` requirement and captures the returned typed
@@ -1377,6 +1414,19 @@ starts after cancellation. Callbacks running inside a transaction must have no
 effect outside it. An explicit `transaction()` callback is never replayed and
 rejects with `TRANSACTION_CONFLICT`. Retries log at debug level and exhaustion
 logs a warning, with operation, schema, attempt and code only.
+
+Mutation results obey the row read rules of every installed policy, like
+PostgreSQL's `RETURNING` under row-level security (ADR-0306). For a
+non-Master caller, Core checks each resulting row before commit (after the
+after hooks, before the final output restrictions) with one `exists` query by
+identifier, or one grouped `count` for collection commands; a delete, and a
+plugin mutation declaring `returning: 'before'`, is checked on its locked
+pre-image before the write. An unreadable row with a selection beyond `id`
+(no `select`, another field, or any `include`) fails with `PERMISSION_DENIED`
+and rolls the transaction back. `select: { id: true }` is always allowed and
+skips the check; nested children answer through the root's inclusions, which
+keep their own read rules. No query runs when the read guard grants every row
+without a filter.
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
@@ -1736,6 +1786,24 @@ state. `JSON.stringify(error)` uses the error's immutable public payload and
 includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to their protocol-specific error formats without
 adding transport metadata to Core.
+
+Application code refuses an operation with a client-visible message by
+throwing `PublicError` (ADR-0305):
+
+```ts
+throw new PublicError('A title cannot contain a link.', {
+	code: 'todo.title-link',
+	details: { field: 'title' },
+})
+```
+
+`code` defaults to `APPLICATION_ERROR` and rejects framework codes; `cause` is
+never serialized. Thrown from a hook, a policy rule or predicate, an ACL
+callback, a virtual field, a custom operation or an HTTP route handler, it
+aborts and rolls back the operation and is never retried; transports
+serialize `{ code, message, details }` as a client error. Any other error
+stays masked and logged with its stack. After commit a `PublicError` is only
+logged.
 
 Database adapters report three neutral storage failures (ADR-0302):
 `UNIQUE_VIOLATION` with `publicDetails: { schema, fields }` (index fields,

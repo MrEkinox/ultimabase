@@ -52,6 +52,10 @@ const document = updated.toJSON()
 const restored = ACL.fromJSON(JSON.parse(JSON.stringify(document)))
 ```
 
+`new ACL(owner)` gives `owner` the `read`, `update` and `delete` rights, like
+`new Parse.ACL(user)`; `new ACL(undefined)` is an empty ACL, so a default can
+write `({ principal }) => new ACL(principal)`.
+
 `ACLJSON` is a detached versioned format. Parsing rejects unknown keys,
 versions, subjects, and permissions. Repeated rights and repeated entries are
 combined by union, then serialized in canonical order.
@@ -71,6 +75,7 @@ const Post = ACLApplication.Schema.define({
 		visibility: field.string(),
 	}),
 	acl: {
+		// `principal` is the request principal resolved by Core (ADR-0304).
 		default: ({ data, principal }) => {
 			const initial =
 				data.visibility === 'public' ? new ACL().grantPublic('read') : new ACL()

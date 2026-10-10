@@ -21,6 +21,7 @@ import {
 	compileDatabasePersistencePlan,
 } from '../persistence/execution.js'
 import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
+import { readRewrittenDeleteResult } from '../persistence/rewritten-delete-result.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
@@ -86,6 +87,8 @@ export interface RuntimeDatabaseExecutionRequest<
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Supplies the private persisted result projection without changing logical behavior input. */
 	readonly returningSelection?: QuerySelectionNode
+	/** Checks a delete's locked pre-image against the row read rules (ADR-0306). */
+	readonly assertReadableTargets?: (ids: readonly string[]) => Promise<void>
 }
 
 /** Interleaves Core-owned graph work without storing callbacks in the graph. */
@@ -128,8 +131,12 @@ export const executeRuntimeDatabaseOperation = async <
 			persistencePlanRewrite,
 			request.returningSelection,
 		)
-		const { returningSelection: _returningSelection, ...databaseRequest } =
-			request
+		const {
+			assertReadableTargets: _assertReadableTargets,
+			returningSelection: _returningSelection,
+			...databaseRequest
+		} = request
+		void _assertReadableTargets
 		void _returningSelection
 		const result = await executor.execute(
 			immutableRecord({ ...databaseRequest, plan }),
@@ -164,7 +171,8 @@ export const executeRuntimeDatabaseOperation = async <
 	const prepareMutationItems =
 		behaviors?.requiresPreparedMutationItems?.(request.operation) === true ||
 		enforcement?.requiresPreparedMutationItems?.(request.operation) === true ||
-		(persistencePlanRewrite !== undefined &&
+		((persistencePlanRewrite !== undefined ||
+			request.assertReadableTargets !== undefined) &&
 			request.operation.kind === 'delete-many')
 	const prepareMutation = async (): Promise<
 		Readonly<{
@@ -248,6 +256,12 @@ export const executeRuntimeDatabaseOperation = async <
 	if (!preparesAfterResolution) {
 		;({ prepared, target, targets } = await prepareMutation())
 		await enforcePreparedMutation()
+		// A delete answers with its pre-image, checked while still locked.
+		await request.assertReadableTargets?.(
+			(targets ?? (target === null || target === undefined ? [] : [target]))
+				.map((record) => executor.readObjectIdentity?.(record) ?? record.id)
+				.filter((id): id is string => typeof id === 'string'),
+		)
 	}
 	if (nestedLifecycle !== undefined) {
 		// Nested graph coordination proves it returns the same mutation terminal.
@@ -413,6 +427,8 @@ export const executeRuntimeDatabaseOperation = async <
 		outcome,
 		operation,
 		// With eager loading, the transaction-bound get is the authoritative result.
-		result: inclusionSource ?? outcome.result,
+		result:
+			inclusionSource ??
+			readRewrittenDeleteResult(operation, plan, outcome.result),
 	})
 }

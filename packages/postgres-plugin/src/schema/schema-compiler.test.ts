@@ -2,7 +2,6 @@ import {
 	definePluginField,
 	pointerField,
 	UltimaBase,
-	Pointer,
 	SchemaRegistry,
 } from '@ultimabase/core'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
@@ -62,13 +61,13 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('compiles pointers to UUID columns, indexes, and named foreign keys', () => {
-		const { catalog, Post, User } = createPostgresPointerFixture()
+		const { catalog, Post, User, userPointer } = createPostgresPointerFixture()
 		const compiled = catalog.get(Post)
 		const table = getTableConfig(compiled.table)
 		const [foreignKey] = table.foreignKeys
 		const reference = foreignKey?.reference()
 		const authorColumn = compiled.fields.author?.column
-		const author = new Pointer(User, '018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const author = userPointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
 
 		expect(compiled.fields.author).toMatchObject({
 			column: { notNull: true },

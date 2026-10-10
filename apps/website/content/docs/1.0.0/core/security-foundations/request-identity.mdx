@@ -13,9 +13,14 @@ sources:
   - packages/core/README.md
   - packages/core/docs/access.md
   - packages/core/src/runtime/context/request-context.ts
+  - packages/core/src/runtime/context/request-principal.ts
+  - packages/core/src/access/subject/principal.ts
+  - packages/core/src/runtime/application/policy-query-execution.ts
   - packages/core/src/query/operations/options.ts
   - packages/password-auth-plugin/README.md
   - docs/adr/0205-protected-policy-contributions.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0305-public-errors-and-can.md
 ---
 
 A `RequestContextValue<T>` is a typed, validated slot for one request. An
@@ -102,11 +107,86 @@ value to make an authorization decision. Core authority still has only
 `anonymous` mode.
 
 The optional Password Auth plugin exposes `passwordPrincipal` and
-`passwordSession` tokens after it verifies a session. Its principal carries a
-typed User pointer; its session context carries safe identifiers and dates,
-not the raw token, password, verifier, Master grant, role, or authorization
-decision. See [Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
+`passwordSession` tokens after it verifies a session; they read the session
+itself. Policies read the principal from Core instead (next section). The
+session context carries safe identifiers and dates, not the raw token,
+password, verifier, Master grant, role, or authorization decision. See
+[Password Authentication](/docs/1.0.0/plugins/official/password-authentication)
 for the actual credential flow.
+
+## The current principal
+
+The principal is the authenticated identity of a request: a Core `Pointer` to
+a row of the authentication provider's identity schema, or `undefined` when
+the caller is anonymous. Core owns no user schema, session or credential. One
+authentication plugin provides it (a second provider fails at startup;
+without one, the principal is always `undefined`), and Core resolves it at
+most once per request context. Nested, hook-issued and transactional
+operations inherit it, and `useMasterKey` keeps it: Master changes authority,
+not identity. Server code outside a request has no principal.
+
+Access rules and predicates, the Hooks `context.principal`, ACL callbacks,
+Roles and `ultimabase.can()` receive it as `principal`; plugins read it with
+`getRequestPrincipal(context)`. Name the identity
+schema once in `Register` to type it by name:
+
+```ts title="src/ultimabase.ts"
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+		readonly principal: 'TodoUser'
+	}
+}
+// principal: Pointer<"TodoUser"> | undefined
+```
+
+Without it, `principal` is typed as `PointerValue`. Server code that runs on
+behalf of a user names it explicitly: `context.withPrincipal(pointer)` returns
+a context with that principal, `withPrincipal(undefined)` an anonymous one.
+
+## Policy predicates
+
+A `PolicyPredicate` is a boolean decision that needs no row filter. It
+receives `{ principal, operation, schema }` and is accepted wherever a policy
+rule returns a decision, for example in Access rules:
+
+```ts title="src/policies.ts"
+import { isAuthenticated, type PolicyPredicate } from '@ultimabase/core'
+
+export const isStaff: PolicyPredicate = function isStaff({ principal }) {
+	return principal !== undefined && staff.has(principal.id)
+}
+// access: { create: isAuthenticated, delete: isStaff }
+```
+
+Write predicates as named, side-effect-free functions: Core may call them
+several times (retried transactions, `can()`). A predicate that throws
+rejects the operation; the error stays masked unless it is a
+[`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror).
+
+## Ask before acting
+
+`ultimabase.can({ operation, schema, item, principal })` tells whether an
+operation would be permitted, combining every installed policy as at
+execution time, without executing it: no hook, input resolution, validation,
+write or event runs.
+
+```ts title="src/can-edit.ts"
+const canEdit = await ultimabase.can({
+	operation: 'update',
+	schema: Todo,
+	item: { id: todoId },
+})
+```
+
+`principal` defaults to the current request's principal; pass one (or
+`undefined` for an anonymous caller) to ask about another identity. Without
+`item` the answer is `true` when no guard denies the operation, a row filter
+counting as permitted for its rows. For `create`, `item` is candidate data.
+For other operations `item.id` names a persisted row, read in a rolled-back
+transaction: a missing or hidden row answers `false`. Field rules do not
+apply. Master is always permitted. The answer can change before execution,
+which remains the enforcement point.
 
 <Callout type="warn" title="Never derive authority from request data">
 	A header, JSON field, metadata flag, lookalike context, or caller-selected

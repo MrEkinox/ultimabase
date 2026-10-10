@@ -20,6 +20,9 @@ sources:
   - docs/adr/0204-access-is-one-vertical-plugin.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0222-sparse-read-access-inherits-secure-defaults.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0305-public-errors-and-can.md
+  - docs/adr/0306-readable-mutation-results.md
 ---
 
 ## Overview
@@ -169,7 +172,7 @@ Detailed schema rules separate the early `allow` decision from later checks:
 
 | Rule    | Available on                   | Checks                                                                            |
 | ------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| `allow` | Every operation family         | Whether the operation may begin; a callback receives `context`                    |
+| `allow` | Every operation family         | Whether the operation may begin; a callback receives `principal` and `context`    |
 | `where` | Read, update, upsert, delete   | An additional private row predicate, combined with the caller's query using `AND` |
 | `item`  | Create, update, upsert, delete | A prepared draft, locked original, or final candidate according to the operation  |
 
@@ -207,29 +210,40 @@ or `update`); update and upsert-update receive `originalItem`.
 
 ### Request-aware decisions
 
-An `allow` callback receives `context`, not a built-in `user` property. Read
-the typed value installed by an identity provider when the decision depends
-on the caller. For example, with the Password Authentication plugin configured
-in the same application:
+Every rule callback receives the request `principal` resolved by Core (a
+pointer to the authenticated identity, `undefined` when anonymous), the policy
+`operation` key, the `schema` class name and the request `context`. Because a
+rule receives that policy context, a Core
+[`PolicyPredicate`](/docs/1.0.0/core/security-foundations/request-identity#policy-predicates)
+such as `isAuthenticated` is accepted wherever a rule returns a decision:
 
 ```ts title="src/private-note.ts"
-import { passwordPrincipal } from '@ultimabase/password-auth-plugin'
+import { isAuthenticated } from '@ultimabase/core'
 import { Application } from './application.js'
 
 export const PrivateNote = Application.Schema.define({
 	className: 'PrivateNote',
-	fields: (f) => ({ body: f.string({ required: true }) }),
+	fields: (f) => ({
+		author: f.string({ required: true }),
+		body: f.string({ required: true }),
+	}),
 	access: {
-		read: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
+		create: isAuthenticated,
+		read: {
+			allow: isAuthenticated,
+			where: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
+		},
 	},
 })
 ```
 
-This rule allows any authenticated caller to read notes; it does not make
-notes private to their owner. Use a row `where` rule for ownership and keep
-the operation decision explicit. The [Password Authentication](./password-authentication)
-page explains how the principal enters the request context, and
-[Roles](./roles) documents `hasRole()` for membership decisions.
+`isAuthenticated` alone allows any authenticated caller; the row `where` rule
+makes notes private to their author. A rule never imports the authentication
+plugin: the [Password Authentication](./password-authentication) page explains
+how a session becomes the principal, and [Roles](./roles) documents the
+`hasRole()` predicate. A rule or predicate that throws rejects the operation;
+throw a [`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) to
+tell the client why.
 
 If you also expose a `find` route for this schema through [REST](./rest),
 verify the boundary with three requests: an anonymous read returns `403`
@@ -257,8 +271,8 @@ For example, `read: { output: true, where: false, orderBy: false }` permits
 displaying a field but not using it to infer information through filtering or
 ordering. `write: { fill: true, replace: false, clear: false }` permits its first
 non-null value but prevents later replacement or clearing. Field callbacks
-receive the immutable request `context`; value-aware callbacks receive the
-relevant `value` or `originalValue`.
+receive the request `principal` and `context`; value-aware callbacks receive
+the relevant `value` or `originalValue`.
 
 A denied output field is omitted from ordinary results. Explicitly selecting
 it fails with `PERMISSION_DENIED`, as does an unauthorized filter, order, or
@@ -284,6 +298,28 @@ intersect. A provider cannot turn a denial into a grant. [Object ACLs](./acl-per
 use Core's independent protected-policy boundary and compose with Access
 without depending on it. Authentication and role membership supply facts for
 rules; they do not authorize an operation by themselves.
+
+### Mutation results obey read rules
+
+The result of a create, update, upsert or delete obeys the row `read` rules,
+like PostgreSQL's `RETURNING` under row-level security: before commit, Core
+checks each resulting row (the locked pre-image for a delete) against every
+installed read policy. When a row is not readable and the call selects
+anything beyond `id` (no `select`, another field, or any `include`), it fails
+with `PERMISSION_DENIED` and nothing is written. `select: { id: true }` is
+always allowed, so a write-only client (for example `read: false`) asks for
+the identifier alone:
+
+```ts title="src/audit.ts"
+await AuditEntry.createOne({
+	data: { action: 'login' },
+	select: { id: true },
+})
+```
+
+Collection commands are atomic, Master skips the check, and field rules keep
+their behavior. Use `ultimabase.can({ operation, schema, item })` to ask
+whether an operation would be permitted without executing it.
 
 Access checks run around Core's prepared mutation pipeline, including a
 reevaluation after input resolution. A Hook cannot remove accumulated Access

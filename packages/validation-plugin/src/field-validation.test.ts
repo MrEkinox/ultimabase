@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { Pointer } from '@ultimabase/core'
 import {
 	createFinalMutationValidationStage as createCoreFinalMutationValidationStage,
 	createRuntimeValidationStage,
@@ -9,7 +10,6 @@ import {
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	Pointer,
 	QueryBuilder,
 	RequestContext,
 	requestSources,
@@ -238,7 +238,7 @@ describe('Standard Schema field validation', () => {
 			className: 'ValidatedPointerTarget',
 			fields: () => ({}),
 		})
-		const pointer = new Pointer(Target, 'target-1')
+		const pointer = Target.pointer('target-1')
 		class PluginValue {
 			constructor(readonly value: string) {}
 		}

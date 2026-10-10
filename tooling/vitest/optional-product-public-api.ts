@@ -127,6 +127,7 @@ export const accessPluginPublicApi = {
 		'AccessDecisionRule',
 		'AccessPlugin',
 		'AccessPluginOptions',
+		'AccessPolicyInput',
 		'AccessRules',
 		'AccessSchemaRules',
 		'AccessWhereRule',

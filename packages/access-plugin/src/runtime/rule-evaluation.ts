@@ -3,6 +3,7 @@ import {
 	Schema,
 	WhereBuilder,
 	getOperationSchema,
+	getRequestPrincipal,
 	normalizeLogicalFilter,
 	readOperationQueries,
 	resolveWhereInput,
@@ -27,6 +28,7 @@ import {
 import {
 	readAccessOperationDefault,
 	readAccessOperationFamily,
+	readAccessOperationSlot,
 	type AccessPlan,
 	type CompiledAccessRule,
 	type FieldAccessPlan,
@@ -44,6 +46,8 @@ import type {
 export interface RuleScope {
 	readonly context: RequestContext
 	readonly operation: AccessOperationKind
+	/** The policy operation key rules receive (`update`, `softDeleteOne`…). */
+	readonly policyOperation: string
 	readonly runtime: AccessExecutionRuntime
 	readonly schema: SchemaDefinition
 }
@@ -93,6 +97,14 @@ export const requireAccessSchemaPlan = (
 	return schemaPlan
 }
 
+/** Names the policy operation key a rule receives (`update`, `softDeleteOne`…). */
+export const readPolicyOperation = (
+	operation: RuntimeLogicalOperationAst,
+): string =>
+	operation.kind === 'plugin-schema-mutation'
+		? operation.command
+		: readAccessOperationSlot(operation.kind)
+
 /** Binds one request to the compiled plan of its operation schema. */
 export const createAccessScope = (
 	runtime: AccessExecutionRuntime,
@@ -104,6 +116,7 @@ export const createAccessScope = (
 	return {
 		context,
 		operation: operation.kind,
+		policyOperation: readPolicyOperation(operation),
 		plan,
 		runtime,
 		schema: schemaPlan.schema,
@@ -123,19 +136,30 @@ export const readExecutableOperation = (
  * Evaluates one rule. Static booleans skip the callback runtime unless
  * `invokeStatic` asks for the same diagnostics and cancellation as callbacks.
  */
-const evaluateRule = (
+const evaluateRule = async (
 	scope: RuleScope,
 	identity: AccessRuleIdentity,
 	input: Readonly<Record<string, unknown>>,
 	invokeStatic = false,
-): unknown => {
+): Promise<unknown> => {
 	const rule = identity.rule.rule
 	if (typeof rule === 'boolean' && !invokeStatic) return rule
+	// Every rule receives the Core policy context (ADR-0304); Core resolves the
+	// principal at most once per request, before the first rule reading it.
+	const policyInput =
+		typeof rule === 'boolean'
+			? input
+			: immutableRecord({
+					...input,
+					operation: scope.policyOperation,
+					principal: await getRequestPrincipal(scope.context),
+					schema: scope.schema.className,
+				})
 	return scope.runtime.invoke(
 		immutableRecord({ identity, operation: scope.operation }),
 		scope.context,
 		// Plan compilation correlates each callback with its branch-specific input.
-		() => (typeof rule === 'boolean' ? rule : rule(input as never)),
+		() => (typeof rule === 'boolean' ? rule : rule(policyInput as never)),
 	)
 }
 

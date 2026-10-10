@@ -25,6 +25,7 @@ sources:
   - packages/core/docs/runtime.md
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0303-core-partial-indexes-and-health.md
+  - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0245-plugin-schema-mutations-and-soft-delete.md
   - docs/adr/0248-application-selected-schema-class-mutations.md
 ---
@@ -179,7 +180,9 @@ const visible = await Post.findOne({
 ```
 
 `deleted` contains the same ID and title with `isDeleted: true`: it is the
-record **after** soft deletion. `visible` is `null`. Keep the ID if trusted
+record **after** soft deletion. Mutation results obey the read rules: Core
+checks the row while it is still visible, before the deletion hides it, and
+field rules still mask the returned fields. `visible` is `null`. Keep the ID if trusted
 server code will restore it later. Repeating `softDelete()` for that ID fails
 with `NOT_FOUND`, just as it does for an absent target.
 
@@ -454,8 +457,9 @@ mutation DeletePost($id: ID!) {
 }
 ```
 
-Both return the **pre-delete** record, so the selected `isDeleted` is `false`
-even though the stored row is now a hidden tombstone. Verify with the ordinary
+Both return the record as written, so the selected `isDeleted` is `true`: Core
+checks the row against the read rules while it is still visible, then the
+logical delete answers with the tombstone it wrote (ADR-0306). Verify with the ordinary
 reads above, then use the same private restore or purge commands. The public
 REST/GraphQL delete operations must still be enabled and authorized.
 

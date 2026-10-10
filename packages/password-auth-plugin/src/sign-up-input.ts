@@ -6,6 +6,7 @@ import {
 	type NestedPointerCreateInput,
 	type NestedRelationCreateInput,
 	type RelationField,
+	type SchemaDefinition,
 	type SchemaNestedCreateData,
 } from '@ultimabase/core'
 import {
@@ -20,7 +21,7 @@ import type { PasswordUserReference } from './user-schema.js'
 
 // Keep relationship commands identical to ordinary schema creation.
 type CreateValue<TValue> =
-	TValue extends Pointer<infer TTarget>
+	TValue extends Pointer<infer TTarget extends SchemaDefinition>
 		? NestedPointerCreateInput<SchemaNestedCreateData<TTarget>>
 		: TValue
 type CreateValues<TValues> = {

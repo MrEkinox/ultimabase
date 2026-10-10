@@ -12,6 +12,8 @@ reviewedAt: 2026-09-25
 sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
+  - packages/graphql-plugin/src/networkless-execution.ts
+  - packages/graphql-plugin/src/execution-errors.ts
   - packages/graphql-plugin/src/surfaces.ts
   - packages/graphql-plugin/src/compiler.test.ts
   - packages/graphql-yoga-plugin/README.md
@@ -21,6 +23,9 @@ sources:
   - packages/apollo-sandbox-plugin/README.md
   - docs/adr/0238-graphql-v1-contract.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0305-public-errors-and-can.md
+  - docs/adr/0306-readable-mutation-results.md
 ---
 
 ## Overview
@@ -235,7 +240,13 @@ Create input fields come from the schema. Update and delete inputs target one
 record by `id` or an exact unique `where`; upsert supplies `where`, `create`,
 and `update` branches. Bulk operations are homogeneous, ordered, itemized,
 and atomic, without partial success. GraphQL derives the result projection
-from the selection set; it does not accept a `select` argument. See
+from the selection set; it does not accept a `select` argument. Results obey
+the row read rules: a selection of only `id` (and `__typename`) is always
+allowed, so a client that may write a row it cannot read selects `{ id }`;
+any other field fails with `PERMISSION_DENIED` and nothing is written. A
+[`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) from
+application code reaches the client with its code in `extensions.code`; other
+errors are masked as `INTERNAL_SERVER_ERROR`. See
 [Create Data](/docs/1.0.0/core/writing-data/create),
 [Upserts](/docs/1.0.0/core/writing-data/upserts), and
 [Bulk Operations](/docs/1.0.0/core/writing-data/bulk-operations) for the
@@ -310,6 +321,11 @@ try {
 	await ultimabase.dispose()
 }
 ```
+
+To run a document as a given user, pass `principal` (a pointer, or
+`undefined` for an anonymous caller): it replaces the authentication
+provider's answer for that context, so `graphql.execute({ context, document,
+principal: TodoUser.pointer(userId) })` evaluates every policy as that user.
 
 Generated reads, mutations, nested writes, virtual fields, and explicitly selected
 plugin operations all delegate through Core's narrow application request executor.

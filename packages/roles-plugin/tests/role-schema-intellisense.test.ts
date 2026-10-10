@@ -68,7 +68,7 @@ describe('RoleSchema IntelliSense', () => {
 		expect(documentation).toContain('Creates a normalized name reference')
 	})
 
-	it('documents the compact official Access decision helper', () => {
+	it('documents the compact role policy predicate', () => {
 		const marker = '/* access-hover */'
 		const quickInfo = service.getQuickInfoAtPosition(
 			fixtureFile,
@@ -76,7 +76,7 @@ describe('RoleSchema IntelliSense', () => {
 		)
 		const documentation = ts.displayPartsToString(quickInfo?.documentation)
 
-		expect(documentation).toContain('Creates one official Access decision')
+		expect(documentation).toContain('Returns a policy predicate')
 		expect(documentation).toContain('requestRoleResolverCapability')
 		expect(documentation).toContain('PLUGIN_CAPABILITY_MISSING')
 	})

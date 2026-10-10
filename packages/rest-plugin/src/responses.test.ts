@@ -1,5 +1,5 @@
-import { FrameworkError, PluginError } from '@ultimabase/core'
-import { describe, expect, it } from 'vitest'
+import { FrameworkError, PluginError, PublicError } from '@ultimabase/core'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
 	RestMutationNormalizationError,
@@ -67,6 +67,44 @@ describe('REST response errors', () => {
 			expect(await readError(response)).toMatchObject({
 				error: { code, requestId, retryable: false },
 			})
+		}
+	})
+
+	it('answers 400 for a PublicError and logs masked failures (ADR-0305)', async () => {
+		const response = createRestCaughtErrorResponse(
+			new PublicError('A title cannot contain a link.', {
+				code: 'todo.title-link',
+				details: { field: 'title' },
+				cause: new Error('private cause'),
+			}),
+			requestId,
+			{ statusFor: noPluginStatus },
+		)
+		expect(response.status).toBe(400)
+		expect(await readError(response)).toStrictEqual({
+			error: {
+				code: 'todo.title-link',
+				details: { field: 'title' },
+				message: 'A title cannot contain a link.',
+				requestId,
+				retryable: false,
+			},
+		})
+
+		const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+		try {
+			const failure = new Error('application secret')
+			const masked = createRestCaughtErrorResponse(failure, requestId, {
+				statusFor: noPluginStatus,
+			})
+			expect(masked.status).toBe(500)
+			expect(JSON.stringify(await readError(masked))).not.toContain('secret')
+			expect(log).toHaveBeenCalledWith(
+				`[UltimaBase] REST request ${requestId} failed`,
+				failure,
+			)
+		} finally {
+			log.mockRestore()
 		}
 	})
 

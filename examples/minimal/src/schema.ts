@@ -1,6 +1,6 @@
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
@@ -57,13 +57,10 @@ export const MinimalSchemaApplication = UltimaBase.use(
 /** The exact User schema contributed by the configured Password Auth plugin. */
 export const ExampleUser = PasswordUser
 
-/** Resolves Password Auth identities into the example's independent role domain. */
+/** The current member is the request principal Core resolves (ADR-0304). */
 export const ExampleRole = RoleSchema.define(MinimalSchemaApplication.Schema, {
 	className: 'ExampleRole',
-	members: {
-		schema: PasswordUser,
-		resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user,
-	},
+	members: { schema: PasswordUser },
 	deletion: { references: 'fail' },
 	fields: (field) => ({
 		description: field.string(),
@@ -117,8 +114,11 @@ const recordSoftDeleteEvent = async (
 	schemaName: 'ExampleArticle' | 'ExampleAuthor',
 	targetId: string,
 ): Promise<void> => {
+	// The audit log is write-only (`read: false`): a write-only caller asks
+	// for the identifier alone, the only result it may read (ADR-0306).
 	await ExampleSoftDeleteEvent.createOne({
 		data: { logicalOperation, persistenceEffect, schemaName, targetId },
+		select: { id: true },
 	})
 }
 
@@ -275,8 +275,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 			access: {
 				read: {
 					orderBy: false,
-					output: ({ context }) =>
-						context.getValue(passwordPrincipal) !== undefined,
+					output: isAuthenticated,
 					where: false,
 				},
 			},
@@ -296,9 +295,7 @@ export const ExampleArticle = MinimalSchemaApplication.Schema.define({
 		},
 		update: true,
 		upsert: true,
-		softDelete: {
-			allow: ({ context }) => context.getValue(passwordPrincipal) !== undefined,
-		},
+		softDelete: { allow: isAuthenticated },
 	},
 	graphql: true,
 	acl: {

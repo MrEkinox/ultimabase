@@ -1,5 +1,5 @@
 import {
-	Pointer,
+	Schema,
 	getFieldListDepth,
 	getFieldSchemaTarget,
 	getPluginFieldWireCodec,
@@ -92,7 +92,10 @@ const decodePointer = (
 	) {
 		throw invalid()
 	}
-	return pointerMode === 'identity' ? value.id : new Pointer(target, value.id)
+	if (pointerMode === 'identity') return value.id
+	// Its schema creates every Pointer (ADR-0314).
+	if (!Schema.is(target)) throw invalid()
+	return target.pointer(value.id)
 }
 
 const decodeScalar = (

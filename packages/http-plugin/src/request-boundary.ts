@@ -194,6 +194,37 @@ export const createHttpPreDispatchErrorResponse = (
 	})
 }
 
+/**
+ * @internal Answers one `PublicError` thrown by a route handler as a client
+ * error (ADR-0305): status 400 with its code, message and details.
+ */
+export const createHttpPublicErrorResponse = (
+	payload: Readonly<{
+		code: string
+		details?: Readonly<Record<string, unknown>> | undefined
+		message: string
+	}>,
+	requestId: string,
+): Response =>
+	Response.json(
+		immutableRecord({
+			error: immutableRecord({
+				code: payload.code,
+				message: payload.message,
+				requestId,
+				retryable: false,
+				...(payload.details === undefined ? {} : { details: payload.details }),
+			}),
+		}),
+		{
+			headers: {
+				'Cache-Control': 'private, no-store',
+				[httpRequestIdHeader]: requestId,
+			},
+			status: 400,
+		},
+	)
+
 /** @internal Adds correlation and private caching without mutating owner responses. */
 export const finalizeHttpResponse = (
 	response: Response,

@@ -12,7 +12,6 @@ import {
 	type CapabilityToken,
 } from '../../plugins/capabilities.js'
 import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
-import type { SchemaDefinition } from '../../schema/schema/definition.js'
 
 /** Gives a plugin-owned context token an explicit Access-domain meaning. */
 export type RequestSubjectValue<
@@ -43,51 +42,10 @@ export interface RequestPrincipalResolver<
 	): MaybePromise<TPrincipal | undefined>
 }
 
-/** Configures framework validation around one optional principal provider. */
-export interface ResolveRequestPrincipalOptions {
-	readonly context: RequestSubjectContext
-	readonly resolver: RequestPrincipalResolver | undefined
-	/** Confirms exact schema ownership inside the consuming application. */
-	readonly ownsSchema: (schema: SchemaDefinition) => boolean
-}
-
 /**
- * Resolves and validates one optional application-local principal.
- *
- * @example
- * ```ts
- * const principal = await resolveRequestPrincipal({
- *   context,
- *   resolver: capabilities.get(optionalPrincipalResolver),
- *   ownsSchema: (schema) => schemas.get(schema.className) === schema,
- * })
- * ```
+ * Identifies the optional principal provider without naming authentication.
+ * Core resolves its answer once per request (`getRequestPrincipal`, ADR-0304).
  */
-export const resolveRequestPrincipal = async (
-	options: ResolveRequestPrincipalOptions,
-): Promise<PointerValue | undefined> => {
-	const principal = await options.resolver?.resolveCurrent({
-		context: options.context,
-	})
-
-	if (principal === undefined) {
-		return undefined
-	}
-
-	if (!Pointer.is(principal)) {
-		throw new TypeError('Request principal resolver must return a Core Pointer')
-	}
-
-	if (!options.ownsSchema(principal.schema)) {
-		throw new TypeError(
-			'Request principal resolver returned a foreign application schema',
-		)
-	}
-
-	return principal
-}
-
-/** Identifies the optional principal provider without naming authentication. */
 export const requestPrincipalResolverCapability: CapabilityToken<
 	RequestPrincipalResolver,
 	RequestPrincipalResolver,

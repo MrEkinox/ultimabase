@@ -83,7 +83,6 @@ import {
 } from './acl-reference-cleanup.js'
 import {
 	createACLApplicationStateReader,
-	optionalPrincipalResolver,
 	optionalRoleResolver,
 	type ACLApplicationState,
 } from './application-state.js'
@@ -443,7 +442,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				'Maintains persisted ACL references through audited internal Master queries.',
 		},
 		contributions: [
-			optionalPrincipalResolver,
 			optionalRoleResolver,
 			optionalACLChangedEvents,
 			principalReferenceCleanupProvider,

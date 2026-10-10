@@ -1,5 +1,6 @@
 import {
 	createRuntimeBehaviorBoundaries,
+	readPolicyQuery,
 	readRuntimePreparedMutationRecords,
 	type ApplicationCallbackExecutor,
 	type DatabaseMutationOperationAst,
@@ -34,6 +35,7 @@ import {
 import {
 	assertAccessRules,
 	createAccessScope,
+	readPolicyOperation,
 	enforceSchemaMutationItemAccess,
 	evaluateAccessFieldReferenceRules,
 	evaluateAccessOperation,
@@ -80,14 +82,21 @@ export class AccessRuntime {
 			rowFilter = await evaluateSchemaMutationAccess(scope, operation)
 		} else {
 			rowFilter = await evaluateAccessOperation(scope, operation.kind)
-			// Native field transitions and create-item checks belong only to CRUD.
-			await evaluateAccessFieldReferenceRules(scope, operation)
-			await evaluateAccessMutationFieldRules(
-				scope,
-				operation,
-				request.nestedWrite,
-			)
-			await evaluateAccessCreateItems(scope, operation)
+			// `can()` carries no input or selection: field rules do not apply,
+			// and create items run only on the candidate data it received.
+			const query = readPolicyQuery(operation)
+			if (query === undefined) {
+				// Native field transitions and create-item checks belong only to CRUD.
+				await evaluateAccessFieldReferenceRules(scope, operation)
+				await evaluateAccessMutationFieldRules(
+					scope,
+					operation,
+					request.nestedWrite,
+				)
+			}
+			if (query === undefined || query.item) {
+				await evaluateAccessCreateItems(scope, operation)
+			}
 		}
 
 		const selectionFields = computeAccessStaticSelection(scope.schemaPlan)
@@ -130,6 +139,7 @@ export class AccessRuntime {
 			{
 				context: request.context,
 				operation: request.operation.kind,
+				policyOperation: readPolicyOperation(request.operation),
 				runtime: this.#runtime,
 				schema: source,
 			},

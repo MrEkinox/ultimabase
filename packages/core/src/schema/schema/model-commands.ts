@@ -1,3 +1,4 @@
+import { createPointer } from '../relations/pointer.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
@@ -183,7 +184,7 @@ export class SchemaModelPrototype {
 			)
 		}
 
-		return new Pointer(record.schema, record.objectId)
+		return createPointer(record.schema, record.objectId)
 	}
 
 	/** Compares only trusted schema-qualified identities without performing I/O. */

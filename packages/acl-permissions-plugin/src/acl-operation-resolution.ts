@@ -3,7 +3,7 @@ import {
 	applyUpdateExpressionToRecord,
 	FrameworkError,
 	type ExecutableOperationAst as ExecutableAst,
-	type PointerValue,
+	type Principal,
 	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type SchemaDefinition,
@@ -62,7 +62,7 @@ interface ACLResolution<
 	TData extends Readonly<Record<string, unknown>>,
 > extends ACLAcceptance {
 	readonly config: NormalizedACLSchemaOption<TData>
-	readonly principal: PointerValue | undefined
+	readonly principal: Principal | undefined
 }
 
 export const snapshotResolvedACL = (value: unknown, path: string): ACL => {
@@ -224,7 +224,7 @@ export const resolveCreateOperationACL = async <
 >(
 	operation: TOperation,
 	config: NormalizedACLSchemaOption<TData>,
-	principal: PointerValue | undefined,
+	principal: Principal | undefined,
 	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
@@ -314,7 +314,7 @@ export const resolvePreparedOperationACL = async <
 	operation: TOperation,
 	target: Readonly<Record<string, unknown>>,
 	config: NormalizedACLSchemaOption<TData>,
-	principal: PointerValue | undefined,
+	principal: Principal | undefined,
 	context: RequestSubjectContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,

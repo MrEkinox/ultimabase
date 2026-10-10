@@ -38,9 +38,11 @@ export const registerRelationFilterTests = (): void => {
 		}
 		await mixed.relation('tags').connect([alpha.id, beta.id, hidden.id])
 		await gammaOnly.relation('tags').connect(gamma.id)
+		// The hidden result is requested as `select: { id: true }` (ADR-0306).
 		await Tag.updateOne({
 			where: { id: { eq: hidden.id } },
 			data: { visible: false },
+			select: { id: true },
 		})
 
 		expect(

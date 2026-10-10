@@ -136,18 +136,21 @@ contributions inside the same transaction. Successful deletion emits
 target, in input order, inside one transaction. A failure rolls back the whole
 collection, including its cleanup and post-commit notifications.
 
-`hasRole(reference)` is an ordinary official Access decision. Using it requires
-`accessPlugin()` in the application. It resolves the application-local
-`requestRoleResolverCapability` at execution time, so the declaration captures
-no application or request. A missing provider raises
+`hasRole(reference)` returns a named Core `PolicyPredicate` (ADR-0304), which
+Access, ACL and other policy plugins accept wherever a rule returns a
+decision; Roles has no dependency on the Access package. It resolves the
+application-local `requestRoleResolverCapability` at execution time, so the
+declaration captures no application or request. A missing provider raises
 Core's typed `PLUGIN_CAPABILITY_MISSING` error before business hooks or database
 execution; an installed provider with no current member or no membership
 returns `false`.
 
-The official provider calls the RoleSchema's optional `resolveCurrent` once per
-RequestEngine and domain, validates that it returned a Pointer from the exact
-member schema, then loads direct roles and all parent roles through ordinary
-Query. One immutable membership snapshot and each reference resolution are
+The current member is the request principal resolved by Core when it belongs
+to the RoleSchema's member schema; the optional `resolveCurrent` replaces it
+for special cases. The official provider resolves the member once per
+RequestEngine and domain, validates that `resolveCurrent` returned a Pointer
+from the exact member schema, then loads direct roles and all parent roles
+through ordinary Query. One immutable membership snapshot and each reference resolution are
 memoized for that engine, so repeated schema, field, or future ACL checks do not
 traverse the graph again. Master authority does not imply membership.
 

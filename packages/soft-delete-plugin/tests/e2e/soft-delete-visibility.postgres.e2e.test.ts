@@ -329,9 +329,10 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			select: { id: true, isDeleted: true, title: true },
 		})
 
+		// A logical delete returns the row as written (ADR-0306 amendment).
 		expect(deleted?.toJSON()).toStrictEqual({
 			id: row.id,
-			isDeleted: false,
+			isDeleted: true,
 			title: 'logical delete',
 		})
 		expect(replaceDeleteTrace).toStrictEqual([

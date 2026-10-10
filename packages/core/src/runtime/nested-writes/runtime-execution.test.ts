@@ -4,7 +4,6 @@ import { immutableRecord } from '@ultimabase/shared'
 import { plugin } from '../../plugins/plugin.js'
 import type { CreateOneOperationAst } from '../../query/operations/contracts.js'
 
-import { Pointer } from '../../schema/relations/pointer.js'
 import { provideRuntimeBehavior } from '../capabilities.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import type { RuntimeBehaviorStages } from '../pipeline/contracts.js'
@@ -81,7 +80,7 @@ describe('Runtime nested create and connect execution', () => {
 		const trace: string[] = []
 		const author = record(childId, { name: 'Ada' })
 		const post = record(rootId, {
-			author: new Pointer(Author, childId),
+			author: Author.pointer(childId),
 			title: 'Nested',
 		})
 		const adapter = new RecordingDatabaseAdapter(
@@ -134,7 +133,7 @@ describe('Runtime nested create and connect execution', () => {
 		})
 		expect(rootRequest?.operation).toMatchObject({
 			input: {
-				author: new Pointer(Author, childId),
+				author: Author.pointer(childId),
 				id: rootId,
 				title: 'Nested',
 			},
@@ -227,7 +226,7 @@ describe('Runtime nested create and connect execution', () => {
 					...operation,
 					input: immutableRecord({
 						...operation.input,
-						author: new Pointer(Author, redirectedId),
+						author: Author.pointer(redirectedId),
 					}),
 				}) as unknown as typeof input.operation
 			},

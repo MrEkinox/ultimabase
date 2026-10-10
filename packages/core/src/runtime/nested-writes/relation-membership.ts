@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { createQueryAst } from '../../query/ast/factory.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'
-import { Pointer } from '../../schema/relations/pointer.js'
+import { createPointer } from '../../schema/relations/pointer.js'
 import type { NestedWriteRelationNode } from '../../schema/nested-writes/contracts.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
@@ -20,7 +20,7 @@ export const executeNestedOwningRelationMutation = async (
 	if (targetIds.length === 0) return
 
 	const targets = immutableArray(
-		targetIds.map((id) => new Pointer(relation.target, id)),
+		targetIds.map((id) => createPointer(relation.target, id)),
 	)
 	const update = immutableRecord({
 		kind: 'update-expression' as const,

@@ -102,4 +102,28 @@ describe('plugin schema mutation definitions', () => {
 		})
 		expect(purge.authority).toBe('master')
 	})
+
+	it('checks a chosen row against the read rules (ADR-0306 amendment)', () => {
+		const softDelete = defineSchemaMutation({
+			...options,
+			checkReadable: 'before',
+		})
+		expect(softDelete).toMatchObject({
+			checkReadable: 'before',
+			returning: 'after',
+		})
+		expect(defineSchemaMutation(options)).not.toHaveProperty('checkReadable')
+		expect(() =>
+			defineSchemaMutation({ ...options, checkReadable: 'never' } as never),
+		).toThrow('schema mutation checkReadable must be before or after')
+		expect(() =>
+			defineSchemaMutation({
+				...options,
+				authority: 'master',
+				checkReadable: 'after',
+				effect: 'delete',
+				returning: 'before',
+			}),
+		).toThrow('delete schema mutations must check the before record')
+	})
 })

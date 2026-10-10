@@ -2,7 +2,6 @@ import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	MasterAuthority,
-	Pointer,
 	UltimaBase,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -274,7 +273,8 @@ describe(
 					name: 'Visibility',
 				},
 			})
-			await hidden.update({ data: { visible: false } })
+			// The hidden result is requested as `select: { id: true }` (ADR-0306).
+			await hidden.update({ data: { visible: false }, select: { id: true } })
 
 			await Parent.updateOne({
 				where: { id: { eq: parent.id } },
@@ -312,7 +312,7 @@ describe(
 			})
 			const [current, replacement] = await Note.createMany({
 				data: [
-					{ body: 'Current', parent: new Pointer(Parent, parent.id) },
+					{ body: 'Current', parent: Parent.pointer(parent.id) },
 					{ body: 'Replacement' },
 				],
 			})
@@ -333,7 +333,7 @@ describe(
 				parent: null,
 			})
 			expect(await Note.get({ id: replacement.id })).toMatchObject({
-				parent: new Pointer(Parent, parent.id),
+				parent: Parent.pointer(parent.id),
 			})
 		})
 
@@ -427,7 +427,8 @@ describe(
 					name: 'Protected parent',
 				},
 			})
-			await related.update({ data: { visible: false } })
+			// The hidden result is requested as `select: { id: true }` (ADR-0306).
+			await related.update({ data: { visible: false }, select: { id: true } })
 
 			for (const id of [related.id, unrelated.id]) {
 				trace.length = 0

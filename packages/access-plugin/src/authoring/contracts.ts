@@ -2,6 +2,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type {
 	FieldValueMap,
 	GenericField,
+	PolicyContext,
 	RelationMutationDelta,
 	SchemaDefinition,
 	SchemaItem,
@@ -29,20 +30,34 @@ type AccessFieldValue<
 	? unknown
 	: ReadPresentFieldValue<FieldValueMap<{ readonly value: TField }, TMode>>
 
-/** Allows one direct decision or one cancellable request-aware decision. */
+/**
+ * Allows one direct decision or one cancellable request-aware decision. Every
+ * decision receives the Core policy context, so a `PolicyPredicate` such as
+ * `isAuthenticated` is accepted wherever a rule returns a boolean (ADR-0304).
+ */
 export type AccessDecisionRule<TInput> =
 	boolean | ((input: TInput) => MaybePromise<boolean>)
 
+/**
+ * The request facts every Access rule receives: the Core `principal`, the
+ * policy `operation` key and the `schema` class name (ADR-0304), beside the
+ * request authority.
+ */
+export interface AccessPolicyInput extends PolicyContext {
+	/** Carries immutable authority and explicitly typed request capabilities. */
+	readonly context: AccessContext
+}
+
 /** Supplies request authority to one explicitly named operation rule. */
-export interface SchemaOperationAccessInput {
+export interface SchemaOperationAccessInput extends PolicyContext {
 	/** Carries immutable authority and explicitly typed request capabilities. */
 	readonly context: AccessContext
 }
 
 /** Supplies one isolated typed where builder for a dynamic row restriction. */
-export interface SchemaWhereAccessInput<TSchema extends SchemaDefinition> {
-	/** Carries immutable authority and explicitly typed request capabilities. */
-	readonly context: AccessContext
+export interface SchemaWhereAccessInput<
+	TSchema extends SchemaDefinition,
+> extends AccessPolicyInput {
 	/** Builds the same immutable object contract accepted by public `where`. */
 	readonly where: WhereBuilder<TSchema>
 }
@@ -64,33 +79,34 @@ export type SchemaItemAccessInput<
 	TSchema extends SchemaDefinition,
 	TKind extends 'create' | 'delete' | 'update' | 'upsert',
 > = TKind extends 'create'
-	? Readonly<{
-			context: AccessContext
-			item: SchemaPreparedDraft<TSchema>
-		}>
-	: TKind extends 'update'
-		? Readonly<{
-				context: AccessContext
-				item: Readonly<SchemaItem<TSchema>>
-				originalItem: SchemaResult<TSchema>
+	? AccessPolicyInput &
+			Readonly<{
+				item: SchemaPreparedDraft<TSchema>
 			}>
-		: TKind extends 'upsert'
-			? | Readonly<{
-						context: AccessContext
-						item: SchemaPreparedDraft<TSchema>
-						mode: 'create'
-						originalItem: null
-				  }>
-				| Readonly<{
-						context: AccessContext
-						item: Readonly<SchemaItem<TSchema>>
-						mode: 'update'
-						originalItem: SchemaResult<TSchema>
-				  }>
-			: Readonly<{
-					context: AccessContext
+	: TKind extends 'update'
+		? AccessPolicyInput &
+				Readonly<{
+					item: Readonly<SchemaItem<TSchema>>
 					originalItem: SchemaResult<TSchema>
 				}>
+		: TKind extends 'upsert'
+			? AccessPolicyInput &
+					(
+						| Readonly<{
+								item: SchemaPreparedDraft<TSchema>
+								mode: 'create'
+								originalItem: null
+						  }>
+						| Readonly<{
+								item: Readonly<SchemaItem<TSchema>>
+								mode: 'update'
+								originalItem: SchemaResult<TSchema>
+						  }>
+					)
+			: AccessPolicyInput &
+					Readonly<{
+						originalItem: SchemaResult<TSchema>
+					}>
 
 /**
  * Declares selected read capabilities without exposing Runtime terminal names.
@@ -263,7 +279,7 @@ export type SchemaAccess<TSchema extends SchemaDefinition> = Readonly<{
 }>
 
 /** Supplies immutable request authority to one field decision. */
-export interface FieldAccessInput {
+export interface FieldAccessInput extends PolicyContext {
 	/** Carries immutable authority and explicitly typed request capabilities. */
 	readonly context: AccessContext
 }

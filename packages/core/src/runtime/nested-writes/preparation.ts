@@ -1,3 +1,4 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../errors/framework-error.js'
@@ -107,7 +108,7 @@ export const readNestedPointerTarget = (
 				? relationship.child?.reservedId
 				: undefined
 
-	return id === undefined ? undefined : new Pointer(relationship.target, id)
+	return id === undefined ? undefined : createPointer(relationship.target, id)
 }
 
 /** Converts one update node into the scalar and pointer work owned by its row. */

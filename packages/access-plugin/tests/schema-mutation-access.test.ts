@@ -184,6 +184,8 @@ const AccessDocument = AccessMutationApplication.Schema.define({
 			},
 		},
 		delete: false,
+		// Mutation results obey the read rules (ADR-0306): the fixture reads back.
+		read: true,
 		update: false,
 	},
 })
@@ -451,7 +453,8 @@ describe('schema mutation Access', () => {
 		})
 		onTestFinished(() => denied.dispose())
 		const allowed = new (UltimaBase.use(
-			accessPlugin({ default: { schemaMutations: true } }),
+			// Mutation results obey the read rules (ADR-0306).
+			accessPlugin({ default: { read: true, schemaMutations: true } }),
 			allowedOwner.plugin,
 			databasePlugin(allowedAdapter),
 		))({
@@ -521,7 +524,8 @@ describe('schema mutation Access', () => {
 		})
 		const ultimabase = new (UltimaBase.use(
 			provider,
-			accessPlugin({ default: { schemaMutations: true } }),
+			// Mutation results obey the read rules (ADR-0306).
+			accessPlugin({ default: { read: true, schemaMutations: true } }),
 			owner.plugin,
 			databasePlugin(adapter),
 		))({

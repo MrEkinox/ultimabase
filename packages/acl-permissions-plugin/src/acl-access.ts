@@ -1,13 +1,11 @@
 import {
 	RequestSubjectReference,
-	resolveRequestPrincipal,
+	type Principal,
 	type RequestSubjectContext,
-	type RequestPrincipalResolver,
 	type RequestRoleReference,
 	type RequestRoleResolver,
 	type DatabaseRowFilterNode,
 	type ExecutableOperationAst,
-	type PointerValue,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -18,23 +16,20 @@ import { aclFieldName } from './acl-option.js'
 
 /** Collects request-local subject resolution once for one ACL evaluation boundary. */
 export interface ACLAccessSubjects {
-	readonly principal: PointerValue | undefined
+	readonly principal: Principal | undefined
 	readonly roleResolutionAvailable: boolean
 	readonly roles: readonly RequestRoleReference[]
 }
 
-/** Resolves the optional identity capabilities used by row and item decisions. */
+/**
+ * Resolves the roles used by row and item decisions beside the Core principal
+ * (ADR-0304), which Core already resolved and validated for the request.
+ */
 export const resolveACLAccessSubjects = async (
 	context: RequestSubjectContext,
-	principalResolver: RequestPrincipalResolver | undefined,
+	principal: Principal | undefined,
 	roleResolver: Partial<RequestRoleResolver> | undefined,
-	ownsSchema: (schema: SchemaDefinition) => boolean,
 ): Promise<ACLAccessSubjects> => {
-	const principal = await resolveRequestPrincipal({
-		context,
-		ownsSchema,
-		resolver: principalResolver,
-	})
 	const roles: RequestRoleReference[] = []
 
 	for (const [index, candidate] of (

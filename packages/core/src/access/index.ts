@@ -18,7 +18,6 @@ export {
 	requestRoleResolverCapability,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
-	resolveRequestPrincipal,
 	resolveRequestRoleReference,
 } from './subject/contracts.js'
 export type {
@@ -36,8 +35,14 @@ export type {
 	RequestPrincipalResolver,
 	RequestSubjectValueOf,
 	ResolvedRequestSubject,
-	ResolveRequestPrincipalOptions,
 } from './subject/contracts.js'
+export { isAuthenticated } from './subject/principal.js'
+export type {
+	PolicyContext,
+	PolicyOperation,
+	PolicyPredicate,
+	Principal,
+} from './subject/principal.js'
 export {
 	requestSubjectReferenceCleanupCapability,
 	defineRequestSubjectReferenceCleanup,

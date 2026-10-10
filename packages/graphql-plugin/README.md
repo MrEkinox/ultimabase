@@ -118,7 +118,15 @@ The setup export provides `schema`, `execute()`, and `printSchema()`.
 operation name, plus a real context already bound to the same started
 application. Foreign, forged, stale, cancelled, and disposed contexts fail
 before resolver work. Parsing, validation, variables, and resolver work all run
-inside the same Core request scope.
+inside the same Core request scope. An optional `principal` (a pointer, or
+`undefined` for an anonymous caller) replaces the authentication provider's
+answer for that context, so policies evaluate the document as that identity
+(ADR-0304).
+
+A `PublicError` from application code keeps its code in `extensions.code`;
+other errors are masked as `INTERNAL_SERVER_ERROR` and logged with their stack
+(ADR-0305). Mutation results obey the row read rules: a selection of only `id`
+(and `__typename`) is always allowed (ADR-0306).
 
 `printSchema()` returns a deterministic lexicographically sorted SDL snapshot.
 It contains no resolver code, credentials, cursor secrets, private records, or

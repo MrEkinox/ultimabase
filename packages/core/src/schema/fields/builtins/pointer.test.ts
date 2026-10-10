@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	Pointer,
 	SchemaRegistry,
 	pointerField,
 	snapshotScalarFieldValue,
@@ -58,13 +57,10 @@ describe('pointerField', () => {
 		expect(() =>
 			snapshotScalarFieldValue(
 				field,
-				new Pointer(
-					UltimaBase.Schema.define({
-						className: 'WrongPointerTarget',
-						fields: () => ({}),
-					}),
-					'user-1',
-				),
+				UltimaBase.Schema.define({
+					className: 'WrongPointerTarget',
+					fields: () => ({}),
+				}).pointer('user-1'),
 				'input.author',
 			),
 		).toThrow(new TypeError('input.author must point to PointerFieldUser'))

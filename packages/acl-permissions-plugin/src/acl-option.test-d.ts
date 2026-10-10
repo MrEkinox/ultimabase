@@ -1,6 +1,6 @@
 import {
 	type PluginExports,
-	type PointerValue,
+	type Principal,
 	UltimaBase,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
@@ -27,7 +27,7 @@ test('keeps ACL callback inputs available before the named graph is generated', 
 			default: ({ data, principal, context }) => {
 				// Exact sibling fields are checked against generated declarations in Typegen's editor suite.
 				expectTypeOf(data.title).toEqualTypeOf<unknown>()
-				expectTypeOf(principal).toEqualTypeOf<PointerValue | undefined>()
+				expectTypeOf(principal).toEqualTypeOf<Principal | undefined>()
 				expectTypeOf(context.requestId).toBeString()
 				return new ACL()
 			},

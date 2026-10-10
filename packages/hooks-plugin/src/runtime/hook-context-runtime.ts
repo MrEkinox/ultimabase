@@ -4,6 +4,7 @@ import {
 	snapshotScalarFieldValue,
 	TrackedExecutionLifetime,
 	type JsonDocument,
+	type Principal,
 	type QueryExecutionGuard,
 	type RequestContext,
 } from '@ultimabase/core'
@@ -36,12 +37,14 @@ const hookEventPayloadField = jsonField()
 export const createRuntimeHookContext = ({
 	emit,
 	hook,
+	principal,
 	queryable,
 	request,
 	transactionId,
 }: Readonly<{
 	emit: (emission: HookContextEmission) => void
 	hook: HookContextIdentity
+	principal: Principal | undefined
 	queryable: boolean
 	request: RequestContext
 	transactionId: string | undefined
@@ -78,6 +81,7 @@ export const createRuntimeHookContext = ({
 		{
 			access: request.access,
 			hook,
+			principal,
 			requestId: request.requestId,
 			signal: request.signal,
 			source: request.source,

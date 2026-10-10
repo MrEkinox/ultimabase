@@ -1,3 +1,4 @@
+import type { PolicyContext } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccessContext } from '../context.js'
@@ -19,7 +20,7 @@ export const allowAll = true as const
 export const denyAll = false as const
 
 /** Represents the common cancellable boundary shared by every Access decision. */
-export interface AccessDecisionInput {
+export interface AccessDecisionInput extends PolicyContext {
 	readonly context: AccessContext
 }
 

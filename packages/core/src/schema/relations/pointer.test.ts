@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Pointer, snapshotPointerValue } from '../../index.js'
+import { createPointer } from './pointer.js'
 import {
 	registerOperationExecutionHandler,
 	runWithQueryExecution,
@@ -21,7 +22,7 @@ const targetId = '0198f090-2a50-7000-8000-000000000034'
 
 describe('Pointer', () => {
 	it('keeps one immutable logical identity without loading its target', () => {
-		const pointer = new Pointer(userSchema, targetId)
+		const pointer = userSchema.pointer(targetId)
 
 		expect(pointer.schema).toBe(userSchema)
 		expect(pointer.id).toBe(targetId)
@@ -40,13 +41,11 @@ describe('Pointer', () => {
 	})
 
 	it('compares exact schema identity together with the target id', () => {
-		const pointer = new Pointer(userSchema, targetId)
+		const pointer = userSchema.pointer(targetId)
 
-		expect(pointer.equals(new Pointer(userSchema, targetId))).toBe(true)
-		expect(pointer.equals(new Pointer(userSchema, `${targetId}-other`))).toBe(
-			false,
-		)
-		expect(pointer.equals(new Pointer(otherSchema, targetId))).toBe(false)
+		expect(pointer.equals(userSchema.pointer(targetId))).toBe(true)
+		expect(pointer.equals(userSchema.pointer(`${targetId}-other`))).toBe(false)
+		expect(pointer.equals(otherSchema.pointer(targetId))).toBe(false)
 		expect(pointer.equals(pointer.toJSON())).toBe(false)
 	})
 
@@ -98,7 +97,7 @@ describe('Pointer', () => {
 	})
 
 	it('structurally shares trusted values at snapshot boundaries', () => {
-		const pointer = new Pointer(userSchema, targetId)
+		const pointer = userSchema.pointer(targetId)
 
 		// A Pointer contains only frozen schema identity and an immutable string.
 		expect(snapshotPointerValue(pointer, 'input.author')).toBe(pointer)
@@ -107,19 +106,24 @@ describe('Pointer', () => {
 		).toThrow(new TypeError('input.author must be a Pointer'))
 	})
 
-	it('rejects forged schemas, invalid ids, and subclass construction', () => {
+	it('rejects direct construction, forged schemas, invalid ids, and subclasses', () => {
+		// ADR-0314: only a schema creates its Pointers.
 		expect(() => {
-			// @ts-expect-error -- Runtime construction protects JavaScript callers.
-			new Pointer({}, targetId)
+			Reflect.construct(Pointer, [userSchema, targetId])
 		}).toThrow(
+			new TypeError(
+				'Pointer cannot be constructed directly: use Schema.pointer(id), for example Todo.pointer(id)',
+			),
+		)
+		expect(() => createPointer({} as never, targetId)).toThrow(
 			new TypeError('Pointer schema must be created by App.Schema.define'),
 		)
-		expect(() => new Pointer(userSchema, '')).toThrow()
+		expect(() => userSchema.pointer('')).toThrow()
 
+		// @ts-expect-error -- The constructor is private (ADR-0314).
 		class ExtendedPointer extends Pointer<typeof userSchema> {}
-
-		expect(() => new ExtendedPointer(userSchema, targetId)).toThrow(
-			new TypeError('Pointer cannot be subclassed'),
-		)
+		expect(() => {
+			Reflect.construct(ExtendedPointer, [userSchema, targetId])
+		}).toThrow(TypeError)
 	})
 })

@@ -1,5 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { runPostCommitEffect } from '../../errors/post-commit-errors.js'
+
 import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type {
@@ -40,6 +42,10 @@ interface RuntimeResultFinalizationRequest<
 	readonly stages: Readonly<RuntimePipelineStages>
 	readonly virtualProjection: RuntimeVirtualFieldProjection | undefined
 	readonly virtualScheduler: RuntimeVirtualFieldScheduler | undefined
+	/** Checks the resulting rows against the row read rules (ADR-0306). */
+	readonly assertReadableResult?: (
+		outcome: DatabaseMutationMaterializationSource,
+	) => Promise<void>
 }
 
 /** Owns the shared terminal order after one persisted result is available. */
@@ -123,6 +129,13 @@ export const finalizeRuntimeOperationResult = async <
 		result,
 		selectedFieldsOverride,
 	) as unknown as RuntimeOperationResult<TOperation>
+	// After the after hooks, before the final output restrictions (ADR-0306).
+	if (
+		request.assertReadableResult !== undefined &&
+		request.outcome !== undefined
+	) {
+		await request.assertReadableResult(request.outcome)
+	}
 	if (stages.enforcement !== undefined && enforcement !== undefined) {
 		result = await stages.enforcement.enforceResult(
 			immutableRecord({ ...stageInput, enforcement, result }),
@@ -135,8 +148,9 @@ export const finalizeRuntimeOperationResult = async <
 	})
 	const completed = immutableRecord({ ...stageInput, result })
 	await stages.commit(completed)
-	if (stages.behaviors?.postCommit !== undefined) {
-		await stages.behaviors.postCommit(completed)
+	const postCommit = stages.behaviors?.postCommit
+	if (postCommit !== undefined) {
+		await runPostCommitEffect(() => postCommit(completed))
 	}
 	return result
 }

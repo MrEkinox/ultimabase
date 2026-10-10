@@ -16,6 +16,7 @@ sources:
   - docs/adr/0109-constructible-schema-models.md
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
+  - docs/adr/0306-readable-mutation-results.md
 ---
 
 Use `Post.createOne()` to persist one record. `data` describes the new record;
@@ -64,6 +65,14 @@ structure, and commits the root and pointer connection in one automatic
 transaction. The optional Validation, Access, and Hooks plugins participate
 only when installed. If target validation, an installed policy or hook, or
 persistence fails, the transaction rolls back; no partial post is committed.
+
+The result obeys the row read rules of installed policies, like PostgreSQL's
+`RETURNING` under row-level security. When the caller may create a row it
+cannot read, a result selecting anything beyond `id` fails with
+`PERMISSION_DENIED` and nothing is written; request `select: { id: true }`,
+which is always allowed. The same holds for update, upsert and delete results
+and for bulk commands, where one unreadable row rejects the call. Master skips
+the check.
 
 ## Drafts and other create paths
 

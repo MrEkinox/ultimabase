@@ -69,6 +69,8 @@ import {
 	enforceRuntimeOperation,
 } from './stage-inputs.js'
 import { finalizeRuntimeOperationResult } from './result-finalization.js'
+import { bindRuntimePolicyQuery } from '../enforcement/policy-query-binding.js'
+import { prepareReadableResultHooks } from '../enforcement/readable-results.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Identifies one Core-owned nested mutation while it uses the ordinary pipeline. */
@@ -80,6 +82,7 @@ interface ActiveNestedWrite {
 /** Shares one bounded virtual scheduler and relation cache across a root operation. */
 interface RuntimeOperationScope {
 	readonly nested: ActiveNestedWrite | undefined
+	readonly nestedChild?: true
 	readonly relationFilters: RuntimeRelationFilterResolver | undefined
 	readonly virtualFields: RuntimeVirtualFieldScheduler | undefined
 }
@@ -244,6 +247,7 @@ export class RuntimePipeline {
 			inclusions: this.#inclusionProjector,
 			stages: this.#stages,
 		})
+		bindRuntimePolicyQuery(this, this.#stages)
 		mutationBatchProjectors.set(this, (request) =>
 			this.#inclusionProjector.projectMutationBatch(
 				request,
@@ -353,7 +357,7 @@ export class RuntimePipeline {
 								: { protectedPolicyDeniedAsMissing: denied }),
 							...(relation === undefined ? {} : { relation }),
 						}),
-						{ nested, relationFilters, virtualFields },
+						{ nested, nestedChild: true, relationFilters, virtualFields },
 					)
 				} catch (error: unknown) {
 					if (denied === true && isProtectedPolicyDenied(error)) {
@@ -456,6 +460,17 @@ export class RuntimePipeline {
 			operation,
 			relationFilters,
 		)
+		// Nested children answer through the root's inclusions (ADR-0306).
+		const readable =
+			scope.nestedChild === true
+				? {}
+				: prepareReadableResultHooks({
+						context,
+						executor: stages.databaseOperation,
+						operation,
+						relationFilters,
+						stages,
+					})
 		const cancellation = {
 			operationKind: operation.kind,
 			phase: 'database-operation',
@@ -490,6 +505,9 @@ export class RuntimePipeline {
 				...(virtualProjection === undefined
 					? {}
 					: { returningSelection: virtualProjection.persistedSelection }),
+				...(readable.targets === undefined
+					? {}
+					: { assertReadableTargets: readable.targets }),
 			}),
 			stages.finalMutationValidation,
 			stages.enforcement,
@@ -544,6 +562,9 @@ export class RuntimePipeline {
 			stages,
 			virtualProjection,
 			virtualScheduler: virtualFields,
+			...(readable.result === undefined
+				? {}
+				: { assertReadableResult: readable.result }),
 		})
 	}
 }

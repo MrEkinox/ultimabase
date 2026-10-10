@@ -12,6 +12,13 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
+export { getRequestPrincipal } from './context/request-principal.js'
+export { readPolicyQuery } from './enforcement/policy-query.js'
+export type { PolicyQuery } from './enforcement/policy-query.js'
+export type {
+	CanOperation,
+	CanOptions,
+} from './application/policy-query-execution.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
 export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
 export type {

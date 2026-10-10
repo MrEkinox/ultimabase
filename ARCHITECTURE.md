@@ -143,7 +143,7 @@ access-plugin ────────→ plugin-kit, core, shared
 validation-plugin ────→ plugin-kit, core, shared
 soft-delete-plugin ───→ plugin-kit, core, shared
 pg-vector-plugin ─────→ core, shared
-roles-plugin ─────────→ access-plugin, plugin-kit, core, shared
+roles-plugin ─────────→ plugin-kit, core, shared
 acl-permissions-plugin → plugin-kit, core, shared
 postgres-plugin ──────→ plugin-kit, core, shared
 http-plugin ──────────→ plugin-kit, core, shared
@@ -776,7 +776,7 @@ stores public, authenticated, exact schema-qualified principal, and
 schema-qualified role grants for `read`, `update`, and `delete`. The reserved
 ACL field itself is visible and mutable only under trusted master execution;
 ordinary object update grants never authorize ACL management.
-The ACL package consumes an optional neutral current-principal resolver and the
+The ACL package reads the Core current principal (ADR-0304) and consumes the
 separate neutral role resolver; it never imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.

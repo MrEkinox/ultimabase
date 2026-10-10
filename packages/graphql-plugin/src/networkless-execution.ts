@@ -1,6 +1,7 @@
 import {
 	RequestContext,
 	type ApplicationCallbackExecutor,
+	type PointerValue,
 	type ApplicationRequestExecutor,
 	type PluginIdentity,
 } from '@ultimabase/core'
@@ -36,6 +37,13 @@ export interface GraphqlExecuteOptions {
 	readonly context: RequestContext
 	readonly document: string | DocumentNode
 	readonly operationName?: string
+	/**
+	 * Runs the document as this principal instead of the authentication
+	 * provider's answer for `context`; `undefined` runs it anonymously
+	 * (ADR-0304). Server-side only.
+	 * @example `principal: TodoUser.pointer(userId)`
+	 */
+	readonly principal?: PointerValue | undefined
 	readonly variables?: Readonly<Record<string, unknown>>
 }
 
@@ -43,6 +51,7 @@ const optionKeys = new Set([
 	'context',
 	'document',
 	'operationName',
+	'principal',
 	'variables',
 ])
 
@@ -318,8 +327,13 @@ export class GraphqlNetworklessExecution {
 
 	async execute(options: GraphqlExecuteOptions): Promise<ExecutionResult> {
 		assertOptions(options)
+		// An explicit principal, even `undefined`, replaces the provider's answer.
+		const requestContext =
+			'principal' in options
+				? options.context.withPrincipal(options.principal)
+				: options.context
 		return await this.#callbacks.runPlugin(this.#owner, () =>
-			this.#executor.runWithContext(options.context, async (context) => {
+			this.#executor.runWithContext(requestContext, async (context) => {
 				let document: DocumentNode
 				let variables: Readonly<Record<string, unknown>> | undefined
 				try {

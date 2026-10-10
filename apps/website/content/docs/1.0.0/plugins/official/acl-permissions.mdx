@@ -12,11 +12,13 @@ sources:
   - packages/acl-permissions-plugin/README.md
   - packages/acl-permissions-plugin/src/acl-access.ts
   - packages/acl-permissions-plugin/src/acl-option.ts
+  - packages/acl-permissions-plugin/src/acl.ts
   - packages/acl-permissions-plugin/tests/e2e/acl-access-postgres.postgres.e2e.test.ts
   - docs/adr/0123-master-only-acl-management.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0218-master-bypasses-authorization-policies.md
   - docs/adr/0283-acl-callbacks-use-retained-typegen-graph.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
 ---
 
 ## Overview
@@ -146,11 +148,17 @@ versioned data, and `ACL.fromJSON()` strictly validates that format.
 
 `acl.default` may be a static ACL or a synchronous/asynchronous function. Its
 `data` argument contains the resolved developer fields for the new record;
-`principal` is the current exact Pointer when an identity provider is
-installed. The default runs independently for each created item. For a
-private-by-default owner policy, derive a grant from `principal`; if it is
-absent, return an empty ACL. See [Password Authentication](./password-authentication)
-for one identity provider.
+`principal` is the request principal resolved by Core (`undefined` when
+anonymous). The default runs independently for each created item. For a
+private-by-default owner policy, return `new ACL(principal)`: the owner may
+read, update and delete, and an anonymous caller gets an empty ACL.
+
+```ts title="src/owned-note.ts"
+acl: { default: ({ principal }) => new ACL(principal) }
+```
+
+See [Password Authentication](./password-authentication) for one identity
+provider.
 
 To supply an ACL explicitly on create or replace one on update, trusted server
 code must use audited Master authority **and** the schema must declare

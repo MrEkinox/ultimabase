@@ -5,14 +5,13 @@ import {
 	getCurrentEngine,
 	getCurrentRequest,
 	getOperationSchema,
+	getRequestPrincipal,
 	optionalCapability,
-	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	Schema,
 	type ApplicationCapabilityFactoryContext,
 	type CapabilityRequirement,
 	type DatabaseMutationMaterializationSource,
-	type RequestPrincipalResolver,
 	type RequestRoleResolver,
 	type RequestSubjectContext,
 	type RuntimeLogicalOperationAst,
@@ -45,13 +44,7 @@ import {
 	type PersistentRoleResolver,
 } from './acl-operation-resolution.js'
 
-/** Discovers the optional identity providers after setup, in any install order. */
-export const optionalPrincipalResolver: CapabilityRequirement<
-	typeof requestPrincipalResolverCapability,
-	true,
-	'^1.0.0',
-	'materialization'
-> = optionalCapability(requestPrincipalResolverCapability, '^1.0.0')
+/** Discovers the optional role provider after setup, in any install order. */
 export const optionalRoleResolver: CapabilityRequirement<
 	typeof requestRoleResolverCapability,
 	true,
@@ -106,7 +99,6 @@ const createACLApplicationState = (
 		const limits = resolveACLEntryLimits(pluginLimits, config.limits)
 		options.set(schema, { config, limits, schema })
 	}
-	const principal = capabilities.contributions(optionalPrincipalResolver)[0]
 	const role = capabilities.contributions(optionalRoleResolver)[0]
 
 	if (role === undefined && [...configs.values()].some(hasStaticRoleGrant)) {
@@ -123,15 +115,6 @@ const createACLApplicationState = (
 	}
 
 	// Provider callbacks keep their exact owner so Core attributes their effects.
-	const principalResolver: RequestPrincipalResolver | undefined =
-		principal === undefined
-			? undefined
-			: {
-					resolveCurrent: (input) =>
-						callbacks.runPlugin(principal.owner, () =>
-							principal.value.resolveCurrent(input),
-						),
-				}
 	const resolveCurrentRoles = role?.value.resolveCurrentRoles?.bind(role.value)
 	const resolvePersistentRole = role?.value.resolvePersistentRole?.bind(
 		role.value,
@@ -151,12 +134,11 @@ const createACLApplicationState = (
 		const cached = subjectCache.get(cacheKey)
 		if (cached !== undefined) return cached
 
-		const resolution = resolveACLAccessSubjects(
-			// Subject providers receive the original request, not a derived hook view.
-			getCurrentRequest(),
-			principalResolver,
-			roleResolver,
-			(schema) => schemas.get(schema.className) === schema,
+		// Subject providers receive the original request, not a derived hook view;
+		// Core resolves its principal once per request (ADR-0304).
+		const request = getCurrentRequest()
+		const resolution = getRequestPrincipal(request).then((principal) =>
+			resolveACLAccessSubjects(request, principal, roleResolver),
 		)
 		subjectCache.set(cacheKey, resolution)
 		return resolution

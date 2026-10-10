@@ -110,9 +110,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		}
 
 		await article.relation('tags').connect([alpha.id, zeta.id, hidden.id])
+		// The hidden result is requested as `select: { id: true }` (ADR-0306).
 		await Tag.updateOne({
 			where: { id: { eq: hidden.id } },
 			data: { visible: false },
+			select: { id: true },
 		})
 		relationTrace.length = 0
 		// Nested circular inclusions are Runtime coverage here; the retained
@@ -252,8 +254,10 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('denies relation traversal at the source field before returning targets', async () => {
 		const tag = await Tag.createOne({ data: { label: 'private' } })
+		// Without a visible tag the article is not readable yet (ADR-0306).
 		const article = await PrivateArticle.createOne({
 			data: { title: 'Private relation' },
+			select: { id: true },
 		})
 
 		await article.relation('tags').connect(tag.id)

@@ -1,5 +1,4 @@
 import {
-	Pointer,
 	SchemaRegistry,
 	UltimaBase,
 	definePluginField,
@@ -295,7 +294,7 @@ describe('REST response values', () => {
 			moment: '2026-09-05T12:34:56.789Z',
 			payload: { bytes: Uint8Array.from([4]), sequence: 12n },
 			related: [author],
-			reviewer: new Pointer(ResponseAuthor, authorId),
+			reviewer: ResponseAuthor.pointer(authorId),
 			score: 1.5,
 			tags: ['one', 'two'],
 			uid: '01890f47-79c7-7a2b-8c09-9b87390b9d45',

@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import {
 	getPluginFieldStorageCodec,
 	Pointer,
+	Schema,
 	snapshotScalarFieldValue,
 	type FieldValidationPlan,
 	type SchemaDefinition,
@@ -63,7 +64,11 @@ export const createPostgresPointerValueCodec = (
 					throw new TypeError('PostgreSQL pointer value must be a UUID string')
 				}
 
-				return new Pointer(target, value)
+				// Its schema creates every Pointer (ADR-0314).
+				if (!Schema.is(target)) {
+					throw new TypeError('PostgreSQL pointer target must be a schema')
+				}
+				return target.pointer(value)
 			},
 			(value: unknown): string => {
 				const pointer = snapshotScalarFieldValue(

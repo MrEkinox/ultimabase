@@ -1,6 +1,6 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import {
 	getFieldSchemaTarget,
-	Pointer,
 	Schema,
 	type SchemaDefinition,
 	type SchemaRelationFieldName,
@@ -111,7 +111,7 @@ const normalizePointerIdentityOperand = (
 		throw new TypeError(`${path} must be a target object id`)
 	}
 
-	return new Pointer(targetSchema, operand)
+	return createPointer(targetSchema, operand)
 }
 
 /** Converts one canonical operator entry into its portable primitive leaf. */

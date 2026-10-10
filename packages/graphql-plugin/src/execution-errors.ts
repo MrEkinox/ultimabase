@@ -1,4 +1,4 @@
-import { FrameworkError, PluginError } from '@ultimabase/core'
+import { FrameworkError, PluginError, PublicError } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { GraphQLError, type GraphQLErrorExtensions } from 'graphql'
 
@@ -30,7 +30,9 @@ const safeDetails = (
 }
 
 // Only explicitly public Core and plugin metadata ever reaches the client.
-const publicFailure = (error: FrameworkError | PluginError): PublicFailure => {
+const publicFailure = (
+	error: FrameworkError | PluginError | PublicError<string>,
+): PublicFailure => {
 	const payload = error.toJSON()
 	if (payload.message === undefined) return internalFailure
 	const details =
@@ -50,7 +52,10 @@ const failureFor = (error: unknown): PublicFailure => {
 	if (error instanceof GraphqlInvalidCursorError) {
 		return { code: error.code, message: error.message, retryable: false }
 	}
-	return error instanceof FrameworkError || error instanceof PluginError
+	// Application errors keep their code in `extensions.code` (ADR-0305).
+	return error instanceof FrameworkError ||
+		error instanceof PluginError ||
+		error instanceof PublicError
 		? publicFailure(error)
 		: internalFailure
 }
@@ -61,6 +66,10 @@ export const createSafeGraphqlError = (
 	requestId: string,
 ): GraphQLError => {
 	const failure = failureFor(error)
+	if (failure === internalFailure) {
+		// Masked failures keep their stack in server logs only (ADR-0305).
+		console.error(`[UltimaBase] GraphQL request ${requestId} failed`, error)
+	}
 	const extensions: GraphQLErrorExtensions = {
 		code: failure.code,
 		requestId,

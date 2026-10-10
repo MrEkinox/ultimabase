@@ -27,9 +27,6 @@ export const securitySchemaImports = (plan: InitializerPlan): NamedImport[] => [
 		['password-auth-plugin', 'PasswordUserSchema'],
 		['roles-plugin', 'RoleSchema, rolesPlugin'],
 	]),
-	...(has(plan, 'roles-plugin') && hasAuth(plan)
-		? [['@ultimabase/password-auth-plugin', 'passwordPrincipal'] as const]
-		: []),
 ]
 
 /** Installs security plugins once on the schema-owning application factory. */
@@ -45,10 +42,9 @@ export const securitySchemaPluginEntries = (plan: InitializerPlan): string[] =>
 		[has(plan, 'roles-plugin'), 'rolesPlugin()'],
 	])
 
+// The current member is the request principal resolved by Core (ADR-0304).
 const roleMembers = (plan: InitializerPlan): string =>
-	hasAuth(plan)
-		? 'AppUser,\n    resolveCurrent: ({ context }) => context.getValue(passwordPrincipal)?.user'
-		: 'Member'
+	hasAuth(plan) ? 'AppUser' : 'Member'
 
 export const securitySchemaDeclarations = (plan: InitializerPlan): string =>
 	included([
@@ -114,10 +110,6 @@ export const securityApplicationImports = (
 		],
 		[hasAuth(plan), ['@ultimabase/password-auth-plugin', 'passwordAuthPlugin']],
 		[hasProfilePolicy(plan), ['@ultimabase/core', 'plugin']],
-		[
-			hasProfilePolicy(plan),
-			['@ultimabase/password-auth-plugin', 'passwordPrincipal'],
-		],
 	])
 
 export const securitySchemaNames = (plan: InitializerPlan): string[] =>
@@ -146,10 +138,8 @@ const profilePolicy = plugin({
       schemas.values().map((schema) => schema === AppUser
         ? schemaAccess(AppUser, {
             read: {
-              where: ({ context, where }) => {
-                const principal = context.getValue(passwordPrincipal)
-                return where.in('id', principal === undefined ? [] : [principal.user.id])
-              },
+              where: ({ principal, where }) =>
+                where.in('id', principal === undefined ? [] : [principal.id]),
             },
           })
         : schemaAccess(schema, { read: false })),
@@ -192,7 +182,7 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			has(plan, 'access-plugin'),
-			'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority.',
+			'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.',
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

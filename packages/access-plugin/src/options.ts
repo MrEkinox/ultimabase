@@ -6,6 +6,8 @@ import {
 	type PluginSourceFieldValue,
 	type PluginSourceOpaque,
 	type PluginSourceRelationChange,
+	type PolicyOperation,
+	type Principal,
 	type SchemaDefinition,
 	type SchemaOptionDefinition,
 	type SchemaOptionRuntimeRequirement,
@@ -34,17 +36,19 @@ export type SchemaAccessOption<TOptions> = SchemaAccess<
 	SchemaForOptions<TOptions>
 >
 
+// Field rules receive the Core policy context like every Access rule (ADR-0304).
 interface SourceFieldAccessInput {
 	readonly context: PluginSourceOpaque<AccessContext>
+	readonly operation: PluginSourceOpaque<PolicyOperation>
+	readonly principal: PluginSourceOpaque<Principal | undefined>
+	readonly schema: PluginSourceOpaque<string>
 }
 
-interface SourceFieldValueAccessInput {
-	readonly context: PluginSourceOpaque<AccessContext>
+interface SourceFieldValueAccessInput extends SourceFieldAccessInput {
 	readonly value: PluginSourceFieldObjectValue
 }
 
-interface SourceFieldPresentValueAccessInput {
-	readonly context: PluginSourceOpaque<AccessContext>
+interface SourceFieldPresentValueAccessInput extends SourceFieldAccessInput {
 	readonly value: PluginSourceFieldValue
 }
 
@@ -52,8 +56,7 @@ interface SourceFieldReplaceAccessInput extends SourceFieldPresentValueAccessInp
 	readonly originalValue: PluginSourceFieldValue
 }
 
-interface SourceFieldClearAccessInput {
-	readonly context: PluginSourceOpaque<AccessContext>
+interface SourceFieldClearAccessInput extends SourceFieldAccessInput {
 	readonly originalValue: PluginSourceFieldObjectValue
 }
 

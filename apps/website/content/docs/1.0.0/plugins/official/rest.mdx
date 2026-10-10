@@ -18,6 +18,8 @@ sources:
   - packages/rest-plugin/src/response-values.ts
   - examples/minimal/src/create-application.ts
   - docs/adr/0228-experimental-http-rest-v1-wire-contract.md
+  - docs/adr/0305-public-errors-and-can.md
+  - docs/adr/0306-readable-mutation-results.md
 ---
 
 ## Overview
@@ -210,6 +212,11 @@ schema-command-shaped JSON bodies. REST decodes input, then Core applies
 structural validation and any installed Validation, Access, ACL, and Hooks
 behavior. A public route is not itself a permission rule.
 
+Mutation results obey the row read rules. A client allowed to write a row it
+cannot read asks for the identifier alone: `?select=id` on create, update and
+delete, or `"select": { "id": true }` in an upsert or bulk body. Any other
+selection of an unreadable result fails with `403` and nothing is written.
+
 Application operation bodies use exactly `{ "input": value }`, unlike ordinary
 create/update field bodies. The Password Auth guide shows each concrete input.
 
@@ -226,8 +233,11 @@ After REST dispatch, errors use
 `{ error: { code, message, retryable, requestId, details? } }`.
 Permission failures return 403, hidden or missing targets return 404,
 validation failures return 422, and storage conflicts (`UNIQUE_VIOLATION`,
-`REFERENCE_VIOLATION`, and the retryable `TRANSACTION_CONFLICT`) return 409. Unexpected exceptions become a safe
-`REST_INTERNAL_ERROR` response rather than exposing internal diagnostics.
+`REFERENCE_VIOLATION`, and the retryable `TRANSACTION_CONFLICT`) return 409. A
+[`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) thrown by
+application code returns 400 with its code, message and details. Unexpected
+exceptions become a safe `REST_INTERNAL_ERROR` response rather than exposing
+internal diagnostics; the server logs them with their stack.
 The response carries `X-UltimaBase-Request-Id`; keep it with the safe code when
 reporting a failure. Earlier application identity or credential failures retain
 the HTTP plugin's envelope and never enter REST.
