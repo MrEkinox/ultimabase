@@ -134,12 +134,19 @@ filter. A predicate that throws rejects the operation; throw a `PublicError`
 to tell the client why.
 
 ```ts
-import { isAuthenticated } from '@ultimabase/core'
+import { UltimaBase, isAuthenticated } from '@ultimabase/core'
+import { accessPlugin } from '@ultimabase/access-plugin'
 
-access: {
-	create: isAuthenticated,
-	update: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
-}
+const App = UltimaBase.use(accessPlugin())
+export const Note = App.Schema.define({
+	className: 'Note',
+	fields: (field) => ({ author: field.string(), body: field.string() }),
+}).with({
+	access: {
+		create: isAuthenticated,
+		update: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
+	},
+})
 ```
 
 Mutation results obey the row `read` rules (ADR-0306): a write whose result
