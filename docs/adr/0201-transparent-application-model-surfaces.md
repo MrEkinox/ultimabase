@@ -1,6 +1,7 @@
 # ADR-0201: Application-bound results expose plugin model commands directly
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0310
 - Date: 2026-08-19
 - Refines: ADR-0153, ADR-0192, ADR-0197, ADR-0198
 - Depends on: ADR-0192, ADR-0197, ADR-0198

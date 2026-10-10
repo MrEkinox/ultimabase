@@ -1,6 +1,7 @@
 # ADR-0227: Core Query exposes offset, not cursors
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0309
 - Date: 2026-09-04
 - Supersedes: ADR-0056
 - Refines: ADR-0057, ADR-0058, ADR-0084, ADR-0085, ADR-0152, ADR-0155
