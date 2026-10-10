@@ -179,10 +179,10 @@ const visible = await Post.findOne({
 })
 ```
 
-`deleted` contains the same ID and title with `isDeleted: false`: like a
-delete, a soft delete answers with the record **before** deletion, checked
-against the read rules while it is still visible (ADR-0306). `visible` is
-`null`. Keep the ID if trusted
+`deleted` contains the same ID and title with `isDeleted: true`: it is the
+record **after** soft deletion. Mutation results obey the read rules: Core
+checks the row while it is still visible, before the deletion hides it, and
+field rules still mask the returned fields. `visible` is `null`. Keep the ID if trusted
 server code will restore it later. Repeating `softDelete()` for that ID fails
 with `NOT_FOUND`, just as it does for an absent target.
 
@@ -278,14 +278,14 @@ The ID belongs in the URL. The JSON body controls the result selection; soft
 delete has no operation payload, so omit `input`. Send `{}` when you need the
 default selection. Do not send `isDeleted` as create or update data.
 
-Expect HTTP `200` with the **pre-delete** record:
+Expect HTTP `200` with the **post-delete** record:
 
 ```json title="soft-delete.response.json"
 {
 	"result": {
 		"id": "POST_ID",
 		"title": "Draft announcement",
-		"isDeleted": false
+		"isDeleted": true
 	}
 }
 ```
@@ -350,7 +350,7 @@ mutation SoftDeletePost($id: ID!) {
 
 The generated field accepts `input: SoftDeletePostInput!`, containing only
 `id: ID!`. There is no `data` or `isDeleted` input. Select the fields you need
-from the **pre-delete** record:
+from the **post-delete** record:
 
 ```json title="soft-delete.graphql.response.json"
 {
@@ -358,7 +358,7 @@ from the **pre-delete** record:
 		"softDeletePost": {
 			"id": "POST_ID",
 			"title": "Draft announcement",
-			"isDeleted": false
+			"isDeleted": true
 		}
 	}
 }
@@ -457,8 +457,9 @@ mutation DeletePost($id: ID!) {
 }
 ```
 
-Both return the **pre-delete** record, so the selected `isDeleted` is `false`
-even though the stored row is now a hidden tombstone. Verify with the ordinary
+Both return the record as written, so the selected `isDeleted` is `true`: Core
+checks the row against the read rules while it is still visible, then the
+logical delete answers with the tombstone it wrote (ADR-0306). Verify with the ordinary
 reads above, then use the same private restore or purge commands. The public
 REST/GraphQL delete operations must still be enabled and authorized.
 

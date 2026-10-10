@@ -245,13 +245,12 @@ describe('documented official soft-delete public vertical', () => {
 		const modelId = await createArticle('direct-model')
 		const restId = await createArticle('rest-explicit')
 		const yogaId = await createArticle('yoga-explicit')
-		// A soft delete answers with its pre-image, like a delete (ADR-0306).
 		await expect(
 			minimal.softDeleteArticle(app, schemaId, sessionToken),
-		).resolves.toMatchObject({ id: schemaId, isDeleted: false })
+		).resolves.toMatchObject({ id: schemaId, isDeleted: true })
 		await expect(
 			minimal.softDeleteArticleFromModel(app, modelId, sessionToken),
-		).resolves.toMatchObject({ id: modelId, isDeleted: false })
+		).resolves.toMatchObject({ id: modelId, isDeleted: true })
 
 		const restDeleted = await authenticated.fetch(
 			`${articlePath}/${restId}/soft-delete`,
@@ -263,7 +262,7 @@ describe('documented official soft-delete public vertical', () => {
 		)
 		expect(restDeleted.status).toBe(200)
 		expect(await restDeleted.json()).toMatchObject({
-			result: { id: restId, isDeleted: false },
+			result: { id: restId, isDeleted: true },
 		})
 
 		const yogaDeleted = await graphqlHttp(
@@ -275,7 +274,7 @@ describe('documented official soft-delete public vertical', () => {
 		)
 		expect(graphqlData(yogaDeleted, 'softDeleteExampleArticle')).toEqual({
 			id: yogaId,
-			isDeleted: false,
+			isDeleted: true,
 		})
 
 		const hidden = await invoke(minimal.ExampleArticle, 'findMany', [

@@ -49,6 +49,7 @@ const Archived = App.Schema.define({
 	fields: (field) => ({
 		title: field.string({ required: true }),
 		visible: field.boolean({ default: true }),
+		secret: field.string({ access: { read: false } }),
 	}),
 })
 	.softDelete()
@@ -58,7 +59,12 @@ const Archived = App.Schema.define({
 
 const Explicit = App.Schema.define({
 	className: 'ReadableExplicit',
-	fields: (field) => ({ title: field.string({ required: true }) }),
+	fields: (field) => ({
+		title: field.string({ required: true }),
+		visible: field.boolean({ default: true }),
+		secret: field.string({ access: { read: false } }),
+	}),
+	access: { read: { where: ({ where }) => where.eq('visible', true) } },
 	softDelete: 'explicit',
 })
 
@@ -273,20 +279,32 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		).resolves.toHaveProperty('id')
 	})
 
-	it('uses pre-images for Soft Delete deletes and its softDelete command', async () => {
-		const shown = await Archived.createOne({ data: { title: 'archive-shown' } })
+	it('checks Soft Delete deletes on the pre-image and returns the post-image', async () => {
+		const shown = await Archived.createOne({
+			data: { title: 'archive-shown', secret: 'kept private' },
+		})
 		const hidden = await Archived.createOne({
 			data: { title: 'archive-hidden', visible: false },
 			select: { id: true },
 		})
-		await expect(
-			Archived.deleteOne({ where: { id: { eq: shown.id } } }),
-		).resolves.toMatchObject({ title: 'archive-shown' })
+		// Readable before: the logical delete answers with the written row,
+		// and field rules still mask `secret`.
+		const deleted = await Archived.deleteOne({
+			where: { id: { eq: shown.id } },
+		})
+		expect(deleted).toMatchObject({ isDeleted: true, title: 'archive-shown' })
+		expect(deleted).not.toHaveProperty('secret')
+		// Unreadable before: refused, and nothing is written.
 		await expect(
 			Archived.deleteOne({ where: { id: { eq: hidden.id } } }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			Archived.count(
+				{ where: { title: { eq: 'archive-hidden' } } },
+				{ useMasterKey: true },
+			),
+		).resolves.toBe(1)
 
-		const explicit = await Explicit.createOne({ data: { title: 'explicit' } })
 		const softDelete: unknown = Reflect.get(
 			application().schema(Explicit),
 			'softDelete',
@@ -294,10 +312,25 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		if (typeof softDelete !== 'function') {
 			throw new TypeError('softDelete command is missing')
 		}
-		const deleted: unknown = await Reflect.apply(softDelete, undefined, [
-			{ id: explicit.id, select: { title: true } },
-		])
-		expect(deleted).toMatchObject({ id: explicit.id, title: 'explicit' })
+		const softDeleteRow = (id: string): Promise<unknown> =>
+			Promise.resolve(Reflect.apply(softDelete, undefined, [{ id }]))
+		const explicit = await Explicit.createOne({
+			data: { title: 'explicit', secret: 'kept private' },
+		})
+		const deletedExplicit = await softDeleteRow(explicit.id)
+		expect(deletedExplicit).toMatchObject({
+			id: explicit.id,
+			isDeleted: true,
+			title: 'explicit',
+		})
+		expect(deletedExplicit).not.toHaveProperty('secret')
+		const hiddenExplicit = await Explicit.createOne(
+			{ data: { title: 'explicit-hidden', visible: false } },
+			{ useMasterKey: true },
+		)
+		await expect(softDeleteRow(hiddenExplicit.id)).rejects.toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
 	})
 
 	it('offers id-only selections through REST and GraphQL', async () => {

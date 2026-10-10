@@ -86,10 +86,15 @@ Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
     `readPolicyQuery(operation)` exporté par Core pour que les politiques
     ignorent les règles de champ (Access l'utilise) ; la ligne est lue dans
     une transaction toujours annulée (ou dans la transaction active).
-13. **Soft Delete** : `softDelete` déclare `returning: 'before'` (préimage) ;
-    son résultat montre donc `isDeleted: false`. `softDeleteMany`, `purgeMany`
-    et les renommages `…One` sont l'étape 6 ; `purge` déclarait déjà
-    `before`.
+13. **Soft Delete (amendement, option A de l'utilisateur)** : contrôle de
+    lisibilité sur la préimage, résultat en postimage (`isDeleted: true`)
+    pour `softDelete` et pour un `delete` réécrit en pierre tombale ; une
+    suppression physique garde sa préimage. Mécanisme : option générique
+    `checkReadable: 'before' | 'after'` de `defineSchemaMutation` (défaut :
+    `returning`) ; `softDelete` déclare `returning: 'after'` et
+    `checkReadable: 'before'` ; Core applique les valeurs de la réécriture aux
+    champs sélectionnés du résultat d'une suppression réécrite. Amendement
+    inscrit dans ADR-0306. `deletedAt` n'existe pas encore (étape 6).
 14. **Écritures imbriquées** : seuls la racine et les appels directs sont
     vérifiés ; les enfants répondent par les inclusions de la racine, qui
     gardent leurs propres règles (ADR-0306, décision 6).

@@ -21,6 +21,7 @@ import {
 	compileDatabasePersistencePlan,
 } from '../persistence/execution.js'
 import { createDatabasePersistencePlanWithSelection } from '../persistence/plans.js'
+import { readRewrittenDeleteResult } from '../persistence/rewritten-delete-result.js'
 import type { EnforcementState } from '../enforcement/state.js'
 import type { RequestContext } from '../context/request-context.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
@@ -426,6 +427,8 @@ export const executeRuntimeDatabaseOperation = async <
 		outcome,
 		operation,
 		// With eager loading, the transaction-bound get is the authoritative result.
-		result: inclusionSource ?? outcome.result,
+		result:
+			inclusionSource ??
+			readRewrittenDeleteResult(operation, plan, outcome.result),
 	})
 }

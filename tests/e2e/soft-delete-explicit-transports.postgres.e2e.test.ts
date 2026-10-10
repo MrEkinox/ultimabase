@@ -191,7 +191,6 @@ describe('official explicit soft-delete transports', () => {
 			input: unknown,
 		) => Promise<Readonly<Record<string, unknown>>>
 
-		// A soft delete answers with its pre-image, like a delete (ADR-0306).
 		await expect(
 			softDelete({
 				id: row.id,
@@ -199,7 +198,7 @@ describe('official explicit soft-delete transports', () => {
 			}),
 		).resolves.toMatchObject({
 			id: row.id,
-			isDeleted: false,
+			isDeleted: true,
 			title: 'explicit command',
 		})
 		expect(explicitSoftDeleteTrace).toStrictEqual([
@@ -218,7 +217,7 @@ describe('official explicit soft-delete transports', () => {
 			boundSoftDelete({ select: { isDeleted: true, title: true } }),
 		).resolves.toMatchObject({
 			id: bound.id,
-			isDeleted: false,
+			isDeleted: true,
 			title: 'bound command',
 		})
 	})
@@ -287,7 +286,7 @@ describe('official explicit soft-delete transports', () => {
 		)
 		expect(response.status).toBe(200)
 		await expect(response.json()).resolves.toMatchObject({
-			result: { id: restRow.id, isDeleted: false, title: 'REST explicit' },
+			result: { id: restRow.id, isDeleted: true, title: 'REST explicit' },
 		})
 
 		const graphqlRow = await Explicit.createOne({
@@ -311,7 +310,7 @@ describe('official explicit soft-delete transports', () => {
 			data: {
 				softDeleteSoftDeleteTransportExplicit: {
 					id: graphqlRow.id,
-					isDeleted: false,
+					isDeleted: true,
 					title: 'GraphQL explicit',
 				},
 			},
@@ -338,7 +337,7 @@ describe('official explicit soft-delete transports', () => {
 			data: {
 				softDeleteSoftDeleteTransportExplicit: {
 					id: row.id,
-					isDeleted: false,
+					isDeleted: true,
 					title: 'Yoga explicit',
 				},
 			},

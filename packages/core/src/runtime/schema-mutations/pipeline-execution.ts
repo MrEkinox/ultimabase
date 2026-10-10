@@ -393,7 +393,9 @@ export const executeRuntimeSchemaMutation = async (
 		relationFilters: createRuntimeRelationFilterResolver(pipeline),
 		stages,
 	})
-	const preImage = command.definition.returning === 'before'
+	const preImage =
+		(command.definition.checkReadable ?? command.definition.returning) ===
+		'before'
 	if (readable !== undefined && preImage) {
 		await assertReadableMutationRows(readable, [envelope.id])
 	}

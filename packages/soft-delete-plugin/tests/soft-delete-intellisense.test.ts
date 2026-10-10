@@ -103,8 +103,7 @@ void Invalid
 			effect: 'update',
 			mutation: 'ultimabase.soft-delete.soft-delete',
 			name: 'softDelete',
-			// A soft delete answers with its pre-image, like a delete (ADR-0306).
-			returning: 'before',
+			returning: 'after',
 		}),
 	])
 	expect(generated.contents).toContain(

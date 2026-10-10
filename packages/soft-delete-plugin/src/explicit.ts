@@ -19,15 +19,16 @@ export const softDeleteMutation: PluginSchemaMutationDefinition<
 	readonly [],
 	'request',
 	'update',
-	'before'
+	'after'
 > = defineSchemaMutation({
 	authority: 'request',
+	// The row it hides is checked against the read rules before it disappears;
+	// the result is the post-image (ADR-0306, step 2 amendment).
+	checkReadable: 'before',
 	effect: 'update',
 	input: softDeleteNoInput,
 	name: 'ultimabase.soft-delete.soft-delete',
-	// Like a delete, a soft delete answers with the pre-image: the row it hides
-	// is checked against the read rules before it disappears (ADR-0306).
-	returning: 'before',
+	returning: 'after',
 	version: '1.0.0',
 })
 

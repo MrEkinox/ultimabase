@@ -56,6 +56,14 @@ export interface DefinePluginSchemaMutationOptions<
 	readonly name: TName
 	/** Fixes which logical record is returned across every entry path. */
 	readonly returning: TReturning
+	/**
+	 * Selects the row checked against the read rules before the result is
+	 * returned (ADR-0306); defaults to `returning`. `'before'` suits a command
+	 * that hides its row, such as a soft delete: the row was readable just
+	 * before, and only the values the command wrote are new.
+	 * @example `checkReadable: 'before'`
+	 */
+	readonly checkReadable?: PluginSchemaMutationReturning
 	/** Declares flat persisted dependencies privately loaded for the resolver. */
 	readonly select?: TSelect
 	/** Exact semantic protocol version. @example `"1.0.0"` */
@@ -109,6 +117,7 @@ export interface CompiledPluginSchemaMutationDefinition<
 	readonly kind: 'plugin-schema-mutation'
 	readonly name: TName
 	readonly returning: PluginSchemaMutationReturning
+	readonly checkReadable?: PluginSchemaMutationReturning
 	readonly select: PluginSchemaMutationDependencySelection
 	readonly version: TVersion
 }
@@ -188,6 +197,7 @@ export const defineSchemaMutation = <
 		untrusted,
 		new Set([
 			'authority',
+			'checkReadable',
 			'effect',
 			'errors',
 			'input',
@@ -217,6 +227,17 @@ export const defineSchemaMutation = <
 	if (options.effect === 'delete' && options.returning !== 'before') {
 		throw new TypeError('delete schema mutations must return the before record')
 	}
+	const checkReadable: unknown = options.checkReadable
+	if (
+		checkReadable !== undefined &&
+		checkReadable !== 'before' &&
+		checkReadable !== 'after'
+	) {
+		throw new TypeError('schema mutation checkReadable must be before or after')
+	}
+	if (options.effect === 'delete' && options.checkReadable === 'after') {
+		throw new TypeError('delete schema mutations must check the before record')
+	}
 
 	const definition = immutableRecord({
 		authority: options.authority,
@@ -226,6 +247,9 @@ export const defineSchemaMutation = <
 		kind: 'plugin-schema-mutation' as const,
 		name: options.name,
 		returning: options.returning,
+		...(options.checkReadable === undefined
+			? {}
+			: { checkReadable: options.checkReadable }),
 		select: snapshotSelection(options.select),
 		version: options.version,
 	}) as PluginSchemaMutationDefinition<
@@ -266,6 +290,9 @@ export const compilePluginSchemaMutationDefinition = (
 		kind: definition.kind,
 		name: definition.name,
 		returning: definition.returning,
+		...(definition.checkReadable === undefined
+			? {}
+			: { checkReadable: definition.checkReadable }),
 		select: definition.select,
 		version: definition.version,
 	})

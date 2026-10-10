@@ -56,3 +56,17 @@ implemented by Core rather than by an adapter.
 
 Field-level rules, inclusion semantics, and the visibility check of `connect` targets (forms
 decision 11, its own ADR).
+
+## Step 2 amendment (2026-10-10)
+
+Decided by the user while reviewing Core migration step 2 (option A). A logical delete is still
+checked against the read rules on its pre-image (decision 2), but it returns its post-image:
+Soft Delete's `softDelete` and a `delete` that Soft Delete rewrites into a tombstone answer with
+the row as written (`isDeleted: true`, and `deletedAt` once it exists), and field output rules
+still apply to that row. A physical delete keeps returning its pre-image. Rationale: the row was
+readable just before the operation, and only the values the operation wrote are new.
+
+A plugin mutation declares which row is checked with `checkReadable: 'before' | 'after'`
+(defaults to `returning`); `softDelete` declares `returning: 'after'` and
+`checkReadable: 'before'`. Core gives a delete rewritten into an update the rewrite's values on
+the selected fields of its result.
