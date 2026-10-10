@@ -12,6 +12,7 @@ import {
 	type PointerValue,
 	type PolicyPredicate,
 } from '@ultimabase/core'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
@@ -140,6 +141,7 @@ const masterKey = 'principal-policies-master-secret'
 const createApplication = (fixture: PostgresWorkerFixture) =>
 	new (App.use(
 		identityPlugin,
+		graphqlPlugin({ default: { mutations: true } }),
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
 	))({
 		masterAuthority: new MasterAuthority({
@@ -287,6 +289,36 @@ describe('neutral current principal and policy predicates (ADR-0304)', () => {
 			operation: 'upsert',
 			principal: editor.id,
 			schema: 'PrincipalTodo',
+		})
+	})
+
+	it('runs networkless GraphQL as an explicit principal', async () => {
+		const graphql = ultimabase?.plugin('@ultimabase/graphql-plugin')
+		if (graphql === undefined) throw new TypeError('GraphQL unavailable')
+		const document = `mutation { createPrincipalTodo(input: { title: "GraphQL" }) { title } }`
+
+		const anonymous = await graphql.execute({ context: as(undefined), document })
+		const explicit = await graphql.execute({
+			context: as(undefined),
+			document,
+			principal: editor,
+		})
+		// An explicit `undefined` principal runs anonymously even when signed in.
+		const forcedAnonymous = await graphql.execute({
+			context: as(editor),
+			document,
+			principal: undefined,
+		})
+
+		expect(anonymous.errors?.[0]?.extensions).toMatchObject({
+			code: 'PERMISSION_DENIED',
+		})
+		expect(explicit.errors).toBeUndefined()
+		expect(explicit.data).toMatchObject({
+			createPrincipalTodo: { title: 'GraphQL' },
+		})
+		expect(forcedAnonymous.errors?.[0]?.extensions).toMatchObject({
+			code: 'PERMISSION_DENIED',
 		})
 	})
 

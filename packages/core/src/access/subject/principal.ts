@@ -1,4 +1,4 @@
-import type { Pointer } from '../../schema/relations/pointer.js'
+import type { Pointer, PointerValue } from '../../schema/relations/pointer.js'
 import type { Register } from '../../schema/schema/registered-schemas.js'
 
 /**
@@ -7,7 +7,8 @@ import type { Register } from '../../schema/schema/registered-schemas.js'
  * caller is anonymous (ADR-0304). Core owns no user schema, session or
  * credential; authority stays `anonymous` or `master`.
  *
- * Name the identity schema once in `Register` to type it by name:
+ * Without `Register` it is typed as `PointerValue` (any pointer). Name the
+ * identity schema once in `Register` to type it by name:
  *
  * @example
  * ```ts
@@ -24,7 +25,7 @@ export type Principal = Register extends {
 	readonly principal: infer TClassName extends string
 }
 	? Pointer<TClassName>
-	: Pointer
+	: PointerValue
 
 /**
  * Policy operation keys: the reads `one`, `many`, `count` and `exists`, the
