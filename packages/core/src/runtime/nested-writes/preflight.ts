@@ -193,9 +193,8 @@ export class RuntimeNestedWritePreflight {
 				continue
 			}
 
-			if (relationship.command === 'set') {
-				await this.#verifyLink(relationship, relationship.ids)
-			}
+			// Only `set` remains; every target it names must be visible (ADR-0308).
+			await this.#verifyLink(relationship, relationship.ids)
 			const records = await this.#host.readRelationTargets(
 				relationship,
 				sourceId,
