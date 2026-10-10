@@ -31,15 +31,21 @@ export {
 
 export const defaultRestReadLimits: Readonly<{
 	readonly bodyBytes: 1_048_576
-	readonly maximumResults: 1000
+	readonly defaultTake: 100
+	readonly maxTake: 1000
 }> = immutableRecord({
 	bodyBytes: 1_048_576,
-	maximumResults: 1000,
+	defaultTake: 100,
+	maxTake: 1000,
 } as const)
 
+/** Bounds one REST request: body size and the collection `take` window. */
 export interface RestReadLimits {
 	readonly bodyBytes: number
-	readonly maximumResults: number
+	/** `take` of a collection read that omits it (ADR-0309). */
+	readonly defaultTake: number
+	/** Largest accepted `take`; a larger one is `REST_READ_INVALID_INPUT`. */
+	readonly maxTake: number
 }
 
 export type RestReadOperation = 'count' | 'exists' | 'find' | 'first' | 'get'
@@ -95,11 +101,18 @@ export const normalizeRestLimits = (
 	if (
 		!Number.isSafeInteger(limits.bodyBytes) ||
 		limits.bodyBytes < 1 ||
-		!Number.isSafeInteger(limits.maximumResults) ||
-		limits.maximumResults < 1
+		!Number.isSafeInteger(limits.defaultTake) ||
+		limits.defaultTake < 1 ||
+		!Number.isSafeInteger(limits.maxTake) ||
+		limits.maxTake < 1
 	) {
 		throw new TypeError(
 			`REST ${boundary} limits must be positive safe integers`,
+		)
+	}
+	if (limits.defaultTake > limits.maxTake) {
+		throw new TypeError(
+			`REST ${boundary} limits defaultTake must not exceed maxTake`,
 		)
 	}
 	return immutableRecord(limits)
@@ -178,11 +191,8 @@ const decodeArguments = (
 	}
 	if (!Object.hasOwn(value, 'take')) {
 		// Collections never run unbounded when the caller omits `take`.
-		if (collection) decoded.take = 100
-	} else if (
-		typeof value.take === 'number' &&
-		value.take > limits.maximumResults
-	) {
+		if (collection) decoded.take = limits.defaultTake
+	} else if (typeof value.take === 'number' && value.take > limits.maxTake) {
 		throw invalidRestRead()
 	}
 	return immutableRecord(decoded)

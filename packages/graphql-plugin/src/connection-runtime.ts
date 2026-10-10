@@ -112,16 +112,16 @@ export class GraphqlConnectionRuntime {
 			options.arguments,
 			nested ? relationArgumentKeys : rootArgumentKeys,
 		)
-		const first = args.first ?? this.#limits.defaultPageSize
+		const first = args.first ?? this.#limits.defaultTake
 		if (
 			typeof first !== 'number' ||
 			!Number.isSafeInteger(first) ||
 			first < 0 ||
 			first > maximumGraphqlInt ||
-			first > this.#limits.maxPageSize
+			first > this.#limits.maxTake
 		) {
 			throw new RangeError(
-				`GraphQL first must be an integer from 0 to ${String(this.#limits.maxPageSize)}`,
+				`GraphQL first must be an integer from 0 to ${String(this.#limits.maxTake)}`,
 			)
 		}
 		const order = effectiveGraphqlConnectionOrdering(args.orderBy)

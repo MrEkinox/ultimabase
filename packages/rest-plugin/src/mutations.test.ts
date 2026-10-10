@@ -460,7 +460,7 @@ describe('REST mutation normalization', () => {
 					operation: 'create',
 					request: jsonRequest('POST', { title: 'Too large' }),
 				},
-				{ bodyBytes: 4, maximumResults: 10 },
+				{ bodyBytes: 4, defaultTake: 10, maxTake: 10 },
 			),
 		).rejects.toMatchObject({ code: restMutationErrorCodes.bodyTooLarge })
 

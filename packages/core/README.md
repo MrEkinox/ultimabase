@@ -1090,6 +1090,20 @@ a filter could not. A row missing an ordered field fails with
 must be non-list scalar or enum fields, and `null` sorts last in both
 directions. `skip` skips rows instead and cannot be combined with `after`.
 
+Server-side reads have no default `take`: without `take`, `findMany` returns
+every matching row. The transport limits
+(`pagination: { defaultTake, maxTake }` of the REST and GraphQL plugins) apply
+only to their clients. Read a large table in batches with `after`:
+
+```ts
+let after: Awaited<ReturnType<typeof Task.findMany>>[number] | undefined
+do {
+	const page = await Task.findMany({ take: 500, ...(after ? { after } : {}) })
+	// Process the page.
+	after = page.at(-1)
+} while (after)
+```
+
 Ordered scalar filters include explicit inclusive ranges. `between` keeps
 values inside the interval, while `notBetween` keeps values strictly outside
 it. Both remain first-class

@@ -44,6 +44,7 @@ const Post = UltimaBase.Schema.define({
 	className: 'VirtualPostgresPost',
 	fields: (field) => ({
 		author: field.pointer({ required: true, target: 'VirtualPostgresPerson' }),
+		reviewers: field.relation({ target: 'VirtualPostgresPerson' }),
 		title: field.string({ required: true }),
 	}),
 })
@@ -283,6 +284,39 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			displayName: 'Katherine Johnson',
 			id: authorId,
 		})
+	})
+
+	// Regression: an include without `select` of a target with virtual fields
+	// returned "Requested virtual field is missing".
+	it('materializes virtual fields of complete pointer and relation includes', async () => {
+		getApplication()
+		const reviewer = await Person.createOne({
+			data: {
+				email: 'complete-include@example.com',
+				firstName: 'Dorothy',
+				lastName: 'Vaughan',
+				secret: 'fortran',
+			},
+		})
+		const post = await Post.createOne({
+			data: {
+				author: { connect: reviewer.id },
+				reviewers: { connect: [reviewer.id] },
+				title: 'Complete includes',
+			},
+		})
+		const loaded = await Post.findOneOrThrow({
+			include: { author: {}, reviewers: {} },
+			where: { id: { eq: post.id } },
+		})
+
+		expect(loaded.author).toMatchObject({
+			displayName: 'Dorothy Vaughan',
+			initials: 'DV',
+		})
+		expect(loaded.reviewers).toMatchObject([
+			{ displayName: 'Dorothy Vaughan', id: reviewer.id, initials: 'DV' },
+		])
 	})
 
 	it('rolls back a mutation when async virtual materialization fails', async () => {

@@ -548,7 +548,20 @@ describe('REST route metadata', () => {
 		[{ basePath: 'api' }, 'REST plugin basePath must be an absolute path'],
 		[{ basePath: '/api/v1' }, 'cannot contain dot or protocol-version'],
 		[{ bodyLimit: 0 }, 'bodyLimit must be a positive safe integer'],
-		[{ maxLimit: 1.5 }, 'maxLimit must be a positive safe integer'],
+		[
+			{ pagination: { maxTake: 1.5 } },
+			'pagination.maxTake must be a positive safe integer',
+		],
+		[
+			{ pagination: { defaultTake: 0 } },
+			'pagination.defaultTake must be a positive safe integer',
+		],
+		[
+			{ pagination: { defaultTake: 11, maxTake: 10 } },
+			'pagination.defaultTake must not exceed pagination.maxTake',
+		],
+		[{ pagination: { size: 1 } }, 'pagination has an unknown option: size'],
+		[{ maxLimit: 10 }, 'Unknown REST plugin options key: maxLimit'],
 		[
 			{ acknowledgeUnverifiedProtection: false },
 			'acknowledgeUnverifiedProtection must be true',

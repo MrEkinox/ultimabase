@@ -409,7 +409,7 @@ describe('GraphQL read normalization', () => {
 		const malformedCollections: readonly Readonly<Record<string, unknown>>[] = [
 			{ unknown: true },
 			{ first: -1 },
-			{ first: 101 },
+			{ first: 1001 },
 			{
 				orderBy: [
 					{ direction: 'asc', field: 'name' },

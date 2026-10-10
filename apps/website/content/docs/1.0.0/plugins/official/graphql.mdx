@@ -154,8 +154,8 @@ Typegen still supplies the application-wide named-schema graph where needed.
 
 For direct execution only, keep `graphqlPlugin()` and omit HTTP, Yoga, and
 Hono. The plugin also accepts `schemas` for completed custom GraphQL schemas,
-`operations` for exact plugin operations, and `limits` for execution and
-pagination budgets. See [PostgreSQL](./postgresql) for physical schema
+`operations` for exact plugin operations, `limits` for document and execution
+budgets, and `pagination` for the page window. See [PostgreSQL](./postgresql) for physical schema
 preparation and [HTTP](./http) for application identity validation.
 
 ## Behavior and limitations
@@ -342,7 +342,9 @@ application, executor, adapter, grant, transaction, or lifecycle control.
 ### Pagination and protection
 
 Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
-`first` defaults to 25 and is capped at 100 unless configured. A root
+`first` defaults to 100 and is capped at 1000; a larger `first` is a GraphQL
+error. `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })` sets
+other values, with the same option and defaults as REST. A root
 collection maps `first` and `after` to Core's `take` and `after`: each edge
 cursor is the opaque position of its node in the order completed by `id`, the
 same cursor REST returns as `nextCursor`, and `hasNextPage` comes from one extra

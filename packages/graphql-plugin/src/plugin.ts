@@ -28,6 +28,7 @@ import {
 	defaultGraphqlExecutionLimits,
 	normalizeGraphqlExecutionLimits,
 	type GraphqlExecutionLimits,
+	type GraphqlPaginationOptions,
 } from './connection-limits.js'
 import { GraphqlConnectionRuntime } from './connection-runtime.js'
 import { GraphqlGeneratedExecution } from './generated-execution.js'
@@ -50,10 +51,17 @@ export interface GraphqlPluginOptions {
 	readonly acknowledgeUnverifiedProtection?: true
 	/** Supplies sparse generated-operation defaults for application schemas. */
 	readonly default?: boolean | GraphqlSchemaOperations
-	/** Configures the forward Relay page window. */
+	/** Bounds document size, depth, aliases, root fields and variables. */
 	readonly limits?: GraphqlExecutionLimits
 	/** Explicitly exposes exact application operations through owner bindings. */
 	readonly operations?: readonly PluginOperationDefinition[]
+	/**
+	 * Default and largest Relay `first`, as REST `take` (ADR-0309).
+	 *
+	 * @default { defaultTake: 100, maxTake: 1000 }
+	 * @example `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
+	 */
+	readonly pagination?: GraphqlPaginationOptions
 	/** Adds completed application-owned schemas after the generated surface. */
 	readonly schemas?: readonly GraphQLSchema[]
 }
@@ -85,6 +93,7 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 		'default',
 		'limits',
 		'operations',
+		'pagination',
 		'schemas',
 	] as const,
 	normalize: (options) => {
@@ -104,9 +113,9 @@ const parseGraphqlPluginOptions = definePluginOptionsParser({
 							'GraphQL plugin default',
 						),
 			limits:
-				options.limits === undefined
+				options.limits === undefined && options.pagination === undefined
 					? defaultGraphqlExecutionLimits
-					: normalizeGraphqlExecutionLimits(options.limits),
+					: normalizeGraphqlExecutionLimits(options.limits, options.pagination),
 			operations: normalizeGraphqlPluginOperations(options.operations),
 			schemas: normalizeCustomSchemas(options.schemas),
 		}

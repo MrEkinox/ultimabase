@@ -124,7 +124,7 @@ production data without a reviewed schema plan.
 | `acknowledgeUnverifiedProtection` | Accepts that Core cannot prove complete public policy coverage.      |
 | `basePath`                        | Mount prefix, `/api` by default; REST appends `/v1`.                 |
 | `bodyLimit`                       | Maximum JSON request body, 1 MiB by default.                         |
-| `maxLimit`                        | Maximum accepted collection `take`, 1,000 by default.                |
+| `pagination`                      | `{ defaultTake, maxTake }` of collection reads, 100 and 1,000.       |
 | `default`                         | Boolean or sparse generated-route defaults for application schemas.  |
 | `operations`                      | Exact plugin-operation tokens to expose; none are public by default. |
 | `instanceId`                      | Distinguishes explicit REST configurations in one application.       |
@@ -193,7 +193,9 @@ comma-separated fields, `include` as relationship paths or JSON, and
 a positive `take` and either a non-negative `skip` or an opaque `after` cursor.
 POST reads accept the corresponding typed Query input as JSON, with `after` as
 the cursor string. Collection reads default to 100 items; the default maximum
-is 1,000.
+is 1,000, and a larger `take` fails with `REST_READ_INVALID_INPUT`. Set other
+values with `restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`,
+the same option as GraphQL's.
 
 Without `skip`, a collection read also returns `nextCursor`: the cursor of its
 last row when more rows follow, otherwise `null`. Pass it back as `after` with

@@ -131,7 +131,7 @@ describe('GraphQL connection runtime', () => {
 		})
 		expect(defaults.clauses).toStrictEqual({
 			orderBy: { id: 'asc' },
-			take: 26,
+			take: 101,
 		})
 		expect(
 			runtime.prepare({
@@ -258,7 +258,7 @@ describe('GraphQL connection runtime', () => {
 			pluginPrivileges: { logger: false },
 			plugins: [
 				graphqlPlugin({
-					limits: { defaultPageSize: 3, maxPageSize: 5 },
+					pagination: { defaultTake: 3, maxTake: 5 },
 				}),
 			],
 			schemas: [ConnectionRecord],
@@ -282,9 +282,9 @@ describe('GraphQL connection runtime', () => {
 	it('enforces configured page limits before Core execution', async () => {
 		const { application } = await prepareRuntime()
 		const runtime = new GraphqlConnectionRuntime(
-			normalizeGraphqlExecutionLimits({
-				defaultPageSize: 2,
-				maxPageSize: 3,
+			normalizeGraphqlExecutionLimits(undefined, {
+				defaultTake: 2,
+				maxTake: 3,
 			}),
 		)
 		expect(() =>

@@ -201,7 +201,8 @@ export const restPlugin = (options: RestPluginOptions = {}): RestPlugin => {
 		const routeGraph = capabilities.get(routeGraphRequirement)
 		const readLimits = immutableRecord({
 			bodyBytes: normalized.bodyLimit,
-			maximumResults: normalized.maxLimit,
+			defaultTake: normalized.pagination.defaultTake,
+			maxTake: normalized.pagination.maxTake,
 		})
 		const ownRoutes = routeGraph.routes.filter(
 			({ provenance: { plugin } }) =>

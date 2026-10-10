@@ -36,7 +36,7 @@ export interface GraphqlRootCompilers {
 	readonly fields: GraphqlFieldTypeCompiler
 	readonly filters: GraphqlFilterInputCompiler
 	readonly inputs: GraphqlMutationInputCompiler
-	readonly defaultPageSize: number
+	readonly defaultTake: number
 }
 
 const addRoot = (
@@ -65,7 +65,7 @@ export const graphqlCollectionArguments = (
 	field: 'relation' | 'root' = 'root',
 ): GraphQLFieldConfigArgumentMap => ({
 	...(field === 'root' ? { after: { type: GraphQLString } } : {}),
-	first: { default: { value: compilers.defaultPageSize }, type: GraphQLInt },
+	first: { default: { value: compilers.defaultTake }, type: GraphQLInt },
 	orderBy: { type: nonNullList(compilers.filters.order(schema)) },
 	where: { type: compilers.filters.where(schema) },
 })

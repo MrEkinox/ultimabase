@@ -78,6 +78,22 @@ filtered, so ordering by a field the caller may not read or filter fails with
 `PERMISSION_DENIED`, and a hand-written position returns exactly the rows its
 filter would.
 
+Server-side reads have no default `take`: without `take`, `findMany` returns
+every matching row. The REST and GraphQL limits
+(`pagination: { defaultTake, maxTake }`, 100 and 1,000 by default) apply only to
+their clients. Read a large table in batches with `after`:
+
+```ts title="src/process-tasks.ts"
+import { Task } from './schemas.js'
+
+let after: Awaited<ReturnType<typeof Task.findMany>>[number] | undefined
+do {
+	const page = await Task.findMany({ take: 500, ...(after ? { after } : {}) })
+	// Process the page.
+	after = page.at(-1)
+} while (after)
+```
+
 `skip` skips a number of rows instead. It cannot be combined with `after`
 (`VALIDATION_ERROR`); prefer `after`, because an offset shifts when rows are
 inserted or deleted and becomes slower as it grows.

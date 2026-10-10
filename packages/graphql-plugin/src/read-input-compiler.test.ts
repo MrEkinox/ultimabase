@@ -63,7 +63,7 @@ describe('GraphQL read input compilation', () => {
 		expect(
 			query?.findManyReadInputPost?.args.find(({ name }) => name === 'first')
 				?.default?.value,
-		).toBe(25)
+		).toBe(100)
 
 		const where = schema.getType('ReadInputPostWhere')
 		const title = schema.getType('ReadInputPostTitleWhere')
@@ -148,7 +148,7 @@ describe('GraphQL read input compilation', () => {
 		})
 		const { application, schema } = await readSchema(
 			[Child, Parent],
-			graphqlPlugin({ limits: { defaultPageSize: 7, maxPageSize: 20 } }),
+			graphqlPlugin({ pagination: { defaultTake: 7, maxTake: 20 } }),
 		)
 		const root = schema.getQueryType()?.getFields().findManyConfiguredReadParent
 		const parent = schema.getType('ConfiguredReadParent')

@@ -48,7 +48,8 @@ test('preserves plugin and configured schema option types', async () => {
 		},
 	})
 	const limited = graphqlPlugin({
-		limits: { defaultPageSize: 10, maxPageSize: 50 },
+		limits: { maxDepth: 10 },
+		pagination: { defaultTake: 10, maxTake: 50 },
 	})
 	const withOperation = graphqlPlugin({ operations: [applicationOperation] })
 	const customSchema = new GraphQLSchema({
@@ -95,9 +96,15 @@ test('preserves plugin and configured schema option types', async () => {
 
 test('rejects invalid connection limit types', () => {
 	graphqlPlugin({
-		limits: {
+		pagination: {
 			// @ts-expect-error page sizes are numeric
-			defaultPageSize: 'ten',
+			defaultTake: 'ten',
+		},
+	})
+	graphqlPlugin({
+		limits: {
+			// @ts-expect-error page sizes moved to pagination
+			defaultPageSize: 10,
 		},
 	})
 	graphqlPlugin({

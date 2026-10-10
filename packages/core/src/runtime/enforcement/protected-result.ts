@@ -5,7 +5,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
+import {
+	narrowRuntimeSchemaModelMetadata,
+	transferRuntimeSchemaModelMetadata,
+} from '../operations/model-metadata.js'
 
 const invalidSubset = (): never => {
 	throw new TypeError('A protected policy result may only omit values')
@@ -46,8 +49,15 @@ const snapshotSubset = (source: unknown, candidate: unknown): unknown => {
 			return [key, snapshotSubset(source[key], value)] as const
 		})
 		const subset = immutableRecord(Object.fromEntries(entries))
+		const kept = Object.keys(candidate)
 
-		transferRuntimeSchemaModelMetadata(source, subset)
+		// An omitted field leaves the visible projection, so later boundaries
+		// (an included target's virtual fields) no longer require it.
+		if (kept.length < Object.keys(source).length) {
+			narrowRuntimeSchemaModelMetadata(source, subset, kept)
+		} else {
+			transferRuntimeSchemaModelMetadata(source, subset)
+		}
 
 		return subset
 	}

@@ -1,5 +1,6 @@
 export type {
 	RestBulkRoutes,
+	RestPaginationOptions,
 	RestPluginOptions,
 	RestSchemaRoutes,
 	RestSchemaRoutesOption,

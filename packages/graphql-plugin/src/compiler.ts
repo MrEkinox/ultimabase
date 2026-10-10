@@ -65,7 +65,7 @@ export const compileGraphqlSchema = (
 	const inputs = new GraphqlMutationInputCompiler(ctx, fields)
 	const roots: GraphqlRootCompilers = {
 		ctx,
-		defaultPageSize: options.connectionLimits.defaultPageSize,
+		defaultTake: options.connectionLimits.defaultTake,
 		execution,
 		fields,
 		filters,

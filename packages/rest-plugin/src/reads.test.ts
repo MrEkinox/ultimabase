@@ -293,6 +293,27 @@ describe('REST read normalization', () => {
 			request: new Request('https://example.test/records'),
 		})
 		expect(normalized.query.take).toBe(100)
+		// The configured page window replaces both defaults (ADR-0309).
+		const configured = { bodyBytes: 1_048_576, defaultTake: 7, maxTake: 20 }
+		const small = await normalizeRestReadRequest(
+			RecordSchema,
+			{
+				operation: 'find',
+				request: new Request('https://example.test/records'),
+			},
+			configured,
+		)
+		expect(small.query.take).toBe(7)
+		await expect(
+			normalizeRestReadRequest(
+				RecordSchema,
+				{
+					operation: 'find',
+					request: jsonRequest('https://example.test/query', { take: 21 }),
+				},
+				configured,
+			),
+		).rejects.toMatchObject({ code: restReadErrorCodes.invalidInput })
 
 		const malformed: readonly unknown[] = [
 			{ where: { missing: { eq: 1 } } },
@@ -381,7 +402,7 @@ describe('REST read normalization', () => {
 						value: 'large',
 					}),
 				},
-				{ bodyBytes: 4, maximumResults: 1000 },
+				{ bodyBytes: 4, defaultTake: 100, maxTake: 1000 },
 			),
 		).rejects.toMatchObject({ code: restReadErrorCodes.bodyTooLarge })
 

@@ -360,11 +360,12 @@ and private session records are never serialized.
 ## Relay connections
 
 Root collections and relations expose `edges`, `nodes`, and `pageInfo` without
-`totalCount`. `first` accepts zero, defaults to 25, and is capped at 100. An
-application may narrow these values explicitly:
+`totalCount`. `first` accepts zero, defaults to 100, and is capped at 1000; a
+larger `first` is a GraphQL error. `graphqlPlugin({ pagination })` sets other
+values with the same option and defaults as `restPlugin({ pagination })`:
 
 ```ts
-graphqlPlugin({ limits: { defaultPageSize: 10, maxPageSize: 50 } })
+graphqlPlugin({ pagination: { defaultTake: 10, maxTake: 50 } })
 ```
 
 Core completes the order with `id ASC` unless the request already orders by

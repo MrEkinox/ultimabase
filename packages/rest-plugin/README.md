@@ -24,7 +24,7 @@ const Application = UltimaBase.use(httpPlugin({ appId: 'blog' })).use(
 		acknowledgeUnverifiedProtection: true,
 		basePath: '/api',
 		bodyLimit: 1_048_576,
-		maxLimit: 1_000,
+		pagination: { defaultTake: 100, maxTake: 1_000 },
 	}),
 )
 const Post = Application.Schema.define({
@@ -169,8 +169,10 @@ native read operation and a Fetch `Request`. GET parameters and complex POST
 bodies converge on `normalizeReadOperation()` in Core, so fields, operators,
 relationships, projections, ordering, `take`, `skip`, and `after` retain the
 same AST semantics as the TypeScript API. Collection reads default to
-`take: 100` and reject a `take` above 1000 unless `restPlugin({ maxLimit })`
-supplies another application-local maximum. `after` is the opaque cursor of a
+`take: 100` and reject a `take` above 1000 with `REST_READ_INVALID_INPUT`;
+`restPlugin({ pagination: { defaultTake, maxTake } })` sets other values, with
+the same option and defaults as `graphqlPlugin({ pagination })`. Server-side
+`findMany` has no default `take`. `after` is the opaque cursor of a
 previous page: REST decodes it with Core's shared encoder
 (`@ultimabase/core/plugin`) for the request's `orderBy` and passes the position
 to Core (ADR-0309).
