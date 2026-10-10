@@ -95,10 +95,7 @@ export class Pointer<
 	readonly #schema: PointerSchema<TSchema>
 	readonly #id: string
 
-	/**
-	 * Pass the schema created by `App.Schema.define`; a class name only names
-	 * the type (`Pointer<"TodoUser">`) and is rejected at runtime.
-	 */
+	// A class name only types `Pointer<"TodoUser">`; Schema.is rejects it below.
 	constructor(schema: TSchema, id: string) {
 		super()
 
