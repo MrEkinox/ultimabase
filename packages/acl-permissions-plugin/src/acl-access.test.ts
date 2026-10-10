@@ -1,6 +1,5 @@
 import {
 	RequestSubjectReference,
-	Pointer,
 	QueryBuilder,
 	UltimaBase,
 	type RequestSubjectContext,
@@ -23,7 +22,7 @@ const ProtectedRecord = UltimaBase.Schema.define({
 	className: 'ACLAccessProtectedRecord',
 	fields: (field) => ({ name: field.string() }),
 })
-const principal = new Pointer(Principal, '0198a43e-2431-7000-8000-000000000011')
+const principal = Principal.pointer('0198a43e-2431-7000-8000-000000000011')
 const context: RequestSubjectContext = {
 	access: { mode: 'anonymous' },
 	getValue: () => undefined,

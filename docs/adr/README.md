@@ -293,6 +293,7 @@ Current records (accepted or still active in part):
 - [ADR-0304: Neutral current principal and policy predicates](0304-neutral-current-principal-and-policy-predicates.md)
 - [ADR-0305: Public application errors and policy queries in Core](0305-public-errors-and-can.md)
 - [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
+- [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 
 Proposed records (awaiting user validation):
 

@@ -1,3 +1,4 @@
+import { createPointer } from '../relations/pointer.js'
 import { Pointer } from '../relations/pointer.js'
 import type { SchemaDefinition } from './definition.js'
 import type { SchemaModelCapabilityContext } from './model-contracts.js'
@@ -15,7 +16,7 @@ const toPersistedSchemaPointer = <TTarget extends SchemaDefinition>(
 			)
 		}
 
-		return new Pointer(target, value.id)
+		return createPointer(target, value.id)
 	}
 
 	if (typeof value !== 'object' || value === null) {
@@ -33,7 +34,7 @@ const toPersistedSchemaPointer = <TTarget extends SchemaDefinition>(
 		throw new TypeError(`${command} target has an invalid persisted identity`)
 	}
 
-	return new Pointer(target, record.objectId)
+	return createPointer(target, record.objectId)
 }
 
 /** Creates an immutable specialization context without exposing private model state. */

@@ -1,3 +1,4 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
@@ -5,7 +6,7 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
-import { Pointer } from '../../schema/relations/pointer.js'
+import type { Pointer } from '../../schema/relations/pointer.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 import type {
 	NestedWriteGraph,
@@ -236,7 +237,7 @@ export class RuntimeNestedWriteCoordinator {
 						mappedFieldName === undefined
 							? undefined
 							: immutableRecord({
-									[mappedFieldName]: new Pointer(node.schema, sourceId),
+									[mappedFieldName]: createPointer(node.schema, sourceId),
 								}),
 					)
 				}

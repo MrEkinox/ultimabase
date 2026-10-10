@@ -1,13 +1,14 @@
-import { SchemaRegistry, UltimaBase } from '@ultimabase/core'
+import { Pointer, SchemaRegistry, UltimaBase } from '@ultimabase/core'
 import type { SchemaDefinition, SchemaTargetGraph } from '@ultimabase/core'
 
 import { PostgresSchemaCatalog } from './catalog.js'
 
-const User: SchemaDefinition = UltimaBase.Schema.define({
+// Schema classes create their own Pointers (ADR-0314).
+const userSchema = UltimaBase.Schema.define({
 	className: 'PointerUser',
 	fields: (field) => ({ name: field.string() }),
 })
-const Post: SchemaDefinition = UltimaBase.Schema.define({
+const postSchema = UltimaBase.Schema.define({
 	className: 'PointerPost',
 	fields: (field) => ({
 		author: field.pointer({
@@ -19,11 +20,22 @@ const Post: SchemaDefinition = UltimaBase.Schema.define({
 	}),
 })
 
+const User: SchemaDefinition = userSchema
+const Post: SchemaDefinition = postSchema
+
+// Schemas create their own Pointers (ADR-0314); tests read them erased.
+const readPointer = (value: unknown): Pointer => {
+	if (!Pointer.is(value)) throw new TypeError('Expected a Pointer')
+	return value
+}
+
 interface PostgresPointerFixture {
 	readonly catalog: PostgresSchemaCatalog
 	readonly Post: typeof Post
 	readonly targets: SchemaTargetGraph
 	readonly User: typeof User
+	readonly postPointer: (id: string) => Pointer
+	readonly userPointer: (id: string) => Pointer
 }
 
 /** Creates one closed logical graph shared by PostgreSQL pointer unit tests. */
@@ -32,5 +44,12 @@ export const createPostgresPointerFixture = (): PostgresPointerFixture => {
 	const targets = registry.resolveSchemaTargets()
 	const catalog = new PostgresSchemaCatalog(registry.values(), targets)
 
-	return { catalog, Post, targets, User }
+	return {
+		catalog,
+		Post,
+		postPointer: (id) => readPointer(postSchema.pointer(id)),
+		targets,
+		User,
+		userPointer: (id) => readPointer(userSchema.pointer(id)),
+	}
 }

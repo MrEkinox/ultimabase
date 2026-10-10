@@ -879,8 +879,11 @@ const draft = new PostSchema({ author })
 ```
 
 `Pointer<TSchema>` contains only immutable logical schema identity and an object
-ID. It never loads the target. `new Pointer(UserSchema, id)` provides the
-general constructor, while `UserSchema.pointer(id)` is the concise typed form.
+ID. It never loads the target. `UserSchema.pointer(id)` is the only way to
+create one (ADR-0314): the constructor is not public, and `new Pointer(...)`
+throws a `TypeError` pointing to `Schema.pointer(id)`. `Pointer` stays exported
+for annotations, including `Pointer<"User">` for a registered class name, and
+for `instanceof Pointer` checks.
 Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
 schema identity plus ID.
 

@@ -1,3 +1,4 @@
+import { createPointer } from '../../schema/relations/pointer.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import { Pointer } from '../../schema/relations/pointer.js'
@@ -94,7 +95,7 @@ export class RuntimeNestedWritePreflight {
 						)
 					}
 					await this.#host.verifyTarget(
-						new Pointer(relationship.target, relationship.id),
+						createPointer(relationship.target, relationship.id),
 					)
 				} else if (relationship.command === 'update') {
 					if (relationship.child === undefined) {
@@ -132,7 +133,7 @@ export class RuntimeNestedWritePreflight {
 			}
 			if (relationship.command === 'connect') {
 				for (const id of relationship.ids) {
-					await this.#host.verifyTarget(new Pointer(relationship.target, id))
+					await this.#host.verifyTarget(createPointer(relationship.target, id))
 				}
 				continue
 			}
@@ -173,7 +174,7 @@ export class RuntimeNestedWritePreflight {
 
 			if (relationship.command === 'set') {
 				for (const id of relationship.ids) {
-					await this.#host.verifyTarget(new Pointer(relationship.target, id))
+					await this.#host.verifyTarget(createPointer(relationship.target, id))
 				}
 			}
 			const records = await this.#host.readRelationTargets(

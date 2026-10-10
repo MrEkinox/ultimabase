@@ -8,7 +8,7 @@ import {
 } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
-	Pointer,
+	Schema,
 	UltimaBase,
 	requestSubjectReferenceCleanupCapability,
 	createRequestPrincipalReference,
@@ -157,7 +157,9 @@ const applyPrincipalPolicy = async (
 ): Promise<void> => {
 	if (policy === 'preserve') return
 
-	const reference = createRequestPrincipalReference(new Pointer(schema, id))
+	// Its schema creates every Pointer (ADR-0314).
+	if (!Schema.is(schema)) throw new TypeError('Expected a principal schema')
+	const reference = createRequestPrincipalReference(schema.pointer(id))
 
 	if (policy === 'fail') {
 		for (const cleanup of cleanups) {

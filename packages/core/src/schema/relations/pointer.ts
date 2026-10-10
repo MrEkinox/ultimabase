@@ -80,13 +80,20 @@ export type PointerSchema<TSchema extends SchemaDefinition | string> =
 		: SchemaRef<Extract<TSchema, string>>
 
 const pointerInstances = new WeakSet<object>()
+const pointerConstruction: unique symbol = Symbol('ultimabase.pointer')
+let constructPointer: <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	id: string,
+) => Pointer<TSchema>
 
 /**
  * Represents one immutable reference to an object without loading that object.
+ * Its schema creates it (ADR-0314); `instanceof Pointer` and `Pointer.is()`
+ * recognize it.
  *
  * @example
  * ```ts
- * const author = new Pointer(User, "0198f090-2a50-7000-8000-000000000034")
+ * const author = User.pointer("0198f090-2a50-7000-8000-000000000034")
  * ```
  */
 export class Pointer<
@@ -96,9 +103,18 @@ export class Pointer<
 	readonly #id: string
 
 	// A class name only types `Pointer<"TodoUser">`; Schema.is rejects it below.
-	constructor(schema: TSchema, id: string) {
+	private constructor(
+		construction: typeof pointerConstruction,
+		schema: TSchema,
+		id: string,
+	) {
 		super()
 
+		if (construction !== pointerConstruction) {
+			throw new TypeError(
+				'Pointer cannot be constructed directly: use Schema.pointer(id), for example Todo.pointer(id)',
+			)
+		}
 		if (new.target !== Pointer) {
 			throw new TypeError('Pointer cannot be subclassed')
 		}
@@ -116,6 +132,14 @@ export class Pointer<
 
 		// Private state plus a frozen shell prevents forged or mutable identities.
 		Object.freeze(this)
+	}
+
+	static {
+		// The closure is Core's only construction path (ADR-0314).
+		constructPointer = <TSchema extends SchemaDefinition>(
+			schema: TSchema,
+			id: string,
+		): Pointer<TSchema> => new Pointer(pointerConstruction, schema, id)
 	}
 
 	/** Narrows an untrusted value to a Pointer created by this Core instance. */
@@ -196,6 +220,12 @@ export class Pointer<
 		})
 	}
 }
+
+/** @internal Creates one Pointer; applications call `Schema.pointer(id)`. */
+export const createPointer = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	id: string,
+): Pointer<TSchema> => constructPointer(schema, id)
 
 /**
  * @internal Reads the schema of a Pointer typed by a schema type. Generic Core

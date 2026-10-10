@@ -8,7 +8,7 @@ import {
 import { plugin as createPlugin, contributeDeclarations } from '../../index.js'
 import { createApplication } from '../../application/framework-application.js'
 import { QueryBuilder, type ExecutableOperationAst } from '../../query/index.js'
-import { Pointer, SchemaRegistry } from '../../schema/index.js'
+import { SchemaRegistry } from '../../schema/index.js'
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -313,7 +313,7 @@ describe('Runtime virtual fields', () => {
 		new SchemaRegistry([Target, Source]).resolveSchemaTargets()
 		const targetId = '0199f090-2a50-7000-8000-000000000011'
 		const source = immutableRecord({
-			author: new Pointer(Target, targetId),
+			author: Target.pointer(targetId),
 			createdAt: '2026-09-09T00:00:00.000Z',
 			id: '0199f090-2a50-7000-8000-000000000010',
 			updatedAt: '2026-09-09T00:00:00.000Z',

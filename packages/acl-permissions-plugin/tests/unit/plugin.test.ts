@@ -3,7 +3,6 @@ import type { FrameworkError } from '@ultimabase/core'
 import {
 	RequestSubjectReference,
 	MasterAuthority,
-	Pointer,
 	QueryBuilder,
 	plugin,
 	contributeApplication,
@@ -74,8 +73,7 @@ describe('aclPlugin create input resolution', () => {
 			className: 'ACLPluginPrincipal',
 			fields: () => ({}),
 		})
-		const currentPrincipal = new Pointer(
-			Principal,
+		const currentPrincipal = Principal.pointer(
 			'0198a43e-2431-7000-8000-000000000021',
 		)
 		const storedACL = new ACL().grantPrincipal(currentPrincipal, 'read')

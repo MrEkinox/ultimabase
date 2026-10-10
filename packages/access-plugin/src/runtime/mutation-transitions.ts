@@ -1,5 +1,5 @@
 import {
-	Pointer,
+	Schema,
 	applyUpdateExpressionToRecord,
 	collectOperationFieldInputs,
 	collectRecordFieldValues,
@@ -228,6 +228,11 @@ export const evaluateAccessMutationFieldRules = async (
 
 	for (const relationship of nestedWrite?.node.relationships ?? []) {
 		if (relationship.kind !== 'relation') continue
+		const target = relationship.target
+		// Its schema creates every Pointer (ADR-0314).
+		if (!Schema.is(target)) {
+			throw new TypeError('Access nested relation target must be a schema')
+		}
 		const targets =
 			relationship.command === 'create'
 				? relationship.children.map((child) => {
@@ -236,9 +241,9 @@ export const evaluateAccessMutationFieldRules = async (
 								'Access nested relation create is missing its reserved identity',
 							)
 						}
-						return new Pointer(relationship.target, child.reservedId)
+						return target.pointer(child.reservedId)
 					})
-				: relationship.ids.map((id) => new Pointer(relationship.target, id))
+				: relationship.ids.map((id) => target.pointer(id))
 		await evaluateAccessRelationWriteRules(
 			scope,
 			new Map([

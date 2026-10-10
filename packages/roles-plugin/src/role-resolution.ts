@@ -1,5 +1,5 @@
 import {
-	Pointer,
+	Schema,
 	type OperationOptions,
 	type SchemaClass,
 	type SchemaDefinition,
@@ -127,7 +127,11 @@ export const resolveRoleReference = async <
 	if ('name' in selector) {
 		role = await findRoleByName(schema, selector.name, options)
 	} else {
-		role = await new Pointer(schema, selector.id).findOne(undefined, options)
+		// Its schema creates every Pointer (ADR-0314).
+		if (!Schema.is(schema)) {
+			throw new TypeError('Role resolution requires a role schema')
+		}
+		role = await schema.pointer(selector.id).findOne(undefined, options)
 
 		if (role === null) {
 			throw new RoleReferenceResolutionError(

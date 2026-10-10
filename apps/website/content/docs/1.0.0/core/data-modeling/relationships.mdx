@@ -18,6 +18,7 @@ sources:
   - packages/core/examples/schema/relations.md
   - docs/adr/0115-immutable-model-commands.md
   - docs/adr/0118-transport-neutral-relations.md
+  - docs/adr/0314-pointers-created-by-their-schema.md
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0179-name-based-relationship-targets.md
   - docs/adr/0247-contextual-relation-filters.md
@@ -62,8 +63,9 @@ an unknown target fails before database setup. Typegen can then expose the
 exact target type for `Session.account`.
 
 Use `Account.pointer(id)` in a create or update input to reference an existing
-account. The equivalent general form is `new Pointer(Account, id)`. Constructing
-a pointer performs no I/O and does not prove that the target exists;
+account. It is the only way to create a pointer: `new Pointer(...)` is not
+public, and the exported `Pointer` serves type annotations and
+`instanceof Pointer` checks. Creating a pointer performs no I/O and does not prove that the target exists;
 persistence enforces the relationship. Its ordinary value is a `Pointer`, not
 an `Account` model. `pointer.equals(other)` compares exact schema identity and
 ID, while `pointer.toJSON()` returns the immutable logical shape

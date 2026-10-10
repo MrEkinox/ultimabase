@@ -39,6 +39,21 @@ autres décisions de revue non écrites dans ces ADR.
       roles, password-auth, rest, graphql, soft-delete, http)
 - [x] Porte finale (validate:full, e2e construits, audit DX, banc)
 
+## Corrections après revue (2026-10-10)
+
+- `getCurrentPrincipal()` retiré (aucun consommateur) : exports, README, site,
+  liste d'API publique.
+- ADR-0306, amendement de l'étape 2 (option A) : contrôle sur la préimage,
+  résultat en postimage pour `softDelete` et pour un `delete` réécrit par Soft
+  Delete (voir décision 13) ; les 9 assertions e2e reviennent à `main`.
+- ADR-0314 (accepté) : `Schema.pointer(id)` est la seule forme publique ;
+  constructeur `private` gardé par un symbole de module, `TypeError` qui
+  montre `Schema.pointer(id)` ; fabrique interne `createPointer` (non
+  exportée par l'index) ; les plugins (Access, PostgreSQL, REST, Roles)
+  rétrécissent leur `SchemaDefinition` avec `Schema.is(schema)` puis appellent
+  `schema.pointer(id)` ; le fixture PostgreSQL de pointeurs fournit
+  `userPointer`/`postPointer` (déclarations isolées).
+
 ## Décisions (à confirmer par l'utilisateur)
 
 1. **`Principal` typé par `Register`** : nouvelle clé optionnelle

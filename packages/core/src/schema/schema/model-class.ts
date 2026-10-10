@@ -1,3 +1,4 @@
+import { createPointer } from '../relations/pointer.js'
 import { isSchemaDeclarationMethod } from './declaration-methods.js'
 import {
 	immutableArray,
@@ -50,7 +51,7 @@ import { readApplicationKernelState } from '../../application/application-kernel
 import { executeStaticSchemaMutation } from '../../query/operations/execution.js'
 import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
 import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
-import { Pointer } from '../relations/pointer.js'
+import type { Pointer } from '../relations/pointer.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
@@ -299,7 +300,7 @@ const createStaticCommands = (schema: SchemaDefinition) => ({
 	): Promise<readonly object[]> => deleteSchemaRecords(schema, input, options),
 	// Pointers bind no QueryBuilder or Runtime execution state.
 	pointer: (id: string): Pointer<SchemaClass> =>
-		new Pointer(schema as SchemaClass, id),
+		createPointer(schema as SchemaClass, id),
 })
 
 /** Creates one final schema-specific class around deferred neutral metadata. */

@@ -217,8 +217,8 @@ const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
 const post = new PostSchema({ author })
 ```
 
-The general form is `new Pointer(UserSchema, id)`. Both forms produce
-`Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
+`UserSchema.pointer(id)` is the only way to create a pointer (ADR-0314); the
+`Pointer` constructor is not public. It produces `Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
 types preserve that target. `pointer.equals(other)` compares exact schema
 identity and ID. `pointer.toJSON()` returns the frozen logical shape
 `{ type: "pointer", className, id }`; it is not a database foreign-key or a
