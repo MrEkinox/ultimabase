@@ -168,7 +168,7 @@ Current records (accepted or still active in part):
 - [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md)
 - [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
-- [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md)
+- [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md), root-row read rules superseded by ADR-0306
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
 - [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md)
 - [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
@@ -290,6 +290,9 @@ Current records (accepted or still active in part):
 - [ADR-0301: Database adapters declare the filter operators they execute](0301-adapter-declared-filter-operators.md)
 - [ADR-0302: Neutral storage errors and written storage semantics](0302-neutral-storage-errors-and-semantics.md)
 - [ADR-0303: Partial indexes and application health in Core](0303-core-partial-indexes-and-health.md)
+- [ADR-0304: Neutral current principal and policy predicates](0304-neutral-current-principal-and-policy-predicates.md)
+- [ADR-0305: Public application errors and policy queries in Core](0305-public-errors-and-can.md)
+- [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
 
 Proposed records (awaiting user validation):
 
