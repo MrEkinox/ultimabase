@@ -65,6 +65,7 @@ import type {
 	OperationTransportExposureOptions,
 } from '../plugin-operations/transport.js'
 import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
+import { checkApplicationHealth } from './application-health.js'
 import {
 	createFrameworkEngine,
 	type CreateFrameworkEngineOptions,
@@ -419,6 +420,25 @@ export class UltimaBase<
 				)
 			}
 		})
+	}
+
+	/**
+	 * Reports `OK` when the application is started and its database answers
+	 * within two seconds, `DEGRADED` otherwise (not started, stopping, failure,
+	 * timeout). Never throws; the cause is logged server-side only.
+	 *
+	 * @example `const status = await ultimabase.health() // 'OK' | 'DEGRADED'`
+	 */
+	health(): Promise<'OK' | 'DEGRADED'> {
+		const started = this.#application.state === 'started'
+		return checkApplicationHealth(
+			started,
+			started
+				? readApplicationKernelState(this.#application).capability(
+						databaseAdapterCapability,
+					)
+				: undefined,
+		)
 	}
 
 	/** Stops active infrastructure without releasing setup-owned resources. */

@@ -1,7 +1,9 @@
 import {
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
+	databasePluginFieldStructuralContainsCapability,
 	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	plugin,
 	getOperationSchema,
 	provideCapability,
@@ -20,14 +22,20 @@ import {
 	immutableRecord,
 	isPlainRecord,
 } from '@ultimabase/shared'
+import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
 
 const fixedInstant = '2026-08-20T12:00:00.000Z'
 
 /** Supplies deterministic logical rows without reproducing a database engine. */
 export class OfficialConformanceDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
+		pluginFieldStructuralContains:
+			databasePluginFieldStructuralContainsCapability,
+		relationPredicates: databaseRelationPredicateCapability,
 		relations: databaseRelationCapability,
 	}
 	readonly requests: DatabaseOperationRequest[] = []

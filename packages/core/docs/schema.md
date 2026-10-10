@@ -543,8 +543,8 @@ fields: (field) => ({
 })
 ```
 
-Schema-level declarations represent composite indexes and require at least two
-distinct top-level fields:
+Schema-level declarations list one or more distinct top-level fields; an entry
+identical to a field-level `indexed` declaration is rejected:
 
 ```ts
 const PostSchema = UltimaBase.Schema.define({
@@ -562,9 +562,31 @@ const PostSchema = UltimaBase.Schema.define({
 
 Developer and reserved system-field names are checked statically and at
 runtime. Every schema exposes one immutable normalized `indexes` list:
-field-level declarations appear in field order, followed by composite
-declarations in configuration order. Each entry contains a non-empty `fields`
-tuple and an explicit boolean `unique` value.
+field-level declarations appear in field order, followed by schema-level
+declarations in configuration order (those of `define`, then those of the
+final `.with`). Each entry contains a non-empty `fields` tuple, an explicit
+boolean `unique` value and, for a partial index, its `where` conjunction.
+
+A partial index (ADR-0303) adds a static, portable `where`: equality (a literal
+or `eq`), `gt`, `gte`, `lt`, `lte` on scalar non-list fields, null tests and
+conjunction. Declare partial indexes in the final `.with`, whose type sees
+fields added by shape methods (the `indexes` of `define` keep their previous
+type); those indexes are checked against the compiled fields when the
+application compiles:
+
+```ts
+export const Article = App.Schema.define({
+	className: 'Article',
+	fields: (field) => ({ slug: field.string({ required: true }) }),
+})
+	.softDelete()
+	.with({
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	})
+```
+
+Normalized conditions use the filter discriminants (`equal`, `greater-than`,
+`null`, ...); the adapter must declare `partialIndexes` and those operators.
 
 This contract expresses portable indexing intent only. Adapter plugins decide
 how to compile supported indexes and reject unsupported nested metadata. Table

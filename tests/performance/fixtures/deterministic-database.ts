@@ -114,6 +114,7 @@ class DeterministicTransactionAdapter implements DatabaseTransactionAdapter {
 /** Supplies one deterministic database and its detached work counters. */
 export class DeterministicDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = capabilities
 	readonly #counts: MutableDatabaseCounts = {
 		reads: 0,

@@ -48,11 +48,7 @@ const publicPostsInput = new QueryBuilder(Post)
 		where
 			.contains('metadata', { visibility: 'public' })
 			.hasKey('metadata', 'visibility')
-			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
-			.jsonPathExists('metadata', {
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			}),
+			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com'),
 	)
 	.build()
 
@@ -62,8 +58,8 @@ const publicPosts = await Post.findMany(publicPostsInput)
 The AST stores `field: 'profile'` and `path: ['contact', 'email']` separately.
 It never parses dotted property names. String `contains` remains substring
 matching; a JSON or object target selects structural containment instead.
-JSONPath is the explicit advanced exception: its source is intentionally
-untyped, while its target and immutable variables remain checked portable data.
+Each database adapter declares the operators it executes; Core rejects any
+other operator with `VALIDATION_ERROR` before the adapter (ADR-0301).
 
 Every collection mutation is an ordered batch of singular item operations in
 one automatic transaction. `updateMany` accepts `{ where, data }` entries and

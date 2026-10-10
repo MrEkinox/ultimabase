@@ -35,11 +35,13 @@ const executeOnRequest = async (
 	engine: RequestEngine,
 	request: PrivateStorageOperationRequest,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
-	const { application, lifetime, pipeline } = readRequestEngineInternals(engine)
+	const { application, automaticTransaction, lifetime, pipeline } =
+		readRequestEngineInternals(engine)
 	throwIfOperationCancelled(engine.context.signal, { phase: 'private-storage' })
 	if (request.kind !== 'find-unique' && lifetime === undefined) {
-		return engine.transaction((transaction) =>
-			executeOnRequest(transaction, request),
+		return automaticTransaction(
+			{ operation: `private-storage-${request.kind}` },
+			(transaction) => executeOnRequest(transaction, request),
 		)
 	}
 	lifetime?.assertActive()

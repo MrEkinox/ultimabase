@@ -7,7 +7,7 @@ contentType: guide
 order: 8
 outcome: Soft-delete a record, verify that ordinary reads hide it, and restore it from trusted server code.
 releaseStatus: pre-release
-reviewedAt: 2026-09-29
+reviewedAt: 2026-10-09
 sources:
   - packages/soft-delete-plugin/README.md
   - packages/soft-delete-plugin/src/plugin.ts
@@ -23,6 +23,8 @@ sources:
   - examples/minimal/src/soft-delete.ts
   - examples/minimal/README.md
   - packages/core/docs/runtime.md
+  - docs/adr/0299-adapter-enforced-referential-integrity.md
+  - docs/adr/0303-core-partial-indexes-and-health.md
   - docs/adr/0245-plugin-schema-mutations-and-soft-delete.md
   - docs/adr/0248-application-selected-schema-class-mutations.md
 ---
@@ -483,9 +485,25 @@ rule. Granting native update or delete does not grant soft deletion. With
 and `purge` Hook branches. REST, GraphQL, and TypeScript enter the same Runtime
 pipeline and preserve transaction and protected-policy boundaries.
 
+A soft deletion is an update: it triggers no `onDelete` referential action, so
+pointers to a tombstone keep pointing at it until a purge physically deletes it.
+
 V1 has no deletion timestamp, deleter identity, reason, include-deleted query,
-uniqueness reuse, retention job, automatic purge, bulk `softDelete`, or nested
-soft delete. A tombstone retains its data and may still occupy a unique value.
+retention job, automatic purge, bulk `softDelete`, or nested soft delete. A
+tombstone retains its data and still occupies a unique value, unless the index
+is partial. To let a deleted record release its slug, declare a partial unique
+index in the final `.with` (the plugin never adds one automatically):
+
+```ts title="src/article.ts"
+export const Article = App.Schema.define({
+	className: 'Article',
+	fields: (f) => ({ slug: f.string({ required: true }) }),
+})
+	.softDelete()
+	.with({
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	})
+```
 
 ## Troubleshooting
 

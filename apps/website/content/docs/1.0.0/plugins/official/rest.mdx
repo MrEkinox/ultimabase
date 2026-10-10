@@ -8,7 +8,7 @@ contentType: guide
 order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 releaseStatus: pre-release
-reviewedAt: 2026-09-21
+reviewedAt: 2026-10-09
 sources:
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
@@ -224,8 +224,9 @@ an alias or expose an unselected operation.
 
 After REST dispatch, errors use
 `{ error: { code, message, retryable, requestId, details? } }`.
-Permission failures return 403, hidden or missing targets return 404, and
-validation failures return 422. Unexpected exceptions become a safe
+Permission failures return 403, hidden or missing targets return 404,
+validation failures return 422, and storage conflicts (`UNIQUE_VIOLATION`,
+`REFERENCE_VIOLATION`, and the retryable `TRANSACTION_CONFLICT`) return 409. Unexpected exceptions become a safe
 `REST_INTERNAL_ERROR` response rather than exposing internal diagnostics.
 The response carries `X-UltimaBase-Request-Id`; keep it with the safe code when
 reporting a failure. Earlier application identity or credential failures retain

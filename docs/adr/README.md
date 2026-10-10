@@ -285,6 +285,11 @@ Current records (accepted or still active in part):
 - [ADR-0296: Treat added diagnostic context as a fix](0296-diagnostic-message-fixes.md)
 - [ADR-0297: Declare schemas without Typegen](0297-declare-schemas-without-typegen.md)
 - [ADR-0298: Withhold the pg-vector plugin from create-app](0298-withhold-pg-vector-from-create-app.md)
+- [ADR-0299: Database adapters enforce a written referential-integrity contract](0299-adapter-enforced-referential-integrity.md)
+- [ADR-0300: Retry automatic mutation transactions on transient conflicts](0300-retry-automatic-mutation-transactions.md)
+- [ADR-0301: Database adapters declare the filter operators they execute](0301-adapter-declared-filter-operators.md)
+- [ADR-0302: Neutral storage errors and written storage semantics](0302-neutral-storage-errors-and-semantics.md)
+- [ADR-0303: Partial indexes and application health in Core](0303-core-partial-indexes-and-health.md)
 
 Proposed records (awaiting user validation):
 

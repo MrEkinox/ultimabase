@@ -395,7 +395,13 @@ export type {
 	SchemaFieldName,
 	SchemaIndexDefinition,
 	SchemaIndexOptions,
+	SchemaRuleIndexOptions,
 } from './schema/indexes.js'
+export type {
+	SchemaIndexCondition,
+	SchemaIndexLiteral,
+	SchemaIndexWhere,
+} from './schema/index-predicates.js'
 export { DuplicateSchemaError, SchemaRegistry } from './schema/registry.js'
 export type { CompiledSchemaRegistry } from './schema/registry.js'
 export { SchemaTargetResolutionError } from './schema/targets.js'

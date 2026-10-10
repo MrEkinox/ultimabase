@@ -6,14 +6,17 @@ import {
 } from '@ultimabase/shared'
 
 import type { SchemaFields } from './definition.js'
+import {
+	assertSchemaIndexConditions,
+	normalizeSchemaIndexWhere,
+	type SchemaIndexCondition,
+	type SchemaIndexWhere,
+} from './index-predicates.js'
 import type {
 	FieldTypegenStateOf,
 	GenericField,
 } from '../fields/base/contract.js'
-import {
-	reservedSystemFieldNames,
-	type ReservedSystemFieldName,
-} from './system-fields.js'
+import { systemFields, type ReservedSystemFieldName } from './system-fields.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 /**
@@ -38,23 +41,70 @@ export type SchemaFieldName<TFields extends object> =
 	IndexableDeclaredFieldName<TFields> | ReservedSystemFieldName
 
 /**
- * Requires schema-level indexes to combine at least two fields.
+ * Declares one schema-level index of `define`. Its `where` sees only the
+ * framework-owned system fields; partial indexes over the complete shape are
+ * declared in the final `.with` (ADR-0303).
  */
 export interface SchemaIndexOptions<TFieldName extends string = string> {
 	/**
-	 * Lists at least two distinct top-level fields in index-column order.
-	 * Developer fields and framework-owned system fields are accepted.
+	 * Lists one or more distinct top-level fields in index-column order.
+	 * Developer fields and framework-owned system fields are accepted; a plain
+	 * single-field index is better declared on the field with `indexed`.
 	 *
 	 * @example `fields: ["authorId", "createdAt"]`
 	 */
-	readonly fields: readonly [TFieldName, TFieldName, ...TFieldName[]]
+	readonly fields: readonly [TFieldName, ...TFieldName[]]
 	/**
-	 * Requests uniqueness across the complete field combination. Defaults to `false`.
+	 * Requests uniqueness across the complete field combination, among the rows
+	 * `where` matches. Defaults to `false`.
 	 *
 	 * @example `unique: true`
 	 */
 	readonly unique?: boolean
+	/**
+	 * Restricts the index to matching rows: equality, `gt`, `gte`, `lt`, `lte`,
+	 * null tests and `AND` on scalar non-list fields, with literal values.
+	 *
+	 * @example `where: { createdAt: { gte: '2026-01-01T00:00:00.000Z' } }`
+	 */
+	readonly where?: SchemaIndexWhere<Readonly<Record<never, never>>>
 }
+
+/**
+ * Declares one index in the final `.with`, optionally partial: its `where`
+ * sees the complete schema shape, plugin shape fields included (ADR-0303).
+ */
+export interface SchemaRuleIndexOptions<
+	TFieldName extends string,
+	TWhere extends object,
+> {
+	/**
+	 * Lists one or more distinct top-level fields in index-column order.
+	 *
+	 * @example `fields: ['slug']`
+	 */
+	readonly fields: readonly [TFieldName, ...TFieldName[]]
+	/**
+	 * Requests uniqueness among the rows `where` matches. Defaults to `false`.
+	 *
+	 * @example `unique: true`
+	 */
+	readonly unique?: boolean
+	/**
+	 * Restricts the index to matching rows: equality (a literal or `eq`), `gt`,
+	 * `gte`, `lt`, `lte`, null tests and `AND` on scalar non-list fields.
+	 *
+	 * @example `where: { isDeleted: false }`
+	 */
+	readonly where?: TWhere
+}
+
+/** The runtime shape of one declared index before validation. */
+export type SchemaIndexInput = Readonly<{
+	fields: readonly string[]
+	unique?: boolean
+	where?: unknown
+}>
 
 /**
  * Normalizes field and schema declarations into one adapter-neutral contract.
@@ -64,11 +114,13 @@ export interface SchemaIndexDefinition<TFieldName extends string = string> {
 	readonly fields: readonly [TFieldName, ...TFieldName[]]
 	/** Whether the complete field combination must be unique. */
 	readonly unique: boolean
+	/** The conjunction restricting a partial index; absent for a full index. */
+	readonly where?: readonly SchemaIndexCondition[]
 }
 
 function assertSchemaIndexes(
 	indexes: unknown,
-): asserts indexes is readonly SchemaIndexOptions[] | undefined {
+): asserts indexes is readonly SchemaIndexInput[] | undefined {
 	if (indexes === undefined) {
 		return
 	}
@@ -95,13 +147,16 @@ function assertSchemaIndexes(
 		}
 
 		assertOptionalBoolean(index.unique, `${indexPath}.unique`)
+		if (index.where !== undefined) {
+			normalizeSchemaIndexWhere(index.where, `${indexPath}.where`)
+		}
 	}
 }
 
 /** Snapshots composite declarations before deferred schema fields resolve. */
 export const snapshotSchemaIndexOptions = (
-	indexes: readonly SchemaIndexOptions[] | undefined,
-): readonly SchemaIndexOptions[] | undefined => {
+	indexes: readonly SchemaIndexInput[] | undefined,
+): readonly SchemaIndexInput[] | undefined => {
 	assertSchemaIndexes(indexes)
 
 	if (indexes === undefined) {
@@ -113,6 +168,9 @@ export const snapshotSchemaIndexOptions = (
 			immutableRecord({
 				fields: immutableArray(index.fields),
 				...(index.unique === undefined ? {} : { unique: index.unique }),
+				...(index.where === undefined
+					? {}
+					: { where: structuredClone(index.where) }),
 			}),
 		),
 	)
@@ -132,17 +190,19 @@ export const readFieldIndexValue = (value: unknown): boolean | 'unique' => {
 }
 
 const normalizeCompositeIndex = (
-	index: SchemaIndexOptions,
-	knownFieldNames: ReadonlySet<string>,
+	index: SchemaIndexInput,
+	knownFields: Readonly<Record<string, GenericField>>,
+	path: string,
+	allowPending: boolean,
 ): SchemaIndexDefinition => {
-	if (index.fields.length < 2) {
-		throw new TypeError('Composite index must contain at least two fields')
+	if (index.fields.length < 1) {
+		throw new TypeError('Index must contain at least one field')
 	}
 
 	const seenFieldNames = new Set<string>()
 
 	for (const fieldName of index.fields) {
-		if (!knownFieldNames.has(fieldName)) {
+		if (!allowPending && !Object.hasOwn(knownFields, fieldName)) {
 			throw new TypeError(`Unknown index field: ${fieldName}`)
 		}
 
@@ -153,28 +213,67 @@ const normalizeCompositeIndex = (
 		seenFieldNames.add(fieldName)
 	}
 
+	const where =
+		index.where === undefined
+			? undefined
+			: normalizeSchemaIndexWhere(index.where, `${path}.where`)
+	if (where !== undefined) {
+		assertSchemaIndexConditions(
+			allowPending
+				? where.filter(({ field }) => Object.hasOwn(knownFields, field))
+				: where,
+			knownFields,
+			`${path}.where`,
+		)
+	}
+
+	const [first, ...rest] = index.fields
+	if (first === undefined) {
+		throw new TypeError('Index must contain at least one field')
+	}
+
 	return immutableRecord({
-		fields: immutableArray(index.fields),
+		fields: immutableArray([first, ...rest]),
 		unique: index.unique ?? false,
+		...(where === undefined ? {} : { where }),
 	})
 }
 
+/** Indexable fields: persisted non-relation fields plus system fields. */
+const readIndexableFields = (
+	fields: Readonly<Record<string, GenericField>>,
+): Readonly<Record<string, GenericField>> =>
+	Object.fromEntries([
+		...Object.entries(fields).filter(([, field]) => field.kind !== 'relation'),
+		...Object.entries(systemFields),
+	])
+
+const isSameIndex = (
+	left: SchemaIndexDefinition,
+	right: SchemaIndexDefinition,
+): boolean =>
+	left.unique === right.unique &&
+	left.where === undefined &&
+	right.where === undefined &&
+	left.fields.length === right.fields.length &&
+	left.fields.every((field, position) => right.fields[position] === field)
+
 /**
- * Collects field-level indexes first, then composite declarations in configuration order.
+ * Collects field-level indexes first, then schema-level declarations in
+ * configuration order. Indexes declared in the final `.with` (`ruleIndexes`)
+ * may name fields that installed plugins add later; the compiled application
+ * checks them with `assertCompiledSchemaIndexes`.
  */
 export const normalizeSchemaIndexes = (
 	fields: SchemaFields,
-	indexes: readonly SchemaIndexOptions[] | undefined,
+	indexes: readonly SchemaIndexInput[] | undefined,
+	ruleIndexes: readonly SchemaIndexInput[] = [],
 ): readonly SchemaIndexDefinition[] => {
 	assertSchemaIndexes(indexes)
+	assertSchemaIndexes(ruleIndexes)
 
 	const definitions: SchemaIndexDefinition[] = []
-	const knownFieldNames = new Set<string>([
-		...Object.entries(fields)
-			.filter(([, field]) => field.kind !== 'relation')
-			.map(([fieldName]) => fieldName),
-		...reservedSystemFieldNames,
-	])
+	const knownFields = readIndexableFields(fields)
 
 	for (const [fieldName, field] of Object.entries(fields)) {
 		const indexed = readFieldIndexValue(Reflect.get(field.options, 'indexed'))
@@ -188,10 +287,67 @@ export const normalizeSchemaIndexes = (
 			)
 		}
 	}
+	const fieldLevel = definitions.length
 
-	for (const index of indexes ?? []) {
-		definitions.push(normalizeCompositeIndex(index, knownFieldNames))
+	const declared = [
+		...(indexes ?? []).map((index) => ({ index, pending: false })),
+		...ruleIndexes.map((index) => ({ index, pending: true })),
+	]
+	for (const [position, { index, pending }] of declared.entries()) {
+		const definition = normalizeCompositeIndex(
+			index,
+			knownFields,
+			`indexes[${String(position)}]`,
+			pending,
+		)
+		if (
+			definitions
+				.slice(0, fieldLevel)
+				.some((existing) => isSameIndex(existing, definition))
+		) {
+			throw new TypeError(
+				`Index duplicates the field-level index of ${definition.fields[0]}`,
+			)
+		}
+		definitions.push(definition)
 	}
 
 	return immutableArray(definitions)
+}
+
+/** Normalizes one plugin-contributed index against a schema's current fields. */
+export const normalizePatchSchemaIndex = (
+	index: SchemaIndexInput,
+	persistedFields: Readonly<Record<string, GenericField>>,
+): SchemaIndexDefinition => {
+	assertSchemaIndexes([index])
+	return normalizeCompositeIndex(
+		index,
+		readIndexableFields(persistedFields),
+		'index',
+		false,
+	)
+}
+
+/** Checks every index of one compiled schema against its final fields (ADR-0303). */
+export const assertCompiledSchemaIndexes = (
+	className: string,
+	indexes: readonly SchemaIndexDefinition[],
+	persistedFields: Readonly<Record<string, GenericField>>,
+): void => {
+	const knownFields = readIndexableFields(persistedFields)
+	for (const [position, index] of indexes.entries()) {
+		for (const fieldName of index.fields) {
+			if (!Object.hasOwn(knownFields, fieldName)) {
+				throw new TypeError(`Unknown index field: ${className}.${fieldName}`)
+			}
+		}
+		if (index.where !== undefined) {
+			assertSchemaIndexConditions(
+				index.where,
+				knownFields,
+				`${className}.indexes[${String(position)}].where`,
+			)
+		}
+	}
 }

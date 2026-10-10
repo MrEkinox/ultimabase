@@ -102,6 +102,16 @@ export {
 	databasePluginFieldStructuralContainsCapability,
 	databasePluginFieldStructuralContainsCapabilityVersion,
 } from './database/contracts.js'
+export {
+	databaseFilterOperatorCapabilityVersion,
+	databasePartialIndexCapability,
+	databasePartialIndexCapabilityVersion,
+} from './database/adapter-capabilities.js'
+export type {
+	DatabaseFilterOperatorCapability,
+	DatabaseFilterOperatorFamily,
+	DatabasePartialIndexCapability,
+} from './database/adapter-capabilities.js'
 export type {
 	DatabaseAdapterCapabilities,
 	DatabasePluginFieldStructuralContainsCapability,

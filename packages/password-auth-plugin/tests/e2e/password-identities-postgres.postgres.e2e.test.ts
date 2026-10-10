@@ -122,7 +122,10 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			expect(user.username).toBe('ada')
 			await expect(
 				new PasswordUser({ username: 'ada' }).create({}),
-			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			).rejects.toMatchObject({
+				code: 'UNIQUE_VIOLATION',
+				publicDetails: { fields: ['username'], schema: 'User' },
+			})
 		} finally {
 			await ultimabase.dispose()
 		}

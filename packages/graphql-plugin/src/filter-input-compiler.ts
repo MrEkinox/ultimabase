@@ -227,19 +227,15 @@ export class GraphqlFilterInputCompiler {
 		}
 		if (field.kind === 'json' || field.kind === 'object') {
 			Object.assign(fields, {
-				containedBy: { type: GraphqlJSON },
 				contains: { type: GraphqlJSON },
 				hasAllKeys: { type: nonNullList(GraphQLString) },
 				hasAnyKeys: { type: nonNullList(GraphQLString) },
 				hasKey: { type: GraphQLString },
-				jsonPathExists: { type: this.#structural.jsonPath() },
-				jsonPathMatches: { type: this.#structural.jsonPath() },
 				at: { type: nonNullList(this.#structural.pathFilter(schema, path)) },
 			})
 			if (field.kind === 'object') {
 				// Embedded objects compare against a typed partial instead of JSON.
 				const partial = this.#structural.partialObject(schema, field, path)
-				fields.containedBy = { type: partial }
 				fields.contains = { type: partial }
 			}
 		} else if (

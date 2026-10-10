@@ -180,6 +180,20 @@ Nested explicit transactions remain unsupported because the portable Runtime
 contract does not imply PostgreSQL savepoints. Core owns one automatic
 transaction for every mutation and its nested database work.
 
+Transactions run at `READ COMMITTED`. A serialization failure or deadlock
+(SQLSTATE 40001 or 40P01, also when `COMMIT` reports it) becomes the retryable
+`TRANSACTION_CONFLICT`: PostgreSQL has rolled the transaction back, and Core
+replays an automatic mutation transaction at most three times (ADR-0300). An
+explicit `transaction()` is never replayed. A unique violation (23505) becomes
+`UNIQUE_VIOLATION`, whose public details name the logical schema and index
+fields of the generated index; a foreign-key violation (23503) becomes
+`REFERENCE_VIOLATION`, naming only the schema of the deleted or written row
+(ADR-0302). Owner-private storage maps the same driver codes without public
+details. Other data and integrity errors remain `VALIDATION_ERROR`.
+
+`checkHealth(signal)` runs `SELECT 1` on the pool and backs
+`ultimabase.health()`; the adapter exports no `ping()` helper.
+
 Inside that transaction, singular mutations use Core's prepared-mutation
 protocol. Creates defer their write until the prepared handle executes. Updates
 and deletes first lock one deterministic full target, then write by its retained
@@ -419,6 +433,13 @@ metadata during `UltimaBase.compile()`. Physical names are deterministic,
 collision-resistant, and limited to PostgreSQL's 63-byte identifier boundary.
 The field tuple of every unique index becomes the exact upsert conflict target;
 developers never import or name a Drizzle index.
+
+A partial index declared with `where` (ADR-0303) compiles to
+`CREATE [UNIQUE] INDEX ... WHERE <predicate>` with inline, escaped literals.
+Its physical name includes a hash of the predicate, so synchronization replaces
+an index whose predicate changed, and introspection records the live
+predicate. The adapter declares the `partialIndexes` capability and every
+built-in filter operator in `filterOperators` (ADR-0301).
 If a concurrent insert collides on another unique index, the adapter rechecks
 only the declared target before choosing the update branch. An unrelated
 conflict fails instead of updating a row selected by that other index.
@@ -506,7 +527,10 @@ keys. The logical field name remains the physical column name, while the
 constraint name is deterministic and safe within PostgreSQL's identifier
 limit. Optional pointers use nullable columns, while `required`, `indexed`, and
 `indexed: "unique"` retain their normal Schema meaning. `onDelete` becomes
-`RESTRICT`, `CASCADE`, or `SET NULL`.
+`RESTRICT`, `CASCADE`, or `SET NULL`, which enforce Core's referential-integrity
+contract (ADR-0299) inside the deleting transaction: a referencing insert that
+races a deletion waits on the foreign-key row lock and fails with
+`REFERENCE_VIOLATION`, or commits first and receives the deletion's action.
 
 ```ts
 import { UltimaBase } from '@ultimabase/core'
@@ -750,16 +774,12 @@ typed object partials pass through child codecs before serialization:
 ```ts
 import { fieldPath } from '@ultimabase/core'
 
-const query = new QueryBuilder(ArticleSchema).where((where) =>
-	where
-		.contains('metadata', { visibility: 'public' }) // @>
-		.containedBy('metadata', { visibility: 'public', featured: true }) // <@
-		.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
-		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com') // #>
-		.jsonPathExists('metadata', {
-			source: '$.items[*] ? (@.price > $minimum)',
-			variables: { minimum: 10 },
-		}),
+const query = new QueryBuilder(ArticleSchema).where(
+	(where) =>
+		where
+			.contains('metadata', { visibility: 'public' }) // @>
+			.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
+			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com'), // #>
 )
 ```
 
@@ -767,17 +787,13 @@ Containment documents, keys, key arrays, and path segment arrays are parameters.
 The compiler uses `#>>` only for typed string matching and `#>` for JSONB value
 comparisons. No public builder exposes PostgreSQL syntax or raw SQL.
 
-Advanced JSONPath expressions without variables compile directly to
-parameterized `@?` or `@@`, preserving PostgreSQL's JSONB index path. When
-variables are supplied, the compiler uses `jsonb_path_exists` or
-`jsonb_path_match` and sends the source and JSONB variables separately, with
-silent structural-error handling enabled. JSONPath against an `objectField`
-observes its encoded JSONB representation.
+The PostgreSQL-specific JSONPath and `containedBy` operators were removed by
+ADR-0301; Core rejects them before the adapter.
 
-Regex uses PostgreSQL advanced regular expressions. `case-insensitive` selects
+Regex uses PostgreSQL advanced regular expressions for Core's portable subset
+(ADR-0302), which Core validates before execution. `case-insensitive` selects
 `~*`; the compiler maps the independent JavaScript-style `multiline` and
-`dot-matches-newline` flags to PostgreSQL newline modes `n`, `s`, `w`, or `p`.
-Invalid regex syntax is reported by PostgreSQL when the query executes. String
+`dot-matches-newline` flags to PostgreSQL newline modes `n`, `s`, `w`, or `p`. String
 ordering comparisons use the database column's configured collation. See the
 [PostgreSQL pattern-matching reference](https://www.postgresql.org/docs/current/functions-matching.html)
 for the underlying ARE syntax.

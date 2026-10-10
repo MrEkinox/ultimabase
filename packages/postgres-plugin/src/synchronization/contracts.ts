@@ -18,6 +18,8 @@ export interface DesiredPostgresIndex {
 	readonly columns: readonly [string, ...string[]]
 	readonly method: PostgresIndexMethod
 	readonly name: string
+	/** The rendered `WHERE` of a partial index (ADR-0303). */
+	readonly predicate?: string
 	readonly unique: boolean
 }
 

@@ -27,6 +27,7 @@ import {
 } from '../database/contracts.js'
 import { readOperationQueries } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { assertDatabaseFilterOperators } from './filter-operator-validation.js'
 import { assertDatabaseInclusionCapability } from './mutation-inclusion-source.js'
 
 interface DatabaseCapabilityRequest {
@@ -131,6 +132,7 @@ export const assertDatabaseRequestCapabilities = (
 	request: DatabaseCapabilityRequest,
 ): void => {
 	const { operation, rowFilter } = request
+	assertDatabaseFilterOperators(executor, request)
 
 	if (
 		operation.kind === 'update-one' &&

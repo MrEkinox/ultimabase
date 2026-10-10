@@ -7,7 +7,7 @@ contentType: guide
 order: 3
 outcome: Delete one record by ID and handle its pre-delete result or an absent target.
 releaseStatus: pre-release
-reviewedAt: 2026-09-16
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
@@ -83,8 +83,10 @@ never returns `null`. The prior `post` snapshot remains unchanged.
 Core runs a root delete in an automatic transaction and reuses an explicit
 transaction when one is active. For physical deletion, pointers to the target
 default to `onDelete: 'restrict'`; an explicitly configured `cascade` or
-optional-pointer `setNull` changes that behavior. An integrity failure, or an
-installed policy or Hook rejection, rolls back the deletion. There is no
+optional-pointer `setNull` changes that behavior. A referenced target fails
+with `REFERENCE_VIOLATION`; an integrity failure, or an installed policy or
+Hook rejection, rolls back the deletion. Cascaded deletions are physical and
+run no Hooks or policy on the referencing records. There is no
 general option to skip installed Hooks. See [Relationships](/docs/1.0.0/core/data-modeling/relationships)
 before deleting records that other schemas reference.
 

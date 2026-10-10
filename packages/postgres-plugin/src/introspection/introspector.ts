@@ -295,6 +295,7 @@ export const introspectPostgresDatabase = async (
 		const tableName = readString(row, 'table_name')
 		const name = readString(row, 'index_name')
 		const method = readString(row, 'method')
+		const predicate = readOptionalString(row, 'predicate')
 
 		getTable(tableName).indexes.push(
 			immutableRecord({
@@ -302,6 +303,8 @@ export const introspectPostgresDatabase = async (
 				definition: readString(row, 'definition'),
 				method,
 				name,
+				// Partial indexes are managed since ADR-0303.
+				...(predicate === undefined ? {} : { predicate }),
 				primary: readBoolean(row, 'is_primary'),
 				unique: readBoolean(row, 'is_unique'),
 			}),
@@ -309,9 +312,6 @@ export const introspectPostgresDatabase = async (
 
 		if (method !== 'btree' && method !== 'gin') {
 			reject('index-method', name, tableName)
-		}
-		if (readOptionalString(row, 'predicate') !== undefined) {
-			reject('index-partial', name, tableName)
 		}
 		if (readOptionalString(row, 'expressions') !== undefined) {
 			reject('index-expression', name, tableName)

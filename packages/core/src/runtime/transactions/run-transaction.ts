@@ -142,3 +142,79 @@ export const runRequestTransaction = async <TEngine, TResult>(
 		return outcome.value
 	})
 }
+
+/** Total attempts of one automatic mutation transaction (ADR-0300). */
+export const automaticTransactionAttempts = 3
+
+/** Identifies one automatic transaction in retry diagnostics, never its values. */
+export interface AutomaticTransactionLabel {
+	readonly operation: string
+	readonly schema?: string | undefined
+}
+
+/** Only an adapter guarantees that a failed attempt rolled back completely. */
+const isTransientConflict = (error: unknown): error is FrameworkError =>
+	error instanceof FrameworkError &&
+	error.code === 'TRANSACTION_CONFLICT' &&
+	error.retryable
+
+// A function call keeps the abort state observable after an await.
+const isAborted = (signal: AbortSignal): boolean => signal.aborted
+
+/** Waits a short randomized delay so competing transactions stop colliding. */
+const waitBeforeRetry = (attempt: number, signal: AbortSignal): Promise<void> =>
+	new Promise((resolve) => {
+		const delay = Math.floor((5 + Math.random() * 20) * attempt)
+		const finish = (): void => {
+			clearTimeout(timer)
+			signal.removeEventListener('abort', finish)
+			resolve()
+		}
+		const timer = setTimeout(finish, delay)
+		signal.addEventListener('abort', finish, { once: true })
+	})
+
+/**
+ * Runs one automatic mutation transaction and replays it from normalization
+ * after a transient adapter conflict, at most three attempts in total. Failed
+ * attempts roll back and discard their post-commit effects; no attempt starts
+ * after cancellation or the request deadline.
+ */
+export const runAutomaticRequestTransaction = async <TEngine, TResult>(
+	pipeline: RuntimePipeline,
+	createEngine: (
+		pipeline: RuntimePipeline,
+		lifetime: TransactionLifetime,
+	) => TEngine,
+	handler: (engine: TEngine) => MaybePromise<TResult>,
+	signal: AbortSignal,
+	label: AutomaticTransactionLabel,
+): Promise<TResult> => {
+	for (let attempt = 1; ; attempt += 1) {
+		try {
+			return await runRequestTransaction(
+				pipeline,
+				createEngine,
+				handler,
+				signal,
+			)
+		} catch (error: unknown) {
+			if (!isTransientConflict(error)) throw error
+			const diagnostic = { ...label, attempt, code: error.code }
+			if (attempt >= automaticTransactionAttempts) {
+				console.warn(
+					'[UltimaBase] Automatic transaction retries exhausted',
+					diagnostic,
+				)
+				throw error
+			}
+			if (isAborted(signal)) throw error
+			console.debug(
+				'[UltimaBase] Retrying automatic transaction after a transient conflict',
+				diagnostic,
+			)
+			await waitBeforeRetry(attempt, signal)
+			if (isAborted(signal)) throw error
+		}
+	}
+}

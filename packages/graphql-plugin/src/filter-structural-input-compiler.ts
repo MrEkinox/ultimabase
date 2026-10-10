@@ -29,7 +29,6 @@ export class GraphqlStructuralFilterInputCompiler {
 	readonly #pathFilters = new Map<string, GraphQLInputObjectType>()
 	readonly #partialObjects = new Map<string, GraphQLInputObjectType>()
 	#regex: GraphQLInputObjectType | undefined
-	#jsonPath: GraphQLInputObjectType | undefined
 	#direction: GraphQLEnumType | undefined
 
 	constructor(
@@ -73,24 +72,6 @@ export class GraphqlStructuralFilterInputCompiler {
 		)
 		this.#ctx.add('filterShared', flag)
 		return this.#ctx.add('filterShared', this.#regex)
-	}
-
-	jsonPath(): GraphQLInputObjectType {
-		this.#jsonPath ??= this.#ctx.add(
-			'filterShared',
-			this.#shared(
-				'GraphqlJsonPathExpression',
-				(name) =>
-					new GraphQLInputObjectType({
-						name,
-						fields: {
-							source: { type: new GraphQLNonNull(GraphQLString) },
-							variables: { type: GraphqlJSON },
-						},
-					}),
-			),
-		)
-		return this.#jsonPath
 	}
 
 	direction(): GraphQLEnumType {
@@ -140,12 +121,9 @@ export class GraphqlStructuralFilterInputCompiler {
 				matches: { type: this.regex() },
 				isNull: { type: GraphQLBoolean },
 				isNotNull: { type: GraphQLBoolean },
-				containedBy: json,
 				hasAllKeys: strings,
 				hasAnyKeys: strings,
 				hasKey: { type: GraphQLString },
-				jsonPathExists: { type: this.jsonPath() },
-				jsonPathMatches: { type: this.jsonPath() },
 			}
 			return this.#ctx.add(
 				'structural',

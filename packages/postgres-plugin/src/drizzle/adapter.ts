@@ -1,5 +1,6 @@
 import {
 	databaseInclusionCapability,
+	databasePartialIndexCapability,
 	databasePersistencePlanCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePointerCapability,
@@ -38,6 +39,7 @@ import {
 	createPostgresDrizzleClient,
 	type PostgresDrizzleClient,
 } from './client.js'
+import { postgresFilterOperatorCapability } from './filter-operators.js'
 import { executePostgresOperation } from './operation-executor.js'
 import { createPostgresTransactionError } from './operation-error.js'
 import { readPostgresPersistenceOperation } from './persistence-plan.js'
@@ -56,6 +58,8 @@ const postgresDatabaseCapabilities = immutableRecord({
 	pluginFieldStructuralContains:
 		databasePluginFieldStructuralContainsCapability,
 	persistencePlans: databasePersistencePlanCapability,
+	filterOperators: postgresFilterOperatorCapability,
+	partialIndexes: databasePartialIndexCapability,
 })
 
 /** Shares one compiled schema catalog across lifetimes. */
@@ -162,7 +166,12 @@ const executePostgresRequest = async <
 		}
 
 		result = await executePostgresOperation(
-			{ client, relationCompiler, schema },
+			{
+				client,
+				constraints: (name) => schemas.describeConstraint(name),
+				relationCompiler,
+				schema,
+			},
 			operation,
 			and(constraint, relationPredicate),
 		)
@@ -302,6 +311,7 @@ class DrizzlePostgresTransactionAdapter
 				this.#assertActive()
 			},
 			client: context.client,
+			constraints: (name) => context.schemas.describeConstraint(name),
 			compileConstraint: (execution) => {
 				if (
 					execution.plan.target.schema.definition !==
@@ -357,7 +367,7 @@ class DrizzlePostgresTransactionAdapter
 		}
 
 		this.#state = 'rolling-back'
-		let failure: FrameworkError<'TRANSACTION_ERROR'> | undefined
+		let failure: FrameworkError | undefined
 
 		try {
 			await this.#client.query('ROLLBACK')
@@ -419,6 +429,12 @@ class DrizzlePostgresDatabaseAdapter
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		return executePostgresRequest(this.#context, request)
+	}
+
+	/** Answers when one pooled connection runs a trivial query (ADR-0303). */
+	async checkHealth(signal: AbortSignal): Promise<void> {
+		signal.throwIfAborted()
+		await this.#pool.query('SELECT 1')
 	}
 
 	async beginTransaction(): Promise<DatabaseTransactionAdapter> {

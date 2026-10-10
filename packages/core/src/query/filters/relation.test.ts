@@ -156,12 +156,9 @@ describe('relation predicates', () => {
 						.notIn('name', ['Legacy'])
 						.contains('name', 'or')
 						.contains('metadata', { category: 'core' })
-						.containedBy('metadata', { category: 'core', stable: true })
 						.hasKey('metadata', 'category')
 						.hasAnyKeys('metadata', ['category', 'owner'])
 						.hasAllKeys('metadata', ['category', 'stable'])
-						.jsonPathExists('metadata', { source: '$.category' })
-						.jsonPathMatches('metadata', { source: '$.stable == true' })
 						.startsWith('name', 'Co')
 						.endsWith('name', 're')
 						.matches('name', { flags: [], source: '^Core$' })
@@ -181,7 +178,6 @@ describe('relation predicates', () => {
 
 		const serialized = JSON.stringify(expression)
 		const expectedKinds = [
-			'contained-by',
 			'contains',
 			'equal',
 			'greater-than',
@@ -190,8 +186,6 @@ describe('relation predicates', () => {
 			'has-any-keys',
 			'has-key',
 			'in',
-			'json-path-exists',
-			'json-path-matches',
 			'less-than',
 			'less-than-or-equal',
 			'not-between',

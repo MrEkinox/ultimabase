@@ -8,7 +8,7 @@ contentType: reference
 order: 6
 outcome: Read a safe error response and find the contract owned by the rejecting layer.
 releaseStatus: pre-release
-reviewedAt: 2026-09-27
+reviewedAt: 2026-10-09
 sources:
   - packages/core/src/errors/framework-error.ts
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
@@ -19,6 +19,7 @@ sources:
   - packages/rest-plugin/README.md
   - packages/graphql-plugin/README.md
   - docs/adr/0274-canonical-operation-cancellation.md
+  - docs/adr/0302-neutral-storage-errors-and-semantics.md
 ---
 
 Core errors have transport-independent codes. A public HTTP request adds another
@@ -101,6 +102,18 @@ codes. Common ones include `VALIDATION_ERROR`, `NOT_FOUND`,
 `PLUGIN_DEPENDENCY_MISSING` and `PLUGIN_PRIVILEGE_DENIED`. Unknown codes or
 malformed constructor options throw `TypeError`.
 
+Every database adapter reports three storage failures with neutral codes:
+
+| Code                   | Meaning                                                                                     | Public details       |
+| ---------------------- | ------------------------------------------------------------------------------------------- | -------------------- |
+| `UNIQUE_VIOLATION`     | A write would duplicate a unique index (field, schema or partial index).                    | `{ schema, fields }` |
+| `REFERENCE_VIOLATION`  | A deletion is restricted by a reference, or a write references a missing record.            | `{ schema }`         |
+| `TRANSACTION_CONFLICT` | A concurrent transaction aborted this one; `retryable` is `true` and nothing was persisted. | none                 |
+
+Neither detail lists values; `REFERENCE_VIOLATION` names only the schema of the
+record being deleted or written, because referencing records may be invisible
+to the caller.
+
 `OPERATION_CANCELLED` is the stable cooperative cancellation code. Plugin
 engines can call `throwIfOperationCancelled(signal, internalDetails?)` from
 `@ultimabase/core` at a safe boundary to produce the same failure as Core
@@ -154,10 +167,10 @@ a missing label in the first item of a nested input can be reported as:
 
 Use the path to associate a structural issue with an input field and the code
 for programmatic handling. Do not parse the message to identify the failure.
-Not every `VALIDATION_ERROR` has field issues: PostgreSQL also maps a unique
-constraint violation to this code with a generic public message and no index
-or field name. Check that `details.issues` exists before treating an error as
-a form-field failure. The exact public envelope after REST or GraphQL dispatch
+Not every `VALIDATION_ERROR` has field issues: a database also uses this code
+for other data constraints, with a generic public message, and an unsupported
+filter operator reports `details: { field, operator }`. Check that
+`details.issues` exists before treating an error as a form-field failure. The exact public envelope after REST or GraphQL dispatch
 still belongs to that transport.
 
 HTTP, REST, GraphQL, PostgreSQL, Typegen, and Password Auth each own their

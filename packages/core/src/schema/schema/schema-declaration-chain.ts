@@ -6,6 +6,7 @@ import type {
 } from '../../plugins/schema-extensions.js'
 import type { PluginSourceState } from '../../plugins/source-projections.js'
 import type {
+	CompleteConfiguredFields,
 	ConfiguredSchemaNamespace,
 	ConfiguredSchemaResult,
 	ConfiguredSchemaRuleOptions,
@@ -14,11 +15,43 @@ import type {
 import {
 	defineOrdinarySchemaModel,
 	Schema,
+	type SchemaDeclaredFields,
 	type SchemaFields,
 	type SchemaOptions,
 } from './definition.js'
 import { markSchemaDeclarationMethod } from './declaration-methods.js'
+import type {
+	SchemaFieldName,
+	SchemaIndexInput,
+	SchemaRuleIndexOptions,
+} from './indexes.js'
+import type { SchemaIndexWhere } from './index-predicates.js'
 import type { SchemaRulesTarget } from './registered-schemas.js'
+
+/**
+ * Indexes accepted by the final `.with(...)`, typed against the complete
+ * schema shape, plugin shape fields such as `isDeleted` included (ADR-0303).
+ */
+export type ConfiguredSchemaIndexRules<
+	TSource extends PluginSourceState,
+	TClassName extends string,
+	TFields extends SchemaDeclaredFields,
+	TOptions extends object,
+> = Readonly<{
+	/**
+	 * Declares schema-level indexes, optionally partial.
+	 *
+	 * @example `indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }]`
+	 */
+	readonly indexes?: readonly SchemaRuleIndexOptions<
+		SchemaFieldName<
+			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
+		>,
+		SchemaIndexWhere<
+			CompleteConfiguredFields<TSource, TClassName, TFields, TOptions>
+		>
+	>[]
+}>
 
 /** The final rules call of one schema declaration (ADR-0297). */
 export interface SchemaRulesMethod<
@@ -42,7 +75,8 @@ export interface SchemaRulesMethod<
 				ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 			>
 		> &
-			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions>,
+			ConfiguredSchemaRuleOptions<TSource, TClassName, TFields, TOptions> &
+			ConfiguredSchemaIndexRules<TSource, TClassName, TFields, TOptions>,
 	): ConfiguredSchemaResult<TSource, TClassName, TFields, TOptions>
 }
 
@@ -115,7 +149,18 @@ const defineDeclaredSchema = (
 				if (typeof rules !== 'object' || rules === null) {
 					throw new TypeError('schema rules must be an object')
 				}
-				return defineOrdinarySchemaModel({ ...options, ...rules })
+				// Indexes of `.with` may name fields that plugins add (ADR-0303).
+				const { indexes, ...rest }: Readonly<Record<string, unknown>> = {
+					...rules,
+				}
+				if (indexes !== undefined && !Array.isArray(indexes)) {
+					throw new TypeError('indexes must be a list')
+				}
+				return defineOrdinarySchemaModel(
+					{ ...options, ...rest },
+					{},
+					indexes as readonly SchemaIndexInput[] | undefined,
+				)
 			}),
 		],
 	]

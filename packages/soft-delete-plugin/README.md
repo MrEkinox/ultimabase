@@ -190,6 +190,19 @@ caller input is not.
 ## V1 exclusions
 
 V1 deliberately has no configurable tombstone field, deletion timestamp,
-deleter identity, reason, include-deleted query, cascade policy, uniqueness
-reuse, retention job, automatic purge, bulk soft delete, nested soft delete, or
-public restore and purge endpoint.
+deleter identity, reason, include-deleted query, cascade policy, retention job,
+automatic purge, bulk soft delete, nested soft delete, or public restore and
+purge endpoint. A soft deletion triggers no referential action (ADR-0299).
+Uniqueness among active rows uses a Core partial index declared by the
+application in the final `.with` (ADR-0303); the plugin never adds one:
+
+```ts
+App.Schema.define({
+	className: 'Article',
+	fields: (field) => ({ slug: field.string({ required: true }) }),
+})
+	.softDelete()
+	.with({
+		indexes: [{ fields: ['slug'], unique: true, where: { isDeleted: false } }],
+	})
+```

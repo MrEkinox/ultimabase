@@ -65,8 +65,14 @@ const executeSchemaMutationRequest = async (
 	envelope: PluginSchemaMutationEnvelope,
 	options: NormalizedOperationOptions,
 ): Promise<unknown> => {
-	const { application, derive, framework, lifetime, pipeline } =
-		readRequestEngineInternals(engine)
+	const {
+		application,
+		automaticTransaction,
+		derive,
+		framework,
+		lifetime,
+		pipeline,
+	} = readRequestEngineInternals(engine)
 	assertApplicationExecution(application)
 	assertEnvelope(application, command, schema, envelope)
 	const context = await resolveTerminalContext(
@@ -97,7 +103,12 @@ const executeSchemaMutationRequest = async (
 			{ publicMessage: 'Master access is required.' },
 		)
 	}
-	if (lifetime === undefined) return engine.transaction(reenter)
+	if (lifetime === undefined) {
+		return automaticTransaction(
+			{ operation: command.definition.name, schema: schema.className },
+			reenter,
+		)
+	}
 
 	const execution = await lifetime.run(() =>
 		runWithRequestEngineScope(engine, () =>

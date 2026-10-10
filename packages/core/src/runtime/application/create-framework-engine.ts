@@ -16,6 +16,7 @@ import {
 } from '../database/contracts.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
+import { assertStaticAdapterCapabilities } from './adapter-capability-checks.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import type {
 	RuntimeOperationTransformStage,
@@ -216,6 +217,14 @@ export const createFrameworkEngine = <
 		)
 	}
 	assertRequiredAdapterCapabilities(application, databaseAdapter)
+	const [adapterContribution] = readApplicationKernelState(
+		application,
+	).capabilityContributions(databaseAdapterCapability)
+	assertStaticAdapterCapabilities(
+		application.schemas.values(),
+		databaseAdapter,
+		adapterContribution?.owner.pluginId ?? 'unknown',
+	)
 
 	const enforcement = createEnforcementStages(application)
 	const persistencePlanRewrite = createPersistencePlanRewriteStage(application)

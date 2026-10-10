@@ -6,6 +6,8 @@ describe('FrameworkError', () => {
 	it('publishes one immutable set of stable framework codes', () => {
 		expect(frameworkErrorCodes).toStrictEqual([
 			'VALIDATION_ERROR',
+			'UNIQUE_VIOLATION',
+			'REFERENCE_VIOLATION',
 			'NOT_FOUND',
 			'PERMISSION_DENIED',
 			'MASTER_ACCESS_DENIED',
@@ -26,6 +28,7 @@ describe('FrameworkError', () => {
 			'RUNTIME_CALLBACK_RECURSION',
 			'OPERATION_CANCELLED',
 			'TRANSACTION_ERROR',
+			'TRANSACTION_CONFLICT',
 			'INTERNAL_ERROR',
 			'SERVICE_NOT_FOUND',
 			'SERVICE_ALREADY_PROVIDED',

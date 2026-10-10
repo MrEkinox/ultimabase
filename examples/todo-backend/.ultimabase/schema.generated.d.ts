@@ -63,25 +63,19 @@ export type TodoChecklistItemPathFilter = Readonly<{ readonly path: readonly ["d
 export type TodoChecklistItemPathValueFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoChecklistItemUpdateInput | null
 	readonly contains?: TodoChecklistItemUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoChecklistItem, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoChecklistItem, string>>
 	readonly hasKey?: Extract<keyof TodoChecklistItem, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 }
 
 export type TodoChecklistItemFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoChecklistItemUpdateInput | null
 	readonly contains?: TodoChecklistItemUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoChecklistItem, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoChecklistItem, string>>
 	readonly hasKey?: Extract<keyof TodoChecklistItem, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly at?: ReadonlyArray<TodoChecklistItemPathFilter>
 }
 
@@ -144,25 +138,19 @@ export type TodoDetailsPathFilter = Readonly<{ readonly path: readonly ["amount"
 export type TodoDetailsPathValueFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoDetailsUpdateInput | null
 	readonly contains?: TodoDetailsUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoDetails, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoDetails, string>>
 	readonly hasKey?: Extract<keyof TodoDetails, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 }
 
 export type TodoDetailsFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoDetailsUpdateInput | null
 	readonly contains?: TodoDetailsUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoDetails, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoDetails, string>>
 	readonly hasKey?: Extract<keyof TodoDetails, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly at?: ReadonlyArray<TodoDetailsPathFilter>
 }
 
@@ -183,25 +171,19 @@ export type TodoNestedDetailsPathFilter = Readonly<{ readonly path: readonly ["n
 export type TodoNestedDetailsPathValueFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoNestedDetailsUpdateInput | null
 	readonly contains?: TodoNestedDetailsUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoNestedDetails, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoNestedDetails, string>>
 	readonly hasKey?: Extract<keyof TodoNestedDetails, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 }
 
 export type TodoNestedDetailsFilter = {
 	readonly isNotNull?: true
 	readonly isNull?: true
-	readonly containedBy?: TodoNestedDetailsUpdateInput | null
 	readonly contains?: TodoNestedDetailsUpdateInput | null
 	readonly hasAllKeys?: ReadonlyArray<Extract<keyof TodoNestedDetails, string>>
 	readonly hasAnyKeys?: ReadonlyArray<Extract<keyof TodoNestedDetails, string>>
 	readonly hasKey?: Extract<keyof TodoNestedDetails, string>
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly at?: ReadonlyArray<TodoNestedDetailsPathFilter>
 }
 
@@ -1349,11 +1331,6 @@ export type JsonValue = boolean | number | string | null | JsonObject | Readonly
 
 export type JsonObject = { readonly [key: string]: JsonValue }
 
-export type JsonPathExpression = {
-	readonly source: string
-	readonly variables?: JsonObject
-}
-
 export type JsonDocument = JsonObject
 
 export type JsonPathFilter<TPath extends readonly [string, ...string[]] = readonly [string, ...string[]]> = {
@@ -1362,13 +1339,10 @@ export type JsonPathFilter<TPath extends readonly [string, ...string[]] = readon
 	readonly in?: ReadonlyArray<JsonValue>
 	readonly ne?: JsonValue
 	readonly notIn?: ReadonlyArray<JsonValue>
-	readonly containedBy?: JsonValue
 	readonly contains?: JsonValue
 	readonly hasAllKeys?: ReadonlyArray<string>
 	readonly hasAnyKeys?: ReadonlyArray<string>
 	readonly hasKey?: string
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly isNotNull?: true
 	readonly isNull?: true
 }
@@ -1378,13 +1352,10 @@ export type JsonFilter = {
 	readonly in?: ReadonlyArray<JsonDocument | null>
 	readonly ne?: JsonDocument | null
 	readonly notIn?: ReadonlyArray<JsonDocument | null>
-	readonly containedBy?: JsonDocument | null
 	readonly contains?: JsonDocument | null
 	readonly hasAllKeys?: ReadonlyArray<string>
 	readonly hasAnyKeys?: ReadonlyArray<string>
 	readonly hasKey?: string
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly isNotNull?: true
 	readonly isNull?: true
 	readonly at?: ReadonlyArray<JsonPathFilter>
@@ -1395,13 +1366,10 @@ export type JsonPathValueFilter = {
 	readonly in?: ReadonlyArray<JsonDocument | null>
 	readonly ne?: JsonDocument | null
 	readonly notIn?: ReadonlyArray<JsonDocument | null>
-	readonly containedBy?: JsonDocument | null
 	readonly contains?: JsonDocument | null
 	readonly hasAllKeys?: ReadonlyArray<string>
 	readonly hasAnyKeys?: ReadonlyArray<string>
 	readonly hasKey?: string
-	readonly jsonPathExists?: JsonPathExpression
-	readonly jsonPathMatches?: JsonPathExpression
 	readonly isNotNull?: true
 	readonly isNull?: true
 }

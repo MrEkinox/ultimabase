@@ -532,14 +532,6 @@ describe('PostgreSQL filter compiler', () => {
 				}),
 			),
 		)
-		const containedBy = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.containedBy('metadata', {
-					nested: true,
-					extra: false,
-				}),
-			),
-		)
 		const hasKey = renderQuery(
 			new QueryBuilder(FilterSchema).where((where) =>
 				where.hasKey('metadata', 'nested'),
@@ -573,43 +565,11 @@ describe('PostgreSQL filter compiler', () => {
 				where.eq(fieldPath('metadata', ['nested', 'count']), 42),
 			),
 		)
-		const jsonPathExists = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.jsonPathExists('metadata', {
-					source: '$.items[*] ? (@.price > $minimum)',
-					variables: { minimum: 10 },
-				}),
-			),
-		)
-		const jsonPathMatches = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.jsonPathMatches('profile', {
-					source: 'exists($.stats ? (@.exact == $expected))',
-					variables: { expected: '9007199254740993' },
-				}),
-			),
-		)
-		const jsonPathExistsOperator = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.jsonPathExists('metadata', {
-					source: '$.items[*]',
-				}),
-			),
-		)
-		const jsonPathMatchesOperator = renderQuery(
-			new QueryBuilder(FilterSchema).where((where) =>
-				where.jsonPathMatches('profile', {
-					source: '$.label == "typed"',
-				}),
-			),
-		)
-
 		expect(jsonContains.sql).toContain(' @> $1::jsonb')
 		expect(jsonContains.params).toStrictEqual(['{"nested":true}'])
 		expect(objectContains.params).toStrictEqual([
 			'{"stats":{"exact":"9007199254740993"}}',
 		])
-		expect(containedBy.sql).toContain(' <@ $1::jsonb')
 		expect(hasKey.sql).toContain(' ? $1')
 		expect(hasKey.params).toStrictEqual(['nested'])
 		expect(hasAnyKeys.sql).toContain(' ?| $1::text[]')
@@ -624,26 +584,6 @@ describe('PostgreSQL filter compiler', () => {
 		expect(pathString.sql).toContain(' #>> $1::text[] LIKE $2')
 		expect(pathString.params).toStrictEqual([['label'], '%typed%', '\\'])
 		expect(dynamicPath.params).toStrictEqual([['nested', 'count'], '42'])
-		expect(jsonPathExists.sql).toContain(
-			'jsonb_path_exists("filter_fixtures"."metadata", $1::jsonpath, $2::jsonb, $3)',
-		)
-		expect(jsonPathExists.params).toStrictEqual([
-			'$.items[*] ? (@.price > $minimum)',
-			'{"minimum":10}',
-			true,
-		])
-		expect(jsonPathMatches.sql).toContain(
-			'jsonb_path_match("filter_fixtures"."profile", $1::jsonpath, $2::jsonb, $3)',
-		)
-		expect(jsonPathMatches.params).toStrictEqual([
-			'exists($.stats ? (@.exact == $expected))',
-			'{"expected":"9007199254740993"}',
-			true,
-		])
-		expect(jsonPathExistsOperator.sql).toContain('"metadata" @? $1::jsonpath')
-		expect(jsonPathExistsOperator.params).toStrictEqual(['$.items[*]'])
-		expect(jsonPathMatchesOperator.sql).toContain('"profile" @@ $1::jsonpath')
-		expect(jsonPathMatchesOperator.params).toStrictEqual(['$.label == "typed"'])
 	})
 
 	it('parameterizes every built-in equality storage family', () => {

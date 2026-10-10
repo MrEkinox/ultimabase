@@ -5,6 +5,7 @@ import {
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	databaseAdapterCapability,
+	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
 	defineCapability,
 	plugin,
@@ -17,6 +18,7 @@ import {
 	type ApplicationRequestExecutor,
 	type AnonymousRequestAccess,
 	type DatabaseAdapter,
+	type DatabaseFilterOperatorCapability,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
@@ -34,6 +36,17 @@ import {
 
 import { executeRestReadRequest } from './reads.js'
 import { restPlugin } from './plugin.js'
+
+/** Declares the built-in operators these fixtures filter with (ADR-0301). */
+const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {
+	kind: 'filter-operators',
+	version: databaseFilterOperatorCapabilityVersion,
+	families: {
+		boolean: ['equal', 'not-equal', 'null'],
+		string: ['equal', 'not-equal', 'in', 'starts-with', 'null'],
+		uuid: ['equal', 'not-equal', 'in', 'not-in', 'null'],
+	},
+}
 
 const recordId = '01991f00-0000-7000-8000-000000000010'
 const missingId = '01991f00-0000-7000-8000-000000000011'
@@ -68,7 +81,9 @@ interface ExecutionObservation {
 
 class ReadDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
 	}
 	readonly requests: DatabaseOperationRequest[] = []
@@ -284,7 +299,51 @@ const createContext = (
 			.withValue(principal, 'session-user'),
 	)
 
+/** Declares only equality on strings, as a narrower database could (ADR-0301). */
+class EqualityOnlyDatabaseAdapter extends ReadDatabaseAdapter {
+	override readonly capabilities = {
+		filterOperators: {
+			...testDatabaseFilterOperators,
+			families: { ...testDatabaseFilterOperators.families, string: ['equal'] },
+		} satisfies DatabaseFilterOperatorCapability,
+		persistencePlans: databasePersistencePlanCapability,
+	}
+}
+
 describe('REST read execution', () => {
+	it('rejects an operator the database does not declare before the adapter', async () => {
+		const harness: RequestHarness = {}
+		const adapter = new EqualityOnlyDatabaseAdapter()
+		const ultimabase = new (UltimaBase.use(
+			restPlugin({ acknowledgeUnverifiedProtection: true }),
+			createHarnessPlugin(harness),
+			databasePlugin(adapter),
+		))({
+			pluginPrivileges: { logger: false },
+			schemas: [RecordSchema],
+		})
+		onTestFinished(() => ultimabase.dispose())
+		await ultimabase.start()
+		const context = createContext(harness, 'rest-undeclared-operator')
+		const where = { title: { startsWith: 'Vis' } }
+
+		await expect(
+			runAsHarness(harness, (executor) =>
+				executeRestReadRequest(executor, context, RecordSchema, {
+					operation: 'find',
+					request: new Request(
+						`https://example.test/records?where=${encodeURIComponent(JSON.stringify(where))}`,
+					),
+				}),
+			),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: { field: 'title', operator: 'startsWith' },
+		})
+		expect(adapter.requests).toStrictEqual([])
+		await ultimabase.dispose()
+	})
+
 	it('executes every read discriminant with the same operation as direct Query', async () => {
 		const harness: RequestHarness = {}
 		const adapter = new ReadDatabaseAdapter()

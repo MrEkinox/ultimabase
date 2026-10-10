@@ -127,6 +127,7 @@ class InMemoryAdapterFake
 	implements DatabaseAdapter
 {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	transaction: InMemoryTransactionFake | undefined
 
 	beginTransaction(): Promise<DatabaseTransactionAdapter> {

@@ -6,7 +6,7 @@ audience:
 contentType: guide
 outcome: Select the correct lifecycle, Runtime, storage, and security boundary for an advanced plugin.
 releaseStatus: pre-release
-reviewedAt: 2026-09-27
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
@@ -21,6 +21,8 @@ sources:
   - docs/adr/0269-core-native-plugin-authoring.md
   - docs/adr/0271-native-contribution-plugin-plan.md
   - docs/adr/0274-canonical-operation-cancellation.md
+  - docs/adr/0301-adapter-declared-filter-operators.md
+  - packages/core/src/runtime/database/adapter-capabilities.ts
   - docs/adr/0190-capability-host-lifecycle-and-legacy-convergence.md
   - docs/adr/0191-plugin-privilege-taxonomy-and-diagnostics.md
   - docs/adr/0195-setup-phase-capability-requirements.md
@@ -215,6 +217,13 @@ weaken your protected policy or make transport input select Master.
 ### Adapter integration
 
 Portable plugins reach the database through Core's neutral adapter contracts.
+A database adapter honors the written storage contract of the Core README
+(referential integrity, neutral `UNIQUE_VIOLATION`, `REFERENCE_VIOLATION` and
+retryable `TRANSACTION_CONFLICT` errors, null and list semantics), implements
+the required `checkHealth(signal)`, and declares the filter operators it runs
+per field family in `capabilities.filterOperators` and `partialIndexes` when it
+supports partial indexes. Core rejects undeclared operators before calling the
+adapter and refuses to start when a schema needs a missing capability.
 Adapter support tokens, attributed physical-schema contributions, raw adapter
 leases, database constraint compilers and the `adapter:consume` privilege had
 no production consumer and were removed before the first release.

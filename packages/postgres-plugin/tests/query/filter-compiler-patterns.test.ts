@@ -20,11 +20,13 @@ describe('PostgreSQL filter pattern compilation', () => {
 				where.between('title', payload, `${payload}z`),
 			),
 		)
+		// The portable regex subset (ADR-0302) rejects the `\\ ` escape.
+		const regexPayload = "x%'_ OR true --"
 		const regex = renderQuery(
 			new QueryBuilder(FilterSchema).where((where) =>
 				where.matches('title', {
 					flags: [],
-					source: payload,
+					source: regexPayload,
 				}),
 			),
 		)
@@ -35,8 +37,8 @@ describe('PostgreSQL filter pattern compilation', () => {
 		expect(contains.params).toStrictEqual(["%x\\%'\\_\\\\ OR true --%", '\\'])
 		expect(range.sql).not.toContain(payload)
 		expect(range.params).toStrictEqual([payload, `${payload}z`])
-		expect(regex.sql).not.toContain(payload)
-		expect(regex.params).toStrictEqual([`(?p)${payload}`])
+		expect(regex.sql).not.toContain(regexPayload)
+		expect(regex.params).toStrictEqual([`(?p)${regexPayload}`])
 	})
 
 	it('maps independent JavaScript regex newline flags to PostgreSQL modes', () => {

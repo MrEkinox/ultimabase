@@ -24,6 +24,7 @@ import { restPlugin } from './plugin.js'
 
 const unavailableAdapter: DatabaseAdapter = {
 	kind: 'database-adapter',
+	checkHealth: (): Promise<void> => Promise.resolve(),
 	beginTransaction: () => {
 		throw new TypeError('REST operation fixture does not open transactions')
 	},

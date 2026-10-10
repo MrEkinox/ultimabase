@@ -84,6 +84,7 @@ const articleRecord = (title: string) => ({
 /** Returns deterministic fixture data for every generic adapter call. */
 class FixtureDatabaseExecutor implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
 		persistencePlans: databasePersistencePlanCapability,
 	}

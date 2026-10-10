@@ -104,6 +104,13 @@ boundaries. Independent behavior engines can use that same helper with their
 own `AbortSignal`; it standardizes the `OPERATION_CANCELLED` failure but does
 not detach or forcibly terminate running JavaScript.
 
+Every Hook except post-commit event consumers may run several times for one
+call: Core replays an automatic mutation transaction after a transient
+`TRANSACTION_CONFLICT` (ADR-0300). A Hook must therefore have no effect outside
+the transaction (no HTTP call, e-mail, queue message, file or surviving
+in-memory state); writes through UltimaBase join the transaction, and events
+emitted by a failed attempt are discarded.
+
 Schema mutation Hooks receive an optional `nestedWrite` value when their
 ordinary lifecycle belongs to a nested mutation. It is the same immutable,
 selection-independent Core graph for the root and every created child; it is

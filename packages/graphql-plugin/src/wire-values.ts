@@ -104,8 +104,6 @@ const opaqueOperators = new Set([
 	'isNotEmpty',
 	'isNotNull',
 	'isNull',
-	'jsonPathExists',
-	'jsonPathMatches',
 	'matches',
 ])
 

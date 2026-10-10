@@ -401,9 +401,10 @@ describe('internal PostgreSQL database adapter transactions', () => {
 		const commitTransaction = await commitFixture.adapter.beginTransaction()
 
 		commitDriver.failTransaction('COMMIT', commitError)
+		// PostgreSQL rolls back a transaction whose COMMIT reports 40001 (ADR-0300).
 		await expect(commitTransaction.commit()).rejects.toMatchObject({
-			code: 'TRANSACTION_ERROR',
-			retryable: false,
+			code: 'TRANSACTION_CONFLICT',
+			retryable: true,
 			internalDetails: { phase: 'commit' },
 		})
 		expect(commitDriver.releaseCalls).toBe(0)

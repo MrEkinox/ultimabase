@@ -15,7 +15,6 @@ import type { QueryFieldName } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import { parsePersistedQueryFieldName } from '../ast/schema.js'
 import {
-	createQueryJsonPathFilter,
 	createQueryKeyFilter,
 	createQueryListFilter,
 	createQueryMembershipFilter,
@@ -30,7 +29,6 @@ import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import {
 	readWhereOperatorKind,
 	type QueryFieldPath,
-	type QueryJsonPathExpression,
 	type QueryRegexPattern,
 } from './primitive.js'
 import {
@@ -195,7 +193,6 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 			assertEnabledWhereFlag(operand, path)
 			return createQueryListFilter(schema, kind, target)
 		case 'contains':
-		case 'contained-by':
 			return createQueryStructuralFilter(schema, kind, target, operand)
 		case 'has-key':
 		case 'has-any-keys':
@@ -206,14 +203,6 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 				kind,
 				target,
 				operand as string | readonly string[],
-			)
-		case 'json-path-exists':
-		case 'json-path-matches':
-			return createQueryJsonPathFilter(
-				schema,
-				kind,
-				target,
-				operand as QueryJsonPathExpression,
 			)
 		case 'regex':
 			assertRootWhereTarget(target, path)

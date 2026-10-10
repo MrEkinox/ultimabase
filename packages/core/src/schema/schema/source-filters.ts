@@ -68,19 +68,10 @@ interface StringFilter
 
 interface StructuralFilter<TValue, TKey extends PropertyKey = string>
 	extends EqualityFilter<TValue>, NullFilter {
-	readonly containedBy?: TValue
 	readonly contains?: TValue
 	readonly hasAllKeys?: readonly TKey[]
 	readonly hasAnyKeys?: readonly TKey[]
 	readonly hasKey?: TKey
-	readonly jsonPathExists?: Readonly<{
-		readonly source: string
-		readonly variables?: Readonly<Record<string, unknown>>
-	}>
-	readonly jsonPathMatches?: Readonly<{
-		readonly source: string
-		readonly variables?: Readonly<Record<string, unknown>>
-	}>
 }
 
 interface ArrayFilter<TValue> extends NullFilter {

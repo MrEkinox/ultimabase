@@ -21,13 +21,10 @@ export const renderStructuralProperties = (
 	value: string,
 	key: string,
 ): string =>
-	`\treadonly containedBy?: ${value}
-\treadonly contains?: ${value}
+	`\treadonly contains?: ${value}
 \treadonly hasAllKeys?: ReadonlyArray<${key}>
 \treadonly hasAnyKeys?: ReadonlyArray<${key}>
-\treadonly hasKey?: ${key}
-\treadonly jsonPathExists?: JsonPathExpression
-\treadonly jsonPathMatches?: JsonPathExpression`
+\treadonly hasKey?: ${key}`
 
 export const renderNamedFilter = (
 	name: string,

@@ -239,10 +239,6 @@ const renderStructuralFilters = (
 		definitions.push(
 			`export type JsonValue = boolean | number | string | null | JsonObject | ReadonlyArray<JsonValue>`,
 			`export type JsonObject = { readonly [key: string]: JsonValue }`,
-			renderNamedFilter('JsonPathExpression', [
-				'\treadonly source: string',
-				'\treadonly variables?: JsonObject',
-			]),
 		)
 	}
 

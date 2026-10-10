@@ -402,7 +402,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				data: { target: { connect: targetPointer.id } },
 			}),
 		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
+			code: 'UNIQUE_VIOLATION',
 			internalDetails: { driverCode: '23505' },
 		})
 		await expect(
@@ -481,7 +481,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				where: { id: { eq: restrictedTarget.id } },
 			}),
 		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
+			code: 'REFERENCE_VIOLATION',
 			internalDetails: { driverCode: '23503' },
 		})
 		await expect(

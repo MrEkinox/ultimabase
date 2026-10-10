@@ -76,6 +76,9 @@ describe('REST response errors', () => {
 			['MASTER_ACCESS_DENIED', 403],
 			['NOT_FOUND', 404],
 			['VALIDATION_ERROR', 422],
+			['UNIQUE_VIOLATION', 409],
+			['REFERENCE_VIOLATION', 409],
+			['TRANSACTION_CONFLICT', 409],
 		] as const) {
 			const response = createRestCaughtErrorResponse(
 				new FrameworkError(code, 'secret framework diagnostic', {

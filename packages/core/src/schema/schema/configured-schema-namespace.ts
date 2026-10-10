@@ -93,7 +93,8 @@ type ConfiguredSourceFields<
 			: Readonly<Record<never, never>>
 		: Readonly<Record<never, never>>
 
-type CompleteConfiguredFields<
+/** The developer, system and plugin shape fields of one configured schema. */
+export type CompleteConfiguredFields<
 	TSource extends PluginSourceState,
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,

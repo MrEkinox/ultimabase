@@ -51,6 +51,16 @@ const sessions = definePrivateCollection({
 	references: [{ field: 'accountId', onDelete: 'cascade', target: Account }],
 })
 
+const pins = definePrivateCollection({
+	contributionId: 'pins',
+	fields: {
+		accountId: uuidField({ immutable: true, required: true }),
+		label: stringField({ immutable: true, required: true }),
+	},
+	indexes: [{ fields: ['label'] }] as const,
+	references: [{ field: 'accountId', onDelete: 'fail', target: Account }],
+})
+
 const actionValue = defineOperationValue((value) => {
 	if (!isPlainRecord(value) || typeof value.action !== 'string') {
 		throw new TypeError('action is required')
@@ -111,6 +121,11 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 								})
 							)?.version ?? 'conflict'
 						)
+					case 'pin':
+						await privateStore(pins).insert({
+							data: { accountId, label: 'pinned' },
+						})
+						return 'pinned'
 					case 'read-rollback':
 						return (await store.findUnique({
 							where: { secret: 'rolled-back' },
@@ -149,6 +164,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 				contributeDeclarations({
 					privateStorage: ({ privateStorage }) => {
 						privateStorage.register(sessions)
+						privateStorage.register(pins)
 
 						return undefined
 					},
@@ -179,7 +195,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			).toBe('1')
 			await expect(
 				ultimabase.operation(sessionOperation).execute({ action: 'duplicate' }),
-			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 
 			const race = await Promise.all([
 				ultimabase.operation(sessionOperation).execute({ action: 'race' }),
@@ -205,6 +221,20 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 					.operation(sessionOperation)
 					.execute({ action: 'read-rollback' }),
 			).toBe('missing')
+
+			// A `fail` reference restricts deleting its target (ADR-0299).
+			const pinned = await new Account({ name: 'pinned' }).create({})
+			accountId = pinned.id
+			expect(
+				await ultimabase.operation(sessionOperation).execute({ action: 'pin' }),
+			).toBe('pinned')
+			await expect(pinned.delete({})).rejects.toMatchObject({
+				code: 'REFERENCE_VIOLATION',
+				publicDetails: { schema: 'PrivateStoragePostgresAccount' },
+			})
+			await expect(
+				Account.exists({ where: { id: { eq: pinned.id } } }),
+			).resolves.toBe(true)
 		} finally {
 			await ultimabase.dispose()
 		}

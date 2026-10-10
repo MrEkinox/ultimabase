@@ -34,7 +34,7 @@ const renderCreateIndex = (
 	table: string,
 	index: DesiredPostgresIndex,
 ): string =>
-	`CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${quoteIdentifier(index.name)} ON ${qualify(namespace, table)}${index.method === 'gin' ? ' USING gin' : ''} (${index.columns.map(quoteIdentifier).join(', ')})`
+	`CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${quoteIdentifier(index.name)} ON ${qualify(namespace, table)}${index.method === 'gin' ? ' USING gin' : ''} (${index.columns.map(quoteIdentifier).join(', ')})${index.predicate === undefined ? '' : ` WHERE ${index.predicate}`}`
 
 /** Renders one validated plan without interpolating unescaped identifiers. */
 export const renderPostgresSchemaChange = (

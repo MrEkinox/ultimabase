@@ -7,7 +7,7 @@ contentType: reference
 order: 2
 outcome: Choose the right scalar, list, structured, pointer, or relation predicate for a where input.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
@@ -15,6 +15,8 @@ sources:
   - docs/adr/0143-canonical-object-where-inputs.md
   - docs/adr/0157-explicit-relation-emptiness-filters.md
   - docs/adr/0160-pointer-identity-and-target-filters.md
+  - docs/adr/0301-adapter-declared-filter-operators.md
+  - docs/adr/0302-neutral-storage-errors-and-semantics.md
 ---
 
 Pass a `where` object to a read to match records. Its field names and available
@@ -63,13 +65,30 @@ Autocomplete shows only operators supported by the chosen field kind.
 Several operators on one field also combine with `AND`: `{ views: { gte: 100,
 lt: 1_000 } }` includes 100 but excludes 1,000. `notBetween` matches values
 strictly outside its inclusive bounds. Use `isNull: true` or `isNotNull: true`
-to distinguish a nullable list from an empty one.
+to distinguish a nullable list from an empty one. Equality on a list or a JSON
+array compares the whole value (length, elements and order); use `has`,
+`hasSome` or `hasEvery` to test membership.
+
+`matches` accepts one portable regular-expression subset that every database
+runs identically: literals, `.`, bracket classes with ranges and negation,
+`\d \w \s` and their negations, the anchors `^` and `$`, plain and `(?:...)`
+groups, alternation, and the quantifiers `* + ? {m} {m,} {m,n}`, with the flags
+`case-insensitive`, `dot-matches-newline` and `multiline`. Backreferences,
+lookaround, named groups, Unicode properties, lazy quantifiers and other
+escapes are rejected with `VALIDATION_ERROR` before the database runs.
+
+## Operators the database runs
+
+Each database adapter declares the operators it executes for each field kind.
+Core checks a filter against that declaration before the database is reached:
+an operator the adapter does not declare fails with `VALIDATION_ERROR`, whose
+public details name the `field` and `operator`. The PostgreSQL adapter declares
+every operator on this page.
 
 ## Structured values
 
-`f.json()` and `f.object()` support structural `contains` and
-`containedBy`, key checks (`hasKey`, `hasAnyKeys`, `hasAllKeys`), and `at` path
-predicates. Here `metadata` is a JSON field and `profile` is a typed embedded
+`f.json()` and `f.object()` support structural `contains`, key checks
+(`hasKey`, `hasAnyKeys`, `hasAllKeys`), and `at` path predicates. Here `metadata` is a JSON field and `profile` is a typed embedded
 object with `contact.email`:
 
 ```ts title="src/filter-profiles.ts"
@@ -87,10 +106,7 @@ export const readPublicProfiles = () =>
 ```
 
 Each `at` path is an array of segments, not a dotted string. Typed object
-paths and operands follow the declared shape; JSON paths are dynamic. For
-advanced JSONPath expressions, use `jsonPathExists` or `jsonPathMatches` with
-`{ source, variables? }`. The expression source is not TypeScript-checked.
-See [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects) for
+paths and operands follow the declared shape; JSON paths are dynamic. See [Embedded Objects](/docs/1.0.0/core/data-modeling/embedded-objects) for
 how nested values are declared.
 
 ## Pointers and relations

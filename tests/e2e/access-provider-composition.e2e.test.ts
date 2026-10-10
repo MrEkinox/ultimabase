@@ -11,6 +11,8 @@ import {
 	databaseAdapterCapability,
 	databasePluginFieldStructuralContainsCapability,
 	databasePersistencePlanCapability,
+	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	plugin,
 	provideCapability,
 	type DatabaseAdapter,
@@ -26,6 +28,7 @@ import {
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 import { describe, expect, it } from 'vitest'
+import { testDatabaseFilterOperators } from '../../tooling/vitest/database-filter-operators.js'
 
 const fixedInstant = '2026-08-04T00:00:00.000Z'
 const editor = new RequestSubjectReference('role', 'fixture.editor')
@@ -33,6 +36,7 @@ const editor = new RequestSubjectReference('role', 'fixture.editor')
 /** Records complete requests while returning one trusted logical fixture result. */
 class CompositionReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities: DatabaseAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 
@@ -41,7 +45,11 @@ class CompositionReadAdapter implements DatabaseAdapter {
 		structuralContains = true,
 	) {
 		this.capabilities = {
+			filterOperators: testDatabaseFilterOperators,
 			persistencePlans: databasePersistencePlanCapability,
+			// Role schemas declare relation fields (ADR-0301 startup check).
+			relationPredicates: databaseRelationPredicateCapability,
+			relations: databaseRelationCapability,
 			...(structuralContains
 				? {
 						pluginFieldStructuralContains:
@@ -69,6 +77,7 @@ class CompositionReadAdapter implements DatabaseAdapter {
 class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
 		pluginFieldStructuralContains:
 			databasePluginFieldStructuralContainsCapability,
@@ -110,7 +119,9 @@ class CompositionWriteTransaction implements DatabaseTransactionAdapter {
 
 class CompositionWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
 		pluginFieldStructuralContains:
 			databasePluginFieldStructuralContainsCapability,
@@ -427,9 +438,10 @@ describe('Access provider composition', () => {
 		))({ schemas: [PublicACLPost] })
 
 		try {
-			await ultimabase.start()
-			await expect(PublicACLPost.findMany(undefined)).rejects.toMatchObject({
-				code: 'INTERNAL_ERROR',
+			// ADR-0301: the static ACL `contains` need is refused at start.
+			await expect(ultimabase.start()).rejects.toMatchObject({
+				code: 'PLUGIN_ADAPTER_CAPABILITY_MISSING',
+				internalDetails: { capability: 'plugin-field-structural-contains' },
 			})
 			expect(adapter.requests).toHaveLength(0)
 		} finally {

@@ -7,7 +7,7 @@ contentType: concept
 order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 releaseStatus: pre-release
-reviewedAt: 2026-09-20
+reviewedAt: 2026-10-09
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
@@ -18,6 +18,7 @@ sources:
   - packages/core/examples/schema/relations.md
   - docs/adr/0115-immutable-model-commands.md
   - docs/adr/0118-transport-neutral-relations.md
+  - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0179-name-based-relationship-targets.md
   - docs/adr/0247-contextual-relation-filters.md
 ---
@@ -110,9 +111,22 @@ for inclusion behavior.
 
 `onDelete` controls how deleting a target affects its referencing records:
 
-- `restrict` (the default) rejects target deletion while the pointer exists;
-- `cascade` deletes the referencing record;
+- `restrict` (the default) rejects target deletion while the pointer exists,
+  with `REFERENCE_VIOLATION`, and rolls the transaction back;
+- `cascade` deletes the referencing record in the same transaction,
+  transitively; a `restrict` anywhere in the chain fails the whole deletion;
 - `setNull` clears the pointer and therefore requires an optional field.
+
+The database adapter enforces these actions inside the deletion's
+transaction. Cascades are physical: deleted or cleared referencing records run
+no Hooks, Access, ACL or Soft Delete rewrite, and emit no event. Delete
+children explicitly from a Hook of the parent deletion when they need their own
+lifecycle. Under concurrent writes, a write that references a record and the
+deletion of that record never both commit with a dangling pointer: either the
+write commits first and the deletion applies its action to it, or the deletion
+commits first and the write fails with `REFERENCE_VIOLATION`. The error names
+only the schema of the record being deleted or written. A soft deletion
+triggers no referential action.
 
 Use `indexed: 'unique'` on a pointer to express a one-to-one constraint. Use a
 relation instead when one record owns a changing set of target members.

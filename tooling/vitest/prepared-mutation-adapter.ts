@@ -65,6 +65,7 @@ export class PreparedMutationTestAdapter implements DatabaseAdapter {
 		persistencePlans: databasePersistencePlanCapability,
 	}
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly transactions: PreparedMutationTestTransaction[] = []
 
 	constructor(private readonly options: PreparedMutationTestAdapterOptions) {}

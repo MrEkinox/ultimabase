@@ -3,10 +3,12 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	databaseAdapterCapability,
+	databaseFilterOperatorCapabilityVersion,
 	databasePersistencePlanCapability,
 	plugin,
 	provideCapability,
 	type DatabaseAdapter,
+	type DatabaseFilterOperatorCapability,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
@@ -16,9 +18,22 @@ import {
 import type { SoftDeleteSchemaOption } from './contracts.js'
 import { softDeletePlugin } from './plugin.js'
 
+/** Declares the built-in operators these fixtures filter with (ADR-0301). */
+const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {
+	kind: 'filter-operators',
+	version: databaseFilterOperatorCapabilityVersion,
+	families: {
+		boolean: ['equal', 'not-equal', 'null'],
+		string: ['equal', 'not-equal', 'in', 'starts-with', 'null'],
+		uuid: ['equal', 'not-equal', 'in', 'not-in', 'null'],
+	},
+}
+
 class VisibilityReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly checkHealth = (): Promise<void> => Promise.resolve()
 	readonly capabilities = {
+		filterOperators: testDatabaseFilterOperators,
 		persistencePlans: databasePersistencePlanCapability,
 	}
 	readonly requests: DatabaseOperationRequest[] = []

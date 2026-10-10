@@ -1,7 +1,10 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { getDeclaredFieldOptionsContract } from '../../schema/fields/base/definition.js'
-import { readFieldIndexValue } from '../../schema/schema/indexes.js'
+import {
+	normalizePatchSchemaIndex,
+	readFieldIndexValue,
+} from '../../schema/schema/indexes.js'
 import type { PreparedSchemaCompilation } from '../../schema/schema/definition.js'
 import {
 	coreSchemaContributionOwner,
@@ -157,27 +160,10 @@ export const applySchemaPatchOperation = (
 			break
 		}
 		case 'index:add': {
-			const { fields } = operation.index
-			if (fields.length < 2)
-				throw new TypeError('Composite index must contain at least two fields')
-			const known = new Set([
-				...Object.entries(definition.persistedFields)
-					.filter(([, field]) => field.kind !== 'relation')
-					.map(([name]) => name),
-				...reservedSystemFieldNames,
-			])
-			const seen = new Set<string>()
-			for (const name of fields) {
-				if (!known.has(name))
-					throw new TypeError(`Unknown index field: ${name}`)
-				if (seen.has(name))
-					throw new TypeError(`Duplicate index field: ${name}`)
-				seen.add(name)
-			}
-			const index = immutableRecord({
-				fields: immutableArray(fields),
-				unique: operation.index.unique ?? false,
-			})
+			const index = normalizePatchSchemaIndex(
+				operation.index,
+				definition.persistedFields,
+			)
 			next = immutableRecord({
 				...definition,
 				indexes: immutableArray([...definition.indexes, index]),

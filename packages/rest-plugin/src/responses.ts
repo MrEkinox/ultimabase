@@ -73,10 +73,14 @@ const responseContracts: Readonly<
 	},
 })
 
+// Neutral storage conflicts (ADR-0302) are client-visible 409 responses.
 const frameworkStatuses: ReadonlyMap<string, number> = new Map([
 	['MASTER_ACCESS_DENIED', 403],
 	['NOT_FOUND', 404],
 	['PERMISSION_DENIED', 403],
+	['REFERENCE_VIOLATION', 409],
+	['TRANSACTION_CONFLICT', 409],
+	['UNIQUE_VIOLATION', 409],
 	['VALIDATION_ERROR', 422],
 ])
 

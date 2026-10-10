@@ -1,8 +1,4 @@
-import type {
-	JsonObject,
-	JsonValue,
-	SchemaDefinition,
-} from '../../schema/index.js'
+import type { JsonValue, SchemaDefinition } from '../../schema/index.js'
 
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 
@@ -22,22 +18,16 @@ export type QueryListFilterOperator =
 
 export type QueryStringFilterOperator = 'contains' | 'starts-with' | 'ends-with'
 
-/** Represents JSONB-style structural containment and its inverse. */
-export type QueryStructuralContainmentFilterOperator =
-	'contained-by' | 'contains'
+/** Represents structural containment of a JSON-compatible operand. */
+export type QueryStructuralContainmentFilterOperator = 'contains'
 
 /** Represents top-level key tests shared by typed and untyped structures. */
 export type QueryKeyFilterOperator = 'has-all-keys' | 'has-any-keys' | 'has-key'
-
-/** Selects whether JSONPath returns an item or evaluates one boolean predicate. */
-export type QueryJsonPathFilterOperator =
-	'json-path-exists' | 'json-path-matches'
 
 /** Lists every first-party filter discriminant accepted by public builders. */
 export type QueryBuiltInFilterOperator =
 	| QueryComparisonFilterOperator
 	| QueryEqualityFilterOperator
-	| QueryJsonPathFilterOperator
 	| QueryKeyFilterOperator
 	| QueryListFilterOperator
 	| QueryMembershipFilterOperator
@@ -182,25 +172,6 @@ export type QueryKeysFilterNode<
 	}> &
 	QueryFilterPathProperty<TPath>
 
-/** Carries one advanced JSONPath expression as inert, transport-safe data. */
-export interface QueryJsonPathExpression {
-	readonly source: string
-	readonly variables?: JsonObject
-}
-
-/** Applies one intentionally untyped JSONPath expression to a structured target. */
-export type QueryJsonPathFilterNode<
-	TFieldName extends string = string,
-	TPath extends readonly string[] | undefined = undefined,
-> = QueryExpressionNode &
-	Readonly<{
-		kind: QueryJsonPathFilterOperator
-		field: TFieldName
-		source: string
-		variables?: JsonObject
-	}> &
-	QueryFilterPathProperty<TPath>
-
 /** Carries a regex as inert data for a later adapter compiler. */
 export interface QueryRegexFilterNode<
 	TFieldName extends string = string,
@@ -250,11 +221,9 @@ export interface QueryPrimitiveFilterNode<
 	readonly lower?: unknown
 	readonly path?: readonly [string, ...string[]]
 	readonly pattern?: QueryRegexPattern
-	readonly source?: string
 	readonly upper?: unknown
 	readonly value?: unknown
 	readonly values?: readonly unknown[]
-	readonly variables?: JsonObject
 }
 
 /** Keeps bootstrap filter values unknown until runtime validation. */
@@ -318,14 +287,11 @@ const whereOperatorKinds: Readonly<Record<string, QueryBuiltInFilterOperator>> =
 		hasEvery: 'list-has-every',
 		isEmpty: 'list-empty',
 		contains: 'contains',
-		containedBy: 'contained-by',
 		startsWith: 'starts-with',
 		endsWith: 'ends-with',
 		hasKey: 'has-key',
 		hasAnyKeys: 'has-any-keys',
 		hasAllKeys: 'has-all-keys',
-		jsonPathExists: 'json-path-exists',
-		jsonPathMatches: 'json-path-matches',
 		matches: 'regex',
 	}
 

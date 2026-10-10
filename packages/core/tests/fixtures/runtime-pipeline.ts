@@ -34,6 +34,7 @@ import type {
 	RuntimeResultTransformStage,
 } from '../../src/runtime/pipeline/contracts.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
 
 export const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',
@@ -232,6 +233,7 @@ export class TraceDatabaseExecutor implements DatabaseOperationExecutor {
 	) {
 		this.capabilities = immutableRecord({
 			persistencePlans: databasePersistencePlanCapability,
+			filterOperators: testDatabaseFilterOperators,
 			...capabilities,
 		})
 	}
