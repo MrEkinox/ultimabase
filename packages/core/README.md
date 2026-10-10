@@ -1281,6 +1281,12 @@ mode. Applications work with anonymous and audited master authority until an
 optional plugin derives typed values on an immutable request context:
 
 ```ts
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+} from '@ultimabase/core/plugin'
+
 interface AuthenticatedPrincipal {
 	readonly id: string
 }
@@ -1408,6 +1414,15 @@ const imported = await PostSchema.createMany(
 ```
 
 Every read and mutation accepts the same `OperationOptions` authority boundary.
+`useMasterKey` is a boolean (ADR-0311): `false` is identical to omitting it,
+inherits the current authority and never downgrades a Master context, so a
+conditional elevation stays one call. Any other value is rejected before
+execution. The value must come from server-side state, never from request
+input:
+
+```ts
+await ReportSchema.createOne({ data }, { useMasterKey: isScheduledJob })
+```
 
 The application-owned `MasterAuthority` audits the operation before it runs;
 the first configured key ID labels trusted operation elevations. Contexts and
@@ -1439,8 +1454,12 @@ const post = await PostSchema.createOne({
 The complete current Runtime mutation pipeline and database work started inside
 it commit or roll back together. Configured schema, field, and plugin behavior executes
 inside this same active boundary. An explicit
-`RequestEngine.transaction()` is reused without nesting, while root reads
-remain non-transactional. Collection mutations are ordered singular item
+`ultimabase.transaction(fn)` (ADR-0311) runs `fn` in one adapter transaction
+and resolves to its result; it keeps the current request (principal and
+authority included) or opens a fresh anonymous internal one, is never
+retried, and fails with `TRANSACTION_ERROR` inside another transaction. Root
+mutations inside it reuse it without nesting, while root reads remain
+non-transactional. Collection mutations are ordered singular item
 operations inside one transaction: any missing target, input, persistence,
 business-hook, or finalization failure rolls back the complete batch.
 
@@ -1691,7 +1710,7 @@ const Note = UltimaBase.Schema.define({
 })
 
 const ultimabase = new UltimaBase({ schemas: [Note] })
-await ultimabase.start()
+await using app = await ultimabase.start()
 await Note.findMany()
 ```
 
@@ -1790,7 +1809,8 @@ const application = new Application({
 	schemas: [UserSchema],
 })
 
-await application.start()
+// start() resolves to the application (ADR-0311).
+await using app = await application.start()
 ```
 
 Every application owns its schema registry, materialized capabilities, exact
@@ -1826,9 +1846,43 @@ there is no force reset. Escaped engines, grants, contexts, and handles retain
 their previous owner. Static plugin mutation visibility is removed on disposal.
 Independent parallel applications use separate workers, processes, or containers.
 Jest/Vitest suites await `start()` in `beforeAll` and `dispose()` in `afterAll`.
-Locally scoped scripts and tests may instead declare
-`await using ultimabase = new Application(options)`; the facade implements
-`Symbol.asyncDispose` and awaits `dispose()` when the async scope exits.
+Scripts declare `await using app = await ultimabase.start()`: `start()`
+resolves to the application (concurrent calls share one promise) and the
+facade implements `Symbol.asyncDispose`, so `dispose()` is awaited when the
+async scope exits. Guides document only `start()`, `await using` and
+`dispose()`; `compile()`, `initialize()` and `stop()` are for advanced cases.
+
+Each program declares its application once in `Register` (ADR-0297
+amendment 1). Constructing an application without it is a type error whose
+message shows the declaration to add:
+
+```ts
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
+}
+```
+
+## Application logger
+
+`new App({ logger, logLevel })` (ADR-0313) routes every Core and plugin line.
+`logger` is any object with `debug`, `info`, `warn` and `error` methods taking
+`(message, details?)`, the console by default, or `false` to silence
+everything; `logLevel` is `'debug'`, `'info'` (default), `'warn'` or `'error'`.
+Core never reads the environment to choose them, and a failing logger never
+fails what it reports on. Plugins receive the same logger, prefixed with their
+package name, in their setup context, start phases and capability factories.
+Lines never contain option values, secrets, credentials or row values.
+
+After a successful `start()`, Core logs one `info` line with the schema count,
+the plugin package names in graph order and the critical privileges with their
+plugins, for example
+`UltimaBase started: 3 schemas, 2 plugins (@acme/a, @acme/b); critical privileges: authority:elevate (@acme/b). Use logLevel 'debug' for the privilege report.`
+The complete privilege report is a `debug` line; a denied privilege logs it at
+`error` before failing construction. Warnings that need action stay visible at
+the default level: unverified public transport protection, and the plugin
+lines for transports exposing nothing or routes nothing serves.
 
 ## Framework errors
 
@@ -1939,8 +1993,15 @@ lifecycle callback. If the plugin exposes an application-local API, add
 `exports` and its exact type remains available through plugin lookup.
 
 Transports and other plugin packages import authoring helpers from the
-plugin-author subpath `@ultimabase/core/plugin` (ADR-0311). It currently
-exports the shared cursor encoder of ADR-0309: `encodeQueryCursor(schema,
+plugin-author subpath `@ultimabase/core/plugin` (ADR-0311). It exports the
+request-context machinery that applications never need: `RequestContext`
+(with `RequestContext.anonymous`), `RequestContextValue`,
+`RequestCapability`, `requestSources`, `RequestEngine`,
+`anonymous(app, options)`, `withContext(app, context)` and
+`authorizeMasterKey(app, rawKey)` for transports, and the `WhereBuilder` and
+`QueryBuilder` classes; the main entry exports both builders as types only,
+since applications receive builders where Core passes them. It also exports
+the shared cursor encoder of ADR-0309: `encodeQueryCursor(schema,
 orderBy, row)` turns the position of a received row into an opaque base64url
 string of at most 4096 characters (version, schema name, ordering completed by
 `id`, ordered values), and `decodeQueryCursor(schema, orderBy, cursor)` returns
@@ -2130,6 +2191,14 @@ contributions are copied and frozen. Every installed definition appears
 once in the application's flat `.use()` chain; plugin relationships are
 declared explicitly.
 
+`defineCapability` accepts an optional `hint` (ADR-0313): one line of plain
+text, at most 200 characters, written by the capability's owner, for example
+`Install @acme/audit-plugin and add auditPlugin() to UltimaBase.use(...)`.
+When a required capability has no provider, `PLUGIN_CAPABILITY_MISSING`
+appends the hint to its message and to `internalDetails.hint`. Core's own
+tokens (database adapter, principal and role resolvers) carry neutral hints
+that name no plugin.
+
 Named dependencies use `{ pluginId, version, instanceId? }`. Their SemVer range
 is checked against the installed plugin version, and `instanceId` targets one
 exact configuration when the same plugin is installed more than once. Prefer a
@@ -2276,11 +2345,10 @@ identifies the exact plugin and optional instance, reason, review severity, and
 whether policy blocked execution before static declaration or a later Core
 facade rejected the effect.
 
-The default logger emits one ordered report through `console.info`, or through
-`console.error` when requests are denied. Set
-`pluginPrivileges.logger: false` to silence it, or provide `{ info, error }` to
-route the same immutable report elsewhere. Logger failures are isolated from
-policy results. `application.pluginPrivilegeReport` exposes the detached report
+The application logger (ADR-0313) writes the complete report at `debug`
+(`logLevel: 'debug'`), or at `error` when requests are denied; the startup
+summary line names only critical privileges. `logger: false` silences it.
+Logger failures are isolated from policy results. `application.pluginPrivilegeReport` exposes the detached report
 without plugin options, credentials, capability values, or stack traces.
 
 `normalizePlugins(definitions)` resolves the configured application's flat

@@ -188,7 +188,6 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 					path.join(project.destination, 'verify.mjs'),
 					`import { ultimabase } from './src/ultimabase.js'
 import { Task } from './src/schema.js'
-import { anonymous } from '@ultimabase/core/plugin'
 
 await ultimabase.start()
 try {
@@ -211,7 +210,8 @@ try {
 		60_000,
 	)
 
-	it('serves GraphQL reads while keeping introspection off without an explorer', async () => {
+	// ADR-0312: introspection follows NODE_ENV; the template writes no expression.
+	it('serves GraphQL reads with introspection only outside production', async () => {
 		const project = await setupProject('create_app_graphql', {
 			language: 'js',
 			apis: ['graphql'],
@@ -229,7 +229,13 @@ try {
 				},
 			})
 			const introspection = await graphql('{ __schema { queryType { name } } }')
-			expect(await introspection.text()).toContain('errors')
+			expect(await introspection.json()).toEqual({
+				data: { __schema: { queryType: { name: 'Query' } } },
+			})
+			await stopServer(server)
+			server = await startServer(project.destination, 'js', 'production')
+			const refused = await graphql('{ __schema { queryType { name } } }')
+			expect(await refused.text()).toContain('errors')
 		} finally {
 			if (server !== undefined) await stopServer(server)
 			await project.dispose()

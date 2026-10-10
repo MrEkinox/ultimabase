@@ -282,10 +282,7 @@ import { formatWorkflow, workflowPlugin } from '@your-scope/workflow-plugin'
 
 import { Task } from './schema.js'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 	.use(workflowPlugin())
 	.use(graphqlPlugin({ operations: [formatWorkflow] }))
 

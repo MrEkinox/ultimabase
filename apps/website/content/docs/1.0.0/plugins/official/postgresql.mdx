@@ -25,6 +25,7 @@ sources:
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
   - docs/adr/0303-core-partial-indexes-and-health.md
   - packages/postgres-plugin/src/drizzle/operation-error.ts
+  - docs/adr/0312-environment-dependent-plugin-defaults.md
 ---
 
 ## Overview
@@ -65,20 +66,20 @@ UltimaBase remains pre-release.
 
 ## Configuration
 
-Supply exactly one of `url` or `pool`. The example uses a disposable
-development database and lets the plugin own its connection pool.
-`DATABASE_URL` must be loaded into the process environment before this file
-runs; keep it out of source control.
+Supply at most one of `url` or `pool`. Without either, `postgresPlugin()`
+reads the `DATABASE_URL` environment variable when the application starts,
+not when the plugin is created: schemas and the application import and
+type-check without environment. A missing or empty variable fails `start()`
+with a message naming `DATABASE_URL` and the `url` option, never the value.
+The example uses a disposable development database and lets the plugin own
+its connection pool; keep `DATABASE_URL` out of source control.
 
 ```ts title="src/main.ts"
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
 const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
+	postgresPlugin({ schemaPolicy: 'override' }),
 )
 const Task = Application.Schema.define({
 	className: 'Task',
@@ -86,17 +87,19 @@ const Task = Application.Schema.define({
 		title: f.string({ required: true }),
 	}),
 })
-const ultimabase = new Application({
+export const ultimabase = new Application({
 	schemas: [Task],
 })
 
-try {
-	await ultimabase.start()
-	const connection = ultimabase.plugin(postgresPluginName).connection
-	console.log(connection.state) // 'connected'
-} finally {
-	await ultimabase.dispose()
+declare module '@ultimabase/core' {
+	interface Register {
+		readonly app: typeof ultimabase
+	}
 }
+
+await using app = await ultimabase.start()
+const connection = app.plugin(postgresPluginName).connection
+console.log(connection.state) // 'connected'
 ```
 
 <Callout type="warn" title="Use override only on a reviewed database">
@@ -107,7 +110,7 @@ try {
 
 | Plugin option  | Purpose                                                                              |
 | -------------- | ------------------------------------------------------------------------------------ |
-| `url`          | Non-empty connection URL. The plugin creates and closes its own pool.                |
+| `url`          | Non-empty connection URL; it wins over `DATABASE_URL`. The plugin owns the pool.     |
 | `pool`         | Existing `pg`-compatible pool. Your application owns and closes it.                  |
 | `schemaPolicy` | `'override'`, `'fail'`, or `'ignore'`; the default depends on `NODE_ENV`, see below. |
 

@@ -28,6 +28,8 @@ sources:
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
   - docs/adr/0306-readable-mutation-results.md
+  - docs/adr/0311-application-lifecycle-and-authority-surface.md
+  - docs/adr/0312-environment-dependent-plugin-defaults.md
 ---
 
 ## Overview
@@ -119,15 +121,12 @@ const Post = SchemaApplication.Schema.define({
 	graphql: { operations: { get: true, findMany: true } },
 })
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = SchemaApplication.use(
-	postgresPlugin({ schemaPolicy: 'override', url: databaseUrl }),
-)
+// postgresPlugin() reads DATABASE_URL at start; Hono listens on
+// 127.0.0.1:1337 outside production.
+const Application = SchemaApplication.use(postgresPlugin())
 	.use(httpPlugin({ appId: 'notes' }))
 	.use(graphqlYogaPlugin())
-	.use(honoServerPlugin({ host: '127.0.0.1', port: 1337 }))
+	.use(honoServerPlugin())
 
 export const ultimabase = new Application({
 	schemas: [Post],
@@ -277,17 +276,13 @@ the GraphQL plugin's deterministic schema, then releases its resources:
 ```ts title="src/print-graphql-schema.ts"
 import { ultimabase } from './ultimabase.js'
 
-try {
-	await ultimabase.start()
-	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
-	console.log(graphql.printSchema())
-} finally {
-	await ultimabase.dispose()
-}
+await using app = await ultimabase.start()
+console.log(app.plugin('@ultimabase/graphql-plugin').printSchema())
 ```
 
-For browser schema discovery through Yoga, enable introspection only in the
-intended development environment.
+Yoga answers introspection for browser schema discovery outside production
+and refuses it when `NODE_ENV=production`, unless `introspection` is set
+explicitly.
 
 ### GraphQL without HTTP
 
@@ -309,24 +304,21 @@ initialized application in the same realm:
 
 ```ts title="src/direct-graphql.ts"
 import { randomUUID } from 'node:crypto'
+import { anonymous } from '@ultimabase/core/plugin'
 import { ultimabase } from './ultimabase.js'
 
-try {
-	await ultimabase.start()
-	const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
-	const context = ultimabase.anonymous({
-		requestId: randomUUID(),
-		source: 'internal',
-	}).context
+await using app = await ultimabase.start()
+const graphql = app.plugin('@ultimabase/graphql-plugin')
+const context = anonymous(app, {
+	requestId: randomUUID(),
+	source: 'internal',
+}).context
 
-	const result = await graphql.execute({
-		context,
-		document: '{ findManyPost(first: 10) { nodes { id title } } }',
-	})
-	console.log(result.data)
-} finally {
-	await ultimabase.dispose()
-}
+const result = await graphql.execute({
+	context,
+	document: '{ findManyPost(first: 10) { nodes { id title } } }',
+})
+console.log(result.data)
 ```
 
 To run a document as a given user, pass `principal` (a pointer, or
@@ -376,8 +368,9 @@ Install and configure each package you use; none is installed by its sibling.
 
 By default, Yoga mounts `POST /graphql`, accepts UTF-8 JSON GraphQL requests,
 and limits streamed bodies to 1 MiB. It rejects batching, uploads,
-subscriptions, SSE, and its built-in GraphiQL UI. HTTP introspection is off
-unless explicitly enabled. To change the route and limits:
+subscriptions, SSE, and its built-in GraphiQL UI. HTTP introspection is on in
+development and off when `NODE_ENV=production`; an explicit `introspection`
+value always wins. To change the route and limits:
 
 ```ts
 graphqlYogaPlugin({
@@ -404,8 +397,8 @@ curl -i -X POST \
 
 On a fresh database, expect HTTP `200` with an empty `nodes` array inside
 `data.findManyPost`. A missing or incorrect application ID is rejected by
-HTTP before Yoga executes the query. Introspection remains off in this
-example; turn it on explicitly only if a development explorer needs it.
+HTTP before Yoga executes the query. Introspection follows `NODE_ENV`: it
+answers in development and is refused when `NODE_ENV=production`.
 
 A successful HTTP status is not enough to decide whether a GraphQL operation
 succeeded: inspect `errors` as well as `data`. GraphQL errors carry safe
@@ -430,13 +423,15 @@ import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
 import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
 
 // Choose the explorer you want to add to the application's `.use()` chain.
-const graphiql = graphiqlPlugin({ environment: 'development' })
-const apolloSandbox = apolloSandboxPlugin({ environment: 'development' })
+const graphiql = graphiqlPlugin()
+const apolloSandbox = apolloSandboxPlugin()
 ```
 
 Add the chosen value (`graphiql` or `apolloSandbox`) with another `.use()` in
-`src/ultimabase.ts`, and replace `graphqlYogaPlugin()` there with
-`graphqlYogaPlugin({ introspection: true })` for this development setup.
+`src/ultimabase.ts`. Each explorer derives its environment from `NODE_ENV`
+when created: it serves its route in development and, in production, only
+with `allowInProduction: true`. An explorer that is served while Yoga
+introspection is off refuses to start, naming the option to change.
 Restart the application and open the corresponding URL from the table on
 `http://127.0.0.1:1337`. These bootstrap page URLs work in the browser address
 bar; their GraphQL requests still send the application header.
@@ -444,9 +439,7 @@ bar; their GraphQL requests still send the application header.
 Each explorer targets the installed GraphQL HTTP endpoint and attaches the
 public application ID. GraphiQL has no application or endpoint switcher.
 Apollo Sandbox fixes the endpoint and disables endpoint editing and cookie
-controls. Neither embeds credentials or authority. Schema discovery requires
-Yoga introspection to be enabled. In production, neither contributes a route
-unless `allowInProduction: true` is explicit. Both load remote assets; review
+controls. Neither embeds credentials or authority. Both load remote assets; review
 their network environmental claims before enabling either one.
 
 ## Troubleshooting
@@ -458,8 +451,9 @@ same started application and do not retain it after cancellation or disposal.
 
 For HTTP selection errors, first check the exact
 `X-UltimaBase-Application-Id` header and configured `appId`. If an explorer
-loads without schema discovery, enable Yoga introspection in the intended
-environment and check its endpoint path. A missing explorer route in
-production is expected unless explicitly enabled. A cursor rejected with
+refuses to start with `PLUGIN_CAPABILITY_MISSING` for
+`ultimabase.graphql.introspection`, enable Yoga introspection or stop serving
+the explorer in that environment. A missing explorer route in production is
+expected unless `allowInProduction: true` is set. A cursor rejected with
 `VALIDATION_ERROR` was produced for another type or `orderBy`: send the same
 ordering as the read that returned it.

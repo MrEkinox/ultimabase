@@ -1,4 +1,5 @@
 import { toJSON, type MasterAccessEvent } from '@ultimabase/core'
+import * as corePlugin from '@ultimabase/core/plugin'
 import type { PostgresPool } from '@ultimabase/postgres-plugin'
 import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { vi } from 'vitest'
@@ -117,6 +118,16 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 	} as MinimalExampleModule
 }
 
+/**
+ * Calls a plugin-author function of `@ultimabase/core/plugin` (ADR-0311) with
+ * the untyped example application.
+ */
+export const invokeCorePlugin = (
+	name: 'anonymous' | 'authorizeMasterKey',
+	arguments_: readonly unknown[],
+): Promise<unknown> =>
+	Promise.resolve(Reflect.apply(corePlugin[name], undefined, arguments_))
+
 /** Calls a checked public method across the untyped JavaScript example boundary. */
 export const invoke = (
 	target: object,
@@ -156,7 +167,8 @@ export const executeMinimalGraphql = async (
 	requestId: string,
 	variables?: Readonly<Record<string, unknown>>,
 ): Promise<unknown> => {
-	const anonymous = await invoke(application, 'anonymous', [
+	const anonymous = await invokeCorePlugin('anonymous', [
+		application,
 		{ requestId, source: 'internal' },
 	])
 	const context: unknown = Reflect.get(

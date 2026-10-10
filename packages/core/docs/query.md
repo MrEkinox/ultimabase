@@ -192,10 +192,13 @@ their optimized existence predicates. Only literal `true` is accepted.
 ## Reusable read scopes
 
 A scope transforms a `QueryBuilder` without capturing Runtime state or
-changing its selection:
+changing its selection. The main entry exports `QueryBuilder` and
+`WhereBuilder` as types only (ADR-0311): applications receive builders where
+Core passes them; plugin authors construct them from `@ultimabase/core/plugin`:
 
 ```ts
-import { QueryBuilder, type QueryScope } from '@ultimabase/core'
+import type { QueryScope } from '@ultimabase/core'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const published: QueryScope<typeof Post> = (query) =>
 	query.where({ published: { eq: true } })
@@ -265,11 +268,12 @@ The write surface is:
 - `deleteMany({ where: [where], select? }, options?)`
 
 The object form is the source of truth for reads, mutations, and future
-transports. Dynamic application code may use the public immutable utility
-class, whose short methods build the exact same object contract:
+transports. Plugin code may use the immutable builder classes of
+`@ultimabase/core/plugin`, whose short methods build the exact same object
+contract:
 
 ```ts
-import { QueryBuilder, WhereBuilder } from '@ultimabase/core'
+import { QueryBuilder, WhereBuilder } from '@ultimabase/core/plugin'
 
 const updated = await Post.updateMany({
 	data: postIds.map((id) => ({

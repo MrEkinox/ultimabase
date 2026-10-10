@@ -15,6 +15,13 @@ Responsibilities:
 
 Runtime does not import database engines, servers, transport products, or concrete permission plugins.
 
+Request-context machinery (`RequestContext`, `RequestContextValue`,
+`RequestCapability`, `requestSources`, `RequestEngine`, `anonymous(app,
+options)`, `withContext(app, context)`, `authorizeMasterKey(app, rawKey)`) is
+exported by `@ultimabase/core/plugin` only (ADR-0311); applications use
+`useMasterKey` and `ultimabase.transaction(fn)`. Core's own log lines go
+through the application logger of ADR-0313 (`readApplicationLog`).
+
 Generated schema classes expose canonical object-input reads. Their commands
 resolve the exact active request context at call time through a neutral bridge.
 The optional immutable `QueryBuilder` only builds reusable inputs and never
@@ -97,7 +104,8 @@ const application = new Application({
 
 await application.start()
 
-const request = application.anonymous({
+// Plugin-author names come from `@ultimabase/core/plugin` (ADR-0311).
+const request = anonymous(application, {
 	requestId: 'article-list',
 	source: requestSources.internal,
 })

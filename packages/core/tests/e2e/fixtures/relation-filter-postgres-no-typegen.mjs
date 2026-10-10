@@ -4,7 +4,7 @@ import { MasterAuthority, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	RequestContextValue,
-	anonymous,
+	anonymous as anonymousRequest,
 	authorizeMasterKey,
 } from '@ultimabase/core/plugin'
 
@@ -67,7 +67,7 @@ const labels = (models) => models.map(({ label }) => label).sort()
 await ultimabase.start()
 
 try {
-	const anonymousEngine = anonymous(ultimabase, {
+	const anonymousEngine = anonymousRequest(ultimabase, {
 		requestId: 'javascript-relation-filter',
 		source: 'internal',
 	})

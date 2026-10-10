@@ -25,6 +25,7 @@ import {
 } from './relation-filter-public-support.js'
 import {
 	invoke,
+	invokeCorePlugin,
 	loadMinimalExample,
 	readObject,
 	readString,
@@ -86,7 +87,8 @@ const createContext = async (
 	kind: 'anonymous' | 'master',
 ): Promise<RequestContext> => {
 	const anonymous = readObject(
-		await invoke(app(), 'anonymous', [
+		await invokeCorePlugin('anonymous', [
+			app(),
 			{
 				requestId: `relation-filter-${kind}`,
 				source: 'internal',
@@ -100,7 +102,7 @@ const createContext = async (
 			'anonymous context',
 		) as RequestContext
 	}
-	const grant = await invoke(app(), 'authorizeMasterKey', [masterKey])
+	const grant = await invokeCorePlugin('authorizeMasterKey', [app(), masterKey])
 	const master = readObject(
 		await invoke(anonymous, 'useMasterKey', [
 			grant,

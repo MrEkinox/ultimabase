@@ -18,8 +18,8 @@ import type {
 /* eslint-disable @typescript-eslint/no-empty-object-type -- Declaration-merging target. */
 /**
  * Application registry, declared once per application for name-keyed editor
- * types (ADR-0297). Optional: without it everything compiles with structural
- * types.
+ * types (ADR-0297). Required: constructing an application without it is a
+ * type error, since rule checking would otherwise grow quadratically.
  *
  * @example
  * ```ts

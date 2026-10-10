@@ -26,20 +26,38 @@ const readCoreArchive = async (
 	return contents.join('\n')
 }
 // Keep editor probes aligned with the fixture's original declaration order.
-const schemaFixtureFiles = [
+// The fixtures are probed where an external consumer would place them: inside
+// `packages/core`, `@ultimabase/core/plugin` resolves by package
+// self-reference while plugin declarations reach the same files through
+// `node_modules`, and TypeScript then holds two copies of Core's classes.
+const consumerDirectory = path.join(
+	repositoryRoot,
+	'tests/e2e/core-archive-consumer',
+)
+const schemaFixtureNames = [
 	'runtime-postgres-fixture.ts',
 	'register-runtime-bulk-tests.ts',
 	'runtime-postgres.postgres.e2e.test.ts',
-].map((file) => path.join(import.meta.dirname, file))
+]
+const schemaFixtureFiles = schemaFixtureNames.map((file) =>
+	path.join(consumerDirectory, file),
+)
 const schemaFixtureSources = new Map(
 	await Promise.all(
-		schemaFixtureFiles.map(
-			async (file) => [file, await readFile(file, 'utf8')] as const,
+		schemaFixtureNames.map(
+			async (file) =>
+				[
+					path.join(consumerDirectory, file),
+					(await readFile(path.join(import.meta.dirname, file), 'utf8'))
+						.replaceAll("'../../../../tests/fixtures/", "'../../fixtures/")
+						.replaceAll("'../../../../tooling/", "'../../../tooling/"),
+				] as const,
 		),
 	),
 )
 const schemaLanguageServiceHost: ts.LanguageServiceHost = {
-	fileExists: (fileName) => ts.sys.fileExists(fileName),
+	fileExists: (fileName) =>
+		schemaFixtureSources.has(fileName) || ts.sys.fileExists(fileName),
 	getCompilationSettings: () => ({
 		exactOptionalPropertyTypes: true,
 		module: ts.ModuleKind.NodeNext,
@@ -59,7 +77,8 @@ const schemaLanguageServiceHost: ts.LanguageServiceHost = {
 			: ts.ScriptSnapshot.fromString(contents)
 	},
 	getScriptVersion: () => '0',
-	readFile: (fileName) => ts.sys.readFile(fileName),
+	readFile: (fileName) =>
+		schemaFixtureSources.get(fileName) ?? ts.sys.readFile(fileName),
 }
 const schemaLanguageService = ts.createLanguageService(
 	schemaLanguageServiceHost,
