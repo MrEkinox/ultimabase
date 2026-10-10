@@ -255,12 +255,8 @@ describe('postgresPlugin', () => {
 				message: 'postgres plugin options must be a plain object',
 			},
 			{
-				create: () => postgresPlugin({} as never),
-				message: 'postgres plugin requires exactly one of url or pool',
-			},
-			{
 				create: () => postgresPlugin({ url: '', pool } as never),
-				message: 'postgres plugin requires exactly one of url or pool',
+				message: 'postgres plugin accepts at most one of url or pool',
 			},
 			{
 				create: () => postgresPlugin({ url: '' }),

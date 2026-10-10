@@ -1,5 +1,7 @@
 import { apolloSandboxPlugin } from '@ultimabase/apollo-sandbox-plugin'
 import { graphiqlPlugin } from '@ultimabase/graphiql-plugin'
+import { graphqlPlugin } from '@ultimabase/graphql-plugin'
+import { graphqlYogaPlugin } from '@ultimabase/graphql-yoga-plugin'
 import { httpPlugin } from '@ultimabase/http-plugin'
 import {
 	browserRequest,
@@ -73,5 +75,42 @@ describe('packed GraphQL explorer composition', () => {
 			(await secondTable.fetch(browserRequest('second', '/graphiql'))).status,
 		).toBe(401)
 		await Promise.all([first.dispose(), second.dispose()])
+	})
+
+	// ADR-0312: an explorer that is served while introspection is off refuses
+	// to start, and the missing capability says what to change (ADR-0313).
+	it.each([
+		['GraphiQL', () => graphiqlPlugin({ environment: 'development' })],
+		['Apollo Sandbox', () => apolloSandboxPlugin()],
+	])('refuses a served %s without introspection', (_name, explorer) => {
+		for (const provider of [
+			graphqlHttpProvider({ introspection: false }),
+			graphqlYogaPlugin({ introspection: false }),
+		]) {
+			expect(
+				() =>
+					new (UltimaBase.use(
+						databasePlugin(),
+						httpPlugin({ appId: 'introspection-off' }),
+						graphqlPlugin(),
+						provider,
+						explorer(),
+					))({ logger: false, schemas: [] }),
+			).toThrow(
+				'requires capability "ultimabase.graphql.introspection" version "^1.0.0", but no compatible provider is installed. Enable introspection, for example graphqlYogaPlugin({ introspection: true }), or stop serving the explorer in this environment.',
+			)
+		}
+	})
+
+	it('accepts an explorer that production does not serve without introspection', () => {
+		expect(
+			() =>
+				new (UltimaBase.use(
+					databasePlugin(),
+					httpPlugin({ appId: 'production-explorer' }),
+					graphqlHttpProvider({ introspection: false }),
+					graphiqlPlugin({ environment: 'production' }),
+				))({ logger: false, schemas: [] }),
+		).not.toThrow()
 	})
 })

@@ -25,7 +25,7 @@ import {
 	GraphQLSchema,
 	GraphQLString,
 } from 'graphql'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { graphqlYogaPlugin } from './plugin.js'
 import {
@@ -446,7 +446,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		await fixture.ultimabase.dispose()
 	})
 
-	it('disables HTTP introspection by default and enables it explicitly', async () => {
+	// ADR-0312: introspection is on in development and off in production; an
+	// explicit value wins in both.
+	it('disables HTTP introspection by default in production and enables it explicitly', async () => {
+		vi.stubEnv('NODE_ENV', 'production')
 		const disabled = await createFixture()
 		const denied = await request(disabled.http, {
 			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
@@ -465,6 +468,24 @@ describe('GraphQL Yoga HTTP adapter', () => {
 			data: { __schema: { queryType: { name: 'Query' } } },
 		})
 		await enabled.ultimabase.dispose()
+
+		vi.stubEnv('NODE_ENV', undefined)
+		const development = await createFixture()
+		const allowed = await request(development.http, {
+			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
+			contentType: 'application/json',
+		})
+		expect(allowed.status).toBe(200)
+		await development.ultimabase.dispose()
+
+		const explicit = await createFixture({ introspection: false })
+		const refused = await request(explicit.http, {
+			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
+			contentType: 'application/json',
+		})
+		expect(refused.status).toBe(400)
+		await explicit.ultimabase.dispose()
+		vi.unstubAllEnvs()
 	})
 
 	it('inherits audited Master authority without exposing its raw header', async () => {

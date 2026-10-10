@@ -36,3 +36,11 @@ export {
 	defineOutputDescriptor,
 	definePluginFieldOption,
 } from './contextual-fields.js'
+export {
+	deriveEnvironmentDefault,
+	describeEnvironmentSource,
+	readDeploymentEnvironment,
+	type DeploymentEnvironment,
+	type EnvironmentDefault,
+	type EnvironmentDefaults,
+} from './deployment-environment.js'

@@ -65,10 +65,18 @@ export const honoServerPlugin = <
 >(
 	options: HonoServerPluginOptions<TEnvironment, TSchema, TBasePath> = {},
 ): HonoServerPlugin => {
-	const provider = new HonoServerProvider(
-		normalizeHonoServerPluginOptions(options),
-	)
-	const application = contributeApplication(({ capabilities }) => {
+	const normalized = normalizeHonoServerPluginOptions(options)
+	const provider = new HonoServerProvider(normalized)
+	const application = contributeApplication(({ capabilities, logger }) => {
+		if (normalized.app === undefined) {
+			// ADR-0312: derived values and their sources, at debug level.
+			logger.debug(
+				`listen host ${normalized.host ?? 'every interface'} (${normalized.sources.host})`,
+			)
+			logger.debug(
+				`listen port ${String(normalized.port)} (${normalized.sources.port})`,
+			)
+		}
 		const httpApplication = capabilities.get(applicationRequirement)
 		// Stop and disposal release the same exact owner, including failed-startup cleanup.
 		const stop = (): Promise<void> => provider.stop(httpApplication)

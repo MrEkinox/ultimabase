@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { graphqlYogaPlugin } from './plugin.js'
 
@@ -22,6 +22,8 @@ describe('graphqlYogaPlugin options', () => {
 			provides: [
 				{ contributionId: 'official-graphql-yoga-http-mount' },
 				{ contributionId: 'official-graphql-yoga-http-endpoint' },
+				// Development default: introspection on (ADR-0312).
+				{ contributionId: 'official-graphql-yoga-introspection' },
 			],
 			requires: [
 				{
@@ -30,6 +32,24 @@ describe('graphqlYogaPlugin options', () => {
 				},
 			],
 		})
+	})
+
+	it('publishes introspection only while it is enabled (ADR-0312)', () => {
+		const provided = (plugin: ReturnType<typeof graphqlYogaPlugin>) =>
+			plugin.manifest.capabilities.provides.map(
+				({ contributionId }) => contributionId,
+			)
+		expect(provided(graphqlYogaPlugin({ introspection: false }))).not.toContain(
+			'official-graphql-yoga-introspection',
+		)
+		vi.stubEnv('NODE_ENV', 'production')
+		expect(provided(graphqlYogaPlugin())).not.toContain(
+			'official-graphql-yoga-introspection',
+		)
+		expect(provided(graphqlYogaPlugin({ introspection: true }))).toContain(
+			'official-graphql-yoga-introspection',
+		)
+		vi.unstubAllEnvs()
 	})
 
 	it.each([

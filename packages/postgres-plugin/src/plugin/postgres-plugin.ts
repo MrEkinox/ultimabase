@@ -13,7 +13,11 @@ import {
 	type PluginDeclarationContribution,
 	type PluginSchemaOptionSource,
 } from '@ultimabase/core'
-import { definePluginOptionsParser } from '@ultimabase/plugin-kit'
+import {
+	definePluginOptionsParser,
+	deriveEnvironmentDefault,
+	describeEnvironmentSource,
+} from '@ultimabase/plugin-kit'
 import { immutableRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
@@ -43,9 +47,22 @@ export interface PostgresSchemaPolicyOptions {
 	readonly schemaPolicy?: PostgresSchemaPolicy
 }
 
+/**
+ * Reads the `DATABASE_URL` environment variable when the application starts,
+ * not when the plugin is created, so schemas and applications import and
+ * type-check without environment (ADR-0312).
+ *
+ * @example `postgresPlugin()`
+ */
+export interface PostgresEnvironmentOptions extends PostgresSchemaPolicyOptions {
+	readonly pool?: never
+	readonly url?: never
+}
+
 /** Creates an application-owned pool from a private connection URL. */
 export interface PostgresUrlOptions extends PostgresSchemaPolicyOptions {
 	readonly pool?: never
+	/** Connection URL; it always wins over `DATABASE_URL`. */
 	readonly url: string
 }
 
@@ -56,7 +73,7 @@ export interface PostgresExistingPoolOptions extends PostgresSchemaPolicyOptions
 }
 
 export type PostgresPluginOptions =
-	PostgresExistingPoolOptions | PostgresUrlOptions
+	PostgresEnvironmentOptions | PostgresExistingPoolOptions | PostgresUrlOptions
 
 /** Exposes safe lifecycle state and control without publishing credentials or the pool. */
 export interface PostgresPluginExports {
@@ -94,9 +111,12 @@ const normalizePostgresPluginOptions = definePluginOptionsParser({
 
 		const policy = schemaPolicy === undefined ? {} : { schemaPolicy }
 		const hasUrl = Object.hasOwn(options, 'url')
-		if (hasUrl === Object.hasOwn(options, 'pool')) {
-			throw new TypeError('postgres plugin requires exactly one of url or pool')
+		const hasPool = Object.hasOwn(options, 'pool')
+		if (hasUrl && hasPool) {
+			throw new TypeError('postgres plugin accepts at most one of url or pool')
 		}
+		// Neither: DATABASE_URL is read when the application starts (ADR-0312).
+		if (!hasUrl && !hasPool) return policy
 
 		if (hasUrl) {
 			if (typeof options.url !== 'string' || options.url.length === 0) {
@@ -148,16 +168,43 @@ export type PostgresPlugin = PluginInstance<{
 	readonly source: PostgresOptionSource
 }>
 
-/** Creates the official database capability provider without opening a connection. */
+/**
+ * Reads the connection string at start: a missing or empty `DATABASE_URL`
+ * fails with a message that names the variable, never its value.
+ */
+const readDatabaseUrl = (): string => {
+	const url = process.env.DATABASE_URL
+	if (url === undefined || url.trim() === '') {
+		throw new TypeError(
+			'PostgreSQL has no connection: set the DATABASE_URL environment variable, or pass postgresPlugin({ url }) or postgresPlugin({ pool }).',
+		)
+	}
+	return url
+}
+
+/**
+ * Creates the official database capability provider without opening a
+ * connection. Without `url` or `pool`, it reads `DATABASE_URL` at start.
+ *
+ * @example `UltimaBase.use(postgresPlugin())`
+ */
 export const postgresPlugin = (
-	options: PostgresPluginOptions,
+	options: PostgresPluginOptions = {},
 ): PostgresPlugin => {
 	// Validated values are captured so later caller mutation cannot alter setup.
 	const source = normalizePostgresPluginOptions(options)
-	// ADR-0292: production never alters its schema unless the developer opts in.
-	const schemaPolicy =
-		source.schemaPolicy ??
-		(process.env.NODE_ENV === 'production' ? 'fail' : 'override')
+	// ADR-0292, ADR-0312: production never alters its schema unless the
+	// developer opts in; read once, here, never per request.
+	const schemaPolicy = deriveEnvironmentDefault<PostgresSchemaPolicy>(
+		source.schemaPolicy,
+		{ development: 'override', production: 'fail' },
+	)
+	const connectionSource =
+		'url' in source
+			? 'the url option'
+			: 'pool' in source
+				? 'the pool option'
+				: 'DATABASE_URL'
 	// Application-scoped state is keyed by the schema registry of each application.
 	const connections = new WeakMap<object, ManagedPostgresConnection>()
 	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
@@ -166,12 +213,15 @@ export const postgresPlugin = (
 		create: ({ schemas }) => {
 			// A URL creates an owned pool; an injected pool stays developer-owned.
 			const connection =
-				'url' in source
-					? createManagedPostgresConnection(
-							new Pool({ connectionString: source.url }),
+				'pool' in source
+					? createManagedPostgresConnection(source.pool, false)
+					: createManagedPostgresConnection(
+							new Pool({
+								connectionString:
+									'url' in source ? source.url : readDatabaseUrl(),
+							}),
 							true,
 						)
-					: createManagedPostgresConnection(source.pool, false)
 			connections.set(schemas, connection)
 
 			return {
@@ -218,30 +268,37 @@ export const postgresPlugin = (
 				schema: { postgres: postgresSchemaOption },
 			}),
 	})
-	const application = contributeApplication(({ capabilities, schemas }) => {
-		const connection: PostgresConnectionService = capabilities.get(
-			connectionRequirement,
-		)
-		const managedConnection = connections.get(schemas)
-		const schemaCatalog = catalogs.get(schemas)
-		if (managedConnection === undefined || schemaCatalog === undefined) {
-			throw new TypeError(
-				'PostgreSQL capabilities are unavailable during setup',
+	const application = contributeApplication(
+		({ capabilities, logger, schemas }) => {
+			const connection: PostgresConnectionService = capabilities.get(
+				connectionRequirement,
 			)
-		}
+			const managedConnection = connections.get(schemas)
+			const schemaCatalog = catalogs.get(schemas)
+			if (managedConnection === undefined || schemaCatalog === undefined) {
+				throw new TypeError(
+					'PostgreSQL capabilities are unavailable during setup',
+				)
+			}
 
-		return {
-			exports: immutableRecord({ connection }),
-			connect: () => connection.connect(),
-			prepareSchema: () =>
-				prepareDirectPostgresSchema(
-					managedConnection.getPool(),
-					schemaCatalog,
-					schemaPolicy,
-				),
-			stop: () => connection.close(),
-		}
-	})
+			// ADR-0312: derived values and their sources, never the connection string.
+			logger.debug(`connection from ${connectionSource}`)
+			logger.debug(
+				`schemaPolicy ${schemaPolicy.value} (${describeEnvironmentSource(schemaPolicy.source)})`,
+			)
+			return {
+				exports: immutableRecord({ connection }),
+				connect: () => connection.connect(),
+				prepareSchema: () =>
+					prepareDirectPostgresSchema(
+						managedConnection.getPool(),
+						schemaCatalog,
+						schemaPolicy.value,
+					),
+				stop: () => connection.close(),
+			}
+		},
+	)
 
 	return plugin({
 		id: postgresPluginName,

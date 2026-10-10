@@ -405,7 +405,10 @@ export const graphqlHttpPublicApi = {
 	compatibleProviderContract: [
 		'GraphqlHttpEndpoint',
 		'GraphqlHttpEndpointCapability',
+		'GraphqlIntrospection',
+		'GraphqlIntrospectionCapability',
 		'graphqlHttpEndpointCapability',
+		'graphqlIntrospectionCapability',
 	],
 	conformanceSupport: [],
 } as const satisfies OptionalProductPublicApi

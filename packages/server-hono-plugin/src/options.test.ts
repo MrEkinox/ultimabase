@@ -5,11 +5,59 @@ import { normalizeHonoServerPluginOptions } from './options.js'
 
 describe('Hono server plugin options', () => {
 	it('uses the documented managed defaults', () => {
+		vi.stubEnv('NODE_ENV', 'development')
+		vi.stubEnv('HOST', undefined)
+		vi.stubEnv('PORT', undefined)
 		expect(normalizeHonoServerPluginOptions({})).toStrictEqual({
 			app: undefined,
 			browserPolicyOwner: 'ultimabase',
-			host: undefined,
+			host: '127.0.0.1',
 			port: 1337,
+			sources: { host: 'NODE_ENV is not production', port: 'default' },
+		})
+		vi.unstubAllEnvs()
+	})
+
+	// ADR-0312: `host`, else `HOST`, else 127.0.0.1 in development and every
+	// interface in production, read when the plugin is created.
+	describe('listen host', () => {
+		afterEach(() => {
+			vi.unstubAllEnvs()
+		})
+
+		it.each([
+			['production', undefined, 'NODE_ENV is production'],
+			['development', '127.0.0.1', 'NODE_ENV is not production'],
+			['test', '127.0.0.1', 'NODE_ENV is not production'],
+			[undefined, '127.0.0.1', 'NODE_ENV is not production'],
+		])('defaults from NODE_ENV %j', (environment, host, source) => {
+			vi.stubEnv('HOST', undefined)
+			vi.stubEnv('NODE_ENV', environment)
+			expect(normalizeHonoServerPluginOptions({})).toMatchObject({
+				host,
+				sources: { host: source },
+			})
+		})
+
+		it('uses HOST, then lets an explicit host win over both', () => {
+			vi.stubEnv('NODE_ENV', 'production')
+			vi.stubEnv('HOST', '10.0.0.5')
+			expect(normalizeHonoServerPluginOptions({})).toMatchObject({
+				host: '10.0.0.5',
+				sources: { host: 'HOST' },
+			})
+			expect(normalizeHonoServerPluginOptions({ host: '::1' })).toMatchObject({
+				host: '::1',
+				sources: { host: 'explicit option' },
+			})
+		})
+
+		it('ignores an empty HOST', () => {
+			vi.stubEnv('NODE_ENV', 'production')
+			vi.stubEnv('HOST', '')
+			expect(normalizeHonoServerPluginOptions({})).toMatchObject({
+				host: undefined,
+			})
 		})
 	})
 
