@@ -60,3 +60,18 @@ plugin `contains` are checked only when a query executes and fail with `INTERNAL
 
 The regular-expression dialect (ADR-0302), new operators, a general plugin-operator extension
 point (none has a consumer, ADR-0289), the MongoDB adapter.
+
+## Step 1 implementation differences accepted (2026-10-10)
+
+Migration step 1 implemented this record with one deferral and two readings; the user accepted
+them on 2026-10-10:
+
+1. **Decision 5 is deferred for GraphQL to migration step 6** (GraphQL plugin migration). The
+   GraphQL schema is compiled while capabilities are materialized, before the database adapter
+   can be read. Listing only declared operators needs a declaration-lifetime operator declaration
+   or a GraphQL compilation after materialization. Until then the GraphQL filter input types list
+   every built-in operator; an undeclared operator still fails with `VALIDATION_ERROR` at request
+   time. PostgreSQL declares every remaining operator, so its GraphQL schema is exact.
+2. A missing `filterOperators` declaration means no supported operator: application start fails
+   with `PLUGIN_ADAPTER_CAPABILITY_MISSING`.
+3. Relation fields require both the `relations` and `relationPredicates` capabilities at start.
