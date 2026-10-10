@@ -37,7 +37,7 @@ autres décisions de revue non écrites dans ces ADR.
 - [x] Tests (unitaires, types, langage, PostgreSQL e2e)
 - [x] Documentation (site : 13 pages ; README : core, access, hooks, acl,
       roles, password-auth, rest, graphql, soft-delete, http)
-- [ ] Porte finale (validate:full, e2e construits, audit DX, banc)
+- [x] Porte finale (validate:full, e2e construits, audit DX, banc)
 
 ## Décisions (à confirmer par l'utilisateur)
 
@@ -48,7 +48,10 @@ autres décisions de revue non écrites dans ces ADR.
    la fabrique d'authentification pourra alors le remplir.
 2. **`Pointer<"TodoUser">`** : `Pointer` accepte désormais un nom de classe
    (`TSchema extends SchemaDefinition | string`, `PointerSchema<T>` →
-   `SchemaRef<T>`). Deux conversions internes (`pointer.ts`).
+   `SchemaRef<T>`). Deux conversions internes (`pointer.ts`). Le constructeur
+   prend `schema: TSchema` (l'inférence par `TSchema & SchemaDefinition`
+   perdait l'alias `DeclaredSchema<…>` dans les infobulles) : `new
+Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
 3. **Entrées acceptant un principal** (`withPrincipal`, GraphQL
    `execute({ principal })`, `can({ principal })`) : `PointerValue`, car un
    pointeur typé n'est pas assignable à `Pointer<SchemaDefinition>`.
@@ -113,15 +116,43 @@ autres décisions de revue non écrites dans ces ADR.
   un pointeur typé n'y est pas assignable (préexistant), appeler un prédicat
   avec `User.pointer(id)` échouait au typage ; remplacé par `PointerValue`.
 - Rendre `Pointer` générique en nom avec un constructeur
-  `schema: PointerSchema<TSchema>` : inférence ambiguë ; constructeur
-  `TSchema & SchemaDefinition` retenu.
+  `schema: PointerSchema<TSchema>` : les appels génériques internes ne
+  compilaient plus. `TSchema & SchemaDefinition` : infobulles développées
+  (alias perdu, vu par l'audit DX). `Extract<TSchema, SchemaDefinition>` :
+  appels génériques refusés. Retenu : `schema: TSchema`.
+- Ordre d'impression des unions de genres d'opération (`"count" | "exists"`
+  avant `"find-many"`) : artefact des identifiants de type de TypeScript
+  (les littéraux de `PolicyOperation` sont créés plus tôt) ; non corrigé.
 
-## Preuves (en cours)
+## Preuves
 
-- `yarn typecheck` : 0 erreur ; `yarn lint` : 0 erreur ; `yarn format:check` vert.
-- Unitaires ciblés et e2e PostgreSQL nouveaux verts (voir commits).
+- `yarn typecheck`, `yarn lint` (0 erreur), `yarn format:check`, `yarn constraints` : verts.
+- `yarn validate:full` (dist et `*.tsbuildinfo` supprimés) sur 27238b59 :
+  exit 0 ; performance 3 fichiers / 4 tests ; couverture 668 fichiers /
+  3219 tests ; website 17 fichiers / 66 tests.
+- `yarn test:e2e:built` sur 27238b59 : exit 0, 112 fichiers, 464 tests.
+  (Premier passage : `rest-application.e2e.test.ts` échouait sur les
+  déclarations générées de l'exemple minimal, régénérées en 27238b59.)
+- Audit DX contre `main` construit (c1098e7e), `--only` tous les paquets,
+  `tests`, `examples/minimal`, `examples/todo-backend`, sur 9d732ea0 :
+  983 différences, toutes rattachées :
+  - fichiers de test nouveaux (327), sources modifiées (5) ;
+  - ADR-0304 : entrées des règles Access (120), surface principal de Core
+    (106), `Pointer<"Nom">` (42), Roles (27), ACL (19), Hooks (7), GraphQL (3) ;
+  - ADR-0305 : `PublicError` / `ExposableError` (113), `can()` (33) ;
+  - ADR-0306 : `softDelete` en `returning: 'before'` (51) ;
+  - exemple minimal modifié (principal de Core, `isAuthenticated`,
+    `select: { id: true }`) (109) ;
+  - ordre d'impression d'unions de genres d'opération et de
+    `ValidationPresence` (19) : artefact d'identifiants de type, effet indirect
+    de `PolicyOperation` (ADR-0304, décision 5), non annoncé — à trancher.
+- Banc forme D TS6, même session, alternance main/branche, 3 exécutions
+  (médianes) : 50 schémas, édition→diagnostic 2,75 s (main) / 2,85 s,
+  froid 6,16 / 6,13 s ; 200 schémas, édition 8,75 / 9,02 s, froid
+  22,54 / 22,28 s. Édition +3 % à 200 (reproductible : 9,01–9,08 contre
+  8,61–8,78).
 
 ## Prochaine action vérifiable
 
-Porte finale : suppression de `dist` et `*.tsbuildinfo`, `yarn validate:full`,
-`yarn test:e2e:built`, audit DX contre c1098e7e, banc forme D 50/200.
+Relecture du diff par le coordinateur ; décisions 1 à 16 et artefact
+d'ordre d'unions à confirmer par l'utilisateur ; fusion `--no-ff` dans `main`.
