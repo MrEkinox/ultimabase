@@ -127,7 +127,7 @@ not identity. Server code outside a request has no principal.
 
 Access rules and predicates, the Hooks `context.principal`, ACL callbacks,
 Roles and `ultimabase.can()` receive it as `principal`; plugins read it with
-`getRequestPrincipal(context)` or `getCurrentPrincipal()`. Name the identity
+`getRequestPrincipal(context)`. Name the identity
 schema once in `Register` to type it by name:
 
 ```ts title="src/ultimabase.ts"

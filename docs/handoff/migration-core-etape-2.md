@@ -58,7 +58,7 @@ Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
 4. **`RequestContext#withPrincipal(principal)`** (nouvelle méthode publique)
    pour nommer le principal d'un contexte côté serveur ; utilisée par GraphQL
    et `can()`.
-5. **`getRequestPrincipal(context)` / `getCurrentPrincipal()`** exportés pour
+5. **`getRequestPrincipal(context)`** exporté pour
    les plugins ; `resolveRequestPrincipal` et `ResolveRequestPrincipalOptions`
    retirés (remplacés par la résolution de Core).
 6. **Contexte des prédicats** : `schema` est le nom de classe (`string`),

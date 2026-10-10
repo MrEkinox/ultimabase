@@ -8,7 +8,7 @@ import { createLanguageServiceFixture } from '../../../../tooling/vitest/typescr
 // ADR-0304: through `Register`, the principal is typed by name, from source.
 const fixtureFile = path.join(import.meta.dirname, 'principal-hover.fixture.ts')
 const source = `
-import { UltimaBase, getCurrentPrincipal, type Principal } from '../../src/index.js'
+import { RequestContext, UltimaBase, getRequestPrincipal, type Principal } from '../../src/index.js'
 
 const TodoUser = UltimaBase.Schema.define({
   className: 'TodoUser',
@@ -23,7 +23,9 @@ declare module '../../src/index.js' {
   }
 }
 
-export const /* hover:principal */principal: Principal | undefined = await getCurrentPrincipal()
+export const /* hover:principal */principal: Principal | undefined = await getRequestPrincipal(
+  RequestContext.anonymous({ requestId: 'hover', source: 'internal' }),
+)
 export const /* hover:schema */schemaName = principal?.schema.className
 `
 

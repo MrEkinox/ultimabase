@@ -4,7 +4,6 @@ import { readApplicationRuntimeKernelState } from '../../application/application
 import { FrameworkApplication } from '../../application/framework-application.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
-import { getActiveRequestEngine } from './active-framework-context.js'
 import {
 	getRequestContextOwner,
 	type RequestContext,
@@ -109,17 +108,4 @@ export const getRequestPrincipal = (
 	cell.resolution ??= resolveCell(context, application, cell)
 	// Core validated a Pointer owned by the application; `Register` names its schema.
 	return cell.resolution
-}
-
-/**
- * Returns the principal of the current request; server code outside a request
- * has none.
- *
- * @example `const principal = await getCurrentPrincipal()`
- */
-export const getCurrentPrincipal = (): Promise<Principal | undefined> => {
-	const engine = getActiveRequestEngine()
-	return engine === undefined
-		? Promise.resolve(undefined)
-		: getRequestPrincipal(engine.context)
 }

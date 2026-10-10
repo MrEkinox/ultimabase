@@ -116,7 +116,6 @@ describe('@ultimabase/core public entry point', () => {
 			'frameworkErrorCodes',
 			'generatedApplicationContractVersion',
 			'getCurrentEngine',
-			'getCurrentPrincipal',
 			'getCurrentRequest',
 			'getCurrentTransactionId',
 			'getCurrentUltimaBase',

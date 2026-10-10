@@ -1283,7 +1283,7 @@ provideCapability(requestPrincipalResolverCapability, {
 
 The capability is `single`: a second provider fails at startup. Core resolves
 the current principal at most once per request context
-(`getRequestPrincipal(context)`, or `getCurrentPrincipal()` inside a request)
+(`getRequestPrincipal(context)`)
 and rejects forged Pointers and schemas not owned by the application. Nested,
 hook-issued and transactional operations inherit it, and Master elevation keeps
 it: authority changes, identity does not. An absent provider or absent

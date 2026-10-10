@@ -12,10 +12,7 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
-export {
-	getCurrentPrincipal,
-	getRequestPrincipal,
-} from './context/request-principal.js'
+export { getRequestPrincipal } from './context/request-principal.js'
 export { readPolicyQuery } from './enforcement/policy-query.js'
 export type { PolicyQuery } from './enforcement/policy-query.js'
 export type {

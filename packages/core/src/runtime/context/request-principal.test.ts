@@ -5,7 +5,7 @@ import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/data
 import {
 	MasterAuthority,
 	RequestContext,
-	getCurrentPrincipal,
+	getCurrentRequest,
 	getRequestPrincipal,
 	isAuthenticated,
 	plugin,
@@ -79,7 +79,6 @@ describe('request principal (ADR-0304)', () => {
 		})
 
 		await expect(getRequestPrincipal(engine.context)).resolves.toBeUndefined()
-		await expect(getCurrentPrincipal()).resolves.toBeUndefined()
 		// An unbound context belongs to no application, so it has no provider.
 		await expect(
 			getRequestPrincipal(anonymous('unbound')),
@@ -96,7 +95,7 @@ describe('request principal (ADR-0304)', () => {
 
 		const first = await getRequestPrincipal(engine.context)
 		const second = await runWithRequestEngine(engine, () =>
-			getCurrentPrincipal(),
+			getRequestPrincipal(getCurrentRequest()),
 		)
 		const master = await engine.useMasterKey(
 			ultimabase.authorizeMasterKey('principal-test-secret'),
