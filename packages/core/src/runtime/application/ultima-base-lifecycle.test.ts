@@ -7,7 +7,7 @@ import { UltimaBase } from './ultima-base.js'
 describe('UltimaBase start()', () => {
 	it('resolves to the same instance and shares concurrent starts', async () => {
 		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const first = ultimabase.start()
@@ -19,7 +19,7 @@ describe('UltimaBase start()', () => {
 
 	it('disposes the started application at the end of an await using scope', async () => {
 		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		{

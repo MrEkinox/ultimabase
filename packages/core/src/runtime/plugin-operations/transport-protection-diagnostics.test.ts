@@ -109,8 +109,9 @@ const createFixture = async (
 	const Base = UltimaBase.use(databasePlugin)
 	const WithPolicy = policy === undefined ? Base : Base.use(policy)
 	const Application = WithPolicy.use(operationPlugin)
+	// The default console logger at `warn` (ADR-0313): the warning stays visible.
 	const ultimabase = new Application({
-		pluginPrivileges: { logger: false },
+		logLevel: 'warn',
 		schemas: [],
 	})
 	await ultimabase.start()
@@ -178,7 +179,7 @@ describe('public transport protection diagnostics', () => {
 			expose(first, primaryTransport)
 			expose(first, secondaryTransport)
 			expect(warning).toHaveBeenCalledWith(
-				'[UltimaBase] Unverified public transport protection',
+				'UltimaBase: public transport fixture.transport-diagnostic.primary 1.0.0 exposes operations but no protected policy plugin is installed; install one, or acknowledge unverified protection in the transport options when the operations are public on purpose.',
 				{
 					code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
 					message:
@@ -218,7 +219,7 @@ describe('public transport protection diagnostics', () => {
 			try {
 				expose(ultimabase, primaryTransport)
 				expect(warning).toHaveBeenCalledWith(
-					'[UltimaBase] Unverified public transport protection',
+					'UltimaBase: public transport fixture.transport-diagnostic.primary 1.0.0 exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.',
 					expect.objectContaining({
 						code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
 						policy: {

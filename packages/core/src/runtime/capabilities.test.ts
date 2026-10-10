@@ -54,7 +54,7 @@ const runtimeTarget = { id: 'runtime-target', title: 'Locked' } as never
 const createPluginApplication = (plugin: PluginDefinition) =>
 	applicationFixture(
 		new FrameworkApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [runtimeSchema],
 		}),
@@ -220,7 +220,7 @@ describe('public Runtime capabilities', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [malformed],
 				schemas: [runtimeSchema],
 			}),
@@ -339,7 +339,7 @@ describe('public Runtime capabilities', () => {
 		})
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [behavior, database],
 				schemas: [runtimeSchema],
 			}),

@@ -24,7 +24,7 @@ describe('packed GraphiQL plugin', () => {
 			graphqlHttpProvider(),
 			graphiqlPlugin({ environment: 'development' }),
 			consumer,
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 		await ultimabase.start()
 		const http = readHttpApplication(
 			ultimabase.plugin('fixture.explorer-http-consumer'),
@@ -61,7 +61,7 @@ describe('packed GraphiQL plugin', () => {
 			graphqlHttpProvider(),
 			graphiqlPlugin({ environment: 'development' }),
 			consumer,
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 		await ultimabase.start()
 		const http = readHttpApplication(
 			ultimabase.plugin('fixture.explorer-http-consumer'),
@@ -99,7 +99,7 @@ describe('packed GraphiQL plugin', () => {
 			graphiqlPlugin({ environment: 'production' }),
 			disabledConsumer,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await disabled.start()

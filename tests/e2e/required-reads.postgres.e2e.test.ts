@@ -40,7 +40,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'required-reads', value: 'required-reads-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Doc, OneOnly],
 	})
 

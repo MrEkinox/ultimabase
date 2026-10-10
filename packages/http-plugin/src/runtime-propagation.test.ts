@@ -221,16 +221,21 @@ describe('HTTP Runtime propagation', () => {
 					audits.push(event)
 				},
 			}),
-			pluginPrivileges: {
-				logger: {
-					error: (report) => {
-						logs.push(report)
-					},
-					info: (report) => {
-						logs.push(report)
-					},
+			logger: {
+				debug: (message, details) => {
+					logs.push({ details, message })
+				},
+				error: (message, details) => {
+					logs.push({ details, message })
+				},
+				info: (message, details) => {
+					logs.push({ details, message })
+				},
+				warn: (message, details) => {
+					logs.push({ details, message })
 				},
 			},
+			logLevel: 'debug',
 			schemas: [RuntimeProbe],
 		})
 		runtimeState.current = created

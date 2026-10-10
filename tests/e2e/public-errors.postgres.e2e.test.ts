@@ -112,7 +112,8 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 		httpPlugin({ appId }),
 		capturePlugin,
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
-	))({ pluginPrivileges: { logger: false }, schemas: [ErrorTodo] })
+		// Errors reach the console logger; masked failures are plugin lines (ADR-0313).
+	))({ logLevel: 'error', schemas: [ErrorTodo] })
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: ReturnType<typeof createApplication> | undefined

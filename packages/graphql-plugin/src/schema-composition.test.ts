@@ -63,6 +63,7 @@ describe('GraphQL schema composition', () => {
 		const applicationSchema = schemaWithQuery('applicationOwner', 'application')
 		const pluginSchema = schemaWithQuery('pluginOwner', 'plugin')
 		const schema = composeGraphqlSchemas({
+			logger: console,
 			callbacks: {
 				runApplication: (callback) => {
 					trace.push('application')
@@ -136,7 +137,7 @@ describe('GraphQL schema composition', () => {
 			}),
 			graphqlFixtureDatabasePlugin,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		})
 		await application.start()
@@ -184,7 +185,7 @@ describe('GraphQL schema composition', () => {
 			}),
 			graphqlFixtureDatabasePlugin,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Hidden],
 		})
 		await application.start()
@@ -273,7 +274,7 @@ describe('GraphQL schema composition', () => {
 					}),
 					graphqlFixtureDatabasePlugin,
 				))({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [Hidden],
 				}).start(),
 			).rejects.toThrow(label)
@@ -315,7 +316,7 @@ describe('GraphQL schema composition', () => {
 			new (UltimaBase.use(
 				graphqlPlugin({ schemas: [schema] }),
 				graphqlFixtureDatabasePlugin,
-			))({ pluginPrivileges: { logger: false }, schemas: [Hidden] }).start(),
+			))({ logger: false, schemas: [Hidden] }).start(),
 		).rejects.toThrow('subscriptions')
 	})
 })

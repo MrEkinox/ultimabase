@@ -157,7 +157,7 @@ describe('graphqlPlugin', () => {
 			graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
 			protectionDatabasePlugin,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [DisposableRecord],
 		})
 		await application.start()

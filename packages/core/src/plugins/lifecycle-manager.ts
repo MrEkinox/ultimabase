@@ -223,7 +223,10 @@ export class PluginLifecycleManager {
 
 			for (const phase of startupPhases) {
 				for (const { definition, resource } of this.#initializedPlugins) {
-					await this.#runAs(definition, () => resource?.[phase]?.())
+					const { logger } = this.#registries.forPlugin(
+						definition.manifest.identity,
+					)
+					await this.#runAs(definition, () => resource?.[phase]?.({ logger }))
 					this.#activePlugins.add(definition)
 				}
 			}

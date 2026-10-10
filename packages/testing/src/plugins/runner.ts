@@ -95,7 +95,7 @@ const createUltimaBase = <TSchemas extends readonly SchemaDefinition[]>(
 	schemas: TSchemas,
 ) =>
 	new (UltimaBase.use(...plugins))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 
@@ -128,9 +128,9 @@ const assertDenied = async (
 	try {
 		const application = new (UltimaBase.use(...fixture.plugins))({
 			pluginPrivileges: {
-				logger: false,
 				plugins: { [identity.pluginId]: pluginPolicy },
 			},
+			logger: false,
 			schemas: fixture.schemas,
 		})
 		await application.dispose()

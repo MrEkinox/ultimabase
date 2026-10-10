@@ -77,7 +77,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'checked-links', value: 'checked-links-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Member, Team],
 	})
 

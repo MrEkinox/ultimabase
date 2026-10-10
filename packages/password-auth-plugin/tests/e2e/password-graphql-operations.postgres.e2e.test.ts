@@ -155,7 +155,7 @@ describe('Password Auth GraphQL operations with PostgreSQL', () => {
 				keys: [{ id: 'graphql-sign-up', value: 'server-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [User, GraphqlAuthRecord],
 		})
 		await ultimabase.start()

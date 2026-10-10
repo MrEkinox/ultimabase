@@ -113,7 +113,7 @@ describe('PluginDeclarationHost', () => {
 		const first = applicationFixture(
 			await createApplication({
 				plugins: [plugin()],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)
@@ -121,7 +121,7 @@ describe('PluginDeclarationHost', () => {
 		const second = applicationFixture(
 			await createApplication({
 				plugins: [plugin()],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)
@@ -167,7 +167,7 @@ describe('PluginDeclarationHost', () => {
 		const application = applicationFixture(
 			await createApplication({
 				plugins: [declarer],
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)

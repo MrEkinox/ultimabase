@@ -13,10 +13,8 @@ import {
 } from '../plugins/manifest.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { FrameworkApplication } from './framework-application.js'
-import type {
-	PluginPrivilegeLogger,
-	PluginPrivilegeReport,
-} from './plugin-privilege-policy.js'
+import type { Logger } from './application-log.js'
+import type { PluginPrivilegeReport } from './plugin-privilege-policy.js'
 
 interface CapturedFrameworkError {
 	readonly code: unknown
@@ -62,7 +60,8 @@ describe('plugin privilege policy', () => {
 			expect(
 				() =>
 					new FrameworkApplication({
-						pluginPrivileges: { deny: [privilege], logger: false },
+						pluginPrivileges: { deny: [privilege] },
+						logger: false,
 						plugins: [plugin],
 						schemas: [],
 					}),
@@ -86,7 +85,7 @@ describe('plugin privilege policy', () => {
 		})
 		const ultimabase = new (UltimaBase.use(plugin))({
 			schemas: [],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		})
 
 		expect(ultimabase.pluginPrivilegeReport.allowed).toBe(true)
@@ -125,15 +124,21 @@ describe('plugin privilege policy', () => {
 				),
 			],
 		})
-		const logger: PluginPrivilegeLogger = {
-			info: (report) => reports.push(report),
+		const logger: Logger = {
+			debug: (_message, details) => {
+				reports.push(details as PluginPrivilegeReport)
+			},
+			info: vi.fn(),
+			warn: vi.fn(),
 			error: vi.fn(),
 		}
 
+		// ADR-0313: the complete report is a `debug` line.
 		const application = new FrameworkApplication({
 			schemas: [],
 			plugins: [consumer, dependency],
-			pluginPrivileges: { logger },
+			logger,
+			logLevel: 'debug',
 		})
 
 		expect(application.pluginPrivilegeReport).toStrictEqual({
@@ -191,9 +196,11 @@ describe('plugin privilege policy', () => {
 		let setupCalls = 0
 		const deniedReports: PluginPrivilegeReport[] = []
 		const logger = {
+			debug: vi.fn(),
 			info: vi.fn(),
-			error: vi.fn((report: PluginPrivilegeReport): void => {
-				deniedReports.push(report)
+			warn: vi.fn(),
+			error: vi.fn((_message: string, report?: object): void => {
+				deniedReports.push(report as PluginPrivilegeReport)
 			}),
 		}
 		const primary = createPlugin({
@@ -246,8 +253,8 @@ describe('plugin privilege policy', () => {
 								},
 							},
 						},
-						logger,
 					},
+					logger,
 				}),
 		)
 
@@ -313,6 +320,7 @@ describe('plugin privilege policy', () => {
 			severity: 'sensitive',
 		})
 		expect(logger.info).not.toHaveBeenCalled()
+		expect(logger.debug).not.toHaveBeenCalled()
 		expect(declarationCalls).toBe(0)
 		expect(setupCalls).toBe(0)
 	})
@@ -334,7 +342,7 @@ describe('plugin privilege policy', () => {
 		const application = new FrameworkApplication({
 			schemas: [],
 			plugins: [plugin],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		})
 
 		expect(application.pluginPrivilegeReport).toStrictEqual({
@@ -397,7 +405,8 @@ describe('plugin privilege policy', () => {
 				new FrameworkApplication({
 					schemas: [],
 					plugins: [plugin],
-					pluginPrivileges: { deny: ['schema:declare'], logger: false },
+					pluginPrivileges: { deny: ['schema:declare'] },
+					logger: false,
 				}),
 		)
 
@@ -446,8 +455,8 @@ describe('plugin privilege policy', () => {
 								},
 							},
 						},
-						logger: false,
 					},
+					logger: false,
 				}),
 		)
 
@@ -470,18 +479,18 @@ describe('plugin privilege policy', () => {
 	})
 
 	it.each([
+		[{ logger: false }, 'pluginPrivileges contains unknown option: logger'],
 		[
-			{ deny: ['runtime:unknown'], logger: false },
+			{ deny: ['runtime:unknown'] },
 			'pluginPrivileges.deny[0] is unknown: runtime:unknown',
 		],
 		[
-			{ denyClaims: ['environment:camera'], logger: false },
+			{ denyClaims: ['environment:camera'] },
 			'pluginPrivileges.denyClaims[0] is unknown: environment:camera',
 		],
 		[
 			{
 				plugins: { 'fixture.unknown': { deny: [] } },
-				logger: false,
 			},
 			'pluginPrivileges.plugins targets unknown plugin: fixture.unknown',
 		],
@@ -492,7 +501,6 @@ describe('plugin privilege policy', () => {
 						instances: { unknown: { deny: [] } },
 					},
 				},
-				logger: false,
 			},
 			'pluginPrivileges.plugins.fixture.known-policy.instances targets unknown instance: unknown',
 		],
@@ -517,84 +525,4 @@ describe('plugin privilege policy', () => {
 			).toThrow(new TypeError(message))
 		},
 	)
-
-	it('uses the default result channel and isolates custom logger failures', async () => {
-		const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
-		const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-		const plugin = createPlugin({
-			id: 'fixture.console-report',
-			version: '1.0.0',
-			core: '^0.0.0',
-			permissions: { 'runtime:observe': 'Console reporting fixture.' },
-			contributions: [
-				withPluginPrivileges(
-					contributeApplication(() => ({ exports: undefined })),
-					['runtime:observe'],
-				),
-			],
-		})
-
-		new FrameworkApplication({ schemas: [], plugins: [plugin] })
-		expect(info).toHaveBeenCalledOnce()
-		expect(error).not.toHaveBeenCalled()
-
-		new FrameworkApplication({
-			schemas: [],
-			plugins: [plugin],
-			pluginPrivileges: { logger: false },
-		})
-		expect(info).toHaveBeenCalledOnce()
-		expect(error).not.toHaveBeenCalled()
-
-		expect(
-			() =>
-				new FrameworkApplication({
-					schemas: [],
-					plugins: [plugin],
-					pluginPrivileges: { deny: ['runtime:observe'] },
-				}),
-		).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'PLUGIN_PRIVILEGE_DENIED',
-			}),
-		)
-		expect(error).toHaveBeenCalledOnce()
-
-		expect(
-			() =>
-				new FrameworkApplication({
-					schemas: [],
-					plugins: [plugin],
-					pluginPrivileges: {
-						deny: ['runtime:observe'],
-						logger: {
-							info: () => undefined,
-							error: () => {
-								throw new Error('Logger failure')
-							},
-						},
-					},
-				}),
-		).toThrow(
-			expect.objectContaining<Partial<FrameworkError>>({
-				code: 'PLUGIN_PRIVILEGE_DENIED',
-			}),
-		)
-
-		const asyncFailure = new FrameworkApplication({
-			schemas: [],
-			plugins: [plugin],
-			pluginPrivileges: {
-				logger: {
-					info: () => Promise.reject(new Error('Async logger failure')),
-					error: () => undefined,
-				},
-			},
-		})
-		expect(asyncFailure.pluginPrivilegeReport.allowed).toBe(true)
-		await Promise.resolve()
-
-		info.mockRestore()
-		error.mockRestore()
-	})
 })

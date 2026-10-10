@@ -92,7 +92,7 @@ const createApplication = (
 			keys: [{ id: 'password-sign-up', value: 'server-secret' }],
 			onUse,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	return { onUse, plugin, ultimabase }
@@ -483,7 +483,7 @@ describe(
 					keys: [{ id: 'rest-sign-up', value: 'server-secret' }],
 					onUse: () => undefined,
 				}),
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			})
 			await ultimabase.start()

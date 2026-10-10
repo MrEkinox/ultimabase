@@ -51,7 +51,7 @@ describe('plugin schema source staging', () => {
 				],
 			})
 			const application = new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin],
 				schemas: method === 'claim' ? [Record] : [],
 			})

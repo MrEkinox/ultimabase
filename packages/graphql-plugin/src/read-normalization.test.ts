@@ -111,7 +111,7 @@ const fieldOwner = plugin({
 
 const createFixture = async () => {
 	const application = await createApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [fieldOwner, graphqlPlugin()],
 		schemas: [Author, RecordSchema],
 	})

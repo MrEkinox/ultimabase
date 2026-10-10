@@ -69,7 +69,7 @@ describe('generic Runtime behavior composition', () => {
 		})
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [first, second],
 				schemas: [Post],
 			}),
@@ -109,7 +109,7 @@ describe('generic Runtime behavior composition', () => {
 		})
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [first, second],
 				schemas: [Post],
 			}),
@@ -168,7 +168,7 @@ describe('generic Runtime behavior composition', () => {
 		})
 		const first = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin],
 				schemas: [Post],
 			}),
@@ -190,7 +190,7 @@ describe('generic Runtime behavior composition', () => {
 		expect(disposals).toStrictEqual([1])
 		const second = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [plugin],
 				schemas: [Post],
 			}),

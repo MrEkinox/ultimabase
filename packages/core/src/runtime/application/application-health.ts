@@ -1,3 +1,4 @@
+import type { ApplicationLog } from '../../application/application-log.js'
 import { isDatabaseAdapter } from '../database/contracts.js'
 
 /** Reports whether a started application reaches its database (ADR-0303). */
@@ -14,12 +15,11 @@ export const applicationHealthTimeoutMs = 2_000
 export const checkApplicationHealth = async (
 	started: boolean,
 	adapter: unknown,
+	log: ApplicationLog,
 ): Promise<ApplicationHealthStatus> => {
 	if (!started || !isDatabaseAdapter(adapter)) return 'DEGRADED'
 	if (typeof Reflect.get(adapter, 'checkHealth') !== 'function') {
-		console.error(
-			'[UltimaBase] Database adapter does not implement checkHealth',
-		)
+		log.error('UltimaBase: the database adapter does not implement checkHealth')
 		return 'DEGRADED'
 	}
 	const controller = new AbortController()
@@ -38,14 +38,17 @@ export const checkApplicationHealth = async (
 			timeout,
 		])
 		if (outcome === 'timeout') {
-			console.error('[UltimaBase] Database health check timed out', {
+			log.error('UltimaBase: the database health check timed out', {
 				timeoutMs: applicationHealthTimeoutMs,
 			})
 			return 'DEGRADED'
 		}
 		return 'OK'
 	} catch (error: unknown) {
-		console.error('[UltimaBase] Database health check failed', error)
+		log.error(
+			'UltimaBase: the database health check failed',
+			typeof error === 'object' && error !== null ? error : { error },
+		)
 		return 'DEGRADED'
 	} finally {
 		clearTimeout(timer)

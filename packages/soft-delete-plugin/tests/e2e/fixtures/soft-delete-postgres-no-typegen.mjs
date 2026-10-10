@@ -33,7 +33,7 @@ const ultimabase = new Application({
 		keys: [{ id: 'javascript-soft-delete', value: 'javascript-master-key' }],
 		onUse: (event) => audits.push(event.reason),
 	}),
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Explicit, Replace, Disabled],
 })
 

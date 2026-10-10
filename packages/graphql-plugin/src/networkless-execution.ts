@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import {
 	type ApplicationCallbackExecutor,
 	type PointerValue,
@@ -293,11 +294,15 @@ const prepareVariables = (
 	return parsed
 }
 
-const errorResult = (error: unknown, requestId: string): ExecutionResult => ({
+const errorResult = (
+	error: unknown,
+	requestId: string,
+	logger: Logger,
+): ExecutionResult => ({
 	errors: [
 		error instanceof GraphQLError
 			? error
-			: createSafeGraphqlError(error, requestId),
+			: createSafeGraphqlError(error, requestId, logger),
 	],
 })
 
@@ -305,6 +310,7 @@ const errorResult = (error: unknown, requestId: string): ExecutionResult => ({
 export class GraphqlNetworklessExecution {
 	readonly #callbacks: ApplicationCallbackExecutor
 	readonly #executor: ApplicationRequestExecutor
+	readonly #logger: Logger
 	readonly #limits: NormalizedGraphqlExecutionLimits
 	readonly #owner: PluginIdentity
 	readonly #schema: GraphQLSchema
@@ -313,6 +319,7 @@ export class GraphqlNetworklessExecution {
 		options: Readonly<{
 			readonly callbacks: ApplicationCallbackExecutor
 			readonly executor: ApplicationRequestExecutor
+			readonly logger: Logger
 			readonly limits: NormalizedGraphqlExecutionLimits
 			readonly owner: PluginIdentity
 			readonly schema: GraphQLSchema
@@ -320,6 +327,7 @@ export class GraphqlNetworklessExecution {
 	) {
 		this.#callbacks = options.callbacks
 		this.#executor = options.executor
+		this.#logger = options.logger
 		this.#limits = options.limits
 		this.#owner = options.owner
 		this.#schema = options.schema
@@ -349,7 +357,7 @@ export class GraphqlNetworklessExecution {
 						context.requestId,
 					)
 				} catch (error: unknown) {
-					return errorResult(error, context.requestId)
+					return errorResult(error, context.requestId, this.#logger)
 				}
 				const errors = validate(this.#schema, document)
 				if (errors.length > 0) return { errors }
@@ -368,6 +376,7 @@ export class GraphqlNetworklessExecution {
 							? createCancelledGraphqlError(context.requestId)
 							: error,
 						context.requestId,
+						this.#logger,
 					)
 				}
 			}),

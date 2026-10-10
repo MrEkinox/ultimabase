@@ -1,5 +1,6 @@
 import { assertExactEnumerablePlainObject } from '../../exact-object-validation.js'
 
+import type { LogLevel, Logger } from '../../application/application-log.js'
 import type { FrameworkApplicationOptions } from '../../application/framework-application.js'
 import type { PluginPrivilegeReport } from '../../application/plugin-privilege-policy.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
@@ -16,6 +17,8 @@ import {
 
 const ultimaBaseOptionKeys = new Set([
 	'access',
+	'logLevel',
+	'logger',
 	'masterAuthority',
 	'pluginPrivileges',
 	'schemas',
@@ -29,10 +32,23 @@ export interface UltimaBaseInstanceOptions<
 > extends CreateFrameworkEngineOptions {
 	/** Registers the exact immutable schemas owned by this UltimaBase instance. */
 	readonly schemas: TSchemas
-	/** Configures plugin privilege policy and startup reporting. */
+	/** Denies plugin privileges and environment claims for this application. */
 	readonly pluginPrivileges?: NonNullable<
 		FrameworkApplicationOptions<TSchemas, TPlugins>['pluginPrivileges']
 	>
+	/**
+	 * Receives Core and plugin log lines: the console by default, any object
+	 * with `debug`, `info`, `warn` and `error`, or `false` to silence
+	 * everything (ADR-0313).
+	 *
+	 * @example `logger: false`
+	 */
+	readonly logger?: Logger | false
+	/**
+	 * Lowest level written to the logger. `'debug'` adds the plugin privilege
+	 * report and derived plugin defaults. @default 'info'
+	 */
+	readonly logLevel?: LogLevel
 	/** Supplies the optional audited authority used for explicit master access. */
 	readonly masterAuthority?: NonNullable<
 		CreateFrameworkEngineOptions['masterAuthority']

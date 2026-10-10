@@ -190,7 +190,7 @@ const createFixture = async (
 						onUse: () => undefined,
 					}),
 				}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	onTestFinished(() => ultimabase.dispose())
@@ -354,7 +354,7 @@ describe('REST plugin operation exposure', () => {
 					...(distinct ? { basePath: '/admin' } : {}),
 					operations: [inspectOperation],
 				}),
-			))({ pluginPrivileges: { logger: false }, schemas: [] })
+			))({ logger: false, schemas: [] })
 			onTestFinished(() => ultimabase.dispose())
 			try {
 				if (distinct) {

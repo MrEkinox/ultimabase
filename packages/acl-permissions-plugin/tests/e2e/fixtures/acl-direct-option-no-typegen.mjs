@@ -10,7 +10,7 @@ const ProtectedPost = Application.Schema.define({
 	acl: { default: new ACL().grantPublic('read') },
 })
 const application = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [ProtectedPost],
 })
 const compiled = application.compile().schemas.get('JavaScriptDirectACLPost')
@@ -23,7 +23,7 @@ const MissingPluginPost = UltimaBase.Schema.define({
 let missingPluginCode
 try {
 	new UltimaBase({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [MissingPluginPost],
 	}).compile()
 } catch (error) {

@@ -21,7 +21,7 @@ const createApplication = () =>
 					provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
 				],
 			}),
-		))({ pluginPrivileges: { logger: false }, schemas: [] }),
+		))({ logger: false, schemas: [] }),
 	)
 
 describe('current UltimaBase facade', () => {

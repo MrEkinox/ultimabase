@@ -118,7 +118,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'policy-can', value: masterKey }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [CanUser, CanTodo, CanExplicit],
 	})
 

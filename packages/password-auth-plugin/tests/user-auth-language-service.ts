@@ -20,7 +20,7 @@ export const assertUserAuthLanguageService = (
 	const generated = generateApplicationTypes({
 		ultimabase: new (UltimaBase.use(passwordAuthPlugin({ user: User })))({
 			schemas: [User],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		}),
 		applicationId: 'user-auth-editor',
 	})

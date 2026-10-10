@@ -12,7 +12,7 @@ const readSchema = async (
 	plugin = graphqlPlugin(),
 ) => {
 	const application = await createApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [plugin],
 		schemas,
 	})

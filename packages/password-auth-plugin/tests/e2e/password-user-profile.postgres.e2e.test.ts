@@ -180,7 +180,7 @@ const createApplication = (requiredProfile = false) => {
 			keys: [{ id: 'profile', value: 'profile-master' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [User],
 	})
 	const request = async (

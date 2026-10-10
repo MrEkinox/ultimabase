@@ -93,7 +93,7 @@ const Note = Application.Schema.define({
 	rest: { find: true },
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Note],
 })
 

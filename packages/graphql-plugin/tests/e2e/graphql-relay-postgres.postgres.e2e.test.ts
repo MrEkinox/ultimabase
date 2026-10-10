@@ -111,7 +111,7 @@ const createPostgresApplication = (connectionUri: string) => {
 		createHarnessPlugin(harness),
 	).use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
 	return new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [RelayRecord],
 	})
 }

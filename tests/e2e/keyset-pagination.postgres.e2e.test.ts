@@ -85,7 +85,7 @@ const createApplication = (pool: RecordingPostgresPool) =>
 			keys: [{ id: 'keyset', value: 'keyset-pagination-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Item, Group],
 	})
 

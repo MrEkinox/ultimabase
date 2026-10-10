@@ -354,6 +354,7 @@ export const httpBrowserPolicyCapability: CapabilityToken<
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
+	hint: 'Install @ultimabase/http-plugin and add httpPlugin() to UltimaBase.use(...).',
 	compose: ([policy]) => {
 		assertHttpBrowserPolicy(policy)
 		return policy

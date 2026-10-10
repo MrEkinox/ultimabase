@@ -60,7 +60,7 @@ describe('alternative policy PostgreSQL proof', { concurrent: false }, () => {
 					audit.push(reason)
 				},
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		await ultimabase.start()

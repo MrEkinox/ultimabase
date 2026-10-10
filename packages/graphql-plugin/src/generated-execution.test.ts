@@ -57,6 +57,7 @@ describe('GraphQL generated execution', () => {
 			callbacks,
 			connections,
 			executor,
+			logger: console,
 			operations,
 			owner: { pluginId: '@ultimabase/graphql-plugin' },
 			schemaMutations,

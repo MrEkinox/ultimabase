@@ -20,7 +20,7 @@ const Post = Application.Schema.define({
 	}),
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Post],
 })
 

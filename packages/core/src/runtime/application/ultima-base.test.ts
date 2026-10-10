@@ -260,7 +260,7 @@ describe('UltimaBase', () => {
 		)
 		const first = applicationFixture(
 			new (UltimaBase.use(createDatabasePlugin(firstAdapter)))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [articleSchema],
 			}),
 		)
@@ -273,7 +273,7 @@ describe('UltimaBase', () => {
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
 		const second = applicationFixture(
 			new (UltimaBase.use(createDatabasePlugin(secondAdapter)))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [articleSchema],
 			}),
 		)

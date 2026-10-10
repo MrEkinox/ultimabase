@@ -82,7 +82,7 @@ const Application = UltimaBase.use(
 	server,
 )
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [],
 })
 

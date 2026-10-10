@@ -207,7 +207,7 @@ const createStartedFixture = async () => {
 			acknowledgeUnverifiedProtection: true,
 			operations: [echoOperation],
 		}),
-	))({ pluginPrivileges: { logger: false }, schemas: [RecordSchema] })
+	))({ logger: false, schemas: [RecordSchema] })
 	onTestFinished(() => ultimabase.dispose())
 	await ultimabase.start()
 	return ultimabase
@@ -336,11 +336,11 @@ describe('GraphQL plugin operations', () => {
 					graphqlPlugin({ operations: [echoOperation] }),
 				))({
 					pluginPrivileges: {
-						logger: false,
 						plugins: {
 							[pluginId]: { deny: ['transport:expose'] },
 						},
 					},
+					logger: false,
 					schemas: [RecordSchema],
 				})
 				onTestFinished(() => application.dispose())
@@ -353,7 +353,7 @@ describe('GraphQL plugin operations', () => {
 				createOperationPlugin({ binding: false }),
 				graphqlPlugin({ operations: [echoOperation] }),
 			))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [RecordSchema],
 			}).start(),
 		).rejects.toThrow('requires one exact binding')
@@ -373,7 +373,7 @@ describe('GraphQL plugin operations', () => {
 				foreignBinding,
 				graphqlPlugin({ operations: [echoOperation] }),
 			))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [RecordSchema],
 			}).start(),
 			// Core rejects the foreign provider before GraphQL receives its inert plan.
@@ -402,7 +402,7 @@ describe('GraphQL plugin operations', () => {
 				createOperationPlugin({ binding: incompatibleBinding }),
 				graphqlPlugin({ operations: [echoOperation] }),
 			))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [RecordSchema],
 			}).start(),
 		).rejects.toThrow('requires one exact binding')
@@ -451,7 +451,7 @@ describe('GraphQL plugin operations', () => {
 					createOperationPlugin({ binding: createBinding(metadata) }),
 					graphqlPlugin({ operations: [echoOperation] }),
 				))({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [RecordSchema],
 				}).start(),
 			).rejects.toThrow(message)

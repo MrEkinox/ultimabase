@@ -1,3 +1,4 @@
+import type { Logger } from '../application/application-log.js'
 import type {
 	CompiledSchemaRegistry,
 	OwnedFieldBuilderMethod,
@@ -78,7 +79,21 @@ export interface PluginSetupContext {
 	readonly typegenGraph: CompiledTypegenGraph
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
+	/**
+	 * Writes through the application logger; every line starts with this
+	 * plugin's package name (ADR-0313). Never log option values or secrets.
+	 *
+	 * @example `logger.debug('introspection enabled (NODE_ENV: development)')`
+	 */
+	readonly logger: Logger
 }
+
+const silentLogger: Logger = Object.freeze({
+	debug: () => undefined,
+	info: () => undefined,
+	warn: () => undefined,
+	error: () => undefined,
+})
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
@@ -94,6 +109,8 @@ export class PluginSetupRegistries {
 			owner: PluginIdentity,
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
 		readonly typegenGraph: () => CompiledTypegenGraph = () => emptyTypegenGraph,
+		readonly loggerForPlugin: (owner: PluginIdentity) => Logger = () =>
+			silentLogger,
 	) {}
 
 	/** Returns one stable owner-bound setup context for a structured plugin identity. */
@@ -107,6 +124,7 @@ export class PluginSetupRegistries {
 				pluginFieldTypes: this.pluginFieldTypes(),
 				typegenGraph: this.typegenGraph(),
 				capabilities,
+				logger: this.loggerForPlugin(owner),
 			})
 		})
 	}

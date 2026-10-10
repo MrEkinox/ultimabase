@@ -76,8 +76,8 @@ const policyApplication = new PolicyApplication({
 		deny: [/* completion:policy-privilege */ 'runtime:observe'],
 		denyClaims: [/* completion:policy-claim */ 'environment:network'],
 		plugins: {/* completion:policy-plugin */},
-		logger: false,
 	},
+	logger: false,
 })
 
 const policyInstanceApplication = new PolicyApplication({
@@ -88,8 +88,8 @@ const policyInstanceApplication = new PolicyApplication({
 				instances: {/* completion:policy-instance */},
 			},
 		},
-		logger: false,
 	},
+	logger: false,
 })
 
 const plugin = createPlugin({
@@ -117,7 +117,7 @@ const ExactApplication = UltimaBase.use(policyPlugin, analyticsPlugin)
 const exactApplication: UltimaBase<
 	readonly [],
 	readonly [typeof policyPlugin, typeof analyticsPlugin]
-> = new ExactApplication({ schemas: [], pluginPrivileges: { logger: false } })
+> = new ExactApplication({ schemas: [], logger: false })
 const dynamicPlugins: readonly PluginDefinition[] = [
 	policyPlugin,
 	analyticsPlugin,

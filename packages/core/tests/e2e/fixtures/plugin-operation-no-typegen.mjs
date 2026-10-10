@@ -175,7 +175,7 @@ const DynamicPost = Application.Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [StablePost],
 })
 await ultimabase.start()

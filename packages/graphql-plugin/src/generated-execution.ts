@@ -1,3 +1,4 @@
+import type { Logger } from '@ultimabase/core'
 import {
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
@@ -53,6 +54,7 @@ const requestIdFromContext = (value: unknown): string =>
 /** Owns generated resolver attribution and the sole path into Runtime. */
 export class GraphqlGeneratedExecution {
 	readonly #callbacks: ApplicationCallbackExecutor
+	readonly #logger: Logger
 	readonly #connections: GraphqlConnectionRuntime
 	readonly #executor: ApplicationRequestExecutor
 	readonly #operations: GraphqlOperationExecution
@@ -64,6 +66,7 @@ export class GraphqlGeneratedExecution {
 			readonly callbacks: ApplicationCallbackExecutor
 			readonly connections: GraphqlConnectionRuntime
 			readonly executor: ApplicationRequestExecutor
+			readonly logger: Logger
 			readonly operations: GraphqlOperationExecution
 			readonly owner: PluginIdentity
 			readonly schemaMutations: GraphqlSchemaMutationExecution
@@ -71,6 +74,7 @@ export class GraphqlGeneratedExecution {
 	) {
 		this.#callbacks = options.callbacks
 		this.#connections = options.connections
+		this.#logger = options.logger
 		this.#executor = options.executor
 		this.#operations = options.operations
 		this.#owner = options.owner
@@ -87,7 +91,11 @@ export class GraphqlGeneratedExecution {
 				this.#executor.runWithContext(request, () => callback(request)),
 			)
 		} catch (error: unknown) {
-			throw createSafeGraphqlError(error, requestIdFromContext(contextValue))
+			throw createSafeGraphqlError(
+				error,
+				requestIdFromContext(contextValue),
+				this.#logger,
+			)
 		}
 	}
 

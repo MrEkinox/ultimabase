@@ -164,7 +164,7 @@ export const graphqlPlugin = (
 	const normalized = parseGraphqlPluginOptions(options)
 	const applicationProvider = provideCapability(graphqlApplicationCapability, {
 		contributionId: 'official-graphql-application',
-		create: ({ callbacks, capabilities: reader, owner, schemas }) => {
+		create: ({ callbacks, capabilities: reader, logger, owner, schemas }) => {
 			const connections = new GraphqlConnectionRuntime(normalized.limits)
 			const planner = reader.get(operationPlanningRequirement)
 			const operationPlan = planner.plan({
@@ -183,6 +183,7 @@ export const graphqlPlugin = (
 					callbacks,
 					connections,
 					executor: reader.get(requestExecutionRequirement),
+					logger,
 					operations,
 					owner,
 					schemaMutations,
@@ -201,6 +202,7 @@ export const graphqlPlugin = (
 				// Generated roots first, then application schemas, then plugin contributions.
 				const schema = composeGraphqlSchemas({
 					callbacks,
+					logger,
 					schemas: [
 						{
 							attribution: { kind: 'generated', owner, pluginVersion: '0.0.0' },
@@ -231,6 +233,7 @@ export const graphqlPlugin = (
 					callbacks,
 					executor: reader.get(requestExecutionRequirement),
 					limits: normalized.limits,
+					logger,
 					owner,
 					schema,
 				})

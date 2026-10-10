@@ -182,7 +182,8 @@ describe('open-kernel workflow proof', () => {
 			expect(
 				() =>
 					new Application({
-						pluginPrivileges: { deny: [privilege], logger: false },
+						pluginPrivileges: { deny: [privilege] },
+						logger: false,
 						schemas: [Stable],
 					}),
 			).toThrow(FrameworkError)

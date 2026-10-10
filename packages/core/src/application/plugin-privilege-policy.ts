@@ -65,22 +65,16 @@ type PluginPrivilegePolicies<TPlugins extends readonly PluginDefinition[]> =
 				>
 			}
 
-/** Receives one complete detached startup report through the matching result channel. */
-export interface PluginPrivilegeLogger {
-	/** Receives successful policy reports. */
-	readonly info: (report: PluginPrivilegeReport) => unknown
-	/** Receives reports containing active denials. */
-	readonly error: (report: PluginPrivilegeReport) => unknown
-}
-
-/** Configures cumulative application-local plugin denials and startup reporting. */
+/**
+ * Configures cumulative application-local plugin denials. The report is
+ * logged at `debug` (`logLevel: 'debug'`), or at `error` when a denial fails
+ * the application (ADR-0313).
+ */
 export interface PluginPrivilegePolicy<
 	TPlugins extends readonly PluginDefinition[] = readonly PluginDefinition[],
 > extends PluginPrivilegePolicyScope {
 	/** Applies additional denials by stable plugin ID and optional exact instance. */
 	readonly plugins?: PluginPrivilegePolicies<TPlugins>
-	/** Replaces the default console logger or explicitly silences it with `false`. */
-	readonly logger?: PluginPrivilegeLogger | false
 }
 
 /** Reports one privilege derived from a plugin's contributions. */
@@ -128,26 +122,11 @@ interface NormalizedPluginPolicy extends NormalizedPolicyScope {
 
 interface NormalizedPluginPrivilegePolicy extends NormalizedPolicyScope {
 	readonly plugins: ReadonlyMap<string, NormalizedPluginPolicy>
-	readonly logger: PluginPrivilegeLogger | false
 }
-
-export interface EvaluatedPluginPrivilegePolicy {
-	readonly report: PluginPrivilegeReport
-	readonly logger: PluginPrivilegeLogger | false
-}
-
-const defaultPluginPrivilegeLogger: PluginPrivilegeLogger = Object.freeze({
-	info: (report: PluginPrivilegeReport): void => {
-		console.info('[UltimaBase] Plugin privilege report', report)
-	},
-	error: (report: PluginPrivilegeReport): void => {
-		console.error('[UltimaBase] Plugin privilege report', report)
-	},
-})
 
 const policyScopeKeys = new Set(['deny', 'denyClaims'])
 const pluginPolicyKeys = new Set(['deny', 'denyClaims', 'instances'])
-const rootPolicyKeys = new Set(['deny', 'denyClaims', 'logger', 'plugins'])
+const rootPolicyKeys = new Set(['deny', 'denyClaims', 'plugins'])
 
 const normalizeDeniedValues = <TValue extends string>(
 	values: unknown,
@@ -189,29 +168,6 @@ const normalizeScope = (
 			`${path}.denyClaims`,
 		),
 	}
-}
-
-const normalizeLogger = (value: unknown): PluginPrivilegeLogger | false => {
-	if (value === undefined) return defaultPluginPrivilegeLogger
-	if (value === false) return false
-
-	assertExactPlainObject(
-		value,
-		new Set(['error', 'info']),
-		'pluginPrivileges.logger must be false or a plain object',
-		'pluginPrivileges.logger contains unknown option: ',
-	)
-	if (typeof value.info !== 'function') {
-		throw new TypeError('pluginPrivileges.logger.info must be a function')
-	}
-	if (typeof value.error !== 'function') {
-		throw new TypeError('pluginPrivileges.logger.error must be a function')
-	}
-
-	return immutableRecord({
-		error: value.error as PluginPrivilegeLogger['error'],
-		info: value.info as PluginPrivilegeLogger['info'],
-	})
 }
 
 const normalizePluginPolicy = (
@@ -257,7 +213,6 @@ const normalizePolicy = (
 			deny: new Set(),
 			denyClaims: new Set(),
 			plugins: new Map(),
-			logger: defaultPluginPrivilegeLogger,
 		}
 	}
 
@@ -299,7 +254,7 @@ const normalizePolicy = (
 		}
 	}
 
-	return { ...scope, plugins, logger: normalizeLogger(policy.logger) }
+	return { ...scope, plugins }
 }
 
 const isDenied = <TValue>(
@@ -385,11 +340,5 @@ export const evaluatePluginPrivilegePolicy = <
 >(
 	graph: PluginGraph,
 	policy: PluginPrivilegePolicy<TPlugins> | undefined,
-): EvaluatedPluginPrivilegePolicy => {
-	const normalized = normalizePolicy(graph, policy)
-
-	return immutableRecord({
-		report: createPluginReport(graph, normalized),
-		logger: normalized.logger,
-	})
-}
+): PluginPrivilegeReport =>
+	createPluginReport(graph, normalizePolicy(graph, policy))

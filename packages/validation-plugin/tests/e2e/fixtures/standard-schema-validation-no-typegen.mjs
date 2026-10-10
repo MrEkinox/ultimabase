@@ -68,7 +68,7 @@ for (const fixture of fixtures) {
 		}),
 	})
 	const ultimabase = new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Note],
 	})
 

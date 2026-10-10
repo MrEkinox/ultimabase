@@ -89,7 +89,7 @@ const createFixture = (limits: GraphqlExecutionLimits = {}) => {
 		}),
 		graphqlFixtureDatabasePlugin,
 	))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Hidden],
 	})
 	onTestFinished(() => application.dispose())

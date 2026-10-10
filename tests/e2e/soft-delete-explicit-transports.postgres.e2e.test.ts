@@ -125,7 +125,7 @@ const createUltimabase = (database: PostgresWorkerFixture) =>
 		capturePlugin,
 		postgresPlugin({ pool: database.pool, schemaPolicy: 'override' }),
 	))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 

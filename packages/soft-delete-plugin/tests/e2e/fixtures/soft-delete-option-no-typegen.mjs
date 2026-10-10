@@ -16,7 +16,7 @@ const OmittedPost = Application.Schema.define({
 	fields: (field) => ({ title: field.string() }),
 })
 const application = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [ExplicitPost, OmittedPost],
 })
 await application.initialize()

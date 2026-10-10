@@ -223,7 +223,7 @@ const ManagedVirtual = Application.Schema.define({
 	graphql: true,
 })
 const application = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [ManagedVirtual],
 })
 

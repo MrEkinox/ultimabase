@@ -112,7 +112,7 @@ describe('opaque option selection boundary', () => {
 		const application = new FrameworkApplication({
 			schemas: [Target],
 			plugins: [plugin],
-			pluginPrivileges: { logger: false },
+			logger: false,
 		})
 		application.compileSchemas()
 		for (const name of ['present', 'portableMatched', 'structural'])

@@ -1,12 +1,14 @@
 import {
 	contributeApplication,
 	plugin,
+	provideCapability,
 	requireCapability,
 	type PluginInstance,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
 	httpBrowserPolicyCapability,
+	httpServerCapability,
 } from '@ultimabase/http-plugin'
 import { immutableRecord } from '@ultimabase/shared'
 import type { Env, Schema } from 'hono'
@@ -83,6 +85,14 @@ export const honoServerPlugin = <
 		}
 	})
 
+	// Tells httpPlugin() that its routes have a server (ADR-0313).
+	const server = provideCapability(httpServerCapability, {
+		contributionId: 'official-hono-http-server',
+		create: () => ({
+			value: immutableRecord({ name: '@ultimabase/server-hono-plugin' }),
+		}),
+	})
+
 	return plugin({
 		id: '@ultimabase/server-hono-plugin',
 		version: '0.0.0',
@@ -90,6 +100,7 @@ export const honoServerPlugin = <
 		contributions: [
 			applicationRequirement,
 			browserPolicyRequirement,
+			server,
 			application,
 		],
 		environment: ['environment:network'],

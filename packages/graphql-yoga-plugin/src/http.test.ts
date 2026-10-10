@@ -167,7 +167,7 @@ const createFixture = async (
 					}),
 				}
 			: {}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	await ultimabase.start()

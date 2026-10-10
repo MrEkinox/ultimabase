@@ -64,7 +64,7 @@ const createPostgresApplication = (connectionUri: string) => {
 		.use(honoServerPlugin({ app: hono, browserPolicyOwner: 'ultimabase' }))
 		.use(postgresPlugin({ schemaPolicy: 'override', url: connectionUri }))
 	return new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 		validation: { timezone: 'UTC' },
 	})

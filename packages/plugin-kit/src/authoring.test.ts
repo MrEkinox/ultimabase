@@ -340,7 +340,7 @@ describe('plugin authoring helpers', () => {
 			workflow: (value: string) => value,
 		})
 		const application = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Target],
 		})
 
@@ -399,7 +399,7 @@ describe('plugin authoring helpers', () => {
 			},
 		})
 		const application = new (UltimaBase.use(definition))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 
@@ -433,7 +433,7 @@ describe('plugin authoring helpers', () => {
 			},
 		})
 		const application = new (UltimaBase.use(definition))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 

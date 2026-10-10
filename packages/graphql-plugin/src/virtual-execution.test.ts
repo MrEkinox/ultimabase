@@ -128,7 +128,7 @@ const createFixture = async () => {
 	const application = new (UltimaBase.use(
 		databasePlugin(adapter),
 		graphqlPlugin({ acknowledgeUnverifiedProtection: true }),
-	))({ pluginPrivileges: { logger: false }, schemas: [VirtualRecord] })
+	))({ logger: false, schemas: [VirtualRecord] })
 	onTestFinished(() => application.dispose())
 	await application.start()
 	return {

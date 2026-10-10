@@ -116,7 +116,7 @@ describe('canonical mutation request identity', () => {
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(database, owner))({
 				schemas: [Post, Other],
-				pluginPrivileges: { logger: false },
+				logger: false,
 			}),
 		)
 		await ultimabase.start()

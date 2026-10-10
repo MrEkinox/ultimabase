@@ -108,7 +108,7 @@ describe('partial indexes (ADR-0303)', () => {
 			indexes: [{ fields: ['slug'], where: { isPublished: true } }],
 		})
 		const ultimabase = new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Draft],
 		})
 

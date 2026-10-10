@@ -105,7 +105,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			passwordAuthPlugin(),
 			restPlugin({ default: true }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await ultimabase.start()
@@ -144,7 +144,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			postgresPlugin({ pool: isolated.pool, schemaPolicy: 'override' }),
 			passwordAuthPlugin({ user: User }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [User],
 		})
 		try {
@@ -271,7 +271,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
 			passwordAuthPlugin(),
 			fixturePlugin,
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 		await ultimabase.start()
 
 		try {

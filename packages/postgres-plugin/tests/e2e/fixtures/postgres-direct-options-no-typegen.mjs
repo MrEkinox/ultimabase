@@ -21,7 +21,7 @@ const compile = async (className, table) => {
 		postgres: { table },
 	})
 	const application = new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Post],
 	})
 	const compiled = application.compile().schemas.get(className)
@@ -54,7 +54,7 @@ let missingPluginCode
 
 try {
 	new UltimaBase({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [MissingPlugin],
 	}).compile()
 } catch (error) {

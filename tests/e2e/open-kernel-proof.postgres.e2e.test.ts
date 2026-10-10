@@ -92,7 +92,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			.use(value)
 			.use(softDelete)
 		const ultimabase = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [WorkflowPost, LedgerEntry, SoftPost],
 		})
 		await ultimabase.start()

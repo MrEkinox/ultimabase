@@ -218,7 +218,7 @@ export const createUpdateFixture = async (options: {
 	})
 	const ultimabase = applicationFixture(
 		new (UltimaBase.use(database, workflow))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		}),
 	)
@@ -297,7 +297,7 @@ export const createMasterDeleteFixture = async (
 				keys: [{ id: 'schema-mutation-master', value: 'unused-terminal-key' }],
 				onUse: audit,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		}),
 	)

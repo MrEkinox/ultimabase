@@ -83,7 +83,7 @@ describe('packed @ultimabase/plugin-kit', () => {
 			},
 		})
 		const application = new (UltimaBase.use(definition))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Target],
 		})
 

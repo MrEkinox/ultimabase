@@ -36,11 +36,7 @@ import {
 	operationTransportBinding,
 	operationWireCodec,
 } from './capabilities.js'
-import {
-	anonymous,
-	authorizeMasterKey,
-	withContext,
-} from '../application/plugin-authority.js'
+import { anonymous, authorizeMasterKey, withContext } from '../../plugin.js'
 
 const messageValue = defineOperationValue((value, path) => {
 	if (!isPlainRecord(value) || typeof value.message !== 'string') {
@@ -143,7 +139,7 @@ const createFixture = async (options: FixtureOptions = {}) => {
 			...(options.masterAuthority === undefined
 				? {}
 				: { masterAuthority: options.masterAuthority }),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		}),
 	)
@@ -285,7 +281,7 @@ describe('plugin operation Runtime', () => {
 		})
 		const ultimabase = applicationFixture(
 			new (UltimaBase.use(database, operation))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 		)

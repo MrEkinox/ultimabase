@@ -50,7 +50,7 @@ describe('additive option patch boundaries', () => {
 				],
 			})
 			const application = new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [optionPlugin(), patcher],
 				schemas: [Post],
 			})

@@ -321,7 +321,7 @@ describe('REST read execution', () => {
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -354,7 +354,7 @@ describe('REST read execution', () => {
 			createHarnessPlugin(harness),
 			databasePlugin(adapter),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -443,14 +443,14 @@ describe('REST read execution', () => {
 				keys: [{ id: 'rest-master', value: 'rest-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => first.dispose())
 		const second = new (UltimaBase.use(
 			createHarnessPlugin(secondHarness),
 			databasePlugin(secondAdapter),
-		))({ pluginPrivileges: { logger: false }, schemas: [RecordSchema] })
+		))({ logger: false, schemas: [RecordSchema] })
 		onTestFinished(() => second.dispose())
 		await first.start()
 		const anonymous = createContext(firstHarness, 'rest-read-security')
@@ -526,7 +526,7 @@ describe('REST read execution', () => {
 			httpPlugin({ appId: 'rest-deadline', requestTimeoutMs: 10 }),
 			createHttpCapturePlugin(capture),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [RecordSchema],
 		})
 		onTestFinished(() => ultimabase.dispose())

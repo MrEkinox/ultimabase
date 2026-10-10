@@ -205,7 +205,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 			keys: [{ id: 'rest-http-master', value: 'rest-http-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [VirtualHttpRecord, VirtualFailureRecord],
 	})
 	await application.start()

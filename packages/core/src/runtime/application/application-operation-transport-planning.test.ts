@@ -140,7 +140,7 @@ describe('application operation transport planning', () => {
 	it('returns immutable inert descriptors for exact owned bindings', async () => {
 		const harness: PlanningHarness = {}
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [ownerPlugin, consumerPlugin(harness)],
 			schemas: [],
 		})
@@ -181,7 +181,7 @@ describe('application operation transport planning', () => {
 	it('rejects non-installed tokens and absent exact protocol bindings', async () => {
 		const harness: PlanningHarness = {}
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [ownerPlugin, consumerPlugin(harness)],
 			schemas: [],
 		})

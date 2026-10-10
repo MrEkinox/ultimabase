@@ -177,7 +177,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
 			privatePlugin,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Account],
 		})
 		await ultimabase.start()
@@ -293,7 +293,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
 			declareOnly(v1Collection, '1.0.0'),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await v1.start()
@@ -307,7 +307,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
 			declareOnly(v2Collection, '2.0.0'),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await v2.start()
@@ -328,7 +328,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 
 		const noConsumer = new (UltimaBase.use(
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 		await noConsumer.start()
 		await noConsumer.dispose()
 		expect(await readPrivateTables()).toContain(tableName)

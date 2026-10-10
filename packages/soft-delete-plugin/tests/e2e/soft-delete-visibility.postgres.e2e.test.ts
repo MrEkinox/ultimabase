@@ -206,7 +206,7 @@ beforeAll(async () => {
 			keys: [{ id: 'soft-delete-e2e-master', value: 'unused' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 

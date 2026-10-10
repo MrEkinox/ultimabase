@@ -144,7 +144,7 @@ describe('adapter-declared filter operators (ADR-0301)', () => {
 		})
 		expect(thrown).not.toHaveProperty('publicDetails.field')
 		expect(error).toHaveBeenCalledWith(
-			'[UltimaBase] A protected filter uses an operator the database adapter does not declare',
+			'UltimaBase: a protected filter uses an operator the database adapter does not declare',
 			expect.objectContaining({ field: 'title', operator: 'endsWith' }),
 		)
 	})

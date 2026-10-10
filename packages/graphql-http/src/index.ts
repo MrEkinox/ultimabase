@@ -22,5 +22,6 @@ export const graphqlHttpEndpointCapability: GraphqlHttpEndpointCapability =
 		version: '1.0.0',
 		cardinality: 'single',
 		lifetime: 'application',
+		hint: 'Install a GraphQL HTTP transport such as @ultimabase/graphql-yoga-plugin and add graphqlYogaPlugin() to UltimaBase.use(...).',
 		compose: ([endpoint]) => normalizeGraphqlHttpEndpoint(endpoint),
 	})

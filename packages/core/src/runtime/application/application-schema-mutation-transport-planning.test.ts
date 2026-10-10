@@ -159,7 +159,7 @@ describe('application schema mutation transport planning', () => {
 	it('returns immutable schema-local descriptors without executable state', async () => {
 		const harness: Harness = {}
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [createOwnerPlugin(), consumerPlugin(harness)],
 			schemas: [Document],
 		})
@@ -193,7 +193,7 @@ describe('application schema mutation transport planning', () => {
 	it('leaves bindings with no selected alias dormant', async () => {
 		const harness: Harness = {}
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [createOwnerPlugin(1, false), consumerPlugin(harness)],
 			schemas: [Document],
 		})
@@ -206,7 +206,7 @@ describe('application schema mutation transport planning', () => {
 		const harness: Harness = {}
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [createOwnerPlugin(2), consumerPlugin(harness)],
 				schemas: [Document],
 			}),

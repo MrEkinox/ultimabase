@@ -90,7 +90,7 @@ describe('softDeletePlugin', () => {
 		const application = new (UltimaBase.use(
 			softDeletePlugin({ defaultMode: 'replace-delete' }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Explicit, Replace, Inherited, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -140,7 +140,7 @@ describe('softDeletePlugin', () => {
 		const application = new (UltimaBase.use(
 			softDeletePlugin({ defaultMode: 'explicit' }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Direct, Inherited, Replace, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -186,7 +186,7 @@ describe('softDeletePlugin', () => {
 			instanceId: 'replace-targets',
 		})
 		const application = new (UltimaBase.use(plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Direct, Inherited, Explicit, Disabled],
 		})
 		onTestFinished(() => application.dispose())
@@ -214,12 +214,12 @@ describe('softDeletePlugin', () => {
 		const replacePlugin = softDeletePlugin({ defaultMode: 'replace-delete' })
 		const explicitPlugin = softDeletePlugin({ defaultMode: 'explicit' })
 		const replaceApplication = new (UltimaBase.use(replacePlugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [ReplaceDocument],
 		})
 		onTestFinished(() => replaceApplication.dispose())
 		const explicitApplication = new (UltimaBase.use(explicitPlugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [ExplicitDocument],
 		})
 		onTestFinished(() => explicitApplication.dispose())
@@ -269,7 +269,7 @@ describe('softDeletePlugin', () => {
 		const application = new (UltimaBase.use(
 			softDeletePlugin({ defaultMode: 'replace-delete' }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Explicit, Disabled, Inherited],
 		})
 		onTestFinished(() => application.dispose())
@@ -319,7 +319,7 @@ describe('softDeletePlugin', () => {
 			softDelete: 'explicit',
 		})
 		const application = new (UltimaBase.use(softDeletePlugin()))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
@@ -349,7 +349,7 @@ describe('softDeletePlugin', () => {
 			softDelete: 'disabled' as never,
 		})
 		const application = new (UltimaBase.use(softDeletePlugin(), observer))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Invalid],
 		})
 		onTestFinished(() => application.dispose())
@@ -366,7 +366,7 @@ describe('softDeletePlugin', () => {
 			softDeletePlugin({ instanceId: 'editorial' }),
 			softDeletePlugin({ instanceId: 'legal' }),
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Document],
 		})
 		onTestFinished(() => application.dispose())
@@ -385,7 +385,7 @@ describe('softDeletePlugin', () => {
 					defaultMode: 'explicit',
 					instanceId: 'editorial',
 				}),
-			))({ pluginPrivileges: { logger: false }, schemas: [Editorial] }),
+			))({ logger: false, schemas: [Editorial] }),
 			applicationId: 'editorial',
 		})
 		const legal = generateApplicationTypes({
@@ -394,7 +394,7 @@ describe('softDeletePlugin', () => {
 					defaultMode: 'replace-delete',
 					instanceId: 'legal',
 				}),
-			))({ pluginPrivileges: { logger: false }, schemas: [Legal] }),
+			))({ logger: false, schemas: [Legal] }),
 			applicationId: 'legal',
 		})
 

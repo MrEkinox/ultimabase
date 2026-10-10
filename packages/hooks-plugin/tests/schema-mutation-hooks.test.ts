@@ -264,7 +264,7 @@ describe('schema mutation Hooks', () => {
 			parts.owner,
 			parts.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [parts.Document, Audit],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -342,7 +342,7 @@ describe('schema mutation Hooks', () => {
 			before.owner,
 			before.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [before.Document],
 		})
 		onTestFinished(() => beforeApp.dispose())
@@ -369,7 +369,7 @@ describe('schema mutation Hooks', () => {
 			after.owner,
 			after.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [after.Document],
 		})
 		onTestFinished(() => afterApp.dispose())
@@ -401,7 +401,7 @@ describe('schema mutation Hooks', () => {
 			parts.owner,
 			parts.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [parts.Document],
 		})
 		onTestFinished(() => ultimabase.dispose())
@@ -438,7 +438,7 @@ describe('schema mutation Hooks', () => {
 			stale.owner,
 			stale.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [stale.Document],
 		})
 		onTestFinished(() => staleApp.dispose())
@@ -450,7 +450,7 @@ describe('schema mutation Hooks', () => {
 		const trace: string[] = []
 		const noEngine = createArchiveParts(trace)
 		const noEngineApp = new (UltimaBase.use(noEngine.owner, noEngine.database))(
-			{ pluginPrivileges: { logger: false }, schemas: [noEngine.Document] },
+			{ logger: false, schemas: [noEngine.Document] },
 		)
 		onTestFinished(() => noEngineApp.dispose())
 		try {
@@ -480,7 +480,7 @@ describe('schema mutation Hooks', () => {
 			first.owner,
 			first.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [first.Document],
 		})
 		onTestFinished(() => firstApp.dispose())
@@ -489,7 +489,7 @@ describe('schema mutation Hooks', () => {
 			second.owner,
 			second.database,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [second.Document],
 		})
 		onTestFinished(() => secondApp.dispose())
@@ -527,7 +527,7 @@ describe('schema mutation Hooks', () => {
 				keys: [{ id: 'schema-mutation-hooks-master', value: 'unused' }],
 				onUse: audit,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [parts.Document],
 		})
 		onTestFinished(() => ultimabase.dispose())

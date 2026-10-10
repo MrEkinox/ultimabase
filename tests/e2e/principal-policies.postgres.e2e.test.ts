@@ -150,7 +150,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'principal-policies', value: masterKey }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [PrincipalMember, PrincipalRole, PrincipalTodo, PrincipalAudit],
 	})
 

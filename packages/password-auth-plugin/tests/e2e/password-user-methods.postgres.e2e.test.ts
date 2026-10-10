@@ -85,7 +85,7 @@ const createApplication = (
 		accessPlugin({ default: true }),
 	))({
 		schemas: [User],
-		pluginPrivileges: { logger: false },
+		logger: false,
 		masterAuthority: new MasterAuthority({
 			keys: [{ id: 'test', value: 'server-only-test-key' }],
 			onUse: () => undefined,
@@ -156,7 +156,7 @@ describe('Password User authentication methods', () => {
 		const User = createUser()
 		const ultimabase = new (UltimaBase.use(
 			postgresPlugin({ pool: getFixture().pool, schemaPolicy: 'override' }),
-		))({ schemas: [User], pluginPrivileges: { logger: false } })
+		))({ schemas: [User], logger: false })
 		await ultimabase.start()
 		try {
 			await expect(

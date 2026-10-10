@@ -64,8 +64,8 @@ describe('typegenPlugin', () => {
 				new (UltimaBase.use(typegenPlugin({ outputPath })))({
 					pluginPrivileges: {
 						denyClaims: ['environment:filesystem'],
-						logger: false,
 					},
+					logger: false,
 					schemas: [],
 				}),
 		).toThrow(expect.objectContaining({ code: 'PLUGIN_PRIVILEGE_DENIED' }))

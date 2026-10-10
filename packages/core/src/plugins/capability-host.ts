@@ -1,3 +1,4 @@
+import { readApplicationLog } from '../application/application-kernel-state.js'
 import type {
 	CommandBindings,
 	OwnedCommandHandlerPlan,
@@ -447,6 +448,7 @@ export class ApplicationCapabilityHost {
 			},
 			callbacks: this.#callbacks,
 			capabilities: this.#readerFor(owner, 'factory'),
+			logger: readApplicationLog(this.#application).forPlugin(owner),
 			owner,
 			schemas: this.#schemas,
 		})

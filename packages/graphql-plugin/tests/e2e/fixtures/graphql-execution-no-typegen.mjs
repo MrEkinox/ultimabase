@@ -82,7 +82,7 @@ const Note = Application.Schema.define({
 	graphql: true,
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Target, Note],
 })
 

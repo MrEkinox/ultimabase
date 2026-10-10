@@ -75,7 +75,7 @@ describe('Password Auth refresh concurrency', () => {
 				}),
 			)
 			await using app = new App({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [PasswordUser],
 			})
 			await app.start()
@@ -177,7 +177,7 @@ describe('Password Auth sign-up duplicates', () => {
 				keys: [{ id: 'password-sign-up', value: 'fixture-secret' }],
 				onUse: () => undefined,
 			}),
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [PasswordUser],
 		})
 		await app.start()

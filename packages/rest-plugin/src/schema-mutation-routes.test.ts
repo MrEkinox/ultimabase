@@ -47,7 +47,7 @@ const compile = async (
 	defaultRoutes?: false | Readonly<{ readonly mutations: boolean }>,
 ) => {
 	const application = await createApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [restPlugin()],
 		schemas,
 	})
@@ -151,7 +151,7 @@ describe('REST schema mutation route compilation', () => {
 		})
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [collisionPlugin, restPlugin()],
 				schemas: [Collision],
 			}),

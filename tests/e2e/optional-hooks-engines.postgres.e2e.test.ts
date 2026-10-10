@@ -62,7 +62,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			postgres: { table: 'optional_hooks_typescript_posts' },
 		})
 		const ultimabase = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		})
 		await ultimabase.start()
@@ -194,7 +194,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			postgres: { table: 'optional_hooks_alternative_posts' },
 		})
 		const ultimabase = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		})
 		await ultimabase.start()

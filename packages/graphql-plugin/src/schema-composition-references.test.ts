@@ -29,6 +29,7 @@ const required = <TValue>(value: TValue | null | undefined): TValue => {
 
 const compose = (...schemas: GraphQLSchema[]): GraphQLSchema =>
 	composeGraphqlSchemas({
+		logger: console,
 		callbacks,
 		schemas: schemas.map((schema, index) => ({
 			attribution: { kind: 'application' },
@@ -163,6 +164,7 @@ describe('GraphQL composition reference parity', () => {
 		one.getFields().label = required(two.getFields().label)
 		two.getFields().id = required(one.getFields().id)
 		const schema = composeGraphqlSchemas({
+			logger: console,
 			callbacks: {
 				runApplication: (callback) => callback(),
 				runPlugin: (owner, callback) => {
@@ -249,6 +251,7 @@ describe('GraphQL composition reference parity', () => {
 				}),
 			})
 			const schema = composeGraphqlSchemas({
+				logger: console,
 				callbacks: {
 					runApplication: (callback) => callback(),
 					runPlugin: (owner, callback) => {

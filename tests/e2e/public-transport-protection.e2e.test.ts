@@ -18,12 +18,13 @@ const verifyProviderPresence = async (
 	provider: FrameworkPlugin,
 ): Promise<void> => {
 	const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+	// The default console logger: the warning is visible at `warn` (ADR-0313).
 	const ultimabase = new (UltimaBase.use(
 		officialConformanceDatabasePlugin(new OfficialConformanceDatabase()),
 		provider,
 		createPublicTransportDiagnosticPlugin(),
 	))({
-		pluginPrivileges: { logger: false },
+		logLevel: 'warn',
 		schemas: [],
 	})
 
@@ -34,7 +35,7 @@ const verifyProviderPresence = async (
 			transport: publicTransportDiagnosticProtocol,
 		})
 		expect(warning).toHaveBeenCalledWith(
-			'[UltimaBase] Unverified public transport protection',
+			`UltimaBase: public transport ${publicTransportDiagnosticProtocol.name} ${publicTransportDiagnosticProtocol.version} exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.`,
 			{
 				code: 'UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION',
 				message:

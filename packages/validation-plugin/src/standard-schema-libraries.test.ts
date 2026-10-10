@@ -148,7 +148,7 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 	input: Readonly<Record<string, unknown>>,
 ): CreateOneOperationAst<TSchema> => {
 	new ValidationApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Target, schema],
 	}).compile()
 	const operation = {
@@ -315,11 +315,11 @@ it('keeps validators isolated between applications with the same logical schema'
 		}),
 	})
 	const zodApplication = new ValidationApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [ZodSchema],
 	})
 	const valibotApplication = new ValidationApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [ValibotSchema],
 	})
 

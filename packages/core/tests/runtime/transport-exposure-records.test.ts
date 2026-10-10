@@ -117,7 +117,7 @@ const createFixture = () => {
 	})
 	const ultimabase = applicationFixture(
 		new (UltimaBase.use(database, operations))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Post],
 		}),
 	)

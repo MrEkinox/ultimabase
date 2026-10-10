@@ -63,7 +63,7 @@ describe('application-owned HTTP identity and browser bootstrap', () => {
 					}),
 				],
 			}),
-		))({ schemas: [], pluginPrivileges: { logger: false } })
+		))({ schemas: [], logger: false })
 		await application.start()
 	})
 	afterEach(async () => {

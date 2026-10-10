@@ -158,7 +158,7 @@ const createFixture = async (requestTimeoutMs?: number) => {
 			keys: [{ id: 'graphql-yoga-master', value: 'master-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [VirtualYogaRecord],
 	})
 	await application.start()

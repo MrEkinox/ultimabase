@@ -139,7 +139,7 @@ const createApplication = (database: PostgresWorkerFixture) =>
 				masterAudits.push(event)
 			},
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 

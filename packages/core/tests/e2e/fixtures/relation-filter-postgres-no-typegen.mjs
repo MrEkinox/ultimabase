@@ -58,7 +58,7 @@ const ultimabase = new Application({
 		],
 		onUse: () => undefined,
 	}),
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Target, Source],
 })
 

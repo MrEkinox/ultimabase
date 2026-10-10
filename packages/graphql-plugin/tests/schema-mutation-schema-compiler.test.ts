@@ -256,7 +256,7 @@ const createFixture = async (
 				audits.push(event)
 			},
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [WorkflowDocument],
 	})
 	onTestFinished(() => application.dispose())

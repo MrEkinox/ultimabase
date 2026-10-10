@@ -59,6 +59,7 @@ export const requestPrincipalResolverCapability: CapabilityToken<
 	cardinality: 'single',
 	lifetime: 'application',
 	compose: ([provider]) => provider,
+	hint: 'Add an authentication plugin that resolves the current principal to UltimaBase.use(...).',
 })
 
 /**
@@ -277,6 +278,7 @@ export const requestRoleResolverCapability: CapabilityToken<
 	cardinality: 'single',
 	lifetime: 'application',
 	compose: ([provider]) => provider,
+	hint: 'Add a plugin that resolves request roles to UltimaBase.use(...).',
 })
 
 /** Extracts the exact resolved value supplied by one neutral resolver. */

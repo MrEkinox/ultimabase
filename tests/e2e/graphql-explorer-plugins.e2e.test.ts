@@ -23,7 +23,7 @@ describe('packed GraphQL explorer composition', () => {
 				environment: 'development',
 				path: '/explorer',
 			}),
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 
 		await expect(ultimabase.start()).rejects.toThrow('HTTP endpoint collision')
 		await ultimabase.dispose()
@@ -37,7 +37,7 @@ describe('packed GraphQL explorer composition', () => {
 			graphqlHttpProvider(),
 			graphiqlPlugin({ environment: 'development' }),
 			firstConsumer,
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 		const secondConsumer = httpConsumer()
 		const second = new (UltimaBase.use(
 			databasePlugin(),
@@ -46,7 +46,7 @@ describe('packed GraphQL explorer composition', () => {
 			apolloSandboxPlugin({ environment: 'development' }),
 			secondConsumer,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await first.start()

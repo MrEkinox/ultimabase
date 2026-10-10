@@ -290,7 +290,7 @@ describe('plugin schema option compilation', () => {
 
 		const application = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [owner, provider],
 				schemas: [Post],
 			}),
@@ -392,7 +392,7 @@ describe('plugin schema option compilation', () => {
 
 		const application = applicationFixture(
 			new FrameworkApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [owner, provider],
 				schemas: [Post],
 			}),
@@ -546,7 +546,7 @@ describe('plugin schema option compilation', () => {
 
 		const application = applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					plugin('fixture.first-options'),
 					plugin('fixture.second-options'),
@@ -602,7 +602,7 @@ describe('plugin schema option compilation', () => {
 
 		applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					plugin('fixture.first-exact-option', First, 'first'),
 					plugin('fixture.second-exact-option', Second, 'second'),
@@ -671,7 +671,7 @@ describe('plugin schema option compilation', () => {
 
 		applicationFixture(
 			await createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					plugin('fixture.first-exact-field-option', First, 'first'),
 					plugin('fixture.second-exact-field-option', Second, 'second'),

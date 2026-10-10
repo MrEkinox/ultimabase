@@ -18,7 +18,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 			},
 		})
 		const application = new (Base.use(passwordAuthPlugin({ user: User })))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [User],
 		}).compile()
 		expect(application.schemas.get('User')).toBe(User)
@@ -47,7 +47,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 	it('contributes the default User and private credential fingerprint', () => {
 		const plugin = passwordAuthPlugin()
 		const application = new (UltimaBase.use(plugin))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		}).compile()
 
@@ -88,7 +88,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		})
 		const application = new (UltimaBase.use(
 			passwordAuthPlugin({ user: AppUser }),
-		))({ pluginPrivileges: { logger: false }, schemas: [AppUser] }).compile()
+		))({ logger: false, schemas: [AppUser] }).compile()
 
 		expect(application.schemas.get('User')).toBe(AppUser)
 		expect(AppUser.fields).toHaveProperty('displayName')
@@ -111,7 +111,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		})
 		const application = new (UltimaBase.use(
 			passwordAuthPlugin({ user: AppUser }),
-		))({ pluginPrivileges: { logger: false }, schemas: [] })
+		))({ logger: false, schemas: [] })
 
 		expect(() => application.compile()).toThrow(
 			'Claimed schema must be registered in application schemas: User',
@@ -151,7 +151,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 	it('keeps credentials absent from Typegen and from zero-consumer apps', () => {
 		const withAuth = generateApplicationTypes({
 			ultimabase: new (UltimaBase.use(passwordAuthPlugin()))({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			}),
 			applicationId: 'password-auth',
@@ -191,7 +191,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		expect(
 			() =>
 				new (UltimaBase.use(passwordAuthPlugin(), passwordAuthPlugin()))({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [],
 				}),
 		).toThrow()
@@ -208,7 +208,7 @@ describe('passwordAuthPlugin identity declaration', () => {
 		expect(
 			() =>
 				new (UltimaBase.use(cookiePlugin))({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [],
 				}),
 		).toThrow()

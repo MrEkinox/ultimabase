@@ -131,7 +131,7 @@ describe('persistence plan rewriter capability', () => {
 
 	it('materializes one optional stage and retains owner diagnostics', async () => {
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [defineRewriterPlugin('fixture.persistence-authorized')],
 			schemas: [articleSchema],
 		})
@@ -191,7 +191,7 @@ describe('persistence plan rewriter capability', () => {
 			],
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [articleSchema, otherSchema],
 		})
@@ -247,7 +247,7 @@ describe('persistence plan rewriter capability', () => {
 			],
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [plugin],
 			schemas: [articleSchema, otherSchema],
 		})

@@ -183,7 +183,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'rest-e2e', value: 'rest-e2e-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [RestAuthor, RestPost],
 		validation: {
 			clock: () => new Date('2026-09-05T12:00:00.000Z'),

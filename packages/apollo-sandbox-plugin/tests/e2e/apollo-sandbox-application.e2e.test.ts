@@ -24,7 +24,7 @@ describe('packed Apollo Sandbox plugin', () => {
 			}),
 			enabledConsumer,
 		))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await enabled.start()

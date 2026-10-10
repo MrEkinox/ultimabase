@@ -8,6 +8,7 @@ import {
 	requireCapability,
 	type MasterAccessEvent,
 	type PluginDefinition,
+	type Logger,
 	type PluginPrivilegePolicy,
 } from '@ultimabase/core'
 import { isUnknownArray } from '@ultimabase/shared'
@@ -82,8 +83,17 @@ interface StartHttpFixtureOptions {
 	readonly masterAuthority?: MasterAuthority
 	readonly masterEnabled?: boolean
 	readonly pluginPrivileges?: PluginPrivilegePolicy
+	readonly logger?: Logger | false
 	readonly requestTimeoutMs?: number
 	readonly resolvers?: readonly PluginDefinition[]
+}
+
+/** Captures every line and its details, the privilege report included. */
+const capturingLogger = (logs: unknown[]): Logger => {
+	const capture = (message: string, details?: object): void => {
+		logs.push({ details, message })
+	}
+	return { debug: capture, error: capture, info: capture, warn: capture }
 }
 
 const startHttpFixture = async (options: StartHttpFixtureOptions) => {
@@ -140,7 +150,11 @@ const startHttpFixture = async (options: StartHttpFixtureOptions) => {
 		...(options.masterAuthority === undefined
 			? {}
 			: { masterAuthority: options.masterAuthority }),
-		pluginPrivileges: options.pluginPrivileges ?? { logger: false },
+		...(options.pluginPrivileges === undefined
+			? {}
+			: { pluginPrivileges: options.pluginPrivileges }),
+		logger: options.logger ?? false,
+		logLevel: 'debug',
 		schemas: [],
 	})
 	onTestFinished(() => runtime.dispose())
@@ -285,16 +299,7 @@ describe('HTTP Master verification', () => {
 			handler,
 			masterAuthority: authority,
 			masterEnabled: true,
-			pluginPrivileges: {
-				logger: {
-					error: (report) => {
-						logs.push(report)
-					},
-					info: (report) => {
-						logs.push(report)
-					},
-				},
-			},
+			logger: capturingLogger(logs),
 			resolvers: [credentials],
 		})
 		const response = await fixture.http.fetch(
@@ -444,7 +449,6 @@ describe('HTTP Master verification', () => {
 				masterEnabled: true,
 				pluginPrivileges: {
 					deny: ['authority:elevate'],
-					logger: false,
 				},
 			}),
 		).rejects.toMatchObject({ code: 'PLUGIN_PRIVILEGE_DENIED' })

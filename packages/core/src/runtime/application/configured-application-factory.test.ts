@@ -60,11 +60,11 @@ describe('configured UltimaBase factories', () => {
 		const Dynamic = UltimaBase.use(...dynamic)
 		const Extended = Fixed.use(...([] as readonly PluginDefinition[]))
 		const fixed = new Fixed({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const variable = new Dynamic({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 
@@ -113,15 +113,15 @@ describe('configured UltimaBase factories', () => {
 		expect(Object.hasOwn(Schema, 'define')).toBe(false)
 
 		const firstApplication = new FirstApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const bothApplication = new BothApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Portable, Ancestor],
 		})
 		const equivalentApplication = new (UltimaBase.use(first))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const portableApplication = new UltimaBase({ schemas: [] })
@@ -188,11 +188,11 @@ describe('configured UltimaBase factories', () => {
 		})
 		const Application = UltimaBase.use(second).use(first)
 		const application = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		const concurrent = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 
@@ -205,7 +205,7 @@ describe('configured UltimaBase factories', () => {
 		await application.dispose()
 
 		const replacement = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await replacement.start()
@@ -244,7 +244,7 @@ describe('configured UltimaBase factories', () => {
 		expect(
 			() =>
 				new DuplicateApplication({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [],
 				}),
 		).toThrow('Plugin "fixture.factory-duplicate" was declared more than once')
@@ -257,7 +257,7 @@ describe('configured UltimaBase factories', () => {
 		})
 		const InstanceApplication = UltimaBase.use(primary).use(analytics)
 		const application = new InstanceApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 
@@ -319,8 +319,8 @@ describe('configured UltimaBase factories', () => {
 				new Application({
 					pluginPrivileges: {
 						deny: ['runtime:observe'],
-						logger: false,
 					},
+					logger: false,
 					schemas: [],
 				}),
 		).toThrow('Plugin privilege policy denied 1 active request')

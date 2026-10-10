@@ -75,7 +75,7 @@ const Note = Application.Schema.define({
 	fields: (field) => ({ title: field.string({ required: true }) }),
 })
 const ultimabase = new Application({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [Note],
 })
 

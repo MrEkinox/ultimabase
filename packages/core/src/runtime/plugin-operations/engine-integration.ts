@@ -108,7 +108,14 @@ export const reportFrameworkPublicTransportProtection = <
 			version: options.transport.version,
 		}),
 	})
-	console.warn('[UltimaBase] Unverified public transport protection', warning)
+	// One line naming the transport and the fix (ADR-0313); Core names no plugin.
+	const transport = `${options.transport.name} ${options.transport.version}`
+	readApplicationKernelState(framework.application).log.warn(
+		providerPresence === 'none'
+			? `UltimaBase: public transport ${transport} exposes operations but no protected policy plugin is installed; install one, or acknowledge unverified protection in the transport options when the operations are public on purpose.`
+			: `UltimaBase: public transport ${transport} exposes operations that installed protected policies do not prove to cover; review the policies, or acknowledge unverified protection in the transport options.`,
+		warning,
+	)
 }
 
 /** Runs one wire codec under its binding owner's plugin attribution. */

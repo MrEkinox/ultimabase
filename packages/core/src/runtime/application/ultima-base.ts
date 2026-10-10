@@ -105,6 +105,12 @@ let readKernel: <
 >(
 	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ) => FrameworkApplication<TSchemas, TPlugins>
+/** Shares one start result between concurrent `start()` calls. */
+interface StartedApplication<TApplication> {
+	readonly source: Promise<void>
+	readonly result: Promise<TApplication>
+}
+
 let readStarted: <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
@@ -153,9 +159,7 @@ export class UltimaBase<
 	#compiledApplication: CompiledApplication<TSchemas> | undefined
 	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
-	#started:
-		| { readonly source: Promise<void>; readonly result: Promise<this> }
-		| undefined
+	#started: StartedApplication<this> | undefined
 
 	constructor(options: RootUltimaBaseOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -167,6 +171,8 @@ export class UltimaBase<
 			...(options.pluginPrivileges === undefined
 				? {}
 				: { pluginPrivileges: options.pluginPrivileges }),
+			...(options.logger === undefined ? {} : { logger: options.logger }),
+			...(options.logLevel === undefined ? {} : { logLevel: options.logLevel }),
 			schemas: options.schemas,
 			plugins,
 		})
@@ -416,6 +422,7 @@ export class UltimaBase<
 						databaseAdapterCapability,
 					)
 				: undefined,
+			readApplicationKernelState(this.#application).log,
 		)
 	}
 

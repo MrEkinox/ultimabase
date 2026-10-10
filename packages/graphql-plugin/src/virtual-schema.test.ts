@@ -149,7 +149,7 @@ describe('GraphQL virtual schema compilation', () => {
 	it('compiles every built-in output shape and omits virtual inputs', async () => {
 		const Virtual = defineVirtualSchema()
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [
 				graphqlPlugin({ default: true, schemas: [customSummaryExtension()] }),
 				graphqlFixtureDatabasePlugin,
@@ -249,7 +249,7 @@ describe('GraphQL virtual schema compilation', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin(), graphqlFixtureDatabasePlugin],
 				schemas: [Invalid],
 			}),
@@ -259,7 +259,7 @@ describe('GraphQL virtual schema compilation', () => {
 	it('normalizes a virtual selection into the ordinary Core logical AST', async () => {
 		const Virtual = defineVirtualSchema()
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [graphqlPlugin(), graphqlFixtureDatabasePlugin],
 			schemas: [Virtual],
 		})
@@ -321,7 +321,7 @@ describe('GraphQL virtual schema compilation', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [
 					graphqlPlugin({ schemas: [custom] }),
 					graphqlFixtureDatabasePlugin,
@@ -350,7 +350,7 @@ describe('GraphQL virtual schema compilation', () => {
 
 		await expect(
 			createApplication({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				plugins: [graphqlPlugin(), graphqlFixtureDatabasePlugin],
 				schemas: [Invalid],
 			}),

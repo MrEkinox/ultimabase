@@ -63,7 +63,7 @@ const startApplication = async (resolver?: RequestPrincipalResolver) => {
 			keys: [{ id: 'principal-test', value: 'principal-test-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Member],
 	})
 	await ultimabase.start()

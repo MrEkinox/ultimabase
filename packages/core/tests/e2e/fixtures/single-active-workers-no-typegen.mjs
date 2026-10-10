@@ -8,7 +8,7 @@ import { UltimaBase } from '@ultimabase/core'
 
 // Real workers must own independent slots even while their parent remains active.
 const application = await new UltimaBase({
-	pluginPrivileges: { logger: false },
+	logger: false,
 	schemas: [],
 }).initialize()
 if (isMainThread) {
@@ -20,7 +20,7 @@ if (isMainThread) {
 		await assert.rejects(
 			Promise.resolve().then(() =>
 				new UltimaBase({
-					pluginPrivileges: { logger: false },
+					logger: false,
 					schemas: [],
 				}).initialize(),
 			),
@@ -36,7 +36,7 @@ if (isMainThread) {
 		assert.deepEqual(await Promise.all(exits), [[0], [0]])
 		await application.dispose()
 		const replacement = new UltimaBase({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		await replacement.initialize()

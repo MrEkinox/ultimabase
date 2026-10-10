@@ -72,7 +72,7 @@ export const createCurrentTypegenRuntimeFixture = (schemaCount) => {
 	}
 
 	return new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas,
 	})
 }

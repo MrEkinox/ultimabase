@@ -53,7 +53,7 @@ const createApplication = (
 		.use(graphqlYogaPlugin())
 		.use(server)
 	const application = new Application({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [],
 	})
 	onTestFinished(() => application.dispose())

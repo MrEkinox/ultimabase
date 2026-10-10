@@ -191,7 +191,7 @@ const createApplication = (connectionUri: string) =>
 			keys: [{ id: 'rest-mutation-e2e', value: 'rest-mutation-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [MutationPost],
 		validation: {
 			clock: () => new Date('2026-09-05T15:00:00.000Z'),

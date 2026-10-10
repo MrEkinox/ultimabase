@@ -100,7 +100,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'readable-results', value: masterKey }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [Note, Secret, Archived, Explicit],
 	})
 

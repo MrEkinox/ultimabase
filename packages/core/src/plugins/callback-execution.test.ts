@@ -39,7 +39,7 @@ describe('application callback execution attribution', () => {
 			contributions: [],
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [host, worker],
 			schemas: [],
 		})
@@ -92,7 +92,7 @@ describe('application callback execution attribution', () => {
 			],
 		})
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [host],
 			schemas: [],
 		})

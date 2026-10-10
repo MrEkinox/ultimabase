@@ -116,7 +116,7 @@ const createApplication = (connectionUri: string) => {
 			keys: [{ id: 'graphql-execution', value: 'graphql-master-secret' }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [GraphqlAuthor, GraphqlPost],
 		validation: {
 			clock: () => new Date('2026-09-07T20:00:00.000Z'),
@@ -169,7 +169,7 @@ beforeAll(async () => {
 			schemaPolicy: 'ignore',
 			url: fixture.connectionUri,
 		}),
-	))({ pluginPrivileges: { logger: false }, schemas: [] })
+	))({ logger: false, schemas: [] })
 	await foreignApplication.start()
 	foreign = anonymousRequest(foreignApplication, {
 		requestId: 'graphql-execution-forged',

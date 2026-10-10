@@ -27,7 +27,7 @@ const [a = '', b = '', c = '', d = ''] = ids
 
 const prepareRuntime = async () => {
 	const application = await createApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		plugins: [graphqlPlugin()],
 		schemas: [ConnectionRecord],
 	})
@@ -257,7 +257,7 @@ describe('GraphQL connection runtime', () => {
 
 	it('invalidates page plans at the application lifetime boundary', async () => {
 		const application = await createApplication({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			plugins: [
 				graphqlPlugin({
 					pagination: { defaultTake: 3, maxTake: 5 },

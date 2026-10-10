@@ -94,7 +94,7 @@ const validateFinalCreate = <const TSchema extends SchemaDefinition>(
 	dependencies: readonly SchemaDefinition[] = [],
 ): CreateOneOperationAst<TSchema> => {
 	new ValidationApplication({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [...dependencies, schema],
 	}).compile()
 	const operation = {

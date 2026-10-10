@@ -376,7 +376,7 @@ describe('plugin schema mutation Runtime', () => {
 					id: 'fixture.schema-mutation-without-purge',
 					version: '1.0.0',
 				}),
-			))({ pluginPrivileges: { logger: false }, schemas: [fixture.Post] }),
+			))({ logger: false, schemas: [fixture.Post] }),
 		)
 		try {
 			await other.start()

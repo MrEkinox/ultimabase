@@ -93,7 +93,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 		softDeletePlugin(),
 		postgresPlugin({ pool: fixture.pool, schemaPolicy: 'override' }),
 	))({
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [
 			Parent,
 			RestrictChild,

@@ -42,7 +42,7 @@ const createApplication = (fixture: PostgresWorkerFixture) =>
 			keys: [{ id: 'lifecycle', value: masterKey }],
 			onUse: () => undefined,
 		}),
-		pluginPrivileges: { logger: false },
+		logger: false,
 		schemas: [LifecycleTodo],
 	})
 

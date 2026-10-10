@@ -86,7 +86,7 @@ describe('honoServerPlugin', () => {
 			applicationProvider('fixture.first-http', 'first'),
 		).use(server)
 		const first = new First({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => first.dispose())
@@ -94,7 +94,7 @@ describe('honoServerPlugin', () => {
 			applicationProvider('fixture.second-http', 'second'),
 		).use(server)
 		const second = new Second({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => second.dispose())
@@ -144,7 +144,7 @@ describe('honoServerPlugin', () => {
 			applicationProvider('fixture.address-http', 'address'),
 		).use(server)
 		const application = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -176,7 +176,7 @@ describe('honoServerPlugin', () => {
 			applicationProvider('fixture.external-address-http', 'external'),
 		).use(server)
 		const application = new Application({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [],
 		})
 		onTestFinished(() => application.dispose())
@@ -193,7 +193,7 @@ describe('honoServerPlugin', () => {
 				}),
 			)
 			const application = new Application({
-				pluginPrivileges: { logger: false },
+				logger: false,
 				schemas: [],
 			})
 			onTestFinished(() => application.dispose())

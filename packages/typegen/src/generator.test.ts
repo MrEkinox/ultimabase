@@ -130,7 +130,7 @@ describe('generateApplicationTypes', () => {
 			],
 		})
 		const application = new (UltimaBase.use(contribution))({
-			pluginPrivileges: { logger: false },
+			logger: false,
 			schemas: [Target],
 		})
 		const generated = generateApplicationTypes({
