@@ -7,7 +7,7 @@ import {
 	requestRoleResolverCapability,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
-	resolveRequestPrincipal,
+	getRequestPrincipal,
 	resolveRequestRoleReference,
 	type RequestPrincipalResolver,
 	type RequestPrincipalReference,
@@ -19,7 +19,7 @@ import {
 	type RequestSubjectValue,
 	type RequestSubjectValueOf,
 	type ResolvedRequestSubject,
-	type PointerValue,
+	type Principal,
 	type CapabilityToken,
 } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
@@ -66,6 +66,7 @@ const principalPointer = PrincipalSchema.pointer('principal-id')
 const principalResolver: RequestPrincipalResolver<typeof principalPointer> = {
 	resolveCurrent: () => principalPointer,
 }
+void principalResolver
 
 const resolver: RequestSubjectResolver<typeof editor, FixtureRole> = {
 	resolve: ({ context, reference }) => {
@@ -129,13 +130,9 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	expectTypeOf<
 		NonNullable<RequestRoleResolver['resolvePersistentRole']>
 	>().toBeFunction()
-	expectTypeOf(
-		resolveRequestPrincipal({
-			context: {} as never,
-			ownsSchema: () => true,
-			resolver: principalResolver,
-		}),
-	).toEqualTypeOf<Promise<PointerValue | undefined>>()
+	expectTypeOf(getRequestPrincipal).returns.toEqualTypeOf<
+		Promise<Principal | undefined>
+	>()
 
 	// @ts-expect-error -- Core never introduces a native authenticated authority mode.
 	const invalidMode: 'user' = 'anonymous'

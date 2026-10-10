@@ -8,7 +8,7 @@ import {
 	type FieldValueMap,
 	type PluginFieldDefinition,
 	type PluginFieldFamilyDefinition,
-	type PointerValue,
+	type Principal,
 	type PluginSourceOpaque,
 	type PluginSourceSchemaFieldValues,
 	type RequestSubjectContext,
@@ -126,8 +126,8 @@ export interface ACLDefaultInput<
 > {
 	/** Exposes the readonly field-resolved create candidate without the ACL field. */
 	readonly data: TData
-	/** Exposes the optional principal supplied by a compatible identity provider. */
-	readonly principal: PointerValue | undefined
+	/** The current request principal resolved by Core, `undefined` when anonymous. */
+	readonly principal: Principal | undefined
 	/** Exposes the active transaction-bound hook context. */
 	readonly context: RequestSubjectContext
 }
@@ -154,7 +154,7 @@ export interface ACLCreateInputResolution<
 	readonly update: undefined
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: undefined
-	readonly principal: PointerValue | undefined
+	readonly principal: Principal | undefined
 	readonly context: RequestSubjectContext
 }
 
@@ -187,7 +187,7 @@ export interface ACLUpdateInputResolution<
 	readonly update: ACLNormalizedUpdateInput
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: ACL
-	readonly principal: PointerValue | undefined
+	readonly principal: Principal | undefined
 	readonly context: RequestSubjectContext
 }
 
@@ -234,7 +234,7 @@ type SourceACLData = PluginSourceSchemaFieldValues<typeof aclFieldName>
 interface SourceACLDefaultInput {
 	readonly context: PluginSourceOpaque<RequestSubjectContext>
 	readonly data: SourceACLData
-	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+	readonly principal: PluginSourceOpaque<Principal | undefined>
 }
 
 type SourceACLDefaultFactory = (
@@ -248,7 +248,7 @@ interface SourceACLCreateInputResolution {
 	readonly data: SourceACLData
 	readonly inputAcl: PluginSourceOpaque<ACL | undefined>
 	readonly operation: 'create'
-	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+	readonly principal: PluginSourceOpaque<Principal | undefined>
 	readonly update: undefined
 }
 
@@ -259,7 +259,7 @@ interface SourceACLUpdateInputResolution {
 	readonly data: SourceACLData
 	readonly inputAcl: PluginSourceOpaque<ACL | undefined>
 	readonly operation: 'update'
-	readonly principal: PluginSourceOpaque<PointerValue | undefined>
+	readonly principal: PluginSourceOpaque<Principal | undefined>
 	readonly update: PluginSourceOpaque<ACLNormalizedUpdateInput>
 }
 

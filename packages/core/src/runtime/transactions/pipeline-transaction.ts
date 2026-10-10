@@ -1,6 +1,8 @@
 import { FrameworkError } from '../../foundation.js'
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
+import { runPostCommitEffect } from '../../errors/post-commit-errors.js'
+
 import {
 	isDatabaseAdapter,
 	isDatabaseTransactionAdapter,
@@ -126,7 +128,7 @@ export const beginPipelineTransaction = async (
 			const failures: unknown[] = []
 			for (const effect of effects.splice(0)) {
 				try {
-					await effect()
+					await runPostCommitEffect(effect)
 				} catch (error: unknown) {
 					// One committed observer cannot suppress independent sibling delivery.
 					failures.push(error)

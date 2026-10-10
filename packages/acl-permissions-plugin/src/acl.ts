@@ -18,6 +18,12 @@ import {
 	type ACLRoleJSON,
 } from './acl-json.js'
 
+const ownerPermissions: readonly ACLPermission[] = immutableArray([
+	'read',
+	'update',
+	'delete',
+])
+
 /** Keeps each instance's state, its canonical frozen document, private. */
 const documents = new WeakMap<object, ACLJSON>()
 
@@ -157,12 +163,33 @@ export class ACL {
 		return createACL(parseACLJSON(value))
 	}
 
-	constructor() {
+	/**
+	 * Creates an empty ACL, or one where `owner` may read, update and delete
+	 * (like `new Parse.ACL(user)`). An `undefined` owner, such as the principal
+	 * of an anonymous request, gives an empty ACL.
+	 *
+	 * @example `default: ({ principal }) => new ACL(principal)`
+	 */
+	constructor(owner?: ACLPrincipal) {
 		if (new.target !== ACL) {
 			throw new TypeError('ACL cannot be subclassed')
 		}
+		const candidate: unknown = owner
+		if (candidate !== undefined && !Pointer.is(candidate)) {
+			throw new TypeError('ACL owner must be a Core Pointer')
+		}
 
-		documents.set(this, emptyDocument)
+		documents.set(
+			this,
+			owner === undefined
+				? emptyDocument
+				: createACLJSON(
+						principalSlot(owner).write(
+							emptyDocument,
+							grant([], ownerPermissions),
+						),
+					),
+		)
 		Object.freeze(this)
 	}
 

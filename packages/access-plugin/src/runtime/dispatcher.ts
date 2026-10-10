@@ -34,6 +34,7 @@ import {
 import {
 	assertAccessRules,
 	createAccessScope,
+	readPolicyOperation,
 	enforceSchemaMutationItemAccess,
 	evaluateAccessFieldReferenceRules,
 	evaluateAccessOperation,
@@ -130,6 +131,7 @@ export class AccessRuntime {
 			{
 				context: request.context,
 				operation: request.operation.kind,
+				policyOperation: readPolicyOperation(request.operation),
 				runtime: this.#runtime,
 				schema: source,
 			},

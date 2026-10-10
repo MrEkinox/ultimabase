@@ -12,6 +12,10 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export { getCurrentUltimaBase } from './context/current-ultima-base.js'
+export {
+	getCurrentPrincipal,
+	getRequestPrincipal,
+} from './context/request-principal.js'
 export { throwIfOperationCancelled } from './cancellation/operation-cancellation.js'
 export { applicationRequestExecutionCapability } from './application/application-request-execution.js'
 export type {

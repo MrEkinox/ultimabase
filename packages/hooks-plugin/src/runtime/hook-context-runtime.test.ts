@@ -35,6 +35,7 @@ describe('Runtime HookContext revocation', () => {
 		const scope = createRuntimeHookContext({
 			emit: (emission) => emissions.push(emission),
 			hook: identity,
+			principal: undefined,
 			queryable: true,
 			request,
 			transactionId: 'transaction-1',
@@ -80,6 +81,7 @@ describe('Runtime HookContext revocation', () => {
 		const scope = createRuntimeHookContext({
 			emit: () => undefined,
 			hook: identity,
+			principal: undefined,
 			queryable: false,
 			request,
 			transactionId: undefined,

@@ -11,7 +11,7 @@ import type {
 } from '@ultimabase/core'
 import type { MaybePromise } from '@ultimabase/shared'
 
-import type { AccessContext } from '../context.js'
+import type { AccessPolicyInput } from './contracts.js'
 
 type SchemaMutationDecisionRule<TInput> =
 	boolean | ((input: TInput) => MaybePromise<boolean>)
@@ -24,9 +24,7 @@ export type SchemaMutationAccessIdentity<
 /** Supplies the exact custom payload to an early schema-mutation decision. */
 export interface SchemaMutationOperationAccessInput<
 	TMutation extends PluginSchemaMutationDefinition,
-> {
-	/** Carries immutable authority and explicitly typed request capabilities. */
-	readonly context: AccessContext
+> extends AccessPolicyInput {
 	/** Contains the exact payload validated by the mutation declaration. */
 	readonly input: PluginSchemaMutationInput<TMutation>
 	/** Identifies the logical mutation independently from its persistence plan. */

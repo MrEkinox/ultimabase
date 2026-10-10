@@ -6,6 +6,8 @@ import {
 	FrameworkError,
 	frameworkErrorCodes,
 	getCurrentTransactionId,
+	getRequestPrincipal,
+	PublicError,
 	runOutsideRequestEngineScope,
 	runWithQueryExecutionGuard,
 	throwIfOperationCancelled,
@@ -290,12 +292,15 @@ export class HookExecutionRuntime {
 			...parentStack,
 			immutableRecord({ identity, key }),
 		])
+		// Core resolves the principal at most once per request (ADR-0304).
+		const principal = await getRequestPrincipal(request)
 		const startedAt = this.#observer === undefined ? 0 : performance.now()
 		const scope = createRuntimeHookContext({
 			emit: (emission) => {
 				this.#emit(emission)
 			},
 			hook: identity,
+			principal,
 			queryable: !nonQueryableHookPhases.has(identity.phase),
 			request,
 			transactionId,
@@ -456,6 +461,14 @@ export class HookExecutionRuntime {
 					{ cancellable: false },
 				)
 			} catch (error: unknown) {
+				if (error instanceof PublicError) {
+					// After commit a PublicError is only logged (ADR-0305).
+					console.error(
+						'[UltimaBase] A PublicError thrown after commit was logged, not sent to the client',
+						error,
+					)
+					continue
+				}
 				// A committed consumer failure cannot suppress independent siblings.
 				failures.push(error)
 			}

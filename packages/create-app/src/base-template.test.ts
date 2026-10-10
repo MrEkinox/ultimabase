@@ -232,7 +232,8 @@ describe('base project templates', () => {
 		const schema = files.get('src/schema.ts') ?? ''
 		const application = files.get('src/ultimabase.ts') ?? ''
 		expect(schema).toContain('schema: AppUser')
-		expect(schema).toContain('context.getValue(passwordPrincipal)?.user')
+		// Roles reads the Core principal: rules no longer import the session token.
+		expect(schema).not.toContain('passwordPrincipal')
 		expect(schema).toContain(
 			'resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl ?? new ACL()',
 		)

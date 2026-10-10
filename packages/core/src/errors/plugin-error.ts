@@ -1,17 +1,17 @@
 import { assertNonEmptyString } from '@ultimabase/shared'
 
 import {
-	PublicError,
+	ExposableError,
 	type FrameworkErrorDetails,
 	type FrameworkErrorOptions,
-	type PublicErrorPayload,
+	type ExposableErrorPayload,
 } from './framework-error.js'
 
 /** Defines the safe payload a transport may serialize for one plugin domain failure. */
 export interface PluginErrorPayload<
 	TCode extends string = string,
 	TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends PublicErrorPayload<TCode, TPublicDetails> {
+> extends ExposableErrorPayload<TCode, TPublicDetails> {
 	readonly code: TCode
 }
 
@@ -41,7 +41,7 @@ export class PluginError<
 	const TCode extends string = string,
 	const TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 	const TInternalDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends PublicError<TCode, TPublicDetails, TInternalDetails> {
+> extends ExposableError<TCode, TPublicDetails, TInternalDetails> {
 	constructor(
 		code: TCode,
 		message: string,

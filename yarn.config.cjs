@@ -19,7 +19,7 @@ const allowedRuntimeDependencies = {
 	'@ultimabase/validation-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/soft-delete-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/pg-vector-plugin': ['core', 'shared'],
-	'@ultimabase/roles-plugin': ['access-plugin', 'plugin-kit', 'core', 'shared'],
+	'@ultimabase/roles-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/acl-permissions-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/postgres-plugin': ['plugin-kit', 'core', 'shared'],
 	'@ultimabase/http-plugin': ['plugin-kit', 'core', 'shared'],

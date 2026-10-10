@@ -16,6 +16,12 @@ import {
 	assertExactEnumerablePlainObject,
 	assertPlainObject,
 } from '../../exact-object-validation.js'
+import type { PointerValue } from '../../schema/relations/pointer.js'
+import {
+	inheritExplicitRequestPrincipal,
+	setExplicitRequestPrincipal,
+	shareRequestPrincipal,
+} from './request-principal.js'
 
 const declaredRequestSources = {
 	internal: 'internal',
@@ -326,6 +332,27 @@ export class RequestContext<
 		const derived = new RequestContext(this.access, optionsOf(this), nextValues)
 
 		inheritRequestContextOwner(this, derived)
+		inheritExplicitRequestPrincipal(this, derived)
+
+		return derived
+	}
+
+	/**
+	 * Returns a new context whose principal is `principal` (or anonymous for
+	 * `undefined`) instead of the authentication provider's answer. Server-side
+	 * only: transports never derive it from client input (ADR-0304).
+	 *
+	 * @example `graphql.execute({ context: context.withPrincipal(TodoUser.pointer(id)), document })`
+	 */
+	withPrincipal(principal: PointerValue | undefined): RequestContext<TAccess, TSource> {
+		const derived = new RequestContext(
+			this.access,
+			optionsOf(this),
+			requestContextValues.get(this) ?? emptyRequestContextValues,
+		)
+
+		inheritRequestContextOwner(this, derived)
+		setExplicitRequestPrincipal(derived, principal)
 
 		return derived
 	}
@@ -355,6 +382,8 @@ export class RequestContext<
 
 			inheritRequestContextOwner(context, master)
 			masterRequestContextProvenance.set(master, provenance)
+			// Master changes authority, not identity: the principal stays (ADR-0304).
+			shareRequestPrincipal(context, master)
 
 			return master
 		}

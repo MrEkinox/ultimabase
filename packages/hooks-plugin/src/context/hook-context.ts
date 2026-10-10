@@ -1,4 +1,5 @@
 import type {
+	Principal,
 	RequestAccess,
 	RequestCapability,
 	RequestContextValue,
@@ -87,6 +88,7 @@ export interface HookContextCapabilities {
 export interface CreateHookContextOptions {
 	readonly access: RequestAccess
 	readonly hook: HookContextIdentity
+	readonly principal: Principal | undefined
 	readonly requestId: string
 	readonly signal: AbortSignal
 	readonly source: string
@@ -130,6 +132,12 @@ export class HookContext implements HookExecutionContext {
 	readonly access: RequestAccess
 	/** Identifies the exact hook declaration currently being executed. */
 	readonly hook: HookContextIdentity
+	/**
+	 * The request principal resolved by Core, `undefined` when anonymous
+	 * (ADR-0304); it stays the same under `useMasterKey`.
+	 * @example `const author = context.principal`
+	 */
+	readonly principal: Principal | undefined
 	/** Correlates every operation started by the originating request. */
 	readonly requestId: string
 	/** Propagates cooperative cancellation without exposing its controller. */
@@ -150,6 +158,7 @@ export class HookContext implements HookExecutionContext {
 
 		this.access = options.access
 		this.hook = options.hook
+		this.principal = options.principal
 		this.requestId = options.requestId
 		this.signal = options.signal
 		this.source = options.source

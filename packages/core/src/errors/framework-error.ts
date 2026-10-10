@@ -9,7 +9,7 @@ import { assertPlainObject } from '../exact-object-validation.js'
 
 type ErrorDetails = Readonly<Record<string, unknown>>
 
-export interface PublicErrorOptions<
+export interface ExposableErrorOptions<
 	TPublicDetails extends ErrorDetails,
 	TInternalDetails extends ErrorDetails,
 > extends ErrorOptions {
@@ -19,7 +19,7 @@ export interface PublicErrorOptions<
 	readonly retryable?: boolean
 }
 
-export interface PublicErrorPayload<TCode extends string, TDetails> {
+export interface ExposableErrorPayload<TCode extends string, TDetails> {
 	readonly code: TCode
 	readonly retryable: boolean
 	readonly message?: string
@@ -35,8 +35,11 @@ const snapshotDetails = <const TDetails extends ErrorDetails>(
 	return immutableRecord(details)
 }
 
-/** Owns the state shared by Core and plugin failures without becoming public API. */
-export abstract class PublicError<
+/**
+ * Owns the state shared by Core, plugin and application failures without
+ * becoming public API (ADR-0305 gave the name `PublicError` to application errors).
+ */
+export abstract class ExposableError<
 	const TCode extends string,
 	const TPublicDetails extends ErrorDetails,
 	const TInternalDetails extends ErrorDetails,
@@ -48,15 +51,20 @@ export abstract class PublicError<
 	readonly internalDetails: Readonly<TInternalDetails> | undefined
 
 	protected constructor(
-		name: 'FrameworkError' | 'PluginError',
+		name: 'FrameworkError' | 'PluginError' | 'PublicError',
 		code: TCode,
 		message: string,
-		options: PublicErrorOptions<TPublicDetails, TInternalDetails>,
+		options: ExposableErrorOptions<TPublicDetails, TInternalDetails>,
 		validateCode: (value: TCode) => void,
 	) {
 		const untrustedOptions: unknown = options
 		if (!isPlainRecord(untrustedOptions)) {
-			const owner = name === 'FrameworkError' ? 'Framework' : 'Plugin'
+			const owner =
+				name === 'FrameworkError'
+					? 'Framework'
+					: name === 'PluginError'
+						? 'Plugin'
+						: 'Public'
 			throw new TypeError(`${owner} error options must be a plain object`)
 		}
 		super(message, { cause: options.cause })
@@ -79,7 +87,7 @@ export abstract class PublicError<
 		Object.freeze(this)
 	}
 
-	toJSON(): PublicErrorPayload<TCode, TPublicDetails> {
+	toJSON(): ExposableErrorPayload<TCode, TPublicDetails> {
 		return immutableRecord({
 			code: this.code,
 			retryable: this.retryable,
@@ -138,7 +146,7 @@ export type FrameworkErrorDetails = Readonly<Record<string, unknown>>
 export interface FrameworkErrorOptions<
 	TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 	TInternalDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends PublicErrorOptions<TPublicDetails, TInternalDetails> {
+> extends ExposableErrorOptions<TPublicDetails, TInternalDetails> {
 	readonly retryable?: boolean
 }
 
@@ -146,7 +154,7 @@ export interface FrameworkErrorOptions<
 export interface FrameworkErrorPayload<
 	TCode extends FrameworkErrorCode = FrameworkErrorCode,
 	TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends PublicErrorPayload<TCode, TPublicDetails> {
+> extends ExposableErrorPayload<TCode, TPublicDetails> {
 	readonly code: TCode
 }
 
@@ -166,7 +174,7 @@ export class FrameworkError<
 	const TCode extends FrameworkErrorCode = FrameworkErrorCode,
 	const TPublicDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 	const TInternalDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
-> extends PublicError<TCode, TPublicDetails, TInternalDetails> {
+> extends ExposableError<TCode, TPublicDetails, TInternalDetails> {
 	constructor(
 		code: TCode,
 		message: string,

@@ -1,5 +1,4 @@
 export { hasRole } from './role-access.js'
-export type { RoleAccessDecision } from './role-access.js'
 export { RoleDeletionError } from './role-deletion.js'
 export {
 	onRoleEvent,

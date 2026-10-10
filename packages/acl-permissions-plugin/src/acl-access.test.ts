@@ -4,9 +4,7 @@ import {
 	QueryBuilder,
 	UltimaBase,
 	type RequestSubjectContext,
-	type RequestPrincipalResolver,
 	type RequestRoleResolver,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -34,24 +32,19 @@ const context: RequestSubjectContext = {
 	signal: new AbortController().signal,
 	source: 'test',
 }
-const ownsPrincipalSchema = (schema: SchemaDefinition): boolean =>
-	schema === Principal
 
 describe('ACL Access contributions', () => {
 	it('normalizes one principal and unique role set into portable row alternatives', async () => {
 		const editor = new RequestSubjectReference('role', 'role:editor')
-		const principalResolver: RequestPrincipalResolver = {
-			resolveCurrent: vi.fn(() => principal),
-		}
 		const roleResolver: RequestRoleResolver = {
 			hasRole: () => false,
 			resolveCurrentRoles: vi.fn(() => [editor, editor]),
 		}
 		const subjects = await resolveACLAccessSubjects(
 			context,
-			principalResolver,
+			// A typed Pointer stands for the Core principal of the request.
+			principal as never,
 			roleResolver,
-			ownsPrincipalSchema,
 		)
 
 		expect(subjects).toStrictEqual({
@@ -99,28 +92,15 @@ describe('ACL Access contributions', () => {
 		expect(Object.isFrozen(subjects.roles)).toBe(true)
 	})
 
-	it('rejects malformed or foreign identities before they reach an adapter', async () => {
+	// Core validates the principal itself (request-principal tests, ADR-0304).
+	it('rejects malformed role references before they reach an adapter', async () => {
 		await expect(
-			resolveACLAccessSubjects(
-				context,
-				{ resolveCurrent: () => ({ id: principal.id }) as never },
-				undefined,
-				ownsPrincipalSchema,
-			),
-		).rejects.toThrow('must return a Core Pointer')
-
-		await expect(
-			resolveACLAccessSubjects(
-				context,
-				undefined,
-				{
-					hasRole: () => false,
-					resolveCurrentRoles: () => [
-						new RequestSubjectReference('group', 'editors') as never,
-					],
-				},
-				ownsPrincipalSchema,
-			),
+			resolveACLAccessSubjects(context, undefined, {
+				hasRole: () => false,
+				resolveCurrentRoles: () => [
+					new RequestSubjectReference('group', 'editors') as never,
+				],
+			}),
 		).rejects.toThrow('invalid reference at index 0')
 	})
 

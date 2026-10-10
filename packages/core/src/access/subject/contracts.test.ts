@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { RequestContext } from '../../runtime/context/request-context.js'
-import { createFixtureMasterContext } from '../../../tests/fixtures/master-context.js'
-import { RequestContextValue } from '../request/context-value.js'
 import {
 	RequestSubjectReference,
 	createRequestPrincipalReference,
 	parseRequestPrincipalReference,
-	resolveRequestPrincipal,
 	resolveRequestRoleReference,
 } from './contracts.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
@@ -16,21 +12,7 @@ const Principal = UltimaBase.Schema.define({
 	className: 'AccessPrincipal',
 	fields: () => ({}),
 })
-const ForeignPrincipal = UltimaBase.Schema.define({
-	className: 'AccessPrincipal',
-	fields: () => ({}),
-})
 const principal = Principal.pointer('principal-id')
-const principalValue = new RequestContextValue<string>(
-	'fixture.auth.operator',
-	(value: unknown): string => {
-		if (typeof value !== 'string') {
-			throw new TypeError('Fixture operator must be a string')
-		}
-
-		return value
-	},
-)
 
 describe('RequestSubjectReference', () => {
 	it('retains one immutable provider-neutral subject reference', () => {
@@ -129,89 +111,5 @@ describe('resolveRequestRoleReference', () => {
 				'Request role subject must provide one string role reference',
 			),
 		)
-	})
-})
-
-describe('resolveRequestPrincipal', () => {
-	const anonymous = RequestContext.anonymous({
-		requestId: 'access-principal',
-		source: 'unit',
-	})
-	const ownsPrincipalSchema = (schema: unknown): boolean => schema === Principal
-
-	it('keeps absent providers and absent identities fail-closed', async () => {
-		await expect(
-			resolveRequestPrincipal({
-				context: anonymous,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: undefined,
-			}),
-		).resolves.toBeUndefined()
-		await expect(
-			resolveRequestPrincipal({
-				context: anonymous,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: { resolveCurrent: () => Promise.resolve(undefined) },
-			}),
-		).resolves.toBeUndefined()
-	})
-
-	it('returns one exact application-owned Core Pointer', async () => {
-		await expect(
-			resolveRequestPrincipal({
-				context: anonymous,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: { resolveCurrent: () => principal },
-			}),
-		).resolves.toBe(principal)
-	})
-
-	it('rejects malformed and foreign-application Pointer results', async () => {
-		await expect(
-			resolveRequestPrincipal({
-				context: anonymous,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: { resolveCurrent: () => ({ id: 'forged' }) as never },
-			}),
-		).rejects.toThrow(
-			new TypeError('Request principal resolver must return a Core Pointer'),
-		)
-		await expect(
-			resolveRequestPrincipal({
-				context: anonymous,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: {
-					resolveCurrent: () => ForeignPrincipal.pointer('principal-id'),
-				},
-			}),
-		).rejects.toThrow(
-			new TypeError(
-				'Request principal resolver returned a foreign application schema',
-			),
-		)
-	})
-
-	it('passes master authority and plugin-owned values through unchanged', async () => {
-		const base = anonymous.withValue(principalValue, 'operator-id')
-		const master = createFixtureMasterContext(
-			'audit ACL repair',
-			'maintenance',
-			base,
-		)
-
-		await expect(
-			resolveRequestPrincipal({
-				context: master,
-				ownsSchema: ownsPrincipalSchema,
-				resolver: {
-					resolveCurrent: ({ context }) => {
-						expect(context.access.mode).toBe('master')
-						expect(context.getValue(principalValue)).toBe('operator-id')
-
-						return principal
-					},
-				},
-			}),
-		).resolves.toBe(principal)
 	})
 })

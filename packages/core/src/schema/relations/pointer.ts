@@ -22,6 +22,7 @@ import {
 	type SchemaReference,
 	type SchemaDefinition,
 } from '../schema/definition.js'
+import type { SchemaRef } from '../schema/registered-schemas.js'
 
 /** Describes the stable transport-neutral JSON identity of one pointer. */
 export interface PointerJSON<TClassName extends string = string> {
@@ -68,6 +69,14 @@ export type GeneratedPointerHandle<TClassName extends string> = Pointer<
 	SchemaReference<TClassName>
 >
 
+/**
+ * The schema a Pointer targets: a schema type, or the registered schema of a
+ * class name, so that `Pointer<"TodoUser">` reads as the identity it names
+ * (ADR-0304).
+ */
+export type PointerSchema<TSchema extends SchemaDefinition | string> =
+	TSchema extends SchemaDefinition ? TSchema : SchemaRef<Extract<TSchema, string>>
+
 const pointerInstances = new WeakSet<object>()
 
 /**
@@ -79,12 +88,12 @@ const pointerInstances = new WeakSet<object>()
  * ```
  */
 export class Pointer<
-	TSchema extends SchemaDefinition = SchemaDefinition,
+	TSchema extends SchemaDefinition | string = SchemaDefinition,
 > extends PointerValueBrand {
-	readonly #schema: TSchema
+	readonly #schema: PointerSchema<TSchema>
 	readonly #id: string
 
-	constructor(schema: TSchema, id: string) {
+	constructor(schema: TSchema & SchemaDefinition, id: string) {
 		super()
 
 		if (new.target !== Pointer) {
@@ -97,7 +106,8 @@ export class Pointer<
 
 		assertNonEmptyString(id, 'Pointer id')
 
-		this.#schema = schema
+		// A name-typed Pointer is only ever built from its registered schema.
+		this.#schema = schema as PointerSchema<TSchema>
 		this.#id = id
 		pointerInstances.add(this)
 
@@ -113,7 +123,7 @@ export class Pointer<
 	}
 
 	/** Returns the exact logical target schema without performing database I/O. */
-	get schema(): TSchema {
+	get schema(): PointerSchema<TSchema> {
 		return this.#schema
 	}
 
@@ -132,26 +142,30 @@ export class Pointer<
 	}
 
 	/** Reads this exact target through the ordinary read pipeline. */
-	findOne<const TInput extends FindOneInput<TSchema>>(
-		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
+	findOne<const TInput extends FindOneInput<PointerSchema<TSchema>>>(
+		input: ExactReadInput<
+			PointerSchema<TSchema>,
+			TInput,
+			FindOneInput<PointerSchema<TSchema>>
+		>,
 		options?: OperationOptions,
 	): Promise<QueryResult<
-		TSchema,
-		QuerySelectedFieldFromInput<TSchema, TInput>,
-		QueryIncludedFieldFromInput<TSchema, TInput>
+		PointerSchema<TSchema>,
+		QuerySelectedFieldFromInput<PointerSchema<TSchema>, TInput>,
+		QueryIncludedFieldFromInput<PointerSchema<TSchema>, TInput>
 	> | null>
 	/** Reads this exact target without applying a projection. */
 	findOne(
 		input?: undefined,
 		options?: OperationOptions,
-	): Promise<QueryResult<TSchema> | null>
+	): Promise<QueryResult<PointerSchema<TSchema>> | null>
 	findOne(
-		input: FindOneInput<TSchema> = {},
+		input: FindOneInput<PointerSchema<TSchema>> = {},
 		options?: OperationOptions,
 	): Promise<object | null> {
 		const query = scopeQueryToObjectId(
 			queryFromFindOneInput(this.#schema, input),
-			this.#id as OperationObjectId<TSchema>,
+			this.#id as OperationObjectId<PointerSchema<TSchema>>,
 		)
 
 		return executeQueryFindOne(query, options)
@@ -159,19 +173,19 @@ export class Pointer<
 
 	/** Tests whether this exact target exists and remains visible. */
 	exists(
-		input: ExistsInput<TSchema> = {},
+		input: ExistsInput<PointerSchema<TSchema>> = {},
 		options?: OperationOptions,
 	): Promise<boolean> {
 		const query = scopeQueryToObjectId(
 			queryFromExistsInput(this.#schema, input),
-			this.#id as OperationObjectId<TSchema>,
+			this.#id as OperationObjectId<PointerSchema<TSchema>>,
 		)
 
 		return executeQueryExists(query, options)
 	}
 
 	/** Serializes the logical identity without exposing database representation. */
-	toJSON(): Readonly<PointerJSON<TSchema['className']>> {
+	toJSON(): Readonly<PointerJSON<PointerSchema<TSchema>['className']>> {
 		return immutableRecord({
 			type: 'pointer',
 			className: this.#schema.className,
@@ -179,6 +193,14 @@ export class Pointer<
 		})
 	}
 }
+
+/**
+ * @internal Reads the schema of a Pointer typed by a schema type. Generic Core
+ * code cannot see through `PointerSchema` while the schema type is unresolved.
+ */
+export const readPointerSchema = <TSchema extends SchemaDefinition>(
+	pointer: Pointer<TSchema>,
+): TSchema => pointer.schema as TSchema
 
 /** Validates one pointer boundary while structurally sharing its immutable value. */
 export const snapshotPointerValue = (value: unknown, path: string): Pointer => {

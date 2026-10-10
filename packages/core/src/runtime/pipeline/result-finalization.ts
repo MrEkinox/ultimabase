@@ -1,5 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { runPostCommitEffect } from '../../errors/post-commit-errors.js'
+
 import type { RuntimeBehaviorBoundaries } from '../behaviors/validation-boundaries.js'
 import { throwIfOperationCancelled } from '../cancellation/operation-cancellation.js'
 import type {
@@ -135,8 +137,9 @@ export const finalizeRuntimeOperationResult = async <
 	})
 	const completed = immutableRecord({ ...stageInput, result })
 	await stages.commit(completed)
-	if (stages.behaviors?.postCommit !== undefined) {
-		await stages.behaviors.postCommit(completed)
+	const postCommit = stages.behaviors?.postCommit
+	if (postCommit !== undefined) {
+		await runPostCommitEffect(() => postCommit(completed))
 	}
 	return result
 }

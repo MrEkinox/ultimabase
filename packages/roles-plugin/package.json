@@ -28,12 +28,12 @@
 		"typecheck:tests": "tsc --project tsconfig.test.json"
 	},
 	"dependencies": {
-		"@ultimabase/access-plugin": "workspace:^",
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/plugin-kit": "workspace:^",
 		"@ultimabase/shared": "workspace:^"
 	},
 	"devDependencies": {
+		"@ultimabase/access-plugin": "workspace:^",
 		"@ultimabase/testing": "workspace:^",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",

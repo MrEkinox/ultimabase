@@ -3,6 +3,7 @@ export {
 	frameworkErrorCodes,
 } from './errors/framework-error.js'
 export { PluginError } from './errors/plugin-error.js'
+export { PublicError } from './errors/public-error.js'
 export type {
 	ConfiguredPlugin,
 	ConfiguredPluginExports,
@@ -27,6 +28,11 @@ export type {
 	FrameworkErrorPayload,
 } from './errors/framework-error.js'
 export type { PluginErrorPayload } from './errors/plugin-error.js'
+export type {
+	DefaultPublicErrorCode,
+	PublicErrorOptions,
+	PublicErrorPayload,
+} from './errors/public-error.js'
 export { plugin } from './plugins/plugin.js'
 export type {
 	PluginInstance,

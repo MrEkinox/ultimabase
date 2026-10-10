@@ -5,6 +5,7 @@ import type { PluginOperationEnvelope } from '../../application/application-hand
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import { PluginError } from '../../errors/plugin-error.js'
+import { PublicError } from '../../errors/public-error.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import type {
 	CompiledCommand,
@@ -82,7 +83,9 @@ const executeOperationHandler = async (
 				owned.contributionId,
 			)
 		}
-		if (error instanceof FrameworkError) throw error
+		if (error instanceof FrameworkError || error instanceof PublicError) {
+			throw error
+		}
 		throw commandFailure(
 			compiled,
 			'operation-handler-failed',
