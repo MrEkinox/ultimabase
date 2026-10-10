@@ -124,9 +124,10 @@ describe(
 					select: { id: true, title: true },
 				})
 
+				// A rewritten delete returns the row as written (ADR-0306 amendment).
 				expect(deleted?.toJSON()).toStrictEqual({
 					id: single.id,
-					title: 'Single soft delete',
+					title: 'TOMBSTONED',
 				})
 				const stored = await SoftDeletePost.findOne({
 					select: { id: true, title: true },
@@ -139,7 +140,7 @@ describe(
 				expect(trace).toStrictEqual([
 					'before:delete-one',
 					'rewrite:delete-one',
-					'after:delete-one:Single soft delete',
+					'after:delete-one:TOMBSTONED',
 				])
 
 				const first = await SoftDeletePost.createOne({
