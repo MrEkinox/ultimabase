@@ -321,7 +321,7 @@ describe(
 				'relation article',
 			)
 			const callerQuery = {
-				limit: 10,
+				take: 10,
 				orderBy: { name: 'asc' },
 				select: { name: true },
 				where: { name: { contains: ' ' } },
@@ -450,19 +450,13 @@ describe(
 				hasNextPage: true,
 				names: ['A Public'],
 			})
-			const second = readGraphqlField(
-				await graphqlNetworkless('anonymous', relationQuery, {
-					after: page.endCursor,
-					id: articleId,
-				}),
-				'getExampleArticle',
+			// A relation connection has no `after` position (ADR-0309).
+			const nestedAfter = await graphqlNetworkless(
+				'anonymous',
+				`query { getExampleArticle(id: "${articleId}") { contributors(after: "${String(page.endCursor)}") { nodes { name } } } }`,
+				{},
 			)
-			const secondPage = readConnection(second, 'contributors')
-			expect(typeof secondPage.endCursor).toBe('string')
-			expect(secondPage).toMatchObject({
-				hasNextPage: false,
-				names: ['B Authenticated'],
-			})
+			expect(readRecord(nestedAfter, 'GraphQL response').errors).toBeDefined()
 
 			const restCount = await client('anonymous').fetch(
 				`${articlePath}/count`,

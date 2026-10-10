@@ -88,7 +88,7 @@ const findRoleByName = async (
 	resolveUniqueRoleNameMatch(
 		name,
 		await roleQuerySchema(schema).findMany(
-			{ where: { name: { eq: name } }, limit: 2 },
+			{ where: { name: { eq: name } }, take: 2 },
 			options,
 		),
 	)

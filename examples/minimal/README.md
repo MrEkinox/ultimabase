@@ -20,8 +20,8 @@ The schema factory installs REST and GraphQL before declaring schemas, so their
 `rest` and `graphql` options are typed from source; the application extends that same flat plugin
 chain and explicitly registers the schemas at construction.
 REST and GraphQL normalize requests into the same Core operation pipeline;
-their offset envelopes and Relay connections remain intentionally different
-wire representations.
+their `{ results, nextCursor }` envelopes and Relay connections remain
+intentionally different wire representations of the same cursors.
 
 ## Run it
 
@@ -155,7 +155,7 @@ reviewers: field.relation({
 The same declaration shapes direct relation handles, nested inclusions, REST
 relationship projections, GraphQL connections, and the visible universe used
 by `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`. A caller's
-target `where` is added with logical `AND`; ordering, offset, and limit run
+target `where` is added with logical `AND`; ordering, `skip`, and `take` run
 after filtering. `ExampleAuthor.articles` and `contributions` show the same
 contract on inverse pointer and inverse relation storage.
 

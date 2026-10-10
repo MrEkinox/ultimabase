@@ -13,6 +13,21 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { invalidRestRead, RestReadNormalizationError } from './errors.js'
 import { decodeRestWhere, isUuidV7 } from './field-values.js'
 import { readRestJsonBody } from './read-body.js'
+import { decodeRestAfterCursor, isRestPositionError } from './read-cursors.js'
+import {
+	parseJson,
+	parseNonNegativeInteger,
+	parseOrdering,
+	parseRestIncludeParameter,
+	parseRestQueryEntries,
+	parseRestSelectionParameter,
+} from './read-parameters.js'
+
+export {
+	parseRestIncludeParameter,
+	parseRestQueryEntries,
+	parseRestSelectionParameter,
+} from './read-parameters.js'
 
 export const defaultRestReadLimits: Readonly<{
 	readonly bodyBytes: 1_048_576
@@ -67,7 +82,7 @@ const getQueryKeys: Readonly<Record<RestReadOperation, readonly string[]>> =
 	immutableRecord({
 		count: ['where'],
 		exists: ['where'],
-		find: ['include', 'limit', 'offset', 'orderBy', 'select', 'where'],
+		find: ['after', 'include', 'orderBy', 'select', 'skip', 'take', 'where'],
 		first: ['include', 'orderBy', 'select', 'where'],
 		get: ['include', 'select'],
 	})
@@ -90,141 +105,6 @@ export const normalizeRestLimits = (
 	return immutableRecord(limits)
 }
 
-const decodeQueryComponent = (value: string): string => {
-	try {
-		return decodeURIComponent(value.replaceAll('+', ' '))
-	} catch {
-		throw invalidRestRead()
-	}
-}
-
-/** @internal Splits the raw query without merging repeated or empty names. */
-export const parseRestQueryEntries = (
-	request: Request,
-): readonly [string, string][] => {
-	let search: string
-	try {
-		search = new URL(request.url).search
-	} catch {
-		throw invalidRestRead()
-	}
-	if (search.length <= 1) return []
-	return search
-		.slice(1)
-		.split('&')
-		.map((entry) => {
-			if (entry.length === 0) throw invalidRestRead()
-			const separator = entry.indexOf('=')
-			const name = decodeQueryComponent(
-				separator === -1 ? entry : entry.slice(0, separator),
-			)
-			if (name.length === 0) throw invalidRestRead()
-			const value = separator === -1 ? '' : entry.slice(separator + 1)
-			return [name, decodeQueryComponent(value)] as const
-		})
-}
-
-const parseJson = (value: string): unknown => {
-	try {
-		return JSON.parse(value) as unknown
-	} catch {
-		throw invalidRestRead()
-	}
-}
-
-const parseCommaList = (value: string): readonly string[] => {
-	const entries = value.split(',')
-	if (
-		entries.some((entry) => entry.length === 0 || entry.trim() !== entry) ||
-		new Set(entries).size !== entries.length
-	) {
-		throw invalidRestRead()
-	}
-	return entries
-}
-
-/** @internal Parses `select=a,b` into Core's flat selection object. */
-export const parseRestSelectionParameter = (
-	value: string,
-): Readonly<Record<string, true>> =>
-	immutableRecord(
-		Object.fromEntries(parseCommaList(value).map((name) => [name, true])),
-	)
-
-const parseOrdering = (
-	value: string,
-): Readonly<Record<string, 'asc' | 'desc'>> => {
-	const fields = new Set<string>()
-	return immutableRecord(
-		Object.fromEntries(
-			parseCommaList(value).map((entry) => {
-				const descending = entry.startsWith('-')
-				const field = descending ? entry.slice(1) : entry
-				if (field.length === 0 || fields.has(field)) throw invalidRestRead()
-				fields.add(field)
-				return [field, descending ? 'desc' : 'asc']
-			}),
-		),
-	)
-}
-
-const parseNonNegativeInteger = (value: string): number => {
-	const parsed = Number(value)
-	if (!/^(?:0|[1-9]\d*)$/u.test(value) || !Number.isSafeInteger(parsed)) {
-		throw invalidRestRead()
-	}
-	return parsed
-}
-
-// Maps keep request-controlled relation names away from Object.prototype.
-type IncludeTree = Map<string, IncludeTree | undefined>
-
-const includeTreeToRecord = (
-	tree: IncludeTree,
-): Readonly<Record<string, unknown>> =>
-	Object.fromEntries(
-		Array.from(tree, ([name, nested]) => [
-			name,
-			nested === undefined ? {} : { include: includeTreeToRecord(nested) },
-		]),
-	)
-
-// Dotted paths such as `author.profile` become nested `{ include }` objects.
-const parseIncludePaths = (
-	value: string,
-): Readonly<Record<string, unknown>> => {
-	const root: IncludeTree = new Map()
-	for (const path of parseCommaList(value)) {
-		const segments = path.split('.')
-		if (segments.some((segment) => segment.length === 0)) {
-			throw invalidRestRead()
-		}
-		let current = root
-		for (const [index, segment] of segments.entries()) {
-			const existing = current.get(segment)
-			if (index === segments.length - 1) {
-				if (current.has(segment)) throw invalidRestRead()
-				current.set(segment, undefined)
-				continue
-			}
-			if (current.has(segment) && existing === undefined) {
-				throw invalidRestRead()
-			}
-			const next: IncludeTree =
-				existing ?? new Map<string, IncludeTree | undefined>()
-			current.set(segment, next)
-			current = next
-		}
-	}
-	return immutableRecord(includeTreeToRecord(root))
-}
-
-/** @internal Accepts either JSON include arguments or dotted include paths. */
-export const parseRestIncludeParameter = (value: string): unknown =>
-	value.trimStart().startsWith('{')
-		? parseJson(value)
-		: parseIncludePaths(value)
-
 const parseGetInput = (
 	request: Request,
 	operation: RestReadOperation,
@@ -246,7 +126,9 @@ const parseGetInput = (
 						? parseRestIncludeParameter(value)
 						: name === 'orderBy'
 							? parseOrdering(value)
-							: parseNonNegativeInteger(value)
+							: name === 'after'
+								? value
+								: parseNonNegativeInteger(value)
 	}
 	return immutableRecord(result)
 }
@@ -294,27 +176,24 @@ const decodeArguments = (
 	if (Object.hasOwn(value, 'include')) {
 		decoded.include = decodeRestInclude(schema, value.include, limits)
 	}
-	if (!Object.hasOwn(value, 'limit')) {
-		// Collections never run unbounded when the caller omits a limit.
-		if (collection) decoded.limit = 100
+	if (!Object.hasOwn(value, 'take')) {
+		// Collections never run unbounded when the caller omits `take`.
+		if (collection) decoded.take = 100
 	} else if (
-		typeof value.limit === 'number' &&
-		value.limit > limits.maximumResults
+		typeof value.take === 'number' &&
+		value.take > limits.maximumResults
 	) {
 		throw invalidRestRead()
 	}
 	return immutableRecord(decoded)
 }
 
-/** Decodes one REST read into a transport-free immutable Core operation AST. */
-export const normalizeRestReadRequest = async <
-	const TSchema extends SchemaDefinition,
-	const TInput extends RestReadRequest,
->(
-	schema: TSchema,
-	input: TInput,
+/** @internal Decodes one REST read into the transport-free Core input object. */
+export const decodeRestReadInput = async (
+	schema: SchemaDefinition,
+	input: RestReadRequest,
 	limits: RestReadLimits = defaultRestReadLimits,
-): Promise<RestReadOperationAst<TSchema, TInput['operation']>> => {
+): Promise<unknown> => {
 	const { request } = input
 	try {
 		request.signal.throwIfAborted()
@@ -344,15 +223,51 @@ export const normalizeRestReadRequest = async <
 			input.operation === 'find',
 		)
 		request.signal.throwIfAborted()
+		return input.operation === 'find' && isPlainRecord(decoded)
+			? decodeRestAfterCursor(schema, decoded, invalidRestRead)
+			: decoded
+	} catch (error) {
+		if (
+			error instanceof RestReadNormalizationError ||
+			request.signal.aborted ||
+			isRestPositionError(error)
+		) {
+			throw error
+		}
+		throw invalidRestRead()
+	}
+}
+
+/** Decodes one REST read into a transport-free immutable Core operation AST. */
+export const normalizeRestReadRequest = async <
+	const TSchema extends SchemaDefinition,
+	const TInput extends RestReadRequest,
+>(
+	schema: TSchema,
+	input: TInput,
+	limits: RestReadLimits = defaultRestReadLimits,
+): Promise<RestReadOperationAst<TSchema, TInput['operation']>> => {
+	const decoded = await decodeRestReadInput(schema, input, limits)
+	return normalizeRestReadInput(schema, input, decoded) as RestReadOperationAst<
+		TSchema,
+		TInput['operation']
+	>
+}
+
+/** @internal Normalizes one decoded REST read input through Core. */
+export const normalizeRestReadInput = (
+	schema: SchemaDefinition,
+	input: RestReadRequest,
+	decoded: unknown,
+): ReturnType<typeof normalizeReadOperation> => {
+	try {
 		return normalizeReadOperation(
 			schema,
 			readOperationKinds[input.operation],
 			decoded,
-		) as RestReadOperationAst<TSchema, TInput['operation']>
+		)
 	} catch (error) {
-		if (error instanceof RestReadNormalizationError || request.signal.aborted) {
-			throw error
-		}
+		if (isRestPositionError(error)) throw error
 		throw invalidRestRead()
 	}
 }

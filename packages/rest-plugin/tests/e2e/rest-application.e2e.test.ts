@@ -24,6 +24,7 @@ it('runs packed REST v1 from JavaScript without Typegen', async () => {
 
 	expect(output).toStrictEqual({
 		body: {
+			nextCursor: null,
 			results: [
 				{
 					createdAt: '2026-09-05T12:00:00.000Z',

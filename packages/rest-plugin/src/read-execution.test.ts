@@ -369,7 +369,7 @@ describe('REST read execution', () => {
 			}),
 		)
 		const direct = await RecordSchema.findMany(
-			{ limit: 100, where },
+			{ take: 100, where },
 			{ context },
 		)
 		const first = await runAsHarness(harness, (executor) =>

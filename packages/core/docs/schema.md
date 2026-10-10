@@ -313,7 +313,7 @@ const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
-	limit: 20,
+	take: 20,
 })
 ```
 
@@ -325,7 +325,7 @@ a visible field alone cannot forge a relation handle; an adapter that did not
 provide trusted identity fails before a handle can be created.
 
 `Relation` is a frozen opaque class. `query()` returns the ordinary target
-`Query`, so selection, filtering, ordering, offset pagination, count,
+`Query`, so selection, filtering, ordering, `take` and `skip` pagination, count,
 exists, ambient request reuse, and terminal-only execution options stay
 consistent. The relationship edge is carried beside the AST in private Runtime
 state. It is neither enumerable nor serializable, and every Query branch,

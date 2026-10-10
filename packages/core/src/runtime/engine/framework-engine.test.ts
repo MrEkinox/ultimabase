@@ -70,7 +70,7 @@ const principalValue = new RequestContextValue<string>(
 
 const articleOperation = {
 	kind: 'find-many',
-	query: new QueryBuilder(articleSchema).limit(10).ast,
+	query: new QueryBuilder(articleSchema).take(10).ast,
 } satisfies FindManyOperationAst<typeof articleSchema>
 
 /** Produces complete records for the strict public result boundary. */

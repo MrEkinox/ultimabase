@@ -14,7 +14,10 @@ import {
 	type SelectionSetNode,
 } from 'graphql'
 
-import type { GraphqlConnectionRuntime } from './connection-runtime.js'
+import type {
+	GraphqlConnectionRuntime,
+	GraphqlPreparedConnection,
+} from './connection-runtime.js'
 
 interface CollectedField {
 	readonly name: string
@@ -46,13 +49,25 @@ export const normalizeGraphqlCollectionArguments = (
 	args: Readonly<Record<string, unknown>>,
 	connections: GraphqlConnectionRuntime,
 	scope: GraphqlConnectionScope,
-): Readonly<Record<string, unknown>> =>
+): GraphqlPreparedConnection =>
 	connections.prepare({
 		arguments: args,
 		relationPath: scope.relationPath,
 		schema,
 		typeName: scope.typeName,
-	}).clauses
+	})
+
+/** Adds the fields a cursor needs to one Core selection, keeping its mode. */
+export const selectGraphqlOrderedFields = (
+	select: Readonly<Record<string, unknown>>,
+	orderedFields: readonly string[],
+): Readonly<Record<string, unknown>> =>
+	Object.values(select).some((value) => value === true)
+		? immutableRecord({
+				...select,
+				...Object.fromEntries(orderedFields.map((field) => [field, true])),
+			})
+		: select
 
 export type GraphqlRelationshipSelectionMode = 'include' | 'stored-pointer-only'
 
@@ -228,8 +243,8 @@ const modelProjection = (
 			targetSelectionSets,
 			context,
 		)
-		include[selected.name] = immutableRecord({
-			...(field.kind === 'relation'
+		const connection =
+			field.kind === 'relation'
 				? normalizeGraphqlCollectionArguments(
 						target,
 						fieldArguments(selected, definition, context),
@@ -239,8 +254,19 @@ const modelProjection = (
 							typeName: modelType.name,
 						},
 					)
-				: {}),
+				: undefined
+		include[selected.name] = immutableRecord({
+			...connection?.clauses,
 			...projection,
+			// Edge cursors encode the ordered fields of every node (ADR-0309).
+			...(connection === undefined
+				? {}
+				: {
+						select: selectGraphqlOrderedFields(
+							projection.select,
+							connection.orderedFields,
+						),
+					}),
 		})
 	}
 	if (Object.keys(select).length === 0) select.id = true

@@ -214,8 +214,8 @@ const compileRelationalConfig = (
 		),
 		where,
 		...(Object.keys(withConfig).length === 0 ? {} : { with: withConfig }),
-		...(query.pagination?.kind === 'offset-pagination'
-			? { offset: query.pagination.offset }
+		...(query.pagination?.kind === 'skip-pagination'
+			? { offset: query.pagination.skip }
 			: {}),
 		...(orders.length === 0
 			? {}
@@ -237,8 +237,8 @@ const compileRelationalConfig = (
 						})
 					},
 				}),
-		...(operation.kind === 'find-many' && query.limit !== undefined
-			? { limit: query.limit }
+		...(operation.kind === 'find-many' && query.take !== undefined
+			? { limit: query.take }
 			: {}),
 	}
 }

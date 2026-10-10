@@ -1030,8 +1030,8 @@ const users = await UserSchema.findMany({
 	include: {
 		posts: {
 			orderBy: { createdAt: 'desc' },
-			offset: 10,
-			limit: 10,
+			skip: 10,
+			take: 10,
 			select: { id: true },
 		},
 	},
@@ -1040,12 +1040,12 @@ const users = await UserSchema.findMany({
 // `users[0].posts` is a readonly array of selected Post models.
 ```
 
-Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
-`limit`, `select`, and nested `include`. Its offset is applied independently to
-every parent collection. Installed source-relation field policy runs once
+Unlike a pointer, an included relation supports `where`, `orderBy`, `skip`,
+`take`, `select`, and nested `include`, but no `after` position. Its `skip` is
+applied independently to every parent collection. Installed source-relation field policy runs once
 before loading. Target policy and output resolution still apply through the
 target read pipeline. The field's declared relation `where` narrows that same
-target collection before ordering, offset, and limit. Core resolves a contextual
+target collection before ordering, `skip`, and `take`. Core resolves a contextual
 declaration once per exact field and root operation, even when one inclusion
 hydrates many parents or repeats through a mutation result projection.
 
@@ -1057,7 +1057,7 @@ const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
-	limit: 20,
+	take: 20,
 })
 ```
 
@@ -1082,6 +1082,32 @@ input of `findOne` and fails with `NOT_FOUND`, also for a hidden row, where
 `findOne` returns `null`. In update data, a numeric field takes
 `{ increment: n }` or `{ decrement: n }` with an operand of its value type, and
 `null` clears an optional field.
+
+Collection reads page with `take` and `after` (ADR-0309). Core completes
+every `findMany` order with `id` ascending unless `id` is already ordered, and
+`after` is the last row received from a read of the same shape:
+
+```ts
+const page = await Post.findMany({
+	orderBy: { createdAt: 'desc' },
+	select: { id: true, createdAt: true, title: true },
+	take: 20,
+})
+const next = await Post.findMany({
+	orderBy: { createdAt: 'desc' },
+	select: { id: true, createdAt: true, title: true },
+	take: 20,
+	after: page.at(-1),
+})
+```
+
+Core reads the ordered fields and `id` from that row, validates them, and turns
+them into an ordinary caller filter combined with `where` by `AND`: policies
+see every ordered field as filtered, and a hand-written position grants nothing
+a filter could not. A row missing an ordered field fails with
+`VALIDATION_ERROR` and `publicDetails: { parameter: 'after' }`. Ordered fields
+must be non-list scalar or enum fields, and `null` sorts last in both
+directions. `skip` skips rows instead and cannot be combined with `after`.
 
 Ordered scalar filters include explicit inclusive ranges. `between` keeps
 values inside the interval, while `notBetween` keeps values strictly outside
@@ -1911,6 +1937,17 @@ contributeApplication(() => ({
 Core exposes `undefined` for that plugin and keeps the same resource for every
 lifecycle callback. If the plugin exposes an application-local API, add
 `exports` and its exact type remains available through plugin lookup.
+
+Transports and other plugin packages import authoring helpers from the
+plugin-author subpath `@ultimabase/core/plugin` (ADR-0311). It currently
+exports the shared cursor encoder of ADR-0309: `encodeQueryCursor(schema,
+orderBy, row)` turns the position of a received row into an opaque base64url
+string of at most 4096 characters (version, schema name, ordering completed by
+`id`, ordered values), and `decodeQueryCursor(schema, orderBy, cursor)` returns
+the `after` position for a read with the same schema and ordering. A malformed
+or mismatched cursor fails with the same `after` `VALIDATION_ERROR`. Cursors are
+unsigned: a position grants nothing, so it stays valid across restarts and
+instances.
 
 ## Cross-plugin integration
 

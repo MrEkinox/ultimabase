@@ -41,8 +41,8 @@ type SourceIncludeTarget<TTarget extends SchemaTypeInfoSource> = Readonly<{
 type SourceRelationIncludeTarget<TTarget extends SchemaTypeInfoSource> =
 	SourceIncludeTarget<TTarget> &
 		Readonly<{
-			readonly limit?: number
-			readonly offset?: number
+			readonly take?: number
+			readonly skip?: number
 			readonly orderBy?: SchemaTypeInfoFor<TTarget>['inputs']['orderBy']
 			readonly where?: SchemaTypeInfoFor<TTarget>['inputs']['where']
 		}>

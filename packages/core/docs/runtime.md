@@ -36,7 +36,7 @@ const ultimabase = new Application({
 
 await ultimabase.start()
 
-const articles = await ArticleSchema.findMany({ limit: 20 })
+const articles = await ArticleSchema.findMany({ take: 20 })
 ```
 
 Outside an active request scope, the sole initialized application creates a fresh anonymous
@@ -103,7 +103,7 @@ const request = application.anonymous({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.findMany({ limit: 20 }),
+	ArticleSchema.findMany({ take: 20 }),
 )
 ```
 
@@ -368,7 +368,7 @@ const request = framework.withContext(context)
 const publishedArticles = ArticleSchema.findMany({
 	where: { status: { eq: 'published' } },
 	orderBy: { createdAt: 'desc' },
-	limit: 20,
+	take: 20,
 })
 ```
 
@@ -590,7 +590,7 @@ Every call keeps the operation-specific result type:
 ```ts
 const operation = {
 	kind: 'find-many',
-	query: new QueryBuilder(articleSchema).limit(20).ast,
+	query: new QueryBuilder(articleSchema).take(20).ast,
 } as const
 const articles = await adapter.execute({
 	operation,

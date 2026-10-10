@@ -297,7 +297,7 @@ afterAll(async () => {
 })
 
 describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
-	it('matches direct Query for filters, relations, inclusions, projections, and offsets', async () => {
+	it('matches direct Query for filters, relations, inclusions, projections, and skips', async () => {
 		const context = getAnonymous()
 		const input = {
 			include: {
@@ -307,8 +307,8 @@ describe('REST read execution with PostgreSQL', { concurrent: false }, () => {
 					select: { name: true },
 				},
 			},
-			limit: 10,
-			offset: 0,
+			take: 10,
+			skip: 0,
 			orderBy: { title: 'asc' },
 			select: { author: true, id: true, title: true },
 			where: {

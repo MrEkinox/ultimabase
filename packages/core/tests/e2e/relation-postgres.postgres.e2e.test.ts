@@ -45,7 +45,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				await tags.findMany({
 					where: { label: { eq: 'alpha' } },
 					orderBy: { label: 'asc' },
-					limit: 1,
+					take: 1,
 					select: { label: true },
 				})
 			).map((tag) => tag.toJSON()),
@@ -133,12 +133,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 						},
 					},
 					orderBy: { label: 'desc' },
-					limit: 1,
+					take: 1,
 					select: { label: true },
 					include: {
 						articles: {
 							where: { id: { eq: article.id } },
-							limit: 1,
+							take: 1,
 							select: { title: true },
 						},
 					},
@@ -199,8 +199,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			include: {
 				posts: {
 					orderBy: { title: 'desc' },
-					limit: 1,
-					offset: 1,
+					take: 1,
+					skip: 1,
 					select: { title: true },
 				},
 			},

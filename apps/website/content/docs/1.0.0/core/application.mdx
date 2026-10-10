@@ -194,7 +194,7 @@ const app = new Application({
 
 try {
 	await app.start()
-	const tasks = await Task.findMany({ limit: 20 })
+	const tasks = await Task.findMany({ take: 20 })
 	console.log(tasks.map((task) => task.toJSON()))
 } finally {
 	await app.dispose()

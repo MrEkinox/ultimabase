@@ -257,6 +257,7 @@ describe('REST virtual HTTP boundary', () => {
 			const body: unknown = await response.json()
 			expect(response.status, JSON.stringify(body)).toBe(200)
 			expect(body).toStrictEqual({
+				nextCursor: null,
 				results: [
 					{
 						displayTitle: {

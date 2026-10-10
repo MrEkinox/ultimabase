@@ -39,19 +39,35 @@ const feed = await Post.findMany({
 	},
 	select: { id: true, title: true, createdAt: true },
 	orderBy: { createdAt: 'desc' },
-	limit: 25,
-	offset: 50,
+	take: 25,
+})
+const next = await Post.findMany({
+	where: {
+		OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
+	},
+	select: { id: true, title: true, createdAt: true },
+	orderBy: { createdAt: 'desc' },
+	take: 25,
+	after: feed.at(-1),
 })
 ```
 
-`limit` defines the maximum page size and `offset` skips a validated
-non-negative number of matching rows. Core exposes no cursor token or cursor
-codec. A transport may own its protocol-specific pagination contract and
-normalize it into ordinary Query clauses.
+`take` defines the maximum page size. `after` is the last row received from a
+read of the same shape (ADR-0309): Core completes the order with `id`
+ascending, validates the ordered values and `id` of that row, and turns them
+into an ordinary caller filter combined with `where` by `AND`, so the next page
+starts strictly after it. A row lacking an ordered field or `id` fails with
+`VALIDATION_ERROR` and `publicDetails: { parameter: 'after' }`. `skip` skips a
+validated non-negative number of matching rows instead and cannot be combined
+with `after`. Transports encode positions as opaque strings with the shared
+encoder of `@ultimabase/core/plugin` (`encodeQueryCursor`,
+`decodeQueryCursor`).
 
-`orderBy` is one schema-correlated object. Every direction is optional and may
-be `asc`, `desc`, or `null`; `null` is ignored like an absent property. When
-several fields are present, their property order defines ordering priority:
+`orderBy` is one schema-correlated object over non-list scalar and enum
+fields. Every direction is optional and may be `asc`, `desc`, or `null`; `null`
+is ignored like an absent property. When several fields are present, their
+property order defines ordering priority; a collection read always ends with
+`id` ascending unless `id` is already ordered:
 
 ```ts
 const stableFeed = await Post.findMany({
@@ -59,8 +75,8 @@ const stableFeed = await Post.findMany({
 })
 ```
 
-Relation inclusions accept the same `offset` name. The adapter applies it
-independently to every parent collection.
+Relation inclusions accept the same `take` and `skip` names, but no `after`.
+The adapter applies them independently to every parent collection.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` and the implicit `id` remain
@@ -81,7 +97,7 @@ result type cannot disagree with a dynamic runtime projection.
 Pointer inclusions accept only `select` and nested `include`. A pointer already
 identifies at most one target, so a nested `where` would ambiguously turn an
 existing but non-matching target into `null`. To-many relation inclusions retain
-`where`, ordering, offset, limit, selection, and nested inclusion.
+`where`, ordering, `skip`, `take`, selection, and nested inclusion.
 
 `where` receives one schema-correlated object. Field and operator keys combine
 through implicit `AND`, while `AND`, `OR`, and `NOT` compose recursive groups:
@@ -184,7 +200,7 @@ const published: QueryScope<typeof Post> = (query) =>
 	query.where({ published: { eq: true } })
 
 const recentPublished: QueryScope<typeof Post> = (query) =>
-	query.use(published).descending('createdAt').limit(25)
+	query.use(published).descending('createdAt').take(25)
 
 const feedInput = new QueryBuilder(Post)
 	.select({ id: true, title: true })
@@ -194,7 +210,7 @@ const feed = await Post.findMany(feedInput)
 ```
 
 Repeated `where` calls combine through implicit `AND`. Object filters never
-alter selection, ordering, limit, or pagination.
+alter selection, ordering, `take`, or `skip`.
 
 Ordered scalar fields expose first-class inclusive range predicates:
 
@@ -467,7 +483,7 @@ inserting another.
 ## Query and Operation ASTs
 
 `createQueryAst()` creates the initial immutable read state. Its root separates
-schema, selection, filtering, ordering, limit, and pagination without transport
+schema, selection, filtering, ordering, `take`, and `skip` pagination without transport
 or SQL data:
 
 ```ts
@@ -477,7 +493,7 @@ const ast = createQueryAst(Post)
 
 ast.selection.fields // readonly []
 ast.where // undefined
-ast.limit // undefined
+ast.take // undefined
 ```
 
 Read terminals and schema commands normalize into the same discriminated

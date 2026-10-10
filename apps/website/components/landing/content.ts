@@ -13,9 +13,8 @@ export const readExample = `const articles = await Article.findMany(
   {
     where: { published: { eq: true } },
     select: { title: true },
-    orderBy: { title: 'asc', id: 'asc' },
-    limit: 3,
-    offset: 0,
+    orderBy: { title: 'asc' },
+    take: 3,
   }
 )`
 

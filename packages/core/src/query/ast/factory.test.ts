@@ -22,7 +22,7 @@ describe('createQueryAst', () => {
 			inclusion: { fields: [], kind: 'inclusion' },
 			where: undefined,
 			ordering: { kind: 'ordering', orders: [] },
-			limit: undefined,
+			take: undefined,
 			pagination: undefined,
 		})
 		expect(ast.schema.definition).toBe(postSchema)

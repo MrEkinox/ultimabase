@@ -43,9 +43,9 @@ export type QueryPointerTargetInput<TSchema extends SchemaTypeInfoSource> =
 export type QueryRelationTargetInput<TSchema extends SchemaTypeInfoSource> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
-		readonly limit?: number
-		/** Applies the same offset independently to every ordered parent collection. */
-		readonly offset?: number
+		/** Skips the same number of rows independently in every parent collection. */
+		readonly skip?: number
+		readonly take?: number
 		readonly orderBy?: QueryOrderByInput<TSchema>
 		readonly select?: QuerySelection<TSchema>
 		readonly where?: WhereInput<TSchema>
@@ -76,13 +76,29 @@ interface QueryFilteredInput<TSchema extends SchemaTypeInfoSource> {
 	readonly where?: WhereInput<TSchema>
 }
 
+/**
+ * Names the last row received from a `findMany` of the same shape. Core reads
+ * `id` and every ordered field from it; other properties are ignored.
+ */
+export type QueryPosition = Readonly<{
+	readonly id: string
+	readonly [field: string]: unknown
+}>
+
 interface FindManyBaseInput<TSchema extends SchemaTypeInfoSource>
 	extends QueryFilteredInput<TSchema>, QueryProjectionInput<TSchema> {
-	/** Limits the number of returned models. */
-	readonly limit?: number
-	/** Applies offset pagination. */
-	readonly offset?: number
-	/** Applies deterministic priority ordering from left to right. */
+	/**
+	 * Returns the rows strictly after this previously received row, in the
+	 * `orderBy` order completed by `id`. Cannot be combined with `skip`.
+	 *
+	 * @example `await Todo.findMany({ orderBy: { title: 'asc' }, take: 20, after: page.at(-1) })`
+	 */
+	readonly after?: QueryPosition
+	/** Skips this many rows. Cannot be combined with `after`. */
+	readonly skip?: number
+	/** Returns at most this many rows. */
+	readonly take?: number
+	/** Applies deterministic priority ordering from left to right, completed by `id`. */
 	readonly orderBy?: QueryOrderByInput<TSchema>
 }
 
@@ -267,9 +283,16 @@ export type ExactGeneratedInclusionInput<
 > = ExactReadInclusionInput<SchemaTypeInfoFor<TSchema>, TInclude>
 
 interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
-	/** Limits the number of returned models. */
-	readonly limit?: number
-	/** Applies deterministic priority ordering from left to right. */
+	/**
+	 * Returns the rows strictly after this previously received row, in the
+	 * `orderBy` order completed by `id`. Cannot be combined with `skip`.
+	 *
+	 * @example `await Todo.findMany({ orderBy: { title: 'asc' }, take: 20, after: page.at(-1) })`
+	 */
+	readonly after?: QueryPosition
+	/** Returns at most this many rows. */
+	readonly take?: number
+	/** Applies deterministic priority ordering from left to right, completed by `id`. */
 	readonly orderBy?: TContract['inputs']['orderBy']
 	/** Restricts the visible row universe through the resolved schema filter. */
 	readonly where?: TContract['inputs']['where']
@@ -299,13 +322,16 @@ export type ExactGeneratedFindOneInput<
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
 
-/** Describes one exact collection read using optional offset pagination. */
+/** Describes one exact collection read using optional `skip` or `after` pagination. */
 export type ExactGeneratedFindManyInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
 	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
-	Readonly<{ readonly offset?: number }>
+	Readonly<{
+		/** Skips this many rows. Cannot be combined with `after`. */
+		readonly skip?: number
+	}>
 
 type SelectedFieldFromInput<
 	TSchema extends SchemaTypeInfoSource,

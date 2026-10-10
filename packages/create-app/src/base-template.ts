@@ -328,10 +328,6 @@ export const renderBaseFiles = (
 				: 'DATABASE_URL=postgres://user:password@127.0.0.1:5432/your_disposable_database\n') +
 				(needsMasterKey(plan)
 					? 'ULTIMABASE_MASTER_KEY=<generate-a-random-local-key>\n'
-					: '') +
-				// GraphQL refuses to start in production without a stable cursor secret.
-				(has(plan, 'graphql-plugin')
-					? 'ULTIMABASE_CURSOR_SECRET=<generate-a-random-secret-of-32-characters>\n'
 					: ''),
 		],
 		[`src/schema.${extension}`, schemaSource(plan)],

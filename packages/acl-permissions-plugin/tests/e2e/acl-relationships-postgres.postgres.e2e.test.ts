@@ -282,7 +282,7 @@ describe(
 			const tags = article.relation('tags')
 
 			await expect(
-				tags.findMany({ limit: 10, select: { label: true } }, { context }),
+				tags.findMany({ take: 10, select: { label: true } }, { context }),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
 			await expect(tags.count({}, { context })).resolves.toBe(1)
 			await expect(tags.exists({}, { context })).resolves.toBe(true)

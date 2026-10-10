@@ -130,7 +130,7 @@ describe('Relation handles', () => {
 					where: { id: { eq: articleId } },
 					select: { id: true },
 					orderBy: { createdAt: 'asc' },
-					limit: 20,
+					take: 20,
 				}),
 			).resolves.toStrictEqual([])
 			await expect(relation.count({}, { useMasterKey: true })).resolves.toBe(0)

@@ -52,7 +52,7 @@ try {
 	await Post.softDelete({ id: post.id })
 	const posts = await Post.findMany({
 		where: { published: { eq: true } },
-		limit: 25,
+		take: 25,
 	})
 	console.log(posts[0]?.toJSON()) // A detached immutable snapshot.
 } finally {

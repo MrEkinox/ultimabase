@@ -8,10 +8,9 @@ import {
 	type MinimalClient,
 } from './rest-public-vertical-support.js'
 
-export const relationQuery = `query RelationView($id: ID!, $after: String) {
+export const relationQuery = `query RelationView($id: ID!) {
 	getExampleArticle(id: $id) {
 		contributors(
-			after: $after
 			first: 1
 			orderBy: [{ field: name, direction: ASC }]
 			where: { name: { contains: " " } }
@@ -124,8 +123,8 @@ export const readRestArticle = async (
 		body: JSON.stringify({
 			include: {
 				contributors: {
-					limit: 1,
-					offset: 1,
+					take: 1,
+					skip: 1,
 					orderBy: { name: 'asc' },
 					select: { name: true },
 					where: { name: { contains: ' ' } },

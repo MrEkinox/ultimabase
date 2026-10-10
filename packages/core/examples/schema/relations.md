@@ -78,7 +78,7 @@ const users = await UserSchema.findMany({
 		posts: {
 			where: { title: { contains: 'TypeScript' } },
 			orderBy: { createdAt: 'desc' },
-			limit: 10,
+			take: 10,
 			select: { id: true, title: true },
 		},
 	},
@@ -101,7 +101,7 @@ declare const user: SchemaResult<typeof UserSchema>
 const recentPosts = await user.relation('posts').findMany({
 	select: { id: true, title: true },
 	orderBy: { createdAt: 'desc' },
-	limit: 20,
+	take: 20,
 })
 ```
 

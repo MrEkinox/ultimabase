@@ -3,7 +3,6 @@ export type { GraphqlApplication } from './application.js'
 export type { GraphqlExecuteOptions } from './networkless-execution.js'
 export { GraphqlSchemaCompilationError } from './errors.js'
 export type { GraphqlSchemaCompilationFailureReason } from './errors.js'
-export { GraphqlInvalidCursorError } from './connection-errors.js'
 export type { GraphqlExecutionLimits } from './connection-limits.js'
 export type {
 	GraphqlBulkOperations,

@@ -268,7 +268,10 @@ describe('REST HTTP response boundary', () => {
 			'response-request',
 		)
 		const serialized = await response.text()
-		expect(JSON.parse(serialized)).toStrictEqual({ results: [row] })
+		expect(JSON.parse(serialized)).toStrictEqual({
+			nextCursor: null,
+			results: [row],
+		})
 		expect(serialized).not.toMatch(/session-secret|cookie-secret/u)
 
 		const count = await fetchApplication(

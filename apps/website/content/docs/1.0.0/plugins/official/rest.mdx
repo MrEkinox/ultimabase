@@ -8,7 +8,7 @@ contentType: guide
 order: 3
 outcome: Call generated REST routes while preserving the same Runtime semantics as TypeScript.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-10
 sources:
   - packages/rest-plugin/README.md
   - packages/rest-plugin/src/schema-routes.ts
@@ -22,6 +22,7 @@ sources:
   - docs/adr/0306-readable-mutation-results.md
   - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
   - docs/adr/0308-one-checked-link-vocabulary.md
+  - docs/adr/0309-core-cursor-pagination.md
 ---
 
 ## Overview
@@ -123,7 +124,7 @@ production data without a reviewed schema plan.
 | `acknowledgeUnverifiedProtection` | Accepts that Core cannot prove complete public policy coverage.      |
 | `basePath`                        | Mount prefix, `/api` by default; REST appends `/v1`.                 |
 | `bodyLimit`                       | Maximum JSON request body, 1 MiB by default.                         |
-| `maxLimit`                        | Maximum accepted collection limit, 1,000 by default.                 |
+| `maxLimit`                        | Maximum accepted collection `take`, 1,000 by default.                |
 | `default`                         | Boolean or sparse generated-route defaults for application schemas.  |
 | `operations`                      | Exact plugin-operation tokens to expose; none are public by default. |
 | `instanceId`                      | Distinguishes explicit REST configurations in one application.       |
@@ -169,10 +170,10 @@ configuration above, run:
 ```bash title="terminal"
 curl -i \
   -H 'X-UltimaBase-Application-Id: blog' \
-  'http://127.0.0.1:1337/api/v1/classes/Post?select=id,title&limit=10'
+  'http://127.0.0.1:1337/api/v1/classes/Post?select=id,title&take=10'
 ```
 
-On a fresh database, expect HTTP `200` and `{ "results": [] }`. If the
+On a fresh database, expect HTTP `200` and `{ "results": [], "nextCursor": null }`. If the
 application ID is missing or wrong, HTTP rejects the request before REST
 handles it. For a filtered read, use simple GET parameters or the JSON
 `POST /query` form:
@@ -181,7 +182,7 @@ handles it. For a filtered read, use simple GET parameters or the JSON
 curl -i -X POST \
   -H 'X-UltimaBase-Application-Id: blog' \
   -H 'Content-Type: application/json' \
-  --data '{"where":{"title":"Hello"},"select":{"id":true,"title":true},"limit":10}' \
+  --data '{"where":{"title":"Hello"},"select":{"id":true,"title":true},"take":10}' \
   http://127.0.0.1:1337/api/v1/classes/Post/query
 ```
 
@@ -189,9 +190,22 @@ curl -i -X POST \
 pointer field the shorthand value is the target's UUID string. GET accepts
 `where` as URL-encoded JSON, `orderBy` and `select` as
 comma-separated fields, `include` as relationship paths or JSON, and
-non-negative `limit` and `offset`. POST reads accept the corresponding typed
-Query input as JSON. Collection reads default to 100 items; the default
-maximum is 1,000. REST rejects unknown or duplicate parameters rather than
+a positive `take` and either a non-negative `skip` or an opaque `after` cursor.
+POST reads accept the corresponding typed Query input as JSON, with `after` as
+the cursor string. Collection reads default to 100 items; the default maximum
+is 1,000.
+
+Without `skip`, a collection read also returns `nextCursor`: the cursor of its
+last row when more rows follow, otherwise `null`. Pass it back as `after` with
+the same `orderBy` to read the next page; each page starts strictly after the
+previous one, so inserts and deletes between calls never repeat or skip an
+unchanged row. The cursor is unsigned and stays valid across restarts and
+instances: it only names a position, which the caller could also request as a
+filter. A malformed cursor, one for another schema or ordering, or `after`
+combined with `skip` fails with HTTP `400` `VALIDATION_ERROR` and
+`details: { "parameter": "after" }`. Fields REST selects only to encode the
+cursor are not returned. See
+[Ordering and Pagination](/docs/1.0.0/core/reading-data/ordering-and-pagination). REST rejects unknown or duplicate parameters rather than
 silently ignoring them. A non-empty JSON body must use `application/json` and
 stay within `bodyLimit`.
 

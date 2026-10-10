@@ -224,8 +224,8 @@ export type ExampleArticleOrderByInput = {
 
 export type ExampleArticleInclude = {
 	readonly author?: { readonly include?: ExampleAuthorInclude; readonly select?: ExampleAuthorSelect }
-	readonly contributors?: { readonly include?: ExampleAuthorInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: ExampleAuthorOrderByInput; readonly select?: ExampleAuthorSelect; readonly where?: ExampleAuthorWhereInput }
-	readonly reviewers?: { readonly include?: ExampleAuthorInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: ExampleAuthorOrderByInput; readonly select?: ExampleAuthorSelect; readonly where?: ExampleAuthorWhereInput }
+	readonly contributors?: { readonly include?: ExampleAuthorInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: ExampleAuthorOrderByInput; readonly select?: ExampleAuthorSelect; readonly where?: ExampleAuthorWhereInput }
+	readonly reviewers?: { readonly include?: ExampleAuthorInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: ExampleAuthorOrderByInput; readonly select?: ExampleAuthorSelect; readonly where?: ExampleAuthorWhereInput }
 }
 
 export type ExampleAuthorAudience = "authenticated" | "public"
@@ -357,8 +357,8 @@ export type ExampleAuthorOrderByInput = {
 }
 
 export type ExampleAuthorInclude = {
-	readonly articles?: { readonly include?: ExampleArticleInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: ExampleArticleOrderByInput; readonly select?: ExampleArticleSelect; readonly where?: ExampleArticleWhereInput }
-	readonly contributions?: { readonly include?: ExampleArticleInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: ExampleArticleOrderByInput; readonly select?: ExampleArticleSelect; readonly where?: ExampleArticleWhereInput }
+	readonly articles?: { readonly include?: ExampleArticleInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: ExampleArticleOrderByInput; readonly select?: ExampleArticleSelect; readonly where?: ExampleArticleWhereInput }
+	readonly contributions?: { readonly include?: ExampleArticleInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: ExampleArticleOrderByInput; readonly select?: ExampleArticleSelect; readonly where?: ExampleArticleWhereInput }
 }
 
 export type ExamplePrivateNoteItem = {
@@ -516,8 +516,8 @@ export type ExampleRoleOrderByInput = {
 }
 
 export type ExampleRoleInclude = {
-	readonly members?: { readonly include?: never; readonly limit?: number; readonly offset?: number; readonly orderBy?: UserOrderByInput; readonly select?: UserSelect; readonly where?: UserWhereInput }
-	readonly roles?: { readonly include?: ExampleRoleInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: ExampleRoleOrderByInput; readonly select?: ExampleRoleSelect; readonly where?: ExampleRoleWhereInput }
+	readonly members?: { readonly include?: never; readonly take?: number; readonly skip?: number; readonly orderBy?: UserOrderByInput; readonly select?: UserSelect; readonly where?: UserWhereInput }
+	readonly roles?: { readonly include?: ExampleRoleInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: ExampleRoleOrderByInput; readonly select?: ExampleRoleSelect; readonly where?: ExampleRoleWhereInput }
 }
 
 export type ExampleSoftDeletePersistenceEffect = "delete" | "update"

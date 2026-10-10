@@ -375,7 +375,7 @@ describe('public virtual-field vertical', { concurrent: false }, () => {
 
 		const rows = await invoke(minimal.ExampleArticle, 'findMany', [
 			{
-				limit: batchSize,
+				take: batchSize,
 				orderBy: { slug: 'asc' },
 				select: { summary: true },
 				where: { slug: { startsWith: 'virtual-batch-' } },

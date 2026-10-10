@@ -42,19 +42,27 @@ test('keeps Query execution and scope internals absent from source exports', () 
 	expectTypeOf<true>().toEqualTypeOf<true>()
 })
 
-test('keeps cursor pagination outside the Core Query API', () => {
+test('keeps transport cursor strings outside the Core Query API', () => {
 	const Page = UltimaBase.Schema.define({
 		className: 'CursorFreePage',
 		fields: (field) => ({ title: field.string() }),
 	})
 	const query = new QueryBuilder(Page)
-	const input = { limit: 20, offset: 40 } satisfies FindManyInput<typeof Page>
+	const input = { take: 20, skip: 40 } satisfies FindManyInput<typeof Page>
+	const after = {
+		take: 20,
+		after: { id: '0198f090-2a50-7000-8000-000000000001', title: 'a' },
+	} satisfies FindManyInput<typeof Page>
 
-	expectTypeOf(input.offset).toEqualTypeOf<number>()
+	expectTypeOf(input.skip).toEqualTypeOf<number>()
+	expectTypeOf(after.after.id).toEqualTypeOf<string>()
 	// @ts-expect-error -- Transport cursors are not a Core QueryBuilder method.
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-call -- The unresolved call proves the method stays absent.
 	query.after('opaque-cursor')
-	// @ts-expect-error -- Canonical Core reads expose offset, not cursor pagination.
+	// @ts-expect-error -- A position is a previously received row, never a cursor string (ADR-0309).
+	const cursorInput: FindManyInput<typeof Page> = { after: 'opaque-cursor' }
+	// @ts-expect-error -- Canonical Core reads expose `take`, `skip` and `after` only.
 	const invalidInput: FindManyInput<typeof Page> = { cursor: true }
+	void cursorInput
 	void invalidInput
 })

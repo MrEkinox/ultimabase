@@ -1,11 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import type { QueryOffsetPaginationNode } from '../ast/contracts.js'
+import type { QuerySkipPaginationNode } from '../ast/contracts.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
-/** Describes an optional offset without duplicating the independent limit. */
-export interface QueryOffsetPaginationInput {
-	readonly offset?: number
+/** Describes an optional number of rows to skip, independent from `take`. */
+export interface QuerySkipPaginationInput {
+	readonly skip?: number
 }
 
 const parsePaginationInteger = (
@@ -33,30 +33,27 @@ const parseOptionalPaginationInteger = (
 ): number | undefined =>
 	value === undefined ? undefined : parsePaginationInteger(value, path, minimum)
 
-/** Validates the optional page-size value independently from offset position. */
-export const normalizeQueryLimit = (limit?: number): number | undefined =>
-	parseOptionalPaginationInteger(limit, 'query.limit', 1)
+/** Validates the optional page-size value independently from the skipped rows. */
+export const normalizeQueryTake = (take?: number): number | undefined =>
+	parseOptionalPaginationInteger(take, 'query.take', 1)
 
-/** Removes no-op offsets and freezes every explicit pagination value. */
-export const normalizeQueryOffsetPagination = (
-	input?: QueryOffsetPaginationInput,
-): QueryOffsetPaginationNode | undefined => {
+/** Removes no-op skips and freezes every explicit pagination value. */
+export const normalizeQuerySkipPagination = (
+	input?: QuerySkipPaginationInput,
+): QuerySkipPaginationNode | undefined => {
 	if (input === undefined) {
 		return undefined
 	}
 
 	const untrustedInput: unknown = input
 
-	assertPlainObject(untrustedInput, 'offset pagination must be an object')
+	assertPlainObject(untrustedInput, 'skip pagination must be an object')
 
-	const offset =
-		parseOptionalPaginationInteger(
-			untrustedInput.offset,
-			'pagination.offset',
-			0,
-		) ?? 0
+	const skip =
+		parseOptionalPaginationInteger(untrustedInput.skip, 'pagination.skip', 0) ??
+		0
 
-	return offset === 0
+	return skip === 0
 		? undefined
-		: immutableRecord({ kind: 'offset-pagination', offset })
+		: immutableRecord({ kind: 'skip-pagination', skip })
 }

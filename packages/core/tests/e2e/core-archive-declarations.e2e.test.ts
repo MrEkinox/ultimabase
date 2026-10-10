@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -11,6 +11,20 @@ interface DeclarationQuickInfo {
 // Inspect built declarations and bundles, never source aliases.
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
 const packagesDirectory = path.join(repositoryRoot, 'packages')
+// Core ships `.` and the plugin-author `./plugin` entry (ADR-0311), whose shared
+// code lives in one chunk: read every emitted file of one kind as the archive.
+const readCoreArchive = async (
+	suffix: '.d.ts' | '.js' | '.js.map',
+): Promise<string> => {
+	const dist = path.join(packagesDirectory, 'core', 'dist')
+	const names = (await readdir(dist))
+		.filter((name) => name.endsWith(suffix))
+		.sort()
+	const contents = await Promise.all(
+		names.map((name) => readFile(path.join(dist, name), 'utf8')),
+	)
+	return contents.join('\n')
+}
 // Keep editor probes aligned with the fixture's original declaration order.
 const schemaFixtureFiles = [
 	'runtime-postgres-fixture.ts',
@@ -80,9 +94,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		const coreDirectory = path.join(packagesDirectory, 'core')
 		const packedSurfaces = await Promise.all([
 			readFile(path.join(coreDirectory, 'package.json'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.d.ts'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.js'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.js.map'), 'utf8'),
+			readCoreArchive('.d.ts'),
+			readCoreArchive('.js'),
+			readCoreArchive('.js.map'),
 		])
 
 		for (const surface of packedSurfaces) {
@@ -91,10 +105,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('exports only the guarded Query-expression traversal contract', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const publicName of [
 			'GuardedQueryExpressionNode',
@@ -107,10 +118,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Query scope and execution ownership private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'QueryExecutionInput',
@@ -127,10 +135,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('omits removed Query mutation helpers from packed implementation sources', async () => {
-		const sourceMap = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.js.map'),
-			'utf8',
-		)
+		const sourceMap = await readCoreArchive('.js.map')
 
 		for (const removedName of [
 			'executeSchemaCreateMany',
@@ -143,10 +148,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('omits application field validation from packed Core surfaces', async () => {
-		const coreDirectory = path.join(packagesDirectory, 'core', 'dist')
 		const packedSurfaces = await Promise.all([
-			readFile(path.join(coreDirectory, 'index.d.ts'), 'utf8'),
-			readFile(path.join(coreDirectory, 'index.js.map'), 'utf8'),
+			readCoreArchive('.d.ts'),
+			readCoreArchive('.js.map'),
 		])
 
 		for (const removedName of [
@@ -191,10 +195,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Runtime orchestration implementation private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'RuntimeDatabaseExecution',
@@ -211,10 +212,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Enforcement coordination implementation private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'OwnedEnforcementContribution',
@@ -232,10 +230,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps removed Core Access dispatch implementation absent', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'NativeAccessRuntime',
@@ -421,10 +416,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 
 describe('@ultimabase/core Runtime declarations', () => {
 	it('ships callback attribution without public Master context minting', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 		const authorityStart = declarations.indexOf('declare class MasterAuthority')
 		const authorityEnd = declarations.indexOf('//#endregion', authorityStart)
 		const authorityDeclaration = declarations.slice(
@@ -440,10 +432,7 @@ describe('@ultimabase/core Runtime declarations', () => {
 	})
 
 	it('ships the explicit unverified-transport protection contract', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		expect(declarations).toContain('acknowledgeUnverifiedProtection?: true')
 		expect(declarations).toContain('PublicTransportProtectionWarning')

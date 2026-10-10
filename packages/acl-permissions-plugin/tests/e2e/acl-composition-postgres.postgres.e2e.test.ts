@@ -273,7 +273,7 @@ describe(
 										: 'principal-a',
 							},
 						},
-						limit: 10,
+						take: 10,
 						select: { title: true },
 					},
 					{ context },

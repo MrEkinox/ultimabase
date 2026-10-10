@@ -167,17 +167,22 @@ Master-only mutations are never generated as REST routes. Success returns
 `normalizeRestReadRequest(schema, input, limits)` accepts the route-selected
 native read operation and a Fetch `Request`. GET parameters and complex POST
 bodies converge on `normalizeReadOperation()` in Core, so fields, operators,
-relationships, projections, ordering, offsets, and limits retain the same AST
-semantics as the TypeScript API. Collection reads default to 100 results and
-reject limits above 1000 unless `restPlugin({ maxLimit })` supplies another
-application-local maximum.
+relationships, projections, ordering, `take`, `skip`, and `after` retain the
+same AST semantics as the TypeScript API. Collection reads default to
+`take: 100` and reject a `take` above 1000 unless `restPlugin({ maxLimit })`
+supplies another application-local maximum. `after` is the opaque cursor of a
+previous page: REST decodes it with Core's shared encoder
+(`@ultimabase/core/plugin`) for the request's `orderBy` and passes the position
+to Core (ADR-0309).
 
 POST reads require `application/json` with an optional UTF-8 charset. The body
 is counted while its stream is consumed; `Content-Length` is validated as a
 hint and checked against the observed byte count, but never trusted as the
 enforcement boundary. The default maximum is 1 MiB and `bodyLimit` changes it.
 Malformed requests throw `RestReadNormalizationError` with a stable safe code;
-raw parser or Core diagnostics are not retained.
+raw parser or Core diagnostics are not retained. An invalid `after` (malformed
+cursor, another schema or ordering, or combined with `skip`) keeps Core's
+public `VALIDATION_ERROR` with `details: { parameter: 'after' }`.
 
 ## Read execution
 
@@ -194,10 +199,18 @@ collections in `{ results }`, singular values in `{ result }`, counts in
 application context originate from the same HTTP request lifetime so
 normalization and Runtime observe its composed cancellation/deadline signal.
 
+A collection route without `skip` answers `{ results, nextCursor }`. REST
+reads one row more than `take`; `nextCursor` is the cursor of the last
+returned row when that extra row exists, otherwise `null`. Pass it back as
+`after` with the same `orderBy`. When `select` is explicit, REST also selects
+the ordered fields and `id` so the cursor can be encoded, then removes the
+fields the client did not ask for from the response. Cursors are unsigned and
+stay valid across restarts and instances (ADR-0309).
+
 A relation field's declared `where` is not REST syntax and is never serialized
 to the client. Core resolves it from the selected application's real request
 context, combines it with caller `where`, Access, ACL, protected constraints,
-and physical membership, then applies relation ordering, offset, and limit.
+and physical membership, then applies relation ordering, `skip`, and `take`.
 Relationship projections and parent `count` or `exists` predicates therefore
 observe the same visible collection as a direct relation handle. Verified
 Master bypasses authorization but retains this shaping unless the declaration

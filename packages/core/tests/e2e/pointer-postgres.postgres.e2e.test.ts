@@ -279,7 +279,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			where: { title: { eq: 'Cursor order fixture' } },
 			select: { id: true },
 			include: { author: { select: { name: true } } },
-			limit: 2,
+			take: 2,
 			orderBy: { id: 'asc' },
 		})
 

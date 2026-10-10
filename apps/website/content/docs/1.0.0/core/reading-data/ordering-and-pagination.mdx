@@ -1,91 +1,94 @@
 ---
 title: Ordering and Pagination
-description: Order records predictably and page through them with limit and offset.
+description: Order records predictably and page through them with take and after.
 audience:
   - application-developer
 contentType: guide
 order: 4
-outcome: Request a bounded Core page with an explicit, unique order and a valid offset.
+outcome: Read a collection page by page with take and after, in a total order completed by id.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-10
 sources:
   - packages/core/docs/query.md
   - packages/core/src/query/query/input.ts
   - packages/core/src/query/clauses/ordering.ts
   - packages/core/src/query/clauses/pagination.ts
+  - packages/core/src/query/clauses/position.ts
   - docs/adr/0174-object-ordering-inputs.md
-  - docs/adr/0227-core-query-exposes-offset-not-cursors.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
+  - docs/adr/0309-core-cursor-pagination.md
 ---
 
 ## Outcome
 
-Combine explicit ordering, a positive `limit`, and a non-negative `offset` to
-return a predictable page from a Core collection read. Core does not provide a
-cursor or snapshot pagination API.
+Read a collection page by page with `take` and `after`. Each page starts
+strictly after the last row of the previous one, so rows that did not change are
+never repeated or skipped, even when other rows are inserted or deleted between
+calls.
 
 ## Prerequisites
 
 Start with [Query Overview](./overview) and a started application. The example
-assumes `Post` declares `title` and has the built-in `createdAt` field. Choose
-an order that uniquely positions matching records; a timestamp alone may
-repeat.
+assumes `Post` declares `title` and has the built-in `createdAt` field.
 
 ## Steps
 
-This function uses a zero-based `pageIndex`: `0` is the first page. Declare
-ordering priority in object property order and add `id` to break timestamp
-ties:
+Pass the last row of a page as `after` to read the next one. Request one row
+more than the page size to know whether another page exists:
 
 ```ts title="src/post-page.ts"
 import { Post } from './schemas.js'
 
 const PAGE_SIZE = 25
 
-export const readPostPage = (pageIndex: number) => {
-	const offset = pageIndex * PAGE_SIZE
-
-	if (
-		!Number.isSafeInteger(pageIndex) ||
-		pageIndex < 0 ||
-		!Number.isSafeInteger(offset)
-	) {
-		throw new RangeError('pageIndex must produce a non-negative safe offset')
-	}
-
-	return Post.findMany({
-		limit: PAGE_SIZE,
-		offset,
-		orderBy: { createdAt: 'desc', id: 'asc' },
-		select: { createdAt: true, title: true },
+export const readPostPage = async (after?: {
+	readonly id: string
+	readonly createdAt: string
+}) => {
+	const rows = await Post.findMany({
+		orderBy: { createdAt: 'desc' },
+		select: { id: true, createdAt: true, title: true },
+		take: PAGE_SIZE + 1,
+		...(after === undefined ? {} : { after }),
 	})
+
+	return {
+		hasMore: rows.length > PAGE_SIZE,
+		rows: rows.slice(0, PAGE_SIZE),
+	}
 }
 ```
 
-`limit` is the maximum number of rows returned and must be a positive safe
-integer. `offset` skips matching rows and must be a non-negative safe integer;
-omitting it is equivalent to zero. Core validates both values, but the example
-also rejects invalid page indexes before executing a read.
+`take` is the maximum number of rows returned and must be a positive safe
+integer. `after` is a row received from a read of the same shape: Core reads
+the ordered fields and `id` from it and returns the rows strictly after it. The
+row must contain every ordered field and `id`, so select them; a missing field
+fails with `VALIDATION_ERROR` naming the fields, with
+`publicDetails: { parameter: 'after' }`.
 
-`orderBy` accepts `asc`, `desc`, or `null` for each supported persisted field.
-`null` skips that field. The first non-null property has highest priority.
-Core adds neither default ordering nor an `id` tie-breaker: without a complete
-order, two reads may return tied records in different positions. A field may be
-used for ordering without being included in `select`. Every database adapter
-sorts `null` last, in ascending and descending order alike.
+`orderBy` accepts `asc`, `desc`, or `null` for each non-list scalar or enum
+field; `null` skips that field. The first non-null property has highest
+priority. Core completes every collection order with `id` ascending unless `id`
+is already ordered, so the order is total; without `orderBy` rows come in `id`
+order. Every database adapter sorts `null` last, in ascending and descending
+order alike, and positions follow the same rule.
+
+A position is an ordinary filter of the caller: each ordered field counts as
+filtered, so ordering by a field the caller may not read or filter fails with
+`PERMISSION_DENIED`, and a hand-written position returns exactly the rows its
+filter would.
+
+`skip` skips a number of rows instead. It cannot be combined with `after`
+(`VALIDATION_ERROR`); prefer `after`, because an offset shifts when rows are
+inserted or deleted and becomes slower as it grows.
 
 ## Verify
 
-For `pageIndex = 2`, the function requests the third page: at most 25 rows
-after skipping 50. Repeating it against unchanged data with the same order
-produces the same page. A page may contain fewer than 25 rows or be empty.
+Reading every page with `after` returns each unchanged row exactly once, in
+the order of a single read without `take`. A row whose ordered values change
+between two calls may move to another page.
 
-Offset pagination is not a snapshot. Inserting, deleting, or changing records
-between calls can shift later pages even with a unique order. Deep offsets may
-also become expensive. Use focused filters when scanning a large collection;
-do not treat an offset as a durable continuation token.
-
-An included relation has its own per-parent pagination; continue with
+An included relation has its own per-parent `take` and `skip`; continue with
 [Related Data](./related-data). The optional [REST API](/docs/1.0.0/plugins/official/rest)
-uses numeric pagination parameters, while [GraphQL](/docs/1.0.0/plugins/official/graphql)
-exposes Relay connections and cursors.
+returns a `nextCursor` to pass as `after`, and [GraphQL](/docs/1.0.0/plugins/official/graphql)
+maps Relay `first` and `after` to the same positions.

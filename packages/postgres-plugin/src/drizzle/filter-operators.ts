@@ -21,6 +21,13 @@ const ordered = [
 	'between',
 	'not-between',
 ] as const satisfies readonly QueryBuiltInFilterOperator[]
+// Keyset positions compare every orderable kind (ADR-0309); the public
+// filter factory still refuses ranges on these kinds.
+const keyset = [
+	...equality,
+	'greater-than',
+	'less-than',
+] as const satisfies readonly QueryBuiltInFilterOperator[]
 const structural = [
 	'contains',
 	'has-key',
@@ -36,12 +43,12 @@ export const postgresFilterOperatorCapability: DatabaseFilterOperatorCapability 
 		version: databaseFilterOperatorCapabilityVersion,
 		families: immutableRecord({
 			bigint: immutableArray(ordered),
-			binary: immutableArray(equality),
-			boolean: immutableArray(equality),
+			binary: immutableArray(keyset),
+			boolean: immutableArray(keyset),
 			date: immutableArray(ordered),
 			dateTime: immutableArray(ordered),
 			decimal: immutableArray(ordered),
-			enum: immutableArray(equality),
+			enum: immutableArray(keyset),
 			float: immutableArray(ordered),
 			int: immutableArray(ordered),
 			json: immutableArray([...equality, ...structural]),
@@ -55,7 +62,7 @@ export const postgresFilterOperatorCapability: DatabaseFilterOperatorCapability 
 				'regex',
 			]),
 			time: immutableArray(ordered),
-			uuid: immutableArray(equality),
+			uuid: immutableArray(keyset),
 			list: immutableArray([
 				'equal',
 				'not-equal',

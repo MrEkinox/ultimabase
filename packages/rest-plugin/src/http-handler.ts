@@ -13,6 +13,7 @@ import {
 } from '@ultimabase/shared'
 
 import { executeRestMutationRequest } from './mutations.js'
+import { createRestFindResponse, executeRestFindPage } from './read-pages.js'
 import { executeRestReadRequest, type RestReadLimits } from './reads.js'
 import {
 	encodeRestJsonValue,
@@ -269,6 +270,18 @@ const executeRoute = async (
 	}
 	if (route.kind === 'rest-schema-route') {
 		const schema = requireSchema(route.schema)
+		if (route.operation === 'find') {
+			return createRestFindResponse(
+				schema,
+				await executeRestFindPage(
+					executor,
+					getCurrentRequest(),
+					schema,
+					request,
+					limits,
+				),
+			)
+		}
 		const result = await executeSchemaRoute(
 			route,
 			id,

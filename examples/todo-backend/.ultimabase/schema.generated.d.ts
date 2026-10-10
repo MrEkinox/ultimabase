@@ -876,8 +876,8 @@ export type TodoRoleOrderByInput = {
 }
 
 export type TodoRoleInclude = {
-	readonly members?: { readonly include?: TodoUserInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: TodoUserOrderByInput; readonly select?: TodoUserSelect; readonly where?: TodoUserWhereInput }
-	readonly roles?: { readonly include?: TodoRoleInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: TodoRoleOrderByInput; readonly select?: TodoRoleSelect; readonly where?: TodoRoleWhereInput }
+	readonly members?: { readonly include?: TodoUserInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: TodoUserOrderByInput; readonly select?: TodoUserSelect; readonly where?: TodoUserWhereInput }
+	readonly roles?: { readonly include?: TodoRoleInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: TodoRoleOrderByInput; readonly select?: TodoRoleSelect; readonly where?: TodoRoleWhereInput }
 }
 
 export type TodoUserItem = {
@@ -958,7 +958,7 @@ export type TodoUserOrderByInput = {
 }
 
 export type TodoUserInclude = {
-	readonly assignedTodos?: { readonly include?: TodoInclude; readonly limit?: number; readonly offset?: number; readonly orderBy?: TodoOrderByInput; readonly select?: TodoSelect; readonly where?: TodoWhereInput }
+	readonly assignedTodos?: { readonly include?: TodoInclude; readonly take?: number; readonly skip?: number; readonly orderBy?: TodoOrderByInput; readonly select?: TodoSelect; readonly where?: TodoWhereInput }
 }
 
 export type OrderDirection = "asc" | "desc"

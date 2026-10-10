@@ -204,7 +204,7 @@ export const readReviewers = async (postId: string) => {
 	const post = await Post.findOneOrThrow({ where: { id: postId } })
 	const reviewers = post.relation('reviewers')
 
-	return reviewers.findMany({ limit: 10, select: { name: true } })
+	return reviewers.findMany({ take: 10, select: { name: true } })
 }
 ```
 

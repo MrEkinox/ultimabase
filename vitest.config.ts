@@ -10,8 +10,13 @@ import {
 import { graphqlRuntimeDependencies } from './tooling/vitest/runtime.js'
 
 const workspaceRoot = path.dirname(fileURLToPath(import.meta.url))
-const sourcePackageAliases = Object.fromEntries(
+const sourcePackageAliasEntries: readonly (readonly [string, string])[] = [
+	// Subpaths come first: an alias also matches its `<name>/...` prefix.
 	[
+		'@ultimabase/core/plugin',
+		path.join(workspaceRoot, 'packages', 'core', 'src', 'plugin.ts'),
+	],
+	...[
 		'access-plugin',
 		'acl-permissions-plugin',
 		'apollo-sandbox-plugin',
@@ -34,11 +39,16 @@ const sourcePackageAliases = Object.fromEntries(
 		'testing',
 		'typegen',
 		'validation-plugin',
-	].map((packageName) => [
-		`@ultimabase/${packageName}`,
-		path.join(workspaceRoot, 'packages', packageName, 'src', 'index.ts'),
-	]),
-)
+	].map(
+		(packageName) =>
+			[
+				`@ultimabase/${packageName}`,
+				path.join(workspaceRoot, 'packages', packageName, 'src', 'index.ts'),
+			] as const,
+	),
+]
+const sourcePackageAliases: Readonly<Record<string, string>> =
+	Object.fromEntries(sourcePackageAliasEntries)
 
 const testProjects: TestProjectConfiguration[] = [
 	{

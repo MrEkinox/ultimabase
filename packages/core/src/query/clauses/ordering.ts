@@ -14,7 +14,9 @@ import type {
 import {
 	assertQuerySchemaReference,
 	parsePersistedQueryFieldName,
+	readPersistedQueryFields,
 } from '../ast/schema.js'
+import { isOrderableQueryField } from './position.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 /** Describes one caller-owned order request before AST normalization. */
@@ -69,6 +71,13 @@ export const normalizeQueryOrdering = <const TSchema extends SchemaDefinition>(
 			order.field,
 			`query.orders[${String(index)}].field`,
 		)
+		const field = readPersistedQueryFields(schema)[fieldName]
+
+		if (field !== undefined && !isOrderableQueryField(field)) {
+			throw new TypeError(
+				`query.orders[${String(index)}].field must name a non-list scalar or enum field`,
+			)
+		}
 		assertQueryOrderDirection(
 			order.direction,
 			`query.orders[${String(index)}].direction`,

@@ -8,7 +8,7 @@ contentType: guide
 order: 4
 outcome: Install the GraphQL packages you need, configure execution, and understand HTTP and explorer boundaries.
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-10-10
 sources:
   - packages/graphql-plugin/README.md
   - packages/graphql-plugin/src/options.ts
@@ -22,6 +22,7 @@ sources:
   - packages/graphiql-plugin/README.md
   - packages/apollo-sandbox-plugin/README.md
   - docs/adr/0238-graphql-v1-contract.md
+  - docs/adr/0309-core-cursor-pagination.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
@@ -335,15 +336,20 @@ application, executor, adapter, grant, transaction, or lifecycle control.
 ### Pagination and protection
 
 Collections use Relay-style `edges`, `nodes`, and `pageInfo` without `totalCount`.
-`first` defaults to 25 and is capped at 100 unless configured. Cursors are opaque,
-integrity-protected offsets—not authorization tokens or database snapshots.
-They are signed with `cursorSecret` (default: the `ULTIMABASE_CURSOR_SECRET`
-environment variable), which production requires so that cursors survive
-restarts and work across instances. Concurrent changes may shift later offset pages.
+`first` defaults to 25 and is capped at 100 unless configured. A root
+collection maps `first` and `after` to Core's `take` and `after`: each edge
+cursor is the opaque position of its node in the order completed by `id`, the
+same cursor REST returns as `nextCursor`, and `hasNextPage` comes from one extra
+row. Cursors are unsigned, because a position grants nothing the caller could
+not request as a filter, so they stay valid across restarts and instances.
+Inserts and deletes between pages never repeat or skip an unchanged node. A
+malformed cursor, or one for another type or ordering, fails with
+`VALIDATION_ERROR` and `details: { parameter: "after" }`. A relation
+connection inside a node accepts `first`, `orderBy`, and `where` but no `after`.
 
-This differs from REST's `{ results }` array and numeric limit/offset representation,
-but the visible objects still pass through the same Query normalization, policies,
-Runtime, and database capability.
+REST returns the same pages as a `{ results, nextCursor }` envelope; the visible
+objects pass through the same Query normalization, policies, Runtime, and
+database capability.
 
 Generated public GraphQL surfaces report
 `UNVERIFIED_PUBLIC_TRANSPORT_PROTECTION` until you explicitly acknowledge a
@@ -444,6 +450,6 @@ For HTTP selection errors, first check the exact
 `X-UltimaBase-Application-Id` header and configured `appId`. If an explorer
 loads without schema discovery, enable Yoga introspection in the intended
 environment and check its endpoint path. A missing explorer route in
-production is expected unless explicitly enabled. A cursor rejected after a
-restart means the cursor secret is missing or changed: set the same
-`ULTIMABASE_CURSOR_SECRET` on every instance.
+production is expected unless explicitly enabled. A cursor rejected with
+`VALIDATION_ERROR` was produced for another type or `orderBy`: send the same
+ordering as the read that returned it.

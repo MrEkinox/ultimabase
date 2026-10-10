@@ -132,7 +132,7 @@ export class RuntimeInclusionProjector {
 			...request.operation,
 			query: immutableRecord({
 				...request.operation.query,
-				limit: undefined,
+				take: undefined,
 				ordering: createQueryAst(request.operation.query.schema.definition)
 					.ordering,
 				pagination: undefined,

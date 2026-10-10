@@ -357,7 +357,6 @@ export const graphqlPluginPublicApi = {
 		'GraphqlDecimal',
 		'GraphqlExecutionLimits',
 		'GraphqlExecuteOptions',
-		'GraphqlInvalidCursorError',
 		'GraphqlJSON',
 		'GraphqlPlugin',
 		'GraphqlPluginExports',
@@ -516,6 +515,8 @@ export const removedRestPluginPublicApiNames = [
 /** Names GraphQL compilation details deliberately kept out of the root API. */
 export const removedGraphqlPluginPublicApiNames = [
 	'GraphqlFieldTypeCompiler',
+	// Cursor failures are Core's `after` VALIDATION_ERROR (ADR-0309).
+	'GraphqlInvalidCursorError',
 	'GraphqlOperationExecution',
 	'GraphqlOperationSchemaCompiler',
 	'collectGraphqlSchemaSurfaces',

@@ -55,12 +55,16 @@ const addRoot = (
 	fields[fieldName] = config()
 }
 
-/** Declares the Relay window and filters accepted by every collection field. */
+/**
+ * Declares the Relay window and filters of a collection field. A relation
+ * field has no `after`: Core reads no position inside an `include` (ADR-0309).
+ */
 export const graphqlCollectionArguments = (
 	compilers: GraphqlRootCompilers,
 	schema: SchemaDefinition,
+	field: 'relation' | 'root' = 'root',
 ): GraphQLFieldConfigArgumentMap => ({
-	after: { type: GraphQLString },
+	...(field === 'root' ? { after: { type: GraphQLString } } : {}),
 	first: { default: { value: compilers.defaultPageSize }, type: GraphQLInt },
 	orderBy: { type: nonNullList(compilers.filters.order(schema)) },
 	where: { type: compilers.filters.where(schema) },

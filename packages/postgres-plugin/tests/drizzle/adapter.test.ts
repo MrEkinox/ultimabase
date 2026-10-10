@@ -91,7 +91,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 			.where((where) => where.gt('views', 10))
 			.select({ id: true, title: true })
 			.descending('views')
-			.limit(2)
+			.take(2)
 		const find = {
 			kind: 'find-many',
 			query: query.ast,

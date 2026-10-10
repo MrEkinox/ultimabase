@@ -58,8 +58,8 @@ const order: SemanticArticleOrderByInput = {
 const include: SemanticArticleInclude = {
   author: { select: { id: true, name: true } },
   related: {
-    limit: 5,
-    offset: 2,
+    take: 5,
+    skip: 2,
     orderBy: { title: 'asc' },
     select: { id: true, title: true },
     where: { status: { eq: 'draft' } },

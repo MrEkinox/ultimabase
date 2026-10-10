@@ -201,7 +201,7 @@ describe(
 
 			const directRows = await invoke(minimal.ExampleArticle, 'findMany', [
 				{
-					limit: 10,
+					take: 10,
 					orderBy: { slug: 'asc' },
 					select: { slug: true, title: true },
 				},
@@ -213,7 +213,7 @@ describe(
 
 			const restRead = await requireClient().fetch(`${articlePath}/query`, {
 				body: JSON.stringify({
-					limit: 10,
+					take: 10,
 					orderBy: { slug: 'asc' },
 					select: { slug: true, title: true },
 				}),
