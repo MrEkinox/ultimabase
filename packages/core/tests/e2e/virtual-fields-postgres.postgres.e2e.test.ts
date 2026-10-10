@@ -11,6 +11,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { RecordingPostgresPool } from '../../../../tests/fixtures/recording-postgres-pool.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const resolverFailure = new Error('virtual resolver rejected the mutation')
 
@@ -138,7 +139,7 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			select: { displayName: true, initials: true },
 		})
 
-		expect(created.toJSON()).toStrictEqual({
+		expect(created).toStrictEqual({
 			displayName: 'Ada Lovelace',
 			id: created.id,
 			initials: 'AL',
@@ -150,7 +151,7 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			where: { id: { eq: created.id } },
 		})
 
-		expect(selected?.toJSON()).toStrictEqual({
+		expect(selected).toStrictEqual({
 			displayName: 'Ada Lovelace',
 			id: created.id,
 			initials: 'AL',
@@ -174,18 +175,18 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			select: { secret: false },
 			where: { id: { eq: created.id } },
 		})
-		expect(excluded?.toJSON()).toMatchObject({
+		expect(excluded).toMatchObject({
 			displayName: 'Ada Lovelace',
 			initials: 'AL',
 		})
-		expect(excluded?.toJSON()).not.toHaveProperty('secret')
+		expect(excluded).not.toHaveProperty('secret')
 
 		const updated = await Person.updateOne({
 			data: { lastName: 'Byron' },
 			select: { displayName: true },
 			where: { id: { eq: created.id } },
 		})
-		expect(updated?.toJSON()).toStrictEqual({
+		expect(updated).toStrictEqual({
 			displayName: 'Ada Byron',
 			id: created.id,
 		})
@@ -255,14 +256,14 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		})
 		const author: unknown = post.author
 
-		if (!(author instanceof Person)) {
+		if (!isPlainResult(author)) {
 			throw new TypeError('Expected the included virtual author')
 		}
 		const authorId: unknown = Reflect.get(author, 'id')
 		if (typeof authorId !== 'string') {
 			throw new TypeError('Expected a persisted id for the included author')
 		}
-		expect(author.toJSON()).toStrictEqual({
+		expect(author).toStrictEqual({
 			displayName: 'Katherine Johnson',
 			id: authorId,
 			initials: 'KJ',
@@ -275,10 +276,10 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 		})
 		const reloadedAuthor: unknown = reloaded?.author
 
-		if (!(reloadedAuthor instanceof Person)) {
+		if (!isPlainResult(reloadedAuthor)) {
 			throw new TypeError('Expected the reloaded virtual author')
 		}
-		expect(reloadedAuthor.toJSON()).toStrictEqual({
+		expect(reloadedAuthor).toStrictEqual({
 			displayName: 'Katherine Johnson',
 			id: authorId,
 		})
@@ -322,7 +323,7 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 			select: { firstName: true, lastName: true },
 			where: { id: { eq: stable.id } },
 		})
-		expect(persisted?.toJSON()).toStrictEqual({
+		expect(persisted).toStrictEqual({
 			firstName: 'Stable',
 			id: stable.id,
 			lastName: 'Before',
@@ -375,13 +376,13 @@ describe('virtual fields with PostgreSQL', { concurrent: false }, () => {
 				where: { id: { eq: localRecord.id } },
 			})
 
-			expect(foreign.toJSON()).toStrictEqual({
+			expect(foreign).toStrictEqual({
 				displayName: 'Isolated Application',
 				id: foreign.id,
 			})
 			expect(local?.displayName).toBe('Primary Application')
-			expect(foreign.toJSON()).not.toHaveProperty('secret')
-			expect(local?.toJSON()).not.toHaveProperty('secret')
+			expect(foreign).not.toHaveProperty('secret')
+			expect(local).not.toHaveProperty('secret')
 		} finally {
 			await isolated.dispose()
 			await isolatedFixture.dispose()

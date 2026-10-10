@@ -23,6 +23,7 @@ sources:
   - packages/apollo-sandbox-plugin/README.md
   - docs/adr/0238-graphql-v1-contract.md
   - docs/adr/0309-core-cursor-pagination.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0267-flat-plugin-configuration-and-uniform-access.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
   - docs/adr/0305-public-errors-and-can.md
@@ -165,6 +166,11 @@ GraphQL generates root fields for each exposed application-owned schema. The
 tables below use `Post` as the GraphQL type name. GraphQL does not pluralize
 or case-fold the schema's `className`; a custom `typeName` changes these field
 suffixes.
+
+An enum field declared with a string array gets one enum type named from its
+schema and field path. Every field using the same shared enum from
+`defineEnum('TaskPriority', [...])` uses one `TaskPriority` enum type (ADR-0310);
+a name that collides with another generated type fails schema compilation.
 
 The `src/ultimabase.ts` example above deliberately exposes **only** `getPost` and
 `findManyPost`. The "default" column describes what a schema would expose

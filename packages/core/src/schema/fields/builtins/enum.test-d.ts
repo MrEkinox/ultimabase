@@ -1,7 +1,9 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	defineEnum,
 	enumField,
+	type SharedEnum,
 	type EnumField,
 	type EnumFieldOptions,
 	type EnumValue,
@@ -22,7 +24,6 @@ enum NumericStatus {
 
 test('infers a literal union from an inline list without as const', () => {
 	const field = enumField({
-		typeName: 'PublicationStatus',
 		values: ['draft', 'published', 'archived'],
 		required: true,
 		default: 'draft',
@@ -47,49 +48,35 @@ test('infers a literal union from an inline list without as const', () => {
 	>().toEqualTypeOf<'required'>()
 })
 
-test('infers persisted values from a symbolic mapping', () => {
-	const field = enumField({
-		values: {
-			Draft: 'draft',
-			Published: 'published',
-		},
-		default: 'published',
-	})
+test('infers persisted values from a shared enum', () => {
+	const Status = defineEnum('PublicationStatus', ['draft', 'published'])
+	const field = enumField({ values: Status, default: 'published' })
 
+	expectTypeOf(Status).toEqualTypeOf<
+		SharedEnum<'PublicationStatus', readonly ['draft', 'published']>
+	>()
 	expectTypeOf(field).toExtend<
 		FieldDefinition<
 			'enum',
 			'draft' | 'published',
-			EnumFieldOptions<
-				Readonly<{ readonly Draft: 'draft'; readonly Published: 'published' }>
-			>,
+			EnumFieldOptions<typeof Status>,
 			FieldTypegenState
 		>
 	>()
-	expectTypeOf(field.options.values.Draft).toEqualTypeOf<'draft'>()
-})
-
-test('accepts native string enums without numeric reverse mappings', () => {
-	const field = enumField({
-		values: NativeStatus,
-		default: NativeStatus.Draft,
-	})
-
-	expectTypeOf(field).toExtend<
-		FieldDefinition<
-			'enum',
-			NativeStatus,
-			EnumFieldOptions<typeof NativeStatus>,
-			FieldTypegenState
-		>
+	expectTypeOf<EnumValue<typeof Status>>().toEqualTypeOf<
+		'draft' | 'published'
 	>()
+	// @ts-expect-error -- Defaults belong to the shared values.
+	enumField({ values: Status, default: 'archived' })
 })
 
 test('rejects invalid enum sources and metadata', () => {
 	// @ts-expect-error -- Inline enum lists cannot be empty.
 	enumField({ values: [] })
-	// @ts-expect-error -- Symbolic enum mappings cannot be empty.
-	enumField({ values: {} })
+	// @ts-expect-error -- Mappings are removed (ADR-0310).
+	enumField({ values: { Draft: 'draft' } })
+	// @ts-expect-error -- TypeScript string enums are removed (ADR-0310).
+	enumField({ values: NativeStatus })
 	// @ts-expect-error -- Numeric enums expose numbers and reverse mappings.
 	enumField({ values: NumericStatus })
 	// @ts-expect-error -- Defaults must belong to the inferred persisted union.
@@ -97,8 +84,8 @@ test('rejects invalid enum sources and metadata', () => {
 	// @ts-expect-error -- Enum values must be strings.
 	enumField({ values: ['draft', 1] })
 	enumField({
-		// @ts-expect-error -- Neutral type identities must use strings.
-		typeName: 42,
+		// @ts-expect-error -- The typeName option is removed; use defineEnum (ADR-0310).
+		typeName: 'Status',
 		values: ['draft'],
 	})
 	enumField({

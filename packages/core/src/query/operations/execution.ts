@@ -117,18 +117,8 @@ export interface QueryRowFilterPrivateScope {
 	readonly rowFilter: QueryFilterExpression
 }
 
-/** @internal Identifies one relation edge without exposing it to QueryBuilder or hook ASTs. */
-export interface QueryRelationPrivateScope {
-	readonly kind: 'relation'
-	readonly fieldPath: readonly string[]
-	readonly source: SchemaDefinition
-	readonly sourceObjectId: string
-	readonly target: SchemaDefinition
-}
-
 /** @internal Keeps framework-owned restrictions behind one closed union. */
-export type OperationPrivateScope =
-	QueryRelationPrivateScope | QueryRowFilterPrivateScope
+export type OperationPrivateScope = QueryRowFilterPrivateScope
 
 /** @internal Resolves authority without adding execution state to a QueryBuilder instance. */
 export type OperationExecutionHandler = (

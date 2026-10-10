@@ -201,7 +201,7 @@ export const createUpdateFixture = async (options: {
 							schemaMutations: {
 								archive: {
 									mutation: archive,
-									surfaces: ['schema', 'model'],
+									surfaces: ['schema'],
 								},
 							},
 						},

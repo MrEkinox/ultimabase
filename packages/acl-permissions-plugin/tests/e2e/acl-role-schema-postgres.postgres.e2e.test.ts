@@ -7,6 +7,7 @@ import {
 	plugin,
 	requestSources,
 	type PluginSourceState,
+	type Model,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -73,10 +74,8 @@ const AppRole = RoleSchema.define(ACLRoleSchemaApplication.Schema, {
 	postgres: { table: 'acl_protected_app_roles' },
 })
 
-type PersistedMember = Awaited<
-	ReturnType<InstanceType<typeof Member>['create']>
->
-type PersistedRole = Awaited<ReturnType<InstanceType<typeof AppRole>['create']>>
+type PersistedMember = Model<typeof Member>
+type PersistedRole = Model<typeof AppRole>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -154,7 +153,13 @@ beforeAll(async () => {
 		},
 		{ useMasterKey: true },
 	)
-	await editor.addMember(alicePointer, { useMasterKey: true })
+	await AppRole.updateOne(
+		{
+			where: { id: { eq: editor.id } },
+			data: { members: { connect: [alicePointer.id] } },
+		},
+		{ useMasterKey: true },
+	)
 
 	roleProtected = await AppRole.createOne(
 		{
@@ -230,8 +235,11 @@ describe(
 				),
 			).toStrictEqual(['read', 'update'])
 			await expect(
-				current.update(
-					{ data: { description: 'Updated through role ACL' } },
+				AppRole.updateOne(
+					{
+						where: { id: { eq: current.id } },
+						data: { description: 'Updated through role ACL' },
+					},
 					{ context },
 				),
 			).resolves.toMatchObject({ description: 'Updated through role ACL' })
@@ -244,17 +252,44 @@ describe(
 			const currentChild = requireFixture(child, 'child')
 
 			await expect(
-				currentEditor.addMember(requireFixture(bob, 'bob'), {
-					context,
-				}),
-			).resolves.toBeUndefined()
+				AppRole.updateOne(
+					{
+						where: { id: { eq: currentEditor.id } },
+						data: { members: { connect: [requireFixture(bob, 'bob').id] } },
+					},
+					{
+						context,
+					},
+				),
+			).resolves.toMatchObject({ id: currentEditor.id })
 			await expect(
-				currentParent.addRole(currentChild, { context }),
-			).resolves.toBeUndefined()
-			await expect(currentEditor.relation('members').count({})).resolves.toBe(2)
-			await expect(
-				currentParent.relation('roles').count({}, { context }),
-			).resolves.toBe(1)
+				AppRole.updateOne(
+					{
+						where: { id: { eq: currentParent.id } },
+						data: { roles: { connect: [currentChild.id] } },
+					},
+					{ context },
+				),
+			).resolves.toMatchObject({ id: currentParent.id })
+			// ADR-0310: links are read through include, not relation handles.
+			const editorLinks = await AppRole.findOneOrThrow(
+				{
+					where: { id: { eq: currentEditor.id } },
+					select: { id: true },
+					include: { members: { select: { id: true } } },
+				},
+				{ useMasterKey: true },
+			)
+			expect(editorLinks.members).toHaveLength(2)
+			const parentLinks = await AppRole.findOneOrThrow(
+				{
+					where: { id: { eq: currentParent.id } },
+					select: { id: true },
+					include: { roles: { select: { id: true } } },
+				},
+				{ context },
+			)
+			expect(parentLinks.roles).toHaveLength(1)
 		})
 
 		it('keeps ACL replacement master-only while honoring delete rights', async () => {
@@ -262,13 +297,19 @@ describe(
 			const currentEditor = requireFixture(editor, 'editor')
 
 			await expect(
-				currentEditor.update(
-					{ data: { acl: new ACL().grantPublic('read') } },
+				AppRole.updateOne(
+					{
+						where: { id: { eq: currentEditor.id } },
+						data: { acl: new ACL().grantPublic('read') },
+					},
 					{ context },
 				),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			await expect(
-				requireFixture(deletable, 'deletable').delete({}, { context }),
+				AppRole.deleteOne(
+					{ where: { id: { eq: requireFixture(deletable, 'deletable').id } } },
+					{ context },
+				),
 			).resolves.toMatchObject({ name: 'deletable' })
 			await expect(
 				AppRole.findMany({ select: { acl: true } }, { context }),

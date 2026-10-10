@@ -144,9 +144,9 @@ the former Guides page is not served.
 no duplicate field-builder page under Reference.
 `Core > Data Modeling > Schemas` owns declaration options, indexes, and
 application-bound handles; there is no duplicate Schema page under Reference.
-`Core > Data Modeling > Models` owns draft construction, persisted snapshots,
-instance commands, and failure behavior; there is no duplicate model page under
-Reference.
+`Core > Data Modeling > Models` owns plain data results, the `Model`,
+`CreateInput` and `UpdateInput` types, and `toJSON`; there is no duplicate model
+page under Reference.
 `Core > Reading Data > Query Overview` owns read terminals, immutable builders,
 branching, and read failures. `Core > Data Modeling > Models` owns immutable
 model snapshots. `Core > Writing Data > Transactions` owns both the task and

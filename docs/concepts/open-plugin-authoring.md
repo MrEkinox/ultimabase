@@ -60,7 +60,7 @@ resource. `create` receives capability readers and returns
 `{ execute, dispose? }`; Core guarantees cleanup and still owns operation
 validation and Runtime execution.
 
-## Declare schema and model surfaces
+## Declare schema surfaces
 
 The declaration callback is pure, synchronous, and privilege-scoped. Its
 registrars use explicit contribution IDs and retain plugin provenance:

@@ -44,9 +44,6 @@ describe('deferred schema compilation', () => {
 		expect(callbackCalls).toBe(1)
 		expect(DeferredPost.className).toBe('DeferredPost')
 		expect(DeferredPost.fields.title?.kind).toBe('string')
-		expect(new DeferredPost({ title: 'Before compilation' }).title).toBe(
-			'Before compilation',
-		)
 
 		const application = applicationFixture(
 			await createApplication({
@@ -63,9 +60,6 @@ describe('deferred schema compilation', () => {
 			fields: ['title', 'createdAt'],
 			unique: false,
 		})
-		expect(new DeferredPost({ title: 'After compilation' }).title).toBe(
-			'After compilation',
-		)
 		await application.dispose()
 	})
 
@@ -244,8 +238,5 @@ describe('deferred schema compilation', () => {
 		})
 
 		expect(Legacy.fields.title?.kind).toBe('string')
-		expect(new Legacy({ title: 'Still supported' }).title).toBe(
-			'Still supported',
-		)
 	})
 })

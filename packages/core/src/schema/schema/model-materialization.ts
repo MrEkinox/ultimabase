@@ -38,7 +38,11 @@ export const materializePreparedSchemaDraft = <
 	values: unknown,
 ): SchemaPreparedDraft<TSchema> =>
 	// The keys were checked against this schema; the values are Runtime's.
-	snapshotValues(schema, values, 'Prepared draft') as SchemaPreparedDraft<TSchema>
+	snapshotValues(
+		schema,
+		values,
+		'Prepared draft',
+	) as SchemaPreparedDraft<TSchema>
 
 /**
  * Freezes one final Runtime record as a plain result object (ADR-0310): its

@@ -1,4 +1,5 @@
 import { expectTypeOf, test } from 'vitest'
+import { defineEnum } from '../fields/builtins/shared-enum.js'
 
 import {
 	type EmbeddedFieldBuilder,
@@ -150,7 +151,7 @@ test('preserves enum domains, defaults and immutability in both builder contexts
 		indexed: 'unique',
 	})
 	const nested = embedded.enum({
-		values: { Draft: 'draft', Published: 'published' },
+		values: defineEnum('FieldBuilderStatus', ['draft', 'published']),
 		required: true,
 	})
 

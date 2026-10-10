@@ -187,7 +187,14 @@ beforeAll(async () => {
 		{ data: { name: 'editor' } },
 		options,
 	)
-	await role.addMember(editor, options)
+	// ADR-0310: members link through the relation field (`connect`).
+	await PrincipalRole.updateOne(
+		{
+			where: { id: { eq: role.id } },
+			data: { members: { connect: [editor.id] } },
+		},
+		options,
+	)
 }, 60_000)
 
 afterAll(async () => {

@@ -126,7 +126,7 @@ const fixture = (instanceId = 'one') => {
 						schemaMutations: {
 							[`archive_${instanceId}`]: {
 								mutation,
-								surfaces: ['schema', 'model'],
+								surfaces: ['schema'],
 							},
 						},
 					})
@@ -191,9 +191,8 @@ describe('canonical command graph', () => {
 				graph.get(command.mutation.name)?.definition,
 			)
 		}
-		expect(surface.modelMutations.get('archive_one')).toBe(
-			surface.schemaMutations.get('archive_one'),
-		)
+		// Results have no model methods (ADR-0310): schema surfaces only.
+		expect(surface).not.toHaveProperty('modelMutations')
 		// An untyped tooling consumer can only mutate its detached lookup indexes.
 		if (surface.schemaMutations instanceof Map) surface.schemaMutations.clear()
 		expect(
@@ -289,7 +288,7 @@ describe('canonical command graph', () => {
 			'archive_one',
 		])
 		expect(first.schemaMutations.get('archive_one')).toBe(
-			second.modelMutations.get('archive_one'),
+			second.schemaMutations.get('archive_one'),
 		)
 		// Publicly reachable JS Maps are detached indexes, never mutable graph authority.
 		if (first.schemaMutations instanceof Map) first.schemaMutations.clear()

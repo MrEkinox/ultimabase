@@ -15,7 +15,6 @@ describe('@ultimabase/core public entry point', () => {
 	it('exports the complete implemented framework surface', () => {
 		// One explicit manifest prevents internal helpers and type-only contracts from leaking.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
-			'ApplicationModelHandle',
 			'ApplicationOperationHandle',
 			'ApplicationSchemaHandleBase',
 			'DuplicateSchemaError',
@@ -27,7 +26,6 @@ describe('@ultimabase/core public entry point', () => {
 			'Pointer',
 			'PublicError',
 			'QueryBuilder',
-			'Relation',
 			'RequestCapability',
 			'RequestContext',
 			'RequestContextValue',
@@ -93,6 +91,7 @@ describe('@ultimabase/core public entry point', () => {
 			'defaultNestedWriteLimits',
 			'deferCurrentTransactionEffect',
 			'defineCapability',
+			'defineEnum',
 			'defineFieldOption',
 			'defineOperation',
 			'defineOperationTransport',
@@ -208,6 +207,7 @@ describe('@ultimabase/core public entry point', () => {
 			'stringField',
 			'throwIfOperationCancelled',
 			'timeField',
+			'toJSON',
 			'transformOperationFieldInputs',
 			'transformQueryFilterInput',
 			'transformSchemaMutationDataInput',

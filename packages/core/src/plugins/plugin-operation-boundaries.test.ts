@@ -5,7 +5,7 @@ import { assertImmutableOperationValue } from './plugin-operation-boundaries.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 
 describe('plugin operation snapshot boundaries', () => {
-	it('accepts persisted schema snapshots with native binary values', () => {
+	it('accepts Core results with native binary values', () => {
 		const Record = UltimaBase.Schema.define({
 			className: 'OperationBinaryRecord',
 			fields: (field) => ({ bytes: field.binary(), metadata: field.json() }),
@@ -18,13 +18,7 @@ describe('plugin operation snapshot boundaries', () => {
 		expect(() => {
 			assertImmutableOperationValue(Object.freeze({ user: model }), 'result')
 		}).not.toThrow()
-		// A draft or a shaped object does not gain the persisted-model exception.
-		expect(() => {
-			assertImmutableOperationValue(
-				new Record({ bytes: new Uint8Array([1]) }),
-				'input',
-			)
-		}).toThrow('must be immutable')
+		// A shaped object does not gain the Core result exception.
 		expect(() => {
 			assertImmutableOperationValue(
 				Object.freeze({ bytes: new Uint8Array([1]) }),

@@ -183,9 +183,9 @@ const inverseOverride: GeneratedNestedAuthorNestedCreateInput = { name: 'Ada', p
 GeneratedNestedPost.updateOne({ where: { id: { eq: 'post-1' } }, data: {} })
 
 declare const post: Core.SchemaResult<typeof GeneratedNestedPost>
-post.relation('tags').connect('tag-1')
-// @ts-expect-error -- Field-bound relation handles accept only IDs.
-post.relation('tags').connect(GeneratedNestedTag.pointer('tag-1'))
+GeneratedNestedPost.updateOne({ where: { id: { eq: post.id } }, data: { tags: { connect: ['tag-1'] } } })
+// @ts-expect-error -- Results have no relation handles (ADR-0310).
+post.relation
 
 void requiredDisconnect
 void pointerConflict

@@ -74,8 +74,9 @@ const enumFieldOptionsContract: BuiltInFieldOptionsContract = {
 	optionKeys: [...fieldOptionKeys, 'values'],
 }
 
-type NonEmptyMapping<TValues extends EnumValues> =
-	TValues extends readonly [] ? never : TValues
+type NonEmptyMapping<TValues extends EnumValues> = TValues extends readonly []
+	? never
+	: TValues
 
 export type CompatibleEnumFieldOptions<TValues extends EnumValues> =
 	NonEmptyMapping<TValues> extends never ? { readonly values: never } : object

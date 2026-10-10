@@ -600,19 +600,31 @@ the orientation reversed, or queries its declared `mappedBy` pointer column;
 it never creates duplicate storage.
 
 ```ts
-const tags = article.relation('tags')
-
-await tags.connect([firstTagId, secondTagId])
-
-const selected = await tags.findMany({
-	select: { id: true, label: true },
-	orderBy: { label: 'asc' },
-	take: 20,
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { connect: [firstTagId, secondTagId] } },
 })
 
-await tags.set([featuredTagId])
-await tags.disconnect(featuredTagId)
-await tags.clear()
+const { tags: selected } = await Article.findOneOrThrow({
+	where: { id: articleId },
+	select: { id: true },
+	include: {
+		tags: {
+			select: { id: true, label: true },
+			orderBy: { label: 'asc' },
+			take: 20,
+		},
+	},
+})
+
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { set: [featuredTagId] } },
+})
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { set: [] } },
+})
 ```
 
 The same generated Drizzle relation graph supports collection inclusion on a

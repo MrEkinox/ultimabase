@@ -234,10 +234,12 @@ describe('automatic mutation transaction scope', () => {
 			expect(outcome).toEqual(result)
 			if (Array.isArray(outcome)) {
 				expect(
-					outcome.every((article) => article instanceof articleSchema),
+					outcome.every(
+						(article) => Object.getPrototypeOf(article) === Object.prototype,
+					),
 				).toBe(true)
 			} else if (typeof outcome === 'object' && outcome !== null) {
-				expect(outcome).toBeInstanceOf(articleSchema)
+				expect(Object.getPrototypeOf(outcome)).toBe(Object.prototype)
 			}
 			expect(adapter.rootRequests).toStrictEqual([])
 			expect(adapter.transactions).toHaveLength(1)

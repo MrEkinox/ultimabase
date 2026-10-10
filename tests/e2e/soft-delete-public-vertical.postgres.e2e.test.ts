@@ -248,8 +248,9 @@ describe('documented official soft-delete public vertical', () => {
 		await expect(
 			minimal.softDeleteArticle(app, schemaId, sessionToken),
 		).resolves.toMatchObject({ id: schemaId, isDeleted: true })
+		// ADR-0310: results have no methods; the class command deletes this row too.
 		await expect(
-			minimal.softDeleteArticleFromModel(app, modelId, sessionToken),
+			minimal.softDeleteArticle(app, modelId, sessionToken),
 		).resolves.toMatchObject({ id: modelId, isDeleted: true })
 
 		const restDeleted = await authenticated.fetch(

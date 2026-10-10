@@ -6,13 +6,10 @@ import { describe, expect, it } from 'vitest'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import { createFrameworkEngine } from '../application/create-framework-engine.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { requestSources } from '../context/request-context.js'
 import { UltimaBase } from '../application/ultima-base.js'
-
-const sourceId = '0198f090-2a50-7000-8000-000000000094'
 
 const databasePlugin = (pluginId: string, adapter: RecordingDatabaseAdapter) =>
 	plugin({
@@ -69,14 +66,12 @@ describe('Runtime relation filter isolation', () => {
 			requestId: 'relation-isolation-second',
 			source: requestSources.internal,
 		})
-		const relation = materializeSchemaModel(Source, { id: sourceId }).relation(
-			'targets',
-		)
-
 		try {
 			await expect(
 				runWithRequestEngine(secondRequest, () =>
-					relation.count({}, { context: firstRequest.context }),
+					Source.findMany({ include: { targets: {} } } as never, {
+						context: firstRequest.context,
+					}),
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			expect(invocations).toBe(0)
@@ -123,9 +118,7 @@ describe('Runtime relation filter isolation', () => {
 		try {
 			await expect(
 				runWithRequestEngine(request, () =>
-					materializeSchemaModel(Source, { id: sourceId })
-						.relation('targets')
-						.count(),
+					Source.findMany({ include: { targets: {} } } as never),
 				),
 			).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 			expect(owner).toBeUndefined()

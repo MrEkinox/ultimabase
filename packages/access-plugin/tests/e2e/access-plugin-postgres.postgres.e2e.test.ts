@@ -332,7 +332,10 @@ describe('Access plugin with PostgreSQL', () => {
 		}
 
 		await expect(
-			publicModel.update({ data: { title: 'public-updated' } }),
+			AccessArticle.updateOne({
+				where: { id: { eq: publicModel.id } },
+				data: { title: 'public-updated' },
+			}),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
 		const auditCount = await AccessAudit.count({})

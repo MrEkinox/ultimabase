@@ -1,8 +1,4 @@
-import {
-	RequestSubjectReference,
-	UltimaBase,
-	type RequestRoleReferenceCarrier,
-} from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
@@ -86,12 +82,9 @@ describe('ACL', () => {
 		expect(removed.permissionsForPrincipal(service)).toStrictEqual(['read'])
 	})
 
-	it('supports multiple roles and persisted-value reference carriers', () => {
-		const persistedEditor: RequestRoleReferenceCarrier = {
-			toRequestRoleReference: () => editor,
-		}
+	it('supports multiple roles and refuses value carriers (ADR-0310)', () => {
 		const acl = new ACL()
-			.grantRole(persistedEditor, 'update', 'read')
+			.grantRole(editor, 'update', 'read')
 			.grantRole(moderator, 'delete')
 			.grantRole(editor, 'delete')
 
@@ -100,13 +93,15 @@ describe('ACL', () => {
 			'update',
 			'delete',
 		])
-		expect(acl.permissionsForRole(persistedEditor)).toStrictEqual([
-			'read',
-			'update',
-			'delete',
-		])
 		expect(acl.permissionsForRole(moderator)).toStrictEqual(['delete'])
-		expect(acl.hasRolePermission(persistedEditor, 'update')).toBe(true)
+		expect(acl.hasRolePermission(editor, 'update')).toBe(true)
+		// Role results carry no reference method; use the role reference.
+		expect(() =>
+			new ACL().grantRole(
+				{ toRequestRoleReference: () => editor } as never,
+				'read',
+			),
+		).toThrow('Request role subject must provide one string role reference')
 	})
 
 	it('revokes and replaces only one role entry', () => {
@@ -167,10 +162,7 @@ describe('ACL', () => {
 		).toThrow(new TypeError('ACL principal must be a Pointer'))
 		expect(() =>
 			new ACL().grantRole(
-				{
-					toRequestRoleReference: () =>
-						new RequestSubjectReference('principal', 'alice') as never,
-				},
+				new RequestSubjectReference('principal', 'alice') as never,
 				'read',
 			),
 		).toThrow(

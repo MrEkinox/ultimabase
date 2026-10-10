@@ -398,11 +398,9 @@ describe('REST read execution', () => {
 			}),
 		)
 
-		expect(found.map((item) => item.toJSON())).toStrictEqual(
-			direct.map((item) => item.toJSON()),
-		)
-		expect(first?.toJSON()).toStrictEqual(record)
-		expect(get.toJSON()).toStrictEqual(record)
+		expect(found).toStrictEqual(direct)
+		expect(first).toStrictEqual(record)
+		expect(get).toStrictEqual(record)
 		expect(count).toBe(1)
 		expect(exists).toBe(true)
 		expect(

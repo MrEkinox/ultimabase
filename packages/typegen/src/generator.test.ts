@@ -7,6 +7,7 @@ import {
 	plugin as createPlugin,
 	contributeDeclarations,
 	definePluginField,
+	defineEnum,
 	defineSchemaOption,
 	defineTypegenReference,
 	UltimaBase,
@@ -43,6 +44,12 @@ const createFixture = (reverseOrder = false) => {
 			articles: field.relation({ target: 'TypegenArticle' }),
 		}),
 	})
+	// ADR-0310: a shared enum names one generated type for every field.
+	const PublicationStatus = defineEnum('PublicationStatus', [
+		'published',
+		'draft',
+	])
+	const CountryCode = defineEnum('CountryCode', ['FR', 'US'])
 	const Article = Application.Schema.define({
 		className: 'TypegenArticle',
 		fields: (field) => ({
@@ -54,27 +61,20 @@ const createFixture = (reverseOrder = false) => {
 			slug: field.string({ default: 'draft', immutable: true }),
 			matrix: field.int({ list: true }),
 			status: field.enum({
-				typeName: 'PublicationStatus',
 				required: true,
-				values: ['published', 'draft'],
+				values: PublicationStatus,
 			}),
 			billingAddress: field.object({
 				fields: (field) => ({
 					city: field.string({ required: true }),
-					country: field.enum({
-						typeName: 'CountryCode',
-						values: ['FR', 'US'],
-					}),
+					country: field.enum({ values: CountryCode }),
 				}),
 				typeName: 'PostalAddress',
 			}),
 			shippingAddress: field.object({
 				fields: (field) => ({
 					city: field.string({ required: true }),
-					country: field.enum({
-						typeName: 'CountryCode',
-						values: ['US', 'FR'],
-					}),
+					country: field.enum({ values: CountryCode }),
 				}),
 				typeName: 'PostalAddress',
 			}),

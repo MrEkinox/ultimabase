@@ -8,6 +8,7 @@ import {
 	defineSchemaOption,
 	plugin,
 	UltimaBase,
+	type Model,
 } from '../../src/index.js'
 
 const importance = (options: { readonly required: true }) =>
@@ -84,31 +85,30 @@ export const Post = Application.Schema.define({
 	workflow: { enabled: true },
 })
 
-export const item = new Post({ important: true, title: 'Typed' })
+// ADR-0310: results are frozen plain data; schemas carry every command.
+export declare const item: Model<typeof Post>
 export const importanceValue = item./* hover:plugin-value */ important
 export const directQueryResult = Post./* hover:direct-query */ findMany()
-export const directCreateResult = item./* hover:direct-create */ create({})
+export const directCreateResult = Post./* hover:direct-create */ createOne({
+	data: { important: true, title: 'Typed' },
+})
 
-/** Exercises readonly command composition and its public editor presentation. */
-export const selectedModelCommands = async () => {
-	const persisted = await item.create({})
-	const updateCommand = persisted.update
-	// @ts-expect-error -- Command composition must not make methods writable.
-	persisted.update = updateCommand
+/** Exercises selected results and the schema update command presentation. */
+export const selectedResults = async () => {
 	const /* hover:selected-model */ selected =
-			await persisted./* hover:model-update */ update({
+			await Post./* hover:schema-update */ updateOne({
+				where: { title: { eq: 'Typed' } },
 				data: { title: 'Updated' },
 				select: { title: true },
 			})
+	if (selected === null) return undefined
+	// @ts-expect-error -- Results are readonly.
+	selected.title = 'Changed'
 	const exact: string = selected./* completion:selected-fields */ title
 	// @ts-expect-error -- Installed fields remain absent when not selected.
 	void selected.important
-	// @ts-expect-error -- Command inputs preserve their scalar types.
-	void selected.update({ data: { title: 42 } })
-	const snapshotCommand = selected.get
-	// @ts-expect-error -- Selected model helpers are readonly too.
-	selected.get = snapshotCommand
-	void selected.fetch({ select: { important: true } })
+	// @ts-expect-error -- Results have no model methods (ADR-0310).
+	void selected.update
 	return exact
 }
 

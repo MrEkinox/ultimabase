@@ -68,9 +68,7 @@ const encode = (value: unknown, ancestors: WeakSet<object>): unknown => {
 	ancestors.add(value)
 	try {
 		if (isUnknownArray(value)) {
-			return immutableArray(
-				value.map((item) => encode(item, ancestors)),
-			)
+			return immutableArray(value.map((item) => encode(item, ancestors)))
 		}
 		if (isPlainRecord(value)) {
 			// Entries keep every field name, including `__proto__`, as an own key.

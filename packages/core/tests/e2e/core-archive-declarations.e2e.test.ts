@@ -256,8 +256,8 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		)
 	}, 10_000)
 
-	it('infers exact source draft fields and exposes QueryBuilder without Typegen', () => {
-		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
+	it('infers exact source result fields and exposes QueryBuilder without Typegen', () => {
+		const draft = readFixtureQuickInfo('packedDraft = () =>')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
 		)
@@ -268,29 +268,24 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(query.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('preserves documented immutable model persistence commands', () => {
-		const create = readFixtureQuickInfo('create({}, { useMasterKey: true })')
-		const update = readFixtureQuickInfo(
-			"update({ data: { title: 'Packed update' } })",
+	// ADR-0310: schema commands replace model persistence commands.
+	it('preserves documented schema persistence commands', () => {
+		const create = readFixtureQuickInfo(
+			"createOne({ data: { title: 'Packed' } })",
 		)
-		const fetch = readFixtureQuickInfo('fetch({ select: { title: true } })')
-		const toPointer = readFixtureQuickInfo('toPointer()')
+		const update = readFixtureQuickInfo("updateOne({ where: { id: 'p' }")
+		const result = readFixtureQuickInfo('packedResult: SchemaResult<')
+		const pointer = readFixtureQuickInfo('pointer(packedResult.id)')
 
-		expect(create.display).toContain('create(input:')
-		expect(create.display).toContain('Promise<{')
-		expect(create.documentation).toContain('complete model')
-		// The configured source input is exact but its packed QuickInfo is more verbose.
-		expect(update.display).toContain('update(input:')
-		expect(update.display).toContain('SchemaModelUpdateCommandInput<')
+		expect(create.display).toContain('createOne<')
+		expect(create.display).toContain('Promise<')
+		expect(update.display).toContain('updateOne<')
 		expect(update.display).toContain('Promise<')
 		expect(update.display).not.toContain('any')
-		expect(update.documentation).toContain('protected object identity')
-		expect(fetch.display).toContain('fetch<')
-		expect(fetch.documentation).toContain('selected fresh fields')
-		expect(toPointer.display).toContain('Pointer<')
-		expect(toPointer.documentation).toContain('without performing database I/O')
+		expect(result.display).toContain('readonly title: string')
+		expect(result.display).not.toContain('update(')
+		expect(pointer.display).toContain('Pointer<')
 		expect(create.display).not.toContain('NonDefaultedStringField<')
-		expect(fetch.display).not.toContain('NonDefaultedStringField<')
 	})
 
 	it('preserves the atomic bulk array result', () => {

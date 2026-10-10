@@ -70,11 +70,10 @@ missing class implicitly and cannot duplicate the plugin's own `schemas.add()`.
 
 Most plugins should contribute to an ordinary developer schema through the
 facades above. If the package must instead expose its own final schema factory
-with class helpers or persisted-result commands, use the one low-level Core
-boundary: `Schema.defineSpecialized()`. The capability factory returns
-`statics` and `results`; Core attaches both before freezing the exact schema
-class. Result commands are available only on trusted persisted models, never on
-drafts.
+with class helpers, use the one low-level Core boundary:
+`Schema.defineSpecialized(options, createStatics)`. The factory returns the
+static capabilities only; Core attaches them before freezing the exact schema
+class. Results stay frozen plain data and never gain methods (ADR-0310).
 
 Keep `App.Schema.define()` as the ordinary application-facing path. A specialization does
 not receive an application, adapter, authority, or mutable prototype, and it

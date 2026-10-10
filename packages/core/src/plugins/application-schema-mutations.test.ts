@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { UltimaBase } from '../runtime/application/ultima-base.js'
-import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 
 import { plugin as createPlugin } from './plugin.js'
 import { contributeDeclarations } from './plugin-contributions.js'
@@ -51,7 +50,7 @@ const workflowPlugin = createPlugin({
 				models.extend(WorkflowPost, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+						archive: { mutation: archive, surfaces: ['schema'] },
 					},
 				})
 				return undefined
@@ -93,34 +92,11 @@ describe('application-owned schema mutations', () => {
 		await expect(
 			(Reflect.get(schemaHandle, 'archive') as () => Promise<unknown>)(),
 		).rejects.toThrow('input must be a plain object')
-		const persisted = materializeSchemaModel(WorkflowPost, {
-			createdAt: '2026-09-10T00:00:00.000Z',
-			id: '0199325a-0c00-7000-8000-000000000001',
-			title: 'Published',
-			updatedAt: '2026-09-10T00:00:00.000Z',
-			workflowState: 'published',
-		})
-		const persistedHandle = schemaHandle.for(persisted)
-		expect('archive' in persistedHandle).toBe(true)
-		await expect(
-			(Reflect.get(persistedHandle, 'archive') as () => Promise<unknown>)(),
-		).rejects.toThrow('input must be a string')
-
-		const draft = new WorkflowPost({
-			title: 'Draft',
-			workflowState: 'draft',
-		})
-		await expect(
-			(
-				Reflect.get(
-					schemaHandle.for(draft),
-					'archive',
-				) as () => Promise<unknown>
-			)(),
-		).rejects.toThrow('requires persisted model state')
+		// Results carry no model methods (ADR-0310): the schema handle is the surface.
+		expect(schemaHandle).not.toHaveProperty('for')
 	})
 
-	it('compiles selected model mutations before relationship metadata is published', () => {
+	it('compiles selected schema mutations before relationship metadata is published', () => {
 		const Related = UltimaBase.Schema.define({
 			className: 'SchemaMutationCompilationOrderRelated',
 			fields: () => ({}),
@@ -159,7 +135,7 @@ describe('application-owned schema mutations', () => {
 							{
 								contributionId: 'selected-relation-mutation',
 								schemaMutations: {
-									mutate: { mutation, surfaces: ['model'] },
+									mutate: { mutation, surfaces: ['schema'] },
 								},
 							},
 						)
@@ -179,7 +155,7 @@ describe('application-owned schema mutations', () => {
 				.typegenGraph.schemaSurfaces.find(
 					({ schema }) => schema.className === Document.className,
 				)
-				?.modelMutations.has('mutate'),
+				?.schemaMutations.has('mutate'),
 		).toBe(true)
 	})
 
@@ -292,7 +268,7 @@ describe('application-owned schema mutations', () => {
 						models.extend(WorkflowPost, {
 							contributionId: 'second',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['model'] },
+								archive: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						return undefined
@@ -306,6 +282,42 @@ describe('application-owned schema mutations', () => {
 				schemas: [WorkflowPost],
 			}).schema(WorkflowPost),
 		).toThrow('surface contains duplicate command: archive')
+
+		const modelSurface = createPlugin({
+			core: '^0.0.0',
+			id: 'fixture.schema-mutation-model-surface',
+			permissions: {
+				'model:extend': 'Exercises the removed model surface.',
+				'operation:declare': 'Declares archive.',
+			},
+			version: '1.0.0',
+			contributions: [
+				contributeDeclarations({
+					operations: ({ operations }) => {
+						operations.declare(archive)
+						return undefined
+					},
+					models: ({ models }) => {
+						models.extend(WorkflowPost, {
+							contributionId: 'model',
+							schemaMutations: {
+								// @ts-expect-error -- The model surface is removed (ADR-0310).
+								archive: { mutation: archive, surfaces: ['model'] },
+							},
+						})
+						return undefined
+					},
+				}),
+			],
+		})
+		expect(() =>
+			new (UltimaBase.use(modelSurface))({
+				pluginPrivileges: { logger: false },
+				schemas: [WorkflowPost],
+			}).schema(WorkflowPost),
+		).toThrow(
+			'schema mutation archive surface must be schema: results have no model methods (ADR-0310)',
+		)
 	})
 
 	it('keeps two explicit plugin instances deterministic with distinct identities', () => {

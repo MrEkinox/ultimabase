@@ -60,6 +60,7 @@ workspace.addFile(
 const usageWithMarkers = `import { Article } from './article.js'
 import { Author } from './author.js'
 
+// @ts-expect-error -- Schemas are not constructible (ADR-0310).
 const draft = new Article({
   author: Author.pointer('author-1'),
   status: 'draft',

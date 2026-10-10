@@ -1,6 +1,7 @@
 import path from 'node:path'
 
 import {
+	defineEnum,
 	definePluginFieldFamily,
 	plugin,
 	contributeDeclarations,
@@ -123,6 +124,11 @@ export const Owner = PackedApplication.Schema.define({
 		name: field.string({ required: true }),
 	}),
 })
+// ADR-0310: a shared enum keeps its generated name.
+const PackedDocumentStatus = defineEnum('PackedDocumentStatus', [
+	'draft',
+	'published',
+])
 export const Document = PackedApplication.Schema.define({
 	className: 'PackedGeneratedDocument',
 	fields: (field) => ({
@@ -135,10 +141,7 @@ export const Document = PackedApplication.Schema.define({
 		related: field.relation({
 			target: 'PackedGeneratedDocument',
 		}),
-		status: field.enum({
-			typeName: 'PackedDocumentStatus',
-			values: ['draft', 'published'],
-		}),
+		status: field.enum({ values: PackedDocumentStatus }),
 		summary: field.string(),
 		title: field.string({ required: true }),
 	}),

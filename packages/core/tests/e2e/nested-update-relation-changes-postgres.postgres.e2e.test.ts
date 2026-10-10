@@ -3,6 +3,7 @@ import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	MasterAuthority,
 	UltimaBase,
+	type Model,
 	type PluginSourceState,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -156,10 +157,15 @@ afterEach(() => {
 	rejectParentAfterUpdate = false
 })
 
-const requireChildren = (
-	value: unknown,
-): readonly InstanceType<typeof Child>[] => {
-	if (!Array.isArray(value) || !value.every((item) => item instanceof Child)) {
+// Included rows are frozen plain objects (ADR-0310).
+const isChildRow = (item: unknown): item is Model<typeof Child> =>
+	typeof item === 'object' &&
+	item !== null &&
+	Object.getPrototypeOf(item) === Object.prototype &&
+	typeof Reflect.get(item, 'name') === 'string'
+
+const requireChildren = (value: unknown): readonly Model<typeof Child>[] => {
+	if (!Array.isArray(value) || !value.every(isChildRow)) {
 		throw new TypeError('Expected included nested-update children')
 	}
 	return value
@@ -210,7 +216,7 @@ describe(
 				include: { child: {}, children: {} },
 			})
 
-			if (updated === null || !(updated.child instanceof Child)) {
+			if (updated === null || !isChildRow(updated.child)) {
 				throw new TypeError('Expected the included nested pointer target')
 			}
 			expect(updated.child.name).toBe('Author updated')
@@ -278,7 +284,11 @@ describe(
 				},
 			})
 			// The hidden result is requested as `select: { id: true }` (ADR-0306).
-			await hidden.update({ data: { visible: false }, select: { id: true } })
+			await Child.updateOne({
+				where: { id: { eq: hidden.id } },
+				data: { visible: false },
+				select: { id: true },
+			})
 
 			await Parent.updateOne({
 				where: { id: { eq: parent.id } },
@@ -443,7 +453,11 @@ describe(
 				},
 			})
 			// The hidden result is requested as `select: { id: true }` (ADR-0306).
-			await related.update({ data: { visible: false }, select: { id: true } })
+			await Child.updateOne({
+				where: { id: { eq: related.id } },
+				data: { visible: false },
+				select: { id: true },
+			})
 
 			for (const id of [related.id, unrelated.id]) {
 				trace.length = 0

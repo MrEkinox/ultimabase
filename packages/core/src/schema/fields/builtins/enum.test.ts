@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { enumField } from '../../index.js'
+import { defineEnum, enumField } from '../../index.js'
 
 enum NativeStatus {
 	Draft = 'draft',
@@ -38,52 +38,43 @@ describe('enumField', () => {
 		expect(Object.isFrozen(field.options.values)).toBe(true)
 	})
 
-	it('preserves symbolic keys from a mapping', () => {
-		const source = {
-			Draft: 'draft',
-			Published: 'published',
-		}
-		const field = enumField({
-			values: source,
-			default: 'published',
-		})
+	it('stores a shared enum as its values and its shared identity', () => {
+		const Status = defineEnum('PostStatus', ['draft', 'published'])
+		const field = enumField({ values: Status, default: 'published' })
 
-		source.Draft = 'changed'
-
-		// Symbolic names survive normalization while persisted values are copied.
-		expect(field.options.values).toStrictEqual({
-			Draft: 'draft',
-			Published: 'published',
-		})
-		expect(Object.isFrozen(field.options.values)).toBe(true)
-	})
-
-	it('preserves an explicit neutral type name', () => {
-		const field = enumField({
-			typeName: 'PostStatus',
+		expect(field.options.values).toStrictEqual(['draft', 'published'])
+		expect(Reflect.get(field.options, 'sharedEnum')).toBe(Status)
+		expect(Status).toMatchObject({
+			name: 'PostStatus',
 			values: ['draft', 'published'],
 		})
-
-		expect(field.options.typeName).toBe('PostStatus')
-		expect(() => enumField({ typeName: '', values: ['draft'] })).toThrow(
-			new TypeError('typeName must be a non-empty string'),
+		expect(Object.isFrozen(Status)).toBe(true)
+		expect(Object.isFrozen(Status.values)).toBe(true)
+		expect(() => defineEnum('Post Status', ['draft'])).toThrow(
+			new TypeError('defineEnum name must be an identifier: Post Status'),
 		)
-		expect(() => {
-			// @ts-expect-error -- Runtime coverage crosses the type-name boundary.
-			enumField({ typeName: 42, values: ['draft'] })
-		}).toThrow(new TypeError('typeName must be a non-empty string'))
+		expect(() => defineEnum('Empty', [] as never)).toThrow(
+			new TypeError('defineEnum values must be a non-empty string array'),
+		)
 	})
 
-	it('accepts a native string enum as a mapping', () => {
-		const field = enumField({
-			values: NativeStatus,
-			default: NativeStatus.Draft,
-		})
-
-		expect(field.options.values).toStrictEqual({
-			Draft: 'draft',
-			Published: 'published',
-		})
+	it('removes the mapping, native enum and typeName forms (ADR-0310)', () => {
+		expect(() => {
+			// @ts-expect-error -- Only arrays and shared enums name enum values.
+			enumField({ values: { Draft: 'draft', Published: 'published' } })
+		}).toThrow(
+			new TypeError(
+				'Enum values must be a non-empty string array or a shared enum from defineEnum',
+			),
+		)
+		expect(() => {
+			// @ts-expect-error -- TypeScript enum objects are mappings too.
+			enumField({ values: NativeStatus })
+		}).toThrow(TypeError)
+		expect(() => {
+			// @ts-expect-error -- A shared enum names the type, not an option.
+			enumField({ typeName: 'PostStatus', values: ['draft', 'published'] })
+		}).toThrow(TypeError)
 	})
 
 	it('validates and freezes every persisted value in a list default', () => {
@@ -108,38 +99,29 @@ describe('enumField', () => {
 		}).toThrow(new TypeError('Invalid enum default at default[0]: archived'))
 	})
 
-	it.each([
-		['list', []],
-		['mapping', {}],
-	] as const)('rejects an empty %s', (_name, values) => {
+	it('rejects an empty list', () => {
 		expect(() => {
 			// Runtime validation also protects dynamically produced JavaScript input.
 			// @ts-expect-error -- Empty literal enum sources are rejected statically.
-			enumField({ values })
-		}).toThrow(new TypeError('Enum values cannot be empty'))
+			enumField({ values: [] })
+		}).toThrow(new TypeError('Enum values must be a non-empty string array'))
 	})
 
-	it.each([
-		['list', ['draft', 'draft']],
-		[
-			'mapping',
-			{
-				Primary: 'draft',
-				Alias: 'draft',
-			},
-		],
-	] as const)('rejects duplicate values in a %s', (_name, values) => {
-		expect(() => enumField({ values })).toThrow(
+	it('rejects duplicate values in a list', () => {
+		expect(() => enumField({ values: ['draft', 'draft'] })).toThrow(
 			new TypeError('Duplicate enum value: draft'),
 		)
 	})
 
 	it('rejects numeric enums at the runtime boundary', () => {
 		expect(() => {
-			// Native numeric enums contain reverse mappings and cannot be string domains.
 			// @ts-expect-error -- Runtime coverage intentionally crosses the public type boundary.
 			enumField({ values: NumericStatus })
-		}).toThrow(new TypeError('Enum values must contain only strings'))
+		}).toThrow(
+			new TypeError(
+				'Enum values must be a non-empty string array or a shared enum from defineEnum',
+			),
+		)
 	})
 
 	it('rejects non-string values inside a list at runtime', () => {
@@ -149,16 +131,22 @@ describe('enumField', () => {
 		}).toThrow(new TypeError('Enum values must contain only strings'))
 	})
 
-	it('rejects values that are neither lists nor mappings', () => {
+	it('rejects values that are neither arrays nor shared enums', () => {
+		const message =
+			'Enum values must be a non-empty string array or a shared enum from defineEnum'
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage intentionally crosses the public type boundary.
 			enumField({ values: 'draft' })
-		}).toThrow(new TypeError('Enum values must be a string list or mapping'))
+		}).toThrow(new TypeError(message))
 
 		expect(() => {
-			// @ts-expect-error -- Collection instances are not symbolic mappings.
+			// @ts-expect-error -- Collection instances are not enum values.
 			enumField({ values: new Map([['Draft', 'draft']]) })
-		}).toThrow(new TypeError('Enum values must be a string list or mapping'))
+		}).toThrow(new TypeError(message))
+		expect(() => {
+			// @ts-expect-error -- A look-alike object is not a shared enum.
+			enumField({ values: { name: 'Status', values: ['draft'] } })
+		}).toThrow(new TypeError(message))
 	})
 
 	it('rejects defaults outside the persisted value domain', () => {

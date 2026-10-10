@@ -186,19 +186,18 @@ do not need an entry in the application's `schemas` array.
 ## Schema classes and application handles
 
 `UltimaBase.Schema.define()` returns the final schema class. Its local fields,
-drafts, Core operation inputs, selections, and results infer from source before
-Typegen; complete filters still use the generated contract. Core-only declarations can construct immutable drafts
+Core operation inputs, selections, and results infer from source before
+Typegen; complete filters still use the generated contract. Core-only declarations resolve their metadata
 immediately; configured plugin builder calls resolve when a compatible
 application compiles them. Ordinary schema commands execute against an owning
 application. Use
-`ultimabase.schema(Article)` only for application-specific mutation handles or
-model binding. Ordinary CRUD uses `Article` directly. The handle also accepts
+`ultimabase.schema(Article)` only for application-specific mutation handles. Ordinary CRUD uses `Article` directly. The handle also accepts
 the registered name of a plugin-contributed schema; its `.schema` is the
 runtime class and can run ordinary commands. A plugin schema mutation can also
 be declared directly on the frozen configured class before startup; execution
 resolves the sole active application and verifies that application's compiled plugin graph. See
 [Soft Delete](/docs/1.0.0/plugins/official/soft-delete)
-for an example and [Models](./models) for draft and persisted instances.
+for an example and [Models](./models) for plain data results.
 
 ## Schema identity
 

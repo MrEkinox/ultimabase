@@ -165,10 +165,10 @@ const completeSuite = suite
 The optional contract names are `typegen`, `javascript-operation`, `operation`,
 `relation-read`, `schema-mutation`, `schema-surface`, `transport`, `middleware`,
 `persistence`, `codec`, `migration`, and `adapter-failure`. A `relation-read`
-verifier should execute a persisted model's relation handle and assert the
-portable private relation scope and declared row filter without selecting a
-database or policy product. A `schema-mutation` verifier should
-execute one neutral application-owned schema or bound-model command and assert
+verifier should execute a relation filter or include and assert the portable
+relation predicate and declared row filter without selecting a database or
+policy product. A `schema-mutation` verifier should
+execute one neutral application-owned schema command and assert
 its logical identity and physical effect without installing Access, Hooks, or a
 product plugin. This keeps the report precise while leaving each
 plugin-specific assertion readable. `withPluginTypegenConformance()` implements

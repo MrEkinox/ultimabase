@@ -92,7 +92,7 @@ describe('canonical mutation request identity', () => {
 						models.extend(Post, {
 							contributionId: 'post',
 							schemaMutations: {
-								archive: { mutation: archive, surfaces: ['schema', 'model'] },
+								archive: { mutation: archive, surfaces: ['schema'] },
 							},
 						})
 						models.extend(Other, {

@@ -142,9 +142,8 @@ JSON codec. Plugin fields that separately enable Core's portable structural
 containment name their exact partial operand through `structuralContainsType`.
 Plugin schema mutations remain a separate callback-free snapshot. Typegen adds
 their direct methods to the selected application's schema class and schema
-handle when the `schema` surface is declared, and to persisted model surfaces
-when the `model` surface is declared. It omits the target `id` from bound models and `input` for an
-`undefined` payload type, and reuses each schema's exact `select`, `include`,
+handle when the `schema` surface is declared; results have no methods
+(ADR-0310). It omits `input` for an `undefined` payload type, and reuses each schema's exact `select`, `include`,
 and result contracts. The generated schema-surface registry also retains each
 mutation's exact authority, effect, returning mode, dependency selection, and
 payload type. The generated schema option contracts expose application-valid
@@ -173,7 +172,7 @@ context-specific builder methods. Migrated plugin builders and field-context
 options come from the configured factory instead of generated interface
 augmentation. Schema Access, Hooks, and exact ACL callbacks remain generated
 references to their public package contracts; Typegen never copies callbacks, factories, validators,
-resolvers, or other executable implementation code. Compatible object and enum `typeName` identities are
+resolvers, or other executable implementation code. Compatible object `typeName` identities and shared enum names are
 reused; incompatible identities and normalized TypeScript name collisions
 report both owners.
 
@@ -220,7 +219,7 @@ Generated schema commands retain the same named inputs. `updateOne`,
 that Core accepts at runtime. `createOne` and `updateOne` additionally use
 recursive schema-specific nested pointer and relation inputs; their `connect`
 items are typed as IDs. The registry retains separate `nestedCreate` and
-`nestedUpdate` declarations, while drafts, bulk commands, and upserts keep
+`nestedUpdate` declarations, while bulk commands and upserts keep
 their flat input aliases. Those aliases still type a pointer field as a
 `Pointer`, whereas Core accepts only a `{ connect: target }` link or `null`
 there (ADR-0308): Typegen is not migrated to the new link vocabulary
@@ -237,8 +236,7 @@ are represented explicitly by `jsonField()`.
 The emitted declaration augments `@ultimabase/core` with one application-owned
 schema registry plus any retained non-migrated application contracts. Keep that
 file included by the application's TypeScript project. Core combines this
-named graph with the configured source projection to resolve exact drafts,
-results, Query inputs, indexes, embedded paths, pointers, relations, Access,
+named graph with the configured source projection to resolve exact results, Query inputs, indexes, embedded paths, pointers, relations, Access,
 and Hooks. A schema name absent from the loaded registry remains a valid source
 declaration and uses Core's bootstrap contract until the next automatic startup
 generation replaces the artifact.

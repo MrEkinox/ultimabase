@@ -204,7 +204,6 @@ export type {
 	ConfiguredSchemaResult,
 	SchemaAPI,
 	SchemaClass,
-
 	SchemaStaticCapabilityFactory,
 	SchemaDefinition,
 	SchemaDeclaredFields,

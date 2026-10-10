@@ -1,5 +1,6 @@
 import {
 	UltimaBase,
+	defineEnum,
 	definePluginOutputDescriptor,
 	normalizeReadOperation,
 	type ReadOperationAst,
@@ -21,6 +22,9 @@ import { graphqlPlugin, type GraphqlApplication } from './index.js'
 import { readGraphqlConnectionRuntime } from './application.js'
 import { normalizeGraphqlReadOperation } from './read-normalization.test-support.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
+
+// A shared enum names one GraphQL enum type (ADR-0310).
+const VirtualStatus = defineEnum('VirtualStatus', ['ready'])
 
 const GraphqlSchemaApplication = UltimaBase.use(graphqlPlugin())
 const outputOnly = { graphql: true }
@@ -77,8 +81,7 @@ const defineVirtualSchema = () =>
 				select: { id: true },
 			}),
 			status: field.virtual({
-				output: (output) =>
-					output.enum({ typeName: 'VirtualStatus', values: ['ready'] }),
+				output: (output) => output.enum({ values: VirtualStatus }),
 				resolve: () => 'ready',
 				select: { id: true },
 			}),

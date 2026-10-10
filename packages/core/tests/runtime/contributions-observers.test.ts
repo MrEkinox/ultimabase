@@ -331,8 +331,8 @@ describe('Runtime contributions and post-commit events', () => {
 			selection: { fields: [], kind: 'selection' },
 			input: { title: 'input' },
 		})
-		expect(result).toBeInstanceOf(articleSchema)
-		expect(result.toJSON()).toStrictEqual({
+		expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
+		expect(result).toStrictEqual({
 			...stored,
 			title: 'stored:dependency',
 		})

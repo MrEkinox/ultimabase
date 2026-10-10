@@ -1,5 +1,5 @@
 import type { SchemaDefinition } from '../../schema/index.js'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 import { createQueryValueFilter } from '../filters/factory.js'
@@ -71,47 +71,6 @@ export const scopeQueryToObjectId = <
 				: { protectedPolicyDeniedAsMissing: true as const }),
 			objectId: id,
 			rowFilter: createQueryValueFilter(query.schema, 'equal', 'id', id),
-		}),
-	)
-}
-
-/** Describes one trusted relation restriction before it enters private QueryBuilder state. */
-export interface QueryRelationScopeInput<
-	TSource extends SchemaDefinition = SchemaDefinition,
-	TTarget extends SchemaDefinition = SchemaDefinition,
-> {
-	readonly fieldName: string
-	readonly source: TSource
-	readonly sourceObjectId: string
-	readonly target: TTarget
-}
-
-/**
- * Applies one framework-owned relation edge without adding it to the public AST.
- *
- * @internal Persisted Relation handles are the only intended caller.
- */
-export const scopeQueryToRelation = <
-	const TSource extends SchemaDefinition,
-	const TTarget extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TTarget>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TTarget, TSelectedField, TIncludedPointer>,
-	input: QueryRelationScopeInput<TSource, TTarget>,
-): NormalizedQueryInput<TTarget, TSelectedField, TIncludedPointer> => {
-	if (query.schema !== input.target) {
-		throw new TypeError('relation query must use its exact target schema')
-	}
-
-	return withPrivateScope(
-		query,
-		immutableRecord({
-			fieldPath: immutableArray([input.fieldName]),
-			kind: 'relation',
-			source: input.source,
-			sourceObjectId: input.sourceObjectId,
-			target: input.target,
 		}),
 	)
 }

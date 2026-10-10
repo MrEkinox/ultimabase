@@ -1,145 +1,131 @@
 ---
 title: Models
-seoTitle: Immutable Models and Model Commands
-description: Construct immutable drafts, read persisted snapshots, and use model commands.
+seoTitle: Plain Data Results and Named Model Types
+description: Read frozen plain results, name them with Model, and serialize them with toJSON.
 audience:
   - application-developer
 contentType: concept
 order: 3
-outcome: Construct, inspect, and use immutable draft and persisted schema models.
+outcome: Use frozen plain results, the Model and CreateInput types, and toJSON.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-10
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
-  - packages/core/src/schema/schema/model-commands.ts
+  - packages/core/src/schema/schema/model-class.ts
+  - packages/core/src/schema/schema/model-materialization.ts
+  - packages/core/src/schema/schema/registered-schemas.ts
+  - packages/core/src/schema/schema/result-json.ts
   - packages/core/src/query/clauses/selection.ts
-  - docs/adr/0109-constructible-schema-models.md
   - docs/adr/0181-implicit-result-identifiers.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
 ---
 
-`App.Schema.define()` returns a class that represents both a new record draft and a
-persisted result. Each instance is an immutable snapshot, not a mutable row or
-an open database connection.
+`App.Schema.define()` returns a schema: a value that carries every command
+(`findMany`, `createOne`, `updateOne`, `deleteOne`, and the others). Every read
+and mutation returns frozen plain objects. A result is data, not a mutable row,
+an open database connection, or an object with methods.
 
-## Drafts and persisted models
+## Results are data
 
 The example uses the `Product` schema from [Fields](./fields). Its application
-must register the schema and finish compilation before you construct a model.
-To execute `create()`, the application must also be started with a persistence
-plugin, as in [Manual Installation](/docs/1.0.0/manual-installation).
+must be started with a persistence plugin, as in
+[Manual Installation](/docs/1.0.0/manual-installation).
 
 ```ts title="src/product-model.ts"
+import { toJSON } from '@ultimabase/core'
+
 import { Product } from './product.js'
 
-const draft = new Product({
-	name: 'Notebook',
-	price: '19.90',
-	tags: ['typescript'],
+const created = await Product.createOne({
+	data: { name: 'Notebook', price: '19.90', tags: ['typescript'] },
+	select: { name: true },
 })
-
-const draftValues = draft.toJSON()
-const created = await draft.create({ select: { name: true } })
-const createdValues = created.toJSON()
-```
-
-`new Product(input)` validates and freezes create values synchronously; it does
-no I/O. `draftValues` contains the three supplied fields, but no generated
-`id` or timestamps. `create()` executes through Runtime and returns a separate
-persisted `Product`. Because the selection requests `name`, `createdValues`
-contains `name` and the implicitly selected `id`, but not `price` or `tags`.
-
-| Property or command                               | Draft | Persisted result |
-| ------------------------------------------------- | ----- | ---------------- |
-| Constructed with `new Product(input)`             | Yes   | No               |
-| Has a generated `id`                              | No    | Yes              |
-| `get()` and `toJSON()` read visible values        | Yes   | Yes              |
-| `create()` and `upsert()`                         | Yes   | No               |
-| `fetch()`, `exists()`, `update()`, and `delete()` | No    | Yes              |
-
-Only Runtime can produce a persisted model. Supplying an `id` to a draft cannot
-turn it into one.
-
-## Visible fields and identity
-
-Direct properties, `get()`, enumeration, inspection, and `toJSON()` expose the
-same visible snapshot. A selected result does not retain unselected fields for
-later local reads: `created.get('name')` succeeds, while
-`created.get('price')` throws because `price` was not selected. `get()` performs
-no database request.
-
-Every persisted model includes `id`, even when `select` does not name it. This
-also applies to included related models. `id: false` is invalid. Other fields
-may still be narrowed by the selection and installed output policy. See
-[Selections](/docs/1.0.0/core/reading-data/selections) for
-inclusion and exclusion rules.
-
-## Commands by state
-
-| Method                                             | Available on | Result                                            |
-| -------------------------------------------------- | ------------ | ------------------------------------------------- |
-| `get(field)`, `toJSON()`                           | Both         | Visible value or serialized snapshot; no I/O.     |
-| `create(input, options)`, `upsert(input, options)` | Draft        | New persisted model.                              |
-| `fetch(input, options)`                            | Persisted    | New model from the normal read pipeline.          |
-| `exists(options)`                                  | Persisted    | Boolean from the normal read pipeline.            |
-| `update(input, options)`                           | Persisted    | New updated model.                                |
-| `delete(input, options)`                           | Persisted    | Selected pre-delete model.                        |
-| `toPointer()`, `equals(other)`                     | Persisted    | Detached pointer or boolean; no I/O.              |
-| `relation(field)`                                  | Persisted    | Immutable handle for a declared to-many relation. |
-
-`create()`, `fetch()`, and `delete()` accept `{ select? }`; `update()` requires
-`{ data, select? }`. `upsert()` requires `{ where, update, select? }`, with a
-unique target described in [Upserts](/docs/1.0.0/core/writing-data/upserts).
-`exists()` takes no selection because it returns no fields.
-
-Executing commands resolve the sole active application. Inside a request they
-retain its exact context, transaction, cancellation, subject, and authority.
-Each command's `select` controls its own result; an earlier selection
-does not constrain a later `fetch()`, `update()`, or `delete()` result.
-
-```ts title="src/product-model.ts"
-const updated = await created.update({
+const updated = await Product.updateOne({
+	where: { id: { eq: created.id } },
 	data: { price: '24.90' },
 	select: { name: true, price: true },
 })
-const fresh = await updated.fetch({ select: { name: true } })
-const sameProduct = fresh.equals(created)
-const pointer = fresh.toPointer()
+
+console.log(toJSON(updated))
 ```
 
-`updated` and `fresh` are distinct immutable snapshots. `sameProduct` is
-`true` because both persisted models have the same schema and `id`. `pointer`
-contains that detached identity, not a connection to the database.
-The original `created` value still shows its earlier selection and values;
-call `fetch()` when you need a fresh snapshot.
+`created` contains `name` and the implicitly selected `id`, but not `price` or
+`tags`. Each result is a separate frozen object whose prototype is
+`Object.prototype`: property reads, enumeration, spreading, and structural
+comparison work as for any plain object, and no property can be reassigned.
+The earlier `created` value keeps its earlier values; read again when you need
+a fresh one.
 
-## Immutability and failures
+A result holds:
 
-Commands never modify their receiver. Persistence runs through the same Core
-Runtime pipeline as schema commands, including structural validation and
-transactions. Application validation, Access policy, and Hooks participate
-when their respective plugins are installed.
+- field values, with `bigint` and `Uint8Array` values for those field kinds;
+- a `Pointer` for an unincluded pointer field;
+- a plain object or `null` for an included pointer;
+- an array of plain objects for an included relation.
 
-There is no mutable setter, dirty tracking, lazy field loading, or `save()`.
-Calling a command on the wrong model state throws. `get()` throws for a field
-absent from the visible snapshot. Persisted `fetch()`, `update()`, and
-`delete()` throw `NOT_FOUND` if the target is gone or an installed policy hides
-it; `exists()` instead returns a boolean.
+Schemas are not constructible: `new Product(data)` throws, and a result has no
+`create()`, `update()`, `fetch()`, `delete()`, `toPointer()`, or `relation()`.
+Write through the schema
+(`Product.updateOne({ where: { id: { eq: product.id } }, data })`), read related
+rows with `include` or a relation filter, and link rows with nested writes such
+as `{ tags: { connect: [tagId] } }`. A `Pointer` keeps `id`, `schema`,
+`equals()` and `toJSON()`; read its target with the target schema.
 
-Optional [Typegen](/docs/1.0.0/guides/generate-types) adds exact
-application-specific draft, selection, and result types. Generated declarations
-do not change the Runtime model class or create a separate client.
+## Visible fields and identity
+
+Every result includes `id`, even when `select` does not name it. This also
+applies to included related rows. `id: false` is invalid. Other fields may be
+narrowed by the selection and by an installed output policy. See
+[Selections](/docs/1.0.0/core/reading-data/selections) for inclusion and
+exclusion rules.
+
+## Named types
+
+`Model<T>`, `CreateInput<T>` and `UpdateInput<T>` name the result and the write
+data of one schema. `T` is a registered schema name, such as `Model<'Product'>`,
+or a schema type, such as `Model<typeof Product>`.
+
+```ts title="src/product-types.ts"
+import type { CreateInput, Model } from '@ultimabase/core'
+
+import { Product } from './product.js'
+
+export const describe = (product: Model<typeof Product>): string =>
+	`${product.name}: ${product.price}`
+
+export const draft: CreateInput<typeof Product> = {
+	name: 'Notebook',
+	price: '19.90',
+}
+```
+
+`Model<T>` is the result of `findOne` without `select` or `include`.
+`CreateInput<T>` is the `data` of `createOne`, nested writes included.
+
+## Serialize with toJSON
+
+`JSON.stringify` on a raw result throws on `bigint` values. `toJSON(value)`
+serializes a result, a list of results, or any value inside them exactly as REST
+responses do: `bigint` as a decimal string, binary as
+`{ type: 'binary', encoding: 'base64', data }`, a `Pointer` as
+`{ type: 'pointer', className, id }`, and included rows and embedded objects
+recursively. Its return type, `JsonOf<T>`, describes that JSON shape. Use it in
+custom routes, logs, and responses: `Response.json(toJSON(product))`.
+
+`toJSON` is strict: it throws on `undefined`, non-finite numbers, circular
+values, and objects it cannot represent.
 
 ## Related tasks
 
 <Cards>
 	<Card title="Create Records" href="/docs/1.0.0/core/writing-data/create">
-		Choose between draft and schema-level creation.
+		Create rows with schema commands.
 	</Card>
 	<Card title="Update Records" href="/docs/1.0.0/core/writing-data/update">
-		Update one persisted model through the shared Runtime path.
+		Update one row through the shared Runtime path.
 	</Card>
 	<Card title="Relationships" href="./relationships">
-		Use pointers and relation handles with model identity.
+		Use pointers, includes, and nested link writes.
 	</Card>
 </Cards>

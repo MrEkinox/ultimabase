@@ -74,7 +74,7 @@ explicit Runtime registration root. Typegen remains the sole application-local
 literal-name graph for circular and cross-file schema relationships. Configured
 local fields, options and command surfaces infer from plugin source definitions;
 retained standalone, advanced-handle and complete-graph consumers still use
-generated descriptors. Direct class and immutable-model commands
+generated descriptors. Direct schema class commands
 resolve and verify the sole active application without storing resources or
 authority on the class.
 

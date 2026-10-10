@@ -273,7 +273,7 @@ describe(
 				title: 'REST one',
 			})
 			expect(Object.keys(toJson(restCreated))).toStrictEqual(
-				Object.keys(directCreated.toJSON()),
+				Object.keys(directCreated),
 			)
 
 			const restUpdated = await runAsHarness(harness, (executor) =>

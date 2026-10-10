@@ -39,8 +39,8 @@ describe('public application Runtime assembly', () => {
 		const result = await publicArticleSchema.findMany(undefined)
 
 		expect(result).toHaveLength(1)
-		expect(result[0]).toBeInstanceOf(publicArticleSchema)
-		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
+		expect(Object.getPrototypeOf(result[0])).toBe(Object.prototype)
+		expect(result).toStrictEqual(rows)
 
 		await ultimabase.dispose()
 	})

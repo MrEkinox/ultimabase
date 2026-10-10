@@ -137,9 +137,9 @@ export const HookPostSchema = RuntimeSchemaApplication.Schema.define({
 					throw new TypeError('Runtime hook item title must be a string')
 				}
 
-				await new HookAuditSchema({
-					action: `create:${title}`,
-				}).create({})
+				await HookAuditSchema.createOne({
+					data: { action: `create:${title}` },
+				})
 
 				if (title === 'rollback') {
 					throw hookRollbackError
@@ -169,14 +169,12 @@ export const allFieldValues = {
 	wakeAt: '08:30:00.456',
 } as const
 
-// These side-effect-free values also exercise packed constructor and QueryBuilder declarations.
-export const packedDraft = new PostSchema({ title: 'Packed draft' })
+// These side-effect-free values also exercise packed result and QueryBuilder declarations.
+export const packedDraft = () =>
+	PostSchema.findOneOrThrow({ select: { title: true } })
 export const PackedModelSchema = UltimaBase.Schema.define({
 	className: 'PackedModel',
 	fields: (field) => ({ title: field.string() }),
-})
-export const packedModelDraft = new PackedModelSchema({
-	title: 'Packed model draft',
 })
 export const packedQuery = new QueryBuilder(PostSchema).select({
 	id: true,
@@ -190,16 +188,16 @@ export const packedMasterFind = () =>
 export const packedContextFind = () =>
 	PostSchema.findMany(undefined, { context: packedContext })
 export const packedDraftCreate = () =>
-	packedModelDraft.create({}, { useMasterKey: true })
+	PackedModelSchema.createOne({ data: { title: 'Packed' } })
+// ADR-0310: a result is frozen plain data without model methods.
 export declare const packedResult: SchemaResult<
 	typeof PackedModelSchema,
-	{ readonly title: string }
+	{ readonly id: string; readonly title: string }
 >
 export const packedModelUpdate = () =>
-	packedResult.update({ data: { title: 'Packed update' } })
-export const packedModelFetch = () =>
-	packedResult.fetch({ select: { title: true } })
-export const packedModelPointer = () => packedResult.toPointer()
+	PackedModelSchema.updateOne({ where: { id: 'p' }, data: { title: 'U' } })
+export const packedModelPointer = () =>
+	PackedModelSchema.pointer(packedResult.id)
 export const packedQueryUpdate = () =>
 	PostSchema.updateOne({
 		where: { id: 'packed-post' },
@@ -211,14 +209,12 @@ export const packedQueryDelete = () =>
 		{ context: packedContext },
 	)
 void packedDraft
-void packedModelDraft
 void packedQuery
 void packedAtomicCreate
 void packedMasterFind
 void packedContextFind
 void packedDraftCreate
 void packedModelUpdate
-void packedModelFetch
 void packedModelPointer
 void packedQueryUpdate
 void packedQueryDelete

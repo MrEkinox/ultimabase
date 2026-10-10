@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FieldBuilder } from './field-builder.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { materializeSchemaModel } from './model-materialization.js'
 
 // Regressions for accumulators keyed by developer field names: plain
 // assignment (`fields[name] = field`) hits the inherited `__proto__` setter,
@@ -54,26 +55,23 @@ describe('schema field maps keyed by developer names', () => {
 		expect(Object.getPrototypeOf(ProtoFieldItem.fields)).toBe(Object.prototype)
 	})
 
-	it('rejects inherited Object.prototype names as unknown model fields', () => {
+	it('rejects inherited Object.prototype names as unknown result fields', () => {
 		for (const name of ['toString', 'constructor', 'hasOwnProperty']) {
 			expect(() =>
-				Reflect.construct(ProtoFieldItem, [{ [name]: 'x' }]),
+				materializeSchemaModel(ProtoFieldItem, { [name]: 'x' }),
 			).toThrow(
-				new TypeError(`Schema model input contains an unknown field: ${name}`),
+				new TypeError(
+					`Persisted schema values contain an unknown field: ${name}`,
+				),
 			)
 		}
 	})
 
-	it('keeps an own __proto__ input value on a model draft', () => {
-		const draft: unknown = Reflect.construct(ProtoFieldItem, [
-			JSON.parse('{"__proto__":"legacy","title":"Hello"}'),
-		])
-
-		if (!(draft instanceof ProtoFieldItem)) {
-			throw new TypeError('Expected a schema model draft')
-		}
-
-		const values = draft.toJSON()
+	it('keeps an own __proto__ value on a plain result (ADR-0310)', () => {
+		const values: object = materializeSchemaModel(
+			ProtoFieldItem,
+			JSON.parse('{"__proto__":"legacy","title":"Hello"}') as object,
+		)
 
 		expect(readOwnValue(values, protoField)).toBe('legacy')
 		expect(Object.keys(values)).toStrictEqual([protoField, 'title'])

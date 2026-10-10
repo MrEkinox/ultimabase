@@ -177,13 +177,12 @@ export const createSchemaModelClass = <
 ): SchemaReference<TClassName> => {
 	// A schema is a class value for its static API only: results are plain
 	// data and nothing constructs a model (ADR-0310).
-	class DefinedSchemaModel {
-		constructor() {
-			throw new TypeError(
-				`${reader.className} is not constructible: create rows with ${reader.className}.createOne({ data })`,
-			)
-		}
+	const DefinedSchemaModel = function (): never {
+		throw new TypeError(
+			`${reader.className} is not constructible: create rows with ${reader.className}.createOne({ data })`,
+		)
 	}
+	Object.freeze(DefinedSchemaModel.prototype)
 
 	// The generated class implements both structural views, while its constructor
 	// signature deliberately remains private to this composition boundary.

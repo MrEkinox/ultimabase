@@ -280,7 +280,7 @@ describe('plugin conformance suite', () => {
 								schemaMutations: {
 									archive: {
 										mutation: archive,
-										surfaces: ['schema', 'model'],
+										surfaces: ['schema'],
 									},
 								},
 							},
@@ -316,9 +316,6 @@ describe('plugin conformance suite', () => {
 			expect(surface?.schemaMutations.get('archive')?.mutation.name).toBe(
 				archive.name,
 			)
-			expect(surface?.modelMutations.get('archive')?.mutation.name).toBe(
-				archive.name,
-			)
 		})
 
 		const report = await runPluginConformance(suite)
@@ -329,7 +326,6 @@ describe('plugin conformance suite', () => {
 	})
 
 	it('covers portable relation shaping without a database or policy product', async () => {
-		const sourceId = '0198f090-2a50-7000-8000-000000000093'
 		class RelationAdapter implements DatabaseAdapter {
 			readonly kind = 'database-adapter' as const
 			readonly checkHealth = (): Promise<void> => Promise.resolve()
@@ -342,14 +338,7 @@ describe('plugin conformance suite', () => {
 			})
 			readonly requests: DatabaseOperationRequest[] = []
 			whereInvocations = 0
-			readonly #results: unknown[] = [
-				{
-					createdAt: '2026-09-11T10:00:00.000Z',
-					id: sourceId,
-					updatedAt: '2026-09-11T10:00:00.000Z',
-				},
-				0,
-			]
+			readonly #results: unknown[] = [0]
 
 			execute<const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
@@ -413,26 +402,31 @@ describe('plugin conformance suite', () => {
 			const { schemas, ultimabase } = context.createUltimaBase()
 			const [Source, Target] = schemas
 			await ultimabase.start()
-			const source = await Source.findOneOrThrow({ where: { id: sourceId } })
-			await source.relation('targets').count({})
-
+			// ADR-0310: related rows are read through a relation filter or an
+			// include, not through relation handles.
+			await Source.count({ where: { targets: { some: {} } } })
 			if (latestAdapter === undefined) {
 				throw new TypeError('Relation read conformance adapter is unavailable')
 			}
 			const adapter = latestAdapter
 			expect(adapter.whereInvocations).toBe(1)
-			expect(adapter.requests[1]).toMatchObject({
-				relation: {
-					fieldPath: ['targets'],
-					source: Source,
-					sourceObjectId: sourceId,
-					target: Target,
-				},
-				rowFilter: {
-					field: 'visible',
-					kind: 'equal',
-					value: true,
-				},
+			expect(adapter.requests[0]).toMatchObject({
+				relationPredicates: [
+					{
+						predicate: {
+							field: 'targets',
+							kind: 'relation-predicate',
+							operator: 'some',
+							source: { definition: Source },
+							target: { definition: Target },
+						},
+						rowFilter: {
+							field: 'visible',
+							kind: 'equal',
+							value: true,
+						},
+					},
+				],
 			})
 		})
 

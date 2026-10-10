@@ -270,7 +270,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			data: { title: 'active' },
 			select: { isDeleted: true, title: true },
 		})
-		expect(active.toJSON()).toMatchObject({ isDeleted: false, title: 'active' })
+		expect(active).toMatchObject({ isDeleted: false, title: 'active' })
 
 		await database.pool.query(
 			`update soft_delete_visible_records set "isDeleted" = true where id = $1`,
@@ -335,7 +335,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		})
 
 		// A logical delete returns the row as written (ADR-0306 amendment).
-		expect(deleted?.toJSON()).toStrictEqual({
+		expect(deleted).toStrictEqual({
 			id: row.id,
 			isDeleted: true,
 			title: 'logical delete',
@@ -369,7 +369,10 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			{ data: { title: 'master logical delete' } },
 			{ useMasterKey: true },
 		)
-		await masterRow.delete({}, { useMasterKey: true })
+		await ReplaceRecord.deleteOne(
+			{ where: { id: { eq: masterRow.id } } },
+			{ useMasterKey: true },
+		)
 		const masterStored = await database.pool.query<{ isDeleted: boolean }>(
 			`select "isDeleted" from soft_delete_replace_records where id = $1`,
 			[masterRow.id],
@@ -468,7 +471,10 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		const article = await Article.createOne({
 			data: { author: { connect: author.id }, title: 'relations' },
 		})
-		await article.relation('tags').connect(tag.id)
+		await Article.updateOne({
+			where: { id: { eq: article.id } },
+			data: { tags: { connect: [tag.id] } },
+		})
 
 		await database.pool.query(
 			`update soft_delete_visibility_authors set "isDeleted" = true where id = $1`,
@@ -485,12 +491,13 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		if (loaded === undefined) throw new TypeError('Expected the active article')
 		expect(loaded.author).toBeNull()
 		expect(loaded.tags).toStrictEqual([])
-		await expect(article.relation('tags').count(undefined)).resolves.toBe(0)
-		await expect(article.relation('tags').exists(undefined)).resolves.toBe(
-			false,
-		)
 		await expect(
-			Author.pointer(author.id).findOne(undefined),
+			Article.count({
+				where: { id: { eq: article.id }, tags: { some: {} } },
+			}),
+		).resolves.toBe(0)
+		await expect(
+			Author.findOne({ where: { id: { eq: author.id } } }),
 		).resolves.toBeNull()
 		await expect(
 			Article.createOne({

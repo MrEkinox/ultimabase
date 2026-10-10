@@ -294,10 +294,7 @@ describe('createFrameworkEngine', () => {
 		)
 
 		expect(result).toHaveLength(1)
-		expect(result[0]).toBeInstanceOf(schema)
-		expect(result.map((article) => article.toJSON())).toStrictEqual([
-			{ title: 'visible' },
-		])
+		expect(result).toStrictEqual([{ title: 'visible' }])
 		expect(adapter.transactions).toStrictEqual([])
 		expect(adapter.rootRequests).toHaveLength(1)
 		expect(adapter.rootRequests[0]?.rowFilter).toEqual({

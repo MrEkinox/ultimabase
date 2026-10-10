@@ -1,8 +1,4 @@
-import {
-	RequestSubjectReference,
-	UltimaBase,
-	type RequestRoleReferenceCarrier,
-} from '@ultimabase/core'
+import { RequestSubjectReference, UltimaBase } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -25,16 +21,13 @@ const User = UltimaBase.Schema.define({
 })
 const principal = User.pointer('principal-id')
 const role = new RequestSubjectReference('role', 'role:editor')
-const persistedRole: RequestRoleReferenceCarrier = {
-	toRequestRoleReference: () => role,
-}
 
 test('keeps the complete ACL builder surface compact and precise', () => {
 	const acl = new ACL()
 		.grantPublic('read')
 		.grantAuthenticated('read')
 		.grantPrincipal(principal, 'read', 'update')
-		.grantRole(persistedRole, 'delete')
+		.grantRole(role, 'delete')
 
 	expectTypeOf(acl).toEqualTypeOf<ACL>()
 	expectTypeOf(principal).toExtend<ACLPrincipal>()

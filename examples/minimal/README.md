@@ -75,18 +75,14 @@ then makes each schema's intent explicit:
   separately authorized `softDelete` command is added.
 - `ExamplePrivateNote` omits the option and therefore inherits `disabled`.
 
-An authenticated direct call uses the configured schema class or
-the same command on a loaded model. The example helper validates a real Password
-Auth session before entering the ambient request context:
+An authenticated direct call uses the configured schema class; results have no
+methods (ADR-0310). The example helper validates a real Password Auth session
+before entering the ambient request context:
 
 ```ts
-import {
-	softDeleteArticle,
-	softDeleteArticleFromModel,
-} from './src/soft-delete.ts'
+import { softDeleteArticle } from './src/soft-delete.ts'
 
 await softDeleteArticle(ultimabase, articleId, sessionToken)
-await softDeleteArticleFromModel(ultimabase, anotherArticleId, sessionToken)
 ```
 
 The matching REST and GraphQL calls are generated from that same mutation

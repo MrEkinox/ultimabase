@@ -28,7 +28,7 @@ const specificOptions: Readonly<Record<FactoryName, readonly string[]>> = {
 	date: [],
 	dateTime: ['timezone'],
 	decimal: ['precision', 'scale'],
-	enum: ['typeName', 'values'],
+	enum: ['values'],
 	float: [],
 	int: [],
 	json: [],

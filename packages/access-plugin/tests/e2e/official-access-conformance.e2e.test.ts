@@ -56,8 +56,12 @@ describe('official Access capability conformance', () => {
 			const visible = rows[0]
 			if (visible === undefined)
 				throw new TypeError('Visible row is unavailable')
+			// ADR-0310: related rows are read through include, not a handle.
 			await expect(
-				visible.relation('tags').findMany(undefined),
+				document.findMany({
+					where: { id: { eq: visible.id } },
+					include: { tags: {} },
+				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 

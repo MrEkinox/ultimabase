@@ -171,7 +171,7 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugin IDs without explicit distinct instances are errors.
 - Authorized plugins may contribute schemas, field kinds, namespaced options,
-  immutable patches, model surfaces, operations, Typegen declarations, Runtime
+  immutable patches, schema surfaces, operations, Typegen declarations, Runtime
   middleware, protected constraints, and persistence-plan rewrites. Static
   contributions remain pure, synchronous, deterministic, and infrastructure-free.
 - Product-owned Runtime observation and filesystem claims
@@ -186,7 +186,7 @@ Run `yarn constraints`; update the graph in `yarn.config.cjs` and `ARCHITECTURE.
   Milestone 14 removes public string slots, service lookup, named setup
   registries, and generic contribution registries instead of preserving parallel
   escape hatches.
-- Plugin-created schemas, operations, and application-specific model commands
+- Plugin-created schemas, operations, and application-specific schema commands
   are reached through application-owned handles. A plugin may claim exact
   ownership of a developer schema already listed at the application root, but
   plugins never mutate an exported schema class or prototype.

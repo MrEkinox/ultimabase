@@ -1,11 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	Pointer,
-	type PointerJSON,
-	type PointerValue,
-	type QueryResult,
-} from '../../index.js'
+import { Pointer, type PointerJSON, type PointerValue } from '../../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const userSchema = UltimaBase.Schema.define({
@@ -27,9 +22,10 @@ test('preserves exact schema identity through its schema', () => {
 		Readonly<PointerJSON<'PointerUser'>>
 	>()
 	expectTypeOf(direct).toExtend<PointerValue>()
-	expectTypeOf(direct.findOne({ select: { id: true } })).toEqualTypeOf<
-		Promise<QueryResult<typeof userSchema, 'id'> | null>
-	>()
+	// @ts-expect-error -- Pointers no longer read their target (ADR-0310).
+	void direct.findOne
+	// @ts-expect-error -- Pointers no longer test their target (ADR-0310).
+	void direct.exists
 
 	// @ts-expect-error -- The erased boundary remains nominal to Core Pointer values.
 	const forged: PointerValue = { id: 'forged', toJSON: () => direct.toJSON() }

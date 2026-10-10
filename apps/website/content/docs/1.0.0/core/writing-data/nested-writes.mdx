@@ -17,8 +17,8 @@ sources:
 ---
 
 Use a nested write when one post command must also create, connect, or update
-related records. `createOne`, `updateOne`, and a persisted model's `update()`
-accept relationship commands inside `data`. The root and every child run in
+related records. `createOne` and `updateOne` accept relationship commands
+inside `data`. The root and every child run in
 one transaction; a failure rolls back the whole graph.
 
 The examples assume a started application with a persistence plugin. `Post`
@@ -94,7 +94,7 @@ the comment. Each ID in this example must refer to a distinct target.
 
 ## Choose a relationship command
 
-| Field    | On `createOne`                                                  | On `updateOne` or a persisted model's `update()`                                                         |
+| Field    | On `createOne`                                                  | On `updateOne`                                                                                           |
 | -------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Pointer  | `connect: target`, `create: data`, or `null` (optional pointer) | `connect: target`, `create: data`, `update: data`, or `null` (optional pointer)                          |
 | Relation | `create: [data]`, `connect: [target]`                           | `create: [data]`, `connect: [target]`, `update: [{ id, data }]`, `disconnect: [target]`, `set: [target]` |

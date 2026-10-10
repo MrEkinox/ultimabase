@@ -14,7 +14,7 @@ sources:
   - packages/core/docs/schema.md
   - packages/core/docs/runtime.md
   - packages/soft-delete-plugin/README.md
-  - docs/adr/0109-constructible-schema-models.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0099-automatic-mutation-transactions.md
   - docs/adr/0146-flat-delete-one-result-selections.md
   - docs/adr/0162-strict-object-target-commands.md
@@ -53,7 +53,7 @@ If a visible post matches, `deletePost()` returns a `Post` containing its `id`,
 `slug`, and `title` as they were before deletion. A later ordinary read by that
 ID returns no record. The returned snapshot is not a live row or a way to undo
 the delete. Without `select`, the result contains the complete visible
-pre-delete model.
+pre-delete row.
 
 If no visible post matches, schema-level `deleteOne()` returns `null`; it does
 not run item Hooks for a nonexistent record. Check for `null` before using the
@@ -65,24 +65,23 @@ does not load its target. If you need related data, read it before deleting the
 record. See [Selections](/docs/1.0.0/core/reading-data/selections) for result
 shaping.
 
-## Delete a loaded model
+## Delete a loaded row
 
-When you already have a persisted `Post`, call its strict identity command:
+Results have no `delete()` method (ADR-0310). When you already have a loaded
+`Post`, pass its `id` as the target:
 
 ```ts title="src/delete-loaded-post.ts"
 import { Post } from './schemas.js'
 
 export const deleteLoadedPost = async (postId: string) => {
 	const post = await Post.findOneOrThrow({ where: { id: postId } })
-	return post.delete({ select: { title: true } })
+	return Post.deleteOne({ where: { id: post.id }, select: { title: true } })
 }
 ```
 
 `findOneOrThrow()` throws `NOT_FOUND` if the record is already absent or
-inaccessible.
-Once loaded, `post.delete()` also throws `NOT_FOUND` if that protected target
-disappears or becomes inaccessible before deletion. Unlike `deleteOne()`, it
-never returns `null`. The prior `post` snapshot remains unchanged.
+inaccessible; `deleteOne()` returns `null` if it disappears before deletion.
+The prior `post` result remains unchanged.
 
 ## Integrity and soft deletion
 

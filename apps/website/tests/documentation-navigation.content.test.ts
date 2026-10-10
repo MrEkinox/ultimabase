@@ -252,16 +252,16 @@ describe('documentation navigation architecture', () => {
 		).rejects.toMatchObject({ code: 'ENOENT' })
 	})
 
-	it('keeps model commands inside Models without a duplicate reference page', async () => {
+	it('keeps plain results inside Models without a duplicate reference page', async () => {
 		const page = await readFile(
 			path.join(contentRoot, '1.0.0/core/data-modeling/models.mdx'),
 			'utf8',
 		)
 		for (const heading of [
-			'## Drafts and persisted models',
+			'## Results are data',
 			'## Visible fields and identity',
-			'## Commands by state',
-			'## Immutability and failures',
+			'## Named types',
+			'## Serialize with toJSON',
 		]) {
 			expect(page).toContain(heading)
 		}

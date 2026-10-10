@@ -20,6 +20,22 @@ import {
 } from './relation-postgres-fixture.js'
 import { registerRelationFilterTests } from './register-relation-filter-tests.js'
 
+// Included rows are frozen plain objects (ADR-0310).
+const isPlainRow = (
+	value: unknown,
+): value is Readonly<Record<string, unknown>> =>
+	typeof value === 'object' &&
+	value !== null &&
+	Object.getPrototypeOf(value) === Object.prototype &&
+	Object.isFrozen(value)
+
+type TagLinks = NonNullable<
+	Parameters<typeof Article.updateOne>[0]['data']['tags']
+>
+type PostLinks = NonNullable<
+	Parameters<typeof Author.updateOne>[0]['data']['posts']
+>
+
 describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 	registerRelationFilterTests()
 
@@ -33,59 +49,79 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			throw new TypeError('Relation fixture tags are incomplete')
 		}
 
-		const tags = article.relation('tags')
-
-		await tags.connect([alpha.id, beta.id])
-		await tags.connect(alpha.id)
-
-		expect(await tags.count(undefined)).toBe(2)
-		expect(await tags.exists(undefined)).toBe(true)
-		expect(
+		// ADR-0310: relation handles are gone; links go through nested writes
+		// (ADR-0308) and reads through include or a relation filter.
+		const updateTags = (tags: TagLinks) =>
+			Article.updateOne({
+				where: { id: { eq: article.id } },
+				data: { tags },
+				select: { id: true },
+			})
+		const tagLabels = async () =>
 			(
-				await tags.findMany({
-					where: { label: { eq: 'alpha' } },
-					orderBy: { label: 'asc' },
-					take: 1,
-					select: { label: true },
+				await Article.findOneOrThrow({
+					where: { id: { eq: article.id } },
+					select: { id: true },
+					include: {
+						tags: { orderBy: { label: 'asc' }, select: { label: true } },
+					},
 				})
-			).map((tag) => tag.toJSON()),
-		).toStrictEqual([{ id: alpha.id, label: 'alpha' }])
-		expect(await alpha.relation('articles').count(undefined)).toBe(1)
+			).tags.map(({ label }) => label)
+		const articleCount = (tagId: string) =>
+			Article.count({ where: { tags: { some: { id: { eq: tagId } } } } })
+
+		await updateTags({ connect: [alpha.id, beta.id] })
+		await updateTags({ connect: [alpha.id] })
+
+		expect(await tagLabels()).toStrictEqual(['alpha', 'beta'])
+		await expect(
+			Article.exists({
+				where: { id: { eq: article.id }, tags: { some: {} } },
+			}),
+		).resolves.toBe(true)
+		const filtered = await Tag.findMany({
+			where: {
+				articles: { some: { id: { eq: article.id } } },
+				label: { eq: 'alpha' },
+			},
+			orderBy: { label: 'asc' },
+			take: 1,
+			select: { label: true },
+		})
+		expect(filtered).toStrictEqual([{ id: alpha.id, label: 'alpha' }])
+		expect(await articleCount(alpha.id)).toBe(1)
 		expect(relationTrace).toEqual(expect.arrayContaining(['article:tags:read']))
 
-		await tags.set([beta.id, gamma.id])
-		expect(await alpha.relation('articles').count(undefined)).toBe(0)
-		await tags.disconnect(beta.id)
-		expect(
-			(await tags.findMany(undefined)).map(({ label }) => label),
-		).toStrictEqual(['gamma'])
+		await updateTags({ set: [beta.id, gamma.id] })
+		expect(await articleCount(alpha.id)).toBe(0)
+		await updateTags({ disconnect: [beta.id] })
+		expect(await tagLabels()).toStrictEqual(['gamma'])
 
 		rejectNextRelationMutation()
-		await expect(tags.connect(alpha.id)).rejects.toBe(rollbackError)
-		expect(await tags.count(undefined)).toBe(1)
+		await expect(updateTags({ connect: [alpha.id] })).rejects.toBe(
+			rollbackError,
+		)
+		expect(await tagLabels()).toStrictEqual(['gamma'])
 
-		await tags.clear()
-		expect(await tags.count(undefined)).toBe(0)
+		await updateTags({ set: [] })
+		expect(await tagLabels()).toStrictEqual([])
 
 		const inverseTag = await Tag.createOne({ data: { label: 'inverse' } })
-		const inverseArticles = inverseTag.relation('articles')
+		await updateTags({ connect: [inverseTag.id] })
+		expect(await articleCount(inverseTag.id)).toBe(1)
+		await updateTags({ disconnect: [inverseTag.id] })
+		expect(await tagLabels()).toStrictEqual([])
 
-		await inverseArticles.connect(article.id)
-		expect(await tags.count(undefined)).toBe(1)
-		await inverseArticles.disconnect(article.id)
-		expect(await tags.count(undefined)).toBe(0)
-
-		await tags.connect(gamma.id)
-		await gamma.delete({})
-		expect(await tags.count(undefined)).toBe(0)
+		await updateTags({ connect: [gamma.id] })
+		await Tag.deleteOne({ where: { id: { eq: gamma.id } } })
+		expect(await tagLabels()).toStrictEqual([])
 
 		const cleanupTag = await Tag.createOne({ data: { label: 'cleanup' } })
-		await tags.connect(cleanupTag.id)
-		await article.delete({})
-		expect(await cleanupTag.relation('articles').count(undefined)).toBe(0)
+		await updateTags({ connect: [cleanupTag.id] })
+		await Article.deleteOne({ where: { id: { eq: article.id } } })
+		expect(await articleCount(cleanupTag.id)).toBe(0)
 		expect(relationTrace).toEqual(
 			expect.arrayContaining([
-				'article:tags:update:clear',
 				'article:tags:update:connect',
 				'article:tags:update:disconnect',
 				'article:tags:update:set',
@@ -109,7 +145,10 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			throw new TypeError('Included relation tags are incomplete')
 		}
 
-		await article.relation('tags').connect([alpha.id, zeta.id, hidden.id])
+		await Article.updateOne({
+			where: { id: { eq: article.id } },
+			data: { tags: { connect: [alpha.id, zeta.id, hidden.id] } },
+		})
 		// The hidden result is requested as `select: { id: true }` (ADR-0306).
 		await Tag.updateOne({
 			where: { id: { eq: hidden.id } },
@@ -152,15 +191,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			typeof firstArticle === 'object' && firstArticle !== null
 				? Reflect.get(firstArticle, 'tags')
 				: undefined
-		if (!Array.isArray(includedTags) || !(includedTags[0] instanceof Tag)) {
-			throw new TypeError('Expected one included tag model')
+		if (!Array.isArray(includedTags) || !isPlainRow(includedTags[0])) {
+			throw new TypeError('Expected one included tag row')
 		}
 		const nestedArticles: unknown = Reflect.get(includedTags[0], 'articles')
-		if (
-			!Array.isArray(nestedArticles) ||
-			!(nestedArticles[0] instanceof Article)
-		) {
-			throw new TypeError('Expected one nested included article model')
+		if (!Array.isArray(nestedArticles) || !isPlainRow(nestedArticles[0])) {
+			throw new TypeError('Expected one nested included article row')
 		}
 		expect(includedTags).toHaveLength(1)
 		expect(Reflect.get(includedTags[0], 'label')).toBe('include-zeta')
@@ -210,12 +246,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const firstPosts = authors[0]?.posts
 		const secondPosts = authors[1]?.posts
 		if (
-			!Array.isArray(firstPosts) ||
-			!(firstPosts[0] instanceof Post) ||
-			!Array.isArray(secondPosts) ||
-			!(secondPosts[0] instanceof Post)
+			firstPosts?.[0] === undefined ||
+			!isPlainRow(firstPosts[0]) ||
+			secondPosts?.[0] === undefined ||
+			!isPlainRow(secondPosts[0])
 		) {
-			throw new TypeError('Expected one included post model per author')
+			throw new TypeError('Expected one included post row per author')
 		}
 		expect(firstPosts[0].title).toBe('Included first')
 		expect(secondPosts[0].title).toBe('Other first')
@@ -229,27 +265,43 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				title: 'Pointers',
 			},
 		})
-		const posts = author.relation('posts')
+		const readPosts = async () =>
+			(
+				await Author.findOneOrThrow({
+					where: { id: { eq: author.id } },
+					select: { id: true },
+					include: { posts: { select: { title: true } } },
+				})
+			).posts
+		const updatePosts = (posts: PostLinks) =>
+			Author.updateOne({
+				where: { id: { eq: author.id } },
+				data: { posts },
+				select: { id: true },
+			})
 
-		expect(await posts.count(undefined)).toBe(1)
-		const included = await posts.findMany({
+		const included = await Post.findMany({
+			where: { author: { eq: author.id } },
 			include: { author: { select: { name: true } } },
 		})
 
+		expect(await readPosts()).toStrictEqual([
+			{ id: post.id, title: 'Pointers' },
+		])
 		expect(included).toHaveLength(1)
 		expect(included[0]?.title).toBe('Pointers')
 		const includedAuthor = included[0]?.author
-		if (!(includedAuthor instanceof Author)) {
+		if (!isPlainRow(includedAuthor)) {
 			throw new TypeError('Expected the relation post author to be included')
 		}
-		expect(includedAuthor.toJSON()).toStrictEqual({
+		expect(includedAuthor).toStrictEqual({
 			id: author.id,
 			name: 'Ada',
 		})
-		await posts.disconnect(post.id)
-		expect(await posts.count(undefined)).toBe(0)
-		await posts.connect(post.id)
-		expect(await posts.count(undefined)).toBe(1)
+		await updatePosts({ disconnect: [post.id] })
+		expect(await readPosts()).toHaveLength(0)
+		await updatePosts({ connect: [post.id] })
+		expect(await readPosts()).toHaveLength(1)
 	})
 
 	it('denies relation traversal at the source field before returning targets', async () => {
@@ -260,12 +312,22 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			select: { id: true },
 		})
 
-		await article.relation('tags').connect(tag.id)
+		await PrivateArticle.updateOne(
+			{
+				where: { id: { eq: article.id } },
+				data: { tags: { connect: [tag.id] } },
+				select: { id: true },
+			},
+			{ useMasterKey: true },
+		)
 		expect(
 			await PrivateArticle.findMany({ select: { id: true, title: true } }),
 		).toMatchObject([{ id: article.id, title: 'Private relation' }])
 		await expect(
-			article.relation('tags').findMany(undefined),
+			PrivateArticle.findMany({
+				where: { id: { eq: article.id } },
+				include: { tags: {} },
+			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			PrivateArticle.findMany({

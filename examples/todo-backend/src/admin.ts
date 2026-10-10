@@ -11,7 +11,7 @@ export const createTodoUser = (data: TodoUserCreateInput) =>
 export const createTodoRole = (
 	name: string,
 	description: string | null = null,
-) => new TodoRole({ description, name }).create({}, masterOptions)
+) => TodoRole.createOne({ data: { description, name } }, masterOptions)
 
 /** Links one user to a role through the checked `connect` command. */
 export const addUserToRole = (roleId: string, userId: string) =>

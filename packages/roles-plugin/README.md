@@ -82,8 +82,9 @@ Members and included roles link through the same relation commands as any
 schema (ADR-0308): `members` and `roles` take `connect`, `disconnect` and
 `set` in `createOne` and `updateOne` data. Every target must be visible to the
 caller, the plugin rejects hierarchy cycles, and membership and hierarchy
-events are emitted for these links as for the `addMember`, `removeMember`,
-`addRole` and `removeRole` shortcuts that persisted role results keep.
+events are emitted for these links. Role results are plain data without
+commands (ADR-0310): these relation writes are the only membership and
+hierarchy API.
 
 The generation-free declaration form of
 [ADR-0297](../../docs/adr/0297-declare-schemas-without-typegen.md) will provide
@@ -104,7 +105,7 @@ one or the other. Both return frozen Core-neutral role references without
 performing I/O.
 
 `resolveRoleReference()` performs a strict schema-qualified lookup when server
-code needs the stored model. A UUID reference reads the exact object directly;
+code needs the stored row. A UUID reference reads the exact object directly;
 a name reference reads at most two matches and rejects absent or ambiguous
 storage. Renaming a role never changes its UUID identity.
 
@@ -120,11 +121,9 @@ Role schemas carry no generic transport metadata. Trusted server code can use
 schema-root reads such as `AppRole.findMany()`; future generated transport
 exposure must use an explicit contract owned by the relevant transport plugin.
 
-Persisted role results expose `addMember()` and `removeMember()`. Both accept a
-Pointer or persisted result of the exact member schema, delegate to the normal
-relation lifecycle, inherit ambient execution or ordinary operation options,
-and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
-raw identifiers, and unrelated schema values are rejected.
+A `members` link change delegates to the normal relation lifecycle, inherits
+ambient execution or ordinary operation options, and emits
+`ultimabase.roles.membership.changed` only after commit.
 
 Role membership, hierarchy, and deletion events are optional committed
 notifications. Without an observer, role writes queue no post-commit delivery;
@@ -139,8 +138,8 @@ edges, or references reported by another plugin. `preserve` deletes the role
 and leaves external references inert. `cascade` requires master authority,
 clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
-`ultimabase.roles.deleted` after commit. Both `role.delete({}, options)` and
-`AppRole.deleteOne({ where: { id: { eq: id } } })` execute the complete policy.
+`ultimabase.roles.deleted` after commit.
+`AppRole.deleteOne({ where: { id: { eq: id } } })` executes the complete policy.
 `AppRole.deleteMany({ where: [...] })` executes the same policy for each unique
 target, in input order, inside one transaction. A failure rolls back the whole
 collection, including its cleanup and post-commit notifications.
@@ -168,9 +167,8 @@ neutral resolver converts a name selector to the RoleSchema's stable UUID
 without loading current membership, allowing ACL storage to remain independent
 from this package and from mutable role names.
 
-Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
-`Administrator.addRole(Editor)` makes Editor a child role, so its direct and
-inherited members belong to Administrator. The plugin checks the complete
+Connecting Editor to Administrator's `roles` makes Editor a child role, so its
+direct and inherited members belong to Administrator. The plugin checks the complete
 post-update graph inside the active transaction, rejects self or indirect
 cycles before commit, handles diamond paths once, and fails explicitly beyond
 64 levels or 10,000 visited roles. Direct membership and membership inherited

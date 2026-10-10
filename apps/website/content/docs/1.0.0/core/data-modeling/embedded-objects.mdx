@@ -78,7 +78,7 @@ const created = await Customer.createOne({
 	},
 })
 
-console.log(created.toJSON().shippingAddress)
+console.log(created.shippingAddress)
 ```
 
 In the complete result, `shippingAddress.line2` is `null` because it was

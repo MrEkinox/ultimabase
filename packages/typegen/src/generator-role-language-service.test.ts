@@ -26,21 +26,25 @@ const AppRole = RoleSchema.define({
   members: { schema: Member },
 })
 
-const draft = new AppRole({ description: 'Editors', name: 'editor' })
-const draftDescription: string | null | undefined = draft.description
+// @ts-expect-error -- Role schemas are not constructible (ADR-0310).
+new AppRole({ description: 'Editors', name: 'editor' })
 
 async function inspectRole() {
   const role = await AppRole.findOne()
 
   if (role !== null) {
     const description: string | null = role.description
-    await role.addMember(Member.pointer('member-1'))
+    // Members link through the relation field, not a role command (ADR-0310).
+    await AppRole.updateOne({
+      where: { id: { eq: role.id } },
+      data: { members: { connect: ['member-1'] } },
+    })
+    // @ts-expect-error -- Results have no role commands.
+    role.addMember
     void description
   }
 }
 
-void draft
-void draftDescription
 void inspectRole
 `
 		const fileName = path.join(

@@ -4,10 +4,7 @@ import type {
 	UpdateExpressionNode,
 	UpdateOperationNode,
 } from '../../query/updates/contracts.js'
-import type {
-	SchemaDefinition,
-	SchemaReference,
-} from '../schema/definition.js'
+import type { SchemaDefinition, SchemaReference } from '../schema/definition.js'
 import type { Pointer } from './pointer.js'
 import type {
 	SchemaRelationshipFieldName,

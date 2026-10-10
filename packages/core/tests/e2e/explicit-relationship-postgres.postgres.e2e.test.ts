@@ -132,7 +132,7 @@ describe(
 			})
 
 			expect(membershipTrace).toContain('created:editor')
-			expect(membership.toJSON()).not.toHaveProperty('internalNote')
+			expect(membership).not.toHaveProperty('internalNote')
 			expect(
 				await Membership.count({ where: { member: { eq: member.id } } }),
 			).toBe(1)
@@ -154,7 +154,7 @@ describe(
 				},
 			})
 
-			expect(selected?.toJSON()).toMatchObject({
+			expect(selected).toMatchObject({
 				id: membership.id,
 				position: 0,
 				project: { id: project.id, title: 'UltimaBase' },
@@ -202,7 +202,7 @@ describe(
 				},
 			})
 
-			await member.delete({})
+			await Member.deleteOne({ where: { id: { eq: member.id } } })
 			expect(
 				await Membership.count({ where: { project: { eq: project.id } } }),
 			).toBe(0)

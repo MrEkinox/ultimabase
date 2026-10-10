@@ -117,8 +117,8 @@ describe('RequestEngine transactions', () => {
 			return transactionResult
 		})
 
-		expect(result).toBeInstanceOf(articleSchema)
-		expect(result.toJSON()).toStrictEqual(created)
+		expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
+		expect(result).toStrictEqual(created)
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([

@@ -110,9 +110,9 @@ during route compilation. It validates the complete mapping before transport
 startup and accepts only integer error statuses from 400 through 599.
 The `RestOperationTransport` setup export then
 executes only its own route objects through Core's existing operation Runtime.
-Operation codecs may return nested persisted models from the selected
-application. REST encodes their already authorized visible fields with its
-ordinary schema codecs, including bigint, binary, and custom field kinds.
+Operation codecs may return nested plain results from the selected application.
+REST serializes operation outputs with Core's `toJSON` (ADR-0310), including
+bigint and binary values.
 It does not load additional fields or relationships. JSON fields themselves
 remain strict JSON; foreign schema models are rejected.
 

@@ -59,6 +59,5 @@ Every object uses its normal Runtime lifecycle on the same transaction, then
 the root projection runs after all descendants and edges exist. A failure at
 any boundary rolls the complete graph back.
 
-Nested commands are intentionally limited to singular schema commands and a
-persisted model's `update()`. `createMany`, `updateMany`, upserts, draft
-construction, and a draft's `create()` keep their flat logical pointer values.
+Nested commands are intentionally limited to singular schema commands.
+`createMany`, `updateMany`, and upserts keep their flat logical pointer values.

@@ -1,9 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaRegistry } from '../schema/schema/registry.js'
-import {
-	reservedSchemaHandleNames,
-} from './application-surface-contracts.js'
+import { reservedSchemaHandleNames } from './application-surface-contracts.js'
 import {
 	CompiledCommandGraph,
 	type CommandEntry,

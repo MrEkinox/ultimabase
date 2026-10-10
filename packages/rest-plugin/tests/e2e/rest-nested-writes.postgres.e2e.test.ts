@@ -4,6 +4,7 @@ import {
 	UltimaBase,
 	type RequestContext,
 	type PluginSourceState,
+	type Model,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
@@ -22,6 +23,7 @@ import {
 	runAsRestMutationExecutionHarness,
 	type RestMutationExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const RestNestedWriteApplication = UltimaBase.use(accessPlugin())
 
@@ -107,18 +109,17 @@ const toJson = (value: unknown): Readonly<Record<string, unknown>> => {
 
 const includedTargets = (
 	value: unknown,
-): readonly (InstanceType<typeof Target> & Readonly<{ id: string }>)[] => {
+): readonly (Model<typeof Target> & Readonly<{ id: string }>)[] => {
 	if (
 		!Array.isArray(value) ||
 		!value.every(
 			(item) =>
-				item instanceof Target && typeof Reflect.get(item, 'id') === 'string',
+				isPlainResult(item) && typeof Reflect.get(item, 'id') === 'string',
 		)
 	) {
 		throw new TypeError('Expected included REST nested-write targets')
 	}
-	return value as readonly (InstanceType<typeof Target> &
-		Readonly<{ id: string }>)[]
+	return value as readonly (Model<typeof Target> & Readonly<{ id: string }>)[]
 }
 
 beforeAll(async () => {

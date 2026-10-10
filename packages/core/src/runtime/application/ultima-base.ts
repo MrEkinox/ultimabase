@@ -177,12 +177,7 @@ export class UltimaBase<
 		registerQueryExecutionOwner({
 			application: this.#application,
 			executeSchemaMutation: (schema, name, input, options) =>
-				this.#invokeSchemaMutation(
-					schema,
-					name,
-					input,
-					options,
-				),
+				this.#invokeSchemaMutation(schema, name, input, options),
 			// The facade-owned anonymous engine validates exact schema ownership.
 			createRootExecutor: () => this.#anonymousEngine(this.#frameworkEngine),
 		})

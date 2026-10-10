@@ -25,7 +25,7 @@ TypeScript snippets:
   static or request-contextual read shaping, and opaque independently paginated
   relation queries without embedding collections in model records;
 - [`nested-writes.md`](nested-writes.md) composes bounded singular pointer and
-  relation commands while keeping bulk and draft inputs flat;
+  relation commands while keeping bulk inputs flat;
 - [`explicit-relationships.md`](explicit-relationships.md) models edges with
   business data as ordinary schemas with exact pointers and composite
   uniqueness;

@@ -143,9 +143,7 @@ export const createPasswordUserAuthMethods = <TFields extends SchemaFields>(
 			) {
 				return rejectPasswordSession()
 			}
-			return readPasswordProfile(schema, principal.user.id) as Promise<
-				SchemaResult<User>
-			>
+			return readPasswordProfile(schema, principal.user.id)
 		},
 		changePassword: async (
 			input: PasswordChangeInput,

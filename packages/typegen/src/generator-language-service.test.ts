@@ -67,10 +67,9 @@ const include: SemanticArticleInclude = {
 }
 const exactStatus: 'draft' | 'published' = item.status
 const exactVector: readonly number[] | null = item.embedding
-const pointerRead = item.author.findOne({
-  select: { name: true },
-  where: { name: { startsWith: 'A' } },
-})
+const pointerId: string = item.author.id
+// @ts-expect-error -- Pointers no longer read their target (ADR-0310).
+item.author.findOne
 const schemaItem: Schemas.SemanticArticle['item'] = item
 const schemaCreate: Schemas.SemanticArticle['inputs']['create'] = createInput
 
@@ -118,7 +117,7 @@ void invalidListFilter
 void invalidSelection
 void invalidUpdate
 void order
-void pointerRead
+void pointerId
 void selection
 void updateInput
 `
@@ -262,11 +261,12 @@ const createInput: SemanticArticleCreateInput = {
   status: 'draft',
   title: 'Generated public API',
 }
-const draft = new SemanticArticle(createInput)
-const exactStatus: 'draft' | 'published' = draft.status
+// @ts-expect-error -- Schemas are not constructible (ADR-0310).
+new SemanticArticle(createInput)
+const exactStatus: 'draft' | 'published' = createInput.status
 declare const loadedArticle: SemanticArticleItem
-const authorRead = loadedArticle.author.findOne({
-  /* public-pointer-where-hover */where: { /* public-pointer-where */ name: { startsWith: 'A' } },
+const authorRead = SemanticAuthor.findOne({
+  /* public-pointer-where-hover */where: { /* public-pointer-where */ id: { eq: loadedArticle.author.id }, name: { startsWith: 'A' } },
   select: { /* public-pointer-handle-select */ name: true },
 })
 type AuthorRead = Awaited<typeof authorRead>
@@ -478,14 +478,21 @@ SemanticArticle.deleteOne({
 
 type LoadedArticle = NonNullable<Awaited<ReturnType<typeof SemanticArticle.findOne>>>
 declare const persistedArticle: LoadedArticle
-const related = persistedArticle.relation('related')
-const relatedRead = related.findMany({
-  /* public-relation-where-hover */where: { /* public-relation-where */ status: { eq: 'published' } },
-  select: { title: true },
+const relatedRead = SemanticArticle.findOne({
+  where: { id: { eq: persistedArticle.id } },
+  include: {
+    related: {
+      /* public-relation-where-hover */where: { /* public-relation-where */ status: { eq: 'published' } },
+      select: { title: true },
+    },
+  },
 })
-related.connect('article-2')
-// @ts-expect-error -- Field-bound relation mutations accept IDs, not Pointers.
-related.connect(SemanticArticle.pointer('article-2'))
+// @ts-expect-error -- Results have no relation handles (ADR-0310).
+persistedArticle.relation
+SemanticArticle.updateOne({
+  where: { id: { eq: persistedArticle.id } },
+  data: { related: { connect: ['article-2'] } },
+})
 
 void exactStatus
 void exactAuthorName
@@ -603,7 +610,7 @@ void relatedRead
 			expect(hover).not.toContain('NonDefaulted')
 		}
 		expect(quickInfo('/* public-pointer-where-hover */')).toContain(
-			'where: SemanticAuthorWhereInput',
+			'where?: SemanticAuthorWhereInput',
 		)
 		expect(quickInfo('/* public-relation-where-hover */')).toContain(
 			'where: SemanticArticleWhereInput',

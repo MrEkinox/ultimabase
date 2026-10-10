@@ -26,11 +26,6 @@ export interface MinimalExampleModule {
 		id: string,
 		sessionToken: string,
 	) => Promise<unknown>
-	readonly softDeleteArticleFromModel: (
-		application: MinimalApplication,
-		id: string,
-		sessionToken: string,
-	) => Promise<unknown>
 	readonly softDeleteAuthor: (id: string) => Promise<unknown>
 	readonly createMinimalApplication: (options: {
 		readonly applicationId: string
@@ -101,8 +96,6 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		typeof softDeleteModule.restoreArticle !== 'function' ||
 		!('softDeleteArticle' in softDeleteModule) ||
 		typeof softDeleteModule.softDeleteArticle !== 'function' ||
-		!('softDeleteArticleFromModel' in softDeleteModule) ||
-		typeof softDeleteModule.softDeleteArticleFromModel !== 'function' ||
 		!('softDeleteAuthor' in softDeleteModule) ||
 		typeof softDeleteModule.softDeleteAuthor !== 'function'
 	) {
@@ -120,7 +113,6 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		purgeArticle: softDeleteModule.purgeArticle,
 		restoreArticle: softDeleteModule.restoreArticle,
 		softDeleteArticle: softDeleteModule.softDeleteArticle,
-		softDeleteArticleFromModel: softDeleteModule.softDeleteArticleFromModel,
 		softDeleteAuthor: softDeleteModule.softDeleteAuthor,
 	} as MinimalExampleModule
 }

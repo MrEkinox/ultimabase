@@ -136,7 +136,7 @@ const application = ultimabase.compile()
 ```
 
 Core-only declarations resolve their Runtime metadata immediately, so their
-immutable drafts and metadata are available without an application. A
+metadata is available without an application. A
 declaration that uses configured plugin builder methods keeps its inert capture
 until a compatible application resolves it; accessing unresolved Runtime
 metadata first throws `SchemaCompilationError`. Neither path registers the
@@ -210,7 +210,7 @@ never request a synthetic positional argument. Valid zero-argument calls and
 option completion retain their compact factory signatures.
 
 Exact developer and plugin-contributed field maps also reject names reserved by system
-fields, Query logical operators, or immutable model capabilities in TypeScript.
+fields, Query logical operators, or retained model field names in TypeScript.
 Those same canonical name declarations drive runtime checks for dynamic plugin
 maps that cannot provide a sound literal-key guarantee.
 
@@ -301,10 +301,11 @@ metadata, so builder-based plugins do not repeat it.
 ### Plugin-owned schema compilation
 
 When a package itself defines a specialized schema class, use the single
-Core-native `Schema.defineSpecialized()` boundary. Its factory returns explicit
-`statics` and persisted-only `results`; Core attaches both before freezing the
-same ordinary schema identity. Static string or private symbol keys are
-non-enumerable, and result commands never appear on drafts. This low-level API
+Core-native `Schema.defineSpecialized(options, createStatics)` boundary. Its
+factory returns the static capabilities only; Core attaches them before freezing
+the same ordinary schema identity. Results are plain data and never gain
+methods (ADR-0310). Static string or private symbol keys are non-enumerable.
+This low-level API
 is for package-owned factories such as Password User or Role schemas. Ordinary
 application schemas use `App.Schema.define()`.
 
@@ -492,20 +493,17 @@ owners and type references, but omit input/result snapshot callbacks and are not
 executable operation tokens. Each surface's `schema` is only `{ className }`,
 not a schema constructor. Mutation aliases use the same compiled facts as direct
 handles; their inspection Maps are detached from execution indexes. Keep original
-declarations when authoring operations or constructing schema models.
+declarations when authoring operations.
 
-Generated pointer and relation handles correlate targets by their stable schema
-name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
-relation mutations still verify the exact registered schema identity before
-creating an operation.
+Generated pointer types correlate targets by their stable schema name. Runtime
+values remain ordinary `Pointer` instances.
 
 Generated class mutation types derive from the schema-handle alias visibility
 and canonical mutation descriptors; Typegen emits no separate `schemaClass`
-map or empty surface entries. Named handles and relation-returned model commands
-still use the same generated graph. Regenerate declarations when upgrading Core
+map or empty surface entries. Named handles still use the same generated graph. Regenerate declarations when upgrading Core
 and Typegen together; runtime dispatch and method visibility are unchanged.
 
-### Application-owned schema, model, and operation handles
+### Application-owned schema and operation handles
 
 Plugin-created schemas and conditional public methods never mutate an exported
 schema class or its prototype. Schema mutations may appear as inert static
@@ -617,7 +615,7 @@ const workflowPlugin = plugin({
 				models.extend(PostSchema, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+						archive: { mutation: archive, surfaces: ['schema'] },
 					},
 				}),
 		}),
@@ -678,7 +676,7 @@ See the focused
 [plugin schema mutation example](examples/schema/plugin-schema-mutations.md).
 
 Core compiles both command kinds into one private graph. Pure compilation fixes
-names, exact owners, contracts and ordered schema/model aliases without running
+names, exact owners, contracts and ordered schema aliases without running
 handler or binding factories. During application materialization, Core binds
 handlers and codecs to those same records. Duplicate active handlers/bindings,
 foreign owners and forged source tokens fail before plugin setup or consuming
@@ -691,13 +689,13 @@ Transport exposure is a second explicit boundary. The operation owner requests
 `transport:expose`, adds a nominal wire codec to the operation contribution's
 `bindings` list (or uses `contributeOperationBinding()`), and the application selects a non-empty
 allowlist with `ultimabase.exposeOperations({ transport, operations })`.
-Version 1 of this generic protocol binds application-targeted operations; schema
-and model targets remain directly executable through their owned handles. Wire
+Version 1 of this generic protocol binds application-targeted operations;
+schema targets remain directly executable through their owned handles. Wire
 requests supply an already validated `RequestContext` and cannot select Master
-authority or a raw adapter. Results may contain persisted schema
-models with Core's usual detached field values, including native binary values.
-Mutable ordinary operation containers remain invalid; transport codecs own
-representation without fetching or widening those model values.
+authority or a raw adapter. Results may contain frozen plain schema results with
+Core's usual detached field values, including native binary values. Mutable
+ordinary operation containers remain invalid; transport codecs own
+representation without fetching or widening those values.
 
 Protocol identities are canonical by exact name and version, so an operation
 owner and transport package can contribute compatible bindings without
@@ -733,7 +731,7 @@ selected from wire input.
 Planning and late execution share the exact frozen descriptors derived from the
 canonical command and its materialized binding. Identity checks replace copied
 metadata comparisons; descriptors alone still grant no execution authority.
-A schema-mutation provider with no selected schema/model alias stays dormant
+A schema-mutation provider with no selected schema alias stays dormant
 and contributes no transport descriptor or route. Its presence alone is not an
 unused-binding startup error.
 
@@ -927,7 +925,7 @@ const posts = await PostSchema.findMany({
 	include: { author: { select: { id: true, name: true } } },
 })
 
-// `author` is the selected User model, or null when missing or inaccessible.
+// `author` is the selected User row, or null when missing or inaccessible.
 ```
 
 An included pointer accepts only `select` and nested `include`: the pointer
@@ -936,7 +934,7 @@ it. Installed target policies still apply and may make an inaccessible pointer `
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
-field. `{}` keeps the complete result shape. Every returned model always
+field. `{}` keeps the complete result shape. Every returned result always
 contains `id`, including nested pointer and relation results, so an explicit
 selection adds it implicitly. `id: false` is rejected rather than silently
 ignored. Relationship result shaping stays explicit through `include`.
@@ -989,7 +987,7 @@ The example represents one-to-many storage through `PostSchema.author`. An
 owning relation plus one inverse relation represents many-to-many storage, while
 one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
-update input, validation values, or an ordinary unloaded model.
+update input, validation values, or an ordinary result without `include`.
 
 A relation may define one target-typed read subset with `where`. The static form
 uses the same portable filter vocabulary as an ordinary target Query:
@@ -1049,26 +1047,9 @@ target collection before ordering, `skip`, and `take`. Core resolves a contextua
 declaration once per exact field and root operation, even when one inclusion
 hydrates many parents or repeats through a mutation result projection.
 
-Persisted models expose only their declared to-many fields through an immutable
-`Relation<TSource, TTarget>` handle:
-
-```ts
-const posts = user.relation('posts')
-const recentPosts = await posts.findMany({
-	select: { id: true, title: true },
-	orderBy: { createdAt: 'desc' },
-	take: 20,
-})
-```
-
-`relation()` autocomplete excludes pointers and scalar fields. Drafts cannot
-create a handle, while selected persisted models retain a protected source ID
-without adding it to their visible values. The handle is opaque, frozen, and
-never serializes a related collection. Its direct `findMany`, `findOne`,
-`findOneOrThrow`, `count`, and `exists` methods accept the same canonical object inputs as the
-target schema. The source edge stays in private Runtime state across every
-public input and hook transformation; it never appears in the developer AST
-and cannot be replaced by a `QueryBuilder` scope.
+Results have no relation handles (ADR-0310): read a to-many collection with
+`include` as above, or filter its parents through a relation filter
+(`{ posts: { some: { published: { eq: true } } } }`).
 
 Queries and writes follow Prisma's vocabulary (ADR-0307). In every `where`
 input (reads, mutation targets, relation filters, Access rule objects, REST
@@ -1175,16 +1156,18 @@ family (`filterOperators`); Core rejects any other operator with a public
 protected filter with an undeclared operator with a generic message. `matches`
 accepts only the portable regular-expression subset of ADR-0302.
 
-Relation handles expose atomic logical mutations without join-row commands:
+Relation membership changes through link commands in `updateOne` data, without
+join-row commands (ADR-0308):
 
 ```ts
-await post.relation('tags').connect(tagId)
-await post.relation('tags').disconnect([oldTagId, archivedTagId])
-await post.relation('tags').set([featuredTagId, newsTagId])
-await post.relation('tags').clear()
+await Post.updateOne({
+	where: { id: postId },
+	data: { tags: { connect: [tagId], disconnect: [oldTagId] } },
+})
+await Post.updateOne({ where: { id: postId }, data: { tags: { set: [] } } })
 ```
 
-Each call uses the source schema's update Access and hook lifecycle, validates
+Each update uses the source schema's update Access and hook lifecycle, validates
 target visibility, and joins the active or automatic transaction. Inverse
 pointer relations execute ordinary target pointer updates through the same
 Runtime. Adapters must advertise the versioned relation capability; PostgreSQL
@@ -1237,8 +1220,8 @@ exist.
 `count: { eq: 0 }` and `count: { gt: 0 }` are valid, but `isEmpty: true` and
 `isNotEmpty: true` remain the clearer and cheaper existence forms. Multiple
 count comparisons, including a filtered count, reuse one cardinality
-calculation rather than issuing one query per operator or parent object. Direct
-relation handles, eager inclusions, emptiness, quantifiers, and counts therefore
+calculation rather than issuing one query per operator or parent object. Eager
+inclusions, emptiness, quantifiers, and counts therefore
 agree on the same request-local visible targets before inclusion pagination.
 
 When an edge owns application data, model it as an ordinary schema with two
@@ -1480,7 +1463,7 @@ without a filter.
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
 from the complete logical materializations supplied to installed schema lifecycle behavior.
-Every model-returning schema mutation accepts the same flat selection contract
+Every result-returning schema mutation accepts the same flat selection contract
 as schema reads. `createOne()`, `createMany()`, `updateOne()`, and `updateMany()`
 also accept the generated `include` contract. Each write completes first, then
 Runtime projects its persisted ID inside the same transaction. Singular
@@ -1601,7 +1584,7 @@ terminal kind. Public collection commands are already itemized before this
 boundary, so each update entry uses the same singular lifecycle.
 
 ```ts
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, toJSON } from '@ultimabase/core'
 
 const PostSchema = UltimaBase.Schema.define({
 	className: 'Post',
@@ -1617,44 +1600,45 @@ const ultimabase = new Application({
 	schemas: [PostSchema],
 })
 
-const draft = new PostSchema({ title: 'Preview' })
 const selectedPosts = await PostSchema.findMany({
 	select: { id: true, title: true },
 })
 
-const created = await draft.create({ select: { id: true, title: true } })
-const updated = await created.update({
+const created = await PostSchema.createOne({
+	data: { title: 'Preview' },
+	select: { id: true, title: true },
+})
+const updated = await PostSchema.updateOne({
+	where: { id: created.id },
 	data: { title: 'Published' },
 	select: { id: true, title: true },
 })
-const fresh = await updated.fetch({ select: { id: true, title: true } })
 
-const pointer = fresh.toPointer()
-console.log(fresh.equals(pointer), await fresh.exists())
-
-await updated.delete({ select: { id: true } })
+console.log(toJSON(updated))
+await PostSchema.deleteOne({ where: { id: created.id }, select: { id: true } })
 ```
 
-`new PostSchema(input)` creates a typed immutable draft and never performs I/O.
-Runtime queries and mutations return immutable `PostSchema` instances only after
-installed behavior and field restrictions finish. `get(field)` and `toJSON()` expose only the
-fields visible in that result, so a selected result cannot recover omitted data.
-Draft `create` and `upsert` plus persisted `update`, `delete`, and `fetch` accept
-the same exact result selections as their static read or mutation equivalents.
-`fetch` and `exists` reuse the normal read pipeline, including installed policies and behavior.
-`toPointer` and `equals` operate locally on validated identity. Every persisted
-model exposes `id`, even when the selection did not name it. All instance
-commands remain immutable conveniences: a mutation starts without the receiver's
-read selection and returns a new model.
-`get(field)` reads the visible snapshot locally and throws when the field is
-absent. `fetch`, `update`, and `delete` target one exact identity and throw
-`NOT_FOUND` when it no longer exists. Schema `updateOne`, `deleteOne` and
-`upsertOne` take their target only through `where` (`where: { id }`, ADR-0307).
-`updateOne` and `deleteOne` remain nullable conditional mutations and skip
-installed item lifecycle behavior when no row matches; use `findOneOrThrow`
-for a required read.
-Collection reads and writes live on the generated schema class. Models
-deliberately expose no mutable `save()` method.
+Every read and mutation returns frozen plain objects (ADR-0310): field values,
+a `Pointer` for an unincluded pointer, a plain object or `null` for an included
+pointer, and arrays for included relations. Results have no methods; schemas are
+not constructible (`new PostSchema(data)` throws). A selected result contains
+only the fields visible in it and cannot recover omitted data. Every result
+exposes `id`, even when the selection did not name it.
+
+`Model<T>`, `CreateInput<T>` and `UpdateInput<T>` name the result of `findOne`
+and the write data of one schema, where `T` is a registered schema name
+(`Model<'Post'>`) or a schema type (`Model<typeof PostSchema>`).
+`toJSON(value)` serializes a result, a list of results or any value inside them
+exactly as REST responses do: `bigint` as a decimal string, binary as
+`{ type: 'binary', encoding: 'base64', data }`, a `Pointer` as its pointer JSON,
+included rows and embedded objects recursively; `JsonOf<T>` is its result type.
+`JSON.stringify` on a raw result throws on `bigint`.
+
+Schema `updateOne`, `deleteOne` and `upsertOne` take their target only through
+`where` (`where: { id }`, ADR-0307). `updateOne` and `deleteOne` remain nullable
+conditional mutations and skip installed item lifecycle behavior when no row
+matches; use `findOneOrThrow` for a required read. Every read and write lives
+on the schema; there is no mutable `save()`.
 
 ## Optional Hooks and Access engines
 

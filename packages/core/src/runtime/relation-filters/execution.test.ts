@@ -1,6 +1,5 @@
 import {
 	addSchemaField,
-	RequestContextValue,
 	plugin as createPlugin,
 	contributeDeclarations,
 	relationField,
@@ -11,34 +10,13 @@ import { describe, expect, it } from 'vitest'
 
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { provideTestRuntimeConstraint } from '../../../tests/runtime/fixtures/runtime-capabilities.js'
 import { QueryBuilder } from '../../query/query/query.js'
-import { normalizeWhereInput } from '../../query/filters/where.js'
-import { materializeSchemaModel } from '../../schema/schema/model-materialization.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
-import { MasterAuthority } from '../master/master-authority.js'
 import { createFrameworkEngine } from '../application/create-framework-engine.js'
-import { protectedPolicy } from '../enforcement/protected-policy.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { RuntimeRelationFilterResolver } from './execution.js'
 import { UltimaBase } from '../application/ultima-base.js'
-
-const sourceId = '0198f090-2a50-7000-8000-000000000091'
-const targetId = '0198f090-2a50-7000-8000-000000000092'
-const principalValue = new RequestContextValue<Readonly<{ id: string }>>(
-	'fixture.relation-principal',
-	(value) => {
-		if (typeof value !== 'object' || value === null) {
-			throw new TypeError('Fixture principal must be an object')
-		}
-		const id: unknown = Reflect.get(value, 'id')
-		if (typeof id !== 'string') {
-			throw new TypeError('Fixture principal id must be a string')
-		}
-		return Object.freeze({ id })
-	},
-)
 
 const databasePlugin = (adapter: RecordingDatabaseAdapter) =>
 	createPlugin({
@@ -64,7 +42,7 @@ describe('Runtime relation filters', () => {
 			}),
 		})
 		const adapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: 0 }],
+			[{ status: 'fulfilled', value: [] }],
 			[],
 		)
 		const application = await createApplication({
@@ -78,137 +56,16 @@ describe('Runtime relation filters', () => {
 		})
 
 		try {
+			// Related rows are read through `include` (ADR-0310).
 			await runWithRequestEngine(request, () =>
-				materializeSchemaModel(Source, { id: sourceId })
-					.relation('targets')
-					.count(),
+				Source.findMany({ include: { targets: {} } } as never),
 			)
-			expect(adapter.rootRequests[0]?.rowFilter).toMatchObject({
+			expect(
+				adapter.rootRequests[0]?.inclusions?.[0]?.request.rowFilter,
+			).toMatchObject({
 				field: 'visible',
 				kind: 'equal',
 				value: true,
-			})
-		} finally {
-			await application.dispose()
-		}
-	})
-
-	it('resolves every direct terminal under its exact context and keeps caller syntax separate', async () => {
-		const contexts: RequestContext[] = []
-		const Target = UltimaBase.Schema.define({
-			className: 'FilteredRelationTarget',
-			fields: (field) => ({
-				label: field.string(),
-				visibility: field.string(),
-			}),
-		})
-		const Source = UltimaBase.Schema.define({
-			className: 'FilteredRelationSource',
-			fields: (field) => ({
-				targets: field.relation({
-					target: 'FilteredRelationTarget',
-					where: ({ context, where }) => {
-						contexts.push(context)
-						const principal = context.getValue(principalValue)
-						return context.access.mode === 'master'
-							? where.eq('visibility', 'master')
-							: where.ne('id', principal?.id ?? 'anonymous')
-					},
-				}),
-			}),
-		})
-		const trace: string[] = []
-		const adapter = new RecordingDatabaseAdapter(
-			[
-				{ status: 'fulfilled', value: [] },
-				{ status: 'fulfilled', value: null },
-				{ status: 'fulfilled', value: null },
-				{ status: 'fulfilled', value: 0 },
-				{ status: 'fulfilled', value: false },
-				{ status: 'fulfilled', value: 0 },
-			],
-			trace,
-		)
-		const application = await createApplication({
-			plugins: [databasePlugin(adapter)],
-			schemas: [Source, Target],
-		})
-		const authority = new MasterAuthority({
-			keys: [{ id: 'fixture', value: 'secret' }],
-			onUse: () => undefined,
-		})
-		const framework = createFrameworkEngine(application, {
-			masterAuthority: authority,
-		})
-		const context = RequestContext.anonymous({
-			requestId: 'relation-filter-terminals',
-			source: requestSources.internal,
-		}).withValue(principalValue, { id: targetId })
-		const request = framework.withContext(context)
-		const source = materializeSchemaModel(Source, { id: sourceId })
-		const relation = source.relation('targets')
-
-		try {
-			await runWithRequestEngine(request, async () => {
-				await expect(
-					relation.findMany({ where: { label: { eq: 'caller' } } }),
-				).resolves.toStrictEqual([])
-				await expect(relation.findOne()).resolves.toBeNull()
-				await expect(
-					relation.findOneOrThrow({ where: { id: targetId } }),
-				).rejects.toMatchObject({
-					code: 'NOT_FOUND',
-				})
-				await expect(relation.count()).resolves.toBe(0)
-				await expect(relation.exists()).resolves.toBe(false)
-				await expect(relation.count({}, { useMasterKey: true })).resolves.toBe(
-					0,
-				)
-			})
-
-			expect(contexts).toHaveLength(6)
-			expect(contexts.slice(0, 5).every((value) => value === context)).toBe(
-				true,
-			)
-			expect(contexts[5]?.access.mode).toBe('master')
-			expect(
-				adapter.rootRequests.map(({ operation }) => operation.kind),
-			).toStrictEqual([
-				'find-many',
-				'find-one',
-				'find-one',
-				'count',
-				'exists',
-				'count',
-			])
-			expect(adapter.rootRequests[0]).toMatchObject({
-				operation: {
-					query: {
-						where: {
-							expression: {
-								field: 'label',
-								kind: 'equal',
-								value: 'caller',
-							},
-						},
-					},
-				},
-				relation: {
-					fieldPath: ['targets'],
-					source: Source,
-					sourceObjectId: sourceId,
-					target: Target,
-				},
-				rowFilter: {
-					field: 'id',
-					kind: 'not-equal',
-					value: targetId,
-				},
-			})
-			expect(adapter.rootRequests[5]?.rowFilter).toMatchObject({
-				field: 'visibility',
-				kind: 'equal',
-				value: 'master',
 			})
 		} finally {
 			await application.dispose()
@@ -241,7 +98,8 @@ describe('Runtime relation filters', () => {
 			schemas: [Source, Target],
 		})
 		const framework = createFrameworkEngine(application)
-		const source = materializeSchemaModel(Source, { id: sourceId })
+		const readTargets = () =>
+			Source.findMany({ include: { targets: {} } } as never)
 
 		try {
 			const request = framework.anonymous({
@@ -249,7 +107,7 @@ describe('Runtime relation filters', () => {
 				source: requestSources.internal,
 			})
 			await expect(
-				runWithRequestEngine(request, () => source.relation('targets').count()),
+				runWithRequestEngine(request, readTargets),
 			).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
 			expect(invocations).toBe(1)
 			expect(adapter.rootRequests).toStrictEqual([])
@@ -262,100 +120,10 @@ describe('Runtime relation filters', () => {
 				source: requestSources.internal,
 			})
 			await expect(
-				runWithRequestEngine(cancelled, () =>
-					source.relation('targets').count(),
-				),
+				runWithRequestEngine(cancelled, readTargets),
 			).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 			expect(invocations).toBe(1)
 			expect(adapter.rootRequests).toStrictEqual([])
-		} finally {
-			await application.dispose()
-		}
-	})
-
-	it('runs traversal and target policy before shaping, then ANDs protected row scope', async () => {
-		const trace: string[] = []
-		const Target = UltimaBase.Schema.define({
-			className: 'OrderedRelationTarget',
-			fields: (field) => ({
-				label: field.string(),
-				visibility: field.string(),
-			}),
-		})
-		const Source = UltimaBase.Schema.define({
-			className: 'OrderedRelationSource',
-			fields: (field) => ({
-				targets: field.relation({
-					target: 'OrderedRelationTarget',
-					where: ({ where }) => {
-						trace.push('relation-where')
-						return where.eq('visibility', 'declared')
-					},
-				}),
-			}),
-		})
-		const adapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: [] }],
-			trace,
-		)
-		const policy = createPlugin({
-			core: '^0.0.0',
-			id: 'fixture.relation-filter-policy',
-			version: '0.0.0',
-			permissions: {
-				'runtime:constrain': 'Proves monotonic relation-filter ordering.',
-			},
-			contributions: [
-				provideTestRuntimeConstraint(
-					'ordered-relation-policy',
-					protectedPolicy({
-						evaluate: () => {
-							trace.push('target-policy')
-							return {
-								rowFilter: normalizeWhereInput(Target, {
-									visibility: { ne: 'policy-hidden' },
-								}),
-							}
-						},
-						operations: ['find-many'],
-						relation: () => {
-							trace.push('source-relation-policy')
-							return true
-						},
-						schema: Target,
-					}),
-				),
-			],
-		})
-		const application = await createApplication({
-			plugins: [policy, databasePlugin(adapter)],
-			schemas: [Source, Target],
-		})
-		const framework = createFrameworkEngine(application)
-		const request = framework.anonymous({
-			requestId: 'ordered-relation-filter',
-			source: requestSources.internal,
-		})
-		const source = materializeSchemaModel(Source, { id: sourceId })
-
-		try {
-			await runWithRequestEngine(request, () =>
-				source.relation('targets').findMany(),
-			)
-
-			expect(trace).toStrictEqual([
-				'source-relation-policy',
-				'target-policy',
-				'relation-where',
-				'execute:find-many',
-			])
-			expect(adapter.rootRequests[0]?.rowFilter).toMatchObject({
-				expressions: [
-					{ field: 'visibility', kind: 'equal', value: 'declared' },
-					{ field: 'visibility', kind: 'not-equal', value: 'policy-hidden' },
-				],
-				kind: 'and',
-			})
 		} finally {
 			await application.dispose()
 		}
@@ -413,94 +181,6 @@ describe('Runtime relation filters', () => {
 		expect(invocations).toBe(1)
 	})
 
-	it('never evaluates read shaping for physical membership commands', async () => {
-		let invocations = 0
-		const now = '2026-09-11T10:00:00.000Z'
-		const Target = UltimaBase.Schema.define({
-			className: 'MutationRelationTarget',
-			fields: (field) => ({ label: field.string() }),
-		})
-		const Source = UltimaBase.Schema.define({
-			className: 'MutationRelationSource',
-			fields: (field) => ({
-				targets: field.relation({
-					target: 'MutationRelationTarget',
-					where: ({ where }) => {
-						invocations += 1
-						return where.eq('label', 'visible')
-					},
-				}),
-			}),
-		})
-		const targetRecord = {
-			createdAt: now,
-			id: targetId,
-			label: 'hidden',
-			updatedAt: now,
-		}
-		const sourceRecord = {
-			createdAt: now,
-			id: sourceId,
-			updatedAt: now,
-		}
-		const mutationResult = {
-			materializations: [
-				{
-					current: sourceRecord,
-					kind: 'update' as const,
-					previous: sourceRecord,
-				},
-			],
-			status: 'fulfilled' as const,
-			target: sourceRecord,
-			value: sourceRecord,
-		}
-		const adapter = new RecordingDatabaseAdapter(
-			[
-				{ status: 'fulfilled', value: targetRecord },
-				mutationResult,
-				{ status: 'fulfilled', value: targetRecord },
-				mutationResult,
-				mutationResult,
-				mutationResult,
-			],
-			[],
-		)
-		const application = await createApplication({
-			plugins: [databasePlugin(adapter)],
-			schemas: [Source, Target],
-		})
-		const framework = createFrameworkEngine(application)
-		const request = framework.anonymous({
-			requestId: 'relation-membership',
-			source: requestSources.internal,
-		})
-		const relation = materializeSchemaModel(Source, sourceRecord).relation(
-			'targets',
-		)
-
-		try {
-			await runWithRequestEngine(request, async () => {
-				await relation.connect(targetId)
-				await relation.disconnect(targetId)
-				await relation.set([])
-				await relation.clear()
-			})
-
-			expect(invocations).toBe(0)
-			expect(
-				adapter.transactions
-					.flatMap(({ requests }) => requests)
-					.map((request) => ({
-						kind: request.operation.kind,
-						rowFilter: request.rowFilter,
-					})),
-			).toHaveLength(6)
-		} finally {
-			await application.dispose()
-		}
-	})
-
 	it('attributes a plugin-contributed relation resolver to its exact instance', async () => {
 		const Target = UltimaBase.Schema.define({
 			className: 'AttributedRelationTarget',
@@ -511,7 +191,7 @@ describe('Runtime relation filters', () => {
 			fields: () => ({}),
 		})
 		const adapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: 0 }],
+			[{ status: 'fulfilled', value: [] }],
 			[],
 		)
 		let observedOwner: unknown
@@ -557,18 +237,10 @@ describe('Runtime relation filters', () => {
 			requestId: 'attributed-relation-filter',
 			source: requestSources.internal,
 		})
-		const source = materializeSchemaModel(Source, {
-			id: sourceId,
-		}) as unknown as {
-			// The plugin contributes this relation only during Runtime compilation.
-			readonly relation: (fieldName: string) => {
-				readonly count: () => Promise<number>
-			}
-		}
-
 		try {
 			await runWithRequestEngine(request, () =>
-				source.relation('targets').count(),
+				// The plugin contributes this relation only during Runtime compilation.
+				Source.findMany({ include: { targets: {} } } as never),
 			)
 			expect(observedOwner).toStrictEqual({
 				instanceId: 'primary',

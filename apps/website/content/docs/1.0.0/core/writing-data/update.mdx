@@ -5,7 +5,7 @@ audience:
   - application-developer
 contentType: guide
 order: 2
-outcome: Update one record by ID or unique predicate and inspect the returned model.
+outcome: Update one record by ID or unique predicate and inspect the returned result.
 releaseStatus: pre-release
 reviewedAt: 2026-09-17
 sources:
@@ -13,7 +13,7 @@ sources:
   - packages/core/docs/query.md
   - packages/core/src/query/updates/normalize.ts
   - packages/core/docs/runtime.md
-  - docs/adr/0109-constructible-schema-models.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0134-unified-update-data.md
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0180-mutation-relationship-projections.md
@@ -48,16 +48,15 @@ multi-match filter is not a valid `updateOne` target.
 
 ## Verify the result
 
-If a visible post matches, `renamePost()` returns a new immutable `Post` with
-the same `id` and the updated `title`. The old model, if you loaded one, does
-not change. Other post fields are absent from this selected result, not deleted
-from storage. Without `select`, the command returns the complete visible model.
+If a visible post matches, `renamePost()` returns a new frozen plain result with
+the same `id` and the updated `title`. A result you loaded earlier does not
+change. Other post fields are absent from this selected result, not deleted
+from storage. Without `select`, the command returns the complete visible row.
 
-If no visible post matches, schema-level `updateOne()` returns `null`. Handle
-that case before reading the result. A previously loaded model's `update()`
-command is different: it targets that model's protected identity and throws
-`NOT_FOUND` if the target has disappeared or become inaccessible. See
-[Models](/docs/1.0.0/core/data-modeling/models) for instance commands.
+If no visible post matches, `updateOne()` returns `null`. Handle that case
+before reading the result. Results have no `update()` method: to update a row
+you loaded, pass its `id` as the target (ADR-0310). See
+[Models](/docs/1.0.0/core/data-modeling/models) for the result contract.
 
 ## Replace, clear, or increment fields
 

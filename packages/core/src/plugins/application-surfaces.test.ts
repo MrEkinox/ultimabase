@@ -5,7 +5,6 @@ import { provideTestRuntimeInterceptor } from '../../tests/runtime/fixtures/runt
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { preparedOperation } from '../runtime/contributions/definitions.js'
 
-import { materializeSchemaModel } from '../schema/schema/model-materialization.js'
 import { plugin as createPlugin } from './plugin.js'
 import { contributeDeclarations } from './plugin-contributions.js'
 
@@ -73,7 +72,7 @@ const createSurfacePlugin = (dynamicName: string) => {
 }
 
 describe('application-owned plugin surfaces', () => {
-	it('binds stable and dynamic schemas, operations, drafts, and persisted models', async () => {
+	it('binds stable and dynamic schemas and operations', async () => {
 		const { DynamicSchema, plugin } = createSurfacePlugin(
 			'ApplicationSurfaceDynamicPost',
 		)
@@ -103,30 +102,13 @@ describe('application-owned plugin surfaces', () => {
 			version: '1.0.0',
 		})
 
-		const draft = new StablePost({ title: 'Draft' })
-		const persisted = materializeSchemaModel(StablePost, {
-			createdAt: '2026-08-12T00:00:00.000Z',
-			id: '0198a43e-2431-7000-8000-000000000099',
-			title: 'Persisted',
-			updatedAt: '2026-08-12T00:00:00.000Z',
-		})
-		const draftHandle = stable.for(draft)
-		const persistedHandle = stable.for(persisted)
-		expect(draftHandle.model).toBe(draft)
-		expect(draftHandle.state).toBe('draft')
-		expect(persistedHandle.model).toBe(persisted)
-		expect(persistedHandle.state).toBe('persisted')
-		expect(() => dynamic.for(draft)).toThrow(
-			`Model handle requires an exact ${DynamicSchema.className} model`,
-		)
+		// Results have no model handles (ADR-0310).
+		expect('for' in stable).toBe(false)
 		expect(() => tokenHandle.prepare({ message: 1 } as never)).toThrow(
 			'.message must be a string',
 		)
 
 		await ultimabase.dispose()
-		expect(() => stable.for(draft)).toThrow(
-			'Application handle cannot be used after disposal',
-		)
 		expect(Reflect.has(stable, 'findMany')).toBe(false)
 		expect(() => tokenHandle.prepare({ message: 'disposed' })).toThrow(
 			'Application handle cannot be used after disposal',

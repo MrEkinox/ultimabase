@@ -198,8 +198,7 @@ describe('Runtime relation-filter inclusions', () => {
 			)
 
 			expect(result).toHaveLength(2)
-			const output: unknown = result.map((workspace) => workspace.toJSON())
-			expect(output).toEqual([
+			expect(result).toEqual([
 				{
 					id: firstWorkspace.id,
 					name: firstWorkspace.name,

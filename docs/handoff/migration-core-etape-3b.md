@@ -32,7 +32,8 @@ Ordre : ADR-0309 d'abord (point de contrôle), puis ADR-0310.
 - [x] ADR-0309 encodeur `@ultimabase/core/plugin`
 - [x] ADR-0309 PostgreSQL, REST, GraphQL
 - [x] ADR-0309 tests et documentation (point de contrôle)
-- [ ] ADR-0310
+- [x] ADR-0310 production (Core, plugins, Typegen, REST, GraphQL)
+- [ ] ADR-0310 tests (unitaires et types verts ; e2e en cours) et documentation
 - [ ] Porte finale
 
 ## Décisions (à confirmer par l'utilisateur)
@@ -40,7 +41,7 @@ Ordre : ADR-0309 d'abord (point de contrôle), puis ADR-0310.
 ADR-0309 :
 
 1. **AST** : `QueryAst.limit` → `take` ; nœud `{ kind: 'offset-pagination',
-   offset }` → `{ kind: 'skip-pagination', skip }` (`QuerySkipPaginationNode`,
+offset }` → `{ kind: 'skip-pagination', skip }` (`QuerySkipPaginationNode`,
    `QuerySkipPaginationInput`) ; exports `normalizeQueryLimit` /
    `normalizeQueryOffsetPagination` → `normalizeQueryTake` /
    `normalizeQuerySkipPagination`. `QueryBuilder` : `.take()` / `.skip()`,
@@ -75,7 +76,7 @@ ADR-0309 :
    s'ils sont demandés) : un champ caché statiquement y est refusé
    (`PERMISSION_DENIED` d'Access). Aucune nouvelle notion dans Core.
 7. **Encodeur** (`@ultimabase/core/plugin`) : `encodeQueryCursor(schema,
-   orderBy, row)` / `decodeQueryCursor(schema, orderBy, cursor)` et types
+orderBy, row)` / `decodeQueryCursor(schema, orderBy, cursor)` et types
    `QueryCursorOrderBy`, `QueryPosition` ; charge utile JSON base64url
    `{ v: 1, s: className, o: [[champ, 'a'|'d'], …], p: [valeurs] }` ;
    `bigint` en chaîne décimale, binaire en base64url ; ≤ 4096 caractères,
@@ -88,7 +89,7 @@ ADR-0309 :
    Vitest `@ultimabase/core/plugin` placé avant `@ultimabase/core` ;
    `reference.content.test.ts` admet `./plugin` pour Core seulement.
 9. **REST** : `take` / `skip` / `after` (GET et POST) ; `{ results,
-   nextCursor }` sans `skip`, `{ results }` avec `skip` ; lecture de
+nextCursor }` sans `skip`, `{ results }` avec `skip` ; lecture de
    `take + 1` lignes ; erreur de position → `VALIDATION_ERROR` 400
    (`details.parameter: 'after'`), les autres erreurs de normalisation
    restent `REST_READ_INVALID_INPUT`. `executeRestReadRequest` /
@@ -109,6 +110,42 @@ ADR-0309 :
 12. **create-app** : `ULTIMABASE_CURSOR_SECRET` retiré du `.env.example`
     généré.
 
+ADR-0310 :
+
+13. **Résultats** : objets simples gelés (`materializeSchemaModel`,
+    `materializePreparedSchemaDraft` gardés comme fonctions internes ;
+    `SchemaResult` gardé comme type de projection) ; un `WeakSet` interne
+    reconnaît les résultats. Le schéma reste une fonction (statique
+    seulement) dont l'appel `new` lève « X is not constructible: create rows
+    with X.createOne({ data }) » ; son prototype est gelé.
+14. **`defineSpecialized(options, createStatics)`** : la fabrique ne renvoie
+    plus que les statiques (plus de `results`) ; messages « createStatics
+    must be a function », « schema static capabilities must be a plain
+    object ».
+15. **Plugins** : surface `model` refusée à la déclaration (« schema
+    mutation X surface must be schema: results have no model methods
+    (ADR-0310) ») ; privilège `model:extend` gardé (nom inchangé,
+    description « Adds plugin commands to application schemas. ») ;
+    `RequestRoleReferenceCarrier` retiré (`RequestRoleSubject =
+RequestRoleReference`).
+16. **Roles** : `addMember`, `removeMember`, `addRole`, `removeRole` retirés
+    (liens par `members` / `roles` en `connect` / `disconnect`) ;
+    suppression : `set: []` / `disconnect` ; noms de champs réservés gardés.
+17. **Enums** : `values` = tableau ou `defineEnum(name, values)` (instance
+    gelée d'une classe interne, type nominal par marque) ; options stockées
+    `values` (tableau) + `sharedEnum` ; noms dupliqués refusés à la
+    construction de `FrameworkApplication` ; GraphQL : un type par enum
+    partagé (cache `ctx.sharedEnum`) ; Typegen nomme le type par
+    `sharedEnum.name`.
+18. **`toJSON`** : strict (lève sur `undefined`, nombres non finis, cycles,
+    objets non pris en charge) ; un objet doté de `toJSON()` (ACL, Date) se
+    sérialise lui-même. REST : `toJSON` pour les sorties d'opérations ; les
+    routes de schéma gardent l'encodeur par champ (codecs REST des champs de
+    plugin) qui délègue bigint / binaire à `toJSON` ; détails d'erreur
+    sérialisés strictement (`encodeRestJsonDetails`).
+19. **Tests e2e** : assistant `tests/fixtures/plain-results.ts`
+    (`isPlainResult`) remplace les gardes `instanceof Schema`.
+
 ## Reports et conflits
 
 - Valeurs communes de `take` par défaut / maximum (décision 11).
@@ -116,6 +153,17 @@ ADR-0309 :
   périmètre d'ADR-0309) : le test public
   `relation-filter-public-vertical` ne parcourt plus une seconde page de
   `contributors` par `after` ; il vérifie que l'argument est refusé.
+- **`UpdateInput<T>` (conflit ADR-0310 décision 3)** : `UpdateInput` est la
+  table des champs de `inputs.update` (sans commandes de relation ni
+  opérateurs numériques), alors que `data` de `updateOne` est une union
+  « au moins un champ » avec opérateurs et commandes imbriquées ; un
+  `UpdateInput` n'est donc pas assignable à `data`. Corriger demande de
+  redéfinir `inputs.update` ou l'alias (impression des survols ADR-0297) :
+  à trancher. Les tests e2e dérivent le type de lien de
+  `Parameters<typeof X.updateOne>[0]['data']`.
+- Survols TypeScript 7 de `Model<"Todo">` : pas de TS7 dans le dépôt.
+- Typegen : la surface `model` générée disparaît ; `GeneratedPointerHandle`
+  n'a plus `findOne` (suit `Pointer`).
 
 ## Tentatives écartées
 

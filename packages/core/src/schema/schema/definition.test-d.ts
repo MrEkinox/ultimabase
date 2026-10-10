@@ -13,14 +13,8 @@ test('keeps the canonical package specialization boundary exact', () => {
 			className: 'TypedSpecializedPost',
 			fields: (field) => ({ title: field.string() }),
 		},
-		() => ({
-			results: {
-				archive(this: object): 'archived' {
-					return 'archived'
-				},
-			},
-			statics: { kind: 'specialized' as const },
-		}),
+		// ADR-0310: specializations contribute statics only; results are data.
+		() => ({ kind: 'specialized' as const }),
 	)
 
 	expectTypeOf(Specialized.className).toEqualTypeOf<'TypedSpecializedPost'>()
@@ -31,7 +25,9 @@ test('keeps the canonical package specialization boundary exact', () => {
 	expectTypeOf<SchemaCreateData<typeof Specialized>>().toEqualTypeOf<{
 		title?: string | null
 	}>()
-	expectTypeOf<SchemaResult<typeof Specialized>['archive']>().toBeFunction()
+	expectTypeOf<keyof SchemaResult<typeof Specialized>>().toEqualTypeOf<
+		'createdAt' | 'id' | 'title' | 'updatedAt'
+	>()
 	void Specialized.findMany({ where: { title: { startsWith: 'Typed' } } })
 	void Specialized.findMany({
 		// @ts-expect-error -- Specialized schemas retain their exact source fields.

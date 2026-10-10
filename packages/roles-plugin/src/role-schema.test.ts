@@ -13,6 +13,12 @@ import { rolesPlugin } from './plugin.js'
 import { getRoleSchemaDeclaration, RoleSchema } from './role-schema.js'
 import { roleSchemaIdentityOptionName } from './role-schema-identity.js'
 
+/** Calls `new` on a value whose type has no construct signature (ADR-0310). */
+const construct = (target: unknown, args: readonly unknown[]): unknown => {
+	if (typeof target !== 'function') throw new TypeError('Expected a class')
+	return Reflect.construct(target, args)
+}
+
 const User = UltimaBase.Schema.define({
 	className: 'RoleUser',
 	fields: (field) => ({
@@ -30,21 +36,10 @@ describe('RoleSchema', () => {
 		})
 
 		expect(ConfiguredRole.fields).toHaveProperty('description')
-		const draft = new ConfiguredRole({ name: 'draft' })
-		const toRequestRoleReference: unknown = Reflect.get(
-			draft,
-			'toRequestRoleReference',
-		)
-		if (typeof toRequestRoleReference !== 'function') {
-			throw new TypeError(
-				'Configured RoleSchema must expose toRequestRoleReference at runtime',
-			)
-		}
-		expect(() => {
-			Reflect.apply(toRequestRoleReference, draft, [])
-		}).toThrow(
+		// ADR-0310: role schemas are not constructible and carry no role methods.
+		expect(() => construct(ConfiguredRole, [{ name: 'draft' }])).toThrow(
 			new TypeError(
-				'Schema model toRequestRoleReference requires persisted model state',
+				'ConfiguredRole is not constructible: create rows with ConfiguredRole.createOne({ data })',
 			),
 		)
 		expect(() =>
@@ -113,7 +108,6 @@ describe('RoleSchema', () => {
 			}),
 			indexes: [{ fields: ['priority', 'createdAt'] }],
 		})
-		const draft = new AppRole({ name: 'editor', description: 'Editors' })
 
 		expect(Schema.is(AppRole)).toBe(true)
 		expect(AppRole.fields).toHaveProperty('name')
@@ -133,8 +127,9 @@ describe('RoleSchema', () => {
 		)
 		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
-		expect(draft.name).toBe('editor')
-		expect(Object.isFrozen(draft)).toBe(true)
+		expect(() => construct(AppRole, [{ name: 'editor' }])).toThrow(
+			'AppRole is not constructible',
+		)
 		expect(Object.isFrozen(AppRole)).toBe(true)
 		expect(getRoleSchemaDeclaration(AppRole)?.deletionPolicy).toBe('fail')
 	})
