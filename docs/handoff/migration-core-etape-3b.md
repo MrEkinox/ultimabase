@@ -34,7 +34,7 @@ Ordre : ADR-0309 d'abord (point de contrôle), puis ADR-0310.
 - [x] ADR-0309 tests et documentation (point de contrôle)
 - [x] ADR-0310 production (Core, plugins, Typegen, REST, GraphQL)
 - [x] ADR-0310 tests et documentation
-- [ ] Porte finale
+- [x] Porte finale
 
 ## Décisions (à confirmer par l'utilisateur)
 
@@ -211,7 +211,25 @@ Point de contrôle ADR-0309 (avant commit) :
   corrigés (`nextCursor`, lecture des déclarations découpées).
 - Nouveau `tests/e2e/keyset-pagination.postgres.e2e.test.ts` : 9 / 9.
 
+Porte finale ADR-0309 + ADR-0310 :
+
+- `rm -rf packages/*/dist`, `*.tsbuildinfo` supprimés, `yarn validate:full`
+  sur a05b524d : exit 0 ; couverture 678 fichiers, 3 259 tests, 0 erreur de
+  type ; performance 3 / 4 ; website-content 17 / 66 ; lint 0 erreur.
+- `yarn test:e2e:built` : 7 échecs sur paquets construits corrigés
+  (attentes d'aperçus et d'options d'enum), puis 117 fichiers, 493 tests.
+- Audit DX contre 4cd8a553 : 3 812 différences, toutes expliquées par
+  ADR-0309 / ADR-0310 (rapport du sous-agent) : 37 exports retirés, 14
+  ajoutés ; aperçus de résultats sans méthodes ; schéma non constructible ;
+  emplacement `model` retiré de l'état source des plugins (« N more »
+  décalé) ; JSDoc de `define` ; noms d'enums locaux ; renumérotation
+  d'alias privés et ordre d'unions.
+- Banc forme D (TS 6, médianes de 3, alterné) : 50 schémas, édition →
+  diagnostics 2 935 → 2 259 ms, froid 6 169 → 4 963 ms ; 200 schémas,
+  9 136 → 7 578 ms, froid 22 964 → 19 056 ms ; aperçu `q0` 1 267 → 199
+  caractères ; `Model<"Todo">` affiché depuis sources et paquets construits.
+
 ## Prochaine action vérifiable
 
-Porte finale : `yarn validate:full`, `yarn test:e2e:built`, audit DX contre
-`../ub-step3b-baseline` (4cd8a553), banc forme D à 50 et 200 schémas.
+Revue du coordinateur ; décisions ouvertes : `UpdateInput`, déliaison d'un
+membre masqué par le filtre déclaré, valeurs communes de `take`.
