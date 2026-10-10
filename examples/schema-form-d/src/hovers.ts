@@ -1,5 +1,5 @@
 // Editor probe points (hover texts are recorded by tools/probe.mjs).
-import type { CreateInput } from '@ultimabase/core'
+import type { CreateInput, UpdateInput } from '@ultimabase/core'
 
 import { Todo } from './todo.ts'
 
@@ -10,3 +10,4 @@ export const namedCreate: CreateInput<'Todo'> = { title: 'Write the slice' }
 export const schemaCreate: CreateInput<typeof Todo> = {
 	title: 'Write the slice',
 }
+export const namedUpdate: UpdateInput<'Todo'> = { archived: true }

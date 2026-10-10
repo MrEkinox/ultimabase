@@ -117,3 +117,33 @@ expectTypeOf<
 expectTypeOf<
 	Awaited1<ReturnType<typeof listPublicTodos>>[number]['title']
 >().toEqualTypeOf<string>()
+
+// ADR-0310: `CreateInput` and `UpdateInput`, by name or by schema type, are
+// exactly the `data` of `createOne` and `updateOne`.
+declare const namedCreate: CreateInput<'Todo'>
+declare const schemaCreate: CreateInput<typeof Todo>
+declare const namedUpdate: UpdateInput<'Todo'>
+declare const schemaUpdate: UpdateInput<typeof Todo>
+export const createFromInputs = () =>
+	Promise.all([
+		Todo.createOne({ data: namedCreate }),
+		Todo.createOne({ data: schemaCreate }),
+	])
+export const updateFromInputs = () =>
+	Promise.all([
+		Todo.updateOne({ where: { title: { eq: 'x' } }, data: namedUpdate }),
+		Todo.updateOne({ where: { title: { eq: 'x' } }, data: schemaUpdate }),
+	])
+expectTypeOf<CreateInput<'Todo'>>().toEqualTypeOf<
+	Parameters<typeof Todo.createOne>[0]['data']
+>()
+expectTypeOf<UpdateInput<'Todo'>>().toEqualTypeOf<
+	Parameters<typeof Todo.updateOne>[0]['data']
+>()
+expectTypeOf<UpdateInput<typeof Todo>>().toEqualTypeOf<UpdateInput<'Todo'>>()
+// Nested links and numeric-free boolean fields share one update value.
+export const linkPatch: UpdateInput<'Todo'> = {
+	tags: { connect: ['0198f090-2a50-7000-8000-000000000001'] },
+}
+// @ts-expect-error -- Update data names at least one field.
+export const emptyPatch: UpdateInput<'Todo'> = {}

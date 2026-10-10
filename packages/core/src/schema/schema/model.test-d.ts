@@ -69,17 +69,24 @@ test('names results and inputs by schema type', async () => {
 	void LifecycleModel.createOne({ data })
 	const patch: UpdateInput<typeof LifecycleModel> = {
 		author: null,
-		views: 2,
+		views: { increment: 1 },
 	}
-	// Deferred (handoff step 3b): `UpdateInput` is the field map of
-	// `inputs.update`, while `updateOne` data requires at least one field and
-	// accepts numeric operators, so a patch is not yet assignable to `data`.
-	void patch
 	void LifecycleModel.updateOne({
 		where: { title: { eq: 'Linked' } },
-		data: { views: { increment: 1 } },
+		data: patch,
 	})
+	// `CreateInput` and `UpdateInput` are exactly the `data` of `createOne` and
+	// `updateOne` (ADR-0310).
+	expectTypeOf<CreateInput<typeof LifecycleModel>>().toEqualTypeOf<
+		Parameters<typeof LifecycleModel.createOne>[0]['data']
+	>()
+	expectTypeOf<UpdateInput<typeof LifecycleModel>>().toEqualTypeOf<
+		Parameters<typeof LifecycleModel.updateOne>[0]['data']
+	>()
 	// @ts-expect-error -- Update data keeps exact field types.
 	const invalid: UpdateInput<typeof LifecycleModel> = { title: 42 }
+	// @ts-expect-error -- Update data names at least one field.
+	const empty: UpdateInput<typeof LifecycleModel> = {}
 	void invalid
+	void empty
 })

@@ -93,12 +93,18 @@ describe('schema declaration form without Typegen (ADR-0297)', () => {
 
 	// ADR-0310: a complete result prints by name, from source and built packages.
 	it.each(['tsconfig.json', 'tsconfig.source.json'])(
-		'prints a complete result as Model<"Todo"> through %s',
+		'prints results and inputs by name (Model, CreateInput, UpdateInput) through %s',
 		(configName) => {
 			const oneTodo = readExampleHover(configName, 'oneTodo')
 			expect(oneTodo).toContain('Model<"Todo"> | null')
 			expect(readExampleHover(configName, 'allTodos')).toContain(
 				'readonly Model<"Todo">[]',
+			)
+			expect(readExampleHover(configName, 'namedCreate')).toContain(
+				'CreateInput<"Todo">',
+			)
+			expect(readExampleHover(configName, 'namedUpdate')).toContain(
+				'UpdateInput<"Todo">',
 			)
 		},
 		120_000,
