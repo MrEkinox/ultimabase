@@ -127,6 +127,8 @@ Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
 ## Preuves
 
 - `yarn typecheck`, `yarn lint` (0 erreur), `yarn format:check`, `yarn constraints` : verts.
+- Relancés sur c711cdf5 (dernier commit de code 9d732ea0), mêmes comptes :
+  `yarn validate:full` exit 0 et `yarn test:e2e:built` exit 0 (112 / 464).
 - `yarn validate:full` (dist et `*.tsbuildinfo` supprimés) sur 27238b59 :
   exit 0 ; performance 3 fichiers / 4 tests ; couverture 668 fichiers /
   3219 tests ; website 17 fichiers / 66 tests.
