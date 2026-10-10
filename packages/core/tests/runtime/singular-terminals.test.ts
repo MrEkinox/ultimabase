@@ -1,6 +1,5 @@
 import { applicationFixture } from '../application-fixture.js'
 import {
-	increment,
 	QueryBuilder,
 	type ExecutableOperationAst,
 } from '../../src/index.js'
@@ -305,7 +304,7 @@ describe('read terminals and singular schema commands', () => {
 			await expect(
 				articleSchema.updateOne({
 					where: { title: { eq: 'Updated target' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				}),
 			).resolves.toBeNull()
 			const selectedUpdateResult = await articleSchema.updateOne({

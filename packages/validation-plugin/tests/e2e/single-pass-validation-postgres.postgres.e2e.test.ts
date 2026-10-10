@@ -1,7 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import {
 	FrameworkError,
-	increment,
 	MasterAuthority,
 	Pointer,
 	UltimaBase,
@@ -188,7 +187,7 @@ describe(
 
 				const updated = await Item.updateOne({
 					id: created.id,
-					data: { score: increment(1) },
+					data: { score: { increment: 1 } },
 				})
 
 				expect(updated?.score).toBe(2)
@@ -196,7 +195,7 @@ describe(
 
 				clearCalls()
 				await expect(
-					Item.updateOne({ id: created.id, data: { score: increment(1) } }),
+					Item.updateOne({ id: created.id, data: { score: { increment: 1 } } }),
 				).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 				expect(scoreCalls).toStrictEqual([3])
 

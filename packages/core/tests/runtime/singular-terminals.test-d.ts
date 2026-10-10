@@ -1,5 +1,4 @@
 import {
-	increment,
 	QueryBuilder,
 	type QueryResult,
 	type OperationOptions,
@@ -60,7 +59,7 @@ test('preserves schema selection across every root read terminal', () => {
 				{
 					create: { title: 'Unique' },
 					where: { title: { eq: 'Unique' } },
-					update: { views: increment(1) },
+					update: { views: { increment: 1 } },
 				},
 			],
 		}),
@@ -70,7 +69,7 @@ test('preserves schema selection across every root read terminal', () => {
 			data: [
 				{
 					where: { title: { eq: 'Unique' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				},
 			],
 		}),
@@ -79,7 +78,7 @@ test('preserves schema selection across every root read terminal', () => {
 		articleSchema.upsertOne({
 			where: { title: { eq: 'Unique' } },
 			create: { title: 'Unique' },
-			update: { views: increment(1) },
+			update: { views: { increment: 1 } },
 		}),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
@@ -113,7 +112,7 @@ test('preserves schema selection across every root read terminal', () => {
 	void articleSchema.updateOne(
 		{
 			where: { title: { eq: 'Unique' } },
-			data: { views: increment(1) },
+			data: { views: { increment: 1 } },
 		},
 		masterOptions,
 	)
@@ -121,7 +120,7 @@ test('preserves schema selection across every root read terminal', () => {
 		articleSchema.updateOne(
 			{
 				id: 'article-1',
-				data: { views: increment(1) },
+				data: { views: { increment: 1 } },
 				select: { id: true, title: true },
 			},
 			contextOptions,
@@ -134,7 +133,7 @@ test('preserves schema selection across every root read terminal', () => {
 			data: [
 				{
 					where: { id: { eq: 'article-1' } },
-					data: { views: increment(1) },
+					data: { views: { increment: 1 } },
 				},
 			],
 		},
@@ -144,7 +143,7 @@ test('preserves schema selection across every root read terminal', () => {
 		{
 			where: { title: { eq: 'Unique' } },
 			create: { title: 'Unique' },
-			update: { views: increment(1) },
+			update: { views: { increment: 1 } },
 		},
 		contextOptions,
 	)
@@ -154,7 +153,7 @@ test('preserves schema selection across every root read terminal', () => {
 				{
 					create: { title: 'Unique' },
 					where: { title: { eq: 'Unique' } },
-					update: { views: increment(1) },
+					update: { views: { increment: 1 } },
 				},
 			],
 		},
@@ -186,7 +185,7 @@ test('preserves schema selection across every root read terminal', () => {
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void articleSchema.createOne({ data: { ultimabase } }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
-	void articleSchema.updateOne([{ views: increment(1) }])
+	void articleSchema.updateOne([{ views: { increment: 1 } }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
 	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Singular updates accept exactly one target form.

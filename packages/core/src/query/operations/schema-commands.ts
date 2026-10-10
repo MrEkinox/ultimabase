@@ -127,7 +127,7 @@ interface SchemaUpdateFields<TSchema extends SchemaTypeInfoSource> {
 	/**
 	 * Applies typed atomic field operations when the target exists.
 	 *
-	 * @example `{ published: true, views: increment(1) }`
+	 * @example `{ published: true, views: { increment: 1 } }`
 	 */
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }

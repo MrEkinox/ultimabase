@@ -1,4 +1,4 @@
-import { increment, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -56,7 +56,7 @@ const Left = App.Schema.define({
 				await awaitPartner()
 				await Right.updateOne({
 					id: partners.right,
-					data: { touchPartner: false, value: increment(1) },
+					data: { touchPartner: false, value: { increment: 1 } },
 				})
 			},
 		},
@@ -78,7 +78,7 @@ const Right = App.Schema.define({
 				await awaitPartner()
 				await Left.updateOne({
 					id: partners.left,
-					data: { touchPartner: false, value: increment(1) },
+					data: { touchPartner: false, value: { increment: 1 } },
 				})
 			},
 		},
@@ -189,6 +189,29 @@ describe('written storage semantics (ADR-0302)', { concurrent: false }, () => {
 		await expect(
 			Item.findOne({ where: { id: { eq: created.id } } }),
 		).resolves.toMatchObject({ amount })
+	})
+
+	it('loses no concurrent atomic update (ADR-0307)', async () => {
+		const created = await Item.createOne({
+			data: { code: 'counter', rank: 0, amount: '10.5' },
+		})
+		const where = { id: { eq: created.id } }
+
+		await Promise.all(
+			Array.from({ length: 8 }, (_, index) =>
+				Item.updateOne({
+					where,
+					data:
+						index % 2 === 0
+							? { rank: { increment: 3 }, amount: { decrement: '0.25' } }
+							: { rank: { decrement: 1 }, amount: { increment: '1.5' } },
+				}),
+			),
+		)
+
+		const stored = await Item.findOne({ where })
+		expect(stored?.rank).toBe(8)
+		expect(Number(stored?.amount)).toBe(15.5)
 	})
 })
 

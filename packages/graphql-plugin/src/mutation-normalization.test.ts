@@ -157,13 +157,13 @@ describe('GraphQL mutation normalization', () => {
 			related: {
 				update: [
 					{
-						data: { rank: { kind: 'increment', value: 2n } },
+						data: { rank: { increment: 2n } },
 						id: authorId,
 					},
 				],
 			},
 			title: 'Updated',
-			views: { kind: 'increment', value: 2 },
+			views: { increment: 2 },
 		})
 		expect(commands.get('bulkUpdate')).toMatchObject({
 			kind: 'update-many',
@@ -171,7 +171,7 @@ describe('GraphQL mutation normalization', () => {
 				data: [
 					{
 						where: { slug: { eq: 'bulk-update' } },
-						data: { views: { kind: 'decrement', value: 1 } },
+						data: { views: { decrement: 1 } },
 					},
 				],
 			},

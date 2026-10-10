@@ -177,7 +177,7 @@ void updateInput
 	it('drives the actual Core schema, Query, mutation, Access, and hook APIs', () => {
 		const publicSource = `${registry}
 import { accessPlugin } from '@ultimabase/access-plugin'
-import { UltimaBase, increment } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
@@ -309,7 +309,7 @@ const invalidObjectPath: SemanticArticleWhereInput = {
 
 const projectedUpdate = SemanticArticle./* public-update-one-hover */updateOne({
   /* public-update-id-hover */id: 'article-1',
-  data: { status: 'published', views: increment(1) },
+  data: { status: 'published', views: { increment: 1 } },
   select: { title: true },
   include: { author: { select: { name: true } } },
 })
@@ -463,7 +463,7 @@ SemanticArticle./* public-delete-many-hover */deleteMany({
 SemanticArticle.updateOne({
   where: { id: { eq: 'article-1' } },
   // @ts-expect-error -- Generated numeric lists cannot use scalar increments.
-  data: { scores: increment(1) },
+  data: { scores: { increment: 1 } },
 })
 
 // @ts-expect-error -- Generated singular targets are mutually exclusive.

@@ -3,7 +3,6 @@ import {
 	QueryBuilder,
 	UltimaBase,
 	SchemaRegistry,
-	increment,
 	normalizeUpdateExpression,
 	type DeleteManyOperationAst,
 	type UpdateManyOperationAst,
@@ -52,7 +51,7 @@ const owned = (
 })
 
 const query = new QueryBuilder(Document).ast
-const update = normalizeUpdateExpression(Document, { score: increment(1) })
+const update = normalizeUpdateExpression(Document, { score: { increment: 1 } })
 const updateMany = {
 	kind: 'update-many',
 	query,
@@ -90,7 +89,7 @@ it('classifies every native terminal through one Access family map', () => {
 
 it('derives update values from Core traversal without mixing bulk items', () => {
 	const secondUpdate = normalizeUpdateExpression(Document, {
-		score: increment(2),
+		score: { increment: 2 },
 	})
 	const operation = {
 		items: [update, secondUpdate].map((itemUpdate, index) => ({

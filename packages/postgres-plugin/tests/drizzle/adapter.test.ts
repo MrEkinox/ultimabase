@@ -4,7 +4,6 @@ import {
 	Pointer,
 	createDatabasePersistencePlan,
 	createRuntimeValidationStage,
-	increment,
 	normalizeUpdateExpression,
 	RequestContext,
 	requestSources,
@@ -286,7 +285,7 @@ describe('internal PostgreSQL database adapter reads', () => {
 			.descending('views')
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Requested',
-			views: increment(1),
+			views: { increment: 1 },
 		})
 		const updateOperation = {
 			kind: 'update-one',

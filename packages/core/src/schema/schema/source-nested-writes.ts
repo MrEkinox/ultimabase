@@ -10,6 +10,7 @@ import type {
 	NestedRelationCreateInput,
 	NestedRelationUpdateInput,
 } from '../nested-writes/inputs.js'
+import type { NumericUpdateOperation } from '../../query/updates/contracts.js'
 import type { SchemaTypeInfoFor, SchemaTypeInfoSource } from '../type-info.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type {
@@ -47,6 +48,16 @@ type SourceNestedCreateValue<TField extends GenericField> =
 			? NestedRelationCreateInput<RelationNestedCreate<TTarget, TMappedBy>>
 			: SourceFieldModeValue<TField, 'create'>
 
+/** Atomic operations of a non-list numeric field in nested update data (ADR-0307). */
+type SourceNumericUpdateOperation<TField extends GenericField> =
+	FieldTypegenStateOf<TField>['list'] extends true
+		? never
+		: TField['kind'] extends 'bigint' | 'decimal' | 'float' | 'int'
+			? NumericUpdateOperation<
+					Exclude<SourceFieldModeValue<TField, 'update'>, null>
+				>
+			: never
+
 type SourceNestedUpdateValue<TField extends GenericField> =
 	TField extends PointerField<infer TTarget>
 		? NestedPointerUpdateInput<
@@ -60,7 +71,9 @@ type SourceNestedUpdateValue<TField extends GenericField> =
 					TargetNestedUpdate<TTarget>,
 					RelationCanDisconnect<TTarget, TMappedBy>
 				>
-			: SourceFieldModeValue<TField, 'update'>
+			:
+					| SourceFieldModeValue<TField, 'update'>
+					| SourceNumericUpdateOperation<TField>
 
 type SourceNestedCreateRequired<TFields extends SchemaDeclaredFields> = {
 	-readonly [

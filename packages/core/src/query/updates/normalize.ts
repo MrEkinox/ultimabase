@@ -8,6 +8,7 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
+	isPlainRecord,
 } from '@ultimabase/shared'
 
 import {
@@ -18,7 +19,6 @@ import {
 	type UpdateOperationNode,
 } from './contracts.js'
 import { readPersistedQueryFields } from '../ast/schema.js'
-import { isNumericUpdateOperationValue } from './operators.js'
 import { assertPlainObject } from '../../exact-object-validation.js'
 
 type RuntimeUpdateField = FieldDefinition<string, unknown, object>
@@ -54,6 +54,27 @@ const resolveMutableField = <const TSchema extends SchemaDefinition>(
 	return [fieldName, field]
 }
 
+const isNumericUpdateField = (field: RuntimeUpdateField): boolean =>
+	!hasListOption(field.options) &&
+	includesString(numericUpdateFieldKinds, field.kind)
+
+/** Reads the single `increment` or `decrement` key of one numeric update object. */
+const readNumericUpdateKind = (
+	value: Readonly<Record<string, unknown>>,
+	fieldName: string,
+): 'decrement' | 'increment' => {
+	const keys = Object.keys(value)
+	const [kind] = keys
+
+	if (keys.length !== 1 || (kind !== 'increment' && kind !== 'decrement')) {
+		throw new TypeError(
+			`update field ${fieldName} must contain exactly one of increment or decrement`,
+		)
+	}
+
+	return kind
+}
+
 /** Normalizes one field entry into a set or numeric update operation. */
 const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -64,13 +85,14 @@ const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 		throw new TypeError('update value must not be undefined')
 	}
 
-	if (!isNumericUpdateOperationValue(value)) {
-		const [mutableFieldName] = resolveMutableField(
-			schema,
-			fieldName,
-			'update field',
-		)
+	const [mutableFieldName, field] = resolveMutableField(
+		schema,
+		fieldName,
+		'update field',
+	)
 
+	// Numeric fields have no object values, so an object is always an operation.
+	if (!isNumericUpdateField(field) || !isPlainRecord(value)) {
 		// Plugin inference may impose stricter value rules validated by Runtime.
 		return immutableRecord({
 			kind: 'set',
@@ -79,23 +101,15 @@ const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 		}) as UpdateOperationNode<TSchema>
 	}
 
-	const path = `update ${value.kind} field`
-	const [numericFieldName, field] = resolveMutableField(schema, fieldName, path)
-
-	if (
-		hasListOption(field.options) ||
-		!includesString(numericUpdateFieldKinds, field.kind)
-	) {
-		throw new TypeError(`${path} must reference a mutable scalar numeric field`)
-	}
+	const kind = readNumericUpdateKind(value, mutableFieldName)
 
 	return immutableRecord({
-		kind: value.kind,
-		field: numericFieldName,
+		kind,
+		field: mutableFieldName,
 		value: snapshotScalarFieldValue(
 			field,
-			value.value,
-			`update ${value.kind} value`,
+			value[kind],
+			`update ${kind} value`,
 		),
 	}) as UpdateOperationNode<TSchema>
 }

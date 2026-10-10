@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { increment } from '../../src/index.js'
 
 import { createEnforcementState } from '../../src/runtime/enforcement/state.js'
 import {
@@ -202,7 +201,7 @@ describe('bulk result projection', () => {
 		const updated = await runWithRequestEngine(updateRequest, () =>
 			accountSchema.updateMany({
 				data: [first, second].map(({ id }) => ({
-					data: { visits: increment(1) },
+					data: { visits: { increment: 1 } },
 					where: { id: { eq: id } },
 				})),
 				include,
@@ -471,7 +470,7 @@ describe('bulk result projection', () => {
 			runWithRequestEngine(request, () =>
 				accountSchema.updateMany({
 					data: [0, 1].map(() => ({
-						data: { visits: increment(1) },
+						data: { visits: { increment: 1 } },
 						where: { id: { eq: previous.id } },
 					})),
 					include: { manager: { select: { name: true } } },

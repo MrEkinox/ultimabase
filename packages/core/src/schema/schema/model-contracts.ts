@@ -293,7 +293,7 @@ export interface SchemaDraftCommands<
 	/**
 	 * Creates this draft or updates one target and returns selected model fields.
 	 *
-	 * @example `await draft.upsert({ where: { slug: { eq: "hello" } }, update: { views: increment(1) }, select: { id: true } })`
+	 * @example `await draft.upsert({ where: { slug: { eq: "hello" } }, update: { views: { increment: 1 } }, select: { id: true } })`
 	 */
 	upsert<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: TUpsertFields &

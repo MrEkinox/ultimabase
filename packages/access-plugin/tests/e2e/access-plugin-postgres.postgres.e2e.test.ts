@@ -8,7 +8,6 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	plugin,
-	increment,
 	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -349,7 +348,7 @@ describe('Access plugin with PostgreSQL', () => {
 			BulkDocument.updateMany({
 				data: visibleDocumentIds.map((id) => ({
 					where: { id: { eq: id } },
-					data: { value: increment(10) },
+					data: { value: { increment: 10 } },
 				})),
 			}),
 		).resolves.toHaveLength(2)
@@ -357,7 +356,7 @@ describe('Access plugin with PostgreSQL', () => {
 			BulkDocument.upsertOne({
 				where: { key: { eq: 'visible-a' } },
 				create: { key: 'visible-a', value: 0, visible: true },
-				update: { value: increment(1) },
+				update: { value: { increment: 1 } },
 			}),
 		).resolves.toMatchObject({ value: 12 })
 		await expect(BulkDocument.count({})).resolves.toBe(2)

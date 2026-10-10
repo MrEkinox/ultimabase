@@ -112,7 +112,7 @@ describe('generated nested-write contracts', () => {
 	it('provides exact recursive autocomplete and rejects superseded inputs', () => {
 		const registry = createNestedWriteRegistry()
 		const source = `${registry}
-import { UltimaBase, increment } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 
 const GeneratedNestedAuthor = UltimaBase.Schema.define({
   className: 'GeneratedNestedAuthor',
@@ -168,7 +168,7 @@ GeneratedNestedPost.updateOne({
 
 GeneratedNestedPost.updateOne({
   id: 'post-1',
-  data: { title: 'Updated', views: increment(1) },
+  data: { title: 'Updated', views: { increment: 1 } },
 })
 
 // @ts-expect-error -- A required pointer cannot disconnect.

@@ -1,8 +1,6 @@
 import {
-	decrement,
 	getFieldListDepth,
 	getFieldSchemaTarget,
-	increment,
 	transformSchemaMutationDataInput,
 	type GenericField,
 	type SchemaMutationDataFieldInput,
@@ -117,6 +115,7 @@ const decodeRelationshipCommands = (
 	)
 }
 
+// ADR-0307: a numeric field's object value is exactly one atomic operation.
 const decodeNumericUpdate = (
 	field: GenericField,
 	value: unknown,
@@ -125,17 +124,17 @@ const decodeNumericUpdate = (
 	if (
 		getFieldListDepth(field.options) !== 0 ||
 		!numericKinds.has(field.kind) ||
-		!isPlainRecord(value) ||
-		Object.keys(value).length !== 2 ||
-		!Object.hasOwn(value, 'value') ||
-		(value.type !== 'increment' && value.type !== 'decrement')
+		!isPlainRecord(value)
 	) {
 		return undefined
 	}
-	// Numeric field codecs only produce bigint, number, or decimal strings.
-	const operand = decodeRestFieldValue(field, value.value, invalid) as
-		bigint | number | string
-	return value.type === 'increment' ? increment(operand) : decrement(operand)
+	const [kind, ...rest] = Object.keys(value)
+	if (rest.length !== 0 || (kind !== 'increment' && kind !== 'decrement')) {
+		throw invalid()
+	}
+	return immutableRecord({
+		[kind]: decodeRestFieldValue(field, value[kind], invalid),
+	})
 }
 
 const decodeMutationField = (
