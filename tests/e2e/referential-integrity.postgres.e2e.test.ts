@@ -171,7 +171,9 @@ describe(
 				data: { parent: { connect: parentId } },
 			})
 
-			await expect(Parent.deleteOne({ id: parentId })).rejects.toMatchObject({
+			await expect(
+				Parent.deleteOne({ where: { id: parentId } }),
+			).rejects.toMatchObject({
 				code: 'REFERENCE_VIOLATION',
 				publicDetails: { schema: 'IntegrityParent' },
 				retryable: false,
@@ -194,7 +196,7 @@ describe(
 			})
 			cascadedHooks = 0
 
-			await Parent.deleteOne({ id: parentId })
+			await Parent.deleteOne({ where: { id: parentId } })
 
 			await expect(
 				CascadeChild.exists({ where: { id: { eq: child.id } } }),
@@ -212,7 +214,9 @@ describe(
 			})
 			await ChainLeaf.createOne({ data: { middle: { connect: middle.id } } })
 
-			await expect(ChainRoot.deleteOne({ id: root.id })).rejects.toMatchObject({
+			await expect(
+				ChainRoot.deleteOne({ where: { id: root.id } }),
+			).rejects.toMatchObject({
 				code: 'REFERENCE_VIOLATION',
 				publicDetails: { schema: 'IntegrityChainRoot' },
 			})
@@ -227,7 +231,7 @@ describe(
 				data: { parent: { connect: parentId } },
 			})
 
-			await Parent.deleteOne({ id: parentId })
+			await Parent.deleteOne({ where: { id: parentId } })
 
 			await expect(
 				SetNullChild.findOne({ where: { id: { eq: child.id } } }),
@@ -240,7 +244,7 @@ describe(
 				data: { parent: { connect: parent.id } },
 			})
 
-			await SoftParent.deleteOne({ id: parent.id })
+			await SoftParent.deleteOne({ where: { id: parent.id } })
 
 			await expect(
 				SoftChild.findOne({ where: { id: { eq: child.id } } }),
@@ -271,7 +275,7 @@ describe(
 					const deletion = holdTransaction(
 						'delete-first',
 						async () => {
-							await Parent.deleteOne({ id: parentId })
+							await Parent.deleteOne({ where: { id: parentId } })
 							deleted.resolve()
 						},
 						release.promise,
@@ -312,7 +316,7 @@ describe(
 						release.promise,
 					)
 					const childId = await inserted.promise
-					const deletion = settle(Parent.deleteOne({ id: parentId }))
+					const deletion = settle(Parent.deleteOne({ where: { id: parentId } }))
 					await letCompetitorBlock()
 					release.resolve()
 					await insertion

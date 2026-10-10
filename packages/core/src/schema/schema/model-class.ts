@@ -32,19 +32,17 @@ import {
 	executeQueryExists,
 	executeQueryFindMany,
 	executeQueryFindOne,
-	executeQueryGet,
+	requireFoundRow,
 } from '../../query/query/operation-execution.js'
 import {
 	queryFromCountInput,
 	queryFromExistsInput,
 	queryFromFindManyInput,
 	queryFromFindOneInput,
-	queryFromGetInput,
 	type CountInput,
 	type ExistsInput,
 	type FindManyInput,
 	type FindOneInput,
-	type GetInput,
 } from '../../query/query/input.js'
 import { readActiveApplicationOwner } from '../../application/active-application.js'
 import { readApplicationKernelState } from '../../application/application-kernel-state.js'
@@ -248,14 +246,13 @@ const createStaticCommands = (schema: SchemaDefinition) => ({
 		options?: OperationOptions,
 	): Promise<object | null> =>
 		executeQueryFindOne(queryFromFindOneInput(schema, input), options),
-	get: (
-		input: GetInput<SchemaDefinition>,
+	findOneOrThrow: async (
+		input: FindOneInput<SchemaDefinition> = {},
 		options?: OperationOptions,
-	): Promise<object> => {
-		const normalized = queryFromGetInput(schema, input)
-
-		return executeQueryGet(normalized.query, normalized.id, options)
-	},
+	): Promise<object> =>
+		requireFoundRow(
+			await executeQueryFindOne(queryFromFindOneInput(schema, input), options),
+		),
 	count: (
 		input: CountInput<SchemaDefinition> = {},
 		options?: OperationOptions,

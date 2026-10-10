@@ -52,7 +52,6 @@ export type {
 	CountInput,
 	ExactGeneratedFindManyInput,
 	ExactGeneratedFindOneInput,
-	ExactGeneratedGetInput,
 	ExactGeneratedInclusionInput,
 	ExactReadInput,
 	ExistsInput,

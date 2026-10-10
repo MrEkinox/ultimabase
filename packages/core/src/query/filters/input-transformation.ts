@@ -11,9 +11,14 @@ import {
 } from '@ultimabase/shared'
 
 import { readObjectChildFields } from './target.js'
+import { isWhereShorthandField } from './where-shorthand.js'
 
-/** Identifies whether an operand belongs to a field or one of its object paths. */
-export type QueryFilterOperandSource = 'field' | 'structured-path'
+/**
+ * Identifies whether an operand belongs to a field, one of its object paths,
+ * or the equality shorthand of a field (`where: { completed: false }`,
+ * ADR-0307), which carries the operator `eq`.
+ */
+export type QueryFilterOperandSource = 'field' | 'shorthand' | 'structured-path'
 
 /** Describes one transport-owned operand reached through Core's filter shape. */
 export interface QueryFilterOperandInput {
@@ -88,7 +93,12 @@ const transformFieldOperators = (
 	value: unknown,
 	transformOperand: QueryFilterOperandTransformer,
 ): unknown => {
-	if (!isPlainRecord(value)) return value
+	if (!isPlainRecord(value)) {
+		// `null` (isNull) and shapes Core rejects need no transport decoding.
+		return value === null || !isWhereShorthandField(field)
+			? value
+			: transformOperand({ field, operator: 'eq', source: 'shorthand', value })
+	}
 	const target = getFieldSchemaTarget(field)?.()
 	return transformRecord(value, (operator, operand) => {
 		if (target !== undefined && relationshipOperators.has(operator)) {

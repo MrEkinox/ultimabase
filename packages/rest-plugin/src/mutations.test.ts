@@ -180,7 +180,7 @@ describe('REST mutation normalization', () => {
 					huge: { decrement: 2n },
 					views: { increment: 3 },
 				},
-				id: recordId,
+				where: { id: { eq: recordId } },
 				select: { huge: true, views: true },
 			},
 		})
@@ -300,7 +300,10 @@ describe('REST mutation normalization', () => {
 		})
 		expect(deletion).toStrictEqual({
 			kind: 'delete-one',
-			input: { id: recordId, select: { id: true, title: true } },
+			input: {
+				select: { id: true, title: true },
+				where: { id: { eq: recordId } },
+			},
 		})
 		const streamedDeleteRequest = new Request(
 			'https://example.test/records/item',

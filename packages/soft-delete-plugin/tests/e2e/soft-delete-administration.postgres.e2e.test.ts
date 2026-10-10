@@ -415,7 +415,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			},
 		})
 		await article.relation('tags').connect(tag.id)
-		await Article.deleteOne({ id: article.id })
+		await Article.deleteOne({ where: { id: article.id } })
 
 		const restored = await schemaCommand(
 			app,

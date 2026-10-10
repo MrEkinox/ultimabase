@@ -70,36 +70,6 @@ const assertCommandArray: (
 	}
 }
 
-/** Resolves one exclusive `id` alias or `where` target into the canonical filter. */
-const readSingularTarget = <TSchema extends SchemaDefinition>(
-	input:
-		| SchemaDeleteOneExecutionInput<TSchema>
-		| SchemaUpdateOneExecutionInput<TSchema>,
-	path: string,
-): SchemaWhereInput<TSchema> => {
-	const hasWhere = Object.hasOwn(input, 'where')
-
-	if (Object.hasOwn(input, 'id') === hasWhere) {
-		throw new TypeError(`${path} must contain exactly one of id or where`)
-	}
-
-	if (hasWhere) {
-		if (input.where === undefined) {
-			throw new TypeError(`${path}.where must be an object`)
-		}
-
-		return input.where
-	}
-
-	const id: unknown = input.id
-
-	if (typeof id !== 'string') {
-		throw new TypeError(`${path}.id must be a string`)
-	}
-
-	return immutableRecord({ id: immutableRecord({ eq: id }) })
-}
-
 /** Normalizes one mutation target directly, without allocating a read builder. */
 const createSchemaWhereQuery = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -246,15 +216,10 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	const path = 'schema updateOne input'
 
-	assertExactCommandKeys(
-		input,
-		path,
-		['data'],
-		['id', 'include', 'select', 'where'],
-	)
+	assertExactCommandKeys(input, path, ['data', 'where'], ['include', 'select'])
 	const query = createSchemaWhereQuery(
 		schema,
-		readSingularTarget(input, path),
+		input.where,
 		'schema updateOne where',
 	)
 
@@ -387,10 +352,10 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	const path = 'schema deleteOne input'
 
-	assertExactCommandKeys(input, path, [], ['id', 'select', 'where'])
+	assertExactCommandKeys(input, path, ['where'], ['select'])
 	const query = createSchemaWhereQuery(
 		schema,
-		readSingularTarget(input, path),
+		input.where,
 		'schema deleteOne where',
 	)
 

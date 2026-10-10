@@ -148,7 +148,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			const created = await SoftPost.createOne({
 				data: { title: 'Tombstone me' },
 			})
-			await SoftPost.deleteOne({ id: created.id })
+			await SoftPost.deleteOne({ where: { id: created.id } })
 			expect(
 				await SoftPost.findOne({ where: { id: { eq: created.id } } }),
 			).toBeNull()
@@ -159,9 +159,9 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			})
 
 			rejectDelete = true
-			await expect(SoftPost.deleteOne({ id: retained.id })).rejects.toThrow(
-				'reject tombstone',
-			)
+			await expect(
+				SoftPost.deleteOne({ where: { id: retained.id } }),
+			).rejects.toThrow('reject tombstone')
 			rejectDelete = false
 			expect(
 				await SoftPost.findOne({ where: { id: { eq: retained.id } } }),

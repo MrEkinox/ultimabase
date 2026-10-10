@@ -202,11 +202,14 @@ export const packedModelFetch = () =>
 export const packedModelPointer = () => packedResult.toPointer()
 export const packedQueryUpdate = () =>
 	PostSchema.updateOne({
-		id: 'packed-post',
+		where: { id: 'packed-post' },
 		data: { title: 'Packed query update' },
 	})
 export const packedQueryDelete = () =>
-	PostSchema.deleteOne({ id: 'packed-post' }, { context: packedContext })
+	PostSchema.deleteOne(
+		{ where: { id: 'packed-post' } },
+		{ context: packedContext },
+	)
 void packedDraft
 void packedModelDraft
 void packedQuery

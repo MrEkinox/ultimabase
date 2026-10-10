@@ -293,7 +293,7 @@ describe(
 			const directUpdated = await MutationPost.updateOne(
 				{
 					data: { counter: 2, title: 'Direct updated' },
-					id: directCreated.id,
+					where: { id: directCreated.id },
 					select: { counter: true, id: true, slug: true, title: true },
 				},
 				{ context },

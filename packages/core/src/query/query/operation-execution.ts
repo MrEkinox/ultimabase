@@ -36,6 +36,7 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
+import { createProtectedObjectNotFoundError } from '../../runtime/operations/target-errors.js'
 import { queryFromFindOneInput } from './input.js'
 import {
 	readQueryPrivateScope,
@@ -124,6 +125,15 @@ export const executeQueryFindOne = <
 	> = immutableRecord({ kind: 'find-one', query: query.ast })
 
 	return executeQueryWithPrivateScope(query, operation, options)
+}
+
+/**
+ * Turns the `null` of a first-match read into `NOT_FOUND`, which also hides
+ * whether a matching row exists but is not visible (ADR-0307).
+ */
+export const requireFoundRow = <TResult>(result: TResult | null): TResult => {
+	if (result === null) throw createProtectedObjectNotFoundError()
+	return result
 }
 
 /** Executes one exact identifier read while retaining private QueryBuilder filters. */

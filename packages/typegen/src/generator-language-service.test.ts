@@ -308,14 +308,14 @@ const invalidObjectPath: SemanticArticleWhereInput = {
 }
 
 const projectedUpdate = SemanticArticle./* public-update-one-hover */updateOne({
-  /* public-update-id-hover */id: 'article-1',
+  where: { id: { eq: 'article-1' } },
   data: { status: 'published', views: { increment: 1 } },
   select: { title: true },
   include: { author: { select: { name: true } } },
 })
 
 SemanticArticle./* public-delete-one-hover */deleteOne({
-  /* public-delete-id-hover */id: 'article-1',
+  where: { id: { eq: 'article-1' } },
 })
 
 SemanticArticle.updateOne({
@@ -378,7 +378,7 @@ const projectedCreates = SemanticArticle./* public-create-many-hover */createMan
 SemanticArticle./* public-find-one-hover */findOne({
   where: { status: { eq: 'draft' } },
 })
-SemanticArticle./* public-get-hover */get({ id: 'article-1' })
+SemanticArticle./* public-find-one-or-throw-hover */findOneOrThrow({ where: { id: { eq: 'article-1' } } })
 SemanticArticle./* public-exists-hover */exists({
   where: { status: { eq: 'draft' } },
 })
@@ -422,12 +422,12 @@ SemanticArticle.updateOne({
   data: { title: 'Completion update' },
   /* public-update-one-options */
 })
-// @ts-expect-error -- The incomplete target drives both singular target completions.
+// @ts-expect-error -- The incomplete target drives the singular target completion.
 SemanticArticle.updateOne({
   /* public-update-one-target */
   data: { title: 'Target completion' },
 })
-// @ts-expect-error -- The incomplete target drives both singular target completions.
+// @ts-expect-error -- The incomplete target drives the singular target completion.
 SemanticArticle.deleteOne({ /* public-delete-one-target */ })
 SemanticArticle.updateMany({
   data: [{
@@ -466,16 +466,14 @@ SemanticArticle.updateOne({
   data: { scores: { increment: 1 } },
 })
 
-// @ts-expect-error -- Generated singular targets are mutually exclusive.
 SemanticArticle.updateOne({
+  // @ts-expect-error -- The top-level id alias was removed (ADR-0307).
   id: 'article-1',
-  where: { id: { eq: 'article-1' } },
   data: { title: 'Invalid target' },
 })
-// @ts-expect-error -- Generated singular targets are mutually exclusive.
 SemanticArticle.deleteOne({
+  // @ts-expect-error -- The top-level id alias was removed (ADR-0307).
   id: 'article-1',
-  where: { id: { eq: 'article-1' } },
 })
 
 type LoadedArticle = NonNullable<Awaited<ReturnType<typeof SemanticArticle.findOne>>>
@@ -576,9 +574,9 @@ void relatedRead
 			'/* public-delete-one-target */',
 			'/* public-update-one-target */',
 		]) {
-			expect(completionNames(marker)).toEqual(
-				expect.arrayContaining(['id', 'where']),
-			)
+			// ADR-0307: `where` is the only singular target.
+			expect(completionNames(marker)).toContain('where')
+			expect(completionNames(marker)).not.toContain('id')
 		}
 		expect(quickInfo('/* public-query-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
@@ -592,7 +590,7 @@ void relatedRead
 			'/* public-exists-hover */',
 			'/* public-find-many-hover */',
 			'/* public-find-one-hover */',
-			'/* public-get-hover */',
+			'/* public-find-one-or-throw-hover */',
 			'/* public-update-many-hover */',
 			'/* public-update-one-hover */',
 			'/* public-upsert-many-hover */',
@@ -613,11 +611,9 @@ void relatedRead
 		expect(quickInfo('/* public-update-where-hover */')).toContain(
 			'SemanticArticleWhereInput',
 		)
-		expect(quickInfo('/* public-update-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-delete-where-hover */')).toContain(
 			'SemanticArticleWhereInput',
 		)
-		expect(quickInfo('/* public-delete-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-count-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
 		)

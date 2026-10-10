@@ -68,7 +68,7 @@ test('retains exact request sources, contexts, and callback results', async () =
 	const updated = executor.executeMutation(anonymous, MutationSchema, {
 		kind: 'update-one',
 		input: {
-			id: '01991f00-0000-7000-8000-000000000001',
+			where: { id: '01991f00-0000-7000-8000-000000000001' },
 			data: { title: 'Updated' },
 		},
 	})

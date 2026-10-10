@@ -154,7 +154,9 @@ describe('Runtime relation filters', () => {
 					relation.findMany({ where: { label: { eq: 'caller' } } }),
 				).resolves.toStrictEqual([])
 				await expect(relation.findOne()).resolves.toBeNull()
-				await expect(relation.get({ id: targetId })).rejects.toMatchObject({
+				await expect(
+					relation.findOneOrThrow({ where: { id: targetId } }),
+				).rejects.toMatchObject({
 					code: 'NOT_FOUND',
 				})
 				await expect(relation.count()).resolves.toBe(0)
@@ -174,7 +176,7 @@ describe('Runtime relation filters', () => {
 			).toStrictEqual([
 				'find-many',
 				'find-one',
-				'get',
+				'find-one',
 				'count',
 				'exists',
 				'count',

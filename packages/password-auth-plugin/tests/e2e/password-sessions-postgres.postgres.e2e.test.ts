@@ -337,8 +337,8 @@ describe(
 				)
 				expect(stored.rows[0]?.tokenDigest).toMatch(/^[a-f0-9]{64}$/u)
 				expect(stored.rows[0]?.tokenDigest).not.toContain(created.session.token)
-				const user = await PasswordUser.get(
-					{ id: created.principal.user.id },
+				const user = await PasswordUser.findOneOrThrow(
+					{ where: { id: created.principal.user.id } },
 					{ useMasterKey: true },
 				)
 				await user.delete({}, { useMasterKey: true })

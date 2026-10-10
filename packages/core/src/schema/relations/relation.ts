@@ -16,8 +16,8 @@ import {
 	executeQueryExists,
 	executeQueryFindMany,
 	executeQueryFindOne,
-	executeQueryGet,
 	executeQueryWithPrivateScope,
+	requireFoundRow,
 } from '../../query/query/operation-execution.js'
 import {
 	scopeQueryToObjectId,
@@ -28,13 +28,11 @@ import {
 	queryFromExistsInput,
 	queryFromFindManyInput,
 	queryFromFindOneInput,
-	queryFromGetInput,
 	type CountInput,
 	type ExactReadInput,
 	type ExistsInput,
 	type FindManyInput,
 	type FindOneInput,
-	type GetInput,
 	type QueryIncludedFieldFromInput,
 	type QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
@@ -237,20 +235,27 @@ export class Relation<
 		return executeQueryFindOne(query, options)
 	}
 
-	/** Reads one related target by its exact identifier. */
-	get<const TInput extends GetInput<TTarget>>(
-		input: ExactReadInput<TTarget, TInput, GetInput<TTarget>>,
+	/** Reads the first matching related target or fails with `NOT_FOUND`. */
+	findOneOrThrow<const TInput extends FindOneInput<TTarget>>(
+		input: ExactReadInput<TTarget, TInput, FindOneInput<TTarget>>,
 		options?: OperationOptions,
-	): Promise<QueryResult<
-		TTarget,
-		QuerySelectedFieldFromInput<TTarget, TInput>,
-		QueryIncludedFieldFromInput<TTarget, TInput>
-	> | null> {
-		const state = this.getState(options)
-		const normalized = queryFromGetInput(state.target, input)
-		const query = scopeQueryToRelation(normalized.query, state)
-
-		return executeQueryGet(query, normalized.id, options)
+	): Promise<
+		QueryResult<
+			TTarget,
+			QuerySelectedFieldFromInput<TTarget, TInput>,
+			QueryIncludedFieldFromInput<TTarget, TInput>
+		>
+	>
+	/** Reads the first visible related target or fails with `NOT_FOUND`. */
+	findOneOrThrow(
+		input?: undefined,
+		options?: OperationOptions,
+	): Promise<QueryResult<TTarget>>
+	async findOneOrThrow(
+		input: FindOneInput<TTarget> = {},
+		options?: OperationOptions,
+	): Promise<object> {
+		return requireFoundRow(await this.findOne(input, options))
 	}
 
 	/** Counts visible related targets without materializing them. */

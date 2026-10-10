@@ -278,9 +278,9 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			expect(result.errors).toBeUndefined()
 		}
 
-		const final = await Post.get(
+		const final = await Post.findOneOrThrow(
 			{
-				id: createdPost.id,
+				where: { id: createdPost.id },
 				include: { primary: {}, targets: {} },
 			},
 			{ context: context() },
@@ -352,7 +352,10 @@ describe('GraphQL nested writes with PostgreSQL', { concurrent: false }, () => {
 			).toBe('string')
 		}
 		expect(
-			await Post.get({ id: post.id }, { context: context() }),
+			await Post.findOneOrThrow(
+				{ where: { id: post.id } },
+				{ context: context() },
+			),
 		).toMatchObject({ title: 'Yoga created' })
 
 		let nested: unknown = { name: 'Depth 6' }

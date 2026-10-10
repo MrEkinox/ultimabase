@@ -14,6 +14,7 @@ import type {
 import type { ObjectFields } from '../fields/builtins/object.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { RelationField } from '../fields/builtins/relation.js'
+import type { PointerTarget } from '../relations/pointer.js'
 import type { SchemaTypeInfoFor } from '../type-info.js'
 import type { SchemaDeclaredFields, SchemaDefinition } from './definition.js'
 import type {
@@ -172,6 +173,24 @@ type SourceObjectFilter<TField extends GenericField> = TField extends {
 			Readonly<{ readonly at?: readonly SourceObjectPath<TFields>[] }>
 	: NullFilter
 
+/**
+ * Equality shorthand of a non-list scalar or enum field (ADR-0307): a value
+ * means `eq` and `null` means `isNull`.
+ */
+type SourceEqualityShorthand<TField extends GenericField> =
+	FieldTypegenStateOf<TField>['list'] extends FieldList
+		? never
+		: TField['kind'] extends Exclude<EqualityFieldKind, 'json' | 'pointer'>
+			? FieldValue<TField> | null
+			: never
+
+/**
+ * Equality shorthand of a pointer field (ADR-0307): the target id or a
+ * Pointer of the declared target means `eq`, `null` means `isNull`.
+ */
+type SourcePointerShorthand<TTarget extends SchemaDefinition> =
+	string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']> | null
+
 type SourcePointerFilter<TTarget extends SchemaDefinition> = EqualityFilter<
 	string | null
 > &
@@ -194,7 +213,7 @@ type SourceRelationFilter<TTarget extends SchemaDefinition> = Readonly<{
 
 type SourceFieldFilter<TField extends GenericField> =
 	TField extends PointerField<infer TTarget>
-		? SourcePointerFilter<TTarget>
+		? SourcePointerFilter<TTarget> | SourcePointerShorthand<TTarget>
 		: TField extends RelationField<infer TTarget>
 			? SourceRelationFilter<TTarget>
 			: FieldTypegenStateOf<TField>['list'] extends FieldList
@@ -209,7 +228,7 @@ type SourceFieldFilter<TField extends GenericField> =
 							}>
 					: TField['kind'] extends 'object'
 						? SourceObjectFilter<TField>
-						: SourceScalarFilter<TField>
+						: SourceScalarFilter<TField> | SourceEqualityShorthand<TField>
 
 export type SourceWhere<TFields extends SchemaDeclaredFields> = Readonly<
 	{

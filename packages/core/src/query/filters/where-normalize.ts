@@ -1,9 +1,6 @@
-import { createPointer } from '../../schema/relations/pointer.js'
-import {
-	getFieldSchemaTarget,
-	Schema,
-	type SchemaDefinition,
-	type SchemaRelationFieldName,
+import type {
+	SchemaDefinition,
+	SchemaRelationFieldName,
 } from '../../schema/index.js'
 import {
 	immutableRecord,
@@ -24,6 +21,11 @@ import {
 	createQueryStructuralFilter,
 	createQueryValueFilter,
 } from './factory.js'
+import {
+	normalizePointerIdentityOperand,
+	readPointerShorthandOperand,
+} from './pointer-operands.js'
+import { isWhereShorthandField } from './where-shorthand.js'
 import { fieldPath } from './target.js'
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import {
@@ -87,31 +89,6 @@ const assertRootWhereTarget: <TSchema extends SchemaDefinition>(
 	if (typeof target !== 'string') {
 		throw new TypeError(`${path} does not support field paths`)
 	}
-}
-
-/** Pointer identity operands are target object IDs and become exact Pointers. */
-const normalizePointerIdentityOperand = (
-	schema: SchemaDefinition,
-	target: WhereTarget<SchemaDefinition>,
-	operand: unknown,
-	path: string,
-): unknown => {
-	const pointer =
-		typeof target === 'string' ? schema.persistedFields[target] : undefined
-
-	if (pointer?.kind !== 'pointer') return operand
-
-	const targetSchema = getFieldSchemaTarget(pointer)?.()
-
-	if (!Schema.is(targetSchema)) {
-		throw new TypeError(`${path} requires a registered pointer target`)
-	}
-
-	if (typeof operand !== 'string') {
-		throw new TypeError(`${path} must be a target object id`)
-	}
-
-	return createPointer(targetSchema, operand)
 }
 
 /** Converts one canonical operator entry into its portable primitive leaf. */
@@ -424,11 +401,47 @@ const normalizeWhereFieldOperator = <TSchema extends SchemaDefinition>(
 			)
 }
 
+/**
+ * Reads the equality shorthand of ADR-0307: on a non-list scalar, enum or
+ * pointer field, a value that is not a plain object means `eq` and `null`
+ * means `isNull`. Other fields keep explicit operators, since their values can
+ * look like operator objects.
+ */
+const normalizeWhereShorthand = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	fieldName: QueryFieldName<TSchema>,
+	input: unknown,
+): QueryFilterNode<TSchema> | undefined => {
+	if (isPlainRecord(input)) return undefined
+
+	const field = schema.persistedFields[fieldName]
+
+	if (field === undefined || !isWhereShorthandField(field)) return undefined
+
+	const path = `where.${fieldName}`
+
+	return input === null
+		? createQueryNullFilter(schema, fieldName, true)
+		: normalizeWhereOperator(
+				schema,
+				fieldName,
+				'eq',
+				field.kind === 'pointer'
+					? readPointerShorthandOperand(field, input, path)
+					: input,
+				path,
+			)
+}
+
 const normalizeWhereField = <TSchema extends SchemaDefinition>(
 	context: WhereContext<TSchema>,
 	fieldName: QueryFieldName<TSchema>,
 	input: unknown,
 ): QueryFilterNode<TSchema> => {
+	const shorthand = normalizeWhereShorthand(context.schema, fieldName, input)
+
+	if (shorthand !== undefined) return shorthand
+
 	assertPlainObject(input, `where.${fieldName} must be an object`)
 
 	let expression: QueryFilterNode<TSchema> | undefined

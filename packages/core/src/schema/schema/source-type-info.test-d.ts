@@ -141,7 +141,10 @@ test('drives operation inputs, projections, and results from the source contract
 		select: { displayName: true },
 		where: { status: { eq: 'draft' } },
 	})
-	void SourceContract.get({ id: 'source-1', select: { displayName: true } })
+	void SourceContract.findOneOrThrow({
+		where: { id: 'source-1' },
+		select: { displayName: true },
+	})
 	void SourceContract.count({ where: { active: { eq: true } } })
 	void SourceContract.exists({ where: { displayName: { eq: 'Ada' } } })
 	void SourceContract.updateMany({

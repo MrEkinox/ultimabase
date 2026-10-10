@@ -90,7 +90,7 @@ describe('GraphQL mutation normalization', () => {
 						{ slug: "bulk-created", title: "Bulk created" }
 					] }) { id }
 					updateGraphqlMutationRecord(input: {
-						id: "${recordId}", data: {
+						where: { id: { eq: "${recordId}" } }, data: {
 							author: { update: { name: { set: "Renamed" } } }
 							related: { update: [{
 								id: "${authorId}", data: { rank: { increment: "2" } }
@@ -101,7 +101,7 @@ describe('GraphQL mutation normalization', () => {
 					updateManyGraphqlMutationRecord(input: { data: [{
 						where: { slug: { eq: "bulk-update" } }, data: { views: { decrement: 1 } }
 					}] }) { id }
-					deleteGraphqlMutationRecord(input: { id: "${recordId}" }) { id author { id } }
+					deleteGraphqlMutationRecord(input: { where: { id: { eq: "${recordId}" } } }) { id author { id } }
 					deleteManyGraphqlMutationRecord(input: { where: [{ slug: { eq: "bulk-delete" } }] }) { id }
 					upsertGraphqlMutationRecord(input: {
 						where: { slug: { eq: "upsert" } }
@@ -148,7 +148,7 @@ describe('GraphQL mutation normalization', () => {
 		})
 		expect(commands.get('update')).toMatchObject({
 			kind: 'update-one',
-			input: { id: recordId, select: { title: true } },
+			input: { where: { id: { eq: recordId } }, select: { title: true } },
 		})
 		expect(
 			Reflect.get(commands.get('update')?.input ?? {}, 'data'),
@@ -178,7 +178,10 @@ describe('GraphQL mutation normalization', () => {
 		})
 		expect(commands.get('delete')).toMatchObject({
 			kind: 'delete-one',
-			input: { id: recordId, select: { author: true, id: true } },
+			input: {
+				where: { id: { eq: recordId } },
+				select: { author: true, id: true },
+			},
 		})
 		expect(commands.get('bulkDelete')).toMatchObject({
 			kind: 'delete-many',
@@ -205,7 +208,7 @@ describe('GraphQL mutation normalization', () => {
 		const relation = await graphql({
 			schema: fixture.schema,
 			source: `mutation {
-				deleteGraphqlMutationRecord(input: { id: "${recordId}" }) {
+				deleteGraphqlMutationRecord(input: { where: { id: { eq: "${recordId}" } } }) {
 					related { nodes { id } }
 				}
 			}`,

@@ -237,7 +237,9 @@ describe(
 				'child:update:after',
 				'parent:update:after',
 			])
-			expect(await Child.get({ id: removed.id })).toMatchObject({
+			expect(
+				await Child.findOneOrThrow({ where: { id: removed.id } }),
+			).toMatchObject({
 				name: 'Removed',
 			})
 
@@ -247,7 +249,9 @@ describe(
 				include: { child: {} },
 			})
 			expect(disconnected).toMatchObject({ child: null })
-			expect(await Child.get({ id: author.id })).toMatchObject({
+			expect(
+				await Child.findOneOrThrow({ where: { id: author.id } }),
+			).toMatchObject({
 				name: 'Author updated',
 			})
 		})
@@ -280,8 +284,8 @@ describe(
 				where: { id: { eq: parent.id } },
 				data: { children: { set: [replacement.id] } },
 			})
-			const afterSet = await Parent.get(
-				{ id: parent.id, include: { children: {} } },
+			const afterSet = await Parent.findOneOrThrow(
+				{ where: { id: parent.id }, include: { children: {} } },
 				{ useMasterKey: true },
 			)
 			expect(
@@ -295,8 +299,8 @@ describe(
 				where: { id: { eq: parent.id } },
 				data: { children: { clear: true } },
 			})
-			const afterClear = await Parent.get(
-				{ id: parent.id, include: { children: {} } },
+			const afterClear = await Parent.findOneOrThrow(
+				{ where: { id: parent.id }, include: { children: {} } },
 				{ useMasterKey: true },
 			)
 			expect(
@@ -329,10 +333,14 @@ describe(
 				throw new TypeError('Expected included inverse notes')
 			}
 			expect(updated.notes).toMatchObject([{ id: replacement.id }])
-			expect(await Note.get({ id: current.id })).toMatchObject({
+			expect(
+				await Note.findOneOrThrow({ where: { id: current.id } }),
+			).toMatchObject({
 				parent: null,
 			})
-			expect(await Note.get({ id: replacement.id })).toMatchObject({
+			expect(
+				await Note.findOneOrThrow({ where: { id: replacement.id } }),
+			).toMatchObject({
 				parent: Parent.pointer(parent.id),
 			})
 		})
@@ -365,11 +373,13 @@ describe(
 				},
 			})
 
-			expect(await Parent.get({ id: updatedParent.id })).toMatchObject({
+			expect(
+				await Parent.findOneOrThrow({ where: { id: updatedParent.id } }),
+			).toMatchObject({
 				name: 'Updated inverse',
 			})
-			const reloaded = await Child.get({
-				id: child.id,
+			const reloaded = await Child.findOneOrThrow({
+				where: { id: child.id },
 				include: { parents: {} },
 			})
 			expect(reloaded.parents).toMatchObject([{ id: updatedParent.id }])
@@ -404,12 +414,17 @@ describe(
 			rejectParentAfterUpdate = false
 
 			expect(
-				await Parent.get({ id: parent.id, include: { children: {} } }),
+				await Parent.findOneOrThrow({
+					where: { id: parent.id },
+					include: { children: {} },
+				}),
 			).toMatchObject({
 				children: [{ id: related.id }],
 				name: 'Rollback parent',
 			})
-			expect(await Child.get({ id: pointerTarget.id })).toMatchObject({
+			expect(
+				await Child.findOneOrThrow({ where: { id: pointerTarget.id } }),
+			).toMatchObject({
 				name: 'Rollback pointer',
 			})
 		})

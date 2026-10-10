@@ -391,7 +391,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).toStrictEqual([])
 
 			const updated = await PostSchema.updateOne({
-				id: created.id,
+				where: { id: created.id },
 				data: {
 					views: { increment: 2 },
 					published: true,
@@ -408,7 +408,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 
 			const deleted = await PostSchema.deleteOne({
-				id: created.id,
+				where: { id: created.id },
 				select: { id: true, title: true },
 			})
 

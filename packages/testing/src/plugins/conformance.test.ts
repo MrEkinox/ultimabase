@@ -413,7 +413,7 @@ describe('plugin conformance suite', () => {
 			const { schemas, ultimabase } = context.createUltimaBase()
 			const [Source, Target] = schemas
 			await ultimabase.start()
-			const source = await Source.get({ id: sourceId })
+			const source = await Source.findOneOrThrow({ where: { id: sourceId } })
 			await source.relation('targets').count({})
 
 			if (latestAdapter === undefined) {

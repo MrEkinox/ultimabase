@@ -170,7 +170,7 @@ describe('GraphQL structural schema compilation', () => {
 			upsertManyPost: { argument: 'PostUpsertManyInput!', result: '[Post!]!' },
 		})
 		expect(printSchema(schema)).toContain(
-			'input PostUpdateOneInput {\n  data: PostUpdateInput!\n  id: ID\n  where: PostWhere\n}',
+			'input PostUpdateOneInput {\n  data: PostUpdateInput!\n  where: PostWhere!\n}',
 		)
 		expect(printSchema(schema)).toContain(
 			'input PostUpsertManyInput {\n  data: [PostUpsertOneInput!]!\n}',

@@ -55,7 +55,7 @@ const Left = App.Schema.define({
 				hookRuns.left += 1
 				await awaitPartner()
 				await Right.updateOne({
-					id: partners.right,
+					where: { id: partners.right },
 					data: { touchPartner: false, value: { increment: 1 } },
 				})
 			},
@@ -77,7 +77,7 @@ const Right = App.Schema.define({
 				hookRuns.right += 1
 				await awaitPartner()
 				await Left.updateOne({
-					id: partners.left,
+					where: { id: partners.left },
 					data: { touchPartner: false, value: { increment: 1 } },
 				})
 			},
@@ -230,8 +230,14 @@ describe(
 				partners.right = right.id
 
 				const results = await Promise.all([
-					Left.updateOne({ id: left.id, data: { touchPartner: true } }),
-					Right.updateOne({ id: right.id, data: { touchPartner: true } }),
+					Left.updateOne({
+						where: { id: left.id },
+						data: { touchPartner: true },
+					}),
+					Right.updateOne({
+						where: { id: right.id },
+						data: { touchPartner: true },
+					}),
 				])
 
 				expect(results).toHaveLength(2)

@@ -92,7 +92,7 @@ describe(
 				})
 
 				// A soft-deleted row leaves the index, so the slug is free again.
-				await UniqueActiveSlug.deleteOne({ id: first.id })
+				await UniqueActiveSlug.deleteOne({ where: { id: first.id } })
 				await expect(
 					UniqueActiveSlug.createOne({ data: { slug: 'alpha' } }),
 				).resolves.toMatchObject({ slug: 'alpha' })

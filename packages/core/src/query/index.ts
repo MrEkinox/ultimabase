@@ -202,7 +202,6 @@ export type {
 	ExistsInput,
 	FindManyInput,
 	FindOneInput,
-	GetInput,
 	QueryIncludeInput,
 	QueryIncludedFieldFromInput,
 	QueryBuilderInput,

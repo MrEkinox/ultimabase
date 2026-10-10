@@ -241,7 +241,7 @@ describe('official explicit soft-delete transports', () => {
 		)
 		expect(stored.rows).toStrictEqual([{ isDeleted: false }])
 		rejectedSoftDeleteTitle = undefined
-		await Explicit.deleteOne({ id: row.id })
+		await Explicit.deleteOne({ where: { id: row.id } })
 	})
 
 	it('publishes only the explicit REST route and GraphQL field', () => {

@@ -40,7 +40,10 @@ test('preserves schema selection across every root read terminal', () => {
 		Promise<QueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
 	expectTypeOf(
-		articleSchema.get({ id: 'article-1', select: input.select }),
+		articleSchema.findOneOrThrow({
+			where: { id: 'article-1' },
+			select: input.select,
+		}),
 	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id' | 'title'>>>()
 	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()
@@ -95,8 +98,8 @@ test('preserves schema selection across every root read terminal', () => {
 	// Every terminal shares the same final trusted-backend authority boundary.
 	void articleSchema.findMany(input, masterOptions)
 	void articleSchema.findOne(input, contextOptions)
-	void articleSchema.get(
-		{ id: 'article-1', select: input.select },
+	void articleSchema.findOneOrThrow(
+		{ where: { id: 'article-1' }, select: input.select },
 		contextualMasterOptions,
 	)
 	void articleSchema.count({}, masterOptions)
@@ -119,7 +122,7 @@ test('preserves schema selection across every root read terminal', () => {
 	expectTypeOf(
 		articleSchema.updateOne(
 			{
-				id: 'article-1',
+				where: { id: 'article-1' },
 				data: { views: { increment: 1 } },
 				select: { id: true, title: true },
 			},
@@ -165,7 +168,7 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	expectTypeOf(
 		articleSchema.deleteOne(
-			{ id: 'article-1', select: { id: true, title: true } },
+			{ where: { id: 'article-1' }, select: { id: true, title: true } },
 			contextOptions,
 		),
 	).toEqualTypeOf<
@@ -190,18 +193,16 @@ test('preserves schema selection across every root read terminal', () => {
 	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Singular updates accept exactly one target form.
 	void articleSchema.updateOne({ data: { views: 1 } })
-	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
 	void articleSchema.updateOne({
+		// @ts-expect-error -- The top-level id alias was removed (ADR-0307).
 		id: 'article-1',
-		where: { id: { eq: 'article-1' } },
 		data: { views: 1 },
 	})
 	// @ts-expect-error -- Singular deletes accept exactly one target form.
 	void articleSchema.deleteOne({})
-	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
 	void articleSchema.deleteOne({
+		// @ts-expect-error -- The top-level id alias was removed (ADR-0307).
 		id: 'article-1',
-		where: { id: { eq: 'article-1' } },
 	})
 	// @ts-expect-error -- Terminal ownership never becomes a QueryBuilder constructor option.
 	new QueryBuilder(articleSchema, { ultimabase })

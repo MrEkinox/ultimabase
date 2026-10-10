@@ -186,7 +186,7 @@ describe(
 				expect(scoreCalls).toStrictEqual([])
 
 				const updated = await Item.updateOne({
-					id: created.id,
+					where: { id: created.id },
 					data: { score: { increment: 1 } },
 				})
 
@@ -195,7 +195,10 @@ describe(
 
 				clearCalls()
 				await expect(
-					Item.updateOne({ id: created.id, data: { score: { increment: 1 } } }),
+					Item.updateOne({
+						where: { id: created.id },
+						data: { score: { increment: 1 } },
+					}),
 				).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 				expect(scoreCalls).toStrictEqual([3])
 
@@ -213,7 +216,7 @@ describe(
 				clearCalls()
 				await expect(
 					Item.updateOne(
-						{ id: created.id, data: { label: '   ' } },
+						{ where: { id: created.id }, data: { label: '   ' } },
 						{ useMasterKey: true },
 					),
 				).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })

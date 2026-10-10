@@ -301,9 +301,14 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		)
 
 		await expect(
-			VisibleRecord.updateOne({ data: { title: 'changed' }, id: row.id }),
+			VisibleRecord.updateOne({
+				data: { title: 'changed' },
+				where: { id: row.id },
+			}),
 		).resolves.toBeNull()
-		await expect(VisibleRecord.deleteOne({ id: row.id })).resolves.toBeNull()
+		await expect(
+			VisibleRecord.deleteOne({ where: { id: row.id } }),
+		).resolves.toBeNull()
 
 		const stored = await database.pool.query<{
 			isDeleted: boolean
@@ -325,7 +330,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		})
 
 		const deleted = await ReplaceRecord.deleteOne({
-			id: row.id,
+			where: { id: row.id },
 			select: { id: true, isDeleted: true, title: true },
 		})
 
@@ -356,7 +361,9 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 				{ useMasterKey: true },
 			),
 		).resolves.toBeNull()
-		await expect(ReplaceRecord.deleteOne({ id: row.id })).resolves.toBeNull()
+		await expect(
+			ReplaceRecord.deleteOne({ where: { id: row.id } }),
+		).resolves.toBeNull()
 
 		const masterRow = await ReplaceRecord.createOne(
 			{ data: { title: 'master logical delete' } },
@@ -413,8 +420,8 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 			data: { title: 'disabled hard delete' },
 		})
 
-		await VisibleRecord.deleteOne({ id: explicit.id })
-		await PlainRecord.deleteOne({ id: disabled.id })
+		await VisibleRecord.deleteOne({ where: { id: explicit.id } })
+		await PlainRecord.deleteOne({ where: { id: disabled.id } })
 
 		const rows = await database.pool.query<{ remaining: number }>(
 			`select (
@@ -436,7 +443,7 @@ describe('official soft-delete visibility with PostgreSQL', () => {
 		await expect(
 			VisibleRecord.updateOne({
 				data: { title: 'middleware changed' },
-				id: row.id,
+				where: { id: row.id },
 			}),
 		).rejects.toThrow(
 			'prepared-operation contribution must preserve the normalized update shape',

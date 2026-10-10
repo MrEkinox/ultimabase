@@ -276,8 +276,8 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 			)
 		}
 
-		const final = await Post.get(
-			{ id: postId, include: { primary: {}, targets: {} } },
+		const final = await Post.findOneOrThrow(
+			{ where: { id: postId }, include: { primary: {}, targets: {} } },
 			{ context },
 		)
 		expect(final.primary).toMatchObject({ name: 'Pointer replaced' })
@@ -313,7 +313,10 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 			),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		expect(
-			await Post.get({ id: post.id }, { context: masterContext }),
+			await Post.findOneOrThrow(
+				{ where: { id: post.id } },
+				{ context: masterContext },
+			),
 		).toMatchObject({
 			title: 'Authorization root',
 		})
@@ -328,7 +331,10 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		expect(
-			await Target.get({ id: target.id }, { context: masterContext }),
+			await Target.findOneOrThrow(
+				{ where: { id: target.id } },
+				{ context: masterContext },
+			),
 		).toMatchObject({ name: 'Master change' })
 	})
 
@@ -361,7 +367,9 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		}
-		expect(await Post.get({ id: post.id }, { context })).toMatchObject({
+		expect(
+			await Post.findOneOrThrow({ where: { id: post.id } }, { context }),
+		).toMatchObject({
 			title: 'Stable',
 		})
 

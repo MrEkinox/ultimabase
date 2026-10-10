@@ -164,8 +164,7 @@ const surfaceMutationFields = (
 		if (surface.update) {
 			const updateOne = input('UpdateOneInput', () => ({
 				data: { type: new GraphQLNonNull(update) },
-				id: { type: GraphQLID },
-				where: { type: where },
+				where: { type: new GraphQLNonNull(where) },
 			}))
 			root('update', updateOne, model)
 		}
@@ -182,8 +181,7 @@ const surfaceMutationFields = (
 	}
 	if (surface.delete) {
 		const deleteOne = input('DeleteOneInput', () => ({
-			id: { type: GraphQLID },
-			where: { type: where },
+			where: { type: new GraphQLNonNull(where) },
 		}))
 		root('delete', deleteOne, model)
 	}

@@ -155,7 +155,7 @@ GeneratedNestedPost.createOne({
 })
 
 GeneratedNestedPost.updateOne({
-  id: 'post-1',
+  where: { id: { eq: 'post-1' } },
   data: {
     author: { /* pointer-update */update: { name: 'Renamed' } },
     reviewer: { disconnect: true },
@@ -167,7 +167,7 @@ GeneratedNestedPost.updateOne({
 })
 
 GeneratedNestedPost.updateOne({
-  id: 'post-1',
+  where: { id: { eq: 'post-1' } },
   data: { title: 'Updated', views: { increment: 1 } },
 })
 
@@ -180,7 +180,7 @@ const relationConflict: GeneratedNestedPostNestedUpdateData = { tags: { clear: t
 // @ts-expect-error -- Inverse create input omits its injected pointer.
 const inverseOverride: GeneratedNestedAuthorNestedCreateInput = { name: 'Ada', posts: { create: [{ author: { connect: 'other' }, title: 'Invalid' }] } }
 // @ts-expect-error -- Singular updates require at least one field.
-GeneratedNestedPost.updateOne({ id: 'post-1', data: {} })
+GeneratedNestedPost.updateOne({ where: { id: { eq: 'post-1' } }, data: {} })
 
 declare const post: Core.SchemaResult<typeof GeneratedNestedPost>
 post.relation('tags').connect('tag-1')

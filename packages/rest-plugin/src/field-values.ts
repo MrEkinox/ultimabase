@@ -239,14 +239,26 @@ const decodeOperand = (
 	return untouchedOperators.has(operator) ? value : decode(value)
 }
 
-/** Decodes filter field values while leaving operator validity to Core normalization. */
+/**
+ * Decodes filter field values while leaving operator validity to Core
+ * normalization. A pointer's equality shorthand is its target id (ADR-0307),
+ * since the tagged pointer object would read as an operator object.
+ */
 export const decodeRestWhere = (
 	schema: SchemaDefinition,
 	value: unknown,
 ): unknown =>
-	transformQueryFilterInput(schema, value, ({ field, operator, value }) =>
-		relationshipOperators.has(operator) &&
-		getFieldSchemaTarget(field) === undefined
-			? value
-			: decodeOperand(field, operator, value),
+	transformQueryFilterInput(
+		schema,
+		value,
+		({ field, operator, source, value }) => {
+			if (source === 'shorthand' && field.kind === 'pointer') {
+				if (!isUuidV7(value)) throw invalidRestRead()
+				return value
+			}
+			return relationshipOperators.has(operator) &&
+				getFieldSchemaTarget(field) === undefined
+				? value
+				: decodeOperand(field, operator, value)
+		},
 	)

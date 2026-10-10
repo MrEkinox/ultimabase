@@ -120,7 +120,7 @@ describe(
 					data: { title: 'Single soft delete' },
 				})
 				const deleted = await SoftDeletePost.deleteOne({
-					id: single.id,
+					where: { id: single.id },
 					select: { id: true, title: true },
 				})
 
