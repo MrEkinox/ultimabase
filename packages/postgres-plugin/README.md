@@ -27,22 +27,22 @@ and Core rejects stale or untyped declarations before connection setup.
 
 ## Connection lifecycle
 
-The current implementation accepts either a connection URL or an existing
-`pg`-compatible pool. Creating `UltimaBase` does not contact PostgreSQL;
-`ultimabase.start()` verifies the connection and immediately returns the
-borrowed client to the pool.
+The plugin accepts a connection URL, an existing `pg`-compatible pool, or
+neither: `postgresPlugin()` then reads the `DATABASE_URL` environment variable
+when the application starts, not when the plugin is created, so schemas and
+applications import and type-check without environment (ADR-0312). An
+explicit `url` or `pool` always wins. A missing or empty variable fails
+`start()` with a message naming `DATABASE_URL` and the `url` option, never the
+value. Creating `UltimaBase` does not contact PostgreSQL; `ultimabase.start()`
+verifies the connection and immediately returns the borrowed client to the
+pool. `logLevel: 'debug'` logs where the connection comes from and the derived
+`schemaPolicy` with its source, never the URL.
 
 ```ts
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import { UltimaBase } from '@ultimabase/core'
 
-const databaseUrl = process.env.DATABASE_URL
-
-if (databaseUrl === undefined) {
-	throw new TypeError('DATABASE_URL is required')
-}
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 const ultimabase = new Application({
 	schemas: [],
 })
@@ -159,21 +159,14 @@ independently optional.
 ## Transactions
 
 An explicit Runtime transaction borrows one PostgreSQL client for its complete
-lifetime. Every query issued through the callback engine uses that client;
-successful callbacks commit, rejected callbacks roll back, and the client is
-always returned or destroyed before the transaction completes:
+lifetime. Every query issued in the callback uses that client; successful
+callbacks commit, rejected callbacks roll back, and the client is always
+returned or destroyed before the transaction completes:
 
 ```ts
-import { requestSources } from '@ultimabase/core'
-
-const request = ultimabase.anonymous({
-	requestId: 'publish-post',
-	source: requestSources.internal,
-})
-
-const post = await request.transaction(async () => {
-	return PostSchema.createOne({ data: { title: 'Atomic post' } })
-})
+const post = await ultimabase.transaction(() =>
+	PostSchema.createOne({ data: { title: 'Atomic post' } }),
+)
 ```
 
 Nested explicit transactions remain unsupported because the portable Runtime
@@ -220,12 +213,7 @@ import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = UltimaBase.use(hooksPlugin()).use(
-	postgresPlugin({ url: databaseUrl }),
-)
+const Application = UltimaBase.use(hooksPlugin()).use(postgresPlugin())
 const AuditSchema = Application.Schema.define({
 	className: 'Audit',
 	fields: (field) => ({
@@ -360,13 +348,7 @@ const EventSchema = UltimaBase.Schema.define({
 	}),
 })
 
-const databaseUrl = process.env.DATABASE_URL
-
-if (databaseUrl === undefined) {
-	throw new TypeError('DATABASE_URL is required')
-}
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 const application = await new Application({
 	schemas: [EventSchema],
 }).initialize()
@@ -474,7 +456,6 @@ key, default, identity, nullability, and index changes:
 ```ts
 const Application = UltimaBase.use(
 	postgresPlugin({
-		url: databaseUrl,
 		schemaPolicy: 'override',
 	}),
 )
@@ -751,9 +732,13 @@ the edge has no independent data or lifecycle.
 The internal adapter compiles the normalized `Query` filter tree through
 Drizzle. Equality, ordered comparisons, membership, string matching, regular
 expressions, existence, and nested `and`/`or`/`not` expressions share the same
-parameterized boundary:
+parameterized boundary. The examples use the builder plugin code constructs
+from `@ultimabase/core/plugin` (ADR-0311); applications pass the same
+canonical `where` objects to `findMany`:
 
 ```ts
+import { QueryBuilder } from '@ultimabase/core/plugin'
+
 const query = new QueryBuilder(ArticleSchema).where({
 	status: { eq: 'published' },
 	views: { gt: 1_000 },
@@ -873,10 +858,7 @@ Use the direct schema option when the database needs an exact identifier:
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (databaseUrl === undefined) throw new TypeError('DATABASE_URL is required')
-
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 const ArticleSchema = Application.Schema.define({
 	className: 'Article',
 	fields: (field) => ({

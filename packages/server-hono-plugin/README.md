@@ -19,19 +19,26 @@ import { httpPlugin } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) throw new Error('DATABASE_URL is required')
-const server = honoServerPlugin({ host: '127.0.0.1', port: 1337 })
+const server = honoServerPlugin()
 
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+// postgresPlugin() reads DATABASE_URL at start (ADR-0312).
+const Application = UltimaBase.use(postgresPlugin())
 	.use(httpPlugin({ appId: 'blog' }))
 	.use(server)
-const application = new Application({
+export const application = new Application({
 	schemas: [],
 })
 
-await application.start()
+await using app = await application.start()
 ```
+
+Without `host`, the managed listener uses the `HOST` environment variable,
+then `127.0.0.1` in development and every interface when `NODE_ENV` is
+`production`; without `port`, it uses `PORT`, then `1337` (ADR-0312). The
+plugin reads them when it is created, an explicit option always wins, and
+`logLevel: 'debug'` logs the derived address and its source. The plugin also
+provides the `ultimabase.http.server` capability, which tells `httpPlugin()`
+that its routes have a server (ADR-0313).
 
 `UltimaBase.start()` requires a database provider even with no application
 schemas. These examples use PostgreSQL and `DATABASE_URL`; the provider is a
@@ -76,7 +83,7 @@ const server = honoServerPlugin({
 	app,
 	browserPolicyOwner: 'ultimabase',
 })
-const Application = UltimaBase.use(postgresPlugin({ url: databaseUrl }))
+const Application = UltimaBase.use(postgresPlugin())
 	.use(httpPlugin({ appId: 'blog' }))
 	.use(server)
 const application = new Application({

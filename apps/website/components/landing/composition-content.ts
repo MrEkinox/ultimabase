@@ -3,7 +3,7 @@ import { applicationExample } from './content'
 const httpImports = `import { httpPlugin } from '@ultimabase/http-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'`
 const httpPlugins = `    httpPlugin({ appId: 'articles' }),
-    honoServerPlugin({ host: '127.0.0.1', port: 1337 }),`
+    honoServerPlugin(),`
 
 /** Both HTTP presets extend the same explicit, statically checked application. */
 const withTransport = (imports: string, plugins: string) =>

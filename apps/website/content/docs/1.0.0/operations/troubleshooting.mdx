@@ -16,6 +16,8 @@ sources:
   - packages/core/src/application/active-application.ts
   - packages/plugin-kit/README.md
   - SECURITY.md
+  - docs/adr/0313-readable-startup-diagnostics.md
+  - packages/core/src/application/startup-summary.ts
 ---
 
 ## Startup and plugin graph
@@ -34,6 +36,10 @@ a database problem.
 | `PLUGIN_PROTOCOL_INCOMPATIBLE`                              | Two versioned contracts cannot communicate.         |
 | `PLUGIN_PRIVILEGE_DENIED`                                   | Policy denied a privilege or environmental claim.   |
 | `PLUGIN_DECLARATION_INVALID`                                | A static contribution violates its public contract. |
+
+`PLUGIN_CAPABILITY_MISSING` ends with the capability owner's hint when it has
+one, for example `Install @ultimabase/http-plugin and add httpPlugin() to
+UltimaBase.use(...).`; the same hint is in `internalDetails.hint`.
 
 A plain `TypeError` can indicate malformed options or an unknown key. See
 [API Error Boundaries](/docs/1.0.0/core/runtime/api-errors#frameworkerror)
@@ -70,8 +76,13 @@ export const reportStartupFailure = (error: unknown): void => {
 Call this helper in the catch around `await ultimabase.start()` in your entry
 point, then rethrow the error and keep your normal disposal flow.
 
-Review the default plugin report for exact plugin and instance IDs, requested
-privileges, reasons, severity, and environmental claims. Preserve the first
+Read the startup log: one `info` line names the schemas, plugins and critical
+privileges, and `warn` lines name each plugin that needs action (a transport
+exposing nothing, routes without HTTP or a server plugin, unverified public
+protection). Set `logLevel: 'debug'` for the complete plugin report (exact
+plugin and instance IDs, requested privileges, reasons, severity, and
+environmental claims) and for the defaults each plugin derived from
+`NODE_ENV`. Preserve the first
 failure even if cleanup reports another one. Repository contributors can run
 the checks in [Contributing](https://github.com/MrEkinox/ultimadatabase/blob/main/CONTRIBUTING.md#definition-of-done);
 those repository commands are not application setup steps.

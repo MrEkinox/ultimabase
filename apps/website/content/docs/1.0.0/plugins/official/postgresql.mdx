@@ -78,9 +78,7 @@ its connection pool; keep `DATABASE_URL` out of source control.
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 
-const Application = UltimaBase.use(
-	postgresPlugin({ schemaPolicy: 'override' }),
-)
+const Application = UltimaBase.use(postgresPlugin({ schemaPolicy: 'override' }))
 const Task = Application.Schema.define({
 	className: 'Task',
 	fields: (f) => ({

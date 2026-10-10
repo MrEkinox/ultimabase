@@ -284,8 +284,10 @@ Trusted server code can execute the identical GraphQL application without
 Yoga or HTTP:
 
 ```ts
+import { anonymous } from '@ultimabase/core/plugin'
+
 const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
-const context = ultimabase.anonymous({
+const context = anonymous(ultimabase, {
 	requestId: crypto.randomUUID(),
 	source: 'internal',
 }).context
