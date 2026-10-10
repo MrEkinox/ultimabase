@@ -114,7 +114,7 @@ it.each([
 		code: virtualFieldExample,
 		schema: 'Profile',
 		checks: `const profile = await Profile.findOneOrThrow(
-  { where: { id: 'example' }, select: { displayName: true } }
+  { where: { id: { eq: 'example' } }, select: { displayName: true } }
 )
 const name: string = profile.displayName
 // @ts-expect-error Private virtual dependencies are not selected result properties.

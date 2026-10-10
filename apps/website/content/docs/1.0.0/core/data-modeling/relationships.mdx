@@ -19,6 +19,7 @@ sources:
   - docs/adr/0115-immutable-model-commands.md
   - docs/adr/0118-transport-neutral-relations.md
   - docs/adr/0314-pointers-created-by-their-schema.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
   - docs/adr/0299-adapter-enforced-referential-integrity.md
   - docs/adr/0179-name-based-relationship-targets.md
   - docs/adr/0247-contextual-relation-filters.md
@@ -62,17 +63,21 @@ resolves `target: 'DocsAccount'` to the exact registered `Account` schema;
 an unknown target fails before database setup. Typegen can then expose the
 exact target type for `Session.account`.
 
-Use `Account.pointer(id)` in a create or update input to reference an existing
-account. It is the only way to create a pointer: `new Pointer(...)` is not
-public, and the exported `Pointer` serves type annotations and
-`instanceof Pointer` checks. Creating a pointer performs no I/O and does not prove that the target exists;
-persistence enforces the relationship. Its ordinary value is a `Pointer`, not
+Link a session to an existing account with `{ connect: accountId }` in create
+or update data; `connect` also accepts a `Pointer` of the declared target
+already in hand, such as `{ connect: session.account }`. The target must be
+visible to the caller (see [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes#every-link-checks-visibility)),
+and a `Pointer` or ID assigned directly to the field is rejected.
+`Account.pointer(id)` is the only way to create a pointer value, for filters,
+comparisons, and ACL entries: `new Pointer(...)` is not public, and the
+exported `Pointer` serves type annotations and `instanceof Pointer` checks.
+Creating a pointer performs no I/O and does not prove that the target exists. Its ordinary value is a `Pointer`, not
 an `Account` model. `pointer.equals(other)` compares exact schema identity and
 ID, while `pointer.toJSON()` returns the immutable logical shape
 `{ type: 'pointer', className: 'DocsAccount', id }`.
 
 A required pointer cannot be `null`. An optional pointer can be `null` in a
-complete record; pointers cannot be lists or have defaults. Use
+complete record, and `null` in update data unlinks it; pointers cannot be lists or have defaults. Use
 [Defaults and Nullability](./defaults) for the general presence rules.
 
 ### Read through a pointer
@@ -85,8 +90,8 @@ plugin, read a persisted session without including its account. Its selected
 import { Session } from './session.js'
 
 export const readSessionAccount = async (sessionId: string) => {
-	const session = await Session.get({
-		id: sessionId,
+	const session = await Session.findOneOrThrow({
+		where: { id: sessionId },
 		select: { account: true },
 	})
 
@@ -104,7 +109,8 @@ ordinary target read pipeline. Neither changes the stored pointer or grants
 access to its target.
 
 If you already know that you need the account when reading the session, use
-`include: { account: { select: { email: true } } }` on `Session.get()` instead.
+`include: { account: { select: { email: true } } }` on `Session.findOneOrThrow()`
+instead.
 Read through the pointer when you have the session already and decide to load
 its target later. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
 for inclusion behavior.
@@ -195,7 +201,7 @@ in a started application with a persistence plugin.
 import { Post } from './post.js'
 
 export const readReviewers = async (postId: string) => {
-	const post = await Post.get({ id: postId })
+	const post = await Post.findOneOrThrow({ where: { id: postId } })
 	const reviewers = post.relation('reviewers')
 
 	return reviewers.findMany({ limit: 10, select: { name: true } })
@@ -210,7 +216,7 @@ reviewers without loading the collection:
 import { Post } from './post.js'
 
 export const inspectReviewers = async (postId: string, reviewerId: string) => {
-	const post = await Post.get({ id: postId })
+	const post = await Post.findOneOrThrow({ where: { id: postId } })
 	const reviewers = post.relation('reviewers')
 
 	return {
@@ -218,15 +224,19 @@ export const inspectReviewers = async (postId: string, reviewerId: string) => {
 			orderBy: { id: 'asc' },
 			select: { name: true },
 		}),
-		matching: await reviewers.get({ id: reviewerId, select: { name: true } }),
+		matching: await reviewers.findOneOrThrow({
+			where: { id: reviewerId },
+			select: { name: true },
+		}),
 		count: await reviewers.count({}),
 		hasAny: await reviewers.exists({}),
 	}
 }
 ```
 
-`findOne()` reads the first matching visible member, and `get()` targets one ID
-within this relation rather than the whole `Author` schema. `count()` and
+`findOne()` reads the first matching visible member, and `findOneOrThrow()`
+fails with `NOT_FOUND` when no visible member of this relation matches, rather
+than searching the whole `Author` schema. `count()` and
 `exists()` return a number and boolean without materializing the members.
 All five relation read methods apply the field's declared filter and target
 policies; their results describe visible membership, which can differ from
@@ -234,24 +244,25 @@ physical membership. Use `where` in these read inputs to narrow it further.
 
 ## Change relation membership
 
-A persisted model's relation handle can change an existing membership without
-updating an array field or deleting a target record. For example, add one
-reviewer and then read the visible membership:
+Change membership through the relation field of `updateOne` data, with the
+same `connect`, `disconnect`, and `set` commands as any link (see
+[Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)). For example,
+add one reviewer and return the visible membership:
 
 ```ts title="src/add-reviewer.ts"
 import { Post } from './post.js'
 
-export const addReviewer = async (postId: string, reviewerId: string) => {
-	const post = await Post.get({ id: postId })
-	const reviewers = post.relation('reviewers')
-
-	await reviewers.connect(reviewerId)
-	return reviewers.findMany({ select: { name: true } })
-}
+export const addReviewer = (postId: string, reviewerId: string) =>
+	Post.updateOne({
+		where: { id: postId },
+		data: { reviewers: { connect: [reviewerId] } },
+		include: { reviewers: { select: { name: true } } },
+	})
 ```
 
-The returned models have `id` and `name`; the edge itself is not a model field.
-Choose the mutation that describes the intended membership change:
+`{ set: [] }` removes every visible membership. A persisted model's relation
+handle offers the same changes as methods; the edge itself is not a model
+field:
 
 | Method                     | Effect                                                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------- |
@@ -269,7 +280,7 @@ read currently shows. An inverse pointer relation instead updates its visible
 targets through ordinary pointer mutations; an operation that would clear a
 required inverse pointer fails. Use [Nested Writes](/docs/1.0.0/core/writing-data/nested-writes)
 when the relation change must be part of the same atomic root create or update;
-its `set` and `clear` preserve policy-hidden memberships.
+its `set` preserves policy-hidden memberships.
 
 A relation may declare a static or request-contextual `where` to narrow every
 read through that field. It intersects with caller filters and target policies;

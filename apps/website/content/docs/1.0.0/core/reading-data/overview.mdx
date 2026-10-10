@@ -17,6 +17,7 @@ sources:
   - docs/adr/0058-immutable-unbound-query-builder.md
   - docs/adr/0152-schema-root-object-read-commands.md
   - docs/adr/0227-core-query-exposes-offset-not-cursors.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
 ---
 
 Read from the schema class returned by `App.Schema.define()`. `findMany` accepts one
@@ -35,7 +36,7 @@ export const readPublishedPosts = () =>
 		limit: 20,
 		orderBy: { createdAt: 'desc', id: 'asc' },
 		select: { createdAt: true, title: true },
-		where: { published: { eq: true } },
+		where: { published: true },
 	})
 ```
 
@@ -49,19 +50,23 @@ executing a read.
 
 ## Read terminals
 
-| Terminal                       | Result               | No visible match | Use it for                       |
-| ------------------------------ | -------------------- | ---------------- | -------------------------------- |
-| `findMany(input?, options?)`   | Readonly model array | Empty array      | A filtered collection            |
-| `findOne(input?, options?)`    | One model or `null`  | `null`           | One matching record              |
-| `get({ id, ... }, options?)`   | One model            | `NOT_FOUND`      | One known stable identity        |
-| `count({ where? }, options?)`  | `number`             | `0`              | Collection cardinality           |
-| `exists({ where? }, options?)` | `boolean`            | `false`          | Presence without loading a model |
+| Terminal                           | Result               | No visible match | Use it for                       |
+| ---------------------------------- | -------------------- | ---------------- | -------------------------------- |
+| `findMany(input?, options?)`       | Readonly model array | Empty array      | A filtered collection            |
+| `findOne(input?, options?)`        | One model or `null`  | `null`           | One matching record              |
+| `findOneOrThrow(input?, options?)` | One model            | `NOT_FOUND`      | One record that must exist       |
+| `count({ where? }, options?)`      | `number`             | `0`              | Collection cardinality           |
+| `exists({ where? }, options?)`     | `boolean`            | `false`          | Presence without loading a model |
 
-`findOne` and `get` communicate different expectations. Use `get` when absence
-is exceptional and the ID is already known. Use `findOne` when a filter may
-legitimately match nothing. If several records may match `findOne`, add
-`orderBy` to define which is first; Core adds no implicit ordering. `count` and
-`exists` accept `where`, not selection, ordering, or pagination clauses.
+`findOne` and `findOneOrThrow` take the same input (`where`, `orderBy`,
+`select`, `include`) and communicate different expectations. Use
+`findOneOrThrow({ where: { id } })` when absence is exceptional, for example a
+known ID; it fails with `NOT_FOUND` where `findOne` returns `null`, including
+when the record exists but is hidden from the caller. Use `findOne` when a
+filter may legitimately match nothing. If several records may match, add
+`orderBy` to define which is first; Core adds no implicit ordering. Access
+treats both as its `one` read. `count` and `exists` accept `where`, not
+selection, ordering, or pagination clauses.
 
 ## Execution context
 
@@ -87,7 +92,7 @@ import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
 const published: QueryScope<typeof Post> = (query) =>
-	query.where({ published: { eq: true } })
+	query.where({ published: true })
 
 const recentPublishedInput = new QueryBuilder(Post)
 	.select({ createdAt: true, title: true })
@@ -113,8 +118,8 @@ import { QueryBuilder } from '@ultimabase/core'
 import { Post } from './schemas.js'
 
 const base = new QueryBuilder(Post).select({ title: true })
-const publishedInput = base.where({ published: { eq: true } }).build()
-const draftInput = base.where({ published: { eq: false } }).build()
+const publishedInput = base.where({ published: true }).build()
+const draftInput = base.where({ published: false }).build()
 ```
 
 Both inputs select `title`, but only their own `published` condition. `base`
@@ -133,7 +138,8 @@ See [Related Data](./related-data) for the corresponding object input.
 Core rejects unknown fields, invalid operators, negative pagination, and
 invalid relation predicates before database work. An adapter can also reject
 a query capability it does not support. Installed policy may hide a target,
-so `get()` can report `NOT_FOUND` even when the record exists physically.
+so `findOneOrThrow()` can report `NOT_FOUND` even when the record exists
+physically.
 See [API Error Boundaries](/docs/1.0.0/core/runtime/api-errors) for safe error
 handling.
 

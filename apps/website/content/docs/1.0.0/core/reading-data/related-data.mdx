@@ -168,8 +168,8 @@ Master does not automatically bypass a declared relation filter. This example
 deliberately returns the empty builder for Master; other requests see only
 published messages. The filter intersects with caller filters, authorization
 row filters, and protected constraints. It shapes reads but does not authorize
-them, modify physical membership, or change `connect`, `disconnect`, `set`, or
-`clear`.
+them, modify physical membership, or change `connect`, `disconnect`, or
+`set`.
 
 For example, an authentication plugin can attach a validated principal to the
 request context. A relation callback may use that value to choose the visible

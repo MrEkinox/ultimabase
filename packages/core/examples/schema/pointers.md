@@ -34,7 +34,7 @@ export const PostSchema = UltimaBase.Schema.define({
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
-const equivalent = new Pointer(UserSchema, author.id)
+const equivalent = UserSchema.pointer(author.id)
 
 author.equals(equivalent) // true
 author.toJSON() // { type: "pointer", className: "User", id: "..." }
@@ -43,8 +43,9 @@ export type Post = InferObject<typeof PostSchema>
 export type CreatePostInput = InferCreateInput<typeof PostSchema>
 ```
 
-`Post['author']` and `CreatePostInput['author']` are both
-`Pointer<typeof UserSchema>`. The value never loads the user. Query inclusion
+`Post['author']` is `Pointer<typeof UserSchema>`; create data links it as
+`{ connect: author }` (ADR-0308), never as a raw value. The value never loads
+the user. Query inclusion
 loads one bounded target explicitly, while to-many collections use the separate
 `relationField` declaration shown in the relations example.
 

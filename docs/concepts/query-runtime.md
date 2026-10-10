@@ -96,9 +96,11 @@ the master engine. Trusted schema commands may instead use the server-only
 boundary. Transports must never derive either form from client input.
 
 Update inputs use one field-oriented `data` map. Direct values replace fields,
-`null` clears optional fields, and explicit `increment()` or `decrement()`
-values normalize to immutable atomic-operation nodes before the shared Runtime
-validation pipeline.
+`null` clears optional fields, and `{ increment: n }` or `{ decrement: n }`
+objects on numeric fields (ADR-0307) normalize to immutable atomic-operation
+nodes before the shared Runtime validation pipeline. Pointer fields link
+through `{ connect: target }` or `null` (ADR-0308), and Runtime checks each
+linked target's visibility before the write.
 
 `UltimaBase.use(plugin)` configures the regular application factory, and
 `new Application(options)` creates its application boundary. Its `start()` method

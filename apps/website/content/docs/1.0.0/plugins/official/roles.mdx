@@ -23,6 +23,7 @@ sources:
   - docs/adr/0164-atomic-item-oriented-mutation-hooks.md
   - docs/adr/0205-protected-policy-contributions.md
   - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0308-one-checked-link-vocabulary.md
 ---
 
 ## Overview
@@ -228,33 +229,38 @@ role schema denies ordinary mutations, as in the configuration above:
 import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { AppRole } from './roles.js'
 
-const editor = await new AppRole({ name: 'editor' }).create(
-	{},
-	{ useMasterKey: true },
-)
-const administrator = await new AppRole({ name: 'administrator' }).create(
-	{},
-	{ useMasterKey: true },
+const master = { useMasterKey: true } as const
+const editor = await AppRole.createOne({ data: { name: 'editor' } }, master)
+const administrator = await AppRole.createOne(
+	{ data: { name: 'administrator', roles: { connect: [editor.id] } } },
+	master,
 )
 
 export const addEditor = (userId: string) =>
-	editor.addMember(PasswordUser.pointer(userId), {
-		useMasterKey: true,
-	})
-
-await administrator.addRole(editor, { useMasterKey: true })
+	AppRole.updateOne(
+		{
+			where: { id: editor.id },
+			data: { members: { connect: [PasswordUser.pointer(userId)] } },
+			select: { id: true },
+		},
+		master,
+	)
 ```
 
-Run the role creation once as setup, not on every request. `addMember()` and
-`removeMember()` accept a Pointer or persisted model from the exact member
-schema—not a raw ID. `addRole()` and `removeRole()` change hierarchy:
-`administrator.addRole(editor)` makes Editor a child of Administrator, so
-Editor members also satisfy Administrator membership. The opposite call
-would mean the opposite inheritance. Draft roles cannot run these commands.
+Run the role creation once as setup, not on every request. Members and
+included roles change through the ordinary relation commands of `createOne`
+and `updateOne` (ADR-0308): `members: { connect: [...] }`, `disconnect`, or
+`set`, with IDs or Pointers of the member schema. `roles` changes hierarchy:
+connecting Editor to Administrator's `roles` makes Editor a child of
+Administrator, so Editor members also satisfy Administrator membership. The
+opposite link would mean the opposite inheritance. Persisted role results also
+keep the `addMember()`, `removeMember()`, `addRole()`, and `removeRole()`
+shortcuts.
 
 These commands use normal relation writes, validation, Access, Hooks when
-installed, and automatic transactions. The plugin rejects self or indirect
-cycles. A membership or hierarchy change is visible to a **new** request;
+installed, and automatic transactions; each linked member or role must be
+visible to the caller. The plugin rejects self or indirect cycles and emits its
+membership and hierarchy events for links made through these commands as well. A membership or hierarchy change is visible to a **new** request;
 membership is resolved once and cached within an active request, so do not
 expect a policy check already in progress to reread changed membership.
 

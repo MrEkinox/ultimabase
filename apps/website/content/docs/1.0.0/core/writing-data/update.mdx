@@ -11,13 +11,13 @@ reviewedAt: 2026-09-17
 sources:
   - packages/core/README.md
   - packages/core/docs/query.md
-  - packages/core/src/query/updates/operators.ts
+  - packages/core/src/query/updates/normalize.ts
   - packages/core/docs/runtime.md
   - docs/adr/0109-constructible-schema-models.md
   - docs/adr/0134-unified-update-data.md
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0180-mutation-relationship-projections.md
-  - docs/adr/0182-singular-id-target-aliases.md
+  - docs/adr/0307-prisma-aligned-filters-updates-and-required-reads.md
 ---
 
 Use `Post.updateOne()` to change one persisted record. The `data` object names
@@ -35,16 +35,16 @@ import { Post } from './schemas.js'
 
 export const renamePost = (postId: string, title: string) =>
 	Post.updateOne({
-		id: postId,
+		where: { id: postId },
 		data: { title },
 		select: { title: true },
 	})
 ```
 
-`id` is shorthand for `where: { id: { eq: postId } }`. Pass **either** `id`
-**or** `where`, never both. To target a declared unique slug instead, use
-`where: { slug: { eq: slug } }`; an arbitrary multi-match filter is not a
-valid `updateOne` target.
+`where` is the only target of `updateOne`, `deleteOne`, and `upsertOne`;
+`{ id: postId }` is the equality shorthand of `{ id: { eq: postId } }`. To
+target a declared unique slug instead, use `where: { slug }`; an arbitrary
+multi-match filter is not a valid `updateOne` target.
 
 ## Verify the result
 
@@ -61,20 +61,18 @@ command is different: it targets that model's protected identity and throws
 
 ## Replace, clear, or increment fields
 
-Direct values replace stored values. `unset()` is another spelling for `null`
-and can clear only an optional field. `increment()` and `decrement()` operate on
-mutable numeric fields without a separate read-and-write cycle.
+Direct values replace stored values, and `null` clears an optional field. On a
+numeric field, `{ increment: n }` and `{ decrement: n }` apply an atomic delta
+without a separate read-and-write cycle, as in Prisma.
 
 ```ts title="src/update-post.ts"
-import { increment, unset } from '@ultimabase/core'
-
 import { Post } from './schemas.js'
 import { ultimabase } from './ultimabase.js'
 
 export const clearSummary = (postId: string) =>
 	Post.updateOne({
-		id: postId,
-		data: { summary: unset(), editCount: increment(1) },
+		where: { id: postId },
+		data: { summary: null, editCount: { increment: 1 } },
 		select: { summary: true, editCount: true },
 	})
 ```
@@ -88,15 +86,17 @@ whole update.
 The delta uses the field's value type; do not convert exact values to a
 JavaScript `number` merely to update them:
 
-| Field kind | `increment()` / `decrement()` operand | Example             |
-| ---------- | ------------------------------------- | ------------------- |
-| `int`      | Safe integer `number`                 | `increment(2)`      |
-| `float`    | Finite `number`                       | `decrement(0.25)`   |
-| `decimal`  | Exact decimal `string`                | `increment('1.25')` |
-| `bigint`   | Native JavaScript `bigint`            | `decrement(1n)`     |
+| Field kind | `increment` / `decrement` operand | Example                 |
+| ---------- | --------------------------------- | ----------------------- |
+| `int`      | Safe integer `number`             | `{ increment: 2 }`      |
+| `float`    | Finite `number`                   | `{ decrement: 0.25 }`   |
+| `decimal`  | Exact decimal `string`            | `{ increment: '1.25' }` |
+| `bigint`   | Native JavaScript `bigint`        | `{ decrement: 1n }`     |
 
 These operations work only on mutable scalar numeric fields, not numeric
-lists or immutable fields. Core validates both the operand and the projected
+lists or immutable fields, and take exactly one of `increment` or `decrement`.
+They are accepted wherever update data is: root and nested updates and the
+`update` branch of an upsert; create data has no atomic operations. Core validates both the operand and the projected
 result; for example, an integer update cannot produce an unsafe integer and a
 decimal update must fit its declared precision and scale. Use a direct value
 when you intend to replace the field rather than apply an atomic delta.

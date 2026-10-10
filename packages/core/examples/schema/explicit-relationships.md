@@ -47,20 +47,21 @@ export const Membership = UltimaBase.Schema.define({
 
 The unique composite index makes the member/project pair the logical edge
 identity. Pointer targets remain exactly typed in create inputs, persisted
-models, filters, and selections:
+models, filters, and selections; data links them through `connect`, with an ID
+or a `Pointer` of the declared target (ADR-0308):
 
 ```ts
 const membership = await Membership.createOne({
 	data: {
-		member: Member.pointer(memberId),
+		member: { connect: memberId },
 		position: 1,
-		project: Project.pointer(projectId),
+		project: { connect: Project.pointer(projectId) },
 		role: 'viewer',
 	},
 })
 
 const projectMembers = await Membership.findMany({
-	where: { project: { eq: projectId } },
+	where: { project: projectId },
 	include: { member: { select: { id: true, name: true } } },
 	select: { id: true, member: true, position: true, role: true },
 	orderBy: { position: 'asc' },
@@ -76,8 +77,8 @@ await request.transaction(async () => {
 
 	await Membership.createOne({
 		data: {
-			member: Member.pointer(memberId),
-			project: Project.pointer(project.id),
+			member: { connect: memberId },
+			project: { connect: project.id },
 			role: 'editor',
 		},
 	})

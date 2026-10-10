@@ -39,7 +39,8 @@ import { Post } from './schemas.js'
 
 const cardFields = { createdAt: true, title: true } as const
 
-export const readPostCard = (id: string) => Post.get({ id, select: cardFields })
+export const readPostCard = (id: string) =>
+	Post.findOneOrThrow({ where: { id }, select: cardFields })
 
 export const readPostsWithoutNotes = () =>
 	Post.findMany({

@@ -164,7 +164,7 @@ import { ultimabase } from './ultimabase.js'
 
 export const findPostOrNull = async (postId: string) => {
 	try {
-		return await Post.get({ id: postId })
+		return await Post.findOneOrThrow({ where: { id: postId } })
 	} catch (error: unknown) {
 		if (error instanceof FrameworkError && error.code === 'NOT_FOUND') {
 			return null

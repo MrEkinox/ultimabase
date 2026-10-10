@@ -65,7 +65,10 @@ read only the computed field:
 import { Profile } from './profile.js'
 
 export const readDisplayName = async (id: string) => {
-	const profile = await Profile.get({ id, select: { displayName: true } })
+	const profile = await Profile.findOneOrThrow({
+		where: { id },
+		select: { displayName: true },
+	})
 
 	return profile.toJSON()
 }
@@ -75,7 +78,7 @@ For an existing profile, the returned object contains `id` and `displayName`;
 it does not contain `firstName` or `lastName`. `id` is included in every
 persisted result even when the selection omits it. The selected model does not
 keep hidden dependencies for a later `get()` call. If the ID does not identify
-a visible record, `get()` reports `NOT_FOUND`. See
+a visible record, `findOneOrThrow()` reports `NOT_FOUND`. See
 [Selections](/docs/1.0.0/core/reading-data/selections) for the broader result
 contract and [Manual Installation](/docs/1.0.0/manual-installation) for
 application setup.

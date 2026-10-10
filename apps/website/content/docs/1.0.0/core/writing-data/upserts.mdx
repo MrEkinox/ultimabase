@@ -105,8 +105,10 @@ persistence failure rolls back the operation.
 ## Boundaries and other paths
 
 Upsert results support flat `select`, not `include`. Upsert `create` and
-`update` accept ordinary field values, including pointer values, but not
-nested relationship commands. Those commands are available on singular
+`update` accept ordinary field values, `{ connect: target }` links and `null`
+for pointers, and `{ increment }` or `{ decrement }` in `update`, but not
+nested relationship commands. The `connect` targets of both branches are
+checked for visibility before the write. Those commands are available on singular
 `createOne` and `updateOne` instead. See [Nested Writes](./nested-writes).
 If an upsert must be combined with related writes, coordinate the separate
 commands in an [explicit transaction](./transactions).

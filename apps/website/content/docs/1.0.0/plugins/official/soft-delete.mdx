@@ -435,7 +435,7 @@ with the new compiled application. Regenerate Typegen declarations. The
 additional `softDelete` method, REST route, and GraphQL field are absent in
 this mode; use native delete with a fresh active Post.
 
-For TypeScript, call `Post.deleteOne({ id: postId })`.
+For TypeScript, call `Post.deleteOne({ where: { id: postId } })`.
 For REST, send a bodyless `DELETE` request:
 
 ```bash title="replace-delete-post.sh"
@@ -449,7 +449,7 @@ variables shape, substituting another fresh record's ID:
 
 ```graphql title="replace-delete-post.graphql"
 mutation DeletePost($id: ID!) {
-	deletePost(input: { id: $id }) {
+	deletePost(input: { where: { id: { eq: $id } } }) {
 		id
 		title
 		isDeleted

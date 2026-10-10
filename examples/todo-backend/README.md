@@ -154,13 +154,13 @@ export const listPendingTodos = () =>
 Selections and includes narrow the resolved return type. Application code never
 imports PostgreSQL or Drizzle query builders.
 
-[`src/admin.ts`](src/admin.ts) demonstrates plugin-added behavior on ordinary
-models:
+[`src/admin.ts`](src/admin.ts) links role members and included roles through
+the same checked `connect` command as any relation, and grants ACL entries:
 
 ```ts
 const editor = await createTodoRole('editor', 'Can update assigned tasks')
-await editor.addMember(TodoUser.pointer(userId), masterOptions)
-await administrator.addRole(editor, masterOptions)
+await addUserToRole(editor.id, userId)
+await addChildRole(administrator.id, editor.id)
 
 const nextACL = todo.acl.grantPrincipal(
 	TodoUser.pointer(userId),
@@ -169,8 +169,9 @@ const nextACL = todo.acl.grantPrincipal(
 )
 ```
 
-Role commands are available only on persisted `TodoRole` results. ACL values
-are immutable, so an update replaces the value with a newly granted ACL.
+`addUserToRole` is `TodoRole.updateOne({ where, data: { members: { connect:
+[userId] } } })`; Roles still rejects hierarchy cycles. ACL values are
+immutable, so an update replaces the value with a newly granted ACL.
 
 ## What Typegen still produces
 

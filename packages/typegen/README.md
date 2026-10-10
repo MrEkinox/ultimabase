@@ -213,14 +213,18 @@ Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated
 application code never exposes the Core ordering helper.
 
-Generated schema commands retain the same named inputs while exposing concise
-singular identifier aliases. `updateOne({ id, data })` and `deleteOne({ id })`
-are typed as mutually exclusive alternatives to their canonical `where` forms;
-Core normalizes the alias to `{ id: { eq: id } }` before Query construction.
-`createOne` and `updateOne` additionally use recursive schema-specific nested
-pointer and relation inputs. The registry retains separate `nestedCreate` and
+Generated schema commands retain the same named inputs. `updateOne`,
+`deleteOne` and `upsertOne` take their target only through `where`
+(ADR-0307); the generated `where` inputs keep explicit operators
+(`{ id: { eq: id } }`), since Typegen does not emit the equality shorthand
+that Core accepts at runtime. `createOne` and `updateOne` additionally use
+recursive schema-specific nested pointer and relation inputs; their `connect`
+items are typed as IDs. The registry retains separate `nestedCreate` and
 `nestedUpdate` declarations, while drafts, bulk commands, and upserts keep
-their flat input aliases. Typegen emits declarations only; Core normalizes the
+their flat input aliases. Those aliases still type a pointer field as a
+`Pointer`, whereas Core accepts only a `{ connect: target }` link or `null`
+there (ADR-0308): Typegen is not migrated to the new link vocabulary
+(ADR-0297), so pass links in that data. Typegen emits declarations only; Core normalizes the
 same compiled graph for JavaScript applications without loading this file.
 
 Listed fields receive concrete element-aware declarations such as
