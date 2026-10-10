@@ -135,6 +135,11 @@ visible linked targets. A missing or hidden target fails with the same
 a link never reveals that a hidden row exists. Master skips visibility but
 never existence: it can link a hidden row and still fails on a missing one.
 
+A relation's declared `where` limits reads, not unlinking: `disconnect` removes
+a member that only the declared filter hides, and `set` replaces those members
+too. A member hidden by an installed policy stays `NOT_FOUND` for a caller
+without Master authority.
+
 ## Bounds and failure behavior
 
 By default, the root is at depth zero and a graph may reach five nested target

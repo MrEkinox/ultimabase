@@ -82,6 +82,11 @@ export interface RuntimePipelineRequest<
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/** Treats a protected target's policy denial exactly like an absent target. */
 	readonly protectedPolicyDeniedAsMissing?: true
+	/**
+	 * Reads relation membership without the field's declared `where`: the
+	 * filter limits reads, not unlinking (ADR-0308, step 3b amendment).
+	 */
+	readonly relationWhere?: false
 }
 
 /** Supplies normalization, validation, guards, and behaviors with immutable request state. */

@@ -246,7 +246,8 @@ export const addReviewer = (postId: string, reviewerId: string) =>
 	})
 ```
 
-`{ set: [] }` removes every visible membership. Results have no relation
+`{ set: [] }` removes every membership visible under the installed policies,
+including members the field's declared `where` hides from reads. Results have no relation
 handles (ADR-0310); the edge itself is not a result field:
 
 | Method                     | Effect                                                                                    |

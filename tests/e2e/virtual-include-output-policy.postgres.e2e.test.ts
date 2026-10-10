@@ -18,7 +18,7 @@ const Person = App.Schema.define({
 		name: field.string({ required: true }),
 		label: field.virtual({
 			output: (output) => output.string({ nullable: false }),
-			resolve: ({ item }) => `Person: ${item.name}`,
+			resolve: ({ item }) => `Person: ${String(item.name)}`,
 			select: { name: true },
 		}),
 		hiddenLabel: field.virtual({
@@ -26,7 +26,7 @@ const Person = App.Schema.define({
 				read: { orderBy: false, output: isAuthenticated, where: false },
 			},
 			output: (output) => output.string({ nullable: false }),
-			resolve: ({ item }) => `Hidden: ${item.name}`,
+			resolve: ({ item }) => `Hidden: ${String(item.name)}`,
 			select: { name: true },
 		}),
 	}),

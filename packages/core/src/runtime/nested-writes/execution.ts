@@ -52,10 +52,15 @@ export interface RuntimeNestedWriteHost {
 		targetIds: readonly string[],
 	): Promise<void>
 	readInversePointerField(relation: NestedWriteRelationNode): string | undefined
+	/**
+	 * Reads current members visible to the caller; `unlinking` omits the
+	 * field's declared `where`, which limits reads, not unlinking (ADR-0308).
+	 */
 	readRelationTargets(
 		relation: NestedWriteRelationNode,
 		sourceId: string,
 		targetIds?: readonly string[],
+		unlinking?: true,
 	): Promise<readonly Readonly<Record<string, unknown>>[]>
 	verifyTarget(pointer: Pointer): Promise<Readonly<Record<string, unknown>>>
 }
@@ -285,7 +290,8 @@ export class RuntimeNestedWriteCoordinator {
 			if (current === undefined) {
 				throw new TypeError('Nested relation replacement was not preflighted')
 			}
-			// Only `set` remains: it replaces the visible membership (ADR-0308).
+			// Only `set` remains: it replaces every membership visible under the
+			// policies, regardless of the declared relation `where` (ADR-0308).
 			const currentIds = current.map(readNestedWriteRecordId)
 			const requestedIds = relationship.ids
 			const requested = new Set(requestedIds)
