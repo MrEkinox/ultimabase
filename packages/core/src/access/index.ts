@@ -6,12 +6,6 @@ export type {
 	RequestAccess,
 } from './request/access.js'
 export type { RequestSubjectContext } from './request/context.js'
-export { RequestCapability } from './request/capability.js'
-export { RequestContextValue } from './request/context-value.js'
-export type {
-	RequestContextValueType,
-	RequestContextValueSnapshot,
-} from './request/context-value.js'
 export {
 	RequestSubjectReference,
 	requestPrincipalResolverCapability,

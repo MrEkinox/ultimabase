@@ -1,8 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	plugin,
 	contributeApplication,
@@ -28,6 +26,7 @@ import {
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
+import { RequestContext, RequestContextValue } from '@ultimabase/core/plugin'
 
 const applicationRequirement = requireCapability(
 	httpApplicationCapability,

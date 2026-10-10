@@ -3,12 +3,9 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	PublicError,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	isAuthenticated,
 	plugin,
-	requestSources,
 	runWithRequestEngine,
 	type PointerValue,
 } from '@ultimabase/core'
@@ -22,6 +19,13 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+	authorizeMasterKey,
+	withContext,
+} from '@ultimabase/core/plugin'
 
 // ADR-0305: `ultimabase.can()` combines every installed policy (Access, ACL,
 // Soft Delete) as at execution time, without executing anything.
@@ -137,7 +141,8 @@ const as = (principal: PointerValue | undefined) => {
 		requestId: `can-${String(Math.random())}`,
 		source: requestSources.internal,
 	})
-	return application().withContext(
+	return withContext(
+		application(),
 		principal === undefined ? context : context.withValue(signedIn, principal),
 	)
 }
@@ -256,7 +261,7 @@ describe('ultimabase.can() (ADR-0305)', () => {
 			),
 		).resolves.toBe(false)
 		const master = await as(undefined).useMasterKey(
-			application().authorizeMasterKey(masterKey),
+			authorizeMasterKey(application(), masterKey),
 			'can test',
 		)
 		await expect(

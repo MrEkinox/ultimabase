@@ -1,6 +1,5 @@
 import {
 	RequestSubjectReference,
-	QueryBuilder,
 	requestPrincipalResolverCapability,
 	requestRoleResolverCapability,
 	databaseAdapterCapability,
@@ -26,6 +25,7 @@ import { ACL } from '../../src/acl.js'
 
 import { aclPlugin } from '../../src/plugin.js'
 import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 export const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
 	provideCapability(databaseAdapterCapability, {

@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
-	RequestContext,
 	UltimaBase,
 	addSchemaField,
 	contributeDeclarations,
@@ -11,7 +10,6 @@ import {
 	plugin,
 	defineSchemaMutation,
 	provideCapability,
-	requestSources,
 	stringField,
 	type DatabaseAdapter,
 	type PluginDefinition,
@@ -32,6 +30,7 @@ import {
 	SchemaMutationHookAdapter,
 	schemaMutationHookId,
 } from './schema-mutation-hooks.test-support.js'
+import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 
 interface RuntimeMutationHookInput {
 	readonly context: HookContext

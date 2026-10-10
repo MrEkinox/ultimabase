@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-	QueryBuilder,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type UpdateOneOperationAst,
@@ -14,6 +13,7 @@ import {
 	validCreateInput,
 	validationSchema,
 } from '../../../tests/fixtures/runtime-validation.js'
+import { QueryBuilder } from '../../plugin.js'
 
 describe('runtime validation boundaries', () => {
 	it('rejects every malformed update and bulk boundary from JavaScript callers', async () => {

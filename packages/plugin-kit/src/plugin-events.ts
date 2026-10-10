@@ -14,7 +14,6 @@ import {
 	type PluginCapabilityReader,
 	type PluginIdentity,
 	type PluginPrivilege,
-	type RequestContext,
 } from '@ultimabase/core'
 import {
 	assertNonEmptyString,
@@ -23,6 +22,7 @@ import {
 	isPlainRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Selects whether emitting without a registered observer is valid. */
 export type PluginEventDelivery = 'optional' | 'required'

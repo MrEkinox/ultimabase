@@ -51,6 +51,6 @@ it('keeps a valid handler dormant when no schema selects its mutation', async ()
 		}),
 	)
 
-	await expect(ultimabase.start()).resolves.toBeUndefined()
+	await expect(ultimabase.start()).resolves.toBe(ultimabase)
 	await ultimabase.dispose()
 })

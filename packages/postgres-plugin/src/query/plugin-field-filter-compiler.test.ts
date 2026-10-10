@@ -1,7 +1,6 @@
 import {
 	definePluginField,
 	fieldPath,
-	QueryBuilder,
 	UltimaBase,
 	type QueryFilterNode,
 } from '@ultimabase/core'
@@ -11,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.test-support.js'
 import { compilePostgresFilter } from './filter-compiler.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const snapshotPortableCode = (
 	value: unknown,

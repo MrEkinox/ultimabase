@@ -1,4 +1,4 @@
-import { UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -13,6 +13,7 @@ import {
 	createWorkflowPlugin,
 	type WorkflowCommittedPayload,
 } from './fixtures/open-kernel-workflow.js'
+import { requestSources, anonymous } from '@ultimabase/core/plugin'
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -126,7 +127,7 @@ describe('open-kernel PostgreSQL proof', { concurrent: false }, () => {
 			expect(committed).toStrictEqual([
 				{ action: 'publish', auditId: audit.id },
 			])
-			const request = ultimabase.anonymous({
+			const request = anonymous(ultimabase, {
 				requestId: 'open-kernel-event-rollback',
 				source: requestSources.internal,
 			})

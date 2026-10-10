@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	type FindManyOperationAst,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
@@ -35,6 +34,7 @@ import type {
 } from '../../src/runtime/pipeline/contracts.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 import { testDatabaseFilterOperators } from '../../../../tooling/vitest/database-filter-operators.js'
+import { QueryBuilder } from '../../src/plugin.js'
 
 export const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',

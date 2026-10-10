@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { createEnforcementState } from '../../src/runtime/enforcement/state.js'
 import {
-	RequestContext,
-	requestSources,
 	runWithRequestEngine,
 	type RuntimeEnforcementStages,
 } from '../../src/runtime/index.js'
@@ -30,6 +28,7 @@ const managerLookup = (
 	},
 })
 import { readRequestEngineApplication } from '../../src/runtime/engine/request-engine.js'
+import { RequestContext, requestSources } from '../../src/plugin.js'
 // Grouped reads retain the original item order and transaction failure semantics.
 describe('bulk result projection', () => {
 	it('projects bulk results while retaining complete private materializations', async () => {

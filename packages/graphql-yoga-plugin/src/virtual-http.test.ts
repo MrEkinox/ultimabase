@@ -1,6 +1,5 @@
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	databaseAdapterCapability,
 	databasePersistencePlanCapability,
@@ -28,6 +27,7 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
+import { RequestContextValue } from '@ultimabase/core/plugin'
 
 const viewer = new RequestContextValue<string>(
 	'fixture.graphql-yoga.virtual-viewer',

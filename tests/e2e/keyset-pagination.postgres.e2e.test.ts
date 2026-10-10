@@ -24,6 +24,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
 import { RecordingPostgresPool } from '../fixtures/recording-postgres-pool.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 // ADR-0309: `findMany({ after })` pages by position in a total order, and
 // REST and GraphQL encode the same positions with one shared cursor encoder.
@@ -172,7 +173,7 @@ const graphql = (document: string) =>
 	application()
 		.plugin('@ultimabase/graphql-plugin')
 		.execute({
-			context: application().anonymous({
+			context: anonymous(application(), {
 				requestId: 'keyset-graphql',
 				source: 'ultimabase.graphql',
 			}).context,

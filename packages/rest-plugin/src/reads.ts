@@ -5,7 +5,6 @@ import {
 	type OperationResult,
 	type ReadOperationAstForKind,
 	type ReadOperationKind,
-	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -22,6 +21,7 @@ import {
 	parseRestQueryEntries,
 	parseRestSelectionParameter,
 } from './read-parameters.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 export {
 	parseRestIncludeParameter,

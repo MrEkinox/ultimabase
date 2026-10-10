@@ -1,12 +1,9 @@
 import {
 	FrameworkError,
-	QueryBuilder,
 	Pointer,
 	createDatabasePersistencePlan,
 	createRuntimeValidationStage,
 	normalizeUpdateExpression,
-	RequestContext,
-	requestSources,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
 	type FindManyOperationAst,
@@ -36,6 +33,11 @@ import {
 	secondId,
 	timestamp,
 } from './adapter-fixtures.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 describe('internal PostgreSQL database adapter reads', () => {
 	it('executes pointer create and predicate boundaries as UUID parameters', async () => {

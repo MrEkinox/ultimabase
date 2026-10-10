@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkError } from '../../foundation.js'
-import { QueryBuilder } from '../../query/index.js'
 
 import {
 	createRecordingPipeline,
@@ -10,6 +9,7 @@ import {
 import { RequestContext } from '../context/request-context.js'
 import { createProtectedPolicyDeniedError } from '../enforcement/protected-denial.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const Target = UltimaBase.Schema.define({
 	className: 'ProtectedTargetRead',

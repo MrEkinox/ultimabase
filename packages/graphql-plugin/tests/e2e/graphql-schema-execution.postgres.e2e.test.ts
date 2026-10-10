@@ -4,7 +4,6 @@ import {
 	MasterAuthority,
 	UltimaBase,
 	getCurrentRequest,
-	type RequestContext,
 } from '@ultimabase/core'
 import { graphqlPlugin } from '@ultimabase/graphql-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -23,6 +22,8 @@ import {
 	runAsRestMutationExecutionHarness as runAsHarness,
 	type RestMutationExecutionHarness as ExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
+import { anonymous as anonymousRequest } from '@ultimabase/core/plugin'
 
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
@@ -170,7 +171,7 @@ beforeAll(async () => {
 		}),
 	))({ pluginPrivileges: { logger: false }, schemas: [] })
 	await foreignApplication.start()
-	foreign = foreignApplication.anonymous({
+	foreign = anonymousRequest(foreignApplication, {
 		requestId: 'graphql-execution-forged',
 		source: 'ultimabase.graphql',
 	}).context

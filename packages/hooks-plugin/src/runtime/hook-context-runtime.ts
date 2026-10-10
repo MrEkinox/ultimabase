@@ -6,7 +6,6 @@ import {
 	type JsonDocument,
 	type Principal,
 	type QueryExecutionGuard,
-	type RequestContext,
 } from '@ultimabase/core'
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
@@ -16,6 +15,7 @@ import {
 	type HookContextIdentity,
 } from '../context/hook-context.js'
 import { getHookEventContractImplementation } from './events.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 export interface HookContextEmission {
 	readonly delivery: 'optional' | 'required'

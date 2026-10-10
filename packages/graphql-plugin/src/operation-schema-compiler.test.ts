@@ -26,6 +26,7 @@ import { graphql, printSchema } from 'graphql'
 
 import { graphqlPlugin } from './plugin.js'
 import { graphqlOperationProtocol } from './protocol.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 class OperationDatabase implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -219,7 +220,7 @@ describe('GraphQL plugin operations', () => {
 		const schemaText = printSchema(application.schema)
 		expect(schemaText).toContain('echo(input: EchoInput!): EchoPayload!')
 		expect(schemaText).not.toContain('private')
-		const context = ultimabase.anonymous({
+		const context = anonymous(ultimabase, {
 			requestId: 'graphql-operation-1',
 			source: 'ultimabase.graphql',
 		}).context
@@ -251,7 +252,7 @@ describe('GraphQL plugin operations', () => {
 
 	it('preserves safe plugin failures, cancellation, and application lifetime', async () => {
 		const foreign = await createStartedFixture()
-		const foreignContext = foreign.anonymous({
+		const foreignContext = anonymous(foreign, {
 			requestId: 'graphql-operation-foreign',
 			source: 'ultimabase.graphql',
 		}).context
@@ -261,7 +262,7 @@ describe('GraphQL plugin operations', () => {
 		const schema = application.schema
 		const source =
 			'mutation Echo($input: EchoInput!) { echo(input: $input) { message } }'
-		const rejectedContext = ultimabase.anonymous({
+		const rejectedContext = anonymous(ultimabase, {
 			requestId: 'graphql-operation-rejected',
 			source: 'ultimabase.graphql',
 		}).context
@@ -281,7 +282,7 @@ describe('GraphQL plugin operations', () => {
 		expect(JSON.stringify(rejected)).not.toContain('Private echo')
 
 		const controller = new AbortController()
-		const cancelledContext = ultimabase.anonymous({
+		const cancelledContext = anonymous(ultimabase, {
 			requestId: 'graphql-operation-cancelled',
 			signal: controller.signal,
 			source: 'ultimabase.graphql',

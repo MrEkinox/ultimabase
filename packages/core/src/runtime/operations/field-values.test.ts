@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -22,6 +21,7 @@ import {
 	transformOperationFieldInputs,
 } from './field-values.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 it('keeps the Runtime-specific malformed update diagnostic', () => {
 	expect(() => collectUpdateExpressionFieldNames({ kind: 'unknown' })).toThrow(

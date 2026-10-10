@@ -4,7 +4,6 @@ import { applicationFixture } from '../../application-fixture.js'
 import { FrameworkApplication } from '../../../src/application/framework-application.js'
 
 import {
-	requestSources,
 	type DatabaseMutationOperationAst,
 	type RuntimeEnforcementStages,
 } from '../../../src/runtime/index.js'
@@ -16,6 +15,7 @@ import {
 	type RecordingPipelineBehaviorStages,
 } from './recording-database-adapter.js'
 import { UltimaBase } from '../../../src/runtime/application/ultima-base.js'
+import { requestSources } from '../../../src/plugin.js'
 
 export const managerSchema = UltimaBase.Schema.define({
 	className: 'BulkManager',

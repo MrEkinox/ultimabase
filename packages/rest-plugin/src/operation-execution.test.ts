@@ -2,8 +2,6 @@ import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	MasterAuthority,
 	PluginError,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	contributeOperation,
 	databaseAdapterCapability,
@@ -21,6 +19,13 @@ import {
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { restPlugin } from './plugin.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	anonymous,
+	authorizeMasterKey,
+	withContext,
+} from '@ultimabase/core/plugin'
 
 const unavailableAdapter: DatabaseAdapter = {
 	kind: 'database-adapter',
@@ -434,13 +439,13 @@ describe('REST plugin operation exposure', () => {
 			requestId: 'foreign',
 			source: 'rest',
 		})
-		second.ultimabase.withContext(foreign)
-		const foreignMasterSource = second.ultimabase.anonymous({
+		withContext(second.ultimabase, foreign)
+		const foreignMasterSource = anonymous(second.ultimabase, {
 			requestId: 'foreign-master',
 			source: 'rest',
 		})
 		const foreignMaster = await foreignMasterSource.useMasterKey(
-			second.ultimabase.authorizeMasterKey('second-secret'),
+			authorizeMasterKey(second.ultimabase, 'second-secret'),
 			'Foreign REST operation test',
 		)
 		await second.ultimabase.dispose()
@@ -452,12 +457,12 @@ describe('REST plugin operation exposure', () => {
 			if (transport === undefined || route === undefined) {
 				throw new TypeError('expected REST operation transport')
 			}
-			const anonymous = first.ultimabase.anonymous({
+			const anonymousEngine = anonymous(first.ultimabase, {
 				requestId: 'master-source',
 				source: 'rest',
 			})
-			const master = await anonymous.useMasterKey(
-				first.ultimabase.authorizeMasterKey('first-secret'),
+			const master = await anonymousEngine.useMasterKey(
+				authorizeMasterKey(first.ultimabase, 'first-secret'),
 				'REST operation test',
 			)
 			await expect(

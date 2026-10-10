@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	type CountOperationAst,
 	type CreateOneOperationAst,
 	type ExistsOperationAst,
@@ -31,6 +30,7 @@ import {
 	type PreparedDatabaseOperation,
 } from './contracts.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',

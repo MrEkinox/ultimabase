@@ -1,11 +1,10 @@
 import {
-	QueryBuilder,
 	type QueryResult,
 	type OperationOptions,
-	type RequestContext,
 	UltimaBase,
 } from '../../src/index.js'
 import { expectTypeOf, test } from 'vitest'
+import { QueryBuilder, type RequestContext } from '../../src/plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'TypedTerminalArticle',
@@ -181,8 +180,12 @@ test('preserves schema selection across every root read terminal', () => {
 
 	// @ts-expect-error -- Collection mutations are always atomic.
 	void articleSchema.createMany({ data: [] }, { atomic: false })
-	// @ts-expect-error -- Master selection is a positive trusted-code flag, not transport data.
+	// Master selection accepts server-side booleans; `false` inherits (ADR-0311).
+	const isScheduledJob: boolean = Date.now() > 0
+	void articleSchema.findMany(undefined, { useMasterKey: isScheduledJob })
 	void articleSchema.findMany(undefined, { useMasterKey: false })
+	// @ts-expect-error -- Master selection is a boolean, never transport text.
+	void articleSchema.findMany(undefined, { useMasterKey: 'true' })
 	// @ts-expect-error -- Read terminals remain credential-neutral.
 	void articleSchema.findMany(undefined, { sessionToken: 'transport-secret' })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.

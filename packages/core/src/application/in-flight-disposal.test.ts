@@ -6,6 +6,7 @@ import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { runWithRequestEngine } from '../runtime/context/active-framework-context.js'
 import { RecordingDatabaseAdapter } from '../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../tests/runtime/fixtures/database-adapter-capability.js'
+import { anonymous } from '../runtime/application/plugin-authority.js'
 
 const Post = UltimaBase.Schema.define({
 	className: 'DrainingPost',
@@ -82,7 +83,7 @@ describe('disposal of framework-owned work', () => {
 		await app.start()
 		const entered = Promise.withResolvers<undefined>()
 		const resume = Promise.withResolvers<undefined>()
-		const request = app.anonymous({
+		const request = anonymous(app, {
 			requestId: 'transaction-drain',
 			source: 'fixture',
 		})

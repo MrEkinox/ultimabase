@@ -1,9 +1,4 @@
-import {
-	UltimaBase,
-	plugin,
-	RequestContext,
-	type PluginIdentity,
-} from '@ultimabase/core'
+import { UltimaBase, plugin, type PluginIdentity } from '@ultimabase/core'
 import {
 	GraphQLDirective,
 	GraphQLInt,
@@ -21,6 +16,7 @@ import type { GraphqlApplication } from './application.js'
 import { composeGraphqlSchemas } from './schema-composition.js'
 import { provideGraphqlSchemas } from './schema-contributions.js'
 import { graphqlFixtureDatabasePlugin } from './test-application.test-support.js'
+import { RequestContext, anonymous } from '@ultimabase/core/plugin'
 
 const Hidden = UltimaBase.Schema.define({
 	className: 'CompositionHidden',
@@ -157,7 +153,7 @@ describe('GraphQL schema composition', () => {
 		).toEqual(expect.arrayContaining(['id', 'summary', 'title']))
 		if (originalHealth !== undefined) originalHealth.resolve = () => 'mutated'
 		const result = await graphql.execute({
-			context: application.anonymous({
+			context: anonymous(application, {
 				requestId: 'composition-clone',
 				source: 'test',
 			}).context,
@@ -199,7 +195,7 @@ describe('GraphQL schema composition', () => {
 			Object.keys(graphql.schema.getQueryType()?.getFields() ?? {}),
 		).toEqual(['application', 'first', 'second'])
 		const result = await graphql.execute({
-			context: application.anonymous({
+			context: anonymous(application, {
 				requestId: 'composition-order',
 				source: 'test',
 			}).context,

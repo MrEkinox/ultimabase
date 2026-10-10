@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { immutableRecord } from '@ultimabase/shared'
-import type {
-	AnonymousRequestAccess,
-	RequestAccess,
-} from '../../access/index.js'
 import {
 	ApplicationOperationHandle,
 	ApplicationSchemaHandleBase,
@@ -47,15 +43,10 @@ import { getActiveRequestEngine } from '../context/active-framework-context.js'
 import { registerApplicationFacade } from '../context/current-ultima-base.js'
 import { requestSources } from '../context/request-context.js'
 import type {
-	RequestContext,
-	RequestContextOptions,
-} from '../context/request-context.js'
-import type {
 	FrameworkEngine,
 	RequestEngine,
 } from '../engine/framework-engine.js'
 import { databaseAdapterCapability } from '../database/contracts.js'
-import type { MasterKeyGrant } from '../master/master-authority.js'
 import type { OperationTransportProtocol } from '../plugin-operations/contracts.js'
 import { executeRequestPluginOperation } from '../plugin-operations/request-execution.js'
 import type {
@@ -98,15 +89,11 @@ import {
  *
  * @example
  * ```ts
- * const Application = UltimaBase.use(
- *   postgresPlugin({ url: env.DATABASE_URL }),
- * )
- * const ultimabase = new Application({
- *   schemas: [PostSchema],
- * })
+ * const App = UltimaBase.use(postgresPlugin())
+ * export const ultimabase = new App({ schemas: [Post] })
  *
- * await ultimabase.start()
- * const posts = await PostSchema.findMany()
+ * await using app = await ultimabase.start()
+ * const posts = await Post.findMany()
  * ```
  */
 const configuredSchemaNamespace = createConfiguredSchemaNamespace(new Map())
@@ -118,6 +105,13 @@ let readKernel: <
 >(
 	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ) => FrameworkApplication<TSchemas, TPlugins>
+let readStarted: <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+) => FrameworkEngine<TSchemas, TPlugins>
 let readEngine: <
 	const TSchemas extends readonly SchemaDefinition[],
 	const TPlugins extends readonly PluginDefinition[],
@@ -159,6 +153,9 @@ export class UltimaBase<
 	#compiledApplication: CompiledApplication<TSchemas> | undefined
 	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
 	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
+	#started:
+		| { readonly source: Promise<void>; readonly result: Promise<this> }
+		| undefined
 
 	constructor(options: RootUltimaBaseOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -235,29 +232,6 @@ export class UltimaBase<
 	/** Checks exact schema identity without exposing the private application kernel. */
 	ownsSchema(schema: unknown): schema is TSchemas[number] {
 		return this.#application.ownsSchema(schema)
-	}
-
-	/** Binds one validated request context to this started application. */
-	withContext<TAccess extends RequestAccess, const TSource extends string>(
-		context: RequestContext<TAccess, TSource>,
-	): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TSource>> {
-		return this.#engine.withContext(context)
-	}
-
-	/** Creates one anonymous request boundary for direct server-side composition. */
-	anonymous<const TSource extends string>(
-		options: RequestContextOptions<TSource>,
-	): RequestEngine<
-		TSchemas,
-		TPlugins,
-		RequestContext<AnonymousRequestAccess, TSource>
-	> {
-		return this.#engine.anonymous(options)
-	}
-
-	/** Verifies one configured raw Master credential without retaining it. */
-	authorizeMasterKey(rawKey: string): MasterKeyGrant {
-		return this.#engine.authorizeMasterKey(rawKey)
 	}
 
 	/** Resolves one inert application operation handle by stable token. */
@@ -365,8 +339,13 @@ export class UltimaBase<
 			: this.#application.getPluginDynamic(pluginOrIdentity)
 	}
 
-	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */
-	start(): Promise<void> {
+	/**
+	 * Initializes plugins, assembles Runtime, starts infrastructure exactly once
+	 * and resolves to this application (ADR-0311).
+	 *
+	 * @example `await using app = await ultimabase.start()`
+	 */
+	start(): Promise<this> {
 		const { state } = this.#application
 		if (
 			state === 'stopping' ||
@@ -379,7 +358,7 @@ export class UltimaBase<
 			)
 		}
 
-		return this.#application.start(() => {
+		const started = this.#application.start(() => {
 			if (
 				readApplicationKernelState(this.#application).capabilityContributions(
 					databaseAdapterCapability,
@@ -391,6 +370,34 @@ export class UltimaBase<
 				)
 			}
 		})
+		// Concurrent calls share one promise, as the kernel's start does.
+		if (this.#started?.source !== started) {
+			this.#started = { source: started, result: started.then(() => this) }
+		}
+		return this.#started.result
+	}
+
+	/**
+	 * Runs `fn` in one adapter transaction and resolves to its result; calls
+	 * inside `fn` join it and a throw rolls it back (ADR-0311). It keeps the
+	 * current request (principal, authority) or opens a fresh anonymous one,
+	 * is never retried (ADR-0300), and fails inside another transaction.
+	 *
+	 * @example
+	 * ```ts
+	 * const todo = await ultimabase.transaction(async () => {
+	 *   const list = await TodoList.createOne({ data: { name: 'Home' } })
+	 *   return Todo.createOne({ data: { title: 'Buy milk', list: { connect: list.id } } })
+	 * })
+	 * ```
+	 */
+	transaction<TResult>(
+		fn: () => TResult | PromiseLike<TResult>,
+	): Promise<TResult> {
+		if (typeof fn !== 'function') {
+			throw new TypeError('UltimaBase transaction callback must be a function')
+		}
+		return this.#requestEngine().transaction(() => fn())
 	}
 
 	/**
@@ -511,6 +518,7 @@ export class UltimaBase<
 	}
 
 	static {
+		readStarted = (ultimabase) => ultimabase.#engine
 		readKernel = (ultimabase) => ultimabase.#application
 		readEngine = (ultimabase) => {
 			const engine = ultimabase.#frameworkEngine
@@ -539,3 +547,17 @@ export const readUltimaBaseEngine = <
 >(
 	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
 ): FrameworkEngine<TSchemas, TPlugins> => readEngine(ultimabase)
+
+/** @internal Reads the Runtime engine of one started application. */
+export const readStartedUltimaBaseEngine = <
+	const TSchemas extends readonly SchemaDefinition[],
+	const TPlugins extends readonly PluginDefinition[],
+	TSource extends PluginSourceState,
+>(
+	ultimabase: UltimaBase<TSchemas, TPlugins, TSource>,
+): FrameworkEngine<TSchemas, TPlugins> => {
+	if (!(ultimabase instanceof UltimaBase)) {
+		throw new TypeError('Expected an UltimaBase application')
+	}
+	return readStarted(ultimabase)
+}

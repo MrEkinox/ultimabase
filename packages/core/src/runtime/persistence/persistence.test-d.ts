@@ -5,12 +5,12 @@ import {
 	normalizeUpdateExpression,
 	persistencePlanRewriter,
 	providePersistencePlanRewriter,
-	QueryBuilder,
 	rewriteDeletePersistencePlan,
 	type DatabasePersistencePlan,
 	type PersistencePlanOperationKind,
 } from '../../index.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistenceTypeArticle',

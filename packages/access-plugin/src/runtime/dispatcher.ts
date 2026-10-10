@@ -5,7 +5,6 @@ import {
 	type ApplicationCallbackExecutor,
 	type DatabaseMutationOperationAst,
 	type ProtectedPolicyEffects,
-	type RequestContext,
 	type RuntimeBehaviorBoundaries,
 	type RuntimeLogicalMutationOperationAst,
 	type RuntimeLogicalOperationAst,
@@ -43,6 +42,7 @@ import {
 	readExecutableOperation,
 	type AccessScope,
 } from './rule-evaluation.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /**
  * Executes one application's immutable official Access plan at Runtime

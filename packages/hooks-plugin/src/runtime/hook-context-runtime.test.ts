@@ -1,12 +1,12 @@
-import {
-	RequestCapability,
-	RequestContext,
-	RequestContextValue,
-} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type { HookContextIdentity } from '../context/hook-context.js'
 import { createRuntimeHookContext } from './hook-context-runtime.js'
+import {
+	RequestCapability,
+	RequestContext,
+	RequestContextValue,
+} from '@ultimabase/core/plugin'
 
 const identity: HookContextIdentity = {
 	declarationBranch: 'direct',

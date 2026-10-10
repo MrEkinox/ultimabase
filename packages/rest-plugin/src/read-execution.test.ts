@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it } from 'vitest'
 import {
 	MasterAuthority,
-	RequestContextValue,
 	UltimaBase,
 	applicationRequestExecutionCapability,
 	databaseAdapterCapability,
@@ -24,7 +23,6 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import {
 	httpApplicationCapability,
@@ -36,6 +34,10 @@ import {
 
 import { executeRestReadRequest } from './reads.js'
 import { restPlugin } from './plugin.js'
+import {
+	RequestContextValue,
+	type RequestContext,
+} from '@ultimabase/core/plugin'
 
 /** Declares the built-in operators these fixtures filter with (ADR-0301). */
 const testDatabaseFilterOperators: DatabaseFilterOperatorCapability = {

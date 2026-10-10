@@ -1,6 +1,5 @@
 import {
 	normalizeUpdateExpression,
-	QueryBuilder,
 	type CreateOneOperationAst,
 	type DeleteManyOperationAst,
 	type DeleteOneOperationAst,
@@ -17,6 +16,7 @@ import {
 	collectMutationAfterItems,
 	collectMutationBeforeItems,
 } from './lifecycle.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const schema = UltimaBase.Schema.define({
 	className: 'MutationItemPairs',

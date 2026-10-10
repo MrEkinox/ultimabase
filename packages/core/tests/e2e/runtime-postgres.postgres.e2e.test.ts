@@ -2,9 +2,6 @@ import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import {
 	type DatabaseTransactionAdapter,
 	normalizeUpdateExpression,
-	QueryBuilder,
-	RequestContext,
-	requestSources,
 	runWithRequestEngine,
 	MasterAuthority,
 	UltimaBase,
@@ -32,6 +29,12 @@ import {
 	expectPreparationPending,
 } from './runtime-postgres-fixture.js'
 import { registerRuntimeBulkTests } from './register-runtime-bulk-tests.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+	anonymous,
+} from '@ultimabase/core/plugin'
 
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	registerRuntimeBulkTests()
@@ -473,7 +476,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			},
 		})
 		await ultimabase.start()
-		const request = ultimabase.anonymous({
+		const request = anonymous(ultimabase, {
 			requestId: 'postgres-transaction-e2e',
 			source: requestSources.internal,
 		})

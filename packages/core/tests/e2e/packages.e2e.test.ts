@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
 import * as coreApi from '@ultimabase/core'
+import * as corePluginApi from '@ultimabase/core/plugin'
 import { createPublicApiLanguageServiceFixture } from '../../../../tooling/vitest/typescript-language-service.js'
 
 const consumerRequire = createRequire(import.meta.url)
@@ -30,9 +31,9 @@ describe('consolidated Core public entry point', () => {
 		// E2E tests consume the same cohesive package as application developers.
 		expect(coreApi.stringField().kind).toBe('string')
 
-		const context = coreApi.RequestContext.anonymous({
+		const context = corePluginApi.RequestContext.anonymous({
 			requestId: 'e2e-request',
-			source: coreApi.requestSources.internal,
+			source: corePluginApi.requestSources.internal,
 		})
 
 		expect(context.access.mode).toBe('anonymous')
@@ -55,6 +56,27 @@ describe('consolidated Core public entry point', () => {
 		for (const name of removedCoreExports) {
 			expect(exports).not.toContain(name)
 			expect(messages.some((message) => message.includes(name))).toBe(true)
+		}
+	})
+
+	it('publishes the plugin-author subpath through the built export map', () => {
+		// ADR-0311: builder constructors and request-context machinery live on
+		// `@ultimabase/core/plugin` (loaded here from `dist` through the export
+		// map); the application entry keeps none of them.
+		for (const name of [
+			'QueryBuilder',
+			'RequestCapability',
+			'RequestContext',
+			'RequestContextValue',
+			'RequestEngine',
+			'WhereBuilder',
+			'anonymous',
+			'authorizeMasterKey',
+			'requestSources',
+			'withContext',
+		] as const) {
+			expect(corePluginApi[name]).toBeDefined()
+			expect(Object.hasOwn(coreApi, name)).toBe(false)
 		}
 	})
 })

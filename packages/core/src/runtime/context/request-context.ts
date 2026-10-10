@@ -1,10 +1,10 @@
-import {
-	RequestCapability,
-	RequestContextValue,
-	type AnonymousRequestAccess,
-	type MasterRequestAccess,
-	type RequestAccess,
+import type {
+	AnonymousRequestAccess,
+	MasterRequestAccess,
+	RequestAccess,
 } from '../../access/index.js'
+import { RequestCapability } from '../../access/request/capability.js'
+import { RequestContextValue } from '../../access/request/context-value.js'
 import {
 	assertNonEmptyString,
 	immutableArray,

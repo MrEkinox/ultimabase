@@ -1,8 +1,6 @@
 import {
 	FrameworkError,
 	MasterAuthority,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	plugin,
 	getCurrentRequest,
@@ -35,6 +33,11 @@ import {
 	graphqlYogaFixtureHttpConsumer,
 	readFixtureHttpApplication,
 } from './test-application.test-support.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	anonymous,
+} from '@ultimabase/core/plugin'
 
 const sessionPrincipal = new RequestContextValue<
 	Readonly<{ readonly id: string }>
@@ -245,7 +248,7 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const context = fixture.ultimabase.anonymous({
+		const context = anonymous(fixture.ultimabase, {
 			requestId: 'networkless-context',
 			source: 'test',
 		}).context
@@ -495,9 +498,10 @@ describe('GraphQL Yoga HTTP adapter', () => {
 		const graphql = fixture.ultimabase.plugin(
 			'@ultimabase/graphql-plugin',
 		) as GraphqlApplication
-		const directContext = fixture.ultimabase
-			.anonymous({ requestId: 'direct-session', source: 'test' })
-			.context.withValue(sessionPrincipal, { id: 'Bearer session-1' })
+		const directContext = anonymous(fixture.ultimabase, {
+			requestId: 'direct-session',
+			source: 'test',
+		}).context.withValue(sessionPrincipal, { id: 'Bearer session-1' })
 		await expect(
 			graphql.execute({ context: directContext, document: '{ principal }' }),
 		).resolves.toEqual({ data: { principal: 'Bearer session-1' } })

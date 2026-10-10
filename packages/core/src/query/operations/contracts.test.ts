@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	QueryBuilder,
-	type OperationAst,
-	type UpdateExpressionNode,
-} from '../index.js'
+import { type OperationAst, type UpdateExpressionNode } from '../index.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'Article',

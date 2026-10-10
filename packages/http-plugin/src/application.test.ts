@@ -1,7 +1,6 @@
 import { onTestFinished, describe, expect, it, vi } from 'vitest'
 import {
 	PublicError,
-	RequestContext,
 	UltimaBase,
 	plugin,
 	contributeApplication,
@@ -29,6 +28,7 @@ import {
 } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
 import { httpTestDatabasePlugin } from './test-database.test-support.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 const protocol = { name: 'fixture.http', version: '1' } as const
 const applicationRequirement = requireCapability(

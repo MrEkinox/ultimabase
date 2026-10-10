@@ -4,7 +4,6 @@ import {
 	MasterAuthority,
 	Pointer,
 	UltimaBase,
-	requestSources,
 	runWithRequestEngine,
 	type PluginSourceState,
 } from '@ultimabase/core'
@@ -17,6 +16,7 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { generatePointerId, queuedPointerIds } from './pointer-id-fixture.js'
 import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
+import { requestSources, anonymous } from '@ultimabase/core/plugin'
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')
@@ -417,7 +417,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps explicit pointer transactions atomic', async () => {
 		const app = getUltimaBase()
-		const request = app.anonymous({
+		const request = anonymous(app, {
 			requestId: 'pointer-postgres-transaction',
 			source: requestSources.internal,
 		})

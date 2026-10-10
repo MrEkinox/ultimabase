@@ -2,8 +2,8 @@ import type {
 	ApplicationOperationTransport,
 	ApplicationOperationTransportPlan,
 	ExposedOperationTransportBinding,
-	RequestContext,
 } from '@ultimabase/core'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** @internal Proves Core exposed exactly the descriptors planned at setup. */
 export const matchesGraphqlPlan = <TItem>(

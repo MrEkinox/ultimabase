@@ -4,9 +4,6 @@ import {
 	contributeApplication,
 	requireCapability,
 	UltimaBase,
-	QueryBuilder,
-	type RequestContext,
-	RequestContextValue,
 	type SchemaResult,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -16,6 +13,11 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import {
+	QueryBuilder,
+	type RequestContext,
+	RequestContextValue,
+} from '@ultimabase/core/plugin'
 
 export const databaseAdapterRequirement = requireCapability(
 	databaseAdapterCapability,

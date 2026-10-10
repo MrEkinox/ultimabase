@@ -7,7 +7,7 @@ import {
 } from '../../application/framework-application.js'
 import { provideCapability } from '../../plugins/capabilities.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
-import { QueryBuilder, normalizeUpdateExpression } from '../../query/index.js'
+import { normalizeUpdateExpression } from '../../query/index.js'
 
 import {
 	persistencePlanRewriter,
@@ -21,6 +21,7 @@ import {
 import type { DatabasePersistenceRewriteInput } from './contracts.js'
 import { createPersistencePlanRewriteStage } from './rewriter-stage.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistenceStageArticle',

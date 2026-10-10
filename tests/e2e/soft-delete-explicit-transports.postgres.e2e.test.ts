@@ -24,6 +24,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const explicitSoftDeleteTrace: string[] = []
 let rejectedSoftDeleteTitle: string | undefined
@@ -285,7 +286,7 @@ describe('official explicit soft-delete transports', () => {
 			data: { title: 'GraphQL explicit' },
 		})
 		const graphql = app.plugin('@ultimabase/graphql-plugin')
-		const context = app.anonymous({
+		const context = anonymous(app, {
 			requestId: 'soft-delete-networkless',
 			source: 'ultimabase.graphql',
 		}).context

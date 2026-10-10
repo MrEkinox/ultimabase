@@ -3,12 +3,9 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	PublicError,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	isAuthenticated,
 	plugin,
-	requestSources,
 	type PointerValue,
 	type PolicyPredicate,
 } from '@ultimabase/core'
@@ -23,6 +20,11 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 // ADR-0304: Core resolves the principal once per request and hands it to
 // Access rules, predicates, Hooks, ACL callbacks and Roles.

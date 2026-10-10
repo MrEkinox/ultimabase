@@ -8,7 +8,6 @@ import {
 	type FrameworkErrorCode,
 	type OperationKind,
 	type PluginIdentity,
-	type RequestContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -19,6 +18,7 @@ import type {
 	AccessDiagnosticIdentity,
 	AccessDiagnosticsObserver,
 } from './diagnostics.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 export type AccessPhase =
 	| 'access-field-read'

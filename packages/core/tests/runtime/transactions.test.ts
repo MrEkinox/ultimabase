@@ -1,5 +1,4 @@
 import { applicationFixture } from '../application-fixture.js'
-import { QueryBuilder, RequestCapability } from '../../src/index.js'
 import { FrameworkError } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 
@@ -8,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 import {
 	getCurrentEngine,
 	getCurrentRequest,
-	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
@@ -20,6 +18,11 @@ import {
 	type TransactionFailureOptions,
 } from './fixtures/recording-database-adapter.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import {
+	QueryBuilder,
+	RequestCapability,
+	requestSources,
+} from '../../src/plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'TransactionArticle',

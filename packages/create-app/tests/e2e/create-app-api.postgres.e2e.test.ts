@@ -188,6 +188,7 @@ describe('generated HTTP and GraphQL applications with PostgreSQL', () => {
 					path.join(project.destination, 'verify.mjs'),
 					`import { ultimabase } from './src/ultimabase.js'
 import { Task } from './src/schema.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 await ultimabase.start()
 try {
@@ -251,12 +252,13 @@ try {
 				path.join(project.destination, 'verify.mjs'),
 				`import { ultimabase } from './src/ultimabase.js'
 import { Task } from './src/schema.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 await ultimabase.start()
 try {
   await Task.createOne({ data: { title: 'Direct GraphQL' } })
   const graphql = ultimabase.plugin('@ultimabase/graphql-plugin')
-  const context = ultimabase.anonymous({ requestId: 'direct-graphql', source: 'internal' }).context
+  const context = anonymous(ultimabase, { requestId: 'direct-graphql', source: 'internal' }).context
   const result = await graphql.execute({ context, document: '{ findManyTask(first: 10) { nodes { title } } }' })
   if (result.data?.findManyTask?.nodes?.[0]?.title !== 'Direct GraphQL') throw new Error('Direct GraphQL query failed')
   console.log('DIRECT_GRAPHQL_PASS')

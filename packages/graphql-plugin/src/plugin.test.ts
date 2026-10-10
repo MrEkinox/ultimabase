@@ -16,6 +16,7 @@ import { graphql } from 'graphql'
 import { describe, expect, it, vi } from 'vitest'
 
 import { graphqlPlugin } from './plugin.js'
+import { anonymous } from '@ultimabase/core/plugin'
 
 const nullValue = defineOperationValue((value: unknown): null => {
 	if (value !== null) throw new TypeError('Expected null')
@@ -162,7 +163,7 @@ describe('graphqlPlugin', () => {
 		await application.start()
 		const graphqlApplication = application.plugin('@ultimabase/graphql-plugin')
 		const schema = graphqlApplication.schema
-		const request = application.anonymous({
+		const request = anonymous(application, {
 			requestId: 'graphql-disposed-request',
 			source: 'ultimabase.graphql',
 		}).context

@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
 
-import { RequestContextValue, type SchemaResult } from '@ultimabase/core'
+import { type SchemaResult } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { isPasswordPrincipal, type PasswordPrincipal } from './principal.js'
 import type { PasswordUserReference } from './user-schema.js'
+import { RequestContextValue } from '@ultimabase/core/plugin'
 
 declare const passwordSessionBrand: unique symbol
 

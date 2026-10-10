@@ -1,9 +1,4 @@
-import {
-	RequestContext,
-	requestSources,
-	type Model,
-	type RequestRoleResolver,
-} from '@ultimabase/core'
+import { type Model, type RequestRoleResolver } from '@ultimabase/core'
 import type { RoleReference } from '@ultimabase/roles-plugin'
 
 import type { RoleMember } from './roles-postgres.fixture.js'
@@ -12,6 +7,7 @@ import {
 	ExternalRoleReference,
 	currentRoleMemberId,
 } from './roles-postgres.fixture.js'
+import { RequestContext, requestSources } from '@ultimabase/core/plugin'
 
 export type PersistedAppRole = Model<typeof AppRole>
 export type PersistedMember = Model<typeof RoleMember>

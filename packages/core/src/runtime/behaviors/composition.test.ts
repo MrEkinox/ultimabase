@@ -2,7 +2,7 @@ import { applicationFixture } from '../../../tests/application-fixture.js'
 import { createApplication } from '../../application/framework-application.js'
 import { plugin as createPlugin } from '../../plugins/plugin.js'
 import { readApplicationPluginOwner } from '../../plugins/callback-execution.js'
-import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
+import { type CreateOneOperationAst } from '../../query/index.js'
 
 import { describe, expect, it } from 'vitest'
 
@@ -11,6 +11,7 @@ import { RequestContext, requestSources } from '../context/request-context.js'
 import type { RuntimeFinalMutationGuardStage } from '../pipeline/contracts.js'
 import { composeRuntimeBehaviors } from './composition.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const context = RequestContext.anonymous({
 	requestId: 'runtime-behavior-composition',

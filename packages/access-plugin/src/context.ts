@@ -1,8 +1,8 @@
+import type { RequestAccess } from '@ultimabase/core'
 import type {
-	RequestAccess,
 	RequestCapability,
 	RequestContextValue,
-} from '@ultimabase/core'
+} from '@ultimabase/core/plugin'
 
 /** Exposes only deterministic request authority to official Access rules. */
 export interface AccessContext {

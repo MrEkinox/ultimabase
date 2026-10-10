@@ -12,6 +12,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { anonymous, authorizeMasterKey } from '@ultimabase/core/plugin'
 
 const administrationTrace: string[] = []
 const masterAudits: MasterAccessEvent[] = []
@@ -235,12 +236,12 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		})
 		await schemaCommand(app, Document, 'softDelete')({ id: row.id })
 		masterAudits.length = 0
-		const request = app.anonymous({
+		const request = anonymous(app, {
 			requestId: 'soft-delete-inherited-master',
 			source: 'internal',
 		})
 		const master = await request.useMasterKey(
-			app.authorizeMasterKey('administration-key'),
+			authorizeMasterKey(app, 'administration-key'),
 			'Trusted maintenance request',
 		)
 		expect(masterAudits).toHaveLength(1)
@@ -284,13 +285,13 @@ describe('official soft-delete administration with PostgreSQL', () => {
 			id: cancellationTarget.id,
 		})
 		const controller = new AbortController()
-		const request = app.anonymous({
+		const request = anonymous(app, {
 			requestId: 'soft-delete-cancelled-administration',
 			signal: controller.signal,
 			source: 'internal',
 		})
 		const master = await request.useMasterKey(
-			app.authorizeMasterKey('administration-key'),
+			authorizeMasterKey(app, 'administration-key'),
 			'Trusted cancellable maintenance request',
 		)
 		controller.abort('maintenance cancelled')

@@ -1,5 +1,5 @@
 import type { ServerType } from '@hono/node-server'
-import { getCurrentRequest, type RequestContext } from '@ultimabase/core'
+import { getCurrentRequest } from '@ultimabase/core'
 import { ACL } from '@ultimabase/acl-permissions-plugin'
 import { honoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { Hono } from 'hono'
@@ -32,6 +32,7 @@ import {
 	type MinimalClient,
 	type MinimalExampleModule,
 } from './rest-public-vertical-support.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 const applicationId = 'relation-filter-public'
 const masterKey = 'relation-filter-public-master'

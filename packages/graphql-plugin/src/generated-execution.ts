@@ -1,5 +1,4 @@
 import {
-	RequestContext,
 	type ApplicationCallbackExecutor,
 	type ApplicationRequestExecutor,
 	type ExposedOperationTransportBinding,
@@ -23,6 +22,7 @@ import {
 import type { GraphqlOperationExecution } from './operation-execution.js'
 import type { GraphqlSchemaMutationExecution } from './schema-mutation-execution.js'
 import { normalizeGraphqlSelection } from './selection-normalization.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 type GeneratedResolver = GraphQLFieldResolver<unknown, unknown>
 

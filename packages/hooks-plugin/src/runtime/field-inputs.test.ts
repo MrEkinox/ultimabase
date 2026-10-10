@@ -1,7 +1,6 @@
 import {
 	collectOperationFieldInputs,
 	normalizeUpdateExpression,
-	QueryBuilder,
 	transformOperationFieldInputs,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -12,6 +11,7 @@ import {
 } from '@ultimabase/core'
 import { UltimaBase } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 const traversalSchema = UltimaBase.Schema.define({
 	className: 'FieldInputTraversal',

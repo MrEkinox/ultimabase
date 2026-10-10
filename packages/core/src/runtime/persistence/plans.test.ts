@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { QueryBuilder } from '../../query/index.js'
-
 import { normalizeUpdateExpression } from '../../query/index.js'
 import {
 	acceptDatabasePersistenceRewrite,
@@ -9,6 +7,7 @@ import {
 	rewriteDeletePersistencePlan,
 } from './plans.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'PersistencePlanArticle',

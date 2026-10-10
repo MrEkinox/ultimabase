@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 
-import { UltimaBase, requestSources } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -19,6 +19,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { requestSources, anonymous } from '@ultimabase/core/plugin'
 
 const executeFile = promisify(execFile)
 const javascriptFixture = path.join(
@@ -74,7 +75,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 				Post.findOne({ where: { id: { eq: created.id } } }),
 			).resolves.toMatchObject({ title: 'TypeScript create' })
 
-			const request = ultimabase.anonymous({
+			const request = anonymous(ultimabase, {
 				requestId: 'typescript-no-engine-transaction',
 				source: requestSources.internal,
 			})
@@ -207,7 +208,7 @@ describe('optional Hooks PostgreSQL proof', { concurrent: false }, () => {
 			).toBe(1)
 			expect(diagnostics).toHaveLength(1)
 
-			const request = ultimabase.anonymous({
+			const request = anonymous(ultimabase, {
 				requestId: 'alternative-behavior-rollback',
 				source: requestSources.internal,
 			})

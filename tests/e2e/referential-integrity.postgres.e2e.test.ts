@@ -1,4 +1,4 @@
-import { requestSources, UltimaBase } from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
@@ -8,6 +8,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../fixtures/postgres-worker-fixture.js'
+import { requestSources, anonymous } from '@ultimabase/core/plugin'
 
 // Conformance of the referential-integrity contract of ADR-0299 on
 // PostgreSQL. These cases move into the adapter-parameterized suite when a
@@ -154,12 +155,13 @@ const holdTransaction = (
 	work: () => Promise<void>,
 	release: Promise<void>,
 ): Promise<void> =>
-	application()
-		.anonymous({ requestId, source: requestSources.internal })
-		.transaction(async () => {
-			await work()
-			await release
-		})
+	anonymous(application(), {
+		requestId,
+		source: requestSources.internal,
+	}).transaction(async () => {
+		await work()
+		await release
+	})
 
 describe(
 	'adapter-enforced referential integrity (ADR-0299)',

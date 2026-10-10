@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
 
-import {
-	fieldPath,
-	QueryBuilder,
-	type FindManyOperationAst,
-} from '../../query/index.js'
+import { fieldPath, type FindManyOperationAst } from '../../query/index.js'
 import { normalizeWhereInput } from '../../query/filters/where.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import {
@@ -14,6 +10,7 @@ import {
 } from '../database/adapter-capabilities.js'
 import type { DatabaseOperationExecutor } from '../database/contracts.js'
 import { assertDatabaseFilterOperators } from './filter-operator-validation.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const Article = UltimaBase.Schema.define({
 	className: 'FilterOperatorArticle',

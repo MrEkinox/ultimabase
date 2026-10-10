@@ -1,11 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-	fieldPath,
-	QueryBuilder,
-	type FindManyOperationAst,
-} from '../../query/index.js'
+import { fieldPath, type FindManyOperationAst } from '../../query/index.js'
 import { definePluginField } from '../../schema/index.js'
 import type {
 	DatabaseAdapterCapabilities,
@@ -14,6 +10,7 @@ import type {
 import { databasePluginFieldStructuralContainsCapability } from '../database/contracts.js'
 import { assertDatabaseRequestCapabilities } from './database-capability-validation.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 
 const containedField = definePluginField(
 	'fixture.capability.contained',

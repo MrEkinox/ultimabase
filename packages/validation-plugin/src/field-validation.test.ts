@@ -10,9 +10,6 @@ import {
 	FrameworkError,
 	type FieldOptions,
 	type JsonDocument,
-	QueryBuilder,
-	RequestContext,
-	requestSources,
 	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type CreateOneOperationAst,
@@ -27,6 +24,11 @@ import {
 } from './operation-validation.js'
 import { readValidationIssues } from './field-validation-fixture.js'
 import { validationPlugin } from './plugin.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())
 

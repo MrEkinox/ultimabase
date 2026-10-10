@@ -14,7 +14,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	getOperationSchema,
-	requestSources,
 	runWithRequestEngine,
 	RuntimePipeline,
 	type DatabaseAdapter,
@@ -32,6 +31,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { requestSources } from '../../src/plugin.js'
 
 interface ObserverScope {
 	readonly schema?: SchemaDefinition

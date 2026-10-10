@@ -1,7 +1,4 @@
-import {
-	QueryBuilder,
-	type CreateOneOperationAst,
-} from '../../src/query/index.js'
+import { type CreateOneOperationAst } from '../../src/query/index.js'
 
 import {
 	RequestContext,
@@ -9,6 +6,7 @@ import {
 } from '../../src/runtime/context/request-context.js'
 import type { RuntimeEnforcementStages } from '../../src/runtime/pipeline/contracts.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../src/plugin.js'
 
 export const articleSchema = UltimaBase.Schema.define({
 	className: 'EnforcedArticle',

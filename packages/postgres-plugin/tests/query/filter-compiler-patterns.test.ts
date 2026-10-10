@@ -1,6 +1,6 @@
-import { QueryBuilder } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { FilterSchema, renderQuery } from './filter-compiler-fixtures.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 describe('PostgreSQL filter pattern compilation', () => {
 	it('keeps injection payloads in parameters and escapes LIKE wildcards', () => {

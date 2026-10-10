@@ -1,5 +1,5 @@
 import { applicationFixture } from '../application-fixture.js'
-import { QueryBuilder, type ExecutableOperationAst } from '../../src/index.js'
+import { type ExecutableOperationAst } from '../../src/index.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 
 import { describe, expect, it } from 'vitest'
@@ -13,6 +13,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../src/plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'TerminalArticle',

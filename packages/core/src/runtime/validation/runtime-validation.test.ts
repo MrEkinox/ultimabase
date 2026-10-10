@@ -1,6 +1,5 @@
 import { FrameworkError } from '../../foundation.js'
 import {
-	QueryBuilder,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -35,6 +34,7 @@ import {
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
 import { UltimaBase } from '../application/ultima-base.js'
+import { QueryBuilder } from '../../plugin.js'
 /** Builds the relation update expression nested writes emit (ADR-0308). */
 const connectTarget = (id: string) =>
 	Object.freeze({

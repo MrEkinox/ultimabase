@@ -1,5 +1,4 @@
 import {
-	QueryBuilder,
 	createDatabasePersistencePlan,
 	normalizeUpdateExpression,
 	type DeleteOneOperationAst,
@@ -23,6 +22,7 @@ import {
 	timestamp,
 	articleRow,
 } from './adapter-fixtures.js'
+import { QueryBuilder } from '@ultimabase/core/plugin'
 
 describe('internal PostgreSQL database adapter transactions', () => {
 	it('reports exact create and update branches for selection-aware upserts', async () => {

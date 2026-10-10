@@ -10,9 +10,6 @@ import {
 	type FieldOptions,
 	type JsonDocument,
 	Pointer,
-	QueryBuilder,
-	RequestContext,
-	requestSources,
 	type ApplicationCallbackExecutor,
 	type CreateOneOperationAst,
 	type RuntimeMutationRevalidationStage,
@@ -25,6 +22,11 @@ import {
 	createValidationPlanCache,
 	validateMutationInput,
 } from './operation-validation.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())
 

@@ -2,11 +2,8 @@ import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import {
 	MasterAuthority,
-	RequestContext,
-	RequestContextValue,
 	UltimaBase,
 	plugin,
-	requestSources,
 	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -19,6 +16,11 @@ import {
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { provideTestPrincipalResolver } from '../../../../tests/fixtures/access-capability-fixtures.js'
 import { requireACLValue } from './acl-test-fixtures.js'
+import {
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const ACLCompositionApplication = UltimaBase.use(accessPlugin())
 	.use(hooksPlugin())

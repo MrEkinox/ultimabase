@@ -13,7 +13,6 @@ import {
 	throwIfOperationCancelled,
 	type ApplicationCallbackExecutor,
 	type PluginIdentity,
-	type RequestContext,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -39,6 +38,7 @@ import {
 	createRuntimeHookContext,
 	type HookContextEmission,
 } from './hook-context-runtime.js'
+import type { RequestContext } from '@ultimabase/core/plugin'
 
 /** Supplies one stable structural identity to the shared hook executor. */
 export interface HookExecutionDescriptor {

@@ -4,7 +4,6 @@ import {
 	contributeApplication,
 	withPluginPrivileges,
 } from '../../foundation.js'
-import { RequestContextValue } from '../../access/index.js'
 
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
@@ -18,6 +17,8 @@ import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { UltimaBase } from './ultima-base.js'
+import { anonymous, withContext } from './plugin-authority.js'
+import { RequestContextValue } from '../../plugin.js'
 
 const articleSchema = UltimaBase.Schema.define({
 	className: 'UltimaBaseArticle',
@@ -132,7 +133,7 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['connect'])
 		expect(() =>
-			ultimabase.anonymous({ requestId: 'no-runtime', source: 'internal' }),
+			anonymous(ultimabase, { requestId: 'no-runtime', source: 'internal' }),
 		).toThrow('UltimaBase must be started before request execution')
 
 		await ultimabase.dispose()
@@ -173,7 +174,7 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual([])
 		expect(Object.isFrozen(ultimabase)).toBe(true)
 		expect(() =>
-			ultimabase.anonymous({ requestId: 'early', source: 'internal' }),
+			anonymous(ultimabase, { requestId: 'early', source: 'internal' }),
 		).toThrow(
 			new TypeError('UltimaBase must be started before request execution'),
 		)
@@ -561,13 +562,14 @@ describe('UltimaBase', () => {
 				source: requestSources.internal,
 			})
 
-			first.withContext(foreignContext)
+			withContext(first, foreignContext)
 
-			await first
-				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
-				.transaction(async () =>
-					articleSchema.createOne({ data: { title: 'Transactional' } }),
-				)
+			await anonymous(first, {
+				requestId: 'transaction-owner',
+				source: 'internal',
+			}).transaction(async () =>
+				articleSchema.createOne({ data: { title: 'Transactional' } }),
+			)
 
 			expect(firstAdapter.rootRequests).toStrictEqual([])
 			expect(firstAdapter.transactions).toHaveLength(1)
@@ -576,7 +578,7 @@ describe('UltimaBase', () => {
 				code: 'VALIDATION_ERROR',
 			})
 			await runWithRequestEngine(
-				first.anonymous({
+				anonymous(first, {
 					requestId: 'active-first',
 					source: requestSources.internal,
 				}),

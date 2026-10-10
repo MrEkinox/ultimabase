@@ -375,7 +375,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		const master = readFixtureQuickInfo('useMasterKey: true')
 		const context = readFixtureQuickInfo('context: packedContext')
 
-		expect(master.display).toContain('useMasterKey?: true')
+		expect(master.display).toContain('useMasterKey?: boolean')
 		expect(master.documentation).toContain('trusted backend code only')
 		expect(master.documentation).toContain('Transport input')
 		expect(context.display).toContain('context?: RequestContext')

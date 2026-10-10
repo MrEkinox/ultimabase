@@ -29,6 +29,7 @@ import {
 } from './application.js'
 import { httpRoute, provideHttpEndpoints } from './endpoints.js'
 import { httpPlugin } from './plugin.js'
+import { withContext } from '@ultimabase/core/plugin'
 
 const RuntimeProbe = UltimaBase.Schema.define({
 	className: 'HttpRuntimeSecretProbe',
@@ -179,7 +180,7 @@ describe('HTTP Runtime propagation', () => {
 									headers: [...request.headers],
 									kind: 'handler',
 								})
-								const engine = runtime.withContext(getCurrentRequest())
+								const engine = withContext(runtime, getCurrentRequest())
 								const results = await engine.transaction(() =>
 									RuntimeProbe.findMany(),
 								)

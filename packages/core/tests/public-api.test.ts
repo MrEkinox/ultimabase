@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import * as publicApi from '../src/index.js'
+import * as pluginApi from '../src/plugin.js'
 
 describe('@ultimabase/core public entry point', () => {
 	it('does not expose direct Master context minting', () => {
@@ -25,11 +26,6 @@ describe('@ultimabase/core public entry point', () => {
 			'PluginGraph',
 			'Pointer',
 			'PublicError',
-			'QueryBuilder',
-			'RequestCapability',
-			'RequestContext',
-			'RequestContextValue',
-			'RequestEngine',
 			'RequestSubjectReference',
 			'RuntimePipeline',
 			'Schema',
@@ -39,7 +35,6 @@ describe('@ultimabase/core public entry point', () => {
 			'SchemaTargetResolutionError',
 			'TrackedExecutionLifetime',
 			'UltimaBase',
-			'WhereBuilder',
 			'accessModes',
 			'addSchemaField',
 			'addSchemaIndex',
@@ -185,7 +180,6 @@ describe('@ultimabase/core public entry point', () => {
 			'relationField',
 			'requestPrincipalResolverCapability',
 			'requestRoleResolverCapability',
-			'requestSources',
 			'requestSubjectReferenceCleanupCapability',
 			'requireCapability',
 			'requireCurrentRequestRoleResolver',
@@ -215,5 +209,27 @@ describe('@ultimabase/core public entry point', () => {
 			'uuidField',
 			'withPluginPrivileges',
 		])
+	})
+
+	it('keeps request-context machinery and builder constructors on the plugin entry', () => {
+		// ADR-0311: applications use useMasterKey and transaction(fn) instead.
+		expect(Object.keys(pluginApi).sort()).toStrictEqual([
+			'QueryBuilder',
+			'RequestCapability',
+			'RequestContext',
+			'RequestContextValue',
+			'RequestEngine',
+			'WhereBuilder',
+			'anonymous',
+			'authorizeMasterKey',
+			'decodeQueryCursor',
+			'encodeQueryCursor',
+			'requestSources',
+			'withContext',
+		])
+		for (const name of Object.keys(pluginApi)) {
+			expect(Object.hasOwn(publicApi, name)).toBe(false)
+		}
+		expect(typeof pluginApi.RequestContext.anonymous).toBe('function')
 	})
 })

@@ -1,5 +1,4 @@
 import {
-	RequestContext,
 	type ApplicationCallbackExecutor,
 	type PointerValue,
 	type ApplicationRequestExecutor,
@@ -31,6 +30,7 @@ import {
 	createSafeGraphqlError,
 } from './execution-errors.js'
 import { assertGraphqlKnownKeys } from './options.js'
+import { RequestContext } from '@ultimabase/core/plugin'
 
 /** Supplies a trusted context and one exact GraphQL operation document. */
 export interface GraphqlExecuteOptions {

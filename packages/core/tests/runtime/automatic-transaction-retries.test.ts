@@ -12,10 +12,7 @@ import { FrameworkError } from '../../src/foundation.js'
 import { FrameworkApplication } from '../../src/application/framework-application.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
-import {
-	requestSources,
-	runWithRequestEngine,
-} from '../../src/runtime/index.js'
+import { runWithRequestEngine } from '../../src/runtime/index.js'
 import { applicationFixture } from '../application-fixture.js'
 import {
 	createRecordingPipeline,
@@ -23,6 +20,7 @@ import {
 	type QueuedAdapterResult,
 	type RecordingPipelineBehaviorStages,
 } from './fixtures/recording-database-adapter.js'
+import { requestSources } from '../../src/plugin.js'
 
 const noteSchema = UltimaBase.Schema.define({
 	className: 'RetriedNote',

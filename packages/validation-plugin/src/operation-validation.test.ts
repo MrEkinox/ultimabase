@@ -4,9 +4,6 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	FrameworkError,
 	normalizeUpdateExpression,
-	QueryBuilder,
-	RequestContext,
-	requestSources,
 	UltimaBase,
 	type ApplicationCallbackExecutor,
 	type RuntimeMutationRevalidationStage,
@@ -26,6 +23,11 @@ import {
 	validateMutationInput,
 } from './operation-validation.js'
 import { validationPlugin } from './plugin.js'
+import {
+	QueryBuilder,
+	RequestContext,
+	requestSources,
+} from '@ultimabase/core/plugin'
 
 const ValidationApplication = UltimaBase.use(validationPlugin())
 

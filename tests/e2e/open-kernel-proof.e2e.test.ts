@@ -2,7 +2,6 @@ import path from 'node:path'
 
 import {
 	FrameworkError,
-	RequestContext,
 	UltimaBase,
 	databaseAdapterCapability,
 	plugin,
@@ -10,6 +9,7 @@ import {
 	provideCapability,
 	type PluginPrivilege,
 } from '@ultimabase/core'
+import { RequestContext } from '@ultimabase/core/plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import {
 	FakePublicOperationTransport,

@@ -1,4 +1,3 @@
-import { QueryBuilder } from '../../src/query/index.js'
 import { SchemaRegistry } from '../../src/schema/index.js'
 import { vi } from 'vitest'
 import {
@@ -8,6 +7,7 @@ import {
 import type { DatabaseOperationAst } from '../../src/runtime/database/contracts.js'
 import type { createRuntimeValidationStage } from '../../src/runtime/validation/runtime-validation.js'
 import { UltimaBase } from '../../src/runtime/application/ultima-base.js'
+import { QueryBuilder } from '../../src/plugin.js'
 
 export const runtimeDefault = vi.fn(() => 42)
 export const binaryDefault = new Uint8Array([1, 2, 3])
