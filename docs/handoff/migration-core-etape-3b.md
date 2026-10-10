@@ -237,6 +237,18 @@ Porte finale ADR-0309 + ADR-0310 :
   9 136 → 7 578 ms, froid 22 964 → 19 056 ms ; aperçu `q0` 1 267 → 199
   caractères ; `Model<"Todo">` affiché depuis sources et paquets construits.
 
+Porte des corrections du 2026-10-10 (c876cc73) :
+
+- `dist` et `*.tsbuildinfo` supprimés, `yarn validate:full` : exit 0 ;
+  couverture 679 fichiers, 3 272 tests, 0 erreur de type ; performance
+  3 / 4 ; website-content 17 / 66 ; lint 0 erreur.
+- `yarn test:e2e:built` : 118 fichiers, 497 tests.
+- Audit DX contre une base 4cd8a553 neuve : 3 984 différences ; par rapport
+  à l'audit précédent, 177 nouvelles, 5 disparues, 40 modifiées, toutes dues
+  aux corrections 22 à 26.
+- Banc forme D (médianes de 3) : 50 schémas 2 996 → 2 243 ms (froid
+  6 210 → 4 977) ; 200 schémas 9 051 → 7 604 ms (froid 22 634 → 18 783).
+
 ## Prochaine action vérifiable
 
 Porte finale des corrections du 2026-10-10 puis revue du coordinateur.
