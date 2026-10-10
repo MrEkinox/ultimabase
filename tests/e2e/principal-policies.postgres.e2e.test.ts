@@ -164,7 +164,9 @@ const as = (principal: PointerValue | undefined): RequestContext => {
 		requestId: `principal-${String(Math.random())}`,
 		source: requestSources.internal,
 	})
-	return principal === undefined ? context : context.withValue(signedIn, principal)
+	return principal === undefined
+		? context
+		: context.withValue(signedIn, principal)
 }
 
 beforeAll(async () => {
@@ -181,7 +183,10 @@ beforeAll(async () => {
 	}
 	editor = PrincipalMember.pointer(editorRow.id)
 	reader = PrincipalMember.pointer(readerRow.id)
-	const role = await PrincipalRole.createOne({ data: { name: 'editor' } }, options)
+	const role = await PrincipalRole.createOne(
+		{ data: { name: 'editor' } },
+		options,
+	)
 	await role.addMember(editor, options)
 }, 60_000)
 
@@ -200,7 +205,10 @@ beforeEach(() => {
 describe('neutral current principal and policy predicates (ADR-0304)', () => {
 	it('gives predicates and Hooks the principal, kept under Master, resolved once', async () => {
 		await expect(
-			PrincipalTodo.createOne({ data: { title: 'Anonymous' } }, { context: as(undefined) }),
+			PrincipalTodo.createOne(
+				{ data: { title: 'Anonymous' } },
+				{ context: as(undefined) },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		providerCalls = 0
@@ -297,7 +305,10 @@ describe('neutral current principal and policy predicates (ADR-0304)', () => {
 		if (graphql === undefined) throw new TypeError('GraphQL unavailable')
 		const document = `mutation { createPrincipalTodo(input: { title: "GraphQL" }) { title } }`
 
-		const anonymous = await graphql.execute({ context: as(undefined), document })
+		const anonymous = await graphql.execute({
+			context: as(undefined),
+			document,
+		})
 		const explicit = await graphql.execute({
 			context: as(undefined),
 			document,

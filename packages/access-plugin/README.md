@@ -123,6 +123,31 @@ ordinary `createOne` or `updateOne`; relation updates additionally prove exact
 visible source membership. Master bypass remains uniform across the whole
 graph.
 
+## Principal, predicates and readable results
+
+Every rule callback receives the request `principal` resolved by Core
+(`undefined` when anonymous), the policy `operation` key, the `schema` class
+name and the request `context` (ADR-0304); rules never import an
+authentication plugin. A Core `PolicyPredicate` such as `isAuthenticated`, or
+Roles' `hasRole()`, is accepted wherever a rule returns a decision without a
+filter. A predicate that throws rejects the operation; throw a `PublicError`
+to tell the client why.
+
+```ts
+import { isAuthenticated } from '@ultimabase/core'
+
+access: {
+	create: isAuthenticated,
+	update: ({ principal, where }) => where.eq('author', principal?.id ?? ''),
+}
+```
+
+Mutation results obey the row `read` rules (ADR-0306): a write whose result
+the caller cannot read, selected beyond `id`, fails with `PERMISSION_DENIED`
+and rolls back; `select: { id: true }` is always allowed. Rules evaluated for
+`ultimabase.can()` skip field rules: the operation carries no input or
+selection (`readPolicyQuery()` marks it).
+
 ## Defaults
 
 The operation fallback denies when no exact schema declaration exists. Fields

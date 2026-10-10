@@ -1,6 +1,7 @@
 import { requestPrincipalResolverCapability } from '../../access/index.js'
 import type { Principal } from '../../access/subject/principal.js'
 import { readApplicationRuntimeKernelState } from '../../application/application-kernel-state.js'
+import { FrameworkApplication } from '../../application/framework-application.js'
 import { runWithApplicationPluginOwner } from '../../plugins/callback-execution.js'
 import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
 import { getActiveRequestEngine } from './active-framework-context.js'
@@ -54,9 +55,7 @@ export const setExplicitRequestPrincipal = (
 }
 
 const ownsSchema = (application: object, schema: unknown): boolean =>
-	'ownsSchema' in application &&
-	typeof application.ownsSchema === 'function' &&
-	application.ownsSchema(schema) === true
+	application instanceof FrameworkApplication && application.ownsSchema(schema)
 
 const validatePrincipal = (
 	application: object,
@@ -67,7 +66,9 @@ const validatePrincipal = (
 		throw new TypeError('Request principal must be a Core Pointer')
 	}
 	if (!ownsSchema(application, principal.schema)) {
-		throw new TypeError('Request principal belongs to a foreign application schema')
+		throw new TypeError(
+			'Request principal belongs to a foreign application schema',
+		)
 	}
 	return principal
 }
@@ -107,7 +108,7 @@ export const getRequestPrincipal = (
 	const cell = readCell(context)
 	cell.resolution ??= resolveCell(context, application, cell)
 	// Core validated a Pointer owned by the application; `Register` names its schema.
-	return cell.resolution as Promise<Principal | undefined>
+	return cell.resolution
 }
 
 /**

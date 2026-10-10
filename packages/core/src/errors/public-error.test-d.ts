@@ -16,7 +16,7 @@ test('keeps the literal code and details of an application error', () => {
 })
 
 test('defaults the code type to APPLICATION_ERROR', () => {
-	expectTypeOf(new PublicError('Refused.').code).toEqualTypeOf<
-		'APPLICATION_ERROR'
-	>()
+	expectTypeOf(
+		new PublicError('Refused.').code,
+	).toEqualTypeOf<'APPLICATION_ERROR'>()
 })

@@ -30,9 +30,7 @@ test('keeps role statics available without reconstructing local item types', () 
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
 	expectTypeOf(hasRole(AppRole.role('editor'))).toBeFunction()
 	// A Core predicate: no package link from Roles to Access (ADR-0304).
-	expectTypeOf(
-		hasRole(AppRole.role('editor')),
-	).toEqualTypeOf<PolicyPredicate>()
+	expectTypeOf(hasRole(AppRole.role('editor'))).toEqualTypeOf<PolicyPredicate>()
 })
 
 test('rejects invalid deletion policies before code generation', () => {

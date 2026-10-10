@@ -114,7 +114,10 @@ await ultimabase.schema(Post).for(post).softDelete()
 
 The command has the stable logical identity
 `ultimabase.soft-delete.soft-delete`, loads one currently visible target, sets
-only `isDeleted: true`, and returns the postimage. It does not replay native
+only `isDeleted: true`, and, like a delete, returns the preimage
+(`returning: 'before'`): mutation results obey the row read rules and a
+tombstone is hidden, so Core checks the row while it is still visible
+(ADR-0306). It does not replay native
 update or delete policy and Hooks. A repeated call receives the ordinary
 non-disclosing missing-target error because the tombstone is already hidden.
 

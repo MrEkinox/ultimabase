@@ -130,7 +130,10 @@ export const finalizeRuntimeOperationResult = async <
 		selectedFieldsOverride,
 	) as unknown as RuntimeOperationResult<TOperation>
 	// After the after hooks, before the final output restrictions (ADR-0306).
-	if (request.assertReadableResult !== undefined && request.outcome !== undefined) {
+	if (
+		request.assertReadableResult !== undefined &&
+		request.outcome !== undefined
+	) {
 		await request.assertReadableResult(request.outcome)
 	}
 	if (stages.enforcement !== undefined && enforcement !== undefined) {

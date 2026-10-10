@@ -26,6 +26,8 @@ sources:
   - docs/adr/0172-focused-schema-hook-results.md
   - docs/adr/0202-hooks-are-one-vertical-plugin.md
   - docs/adr/0274-canonical-operation-cancellation.md
+  - docs/adr/0304-neutral-current-principal-and-policy-predicates.md
+  - docs/adr/0305-public-errors-and-can.md
 ---
 
 ## Overview
@@ -195,6 +197,10 @@ the same immutable graph; it is absent for a standalone mutation.
 Both operation groups run before commit. In the configuration example,
 `PostTitleChange.createOne()` inherits the active application and transaction;
 throwing from either Hook rolls back both the post and its title-change row.
+Throw a [`PublicError`](/docs/1.0.0/core/runtime/api-errors#publicerror) to
+tell the client why: REST answers `400` with its code and message and GraphQL
+reports it in `extensions.code`; any other error stays masked. A
+`PublicError` thrown by a post-commit event consumer is only logged.
 Do not send email or publish to an external broker directly from
 `afterOperation`: that effect cannot be rolled back if the transaction fails.
 
@@ -329,7 +335,9 @@ precedes schema input resolution; `beforeOperation` precedes persistence;
 and Core validation still enforce their own boundaries around these phases.
 
 Every callback receives a `HookContext` with a request ID, optional
-transaction ID, cancellation signal, source, authority, and hook identity.
+transaction ID, cancellation signal, source, authority, hook identity, and the
+request `principal` resolved by Core (`undefined` when anonymous; unchanged
+under `useMasterKey`).
 It can inspect registered request values or capability tokens and emit events,
 but it exposes no adapter, raw credential, or transaction controls. Do not
 retain it for later work: its capabilities close when the callback settles.

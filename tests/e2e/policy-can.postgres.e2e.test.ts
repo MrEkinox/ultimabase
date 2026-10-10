@@ -239,12 +239,20 @@ describe('ultimabase.can() (ADR-0305)', () => {
 	it('defaults to the current request principal and lets Master do anything', async () => {
 		await expect(
 			runWithRequestEngine(as(ada), () =>
-				application().can({ operation: 'update', schema: CanTodo, item: { id: adaTodo } }),
+				application().can({
+					operation: 'update',
+					schema: CanTodo,
+					item: { id: adaTodo },
+				}),
 			),
 		).resolves.toBe(true)
 		await expect(
 			runWithRequestEngine(as(grace), () =>
-				application().can({ operation: 'update', schema: CanTodo, item: { id: adaTodo } }),
+				application().can({
+					operation: 'update',
+					schema: CanTodo,
+					item: { id: adaTodo },
+				}),
 			),
 		).resolves.toBe(false)
 		const master = await as(undefined).useMasterKey(
@@ -271,9 +279,7 @@ describe('ultimabase.can() (ADR-0305)', () => {
 		).rejects.toThrow('can() received an unknown operation')
 
 		expect(hookCalls).toBe(0)
-		await expect(
-			CanTodo.count({}, { useMasterKey: true }),
-		).resolves.toBe(1)
+		await expect(CanTodo.count({}, { useMasterKey: true })).resolves.toBe(1)
 		await expect(
 			CanTodo.findOne(
 				{ where: { id: { eq: adaTodo } }, select: { title: true } },

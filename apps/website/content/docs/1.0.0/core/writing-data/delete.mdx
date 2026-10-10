@@ -19,11 +19,14 @@ sources:
   - docs/adr/0146-flat-delete-one-result-selections.md
   - docs/adr/0162-strict-object-target-commands.md
   - docs/adr/0182-singular-id-target-aliases.md
+  - docs/adr/0306-readable-mutation-results.md
 ---
 
 Use `Post.deleteOne()` to delete one visible record. It returns an immutable
 snapshot of that record **before** deletion, so select any values you need from
-the result before the row becomes unavailable.
+the result before the row becomes unavailable. That pre-image obeys the row
+read rules: Core checks it on the locked target before deleting, and a caller
+who may delete a row it cannot read requests `select: { id: true }`.
 
 The example uses the `Post` schema from [Create Records](./create), with `slug`
 and `title` fields, in a started application with a persistence plugin.

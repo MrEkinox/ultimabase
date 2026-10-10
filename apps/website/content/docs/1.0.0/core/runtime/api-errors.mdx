@@ -11,6 +11,7 @@ releaseStatus: pre-release
 reviewedAt: 2026-10-09
 sources:
   - packages/core/src/errors/framework-error.ts
+  - packages/core/src/errors/public-error.ts
   - packages/core/src/runtime/cancellation/operation-cancellation.ts
   - packages/core/src/schema/plans/contracts.ts
   - packages/core/src/runtime/validation/runtime-validation.ts
@@ -20,6 +21,7 @@ sources:
   - packages/graphql-plugin/README.md
   - docs/adr/0274-canonical-operation-cancellation.md
   - docs/adr/0302-neutral-storage-errors-and-semantics.md
+  - docs/adr/0305-public-errors-and-can.md
 ---
 
 Core errors have transport-independent codes. A public HTTP request adds another
@@ -32,6 +34,7 @@ handle the request.
 | When the failure occurs        | Owner and representation                                       | Start here                                                                |
 | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Direct TypeScript command      | Core `FrameworkError` or the operation's declared plugin error | [FrameworkError](#frameworkerror)                                         |
+| Application code refusing      | `PublicError` thrown by a hook, rule or handler                | [PublicError](#publicerror)                                               |
 | Before a protocol route begins | HTTP plugin's safe `HTTP_*` JSON envelope                      | [HTTP troubleshooting](/docs/1.0.0/plugins/official/http#troubleshooting) |
 | After REST begins              | REST plugin's JSON envelope and `REST_*` codes                 | [REST API](/docs/1.0.0/plugins/official/rest)                             |
 | After GraphQL begins           | GraphQL response errors and safe extensions                    | [GraphQL](/docs/1.0.0/plugins/official/graphql)                           |
@@ -69,12 +72,42 @@ Before route dispatch, malformed or ambiguous headers use `HTTP_BAD_REQUEST`;
 application or credential rejection uses `HTTP_APPLICATION_REJECTED`. After
 REST begins, unsupported versions, body limits, authorization, validation, and
 missing targets use REST-owned codes. Unknown REST failures become the fixed
-`REST_INTERNAL_ERROR`, not an exception string.
+`REST_INTERNAL_ERROR`, not an exception string, and the server logs them with
+their stack and request ID.
 
 GraphQL follows its own response format. Explicitly public Core or plugin
 failures may retain safe extensions such as code, retryability, request ID,
 and optional JSON details. Unknown failures are masked as
-`INTERNAL_SERVER_ERROR`.
+`INTERNAL_SERVER_ERROR` and logged the same way.
+
+## PublicError
+
+Application code tells a client why an operation was refused by throwing
+`PublicError` from `@ultimabase/core`: a hook, an Access rule or policy
+predicate, an ACL callback, a virtual field, a custom operation or an HTTP
+route handler.
+
+```ts title="src/schemas/todo.ts"
+import { PublicError } from '@ultimabase/core'
+
+throw new PublicError('A title cannot contain a link.', {
+	code: 'todo.title-link',
+	details: { field: 'title' },
+})
+```
+
+The message is shown to clients. `code` is a constant identifier or a
+dot-namespaced code and defaults to `APPLICATION_ERROR`; framework codes such
+as `PERMISSION_DENIED` are rejected so application code cannot impersonate
+Core. `details` is a plain object shown to clients; `cause` is never
+serialized.
+
+The error aborts the operation and rolls its transaction back; it is never
+retried. REST answers `400` with `{ code, message, details }`, GraphQL reports
+the code in `extensions.code`, and an HTTP route answers `400` with the same
+`error` envelope. Every other error stays masked. After commit (post-commit
+behaviors and Hooks event consumers) a `PublicError` is only logged: the
+client already has its answer.
 
 ## FrameworkError
 

@@ -15,7 +15,9 @@ import { readPipelineTransactionAdapter } from '../transactions/pipeline-transac
 export type CanOperation = 'read' | PolicyOperation
 
 /** Asks whether an operation would be permitted, without executing it. */
-export interface CanOptions<TSchema extends SchemaDefinition = SchemaDefinition> {
+export interface CanOptions<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> {
 	/**
 	 * The identity asked about. Omitted, it is the principal of the current
 	 * request; `undefined` asks about an anonymous caller.
@@ -80,17 +82,21 @@ export const executePolicyQuery = (
 	}
 	// Master bypasses authorization: every operation is permitted.
 	if (context.access.mode === 'master') return Promise.resolve(true)
-	const command = readApplicationKernelState(application).commands.commands.find(
+	const command = readApplicationKernelState(
+		application,
+	).commands.commands.find(
 		(candidate) =>
 			candidate.kind === 'mutation' &&
 			candidate.surfaces.some(
 				(surface) =>
-					surface.className === className &&
-					surface.name === options.operation,
+					surface.className === className && surface.name === options.operation,
 			),
 	)
 	// A Master-only plugin mutation is never permitted to another caller.
-	if (command?.kind === 'mutation' && command.definition.authority === 'master') {
+	if (
+		command?.kind === 'mutation' &&
+		command.definition.authority === 'master'
+	) {
 		return Promise.resolve(false)
 	}
 	const request = {

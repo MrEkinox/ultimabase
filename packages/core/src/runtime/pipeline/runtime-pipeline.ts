@@ -96,7 +96,6 @@ const mutationBatchProjectors = new WeakMap<
 	RuntimeMutationBatchProjector
 >()
 
-
 /** Executes one Runtime-owned grouped projection without widening the class API. */
 export const projectRuntimeMutationBatch = (
 	pipeline: RuntimePipeline,

@@ -182,7 +182,7 @@ export const securityReadmeNotes = (plan: InitializerPlan): string[] =>
 		],
 		[
 			has(plan, 'access-plugin'),
-			'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority.',
+			'Access denies ordinary operations except the explicitly configured own-profile read policy when Password Auth is selected. The Task example explicitly denies ordinary CRUD; its local write uses audited Master authority. Mutation results obey the read rules: a client that may write a row it cannot read requests `select: { id: true }`.',
 		],
 		[
 			has(plan, 'acl-permissions-plugin'),

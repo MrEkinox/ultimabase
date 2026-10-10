@@ -32,7 +32,9 @@ const databasePlugin = () =>
 		core: '^0.0.0',
 		id: 'fixture.principal-database',
 		version: '1.0.0',
-		contributions: [provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], []))],
+		contributions: [
+			provideTestDatabaseAdapter(new RecordingDatabaseAdapter([], [])),
+		],
 	})
 
 const providerPlugin = (resolver: RequestPrincipalResolver) =>
@@ -148,7 +150,9 @@ describe('request principal (ADR-0304)', () => {
 			source: requestSources.internal,
 		})
 		await expect(getRequestPrincipal(foreignEngine.context)).rejects.toThrow(
-			new TypeError('Request principal belongs to a foreign application schema'),
+			new TypeError(
+				'Request principal belongs to a foreign application schema',
+			),
 		)
 	})
 

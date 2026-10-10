@@ -344,7 +344,9 @@ export class RequestContext<
 	 *
 	 * @example `graphql.execute({ context: context.withPrincipal(TodoUser.pointer(id)), document })`
 	 */
-	withPrincipal(principal: PointerValue | undefined): RequestContext<TAccess, TSource> {
+	withPrincipal(
+		principal: PointerValue | undefined,
+	): RequestContext<TAccess, TSource> {
 		const derived = new RequestContext(
 			this.access,
 			optionsOf(this),

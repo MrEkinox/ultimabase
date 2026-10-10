@@ -176,9 +176,12 @@ passwordAuthPlugin({
 
 `runWithSession(token, handler)` validates the raw token before opening an
 application-owned async request scope. The context contains only the nominal
-`passwordPrincipal` and `passwordSession` values; neither contains the raw
-token, password, verifier, grant, role, or authorization decision. Access and
-ACL plugins remain solely responsible for authorization.
+`passwordPrincipal` and `passwordSession` values, which read the session
+itself; neither contains the raw token, password, verifier, grant, role, or
+authorization decision. The plugin provides the Core current principal (the
+session's User pointer): Access rules, Hooks, ACL callbacks and Roles receive
+it as `principal` and never import this plugin (ADR-0304). Access and ACL
+plugins remain solely responsible for authorization.
 
 The six operations remain private until explicitly included in a transport.
 For advanced server code, `application.operation('ultimabase.password-auth.login')`

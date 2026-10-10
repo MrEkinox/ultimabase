@@ -58,7 +58,10 @@ export const selectsOnlyIdentifier = (
 
 /** Tells whether a mutation result must pass the row read rules. */
 export const requiresReadableResult = (
-	check: Pick<ReadableResultCheck, 'context' | 'inclusion' | 'selection' | 'stages'>,
+	check: Pick<
+		ReadableResultCheck,
+		'context' | 'inclusion' | 'selection' | 'stages'
+	>,
 ): boolean =>
 	// Master bypasses authorization, not validation (decision 7).
 	check.context.access.mode !== 'master' &&
@@ -99,7 +102,9 @@ const readRowConstraints = async (
 			...query,
 			selection: immutableRecord({
 				kind: 'selection' as const,
-				fields: [immutableRecord({ kind: 'selected-field' as const, field: 'id' })],
+				fields: [
+					immutableRecord({ kind: 'selected-field' as const, field: 'id' }),
+				],
 			}),
 		}),
 	})
@@ -155,7 +160,7 @@ export const assertReadableMutationRows = async (
 			? createQueryValueFilter(check.schema, 'equal', 'id', first)
 			: createQueryMembershipFilter(check.schema, 'in', 'id', unique)
 	const rowFilter = combineDatabaseRowFilters(
-		identity as DatabaseRowFilterNode,
+		identity,
 		constraints.rowFilter,
 	)
 	const query = createQueryAst(check.schema)
@@ -223,7 +228,9 @@ export const prepareReadableResultCheck = (
 
 /** The checks one pipeline mutation runs: delete pre-images or resulting rows. */
 export interface ReadableResultHooks {
-	readonly result?: (outcome: DatabaseMutationMaterializationSource) => Promise<void>
+	readonly result?: (
+		outcome: DatabaseMutationMaterializationSource,
+	) => Promise<void>
 	readonly targets?: (ids: readonly string[]) => Promise<void>
 }
 

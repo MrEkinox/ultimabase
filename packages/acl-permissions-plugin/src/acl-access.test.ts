@@ -42,8 +42,7 @@ describe('ACL Access contributions', () => {
 		}
 		const subjects = await resolveACLAccessSubjects(
 			context,
-			// A typed Pointer stands for the Core principal of the request.
-			principal as never,
+			principal,
 			roleResolver,
 		)
 

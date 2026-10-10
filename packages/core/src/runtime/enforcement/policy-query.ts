@@ -1,4 +1,8 @@
-import { immutableArray, immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import type { CompiledCommand } from '../../plugins/command-graph.js'
 import { FrameworkError } from '../../errors/framework-error.js'
@@ -7,15 +11,14 @@ import { createQueryAst } from '../../query/index.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { RequestContext } from '../context/request-context.js'
-import type {
-	DatabaseOperationAst,
-	DatabaseRowFilterNode,
-} from '../database/contracts.js'
+import type { DatabaseOperationAst } from '../database/contracts.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 import type {
+	RuntimeLogicalMutationOperationAst,
 	RuntimeLogicalOperationAst,
 	RuntimePipelineStages,
 } from '../pipeline/contracts.js'
+import { isRuntimeMutationOperation } from '../operations/characteristics.js'
 import { enforceRuntimeOperation } from '../pipeline/stage-inputs.js'
 import type { RuntimeRelationFilterResolver } from '../relation-filters/execution.js'
 import { combineDatabaseRowFilters } from './state.js'
@@ -43,19 +46,27 @@ export const readPolicyQuery = (operation: unknown): PolicyQuery | undefined =>
 		? policyQueries.get(operation)
 		: undefined
 
-const nativeKinds = {
-	count: 'count',
-	create: 'create-one',
-	delete: 'delete-one',
-	exists: 'exists',
-	many: 'find-many',
-	one: 'find-one',
-	read: 'find-one',
-	update: 'update-one',
-	upsert: 'upsert-one',
-} as const
+type NativeKind =
+	| 'count'
+	| 'create-one'
+	| 'delete-one'
+	| 'exists'
+	| 'find-many'
+	| 'find-one'
+	| 'update-one'
+	| 'upsert-one'
 
-const readKinds = new Set(['count', 'exists', 'find-many', 'find-one'])
+const nativeKinds: ReadonlyMap<string, NativeKind> = new Map([
+	['count', 'count'],
+	['create', 'create-one'],
+	['delete', 'delete-one'],
+	['exists', 'exists'],
+	['many', 'find-many'],
+	['one', 'find-one'],
+	['read', 'find-one'],
+	['update', 'update-one'],
+	['upsert', 'upsert-one'],
+])
 
 /** What `can()` asks Core to decide for one principal and one schema. */
 export interface PolicyQueryRequest {
@@ -81,9 +92,7 @@ const createOperation = (
 		kind: 'update-expression' as const,
 		operations: immutableArray([]),
 	})
-	const native = Object.hasOwn(nativeKinds, request.operation)
-		? nativeKinds[request.operation as keyof typeof nativeKinds]
-		: undefined
+	const native = nativeKinds.get(request.operation)
 	const id = typeof item?.id === 'string' ? item.id : undefined
 	switch (native) {
 		case 'create-one':
@@ -92,7 +101,7 @@ const createOperation = (
 				kind: native,
 				schema: query.schema,
 				selection,
-			}) as unknown as RuntimeLogicalOperationAst
+			})
 		case 'update-one':
 			return immutableRecord({ kind: native, query, update: emptyUpdate })
 		case 'upsert-one':
@@ -105,7 +114,7 @@ const createOperation = (
 					kind: 'unique-upsert-target' as const,
 				}),
 				update: emptyUpdate,
-			}) as unknown as RuntimeLogicalOperationAst
+			})
 		case undefined:
 			break
 		default:
@@ -145,7 +154,7 @@ const loadVisibleRow = async (
 	enforced: Awaited<ReturnType<typeof enforceRuntimeOperation>>,
 ): Promise<Readonly<Record<string, unknown>> | undefined> => {
 	const rowFilter = combineDatabaseRowFilters(
-		createQueryValueFilter(schema, 'equal', 'id', id) as DatabaseRowFilterNode,
+		createQueryValueFilter(schema, 'equal', 'id', id),
 		enforced.rowFilter,
 	)
 	const row: unknown = await stages.databaseOperation.execute(
@@ -174,7 +183,10 @@ export const evaluatePolicyQuery = async (
 ): Promise<boolean> => {
 	if (stages.enforcement === undefined) return true
 	const operation = createOperation(request)
-	policyQueries.set(operation, immutableRecord({ item: request.item !== undefined }))
+	policyQueries.set(
+		operation,
+		immutableRecord({ item: request.item !== undefined }),
+	)
 	try {
 		const enforced = await enforceRuntimeOperation(
 			stages,
@@ -199,20 +211,23 @@ export const evaluatePolicyQuery = async (
 		}
 		const row = await loadVisibleRow(stages, request.schema, id, enforced)
 		if (row === undefined) return false
-		if (readKinds.has(operation.kind)) return true
-		const target =
+		const target: RuntimeLogicalMutationOperationAst | undefined =
 			operation.kind === 'plugin-schema-mutation'
 				? immutableRecord({
 						...operation,
 						item: operation.mutation.effect === 'delete' ? null : row,
 						originalItem: row,
 					})
-				: operation
+				: isRuntimeMutationOperation(operation)
+					? operation
+					: undefined
+		// A read only needs the row to match its constraints.
+		if (target === undefined) return true
 		policyQueries.set(target, immutableRecord({ item: true }))
 		await stages.enforcement.enforcePreparedMutation?.(
 			immutableRecord({
 				context: request.context,
-				operation: target as never,
+				operation: target,
 				target: row,
 			}),
 		)

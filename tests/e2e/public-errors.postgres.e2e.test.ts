@@ -18,7 +18,15 @@ import {
 } from '@ultimabase/http-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { restPlugin } from '@ultimabase/rest-plugin'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vitest'
 
 import {
 	createPostgresWorkerFixture,
@@ -218,7 +226,9 @@ describe('PublicError through transports (ADR-0305)', () => {
 				]),
 			)
 			expect(
-				logged.every((error) => error instanceof Error && error.stack !== undefined),
+				logged.every(
+					(error) => error instanceof Error && error.stack !== undefined,
+				),
 			).toBe(true)
 		} finally {
 			log.mockRestore()

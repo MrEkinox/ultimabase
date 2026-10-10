@@ -49,7 +49,10 @@ export interface AccessPolicyInput extends PolicyContext {
 }
 
 /** Supplies request authority to one explicitly named operation rule. */
-export interface SchemaOperationAccessInput extends AccessPolicyInput {}
+export interface SchemaOperationAccessInput extends PolicyContext {
+	/** Carries immutable authority and explicitly typed request capabilities. */
+	readonly context: AccessContext
+}
 
 /** Supplies one isolated typed where builder for a dynamic row restriction. */
 export interface SchemaWhereAccessInput<
@@ -276,7 +279,10 @@ export type SchemaAccess<TSchema extends SchemaDefinition> = Readonly<{
 }>
 
 /** Supplies immutable request authority to one field decision. */
-export interface FieldAccessInput extends AccessPolicyInput {}
+export interface FieldAccessInput extends PolicyContext {
+	/** Carries immutable authority and explicitly typed request capabilities. */
+	readonly context: AccessContext
+}
 
 /** Supplies one present logical field value to a value-aware Access rule. */
 export interface FieldValueAccessInput<TValue> extends FieldAccessInput {

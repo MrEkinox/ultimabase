@@ -30,7 +30,9 @@ test('gives every rule input the principal, operation and schema', () => {
 	expectTypeOf<SchemaOperationAccessInput['principal']>().toEqualTypeOf<
 		Principal | undefined
 	>()
-	expectTypeOf<SchemaOperationAccessInput['operation']>().toEqualTypeOf<PolicyOperation>()
+	expectTypeOf<
+		SchemaOperationAccessInput['operation']
+	>().toEqualTypeOf<PolicyOperation>()
 	expectTypeOf<SchemaOperationAccessInput['schema']>().toEqualTypeOf<string>()
 	expectTypeOf<FieldAccessInput['principal']>().toEqualTypeOf<
 		Principal | undefined
@@ -59,6 +61,8 @@ const Document = App.Schema.define({
 		delete: allOf(isAuthenticated, not(isOwner)),
 	},
 })
+
+void Document
 
 test('rejects a rule that is not a decision', () => {
 	App.Schema.define({

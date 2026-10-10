@@ -222,10 +222,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 	it('keeps collection commands atomic', async () => {
 		await expect(
 			Note.createMany({
-				data: [
-					{ title: 'many-a' },
-					{ title: 'many-b', visible: false },
-				],
+				data: [{ title: 'many-a' }, { title: 'many-b', visible: false }],
 			}),
 		).rejects.toMatchObject(unreadable)
 		await expect(titles('many-')).resolves.toStrictEqual([])
@@ -318,12 +315,22 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 			'id',
 		])
 
-		const idOnly = await graphql(`mutation {
-			createReadableSecret(input: { body: "graphql" }) { id __typename }
-		}`)
-		const beyondId = await graphql(`mutation {
-			createReadableSecret(input: { body: "graphql" }) { id body }
-		}`)
+		const idOnly = await graphql(`
+			mutation {
+				createReadableSecret(input: { body: "graphql" }) {
+					id
+					__typename
+				}
+			}
+		`)
+		const beyondId = await graphql(`
+			mutation {
+				createReadableSecret(input: { body: "graphql" }) {
+					id
+					body
+				}
+			}
+		`)
 
 		expect(idOnly.errors).toBeUndefined()
 		expect(beyondId.errors?.[0]?.extensions).toMatchObject({

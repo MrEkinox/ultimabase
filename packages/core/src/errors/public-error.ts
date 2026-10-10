@@ -79,7 +79,10 @@ export class PublicError<
 	const TCode extends string = DefaultPublicErrorCode,
 	const TDetails extends FrameworkErrorDetails = FrameworkErrorDetails,
 > extends ExposableError<TCode, TDetails, FrameworkErrorDetails> {
-	constructor(message: string, options: PublicErrorOptions<TCode, TDetails> = {}) {
+	constructor(
+		message: string,
+		options: PublicErrorOptions<TCode, TDetails> = {},
+	) {
 		const untrustedOptions: unknown = options
 		assertExactEnumerablePlainObject(
 			untrustedOptions,

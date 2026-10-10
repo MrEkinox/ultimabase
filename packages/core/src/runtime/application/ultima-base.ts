@@ -458,7 +458,9 @@ export class UltimaBase<
 		assertCanOptions(options)
 		const current = this.#requestEngine()
 		const engine = Object.hasOwn(options, 'principal')
-			? this.#engine.withContext(current.context.withPrincipal(options.principal))
+			? this.#engine.withContext(
+					current.context.withPrincipal(options.principal),
+				)
 			: current
 		return executePolicyQuery(engine, options)
 	}

@@ -75,7 +75,9 @@ export type GeneratedPointerHandle<TClassName extends string> = Pointer<
  * (ADR-0304).
  */
 export type PointerSchema<TSchema extends SchemaDefinition | string> =
-	TSchema extends SchemaDefinition ? TSchema : SchemaRef<Extract<TSchema, string>>
+	TSchema extends SchemaDefinition
+		? TSchema
+		: SchemaRef<Extract<TSchema, string>>
 
 const pointerInstances = new WeakSet<object>()
 
