@@ -61,8 +61,9 @@ void token
 			nativeResults: {
 				title: 'JavaScript result',
 				dynamicSchema: 'JavaScriptDynamicPost',
-				draftState: 'draft',
-				persistedState: 'persisted',
+				frozenResult: true,
+				plainResult: true,
+				stableSchema: true,
 			},
 			inspection: {
 				callbackFree: true,

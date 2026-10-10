@@ -41,8 +41,11 @@ const selectOrderedFields = (
 ): Readonly<{ hidden: ReadonlySet<string>; select: unknown }> => {
 	if (!isPlainRecord(select)) return { hidden: noHiddenFields, select }
 	const inclusion = Object.values(select).some((value) => value === true)
-	const hidden = ordered.filter((field) =>
-		inclusion ? select[field] !== true : select[field] === false,
+	// `id` is part of every result (ADR-0181), so it is never hidden.
+	const hidden = ordered.filter(
+		(field) =>
+			field !== 'id' &&
+			(inclusion ? select[field] !== true : select[field] === false),
 	)
 	const entries = Object.entries(select).filter(
 		([field]) => inclusion || !hidden.includes(field),

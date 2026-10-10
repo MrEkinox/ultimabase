@@ -33,7 +33,7 @@ Ordre : ADR-0309 d'abord (point de contrôle), puis ADR-0310.
 - [x] ADR-0309 PostgreSQL, REST, GraphQL
 - [x] ADR-0309 tests et documentation (point de contrôle)
 - [x] ADR-0310 production (Core, plugins, Typegen, REST, GraphQL)
-- [ ] ADR-0310 tests (unitaires et types verts ; e2e en cours) et documentation
+- [x] ADR-0310 tests et documentation
 - [ ] Porte finale
 
 ## Décisions (à confirmer par l'utilisateur)
@@ -96,6 +96,8 @@ nextCursor }` sans `skip`, `{ results }` avec `skip` ; lecture de
    `normalizeRestReadRequest` (publics) inchangés en signature : le
    `nextCursor` est calculé par le répartiteur HTTP. Option `maxLimit` gardée
    (nom inchangé, borne de `take`).
+   Correctif (étape ADR-0310) : `id` n'est jamais retiré d'une réponse
+   REST, il appartient à tout résultat (ADR-0181).
 10. **GraphQL** : `cursorSecret`, `ULTIMABASE_CURSOR_SECRET`, la clé HMAC et
     `GraphqlInvalidCursorError` (export public) retirés ; curseur d'arête =
     position partagée (identique au `nextCursor` REST) ; `hasPreviousPage`
@@ -145,6 +147,21 @@ RequestRoleReference`).
     sérialisés strictement (`encodeRestJsonDetails`).
 19. **Tests e2e** : assistant `tests/fixtures/plain-results.ts`
     (`isPlainResult`) remplace les gardes `instanceof Schema`.
+20. **Noms d'enums des exemples** : les enums locaux de `examples/minimal`
+    perdent `typeName` et prennent le nom dérivé (schéma + chemin), p. ex.
+    `ExampleSoftDeleteEventPersistenceEffect` ; `examples/todo-backend`
+    partage `TodoPriority` par `defineEnum`, `state` devient
+    `TodoDetailsState`. Déclarations Typegen engagées régénérées.
+21. **Nouveaux tests** : `tests/e2e/plain-results.postgres.e2e.test.ts`
+    (résultats gelés et sans méthode, cibles incluses comprises ; `toJSON`
+    égal à la réponse REST pour chaque genre de champ ; `JSON.stringify`
+    réussit sur `toJSON` et échoue sur le résultat brut) ;
+    `packages/core/src/schema/schema/result-json.test.ts` ;
+    `shared-enum-names.test.ts` (doublon refusé à la construction — a révélé
+    que la vérification ignorait les options déclarées `values`, corrigé) ;
+    `packages/graphql-plugin/src/shared-enum-schema.test.ts` (un seul type
+    GraphQL par enum partagé) ; survols `Model<"Todo">` depuis les sources et
+    les paquets construits dans `tests/e2e/schema-form-d-types.e2e.test.ts`.
 
 ## Reports et conflits
 
@@ -162,6 +179,16 @@ RequestRoleReference`).
   à trancher. Les tests e2e dérivent le type de lien de
   `Parameters<typeof X.updateOne>[0]['data']`.
 - Survols TypeScript 7 de `Model<"Todo">` : pas de TS7 dans le dépôt.
+- **Liens masqués par le filtre déclaré d'une relation** : une poignée de
+  relation pouvait délier un membre que le `where` déclaré du champ cache ;
+  un `disconnect` imbriqué vérifie la cible par ce filtre (ADR-0308) et
+  échoue en `NOT_FOUND`. Le test public `relation-filter-public-vertical`
+  constate désormais que l'arête reste. À trancher (exemption du filtre
+  déclaré pour `disconnect` ?).
+- **Inclusion sans `select` d'une cible à champ virtuel** : `include: {
+contributions: {} }` sur `ExampleAuthor` échoue (« Requested virtual field is
+  missing ») ; les tests passent `select: { id: true }`. Défaut Core
+  préexistant probable, non corrigé (hors périmètre).
 - Typegen : la surface `model` générée disparaît ; `GeneratedPointerHandle`
   n'a plus `findOne` (suit `Pointer`).
 
@@ -186,5 +213,5 @@ Point de contrôle ADR-0309 (avant commit) :
 
 ## Prochaine action vérifiable
 
-ADR-0310 : résultats en objets simples gelés, retrait des modèles et des
-poignées de relation.
+Porte finale : `yarn validate:full`, `yarn test:e2e:built`, audit DX contre
+`../ub-step3b-baseline` (4cd8a553), banc forme D à 50 et 200 schémas.

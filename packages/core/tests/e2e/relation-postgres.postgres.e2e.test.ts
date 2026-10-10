@@ -306,20 +306,13 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('denies relation traversal at the source field before returning targets', async () => {
 		const tag = await Tag.createOne({ data: { label: 'private' } })
-		// Without a visible tag the article is not readable yet (ADR-0306).
+		// Without a visible tag the article is not readable, so the link is
+		// created with it (ADR-0306, ADR-0308); results have no relation handle.
 		const article = await PrivateArticle.createOne({
-			data: { title: 'Private relation' },
+			data: { tags: { connect: [tag.id] }, title: 'Private relation' },
 			select: { id: true },
 		})
 
-		await PrivateArticle.updateOne(
-			{
-				where: { id: { eq: article.id } },
-				data: { tags: { connect: [tag.id] } },
-				select: { id: true },
-			},
-			{ useMasterKey: true },
-		)
 		expect(
 			await PrivateArticle.findMany({ select: { id: true, title: true } }),
 		).toMatchObject([{ id: article.id, title: 'Private relation' }])

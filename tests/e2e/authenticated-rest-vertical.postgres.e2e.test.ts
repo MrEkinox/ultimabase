@@ -246,21 +246,16 @@ describe('authenticated public REST vertical', { concurrent: false }, () => {
 		expect(authenticated.token).not.toBe(firstSession.token)
 
 		const application = requireApplication(firstApplication, 'first')
-		const editor = readObject(
-			await invoke(minimal.ExampleRole, 'createOne', [
-				{ data: { description: 'Can manage private notes', name: 'editor' } },
-				{ useMasterKey: true },
-			]),
-			'editor role',
-		)
-		const userPointer = await invoke(minimal.ExampleUser, 'pointer', [
-			authenticated.userId,
-		])
-		await invoke(editor, 'addMember', [
-			userPointer,
+		// ADR-0310: members link through the relation field, not a role command.
+		await invoke(minimal.ExampleRole, 'createOne', [
 			{
-				useMasterKey: true,
+				data: {
+					description: 'Can manage private notes',
+					members: { connect: [authenticated.userId] },
+					name: 'editor',
+				},
 			},
+			{ useMasterKey: true },
 		])
 
 		const status = await requestJson(firstAppId, statusPath, {

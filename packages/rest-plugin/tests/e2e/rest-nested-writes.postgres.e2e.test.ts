@@ -94,17 +94,12 @@ const getContext = (mode: 'anonymous' | 'master'): RequestContext => {
 	return context
 }
 
+// ADR-0310: direct results are frozen plain objects.
 const toJson = (value: unknown): Readonly<Record<string, unknown>> => {
-	if (typeof value !== 'object' || value === null) {
-		throw new TypeError('Expected one REST nested-write model')
+	if (!isPlainResult(value)) {
+		throw new TypeError('Expected one frozen plain result')
 	}
-	const model = value as { readonly toJSON?: unknown }
-	if (typeof model.toJSON !== 'function') {
-		throw new TypeError('Expected one REST nested-write model')
-	}
-	return (
-		model as { readonly toJSON: () => Readonly<Record<string, unknown>> }
-	).toJSON()
+	return value
 }
 
 const includedTargets = (

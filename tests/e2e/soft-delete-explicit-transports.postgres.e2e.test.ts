@@ -180,7 +180,7 @@ afterAll(async () => {
 })
 
 describe('official explicit soft-delete transports', () => {
-	it('executes its own Access and Hooks identity through schema and model handles', async () => {
+	it('executes its own Access and Hooks identity through schema handles', async () => {
 		const { ultimabase: app } = current()
 		explicitSoftDeleteTrace.length = 0
 		rejectedSoftDeleteTitle = undefined
@@ -209,17 +209,9 @@ describe('official explicit soft-delete transports', () => {
 			code: 'NOT_FOUND',
 		})
 
+		// ADR-0310: results have no methods, so no command is bound to a row.
 		const bound = await Explicit.createOne({ data: { title: 'bound command' } })
-		const boundSoftDelete = Reflect.get(bound, 'softDelete') as (
-			input?: unknown,
-		) => Promise<Readonly<Record<string, unknown>>>
-		await expect(
-			boundSoftDelete({ select: { isDeleted: true, title: true } }),
-		).resolves.toMatchObject({
-			id: bound.id,
-			isDeleted: true,
-			title: 'bound command',
-		})
+		expect(Reflect.get(bound, 'softDelete')).toBeUndefined()
 	})
 
 	it('rolls back when the explicit before hook rejects the command', async () => {

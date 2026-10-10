@@ -15,7 +15,10 @@ const collectSharedEnums = (
 	seen.add(value)
 	const options: unknown = Reflect.get(value, 'options')
 	if (isPlainRecord(options)) {
+		// Declared options carry the shared enum as `values`; normalized options
+		// keep it as `sharedEnum` beside the flat value list.
 		if (isSharedEnum(options.sharedEnum)) found(options.sharedEnum, path)
+		else if (isSharedEnum(options.values)) found(options.values, path)
 		if (isPlainRecord(options.fields)) {
 			for (const [name, child] of Object.entries(options.fields)) {
 				collectSharedEnums(child, found, `${path}.${name}`, seen)

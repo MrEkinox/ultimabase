@@ -33,6 +33,7 @@ import {
 	runAsRestMutationExecutionHarness as runAsHarness,
 	type RestMutationExecutionHarness as ExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const publicAcl = new ACL().grantPublic('delete', 'read', 'update')
 const privateAcl = new ACL()
@@ -157,16 +158,12 @@ const jsonRequest = (
 		method,
 	})
 
-const toJson = (value: object): Readonly<Record<string, unknown>> => {
-	const candidate = value as { readonly toJSON?: unknown }
-	if (typeof candidate.toJSON !== 'function') {
-		throw new TypeError('Expected an immutable schema model')
+// ADR-0310: direct results are frozen plain objects.
+const toJson = (value: unknown): Readonly<Record<string, unknown>> => {
+	if (!isPlainResult(value)) {
+		throw new TypeError('Expected one frozen plain result')
 	}
-	return (
-		candidate as {
-			readonly toJSON: () => Readonly<Record<string, unknown>>
-		}
-	).toJSON()
+	return value
 }
 
 const harness: ExecutionHarness = {}

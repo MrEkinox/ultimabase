@@ -364,9 +364,10 @@ describe('keyset pagination (ADR-0309)', { concurrent: false }, () => {
 			)
 			const results: unknown = read(body, 'results')
 			if (!Array.isArray(results)) throw new TypeError(JSON.stringify(body))
-			// Fields added only to encode the cursor are not returned.
+			// Fields added only to encode the cursor are not returned; `id` is
+			// part of every result (ADR-0181).
 			for (const result of results as unknown[])
-				expect(Object.keys(result ?? {})).toStrictEqual(['title'])
+				expect(Object.keys(result ?? {})).toStrictEqual(['title', 'id'])
 			restPages.push(
 				results.map((result: unknown) => String(read(result, 'title'))),
 			)

@@ -95,20 +95,31 @@ try {
 		{ context: master.context },
 	)
 	const targetIds = targets.map(({ id }) => id)
-	await source
-		.relation('staticTargets')
-		.connect(targetIds, { context: master.context })
-	await source
-		.relation('contextualTargets')
-		.connect(targetIds, { context: master.context })
+	// ADR-0310: links are nested writes and reads are includes.
+	await Source.updateOne(
+		{
+			data: {
+				contextualTargets: { connect: targetIds },
+				staticTargets: { connect: targetIds },
+			},
+			where: { id: { eq: source.id } },
+		},
+		{ context: master.context },
+	)
 
-	const read = (field, context) =>
-		source
-			.relation(field)
-			.findMany(
-				{ orderBy: { label: 'asc' }, select: { label: true } },
-				{ context },
-			)
+	const read = async (field, context) => {
+		const row = await Source.findOne(
+			{
+				include: {
+					[field]: { orderBy: { label: 'asc' }, select: { label: true } },
+				},
+				select: { id: true },
+				where: { id: { eq: source.id } },
+			},
+			{ context },
+		)
+		return row === null ? [] : row[field]
+	}
 	const included = await Source.findOne(
 		{
 			include: {

@@ -242,19 +242,12 @@ describe(
 				error: { code: 'VALIDATION_ERROR' },
 			})
 
-			const article = await invoke(minimal.ExampleArticle, 'findOne', [
-				{ where: { id: { eq: articleId } } },
-				{ useMasterKey: true },
-			])
-			if (article === null)
-				throw new TypeError('Created REST article is missing')
-			const relation = await invoke(
-				readObject(article, 'created article'),
-				'relation',
-				['contributors'],
-			)
-			await invoke(readObject(relation, 'contributors relation'), 'connect', [
-				authorId,
+			// ADR-0310: links are nested writes, not relation-handle commands.
+			await invoke(minimal.ExampleArticle, 'updateOne', [
+				{
+					data: { contributors: { connect: [authorId] } },
+					where: { id: { eq: articleId } },
+				},
 				{ useMasterKey: true },
 			])
 

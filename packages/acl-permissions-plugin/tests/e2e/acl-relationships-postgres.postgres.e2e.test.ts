@@ -305,8 +305,11 @@ describe(
 				id: article.id,
 				tags: [expect.objectContaining({ label: 'visible' })],
 			})
-			await expect(readTags({ acl: true })).rejects.toMatchObject({
-				code: 'PERMISSION_DENIED',
+			// An included forbidden target projection is indistinguishable from
+			// an absent member, as for an included pointer above.
+			await expect(readTags({ acl: true })).resolves.toEqual({
+				id: article.id,
+				tags: [],
 			})
 			await expect(
 				Article.findOne(

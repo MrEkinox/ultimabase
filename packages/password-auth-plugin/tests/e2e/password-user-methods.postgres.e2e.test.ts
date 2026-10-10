@@ -176,7 +176,7 @@ describe('Password User authentication methods', () => {
 		await ultimabase.start()
 		try {
 			const signedUp = await User.signUp({ username: ' Ada ', password })
-			expect(signedUp.user).toBeInstanceOf(User)
+			expect(Object.getPrototypeOf(signedUp.user)).toBe(Object.prototype)
 			expect(signedUp.user).toMatchObject({
 				username: 'ada',
 				displayName: 'Ada Lovelace',

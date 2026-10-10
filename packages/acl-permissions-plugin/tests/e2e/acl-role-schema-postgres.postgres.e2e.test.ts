@@ -304,7 +304,7 @@ describe(
 					},
 					{ context },
 				),
-			).rejects.toMatchObject({ code: 'NOT_FOUND' })
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				AppRole.deleteOne(
 					{ where: { id: { eq: requireFixture(deletable, 'deletable').id } } },

@@ -81,14 +81,15 @@ A required pointer cannot be `null`. An optional pointer can be `null` in a
 complete record, and `null` in update data unlinks it; pointers cannot be lists or have defaults. Use
 [Defaults and Nullability](./defaults) for the general presence rules.
 
-### Read through a pointer
+### Read a pointer's target
 
 After registering both schemas and starting the application with a persistence
 plugin, read a persisted session without including its account. Its selected
-`account` field is still a `Pointer`, not a loaded `Account` model:
+`account` field is still a `Pointer`, not a loaded `Account` row. A pointer does
+not read its target (ADR-0310); read it through the target schema:
 
 ```ts title="src/read-account.ts"
-import { Session } from './session.js'
+import { Account, Session } from './session.js'
 
 export const readSessionAccount = async (sessionId: string) => {
 	const session = await Session.findOneOrThrow({
@@ -96,25 +97,23 @@ export const readSessionAccount = async (sessionId: string) => {
 		select: { account: true },
 	})
 
-	return session.account.findOne({ select: { email: true } })
+	return Account.findOne({
+		where: { id: session.account.id },
+		select: { email: true },
+	})
 }
 ```
 
-`findOne()` returns a selected `Account` model or `null` if the target is missing
-or excluded by a row filter. When you need only a boolean, call
-`session.account.exists({})` instead; it does not load a model.
+`Account.findOne()` returns the selected row or `null` if the target is missing
+or excluded by a row filter; `Account.exists()` answers with a boolean.
 Explicit read-policy denials reject both operations and abort an active
-transaction, just like other read errors.
-Both methods remain scoped to the pointer's exact target ID and run through the
-ordinary target read pipeline. Neither changes the stored pointer or grants
-access to its target.
+transaction, just like other read errors. Neither changes the stored pointer or
+grants access to its target.
 
 If you already know that you need the account when reading the session, use
 `include: { account: { select: { email: true } } }` on `Session.findOneOrThrow()`
-instead.
-Read through the pointer when you have the session already and decide to load
-its target later. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
-for inclusion behavior.
+instead. See [Related Data](/docs/1.0.0/core/reading-data/related-data) for
+inclusion behavior.
 
 ### Pointer deletion behavior
 

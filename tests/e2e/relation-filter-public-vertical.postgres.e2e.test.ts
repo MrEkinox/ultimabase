@@ -163,17 +163,27 @@ const graphqlNetworkless = async (
 	])
 }
 
+// ADR-0310: results have no relation handles; read one parent's collection
+// through `include`.
 const findRelation = async (
-	model: object,
+	schema: object,
+	parent: object,
 	field: string,
-	input: Readonly<Record<string, unknown>> | undefined,
+	input: Readonly<Record<string, unknown>>,
 	context: RequestContext,
 ): Promise<unknown> => {
-	const relation = readObject(
-		await invoke(model, 'relation', [field]),
-		`${field} relation`,
+	const row = readObject(
+		await invoke(schema, 'findOne', [
+			{
+				include: { [field]: input },
+				select: { id: true },
+				where: { id: { eq: readString(parent, 'id') } },
+			},
+			{ context },
+		]),
+		`${field} parent`,
 	)
-	return invoke(relation, 'findMany', [input, { context }])
+	return Reflect.get(row, field)
 }
 
 beforeAll(async () => {
@@ -268,13 +278,16 @@ beforeAll(async () => {
 		'created article',
 	)
 	articleId = readString(article, 'id')
-	for (const field of ['contributors', 'reviewers']) {
-		const relation = readObject(
-			await invoke(article, 'relation', [field]),
-			`${field} relation`,
-		)
-		await invoke(relation, 'connect', [authorIds, { context: master }])
-	}
+	await invoke(minimal().ExampleArticle, 'updateOne', [
+		{
+			data: {
+				contributors: { connect: authorIds },
+				reviewers: { connect: authorIds },
+			},
+			where: { id: { eq: articleId } },
+		},
+		{ context: master },
+	])
 	await invoke(minimal().ExampleArticle, 'createOne', [
 		{
 			data: {
@@ -328,27 +341,46 @@ describe(
 			}
 			expect(
 				relationNames(
-					await findRelation(article, 'contributors', callerQuery, anonymous),
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'contributors',
+						callerQuery,
+						anonymous,
+					),
 				),
 			).toStrictEqual(['A Public', 'B Authenticated'])
 			expect(
 				relationNames(
-					await findRelation(article, 'reviewers', callerQuery, anonymous),
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'reviewers',
+						callerQuery,
+						anonymous,
+					),
 				),
 			).toStrictEqual(['A Public', 'C Unlisted'])
-			const contributors = readObject(
-				await invoke(article, 'relation', ['contributors']),
-				'contributors relation',
-			)
 			expect(
-				await invoke(contributors, 'count', [
-					undefined,
-					{ context: anonymous },
-				]),
-			).toBe(2)
+				readArray(
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'contributors',
+						{ select: { id: true } },
+						anonymous,
+					),
+					'contributors',
+				),
+			).toHaveLength(2)
 			expect(
-				await invoke(contributors, 'exists', [
-					{ where: { name: { eq: 'C Unlisted' } } },
+				await invoke(minimal().ExampleArticle, 'exists', [
+					{
+						where: {
+							contributors: { some: { name: { eq: 'C Unlisted' } } },
+							id: { eq: articleId },
+						},
+					},
 					{ context: anonymous },
 				]),
 			).toBe(false)
@@ -376,13 +408,18 @@ describe(
 				['articles', 0],
 				['contributions', 2],
 			] as const) {
-				const relation = readObject(
-					await invoke(publicAuthor, 'relation', [field]),
-					`${field} relation`,
-				)
 				expect(
-					await invoke(relation, 'count', [undefined, { context: anonymous }]),
-				).toBe(expected)
+					readArray(
+						await findRelation(
+							minimal().ExampleAuthor,
+							publicAuthor,
+							field,
+							{ select: { id: true } },
+							anonymous,
+						),
+						field,
+					),
+				).toHaveLength(expected)
 			}
 
 			recorder().reset()
@@ -543,15 +580,19 @@ describe(
 					[createdId, unlistedAuthorId],
 				)
 			expect((await countEdges()).rows).toStrictEqual([{ count: '1' }])
-			const relation = readObject(
-				await invoke(created, 'relation', ['contributors']),
-				'created contributors relation',
-			)
-			await invoke(relation, 'disconnect', [
-				unlistedAuthorId,
-				{ context: master },
-			])
-			expect((await countEdges()).rows).toStrictEqual([{ count: '0' }])
+			// ADR-0310 removed relation handles; a nested `disconnect` checks the
+			// target through the field's declared filter (ADR-0308), so a member
+			// hidden by that filter cannot be unlinked and its edge stays.
+			await expect(
+				invoke(minimal().ExampleArticle, 'updateOne', [
+					{
+						data: { contributors: { disconnect: [unlistedAuthorId] } },
+						where: { id: { eq: createdId } },
+					},
+					{ context: master },
+				]),
+			).rejects.toMatchObject({ code: 'NOT_FOUND' })
+			expect((await countEdges()).rows).toStrictEqual([{ count: '1' }])
 		})
 	},
 )

@@ -913,10 +913,10 @@ const memberships = await Membership.findMany({
 `eq` compares only the stored pointer identity. `is` and `isNot` query fields
 of the visible target and therefore apply installed target policies. Pointer
 nullability uses `null` (the shorthand of `isNull: true`) or `isNull` and
-`isNotNull`. `pointer.findOne()` and
-`pointer.exists()` execute normal reads already scoped by the pointer ID.
-Missing or row-filtered targets return `null` and `false`, respectively;
-explicit policy denials, callback errors, and adapter errors still fail the operation. Meanwhile,
+`isNotNull`. A pointer does not read its target (ADR-0310): read it with
+`UserSchema.findOne({ where: { id: pointer.id } })`, which returns `null` for a
+missing or row-filtered target; explicit policy denials, callback errors, and
+adapter errors still fail the operation. Meanwhile,
 bounded single-target inclusion is selection-aware:
 
 ```ts
