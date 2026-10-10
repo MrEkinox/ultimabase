@@ -134,17 +134,13 @@ describe('normalizeUpdateExpression', () => {
 				// @ts-expect-error -- Source typing rejects numeric deltas on strings.
 				name: { increment: 1 },
 			}).operations,
-		).toStrictEqual([
-			{ kind: 'set', field: 'name', value: { increment: 1 } },
-		])
+		).toStrictEqual([{ kind: 'set', field: 'name', value: { increment: 1 } }])
 		expect(
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects numeric deltas on lists.
 				scores: { increment: 1 },
 			}).operations,
-		).toStrictEqual([
-			{ kind: 'set', field: 'scores', value: { increment: 1 } },
-		])
+		).toStrictEqual([{ kind: 'set', field: 'scores', value: { increment: 1 } }])
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Source typing rejects string deltas on integers.

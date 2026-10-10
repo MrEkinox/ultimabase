@@ -261,7 +261,9 @@ describe('projected arithmetic field validation', () => {
 		const decimalOperation = immutableRecord({
 			kind: 'update-one',
 			query: new QueryBuilder(schema).ast,
-			update: normalizeUpdateExpression(schema, { amount: { increment: '0.01' } }),
+			update: normalizeUpdateExpression(schema, {
+				amount: { increment: '0.01' },
+			}),
 		}) satisfies UpdateOneOperationAst<typeof schema>
 
 		for (const [operation, target, code] of [
@@ -309,7 +311,9 @@ describe('projected arithmetic field validation', () => {
 		const query = new QueryBuilder(schema).where((where) =>
 			where.eq('id', objectId),
 		)
-		const update = normalizeUpdateExpression(schema, { score: { increment: 1 } })
+		const update = normalizeUpdateExpression(schema, {
+			score: { increment: 1 },
+		})
 		const upsertOne = immutableRecord({
 			create: completeRecord({ score: 1 }),
 			kind: 'upsert-one',

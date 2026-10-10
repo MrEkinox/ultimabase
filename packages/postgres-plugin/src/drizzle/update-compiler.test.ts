@@ -1,6 +1,4 @@
-import {
-	normalizeUpdateExpression,
-} from '@ultimabase/core'
+import { normalizeUpdateExpression } from '@ultimabase/core'
 import { UltimaBase } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'

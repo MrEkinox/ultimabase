@@ -106,11 +106,7 @@ const normalizeUpdateOperation = <const TSchema extends SchemaDefinition>(
 	return immutableRecord({
 		kind,
 		field: mutableFieldName,
-		value: snapshotScalarFieldValue(
-			field,
-			value[kind],
-			`update ${kind} value`,
-		),
+		value: snapshotScalarFieldValue(field, value[kind], `update ${kind} value`),
 	}) as UpdateOperationNode<TSchema>
 }
 
