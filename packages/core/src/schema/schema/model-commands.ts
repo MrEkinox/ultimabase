@@ -221,7 +221,6 @@ export class SchemaModelPrototype {
 			record.schema,
 			{ data: record.values, ...selection },
 			options,
-			'flat',
 		)
 	}
 

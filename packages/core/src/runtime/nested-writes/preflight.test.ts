@@ -40,10 +40,11 @@ describe('RuntimeNestedWritePreflight', () => {
 			Parent,
 			'update',
 			{
-				first: { clear: true },
-				second: { clear: true },
+				first: { set: [] },
+				second: { set: [] },
 			},
-			{ maxOperations: 6 },
+			// `{ set: [] }` (ADR-0308) allocates no action, unlike the removed `clear`.
+			{ maxOperations: 4 },
 		)
 		const executeCreate = vi.fn()
 		const executeUpdate = vi.fn()
@@ -68,7 +69,7 @@ describe('RuntimeNestedWritePreflight', () => {
 				id: '0199c2d0-0000-7000-8000-000000000003',
 				name: 'Parent',
 			}),
-		).rejects.toThrow('Nested write exceeds maxOperations 6')
+		).rejects.toThrow('Nested write exceeds maxOperations 4')
 		expect(executeCreate).not.toHaveBeenCalled()
 		expect(executeUpdate).not.toHaveBeenCalled()
 		expect(mutateRelation).not.toHaveBeenCalled()

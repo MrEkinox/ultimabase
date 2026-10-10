@@ -19,7 +19,8 @@ const Doc = App.Schema.define({
 		visible: field.boolean({ default: true }),
 	}),
 }).with({
-	access: { read: { where: ({ where }) => where.eq('visible', true) } },
+	// An Access rule object takes the same equality shorthand (ADR-0307).
+	access: { read: { where: () => ({ visible: true }) } },
 })
 
 const OneOnly = App.Schema.define({

@@ -80,9 +80,10 @@ export const prepareRuntimeNestedWriteGraph = (
 		)
 	} catch (error: unknown) {
 		if (!(error instanceof TypeError)) throw error
+		// The message names the offending input path for the developer.
 		throw new FrameworkError(
 			'VALIDATION_ERROR',
-			'Nested-write input normalization failed.',
+			`Nested-write input is invalid: ${error.message}`,
 			{
 				cause: error,
 				internalDetails: { message: error.message },

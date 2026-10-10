@@ -14,8 +14,8 @@ import type {
 import type { ObjectFields } from '../fields/builtins/object.js'
 import type { PointerField } from '../fields/builtins/pointer.js'
 import type { RelationField } from '../fields/builtins/relation.js'
-import type { PointerTarget } from '../relations/pointer.js'
 import type { SchemaTypeInfoFor } from '../type-info.js'
+import type { PointerTarget } from '../relations/pointer.js'
 import type { SchemaDeclaredFields, SchemaDefinition } from './definition.js'
 import type {
 	SourceFieldModeValue,

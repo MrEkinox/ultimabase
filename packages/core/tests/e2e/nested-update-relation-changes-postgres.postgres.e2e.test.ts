@@ -245,7 +245,7 @@ describe(
 
 			const disconnected = await Parent.updateOne({
 				where: { id: { eq: parent.id } },
-				data: { child: { disconnect: true } },
+				data: { child: null },
 				include: { child: {} },
 			})
 			expect(disconnected).toMatchObject({ child: null })
@@ -297,7 +297,7 @@ describe(
 
 			await Parent.updateOne({
 				where: { id: { eq: parent.id } },
-				data: { children: { clear: true } },
+				data: { children: { set: [] } },
 			})
 			const afterClear = await Parent.findOneOrThrow(
 				{ where: { id: parent.id }, include: { children: {} } },
@@ -316,7 +316,7 @@ describe(
 			})
 			const [current, replacement] = await Note.createMany({
 				data: [
-					{ body: 'Current', parent: Parent.pointer(parent.id) },
+					{ body: 'Current', parent: { connect: Parent.pointer(parent.id) } },
 					{ body: 'Replacement' },
 				],
 			})

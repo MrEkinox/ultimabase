@@ -5,7 +5,10 @@ import type {
 } from '../fields/base/contract.js'
 import type { FieldValueMap } from '../fields/base/value-map.js'
 import type { OutputValue } from '../output/contracts.js'
-import type { PointerValue } from '../relations/pointer.js'
+import type { PointerField } from '../fields/builtins/pointer.js'
+import type { PointerLinkInput } from '../nested-writes/inputs.js'
+import type { PointerTarget } from '../relations/pointer.js'
+import type { SchemaTypeInfoFor } from '../type-info.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type { SystemFields } from './system-fields.js'
 import type { GenericVirtualField } from './virtual-field.js'
@@ -119,16 +122,15 @@ export type SourceFieldModeValue<
 		? TValue
 		: never
 
-type SourceMutationFieldValue<
-	TField extends GenericField,
-	TValue,
-> = TField extends { readonly kind: 'pointer' }
-	? FieldTypegenStateOf<TField>['nullable'] extends true
-		? PointerValue | null
-		: PointerValue
-	: TValue
+type SourceMutationFieldValue<TField extends GenericField, TValue> =
+	TField extends PointerField<infer TTarget>
+		? | PointerLinkInput<
+					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
+			  >
+			| (FieldTypegenStateOf<TField>['nullable'] extends true ? null : never)
+		: TValue
 
-/** Reuses Core presence rules while projecting pointer writes to portable values. */
+/** Reuses Core presence rules while projecting pointer writes to `connect` links. */
 export type SourceFieldValueMap<
 	TFields extends SchemaDeclaredFields,
 	TMode extends 'create' | 'update',

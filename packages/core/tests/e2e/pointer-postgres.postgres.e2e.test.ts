@@ -298,7 +298,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const firstPointer = User.pointer(firstAuthor.id)
 		const secondPointer = User.pointer(secondAuthor.id)
 		const created = await new Post({
-			author: firstPointer,
+			author: { connect: firstPointer },
 			title: 'Typed pointer',
 		}).create({})
 

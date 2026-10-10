@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
+import { QueryBuilder } from '../query/query.js'
 import type { WhereInput } from './where.js'
 
 const Author = UltimaBase.Schema.define({
@@ -69,9 +70,9 @@ test('rejects shorthand where it is ambiguous or the wrong type', () => {
 })
 
 test('keeps typed builder operators beside the shorthand', () => {
-	void Entry.findMany({
-		where: (where) => where.eq('title', 'Hello').in('author', ['author-1']),
-	})
+	void new QueryBuilder(Entry).where((where) =>
+		where.eq('title', 'Hello').in('author', ['author-1']),
+	)
 	// @ts-expect-error -- Builder operands keep their field value type.
-	void Entry.findMany({ where: (where) => where.eq('views', 'three') })
+	void new QueryBuilder(Entry).where((where) => where.eq('views', 'three'))
 })

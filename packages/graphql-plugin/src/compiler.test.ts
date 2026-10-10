@@ -132,11 +132,11 @@ describe('GraphQL structural schema compilation', () => {
 		expect(flatCreate.getFields().author).toBeUndefined()
 		expect(flatUpdate.getFields().author).toBeUndefined()
 		expect(Object.keys(authorCreate.getFields())).toEqual(['connect', 'create'])
+		// ADR-0308: an optional pointer unlinks with `null`, not `disconnect`.
 		expect(Object.keys(authorUpdate.getFields())).toEqual([
 			'connect',
 			'create',
 			'update',
-			'disconnect',
 		])
 		expect(isInputObjectType(stockUpdate)).toBe(true)
 		expect(

@@ -273,12 +273,12 @@ describe('REST mutation normalization', () => {
 			},
 		})
 
+		// ADR-0308: `null` unlinks a pointer and `{ set: [] }` empties a relation.
 		for (const [field, command] of [
 			['author', { connect: authorId }],
 			['author', { create: { name: 'Created' } }],
-			['author', { disconnect: true }],
+			['author', null],
 			['related', { set: [] }],
-			['related', { clear: true }],
 		] as const) {
 			const normalized = await normalizeRestMutationRequest(RecordSchema, {
 				id: recordId,
@@ -286,6 +286,18 @@ describe('REST mutation normalization', () => {
 				request: jsonRequest('PATCH', { [field]: command }),
 			})
 			expect(normalized.input.data[field]).toStrictEqual(command)
+		}
+		for (const [field, command] of [
+			['author', { disconnect: true }],
+			['related', { clear: true }],
+		] as const) {
+			await expect(
+				normalizeRestMutationRequest(RecordSchema, {
+					id: recordId,
+					operation: 'update',
+					request: jsonRequest('PATCH', { [field]: command }),
+				}),
+			).rejects.toMatchObject({ code: restMutationErrorCodes.invalidInput })
 		}
 	})
 

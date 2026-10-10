@@ -4,6 +4,8 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import { Pointer } from '../relations/pointer.js'
+import type { SchemaDefinition } from '../schema/definition.js'
 import type { NestedWriteInputPath } from './contracts.js'
 
 /** Represents one plain callback-free input record during graph normalization. */
@@ -122,14 +124,34 @@ export const readNestedWriteId = (
 		? value
 		: failNestedWriteInput(path, 'must be a non-empty object ID')
 
-/** Reads one duplicate-free canonical identifier list. */
-export const readNestedWriteIds = (
+/**
+ * Reads one link target (ADR-0308): an object id or a Pointer of the declared
+ * target schema; another schema's Pointer names the expected target.
+ */
+export const readNestedWriteTarget = (
 	value: unknown,
+	target: SchemaDefinition,
+	path: NestedWriteInputPath,
+): string => {
+	if (!Pointer.is(value)) return readNestedWriteId(value, path)
+	if (value.schema !== target) {
+		failNestedWriteInput(
+			path,
+			`must be a ${target.className} Pointer or object ID`,
+		)
+	}
+	return value.id
+}
+
+/** Reads one duplicate-free list of link targets. */
+export const readNestedWriteTargets = (
+	value: unknown,
+	target: SchemaDefinition,
 	path: NestedWriteInputPath,
 	allowEmpty: boolean,
 ): readonly string[] => {
 	const ids = assertInertNestedWriteArray(value, path, allowEmpty).map(
-		(item, index) => readNestedWriteId(item, [...path, index]),
+		(item, index) => readNestedWriteTarget(item, target, [...path, index]),
 	)
 
 	if (new Set(ids).size !== ids.length) {

@@ -4,6 +4,7 @@ import { isFieldNullable } from '../fields/base/options.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { readFieldTypegenState } from '../fields/base/definition.js'
 import type { ResolvedSchemaRelationMapping } from '../relations/mapping.js'
+import { Pointer } from '../relations/pointer.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
 import type { CompiledSchemaRegistry } from '../schema/registry.js'
 import type {
@@ -31,7 +32,8 @@ import {
 	failNestedWriteInput,
 	formatNestedWriteInputPath,
 	readNestedWriteId,
-	readNestedWriteIds,
+	readNestedWriteTarget,
+	readNestedWriteTargets,
 	snapshotNestedWriteInputValue,
 	type InertNestedWriteRecord,
 } from './input-validation.js'
@@ -41,11 +43,12 @@ type RelationCommand = NestedWriteRelationNode['command']
 
 // Both lists are ordered: prefixes select the legal commands for each context, and
 // relation commands are always normalized in this order regardless of key order.
+// An optional pointer unlinks with `null` (ADR-0308), normalized to the internal
+// `disconnect` command.
 const pointerCommands = [
 	'connect',
 	'create',
 	'update',
-	'disconnect',
 ] as const satisfies readonly PointerCommand[]
 const relationCommands = [
 	'create',
@@ -53,7 +56,6 @@ const relationCommands = [
 	'update',
 	'disconnect',
 	'set',
-	'clear',
 ] as const satisfies readonly RelationCommand[]
 
 type NestedWriteInput<
@@ -194,7 +196,9 @@ class NestedWriteNormalizer {
 					sourcePath: [...sourcePath, fieldName],
 				}
 				if (field.kind === 'pointer') {
-					relationships.push(this.#normalizePointer(site, input[fieldName]))
+					const pointer = this.#normalizePointer(site, input[fieldName])
+					if (pointer === undefined) dataEntries.push([fieldName, null])
+					else relationships.push(pointer)
 				} else {
 					relationships.push(...this.#normalizeRelation(site, input[fieldName]))
 				}
@@ -262,17 +266,31 @@ class NestedWriteNormalizer {
 	#normalizePointer(
 		site: RelationshipSite,
 		value: unknown,
-	): NestedWritePointerNode {
+	): NestedWritePointerNode | undefined {
 		const { field, inputPath, rootCommand } = site
 		if (readFieldTypegenState(field)[rootCommand] === 'forbidden') {
 			failNestedWriteInput(inputPath, `is not available for ${rootCommand}`)
 		}
 
+		if (value === null) {
+			if (!isFieldNullable(field)) {
+				failNestedWriteInput(inputPath, 'is required and cannot be null')
+			}
+			// A create stores null as data; an update unlinks the optional pointer.
+			return rootCommand === 'create'
+				? undefined
+				: this.#pointerNode(site, 'disconnect', [...inputPath])
+		}
+
+		if (Pointer.is(value) || typeof value === 'string') {
+			failNestedWriteInput(
+				inputPath,
+				'must be a link command such as { connect: id }',
+			)
+		}
+
 		const input = assertInertNestedWriteRecord(value, inputPath)
-		const allowed = pointerCommands.slice(
-			0,
-			rootCommand === 'create' ? 2 : isFieldNullable(field) ? 4 : 3,
-		)
+		const allowed = pointerCommands.slice(0, rootCommand === 'create' ? 2 : 3)
 		const keys = readCommandKeys(input, allowed, inputPath)
 		const [command] = keys
 		if (command === undefined || keys.length !== 1) {
@@ -281,26 +299,35 @@ class NestedWriteNormalizer {
 
 		const target = this.#resolveTarget(site)
 		const commandPath = [...inputPath, command]
-		let child: NestedWriteObjectNode | undefined
-		let id: string | undefined
 
 		if (command === 'connect') {
-			id = readNestedWriteId(input[command], commandPath)
-		} else if (command === 'disconnect') {
-			if (input[command] !== true)
-				failNestedWriteInput(commandPath, 'must be true')
-		} else {
-			child = this.normalizeObject(
-				target,
+			return this.#pointerNode(
+				site,
 				command,
-				input[command],
-				site.depth + 1,
 				commandPath,
-				site.sourcePath,
-				site.declarationIndex,
+				readNestedWriteTarget(input[command], target, commandPath),
 			)
 		}
 
+		const child = this.normalizeObject(
+			target,
+			command,
+			input[command],
+			site.depth + 1,
+			commandPath,
+			site.sourcePath,
+			site.declarationIndex,
+		)
+		return this.#pointerNode(site, command, commandPath, undefined, child)
+	}
+
+	#pointerNode(
+		site: RelationshipSite,
+		command: PointerCommand | 'disconnect',
+		commandPath: NestedWriteInputPath,
+		id?: string,
+		child?: NestedWriteObjectNode,
+	): NestedWritePointerNode {
 		// Identity actions follow any child mutation; an update reuses the existing target.
 		const actionOperationIndexes =
 			command === 'update' ? [] : [this.#allocateOperation()]
@@ -311,14 +338,14 @@ class NestedWriteNormalizer {
 			command,
 			dependency: 'before-source' as const,
 			depth: site.depth,
-			field,
+			field: site.field,
 			fieldName: site.fieldName,
 			...(id === undefined ? {} : { id }),
 			input: child?.data ?? id ?? true,
 			kind: 'pointer' as const,
 			provenance: siteProvenance(site, commandPath),
 			source: site.source,
-			target,
+			target: this.#resolveTarget(site),
 		})
 	}
 
@@ -335,7 +362,7 @@ class NestedWriteNormalizer {
 					: relationCommands.slice(0, 3)
 		const keys = readCommandKeys(input, allowed, site.inputPath)
 
-		if ((keys.includes('set') || keys.includes('clear')) && keys.length !== 1) {
+		if (keys.includes('set') && keys.length !== 1) {
 			failNestedWriteInput(
 				site.inputPath,
 				'replacement command must be exclusive',
@@ -360,7 +387,7 @@ class NestedWriteNormalizer {
 		)
 	}
 
-	/** Only a nullable inverse pointer can lose its source through disconnect, set, or clear. */
+	/** Only a nullable inverse pointer can lose its source through disconnect or set. */
 	#relationCanDisconnect(site: RelationshipSite): boolean {
 		const mappedBy = this.#inversePointer(site)
 		if (mappedBy === undefined) return true
@@ -383,11 +410,7 @@ class NestedWriteNormalizer {
 		let ids: readonly string[] = immutableArray([])
 		let normalizedInput: unknown
 
-		if (command === 'clear') {
-			if (value !== true) failNestedWriteInput(commandPath, 'must be true')
-			normalizedInput = true
-			actionOperationIndexes.push(this.#allocateOperation())
-		} else if (command === 'create') {
+		if (command === 'create') {
 			const items = assertInertNestedWriteArray(value, commandPath, false)
 			const injectedField = this.#inversePointer(site)?.fieldPath[0]
 			for (const [index, item] of items.entries()) {
@@ -446,7 +469,12 @@ class NestedWriteNormalizer {
 			ids = immutableArray(normalizedItems.map((item) => item.id))
 			normalizedInput = immutableArray(normalizedItems)
 		} else {
-			ids = readNestedWriteIds(value, commandPath, command === 'set')
+			ids = readNestedWriteTargets(
+				value,
+				target,
+				commandPath,
+				command === 'set',
+			)
 			normalizedInput = ids
 			actionOperationIndexes.push(...ids.map(() => this.#allocateOperation()))
 		}

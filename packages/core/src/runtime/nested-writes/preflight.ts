@@ -7,8 +7,12 @@ import type {
 	NestedWriteGraph,
 	NestedWriteObjectNode,
 	NestedWriteRelationNode,
+	NestedWriteRelationshipNode,
 } from '../../schema/nested-writes/contracts.js'
-import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
+import {
+	createProtectedObjectNotFoundError,
+	withLinkTargetNotFound,
+} from '../operations/target-errors.js'
 import type {
 	RuntimeNestedWriteHost,
 	RuntimeNestedWriteUpdateTarget,
@@ -69,6 +73,20 @@ export class RuntimeNestedWritePreflight {
 		return this.#updateTargets.get(node)
 	}
 
+	/** Checks that every linked target is visible to the caller (ADR-0308). */
+	async #verifyLink(
+		relationship: NestedWriteRelationshipNode,
+		ids: readonly string[],
+	): Promise<void> {
+		for (const id of ids) {
+			await withLinkTargetNotFound(
+				relationship.fieldName,
+				relationship.target.className,
+				() => this.#host.verifyTarget(createPointer(relationship.target, id)),
+			)
+		}
+	}
+
 	async run(current?: Readonly<Record<string, unknown>>): Promise<void> {
 		if (this.#graph.root.command === 'update' && current !== undefined) {
 			this.#updateTargets.set(
@@ -89,14 +107,13 @@ export class RuntimeNestedWritePreflight {
 		for (const relationship of node.relationships) {
 			if (relationship.kind === 'pointer') {
 				if (relationship.command === 'connect') {
-					if (relationship.id === undefined) {
+					const { id } = relationship
+					if (id === undefined) {
 						throw new TypeError(
 							'Nested pointer connect is missing its target ID',
 						)
 					}
-					await this.#host.verifyTarget(
-						createPointer(relationship.target, relationship.id),
-					)
+					await this.#verifyLink(relationship, [id])
 				} else if (relationship.command === 'update') {
 					if (relationship.child === undefined) {
 						throw new TypeError(
@@ -132,9 +149,7 @@ export class RuntimeNestedWritePreflight {
 				continue
 			}
 			if (relationship.command === 'connect') {
-				for (const id of relationship.ids) {
-					await this.#host.verifyTarget(createPointer(relationship.target, id))
-				}
+				await this.#verifyLink(relationship, relationship.ids)
 				continue
 			}
 
@@ -146,10 +161,16 @@ export class RuntimeNestedWritePreflight {
 				relationship.command === 'update' ||
 				relationship.command === 'disconnect'
 			) {
-				const records = await this.#host.readRelationTargets(
-					relationship,
-					sourceId,
-					relationship.ids,
+				// A hidden member to disconnect is reported like a missing one.
+				const records = await withLinkTargetNotFound(
+					relationship.fieldName,
+					relationship.target.className,
+					() =>
+						this.#host.readRelationTargets(
+							relationship,
+							sourceId,
+							relationship.ids,
+						),
 				)
 				if (relationship.command === 'update') {
 					for (const [index, child] of relationship.children.entries()) {
@@ -173,9 +194,7 @@ export class RuntimeNestedWritePreflight {
 			}
 
 			if (relationship.command === 'set') {
-				for (const id of relationship.ids) {
-					await this.#host.verifyTarget(createPointer(relationship.target, id))
-				}
+				await this.#verifyLink(relationship, relationship.ids)
 			}
 			const records = await this.#host.readRelationTargets(
 				relationship,

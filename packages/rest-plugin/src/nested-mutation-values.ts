@@ -21,22 +21,16 @@ import {
 
 const numericKinds = new Set(['bigint', 'decimal', 'float', 'int'])
 
-// ADR-0243 command allowlists; Core validates their payloads and exclusivity.
+// ADR-0308 command allowlists; Core validates their payloads and exclusivity.
+// An optional pointer unlinks with `null`; `{ set: [] }` empties a relation.
 const nestedCommands = {
 	pointer: {
 		create: new Set(['connect', 'create']),
-		update: new Set(['connect', 'create', 'disconnect', 'update']),
+		update: new Set(['connect', 'create', 'update']),
 	},
 	relation: {
 		create: new Set(['connect', 'create']),
-		update: new Set([
-			'clear',
-			'connect',
-			'create',
-			'disconnect',
-			'set',
-			'update',
-		]),
+		update: new Set(['connect', 'create', 'disconnect', 'set', 'update']),
 	},
 } as const
 
@@ -81,7 +75,7 @@ const decodeRelationCommand = (
 				})
 			})
 	}
-	// Core Runtime owns literal-true and replacement-exclusivity validation.
+	// Core Runtime owns replacement-exclusivity validation.
 	return input
 }
 
@@ -149,6 +143,8 @@ const decodeMutationField = (
 	if (field.kind === 'pointer' || field.kind === 'relation') {
 		// ADR-0243 keeps bulk and upsert roots flat.
 		if (relationships === 'flat') throw invalid()
+		// Core rejects `null` on a required pointer (ADR-0308).
+		if (field.kind === 'pointer' && value === null) return null
 		return decodeRelationshipCommands(field, field.kind, value, mode, invalid)
 	}
 	if (mode === 'update') {

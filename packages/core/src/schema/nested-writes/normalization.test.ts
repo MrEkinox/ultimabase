@@ -217,9 +217,18 @@ describe('normalizeNestedWriteGraph', () => {
 		).toThrow('data.author must contain one pointer command')
 		expect(() =>
 			normalizeUntrustedGraph(Post, 'update', {
-				tags: { clear: true, connect: ['tag-1'] },
+				tags: { set: [], connect: ['tag-1'] },
 			}),
 		).toThrow('data.tags replacement command must be exclusive')
+		// ADR-0308: `{ set: [] }` replaced `{ clear: true }`.
+		expect(() =>
+			normalizeUntrustedGraph(Post, 'update', { tags: { clear: true } }),
+		).toThrow('data.tags.clear is not available')
+		expect(() =>
+			normalizeUntrustedGraph(Post, 'update', {
+				parent: { disconnect: true },
+			}),
+		).toThrow('data.parent.disconnect is not available')
 		expect(() =>
 			normalizeUntrustedGraph(Post, 'update', {
 				tags: { set: ['tag-1', 'tag-1'] },
@@ -235,6 +244,46 @@ describe('normalizeNestedWriteGraph', () => {
 				posts: { disconnect: ['post-1'] },
 			}),
 		).toThrow('data.posts.disconnect is not available')
+	})
+
+	it('links through connect, unlinks through null and rejects raw links (ADR-0308)', () => {
+		const graph = normalizeNestedWriteGraph(schemas, Post, 'update', {
+			author: { connect: Author.pointer('author-1') },
+			parent: null,
+			tags: { connect: [Tag.pointer('tag-1'), 'tag-2'] },
+		})
+
+		expect(graph.root.relationships).toMatchObject([
+			{ command: 'connect', fieldName: 'author', id: 'author-1' },
+			{ command: 'disconnect', fieldName: 'parent', input: true },
+			{ command: 'connect', fieldName: 'tags', ids: ['tag-1', 'tag-2'] },
+		])
+		expect(
+			normalizeNestedWriteGraph(schemas, Post, 'create', {
+				author: { connect: 'author-1' },
+				parent: null,
+				title: 'Created',
+			}).root.data,
+		).toStrictEqual({ parent: null, title: 'Created' })
+
+		for (const author of [Author.pointer('author-1'), 'author-1']) {
+			expect(() =>
+				normalizeUntrustedGraph(Post, 'create', { author, title: 'Raw' }),
+			).toThrow('data.author must be a link command such as { connect: id }')
+		}
+		expect(() =>
+			normalizeUntrustedGraph(Post, 'update', { author: null }),
+		).toThrow('data.author is required and cannot be null')
+		expect(() =>
+			normalizeUntrustedGraph(Post, 'update', {
+				author: { connect: Tag.pointer('tag-1') },
+			}),
+		).toThrow('data.author.connect must be a NestedAuthor Pointer or object ID')
+		expect(() =>
+			normalizeUntrustedGraph(Post, 'update', {
+				tags: { set: [Author.pointer('author-1')] },
+			}),
+		).toThrow('data.tags.set[0] must be a NestedTag Pointer or object ID')
 	})
 
 	it('rejects malformed, cyclic, too-deep, and oversized inputs', () => {

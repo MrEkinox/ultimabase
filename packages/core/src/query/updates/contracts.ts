@@ -1,5 +1,6 @@
 import type {
 	SchemaNestedUpdateData,
+	SchemaStoredUpdateData,
 	SchemaUpdateData,
 } from '../../schema/index.js'
 import type {
@@ -22,6 +23,14 @@ type UpdateFieldValue<
 	TFieldName extends string,
 > = TFieldName extends keyof SchemaUpdateData<TSchema>
 	? Exclude<SchemaUpdateData<TSchema>[TFieldName], undefined>
+	: never
+
+/** One field value as a normalized update operation stores it (ADR-0308). */
+type StoredUpdateFieldValue<
+	TSchema extends SchemaTypeInfoSource,
+	TFieldName extends string,
+> = TFieldName extends keyof SchemaStoredUpdateData<TSchema>
+	? Exclude<SchemaStoredUpdateData<TSchema>[TFieldName], undefined>
 	: never
 
 /** Lists built-in scalar kinds with portable addition and subtraction semantics. */
@@ -130,7 +139,7 @@ export type SetUpdateOperationNode<
 > =
 	TFieldName extends UpdateFieldName<TSchema>
 		? UpdateFieldOperationNode<'set', TFieldName> & {
-				readonly value: UpdateFieldValue<TSchema, TFieldName>
+				readonly value: StoredUpdateFieldValue<TSchema, TFieldName>
 			}
 		: never
 

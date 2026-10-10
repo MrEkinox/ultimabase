@@ -12,6 +12,7 @@ import type {
 } from '../nested-writes/inputs.js'
 import type { NumericUpdateOperation } from '../../query/updates/contracts.js'
 import type { SchemaTypeInfoFor, SchemaTypeInfoSource } from '../type-info.js'
+import type { PointerTarget } from '../relations/pointer.js'
 import type { SchemaDeclaredFields } from './definition.js'
 import type {
 	Simplify,
@@ -43,9 +44,16 @@ type RelationCanDisconnect<
 
 type SourceNestedCreateValue<TField extends GenericField> =
 	TField extends PointerField<infer TTarget>
-		? NestedPointerCreateInput<TargetNestedCreate<TTarget>>
+		? | NestedPointerCreateInput<
+					TargetNestedCreate<TTarget>,
+					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
+			  >
+			| (FieldTypegenStateOf<TField>['nullable'] extends true ? null : never)
 		: TField extends RelationField<infer TTarget, infer TMappedBy>
-			? NestedRelationCreateInput<RelationNestedCreate<TTarget, TMappedBy>>
+			? NestedRelationCreateInput<
+					RelationNestedCreate<TTarget, TMappedBy>,
+					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
+				>
 			: SourceFieldModeValue<TField, 'create'>
 
 /** Atomic operations of a non-list numeric field in nested update data (ADR-0307). */
@@ -63,17 +71,18 @@ type SourceNestedUpdateValue<TField extends GenericField> =
 		? NestedPointerUpdateInput<
 				TargetNestedCreate<TTarget>,
 				TargetNestedUpdate<TTarget>,
-				FieldTypegenStateOf<TField>['nullable']
+				FieldTypegenStateOf<TField>['nullable'],
+				string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
 			>
 		: TField extends RelationField<infer TTarget, infer TMappedBy>
 			? NestedRelationUpdateInput<
 					RelationNestedCreate<TTarget, TMappedBy>,
 					TargetNestedUpdate<TTarget>,
-					RelationCanDisconnect<TTarget, TMappedBy>
+					RelationCanDisconnect<TTarget, TMappedBy>,
+					string | PointerTarget<SchemaTypeInfoFor<TTarget>['key']>
 				>
-			:
-					| SourceFieldModeValue<TField, 'update'>
-					| SourceNumericUpdateOperation<TField>
+			: | SourceFieldModeValue<TField, 'update'>
+				| SourceNumericUpdateOperation<TField>
 
 type SourceNestedCreateRequired<TFields extends SchemaDeclaredFields> = {
 	-readonly [

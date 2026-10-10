@@ -54,7 +54,16 @@ import type {
 	SchemaUpsertOneExecutionInput,
 	SchemaWhereInput,
 } from './schema-commands.js'
-import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
+import {
+	normalizeUniqueUpsertTarget,
+	normalizeUpsertInput,
+	type UpsertInput,
+} from './upsert.js'
+import { normalizeCollectionLinks } from './collection-links.js'
+import {
+	markLinkTargetOperation,
+	type LinkTargetMarker,
+} from '../../schema/nested-writes/operation-markers.js'
 
 type SchemaQuery<TSchema extends SchemaDefinition> = NormalizedQueryInput<
 	TSchema,
@@ -154,12 +163,44 @@ const executeBatch = <TOperation extends OperationBatchEntry['operation']>(
 		projection,
 	) as Promise<readonly object[]>
 
+/**
+ * Converts the links of both upsert branches; both are checked, whichever
+ * branch runs (ADR-0308).
+ */
+const normalizeUpsertLinks = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	input: Pick<SchemaUpsertOneExecutionInput<TSchema>, 'create' | 'update'>,
+	path: string,
+): Readonly<{
+	data: UpsertInput<TSchema>
+	links: readonly LinkTargetMarker[]
+}> => {
+	const create = normalizeCollectionLinks(
+		schema,
+		input.create,
+		`${path}.create`,
+	)
+	const update = normalizeCollectionLinks(
+		schema,
+		input.update,
+		`${path}.update`,
+	)
+
+	return immutableRecord({
+		// Update links are stored Pointers too; normalization keeps them as values.
+		data: immutableRecord({
+			create: create.data,
+			update: update.data as UpsertInput<TSchema>['update'],
+		}),
+		links: immutableArray([...create.links, ...update.links]),
+	})
+}
+
 /** Creates one row through the schema class rather than a selection QueryBuilder. */
 export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
-	inputMode: 'flat' | 'nested' = 'nested',
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
@@ -168,7 +209,7 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 		['include', 'select'],
 	)
 
-	return executeSchemaCreateOne(schema, input, options, inputMode)
+	return executeSchemaCreateOne(schema, input, options)
 }
 
 /** Creates ordered rows through the schema class. */
@@ -187,7 +228,12 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 
 	const projection = normalizeProjection(schema, input.select, input.include)
 	const schemaNode = createQueryAst(schema).schema
-	const entries = input.data.map((data) => {
+	const entries = input.data.map((item, index) => {
+		const { data, links } = normalizeCollectionLinks(
+			schema,
+			item,
+			`schema createMany data[${String(index)}]`,
+		)
 		const operation: CreateOneOperationAst<
 			TSchema,
 			QueryFieldName<TSchema>
@@ -198,7 +244,9 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 			selection: projection.selection,
 		})
 
-		return immutableRecord({ operation })
+		return immutableRecord({
+			operation: markLinkTargetOperation(operation, links),
+		})
 	})
 
 	return executeOperationBatch(
@@ -263,6 +311,11 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 			item.where,
 			'schema batch item where',
 		)
+		const { data, links } = normalizeCollectionLinks(
+			schema,
+			item.data,
+			`schema updateMany data[${String(index)}].data`,
+		)
 		const operation: UpdateOneOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
@@ -271,10 +324,13 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 		> = immutableRecord({
 			kind: 'update-one',
 			query: immutableRecord({ ...query.ast, selection: projection.selection }),
-			update: normalizeUpdateExpression(schema, item.data),
+			update: normalizeUpdateExpression(schema, data),
 		})
 
-		return immutableRecord({ operation, requireResult: true as const })
+		return immutableRecord({
+			operation: markLinkTargetOperation(operation, links),
+			requireResult: true as const,
+		})
 	})
 
 	return executeBatch(entries, options, createBatchProjection(projection))
@@ -293,14 +349,16 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 		['select'],
 	)
 	const query = createSchemaWhereQuery(schema, input.where)
+	const upsert = normalizeUpsertLinks(schema, input, 'schema upsert')
 
 	return executeQueryUpsertOne(
 		projectQuery(query, {
 			inclusion: query.ast.inclusion,
 			selection: normalizeSelection(schema, input.select),
 		}),
-		{ create: input.create, update: input.update },
+		upsert.data,
 		options,
+		upsert.links,
 	)
 }
 
@@ -320,22 +378,22 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 		assertExactCommandKeys(item, path, ['create', 'update', 'where'])
 
 		const query = createSchemaWhereQuery(schema, item.where)
+		const upsert = normalizeUpsertLinks(schema, item, path)
 		const operation: UpsertOneOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
 			QueryFilterNode<TSchema>,
 			QueryFieldName<TSchema>
 		> = immutableRecord({
-			...normalizeUpsertInput(schema, {
-				create: item.create,
-				update: item.update,
-			}),
+			...normalizeUpsertInput(schema, upsert.data),
 			kind: 'upsert-one',
 			query: immutableRecord({ ...query.ast, selection }),
 			target: normalizeUniqueUpsertTarget(schema, query.ast, `${path}.where`),
 		})
 
-		return immutableRecord({ operation })
+		return immutableRecord({
+			operation: markLinkTargetOperation(operation, upsert.links),
+		})
 	})
 
 	return executeOperationBatch(

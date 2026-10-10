@@ -216,11 +216,11 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const created = await Post.createMany({
 			data: [
 				{
-					author: Author.pointer(firstAuthor.id),
+					author: { connect: Author.pointer(firstAuthor.id) },
 					title: 'Grouped first post',
 				},
 				{
-					author: Author.pointer(secondAuthor.id),
+					author: { connect: Author.pointer(secondAuthor.id) },
 					title: 'Grouped second post',
 				},
 			],
@@ -289,11 +289,11 @@ describe('mutation relationship projections with PostgreSQL', () => {
 				Post.createMany({
 					data: [
 						{
-							author: Author.pointer(author.id),
+							author: { connect: Author.pointer(author.id) },
 							title: 'Rollback first',
 						},
 						{
-							author: Author.pointer(author.id),
+							author: { connect: Author.pointer(author.id) },
 							title: 'Rollback second',
 						},
 					],
