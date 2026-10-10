@@ -219,7 +219,7 @@ describe('PublicError through transports (ADR-0305)', () => {
 				code: 'INTERNAL_SERVER_ERROR',
 			})
 			expect(JSON.stringify(result)).not.toContain('hunter2')
-			const logged = log.mock.calls.map(([, error]) => error)
+			const logged = log.mock.calls.map((call): unknown => call[1])
 			expect(logged).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({ message: 'database password is hunter2' }),

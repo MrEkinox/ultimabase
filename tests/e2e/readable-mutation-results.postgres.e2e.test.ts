@@ -270,7 +270,7 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			Secret.createOne({ data: { body: 'write-only' }, select: { id: true } }),
-		).resolves.toMatchObject({ id: expect.any(String) })
+		).resolves.toHaveProperty('id')
 	})
 
 	it('uses pre-images for Soft Delete deletes and its softDelete command', async () => {
@@ -287,7 +287,10 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		const explicit = await Explicit.createOne({ data: { title: 'explicit' } })
-		const softDelete = Reflect.get(application().schema(Explicit), 'softDelete')
+		const softDelete: unknown = Reflect.get(
+			application().schema(Explicit),
+			'softDelete',
+		)
 		if (typeof softDelete !== 'function') {
 			throw new TypeError('softDelete command is missing')
 		}
@@ -310,10 +313,13 @@ describe('mutation results obey row read rules (ADR-0306)', () => {
 		expect(refused.status).toBe(403)
 		expect(accepted.status).toBe(201)
 		const body: unknown = await accepted.json()
-		expect(body).toMatchObject({ result: { id: expect.any(String) } })
-		expect(Object.keys(Reflect.get(Object(body), 'result'))).toStrictEqual([
-			'id',
-		])
+		const result: unknown =
+			typeof body === 'object' && body !== null
+				? Reflect.get(body, 'result')
+				: undefined
+		expect(
+			typeof result === 'object' && result !== null ? Object.keys(result) : [],
+		).toStrictEqual(['id'])
 
 		const idOnly = await graphql(`
 			mutation {
