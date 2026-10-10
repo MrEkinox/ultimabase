@@ -349,6 +349,7 @@ export class RuntimePipeline {
 				denied?: true,
 				nested?: ActiveNestedWrite,
 				relation?: DatabaseRelationScope,
+				relationWhere?: false,
 			): Promise<unknown> => {
 				try {
 					return await this.#executeOperation(
@@ -360,6 +361,7 @@ export class RuntimePipeline {
 								? {}
 								: { protectedPolicyDeniedAsMissing: denied }),
 							...(relation === undefined ? {} : { relation }),
+							...(relationWhere === undefined ? {} : { relationWhere }),
 						}),
 						{ nested, nestedChild: true, relationFilters, virtualFields },
 					)
@@ -448,8 +450,11 @@ export class RuntimePipeline {
 			stages,
 			context,
 			operation,
-			// Nested graph reads already carry their exact private relation scope.
-			relationRead && nested === undefined ? relation : undefined,
+			// Nested graph reads already carry their exact private relation scope;
+			// unlinking reads omit the declared relation filter.
+			relationRead && nested === undefined && request.relationWhere !== false
+				? relation
+				: undefined,
 			privateRowFilter,
 			relationFilters,
 		)

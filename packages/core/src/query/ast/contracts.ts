@@ -97,14 +97,14 @@ export interface QueryOrderingNode<TFieldName extends string = string> {
 	readonly orders: readonly QueryOrderNode<TFieldName>[]
 }
 
-/** Represents an optional offset independently from the shared query limit. */
-export interface QueryOffsetPaginationNode {
-	readonly kind: 'offset-pagination'
-	readonly offset: number
+/** Represents skipped rows independently from the shared query `take`. */
+export interface QuerySkipPaginationNode {
+	readonly kind: 'skip-pagination'
+	readonly skip: number
 }
 
 /** Leaves pagination named independently from the query page-size clause. */
-export type QueryPaginationNode = QueryOffsetPaginationNode
+export type QueryPaginationNode = QuerySkipPaginationNode
 
 /** Carries the complete transport-neutral state consumed by later operations. */
 export interface QueryAst<
@@ -119,7 +119,7 @@ export interface QueryAst<
 	readonly inclusion: TInclusion
 	readonly where: QueryWhereNode<TExpression> | undefined
 	readonly ordering: QueryOrderingNode<QueryFieldName<TSchema>>
-	readonly limit: number | undefined
+	readonly take: number | undefined
 	readonly pagination: QueryPaginationNode | undefined
 }
 
@@ -131,7 +131,7 @@ export interface InitialQueryAst<
 	readonly inclusion: QueryInclusionNode<never, never>
 	readonly where: undefined
 	readonly ordering: QueryOrderingNode<never>
-	readonly limit: undefined
+	readonly take: undefined
 	readonly pagination: undefined
 }
 

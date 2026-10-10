@@ -9,13 +9,16 @@ contentType: concept
 order: 2
 outcome: Choose a field family, look up its builder, and understand which values are stored, accepted as input, or returned as output.
 releaseStatus: pre-release
-reviewedAt: 2026-09-17
+reviewedAt: 2026-10-10
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/schema/field-builder-contract.ts
   - packages/core/examples/schema/field-options.md
   - packages/core/examples/schema/virtual-fields.md
+  - packages/core/src/schema/fields/builtins/enum.ts
+  - packages/core/src/schema/fields/builtins/shared-enum.ts
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0213-direct-plugin-options-replace-schema-field-extensions.md
 ---
 
@@ -78,7 +81,7 @@ record. Choose by the value your application uses, not by a database column type
 | `f.dateTime()` | Canonical date-time string  | `timezone` defaults to `true`; `autoNow` can generate a timestamp.                                                      |
 | `f.binary()`   | `Uint8Array`                | Wire encoding belongs to the transport.                                                                                 |
 | `f.json()`     | JSON object or array        | Optional fields may also be `null`; root scalars are rejected.                                                          |
-| `f.enum()`     | Declared string union       | `values` is required; `typeName` can name the generated contract.                                                       |
+| `f.enum()`     | Declared string union       | `values` is a string array or a shared enum from `defineEnum`; see [Enums](#enums).                                     |
 | `f.object()`   | Typed nested value          | Declare child `fields`; see [Embedded Objects](./embedded-objects).                                                     |
 | `f.pointer()`  | One target reference        | `target` is required; `onDelete` defaults to `restrict`. See [Relationships](./relationships).                          |
 | `f.relation()` | To-many relation handle     | `target` is required; `mappedBy` and `where` shape an inverse or scoped relation. See [Relationships](./relationships). |
@@ -134,6 +137,34 @@ through the optional [Validation plugin](/docs/1.0.0/plugins/official/validation
 option or combination fails during declaration or application compilation;
 invalid input values fail when an operation runs. For create-input and
 persisted-value details, see [Defaults and Nullability](./defaults).
+
+## Enums
+
+`f.enum({ values })` declares a closed string union. `values` takes one of two
+forms (ADR-0310):
+
+```ts title="src/task.ts"
+import { UltimaBase, defineEnum } from '@ultimabase/core'
+
+export const Priority = defineEnum('TaskPriority', ['low', 'medium', 'high'])
+
+export const Task = UltimaBase.Schema.define({
+	className: 'DocsTask',
+	fields: (f) => ({
+		status: f.enum({ values: ['open', 'done'], default: 'open' }),
+		priority: f.enum({ values: Priority, required: true }),
+		allowedPriorities: f.enum({ values: Priority, list: true }),
+	}),
+})
+```
+
+A string array declares a local enum: generators such as GraphQL and Typegen
+name its type from the schema and field path. A shared enum from
+`defineEnum(name, values)` is an immutable value used only to share one named
+type: `priority` and `allowedPriorities` both use the `TaskPriority` type. Two
+different shared enums with the same name fail when the application is
+constructed. The object-mapping form, TypeScript `enum` objects, and the
+`typeName` option are not accepted.
 
 ## Virtual results
 

@@ -65,7 +65,7 @@ const defineFixture = (suffix: string) => {
 					models.extend(Post, {
 						contributionId: 'archive-surface',
 						schemaMutations: {
-							archive: { mutation: archive, surfaces: ['schema', 'model'] },
+							archive: { mutation: archive, surfaces: ['schema'] },
 						},
 					})
 					return undefined

@@ -21,8 +21,8 @@ import {
 	resolveQueryInclusionTarget,
 } from '../clauses/inclusion.js'
 import {
-	normalizeQueryLimit,
-	normalizeQueryOffsetPagination,
+	normalizeQuerySkipPagination,
+	normalizeQueryTake,
 } from '../clauses/pagination.js'
 import {
 	normalizeQuerySelectedFields,
@@ -89,7 +89,7 @@ const storeQueryAst = <const TSchema extends SchemaDefinition>(
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	Pick<
 		QueryBuilderAst<TSchema>,
-		'inclusion' | 'limit' | 'ordering' | 'pagination' | 'selection' | 'where'
+		'inclusion' | 'ordering' | 'pagination' | 'selection' | 'take' | 'where'
 	>
 >
 
@@ -152,11 +152,11 @@ const buildQueryInput = <const TSchema extends SchemaDefinition>(
 		...(kind === 'collection' && ast.ordering.orders.length > 0
 			? { orderBy: buildQueryOrderByInput(ast.ordering.orders) }
 			: {}),
-		...(kind === 'collection' && ast.limit !== undefined
-			? { limit: ast.limit }
+		...(kind === 'collection' && ast.take !== undefined
+			? { take: ast.take }
 			: {}),
-		...(kind === 'collection' && ast.pagination?.kind === 'offset-pagination'
-			? { offset: ast.pagination.offset }
+		...(kind === 'collection' && ast.pagination?.kind === 'skip-pagination'
+			? { skip: ast.pagination.skip }
 			: {}),
 	})
 }
@@ -360,18 +360,14 @@ export class QueryBuilder<
 		return this.#order('descending', fields)
 	}
 
-	/** Defines an optional maximum result count for the query. */
-	limit(
-		value: number,
-	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#with({ limit: normalizeQueryLimit(value) })
+	/** Returns at most this many rows. */
+	take(value: number): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#with({ take: normalizeQueryTake(value) })
 	}
 
-	/** Selects offset pagination without mutating earlier query branches. */
-	offset(
-		value: number,
-	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		const pagination = normalizeQueryOffsetPagination({ offset: value })
+	/** Skips this many rows without mutating earlier query branches. */
+	skip(value: number): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
+		const pagination = normalizeQuerySkipPagination({ skip: value })
 
 		if (pagination === undefined) {
 			return this.ast.pagination === undefined

@@ -180,23 +180,11 @@ export const parseRequestPrincipalReference = (
 export type RequestRoleReference<TValue extends string | number = string> =
 	RequestSubjectReference<'role', TValue>
 
-/** Lets a persisted provider-owned value expose its neutral role reference. */
-export interface RequestRoleReferenceCarrier {
-	/** Returns one stable role reference without performing persistence or lookup. */
-	readonly toRequestRoleReference: () => RequestRoleReference
-}
-
-/** Accepts either a lightweight reference or a persisted role value. */
-export type RequestRoleSubject =
-	RequestRoleReference | RequestRoleReferenceCarrier
-
-const isRequestRoleReferenceCarrier = (
-	value: unknown,
-): value is RequestRoleReferenceCarrier =>
-	typeof value === 'object' &&
-	value !== null &&
-	'toRequestRoleReference' in value &&
-	typeof value.toRequestRoleReference === 'function'
+/**
+ * The role subject accepted by role-aware policies: a reference created by
+ * the role provider (results carry no methods, ADR-0310).
+ */
+export type RequestRoleSubject = RequestRoleReference
 
 const isRequestRoleReference = (
 	value: unknown,
@@ -213,13 +201,7 @@ const isRequestRoleReference = (
 export const resolveRequestRoleReference = (
 	subject: RequestRoleSubject,
 ): RequestRoleReference => {
-	const candidate: unknown = subject
-	const reference: unknown =
-		candidate instanceof RequestSubjectReference
-			? candidate
-			: isRequestRoleReferenceCarrier(candidate)
-				? candidate.toRequestRoleReference()
-				: undefined
+	const reference: unknown = subject
 
 	if (!isRequestRoleReference(reference)) {
 		throw new TypeError(

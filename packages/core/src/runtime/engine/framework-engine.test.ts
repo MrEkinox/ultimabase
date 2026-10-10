@@ -70,7 +70,7 @@ const principalValue = new RequestContextValue<string>(
 
 const articleOperation = {
 	kind: 'find-many',
-	query: new QueryBuilder(articleSchema).limit(10).ast,
+	query: new QueryBuilder(articleSchema).take(10).ast,
 } satisfies FindManyOperationAst<typeof articleSchema>
 
 /** Produces complete records for the strict public result boundary. */
@@ -247,8 +247,7 @@ describe('FrameworkEngine', () => {
 		const result = await request.execute(articleOperation)
 
 		expect(result).toHaveLength(1)
-		expect(result[0]).toBeInstanceOf(articleSchema)
-		expect(result[0]?.toJSON()).toStrictEqual(articles[0])
+		expect(result[0]).toStrictEqual(articles[0])
 		expect(contexts).toStrictEqual([request.context])
 
 		const foreignOperation = {
@@ -297,8 +296,7 @@ describe('FrameworkEngine', () => {
 
 		const result = await request.execute(operation)
 
-		expect(result).toBeInstanceOf(articleSchema)
-		expect(result.toJSON()).toStrictEqual(createdArticle)
+		expect(result).toStrictEqual(createdArticle)
 	})
 
 	it('requires adapter transaction support before a mutation pipeline can begin', async () => {
@@ -621,10 +619,8 @@ describe('FrameworkEngine', () => {
 
 		const secondResult = await secondRequest.execute(secondOperation)
 
-		expect(firstResult[0]).toBeInstanceOf(articleSchema)
-		expect(secondResult[0]).toBeInstanceOf(matchingClassSchema)
-		expect(firstResult[0]?.toJSON()).toStrictEqual(articleRecord('first'))
-		expect(secondResult[0]?.toJSON()).toStrictEqual(articleRecord('second'))
+		expect(firstResult[0]).toStrictEqual(articleRecord('first'))
+		expect(secondResult[0]).toStrictEqual(articleRecord('second'))
 		expect(firstContexts).toStrictEqual([firstRequest.context])
 		expect(secondContexts).toStrictEqual([secondRequest.context])
 		await expect(firstRequest.execute(secondOperation)).rejects.toThrow(

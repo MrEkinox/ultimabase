@@ -63,9 +63,9 @@ export const compilePostgresQueryClauses = (
 	})
 
 	return immutableRecord({
-		...(query.limit === undefined ? {} : { limit: query.limit }),
-		...(query.pagination?.kind === 'offset-pagination'
-			? { offset: query.pagination.offset }
+		...(query.take === undefined ? {} : { limit: query.take }),
+		...(query.pagination?.kind === 'skip-pagination'
+			? { offset: query.pagination.skip }
 			: {}),
 		orderBy: immutableArray(orderBy),
 		selection: compilePostgresSelection(

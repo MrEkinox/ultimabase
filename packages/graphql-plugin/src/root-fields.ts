@@ -36,7 +36,7 @@ export interface GraphqlRootCompilers {
 	readonly fields: GraphqlFieldTypeCompiler
 	readonly filters: GraphqlFilterInputCompiler
 	readonly inputs: GraphqlMutationInputCompiler
-	readonly defaultPageSize: number
+	readonly defaultTake: number
 }
 
 const addRoot = (
@@ -55,13 +55,16 @@ const addRoot = (
 	fields[fieldName] = config()
 }
 
-/** Declares the Relay window and filters accepted by every collection field. */
+/**
+ * Declares the Relay window and filters of a root or relation collection field;
+ * a relation pages by position in every parent (ADR-0309, step 3b amendment).
+ */
 export const graphqlCollectionArguments = (
 	compilers: GraphqlRootCompilers,
 	schema: SchemaDefinition,
 ): GraphQLFieldConfigArgumentMap => ({
 	after: { type: GraphQLString },
-	first: { default: { value: compilers.defaultPageSize }, type: GraphQLInt },
+	first: { default: { value: compilers.defaultTake }, type: GraphQLInt },
 	orderBy: { type: nonNullList(compilers.filters.order(schema)) },
 	where: { type: compilers.filters.where(schema) },
 })

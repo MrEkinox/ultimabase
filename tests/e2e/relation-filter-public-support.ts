@@ -124,8 +124,8 @@ export const readRestArticle = async (
 		body: JSON.stringify({
 			include: {
 				contributors: {
-					limit: 1,
-					offset: 1,
+					take: 1,
+					skip: 1,
 					orderBy: { name: 'asc' },
 					select: { name: true },
 					where: { name: { contains: ' ' } },

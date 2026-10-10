@@ -193,12 +193,9 @@ export class PasswordUserSchema {
 		}
 		const schema = Schema.defineSpecialized(
 			specializedOptions,
-			({ schema: exactSchema }) => ({
-				results: {},
-				statics: {
-					...createPasswordUserAuthMethods<TCustomFields>(exactSchema),
-					[passwordUserDefinitionBrand]: true as const,
-				},
+			(exactSchema) => ({
+				...createPasswordUserAuthMethods<TCustomFields>(exactSchema),
+				[passwordUserDefinitionBrand]: true as const,
 			}),
 		)
 		passwordUserSchemas.add(schema)

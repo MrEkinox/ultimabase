@@ -141,10 +141,66 @@ export interface RestPluginOptions {
 	readonly default?: RestSchemaRoutesOption
 	/** Distinguishes two explicit REST configurations in one application. */
 	readonly instanceId?: string
-	/** Maximum accepted collection limit. @default 1000 */
-	readonly maxLimit?: number
 	/** Explicitly exposes these exact application operation tokens through REST. */
 	readonly operations?: readonly PluginOperationDefinition[]
+	/**
+	 * Default and largest collection `take`, as GraphQL `first` (ADR-0309).
+	 *
+	 * @default { defaultTake: 100, maxTake: 1000 }
+	 * @example `restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
+	 */
+	readonly pagination?: RestPaginationOptions
+}
+
+/**
+ * Configures the collection page window, with the same option and defaults
+ * as `graphqlPlugin({ pagination })` (ADR-0309).
+ *
+ * @example `restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
+ */
+export interface RestPaginationOptions {
+	/** `take` used when a collection read omits it. @default 100 */
+	readonly defaultTake?: number
+	/** Largest accepted `take`; a larger one is `REST_READ_INVALID_INPUT`. @default 1000 */
+	readonly maxTake?: number
+}
+
+/** @internal Validates the page window shared by every REST collection read. */
+const normalizeRestPagination = (
+	value: unknown,
+): Readonly<{ defaultTake: number; maxTake: number }> => {
+	if (value === undefined) {
+		return {
+			defaultTake: defaultRestReadLimits.defaultTake,
+			maxTake: defaultRestReadLimits.maxTake,
+		}
+	}
+	if (!isPlainRecord(value)) {
+		throw new TypeError('REST plugin pagination must be a plain object')
+	}
+	for (const key of Object.keys(value)) {
+		if (key !== 'defaultTake' && key !== 'maxTake') {
+			throw new TypeError(
+				`REST plugin pagination has an unknown option: ${key}`,
+			)
+		}
+	}
+	const defaultTake = normalizePositiveSafeInteger(
+		value.defaultTake,
+		'pagination.defaultTake',
+		defaultRestReadLimits.defaultTake,
+	)
+	const maxTake = normalizePositiveSafeInteger(
+		value.maxTake,
+		'pagination.maxTake',
+		defaultRestReadLimits.maxTake,
+	)
+	if (defaultTake > maxTake) {
+		throw new TypeError(
+			'REST plugin pagination.defaultTake must not exceed pagination.maxTake',
+		)
+	}
+	return { defaultTake, maxTake }
 }
 
 /** @internal Validates the exact operation tokens exposed by one REST instance. */
@@ -232,9 +288,9 @@ export interface NormalizedRestPluginOptions {
 	readonly bodyLimit: number
 	readonly defaultRoutes: RestSchemaRoutesOption | undefined
 	readonly instanceId: string | undefined
-	readonly maxLimit: number
 	readonly mountPath: string
 	readonly operations: readonly PluginOperationDefinition[]
+	readonly pagination: Readonly<{ defaultTake: number; maxTake: number }>
 }
 
 /** @internal Rejects unknown keys and normalizes every plugin factory option. */
@@ -248,8 +304,8 @@ export const parseRestPluginOptions: (
 		'bodyLimit',
 		'default',
 		'instanceId',
-		'maxLimit',
 		'operations',
+		'pagination',
 	] as const,
 	normalize: ({
 		acknowledgeUnverifiedProtection,
@@ -257,8 +313,8 @@ export const parseRestPluginOptions: (
 		bodyLimit,
 		default: defaultRoutes,
 		instanceId,
-		maxLimit,
 		operations,
+		pagination,
 	}) => {
 		const paths = normalizeBasePath(basePath)
 		if (
@@ -288,12 +344,8 @@ export const parseRestPluginOptions: (
 					? undefined
 					: normalizeRestSchemaRoutes(defaultRoutes, 'REST plugin default'),
 			instanceId,
-			maxLimit: normalizePositiveSafeInteger(
-				maxLimit,
-				'maxLimit',
-				defaultRestReadLimits.maximumResults,
-			),
 			operations: normalizeRestOperations(operations),
+			pagination: normalizeRestPagination(pagination),
 		}
 	},
 })

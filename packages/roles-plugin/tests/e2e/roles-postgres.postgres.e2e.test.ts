@@ -1,14 +1,5 @@
-import {
-	RequestContext,
-	requestSources,
-	runWithRequestEngine,
-	type OperationOptions,
-	type RequestRoleResolver,
-} from '@ultimabase/core'
-import {
-	resolveRoleReference,
-	type RoleReference,
-} from '@ultimabase/roles-plugin'
+import { runWithRequestEngine, type OperationOptions } from '@ultimabase/core'
+import { resolveRoleReference } from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -24,7 +15,6 @@ import {
 	committedRoleEvents,
 	createProviderBoundaryApplication,
 	createRoleApplication,
-	currentRoleMemberId,
 	masterRoleAccessReasons,
 	missingProviderHookCalls,
 	rejectNextRoleReferenceCleanup,
@@ -35,30 +25,23 @@ import {
 } from './roles-postgres.fixture.js'
 
 import {
+	countRoleLinks,
+	createExternalReference,
+	createMemberContext,
+	masterOptions,
+	requireMember,
+	requireRole,
+	requireRoleResolver,
+	updateAppRole,
+	type PersistedAppRole,
+	type PersistedMember,
+} from './roles-postgres.helpers.js'
+import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 
-const requireRoleResolver = (value: unknown): RequestRoleResolver => {
-	if (
-		typeof value !== 'object' ||
-		value === null ||
-		!('hasRole' in value) ||
-		typeof value.hasRole !== 'function'
-	) {
-		throw new TypeError('Role resolver consumer did not expose hasRole')
-	}
-
-	return value as RequestRoleResolver
-}
-
 type RoleApplication = ReturnType<typeof createRoleApplication>
-type PersistedAppRole = Awaited<
-	ReturnType<InstanceType<typeof AppRole>['create']>
->
-type PersistedMember = Awaited<
-	ReturnType<InstanceType<typeof RoleMember>['create']>
->
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase: RoleApplication | undefined
@@ -87,42 +70,6 @@ const getFixture = (): PostgresWorkerFixture => {
 	return fixture
 }
 
-const requireMember = (
-	member: PersistedMember | undefined,
-	label: string,
-): PersistedMember => {
-	if (member === undefined) {
-		throw new TypeError(`Missing persisted ${label} member fixture`)
-	}
-
-	return member
-}
-
-const requireRole = (
-	role: PersistedAppRole | undefined,
-	label: string,
-): PersistedAppRole => {
-	if (role === undefined) {
-		throw new TypeError(`Missing persisted ${label} role fixture`)
-	}
-
-	return role
-}
-
-/** Creates plugin-owned identity state without introducing a Core user mode. */
-const createMemberContext = (memberId: string, requestId: string) =>
-	RequestContext.anonymous({
-		requestId,
-		source: requestSources.internal,
-	}).withValue(currentRoleMemberId, memberId)
-
-/** Persists one neutral external role reference through the ordinary Query API. */
-const createExternalReference = async (
-	reference: RoleReference,
-): Promise<void> => {
-	await ExternalRoleReference.createOne({ data: { subject: reference.value } })
-}
-
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
 	ultimabase = createRoleApplication(fixture.connectionUri)
@@ -132,45 +79,50 @@ beforeAll(async () => {
 		data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
 	})
 
-	editor = await new AppRole({
-		description: 'Can edit content',
-		name: '  EDITOR  ',
-		priority: 10,
-	}).create({}, { useMasterKey: true })
-	publisher = await new AppRole({ name: 'publisher', priority: 20 }).create(
-		{},
-		{ useMasterKey: true },
+	editor = await AppRole.createOne(
+		{
+			data: {
+				description: 'Can edit content',
+				name: '  EDITOR  ',
+				priority: 10,
+			},
+		},
+		masterOptions,
 	)
-	reviewer = await new AppRole({ name: 'reviewer', priority: 30 }).create(
-		{},
-		{ useMasterKey: true },
+	publisher = await AppRole.createOne(
+		{ data: { name: 'publisher', priority: 20 } },
+		masterOptions,
 	)
-	administrator = await new AppRole({
-		description: 'Inherited administration',
-		name: 'administrator',
-		priority: 40,
-	}).create({}, { useMasterKey: true })
+	reviewer = await AppRole.createOne(
+		{ data: { name: 'reviewer', priority: 30 } },
+		masterOptions,
+	)
+	administrator = await AppRole.createOne(
+		{
+			data: {
+				description: 'Inherited administration',
+				name: 'administrator',
+				priority: 40,
+			},
+		},
+		masterOptions,
+	)
 
-	await requireRole(editor, 'editor').addMember(
-		RoleMember.pointer(requireMember(alice, 'Alice').id),
-		{ useMasterKey: true },
-	)
-	await requireRole(publisher, 'publisher').addRole(
-		requireRole(editor, 'editor'),
-		{ useMasterKey: true },
-	)
-	await requireRole(reviewer, 'reviewer').addRole(
-		requireRole(editor, 'editor'),
-		{ useMasterKey: true },
-	)
-	await requireRole(administrator, 'administrator').addRole(
-		requireRole(publisher, 'publisher'),
-		{ useMasterKey: true },
-	)
-	await requireRole(administrator, 'administrator').addRole(
-		requireRole(reviewer, 'reviewer'),
-		{ useMasterKey: true },
-	)
+	await updateAppRole(requireRole(editor, 'editor').id, {
+		members: { connect: [requireMember(alice, 'Alice').id] },
+	})
+	await updateAppRole(requireRole(publisher, 'publisher').id, {
+		roles: { connect: [requireRole(editor, 'editor').id] },
+	})
+	await updateAppRole(requireRole(reviewer, 'reviewer').id, {
+		roles: { connect: [requireRole(editor, 'editor').id] },
+	})
+	await updateAppRole(requireRole(administrator, 'administrator').id, {
+		roles: { connect: [requireRole(publisher, 'publisher').id] },
+	})
+	await updateAppRole(requireRole(administrator, 'administrator').id, {
+		roles: { connect: [requireRole(reviewer, 'reviewer').id] },
+	})
 
 	const posts = await ProtectedPost.createMany(
 		{
@@ -187,7 +139,7 @@ beforeAll(async () => {
 				},
 			],
 		},
-		{ useMasterKey: true },
+		masterOptions,
 	)
 	publishedPostId = posts[0]?.id ?? ''
 	privatePostId = posts[1]?.id ?? ''
@@ -213,10 +165,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				orderBy: { priority: 'asc' },
 				select: { id: true, name: true, priority: true },
 			},
-			{ useMasterKey: true },
+			masterOptions,
 		)
 
-		expect(selected.map((role) => role.toJSON())).toStrictEqual([
+		expect(selected).toStrictEqual([
 			{ id: currentEditor.id, name: 'editor', priority: 10 },
 			{
 				id: requireRole(publisher, 'publisher').id,
@@ -236,41 +188,41 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		])
 
 		roleDeveloperHookTrace.length = 0
-		const updated = await currentEditor.update(
-			{ data: { description: 'Edits published content' } },
-			{ useMasterKey: true },
-		)
-		expect(updated.description).toBe('Edits published content')
+		const updated = await updateAppRole(currentEditor.id, {
+			description: 'Edits published content',
+		})
+		expect(updated?.description).toBe('Edits published content')
 		expect(roleDeveloperHookTrace).toContain('update-one')
 
 		const eventCount = committedRoleEvents.length
-		await currentEditor.addMember(currentBob, {
-			useMasterKey: true,
+		await updateAppRole(currentEditor.id, {
+			members: { connect: [currentBob.id] },
 		})
-		await currentEditor.addMember(RoleMember.pointer(currentBob.id), {
-			useMasterKey: true,
+		await updateAppRole(currentEditor.id, {
+			members: { connect: [currentBob.id] },
 		})
-		expect(await currentEditor.relation('members').count(undefined)).toBe(2)
-		await currentEditor.removeMember(currentBob, {
-			useMasterKey: true,
+		expect(await countRoleLinks(currentEditor.id, 'members')).toBe(2)
+		await updateAppRole(currentEditor.id, {
+			members: { disconnect: [currentBob.id] },
 		})
-		expect(await currentEditor.relation('members').count(undefined)).toBe(1)
+		expect(await countRoleLinks(currentEditor.id, 'members')).toBe(1)
 
-		const temporaryChild = await new AppRole({
-			name: 'temporary-child',
-		}).create({}, { useMasterKey: true })
-		await currentEditor.addRole(temporaryChild, {
-			useMasterKey: true,
+		const temporaryChild = await AppRole.createOne(
+			{
+				data: {
+					name: 'temporary-child',
+				},
+			},
+			masterOptions,
+		)
+		await updateAppRole(currentEditor.id, {
+			roles: { connect: [temporaryChild.id] },
 		})
-		await expect(
-			currentEditor.relation('roles').count(undefined),
-		).resolves.toBe(1)
-		await currentEditor.removeRole(temporaryChild, {
-			useMasterKey: true,
+		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(1)
+		await updateAppRole(currentEditor.id, {
+			roles: { disconnect: [temporaryChild.id] },
 		})
-		await expect(
-			currentEditor.relation('roles').count(undefined),
-		).resolves.toBe(0)
+		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(0)
 		expect(committedRoleEvents.slice(eventCount)).toContain(
 			'ultimabase.roles.membership.changed',
 		)
@@ -327,7 +279,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		const deletable = await ProtectedPost.createOne(
 			{ data: { published: true, title: 'Role-protected deletion' } },
-			{ useMasterKey: true },
+			masterOptions,
 		)
 		await expect(
 			ProtectedPost.deleteOne(
@@ -354,13 +306,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const eventCount = committedRoleEvents.length
 
 		await expect(
-			currentEditor.addRole(requireRole(administrator, 'administrator'), {
-				useMasterKey: true,
+			updateAppRole(currentEditor.id, {
+				roles: {
+					connect: [requireRole(administrator, 'administrator').id],
+				},
 			}),
 		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
-		await expect(
-			currentEditor.relation('roles').count(undefined),
-		).resolves.toBe(0)
+		await expect(countRoleLinks(currentEditor.id, 'roles')).resolves.toBe(0)
 		expect(committedRoleEvents).toHaveLength(eventCount)
 	})
 
@@ -368,14 +320,11 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const app = getApplication()
 		const currentEditor = requireRole(editor, 'editor')
 		const stableReference = AppRole.role({ id: currentEditor.id })
-		const modelReference = currentEditor.toRequestRoleReference()
-		expect(modelReference.value).toBe(stableReference.value)
-		const renamed = await currentEditor.update(
-			{ data: { name: 'content-editor' } },
-			{ useMasterKey: true },
-		)
+		const renamed = await updateAppRole(currentEditor.id, {
+			name: 'content-editor',
+		})
 
-		expect(renamed.name).toBe('content-editor')
+		expect(renamed?.name).toBe('content-editor')
 		await expect(resolveRoleReference(stableReference)).resolves.toMatchObject({
 			id: currentEditor.id,
 			name: 'content-editor',
@@ -453,26 +402,35 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 	it('enforces fail, preserve, and cascade deletion policies atomically', async () => {
 		const currentAlice = requireMember(alice, 'Alice')
-		const failRole = await new FailRole({ name: 'fail-policy' }).create(
-			{},
-			{ useMasterKey: true },
+		const failRole = await FailRole.createOne(
+			{ data: { name: 'fail-policy' } },
+			masterOptions,
 		)
-		await failRole.addMember(currentAlice, {
-			useMasterKey: true,
-		})
+		await FailRole.updateOne(
+			{
+				where: { id: { eq: failRole.id } },
+				data: {
+					members: { connect: [currentAlice.id] },
+				},
+			},
+			masterOptions,
+		)
 		await expect(
-			failRole.delete({}, { useMasterKey: true }),
+			FailRole.deleteOne({ where: { id: { eq: failRole.id } } }, masterOptions),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
-		await failRole.removeMember(currentAlice, {
-			useMasterKey: true,
-		})
+		await FailRole.updateOne(
+			{
+				where: { id: { eq: failRole.id } },
+				data: {
+					members: { disconnect: [currentAlice.id] },
+				},
+			},
+			masterOptions,
+		)
 		const failReference = FailRole.role({ id: failRole.id })
 		await createExternalReference(failReference)
 		await expect(
-			FailRole.deleteOne(
-				{ where: { id: { eq: failRole.id } } },
-				{ useMasterKey: true },
-			),
+			FailRole.deleteOne({ where: { id: { eq: failRole.id } } }, masterOptions),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
 		const externalReferences = await ExternalRoleReference.findMany({
 			where: { subject: { eq: failReference.value } },
@@ -482,12 +440,17 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			where: externalReferences.map(({ id }) => ({ id: { eq: id } })),
 		})
 		await expect(
-			failRole.delete({}, { useMasterKey: true }),
+			FailRole.deleteOne({ where: { id: { eq: failRole.id } } }, masterOptions),
 		).resolves.toMatchObject({ id: failRole.id })
 
-		const preserveRole = await new PreserveRole({
-			name: 'preserve-policy',
-		}).create({}, { useMasterKey: true })
+		const preserveRole = await PreserveRole.createOne(
+			{
+				data: {
+					name: 'preserve-policy',
+				},
+			},
+			masterOptions,
+		)
 		const preserveReference = PreserveRole.role({
 			id: preserveRole.id,
 		})
@@ -501,30 +464,60 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			}),
 		).resolves.toBe(true)
 
-		const cascadeChild = await new CascadeRole({
-			name: 'cascade-child',
-		}).create({}, { useMasterKey: true })
-		const cascadeParent = await new CascadeRole({
-			name: 'cascade-parent',
-		}).create({}, { useMasterKey: true })
-		await cascadeChild.addMember(currentAlice, {
-			useMasterKey: true,
-		})
-		await cascadeParent.addRole(cascadeChild, {
-			useMasterKey: true,
-		})
+		const cascadeChild = await CascadeRole.createOne(
+			{
+				data: {
+					name: 'cascade-child',
+				},
+			},
+			masterOptions,
+		)
+		const cascadeParent = await CascadeRole.createOne(
+			{
+				data: {
+					name: 'cascade-parent',
+				},
+			},
+			masterOptions,
+		)
+		await CascadeRole.updateOne(
+			{
+				where: { id: { eq: cascadeChild.id } },
+				data: {
+					members: { connect: [currentAlice.id] },
+				},
+			},
+			masterOptions,
+		)
+		await CascadeRole.updateOne(
+			{
+				where: { id: { eq: cascadeParent.id } },
+				data: {
+					roles: { connect: [cascadeChild.id] },
+				},
+			},
+			masterOptions,
+		)
 		const cascadeReference = CascadeRole.role({
 			id: cascadeChild.id,
 		})
 		await createExternalReference(cascadeReference)
-		await expect(cascadeChild.delete({})).rejects.toMatchObject({
+		await expect(
+			CascadeRole.deleteOne({ where: { id: { eq: cascadeChild.id } } }),
+		).rejects.toMatchObject({
 			code: 'ROLE_DELETE_CASCADE_MASTER_REQUIRED',
 		})
 		await expect(
-			cascadeChild.delete({}, { useMasterKey: true }),
+			CascadeRole.deleteOne(
+				{ where: { id: { eq: cascadeChild.id } } },
+				masterOptions,
+			),
 		).resolves.toMatchObject({ id: cascadeChild.id })
 		await expect(
-			cascadeParent.relation('roles').count(undefined),
+			CascadeRole.count(
+				{ where: { id: { eq: cascadeParent.id }, roles: { some: {} } } },
+				masterOptions,
+			),
 		).resolves.toBe(0)
 		await expect(
 			ExternalRoleReference.exists({
@@ -532,16 +525,24 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			}),
 		).resolves.toBe(false)
 
-		const rollbackRole = await new CascadeRole({
-			name: 'cascade-rollback',
-		}).create({}, { useMasterKey: true })
+		const rollbackRole = await CascadeRole.createOne(
+			{
+				data: {
+					name: 'cascade-rollback',
+				},
+			},
+			masterOptions,
+		)
 		const rollbackReference = CascadeRole.role({
 			id: rollbackRole.id,
 		})
 		await createExternalReference(rollbackReference)
 		rejectNextRoleReferenceCleanup()
 		await expect(
-			rollbackRole.delete({}, { useMasterKey: true }),
+			CascadeRole.deleteOne(
+				{ where: { id: { eq: rollbackRole.id } } },
+				masterOptions,
+			),
 		).rejects.toThrow('external role cleanup rollback fixture')
 		await expect(
 			CascadeRole.exists({ where: { id: { eq: rollbackRole.id } } }),
@@ -555,7 +556,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('applies each role deletion policy and rolls back the complete collection', async () => {
-		const options: OperationOptions = { useMasterKey: true }
+		const options: OperationOptions = masterOptions
 		const first = await FailRole.createOne(
 			{ data: { name: 'batch-first' } },
 			options,
@@ -565,7 +566,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			options,
 		)
 		const member = requireMember(alice, 'Alice')
-		await second.addMember(member, options)
+		await FailRole.updateOne(
+			{
+				where: { id: { eq: second.id } },
+				data: { members: { connect: [member.id] } },
+			},
+			options,
+		)
 		const where = [first, second].map(({ id }) => ({ id: { eq: id } }))
 		const eventCount = committedRoleEvents.length
 
@@ -582,7 +589,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		}
 		expect(committedRoleEvents).toHaveLength(eventCount)
 
-		await second.removeMember(member, options)
+		await FailRole.updateOne(
+			{
+				where: { id: { eq: second.id } },
+				data: { members: { disconnect: [member.id] } },
+			},
+			options,
+		)
 		const eventsBeforeDelete = committedRoleEvents.length
 		const deleted = await FailRole.deleteMany({ where }, options)
 		expect(deleted.map(({ id }) => id)).toStrictEqual([first.id, second.id])
@@ -650,9 +663,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				firstResolver,
 			)
 			await expect(
-				AppRole.count(undefined, {
-					useMasterKey: true,
-				}),
+				AppRole.count(undefined, masterOptions),
 			).resolves.toBeGreaterThan(0)
 			expect(JSON.stringify(AppRole.definition)).not.toContain(
 				'transportVisibility',

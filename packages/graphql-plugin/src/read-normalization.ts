@@ -14,7 +14,10 @@ import type {
 	GraphqlConnectionPagePlan,
 	GraphqlConnectionRuntime,
 } from './connection-runtime.js'
-import { normalizeGraphqlSelection } from './selection-normalization.js'
+import {
+	normalizeGraphqlSelection,
+	selectGraphqlOrderedFields,
+} from './selection-normalization.js'
 
 export {
 	normalizeGraphqlCollectionArguments,
@@ -158,6 +161,7 @@ export const prepareGraphqlReadOperation = <
 	}
 	let input: Readonly<Record<string, unknown>>
 	let page: GraphqlConnectionPagePlan | undefined
+	let orderedFields: readonly string[] = []
 	if (operation === 'get') {
 		input = { id: args.id }
 	} else if (operation === 'findMany') {
@@ -169,6 +173,7 @@ export const prepareGraphqlReadOperation = <
 		})
 		input = prepared.clauses
 		page = prepared.page
+		orderedFields = prepared.orderedFields
 	} else {
 		input = {
 			...(args.where === undefined || args.where === null
@@ -192,7 +197,19 @@ export const prepareGraphqlReadOperation = <
 	const normalized = normalizeReadOperation(
 		schema,
 		contract.kind,
-		immutableRecord({ ...input, ...projection }),
+		immutableRecord({
+			...input,
+			...projection,
+			// Edge cursors encode the ordered fields of every node (ADR-0309).
+			...(projection === undefined || orderedFields.length === 0
+				? {}
+				: {
+						select: selectGraphqlOrderedFields(
+							projection.select,
+							orderedFields,
+						),
+					}),
+		}),
 	) as GraphqlReadOperationAst<TSchema, TOperation>
 	return immutableRecord({
 		operation: normalized,

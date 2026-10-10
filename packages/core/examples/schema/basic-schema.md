@@ -71,9 +71,9 @@ const deleted = await UserSchema.deleteOne({
 	select: { id: true, username: true },
 })
 
-created.toJSON() // { id, username }
-renamed?.toJSON() // { id, displayName }
-deleted?.toJSON() // { id, username }
+created // { id, username }, a frozen plain object
+renamed // { id, displayName } or null
+deleted // { id, username } or null
 ```
 
 Collection mutations return identifiers by default and can request a wider

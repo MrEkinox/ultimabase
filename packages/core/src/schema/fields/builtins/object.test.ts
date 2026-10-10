@@ -207,7 +207,7 @@ describe('object fields and list metadata', () => {
 				largeCount: bigintField(),
 				publishedOn: dateField(),
 				price: decimalField(),
-				status: enumField({ values: { Draft: 'draft' } }),
+				status: enumField({ values: ['draft'] }),
 				visibility: enumField({ values: ['public', 'private'] }),
 				ratio: floatField(),
 				count: intField(),

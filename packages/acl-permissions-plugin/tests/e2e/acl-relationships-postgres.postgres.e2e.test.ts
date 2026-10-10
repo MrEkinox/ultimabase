@@ -7,6 +7,7 @@ import {
 	plugin,
 	requestSources,
 	type PluginSourceState,
+	type Model,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
@@ -17,6 +18,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { provideTestPrincipalResolver } from '../../../../tests/fixtures/access-capability-fixtures.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const currentMemberId = new RequestContextValue<string>(
 	'fixture.acl-relationships.member-id',
@@ -90,16 +92,10 @@ const Article = ACLSchemaApplication.Schema.define({
 	postgres: { table: 'acl_relationship_articles' },
 })
 
-type PersistedMember = Awaited<
-	ReturnType<InstanceType<typeof Member>['create']>
->
-type PersistedAuthor = Awaited<
-	ReturnType<InstanceType<typeof Author>['create']>
->
-type PersistedTag = Awaited<ReturnType<InstanceType<typeof Tag>['create']>>
-type PersistedArticle = Awaited<
-	ReturnType<InstanceType<typeof Article>['create']>
->
+type PersistedMember = Model<typeof Member>
+type PersistedAuthor = Model<typeof Author>
+type PersistedTag = Model<typeof Tag>
+type PersistedArticle = Model<typeof Article>
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -214,15 +210,22 @@ beforeAll(async () => {
 		{ useMasterKey: true },
 	)
 
-	await requireFixture(visibleArticle, 'visible article')
-		.relation('tags')
-		.connect(
-			[
-				requireFixture(visibleTag, 'visible tag').id,
-				requireFixture(hiddenTag, 'hidden tag').id,
-			],
-			{ useMasterKey: true },
-		)
+	await Article.updateOne(
+		{
+			where: {
+				id: { eq: requireFixture(visibleArticle, 'visible article').id },
+			},
+			data: {
+				tags: {
+					connect: [
+						requireFixture(visibleTag, 'visible tag').id,
+						requireFixture(hiddenTag, 'hidden tag').id,
+					],
+				},
+			},
+		},
+		{ useMasterKey: true },
+	)
 }, 30_000)
 
 afterAll(async () => {
@@ -250,17 +253,22 @@ describe(
 			])
 			expect(rows[0]?.author).toBeNull()
 			const includedAuthor = rows[1]?.author
-			if (!(includedAuthor instanceof Author)) {
+			if (!isPlainResult(includedAuthor)) {
 				throw new TypeError('Expected the visible author to be included')
 			}
-			expect(includedAuthor.toJSON()).toStrictEqual({
+			expect(includedAuthor).toStrictEqual({
 				id: includedAuthor.id,
 				name: 'Visible author',
 			})
 			await expect(
-				Author.pointer(
-					requireFixture(hiddenAuthor, 'hidden author').id,
-				).findOne(undefined, { context }),
+				Author.findOne(
+					{
+						where: {
+							id: { eq: requireFixture(hiddenAuthor, 'hidden author').id },
+						},
+					},
+					{ context },
+				),
 			).resolves.toBeNull()
 			const protectedInclusion = await Article.findMany(
 				{ include: { author: { select: { acl: true } } } },
@@ -279,25 +287,51 @@ describe(
 		it('keeps relation reads and mutations inside source and target ACLs', async () => {
 			const context = aliceRequest('acl-relationships-relations')
 			const article = requireFixture(visibleArticle, 'visible article')
-			const tags = article.relation('tags')
+			// ADR-0310: related rows are read through include and linked through
+			// nested writes; relation handles are gone.
+			const readTags = (
+				select: { readonly label: true } | { readonly acl: true },
+			) =>
+				Article.findOne(
+					{
+						where: { id: { eq: article.id } },
+						select: { id: true },
+						include: { tags: { take: 10, select } },
+					},
+					{ context },
+				)
 
+			await expect(readTags({ label: true })).resolves.toEqual({
+				id: article.id,
+				tags: [expect.objectContaining({ label: 'visible' })],
+			})
+			// An included forbidden target projection is indistinguishable from
+			// an absent member, as for an included pointer above.
+			await expect(readTags({ acl: true })).resolves.toEqual({
+				id: article.id,
+				tags: [],
+			})
 			await expect(
-				tags.findMany({ limit: 10, select: { label: true } }, { context }),
-			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
-			await expect(tags.count({}, { context })).resolves.toBe(1)
-			await expect(tags.exists({}, { context })).resolves.toBe(true)
+				Article.findOne(
+					{
+						where: {
+							id: { eq: requireFixture(hiddenArticle, 'hidden article').id },
+						},
+						include: { tags: {} },
+					},
+					{ context },
+				),
+			).resolves.toBeNull()
 			await expect(
-				tags.findMany({ select: { acl: true } }, { context }),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-			await expect(
-				requireFixture(hiddenArticle, 'hidden article')
-					.relation('tags')
-					.findMany(undefined, { context }),
-			).resolves.toStrictEqual([])
-			await expect(
-				tags.connect(requireFixture(hiddenTag, 'hidden tag').id, {
-					context,
-				}),
+				Article.updateOne(
+					{
+						where: { id: { eq: article.id } },
+						data: {
+							tags: { connect: [requireFixture(hiddenTag, 'hidden tag').id] },
+						},
+					},
+					{ context },
+				),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 	},

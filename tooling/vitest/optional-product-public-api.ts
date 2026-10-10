@@ -311,6 +311,7 @@ export const restPluginPublicApi = {
 		'RestPluginExports',
 		'RestPluginOperationRouteDefinition',
 		'RestPluginOperationRouteProvenance',
+		'RestPaginationOptions',
 		'RestPluginOptions',
 		'RestReadErrorCode',
 		'RestReadLimits',
@@ -357,8 +358,8 @@ export const graphqlPluginPublicApi = {
 		'GraphqlDecimal',
 		'GraphqlExecutionLimits',
 		'GraphqlExecuteOptions',
-		'GraphqlInvalidCursorError',
 		'GraphqlJSON',
+		'GraphqlPaginationOptions',
 		'GraphqlPlugin',
 		'GraphqlPluginExports',
 		'GraphqlPluginOptions',
@@ -516,6 +517,8 @@ export const removedRestPluginPublicApiNames = [
 /** Names GraphQL compilation details deliberately kept out of the root API. */
 export const removedGraphqlPluginPublicApiNames = [
 	'GraphqlFieldTypeCompiler',
+	// Cursor failures are Core's `after` VALIDATION_ERROR (ADR-0309).
+	'GraphqlInvalidCursorError',
 	'GraphqlOperationExecution',
 	'GraphqlOperationSchemaCompiler',
 	'collectGraphqlSchemaSurfaces',

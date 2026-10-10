@@ -90,7 +90,6 @@ export const ExampleSoftDeleteEvent = MinimalSchemaApplication.Schema.define({
 		logicalOperation: field.string({ required: true }),
 		persistenceEffect: field.enum({
 			required: true,
-			typeName: 'ExampleSoftDeletePersistenceEffect',
 			values: ['update', 'delete'],
 		}),
 		schemaName: field.string({ required: true }),
@@ -133,7 +132,6 @@ export const ExampleAuthor = MinimalSchemaApplication.Schema.define({
 		}),
 		audience: field.enum({
 			default: 'public',
-			typeName: 'ExampleAuthorAudience',
 			values: ['authenticated', 'public'],
 		}),
 		contributions: field.relation({

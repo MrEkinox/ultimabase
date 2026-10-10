@@ -188,10 +188,9 @@ with `NOT_FOUND`, just as it does for an absent target.
 
 Inside an active request, the same class methods preserve the exact request
 owner. The advanced application handle
-`ultimabase.schema(Post).softDelete(...)` and persisted model method
-`post.softDelete()` are also available. A retained model is an immutable
-snapshot; having that object does not make a tombstone visible or allow you to
-soft-delete it twice.
+`ultimabase.schema(Post).softDelete(...)` is also available. Results are frozen
+plain data without methods (ADR-0310); a retained result does not make a
+tombstone visible or allow you to soft-delete it twice.
 
 <Callout type="warn" title="Native delete stays permanent in explicit mode">
 	`Post.deleteOne()`, REST `DELETE`, and GraphQL `deletePost` still physically
@@ -425,7 +424,7 @@ the database's ordinary integrity rules. Missing, active, and already purged
 targets all produce the same `NOT_FOUND` result for restore and purge.
 
 The equivalent application handles `.restore()` and `.purge()` remain available.
-Neither command exists on persisted models, in REST, in GraphQL, or as an
+Neither command exists on a result, in REST, in GraphQL, or as an
 Access-policy branch. Master does not skip Hooks or transaction integrity.
 
 ### Keep existing delete calls

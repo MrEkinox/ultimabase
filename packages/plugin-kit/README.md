@@ -276,7 +276,7 @@ plugin({
 				models.extend(Post, {
 					contributionId: 'workflow-mutations',
 					schemaMutations: {
-						archive: { mutation: archive, surfaces: ['schema', 'model'] },
+						archive: { mutation: archive, surfaces: ['schema'] },
 					},
 				}),
 		}),

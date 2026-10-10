@@ -147,7 +147,7 @@ export const normalizeUniqueUpsertTarget = <
 
 	if (
 		query.ordering.orders.length > 0 ||
-		query.limit !== undefined ||
+		query.take !== undefined ||
 		query.pagination !== undefined
 	) {
 		throw new TypeError(`${path} query cannot use ordering or pagination`)

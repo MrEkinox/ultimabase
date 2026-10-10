@@ -41,7 +41,7 @@ UltimaBase.Schema.define({
 declare const enumRoot: FieldBuilder
 declare const enumEmbedded: EmbeddedFieldBuilder
 const ${enumFieldMarker}rootEnum = enumRoot.enum({ values: ['draft', 'published'], list: true, default: ['draft'] })
-const ${embeddedEnumFieldMarker}embeddedEnum = enumEmbedded.enum({ values: { Draft: 'draft', Published: 'published' }, required: true })
+const ${embeddedEnumFieldMarker}embeddedEnum = enumEmbedded.enum({ values: ['draft', 'published'], required: true })
 `
 const markers = [
 	rootMarker,
@@ -111,7 +111,7 @@ const embeddedSpecificOptions: Readonly<
 	date: ['autoNow'],
 	dateTime: ['autoNow', 'timezone'],
 	decimal: ['precision', 'scale'],
-	enum: ['typeName', 'values'],
+	enum: ['values'],
 	float: [],
 	int: [],
 	json: [],

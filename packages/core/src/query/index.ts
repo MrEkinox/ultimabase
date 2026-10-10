@@ -9,11 +9,11 @@ export type {
 	QueryIncludedPointerNode,
 	QueryIncludedRelationNode,
 	QueryInclusionNode,
-	QueryOffsetPaginationNode,
 	QueryOrderingNode,
 	QueryOrderDirection,
 	QueryOrderNode,
 	QueryPaginationNode,
+	QuerySkipPaginationNode,
 	QuerySchemaNode,
 	QuerySelectedFieldNode,
 	QuerySelectionNode,
@@ -22,10 +22,10 @@ export type {
 export { normalizeQueryOrdering } from './clauses/ordering.js'
 export type { QueryOrderInput } from './clauses/ordering.js'
 export {
-	normalizeQueryLimit,
-	normalizeQueryOffsetPagination,
+	normalizeQuerySkipPagination,
+	normalizeQueryTake,
 } from './clauses/pagination.js'
-export type { QueryOffsetPaginationInput } from './clauses/pagination.js'
+export type { QuerySkipPaginationInput } from './clauses/pagination.js'
 export { normalizeQuerySelection } from './clauses/selection.js'
 export type { QuerySelectedField, QuerySelection } from './clauses/selection.js'
 export { normalizeQueryInclusion } from './clauses/inclusion.js'

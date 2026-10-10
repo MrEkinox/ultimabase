@@ -99,38 +99,6 @@ export type UltimaBaseGeneratedSchemaClassSurface<TClassName extends string> =
 export interface UltimaBaseGeneratedRegistryState {}
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
-type GeneratedSchemaSurfaceName<TSchema extends SchemaTypeInfoSource> =
-	TSchema extends Readonly<{
-		readonly className: infer TClassName extends string
-	}>
-		? TClassName
-		: TSchema extends SchemaTypeInfo
-			? TSchema['key']
-			: never
-
-type GeneratedSchemaSurfaceFor<TSchema extends SchemaTypeInfoSource> = [
-	GeneratedSchemaSurfaceName<TSchema>,
-] extends [never]
-	? never
-	: GeneratedSchemaSurfaceName<TSchema> extends keyof UltimaBaseGeneratedSchemaSurfaces
-		? UltimaBaseGeneratedSchemaSurfaces[GeneratedSchemaSurfaceName<TSchema>]
-		: never
-
-type GeneratedModelAugmentation<TSchema extends SchemaTypeInfoSource> = [
-	GeneratedSchemaSurfaceFor<TSchema>,
-] extends [never]
-	? Readonly<Record<never, never>>
-	: GeneratedSchemaSurfaceFor<TSchema> extends Readonly<{
-				readonly model: infer TModel extends object
-		  }>
-		? TModel
-		: Readonly<Record<never, never>>
-
-/** Adds callable application-local plugin commands to Runtime model results. */
-export type UltimaBaseGeneratedModelSurface<
-	TSchema extends SchemaTypeInfoSource,
-> = GeneratedModelAugmentation<TSchema>
-
 /** Groups the public operation inputs generated for one schema. */
 export interface SchemaInputsTypeInfo {
 	readonly create: object

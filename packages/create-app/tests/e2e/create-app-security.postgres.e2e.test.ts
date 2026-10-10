@@ -102,7 +102,7 @@ try {
   await auth.runWithSession(alice.session.token, async () => {
     const users = await AppUser.findMany()
     assert.deepEqual(users.map(user => user.id), [alice.user.id])
-    assert.equal(await AppUser.pointer(bob.user.id).findOne(), null)
+    assert.equal(await AppUser.findOne({ where: { id: { eq: bob.user.id } } }), null)
     // The profile rule must not grant writes, even to the caller's own User.
     await assert.rejects(AppUser.updateOne({ where: { id: { eq: alice.user.id } }, data: { displayName: 'Changed' } }), { code: 'PERMISSION_DENIED' })
   })
@@ -144,7 +144,7 @@ try {
     username: 'alice', password: 'correct horse battery staple',
   })
   const role = await AppRole.createOne({ data: { name: 'editor' } }, { useMasterKey: true })
-  await role.addMember(signed.principal.user, { useMasterKey: true })
+  await AppRole.updateOne({ where: { id: { eq: role.id } }, data: { members: { connect: [signed.principal.user.id] } } }, { useMasterKey: true })
   const task = await Task.createOne({ data: {
     title: 'Role-owned task',
     acl: new ACL().grantRole(AppRole.role({ id: role.id }), 'read'),

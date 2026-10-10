@@ -1,6 +1,7 @@
 # ADR-0109: Constructible schema model classes
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0310
 - Date: 2026-08-03
 - Refines: ADR-0005, ADR-0019, ADR-0052, ADR-0067, ADR-0094, ADR-0108
 - Supersedes: ADR-0093

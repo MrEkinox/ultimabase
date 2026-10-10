@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { UltimaBase, Schema } from '@ultimabase/core'
+import { UltimaBase, Schema, defineEnum } from '@ultimabase/core'
 import { accessPlugin } from '@ultimabase/access-plugin'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
@@ -23,22 +23,16 @@ export const createGeneratedRegistry = (): string => {
 			articles: field.relation({ target: 'SemanticArticle' }),
 		}),
 	})
+	// ADR-0310: one shared enum names one generated type.
+	const SemanticStatus = defineEnum('SemanticStatus', ['draft', 'published'])
 	const Article = FixtureApplication.Schema.define({
 		className: 'SemanticArticle',
 		fields: (field) => ({
 			title: field.string({ required: true }),
 			views: field.int(),
 			scores: field.int({ list: true }),
-			statuses: field.enum({
-				list: true,
-				typeName: 'SemanticStatus',
-				values: ['draft', 'published'],
-			}),
-			status: field.enum({
-				typeName: 'SemanticStatus',
-				required: true,
-				values: ['draft', 'published'],
-			}),
+			statuses: field.enum({ list: true, values: SemanticStatus }),
+			status: field.enum({ required: true, values: SemanticStatus }),
 			profile: field.object({
 				fields: (field) => ({
 					displayName: field.string({

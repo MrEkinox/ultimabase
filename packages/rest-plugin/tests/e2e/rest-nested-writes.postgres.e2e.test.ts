@@ -4,6 +4,7 @@ import {
 	UltimaBase,
 	type RequestContext,
 	type PluginSourceState,
+	type Model,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
@@ -22,6 +23,7 @@ import {
 	runAsRestMutationExecutionHarness,
 	type RestMutationExecutionHarness,
 } from '../../../../tests/fixtures/rest-mutation-request-harness.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const RestNestedWriteApplication = UltimaBase.use(accessPlugin())
 
@@ -92,33 +94,27 @@ const getContext = (mode: 'anonymous' | 'master'): RequestContext => {
 	return context
 }
 
+// ADR-0310: direct results are frozen plain objects.
 const toJson = (value: unknown): Readonly<Record<string, unknown>> => {
-	if (typeof value !== 'object' || value === null) {
-		throw new TypeError('Expected one REST nested-write model')
+	if (!isPlainResult(value)) {
+		throw new TypeError('Expected one frozen plain result')
 	}
-	const model = value as { readonly toJSON?: unknown }
-	if (typeof model.toJSON !== 'function') {
-		throw new TypeError('Expected one REST nested-write model')
-	}
-	return (
-		model as { readonly toJSON: () => Readonly<Record<string, unknown>> }
-	).toJSON()
+	return value
 }
 
 const includedTargets = (
 	value: unknown,
-): readonly (InstanceType<typeof Target> & Readonly<{ id: string }>)[] => {
+): readonly (Model<typeof Target> & Readonly<{ id: string }>)[] => {
 	if (
 		!Array.isArray(value) ||
 		!value.every(
 			(item) =>
-				item instanceof Target && typeof Reflect.get(item, 'id') === 'string',
+				isPlainResult(item) && typeof Reflect.get(item, 'id') === 'string',
 		)
 	) {
 		throw new TypeError('Expected included REST nested-write targets')
 	}
-	return value as readonly (InstanceType<typeof Target> &
-		Readonly<{ id: string }>)[]
+	return value as readonly (Model<typeof Target> & Readonly<{ id: string }>)[]
 }
 
 beforeAll(async () => {

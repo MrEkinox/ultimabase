@@ -2,6 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	UltimaBase,
+	type CreateInput,
 	type JsonDocument,
 	type QueryResult,
 	type SchemaCreateData,
@@ -184,16 +185,16 @@ test('drives operation inputs, projections, and results from the source contract
 
 test('keeps direct relationship targets exact without a generated registry', () => {
 	type Article = SchemaItem<typeof SourceArticle>
-	const draft = new SourceArticle({
+	const data: CreateInput<typeof SourceArticle> = {
 		author: { connect: SourceAuthor.pointer('author-1') },
 		title: 'Source relationships',
-	})
+	}
 
 	expectTypeOf<Article['author']['schema']>().toEqualTypeOf<
 		typeof SourceAuthor
 	>()
-	// A draft keeps its pointer as the `connect` link it creates (ADR-0308).
-	expectTypeOf(draft.author).toHaveProperty('connect')
+	// Create data links a pointer through `connect` (ADR-0308, ADR-0310).
+	expectTypeOf(data.author).toHaveProperty('connect')
 
 	void SourceArticle.createOne({
 		data: {

@@ -62,33 +62,33 @@ describe('QueryBuilder', () => {
 		const source = new QueryBuilder(postSchema)
 			.select({ id: true, title: true })
 			.where((where) => where.eq('published', true))
-			.limit(25)
+			.take(25)
 		const hydrated = hydrateQueryFromAst<typeof postSchema, 'id' | 'title'>(
 			source.ast,
 		)
-		const branch = hydrated.limit(10)
+		const branch = hydrated.take(10)
 
 		expect(hydrated).toBeInstanceOf(QueryBuilder)
 		expect(hydrated).not.toBe(source)
 		expect(hydrated.ast).toBe(source.ast)
 		expect(hydrated.schema).toBe(postSchema)
 		expect(Object.isFrozen(hydrated)).toBe(true)
-		expect(branch.ast.limit).toBe(10)
-		expect(hydrated.ast.limit).toBe(25)
-		expect(source.ast.limit).toBe(25)
+		expect(branch.ast.take).toBe(10)
+		expect(hydrated.ast.take).toBe(25)
+		expect(source.ast.take).toBe(25)
 		expect(branch.ast.selection).toBe(source.ast.selection)
 		expect(branch.ast.where).toBe(source.ast.where)
 	})
 
-	it('builds immutable selection, ordering, limit, and offset branches', () => {
+	it('builds immutable selection, ordering, take, and skip branches', () => {
 		const base = new QueryBuilder(postSchema)
 		const selected = base.select({ title: true, id: true })
 		const excluded = base.select({ published: false, updatedAt: false })
 		const replacedSelection = selected.select({ views: true })
 		const ordered = selected.descending('createdAt', 'title').ascending('title')
-		const limited = ordered.limit(25)
-		const offset = limited.offset(50)
-		const clearedOffset = offset.offset(0)
+		const limited = ordered.take(25)
+		const offset = limited.skip(50)
+		const clearedOffset = offset.skip(0)
 
 		expect(base.ast.selection.fields).toStrictEqual([])
 		expect(selected.ast.selection.fields).toStrictEqual([
@@ -117,13 +117,13 @@ describe('QueryBuilder', () => {
 			{ kind: 'order', field: 'createdAt', direction: 'descending' },
 			{ kind: 'order', field: 'title', direction: 'ascending' },
 		])
-		expect(limited.ast.limit).toBe(25)
+		expect(limited.ast.take).toBe(25)
 		expect(offset.ast.pagination).toStrictEqual({
-			kind: 'offset-pagination',
-			offset: 50,
+			kind: 'skip-pagination',
+			skip: 50,
 		})
 		expect(clearedOffset.ast.pagination).toBeUndefined()
-		expect(offset.build()).toMatchObject({ offset: 50, limit: 25 })
+		expect(offset.build()).toMatchObject({ skip: 50, take: 25 })
 		expect(base).not.toBe(selected)
 		expect(base).not.toBe(excluded)
 		expect(selected).not.toBe(replacedSelection)
@@ -137,10 +137,10 @@ describe('QueryBuilder', () => {
 			.select({ title: true })
 			.descending('createdAt')
 		const published = base.where((where) => where.eq('published', true))
-		const limited = published.limit(10)
+		const limited = published.take(10)
 		const noSelectionChange = base.select({})
 		const noOrderingChange = base.ascending()
-		const noOffsetChange = base.offset(0)
+		const noOffsetChange = base.skip(0)
 
 		expect(published.ast.schema).toBe(base.ast.schema)
 		expect(published.ast.selection).toBe(base.ast.selection)
@@ -201,8 +201,8 @@ describe('QueryBuilder', () => {
 					.select({ title: true })
 					.where((where) => where.ne('title', 'Archived'))
 					.descending('createdAt')
-					.limit(4)
-					.offset(2),
+					.take(4)
+					.skip(2),
 		)
 
 		expect(included.ast.selection.fields).toStrictEqual([])
@@ -210,8 +210,8 @@ describe('QueryBuilder', () => {
 			field: 'posts',
 			kind: 'included-relation',
 			query: {
-				limit: 4,
-				pagination: { kind: 'offset-pagination', offset: 2 },
+				take: 4,
+				pagination: { kind: 'skip-pagination', skip: 2 },
 				ordering: {
 					orders: [{ direction: 'descending', field: 'createdAt' }],
 				},
@@ -221,8 +221,8 @@ describe('QueryBuilder', () => {
 		expect(included.build()).toStrictEqual({
 			include: {
 				posts: {
-					limit: 4,
-					offset: 2,
+					take: 4,
+					skip: 2,
 					orderBy: { createdAt: 'desc' },
 					select: { id: true, title: true },
 					where: { title: { ne: 'Archived' } },
@@ -451,7 +451,7 @@ describe('QueryBuilder', () => {
 	})
 
 	it('combines object filters without copying other clauses', () => {
-		const base = new QueryBuilder(postSchema).limit(25).descending('createdAt')
+		const base = new QueryBuilder(postSchema).take(25).descending('createdAt')
 		const published = new QueryBuilder(postSchema).where({
 			published: { eq: true },
 		})
@@ -482,7 +482,7 @@ describe('QueryBuilder', () => {
 		expect(adopted.ast.where?.expression).toStrictEqual(
 			popular.ast.where?.expression,
 		)
-		expect(adopted.ast.limit).toBe(25)
+		expect(adopted.ast.take).toBe(25)
 		expect(adopted.ast.ordering).toBe(base.ast.ordering)
 	})
 

@@ -1,6 +1,7 @@
 # ADR-0150: Instance command result selections
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0310
 - Date: 2026-08-06
 
 ## Context

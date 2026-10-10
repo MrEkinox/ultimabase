@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { generateApplicationTypes } from './generator.js'
 
 describe('schema mutation Typegen', () => {
-	it('emits deterministic callback-free schema and model methods', () => {
+	it('emits deterministic callback-free schema methods', () => {
 		const inputReference = defineTypegenReference({
 			exportName: 'BaseItem',
 			module: '@ultimabase/core',
@@ -58,7 +58,7 @@ describe('schema mutation Typegen', () => {
 							schemaMutations: {
 								archive: {
 									mutation: archive,
-									surfaces: ['schema', 'model'],
+									surfaces: ['schema'],
 								},
 							},
 						})
@@ -104,19 +104,17 @@ describe('schema mutation Typegen', () => {
 		// Sparse output must not discard schema identity from the inert snapshot.
 		expect(first.snapshot.surfaces).toContainEqual({
 			className: 'TypegenSchemaMutationUnused',
-			modelMutations: [],
 			schemaMutations: [],
 		})
 		expect(first.contents).not.toContain(
 			'readonly "TypegenSchemaMutationUnused": {',
 		)
-		expect(first.contents).toContain(
-			'readonly archive: Core.ApplicationModelSchemaMutationMethod',
-		)
+		// ADR-0310: results have no methods, so no model surface is emitted.
+		expect(first.contents).not.toContain('ApplicationModelSchemaMutationMethod')
 		expect(first.contents).toContain(
 			'Core.PluginSchemaMutationDefinition<"fixture.workflow.archive", "1.1.0", Plugin0_BaseItem, readonly ["fixture.workflow.archive-rejected"], "request", "update", "after", Readonly<{ readonly workflowState: true }>>',
 		)
-		// Handles and models reference one descriptor; Core derives class methods.
+		// Handles reference one descriptor; Core derives schema methods.
 		expect(
 			first.contents.match(/Core\.PluginSchemaMutationDefinition</gu),
 		).toHaveLength(1)
@@ -124,7 +122,7 @@ describe('schema mutation Typegen', () => {
 			first.contents.match(
 				/Core\.UltimaBaseGeneratedSchemaSurfaces\["TypegenSchemaMutationPost"\]\["schemaMutations"\]\["archive"\]/gu,
 			),
-		).toHaveLength(2)
+		).toHaveLength(1)
 	})
 
 	it('omits empty operation and surface interfaces without dropping graph facts', () => {

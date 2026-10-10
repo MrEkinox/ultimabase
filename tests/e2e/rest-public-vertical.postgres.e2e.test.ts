@@ -29,6 +29,8 @@ const secondMasterKey = 'second-rest-master-secret'
 const articlePath = '/api/v1/classes/ExampleArticle'
 const authorPath = '/api/v1/classes/ExampleAuthor'
 const operationPath = '/api/v1/operations/example.status'
+// Without `skip`, an empty collection page has no next cursor (ADR-0309).
+const emptyPage = { nextCursor: null, results: [] }
 
 let firstFixture: PostgresWorkerFixture | undefined
 let secondFixture: PostgresWorkerFixture | undefined
@@ -240,19 +242,12 @@ describe(
 				error: { code: 'VALIDATION_ERROR' },
 			})
 
-			const article = await invoke(minimal.ExampleArticle, 'findOne', [
-				{ where: { id: { eq: articleId } } },
-				{ useMasterKey: true },
-			])
-			if (article === null)
-				throw new TypeError('Created REST article is missing')
-			const relation = await invoke(
-				readObject(article, 'created article'),
-				'relation',
-				['contributors'],
-			)
-			await invoke(readObject(relation, 'contributors relation'), 'connect', [
-				authorId,
+			// ADR-0310: links are nested writes, not relation-handle commands.
+			await invoke(minimal.ExampleArticle, 'updateOne', [
+				{
+					data: { contributors: { connect: [authorId] } },
+					where: { id: { eq: articleId } },
+				},
 				{ useMasterKey: true },
 			])
 
@@ -261,8 +256,8 @@ describe(
 					author: { select: { name: true } },
 					contributors: { select: { name: true } },
 				},
-				limit: 5,
-				offset: 0,
+				take: 5,
+				skip: 0,
 				orderBy: { title: 'asc' },
 				select: { author: true, slug: true, title: true },
 				where: { slug: { eq: 'public-one' } },
@@ -522,7 +517,7 @@ describe(
 				'POST',
 				{ where: { slug: { eq: 'second-only' } } },
 			)
-			expect(await responseJson(isolated)).toStrictEqual({ results: [] })
+			expect(await responseJson(isolated)).toStrictEqual(emptyPage)
 			expect(secondAudits).toStrictEqual([])
 
 			const forged = await jsonRequest(first, articlePath, 'POST', {
@@ -538,7 +533,7 @@ describe(
 				'POST',
 				{ where: { slug: { eq: 'forged-authority' } } },
 			)
-			expect(await responseJson(forgedLookup)).toStrictEqual({ results: [] })
+			expect(await responseJson(forgedLookup)).toStrictEqual(emptyPage)
 			const rejectedResponses = await Promise.all([
 				fetch(`${baseUrl}${articlePath}`),
 				fetch(`${baseUrl}${articlePath}`, {

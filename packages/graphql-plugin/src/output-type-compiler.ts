@@ -24,6 +24,7 @@ import {
 	memoize,
 	nonNullList,
 	readGraphqlEnumValues,
+	readGraphqlSharedEnum,
 	type GraphqlCompileContext,
 } from './compile-context.js'
 import { GraphqlSchemaCompilationError } from './errors.js'
@@ -182,6 +183,7 @@ export class GraphqlOutputTypeCompiler {
 	): GraphQLEnumType | GraphQLObjectType {
 		const name =
 			readTypeName(descriptor) ??
+			readGraphqlSharedEnum(descriptor.options)?.name ??
 			`${modelTypeName}${path.map(graphqlFieldTypeSegment).join('')}`
 		const signature = outputShapeSignature(descriptor)
 		const source = graphqlSourceDescription(schema, path)
@@ -233,8 +235,34 @@ export class GraphqlOutputTypeCompiler {
 		modelTypeName: string,
 	): GraphQLOutputType {
 		this.#assertSupported(descriptor, schema, path)
+		const shared =
+			descriptor.kind === 'enum'
+				? readGraphqlSharedEnum(descriptor.options)
+				: undefined
 		const element =
 			readGraphqlScalarType(descriptor.kind) ??
+			(shared === undefined
+				? undefined
+				: this.#ctx.sharedEnum(
+						shared.name,
+						() => {
+							this.#ctx.names.claimType(
+								shared.name,
+								graphqlSourceDescription(schema, path),
+								graphqlFieldOwner(schema, path),
+							)
+						},
+						() =>
+							new GraphQLEnumType({
+								name: shared.name,
+								values: Object.fromEntries(
+									shared.values.map((value) => [
+										graphqlEnumValueName(value),
+										{ value },
+									]),
+								),
+							}),
+					)) ??
 			this.#namedType(descriptor, schema, path, modelTypeName, (name) => {
 				if (descriptor.kind === 'enum') {
 					return new GraphQLEnumType({

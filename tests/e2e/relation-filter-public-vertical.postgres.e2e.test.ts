@@ -50,6 +50,7 @@ let sessionClient: MinimalClient | undefined
 let sessionToken = ''
 let articleId = ''
 let unlistedAuthorId = ''
+let accessHiddenAuthorId = ''
 
 const minimal = (): MinimalExampleModule => {
 	if (example === undefined)
@@ -163,17 +164,47 @@ const graphqlNetworkless = async (
 	])
 }
 
+/** Counts the physical `contributors` edges between two rows. */
+const countContributorEdges = async (sourceId: string, targetId: string) => {
+	const database = fixture
+	if (database === undefined) throw new TypeError('Database is unavailable')
+	const tables = await database.pool.query<{ readonly table_name: string }>(
+		`select table_name from information_schema.columns
+	 where table_schema = $1 and column_name in ('source_id', 'target_id')
+	 and table_name like '%contributors%'
+	 group by table_name having count(*) = 2`,
+		[database.schemaName],
+	)
+	const tableName = tables.rows[0]?.table_name
+	if (tableName === undefined) throw new TypeError('Join table is unavailable')
+	const quotedTable = `"${tableName.replaceAll('"', '""')}"`
+	return database.pool.query<{ readonly count: string }>(
+		`select count(*)::text as count from ${quotedTable} where source_id = $1 and target_id = $2`,
+		[sourceId, targetId],
+	)
+}
+
+// ADR-0310: results have no relation handles; read one parent's collection
+// through `include`.
 const findRelation = async (
-	model: object,
+	schema: object,
+	parent: object,
 	field: string,
-	input: Readonly<Record<string, unknown>> | undefined,
+	input: Readonly<Record<string, unknown>>,
 	context: RequestContext,
 ): Promise<unknown> => {
-	const relation = readObject(
-		await invoke(model, 'relation', [field]),
-		`${field} relation`,
+	const row = readObject(
+		await invoke(schema, 'findOne', [
+			{
+				include: { [field]: input },
+				select: { id: true },
+				where: { id: { eq: readString(parent, 'id') } },
+			},
+			{ context },
+		]),
+		`${field} parent`,
 	)
-	return invoke(relation, 'findMany', [input, { context }])
+	return Reflect.get(row, field)
 }
 
 beforeAll(async () => {
@@ -257,6 +288,7 @@ beforeAll(async () => {
 		throw new TypeError('Unlisted author fixture is unavailable')
 	}
 	unlistedAuthorId = readString(unlistedAuthor, 'id')
+	accessHiddenAuthorId = authorIds[3] ?? ''
 	const article = readObject(
 		await invoke(minimal().ExampleArticle, 'createOne', [
 			{
@@ -268,13 +300,16 @@ beforeAll(async () => {
 		'created article',
 	)
 	articleId = readString(article, 'id')
-	for (const field of ['contributors', 'reviewers']) {
-		const relation = readObject(
-			await invoke(article, 'relation', [field]),
-			`${field} relation`,
-		)
-		await invoke(relation, 'connect', [authorIds, { context: master }])
-	}
+	await invoke(minimal().ExampleArticle, 'updateOne', [
+		{
+			data: {
+				contributors: { connect: authorIds },
+				reviewers: { connect: authorIds },
+			},
+			where: { id: { eq: articleId } },
+		},
+		{ context: master },
+	])
 	await invoke(minimal().ExampleArticle, 'createOne', [
 		{
 			data: {
@@ -321,34 +356,53 @@ describe(
 				'relation article',
 			)
 			const callerQuery = {
-				limit: 10,
+				take: 10,
 				orderBy: { name: 'asc' },
 				select: { name: true },
 				where: { name: { contains: ' ' } },
 			}
 			expect(
 				relationNames(
-					await findRelation(article, 'contributors', callerQuery, anonymous),
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'contributors',
+						callerQuery,
+						anonymous,
+					),
 				),
 			).toStrictEqual(['A Public', 'B Authenticated'])
 			expect(
 				relationNames(
-					await findRelation(article, 'reviewers', callerQuery, anonymous),
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'reviewers',
+						callerQuery,
+						anonymous,
+					),
 				),
 			).toStrictEqual(['A Public', 'C Unlisted'])
-			const contributors = readObject(
-				await invoke(article, 'relation', ['contributors']),
-				'contributors relation',
-			)
 			expect(
-				await invoke(contributors, 'count', [
-					undefined,
-					{ context: anonymous },
-				]),
-			).toBe(2)
+				readArray(
+					await findRelation(
+						minimal().ExampleArticle,
+						article,
+						'contributors',
+						{},
+						anonymous,
+					),
+					'contributors',
+				),
+			).toHaveLength(2)
 			expect(
-				await invoke(contributors, 'exists', [
-					{ where: { name: { eq: 'C Unlisted' } } },
+				await invoke(minimal().ExampleArticle, 'exists', [
+					{
+						where: {
+							contributors: { some: { name: { eq: 'C Unlisted' } } },
+							id: { eq: articleId },
+						},
+					},
 					{ context: anonymous },
 				]),
 			).toBe(false)
@@ -376,13 +430,18 @@ describe(
 				['articles', 0],
 				['contributions', 2],
 			] as const) {
-				const relation = readObject(
-					await invoke(publicAuthor, 'relation', [field]),
-					`${field} relation`,
-				)
 				expect(
-					await invoke(relation, 'count', [undefined, { context: anonymous }]),
-				).toBe(expected)
+					readArray(
+						await findRelation(
+							minimal().ExampleAuthor,
+							publicAuthor,
+							field,
+							{},
+							anonymous,
+						),
+						field,
+					),
+				).toHaveLength(expected)
 			}
 
 			recorder().reset()
@@ -450,6 +509,8 @@ describe(
 				hasNextPage: true,
 				names: ['A Public'],
 			})
+			// A relation connection pages by position per parent (ADR-0309,
+			// step 3b amendment).
 			const second = readGraphqlField(
 				await graphqlNetworkless('anonymous', relationQuery, {
 					after: page.endCursor,
@@ -507,6 +568,49 @@ describe(
 			).toEqual(graphqlChecks)
 		})
 
+		it('lets a caller unlink a member hidden only by the declared filter', async () => {
+			const master = await createContext('master')
+			const anonymous = await createContext('anonymous')
+			const created = readObject(
+				await invoke(minimal().ExampleArticle, 'createOne', [
+					{
+						data: {
+							acl: publicAcl,
+							contributors: {
+								connect: [unlistedAuthorId, accessHiddenAuthorId],
+							},
+							slug: 'relation-caller-unlink',
+							title: 'Relation caller unlink',
+						},
+						select: { id: true },
+					},
+					{ context: master },
+				]),
+				'created caller-unlink article',
+			)
+			const createdId = readString(created, 'id')
+			const disconnect = (authorId: string) =>
+				invoke(minimal().ExampleArticle, 'updateOne', [
+					{
+						data: { contributors: { disconnect: [authorId] } },
+						where: { id: { eq: createdId } },
+					},
+					{ context: anonymous },
+				])
+			// A member hidden by an installed policy stays hidden from the caller.
+			await expect(disconnect(accessHiddenAuthorId)).rejects.toMatchObject({
+				code: 'NOT_FOUND',
+			})
+			expect(
+				(await countContributorEdges(createdId, accessHiddenAuthorId)).rows,
+			).toStrictEqual([{ count: '1' }])
+			// A member hidden only by the declared `where` is unlinked (ADR-0308).
+			await disconnect(unlistedAuthorId)
+			expect(
+				(await countContributorEdges(createdId, unlistedAuthorId)).rows,
+			).toStrictEqual([{ count: '0' }])
+		})
+
 		it('keeps physical writes independent from filtered mutation projections', async () => {
 			const master = await createContext('master')
 			const created = readObject(
@@ -529,32 +633,17 @@ describe(
 				[],
 			)
 
-			const database = fixture
-			if (database === undefined) throw new TypeError('Database is unavailable')
-			const tables = await database.pool.query<{ readonly table_name: string }>(
-				`select table_name from information_schema.columns
-			 where table_schema = $1 and column_name in ('source_id', 'target_id')
-			 and table_name like '%contributors%'
-			 group by table_name having count(*) = 2`,
-				[database.schemaName],
-			)
-			const tableName = tables.rows[0]?.table_name
-			if (tableName === undefined)
-				throw new TypeError('Join table is unavailable')
-			const quotedTable = `"${tableName.replaceAll('"', '""')}"`
 			const createdId = readString(created, 'id')
 			const countEdges = () =>
-				database.pool.query<{ readonly count: string }>(
-					`select count(*)::text as count from ${quotedTable} where source_id = $1 and target_id = $2`,
-					[createdId, unlistedAuthorId],
-				)
+				countContributorEdges(createdId, unlistedAuthorId)
 			expect((await countEdges()).rows).toStrictEqual([{ count: '1' }])
-			const relation = readObject(
-				await invoke(created, 'relation', ['contributors']),
-				'created contributors relation',
-			)
-			await invoke(relation, 'disconnect', [
-				unlistedAuthorId,
+			// The declared relation `where` limits reads, not unlinking: Master
+			// removes the member it hides (ADR-0308, step 3b amendment).
+			await invoke(minimal().ExampleArticle, 'updateOne', [
+				{
+					data: { contributors: { disconnect: [unlistedAuthorId] } },
+					where: { id: { eq: createdId } },
+				},
 				{ context: master },
 			])
 			expect((await countEdges()).rows).toStrictEqual([{ count: '0' }])

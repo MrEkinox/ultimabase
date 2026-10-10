@@ -9,7 +9,7 @@ contentType: reference
 order: 1
 outcome: Choose the packages you need and verify their runtime and plugin compatibility.
 releaseStatus: pre-release
-reviewedAt: 2026-09-25
+reviewedAt: 2026-10-10
 sources:
   - README.md
   - package.json
@@ -19,6 +19,7 @@ sources:
   - docs/RELEASING.md
   - apps/website/lib/docs-versions.ts
   - docs/adr/0269-core-native-plugin-authoring.md
+  - docs/adr/0309-core-cursor-pagination.md
 ---
 
 Use this page to choose package roots, not to configure each plugin. The
@@ -54,7 +55,9 @@ a listing is not a compatibility guarantee.
 ## Public package roots
 
 Import only the package root. A path into a package's `src/` directory is not
-part of its public contract. Importing a plugin package does not install its
+part of its public contract. The one exception is `@ultimabase/core/plugin`,
+Core's plugin-author subpath (ADR-0311), which transports import for the shared
+pagination cursor encoder (ADR-0309); applications do not need it. Importing a plugin package does not install its
 behavior; add its factory to your application graph.
 
 ### Framework and tooling

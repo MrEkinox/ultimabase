@@ -2,8 +2,6 @@ import { FrameworkError, PluginError, PublicError } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { GraphQLError, type GraphQLErrorExtensions } from 'graphql'
 
-import { GraphqlInvalidCursorError } from './connection-errors.js'
-
 interface PublicFailure {
 	readonly code: string
 	readonly details?: Readonly<Record<string, unknown>>
@@ -48,17 +46,13 @@ const publicFailure = (
 	}
 }
 
-const failureFor = (error: unknown): PublicFailure => {
-	if (error instanceof GraphqlInvalidCursorError) {
-		return { code: error.code, message: error.message, retryable: false }
-	}
+const failureFor = (error: unknown): PublicFailure =>
 	// Application errors keep their code in `extensions.code` (ADR-0305).
-	return error instanceof FrameworkError ||
-		error instanceof PluginError ||
-		error instanceof PublicError
+	error instanceof FrameworkError ||
+	error instanceof PluginError ||
+	error instanceof PublicError
 		? publicFailure(error)
 		: internalFailure
-}
 
 /** Masks one generated resolver failure behind GraphQL's public error contract. */
 export const createSafeGraphqlError = (

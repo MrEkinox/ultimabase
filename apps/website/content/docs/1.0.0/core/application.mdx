@@ -171,7 +171,7 @@ application, reads directly from TypeScript, and closes it. It assumes the
 packages and disposable database from [Manual Installation](/docs/1.0.0/manual-installation):
 
 ```ts title="src/main.ts"
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 const Task = UltimaBase.Schema.define({
@@ -194,8 +194,8 @@ const app = new Application({
 
 try {
 	await app.start()
-	const tasks = await Task.findMany({ limit: 20 })
-	console.log(tasks.map((task) => task.toJSON()))
+	const tasks = await Task.findMany({ take: 20 })
+	console.log(toJSON(tasks))
 } finally {
 	await app.dispose()
 }

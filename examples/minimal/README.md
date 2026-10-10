@@ -20,8 +20,8 @@ The schema factory installs REST and GraphQL before declaring schemas, so their
 `rest` and `graphql` options are typed from source; the application extends that same flat plugin
 chain and explicitly registers the schemas at construction.
 REST and GraphQL normalize requests into the same Core operation pipeline;
-their offset envelopes and Relay connections remain intentionally different
-wire representations.
+their `{ results, nextCursor }` envelopes and Relay connections remain
+intentionally different wire representations of the same cursors.
 
 ## Run it
 
@@ -75,18 +75,14 @@ then makes each schema's intent explicit:
   separately authorized `softDelete` command is added.
 - `ExamplePrivateNote` omits the option and therefore inherits `disabled`.
 
-An authenticated direct call uses the configured schema class or
-the same command on a loaded model. The example helper validates a real Password
-Auth session before entering the ambient request context:
+An authenticated direct call uses the configured schema class; results have no
+methods (ADR-0310). The example helper validates a real Password Auth session
+before entering the ambient request context:
 
 ```ts
-import {
-	softDeleteArticle,
-	softDeleteArticleFromModel,
-} from './src/soft-delete.ts'
+import { softDeleteArticle } from './src/soft-delete.ts'
 
 await softDeleteArticle(ultimabase, articleId, sessionToken)
-await softDeleteArticleFromModel(ultimabase, anotherArticleId, sessionToken)
 ```
 
 The matching REST and GraphQL calls are generated from that same mutation
@@ -155,7 +151,7 @@ reviewers: field.relation({
 The same declaration shapes direct relation handles, nested inclusions, REST
 relationship projections, GraphQL connections, and the visible universe used
 by `some`, `none`, `every`, `count`, `isEmpty`, and `isNotEmpty`. A caller's
-target `where` is added with logical `AND`; ordering, offset, and limit run
+target `where` is added with logical `AND`; ordering, `skip`, and `take` run
 after filtering. `ExampleAuthor.articles` and `contributions` show the same
 contract on inverse pointer and inverse relation storage.
 

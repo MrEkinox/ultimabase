@@ -46,8 +46,8 @@ describe('canonical read inputs', () => {
 					select: { id: true, name: true },
 				},
 			},
-			limit: 20,
-			offset: 10,
+			take: 20,
+			skip: 10,
 			orderBy: { createdAt: 'desc', id: 'asc' },
 			select: { id: true, title: true },
 			where: { title: { contains: 'TypeScript' } },
@@ -56,14 +56,14 @@ describe('canonical read inputs', () => {
 		expect(query).not.toBeInstanceOf(QueryBuilder)
 		expect(Object.isFrozen(query)).toBe(true)
 		expect(query.ast).toMatchObject({
-			limit: 20,
+			take: 20,
 			ordering: {
 				orders: [
 					{ direction: 'descending', field: 'createdAt' },
 					{ direction: 'ascending', field: 'id' },
 				],
 			},
-			pagination: { kind: 'offset-pagination', offset: 10 },
+			pagination: { kind: 'skip-pagination', skip: 10 },
 			selection: {
 				fields: [
 					{ field: 'id', kind: 'selected-field' },
@@ -92,8 +92,8 @@ describe('canonical read inputs', () => {
 				posts: {
 					where: { title: { contains: 'TypeScript' } },
 					orderBy: { createdAt: 'desc' },
-					limit: 3,
-					offset: 2,
+					take: 3,
+					skip: 2,
 					select: { title: true },
 				},
 			},
@@ -107,10 +107,14 @@ describe('canonical read inputs', () => {
 			field: 'posts',
 			kind: 'included-relation',
 			query: {
-				limit: 3,
-				pagination: { kind: 'offset-pagination', offset: 2 },
+				take: 3,
+				pagination: { kind: 'skip-pagination', skip: 2 },
 				ordering: {
-					orders: [{ direction: 'descending', field: 'createdAt' }],
+					// Included collections are completed by `id` too (ADR-0309).
+					orders: [
+						{ direction: 'descending', field: 'createdAt' },
+						{ direction: 'ascending', field: 'id' },
+					],
 				},
 				selection: { fields: [{ field: 'title' }, { field: 'id' }] },
 				where: {
@@ -124,15 +128,65 @@ describe('canonical read inputs', () => {
 		})
 	})
 
+	// ADR-0309 step 3b amendment: an included collection pages by position.
+	it('turns an included relation `after` into a position filter per parent', () => {
+		const after = {
+			createdAt: '2026-10-10T10:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000001',
+		}
+		const query = queryFromFindManyInput(Feed, {
+			include: {
+				posts: { orderBy: { createdAt: 'desc' }, take: 2, after },
+			},
+		})
+		const included = query.ast.inclusion.fields[0]
+
+		expect(included).toMatchObject({
+			field: 'posts',
+			query: {
+				take: 2,
+				ordering: {
+					orders: [
+						{ direction: 'descending', field: 'createdAt' },
+						{ direction: 'ascending', field: 'id' },
+					],
+				},
+				where: { expression: { kind: 'or' } },
+			},
+		})
+		expect(() =>
+			queryFromFindManyInput(Feed, {
+				include: { posts: { after, skip: 1 } },
+			}),
+		).toThrow(
+			expect.objectContaining({
+				code: 'VALIDATION_ERROR',
+				publicDetails: { parameter: 'after' },
+			}),
+		)
+		expect(() =>
+			queryFromFindManyInput(Feed, {
+				include: {
+					posts: { orderBy: { title: 'asc' }, after: { id: after.id } },
+				},
+			}),
+		).toThrow(
+			expect.objectContaining({
+				code: 'VALIDATION_ERROR',
+				publicDetails: { parameter: 'after' },
+			}),
+		)
+	})
+
 	it('keeps operation-specific inputs free of irrelevant clauses', () => {
-		expect(() => queryFromFindManyInput(Post, { skip: 10 } as never)).toThrow(
-			'find-many input contains an unknown clause: skip',
+		expect(() => queryFromFindManyInput(Post, { offset: 10 } as never)).toThrow(
+			'find-many input contains an unknown clause: offset',
 		)
 		expect(() =>
 			queryFromCountInput(Post, { select: { id: true } } as never),
 		).toThrow('count input contains an unknown clause: select')
-		expect(() => queryFromFindOneInput(Post, { limit: 1 } as never)).toThrow(
-			'find-one input contains an unknown clause: limit',
+		expect(() => queryFromFindOneInput(Post, { take: 1 } as never)).toThrow(
+			'find-one input contains an unknown clause: take',
 		)
 		expect(() =>
 			queryFromFindManyInput(Post, {
@@ -150,9 +204,9 @@ describe('canonical read inputs', () => {
 		).toThrow('pointer-target input contains an unknown clause: where')
 		expect(() =>
 			queryFromFindManyInput(Feed, {
-				include: { posts: { skip: 10 } },
+				include: { posts: { limit: 10 } },
 			} as never),
-		).toThrow('relation-target input contains an unknown clause: skip')
+		).toThrow('relation-target input contains an unknown clause: limit')
 		expect(() => queryFromGetInput(Post, {} as never)).toThrow(
 			'get input id must be a string',
 		)
@@ -176,6 +230,8 @@ describe('canonical read inputs', () => {
 		).toStrictEqual([
 			{ direction: 'descending', field: 'createdAt', kind: 'order' },
 			{ direction: 'ascending', field: 'title', kind: 'order' },
+			// A collection read always ends with `id` (ADR-0309).
+			{ direction: 'ascending', field: 'id', kind: 'order' },
 		])
 		expect(() =>
 			queryFromFindManyInput(Post, {

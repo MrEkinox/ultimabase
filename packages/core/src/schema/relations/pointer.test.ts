@@ -2,12 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { Pointer, snapshotPointerValue } from '../../index.js'
 import { createPointer } from './pointer.js'
-import {
-	registerOperationExecutionHandler,
-	runWithQueryExecution,
-	type QueryExecutionDispatcher,
-	type OperationPrivateScope,
-} from '../../query/operations/execution.js'
 import { UltimaBase } from '../../runtime/application/ultima-base.js'
 
 const userSchema = UltimaBase.Schema.define({
@@ -57,43 +51,17 @@ describe('Pointer', () => {
 		expect(pointer.id).toBe(targetId)
 	})
 
-	it('reads through one private target scope that hooks cannot discard', async () => {
+	it('keeps id, schema, equals and toJSON only (ADR-0310)', () => {
 		const pointer = userSchema.pointer(targetId)
-		let scope: OperationPrivateScope | undefined
-		let operation: unknown
-		const dispatcher: QueryExecutionDispatcher = {
-			execute: () => Promise.resolve(null),
-		}
 
-		registerOperationExecutionHandler(
-			dispatcher,
-			(nextOperation, _options, nextScope) => {
-				operation = nextOperation
-				scope = nextScope
-				return Promise.resolve(null)
-			},
-		)
-
-		await runWithQueryExecution({}, dispatcher, () =>
-			pointer.findOne({ select: { id: true } }),
-		)
-
-		expect(operation).toMatchObject({
-			kind: 'find-one',
-			query: { selection: { fields: [{ field: 'id' }] }, where: undefined },
+		expect('findOne' in pointer).toBe(false)
+		expect('exists' in pointer).toBe(false)
+		expect(typeof pointer.equals).toBe('function')
+		expect(pointer.toJSON()).toStrictEqual({
+			className: userSchema.className,
+			id: targetId,
+			type: 'pointer',
 		})
-		expect(scope).toMatchObject({
-			kind: 'row-filter',
-			objectId: targetId,
-		})
-		expect(scope).not.toHaveProperty('protectedPolicyDeniedAsMissing')
-		await runWithQueryExecution({}, dispatcher, () => pointer.exists())
-		expect(operation).toMatchObject({ kind: 'exists' })
-		expect(scope).toMatchObject({
-			kind: 'row-filter',
-			objectId: targetId,
-		})
-		expect(scope).not.toHaveProperty('protectedPolicyDeniedAsMissing')
 	})
 
 	it('structurally shares trusted values at snapshot boundaries', () => {

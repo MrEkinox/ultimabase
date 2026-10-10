@@ -3,6 +3,7 @@ import {
 	UltimaBase,
 	definePluginField,
 	materializeSchemaModel,
+	toJSON,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
@@ -129,53 +130,53 @@ const VirtualResponseRecord = UltimaBase.Schema.define({
 new SchemaRegistry([ResponseAuthor, ResponseRecord]).resolveSchemaTargets()
 
 describe('REST response values', () => {
-	it('encodes nested operation models only from the selected application registry', () => {
-		const schemas = new SchemaRegistry([ResponseAuthor, ResponseRecord])
+	it('encodes operation output with Core toJSON and schema routes with field codecs', () => {
 		const profile = materializeSchemaModel(ResponseRecord, {
 			id: recordId,
 			huge: 9_007_199_254_740_993n,
 			blob: new Uint8Array([1, 2, 3]),
 			code: 'VISIBLE',
 		})
+		// Operation output is plain data encoded by Core's toJSON (ADR-0310).
 		expect(
-			encodeRestJsonValue(
-				{ user: profile, nested: [profile] },
-				invalid,
-				schemas,
-			),
+			encodeRestJsonValue({ user: profile, nested: [profile] }, invalid),
 		).toEqual({
 			user: {
 				id: recordId,
 				huge: '9007199254740993',
 				blob: { type: 'binary', encoding: 'base64', data: 'AQID' },
-				code: { code: 'visible' },
+				code: 'VISIBLE',
 			},
 			nested: [
 				{
 					id: recordId,
 					huge: '9007199254740993',
 					blob: { type: 'binary', encoding: 'base64', data: 'AQID' },
-					code: { code: 'visible' },
+					code: 'VISIBLE',
 				},
 			],
 		})
-		expect(() =>
-			encodeRestJsonValue(profile, invalid, new SchemaRegistry([])),
-		).toThrow('Unrepresentable REST value')
-		expect(() => encodeRestJsonValue(profile, invalid)).toThrow(
-			'Unrepresentable REST value',
+		expect(encodeRestJsonValue({ user: profile }, invalid)).toEqual(
+			toJSON({ user: profile }),
 		)
+		// A schema route keeps the plugin field's REST codec.
+		expect(encodeRestSchemaResult(ResponseRecord, profile, invalid)).toEqual({
+			id: recordId,
+			huge: '9007199254740993',
+			blob: { type: 'binary', encoding: 'base64', data: 'AQID' },
+			code: { code: 'visible' },
+		})
 		expect(() =>
 			encodeRestSchemaResult(ResponseAuthor, profile, invalid),
 		).toThrow('Unrepresentable REST value')
-		// Ordinary JSON never accepts a model, even inside a schema JSON field.
+		// Ordinary JSON never accepts a result, even inside a schema JSON field.
 		const invalidJson = materializeSchemaModel(ResponseRecord, {
 			id: recordId,
 			metadata: { user: profile },
 		})
-		expect(() => encodeRestJsonValue(invalidJson, invalid, schemas)).toThrow(
-			'Unrepresentable REST value',
-		)
+		expect(() =>
+			encodeRestSchemaResult(ResponseRecord, invalidJson, invalid),
+		).toThrow('Unrepresentable REST value')
 	})
 
 	it('applies the complete schema operation status and envelope matrix', async () => {

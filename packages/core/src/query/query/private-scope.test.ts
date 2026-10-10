@@ -18,7 +18,7 @@ describe('private Query scope ownership', () => {
 		)
 		const privateScope = readQueryPrivateScope(scoped)
 		const hydrated = hydrateQueryFromAst(scoped.ast, privateScope)
-		const branch = hydrated.limit(5)
+		const branch = hydrated.take(5)
 
 		expect(scoped.ast).toBe(source.ast)
 		expect(Object.keys(scoped)).toStrictEqual(['ast', 'schema'])

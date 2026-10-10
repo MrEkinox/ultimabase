@@ -36,7 +36,6 @@ stdout.write(
 	`${JSON.stringify({
 		defaultMode: option?.normalizedStaticOptions.defaultMode,
 		explicitMode: explicit?.definition.softDelete,
-		explicitModelMutations: [...(explicitSurface?.modelMutations.keys() ?? [])],
 		explicitSchemaMutations: [
 			...(explicitSurface?.schemaMutations.keys() ?? []),
 		],

@@ -186,8 +186,8 @@ describe('Runtime relation-filter inclusions', () => {
 					include: {
 						rooms: {
 							include: { members: { select: { name: true } } },
-							limit: 2,
-							offset: 1,
+							take: 2,
+							skip: 1,
 							orderBy: { name: 'desc' },
 							select: { name: true },
 							where: { name: { contains: 'room' } },
@@ -198,8 +198,7 @@ describe('Runtime relation-filter inclusions', () => {
 			)
 
 			expect(result).toHaveLength(2)
-			const output: unknown = result.map((workspace) => workspace.toJSON())
-			expect(output).toEqual([
+			expect(result).toEqual([
 				{
 					id: firstWorkspace.id,
 					name: firstWorkspace.name,
@@ -232,11 +231,14 @@ describe('Runtime relation-filter inclusions', () => {
 			expect(roomPlan?.request.operation).toMatchObject({
 				kind: 'find-many',
 				query: {
-					limit: 2,
+					take: 2,
 					ordering: {
-						orders: [{ direction: 'descending', field: 'name' }],
+						orders: [
+							{ direction: 'descending', field: 'name' },
+							{ direction: 'ascending', field: 'id' },
+						],
 					},
-					pagination: { kind: 'offset-pagination', offset: 1 },
+					pagination: { kind: 'skip-pagination', skip: 1 },
 					selection: {
 						fields: [
 							{ field: 'name', kind: 'selected-field' },

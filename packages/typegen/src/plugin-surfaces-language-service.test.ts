@@ -101,16 +101,9 @@ const createGeneratedRegistry = (): string => {
 					models.extend(Dynamic, {
 						contributionId: 'publish',
 						schemaMutations: {
-							archive: {
-								mutation: archive,
-								surfaces: ['schema', 'model'],
-							},
+							archive: { mutation: archive, surfaces: ['schema'] },
 							archiveSchemaOnly: { mutation: archive, surfaces: ['schema'] },
-							archiveModelOnly: { mutation: archive, surfaces: ['model'] },
-							softDelete: {
-								mutation: softDelete,
-								surfaces: ['schema', 'model'],
-							},
+							softDelete: { mutation: softDelete, surfaces: ['schema'] },
 						},
 					})
 				},
@@ -187,15 +180,11 @@ const staticArchive = StaticPost.archive({ id: 'post-1', input: { id: 'reason-1'
 // @ts-expect-error -- Derived class methods retain exact mutation selection.
 StaticPost.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { missing: true } })
 StaticPost.archiveSchemaOnly({ id: 'post-1', input: { id: 'reason-1' } })
-// @ts-expect-error -- Sharing a descriptor does not expose model-only methods on classes.
-StaticPost.archiveModelOnly
 const schema = ultimabase.schema('SemanticDynamicPost')
 const envelope = ultimabase.operation('fixture.semantic.publish').prepare({ id: 'post-1' })
 const archiveExecution = schema.archive({ id: 'post-1', input: { id: 'reason-1' }, select: { title: true } })
 const softDeleteExecution = schema.softDelete({ id: 'post-1' })
 schema.archiveSchemaOnly({ id: 'post-1', input: { id: 'reason-1' } })
-// @ts-expect-error -- Advanced schema handles preserve the declared surface.
-schema.archiveModelOnly
 const exactId: string = envelope.payload.id
 const query = StaticPost.findMany({ where: { id: { eq: "post-1" } } })
 // @ts-expect-error -- Ordinary terminals no longer select an application.
@@ -209,7 +198,7 @@ const Author = UltimaBase.Schema.define({
 	className: 'SemanticSurfaceAuthor',
 	fields: (field) => ({ posts: field.relation({ target: 'SemanticDynamicPost' }) }),
 })
-const useModelCommands = async () => {
+const useSchemaCommands = async () => {
 	const archived = await schema.archive({ id: 'post-1', input: { id: 'reason-5' }, select: { title: true } })
 	const archivedTitle: string | null = archived.title
 	// @ts-expect-error -- Exact schema mutation results omit unselected fields.
@@ -219,35 +208,17 @@ const useModelCommands = async () => {
 	const fromSchema = await directSchema.findOne()
 	// @ts-expect-error -- The advanced handle does not duplicate ordinary CRUD.
 	schema.findOne()
-	if (fromSchema !== null) {
-		fromSchema.archiveModelOnly({ input: { id: 'reason-2' } })
-		// @ts-expect-error -- A canonical callback descriptor does not broaden model methods.
-		fromSchema.archiveSchemaOnly
-		const archiveResult = fromSchema.archive({ input: { id: 'reason-2' }, select: { title: true } })
-		const softDeleteResult = fromSchema.softDelete()
-		// @ts-expect-error -- Arbitrary operation commands are no longer generated.
-		fromSchema.publish({ missing: true })
-		// @ts-expect-error -- Payload-bearing mutations require their input property.
-		fromSchema.archive({ select: { title: true } })
-		// @ts-expect-error -- Payload-free model mutations omit the input property.
-		fromSchema.softDelete({ input: undefined })
-		void archiveResult
-		void softDeleteResult
-	}
+	// @ts-expect-error -- Results are data without plugin methods (ADR-0310).
+	fromSchema?.archive
 	void archivedTitle
 	void deletedTitle
 }
-const useRelatedModelCommands = async () => {
-	const author = await Author.findOne()
-	if (author === null) return
-	for (const post of await author.relation('posts').findMany()) {
-		const archived = await post.archive({ input: { id: 'reason-6' }, select: { title: true } })
-		const title: string | null = archived.title
-		await post.softDelete()
-		// @ts-expect-error -- Named relation results retain model-only visibility.
-		post.archiveSchemaOnly
-		// @ts-expect-error -- Related model mutations still require their payload.
-		post.archive({ select: { title: true } })
+const useRelatedResults = async () => {
+	const author = await Author.findOne({ include: { posts: {} } })
+	for (const post of author?.posts ?? []) {
+		const title: string | null = post.title
+		// @ts-expect-error -- Included rows are data without plugin methods (ADR-0310).
+		post.softDelete
 		void title
 	}
 }
@@ -281,8 +252,8 @@ void archiveExecution
 void softDeleteExecution
 void staticMutation
 void staticArchive
-void useModelCommands
-void useRelatedModelCommands
+void useSchemaCommands
+void useRelatedResults
 void unknownError
 void (undefined as unknown as RemovedHookContext)
 void (undefined as unknown as RemovedSchemaAccess)
@@ -318,7 +289,6 @@ void (undefined as unknown as RemovedFieldAccess)
 			expect(classNames).toEqual(
 				expect.arrayContaining(['archive', 'archiveSchemaOnly', 'softDelete']),
 			)
-			expect(classNames).not.toContain('archiveModelOnly')
 			const classDisplay =
 				service
 					.getQuickInfoAtPosition(fileName, classPosition)

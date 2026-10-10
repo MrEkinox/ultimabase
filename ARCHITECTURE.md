@@ -74,7 +74,7 @@ explicit Runtime registration root. Typegen remains the sole application-local
 literal-name graph for circular and cross-file schema relationships. Configured
 local fields, options and command surfaces infer from plugin source definitions;
 retained standalone, advanced-handle and complete-graph consumers still use
-generated descriptors. Direct class and immutable-model commands
+generated descriptors. Direct schema class commands
 resolve and verify the sole active application without storing resources or
 authority on the class.
 
@@ -309,9 +309,9 @@ schemas may declare the direct `rest` option, sparse declarations inherit the
 REST plugin default, and plugin-owned schemas remain private from generated CRUD
 routes. Short class paths normalize simple GET parameters or explicit complex
 POST bodies into the existing Query and Operation AST. REST returns stable
-`result`, `results`, `count`, `exists`, and error envelopes, uses limit and
-offset pagination without response metadata, and preserves atomic itemized bulk
-execution.
+`result`, `results`, `count`, `exists`, and error envelopes, pages with `take`
+and `skip` or with an opaque `after` cursor answered by `nextCursor` (ADR-0309),
+and preserves atomic itemized bulk execution.
 
 Official Hooks, Access, and Validation contracts live in their respective plugin
 packages. Importing a package does not install it. Official-compatible plugins and

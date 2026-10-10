@@ -341,7 +341,10 @@ describe(
 					{ where: { id: created.principal.user.id } },
 					{ useMasterKey: true },
 				)
-				await user.delete({}, { useMasterKey: true })
+				await PasswordUser.deleteOne(
+					{ where: { id: { eq: user.id } } },
+					{ useMasterKey: true },
+				)
 				const auth = application.ultimabase.plugin(
 					'@ultimabase/password-auth-plugin',
 				)

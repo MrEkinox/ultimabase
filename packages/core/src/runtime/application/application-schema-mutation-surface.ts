@@ -43,10 +43,9 @@ const surfaceStates = new WeakMap<object, SurfaceState>()
 const descriptorsFor = (
 	surface: CompiledApplicationSchemaSurface,
 ): readonly ApplicationSchemaMutationDescriptor[] => {
-	const commands = new Map<string, CompiledSchemaMutationCommand>([
-		...surface.schemaMutations,
-		...surface.modelMutations,
-	])
+	const commands = new Map<string, CompiledSchemaMutationCommand>(
+		surface.schemaMutations,
+	)
 
 	return immutableArray(
 		[...commands]

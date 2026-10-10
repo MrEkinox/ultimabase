@@ -39,19 +39,35 @@ const feed = await Post.findMany({
 	},
 	select: { id: true, title: true, createdAt: true },
 	orderBy: { createdAt: 'desc' },
-	limit: 25,
-	offset: 50,
+	take: 25,
+})
+const next = await Post.findMany({
+	where: {
+		OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
+	},
+	select: { id: true, title: true, createdAt: true },
+	orderBy: { createdAt: 'desc' },
+	take: 25,
+	after: feed.at(-1),
 })
 ```
 
-`limit` defines the maximum page size and `offset` skips a validated
-non-negative number of matching rows. Core exposes no cursor token or cursor
-codec. A transport may own its protocol-specific pagination contract and
-normalize it into ordinary Query clauses.
+`take` defines the maximum page size. `after` is the last row received from a
+read of the same shape (ADR-0309): Core completes the order with `id`
+ascending, validates the ordered values and `id` of that row, and turns them
+into an ordinary caller filter combined with `where` by `AND`, so the next page
+starts strictly after it. A row lacking an ordered field or `id` fails with
+`VALIDATION_ERROR` and `publicDetails: { parameter: 'after' }`. `skip` skips a
+validated non-negative number of matching rows instead and cannot be combined
+with `after`. Transports encode positions as opaque strings with the shared
+encoder of `@ultimabase/core/plugin` (`encodeQueryCursor`,
+`decodeQueryCursor`).
 
-`orderBy` is one schema-correlated object. Every direction is optional and may
-be `asc`, `desc`, or `null`; `null` is ignored like an absent property. When
-several fields are present, their property order defines ordering priority:
+`orderBy` is one schema-correlated object over non-list scalar and enum
+fields. Every direction is optional and may be `asc`, `desc`, or `null`; `null`
+is ignored like an absent property. When several fields are present, their
+property order defines ordering priority; a collection read always ends with
+`id` ascending unless `id` is already ordered:
 
 ```ts
 const stableFeed = await Post.findMany({
@@ -59,8 +75,9 @@ const stableFeed = await Post.findMany({
 })
 ```
 
-Relation inclusions accept the same `offset` name. The adapter applies it
-independently to every parent collection.
+Relation inclusions accept the same `take`, `skip` and `after` clauses, with
+the same keyset rules as a root `findMany`. The adapter applies them
+independently to every parent collection, without `OFFSET` for `after`.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` and the implicit `id` remain
@@ -81,7 +98,7 @@ result type cannot disagree with a dynamic runtime projection.
 Pointer inclusions accept only `select` and nested `include`. A pointer already
 identifies at most one target, so a nested `where` would ambiguously turn an
 existing but non-matching target into `null`. To-many relation inclusions retain
-`where`, ordering, offset, limit, selection, and nested inclusion.
+`where`, ordering, `skip`, `take`, selection, and nested inclusion.
 
 `where` receives one schema-correlated object. Field and operator keys combine
 through implicit `AND`, while `AND`, `OR`, and `NOT` compose recursive groups:
@@ -184,7 +201,7 @@ const published: QueryScope<typeof Post> = (query) =>
 	query.where({ published: { eq: true } })
 
 const recentPublished: QueryScope<typeof Post> = (query) =>
-	query.use(published).descending('createdAt').limit(25)
+	query.use(published).descending('createdAt').take(25)
 
 const feedInput = new QueryBuilder(Post)
 	.select({ id: true, title: true })
@@ -194,7 +211,7 @@ const feed = await Post.findMany(feedInput)
 ```
 
 Repeated `where` calls combine through implicit `AND`. Object filters never
-alter selection, ordering, limit, or pagination.
+alter selection, ordering, `take`, or `skip`.
 
 Ordered scalar fields expose first-class inclusive range predicates:
 
@@ -335,7 +352,6 @@ const deleted = await Post.deleteOne({
 
 if (post !== null) {
 	const authorName = post.author?.name
-	const tags = await post.relation('tags').findMany()
 }
 ```
 
@@ -343,7 +359,7 @@ An included target is loaded after the write inside the same transaction,
 without replaying the root mutation's policies or hooks. Without an `include`,
 use an explicit subsequent read when hydrated relationships are needed.
 
-`updateMany` and `deleteMany` return immutable model arrays in declaration
+`updateMany` and `deleteMany` return arrays of frozen plain results in declaration
 order. Without `select`, they request only `id`; an explicit selection returns
 exactly those post-update or pre-delete fields. Every predicate must identify
 one existing target. A missing target raises `NOT_FOUND` and rolls back the
@@ -365,24 +381,11 @@ const deleted = await Post.deleteMany({
 // Results retain the same target order.
 ```
 
-Runtime-issued models also expose identity-safe instance commands:
-
-```ts
-const draft = new Post({ title: 'Draft' })
-const created = await draft.create({ select: { id: true, title: true } })
-const updated = await created.update({
-	data: { title: 'Updated' },
-	select: { id: true, title: true },
-})
-await updated?.delete({ select: { id: true } })
-```
-
-Draft `create` and `upsert` delegate to the schema commands. Persisted `update`
-and `delete` retain protected object identity even when the model came from a
-narrow read selection. Their successful result follows the command's own
-`select`, or returns the complete model when `select` is omitted. A read
-projection never leaks into a later write response. Models remain immutable and
-never gain dirty tracking or a mutable `save()` method.
+Results are frozen plain objects without methods (ADR-0310): there are no
+drafts or instance commands. Update or delete a row you read by passing its
+`id` as the target. Each command's result follows its own `select`, or is the
+complete row when `select` is omitted; a read projection never leaks into a
+later write response, and nothing gains dirty tracking or a mutable `save()`.
 
 ## Contextual execution and authority
 
@@ -467,7 +470,7 @@ inserting another.
 ## Query and Operation ASTs
 
 `createQueryAst()` creates the initial immutable read state. Its root separates
-schema, selection, filtering, ordering, limit, and pagination without transport
+schema, selection, filtering, ordering, `take`, and `skip` pagination without transport
 or SQL data:
 
 ```ts
@@ -477,15 +480,14 @@ const ast = createQueryAst(Post)
 
 ast.selection.fields // readonly []
 ast.where // undefined
-ast.limit // undefined
+ast.take // undefined
 ```
 
 Read terminals and schema commands normalize into the same discriminated
 `OperationAst` union. Reads use `find-one`, `find-many`, `get`, `count`, and
 `exists`.
-Schema mutations, persisted-model commands and internal relation mutations
-retain normalized query data directly instead of constructing temporary read
-builders; protected model and relation scopes stay outside the AST.
+Schema mutations retain normalized query data directly instead of constructing
+temporary read builders; protected row scopes stay outside the AST.
 Writes distinguish `create-one`/`create-many`, `update-one`/`update-many`,
 `upsert-one`/`upsert-many`, and `delete-one`/`delete-many`. Runtime and adapters
 therefore retain exhaustive internal operation matching. After collection

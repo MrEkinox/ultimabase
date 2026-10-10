@@ -14,8 +14,11 @@ import {
 	type PluginSchemaMutationDefinition,
 } from './plugin-schema-mutations.js'
 
-/** Selects where one schema mutation is exposed as a direct application command. */
-export type PluginSchemaMutationSurface = 'model' | 'schema'
+/**
+ * Selects where one schema mutation is exposed as a direct application
+ * command: the schema only, since results are plain data (ADR-0310).
+ */
+export type PluginSchemaMutationSurface = 'schema'
 
 /** Binds one exact mutation token to a non-empty set of application surfaces. */
 export interface PluginSchemaMutationSurfaceBinding<
@@ -36,7 +39,7 @@ export const snapshotSchemaMutationMap = (
 	if (value === undefined) return immutableRecord({})
 	assertPlainObject(
 		value,
-		'model surface schemaMutations must be a plain object',
+		'schema surface schemaMutations must be a plain object',
 	)
 	const snapshot: Record<string, PluginSchemaMutationSurfaceBinding> = {}
 	for (const [name, binding] of Object.entries(value)) {
@@ -64,9 +67,9 @@ export const snapshotSchemaMutationMap = (
 		const surfaces = new Set<PluginSchemaMutationSurface>()
 		const untrustedSurfaces: readonly unknown[] = binding.surfaces
 		for (const surface of untrustedSurfaces) {
-			if (surface !== 'model' && surface !== 'schema') {
+			if (surface !== 'schema') {
 				throw new TypeError(
-					`schema mutation ${name} surface must be model or schema`,
+					`schema mutation ${name} surface must be schema: results have no model methods (ADR-0310)`,
 				)
 			}
 			if (surfaces.has(surface)) {

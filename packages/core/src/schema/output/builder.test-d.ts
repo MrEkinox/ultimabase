@@ -1,4 +1,5 @@
 import { expectTypeOf, test } from 'vitest'
+import { defineEnum } from '../fields/builtins/shared-enum.js'
 
 import type {
 	GenericOutputDescriptor,
@@ -80,7 +81,8 @@ test('exposes every built-in output representation option', () => {
 	output.date()
 	output.dateTime({ timezone: false })
 	output.decimal({ precision: 12, scale: 2 })
-	output.enum({ typeName: 'Status', values: { Draft: 'draft' } as const })
+	output.enum({ values: ['draft'] })
+	output.enum({ values: defineEnum('OutputStatus', ['draft']) })
 	output.float()
 	output.int()
 	output.json()

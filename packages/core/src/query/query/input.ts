@@ -28,15 +28,22 @@ import {
 	resolveQueryInclusionTarget,
 } from '../clauses/inclusion.js'
 import {
-	normalizeQueryLimit,
-	normalizeQueryOffsetPagination,
+	normalizeQuerySkipPagination,
+	normalizeQueryTake,
 } from '../clauses/pagination.js'
+import {
+	completeQueryOrdering,
+	createInvalidPositionError,
+	createQueryPositionFilter,
+	readQueryPosition,
+} from '../clauses/position.js'
 import {
 	normalizeQueryOrdering,
 	type QueryOrderInput,
 } from '../clauses/ordering.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import { resolveWhereInput, type WhereInput } from '../filters/where.js'
+import { combineWhereExpressions } from '../filters/where-normalize.js'
 import type { OperationObjectId } from '../operations/contracts.js'
 import type {
 	CountInput,
@@ -64,6 +71,7 @@ export type {
 	QueryOrderByDirection,
 	QueryOrderByInput,
 	QueryPointerTargetInput,
+	QueryPosition,
 	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './input-contracts.js'
@@ -110,22 +118,24 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		count: new Set(['where']),
 		exists: new Set(['where']),
 		'find-many': new Set([
+			'after',
 			'include',
-			'limit',
 			'orderBy',
 			'select',
-			'offset',
+			'skip',
+			'take',
 			'where',
 		]),
 		'find-one': new Set(['include', 'orderBy', 'select', 'where']),
 		get: new Set(['id', 'include', 'select']),
 		'pointer-target': new Set(['include', 'select']),
 		'relation-target': new Set([
+			'after',
 			'include',
-			'limit',
-			'offset',
 			'orderBy',
 			'select',
+			'skip',
+			'take',
 			'where',
 		]),
 	})
@@ -142,7 +152,8 @@ const assertQueryInput: (
 	)
 }
 
-const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
+/** @internal Normalizes one `orderBy` object; also used by the cursor encoder. */
+export const normalizeInputOrdering = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: unknown,
 ): QueryInputAst<TSchema>['ordering'] => {
@@ -230,16 +241,41 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 
 	// The initial AST has no schema-specific clauses yet.
 	const initial = createQueryAst(schema) as QueryInputAst<TSchema>
-	const where: QueryWhereNode<QueryFilterNode<TSchema>> | undefined =
+	const requestedOrdering =
+		input.orderBy === undefined
+			? initial.ordering
+			: normalizeInputOrdering(schema, input.orderBy)
+	// A collection read, root or included, has a total order, so `after`
+	// positions are stable (ADR-0309).
+	const ordering =
+		kind === 'find-many' || kind === 'relation-target'
+			? completeQueryOrdering(requestedOrdering)
+			: requestedOrdering
+	const filter =
 		input.where === undefined
 			? undefined
-			: immutableRecord({
-					expression: resolveWhereInput(
+			: resolveWhereInput(schema, input.where as WhereInput<TSchema>)
+	const expression =
+		input.after === undefined
+			? filter
+			: combineWhereExpressions(
+					filter,
+					createQueryPositionFilter(
 						schema,
-						input.where as WhereInput<TSchema>,
+						readQueryPosition(schema, ordering, input.after),
 					),
-					kind: 'where',
-				})
+				)
+	const where: QueryWhereNode<QueryFilterNode<TSchema>> | undefined =
+		expression === undefined
+			? undefined
+			: immutableRecord({ expression, kind: 'where' })
+
+	if (input.after !== undefined && input.skip !== undefined) {
+		throw createInvalidPositionError(
+			'cannot be combined with skip',
+			'cannot be combined with skip',
+		)
+	}
 	const selection =
 		input.select === undefined
 			? initial.selection
@@ -252,16 +288,13 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 		...initial,
 		...projection,
 		where,
-		ordering:
-			input.orderBy === undefined
-				? initial.ordering
-				: normalizeInputOrdering(schema, input.orderBy),
+		ordering,
 		// The pagination normalizers validate these untrusted values themselves.
-		limit: normalizeQueryLimit(input.limit as number | undefined),
+		take: normalizeQueryTake(input.take as number | undefined),
 		pagination:
-			input.offset === undefined
+			input.skip === undefined
 				? undefined
-				: normalizeQueryOffsetPagination({ offset: input.offset as number }),
+				: normalizeQuerySkipPagination({ skip: input.skip as number }),
 	})
 
 	return immutableRecord({ ast, schema })

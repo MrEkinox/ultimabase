@@ -108,7 +108,7 @@ const renderInclude = (
 		const include =
 			field.value.kind === 'pointer'
 				? `{ readonly include?: ${includeType(target, context)}; readonly select?: ${targetAlias}Select }`
-				: `{ readonly include?: ${includeType(target, context)}; readonly limit?: number; readonly offset?: number; readonly orderBy?: ${targetAlias}OrderByInput; readonly select?: ${targetAlias}Select; readonly where?: ${targetAlias}WhereInput }`
+				: `{ readonly include?: ${includeType(target, context)}; readonly take?: number; readonly skip?: number; readonly orderBy?: ${targetAlias}OrderByInput; readonly select?: ${targetAlias}Select; readonly where?: ${targetAlias}WhereInput }`
 
 		return [`\treadonly ${propertyName(field.name)}?: ${include}`]
 	})

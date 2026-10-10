@@ -25,24 +25,6 @@ export const softDeleteArticle = (
 		}),
 	)
 
-/** Demonstrates the same explicit command from a bound persisted model. */
-export const softDeleteArticleFromModel = async (
-	app: MinimalApplication,
-	id: string,
-	sessionToken: string,
-) => {
-	return runWithSession(app, sessionToken, async () => {
-		const article = await ExampleArticle.findOne({
-			select: { id: true, title: true },
-			where: { id: { eq: id } },
-		})
-		if (article === null) return null
-		return article.softDelete({
-			select: { id: true, isDeleted: true, title: true },
-		})
-	})
-}
-
 /** Restores one hidden article through trusted server authority. */
 export const restoreArticle = (id: string) =>
 	ExampleArticle.restore(

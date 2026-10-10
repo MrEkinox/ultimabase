@@ -8,6 +8,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { RecordingPostgresPool } from '../../../../tests/fixtures/recording-postgres-pool.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const projectionAccessError = new Error(
 	'mutation inclusion target Access rejected the projection',
@@ -141,18 +142,18 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		}
 		expect(typeof Reflect.get(created, 'id')).toBe('string')
 		const includedAuthor: unknown = Reflect.get(created, 'author')
-		if (!(includedAuthor instanceof Author)) {
+		if (!isPlainResult(includedAuthor)) {
 			throw new TypeError('Expected the singular included author model')
 		}
 		expect(Reflect.get(includedAuthor, 'name')).toBe('Singular author')
 		expect(Reflect.get(includedAuthor, 'id')).toBe(author.id)
 		const nestedPosts: unknown = Reflect.get(includedAuthor, 'posts')
-		if (!Array.isArray(nestedPosts) || !(nestedPosts[0] instanceof Post)) {
+		if (!Array.isArray(nestedPosts) || !isPlainResult(nestedPosts[0])) {
 			throw new TypeError('Expected the nested included post collection')
 		}
 		expect(
 			nestedPosts.map((candidate: unknown) => {
-				if (!(candidate instanceof Post)) {
+				if (!isPlainResult(candidate)) {
 					throw new TypeError('Expected every nested included post model')
 				}
 				const title: unknown = Reflect.get(candidate, 'title')
@@ -170,7 +171,10 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const article = await Article.createOne({
 			data: { title: 'Before update' },
 		})
-		await article.relation('tags').connect(tag.id)
+		await Article.updateOne({
+			where: { id: { eq: article.id } },
+			data: { tags: { connect: [tag.id] } },
+		})
 
 		countingPool.reset()
 		const updated = await Article.updateOne({
@@ -186,12 +190,12 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		}
 		expect(updated.id).toBe(article.id)
 		const includedTags: unknown = updated.tags
-		if (!Array.isArray(includedTags) || !(includedTags[0] instanceof Tag)) {
+		if (!Array.isArray(includedTags) || !isPlainResult(includedTags[0])) {
 			throw new TypeError('Expected the singular included relation collection')
 		}
 		expect(
 			includedTags.map((candidate: unknown) => {
-				if (!(candidate instanceof Tag)) {
+				if (!isPlainResult(candidate)) {
 					throw new TypeError('Expected every singular included tag model')
 				}
 				const label: unknown = Reflect.get(candidate, 'label')
@@ -243,9 +247,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			created.map((post) => {
 				const includedAuthor: unknown = post.author
 
-				return includedAuthor instanceof Author
-					? includedAuthor.name
-					: undefined
+				return isPlainResult(includedAuthor) ? includedAuthor.name : undefined
 			}),
 		).toStrictEqual(['Grouped first', 'Grouped second'])
 
@@ -275,9 +277,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			updated.map((post) => {
 				const includedAuthor: unknown = post.author
 
-				return includedAuthor instanceof Author
-					? includedAuthor.name
-					: undefined
+				return isPlainResult(includedAuthor) ? includedAuthor.name : undefined
 			}),
 		).toStrictEqual(['Grouped second', 'Grouped first'])
 	})

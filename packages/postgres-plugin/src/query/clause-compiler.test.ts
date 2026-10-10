@@ -20,13 +20,13 @@ const render = (expression: Parameters<PgDialect['sqlToQuery']>[0]) =>
 	dialect.sqlToQuery(expression)
 
 describe('PostgreSQL query clause compiler', () => {
-	it('loads only explicit selections and retains normalized offset clauses', () => {
+	it('loads only explicit selections and retains normalized take and skip clauses', () => {
 		const query = new QueryBuilder(ArticleSchema)
 			.select({ id: true, title: true })
 			.descending('rank')
 			.ascending('title')
-			.limit(20)
-			.offset(40)
+			.take(20)
+			.skip(40)
 		const clauses = compilePostgresQueryClauses(query.ast, compiledSchema)
 
 		expect(Object.keys(clauses.selection)).toStrictEqual(['id', 'title'])

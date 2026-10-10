@@ -409,7 +409,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 
-		expect(created.toJSON()).toMatchObject({
+		expect(created).toMatchObject({
 			profile: {
 				slug: 'public-profile',
 			},
@@ -513,7 +513,7 @@ describe('Hooks plugin with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(visible).toHaveLength(1)
-		expect(visible[0]?.toJSON()).toEqual({
+		expect(visible[0]).toEqual({
 			id: visible[0]?.id,
 			profile: {
 				slug: 'scope-a',

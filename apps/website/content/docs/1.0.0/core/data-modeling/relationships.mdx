@@ -7,16 +7,16 @@ contentType: concept
 order: 7
 outcome: Choose, declare, read, and change relationships with the right ownership and cardinality.
 releaseStatus: pre-release
-reviewedAt: 2026-10-09
+reviewedAt: 2026-10-10
 sources:
   - packages/core/README.md
   - packages/core/docs/schema.md
   - packages/core/src/schema/relations/pointer.ts
-  - packages/core/src/schema/relations/relation.ts
+  - packages/core/src/schema/relations/mutation.ts
   - packages/postgres-plugin/src/drizzle/relation-executor.ts
   - packages/core/examples/schema/pointers.md
   - packages/core/examples/schema/relations.md
-  - docs/adr/0115-immutable-model-commands.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0118-transport-neutral-relations.md
   - docs/adr/0314-pointers-created-by-their-schema.md
   - docs/adr/0308-one-checked-link-vocabulary.md
@@ -72,7 +72,8 @@ and a `Pointer` or ID assigned directly to the field is rejected.
 comparisons, and ACL entries: `new Pointer(...)` is not public, and the
 exported `Pointer` serves type annotations and `instanceof Pointer` checks.
 Creating a pointer performs no I/O and does not prove that the target exists. Its ordinary value is a `Pointer`, not
-an `Account` model. `pointer.equals(other)` compares exact schema identity and
+an `Account` row, and it does not read its target: use `Account.findOne` with
+the pointer's `id`. `pointer.equals(other)` compares exact schema identity and
 ID, while `pointer.toJSON()` returns the immutable logical shape
 `{ type: 'pointer', className: 'DocsAccount', id }`.
 
@@ -80,14 +81,15 @@ A required pointer cannot be `null`. An optional pointer can be `null` in a
 complete record, and `null` in update data unlinks it; pointers cannot be lists or have defaults. Use
 [Defaults and Nullability](./defaults) for the general presence rules.
 
-### Read through a pointer
+### Read a pointer's target
 
 After registering both schemas and starting the application with a persistence
 plugin, read a persisted session without including its account. Its selected
-`account` field is still a `Pointer`, not a loaded `Account` model:
+`account` field is still a `Pointer`, not a loaded `Account` row. A pointer does
+not read its target (ADR-0310); read it through the target schema:
 
 ```ts title="src/read-account.ts"
-import { Session } from './session.js'
+import { Account, Session } from './session.js'
 
 export const readSessionAccount = async (sessionId: string) => {
 	const session = await Session.findOneOrThrow({
@@ -95,25 +97,23 @@ export const readSessionAccount = async (sessionId: string) => {
 		select: { account: true },
 	})
 
-	return session.account.findOne({ select: { email: true } })
+	return Account.findOne({
+		where: { id: session.account.id },
+		select: { email: true },
+	})
 }
 ```
 
-`findOne()` returns a selected `Account` model or `null` if the target is missing
-or excluded by a row filter. When you need only a boolean, call
-`session.account.exists({})` instead; it does not load a model.
+`Account.findOne()` returns the selected row or `null` if the target is missing
+or excluded by a row filter; `Account.exists()` answers with a boolean.
 Explicit read-policy denials reject both operations and abort an active
-transaction, just like other read errors.
-Both methods remain scoped to the pointer's exact target ID and run through the
-ordinary target read pipeline. Neither changes the stored pointer or grants
-access to its target.
+transaction, just like other read errors. Neither changes the stored pointer or
+grants access to its target.
 
 If you already know that you need the account when reading the session, use
 `include: { account: { select: { email: true } } }` on `Session.findOneOrThrow()`
-instead.
-Read through the pointer when you have the session already and decide to load
-its target later. See [Related Data](/docs/1.0.0/core/reading-data/related-data)
-for inclusion behavior.
+instead. See [Related Data](/docs/1.0.0/core/reading-data/related-data) for
+inclusion behavior.
 
 ### Pointer deletion behavior
 
@@ -177,9 +177,9 @@ a second edge. Static compilation resolves target names and verifies that the
 inverse points to a compatible field. A one-to-one relationship uses a unique
 pointer, not a one-item relation.
 
-Relations do not appear as arrays in ordinary model values or create/update
-data. A persisted model can create a relation handle through `relation(name)`
-even when the collection was not included in its result. Use an explicit
+Relations do not appear as arrays in ordinary results unless they are
+included, and create or update data changes them only through link commands.
+Results have no relation handles (ADR-0310). Use an explicit
 relationship schema with pointers when the edge itself needs fields such as
 role, position, status, or creation time.
 
@@ -188,59 +188,45 @@ role, position, status, or creation time.
 	edge. Do not mirror both sides with separately writable relation sets.
 </Callout>
 
-## Read through a relation handle
+## Read through a relation
 
 Use `include` to load pointer and relation targets with a parent result;
 [Related Data](/docs/1.0.0/core/reading-data/related-data) owns the full
-example, selection rules, and filtering behavior. For a collection you do
-not want to include in a parent result, use the persisted model's relation
-handle. The following examples assume registered `Author` and `Post` schemas
-in a started application with a persistence plugin.
+example, selection rules, and filtering behavior. The following examples assume
+registered `Author` and `Post` schemas in a started application with a
+persistence plugin.
 
 ```ts title="src/read-reviewers.ts"
 import { Post } from './post.js'
 
 export const readReviewers = async (postId: string) => {
-	const post = await Post.findOneOrThrow({ where: { id: postId } })
-	const reviewers = post.relation('reviewers')
+	const post = await Post.findOneOrThrow({
+		where: { id: postId },
+		select: { id: true },
+		include: { reviewers: { take: 10, select: { name: true } } },
+	})
 
-	return reviewers.findMany({ limit: 10, select: { name: true } })
+	return post.reviewers
 }
 ```
 
-The same handle offers the other target read terminals. For example, check
-whether a post has a particular visible reviewer and count its visible
-reviewers without loading the collection:
+To ask a question about membership without loading the collection, filter the
+parent through the relation. For example, check whether a post has a particular
+visible reviewer:
 
 ```ts title="src/read-reviewers.ts"
 import { Post } from './post.js'
 
-export const inspectReviewers = async (postId: string, reviewerId: string) => {
-	const post = await Post.findOneOrThrow({ where: { id: postId } })
-	const reviewers = post.relation('reviewers')
-
-	return {
-		first: await reviewers.findOne({
-			orderBy: { id: 'asc' },
-			select: { name: true },
-		}),
-		matching: await reviewers.findOneOrThrow({
-			where: { id: reviewerId },
-			select: { name: true },
-		}),
-		count: await reviewers.count({}),
-		hasAny: await reviewers.exists({}),
-	}
-}
+export const hasReviewer = (postId: string, reviewerId: string) =>
+	Post.exists({
+		where: { id: postId, reviewers: { some: { id: reviewerId } } },
+	})
 ```
 
-`findOne()` reads the first matching visible member, and `findOneOrThrow()`
-fails with `NOT_FOUND` when no visible member of this relation matches, rather
-than searching the whole `Author` schema. `count()` and
-`exists()` return a number and boolean without materializing the members.
-All five relation read methods apply the field's declared filter and target
-policies; their results describe visible membership, which can differ from
-physical membership. Use `where` in these read inputs to narrow it further.
+Included relations and relation filters apply the field's declared filter and
+target policies; their results describe visible membership, which can differ
+from physical membership. Use `where` in the include or in the relation filter
+to narrow it further.
 
 ## Change relation membership
 
@@ -260,9 +246,9 @@ export const addReviewer = (postId: string, reviewerId: string) =>
 	})
 ```
 
-`{ set: [] }` removes every visible membership. A persisted model's relation
-handle offers the same changes as methods; the edge itself is not a model
-field:
+`{ set: [] }` removes every membership visible under the installed policies,
+including members the field's declared `where` hides from reads. Results have no relation
+handles (ADR-0310); the edge itself is not a result field:
 
 | Method                     | Effect                                                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------- |

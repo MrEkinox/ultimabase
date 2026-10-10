@@ -129,7 +129,7 @@ other errors are masked as `INTERNAL_SERVER_ERROR` and logged with their stack
 (and `__typename`) is always allowed (ADR-0306).
 
 `printSchema()` returns a deterministic lexicographically sorted SDL snapshot.
-It contains no resolver code, credentials, cursor secrets, private records, or
+It contains no resolver code, credentials, private records, or
 provenance internals.
 
 Request limits default to 100 KiB of source, 10,000 tokens or parsed AST nodes,
@@ -360,44 +360,38 @@ and private session records are never serialized.
 ## Relay connections
 
 Root collections and relations expose `edges`, `nodes`, and `pageInfo` without
-`totalCount`. `first` accepts zero, defaults to 25, and is capped at 100. An
-application may narrow these values explicitly:
+`totalCount`. `first` accepts zero, defaults to 100, and is capped at 1000; a
+larger `first` is a GraphQL error. `graphqlPlugin({ pagination })` sets other
+values with the same option and defaults as `restPlugin({ pagination })`:
 
 ```ts
-graphqlPlugin({ limits: { defaultPageSize: 10, maxPageSize: 50 } })
+graphqlPlugin({ pagination: { defaultTake: 10, maxTake: 50 } })
 ```
 
-GraphQL appends `id ASC` as the final order unless the request already orders
-by `id`, fetches `first + 1` ordinary Core rows, and uses only the extra row to
-derive `hasNextPage`. Every edge cursor carries the offset immediately after
-that edge. Empty and exact-boundary pages therefore have deterministic page
-information without a count query.
+Core completes the order with `id ASC` unless the request already orders by
+`id`. GraphQL maps `first` and `after` to Core's `take` (plus one row, used only
+to derive `hasNextPage`) and `after` position (ADR-0309). Every edge cursor is
+the opaque position of its node, encoded by Core's shared cursor encoder
+(`@ultimabase/core/plugin`) from the schema name, the effective order, and the
+node's ordered values; it is the same cursor REST returns as `nextCursor`.
+GraphQL selects the ordered fields and `id` of every node for that purpose,
+even when the document does not ask for them. Empty and exact-boundary pages
+have deterministic page information without a count query. `hasPreviousPage`
+is `true` exactly when `after` was given.
 
-Cursors are opaque, signed, and bound to the generated model type,
-relationship path, normalized GraphQL wire filter, and effective order. The
-signing key derives from `cursorSecret` (default: the `ULTIMABASE_CURSOR_SECRET`
-environment variable, at least 32 characters), so cursors stay valid across
-restarts and between instances that share it. Without a secret, development
-uses a random key per process and a production start (`NODE_ENV=production`)
-fails. A malformed, altered, or differently signed cursor is rejected as
-`GRAPHQL_INVALID_CURSOR` before Runtime.
-The key is cleared when the application is disposed. Relationship cursors are
-not bound to a parent ID because one eager Core inclusion may page the same
-relationship across several parents; target Access and ACL remain enforced by
-the ordinary Runtime inclusion.
+Cursors are unsigned: a position grants nothing the caller could not request
+as a filter, so they stay valid across restarts and between instances without
+a secret. Core validates every decoded position like a caller filter: each
+ordered field must be readable and filterable by the caller, or the read fails
+with `PERMISSION_DENIED`. A malformed cursor, or one encoded for another type
+or ordering, fails with Core's `VALIDATION_ERROR`
+(`extensions.details: { parameter: "after" }`). Inserts and deletes between
+pages never repeat or skip an unchanged node; a node whose ordered values
+change may move.
 
-A source relation's declared `where` and request identity are deliberately not
-encoded in the cursor. Core recomputes contextual shaping and authorization for
-every page, just as it does for a direct relation read. A cursor reused under a
-different legitimate context remains structurally valid but may address a
-different visible collection; it is an integrity-protected offset, not an
-authorization token or snapshot. Networkless GraphQL and every HTTP adapter
-delegate this behavior to the same Runtime path.
-
-The cursor contains an offset rather than a database identity or snapshot.
-Concurrent insertions and deletions can consequently shift later pages, which
-may repeat or skip an item. GraphQL translates the page to existing Core
-`where`, `orderBy`, `limit`, and `offset` clauses; Core has no cursor concept.
+A relation connection inside a node accepts the same `first`, `after`,
+`orderBy`, and `where`: Core reads its position inside the `include`, per
+parent. Its edge cursors are positions of the target schema.
 
 Yoga is shipped as a separate optional adapter. Compiling this package performs
 no application request; networkless execution, generated fields, and selected

@@ -6,8 +6,6 @@ import {
 	UltimaBase,
 	requestSources,
 	runWithRequestEngine,
-	type BaseItem,
-	type OperationOptions,
 	type PluginSourceState,
 } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
@@ -18,6 +16,7 @@ import {
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
 import { generatePointerId, queuedPointerIds } from './pointer-id-fixture.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')
@@ -28,17 +27,6 @@ const User = PointerSchemaApplication.Schema.define({
 		name: field.string({ required: true }),
 	}),
 })
-
-const isUpdatableIncludedUser = (
-	value: unknown,
-): value is InstanceType<typeof User> &
-	Readonly<{
-		update: (
-			input: Readonly<{ data: Readonly<{ name: string }> }>,
-			options?: OperationOptions,
-		) => Promise<BaseItem>
-	}> =>
-	value instanceof User && typeof Reflect.get(value, 'update') === 'function'
 
 const Post = PointerSchemaApplication.Schema.define({
 	className: 'PointerE2EPost',
@@ -279,14 +267,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			where: { title: { eq: 'Cursor order fixture' } },
 			select: { id: true },
 			include: { author: { select: { name: true } } },
-			limit: 2,
+			take: 2,
 			orderBy: { id: 'asc' },
 		})
 
 		expect(page.map(({ id }) => id)).toStrictEqual([lowerId, higherId])
 		expect(
 			page.map(({ author: included }) =>
-				included instanceof User ? included.name : undefined,
+				isPlainResult(included) ? included.name : undefined,
 			),
 		).toStrictEqual(['Cursor author', 'Cursor author'])
 	})
@@ -297,10 +285,12 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const secondAuthor = await User.createOne({ data: { name: 'Grace' } })
 		const firstPointer = User.pointer(firstAuthor.id)
 		const secondPointer = User.pointer(secondAuthor.id)
-		const created = await new Post({
-			author: { connect: firstPointer },
-			title: 'Typed pointer',
-		}).create({})
+		const created = await Post.createOne({
+			data: {
+				author: { connect: firstPointer },
+				title: 'Typed pointer',
+			},
+		})
 
 		if (!Pointer.is(created.author)) {
 			throw new TypeError(
@@ -317,35 +307,40 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		})
 
 		expect(included?.title).toBe('Typed pointer')
-		if (!isUpdatableIncludedUser(included?.author)) {
-			throw new TypeError('Expected an included author model')
+		if (!isPlainResult(included?.author)) {
+			throw new TypeError('Expected an included author row')
 		}
-		expect(included.author.toJSON()).toStrictEqual({
+		expect(included.author).toStrictEqual({
 			id: firstAuthor.id,
 			name: 'Ada',
 		})
+		// ADR-0310: an included row has no methods; updates go through the schema.
+		expect(Reflect.get(included.author, 'update')).toBeUndefined()
 
-		const renamedAuthor = await included.author.update({
+		const renamedAuthor = await User.updateOne({
+			where: { id: { eq: firstPointer.id } },
 			data: { name: 'Ada Lovelace' },
 		})
 
-		expect(renamedAuthor.name).toBe('Ada Lovelace')
+		expect(renamedAuthor?.name).toBe('Ada Lovelace')
 
-		const directAuthor = await firstPointer.findOne({ select: { name: true } })
+		// A pointer no longer reads its target: the schema does (ADR-0310).
+		const directAuthor = await User.findOne({
+			where: { id: { eq: firstPointer.id } },
+			select: { name: true },
+		})
 
-		expect(directAuthor?.toJSON()).toStrictEqual({
+		expect(directAuthor).toStrictEqual({
 			id: firstAuthor.id,
 			name: 'Ada Lovelace',
 		})
 
 		pointerTrace.length = 0
-		const updated = await created.update(
-			// This E2E fixture has no generated name-to-schema type graph.
-			{
-				data: { author: { connect: secondPointer }, title: 'Updated pointer' },
-			},
-		)
-		if (!Pointer.is(updated.author)) {
+		const updated = await Post.updateOne({
+			where: { id: { eq: created.id } },
+			data: { author: { connect: secondPointer }, title: 'Updated pointer' },
+		})
+		if (updated === null || !Pointer.is(updated.author)) {
 			throw new TypeError(
 				'Expected the updated author pointer to be materialized',
 			)
@@ -379,8 +374,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(afterRollback.author.equals(secondPointer)).toBe(true)
 		expect(afterRollback.title).toBe('Updated pointer')
 
-		const deleted = await updated.delete({})
-		if (!Pointer.is(deleted.author)) {
+		const deleted = await Post.deleteOne({
+			where: { id: { eq: updated.id } },
+		})
+		if (deleted === null || !Pointer.is(deleted.author)) {
 			throw new TypeError(
 				'Expected the deleted author pointer to be materialized',
 			)
@@ -545,7 +542,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			data: { target: { connect: deletedTarget.id } },
 		})
 
-		await deletedTarget.delete({})
+		await NullableTarget.deleteOne({ where: { id: { eq: deletedTarget.id } } })
 		const detached = await NullableSource.findOne({
 			where: { id: { eq: detachedSource.id } },
 			select: { target: true },
@@ -554,12 +551,12 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(denied?.target).toBeNull()
 		expect(denied?.target).toBe(detached?.target)
-		if (!(allowed?.target instanceof PrivateTarget)) {
+		if (!isPlainResult(allowed?.target)) {
 			throw new TypeError(
 				'Expected the private target to be included for master',
 			)
 		}
-		expect(allowed.target.toJSON()).toStrictEqual({
+		expect(allowed.target).toStrictEqual({
 			id: target.id,
 			label: 'private',
 		})

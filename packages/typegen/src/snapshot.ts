@@ -133,7 +133,6 @@ export interface TypegenSchemaMutationSnapshot {
 
 export interface TypegenSchemaSurfaceSnapshot {
 	readonly className: string
-	readonly modelMutations: readonly TypegenSchemaMutationSnapshot[]
 	readonly schemaMutations: readonly TypegenSchemaMutationSnapshot[]
 }
 

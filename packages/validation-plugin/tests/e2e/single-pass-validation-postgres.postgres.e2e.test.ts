@@ -180,7 +180,9 @@ describe(
 					include: { owner: { select: { name: true } } },
 				})
 
-				expect(included?.owner).toBeInstanceOf(Owner)
+				expect(typeof Reflect.get(Object(included?.owner), 'name')).toBe(
+					'string',
+				)
 				expect(labelCalls).toStrictEqual([])
 				expect(ownerCalls).toStrictEqual([])
 				expect(scoreCalls).toStrictEqual([])

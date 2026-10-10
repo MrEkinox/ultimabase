@@ -10,6 +10,10 @@ import type {
 } from '../type-info.js'
 import type { SchemaClass, SchemaDefinition } from './definition.js'
 import type { SchemaResult } from './model-contracts.js'
+import type {
+	NestedUpdateDataFields,
+	RequireOneField,
+} from '../../query/updates/contracts.js'
 
 /* eslint-disable @typescript-eslint/no-empty-object-type -- Declaration-merging target. */
 /**
@@ -119,23 +123,38 @@ export type Item<TSchema> = {
 }
 
 /**
- * Create data of one schema.
+ * Create data of one schema: exactly the `data` of `createOne`, nested link
+ * and create commands included (ADR-0310).
  * @example `const data: CreateInput<'Todo'> = { title: 'Write the slice' }`
  */
 export type CreateInput<TSchema> = {
 	readonly [
-		TKey in keyof NameOrSchemaInputs<TSchema>['create']
-	]: NameOrSchemaInputs<TSchema>['create'][TKey]
+		TKey in keyof NameOrSchemaInputs<TSchema>['nestedCreate']
+	]: NameOrSchemaInputs<TSchema>['nestedCreate'][TKey]
 }
 
 /**
- * Update data of one schema.
+ * Update data of one schema: exactly the `data` of `updateOne`, with nested
+ * link commands, `{ increment }` / `{ decrement }` and at least one field
+ * (ADR-0310).
  * @example `const patch: UpdateInput<'Todo'> = { archived: true }`
  */
-export type UpdateInput<TSchema> = {
+export type UpdateInput<TSchema> = RequireOneField<
+	NestedUpdateDataFields<NameOrSchemaContract<TSchema>>
+>
+
+/** Flat create values of one registered schema, as bulk commands take them. */
+type CreateFields<TClassName extends string> = {
 	readonly [
-		TKey in keyof NameOrSchemaInputs<TSchema>['update']
-	]: NameOrSchemaInputs<TSchema>['update'][TKey]
+		TKey in keyof SourceInputs<TClassName>['create']
+	]: SourceInputs<TClassName>['create'][TKey]
+}
+
+/** Flat update values of one registered schema, as bulk commands take them. */
+type UpdateFields<TClassName extends string> = {
+	readonly [
+		TKey in keyof SourceInputs<TClassName>['update']
+	]: SourceInputs<TClassName>['update'][TKey]
 }
 
 /**
@@ -172,14 +191,14 @@ export type Model<TSchema> = {
 export interface RegisteredSchemaInputs<
 	TClassName extends string,
 > extends SchemaInputsTypeInfo {
-	readonly create: CreateInput<TClassName>
+	readonly create: CreateFields<TClassName>
 	readonly dependencySelect: SourceInputs<TClassName>['dependencySelect']
 	readonly include: NonNullable<SourceInputs<TClassName>['include']>
 	readonly nestedCreate: SourceInputs<TClassName>['nestedCreate']
 	readonly nestedUpdate: SourceInputs<TClassName>['nestedUpdate']
 	readonly orderBy: SourceInputs<TClassName>['orderBy']
 	readonly select: Select<TClassName>
-	readonly update: UpdateInput<TClassName>
+	readonly update: UpdateFields<TClassName>
 	readonly where: Where<TClassName>
 }
 

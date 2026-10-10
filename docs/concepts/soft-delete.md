@@ -41,16 +41,12 @@ ordered `deleteMany` item semantics still observe a native logical delete; only
 the protected persistence plan changes.
 
 Explicit mode is useful when callers must choose between recoverable and
-permanent deletion. It adds a separately authorized command to the application
-schema handle and its persisted models:
+permanent deletion. It adds a separately authorized command to the schema
+class and the application schema handle; results have no methods (ADR-0310):
 
 ```ts
+await Post.softDelete({ id: postId })
 await ultimabase.schema(Post).softDelete({ id: postId })
-
-const post = await Post.findOne({
-	where: { id: { eq: postId } },
-})
-await post?.softDelete()
 ```
 
 When REST or GraphQL already exposes the schema mutation, the optional

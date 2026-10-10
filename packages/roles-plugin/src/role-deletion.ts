@@ -1,14 +1,16 @@
 import {
-	Schema,
 	type NamedRequestSubjectReferenceCleanup,
 	type OperationOptions,
 	type RequestSubjectContext,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import type { RoleDeletedEvent } from './role-events.js'
-import { readRoleRelation } from './role-hierarchy.js'
 import { createRoleReference, type RoleReference } from './role-reference.js'
 import { resolveRoleReference, roleQuerySchema } from './role-resolution.js'
 import type { RoleSchemaDeclaration } from './role-schema.js'
@@ -32,13 +34,28 @@ const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 
-const readRelation = (role: object, fieldName: 'members' | 'roles') =>
-	readRoleRelation(
-		role,
-		fieldName,
-		'Persisted role must expose generated relations',
-		`Persisted role returned an invalid ${fieldName} relation`,
+/** Reads whether one role still has direct members or child roles. */
+const readRoleEdges = async (
+	schema: SchemaDefinition,
+	roleId: string,
+): Promise<Readonly<{ children: number; members: number }>> => {
+	const role = await roleQuerySchema(schema).findOne(
+		{
+			where: { id: roleId },
+			select: { id: true },
+			include: {
+				members: { select: { id: true }, take: 1 },
+				roles: { select: { id: true }, take: 1 },
+			},
+		},
+		masterOptions,
 	)
+	const count = (field: string): number => {
+		const value: unknown = role === null ? [] : Reflect.get(role, field)
+		return isUnknownArray(value) ? value.length : 0
+	}
+	return { children: count('roles'), members: count('members') }
+}
 
 const readRoleId = (role: object): string => {
 	const roleId: unknown = Reflect.get(role, 'id')
@@ -70,14 +87,7 @@ const assertUnreferenced = async (
 	cleanups: readonly NamedRequestSubjectReferenceCleanup[],
 ): Promise<void> => {
 	const roleId = readRoleId(role)
-	const memberCount = await readRelation(role, 'members').count(
-		{},
-		masterOptions,
-	)
-	const childRoleCount = await readRelation(role, 'roles').count(
-		{},
-		masterOptions,
-	)
+	const edges = await readRoleEdges(schema, roleId)
 	const parentRoles = await readParentRoles(schema, roleId)
 	// Every owner is asked, even when an earlier check already found a reference.
 	let externallyReferenced = false
@@ -89,8 +99,8 @@ const assertUnreferenced = async (
 	}
 
 	if (
-		memberCount > 0 ||
-		childRoleCount > 0 ||
+		edges.members > 0 ||
+		edges.children > 0 ||
 		parentRoles.length > 0 ||
 		externallyReferenced
 	) {
@@ -116,19 +126,27 @@ const cascadeReferences = async (
 		)
 	}
 
-	// Its schema creates every Pointer (ADR-0314).
-	if (!Schema.is(schema)) {
-		throw new TypeError('Role deletion requires a role schema')
-	}
-	const rolePointer = schema.pointer(readRoleId(role))
-	const parentRoles = await readParentRoles(schema, rolePointer.id)
+	const roleId = readRoleId(role)
+	const roles = roleQuerySchema(schema)
+	const parentRoles = await readParentRoles(schema, roleId)
 
-	await readRelation(role, 'members').clear(masterOptions)
-	await readRelation(role, 'roles').clear(masterOptions)
+	// Links go through the schema commands of ADR-0308 (no relation handles).
+	await roles.updateOne(
+		{
+			where: { id: roleId },
+			data: { members: { set: [] }, roles: { set: [] } },
+			select: { id: true },
+		},
+		masterOptions,
+	)
 
 	for (const parentRole of parentRoles) {
-		await readRelation(parentRole, 'roles').disconnect(
-			rolePointer.id,
+		await roles.updateOne(
+			{
+				where: { id: readRoleId(parentRole) },
+				data: { roles: { disconnect: [roleId] } },
+				select: { id: true },
+			},
 			masterOptions,
 		)
 	}

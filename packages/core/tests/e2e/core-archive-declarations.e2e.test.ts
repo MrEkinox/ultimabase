@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -11,6 +11,20 @@ interface DeclarationQuickInfo {
 // Inspect built declarations and bundles, never source aliases.
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..')
 const packagesDirectory = path.join(repositoryRoot, 'packages')
+// Core ships `.` and the plugin-author `./plugin` entry (ADR-0311), whose shared
+// code lives in one chunk: read every emitted file of one kind as the archive.
+const readCoreArchive = async (
+	suffix: '.d.ts' | '.js' | '.js.map',
+): Promise<string> => {
+	const dist = path.join(packagesDirectory, 'core', 'dist')
+	const names = (await readdir(dist))
+		.filter((name) => name.endsWith(suffix))
+		.sort()
+	const contents = await Promise.all(
+		names.map((name) => readFile(path.join(dist, name), 'utf8')),
+	)
+	return contents.join('\n')
+}
 // Keep editor probes aligned with the fixture's original declaration order.
 const schemaFixtureFiles = [
 	'runtime-postgres-fixture.ts',
@@ -80,9 +94,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		const coreDirectory = path.join(packagesDirectory, 'core')
 		const packedSurfaces = await Promise.all([
 			readFile(path.join(coreDirectory, 'package.json'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.d.ts'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.js'), 'utf8'),
-			readFile(path.join(coreDirectory, 'dist', 'index.js.map'), 'utf8'),
+			readCoreArchive('.d.ts'),
+			readCoreArchive('.js'),
+			readCoreArchive('.js.map'),
 		])
 
 		for (const surface of packedSurfaces) {
@@ -91,10 +105,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('exports only the guarded Query-expression traversal contract', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const publicName of [
 			'GuardedQueryExpressionNode',
@@ -107,10 +118,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Query scope and execution ownership private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'QueryExecutionInput',
@@ -127,10 +135,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('omits removed Query mutation helpers from packed implementation sources', async () => {
-		const sourceMap = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.js.map'),
-			'utf8',
-		)
+		const sourceMap = await readCoreArchive('.js.map')
 
 		for (const removedName of [
 			'executeSchemaCreateMany',
@@ -143,10 +148,9 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('omits application field validation from packed Core surfaces', async () => {
-		const coreDirectory = path.join(packagesDirectory, 'core', 'dist')
 		const packedSurfaces = await Promise.all([
-			readFile(path.join(coreDirectory, 'index.d.ts'), 'utf8'),
-			readFile(path.join(coreDirectory, 'index.js.map'), 'utf8'),
+			readCoreArchive('.d.ts'),
+			readCoreArchive('.js.map'),
 		])
 
 		for (const removedName of [
@@ -191,10 +195,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Runtime orchestration implementation private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'RuntimeDatabaseExecution',
@@ -211,10 +212,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps Enforcement coordination implementation private', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'OwnedEnforcementContribution',
@@ -232,10 +230,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 	})
 
 	it('keeps removed Core Access dispatch implementation absent', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		for (const internalName of [
 			'NativeAccessRuntime',
@@ -257,12 +252,12 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(schema.display).toContain('(property) define: <')
 		expect(schema.display).toContain('ConfiguredSchemaDeclarationOptions<')
 		expect(schema.documentation).toContain(
-			'Defines one final schema-specific class',
+			'Defines one final schema with typed static commands',
 		)
 	}, 10_000)
 
-	it('infers exact source draft fields and exposes QueryBuilder without Typegen', () => {
-		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
+	it('infers exact source result fields and exposes QueryBuilder without Typegen', () => {
+		const draft = readFixtureQuickInfo('packedDraft = () =>')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
 		)
@@ -273,29 +268,23 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(query.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('preserves documented immutable model persistence commands', () => {
-		const create = readFixtureQuickInfo('create({}, { useMasterKey: true })')
-		const update = readFixtureQuickInfo(
-			"update({ data: { title: 'Packed update' } })",
+	// ADR-0310: schema commands replace model persistence commands.
+	it('preserves documented schema persistence commands', () => {
+		const create = readFixtureQuickInfo(
+			"createOne({ data: { title: 'Packed' } })",
 		)
-		const fetch = readFixtureQuickInfo('fetch({ select: { title: true } })')
-		const toPointer = readFixtureQuickInfo('toPointer()')
+		const update = readFixtureQuickInfo("updateOne({ where: { id: 'p' }")
+		const result = readFixtureQuickInfo('packedResult: SchemaResult<')
+		const pointer = readFixtureQuickInfo('pointer(packedResult.id)')
 
-		expect(create.display).toContain('create(input:')
-		expect(create.display).toContain('Promise<{')
-		expect(create.documentation).toContain('complete model')
-		// The configured source input is exact but its packed QuickInfo is more verbose.
-		expect(update.display).toContain('update(input:')
-		expect(update.display).toContain('SchemaModelUpdateCommandInput<')
+		expect(create.display).toContain('createOne<')
+		expect(create.display).toContain('Promise<')
+		expect(update.display).toContain('updateOne<')
 		expect(update.display).toContain('Promise<')
 		expect(update.display).not.toContain('any')
-		expect(update.documentation).toContain('protected object identity')
-		expect(fetch.display).toContain('fetch<')
-		expect(fetch.documentation).toContain('selected fresh fields')
-		expect(toPointer.display).toContain('Pointer<')
-		expect(toPointer.documentation).toContain('without performing database I/O')
-		expect(create.display).not.toContain('NonDefaultedStringField<')
-		expect(fetch.display).not.toContain('NonDefaultedStringField<')
+		expect(result.display).toContain('readonly title: string')
+		expect(result.display).not.toContain('update(')
+		expect(pointer.display).toContain('Pointer<')
 	})
 
 	it('preserves the atomic bulk array result', () => {
@@ -339,7 +328,8 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		expect(deleted.display).toContain('readonly title: string;')
 		expect(deleted.display).toContain('} | null')
 		expect(bulkUpdated.display).toContain('readonly id: string;')
-		expect(bulkUpdated.display).toContain('className: "RuntimeBulkAccount"')
+		// ADR-0310: results are plain data, without class identity members.
+		expect(bulkUpdated.display).not.toContain('className:')
 		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('.createOne<')
 		expect(create.display).toContain('input: SchemaCreateOneInput<')
@@ -421,10 +411,7 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 
 describe('@ultimabase/core Runtime declarations', () => {
 	it('ships callback attribution without public Master context minting', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 		const authorityStart = declarations.indexOf('declare class MasterAuthority')
 		const authorityEnd = declarations.indexOf('//#endregion', authorityStart)
 		const authorityDeclaration = declarations.slice(
@@ -440,10 +427,7 @@ describe('@ultimabase/core Runtime declarations', () => {
 	})
 
 	it('ships the explicit unverified-transport protection contract', async () => {
-		const declarations = await readFile(
-			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
-			'utf8',
-		)
+		const declarations = await readCoreArchive('.d.ts')
 
 		expect(declarations).toContain('acknowledgeUnverifiedProtection?: true')
 		expect(declarations).toContain('PublicTransportProtectionWarning')
@@ -468,10 +452,12 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})
 
-	it('preserves ambient hook model typing without context plumbing', () => {
-		const result = readFixtureQuickInfo('create({})')
+	it('preserves ambient hook schema command typing without context plumbing', () => {
+		const result = readFixtureQuickInfo(
+			'createOne({\n\t\t\t\t\tdata: { action:',
+		)
 
-		expect(result.display).toContain('create(input:')
+		expect(result.display).toContain('createOne<')
 		expect(result.display).toContain('options?: OperationOptions')
 		expect(result.display).not.toContain('RequestEngine<')
 	})

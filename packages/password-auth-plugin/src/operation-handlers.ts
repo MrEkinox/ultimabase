@@ -1,5 +1,4 @@
 import {
-	Pointer,
 	contributeOperation,
 	type PluginOperationContribution,
 	type RequestContext,
@@ -116,23 +115,16 @@ const requireCurrentCredential = async (
 	return credential
 }
 
-/** Reads the id of a created User only from its own nominal model pointer. */
-const readCreatedUserId = (
-	user: PasswordUserReference,
-	model: unknown,
-): string => {
-	if (typeof model !== 'object' || model === null) {
-		throw new TypeError('Password Auth User creation returned no model')
+/** Reads the id of a created User from its plain result (ADR-0310). */
+const readCreatedUserId = (model: unknown): string => {
+	const id: unknown =
+		typeof model === 'object' && model !== null
+			? Reflect.get(model, 'id')
+			: undefined
+	if (typeof id !== 'string') {
+		throw new TypeError('Password Auth User creation returned no id')
 	}
-	const toPointer: unknown = Reflect.get(model, 'toPointer')
-	if (typeof toPointer !== 'function') {
-		throw new TypeError('Password Auth User result has no pointer')
-	}
-	const pointer: unknown = Reflect.apply(toPointer, model, [])
-	if (!Pointer.is(pointer) || pointer.schema !== user) {
-		throw new TypeError('Password Auth User result has a foreign pointer')
-	}
-	return pointer.id
+	return id
 }
 
 /** Creates the six application-local handlers from one private auth state. */
@@ -179,7 +171,7 @@ export const createPasswordOperationHandlers = <
 								? undefined
 								: { useMasterKey: true },
 						)
-						const userId = readCreatedUserId(user, created)
+						const userId = readCreatedUserId(created)
 						await insertPasswordCredential(credentials, {
 							passwordVerifier: verifier.encoded,
 							policyVersion: verifier.policyVersion,

@@ -2,13 +2,19 @@ import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { PasswordUser, PasswordUserSchema } from './index.js'
 
+/** Calls `new` on a value whose type has no construct signature (ADR-0310). */
+const construct = (target: unknown, args: readonly unknown[]): unknown => {
+	if (typeof target !== 'function') throw new TypeError('Expected a class')
+	return Reflect.construct(target, args)
+}
+
 const credentials = {
 	username: 'Ada',
 	password: 'correct horse battery staple',
 }
 
 describe('Password User static authentication boundary', () => {
-	it('defines immutable methods without changing schema identity or model instances', () => {
+	it('defines immutable methods without changing schema identity', () => {
 		const User = PasswordUserSchema.define({
 			className: 'User',
 			fields: () => ({}),
@@ -16,8 +22,8 @@ describe('Password User static authentication boundary', () => {
 		for (const schema of [User, PasswordUser]) {
 			expect(Schema.is(schema)).toBe(true)
 			expect(Object.isFrozen(schema)).toBe(true)
-			const draft = new schema({ username: 'ada' })
-			expect(draft).toBeInstanceOf(schema)
+			// A schema is not constructible: results are plain data (ADR-0310).
+			expect(() => construct(schema, [{ username: 'ada' }])).toThrow(TypeError)
 			for (const method of [
 				'changePassword',
 				'current',
@@ -32,7 +38,6 @@ describe('Password User static authentication boundary', () => {
 					writable: false,
 					configurable: false,
 				})
-				expect(draft).not.toHaveProperty(method)
 			}
 		}
 	})

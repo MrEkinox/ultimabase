@@ -186,12 +186,14 @@ export const directResult = await ultimabase
 const stableHandle = ultimabase.schema(StablePost)
 const dynamicHandle = ultimabase.schema('JavaScriptDynamicPost')
 const queriedPost = await StablePost.findOne()
-// Native schema commands and advanced model handles work without generated types.
+// Native schema commands and advanced handles work without generated types;
+// results are frozen plain data (ADR-0310).
 export const nativeResults = {
 	title: queriedPost.title,
 	dynamicSchema: dynamicHandle.schema.className,
-	draftState: stableHandle.for(new StablePost({ title: 'Draft' })).state,
-	persistedState: stableHandle.for(queriedPost).state,
+	frozenResult: Object.isFrozen(queriedPost),
+	plainResult: Object.getPrototypeOf(queriedPost) === Object.prototype,
+	stableSchema: stableHandle.schema === StablePost,
 }
 export const inspection = {
 	// Inspection is descriptive even when the source token retains executable validators.

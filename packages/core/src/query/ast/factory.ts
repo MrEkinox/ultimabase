@@ -28,7 +28,7 @@ export const createQueryAst = <const TSchema extends SchemaDefinition>(
 		inclusion: emptyQueryInclusion,
 		where: undefined,
 		ordering: emptyQueryOrdering,
-		limit: undefined,
+		take: undefined,
 		pagination: undefined,
 	})
 }

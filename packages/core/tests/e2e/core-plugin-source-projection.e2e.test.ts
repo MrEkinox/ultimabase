@@ -40,12 +40,12 @@ describe.each([
 		expect(directQuery.display).toContain('Promise<')
 		expect(directQuery.display.length).toBeLessThan(2_000)
 		const directCreate = fixture.readHover('direct-create')
-		expect(directCreate.display).toContain('create')
+		expect(directCreate.display).toContain('createOne')
 		expect(directCreate.display).toContain('Promise<')
 		expect(directCreate.display.length).toBeLessThan(2_000)
 	})
 
-	it('retains readable selected models and documented immutable commands', () => {
+	it('retains readable selected results and documented schema commands', () => {
 		expect(fixture.diagnostics()).toStrictEqual([])
 		const selected = fixture.readHover('selected-model').display
 		expect(selected).toContain('readonly title: string')
@@ -55,13 +55,12 @@ describe.each([
 		const fields = fixture
 			.readMemberCompletions('selected-fields')
 			.map(({ name }) => name)
-		expect(fields).toEqual(expect.arrayContaining(['id', 'title', 'update']))
+		expect(fields).toEqual(expect.arrayContaining(['id', 'title']))
 		expect(fields).not.toContain('important')
-		const update = fixture.readHover('model-update')
+		// ADR-0310: results are data; updates go through the schema.
+		expect(fields).not.toContain('update')
+		const update = fixture.readHover('schema-update')
 		expect(update.display).toContain('Promise<')
-		expect(update.documentation).toContain(
-			'Updates this protected object identity',
-		)
-		expect(update.hasExample).toBe(true)
+		expect(update.documentation).toContain('Updates one unique target')
 	})
 })

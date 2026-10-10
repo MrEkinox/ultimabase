@@ -9,7 +9,6 @@ import {
 	type InferCreateInput,
 	type InferObject,
 	type RequestContextValue,
-	type SchemaResult,
 } from '@ultimabase/core'
 
 declare const currentUserId: RequestContextValue<string>
@@ -78,50 +77,49 @@ const users = await UserSchema.findMany({
 		posts: {
 			where: { title: { contains: 'TypeScript' } },
 			orderBy: { createdAt: 'desc' },
-			limit: 10,
+			take: 10,
 			select: { id: true, title: true },
 		},
 	},
 })
 
-// `users[0].posts` is a readonly array of selected Post models.
+// `users[0].posts` is a readonly array of selected Post rows.
 ```
 
 Relation inclusion also supports nested `include`. It preserves every installed
-source and target protected policy. Direct calls through
-`user.relation('posts')` remain normal target reads through the same Runtime
-pipeline.
-
-Relation fields contain no join-table, SQL, or transport naming. Relation
-handles keep those choices separate from model values:
+source and target protected policy. Results have no relation handles
+(ADR-0310); filter parents through a relation instead:
 
 ```ts
-declare const user: SchemaResult<typeof UserSchema>
-
-const recentPosts = await user.relation('posts').findMany({
-	select: { id: true, title: true },
-	orderBy: { createdAt: 'desc' },
-	limit: 20,
+const writers = await UserSchema.findMany({
+	where: { posts: { some: { title: { startsWith: 'Draft' } } } },
+	select: { id: true },
 })
 ```
 
-The same handle owns atomic mutation intent without exposing join rows:
+Relation fields contain no join-table, SQL, or transport naming. Link writes
+change membership without exposing join rows (ADR-0308):
 
 ```ts
-const postId = '0198f090-2a50-7000-8000-000000000101'
+const conversationId = '0198f090-2a50-7000-8000-000000000100'
+const userId = '0198f090-2a50-7000-8000-000000000101'
 
-await user.relation('posts').connect(postId)
-await user.relation('posts').disconnect(postId)
-await user.relation('posts').set([postId])
-await user.relation('posts').clear()
+await ConversationSchema.updateOne({
+	where: { id: conversationId },
+	data: { participants: { connect: [userId] } },
+})
+await ConversationSchema.updateOne({
+	where: { id: conversationId },
+	data: { participants: { set: [] } },
+})
 ```
 
-Every call inherits the active request or accepts the same operation options as
-a schema read. It runs installed source and target behaviors inside one
+Every update inherits the active request or accepts the same operation options
+as a schema read. It runs installed source and target behaviors inside one
 transaction; inverse pointer relations also run the target pointer update
-lifecycle. A database
-adapter must advertise relation support. PostgreSQL implements scoped reads,
-owning join storage, inverse traversal, mutations, and cleanup.
+lifecycle. A database adapter must advertise relation support. PostgreSQL
+implements scoped reads, owning join storage, inverse traversal, mutations, and
+cleanup.
 
 Source Queries can filter without materializing related collections:
 

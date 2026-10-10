@@ -1,6 +1,7 @@
 # ADR-0151: Persisted model read and identity helpers
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0310
 - Date: 2026-08-06
 - Refined by: ADR-0152, ADR-0162
 

@@ -133,9 +133,12 @@ describe('Password User authentication methods', () => {
 				avatar: new Uint8Array([4, 5, 6]),
 			})
 			expect(result.user).not.toHaveProperty('password')
-			await expect(result.user.exists({ useMasterKey: true })).resolves.toBe(
-				true,
-			)
+			await expect(
+				User.exists(
+					{ where: { id: { eq: result.user.id } } },
+					{ useMasterKey: true },
+				),
+			).resolves.toBe(true)
 			await expect(User.login(credentials)).resolves.toMatchObject({
 				user: { id: result.user.id },
 			})
@@ -173,7 +176,7 @@ describe('Password User authentication methods', () => {
 		await ultimabase.start()
 		try {
 			const signedUp = await User.signUp({ username: ' Ada ', password })
-			expect(signedUp.user).toBeInstanceOf(User)
+			expect(Object.getPrototypeOf(signedUp.user)).toBe(Object.prototype)
 			expect(signedUp.user).toMatchObject({
 				username: 'ada',
 				displayName: 'Ada Lovelace',

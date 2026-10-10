@@ -171,7 +171,6 @@ export const snapshotTypegenGraph = (
 			.map((surface) =>
 				immutableRecord({
 					className: surface.schema.className,
-					modelMutations: snapshotMutations(surface.modelMutations),
 					schemaMutations: snapshotMutations(surface.schemaMutations),
 				}),
 			),

@@ -28,7 +28,7 @@ Current records (accepted or still active in part):
 - [ADR-0016: Controlled public exports](0016-controlled-public-exports.md)
 - [ADR-0019: Operation-specific schema inference](0019-operation-specific-schema-inference.md)
 - [ADR-0021: Field list metadata](0021-field-list-metadata.md)
-- [ADR-0022: Generator-neutral type identities](0022-generated-type-identities.md)
+- [ADR-0022: Generator-neutral type identities](0022-generated-type-identities.md), enum field forms superseded by ADR-0310
 - [ADR-0023: Portable UUID fields](0023-portable-uuid-fields.md)
 - [ADR-0024: Separate integer and float fields](0024-separate-numeric-fields.md)
 - [ADR-0025: Exact bigint fields](0025-exact-bigint-fields.md)
@@ -104,13 +104,11 @@ Current records (accepted or still active in part):
 - [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
-- [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
-- [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md)
 - [ADR-0116: Fundamental Access system and policy providers](0116-fundamental-access-system.md)
 - [ADR-0117: Optional Access subject capabilities](0117-optional-access-subject-capabilities.md)
-- [ADR-0118: Transport-neutral pointers and relations](0118-transport-neutral-relations.md)
+- [ADR-0118: Transport-neutral pointers and relations](0118-transport-neutral-relations.md), `model.relation(...)` handles superseded by ADR-0310
 - [ADR-0119: Developer-defined schema-backed roles](0119-developer-defined-role-schemas.md)
 - [ADR-0120: Native Access replaces permission placeholder packages](0120-native-access-replaces-permission-placeholders.md)
 - [ADR-0121: Explicit plugin package names](0121-explicit-plugin-package-names.md)
@@ -138,12 +136,10 @@ Current records (accepted or still active in part):
 - [ADR-0147: Set-based mutation returning selections](0147-set-based-mutation-returning-selections.md)
 - [ADR-0148: Uniform mutation result selections](0148-uniform-mutation-result-selections.md)
 - [ADR-0149: Explicit operation cardinality names](0149-explicit-operation-cardinality-names.md)
-- [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md)
-- [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md)
 - [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md), `get` read superseded by ADR-0307
 - [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
 - [ADR-0154: Unified eager relationship inclusion](0154-unified-eager-relationship-inclusion.md)
-- [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md)
+- [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md), `limit`/`offset` names superseded by ADR-0309
 - [ADR-0156: Visible relation cardinality filters](0156-visible-relation-cardinality-filters.md)
 - [ADR-0157: Explicit relation emptiness filters](0157-explicit-relation-emptiness-filters.md)
 - [ADR-0158: Filtered relation cardinality](0158-filtered-relation-cardinality.md)
@@ -179,7 +175,7 @@ Current records (accepted or still active in part):
 - [ADR-0189: Hooks and Access become optional official plugins](0189-optional-hooks-and-access-plugins.md)
 - [ADR-0190: Capability host lifecycle and legacy convergence](0190-capability-host-lifecycle-and-legacy-convergence.md)
 - [ADR-0191: Plugin privilege taxonomy, reporting, and diagnostics](0191-plugin-privilege-taxonomy-and-diagnostics.md)
-- [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md)
+- [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md), the `model` instance surface superseded by ADR-0310
 - [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md)
 - [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
 - [ADR-0195: Setup-phase capability requirements support peer composition](0195-setup-phase-capability-requirements.md)
@@ -188,7 +184,6 @@ Current records (accepted or still active in part):
 - [ADR-0198: Plugin Typegen contracts are structured and application-local](0198-structured-plugin-typegen-contracts.md)
 - [ADR-0199: Runtime capabilities execute behind a Core-owned request shell](0199-runtime-capability-assembly.md)
 - [ADR-0200: Persistence rewrites are physical and constraints remain Core-owned](0200-protected-rewritable-persistence-plans.md)
-- [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md)
 - [ADR-0202: Hooks is one vertical plugin](0202-hooks-are-one-vertical-plugin.md)
 - [ADR-0203: Plugin peers validate compatibility without ordering](0203-plugin-peer-requirements-do-not-order.md)
 - [ADR-0204: Access is one vertical plugin](0204-access-is-one-vertical-plugin.md)
@@ -213,8 +208,7 @@ Current records (accepted or still active in part):
 - [ADR-0224: HTTP application, REST, and password authentication boundaries](0224-http-application-rest-and-password-auth-boundaries.md)
 - [ADR-0225: Core provides a narrow application request execution capability](0225-core-application-request-execution-capability.md)
 - [ADR-0226: HTTP browser and pre-dispatch boundaries are server-consistent](0226-http-browser-and-predispatch-boundaries.md)
-- [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md)
-- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md)
+- [ADR-0228: Experimental HTTP and REST v1 wire contract](0228-experimental-http-rest-v1-wire-contract.md), offset-only REST pagination superseded by ADR-0309
 - [ADR-0229: Plugin fields own nominal REST wire codecs](0229-field-owned-rest-wire-codecs.md)
 - [ADR-0230: Plugin-field wire protocols have canonical identities](0230-canonical-plugin-field-wire-protocols.md)
 - [ADR-0231: Core request executors accept normalized schema reads](0231-core-application-request-read-execution.md)
@@ -224,14 +218,14 @@ Current records (accepted or still active in part):
 - [ADR-0235: Password Auth v1 owns one local User and opaque sessions](0235-password-auth-v1-contract.md)
 - [ADR-0236: Cookie credential issuance ignores one stale session cookie](0236-cookie-session-recovery-routes.md)
 - [ADR-0237: HTTP resolvers receive the effective browser policy](0237-http-resolvers-receive-effective-browser-policy.md)
-- [ADR-0238: GraphQL v1 uses the application request kernel](0238-graphql-v1-contract.md)
+- [ADR-0238: GraphQL v1 uses the application request kernel](0238-graphql-v1-contract.md), signed offset Relay cursors superseded by ADR-0309
 - [ADR-0239: GraphQL delete and upsert results keep Core projections](0239-graphql-delete-upsert-projections.md)
 - [ADR-0240: Core plans static operation transport descriptors](0240-static-operation-transport-planning.md)
 - [ADR-0241: GraphQL HTTP explorers use a provider-neutral endpoint contract](0241-provider-neutral-graphql-http-explorers.md)
 - [ADR-0242: Request source names belong to their producers](0242-request-source-ownership.md)
 - [ADR-0243: Singular nested writes use one bounded Core mutation graph](0243-bounded-singular-nested-writes.md), pointer `disconnect`, relation `clear` and identifier-only `connect` superseded by ADR-0308
 - [ADR-0244: Contextual field builders and virtual results](0244-contextual-fields-and-virtual-results.md)
-- [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md)
+- [ADR-0245: Plugin-defined schema mutations preserve logical identity](0245-plugin-schema-mutations-and-soft-delete.md), the `model` instance surface superseded by ADR-0310
 - [ADR-0246: Schema option absence is selectable and plugin powers are static](0246-schema-option-absence-and-static-plugin-powers.md)
 - [ADR-0247: Relation fields own contextual read filters](0247-contextual-relation-filters.md)
 - [ADR-0248: Application-selected plugin mutations on schema classes](0248-application-selected-schema-class-mutations.md)
@@ -294,6 +288,8 @@ Current records (accepted or still active in part):
 - [ADR-0306: Mutation results obey row read rules](0306-readable-mutation-results.md)
 - [ADR-0307: Prisma-aligned equality filters, atomic updates and required reads](0307-prisma-aligned-filters-updates-and-required-reads.md)
 - [ADR-0308: One checked vocabulary for pointer and relation links](0308-one-checked-link-vocabulary.md)
+- [ADR-0309: Keyset pagination in Core, shared by REST and GraphQL](0309-core-cursor-pagination.md)
+- [ADR-0310: Plain data results, named model types and shared enums](0310-plain-data-results-and-named-types.md)
 - [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 
 Proposed records (awaiting user validation):
@@ -319,14 +315,20 @@ Superseded records:
 - [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md), superseded by ADR-0161 and ADR-0163.
 - [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md), superseded by ADR-0172.
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
+- [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md), superseded by ADR-0310.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
+- [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md), superseded by ADR-0310.
 - [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md), superseded by ADR-0212.
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md), superseded by ADR-0213.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
+- [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md), superseded by ADR-0310.
+- [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md), superseded by ADR-0310.
 - [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md), superseded by ADR-0307.
+- [ADR-0201: Application-bound results expose plugin model commands directly](0201-transparent-application-model-surfaces.md), superseded by ADR-0310.
 - [ADR-0214: Plugin field types do not require public builders](0214-plugin-field-type-declarations-without-builders.md), superseded by ADR-0273.
+- [ADR-0227: Core Query exposes offset, not cursors](0227-core-query-exposes-offset-not-cursors.md), superseded by ADR-0309.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

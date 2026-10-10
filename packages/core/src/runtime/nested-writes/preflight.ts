@@ -161,7 +161,8 @@ export class RuntimeNestedWritePreflight {
 				relationship.command === 'update' ||
 				relationship.command === 'disconnect'
 			) {
-				// A hidden member to disconnect is reported like a missing one.
+				// A member hidden by policy is reported like a missing one; the
+				// declared relation `where` does not stop a disconnect (ADR-0308).
 				const records = await withLinkTargetNotFound(
 					relationship.fieldName,
 					relationship.target.className,
@@ -170,6 +171,7 @@ export class RuntimeNestedWritePreflight {
 							relationship,
 							sourceId,
 							relationship.ids,
+							relationship.command === 'disconnect' ? true : undefined,
 						),
 				)
 				if (relationship.command === 'update') {
@@ -198,6 +200,8 @@ export class RuntimeNestedWritePreflight {
 			const records = await this.#host.readRelationTargets(
 				relationship,
 				sourceId,
+				undefined,
+				true,
 			)
 			this.#relationTargets.set(relationship, records)
 			if (this.#host.isInversePointerRelation(relationship)) {

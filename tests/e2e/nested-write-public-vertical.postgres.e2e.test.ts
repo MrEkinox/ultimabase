@@ -387,7 +387,7 @@ describe('public nested-write vertical', { concurrent: false }, () => {
 		const persisted = await invoke(minimal.ExampleArticle, 'findMany', [
 			{
 				include: { author: {}, contributors: {} },
-				limit: 10,
+				take: 10,
 				orderBy: { slug: 'asc' },
 			},
 		])

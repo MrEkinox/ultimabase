@@ -1,6 +1,5 @@
 import {
 	PluginError,
-	Pointer,
 	defineOperation,
 	defineOperationTransport,
 	defineOperationValue,
@@ -155,14 +154,12 @@ const isUserProfile = (
 	value: unknown,
 	principal: PasswordPrincipal,
 ): value is SchemaResult<PasswordUserReference> => {
-	if (!(value instanceof principal.user.schema)) return false
-	const prototype: unknown = Reflect.get(principal.user.schema, 'prototype')
-	if (typeof prototype !== 'object' || prototype === null) return false
-	const toPointer: unknown = Reflect.get(prototype, 'toPointer')
-	if (typeof toPointer !== 'function') return false
-	// The nominal model method rejects drafts and prototype-shaped impostors.
-	const pointer: unknown = Reflect.apply(toPointer, value, [])
-	return Pointer.is(pointer) && pointer.equals(principal.user)
+	// Results are frozen plain data (ADR-0310): the profile is the principal's row.
+	return (
+		isPlainRecord(value) &&
+		Object.isFrozen(value) &&
+		value.id === principal.user.id
+	)
 }
 
 const authenticationResult = defineOperationValue<PasswordAuthenticationResult>(

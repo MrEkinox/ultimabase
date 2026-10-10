@@ -24,7 +24,7 @@ read selection can omit that field from the returned model; see
 [Models](./models) for the difference between a complete record and a selected
 snapshot.
 
-## From draft to persisted value
+## From create input to persisted value
 
 This schema has one required field, one defaulted field, one plain optional
 field, and one automatically dated field:
@@ -49,16 +49,13 @@ persistence plugin, create a record with only its required input:
 ```ts title="src/publication-input.ts"
 import { Publication } from './publication.js'
 
-const draft = new Publication({ title: 'Release notes' })
-console.log(draft.toJSON())
-
-const created = await draft.create({})
-console.log(created.toJSON())
+const created = await Publication.createOne({
+	data: { title: 'Release notes' },
+})
+console.log(created)
 ```
 
-The draft contains only `title`; constructing it does not apply defaults or
-perform I/O. Without an output policy restricting fields, `created.toJSON()`
-contains the supplied title, `status: 'draft'`, `summary: null`, an
+Without an output policy restricting fields, `created` contains the supplied title, `status: 'draft'`, `summary: null`, an
 operation-time `publishedAt`, and the generated `id`, `createdAt`, and
 `updatedAt` system fields. The example requests no `select`, so it returns the
 complete result permitted by installed output policy.
@@ -95,7 +92,7 @@ A default can be a static value or a zero-argument factory:
 `f.uuid({ default: () => crypto.randomUUID() })`.
 
 The factory runs once for each record whose create input omits that field, not
-when the schema or draft is constructed. Its result is validated like a supplied
+when the schema is declared. Its result is validated like a supplied
 value. Use a factory when each record needs a fresh value; a static default is
 snapshotted so later changes to the original object or array cannot change it.
 
@@ -130,7 +127,7 @@ directly. See [Schemas](./schemas) for their definitions and
 
 <Cards>
 	<Card title="Models" href="./models">
-		See when a draft becomes a persisted, selected snapshot.
+		See the frozen plain results commands return.
 	</Card>
 	<Card title="Create Records" href="/docs/1.0.0/core/writing-data/create">
 		Create a record and choose the returned fields.

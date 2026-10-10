@@ -174,9 +174,10 @@ export interface EnumOutputOptions<
 	TNullable extends boolean = boolean,
 	TList extends boolean = boolean,
 > extends OutputValueOptions<TNullable, TList> {
-	/** Supplies a stable generator-neutral type identity. @example `typeName: "Status"` */
-	readonly typeName?: string
-	/** Declares the non-empty set of accepted string values. @example `values: ["draft"]` */
+	/**
+	 * Declares the accepted string values: a non-empty array or a shared enum.
+	 * @example `values: ["draft"]`
+	 */
 	readonly values: TValues
 }
 
@@ -188,7 +189,6 @@ type EnumOutputDescriptor<
 	'enum',
 	OutputValueShape<EnumValue<TValues>, TNullable, TList>,
 	NormalizedOutputValueOptions<TNullable, TList> & {
-		readonly typeName?: string
 		readonly values: TValues
 	}
 >

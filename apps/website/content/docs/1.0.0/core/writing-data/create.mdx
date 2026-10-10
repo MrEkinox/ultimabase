@@ -13,7 +13,7 @@ sources:
   - packages/core/docs/query.md
   - packages/core/docs/schema.md
   - packages/core/docs/runtime.md
-  - docs/adr/0109-constructible-schema-models.md
+  - docs/adr/0310-plain-data-results-and-named-types.md
   - docs/adr/0180-mutation-relationship-projections.md
   - docs/adr/0243-bounded-singular-nested-writes.md
   - docs/adr/0306-readable-mutation-results.md
@@ -74,16 +74,15 @@ which is always allowed. The same holds for update, upsert and delete results
 and for bulk commands, where one unreadable row rejects the call. Master skips
 the check.
 
-## Drafts and other create paths
+## Other create paths
 
-Construct an immutable draft with `new Post(data)` when you need to assemble a
-record locally. Construction performs no I/O; `draft.create(input, options)`
-persists it and returns a new model. The draft's data must use ordinary field
-values, not nested `connect` or `create` commands. See [Models](/docs/1.0.0/core/data-modeling/models)
-for its full lifecycle.
+Schemas are not constructible and results are frozen plain data (ADR-0310):
+assemble create data as a plain object, typed with `CreateInput<typeof Post>`
+when it is built separately, and pass it to `createOne`. See
+[Models](/docs/1.0.0/core/data-modeling/models) for the result contract.
 
 Use [Bulk Operations](./bulk-operations) for an itemized collection create.
-Nested writes belong to singular `createOne`, not to bulk roots or drafts.
+Nested writes belong to singular `createOne`, not to bulk roots.
 
 ## Next steps
 

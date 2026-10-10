@@ -255,6 +255,8 @@ Start the application, create one record through the shared Runtime, and always
 release resources:
 
 ```ts title="src/main.ts"
+import { toJSON } from '@ultimabase/core'
+
 import { Task } from './schema.js'
 import { ultimabase } from './ultimabase.js'
 
@@ -265,7 +267,7 @@ try {
 		data: { title: 'Write the documentation' },
 	})
 
-	console.log(task.toJSON())
+	console.log(toJSON(task))
 } finally {
 	await ultimabase.dispose()
 }

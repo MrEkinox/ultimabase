@@ -15,7 +15,6 @@ import {
 	type FieldOptions,
 	SchemaRegistry,
 } from '../../schema/index.js'
-import { createRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
@@ -36,6 +35,22 @@ import {
 	revalidateRuntimeMutationOperation,
 } from './runtime-validation.js'
 import { UltimaBase } from '../application/ultima-base.js'
+/** Builds the relation update expression nested writes emit (ADR-0308). */
+const connectTarget = (id: string) =>
+	Object.freeze({
+		kind: 'update-expression' as const,
+		operations: Object.freeze([
+			Object.freeze({
+				field: 'targets' as const,
+				kind: 'relation' as const,
+				value: Object.freeze({
+					action: 'connect' as const,
+					targets: Object.freeze([relationValidationTarget.pointer(id)]),
+				}),
+			}),
+		] as const),
+	})
+
 describe('runtime validation', () => {
 	it('applies immutable defaults and one timezone-aware operation clock', async () => {
 		runtimeDefault.mockClear()
@@ -396,13 +411,7 @@ describe('runtime validation', () => {
 		const replacementPointer = relationValidationTarget.pointer(
 			'0198f090-2a50-7000-8000-000000000112',
 		)
-		const update = createRelationUpdateExpression(
-			relationValidationSource,
-			'targets',
-			relationValidationTarget,
-			'connect',
-			originalPointer.id,
-		)
+		const update = connectTarget(originalPointer.id)
 		const operation: UpdateOneOperationAst<
 			typeof relationValidationSource,
 			typeof update
@@ -413,13 +422,7 @@ describe('runtime validation', () => {
 			update,
 		}
 		const normalized = await executeStage(stage, operation)
-		const replacement = createRelationUpdateExpression(
-			relationValidationSource,
-			'targets',
-			relationValidationTarget,
-			'connect',
-			replacementPointer.id,
-		)
+		const replacement = connectTarget(replacementPointer.id)
 		const [, ...generatedOperations] = normalized.update.operations
 		// Replacing the normalized expression models a hook changing its authorized target.
 		const transformed: typeof normalized = {

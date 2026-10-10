@@ -47,7 +47,7 @@ export const registerRuntimeBulkTests = (): void => {
 				'second@example.com',
 				'first@example.com',
 			])
-			expect(ordered.map((account) => account.toJSON())).toStrictEqual([
+			expect(ordered).toStrictEqual([
 				{ email: 'second@example.com', id: ordered[0]?.id },
 				{ email: 'first@example.com', id: ordered[1]?.id },
 			])
@@ -72,7 +72,7 @@ export const registerRuntimeBulkTests = (): void => {
 				update: { visits: { increment: 1 } },
 				select: { email: true, visits: true },
 			})
-			expect(createdUpsert.toJSON()).toStrictEqual({
+			expect(createdUpsert).toStrictEqual({
 				email: 'upsert@example.com',
 				id: createdUpsert.id,
 				visits: 0,
@@ -88,7 +88,7 @@ export const registerRuntimeBulkTests = (): void => {
 				update: { visits: { increment: 1 } },
 				select: { email: true, visits: true },
 			})
-			expect(updatedUpsert.toJSON()).toStrictEqual({
+			expect(updatedUpsert).toStrictEqual({
 				email: 'upsert@example.com',
 				id: updatedUpsert.id,
 				visits: 1,
@@ -117,7 +117,7 @@ export const registerRuntimeBulkTests = (): void => {
 				],
 				select: { email: true, visits: true },
 			})
-			expect(bulkUpserted.map((account) => account.toJSON())).toStrictEqual([
+			expect(bulkUpserted).toStrictEqual([
 				{
 					email: 'upsert@example.com',
 					id: bulkUpserted[0]?.id,

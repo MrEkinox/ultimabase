@@ -90,7 +90,7 @@ describe('Runtime result materialization', () => {
 	})
 
 	it.each(collectionOperations)(
-		'materializes immutable $kind collections as the exact schema class',
+		'materializes immutable $kind collections as frozen plain objects',
 		(operation) => {
 			const records = [
 				{
@@ -103,11 +103,12 @@ describe('Runtime result materialization', () => {
 			const result = materializeOperationResult(operation, records)
 
 			expect(result).toHaveLength(1)
-			expect(result[0]).toBeInstanceOf(ResultSchema)
-			expect(result[0]?.toJSON()).toStrictEqual(records[0])
+			// A frozen plain copy, never the Runtime record itself (ADR-0310).
+			expect(Object.getPrototypeOf(result[0])).toBe(Object.prototype)
+			expect(result[0]).toStrictEqual(records[0])
+			expect(result[0]).not.toBe(records[0])
 			expect(Object.isFrozen(result)).toBe(true)
 			expect(Object.isFrozen(result[0])).toBe(true)
-			expect(records[0]).not.toBeInstanceOf(ResultSchema)
 		},
 	)
 

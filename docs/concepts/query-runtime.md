@@ -16,7 +16,7 @@ transaction, or installed behavior callback, it uses that exact active Runtime s
 
 ```ts
 const users = await runWithRequestEngine(requestEngine, () =>
-	UserSchema.findMany({ ...activeUsers, limit: 25 }),
+	UserSchema.findMany({ ...activeUsers, take: 25 }),
 )
 ```
 
@@ -25,7 +25,7 @@ creates one anonymous internal request. With no initialized application it
 fails with `MISSING_EXECUTION_CONTEXT`:
 
 ```ts
-const users = await UserSchema.findMany({ ...activeUsers, limit: 25 })
+const users = await UserSchema.findMany({ ...activeUsers, take: 25 })
 ```
 
 Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,

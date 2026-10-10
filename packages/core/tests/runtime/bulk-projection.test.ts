@@ -57,11 +57,11 @@ describe('bulk result projection', () => {
 			}),
 		)
 
-		expect(result[0]?.toJSON()).toStrictEqual({
+		expect(result[0]).toStrictEqual({
 			email: current.email,
 			id: current.id,
 		})
-		expect(result[0]?.get('email')).toBe(current.email)
+		expect(result[0]?.email).toBe(current.email)
 	})
 
 	it('groups create and update inclusions while preserving declared order', async () => {
@@ -234,14 +234,13 @@ describe('bulk result projection', () => {
 		const updatedManagers: unknown[] = updated.map(({ manager }) => manager)
 		expect(
 			[...createdManagers, ...updatedManagers].every(
-				(manager) => manager instanceof managerSchema,
+				(manager) => Object.getPrototypeOf(manager) === Object.prototype,
 			),
 		).toBe(true)
-		expect(
-			createdManagers.map((manager) =>
-				manager instanceof managerSchema ? manager.name : undefined,
-			),
-		).toStrictEqual(['First manager', 'Second manager'])
+		expect(createdManagers).toMatchObject([
+			{ name: 'First manager' },
+			{ name: 'Second manager' },
+		])
 		expect(
 			updateAdapter.transactions[0]?.requests.map(
 				({ operation }) => operation.kind,

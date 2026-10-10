@@ -1,5 +1,4 @@
 import {
-	Schema,
 	type OperationOptions,
 	type SchemaClass,
 	type SchemaDefinition,
@@ -88,7 +87,7 @@ const findRoleByName = async (
 	resolveUniqueRoleNameMatch(
 		name,
 		await roleQuerySchema(schema).findMany(
-			{ where: { name: { eq: name } }, limit: 2 },
+			{ where: { name: { eq: name } }, take: 2 },
 			options,
 		),
 	)
@@ -127,11 +126,10 @@ export const resolveRoleReference = async <
 	if ('name' in selector) {
 		role = await findRoleByName(schema, selector.name, options)
 	} else {
-		// Its schema creates every Pointer (ADR-0314).
-		if (!Schema.is(schema)) {
-			throw new TypeError('Role resolution requires a role schema')
-		}
-		role = await schema.pointer(selector.id).findOne(undefined, options)
+		role = await roleQuerySchema(schema).findOne(
+			{ where: { id: selector.id } },
+			options,
+		)
 
 		if (role === null) {
 			throw new RoleReferenceResolutionError(

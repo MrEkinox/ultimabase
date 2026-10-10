@@ -185,12 +185,13 @@ describe('GraphQL read normalization', () => {
 						? { author: { select: { name: true, rank: true } } }
 						: {}),
 					related: {
-						limit: 3,
+						take: 3,
 						orderBy: { id: 'asc' },
-						select: { name: true, rank: true },
+						// Edge cursors need every ordered field (ADR-0309).
+						select: { name: true, rank: true, id: true },
 					},
 				},
-				limit: 3,
+				take: 3,
 				orderBy: { id: 'asc' },
 				select: { huge: true, ...(withAuthor ? { name: true } : {}), id: true },
 			})
@@ -274,15 +275,22 @@ describe('GraphQL read normalization', () => {
 			include: {
 				author: { select: { name: true } },
 				related: {
-					limit: 6,
+					take: 6,
 					orderBy: { id: 'asc' },
-					select: { name: true },
+					select: { name: true, id: true },
 					where: { name: { startsWith: 'R' } },
 				},
 			},
-			limit: 21,
+			take: 21,
 			orderBy: { createdAt: 'desc', name: 'asc', id: 'asc' },
-			select: { name: true, huge: true, portableCode: true },
+			// Edge cursors need every ordered field (ADR-0309).
+			select: {
+				name: true,
+				huge: true,
+				portableCode: true,
+				createdAt: true,
+				id: true,
+			},
 			where: {
 				author: { eq: authorId },
 				blob: { eq: Uint8Array.from([1, 2, 3]) },
@@ -401,7 +409,7 @@ describe('GraphQL read normalization', () => {
 		const malformedCollections: readonly Readonly<Record<string, unknown>>[] = [
 			{ unknown: true },
 			{ first: -1 },
-			{ first: 101 },
+			{ first: 1001 },
 			{
 				orderBy: [
 					{ direction: 'asc', field: 'name' },

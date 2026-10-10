@@ -125,7 +125,7 @@ describe(
 				})
 
 				// A rewritten delete returns the row as written (ADR-0306 amendment).
-				expect(deleted?.toJSON()).toStrictEqual({
+				expect(deleted).toStrictEqual({
 					id: single.id,
 					title: 'TOMBSTONED',
 				})
@@ -133,7 +133,7 @@ describe(
 					select: { id: true, title: true },
 					where: { id: { eq: single.id } },
 				})
-				expect(stored?.toJSON()).toStrictEqual({
+				expect(stored).toStrictEqual({
 					id: single.id,
 					title: 'TOMBSTONED',
 				})

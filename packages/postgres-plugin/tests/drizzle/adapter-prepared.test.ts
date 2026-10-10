@@ -359,7 +359,7 @@ describe('internal PostgreSQL database adapter preparation', () => {
 		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.gt('views', 0))
 			.select({ id: true, title: true })
-			.limit(10)
+			.take(10)
 		const update = normalizeUpdateExpression(articleSchema, {
 			views: { increment: 1 },
 		})

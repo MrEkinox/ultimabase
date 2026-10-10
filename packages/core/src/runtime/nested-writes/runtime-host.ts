@@ -54,6 +54,7 @@ export interface RuntimeNestedWriteOperationExecutor {
 			node: NestedWriteObjectNode
 		}>,
 		relation?: DatabaseRelationScope,
+		relationWhere?: false,
 	): Promise<unknown>
 }
 
@@ -112,9 +113,17 @@ export const createRuntimeNestedWriteHost = (
 		rowFilter?: DatabaseRowFilterNode,
 		denied?: true,
 		relation?: DatabaseRelationScope,
+		relationWhere?: false,
 	): Promise<unknown> =>
 		runWithRuntimeNestedWriteStageContext(undefined, () =>
-			executor.execute(operation, rowFilter, denied, undefined, relation),
+			executor.execute(
+				operation,
+				rowFilter,
+				denied,
+				undefined,
+				relation,
+				relationWhere,
+			),
 		)
 	const readMappedBy = (relation: NestedWriteRelationNode) => {
 		const mapping = binding.schemas.schemaTargets.getRelation(relation.source, [
@@ -206,8 +215,9 @@ export const createRuntimeNestedWriteHost = (
 			}
 		},
 		readInversePointerField,
-		readRelationTargets: async (relation, sourceId, targetIds) => {
+		readRelationTargets: async (relation, sourceId, targetIds, unlinking) => {
 			const scope = createRelationScope(relation, sourceId)
+			const relationWhere = unlinking === true ? false : undefined
 			if (targetIds === undefined) {
 				const operation: FindManyOperationAst<SchemaDefinition> =
 					immutableRecord({
@@ -219,6 +229,7 @@ export const createRuntimeNestedWriteHost = (
 					undefined,
 					undefined,
 					scope,
+					relationWhere,
 				)
 				if (!Array.isArray(result)) {
 					throw new TypeError('Nested relation lookup must return a collection')
@@ -248,7 +259,13 @@ export const createRuntimeNestedWriteHost = (
 					'id',
 					id,
 				) as DatabaseRowFilterNode
-				const result = await executeDetached(operation, rowFilter, true, scope)
+				const result = await executeDetached(
+					operation,
+					rowFilter,
+					true,
+					scope,
+					relationWhere,
+				)
 				if (result === null) throw createProtectedObjectNotFoundError()
 				records.push(
 					readLogicalRecord(

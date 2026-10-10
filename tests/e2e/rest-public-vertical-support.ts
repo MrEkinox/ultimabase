@@ -1,4 +1,4 @@
-import type { MasterAccessEvent } from '@ultimabase/core'
+import { toJSON, type MasterAccessEvent } from '@ultimabase/core'
 import type { PostgresPool } from '@ultimabase/postgres-plugin'
 import type { HonoServerPlugin } from '@ultimabase/server-hono-plugin'
 import { vi } from 'vitest'
@@ -22,11 +22,6 @@ export interface MinimalExampleModule {
 	readonly purgeArticle: (id: string) => Promise<unknown>
 	readonly restoreArticle: (id: string) => Promise<unknown>
 	readonly softDeleteArticle: (
-		application: MinimalApplication,
-		id: string,
-		sessionToken: string,
-	) => Promise<unknown>
-	readonly softDeleteArticleFromModel: (
 		application: MinimalApplication,
 		id: string,
 		sessionToken: string,
@@ -101,8 +96,6 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		typeof softDeleteModule.restoreArticle !== 'function' ||
 		!('softDeleteArticle' in softDeleteModule) ||
 		typeof softDeleteModule.softDeleteArticle !== 'function' ||
-		!('softDeleteArticleFromModel' in softDeleteModule) ||
-		typeof softDeleteModule.softDeleteArticleFromModel !== 'function' ||
 		!('softDeleteAuthor' in softDeleteModule) ||
 		typeof softDeleteModule.softDeleteAuthor !== 'function'
 	) {
@@ -120,7 +113,6 @@ export const loadMinimalExample = async (): Promise<MinimalExampleModule> => {
 		purgeArticle: softDeleteModule.purgeArticle,
 		restoreArticle: softDeleteModule.restoreArticle,
 		softDeleteArticle: softDeleteModule.softDeleteArticle,
-		softDeleteArticleFromModel: softDeleteModule.softDeleteArticleFromModel,
 		softDeleteAuthor: softDeleteModule.softDeleteAuthor,
 	} as MinimalExampleModule
 }
@@ -153,8 +145,9 @@ export const readString = (value: object, key: string): string => {
 	return entry
 }
 
-export const modelJson = async (value: unknown): Promise<unknown> =>
-	invoke(readObject(value, 'model'), 'toJSON', [])
+/** Serializes a direct result as REST does (ADR-0310). */
+export const modelJson = (value: unknown): Promise<unknown> =>
+	Promise.resolve(toJSON(readObject(value, 'result')))
 
 /** Executes the example's GraphQL application without crossing an HTTP boundary. */
 export const executeMinimalGraphql = async (

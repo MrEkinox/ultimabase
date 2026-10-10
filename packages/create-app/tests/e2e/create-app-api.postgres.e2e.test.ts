@@ -45,9 +45,7 @@ const setupProject = async (
 		)
 		await writeFile(
 			path.join(plan.destination, '.env'),
-			// Generated GraphQL projects list ULTIMABASE_CURSOR_SECRET in .env.example;
-			// production refuses to start without it.
-			`DATABASE_URL=${fixture.connectionUri}\nULTIMABASE_MASTER_KEY=local-test-only-master-key\nULTIMABASE_CURSOR_SECRET=local-test-only-cursor-secret-32-chars\n`,
+			`DATABASE_URL=${fixture.connectionUri}\nULTIMABASE_MASTER_KEY=local-test-only-master-key\n`,
 			{ mode: 0o600 },
 		)
 		if (options.language === 'ts') {

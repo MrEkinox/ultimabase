@@ -5,10 +5,21 @@ import { assertGraphqlKnownKeys } from './options.js'
 /** The largest value of the GraphQL `Int` scalar. */
 export const maximumGraphqlInt = 2_147_483_647
 
-/** Configures GraphQL v1 request safety and the forward-page window. */
+/**
+ * Configures the page window of Relay connections, with the same option and
+ * defaults as `restPlugin({ pagination })` (ADR-0309).
+ *
+ * @example `graphqlPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })`
+ */
+export interface GraphqlPaginationOptions {
+	/** Page size used when `first` is omitted. @default 100 */
+	readonly defaultTake?: number
+	/** Largest accepted `first`; a larger value is a GraphQL error. @default 1000 */
+	readonly maxTake?: number
+}
+
+/** Configures GraphQL v1 request safety. */
 export interface GraphqlExecutionLimits {
-	/** Sets the page size used when `first` is omitted. @default 25 */
-	readonly defaultPageSize?: number
 	/** Rejects documents with more aliases. @default 100 */
 	readonly maxAliases?: number
 	/** Rejects selections nested beyond this depth. @default 20 */
@@ -17,39 +28,42 @@ export interface GraphqlExecutionLimits {
 	readonly maxDocumentBytes?: number
 	/** Rejects source tokens or parsed AST nodes beyond this count. @default 10000 */
 	readonly maxDocumentTokens?: number
-	/** Rejects larger client-provided `first` values. @default 100 */
-	readonly maxPageSize?: number
 	/** Rejects operations with more top-level response fields. @default 20 */
 	readonly maxRootFields?: number
 	/** Rejects JSON-compatible variables larger than this many bytes. @default 1048576 */
 	readonly maxVariablesBytes?: number
 }
 
-/** Retains the complete validated page limits used by one application. */
+/** Retains the complete validated request and page limits of one application. */
 export interface NormalizedGraphqlExecutionLimits {
-	readonly defaultPageSize: number
+	readonly defaultTake: number
 	readonly maxAliases: number
 	readonly maxDepth: number
 	readonly maxDocumentBytes: number
 	readonly maxDocumentTokens: number
-	readonly maxPageSize: number
 	readonly maxRootFields: number
+	readonly maxTake: number
 	readonly maxVariablesBytes: number
 }
 
 export const defaultGraphqlExecutionLimits: NormalizedGraphqlExecutionLimits =
 	immutableRecord({
-		defaultPageSize: 25,
+		defaultTake: 100,
 		maxAliases: 100,
 		maxDepth: 20,
 		maxDocumentBytes: 100 * 1024,
 		maxDocumentTokens: 10_000,
-		maxPageSize: 100,
 		maxRootFields: 20,
+		maxTake: 1000,
 		maxVariablesBytes: 1024 * 1024,
 	})
 
-const limitKeys = new Set(Object.keys(defaultGraphqlExecutionLimits))
+const limitKeys = new Set(
+	Object.keys(defaultGraphqlExecutionLimits).filter(
+		(key) => key !== 'defaultTake' && key !== 'maxTake',
+	),
+)
+const paginationKeys = new Set(['defaultTake', 'maxTake'])
 
 const readLimit = (value: unknown, path: string, minimum: number): number => {
 	if (
@@ -64,50 +78,55 @@ const readLimit = (value: unknown, path: string, minimum: number): number => {
 	return value
 }
 
-/** Snapshots the page limits implemented by the Relay connection owner. */
+/** Snapshots the request limits and the Relay page window of one application. */
 export const normalizeGraphqlExecutionLimits = (
-	value: unknown,
-	path = 'GraphQL plugin limits',
+	limits: unknown,
+	pagination?: unknown,
 ): NormalizedGraphqlExecutionLimits => {
+	const path = 'GraphQL plugin limits'
+	const value = limits === undefined ? {} : limits
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain object`)
 	}
 	assertGraphqlKnownKeys(value, limitKeys, path)
-	const defaultPageSize =
-		value.defaultPageSize === undefined
-			? defaultGraphqlExecutionLimits.defaultPageSize
-			: readLimit(value.defaultPageSize, `${path}.defaultPageSize`, 0)
-	const maxPageSize =
-		value.maxPageSize === undefined
-			? defaultGraphqlExecutionLimits.maxPageSize
-			: readLimit(value.maxPageSize, `${path}.maxPageSize`, 1)
+	const page = pagination === undefined ? {} : pagination
+	if (!isPlainRecord(page)) {
+		throw new TypeError('GraphQL plugin pagination must be a plain object')
+	}
+	assertGraphqlKnownKeys(page, paginationKeys, 'GraphQL plugin pagination')
+	const take = (key: 'defaultTake' | 'maxTake'): number =>
+		page[key] === undefined
+			? defaultGraphqlExecutionLimits[key]
+			: readLimit(page[key], `GraphQL plugin pagination.${key}`, 1)
+	const defaultTake = take('defaultTake')
+	const maxTake = take('maxTake')
 	const positiveLimit = (
 		key: Exclude<
 			keyof NormalizedGraphqlExecutionLimits,
-			'defaultPageSize' | 'maxPageSize'
+			'defaultTake' | 'maxTake'
 		>,
 	): number =>
 		value[key] === undefined
 			? defaultGraphqlExecutionLimits[key]
 			: readLimit(value[key], `${path}.${key}`, 1)
-	if (defaultPageSize > maximumGraphqlInt) {
+	if (defaultTake > maxTake) {
 		throw new RangeError(
-			`${path}.defaultPageSize must fit the GraphQL Int range`,
+			'GraphQL plugin pagination.defaultTake must not exceed pagination.maxTake',
 		)
 	}
-	if (defaultPageSize > maxPageSize) {
+	if (defaultTake > maximumGraphqlInt) {
 		throw new RangeError(
-			`${path}.defaultPageSize must not exceed ${path}.maxPageSize`,
+			'GraphQL plugin pagination.defaultTake must fit the GraphQL Int range',
 		)
 	}
 	return immutableRecord({
-		defaultPageSize,
+		defaultTake,
 		maxAliases: positiveLimit('maxAliases'),
 		maxDepth: positiveLimit('maxDepth'),
 		maxDocumentBytes: positiveLimit('maxDocumentBytes'),
 		maxDocumentTokens: positiveLimit('maxDocumentTokens'),
-		maxPageSize,
 		maxRootFields: positiveLimit('maxRootFields'),
+		maxTake,
 		maxVariablesBytes: positiveLimit('maxVariablesBytes'),
 	})
 }

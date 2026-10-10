@@ -2,8 +2,7 @@
 
 Application schemas use `App.Schema.define()`. A package that exposes its own final
 schema factory can use the single lower-level specialization boundary to attach
-typed class helpers and persisted-result commands before Core freezes the same
-schema identity:
+typed static helpers before Core freezes the same schema identity:
 
 ```ts
 import { Schema } from '@ultimabase/core'
@@ -13,22 +12,13 @@ export const WorkflowRecord = Schema.defineSpecialized(
 		className: 'WorkflowRecord',
 		fields: (field) => ({ state: field.string({ required: true }) }),
 	},
-	(context) => ({
-		statics: {
-			workflowKind: 'record' as const,
-		},
-		results: {
-			assertWorkflowRecord(this: object): void {
-				context.assertPersisted(this, 'assertWorkflowRecord')
-			},
-		},
-	}),
+	() => ({ workflowKind: 'record' as const }),
 )
 ```
 
 `WorkflowRecord.workflowKind` is a non-enumerable immutable static capability.
-`assertWorkflowRecord()` appears on trusted persisted results but not on drafts.
-The factory may use a package-private symbol as a nominal static marker; Core
+Results stay frozen plain data: a specialization cannot add result methods
+(ADR-0310). The factory may use a package-private symbol as a nominal static marker; Core
 retains symbol keys without exposing them through enumeration or Typegen.
 
 The specialization receives no application, adapter, authority, or mutable

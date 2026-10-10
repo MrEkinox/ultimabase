@@ -48,9 +48,7 @@ export class ReferenceImports {
 			),
 			...snapshot.operations.flatMap(({ input, result }) => [input, result]),
 			...snapshot.surfaces.flatMap((surface) =>
-				[...surface.schemaMutations, ...surface.modelMutations].map(
-					({ input }) => input,
-				),
+				surface.schemaMutations.map(({ input }) => input),
 			),
 		]
 		// The last occurrence of a module and export pair wins, as in a keyed map.

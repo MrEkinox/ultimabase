@@ -97,8 +97,9 @@ and retain physical hard-delete persistence.
 
 ## Explicit execution
 
-For an effective `explicit` schema, the class, application schema handle, and
-every bound persisted model expose the same singular command after startup:
+For an effective `explicit` schema, the class and the application schema handle
+expose the same singular command after startup; results have no methods
+(ADR-0310):
 
 ```ts
 const deleted = await Post.softDelete({
@@ -110,8 +111,6 @@ const deletedFromHandle = await ultimabase.schema(Post).softDelete({
 	id: postId,
 	select: { id: true, isDeleted: true, title: true },
 })
-
-await ultimabase.schema(Post).for(post).softDelete()
 ```
 
 The command has the stable logical identity
@@ -133,7 +132,7 @@ gain those additional transport endpoints.
 ## Private administration
 
 Every effective `explicit` or `replace-delete` schema exposes two commands on
-its class and application schema handle, but never on a persisted model:
+its class and application schema handle; results have no methods (ADR-0310):
 
 ```ts
 const restored = await Post.restore(

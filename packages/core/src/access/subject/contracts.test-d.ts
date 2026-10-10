@@ -13,7 +13,6 @@ import {
 	type RequestPrincipalReference,
 	type RequestPrincipalReferenceIdentity,
 	type RequestRoleReference,
-	type RequestRoleReferenceCarrier,
 	type RequestRoleResolver,
 	type RequestSubjectResolver,
 	type RequestSubjectValue,
@@ -55,9 +54,6 @@ const principal = new RequestContextValue<FixturePrincipal>(
 	},
 )
 const editor = new RequestSubjectReference('role', 'editor')
-const editorModel: RequestRoleReferenceCarrier = {
-	toRequestRoleReference: () => editor,
-}
 const PrincipalSchema = UltimaBase.Schema.define({
 	className: 'TypedAccessPrincipal',
 	fields: () => ({}),
@@ -93,8 +89,11 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	>()
 	expectTypeOf(editor).toExtend<RequestRoleReference<'editor'>>()
 	expectTypeOf(
-		resolveRequestRoleReference(editorModel),
+		resolveRequestRoleReference(editor),
 	).toEqualTypeOf<RequestRoleReference>()
+	// Role results carry no reference method (ADR-0310).
+	// @ts-expect-error -- Only a role reference is a role subject.
+	resolveRequestRoleReference({ toRequestRoleReference: () => editor })
 	expectTypeOf<
 		ResolvedRequestSubject<typeof resolver>
 	>().toEqualTypeOf<FixtureRole>()

@@ -109,20 +109,15 @@ void Invalid
 	expect(generated.contents).toContain(
 		'readonly softDelete: Core.ApplicationSchemaMutationMethod',
 	)
-	expect(generated.contents).toContain(
-		'readonly softDelete: Core.ApplicationModelSchemaMutationMethod',
+	// ADR-0310: no model surface; soft delete is a schema method only.
+	expect(generated.contents).not.toContain(
+		'ApplicationModelSchemaMutationMethod',
 	)
 	expect(generated.contents).toContain(
 		'readonly restore: Core.ApplicationSchemaMutationMethod',
 	)
 	expect(generated.contents).toContain(
 		'readonly purge: Core.ApplicationSchemaMutationMethod',
-	)
-	expect(generated.contents).not.toContain(
-		'readonly restore: Core.ApplicationModelSchemaMutationMethod',
-	)
-	expect(generated.contents).not.toContain(
-		'readonly purge: Core.ApplicationModelSchemaMutationMethod',
 	)
 	const generatedDocument = generated.snapshot.schemas.find(
 		({ className }) => className === Document.className,

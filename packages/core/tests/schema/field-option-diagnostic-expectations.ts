@@ -18,7 +18,8 @@ export const fieldOptionDiagnosticExpectations: readonly FieldOptionDiagnosticEx
 			target: 'values',
 		},
 		{
-			fragments: ['DefaultedEnumFieldOptions<{}', "Type '{}'"],
+			// A mapping is no enum source anymore (ADR-0310).
+			fragments: ["Type '{}' is not assignable to type 'EnumValues'"],
 			target: 'values',
 		},
 		{

@@ -140,7 +140,9 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 		const atomicContribution = contributeOperation({
 			operation: atomicOperation,
 			execute: async () => {
-				const account = await new Account({ name: 'rolled-back' }).create({})
+				const account = await Account.createOne({
+					data: { name: 'rolled-back' },
+				})
 				if (typeof account.id !== 'string') {
 					throw new TypeError('Created account ID is unavailable')
 				}
@@ -181,7 +183,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const account = await new Account({ name: 'cascade' }).create({})
+			const account = await Account.createOne({ data: { name: 'cascade' } })
 			accountId = account.id
 			expect(
 				await ultimabase
@@ -203,7 +205,7 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			])
 			expect(race.sort()).toStrictEqual(['2', 'conflict'])
 
-			await account.delete({})
+			await Account.deleteOne({ where: { id: { eq: account.id } } })
 			expect(
 				await ultimabase
 					.operation(sessionOperation)
@@ -223,12 +225,14 @@ describe('PostgreSQL owner-private storage', { concurrent: false }, () => {
 			).toBe('missing')
 
 			// A `fail` reference restricts deleting its target (ADR-0299).
-			const pinned = await new Account({ name: 'pinned' }).create({})
+			const pinned = await Account.createOne({ data: { name: 'pinned' } })
 			accountId = pinned.id
 			expect(
 				await ultimabase.operation(sessionOperation).execute({ action: 'pin' }),
 			).toBe('pinned')
-			await expect(pinned.delete({})).rejects.toMatchObject({
+			await expect(
+				Account.deleteOne({ where: { id: { eq: pinned.id } } }),
+			).rejects.toMatchObject({
 				code: 'REFERENCE_VIOLATION',
 				publicDetails: { schema: 'PrivateStoragePostgresAccount' },
 			})

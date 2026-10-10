@@ -185,7 +185,7 @@ const declarationContributions = new WeakMap<
  */
 const declarationSurfaces = [
 	['schema', 'schema:declare', 'Declares schema fields, options or schemas.'],
-	['models', 'model:extend', 'Extends application model handles.'],
+	['models', 'model:extend', 'Adds plugin commands to application schemas.'],
 	['operations', 'operation:declare', 'Declares plugin operations.'],
 	['privateStorage', 'storage:private', 'Declares owner-private storage.'],
 	['typegen', 'typegen:reference', 'References public Typegen types.'],

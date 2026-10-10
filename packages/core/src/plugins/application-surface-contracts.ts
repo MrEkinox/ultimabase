@@ -1,7 +1,6 @@
 import type { JsonValue } from '../schema/fields/builtins/json.js'
 import type { SchemaDefinition } from '../schema/schema/definition.js'
 import type { PluginSchemaContributionOwner } from '../schema/schema/provenance.js'
-import { reservedSchemaModelFieldNames } from '../schema/schema/reserved-field-names.js'
 
 import type { PluginOperationDefinition } from './plugin-operations.js'
 import type { CompiledPluginSchemaMutationDefinition } from './plugin-schema-mutations.js'
@@ -31,7 +30,6 @@ export interface CompiledSchemaMutationCommand {
 
 /** Describes selected aliases without retaining a constructible schema. */
 export interface CompiledSchemaSurfaceFacts {
-	readonly modelMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
 	readonly schema: Readonly<{ readonly className: string }>
 	readonly schemaMutations: ReadonlyMap<string, CompiledSchemaMutationCommand>
 }
@@ -64,19 +62,5 @@ const dangerousObjectNames = ['__proto__', 'constructor', 'prototype', 'then']
 export const reservedSchemaHandleNames: ReadonlySet<string> = new Set([
 	...coreSchemaCommandNames,
 	...dangerousObjectNames,
-	'for',
 	'schema',
-])
-
-/** @internal Protects model fields, commands, and object behavior. */
-export const reservedModelHandleNames: ReadonlySet<string> = new Set([
-	...dangerousObjectNames,
-	...reservedSchemaModelFieldNames,
-	'equals',
-	'exists',
-	'fetch',
-	'model',
-	'schema',
-	'state',
-	'toPointer',
 ])

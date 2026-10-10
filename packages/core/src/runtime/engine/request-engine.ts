@@ -3,7 +3,7 @@ import {
 	runApplicationWork,
 } from '../../application/active-application.js'
 import type { FrameworkApplication } from '../../application/framework-application.js'
-import { FrameworkError, type PluginDefinition } from '../../foundation.js'
+import type { PluginDefinition } from '../../foundation.js'
 import type { MasterRequestAccess } from '../../access/index.js'
 import type {
 	ExecutableOperationAst,
@@ -24,10 +24,7 @@ import {
 
 import type { RequestContext } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-context.js'
-import type {
-	DatabaseRelationScope,
-	DatabaseRowFilterNode,
-} from '../database/contracts.js'
+import type { DatabaseRowFilterNode } from '../database/contracts.js'
 import {
 	elevateMasterRequest,
 	type MasterKeyGrant,
@@ -79,7 +76,6 @@ export type RequestTransactionHandler<
 interface PrivateOperationScope {
 	readonly deniedAsMissing?: true | undefined
 	readonly objectId?: string | undefined
-	readonly relation?: DatabaseRelationScope | undefined
 	readonly rowFilter?: DatabaseRowFilterNode | undefined
 }
 
@@ -249,28 +245,6 @@ export class RequestEngine<
 		const schema = getOperationSchema(executable)
 		this.#framework.assertOwnsSchema(schema)
 
-		let relation: DatabaseRelationScope | undefined
-		if (scope?.kind === 'relation') {
-			this.#framework.assertOwnsSchema(scope.source)
-			const mapping = this.#application.schemaTargets.getRelation(
-				scope.source,
-				scope.fieldPath,
-			)
-			if (mapping?.target !== schema || scope.target !== schema) {
-				throw new FrameworkError(
-					'VALIDATION_ERROR',
-					'Relation query scope does not match the executed target schema.',
-					{ publicMessage: 'The requested relation is not available.' },
-				)
-			}
-			relation = immutableRecord({
-				fieldPath: immutableArray(scope.fieldPath),
-				source: scope.source,
-				sourceObjectId: scope.sourceObjectId,
-				target: scope.target,
-			})
-		}
-
 		const context = await resolveTerminalContext(
 			this.#application,
 			readFrameworkMasterAuthority(this.#framework),
@@ -278,14 +252,13 @@ export class RequestEngine<
 			options,
 			() => `Schema command ${executable.kind} on ${schema.className}`,
 		)
-		const rowFilter = scope?.kind === 'row-filter' ? scope : undefined
+		const rowFilter = scope
 		return {
 			engine: context === this.context ? this : this.#derive(context),
 			operation: executable,
 			scope: {
 				deniedAsMissing: rowFilter?.protectedPolicyDeniedAsMissing,
 				objectId: rowFilter?.objectId,
-				relation,
 				rowFilter: rowFilter?.rowFilter,
 			},
 		}
@@ -349,8 +322,10 @@ export class RequestEngine<
 			}, label)
 		}
 
-		const relation =
-			(await executeRuntimeRelationMutation(operation, scope.objectId, {
+		const relation = await executeRuntimeRelationMutation(
+			operation,
+			scope.objectId,
+			{
 				assertOwnsSchema: (schema) => {
 					this.#framework.assertOwnsSchema(schema)
 				},
@@ -360,7 +335,8 @@ export class RequestEngine<
 						{ deniedAsMissing, objectId, rowFilter },
 					),
 				getSchemaTargets: () => this.#application.schemaTargets,
-			})) ?? scope.relation
+			},
+		)
 		const execute = (): Promise<RuntimeOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
 				this.#pipeline.execute({

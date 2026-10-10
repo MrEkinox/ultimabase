@@ -25,7 +25,6 @@ import type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 } from '../schema/type-info.js'
-import { readPersistedSchemaModelRecord } from '../schema/schema/model-state.js'
 
 /** Carries one normalized direct call without an executable resolver or adapter. */
 export interface PluginSchemaMutationEnvelope {
@@ -60,13 +59,12 @@ const assertSchemaMutationInput = (
 	return value
 }
 
-/** @internal Builds one exact schema or persisted-model mutation method. */
+/** @internal Builds one exact schema mutation method. */
 export const createApplicationSchemaMutationMethod =
 	(options: {
 		readonly assertAvailable: () => void
 		readonly command: CompiledSchemaMutationCommand
 		readonly execute: ApplicationSchemaMutationExecutor
-		readonly model?: object
 		readonly name: string
 		readonly schema: SchemaDefinition
 	}): ((...arguments_: readonly unknown[]) => Promise<unknown>) =>
@@ -78,21 +76,10 @@ export const createApplicationSchemaMutationMethod =
 			)
 		}
 
-		const rawInput =
-			options.model === undefined ? arguments_[0] : (arguments_[0] ?? {})
-		const input = assertSchemaMutationInput(rawInput, options.name)
-		const modelRecord =
-			options.model === undefined
-				? undefined
-				: readPersistedSchemaModelRecord(options.model, options.name)
-		const idValue = modelRecord?.objectId ?? input.id
+		const input = assertSchemaMutationInput(arguments_[0], options.name)
+		const idValue = input.id
 		if (typeof idValue !== 'string') {
 			throw new TypeError(`Schema mutation ${options.name} id must be a string`)
-		}
-		if (options.model !== undefined && Object.hasOwn(input, 'id')) {
-			throw new TypeError(
-				`Schema mutation ${options.name} model input cannot contain id`,
-			)
 		}
 
 		const { command, graph } = readMutationCommand(options.command)
@@ -183,16 +170,6 @@ export type PluginSchemaMutationSchemaInput<
 	MutationPayloadField<TMutation> &
 	MutationProjection<TSchema, TSelection, TInclude>
 
-/** Describes one direct persisted-model mutation call. */
-export type PluginSchemaMutationModelInput<
-	TSchema extends SchemaTypeInfoSource,
-	TMutation extends PluginSchemaMutationDefinition,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
-		undefined,
-> = MutationPayloadField<TMutation> &
-	MutationProjection<TSchema, TSelection, TInclude>
-
 /** Exposes one exact direct mutation on an application schema handle. */
 export type ApplicationSchemaMutationMethod<
 	TSchema extends SchemaDefinition,
@@ -209,34 +186,4 @@ export type ApplicationSchemaMutationMethod<
 		TInclude
 	>,
 	options?: OperationOptions,
-) => Promise<PluginSchemaMutationResult<TSchema, TSelection, TInclude>>
-
-/** Exposes one exact direct mutation on a bound persisted-model handle. */
-export type ApplicationModelSchemaMutationMethod<
-	TSchema extends SchemaDefinition,
-	TMutation extends PluginSchemaMutationDefinition,
-> = <
-	const TSelection extends QuerySelection<TSchema> | undefined = undefined,
-	const TInclude extends
-		SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined = undefined,
->(
-	...arguments_: [MutationPayload<TMutation>] extends [undefined]
-		? readonly [
-				input?: PluginSchemaMutationModelInput<
-					TSchema,
-					TMutation,
-					TSelection,
-					TInclude
-				>,
-				options?: OperationOptions,
-			]
-		: readonly [
-				input: PluginSchemaMutationModelInput<
-					TSchema,
-					TMutation,
-					TSelection,
-					TInclude
-				>,
-				options?: OperationOptions,
-			]
 ) => Promise<PluginSchemaMutationResult<TSchema, TSelection, TInclude>>

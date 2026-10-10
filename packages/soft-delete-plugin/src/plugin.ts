@@ -81,7 +81,7 @@ type ExplicitSoftDeleteSurface = Readonly<{
 	schemaMutations: Readonly<{
 		softDelete: Readonly<{
 			mutation: typeof softDeleteMutation
-			surfaces: readonly ['schema', 'model']
+			surfaces: readonly ['schema']
 		}>
 	}>
 }>
@@ -91,7 +91,7 @@ const explicitSoftDeleteSurface: ExplicitSoftDeleteSurface = {
 	schemaMutations: {
 		softDelete: {
 			mutation: softDeleteMutation,
-			surfaces: ['schema', 'model'],
+			surfaces: ['schema'],
 		},
 	},
 }

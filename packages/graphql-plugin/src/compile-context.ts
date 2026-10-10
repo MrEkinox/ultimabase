@@ -12,6 +12,7 @@ import {
 	GraphQLNonNull,
 	isInputObjectType,
 	isObjectType,
+	type GraphQLEnumType,
 	type GraphQLNamedType,
 	type GraphQLNullableType,
 } from 'graphql'
@@ -141,6 +142,21 @@ export const readGraphqlEnumValues = (options: object): readonly string[] => {
 	return declared.filter((value): value is string => typeof value === 'string')
 }
 
+/**
+ * Reads the shared enum of one enum field or output (ADR-0310): its name
+ * names one GraphQL enum type for every field that uses it.
+ */
+export const readGraphqlSharedEnum = (
+	options: object,
+): Readonly<{ name: string; values: readonly string[] }> | undefined => {
+	const shared: unknown = Reflect.get(options, 'sharedEnum')
+	if (typeof shared !== 'object' || shared === null) return undefined
+	const name: unknown = Reflect.get(shared, 'name')
+	return typeof name === 'string'
+		? { name, values: readGraphqlEnumValues(options) }
+		: undefined
+}
+
 /** Reads the child fields retained by one compiled embedded-object field. */
 export const readGraphqlObjectFields = (field: GenericField): SchemaFields => {
 	const fields = 'fields' in field.options ? field.options.fields : undefined
@@ -210,6 +226,8 @@ export class GraphqlCompileContext {
 		structural: [],
 	}
 
+	readonly #sharedEnums = new Map<string, GraphQLEnumType>()
+
 	constructor(
 		names: GraphqlNameRegistry,
 		schemas: CompiledSchemaRegistry,
@@ -259,6 +277,23 @@ export class GraphqlCompileContext {
 			graphqlSourceDescription(schema, path),
 			schema.definition.provenance.schema.owner,
 		)
+	}
+
+	/**
+	 * Returns the one GraphQL enum type of a shared enum, creating it for its
+	 * first field; Core rejects two shared enums with the same name.
+	 */
+	sharedEnum(
+		name: string,
+		claim: () => void,
+		create: () => GraphQLEnumType,
+	): GraphQLEnumType {
+		const existing = this.#sharedEnums.get(name)
+		if (existing !== undefined) return existing
+		claim()
+		const type = this.add('models', create())
+		this.#sharedEnums.set(name, type)
+		return type
 	}
 
 	/** Appends one created type to an ordered list and returns it. */

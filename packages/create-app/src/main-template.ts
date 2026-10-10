@@ -11,14 +11,15 @@ const taskCommand = (plan: InitializerPlan): string => {
     (await Task.createOne(
       { data: { title: 'Ship the first feature' } }${master ? ',\n      { useMasterKey: true }' : ''},
     ))
-  console.log(task.toJSON())
+  // Results are frozen plain objects; toJSON serializes them as REST does.
+  console.log(toJSON(task))
 `
 }
 
 /** The runnable entry point: start, optional Task seed, optional listener wait. */
 export const mainSource = (
 	plan: InitializerPlan,
-): string => `${plan.starter === 'task' ? "import { Task } from './schema.js'\n" : ''}import { ultimabase } from './ultimabase.js'
+): string => `${plan.starter === 'task' ? "import { toJSON } from '@ultimabase/core'\nimport { Task } from './schema.js'\n" : ''}import { ultimabase } from './ultimabase.js'
 
 try {
   await ultimabase.start()

@@ -80,23 +80,18 @@ describe('Request principal references', () => {
 })
 
 describe('resolveRequestRoleReference', () => {
-	it('accepts direct references and neutral persisted-value carriers', () => {
+	it('accepts direct references only', () => {
 		const reference = new RequestSubjectReference('role', 'editor')
 
 		expect(resolveRequestRoleReference(reference)).toBe(reference)
-		expect(
-			resolveRequestRoleReference({
-				toRequestRoleReference: () => reference,
-			}),
-		).toBe(reference)
 	})
 
-	it('rejects forged carriers and non-string role identities', () => {
+	it('rejects value carriers and non-string role identities', () => {
+		// Role results are plain data without a reference method (ADR-0310).
 		expect(() =>
 			resolveRequestRoleReference({
-				toRequestRoleReference: () =>
-					new RequestSubjectReference('principal', 'editor') as never,
-			}),
+				toRequestRoleReference: () => new RequestSubjectReference('role', 'x'),
+			} as never),
 		).toThrow(
 			new TypeError(
 				'Request role subject must provide one string role reference',

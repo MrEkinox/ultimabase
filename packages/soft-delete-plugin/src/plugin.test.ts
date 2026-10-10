@@ -59,7 +59,10 @@ describe('softDeletePlugin', () => {
 					name: 'schema:declare',
 					reason: 'Declares schema fields, options or schemas.',
 				},
-				{ name: 'model:extend', reason: 'Extends application model handles.' },
+				{
+					name: 'model:extend',
+					reason: 'Adds plugin commands to application schemas.',
+				},
 				{ name: 'operation:declare', reason: 'Declares plugin operations.' },
 				{
 					name: 'runtime:constrain',
@@ -115,8 +118,8 @@ describe('softDeletePlugin', () => {
 						returning: 'before',
 					},
 				})
-				expect(surface?.modelMutations.has('restore')).toBe(false)
-				expect(surface?.modelMutations.has('purge')).toBe(false)
+				// Results have no model methods (ADR-0310).
+				expect(surface).not.toHaveProperty('modelMutations')
 			}
 			const disabled = schemaSurface(application, Disabled.className)
 			expect(disabled?.schemaMutations.has('restore')).toBe(false)

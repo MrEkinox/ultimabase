@@ -10,6 +10,7 @@ import type {
 } from '../schema/fields/base/contract.js'
 import { UltimaBase } from '../runtime/application/ultima-base.js'
 import { Schema } from '../schema/schema/definition.js'
+import type { Model } from '../schema/schema/registered-schemas.js'
 import { definePluginFieldFamily } from '../schema/schema/field-builder-methods.js'
 import {
 	defineFieldOption,
@@ -186,7 +187,7 @@ const sourcePlugin = plugin({
 						schemaMutations: {
 							archive: {
 								mutation: archive,
-								surfaces: ['model', 'schema'],
+								surfaces: ['schema'],
 							},
 						},
 					},
@@ -373,12 +374,8 @@ test('projects exact fields, options, and operations from one static declaration
 		typeof ratingOutput
 	>()
 	expectTypeOf(Post.className).toEqualTypeOf<'SourceProjectionPost'>()
-	expectTypeOf(
-		new Post({ score: 1, title: 'Post' }).score,
-	).toEqualTypeOf<number>()
-	expectTypeOf(
-		new Post({ score: 1, title: 'Post' }).title,
-	).toEqualTypeOf<string>()
+	expectTypeOf<Model<typeof Post>['score']>().toEqualTypeOf<number>()
+	expectTypeOf<Model<typeof Post>['title']>().toEqualTypeOf<string>()
 	expectTypeOf<SchemaItem<typeof Post>['isArchived']>().toEqualTypeOf<boolean>()
 	expectTypeOf<
 		SchemaItem<typeof Post>['hasStringTitle']

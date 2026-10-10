@@ -28,13 +28,11 @@ export const renderGeneratedSurfaces = (
 	const renderSurfaceType = (
 		mutations: readonly TypegenSchemaMutationSnapshot[],
 		className: string,
-		method:
-			| 'ApplicationModelSchemaMutationMethod'
-			| 'ApplicationSchemaMutationMethod',
+		method: 'ApplicationSchemaMutationMethod',
 	): string => {
 		if (mutations.length === 0) return 'Readonly<Record<never, never>>'
-		// Core rejects duplicate aliases across surfaces; one descriptor owns
-		// each command's input, authority and result contract for this schema.
+		// One descriptor owns each command's input, authority and result
+		// contract for this schema.
 		return `{
 ${mutations
 	.map(
@@ -50,22 +48,9 @@ ${mutations
 	)
 	// Empty projections remain compiled graph facts, but add no ambient types.
 	const surfaces = snapshot.surfaces
-		.filter(
-			(surface) =>
-				surface.schemaMutations.length + surface.modelMutations.length > 0,
-		)
+		.filter((surface) => surface.schemaMutations.length > 0)
 		.map((surface) => {
-			// A model mutation shares its descriptor with a schema mutation of the
-			// same name; the schema declaration is kept.
-			const schemaMutations = [
-				...surface.schemaMutations,
-				...surface.modelMutations.filter(
-					(modelMutation) =>
-						!surface.schemaMutations.some(
-							(schemaMutation) => schemaMutation.name === modelMutation.name,
-						),
-				),
-			]
+			const schemaMutations = [...surface.schemaMutations]
 				.sort((left, right) => left.name.localeCompare(right.name))
 				.map(
 					(mutation) =>
@@ -73,7 +58,6 @@ ${mutations
 				)
 				.join('\n')
 			return `\t\treadonly ${quote(surface.className)}: {
-\t\t\treadonly model: ${renderSurfaceType(surface.modelMutations, surface.className, 'ApplicationModelSchemaMutationMethod')}
 \t\t\treadonly schema: ${renderSurfaceType(surface.schemaMutations, surface.className, 'ApplicationSchemaMutationMethod')}
 \t\t\treadonly schemaMutations: {
 ${schemaMutations}

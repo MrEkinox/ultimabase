@@ -142,8 +142,8 @@ const entry = await AuditEntry.schema.findOne({ where: { id: entryId } })
 To add an item-oriented command, declare a `defineSchemaMutation` token and
 attach it through `models.extend(target, { contributionId, schemaMutations })`.
 For example, `schemaMutations: { archive: { mutation: archiveMutation,
-surfaces: ['schema', 'model'] } }` exposes the declared mutation on the schema
-handle and persisted model. The handler separately supplies its owner-only
+surfaces: ['schema'] } }` exposes the declared mutation on the schema class and
+handle; results have no methods (ADR-0310). The handler separately supplies its owner-only
 effect. Core retains policy checks, locked targets, and automatic transactions.
 
 Application operations remain available through

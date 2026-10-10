@@ -83,4 +83,9 @@ test('preserves exact immutable REST public types', () => {
 		// @ts-expect-error -- operation exposure requires exact Core tokens.
 		operations: ['fixture.operation'],
 	})
+	restPlugin({ pagination: { defaultTake: 20, maxTake: 200 } })
+	restPlugin({
+		// @ts-expect-error -- the page window is `pagination` (ADR-0309).
+		maxLimit: 1000,
+	})
 })

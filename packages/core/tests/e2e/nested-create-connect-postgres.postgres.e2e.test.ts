@@ -13,6 +13,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
+import { isPlainResult } from '../../../../tests/fixtures/plain-results.js'
 
 const trace: string[] = []
 let denyTagRelationWrite = false
@@ -212,11 +213,11 @@ describe(
 			const includedComments: unknown = created.comments
 			const includedTags: unknown = created.tags
 			if (
-				!(includedAuthor instanceof Author) ||
+				!isPlainResult(includedAuthor) ||
 				!Array.isArray(includedComments) ||
-				!includedComments.every((comment) => comment instanceof Comment) ||
+				!includedComments.every((comment) => isPlainResult(comment)) ||
 				!Array.isArray(includedTags) ||
-				!includedTags.every((tag) => tag instanceof Tag)
+				!includedTags.every((tag) => isPlainResult(tag))
 			) {
 				throw new TypeError('Expected every nested relationship inclusion')
 			}
@@ -227,7 +228,7 @@ describe(
 				'Existing',
 			])
 			const createdTag = includedTags.find((tag) => tag.label === 'Created')
-			if (createdTag === undefined || !(createdTag.creator instanceof Author)) {
+			if (createdTag === undefined || !isPlainResult(createdTag.creator)) {
 				throw new TypeError('Expected the multi-level nested creator inclusion')
 			}
 			expect(createdTag.creator.name).toBe('Grace')

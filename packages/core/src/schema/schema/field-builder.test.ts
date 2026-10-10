@@ -428,14 +428,14 @@ describe('FieldBuilder', () => {
 				className: 'BuilderWithStatics',
 				fields: (field) => ({ title: field.string() }),
 			},
-			() => ({ results: {}, statics: { source: 'statics' as const } }),
+			() => ({ source: 'statics' as const }),
 		)
 		const WithCapabilities = Schema.defineSpecialized(
 			{
 				className: 'BuilderWithCapabilities',
 				fields: (field) => ({ title: field.string() }),
 			},
-			() => ({ results: {}, statics: { source: 'capabilities' as const } }),
+			() => ({ source: 'capabilities' as const }),
 		)
 
 		new SchemaRegistry([WithStatics, WithCapabilities]).compileSchemas()

@@ -3,14 +3,13 @@ import {
 	getFieldListDepth,
 	getFieldSchemaTarget,
 	getPluginFieldWireCodec,
+	toJSON,
 	type GenericField,
-	type CompiledSchemaRegistry,
 	type GenericOutputDescriptor,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	immutableArray,
-	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
@@ -49,36 +48,36 @@ const encodedKinds = new Set(['bigint', 'binary', 'json', 'object'])
 export const isRestOutputKind = (kind: string): boolean =>
 	passThroughScalars.has(kind) || encodedKinds.has(kind)
 
+/** Reads one plain Runtime result of `schema` (ADR-0310) without trusting its shape. */
 const readModelValues = (
 	schema: SchemaDefinition,
 	value: unknown,
 	invalid: InvalidRestValue,
 ): Readonly<Record<string, unknown>> => {
-	if (typeof value !== 'object' || value === null) throw invalid()
-	const prototype: unknown = Reflect.get(schema, 'prototype')
-	if (
-		typeof prototype !== 'object' ||
-		prototype === null ||
-		Object.getPrototypeOf(value) !== prototype
-	) {
+	if (!isPlainRecord(value)) throw invalid()
+	for (const name of Object.keys(value)) {
+		if (
+			!Object.hasOwn(schema.persistedFields, name) &&
+			!Object.hasOwn(schema.virtualFields, name)
+		) {
+			throw invalid()
+		}
+	}
+	return value
+}
+
+/** Applies Core's `toJSON`, the value encoding shared with REST (ADR-0310). */
+const encodeWithCore = (value: unknown, invalid: InvalidRestValue): unknown => {
+	try {
+		return toJSON(value)
+	} catch {
 		throw invalid()
 	}
-	const toJSON: unknown = Reflect.get(prototype, 'toJSON')
-	const toPointer: unknown = Reflect.get(prototype, 'toPointer')
-	if (typeof toJSON !== 'function' || typeof toPointer !== 'function') {
-		throw invalid()
-	}
-	const pointer: unknown = Reflect.apply(toPointer, value, [])
-	if (!Pointer.is(pointer) || pointer.schema !== schema) throw invalid()
-	const values: unknown = Reflect.apply(toJSON, value, [])
-	if (!isPlainRecord(values)) throw invalid()
-	return values
 }
 
 const encodeJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
-	schemas: CompiledSchemaRegistry | undefined,
 	seen: Set<object>,
 ): unknown => {
 	if (
@@ -92,25 +91,12 @@ const encodeJsonValue = (
 		if (!Number.isFinite(value)) throw invalid()
 		return value
 	}
-	if (!isUnknownArray(value) && !isPlainRecord(value)) {
-		// Only this application's models use schema codecs; JSON fields remain JSON.
-		const schema =
-			typeof value === 'object'
-				? schemas
-						?.values()
-						.find(
-							(candidate) =>
-								Object.getPrototypeOf(value) ===
-								Reflect.get(candidate, 'prototype'),
-						)
-				: undefined
-		if (schema === undefined) throw invalid()
-		return encodeRestSchemaResult(schema, value, invalid)
-	}
+	// JSON field values are JSON only: no Pointer, binary or bigint inside.
+	if (!isUnknownArray(value) && !isPlainRecord(value)) throw invalid()
 	if (seen.has(value)) throw invalid()
 	seen.add(value)
 	const encodeItem = (item: unknown): unknown =>
-		encodeJsonValue(item, invalid, schemas, seen)
+		encodeJsonValue(item, invalid, seen)
 	const encoded = isUnknownArray(value)
 		? immutableArray(value.map(encodeItem))
 		: mapRestRecord(value, (_name, item) => encodeItem(item))
@@ -133,18 +119,14 @@ const encodeBuiltInScalar = (
 	switch (kind) {
 		case 'bigint':
 			if (typeof value !== 'bigint') throw invalid()
-			return value.toString(10)
+			return encodeWithCore(value, invalid)
 		case 'binary':
 			if (!(value instanceof Uint8Array)) throw invalid()
-			return immutableRecord({
-				type: 'binary' as const,
-				encoding: 'base64' as const,
-				data: Buffer.from(value).toString('base64'),
-			})
+			return encodeWithCore(value, invalid)
 		case 'object':
 			return encodeObject()
 		case 'json':
-			return encodeJsonValue(value, invalid, undefined, new Set())
+			return encodeJsonValue(value, invalid, new Set())
 	}
 	throw invalid()
 }
@@ -202,7 +184,7 @@ const encodeScalar = (
 		const codec = getPluginFieldWireCodec(field, restFieldProtocol)
 		if (codec === undefined) throw invalid()
 		try {
-			return encodeJsonValue(codec.encode(value), invalid, undefined, new Set())
+			return encodeJsonValue(codec.encode(value), invalid, new Set())
 		} catch {
 			throw invalid()
 		}
@@ -244,9 +226,17 @@ export const encodeRestSchemaResult = (
 		return encodeRestFieldValue(field, item, invalid)
 	})
 
-/** Revalidates operation wire output before JSON serialization. */
+/**
+ * Encodes operation output with Core's `toJSON` (ADR-0310): results inside
+ * are plain data, so a schema route's plugin field codecs do not apply here.
+ */
 export const encodeRestJsonValue = (
 	value: unknown,
 	invalid: InvalidRestValue,
-	schemas?: CompiledSchemaRegistry,
-): unknown => encodeJsonValue(value, invalid, schemas, new Set())
+): unknown => encodeWithCore(value, invalid)
+
+/** Encodes public error details as strict JSON: no bigint, binary or Pointer. */
+export const encodeRestJsonDetails = (
+	value: unknown,
+	invalid: InvalidRestValue,
+): unknown => encodeJsonValue(value, invalid, new Set())

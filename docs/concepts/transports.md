@@ -46,9 +46,9 @@ not import Hono, GraphQL, authentication, Access, or a database adapter.
 network-independent `GraphQLSchema`. It uses Core's narrow request executor and
 does not import HTTP, Yoga, REST, authentication, policy, or a database adapter.
 Generated reads and mutations normalize into the same logical Runtime operations
-as direct TypeScript and REST. Relay connections and signed cursors are a
-GraphQL-owned wire representation; Core continues to receive ordinary offset
-queries.
+as direct TypeScript and REST. Relay `first` and `after` map to Core `take`
+and `after`; edge cursors are the unsigned positions of Core's shared cursor
+encoder (`@ultimabase/core/plugin`, ADR-0309).
 
 `@ultimabase/graphql-yoga-plugin` is an explicit sibling adapter. It requires
 the GraphQL application and shared HTTP capabilities, mounts `POST /graphql` by

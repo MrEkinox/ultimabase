@@ -1,6 +1,6 @@
 import { ACL, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import { accessPlugin, allMutations } from '@ultimabase/access-plugin'
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, defineEnum } from '@ultimabase/core'
 import { hooksPlugin } from '@ultimabase/hooks-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { validationPlugin } from '@ultimabase/validation-plugin'
@@ -58,6 +58,13 @@ export const TodoRole = RoleSchema.define(TodoSchemaApplication.Schema, {
 
 /** Stable role reference used by ACL defaults without loading role storage. */
 export const TodoEditorRole = TodoRole.role('editor')
+
+/** Task priorities, shared by `priority` and `allowedPriorities` as one named type. */
+export const TodoPriority = defineEnum('TodoPriority', [
+	'low',
+	'medium',
+	'high',
+])
 
 /** Exercises every built-in field family supported by the Todo application. */
 export const Todo = TodoSchemaApplication.Schema.define({
@@ -150,9 +157,8 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		priority: field.enum({
 			default: 'medium',
 			description: 'Controls the order in which a task should be handled.',
-			typeName: 'TodoPriority',
 			required: true,
-			values: ['low', 'medium', 'high'],
+			values: TodoPriority,
 		}),
 		details: field.object({
 			description:
@@ -170,10 +176,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 				clockTime: field.time(),
 				bytes: field.binary(),
 				payload: field.json(),
-				state: field.enum({
-					typeName: 'TodoDetailState',
-					values: ['draft', 'ready'],
-				}),
+				state: field.enum({ values: ['draft', 'ready'] }),
 				labels: field.string({ list: true }),
 				nested: field.object({
 					fields: (field) => ({ note: field.string() }),
@@ -197,11 +200,7 @@ export const Todo = TodoSchemaApplication.Schema.define({
 		reminderTimes: field.time({ list: true }),
 		attachments: field.binary({ list: true }),
 		metadataHistory: field.json({ list: true }),
-		allowedPriorities: field.enum({
-			list: true,
-			typeName: 'TodoPriority',
-			values: ['low', 'medium', 'high'],
-		}),
+		allowedPriorities: field.enum({ list: true, values: TodoPriority }),
 		checklist: field.object({
 			fields: (field) => ({
 				label: field.string({ required: true }),

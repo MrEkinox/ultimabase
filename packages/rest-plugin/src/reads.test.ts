@@ -214,13 +214,13 @@ describe('REST read normalization', () => {
 			include: {
 				author: { select: { id: true, name: true } },
 				related: {
-					limit: 5,
+					take: 5,
 					select: { name: true },
 					where: { name: { startsWith: 'R' } },
 				},
 			},
-			limit: 20,
-			offset: 4,
+			take: 20,
+			skip: 4,
 			orderBy: { createdAt: 'desc', name: 'asc' },
 			select: { id: true, name: true },
 			where: wireWhere,
@@ -235,8 +235,8 @@ describe('REST read normalization', () => {
 		})
 		const query = new URLSearchParams({
 			include: JSON.stringify(input.include),
-			limit: '20',
-			offset: '4',
+			take: '20',
+			skip: '4',
 			orderBy: '-createdAt,name',
 			select: 'id,name',
 			where: JSON.stringify(wireWhere),
@@ -287,12 +287,33 @@ describe('REST read normalization', () => {
 		expect(get.query.inclusion.fields[0]).toMatchObject({ field: 'author' })
 	})
 
-	it('applies the default limit and rejects excessive or malformed inputs safely', async () => {
+	it('applies the default take and rejects excessive or malformed inputs safely', async () => {
 		const normalized = await normalizeRestReadRequest(RecordSchema, {
 			operation: 'find',
 			request: new Request('https://example.test/records'),
 		})
-		expect(normalized.query.limit).toBe(100)
+		expect(normalized.query.take).toBe(100)
+		// The configured page window replaces both defaults (ADR-0309).
+		const configured = { bodyBytes: 1_048_576, defaultTake: 7, maxTake: 20 }
+		const small = await normalizeRestReadRequest(
+			RecordSchema,
+			{
+				operation: 'find',
+				request: new Request('https://example.test/records'),
+			},
+			configured,
+		)
+		expect(small.query.take).toBe(7)
+		await expect(
+			normalizeRestReadRequest(
+				RecordSchema,
+				{
+					operation: 'find',
+					request: jsonRequest('https://example.test/query', { take: 21 }),
+				},
+				configured,
+			),
+		).rejects.toMatchObject({ code: restReadErrorCodes.invalidInput })
 
 		const malformed: readonly unknown[] = [
 			{ where: { missing: { eq: 1 } } },
@@ -304,8 +325,8 @@ describe('REST read normalization', () => {
 				},
 			},
 			{ where: { name: { invented: 'x' } } },
-			{ limit: 1001 },
-			{ offset: -1 },
+			{ take: 1001 },
+			{ skip: -1 },
 		]
 		for (const value of malformed) {
 			await expect(
@@ -316,11 +337,7 @@ describe('REST read normalization', () => {
 			).rejects.toMatchObject({ code: restReadErrorCodes.invalidInput })
 		}
 
-		for (const query of [
-			'limit=1&limit=2',
-			'orderBy=id,-id',
-			'unknown=value',
-		]) {
+		for (const query of ['take=1&take=2', 'orderBy=id,-id', 'unknown=value']) {
 			await expect(
 				normalizeRestReadRequest(RecordSchema, {
 					operation: 'find',
@@ -385,7 +402,7 @@ describe('REST read normalization', () => {
 						value: 'large',
 					}),
 				},
-				{ bodyBytes: 4, maximumResults: 1000 },
+				{ bodyBytes: 4, defaultTake: 100, maxTake: 1000 },
 			),
 		).rejects.toMatchObject({ code: restReadErrorCodes.bodyTooLarge })
 

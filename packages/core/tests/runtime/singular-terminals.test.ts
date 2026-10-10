@@ -92,7 +92,7 @@ describe('read terminals and singular schema commands', () => {
 		expect(whereNodes[0]).toStrictEqual(whereNodes[2])
 	})
 
-	it('rejects missing targets for get and persisted model commands', async () => {
+	it('reports missing targets of singular schema commands', async () => {
 		const trace: string[] = []
 		const persisted = {
 			createdAt: '2026-08-02T00:00:00.000Z',
@@ -134,16 +134,16 @@ describe('read terminals and singular schema commands', () => {
 				data: { title: persisted.title },
 			})
 
-			await expect(article.exists()).resolves.toBe(true)
-			await expect(article.fetch({})).rejects.toMatchObject({
+			// Results have no commands: the schema runs them (ADR-0310).
+			const target = { where: { id: article.id } }
+			await expect(articleSchema.exists(target)).resolves.toBe(true)
+			await expect(articleSchema.findOneOrThrow(target)).rejects.toMatchObject({
 				code: 'NOT_FOUND',
 			})
 			await expect(
-				article.update({ data: { title: 'Missing' } }),
-			).rejects.toMatchObject({ code: 'NOT_FOUND' })
-			await expect(article.delete({})).rejects.toMatchObject({
-				code: 'NOT_FOUND',
-			})
+				articleSchema.updateOne({ ...target, data: { title: 'Missing' } }),
+			).resolves.toBeNull()
+			await expect(articleSchema.deleteOne(target)).resolves.toBeNull()
 		})
 
 		expect(trace).toStrictEqual([
@@ -155,18 +155,24 @@ describe('read terminals and singular schema commands', () => {
 			'execute:exists',
 			'pipeline:commit:exists',
 			'event:exists',
-			'execute:get',
+			'execute:find-one',
+			'pipeline:commit:find-one',
+			'event:find-one',
 			'adapter:begin',
 			'prepare:update-one',
-			'adapter:rollback',
+			'execute:update-one',
+			'adapter:commit',
+			'event:update-one',
 			'adapter:begin',
 			'prepare:delete-one',
-			'adapter:rollback',
+			'execute:delete-one',
+			'adapter:commit',
+			'event:delete-one',
 		])
 
-		const expectedQuery = new QueryBuilder(articleSchema).where({
+		const expectedWhere = new QueryBuilder(articleSchema).where({
 			id: { eq: persisted.id },
-		}).ast
+		}).ast.where
 		const requests = [
 			...adapter.rootRequests,
 			...adapter.transactions.flatMap(({ requests }) => requests),
@@ -174,14 +180,13 @@ describe('read terminals and singular schema commands', () => {
 
 		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
 			'exists',
-			'get',
+			'find-one',
 			'update-one',
 			'delete-one',
 		])
 		for (const request of requests) {
 			const operation = request.operation as ExecutableOperationAst
-			expect(operation).toHaveProperty('query', expectedQuery)
-			expect(request.rowFilter).toStrictEqual(expectedQuery.where?.expression)
+			expect(operation).toHaveProperty('query.where', expectedWhere)
 		}
 	})
 
@@ -277,10 +282,8 @@ describe('read terminals and singular schema commands', () => {
 			const foundResult = await articleSchema.findMany(readInput)
 
 			expect(foundResult).toHaveLength(1)
-			expect(foundResult[0]).toBeInstanceOf(articleSchema)
-			expect(foundResult.map((article) => article.toJSON())).toStrictEqual(
-				found,
-			)
+			expect(Object.getPrototypeOf(foundResult[0])).toBe(Object.prototype)
+			expect(foundResult).toStrictEqual(found)
 			await expect(articleSchema.findOne(readInput)).resolves.toBeNull()
 			await expect(
 				articleSchema.findOneOrThrow({
@@ -299,8 +302,8 @@ describe('read terminals and singular schema commands', () => {
 				select: { id: true, title: true },
 			})
 
-			expect(createdOneResult).toBeInstanceOf(articleSchema)
-			expect(createdOneResult.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(createdOneResult)).toBe(Object.prototype)
+			expect(createdOneResult).toStrictEqual({
 				id: createdOne.id,
 				title: createdOne.title,
 			})
@@ -316,23 +319,23 @@ describe('read terminals and singular schema commands', () => {
 				select: { id: true, title: true },
 			})
 
-			expect(selectedUpdateResult).toBeInstanceOf(articleSchema)
-			expect(selectedUpdateResult?.toJSON()).toStrictEqual(selectedUpdate)
+			expect(Object.getPrototypeOf(selectedUpdateResult)).toBe(Object.prototype)
+			expect(selectedUpdateResult).toStrictEqual(selectedUpdate)
 			const upsertedResult = await articleSchema.upsertOne({
 				where: { title: { eq: 'Upserted' } },
 				create: { title: 'Upserted' },
 				update: { title: 'Upserted' },
 			})
 
-			expect(upsertedResult).toBeInstanceOf(articleSchema)
-			expect(upsertedResult.toJSON()).toStrictEqual(upserted)
+			expect(Object.getPrototypeOf(upsertedResult)).toBe(Object.prototype)
+			expect(upsertedResult).toStrictEqual(upserted)
 			const deletedOneResult = await articleSchema.deleteOne({
 				where: { title: { eq: 'Deleted target' } },
 				select: { id: true, title: true },
 			})
 
-			expect(deletedOneResult).toBeInstanceOf(articleSchema)
-			expect(deletedOneResult?.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(deletedOneResult)).toBe(Object.prototype)
+			expect(deletedOneResult).toStrictEqual({
 				id: deletedOne.id,
 				title: deletedOne.title,
 			})

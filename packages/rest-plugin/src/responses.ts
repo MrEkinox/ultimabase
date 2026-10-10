@@ -7,7 +7,7 @@ import {
 	RestReadNormalizationError,
 	type RestNormalizationError,
 } from './errors.js'
-import { encodeRestJsonValue } from './response-values.js'
+import { encodeRestJsonDetails } from './response-values.js'
 import type {
 	RestPluginOperationRouteDefinition,
 	RestSchemaMutationRouteDefinition,
@@ -110,7 +110,7 @@ const publicFailure = (
 			payload.details === undefined
 				? undefined
 				: // Encoding a JSON record always yields a frozen JSON record.
-					(encodeRestJsonValue(
+					(encodeRestJsonDetails(
 						payload.details,
 						() => new TypeError(),
 					) as Readonly<Record<string, unknown>>)

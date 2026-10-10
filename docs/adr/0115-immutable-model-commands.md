@@ -1,6 +1,7 @@
 # ADR-0115: Immutable model commands and protected identity
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0310
 - Date: 2026-08-03
 - Refines: ADR-0067, ADR-0100, ADR-0108, ADR-0109, ADR-0114
 - Refined by: ADR-0192

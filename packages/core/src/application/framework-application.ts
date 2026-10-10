@@ -11,6 +11,7 @@ import {
 	type SchemaDefinition,
 	type SchemaTargetGraph,
 } from '../schema/index.js'
+import { assertUniqueSharedEnumNames } from '../schema/schema/shared-enum-names.js'
 import { isUnknownArray } from '@ultimabase/shared'
 
 import { type PluginDefinition } from '../plugins/definition.js'
@@ -145,6 +146,7 @@ export class FrameworkApplication<
 		composeDeclarationCapabilities(graph.capabilities)
 
 		this.schemas = new SchemaRegistry(options.schemas)
+		assertUniqueSharedEnumNames(options.schemas)
 		this.#declarationHost = new PluginDeclarationHost(
 			graph,
 			this.#fieldBuilderMethods,

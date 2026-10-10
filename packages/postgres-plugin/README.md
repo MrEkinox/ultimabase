@@ -600,19 +600,31 @@ the orientation reversed, or queries its declared `mappedBy` pointer column;
 it never creates duplicate storage.
 
 ```ts
-const tags = article.relation('tags')
-
-await tags.connect([firstTagId, secondTagId])
-
-const selected = await tags.findMany({
-	select: { id: true, label: true },
-	orderBy: { label: 'asc' },
-	limit: 20,
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { connect: [firstTagId, secondTagId] } },
 })
 
-await tags.set([featuredTagId])
-await tags.disconnect(featuredTagId)
-await tags.clear()
+const { tags: selected } = await Article.findOneOrThrow({
+	where: { id: articleId },
+	select: { id: true },
+	include: {
+		tags: {
+			select: { id: true, label: true },
+			orderBy: { label: 'asc' },
+			take: 20,
+		},
+	},
+})
+
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { set: [featuredTagId] } },
+})
+await Article.updateOne({
+	where: { id: articleId },
+	data: { tags: { set: [] } },
+})
 ```
 
 The same generated Drizzle relation graph supports collection inclusion on a
@@ -625,8 +637,8 @@ const articles = await Article.findMany({
 		tags: {
 			where: { label: { ne: 'archived' } },
 			orderBy: { label: 'asc' },
-			offset: 10,
-			limit: 20,
+			skip: 10,
+			take: 20,
 			select: { id: true, label: true },
 		},
 	},
@@ -639,7 +651,7 @@ and constraints before the adapter receives that tree. A relation field's
 declared `where` arrives only as Core's normalized private row filter and is
 combined with the inclusion query before ordering and pagination. PostgreSQL
 never receives the resolver or request context. No adapter-side DataLoader or
-per-parent query loop is used. A nested `offset` is applied by Drizzle
+per-parent query loop is used. A nested `skip` is applied by Drizzle
 independently to each parent collection.
 
 Relation handle scopes stay outside the developer Query AST and are combined
@@ -803,18 +815,19 @@ filter only through canonical `where` objects or `QueryBuilder.where`.
 
 ## Query selection and pagination compilation
 
-The internal adapter also compiles projections, ordering, limits, and offsets.
-Explicit selections load only their columns. PostgreSQL preserves the exact
-developer ordering and uses explicit null placement; it does not append an
-implicit tie-breaker:
+The internal adapter also compiles projections, ordering, `take` as `LIMIT`, and
+`skip` as `OFFSET`. Explicit selections load only their columns. PostgreSQL
+preserves the ordering it receives and uses explicit null placement (`NULLS
+LAST` in both directions); Core, not the adapter, completes a collection read
+with its `id` tie-breaker:
 
 ```ts
 const orderedPage = new QueryBuilder(ArticleSchema)
 	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
-	.limit(25)
+	.take(25)
 
-const offsetPage = orderedPage.offset(50)
+const skippedPage = orderedPage.skip(50)
 ```
 
 When a logical selection contains a Core virtual field, PostgreSQL receives
@@ -830,10 +843,15 @@ constraint, introspection entry, synchronization change, or migration drift.
 Filtering and ordering remain limited to persisted fields and fail during Core
 normalization before PostgreSQL compiles SQL.
 
-`.offset()` selects offset pagination. Applications that need deterministic
-ordering across equal values declare an additional unique term such as `id`.
-Transport-specific cursors must be normalized before PostgreSQL receives the
-ordinary Query AST.
+`.skip()` selects offset pagination. A `findMany({ after })` position reaches
+PostgreSQL as an ordinary keyset predicate in the `where` filter (strictly
+greater or lower ordered values, `IS NULL` for the null-last tail, `id` as the
+last term) with no `OFFSET` (ADR-0309). An included relation's `after` compiles
+the same predicate inside each parent's collection query. To compare positions, the adapter
+declares `greater-than` and `less-than` for the `binary`, `boolean`, `enum`,
+and `uuid` families as well; public filters still refuse ranges on those
+kinds. Transport cursors are decoded by Core's shared encoder before PostgreSQL
+receives the ordinary Query AST.
 
 The builder remains a non-executing utility. Schema-root read commands normalize
 their canonical objects to the same AST before this compiler runs.

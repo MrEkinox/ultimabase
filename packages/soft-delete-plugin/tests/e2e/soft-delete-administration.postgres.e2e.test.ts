@@ -414,7 +414,10 @@ describe('official soft-delete administration with PostgreSQL', () => {
 				title: 'recoverable graph',
 			},
 		})
-		await article.relation('tags').connect(tag.id)
+		await Article.updateOne({
+			where: { id: { eq: article.id } },
+			data: { tags: { connect: [tag.id] } },
+		})
 		await Article.deleteOne({ where: { id: article.id } })
 
 		const restored = await schemaCommand(

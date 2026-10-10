@@ -37,10 +37,13 @@ RoleSchema.define(RoleApplication.Schema, {
 AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
 RoleSchema.define(RoleApplication.Schema, { /* options-complete */ })
-async function inspectMemberCommand() {
+async function inspectRoleResult() {
   const role = await AppRole.findOne()
-  role?./* member-hover */addMember(User.pointer('member-id'))
-  role?./* hierarchy-hover */addRole(AppRole.pointer('role-id'))
+  role?./* result-complete */name
+  await AppRole.updateOne({
+    where: { id: 'role-id' },
+    data: { members: { /* members-complete */connect: ['member-id'] } },
+  })
 }
 `
 
@@ -139,26 +142,29 @@ describe('RoleSchema IntelliSense', () => {
 		)
 	})
 
-	it('documents persisted member commands at their call site', () => {
-		const marker = '/* member-hover */'
-		const quickInfo = service.getQuickInfoAtPosition(
+	// ADR-0310: results carry no role commands; members link through `connect`.
+	it('offers role fields, not member commands, on a role result', () => {
+		const completions = service.getCompletionsAtPosition(
 			fixtureFile,
-			markerPosition(marker) + marker.length,
+			markerPosition('/* result-complete */') + '/* result-complete */'.length,
+			{},
 		)
-		const documentation = ts.displayPartsToString(quickInfo?.documentation)
+		const names = completions?.entries.map(({ name }) => name) ?? []
 
-		expect(documentation).toContain('Adds one exact persisted member')
+		expect(names).toContain('name')
+		expect(names).not.toContain('addMember')
+		expect(names).not.toContain('addRole')
 	})
 
-	it('documents hierarchy direction at the nested-role call site', () => {
-		const marker = '/* hierarchy-hover */'
-		const quickInfo = service.getQuickInfoAtPosition(
+	it('links members through the relation update input', () => {
+		const completions = service.getCompletionsAtPosition(
 			fixtureFile,
-			markerPosition(marker) + marker.length,
+			markerPosition('/* members-complete */'),
+			{},
 		)
-		const documentation = ts.displayPartsToString(quickInfo?.documentation)
+		const names = completions?.entries.map(({ name }) => name) ?? []
 
-		expect(documentation).toContain('Makes the supplied role a child')
+		expect(names).toEqual(expect.arrayContaining(['disconnect', 'set']))
 	})
 
 	it('preserves the same contract through packed package exports', () => {

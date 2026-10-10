@@ -1,7 +1,4 @@
-import type {
-	ApplicationModelSchemaMutationMethod,
-	ApplicationSchemaMutationMethod,
-} from '../application/application-schema-mutations.js'
+import type { ApplicationSchemaMutationMethod } from '../application/application-schema-mutations.js'
 import type {
 	FieldSourceOpaque,
 	FieldSourceValue,
@@ -42,11 +39,9 @@ export type PluginSourceSchemaMutations<TSchema> =
 /** Defers one mutation method until the configured schema contract is known. */
 export interface PluginSourceMutationMethod<
 	TMutation extends PluginSchemaMutationDefinition,
-	TSurface extends 'model' | 'schema',
 > {
 	readonly [pluginSourceMutationMethodType]: Readonly<{
 		readonly mutation: TMutation
-		readonly surface: TSurface
 	}>
 }
 
@@ -74,16 +69,8 @@ export type ResolveSourceSchemaTemplate<
 				>
 			: TTemplate extends FieldSourceValue
 				? never
-				: TTemplate extends PluginSourceMutationMethod<
-							infer TMutation,
-							infer TSurface
-					  >
-					? TSurface extends 'schema'
-						? ApplicationSchemaMutationMethod<SchemaClass<TContract>, TMutation>
-						: ApplicationModelSchemaMutationMethod<
-								SchemaClass<TContract>,
-								TMutation
-							>
+				: TTemplate extends PluginSourceMutationMethod<infer TMutation>
+					? ApplicationSchemaMutationMethod<SchemaClass<TContract>, TMutation>
 					: TTemplate extends (...arguments_: infer TArguments) => infer TResult
 						? (
 								...arguments_: {

@@ -12,18 +12,9 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from '../../../../tests/fixtures/postgres-worker-fixture.js'
-import { getUpdateOperations } from './operation-update-fixture.js'
 export const relationTrace: string[] = []
 export const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
-const updateHasRelationOperation = (update: unknown): boolean => {
-	return getUpdateOperations(update).some(
-		(candidate: unknown) =>
-			typeof candidate === 'object' &&
-			candidate !== null &&
-			Reflect.get(candidate, 'kind') === 'relation',
-	)
-}
 const RelationSchemaApplication =
 	UltimaBase.use(accessPlugin()).use(hooksPlugin())
 type RelationFieldBuilder = Parameters<
@@ -59,10 +50,11 @@ export const Article = RelationSchemaApplication.Schema.define({
 	fields: articleFields,
 	hooks: {
 		afterOperation: {
-			update: ({ operation }) => {
-				const changesRelation = updateHasRelationOperation(operation.update)
-
-				if (changesRelation && rejectNextRelationUpdate) {
+			update: () => {
+				// Relation links change through nested writes (ADR-0310), which run
+				// beside the source update: the armed rejection targets the next
+				// Article update, the link write under test.
+				if (rejectNextRelationUpdate) {
 					rejectNextRelationUpdate = false
 					throw rollbackError
 				}

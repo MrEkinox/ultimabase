@@ -214,13 +214,16 @@ const PostSchema = UltimaBase.Schema.define({
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
-const post = new PostSchema({ author: { connect: author } })
+const post = await PostSchema.createOne({
+	data: { author: { connect: author } },
+})
 ```
 
 `UserSchema.pointer(id)` is the only way to create a pointer (ADR-0314); the
 `Pointer` constructor is not public. Data links it through
-`{ connect: author }` (ADR-0308), never as a raw value. It produces `Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
-types preserve that target. `pointer.equals(other)` compares exact schema
+`{ connect: author }` (ADR-0308), never as a raw value. It produces `Pointer<typeof UserSchema>`, and create, update, and result types
+preserve that target. A pointer does not read its target: use
+`UserSchema.findOne` with its `id` (ADR-0310). `pointer.equals(other)` compares exact schema
 identity and ID. `pointer.toJSON()` returns the frozen logical shape
 `{ type: "pointer", className, id }`; it is not a database foreign-key or a
 transport-specific Parse object.
@@ -298,59 +301,47 @@ namespace; update policy rules then receive the exact immutable relation delta.
 Relations remain omitted from `InferObject`, `InferCreateInput`, and
 `InferUpdateInput`.
 
-## Relation handles and scoped reads
+## Relation reads and link writes
 
-Runtime-materialized models expose independently queryable relations without
-adding a collection property:
+Results have no relation handles (ADR-0310). Read a to-many collection through
+`include`, or filter its parents through a relation filter:
 
 ```ts
 const user = await UserSchema.findOneOrThrow({
 	where: { id: userId },
 	select: { name: true },
+	include: {
+		posts: {
+			select: { id: true, title: true },
+			orderBy: { createdAt: 'desc' },
+			take: 20,
+		},
+	},
 })
-
-const posts = user.relation('posts')
-const recentPosts = await posts.findMany({
-	select: { id: true, title: true },
-	orderBy: { createdAt: 'desc' },
-	limit: 20,
+const hasDrafts = await UserSchema.exists({
+	where: { id: userId, posts: { some: { published: { eq: false } } } },
 })
 ```
 
-The `relation()` argument completes only exact relation field names and returns
-`Relation<typeof UserSchema, typeof PostSchema>`. Drafts omit the method from
-their type. Every persisted projection exposes `id`, even when its selection
-does not name it. Runtime also retains validated source identity separately so
-a visible field alone cannot forge a relation handle; an adapter that did not
-provide trusted identity fails before a handle can be created.
-
-`Relation` is a frozen opaque class. `query()` returns the ordinary target
-`Query`, so selection, filtering, ordering, offset pagination, count,
-exists, ambient request reuse, and terminal-only execution options stay
-consistent. The relationship edge is carried beside the AST in private Runtime
-state. It is neither enumerable nor serializable, and every Query branch,
-reusable scope, and business hook preserves it monotonically.
-
-Database execution requires the versioned relation capability. PostgreSQL
-implements private scoped traversal; an unsupported adapter fails closed
-instead of running the public target AST without its relationship restriction.
-
-The handle also exposes transactional edge mutations:
+Change membership through link commands in `createOne` and `updateOne` data
+(ADR-0308):
 
 ```ts
-await user.relation('posts').connect(postId)
-await user.relation('posts').disconnect([oldPostId, archivedPostId])
-await user.relation('posts').set([firstPostId, secondPostId])
-await user.relation('posts').clear()
+await UserSchema.updateOne({
+	where: { id: userId },
+	data: { posts: { connect: [postId], disconnect: [oldPostId] } },
+})
+await UserSchema.updateOne({
+	where: { id: userId },
+	data: { posts: { set: [] } },
+})
 ```
 
-`connect` and `disconnect` require one target ID or a non-empty readonly ID tuple;
-`set` replaces the complete set and accepts an empty ID array; `clear` expresses
-that empty replacement directly. Duplicate IDs and invalid target input shapes
-fail before a transaction starts. Once execution begins, installed source-field policy,
-plugin-owned schema behavior, target visibility, nested writes, and adapter
-execution share one automatic or inherited transaction. Missing and inaccessible
-sources or targets both surface as `NOT_FOUND`.
+`connect` and `disconnect` take a non-empty ID list; `set` replaces the complete
+set and accepts an empty list. Installed source-field policy, plugin-owned schema
+behavior, target visibility, nested writes, and adapter execution share one
+automatic or inherited transaction. Missing and inaccessible targets both
+surface as `NOT_FOUND`.
 
 The official Hooks plugin's schema update handlers can narrow
 `candidate.kind === "relation"` to inspect the typed `{ action, targets }`
@@ -360,72 +351,41 @@ Owning storage stays adapter-owned and requires the versioned relation
 capability; PostgreSQL implements deterministic joins and inverse-pointer
 updates without exposing physical storage to Core.
 
-## Drafts, static reads, and persisted models
+## Plain data results
 
-The generated class is constructible and exposes canonical object-input reads:
-
-```ts
-const draft = new PostSchema({ title: 'Preview' })
-const posts = await PostSchema.findMany({ select: { id: true, title: true } })
-
-draft.title // string
-draft.get('title') // string
-draft.toJSON() // { readonly title: string }
-```
-
-Draft construction validates declared fields, snapshots mutable values, and
-performs no I/O. Persistence always passes through Runtime. After installed
-behavior and output restrictions complete, Runtime converts neutral adapter records into the
-exact registered class:
+Every read and mutation returns frozen plain objects (ADR-0310). A schema is not
+constructible (`new PostSchema(data)` throws) and a result has no methods:
 
 ```ts
+const created = await PostSchema.createOne({
+	data: { title: 'Hello' },
+	select: { id: true, title: true },
+})
 const post = await PostSchema.findOne({ select: { id: true, title: true } })
 
 if (post !== null) {
-	post instanceof PostSchema // true
-	post.toJSON() // Only id and title are present.
+	Object.getPrototypeOf(post) === Object.prototype // true
+	Object.isFrozen(post) // true; only id and title are present.
 }
-```
 
-Direct properties, `get()`, enumeration, inspection, and `toJSON()` all share
-the same visible snapshot. Omitted fields other than `id` are absent at runtime
-and from the inferred result type. Every persisted selection includes visible
-`id`, even when the caller selects only `title`. Runtime separately retains
-validated identity to target instance commands safely. A later `update()` or
-`delete()` applies its own result selection rather than preserving that earlier
-read projection. Without `select`, it returns the complete model allowed by
-installed output policy.
-
-Drafts expose `create` and `upsert` as executing commands. Persisted or queried
-models expose `fetch`, `exists`, `update`, and `delete`, plus local identity
-helpers:
-
-```ts
-const draft = new PostSchema({ title: 'Hello' })
-const created = await draft.create({ select: { id: true, title: true } })
-
-const imported = await new PostSchema({ title: 'Imported' }).upsert({
-	select: { id: true, title: true },
-	where: { slug: { eq: 'imported' } },
-	update: { imports: { increment: 1 } },
-})
-
-const updated = await created.update({
+await PostSchema.updateOne({
+	where: { id: created.id },
 	data: { title: 'Updated' },
-	select: { id: true, title: true },
 })
-await updated.delete({ select: { id: true } })
 ```
 
-`where` must build distinct non-null equalities matching `id`, one unique field,
-or one composite unique index. Every command returns a new model and delegates
-to Runtime validation, installed behavior and policies, cancellation, and
-transactions.
-Persisted `fetch`, `update`, and `delete` are strict protected-identity commands:
-they return a model or throw `NOT_FOUND`, including when an installed policy
-hides the target.
-There is no dirty tracking, implicit batching, `save()`, or instance collection
-operation.
+A result holds field values, a `Pointer` for an unincluded pointer, a plain
+object or `null` for an included pointer, and arrays for included relations.
+Omitted fields other than `id` are absent at runtime and from the inferred
+result type. Every selection includes visible `id`, even when the caller selects
+only `title`. Without `select`, a command returns the complete row allowed by
+installed output policy. There is no dirty tracking, implicit batching,
+`save()`, or instance command.
+
+`Model<T>`, `CreateInput<T>` and `UpdateInput<T>` name the result of `findOne`
+and the write data of one schema; `T` is a registered schema name or a schema
+type. `toJSON(value)` serializes a result, a list of results or any value inside
+them exactly as REST responses do; `JsonOf<T>` is its result type.
 
 ## Plugin-owned schema option namespaces
 
@@ -822,32 +782,26 @@ exposing storage configuration through Schema.
 
 ## Enum fields
 
-`enumField(options)` accepts an inline string list, a native TypeScript string enum, or a symbolic key-value mapping:
+`enumField(options)` accepts one form of `values` (ADR-0310): a non-empty
+string array, or a shared enum created with `defineEnum`:
 
 ```ts
-enumField({
-	values: {
-		Draft: 'draft',
-		Published: 'published',
-	},
-	default: 'draft',
-})
+enumField({ values: ['draft', 'published'], default: 'draft' })
+
+const PostStatus = defineEnum('PostStatus', ['draft', 'published'])
+enumField({ values: PostStatus })
 ```
 
-Persisted values form the exact inferred string union, while mapping keys remain available to future schema and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
+Persisted values form the exact inferred string union. Values must be non-empty
+and unique, and static defaults must belong to the inferred domain. The
+object-mapping form, TypeScript `enum` objects and the `typeName` option are
+removed and fail by type and at runtime.
 
-`typeName` optionally gives an enum a stable, generator-neutral identity:
-
-```ts
-enumField({
-	typeName: 'PostStatus',
-	values: ['draft', 'published'],
-})
-```
-
-When omitted, generators derive a deterministic name from the owning schema and
-field path. Schema only requires explicit names to be non-empty; each generator
-owns its naming syntax and collision checks.
+An array declares a local enum: generators derive a deterministic name from the
+owning schema and field path. A shared enum is an immutable value with `name`
+and `values`; every field using it shares one generated type named `name`. Two
+different shared enums with the same name fail when the application is
+constructed.
 
 ## JSON, object, and list fields
 
@@ -903,9 +857,10 @@ column and cannot be embedded. These option names are absent from the embedded
 builder even when their value would be `false`; unsupported metadata is rejected
 rather than ignored.
 
-`typeName` follows the same optional identity contract as enum fields. A
-generator may use it as the base for distinct output, create-input,
-update-input, filter, or other generated type names.
+`typeName` optionally gives an object field a stable, generator-neutral
+identity; when omitted, generators derive a deterministic name from the owning
+schema and field path. A generator may use it as the base for distinct output,
+create-input, update-input, filter, or other generated type names.
 
 `list: true` wraps the scalar or object value exactly once. Static list defaults
 are copied and frozen. Multidimensional or heterogeneous array documents must

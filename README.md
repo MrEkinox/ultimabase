@@ -18,7 +18,7 @@ adds REST, GraphQL, authentication and policies to the same authoring path.
 import process from 'node:process'
 
 import { typegenPlugin } from '@ultimabase/typegen'
-import { UltimaBase } from '@ultimabase/core'
+import { UltimaBase, toJSON } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { softDeletePlugin } from '@ultimabase/soft-delete-plugin'
 
@@ -52,9 +52,10 @@ try {
 	await Post.softDelete({ id: post.id })
 	const posts = await Post.findMany({
 		where: { published: { eq: true } },
-		limit: 25,
+		take: 25,
 	})
-	console.log(posts[0]?.toJSON()) // A detached immutable snapshot.
+	// Results are frozen plain objects; toJSON serializes them as REST does.
+	console.log(toJSON(posts))
 } finally {
 	await application.dispose()
 }
@@ -94,7 +95,7 @@ the first TypeScript build. JavaScript executes the same graph without Typegen.
   integrity constraints.
 - Typegen may include plugin-owned contracts but generates declarations only;
   JavaScript applications run without Typegen or a generated client.
-- Stable plugin operations and application-specific model surfaces execute
+- Stable plugin operations and application-specific schema surfaces execute
   through application-owned handles. Plugin schema mutations can also be
   called directly on a frozen configured schema class; the class resolves the
   sole active owner and dispatches through its compiled handle.

@@ -39,8 +39,11 @@ describe('native Hooks and Access removal', () => {
 			path.join(coreRoot, 'src/index.ts'),
 			path.join(coreRoot, 'src/runtime/index.ts'),
 			path.join(coreRoot, 'src/schema/index.ts'),
-			path.join(coreRoot, 'dist/index.d.ts'),
-			path.join(coreRoot, 'dist/index.js'),
+			// `.` and `./plugin` share one emitted chunk (ADR-0311).
+			...fs
+				.readdirSync(path.join(coreRoot, 'dist'))
+				.filter((name) => name.endsWith('.d.ts') || name.endsWith('.js'))
+				.map((name) => path.join(coreRoot, 'dist', name)),
 		]
 		const removedNames = [
 			'FieldAccess',

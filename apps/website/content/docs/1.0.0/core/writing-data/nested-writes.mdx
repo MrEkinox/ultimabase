@@ -17,8 +17,8 @@ sources:
 ---
 
 Use a nested write when one post command must also create, connect, or update
-related records. `createOne`, `updateOne`, and a persisted model's `update()`
-accept relationship commands inside `data`. The root and every child run in
+related records. `createOne` and `updateOne` accept relationship commands
+inside `data`. The root and every child run in
 one transaction; a failure rolls back the whole graph.
 
 The examples assume a started application with a persistence plugin. `Post`
@@ -94,7 +94,7 @@ the comment. Each ID in this example must refer to a distinct target.
 
 ## Choose a relationship command
 
-| Field    | On `createOne`                                                  | On `updateOne` or a persisted model's `update()`                                                         |
+| Field    | On `createOne`                                                  | On `updateOne`                                                                                           |
 | -------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Pointer  | `connect: target`, `create: data`, or `null` (optional pointer) | `connect: target`, `create: data`, `update: data`, or `null` (optional pointer)                          |
 | Relation | `create: [data]`, `connect: [target]`                           | `create: [data]`, `connect: [target]`, `update: [{ id, data }]`, `disconnect: [target]`, `set: [target]` |
@@ -134,6 +134,11 @@ visible linked targets. A missing or hidden target fails with the same
 (`{ field: 'author', schema: 'Author' }`), and the whole graph rolls back, so
 a link never reveals that a hidden row exists. Master skips visibility but
 never existence: it can link a hidden row and still fails on a missing one.
+
+A relation's declared `where` limits reads, not unlinking: `disconnect` removes
+a member that only the declared filter hides, and `set` replaces those members
+too. A member hidden by an installed policy stays `NOT_FOUND` for a caller
+without Master authority.
 
 ## Bounds and failure behavior
 

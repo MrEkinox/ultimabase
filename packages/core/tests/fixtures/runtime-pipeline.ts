@@ -45,7 +45,7 @@ export const articleSchema = UltimaBase.Schema.define({
 
 export const articleOperation = {
 	kind: 'find-many',
-	query: new QueryBuilder(articleSchema).limit(10).ast,
+	query: new QueryBuilder(articleSchema).take(10).ast,
 } satisfies FindManyOperationAst<typeof articleSchema>
 
 export const articleUpdateOperation = {

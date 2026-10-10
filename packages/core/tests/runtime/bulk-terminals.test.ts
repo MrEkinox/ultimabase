@@ -54,10 +54,12 @@ describe('bulk and upsert terminals', () => {
 			}),
 		)
 
-		expect(result.every((account) => account instanceof accountSchema)).toBe(
-			true,
-		)
-		expect(result.map((account) => account.toJSON())).toStrictEqual(created)
+		expect(
+			result.every(
+				(account) => Object.getPrototypeOf(account) === Object.prototype,
+			),
+		).toBe(true)
+		expect(result).toStrictEqual(created)
 		expect(
 			adapter.transactions[0]?.requests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['create-one', 'create-one'])
@@ -100,10 +102,12 @@ describe('bulk and upsert terminals', () => {
 			}),
 		)
 
-		expect(result.every((account) => account instanceof accountSchema)).toBe(
-			true,
-		)
-		expect(result.map((account) => account.toJSON())).toStrictEqual(upserted)
+		expect(
+			result.every(
+				(account) => Object.getPrototypeOf(account) === Object.prototype,
+			),
+		).toBe(true)
+		expect(result).toStrictEqual(upserted)
 		expect(
 			adapter.transactions[0]?.requests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['upsert-one', 'upsert-one'])
@@ -301,12 +305,12 @@ describe('bulk and upsert terminals', () => {
 			}),
 		)
 
-		expect(updated.map((item) => item.toJSON())).toStrictEqual([
+		expect(updated).toStrictEqual([
 			{ id: '0198f090-2a50-7000-8000-000000000040', visits: 1 },
 			{ id: '0198f090-2a50-7000-8000-000000000041', visits: 2 },
 			{ id: '0198f090-2a50-7000-8000-000000000042', visits: 3 },
 		])
-		expect(deleted.map((item) => item.toJSON())).toStrictEqual([
+		expect(deleted).toStrictEqual([
 			{ id: '0198f090-2a50-7000-8000-000000000043' },
 			{ id: '0198f090-2a50-7000-8000-000000000044' },
 		])

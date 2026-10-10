@@ -266,7 +266,8 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 						role.schema,
 						materialization.current,
 					)
-					if (hierarchyChanged) await assertRoleHierarchyAcyclic(item)
+					if (hierarchyChanged)
+						await assertRoleHierarchyAcyclic(role.schema, item)
 					if (changes.length === 0) continue
 
 					// Audit-ready payloads are queued for post-commit delivery only.

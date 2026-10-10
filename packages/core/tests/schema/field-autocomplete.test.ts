@@ -84,7 +84,7 @@ const fieldSpecificOptions: FactoryOptionMap = {
 	dateField: ['autoNow'],
 	dateTimeField: ['autoNow', 'timezone'],
 	decimalField: ['precision', 'scale'],
-	enumField: ['typeName', 'values'],
+	enumField: ['values'],
 	floatField: [],
 	intField: ['autoIncrement'],
 	jsonField: [],
@@ -247,7 +247,7 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'enumField',
 		expression:
-			"enumField({ values: ['draft', 'published'] as const, default: 'draft', required: true, typeName: 'StatusHoverMarker', description: 'runtime-only-hover-marker' })",
+			"enumField({ values: ['draft', 'published'] as const, default: 'draft', required: true, description: 'runtime-only-hover-marker' })",
 		expectedReturn:
 			'DefaultedEnumField<readonly ["draft", "published"], true, false, false>',
 	},

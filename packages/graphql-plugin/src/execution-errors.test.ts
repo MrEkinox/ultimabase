@@ -1,7 +1,6 @@
 import { FrameworkError, PluginError } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import { GraphqlInvalidCursorError } from './connection-errors.js'
 import { createSafeGraphqlError } from './execution-errors.js'
 
 describe('GraphQL execution errors', () => {
@@ -28,20 +27,7 @@ describe('GraphQL execution errors', () => {
 		expect(JSON.stringify(error)).not.toMatch(/secret-policy|private policy/u)
 	})
 
-	it('maps cursor failures and masks unknown or non-public diagnostics', () => {
-		const cursor = createSafeGraphqlError(
-			new GraphqlInvalidCursorError(),
-			'cursor-request',
-		)
-		expect(cursor.toJSON()).toMatchObject({
-			extensions: {
-				code: 'GRAPHQL_INVALID_CURSOR',
-				requestId: 'cursor-request',
-				retryable: false,
-			},
-			message: 'Invalid GraphQL cursor.',
-		})
-
+	it('masks unknown or non-public diagnostics', () => {
 		for (const diagnostic of [
 			new Error('SQL password super-secret'),
 			new PluginError('fixture.private', 'private plugin trace'),

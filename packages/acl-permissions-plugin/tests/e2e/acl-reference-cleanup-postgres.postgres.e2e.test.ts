@@ -320,12 +320,12 @@ describe(
 	{ concurrent: false },
 	() => {
 		it('lets principal owners enforce fail and preserve policies', async () => {
-			const fail = await new FailPrincipal({ name: 'fail' }).create(
-				{},
+			const fail = await FailPrincipal.createOne(
+				{ data: { name: 'fail' } },
 				{ useMasterKey: true },
 			)
-			const preserve = await new PreservePrincipal({ name: 'preserve' }).create(
-				{},
+			const preserve = await PreservePrincipal.createOne(
+				{ data: { name: 'preserve' } },
 				{ useMasterKey: true },
 			)
 			const failRow = await ProtectedPrimary.createOne(
@@ -353,11 +353,17 @@ describe(
 				{ useMasterKey: true },
 			)
 
-			await expect(fail.delete({}, { useMasterKey: true })).rejects.toThrow(
-				'still has external references',
-			)
 			await expect(
-				preserve.delete({}, { useMasterKey: true }),
+				FailPrincipal.deleteOne(
+					{ where: { id: { eq: fail.id } } },
+					{ useMasterKey: true },
+				),
+			).rejects.toThrow('still has external references')
+			await expect(
+				PreservePrincipal.deleteOne(
+					{ where: { id: { eq: preserve.id } } },
+					{ useMasterKey: true },
+				),
 			).resolves.toMatchObject({ id: preserve.id })
 			expect(
 				(await readACL(ProtectedPrimary, failRow.id)).permissionsForPrincipal(
@@ -372,8 +378,8 @@ describe(
 		})
 
 		it('rolls multi-schema principal cascade back before succeeding', async () => {
-			const cascade = await new CascadePrincipal({ name: 'cascade' }).create(
-				{},
+			const cascade = await CascadePrincipal.createOne(
+				{ data: { name: 'cascade' } },
 				{ useMasterKey: true },
 			)
 			const unrelated = FailPrincipal.pointer(
@@ -392,14 +398,17 @@ describe(
 				{ useMasterKey: true },
 			)
 
-			await expect(cascade.delete({})).rejects.toThrow(
-				'Cascade principal deletion requires master authority',
-			)
+			await expect(
+				CascadePrincipal.deleteOne({ where: { id: { eq: cascade.id } } }),
+			).rejects.toThrow('Cascade principal deletion requires master authority')
 			const changeStart = committedACLChanges.length
 			rejectNextSecondaryCleanup = true
-			await expect(cascade.delete({}, { useMasterKey: true })).rejects.toThrow(
-				'ACL reference cleanup rollback fixture',
-			)
+			await expect(
+				CascadePrincipal.deleteOne(
+					{ where: { id: { eq: cascade.id } } },
+					{ useMasterKey: true },
+				),
+			).rejects.toThrow('ACL reference cleanup rollback fixture')
 			expect(committedACLChanges).toHaveLength(changeStart)
 			await expect(
 				CascadePrincipal.exists({ where: { id: { eq: cascade.id } } }),
@@ -416,7 +425,10 @@ describe(
 			).toStrictEqual(['read', 'update'])
 
 			await expect(
-				cascade.delete({}, { useMasterKey: true }),
+				CascadePrincipal.deleteOne(
+					{ where: { id: { eq: cascade.id } } },
+					{ useMasterKey: true },
+				),
 			).resolves.toMatchObject({ id: cascade.id })
 			const cleanedPrimary = await readACL(ProtectedPrimary, primary.id)
 			const cleanedSecondary = await readACL(ProtectedSecondary, secondary.id)
@@ -481,16 +493,16 @@ describe(
 		})
 
 		it('lets RoleSchema own fail, preserve, and cascade behavior', async () => {
-			const fail = await new FailRole({ name: 'fail-role' }).create(
-				{},
+			const fail = await FailRole.createOne(
+				{ data: { name: 'fail-role' } },
 				{ useMasterKey: true },
 			)
-			const preserve = await new PreserveRole({ name: 'preserve-role' }).create(
-				{},
+			const preserve = await PreserveRole.createOne(
+				{ data: { name: 'preserve-role' } },
 				{ useMasterKey: true },
 			)
-			const cascade = await new CascadeRole({ name: 'cascade-role' }).create(
-				{},
+			const cascade = await CascadeRole.createOne(
+				{ data: { name: 'cascade-role' } },
 				{ useMasterKey: true },
 			)
 			const failReference = FailRole.role({ id: fail.id })
@@ -532,14 +544,23 @@ describe(
 			)
 
 			await expect(
-				fail.delete({}, { useMasterKey: true }),
+				FailRole.deleteOne(
+					{ where: { id: { eq: fail.id } } },
+					{ useMasterKey: true },
+				),
 			).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
 			await expect(
-				preserve.delete({}, { useMasterKey: true }),
+				PreserveRole.deleteOne(
+					{ where: { id: { eq: preserve.id } } },
+					{ useMasterKey: true },
+				),
 			).resolves.toMatchObject({ id: preserve.id })
 			const changeStart = committedACLChanges.length
 			await expect(
-				cascade.delete({}, { useMasterKey: true }),
+				CascadeRole.deleteOne(
+					{ where: { id: { eq: cascade.id } } },
+					{ useMasterKey: true },
+				),
 			).resolves.toMatchObject({ id: cascade.id })
 			expect(
 				(await readACL(ProtectedPrimary, failRow.id)).permissionsForRole(
@@ -589,9 +610,14 @@ describe(
 			let second = createApplication(secondFixture.connectionUri, 'override')
 
 			try {
-				const principal = await new CascadePrincipal({
-					name: 'isolated',
-				}).create({}, { useMasterKey: true })
+				const principal = await CascadePrincipal.createOne(
+					{
+						data: {
+							name: 'isolated',
+						},
+					},
+					{ useMasterKey: true },
+				)
 				const pointer = CascadePrincipal.pointer(principal.id)
 				const firstRow = await ProtectedPrimary.createOne(
 					{
@@ -621,7 +647,10 @@ describe(
 					{ where: { id: principal.id } },
 					{ useMasterKey: true },
 				)
-				await freshPrincipal.delete({}, { useMasterKey: true })
+				await CascadePrincipal.deleteOne(
+					{ where: { id: { eq: freshPrincipal.id } } },
+					{ useMasterKey: true },
+				)
 				expect(
 					(
 						await readACL(ProtectedPrimary, firstRow.id)

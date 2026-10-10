@@ -116,12 +116,12 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 				expect.objectContaining({ schema: 'User' }),
 			)
 			await expect(
-				new PasswordUser({ username: 'Ada' }).create({}),
+				PasswordUser.createOne({ data: { username: 'Ada' } }),
 			).rejects.toThrow('canonical representation')
-			const user = await new PasswordUser({ username: 'ada' }).create({})
+			const user = await PasswordUser.createOne({ data: { username: 'ada' } })
 			expect(user.username).toBe('ada')
 			await expect(
-				new PasswordUser({ username: 'ada' }).create({}),
+				PasswordUser.createOne({ data: { username: 'ada' } }),
 			).rejects.toMatchObject({
 				code: 'UNIQUE_VIOLATION',
 				publicDetails: { fields: ['username'], schema: 'User' },
@@ -277,7 +277,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 		try {
 			const username = 'grace'
 			const password = 'another correct horse battery staple'
-			const user = await new PasswordUser({ username }).create({})
+			const user = await PasswordUser.createOne({ data: { username } })
 			const execute = (action: string, selectedPassword = password) =>
 				ultimabase.operation(credentialOperation).execute({
 					action,
@@ -313,7 +313,7 @@ describe('Password identities with PostgreSQL', { concurrent: false }, () => {
 			expect(storedVerifier).toMatch(/^\$argon2id\$v=19\$/u)
 			expect(storedVerifier).not.toContain(password)
 
-			await user.delete({})
+			await PasswordUser.deleteOne({ where: { id: { eq: user.id } } })
 			expect(await execute('verify')).toBe('missing')
 		} finally {
 			await ultimabase.dispose()

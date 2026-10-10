@@ -24,7 +24,6 @@ export type {
 	RequestRoleReference,
 	RequestPrincipalReference,
 	RequestPrincipalReferenceIdentity,
-	RequestRoleReferenceCarrier,
 	RequestRoleResolutionInput,
 	RequestRoleResolver,
 	RequestRoleSubject,

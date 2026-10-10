@@ -33,12 +33,7 @@ export const ProductSchema = UltimaBase.Schema.define({
 			scale: 2,
 		}),
 		status: field.enum({
-			typeName: 'ProductStatus',
-			values: {
-				Draft: 'draft',
-				Published: 'published',
-				Archived: 'archived',
-			},
+			values: ['draft', 'published', 'archived'],
 			default: 'draft',
 		}),
 		availableOn: field.date(),

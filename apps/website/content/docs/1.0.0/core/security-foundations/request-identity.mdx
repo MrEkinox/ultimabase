@@ -83,7 +83,7 @@ export const readPostsForJob = (requestId: string, signal: AbortSignal) => {
 		metadata: { job: 'daily-report' },
 	})
 
-	return Post.findMany({ limit: 20 }, { context })
+	return Post.findMany({ take: 20 }, { context })
 }
 ```
 

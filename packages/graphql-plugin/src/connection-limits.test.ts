@@ -11,12 +11,15 @@ describe('GraphQL connection limits', () => {
 			defaultGraphqlExecutionLimits,
 		)
 		expect(
-			normalizeGraphqlExecutionLimits({
-				defaultPageSize: 0,
-				maxDepth: 12,
-				maxPageSize: 20,
-			}),
-		).toMatchObject({ defaultPageSize: 0, maxDepth: 12, maxPageSize: 20 })
+			normalizeGraphqlExecutionLimits(
+				{ maxDepth: 12 },
+				{ defaultTake: 5, maxTake: 20 },
+			),
+		).toMatchObject({ defaultTake: 5, maxDepth: 12, maxTake: 20 })
+		expect(defaultGraphqlExecutionLimits).toMatchObject({
+			defaultTake: 100,
+			maxTake: 1000,
+		})
 		expect(defaultGraphqlExecutionLimits).toMatchObject({
 			maxAliases: 100,
 			maxDepth: 20,
@@ -31,14 +34,28 @@ describe('GraphQL connection limits', () => {
 	it.each([
 		[null, 'plain object'],
 		[{ unknown: 1 }, 'unknown option'],
-		[{ defaultPageSize: -1 }, 'greater than or equal to 0'],
-		[{ defaultPageSize: 2.5 }, 'safe integer'],
-		[{ maxPageSize: 0 }, 'greater than or equal to 1'],
 		[{ maxAliases: 0 }, 'greater than or equal to 1'],
 		[{ maxDocumentBytes: 1.5 }, 'safe integer'],
-		[{ maxPageSize: 10, defaultPageSize: 11 }, 'must not exceed'],
-		[{ defaultPageSize: 2_147_483_648 }, 'GraphQL Int range'],
+		[{ defaultPageSize: 10 }, 'unknown option'],
 	])('rejects malformed limits %#', (value, message) => {
 		expect(() => normalizeGraphqlExecutionLimits(value)).toThrow(message)
+	})
+
+	// ADR-0309 step 3b amendment: one `pagination` option, as REST.
+	it.each([
+		[null, 'plain object'],
+		[{ unknown: 1 }, 'unknown option'],
+		[{ defaultTake: 0 }, 'pagination.defaultTake must be a safe integer'],
+		[{ defaultTake: 2.5 }, 'safe integer'],
+		[{ maxTake: 0 }, 'pagination.maxTake must be a safe integer'],
+		[{ defaultTake: 11, maxTake: 10 }, 'must not exceed pagination.maxTake'],
+		[
+			{ defaultTake: 2_147_483_648, maxTake: 2_147_483_648 },
+			'GraphQL Int range',
+		],
+	])('rejects malformed pagination %#', (value, message) => {
+		expect(() => normalizeGraphqlExecutionLimits(undefined, value)).toThrow(
+			message,
+		)
 	})
 })

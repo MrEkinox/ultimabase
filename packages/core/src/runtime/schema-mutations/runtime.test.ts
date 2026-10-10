@@ -15,7 +15,7 @@ import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 
 describe('plugin schema mutation Runtime', () => {
-	it('executes schema and bound-model methods through owner-only update plans', async () => {
+	it('executes schema methods through owner-only update plans', async () => {
 		const id = '0199325a-0c00-7000-8000-000000000101'
 		const previous = row(id, 'published')
 		const current = row(id, 'archived')
@@ -59,21 +59,20 @@ describe('plugin schema mutation Runtime', () => {
 			select: selection,
 		})
 
-		expect(result).toBeInstanceOf(fixture.Post)
-		expect(result).toMatchObject({
+		expect(result).toStrictEqual({
 			id,
 			title: 'Release notes',
 			workflowState: 'archived',
 		})
-		const boundArchive = Reflect.get(result as object, 'archive') as (
-			input: unknown,
-		) => Promise<unknown>
+		// Results have no model methods: the schema runs the command (ADR-0310).
+		expect(result).not.toHaveProperty('archive')
 		await expect(
-			boundArchive({
+			archive({
+				id,
 				input: { reason: 'repeat' },
 				select: { title: true, workflowState: true },
 			}),
-		).resolves.toBeInstanceOf(fixture.Post)
+		).resolves.toMatchObject({ id })
 		expect(handler).toHaveBeenCalledWith(
 			expect.objectContaining({
 				input: { reason: 'superseded' },
@@ -118,19 +117,6 @@ describe('plugin schema mutation Runtime', () => {
 		])
 
 		await fixture.ultimabase.dispose()
-		const replacement = await createUpdateFixture({ results: [] })
-		try {
-			const staleArchive = Reflect.get(result as object, 'archive') as (
-				input: unknown,
-			) => Promise<unknown>
-			expect(staleArchive).toBeTypeOf('function')
-			expect(() => staleArchive({ input: { reason: 'stale' } })).toThrow(
-				expect.objectContaining({ code: 'VALIDATION_ERROR' }),
-			)
-			expect(replacement.adapter.rootRequests).toStrictEqual([])
-		} finally {
-			await replacement.ultimabase.dispose()
-		}
 	})
 
 	it('hides missing targets and rolls back before invoking the handler', async () => {

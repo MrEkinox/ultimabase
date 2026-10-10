@@ -88,7 +88,8 @@ type CompactUpdateDataFields<TSet extends object, TNumeric extends object> = {
 				: never)
 }
 
-type RequireOneField<TFields extends object> = {
+/** @internal Requires exactly one named field and keeps the others optional. */
+export type RequireOneField<TFields extends object> = {
 	[TKey in keyof TFields]-?: Readonly<
 		Required<Pick<TFields, TKey>> & Partial<Omit<TFields, TKey>>
 	>
@@ -114,6 +115,13 @@ export type UpdateExpressionInput<TSchema extends SchemaTypeInfoSource> =
 				SimplifyUpdateInput<UpdateSetInput<TSchema>>,
 				SimplifyUpdateInput<NumericUpdateInput<TSchema>>
 			>
+
+/** @internal Field map of `updateOne` data: nested commands and numeric operators. */
+export type NestedUpdateDataFields<TSchema extends SchemaTypeInfoSource> =
+	CompactUpdateDataFields<
+		SimplifyUpdateInput<SchemaNestedUpdateData<TSchema>>,
+		SimplifyUpdateInput<NumericUpdateInput<TSchema>>
+	>
 
 /** Adds numeric operators to the generated singular nested-update field map. */
 export type NestedUpdateExpressionInput<TSchema extends SchemaTypeInfoSource> =

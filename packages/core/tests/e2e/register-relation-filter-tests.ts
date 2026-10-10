@@ -36,8 +36,14 @@ export const registerRelationFilterTests = (): void => {
 		if (mixed === undefined || gammaOnly === undefined || empty === undefined) {
 			throw new TypeError('Relation predicate articles are incomplete')
 		}
-		await mixed.relation('tags').connect([alpha.id, beta.id, hidden.id])
-		await gammaOnly.relation('tags').connect(gamma.id)
+		await Article.updateOne({
+			where: { id: { eq: mixed.id } },
+			data: { tags: { connect: [alpha.id, beta.id, hidden.id] } },
+		})
+		await Article.updateOne({
+			where: { id: { eq: gammaOnly.id } },
+			data: { tags: { connect: [gamma.id] } },
+		})
 		// The hidden result is requested as `select: { id: true }` (ADR-0306).
 		await Tag.updateOne({
 			where: { id: { eq: hidden.id } },

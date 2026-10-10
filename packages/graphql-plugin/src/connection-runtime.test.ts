@@ -1,11 +1,10 @@
 import { Buffer } from 'node:buffer'
 
-import { UltimaBase } from '@ultimabase/core'
-import { isPlainRecord } from '@ultimabase/shared'
+import { FrameworkError, UltimaBase } from '@ultimabase/core'
+import { encodeQueryCursor } from '@ultimabase/core/plugin'
 import { describe, expect, it } from 'vitest'
 
 import { readGraphqlConnectionRuntime } from './application.js'
-import { GraphqlInvalidCursorError } from './connection-errors.js'
 import {
 	defaultGraphqlExecutionLimits,
 	normalizeGraphqlExecutionLimits,
@@ -21,7 +20,10 @@ const ConnectionRecord = GraphqlSchemaApplication.Schema.define({
 	graphql: true,
 })
 
-const key = (fill: number): Uint8Array => new Uint8Array(32).fill(fill)
+const ids = ['a', 'b', 'c', 'd'].map(
+	(suffix) => `0198f090-2a50-7000-8000-00000000000${suffix}`,
+)
+const [a = '', b = '', c = '', d = ''] = ids
 
 const prepareRuntime = async () => {
 	const application = await createApplication({
@@ -31,10 +33,7 @@ const prepareRuntime = async () => {
 	})
 	return {
 		application,
-		runtime: new GraphqlConnectionRuntime(
-			defaultGraphqlExecutionLimits,
-			key(1),
-		),
+		runtime: new GraphqlConnectionRuntime(defaultGraphqlExecutionLimits),
 	}
 }
 
@@ -43,49 +42,56 @@ const scope = {
 	typeName: 'GraphqlConnectionRecord',
 }
 
+const invalidPosition = (run: () => unknown): unknown => {
+	try {
+		run()
+	} catch (error: unknown) {
+		if (error instanceof FrameworkError) return error
+		throw error
+	}
+	throw new Error('expected a position error')
+}
+
+// ADR-0309: Relay `first`/`after` map to Core `take`/`after`.
 describe('GraphQL connection runtime', () => {
-	it('builds stable multi-page windows and opaque edge cursors', async () => {
+	it('builds pages from positions and opaque unsigned edge cursors', async () => {
 		const { application, runtime } = await prepareRuntime()
+		const orderBy = [{ direction: 'desc', field: 'rank' }] as const
 		const first = runtime.prepare({
-			arguments: {
-				first: 2,
-				orderBy: [{ direction: 'desc', field: 'rank' }],
-				where: { group: { eq: 'a' } },
-			},
+			arguments: { first: 2, orderBy, where: { group: { eq: 'a' } } },
 			schema: ConnectionRecord,
 			...scope,
 		})
 
 		expect(first.clauses).toStrictEqual({
-			limit: 3,
 			orderBy: { rank: 'desc', id: 'asc' },
+			take: 3,
 			where: { group: { eq: 'a' } },
 		})
+		expect(first.orderedFields).toStrictEqual(['rank', 'id'])
 		const page = runtime.page(first.page, [
-			{ id: 'a', rank: 3 },
-			{ id: 'b', rank: 3 },
-			{ id: 'c', rank: 2 },
+			{ id: a, rank: 3 },
+			{ id: b, rank: 3 },
+			{ id: c, rank: 2 },
 		])
-		expect(page.nodes.map(({ id }) => id)).toStrictEqual(['a', 'b'])
-		expect(page.edges.map(({ node }) => node.id)).toStrictEqual(['a', 'b'])
-		expect(page.edges[0]?.cursor).not.toBe(page.edges[1]?.cursor)
-		const payloadSegment = page.edges[0]?.cursor.split('.')[0]
-		if (payloadSegment === undefined) {
-			throw new TypeError('Expected an encoded cursor payload')
-		}
-		const payload: unknown = JSON.parse(
-			Buffer.from(payloadSegment, 'base64url').toString('utf8'),
-		)
-		if (!isPlainRecord(payload)) {
-			throw new TypeError('Expected a cursor payload object')
-		}
-		expect(Object.keys(payload).sort()).toStrictEqual([
-			'fingerprint',
-			'offset',
-			'path',
-			'type',
-			'v',
+		expect(page.nodes.map(({ id }) => id)).toStrictEqual([a, b])
+		expect(page.edges.map(({ cursor }) => cursor)).toStrictEqual([
+			encodeQueryCursor(ConnectionRecord, { rank: 'desc' }, { id: a, rank: 3 }),
+			encodeQueryCursor(ConnectionRecord, { rank: 'desc' }, { id: b, rank: 3 }),
 		])
+		expect(
+			JSON.parse(
+				Buffer.from(page.edges[0]?.cursor ?? '', 'base64url').toString(),
+			),
+		).toStrictEqual({
+			o: [
+				['rank', 'd'],
+				['id', 'a'],
+			],
+			p: [3, a],
+			s: 'GraphqlConnectionRecord',
+			v: 1,
+		})
 		expect(page.pageInfo).toMatchObject({
 			endCursor: page.edges[1]?.cursor,
 			hasNextPage: true,
@@ -94,48 +100,23 @@ describe('GraphQL connection runtime', () => {
 		})
 
 		const second = runtime.prepare({
-			arguments: {
-				after: page.pageInfo.endCursor,
-				first: 2,
-				orderBy: [{ direction: 'desc', field: 'rank' }],
-				where: { group: { eq: 'a' } },
-			},
+			arguments: { after: page.pageInfo.endCursor, first: 2, orderBy },
 			schema: ConnectionRecord,
 			...scope,
 		})
-		expect(second.clauses).toMatchObject({ limit: 3, offset: 2 })
-		const last = runtime.page(second.page, [{ id: 'c' }, { id: 'd' }])
-		expect(last.nodes.map(({ id }) => id)).toStrictEqual(['c', 'd'])
+		expect(second.clauses).toMatchObject({
+			after: { id: b, rank: 3 },
+			take: 3,
+		})
+		const last = runtime.page(second.page, [
+			{ id: c, rank: 2 },
+			{ id: d, rank: 1 },
+		])
+		expect(last.nodes.map(({ id }) => id)).toStrictEqual([c, d])
 		expect(last.pageInfo).toMatchObject({
 			hasNextPage: false,
 			hasPreviousPage: true,
 		})
-
-		runtime.dispose()
-		await application.dispose()
-	})
-
-	it('canonicalizes GraphQL wire filter object keys for cursor binding', async () => {
-		const { application, runtime } = await prepareRuntime()
-		const prepared = runtime.prepare({
-			arguments: {
-				first: 1,
-				where: { group: { eq: 'a' }, rank: { gte: 1 } },
-			},
-			schema: ConnectionRecord,
-			...scope,
-		})
-		const cursor = runtime.page(prepared.page, [{ id: 'a' }]).pageInfo.endCursor
-		const reordered = runtime.prepare({
-			arguments: {
-				after: cursor,
-				first: 1,
-				where: { rank: { gte: 1 }, group: { eq: 'a' } },
-			},
-			schema: ConnectionRecord,
-			...scope,
-		})
-		expect(reordered.clauses).toMatchObject({ offset: 1 })
 
 		runtime.dispose()
 		await application.dispose()
@@ -149,8 +130,8 @@ describe('GraphQL connection runtime', () => {
 			...scope,
 		})
 		expect(defaults.clauses).toStrictEqual({
-			limit: 26,
 			orderBy: { id: 'asc' },
+			take: 101,
 		})
 		expect(
 			runtime.prepare({
@@ -172,7 +153,7 @@ describe('GraphQL connection runtime', () => {
 			...scope,
 		})
 		expect(
-			runtime.page(exact.page, [{ id: 'a' }, { id: 'b' }]).pageInfo,
+			runtime.page(exact.page, [{ id: a }, { id: b }]).pageInfo,
 		).toMatchObject({ hasNextPage: false })
 
 		const zero = runtime.prepare({
@@ -180,8 +161,8 @@ describe('GraphQL connection runtime', () => {
 			schema: ConnectionRecord,
 			...scope,
 		})
-		expect(zero.clauses).toMatchObject({ limit: 1 })
-		expect(runtime.page(zero.page, [{ id: 'a' }])).toStrictEqual({
+		expect(zero.clauses).toMatchObject({ take: 1 })
+		expect(runtime.page(zero.page, [{ id: a }])).toStrictEqual({
 			edges: [],
 			nodes: [],
 			pageInfo: {
@@ -196,122 +177,90 @@ describe('GraphQL connection runtime', () => {
 		await application.dispose()
 	})
 
-	it('retains explicit offset behavior when rows are inserted or deleted', async () => {
-		const { application, runtime } = await prepareRuntime()
-		const first = runtime.prepare({
-			arguments: { first: 2 },
-			schema: ConnectionRecord,
-			...scope,
-		})
-		const cursor = runtime.page(first.page, ['a', 'b']).pageInfo.endCursor
-		const next = runtime.prepare({
-			arguments: { after: cursor, first: 2 },
-			schema: ConnectionRecord,
-			...scope,
-		})
-		expect(next.clauses.offset).toBe(2)
-
-		// Offset pages deliberately observe the current ordered rows, not a snapshot.
-		expect(['x', 'a', 'b', 'c'].slice(2, 4)).toStrictEqual(['b', 'c'])
-		expect(['b', 'c', 'd'].slice(2, 4)).toStrictEqual(['d'])
-
-		runtime.dispose()
-		await application.dispose()
-	})
-
-	it('rejects malformed, altered, foreign, or context-shifted cursors uniformly', async () => {
+	it('rejects malformed or mismatched cursors with the after VALIDATION_ERROR', async () => {
 		const { application, runtime } = await prepareRuntime()
 		const prepared = runtime.prepare({
 			arguments: { first: 1 },
 			schema: ConnectionRecord,
 			...scope,
 		})
-		const cursor = runtime.page(prepared.page, [{ id: 'a' }]).pageInfo.endCursor
+		const cursor = runtime.page(prepared.page, [{ id: a }]).pageInfo.endCursor
 		if (cursor === null) throw new TypeError('Expected a cursor')
-		const foreign = new GraphqlConnectionRuntime(
-			defaultGraphqlExecutionLimits,
-			key(2),
-		)
-		const altered = `${cursor.slice(0, -1)}${cursor.endsWith('a') ? 'b' : 'a'}`
-		const invalidInputs: readonly unknown[] = [
-			'',
-			'.',
-			'not-a-cursor',
-			altered,
-			'a'.repeat(4097),
-			...Array.from({ length: 32 }, (_, index) => `malformed-${String(index)}`),
-		]
-		for (const after of invalidInputs) {
-			expect(() =>
+		const invalid = {
+			code: 'VALIDATION_ERROR',
+			publicDetails: { parameter: 'after' },
+		}
+		for (const after of ['', '.', 'not a cursor', 'a'.repeat(4097), 7]) {
+			expect(
+				invalidPosition(() =>
+					runtime.prepare({
+						arguments: { after, first: 1 },
+						schema: ConnectionRecord,
+						...scope,
+					}),
+				),
+			).toMatchObject(invalid)
+		}
+		// A cursor of another ordering does not position this one.
+		expect(
+			invalidPosition(() =>
 				runtime.prepare({
-					arguments: { after, first: 1 },
+					arguments: {
+						after: cursor,
+						first: 1,
+						orderBy: [{ direction: 'asc', field: 'rank' }],
+					},
 					schema: ConnectionRecord,
 					...scope,
 				}),
-			).toThrow(GraphqlInvalidCursorError)
-		}
-		for (const options of [
-			{ arguments: { after: cursor, first: 1, where: { rank: { eq: 1 } } } },
-			{
-				arguments: {
-					after: cursor,
-					first: 1,
-					orderBy: [{ direction: 'asc', field: 'rank' }],
-				},
-			},
-			{ arguments: { after: cursor, first: 1 }, typeName: 'OtherType' },
-			{ arguments: { after: cursor, first: 1 }, relationPath: ['children'] },
-		] as const) {
-			expect(() =>
-				runtime.prepare({
-					schema: ConnectionRecord,
-					...scope,
-					...options,
-				}),
-			).toThrow(GraphqlInvalidCursorError)
-		}
-		expect(() =>
-			foreign.prepare({
+			),
+		).toMatchObject(invalid)
+		// Positions are unsigned: another runtime, or a restart, accepts them.
+		expect(
+			new GraphqlConnectionRuntime().prepare({
 				arguments: { after: cursor, first: 1 },
 				schema: ConnectionRecord,
 				...scope,
-			}),
-		).toThrow(GraphqlInvalidCursorError)
+			}).clauses,
+		).toMatchObject({ after: { id: a } })
 
-		foreign.dispose()
 		runtime.dispose()
 		await application.dispose()
 	})
 
-	it('reuses a relation cursor for the same path without binding a parent ID', async () => {
+	// ADR-0309 step 3b amendment: nested connections page by position too.
+	it('maps after on a nested relation connection to the include position', async () => {
 		const { application, runtime } = await prepareRuntime()
 		const relationScope = {
 			relationPath: ['posts', 'comments'],
 			typeName: 'GraphqlConnectionRecord',
 		} as const
-		const prepared = runtime.prepare({
+		const first = runtime.prepare({
 			arguments: { first: 1 },
 			schema: ConnectionRecord,
 			...relationScope,
 		})
-		const cursor = runtime.page(prepared.page, [{ id: 'a' }]).pageInfo.endCursor
-		const nextParent = runtime.prepare({
-			arguments: { after: cursor, first: 1 },
-			schema: ConnectionRecord,
-			...relationScope,
-		})
-		expect(nextParent.clauses).toMatchObject({ offset: 1 })
+		expect(first.clauses).toStrictEqual({ orderBy: { id: 'asc' }, take: 2 })
+		const page = runtime.page(first.page, [{ id: a }, { id: b }])
+		expect(page.pageInfo).toMatchObject({ hasNextPage: true })
+		expect(
+			runtime.prepare({
+				arguments: { after: page.pageInfo.endCursor, first: 1 },
+				schema: ConnectionRecord,
+				...relationScope,
+			}).clauses,
+		).toStrictEqual({ after: { id: a }, orderBy: { id: 'asc' }, take: 2 })
 
 		runtime.dispose()
 		await application.dispose()
 	})
 
-	it('invalidates cursors and page plans at the application lifetime boundary', async () => {
+	it('invalidates page plans at the application lifetime boundary', async () => {
 		const application = await createApplication({
 			pluginPrivileges: { logger: false },
 			plugins: [
 				graphqlPlugin({
-					limits: { defaultPageSize: 3, maxPageSize: 5 },
+					pagination: { defaultTake: 3, maxTake: 5 },
 				}),
 			],
 			schemas: [ConnectionRecord],
@@ -323,7 +272,7 @@ describe('GraphQL connection runtime', () => {
 			schema: ConnectionRecord,
 			...scope,
 		})
-		expect(prepared.clauses).toMatchObject({ limit: 4 })
+		expect(prepared.clauses).toMatchObject({ take: 4 })
 		await application.dispose()
 
 		expect(() => runtime.page(prepared.page, [])).toThrow('disposed')
@@ -335,11 +284,10 @@ describe('GraphQL connection runtime', () => {
 	it('enforces configured page limits before Core execution', async () => {
 		const { application } = await prepareRuntime()
 		const runtime = new GraphqlConnectionRuntime(
-			normalizeGraphqlExecutionLimits({
-				defaultPageSize: 2,
-				maxPageSize: 3,
+			normalizeGraphqlExecutionLimits(undefined, {
+				defaultTake: 2,
+				maxTake: 3,
 			}),
-			key(3),
 		)
 		expect(() =>
 			runtime.prepare({

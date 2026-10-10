@@ -195,8 +195,10 @@ describe('UltimaBase', () => {
 		const result = await articleSchema.findMany()
 
 		expect(result).toHaveLength(1)
-		expect(result[0]).toBeInstanceOf(articleSchema)
-		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
+		// Results are frozen plain objects (ADR-0310).
+		expect(Object.getPrototypeOf(result[0])).toBe(Object.prototype)
+		expect(Object.isFrozen(result[0])).toBe(true)
+		expect(result).toStrictEqual(rows)
 		expect(result).not.toBe(rows)
 		expect(Object.isFrozen(result)).toBe(true)
 		expect(observedContext?.signal).toBeInstanceOf(AbortSignal)
@@ -244,7 +246,7 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
 	})
 
-	it('rejects stale results and foreign schema identities after sequential replacement', async () => {
+	it('keeps results as data and rejects foreign schema identities after sequential replacement', async () => {
 		const row = {
 			createdAt: '2026-08-02T08:00:00.000Z',
 			id: '0198a43e-2431-7000-8000-000000000002',
@@ -275,9 +277,8 @@ describe('UltimaBase', () => {
 			}),
 		)
 		await second.start()
-		await expect(stale.fetch({})).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-		})
+		// A result of a disposed lifetime is plain data bound to nothing.
+		expect(stale).toStrictEqual(row)
 
 		const ForeignArticle = UltimaBase.Schema.define({
 			className: articleSchema.className,
@@ -360,7 +361,7 @@ describe('UltimaBase', () => {
 		}
 	})
 
-	it('delegates immutable model commands through exact schema operations', async () => {
+	it('runs every write through exact schema commands', async () => {
 		const createdRecord = {
 			createdAt: '2026-08-03T12:00:00.000Z',
 			id: '0198a43e-2431-7000-8000-000000000011',
@@ -417,29 +418,28 @@ describe('UltimaBase', () => {
 				schemas: [articleSchema],
 			}),
 		)
-		const draft = new articleSchema({ title: 'Created' })
-		const importedDraft = new articleSchema({ title: 'Imported' })
-
 		try {
 			await ultimabase.start()
-			const created = await draft.create({})
-			const upserted = await importedDraft.upsert({
+			const created = await articleSchema.createOne({
+				data: { title: 'Created' },
+			})
+			const upserted = await articleSchema.upsertOne({
+				create: { title: 'Imported' },
 				update: { title: 'Upserted' },
 				where: { title: { eq: 'Imported' } },
 			})
-			const updated = await created.update({ data: { title: 'Updated' } })
-			const deleted = await updated.delete({})
+			const updated = await articleSchema.updateOne({
+				where: { id: created.id },
+				data: { title: 'Updated' },
+			})
+			const deleted = await articleSchema.deleteOne({
+				where: { id: created.id },
+			})
 
-			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })
-			expect(importedDraft.toJSON()).toStrictEqual({ title: 'Imported' })
-			expect(created).not.toBe(draft)
-			expect(upserted).not.toBe(importedDraft)
-			expect(updated).not.toBe(created)
-			expect(deleted).not.toBe(updated)
-			expect(created.toJSON()).toStrictEqual(createdRecord)
-			expect(upserted.toJSON()).toStrictEqual(upsertedRecord)
-			expect(updated.toJSON()).toStrictEqual(updatedRecord)
-			expect(deleted.toJSON()).toStrictEqual(updatedRecord)
+			expect(created).toStrictEqual(createdRecord)
+			expect(upserted).toStrictEqual(upsertedRecord)
+			expect(updated).toStrictEqual(updatedRecord)
+			expect(deleted).toStrictEqual(updatedRecord)
 			expect(
 				adapter.transactions.flatMap((transaction) =>
 					transaction.requests.map((request) => request.operation.kind),

@@ -1,6 +1,7 @@
 import path from 'node:path'
 
 import {
+	defineEnum,
 	definePluginFieldFamily,
 	plugin,
 	contributeDeclarations,
@@ -123,6 +124,11 @@ export const Owner = PackedApplication.Schema.define({
 		name: field.string({ required: true }),
 	}),
 })
+// ADR-0310: a shared enum keeps its generated name.
+const PackedDocumentStatus = defineEnum('PackedDocumentStatus', [
+	'draft',
+	'published',
+])
 export const Document = PackedApplication.Schema.define({
 	className: 'PackedGeneratedDocument',
 	fields: (field) => ({
@@ -135,10 +141,7 @@ export const Document = PackedApplication.Schema.define({
 		related: field.relation({
 			target: 'PackedGeneratedDocument',
 		}),
-		status: field.enum({
-			typeName: 'PackedDocumentStatus',
-			values: ['draft', 'published'],
-		}),
+		status: field.enum({ values: PackedDocumentStatus }),
 		summary: field.string(),
 		title: field.string({ required: true }),
 	}),
@@ -288,13 +291,15 @@ const invalidIdentifierSelection: PackedGeneratedDocumentSelect = {
   id: false,
 }
 declare const packedItem: PackedGeneratedDocumentItem
-const ownerRead = packedItem.owner.findOne({
-  where: { ${pointerMarker}name: { startsWith: 'A' } },
+// ADR-0310: pointers and results no longer read; the schemas do.
+const ownerRead = PackedGeneratedOwner.findOne({
+  where: { id: { eq: packedItem.owner.id }, ${pointerMarker}name: { startsWith: 'A' } },
 })
 type PackedLoadedDocument = NonNullable<Awaited<ReturnType<typeof PackedGeneratedDocument.findOne>>>
 declare const packedLoadedDocument: PackedLoadedDocument
-const relatedRead = packedLoadedDocument.relation('related').findMany({
-  where: { ${relationMarker}status: { eq: 'published' } },
+const relatedRead = PackedGeneratedDocument.findOne({
+  where: { id: { eq: packedLoadedDocument.id } },
+  include: { related: { where: { ${relationMarker}status: { eq: 'published' } } } },
 })
 const projectedCreate = PackedGeneratedDocument.createOne({
   data: { owner: { connect: 'owner-1' }, title: 'Created projection' },

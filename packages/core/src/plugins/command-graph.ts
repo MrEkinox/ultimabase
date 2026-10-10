@@ -27,7 +27,7 @@ export interface CommandSurface {
 	readonly order: number
 	readonly name: string
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
-	readonly surfaces: readonly ('schema' | 'model')[]
+	readonly surfaces: readonly 'schema'[]
 }
 
 /** The closed declaration union preserves the two different execution contracts. */
@@ -75,7 +75,7 @@ interface MutationView {
 }
 const mutationViews = new WeakMap<CompiledSchemaMutationCommand, MutationView>()
 
-/** Resolves a retained schema/model alias without storing another mutation declaration. */
+/** Resolves a retained schema alias without storing another mutation declaration. */
 export const readMutationCommand = (
 	view: CompiledSchemaMutationCommand,
 ): MutationView => {
@@ -137,7 +137,6 @@ export class CompiledCommandGraph {
 				{
 					schema,
 					schemaMutations: new Map<string, CompiledSchemaMutationCommand>(),
-					modelMutations: new Map<string, CompiledSchemaMutationCommand>(),
 				},
 			]),
 		)
@@ -160,20 +159,13 @@ export class CompiledCommandGraph {
 				staticOptions: surface.staticOptions,
 			})
 			mutationViews.set(view, immutableRecord({ command, graph: this }))
-			for (const kind of surface.surfaces) {
-				const index =
-					kind === 'schema' ? target.schemaMutations : target.modelMutations
-				if (
-					kind === 'schema' &&
-					Reflect.has(target.schema, surface.name) &&
-					!isSchemaDeclarationMethod(Reflect.get(target.schema, surface.name))
-				) {
-					throw new TypeError(
-						`Reserved schema static mutation: ${surface.name}`,
-					)
-				}
-				index.set(surface.name, view)
+			if (
+				Reflect.has(target.schema, surface.name) &&
+				!isSchemaDeclarationMethod(Reflect.get(target.schema, surface.name))
+			) {
+				throw new TypeError(`Reserved schema static mutation: ${surface.name}`)
 			}
+			target.schemaMutations.set(surface.name, view)
 		}
 		for (const [className, view] of views)
 			this.#surfaceViews.set(className, immutableRecord(view))
@@ -242,7 +234,6 @@ export class CompiledCommandGraph {
 			: immutableRecord({
 					schema: view.schema,
 					schemaMutations: new Map(view.schemaMutations),
-					modelMutations: new Map(view.modelMutations),
 				})
 	}
 
@@ -253,7 +244,6 @@ export class CompiledCommandGraph {
 				immutableRecord({
 					schema: immutableRecord({ className }),
 					schemaMutations: new Map(view.schemaMutations),
-					modelMutations: new Map(view.modelMutations),
 				}),
 			),
 		)

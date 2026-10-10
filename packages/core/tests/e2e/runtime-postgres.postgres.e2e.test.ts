@@ -36,7 +36,7 @@ import { registerRuntimeBulkTests } from './register-runtime-bulk-tests.js'
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	registerRuntimeBulkTests()
 
-	it('executes immutable model commands and returns complete mutation models', async () => {
+	it('executes schema commands and returns frozen plain mutation results', async () => {
 		const auditReasons: string[] = []
 		const ultimabase = new (UltimaBase.use(
 			postgresPlugin({
@@ -59,17 +59,21 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const draft = new BulkAccountSchema({
-				email: 'model-create@example.com',
-				handle: 'model-create',
-				tenantId: 'model-commands',
+			// ADR-0310: schema commands replace model commands; results are data.
+			const created = await BulkAccountSchema.createOne({
+				data: {
+					email: 'model-create@example.com',
+					handle: 'model-create',
+					tenantId: 'model-commands',
+				},
+				select: { email: true, id: true },
 			})
-			const created = await draft.create({ select: { email: true, id: true } })
-			const upserted = await new BulkAccountSchema({
-				email: 'model-upsert@example.com',
-				handle: 'model-upsert',
-				tenantId: 'model-commands',
-			}).upsert({
+			const upserted = await BulkAccountSchema.upsertOne({
+				create: {
+					email: 'model-upsert@example.com',
+					handle: 'model-upsert',
+					tenantId: 'model-commands',
+				},
 				select: { email: true, id: true, visits: true },
 				update: { visits: { increment: 1 } },
 				where: { email: { eq: 'model-upsert@example.com' } },
@@ -84,38 +88,37 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					'Model command E2E could not reload its selected row',
 				)
 			}
-			const pointer = selected.toPointer()
-			const fetched = await selected.fetch({
+			const pointer = BulkAccountSchema.pointer(selected.id)
+			const fetched = await BulkAccountSchema.findOneOrThrow({
+				where: { id: { eq: selected.id } },
 				select: { email: true, id: true, visits: true },
 			})
 
-			await expect(selected.exists()).resolves.toBe(true)
 			expect(pointer.schema).toBe(BulkAccountSchema)
 			expect(pointer.id).toBe(created.id)
-			expect(selected.equals(created)).toBe(true)
-			expect(selected.equals(BulkAccountSchema.pointer(created.id))).toBe(true)
+			expect(pointer.equals(BulkAccountSchema.pointer(created.id))).toBe(true)
 
-			const updated = await selected.update(
+			const updated = await BulkAccountSchema.updateOne(
 				{
+					where: { id: { eq: selected.id } },
 					data: { visits: { increment: 2 } },
 					select: { email: true, id: true, visits: true },
 				},
 				{ useMasterKey: true },
 			)
-			const deleted = await updated.delete(
-				{ select: { email: true, id: true } },
+			const deleted = await BulkAccountSchema.deleteOne(
 				{
-					useMasterKey: true,
+					where: { id: { eq: selected.id } },
+					select: { email: true, id: true },
 				},
+				{ useMasterKey: true },
 			)
 
-			expect(draft.toJSON()).toStrictEqual({
-				email: 'model-create@example.com',
-				handle: 'model-create',
-				tenantId: 'model-commands',
-			})
-			expect(created).toBeInstanceOf(BulkAccountSchema)
-			expect(created.toJSON()).toStrictEqual({
+			for (const result of [created, selected, fetched, updated, deleted]) {
+				expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
+				expect(Object.isFrozen(result)).toBe(true)
+			}
+			expect(created).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 			})
@@ -123,35 +126,28 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				email: 'model-upsert@example.com',
 				visits: 0,
 			})
-			expect(selected.toJSON()).toStrictEqual({
+			expect(selected).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 			})
-			expect(fetched.toJSON()).toStrictEqual({
+			expect(fetched).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 				visits: 0,
 			})
-			expect(updated.toJSON()).toStrictEqual({
+			expect(updated).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 				visits: 2,
 			})
-			expect(deleted.toJSON()).toStrictEqual({
+			expect(deleted).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 			})
-			expect(selected.id).toBe(created.id)
-			expect(updated.id).toBe(created.id)
-			expect(deleted.id).toBe(created.id)
 			expect(auditReasons).toStrictEqual([
 				'Schema command update-one on RuntimeBulkAccount',
 				'Schema command delete-one on RuntimeBulkAccount',
 			])
-			await expect(selected.exists()).resolves.toBe(false)
-			await expect(selected.fetch({})).rejects.toMatchObject({
-				code: 'NOT_FOUND',
-			})
 			await expect(
 				BulkAccountSchema.exists({ where: { id: { eq: created.id } } }),
 			).resolves.toBe(false)
@@ -163,7 +159,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		}
 	})
 
-	it('keeps model commands bound after selecting ordered records', async () => {
+	it('updates the selected row after an ordered read', async () => {
 		const ultimabase = new (UltimaBase.use(
 			postgresPlugin({
 				schemaPolicy: 'override',
@@ -193,10 +189,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 
 			if (selected === undefined) {
-				throw new TypeError('Expected a reordered model')
+				throw new TypeError('Expected a reordered row')
 			}
 
-			await selected.update({ data: { title: 'First updated' } })
+			await AfterReadIdentitySchema.updateOne({
+				where: { id: { eq: selected.id } },
+				data: { title: 'First updated' },
+			})
 
 			const persistedFirst = await AfterReadIdentitySchema.findOne({
 				where: { id: { eq: first.id } },
@@ -293,12 +292,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				select: { action: true },
 			})
 
-			expect(committed).toBeInstanceOf(HookPostSchema)
-			expect(committed.toJSON()).toMatchObject({ title: 'commit' })
-			expect(audits.every((audit) => audit instanceof HookAuditSchema)).toBe(
-				true,
-			)
-			expect(audits.map((audit) => audit.toJSON())).toStrictEqual([
+			expect(Object.getPrototypeOf(committed)).toBe(Object.prototype)
+			expect(committed).toMatchObject({ title: 'commit' })
+			expect(
+				audits.every(
+					(audit) =>
+						Object.isFrozen(audit) &&
+						Object.getPrototypeOf(audit) === Object.prototype,
+				),
+			).toBe(true)
+			expect(audits).toStrictEqual([
 				{ action: 'create:commit', id: audits[0]?.id },
 			])
 
@@ -342,7 +345,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			// One live row exercises every built-in field kind across the public boundary.
 			const created = await PostSchema.createOne({ data: allFieldValues })
 
-			expect(created).toBeInstanceOf(PostSchema)
+			expect(Object.getPrototypeOf(created)).toBe(Object.prototype)
 			expect(created).toMatchObject({
 				...allFieldValues,
 				createdAt: createInstant,
@@ -361,10 +364,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				select: { id: true, title: true },
 			})
 
-			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
-			expect(found.map((post) => post.toJSON())).toStrictEqual([
-				{ id: created.id, title: 'First real E2E' },
-			])
+			expect(
+				found.every(
+					(post) =>
+						Object.isFrozen(post) &&
+						Object.getPrototypeOf(post) === Object.prototype,
+				),
+			).toBe(true)
+			expect(found).toStrictEqual([{ id: created.id, title: 'First real E2E' }])
 
 			const listed = await PostSchema.findMany({
 				where: {
@@ -400,8 +407,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				select: { id: true, title: true, views: true },
 			})
 
-			expect(updated).toBeInstanceOf(PostSchema)
-			expect(updated?.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(updated)).toBe(Object.prototype)
+			expect(updated).toStrictEqual({
 				id: created.id,
 				title: 'Persisted E2E',
 				views: 2,
@@ -412,8 +419,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				select: { id: true, title: true },
 			})
 
-			expect(deleted).toBeInstanceOf(PostSchema)
-			expect(deleted?.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(deleted)).toBe(Object.prototype)
+			expect(deleted).toStrictEqual({
 				id: created.id,
 				title: 'Persisted E2E',
 			})
@@ -426,8 +433,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				select: { id: true, title: true },
 			})
 
-			expect(selectedCreate).toBeInstanceOf(PostSchema)
-			expect(selectedCreate.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(selectedCreate)).toBe(Object.prototype)
+			expect(selectedCreate).toStrictEqual({
 				id: selectedCreate.id,
 				title: 'Selected create E2E',
 			})
@@ -476,7 +483,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const committed = await request.transaction(() =>
 				PostSchema.createOne({ data: { title: 'Committed transaction' } }),
 			)
-			expect(committed).toBeInstanceOf(PostSchema)
+			expect(Object.getPrototypeOf(committed)).toBe(Object.prototype)
 
 			const found = await runWithRequestEngine(request, () =>
 				PostSchema.findOne({
@@ -485,8 +492,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				}),
 			)
 
-			expect(found).toBeInstanceOf(PostSchema)
-			expect(found?.toJSON()).toStrictEqual({
+			expect(Object.getPrototypeOf(found)).toBe(Object.prototype)
+			expect(found).toStrictEqual({
 				id: committed.id,
 				title: 'Committed transaction',
 			})

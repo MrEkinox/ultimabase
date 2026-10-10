@@ -16,7 +16,6 @@ import type { SourceSchemaTypeInfo } from './source-type-info.js'
 import type { DeclaredSchema } from './schema-declaration-chain.js'
 import type { ConfiguredFieldBuilder } from './field-builder-contract.js'
 import type { ReservedSchemaFieldCollision } from './reserved-field-names.js'
-import type { SchemaResultCapabilityCarrier } from './model-contracts.js'
 import type {
 	Schema,
 	SchemaDeclaredFields,
@@ -46,7 +45,7 @@ type SchemaFieldOptionSelector<TProjection> =
 
 type SchemaFieldSelectorOptionName<TSource extends PluginSourceState> =
 	SchemaFieldOptionSelector<
-		TSource['model'] | TSource['schemaClass'] | TSource['schemaFields']
+		TSource['schemaClass'] | TSource['schemaFields']
 	> extends infer TOption
 		? TOption extends Readonly<{ name: infer TName extends PropertyKey }>
 			? TName
@@ -55,7 +54,7 @@ type SchemaFieldSelectorOptionName<TSource extends PluginSourceState> =
 
 type SchemaFieldEqualityOptionName<TSource extends PluginSourceState> =
 	SchemaFieldOptionSelector<
-		TSource['model'] | TSource['schemaClass'] | TSource['schemaFields']
+		TSource['schemaClass'] | TSource['schemaFields']
 	> extends infer TOption
 		? TOption extends Readonly<{
 				equals: unknown
@@ -167,14 +166,7 @@ export type ConfiguredSchemaResult<
 	TClassName extends string,
 	TFields extends SchemaDeclaredFields,
 	TOptions extends object,
-> = ConfiguredSchemaClassSurface<TSource, TClassName, TFields, TOptions> &
-	SchemaResultCapabilityCarrier<
-		ResolvePluginSchemaProjection<
-			TSource['model'],
-			ConfiguredSchemaContract<TSource, TClassName, TFields, TOptions>,
-			ConfiguredSchemaSelectorOptions<TSource, TOptions>
-		>
-	>
+> = ConfiguredSchemaClassSurface<TSource, TClassName, TFields, TOptions>
 
 type ConfiguredSourceSchemaOptions<
 	TSource extends PluginSourceState,
@@ -362,7 +354,7 @@ export type ConfiguredSchemaNamespace<
 > = Pick<typeof Schema, 'is' | 'defineSpecialized'> &
 	Readonly<{
 		/**
-		 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
+		 * Defines one final schema with typed static commands and QueryBuilder access.
 		 * The configured application projects its installed plugin fields and options here.
 		 * Chain plugin shape methods, then end with `.with({ ...rules })` (ADR-0297).
 		 *

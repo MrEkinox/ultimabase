@@ -1,28 +1,35 @@
-import { createPointer } from './pointer.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { isUnknownArray } from '@ultimabase/shared'
 
-import type { OperationOptions } from '../../query/operations/options.js'
 import type {
 	UpdateExpressionNode,
 	UpdateOperationNode,
 } from '../../query/updates/contracts.js'
-import type { SchemaDefinition } from '../schema/definition.js'
+import type { SchemaDefinition, SchemaReference } from '../schema/definition.js'
 import type { Pointer } from './pointer.js'
 import type {
-	SchemaRelationFieldName,
-	SchemaRelationTarget,
-} from './relation.js'
+	SchemaRelationshipFieldName,
+	SchemaRelationshipSource,
+	SchemaRelationshipTargetName,
+	SchemaTypeInfoSource,
+} from '../type-info.js'
 
-/** Names every atomic change supported by an immutable Relation handle. */
+/** Names the to-many relation fields of one schema. */
+export type SchemaRelationFieldName<TSchema extends SchemaTypeInfoSource> =
+	SchemaRelationshipFieldName<TSchema, 'relation'>
+
+/** Resolves the exact target schema retained by one relation field. */
+export type SchemaRelationTarget<
+	TSchema extends SchemaTypeInfoSource,
+	TFieldName extends SchemaRelationFieldName<TSchema>,
+> = [SchemaRelationshipSource<TSchema, TFieldName>] extends [never]
+	? string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+		? SchemaDefinition
+		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
+	: Extract<SchemaRelationshipSource<TSchema, TFieldName>, SchemaDefinition>
+
+/** Names every atomic change of one relation update expression. */
 export type RelationMutationAction =
 	'clear' | 'connect' | 'create' | 'disconnect' | 'set' | 'update'
-
-/** Requires at least one exact target for additive and subtractive mutations. */
-export type RelationMutationTargets = string | readonly [string, ...string[]]
 
 /** Carries one normalized relationship change to installed behaviors and adapters. */
 export interface RelationMutationDelta<
@@ -61,9 +68,6 @@ export interface RelationUpdateExpression<
 	]
 }
 
-/** Keeps terminal execution choices out of the immutable relation delta. */
-export type RelationMutationOptions = OperationOptions
-
 const hasKind = (value: unknown, kind: string): value is { kind: string } =>
 	typeof value === 'object' &&
 	value !== null &&
@@ -78,76 +82,3 @@ export const isRelationUpdateExpression = (
 	'operations' in value &&
 	isUnknownArray(value.operations) &&
 	value.operations.some((operation) => hasKind(operation, 'relation'))
-
-/** Converts exact IDs to pointers and rejects ambiguous duplicate declarations. */
-const normalizeTargets = <TTarget extends SchemaDefinition>(
-	target: TTarget,
-	value: string | readonly string[],
-	allowEmpty: boolean,
-): readonly Pointer<TTarget>[] => {
-	const candidates = typeof value === 'string' ? [value] : value
-
-	if (!isUnknownArray(candidates) || (!allowEmpty && candidates.length === 0)) {
-		throw new TypeError('Relation mutation targets must contain an object ID')
-	}
-
-	const ids = new Set<string>()
-	const targets: Pointer<TTarget>[] = []
-
-	for (const candidate of candidates) {
-		if (typeof candidate !== 'string' || candidate.length === 0) {
-			throw new TypeError(
-				`Relation mutation target for ${target.className} must be a non-empty object ID`,
-			)
-		}
-
-		if (ids.has(candidate)) {
-			throw new TypeError(
-				`Relation mutation contains duplicate target ${JSON.stringify(candidate)}`,
-			)
-		}
-
-		ids.add(candidate)
-		targets.push(createPointer(target, candidate))
-	}
-
-	return immutableArray(targets)
-}
-
-/** Creates the only normalized expression emitted by public Relation methods. */
-export const createRelationUpdateExpression = <
-	const TSource extends SchemaDefinition,
-	const TFieldName extends SchemaRelationFieldName<TSource>,
-	const TAction extends RelationMutationAction,
-	const TTarget extends SchemaDefinition,
->(
-	source: TSource,
-	fieldName: TFieldName,
-	target: TTarget,
-	action: TAction,
-	values: string | readonly string[],
-): RelationUpdateExpression<TSource, TFieldName, TAction, TTarget> => {
-	const field = source.fields[fieldName]
-
-	if (field?.kind !== 'relation') {
-		throw new TypeError(
-			`Relation mutation field must be a relation: ${source.className}.${fieldName}`,
-		)
-	}
-
-	// Clear ignores caller values; only set accepts an explicitly empty replacement.
-	const targets =
-		action === 'clear'
-			? normalizeTargets(target, [], true)
-			: normalizeTargets(target, values, action === 'set')
-	const operation = immutableRecord({
-		field: fieldName,
-		kind: 'relation' as const,
-		value: immutableRecord({ action, targets }),
-	})
-
-	return immutableRecord({
-		kind: 'update-expression' as const,
-		operations: immutableArray([operation]),
-	})
-}

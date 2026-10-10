@@ -63,3 +63,15 @@ foreign-key error). Passing a `Pointer` to `connect` is a long type error.
 
 Prisma's `connectOrCreate`, `upsert` and `delete` nested commands, nested writes on collection
 commands, and the relation handles removed by ADR-0310.
+
+## Step 3b amendment (2026-10-10)
+
+Decided by the user on 2026-10-10. A relation's declared `where` limits reads, not unlinking.
+Decision 5 still requires, for a non-Master caller, that each target named by `disconnect`
+or `set` exists and is visible for a single-row read under every installed policy; the
+declared relation filter of the field is not part of that check. `disconnect` removes a
+member that only the declared filter hides, and `set` replaces every membership visible under
+the policies, including members the declared filter hides. Master checks existence only, so
+it can unlink any existing member. A member hidden by an installed policy remains
+`NOT_FOUND` for a non-Master caller. Reads (`include`, relation filters, mutation result
+projections) keep applying the declared filter.
