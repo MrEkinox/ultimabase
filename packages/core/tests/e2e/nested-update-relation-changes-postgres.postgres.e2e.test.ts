@@ -274,7 +274,8 @@ describe(
 					name: 'Visibility',
 				},
 			})
-			await hidden.update({ data: { visible: false } })
+			// The hidden result is requested as `select: { id: true }` (ADR-0306).
+			await hidden.update({ data: { visible: false }, select: { id: true } })
 
 			await Parent.updateOne({
 				where: { id: { eq: parent.id } },
@@ -427,7 +428,8 @@ describe(
 					name: 'Protected parent',
 				},
 			})
-			await related.update({ data: { visible: false } })
+			// The hidden result is requested as `select: { id: true }` (ADR-0306).
+			await related.update({ data: { visible: false }, select: { id: true } })
 
 			for (const id of [related.id, unrelated.id]) {
 				trace.length = 0

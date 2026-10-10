@@ -23,6 +23,7 @@ import {
 	readOperationResultSelection,
 } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { runWithRuntimeNestedWriteStageContext } from '../nested-writes/execution-context.js'
 import { createDatabasePersistenceRequest } from '../persistence/execution.js'
 import type {
 	RuntimeLogicalOperationAst,
@@ -103,13 +104,18 @@ const readRowConstraints = async (
 		}),
 	})
 	try {
-		const enforced = await enforceRuntimeOperation(
-			check.stages,
-			check.context,
-			probe,
+		// The probe is a plain read, outside any nested write being executed.
+		const enforced = await runWithRuntimeNestedWriteStageContext(
 			undefined,
-			undefined,
-			check.relationFilters,
+			() =>
+				enforceRuntimeOperation(
+					check.stages,
+					check.context,
+					probe,
+					undefined,
+					undefined,
+					check.relationFilters,
+				),
 		)
 		return immutableRecord({
 			relationPredicates: enforced.relationPredicates,

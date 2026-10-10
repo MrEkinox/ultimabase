@@ -288,8 +288,10 @@ describe(
 		})
 
 		it('makes absent and policy-hidden connect targets indistinguishable', async () => {
+			// The hidden result is requested as `select: { id: true }` (ADR-0306).
 			const hidden = await Author.createOne({
 				data: { name: 'Hidden target', visible: false },
+				select: { id: true },
 			})
 			trace.length = 0
 
