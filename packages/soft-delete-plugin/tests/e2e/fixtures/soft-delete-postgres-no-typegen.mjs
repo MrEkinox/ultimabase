@@ -55,13 +55,13 @@ try {
 	const replace = await Replace.createOne({
 		data: { title: 'Replace JavaScript' },
 	})
-	await Replace.deleteOne({ id: replace.id })
+	await Replace.deleteOne({ where: { id: replace.id } })
 	const hiddenReplace = await Replace.count({})
 
 	const disabled = await Disabled.createOne({
 		data: { title: 'Disabled JavaScript' },
 	})
-	await Disabled.deleteOne({ id: disabled.id })
+	await Disabled.deleteOne({ where: { id: disabled.id } })
 	const deletedDisabled = await Disabled.exists({
 		where: { id: { eq: disabled.id } },
 	})

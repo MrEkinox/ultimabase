@@ -341,7 +341,9 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		pointerTrace.length = 0
 		const updated = await created.update(
 			// This E2E fixture has no generated name-to-schema type graph.
-			{ data: { author: secondPointer as never, title: 'Updated pointer' } },
+			{
+				data: { author: { connect: secondPointer }, title: 'Updated pointer' },
+			},
 		)
 		if (!Pointer.is(updated.author)) {
 			throw new TypeError(
@@ -358,7 +360,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			Post.updateOne({
 				where: { id: { eq: created.id } },
 				data: {
-					author: firstPointer as never,
+					author: { connect: firstPointer },
 					title: 'rollback-pointer',
 				},
 			}),
@@ -570,7 +572,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		})
 		const updatedLeft = await CircularLeft.updateOne({
 			where: { id: { eq: left.id } },
-			data: { right: CircularRight.pointer(right.id) as never },
+			data: { right: { connect: CircularRight.pointer(right.id) } },
 		})
 		if (!Pointer.is(updatedLeft?.right)) {
 			throw new TypeError(

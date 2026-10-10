@@ -410,7 +410,7 @@ describe('official soft-delete administration with PostgreSQL', () => {
 		const article = await Article.createOne({
 			data: {
 				// The fixture has no generated named-schema graph for this pointer.
-				author: Author.pointer(author.id) as never,
+				author: { connect: Author.pointer(author.id) },
 				title: 'recoverable graph',
 			},
 		})

@@ -261,11 +261,11 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 		).toEqual(['First', 'Relation updated', 'Update created'])
 
 		for (const data of [
-			{ primary: { disconnect: true } },
+			{ primary: null },
 			{ primary: { connect: second.id } },
 			{ primary: { create: { name: 'Pointer replaced' } } },
 			{ targets: { set: [first.id, second.id] } },
-			{ targets: { clear: true } },
+			{ targets: { set: [] } },
 		] as const) {
 			await runAsRestMutationExecutionHarness(harness, (executor) =>
 				executeRestMutationRequest(executor, context, Post, {
@@ -352,7 +352,7 @@ describe('REST nested writes with PostgreSQL', { concurrent: false }, () => {
 		for (const targets of [
 			{ connect: [target.id, target.id] },
 			{ connect: [target.id], disconnect: [target.id] },
-			{ clear: true, set: [] },
+			{ connect: [target.id], set: [] },
 		]) {
 			await expect(
 				runAsRestMutationExecutionHarness(harness, (executor) =>

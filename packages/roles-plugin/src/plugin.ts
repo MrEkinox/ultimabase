@@ -150,6 +150,46 @@ const readRoleRelationChanges = (
 	return immutableArray(changes)
 }
 
+type RoleNestedWrite = Parameters<
+	NonNullable<RuntimeBehaviorStages['transformResult']>
+>[0]['nestedWrite']
+
+/**
+ * Reads the member and included-role links a nested write applied to this
+ * role (ADR-0308), so they get the same invariants and events as handles.
+ */
+const readNestedRoleRelationChanges = (
+	nestedWrite: RoleNestedWrite,
+): readonly RoleRelationChange[] =>
+	immutableArray(
+		(nestedWrite?.node.relationships ?? []).flatMap(
+			(relationship): RoleRelationChange[] => {
+				const field = relationship.fieldName
+				if (
+					relationship.kind !== 'relation' ||
+					(field !== 'members' && field !== 'roles') ||
+					relationship.command === 'update'
+				) {
+					return []
+				}
+				const created = relationship.command === 'create'
+				return [
+					immutableRecord({
+						action: created ? 'connect' : relationship.command,
+						field,
+						targetIds: created
+							? immutableArray(
+									relationship.children.flatMap(({ reservedId }) =>
+										reservedId === undefined ? [] : [reservedId],
+									),
+								)
+							: relationship.ids,
+					}),
+				]
+			},
+		),
+	)
+
 const roleBehaviorProvider: CapabilityProviderDeclaration<
 	typeof runtimeBehaviorCapability
 > = provideRuntimeBehavior({
@@ -192,18 +232,35 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 				// Optional delivery happens only after the transaction commits.
 				events.emit(context, roleDeletedEventContract, event)
 			},
-			transformResult: async ({ context, operation, outcome, result }) => {
-				if (outcome === undefined || operation.kind !== 'update-one') {
+			transformResult: async ({
+				context,
+				nestedWrite,
+				operation,
+				outcome,
+				result,
+			}) => {
+				if (
+					outcome === undefined ||
+					(operation.kind !== 'update-one' && operation.kind !== 'create-one')
+				) {
 					return result
 				}
 				const role = roles.get(getOperationSchema(operation))
 				if (role === undefined) return result
 
-				const changes = readRoleRelationChanges(operation)
+				const changes = [
+					...readRoleRelationChanges(operation),
+					...readNestedRoleRelationChanges(nestedWrite),
+				]
 				const hierarchyChanged = changes.some(({ field }) => field === 'roles')
 
 				for (const materialization of outcome.materializations) {
-					if (materialization.kind !== 'update') continue
+					if (
+						materialization.kind !== 'update' &&
+						materialization.kind !== 'create'
+					) {
+						continue
+					}
 
 					const item = materializeSchemaModel(
 						role.schema,

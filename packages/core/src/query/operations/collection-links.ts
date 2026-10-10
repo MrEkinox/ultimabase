@@ -104,3 +104,18 @@ export const normalizeCollectionLinks = <TData>(
 
 	return immutableRecord({ data: stored, links: immutableArray(links) })
 }
+
+/**
+ * Reports a link failure as a rejected promise, like the `VALIDATION_ERROR`
+ * of a singular nested write; shape errors of the command stay synchronous.
+ */
+export const rejectLinkFailures = <TResult>(
+	execute: () => Promise<TResult>,
+): Promise<TResult> => {
+	try {
+		return execute()
+	} catch (error: unknown) {
+		if (error instanceof FrameworkError) return Promise.reject(error)
+		throw error
+	}
+}
