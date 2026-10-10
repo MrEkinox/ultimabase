@@ -301,6 +301,7 @@ Current records (accepted or still active in part):
 - [ADR-0311: Application lifecycle, explicit transactions and the authority surface](0311-application-lifecycle-and-authority-surface.md)
 - [ADR-0312: Environment-dependent plugin defaults](0312-environment-dependent-plugin-defaults.md)
 - [ADR-0313: Readable startup diagnostics and capability hints](0313-readable-startup-diagnostics.md)
+- [ADR-0314: Pointers are created by their schema only](0314-pointers-created-by-their-schema.md)
 
 Proposed records (awaiting user validation):
 
