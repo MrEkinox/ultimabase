@@ -67,6 +67,11 @@ import type {
 import { executeRequestSchemaMutation } from '../schema-mutations/request-execution.js'
 import { checkApplicationHealth } from './application-health.js'
 import {
+	assertCanOptions,
+	executePolicyQuery,
+	type CanOptions,
+} from './policy-query-execution.js'
+import {
 	createFrameworkEngine,
 	type CreateFrameworkEngineOptions,
 } from './create-framework-engine.js'
@@ -439,6 +444,23 @@ export class UltimaBase<
 					)
 				: undefined,
 		)
+	}
+
+	/**
+	 * Tells whether `operation` on `schema` would be permitted, combining every
+	 * installed policy as at execution time, without executing it (ADR-0305).
+	 * `principal` defaults to the current request's principal. The answer can
+	 * change before execution, which remains the enforcement point.
+	 *
+	 * @example `await ultimabase.can({ operation: 'update', schema: Todo, item: { id } })`
+	 */
+	can(options: CanOptions<TSchemas[number]>): Promise<boolean> {
+		assertCanOptions(options)
+		const current = this.#requestEngine()
+		const engine = Object.hasOwn(options, 'principal')
+			? this.#engine.withContext(current.context.withPrincipal(options.principal))
+			: current
+		return executePolicyQuery(engine, options)
 	}
 
 	/** Stops active infrastructure without releasing setup-owned resources. */

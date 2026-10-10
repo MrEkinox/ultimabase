@@ -39,7 +39,14 @@ import { finalizeRuntimeOperationResult } from '../pipeline/result-finalization.
 import {} from '../pipeline/stage-inputs.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { readPipelineTransactionAdapter } from '../transactions/pipeline-transaction.js'
-import { createRuntimeVirtualFieldScheduler } from '../pipeline/application-bindings.js'
+import {
+	createRuntimeRelationFilterResolver,
+	createRuntimeVirtualFieldScheduler,
+} from '../pipeline/application-bindings.js'
+import {
+	assertReadableMutationRows,
+	prepareReadableResultCheck,
+} from '../enforcement/readable-results.js'
 import { prepareBoundRuntimeVirtualFieldProjection } from '../virtual-fields/pipeline.js'
 import { validateSchemaMutationEffect } from './effect.js'
 import type { PluginSchemaMutationOperationAst } from './contracts.js'
@@ -377,6 +384,19 @@ export const executeRuntimeSchemaMutation = async (
 		)
 	}
 	assertPersistencePlanCapability(executor, persistencePlan)
+	// Pre-image results are checked on the locked target before the write,
+	// resulting rows after it (ADR-0306).
+	const readable = prepareReadableResultCheck({
+		context,
+		executor,
+		operation: logical,
+		relationFilters: createRuntimeRelationFilterResolver(pipeline),
+		stages,
+	})
+	const preImage = command.definition.returning === 'before'
+	if (readable !== undefined && preImage) {
+		await assertReadableMutationRows(readable, [envelope.id])
+	}
 	throwIfOperationCancelled(context.signal, {
 		operationKind: logical.kind,
 		phase: 'database-operation',
@@ -475,6 +495,12 @@ export const executeRuntimeSchemaMutation = async (
 		stages,
 		virtualProjection,
 		virtualScheduler,
+		...(readable === undefined || preImage
+			? {}
+			: {
+					assertReadableResult: () =>
+						assertReadableMutationRows(readable, [envelope.id]),
+				}),
 	})
 	assertPlainObject(result, 'Schema mutation result must be a record')
 

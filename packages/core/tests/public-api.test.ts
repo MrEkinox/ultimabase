@@ -181,6 +181,7 @@ describe('@ultimabase/core public entry point', () => {
 			'readFieldTypegenState',
 			'readOperationQueries',
 			'readOperationResultSelection',
+			'readPolicyQuery',
 			'readRuntimeFieldValuePath',
 			'readRuntimeIncludedPointerValue',
 			'readRuntimePreparedMutationRecords',

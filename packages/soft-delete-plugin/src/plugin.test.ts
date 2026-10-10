@@ -154,7 +154,7 @@ describe('softDeletePlugin', () => {
 						authority: 'request',
 						effect: 'update',
 						name: 'ultimabase.soft-delete.soft-delete',
-						returning: 'after',
+						returning: 'before',
 					},
 				})
 			}
