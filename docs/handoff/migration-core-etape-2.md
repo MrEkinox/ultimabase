@@ -63,10 +63,9 @@ autres décisions de revue non écrites dans ces ADR.
    la fabrique d'authentification pourra alors le remplir.
 2. **`Pointer<"TodoUser">`** : `Pointer` accepte désormais un nom de classe
    (`TSchema extends SchemaDefinition | string`, `PointerSchema<T>` →
-   `SchemaRef<T>`). Deux conversions internes (`pointer.ts`). Le constructeur
-   prend `schema: TSchema` (l'inférence par `TSchema & SchemaDefinition`
-   perdait l'alias `DeclaredSchema<…>` dans les infobulles) : `new
-Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
+   `SchemaRef<T>`). Deux conversions internes (`pointer.ts`). Depuis
+   ADR-0314, le constructeur est privé : `Schema.pointer(id)` est la seule
+   forme publique (voir « Corrections après revue »).
 3. **Entrées acceptant un principal** (`withPrincipal`, GraphQL
    `execute({ principal })`, `can({ principal })`) : `PointerValue`, car un
    pointeur typé n'est pas assignable à `Pointer<SchemaDefinition>`.
@@ -173,6 +172,40 @@ Pointer('Nom', id)` se compile donc mais est refusé à l'exécution.
   froid 6,16 / 6,13 s ; 200 schémas, édition 8,75 / 9,02 s, froid
   22,54 / 22,28 s. Édition +3 % à 200 (reproductible : 9,01–9,08 contre
   8,61–8,78).
+- Après les corrections (dernier commit de code 98dcc7d1, dist et
+  `*.tsbuildinfo` supprimés) : `yarn validate:full` exit 0 ; performance
+  3 fichiers / 4 tests ; couverture 668 fichiers / 3221 tests ; website
+  17 fichiers / 66 tests ; lint 0 erreur. `yarn test:e2e:built` exit 0,
+  112 fichiers, 464 tests.
+- Audit DX contre `main` construit (c1098e7e, nouvelle base) sur 98dcc7d1 :
+  958 différences (983 avant) ; écart avec l'audit précédent : 51 ajoutées,
+  76 retirées, 68 modifiées, toutes rattachées :
+  - `getCurrentPrincipal` retiré : export, infobulle et déclaration retirés
+    (3), instruction d'export et listes de complétion d'exports modifiées
+    (48), fixture `principal-language-service` réécrite avec
+    `getRequestPrincipal` (17 ajoutées, 11 retirées, 1 source) ;
+  - Soft Delete revenu à `returning: 'after'` : 50 infobulles de
+    `soft-delete-intellisense` et la déclaration `softDeleteMutation`
+    redeviennent identiques à `main` ; 4 infobulles de l'exemple minimal
+    aussi ; il reste dans `softDelete@2` la seule différence des prédicats
+    (ADR-0304) ;
+  - option `checkReadable` : 3 infobulles de membre et 2 déclarations
+    d'interface ;
+  - ADR-0314 : JSDoc de `Pointer` (phrase ADR-0314, exemple
+    `User.pointer(...)`) dans la déclaration, l'infobulle d'export et
+    16 infobulles d'usage ; l'affichage `class Pointer<TSchema …>` et les
+    infobulles `Pointer<"Todo">` sont inchangés ; `pointer.test-d.ts`
+    réécrit (29 ajoutées, 7 retirées).
+- Banc forme D TS6 après ADR-0314 (98dcc7d1 contre c1098e7e, même
+  session, alternance, 3 exécutions, médianes) : 50 schémas, édition→diagnostic
+  2,69 s (main) / 2,92 s (+9 %), froid 6,14 / 6,06 s ; 200 schémas, édition
+  8,77 / 9,12 s (+4 %), froid 22,66 / 22,75 s ; infobulle identique
+  (1267 caractères), mêmes diagnostics. Tas maximal à 200 : 2,83–2,90 Gio
+  (main) contre 2,87–3,42 Gio (branche), dispersion déjà vue au banc
+  précédent (2,81–3,48). L'écart d'édition dépasse celui du banc précédent
+  (+4 % / +3 %) ; cause non établie (le constructeur privé d'ADR-0314 est
+  le seul changement de type de cette série), à confirmer sur une machine
+  calme.
 
 ## Prochaine action vérifiable
 
