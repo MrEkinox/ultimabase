@@ -37,7 +37,7 @@ poignées, brouillons en liens `connect`).
       REST, GraphQL, Roles)
 - [x] Tests (unitaires, types, PostgreSQL e2e, REST, GraphQL, Roles)
 - [x] Documentation (site, README, docs Core, exemples)
-- [ ] Porte finale
+- [x] Porte finale (validate:full, e2e construits, audit DX, banc)
 
 ## Décisions (à confirmer par l'utilisateur)
 
@@ -140,9 +140,69 @@ différée>` à l'opérande (infobulle illisible).
 
 ## Preuves
 
-(à compléter par la porte finale)
+Dernier commit de code c8015d64 (dist et `*.tsbuildinfo` supprimés avant la
+porte) :
+
+- `yarn validate:full` : exit 0 en 14 min 10 ; performance 3 fichiers /
+  4 tests ; couverture 674 fichiers / 3249 tests ; website 17 fichiers /
+  66 tests ; lint 0 erreur (53 + 20 + 1 avertissements).
+- `yarn test:e2e:built` : exit 0, 115 fichiers, 479 tests.
+- Trois portes précédentes ont échoué puis ont été corrigées : formatage de
+  4 fichiers, 3 `no-unsafe-assignment` dans `checked-links`, fixture Typegen
+  empaquetée (`coverage-e2e`, jamais lancé en ciblé) ; deux fois le budget
+  `hybrid-authoring` (voir ci-dessous).
+- **Budget `hybrid-authoring` (suite sensible à la charge)** : sur la branche
+  il échoue 6 fois sur 11 (`languageServiceInitializationMs` du formulaire
+  hybride > 1,1 × Typegen, par 1 à 3 %), la base 0 sur 10, charge 3 à 7. Une
+  mesure directe de 12 échantillons alternés donne pourtant des médianes
+  égales (hybride 308,5 ms branche / 311,5 ms base ; Typegen 293,5 / 292) et
+  la taille des déclarations ne change que de 1,3 Ko. Cause non établie
+  (probablement le ramasse-miettes après la vérification froide du même
+  processus) ; à revalider sur une machine calme.
+- Audit DX contre `main` construit (6402dd95), `--only` tous les paquets,
+  `tests`, `examples/minimal`, `examples/todo-backend` : 1193 différences,
+  toutes rattachées :
+  - fichiers de test nouveaux : `links.test-d.ts` (190),
+    `where-shorthand.test-d.ts` (164) ;
+  - tests et fixtures modifiés (syntaxe ADR-0307 / 0308) : Typegen
+    `generator-language-service` (133), `typegen-generated-types-fixture`
+    (51), `nested-writes-language-service` (38), `source-type-info.test-d`
+    (102), `singular-terminals.test-d` (78), `register-runtime-bulk-tests`
+    (65), `runtime-postgres-fixture` (11), `application-request-execution`
+    (4), `apply.test-d` (3) ;
+  - exemples modifiés : `todo-backend/src/admin.ts` (65),
+    `schema-form-d/src/usage.ts` (30), `minimal/src/soft-delete.ts` (10) ;
+  - ADR-0307 décision 1 : unions de raccourci dans les infobulles de `where`
+    (`definition.test-d`, `field-builder.test-d`, `open-kernel-proof`,
+    `plugin-surfaces`), `QueryFilterOperandSource` + `"shorthand"`, nouveaux
+    alias internes `SourceEqualityShorthand`, `SourcePointerShorthand`,
+    `WhereEqualityShorthand` ;
+  - décision 2 : `increment` / `decrement` / `unset`,
+    `IncrementUpdateValue`, `DecrementUpdateValue` et la classe privée
+    retirés ; `NumericUpdateOperation` ajouté ; listes de complétion
+    d'exports (`runtime-capabilities` prototype, `packages`, `public-api`) ;
+  - décision 3 : `get` → `findOneOrThrow` dans les membres de `SchemaAPI`,
+    `SchemaClass`, `SchemaReference`, `SchemaRef`, `DeclaredSchema`,
+    `ConfiguredSchemaResult`, `Relation`, Password Auth et Roles, et dans les
+    complétions de membres (exemples, Roles, Soft Delete, Typegen) ;
+    `GetInput` et `ExactGeneratedGetInput` retirés ;
+  - décision 4 : `id` retiré de `SchemaUpdateOneInput` / `SchemaDeleteOneInput`
+    (`SchemaSingularTarget`), exemples JSDoc `{ id: postId }` ;
+  - ADR-0308 : `NestedPointer*` / `NestedRelation*` (opérande de lien,
+    `null`, plus de `clear` ni `disconnect: true`), `PointerLinkInput`,
+    `NestedWriteRelationshipCommand` sans `clear`, `PointerSchema` résolvant
+    les cibles différées, types « stockés » (`SchemaStoredData`,
+    `SchemaStoredCreateData`, `SchemaStoredUpdateData`) dans les AST et
+    `UpsertInput`, données de brouillon en liens.
+- Banc forme D TS6 (bench.mjs de `ub-typing-spike`), même session,
+  alternance base / branche, 3 exécutions, médianes, charge 3,1 à 4,5 :
+  50 schémas, édition→diagnostic 2828 ms (base) / 2830 ms (+0,1 %), froid
+  6103 / 6164 ms (+1,0 %) ; 200 schémas, édition 8951 / 9111 ms (+1,8 %),
+  froid 22276 / 22727 ms (+2,0 %) ; infobulle identique (1267 caractères),
+  mêmes diagnostics. `gen/` supprimé ensuite.
 
 ## Prochaine action vérifiable
 
-Porte finale : `yarn validate:full` (dist et `*.tsbuildinfo` supprimés),
-`yarn test:e2e:built`, audit DX contre 6402dd95, banc forme D.
+Relecture du diff par le coordinateur ; décisions 1 à 17 et conflits Typegen
+à confirmer par l'utilisateur ; budget `hybrid-authoring` à revalider sur une
+machine calme ; fusion `--no-ff` dans `main`.
