@@ -95,7 +95,11 @@ export class Pointer<
 	readonly #schema: PointerSchema<TSchema>
 	readonly #id: string
 
-	constructor(schema: TSchema & SchemaDefinition, id: string) {
+	/**
+	 * Pass the schema created by `App.Schema.define`; a class name only names
+	 * the type (`Pointer<"TodoUser">`) and is rejected at runtime.
+	 */
+	constructor(schema: TSchema, id: string) {
 		super()
 
 		if (new.target !== Pointer) {
