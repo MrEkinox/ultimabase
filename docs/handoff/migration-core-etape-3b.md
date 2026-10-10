@@ -104,11 +104,11 @@ nextCursor }` sans `skip`, `{ results }` avec `skip` ; lecture de
     = `after` fourni. **Connexions imbriquées (relations)** : argument
     `after` retiré du SDL (Core ne lit pas de position dans un `include`,
     hors périmètre d'ADR-0309) ; `first`, `orderBy`, `where` gardés ; leurs
-    curseurs d'arête restent des positions du schéma cible.
+    curseurs d'arête restent des positions du schéma cible. (Remplacé par 24.)
 11. **Défaut et maximum de `take`** : non unifiés à cette étape (REST
     100 / 1000, GraphQL 25 / 100). ADR-0309 renvoie le choix « à leur
     migration » et la décision 5 de `rest.md` ne fixe pas de valeurs ;
-    à trancher par l'utilisateur (étape 6).
+    à trancher par l'utilisateur (étape 6). (Remplacé par 25.)
 12. **create-app** : `ULTIMABASE_CURSOR_SECRET` retiré du `.env.example`
     généré.
 
@@ -163,32 +163,40 @@ RequestRoleReference`).
     GraphQL par enum partagé) ; survols `Model<"Todo">` depuis les sources et
     les paquets construits dans `tests/e2e/schema-form-d-types.e2e.test.ts`.
 
+Corrections du 2026-10-10 (validées par l'utilisateur) :
+
+22. **`CreateInput` / `UpdateInput`** : exactement la `data` de `createOne`
+    et `updateOne` (mappage de `inputs.nestedCreate` ; `RequireOneField` sur
+    les champs imbriqués + opérateurs numériques). `inputs.create` /
+    `inputs.update` des schémas enregistrés gardent les valeurs plates
+    (alias internes `CreateFields` / `UpdateFields`). Survol inchangé :
+    `UpdateInput<"Todo">`, `CreateInput<"Todo">`.
+23. **Déliaison** (amendement d'ADR-0308) : `disconnect` et `set` lisent les
+    membres sans le `where` déclaré de la relation (requête
+    `relationWhere: false`) ; Master délie tout membre existant, un appelant
+    non-Master tout membre visible sous les politiques.
+24. **`after` dans un `include` de relation** (amendement d'ADR-0309) : même
+    règles qu'à la racine, ordre complété par `id` pour toute relation
+    incluse ; GraphQL imbriqué : `after` rétabli ; PostgreSQL sans `OFFSET`.
+    Le type exact d'inclusion n'affine plus une valeur `unknown` (position).
+25. **Pagination des transports** : `pagination: { defaultTake, maxTake }`
+    (100 / 1000) dans REST et GraphQL ; `maxLimit` et
+    `limits.defaultPageSize` / `maxPageSize` retirés ; `RestReadLimits`
+    devient `{ bodyBytes, defaultTake, maxTake }`. Au-delà de `maxTake` :
+    REST `REST_READ_INVALID_INPUT` (400), GraphQL erreur « GraphQL first must
+    be an integer from 0 to N ». `findMany` serveur : pas de `take` par
+    défaut (docs et boucle par lots).
+26. **Champs virtuels d'une inclusion complète** : une politique protégée
+    qui omet des champs restreint désormais la projection visible
+    (`narrowRuntimeSchemaModelMetadata`) ; test de régression
+    `tests/e2e/virtual-include-output-policy.postgres.e2e.test.ts` ; les
+    contournements `select: { id: true }` sont retirés.
+
 ## Reports et conflits
 
-- Valeurs communes de `take` par défaut / maximum (décision 11).
-- Pagination par position dans les connexions GraphQL imbriquées (hors
-  périmètre d'ADR-0309) : le test public
-  `relation-filter-public-vertical` ne parcourt plus une seconde page de
-  `contributors` par `after` ; il vérifie que l'argument est refusé.
-- **`UpdateInput<T>` (conflit ADR-0310 décision 3)** : `UpdateInput` est la
-  table des champs de `inputs.update` (sans commandes de relation ni
-  opérateurs numériques), alors que `data` de `updateOne` est une union
-  « au moins un champ » avec opérateurs et commandes imbriquées ; un
-  `UpdateInput` n'est donc pas assignable à `data`. Corriger demande de
-  redéfinir `inputs.update` ou l'alias (impression des survols ADR-0297) :
-  à trancher. Les tests e2e dérivent le type de lien de
-  `Parameters<typeof X.updateOne>[0]['data']`.
 - Survols TypeScript 7 de `Model<"Todo">` : pas de TS7 dans le dépôt.
-- **Liens masqués par le filtre déclaré d'une relation** : une poignée de
-  relation pouvait délier un membre que le `where` déclaré du champ cache ;
-  un `disconnect` imbriqué vérifie la cible par ce filtre (ADR-0308) et
-  échoue en `NOT_FOUND`. Le test public `relation-filter-public-vertical`
-  constate désormais que l'arête reste. À trancher (exemption du filtre
-  déclaré pour `disconnect` ?).
-- **Inclusion sans `select` d'une cible à champ virtuel** : `include: {
-contributions: {} }` sur `ExampleAuthor` échoue (« Requested virtual field is
-  missing ») ; les tests passent `select: { id: true }`. Défaut Core
-  préexistant probable, non corrigé (hors périmètre).
+- Typegen : les types d'inclusion générés n'acceptent pas encore `after`
+  (Typegen non migré aux nouvelles fonctions).
 - Typegen : la surface `model` générée disparaît ; `GeneratedPointerHandle`
   n'a plus `findOne` (suit `Pointer`).
 
@@ -231,5 +239,4 @@ Porte finale ADR-0309 + ADR-0310 :
 
 ## Prochaine action vérifiable
 
-Revue du coordinateur ; décisions ouvertes : `UpdateInput`, déliaison d'un
-membre masqué par le filtre déclaré, valeurs communes de `take`.
+Porte finale des corrections du 2026-10-10 puis revue du coordinateur.
