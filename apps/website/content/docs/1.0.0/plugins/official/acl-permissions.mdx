@@ -5,7 +5,7 @@ audience:
   - application-developer
 contentType: guide
 order: 6
-outcome: Protect individual objects with public, principal, and role permissions, and share them without lost updates.
+outcome: Protect individual objects with public, principal, and role permissions.
 releaseStatus: pre-release
 reviewedAt: 2026-10-11
 sources:
@@ -123,7 +123,9 @@ written as is, without `resolveInput`. `upsert` updates and set-based
 `updateMany` cannot replace an ACL, and a schema with `resolveInput` refuses
 set-based updates, which cannot recompute each row.
 
-## Sharing a row
+## Behavior and limitations
+
+### Sharing a row
 
 Share or unshare a row without reading its ACL first. The change applies to
 the locked row inside the update's transaction, so two concurrent shares never
@@ -164,7 +166,7 @@ On a row a client can read, `clientSharing` decides instead of the `update`
 right. A client never grants a right it does not hold itself on that row;
 replacing the complete ACL stays reserved to Master.
 
-## Reading an ACL
+### Reading an ACL
 
 The `acl` field is not part of ordinary results. `select: { acl: true }` is
 accepted for Master and, when the schema declares `clientSharing`, on the rows
@@ -185,7 +187,7 @@ for (const entry of note.acl.entries()) {
 }
 ```
 
-## Adding or removing ACL on a table with rows
+### Adding or removing ACL on a table with rows
 
 When PostgreSQL synchronization adds the `acl` column to a table:
 
@@ -200,7 +202,7 @@ value existing rows would receive. The column is `NOT NULL`. Removing `.acl()`
 later keeps the column and its data, gives rows written afterward an empty
 ACL, and drops the index.
 
-## Behavior and limitations
+### Values and enforcement
 
 `ACL` is immutable: each grant, revoke, or replacement returns a new value.
 `grantPublic()` applies to everyone; `grantAuthenticated()` applies only when
