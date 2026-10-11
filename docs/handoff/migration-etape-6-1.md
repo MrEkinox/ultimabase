@@ -186,6 +186,17 @@ Section ajoutée à ADR-0317 ; README et page Soft Delete, concept, ARCHITECTURE
 mis à jour. Les deux tests publics qui faisaient voir la corbeille à Master
 reviennent aux attentes de `main`.
 
+Preuves de l'amendement (porte sur 616e739b, `dist` et `*.tsbuildinfo`
+supprimés) : `yarn validate:full` code 0 (lint 0 erreur, 49 + 19 + 2
+avertissements ; performance « Tests 4 passed (4) » ; couverture « Test Files
+702 passed (702) / Tests 3418 passed (3418) / Type Errors no errors », All
+files 92,59 / 86,3 / 97,28 / 93,26 ; site « Tests 66 passed (66) ») ;
+`yarn test:e2e:built` code 0, « Test Files 123 passed (123) / Tests 532 passed
+(532) » ; `yarn website:test` code 0, « Tests 59 passed (59) ». Audit DX contre
+une base neuve 97607147 : 1 027 différences (37 231 / 37 646 enregistrements),
+identique à l'audit d'avant l'amendement (aucun type ni survol modifié) ; base
+supprimée. Banc non relancé (aucun type modifié).
+
 ## Prochaine action vérifiable
 
 Revue du coordinateur, décisions de l'utilisateur sur les points non fixés
