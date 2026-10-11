@@ -23,9 +23,8 @@ expliqué, banc forme D TS6/TS7.
 
 ## État
 
-Implémentation terminée (16 commits `wip(acl-roles)` depuis a0d7ff3c). Tests
-ciblés, `yarn lint` (0 erreur), `yarn format:check` et `yarn constraints`
-passent. Reste : porte complète, audit DX, banc forme D, rapport.
+Implémentation terminée, porte complète passée sur le dernier commit de code
+(ea5773ca). Prêt pour la revue du coordinateur ; rien n'est poussé ni fusionné.
 
 ## Décisions prises (non fixées par les ADR, à confirmer)
 
@@ -95,9 +94,33 @@ passent. Reste : porte complète, audit DX, banc forme D, rapport.
 
 ## Preuves
 
-(remplies par la porte finale ci-dessous)
+Sur ea5773ca, après suppression de `packages/*/dist` et des `*.tsbuildinfo` :
+
+- `yarn validate:full` : exit 0. Lint `0 errors` (avertissements de taille
+  déjà présents), performance `Test Files 3 passed (3)`, couverture
+  `Test Files 727 passed (727)`, `Tests 3556 passed (3556)`,
+  `Type Errors no errors`, Statements 92.75 %, Branches 86.52 %,
+  Functions 97.32 %, Lines 93.41 %, site `Test Files 17 passed (17)`.
+- `yarn test:e2e:built` : `1 failed | 134 passed (135)`, le seul échec étant
+  `create-app-packed` en délai dépassé (120 s, charge ~20 due à un autre
+  worktree) ; relancé seul : `Test Files 1 passed (1)`, `Tests 7 passed (7)`
+  en 52 s. Le premier passage (avant ea5773ca) avait révélé une vraie erreur
+  dans ce test (projet Roles seul, TS7022), corrigée par ea5773ca.
+- `yarn website:test` : exit 0, `Test Files 8 passed (8)`,
+  `Tests 59 passed (59)`, 124 pages statiques.
+- Audit DX contre a0d7ff3c (`--only` tous les paquets, `tests`,
+  `examples/minimal`, `examples/todo-backend`) : 3300 différences, toutes
+  expliquées dans le rapport (nouvelle entrée `schemaFactories` de l'état
+  source qui décale la troncature des survols, API ACL/Roles/Core des ADR,
+  exemples migrés, fixtures partielles à module non résolu, composition du
+  programme partagé de l'audit).
+- Banc forme D (3 exécutions alternées, médianes, charge < 4) :
+  TS6 édition→diagnostics 2014 → 1888 ms à 50 (−6,2 %), 7036 → 6009 ms à
+  200 (−14,6 %) ; TS7 LSP 687 → 628 ms à 50 (−8,6 %), 2272 → 2044 ms à 200
+  (−10,0 %). Dossiers `gen/` supprimés, worktree de référence retiré.
 
 ## Prochaine action vérifiable
 
-Porte finale : `yarn validate:full`, `yarn test:e2e:built`,
-`yarn website:test`, audit DX contre a0d7ff3c, banc forme D.
+Revue du diff `a0d7ff3c..HEAD` par le coordinateur, puis fusion `--no-ff`
+dans `main` après confirmation de l'utilisateur ; supprimer ce handoff une
+fois fusionné.
