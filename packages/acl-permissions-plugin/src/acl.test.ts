@@ -181,14 +181,16 @@ describe('ACL', () => {
 			'delete',
 		])
 		expect(new ACL(undefined).toJSON()).toStrictEqual(new ACL().toJSON())
-		expect(new ACL().grantPublic('read', 'write').permissionsForPublic()).toStrictEqual(
-			['read', 'update', 'delete'],
-		)
+		expect(
+			new ACL().grantPublic('read', 'write').permissionsForPublic(),
+		).toStrictEqual(['read', 'update', 'delete'])
 		expect(
 			owned.revokePrincipal(alice, 'write').permissionsForPrincipal(alice),
 		).toStrictEqual(['read'])
 		expect(
-			new ACL().setAuthenticatedPermissions('write').permissionsForAuthenticated(),
+			new ACL()
+				.setAuthenticatedPermissions('write')
+				.permissionsForAuthenticated(),
 		).toStrictEqual(['update', 'delete'])
 	})
 

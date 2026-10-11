@@ -286,8 +286,7 @@ type RulesProjection<TProjection> =
 type SlotProjection<
 	TProjection,
 	TKey extends 'shapeFields' | 'schemaStatics' | 'schemaFactories',
-> =
-	TProjection extends Readonly<Record<TKey, infer TSlot>> ? TSlot : never
+> = TProjection extends Readonly<Record<TKey, infer TSlot>> ? TSlot : never
 
 type AppendSlot<TSlots extends readonly unknown[], TSlot> = [TSlot] extends [
 	never,

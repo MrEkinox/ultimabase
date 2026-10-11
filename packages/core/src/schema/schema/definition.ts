@@ -382,7 +382,9 @@ export const defineOrdinarySchemaModel = <
 		ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	declarationStatics: Readonly<Record<string, unknown>> = {},
 	ruleIndexes?: readonly SchemaIndexInput[],
-	createStatics?: (schema: SchemaDefinition) => Readonly<Record<string, unknown>>,
+	createStatics?: (
+		schema: SchemaDefinition,
+	) => Readonly<Record<string, unknown>>,
 ): SchemaReference<TClassName> => {
 	const schema = defineSchemaModel<TClassName, TFields>(options, ruleIndexes)
 	// Schema factory statics (`TodoRole.role(...)`, ADR-0322) are bound to this class.

@@ -52,7 +52,10 @@ const Post = Application.Schema.define({
 	})
 
 test('adds the acl field through the fields slot and types its updates', async () => {
-	const post = await Post.findOne({ select: { acl: true } }, { useMasterKey: true })
+	const post = await Post.findOne(
+		{ select: { acl: true } },
+		{ useMasterKey: true },
+	)
 	expectTypeOf(post?.acl).toEqualTypeOf<ACL | undefined>()
 	expectTypeOf(post?.acl.entries()).toEqualTypeOf<
 		readonly ACLEntry[] | undefined

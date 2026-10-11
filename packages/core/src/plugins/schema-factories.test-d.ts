@@ -135,7 +135,10 @@ test('passes the called shape methods to rules slots', () => {
 })
 
 test('accepts a field update input in update data only', async () => {
-	const Tagged = App.Schema.define({ className: 'TaggedInput', fields: () => ({}) })
+	const Tagged = App.Schema.define({
+		className: 'TaggedInput',
+		fields: () => ({}),
+	})
 		.tagged()
 		.with({ tag: { initial: 'a' } })
 	await Tagged.updateOne({ where: { id: 'x' }, data: { tag: { append: 'b' } } })

@@ -6,16 +6,16 @@ const protectedPolicyDenials = new WeakSet<object>()
 export const createProtectedPolicyDeniedError = (
 	reason?: string,
 ): FrameworkError<'PERMISSION_DENIED'> => {
-		const error = new FrameworkError(
-			'PERMISSION_DENIED',
-			reason === undefined
-				? 'A protected policy denied the operation.'
-				: `A protected policy denied the operation: ${reason}`,
-			{ publicMessage: 'The operation is not permitted.' },
-		)
-		protectedPolicyDenials.add(error)
-		return error
-	}
+	const error = new FrameworkError(
+		'PERMISSION_DENIED',
+		reason === undefined
+			? 'A protected policy denied the operation.'
+			: `A protected policy denied the operation: ${reason}`,
+		{ publicMessage: 'The operation is not permitted.' },
+	)
+	protectedPolicyDenials.add(error)
+	return error
+}
 
 /** Rejects structural FrameworkError lookalikes and plugin-forged metadata. */
 export const isProtectedPolicyDenied = (error: unknown): boolean =>

@@ -243,15 +243,17 @@ const assertRecomputableUpdate = (
 		schema: SchemaDefinition
 	}>,
 ): void => {
-	if (operation.kind !== 'update-many' || option.config.resolveInput === undefined) {
+	if (
+		operation.kind !== 'update-many' ||
+		option.config.resolveInput === undefined
+	) {
 		return
 	}
 	throw new FrameworkError(
 		'VALIDATION_ERROR',
 		`${option.schema.className} declares acl.resolveInput, which recomputes each row's ACL: use updateOne() or an itemized updateMany().`,
 		{
-			publicMessage:
-				'This update must target one row at a time.',
+			publicMessage: 'This update must target one row at a time.',
 		},
 	)
 }

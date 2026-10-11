@@ -85,8 +85,11 @@ export interface RoleOwnedFields<TClassName extends string, TMembers> {
 	>
 }
 
-type RoleFieldMap<TClassName extends string, TMembers, TCustomFields> =
-	TCustomFields & RoleOwnedFields<TClassName, TMembers>
+type RoleFieldMap<
+	TClassName extends string,
+	TMembers,
+	TCustomFields,
+> = TCustomFields & RoleOwnedFields<TClassName, TMembers>
 
 /**
  * Describes the fields of one role schema: its own fields beside `name`,
@@ -352,10 +355,12 @@ export const createRoleSchemaFactory = ({
 			const declaration: RoleSchemaDeclaration = Object.freeze({
 				deletionPolicy: readDeletionPolicy(options.deletion),
 				ensure: readEnsure(options.ensure),
-				memberSchema: readMemberSchema(() => Reflect.apply(members, undefined, []), className),
+				memberSchema: readMemberSchema(
+					() => Reflect.apply(members, undefined, []),
+					className,
+				),
 				resolveCurrent: resolveCurrent as
-					| ((input: RoleCurrentMemberInput) => unknown)
-					| undefined,
+					((input: RoleCurrentMemberInput) => unknown) | undefined,
 			})
 			// The included-roles relation targets the last class of the chain,
 			// the `.with(...)` result that the application registers.

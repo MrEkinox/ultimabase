@@ -282,7 +282,9 @@ describe('base project templates', () => {
 			),
 		).get('src/ultimabase.ts')
 		expect(roles).toContain('readonly app: typeof ultimabase')
-		expect(roles).toContain("import { MasterAuthority } from '@ultimabase/core'")
+		expect(roles).toContain(
+			"import { MasterAuthority } from '@ultimabase/core'",
+		)
 
 		const javascript = renderBaseFiles(
 			resolveSelection(

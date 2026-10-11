@@ -8,8 +8,7 @@ import { snapshotScalarFieldValue } from './definition.js'
  * a sentence naming what to declare).
  */
 export type PluginFieldExistingRows<TValue = unknown> =
-	| Readonly<{ value: TValue }>
-	| Readonly<{ missing: string }>
+	Readonly<{ value: TValue }> | Readonly<{ missing: string }>
 
 /** Optional plugin field behavior Core and adapters read (ADR-0321). */
 interface PluginFieldMetadata {

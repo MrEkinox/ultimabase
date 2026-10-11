@@ -58,7 +58,9 @@ export interface RolesPluginExports {
 const masterOptions: OperationOptions = Object.freeze({ useMasterKey: true })
 
 /** Runs plugin-owned queries attributed to the Roles plugin. */
-export type RunAsRoles = <TResult>(work: () => Promise<TResult>) => Promise<TResult>
+export type RunAsRoles = <TResult>(
+	work: () => Promise<TResult>,
+) => Promise<TResult>
 
 const readReferenceState = (
 	role: RequestRoleReference,
@@ -69,11 +71,15 @@ const readReferenceState = (
 		!(candidate instanceof RequestSubjectReference) ||
 		candidate.kind !== 'role'
 	) {
-		throw new TypeError('has() requires a role reference such as Role.role(name)')
+		throw new TypeError(
+			'has() requires a role reference such as Role.role(name)',
+		)
 	}
 	const state =
 		getRoleReferenceState(role) ?? restoreRoleReferenceState(role, roleSchemas)
-	return state !== undefined && roleSchemas.has(state.schema) ? state : undefined
+	return state !== undefined && roleSchemas.has(state.schema)
+		? state
+		: undefined
 }
 
 const resolveReferenceIdOrUndefined = async (
@@ -139,8 +145,6 @@ export const createRoleQueries = (
 		},
 		current: (schema: SchemaDefinition): Promise<readonly string[]> => {
 			const context = getCurrentRequest()
-			return runAsRoles(() =>
-				readResolver().currentRoleNames(context, schema),
-			)
+			return runAsRoles(() => readResolver().currentRoleNames(context, schema))
 		},
 	})

@@ -82,7 +82,12 @@ export const createACLEntries = (
 	immutableArray([
 		...(document.public.length === 0
 			? []
-			: [immutableRecord({ kind: 'public' as const, permissions: document.public })]),
+			: [
+					immutableRecord({
+						kind: 'public' as const,
+						permissions: document.public,
+					}),
+				]),
 		...(document.authenticated.length === 0
 			? []
 			: [

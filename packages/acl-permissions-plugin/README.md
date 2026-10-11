@@ -100,7 +100,9 @@ concurrent shares never overwrite each other:
 ```ts
 await Note.updateOne({
 	where: { id },
-	data: { acl: { grant: { principal: User.pointer(bobId), permissions: ['read'] } } },
+	data: {
+		acl: { grant: { principal: User.pointer(bobId), permissions: ['read'] } },
+	},
 })
 await Note.updateOne({
 	where: { id },
@@ -133,7 +135,7 @@ default the column keeps. With PostgreSQL synchronization:
 
 - an empty table gets the column directly;
 - a table with rows gives them a fixed value (`ADD COLUMN … NOT NULL DEFAULT
-  …`, no rewrite): the `default` when it is one ACL, else `existingRows`;
+…`, no rewrite): the `default` when it is one ACL, else `existingRows`;
 - a function `default` without `existingRows` stops `start()` with the steps
   to follow;
 - under `schemaPolicy: 'fail'`, nothing changes and the message names the value.

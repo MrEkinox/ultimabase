@@ -183,7 +183,8 @@ const note = await Note.findOneOrThrow(
 	{ useMasterKey: true },
 )
 for (const entry of note.acl.entries()) {
-	if (entry.kind === 'principal') console.log(entry.principal.id, entry.permissions)
+	if (entry.kind === 'principal')
+		console.log(entry.principal.id, entry.permissions)
 }
 ```
 

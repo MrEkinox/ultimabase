@@ -85,7 +85,6 @@ export const roleResolverProvider: CapabilityProviderDeclaration<
 	},
 })
 
-
 export const ensureAllRoles = async (
 	schemas: CompiledSchemaRegistry,
 	logger: Logger,
@@ -107,4 +106,3 @@ export const ensureAllRoles = async (
 		}
 	}
 }
-

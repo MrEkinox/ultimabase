@@ -312,7 +312,9 @@ describe(
 		it('lists role entries whose name Roles reads (ADR-0321)', async () => {
 			const row = await AppRole.findOneOrThrow(
 				{
-					where: { id: { eq: requireFixture(roleProtected, 'role-protected').id } },
+					where: {
+						id: { eq: requireFixture(roleProtected, 'role-protected').id },
+					},
 					select: { acl: true },
 				},
 				{ useMasterKey: true },

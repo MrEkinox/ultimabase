@@ -73,9 +73,7 @@ const PrivateNote = ShareApplication.Schema.define({
 type User = Model<typeof ShareUser>
 
 let fixture: PostgresWorkerFixture | undefined
-let ultimabase:
-	| Awaited<ReturnType<typeof createApplication>>
-	| undefined
+let ultimabase: Awaited<ReturnType<typeof createApplication>> | undefined
 let owner: User | undefined
 let friend: User | undefined
 let stranger: User | undefined
@@ -198,7 +196,9 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: note.id },
 					data: {
-						acl: { grant: { principal: pointer(owner), permissions: ['read'] } },
+						acl: {
+							grant: { principal: pointer(owner), permissions: ['read'] },
+						},
 					},
 				},
 				as(stranger, 'stranger-shares'),
@@ -235,7 +235,9 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: note.id },
 					data: {
-						acl: { grant: { principal: pointer(friend), permissions: ['read'] } },
+						acl: {
+							grant: { principal: pointer(friend), permissions: ['read'] },
+						},
 					},
 				},
 				as(owner, 'private-grant'),
@@ -259,7 +261,9 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: { id: note.id },
 					data: {
-						acl: { grant: { principal: pointer(friend), permissions: ['read'] } },
+						acl: {
+							grant: { principal: pointer(friend), permissions: ['read'] },
+						},
 					},
 				},
 				master,
@@ -309,7 +313,9 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 				SharedNote.updateOne(
 					{
 						where: { id: note.id },
-						data: { acl: { revoke: { principal: ShareUser.pointer(user.id) } } },
+						data: {
+							acl: { revoke: { principal: ShareUser.pointer(user.id) } },
+						},
 					},
 					master,
 				),
@@ -357,7 +363,10 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toMatchObject({ body: 'selected' })
 		await expect(
-			PrivateNote.findMany({ select: { acl: true } }, as(owner, 'private-select')),
+			PrivateNote.findMany(
+				{ select: { acl: true } },
+				as(owner, 'private-select'),
+			),
 		).rejects.toThrow(
 			'select: { acl: true } on ACLPrivateNote requires useMasterKey: true',
 		)
@@ -365,9 +374,11 @@ describe('ACL sharing with PostgreSQL', { concurrent: false }, () => {
 			{ where: { id: note.id }, select: { acl: true } },
 			master,
 		)
-		const principals = asMaster.acl.entries().flatMap((entry) =>
-			entry.kind === 'principal' ? [entry.principal.id] : [],
-		)
+		const principals = asMaster.acl
+			.entries()
+			.flatMap((entry) =>
+				entry.kind === 'principal' ? [entry.principal.id] : [],
+			)
 		expect(principals.sort()).toStrictEqual(
 			[required(owner, 'owner').id, required(friend, 'friend').id].sort(),
 		)

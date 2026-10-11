@@ -218,13 +218,13 @@ developing. Replace the console audit with a reliable sink before deployment;
 never send Master credentials to a browser. `rolesPlugin()` takes no factory
 options; each role schema declares its behavior:
 
-| `App.RoleSchema.define` option | Purpose                                                                                        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `members`                      | A function returning the schema of the persisted direct members                                |
-| `fields`                       | Ordinary custom fields beside `name`, `members` and `includedRoles`                            |
-| `deletion`                     | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                    |
-| `ensure`                       | Role names created at `start()` when missing (idempotent, existing roles unchanged)            |
-| `resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the principal   |
+| `App.RoleSchema.define` option | Purpose                                                                                      |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `members`                      | A function returning the schema of the persisted direct members                              |
+| `fields`                       | Ordinary custom fields beside `name`, `members` and `includedRoles`                          |
+| `deletion`                     | External-reference policy: `'fail'` (default), `'preserve'`, or `'cascade'`                  |
+| `ensure`                       | Role names created at `start()` when missing (idempotent, existing roles unchanged)          |
+| `resolveCurrent`               | Special cases only: maps request-local identity to a member Pointer instead of the principal |
 
 Rules (`access`, `hooks`), indexes and plugin options go in the final
 `.with({ ... })`; shape methods such as `.acl()` may be chained before it.
@@ -246,7 +246,10 @@ import { PasswordUser } from '@ultimabase/password-auth-plugin'
 import { AppRole } from './roles.js'
 
 const master = { useMasterKey: true } as const
-const editor = await AppRole.findOneOrThrow({ where: { name: 'editor' } }, master)
+const editor = await AppRole.findOneOrThrow(
+	{ where: { name: 'editor' } },
+	master,
+)
 await AppRole.updateOne(
 	{
 		where: { name: 'administrator' },
@@ -338,11 +341,11 @@ subject boundary; role membership alone still grants nothing. See
 
 ### Deletion, events, and limits
 
-| `deletion`            | Effect                                                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `fail` (default)      | Rejects deletion while the role has members, child or parent edges, or references reported by another plugin                 |
-| `preserve`            | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
-| `cascade`             | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
+| `deletion`       | Effect                                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `fail` (default) | Rejects deletion while the role has members, child or parent edges, or references reported by another plugin                 |
+| `preserve`       | Deletes the role and leaves external references inert; choose this only when the dangling-reference behavior is intentional  |
+| `cascade`        | Requires Master, clears role edges, and invokes explicit cleanup contributions from reference owners in the same transaction |
 
 `AppRole.deleteOne()` applies the policy.
 `AppRole.deleteMany({ where: [{ id: { eq: firstId } }, { id: { eq: secondId } }] })`

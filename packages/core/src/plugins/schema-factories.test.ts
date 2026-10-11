@@ -101,7 +101,10 @@ describe('schema factories', () => {
 		expect(typeof Reflect.get(declared as object, 'flag')).toBe('function')
 		expect(
 			typeof Reflect.get(
-				Parent.NoteSchema.define({ className: 'FactoryPlainNote', fields }) as object,
+				Parent.NoteSchema.define({
+					className: 'FactoryPlainNote',
+					fields,
+				}) as object,
 				'flag',
 			),
 		).toBe('undefined')

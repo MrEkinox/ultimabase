@@ -57,7 +57,10 @@ const requireRoleReferenceState = (
 ): RoleReferenceState => {
 	const state =
 		getRoleReferenceState(reference) ??
-		restoreRoleReferenceState(reference, new Set(registeredRoleSchemas.values()))
+		restoreRoleReferenceState(
+			reference,
+			new Set(registeredRoleSchemas.values()),
+		)
 
 	if (state === undefined) {
 		throw new RoleReferenceResolutionError(

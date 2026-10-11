@@ -11,8 +11,7 @@ export interface DesiredPostgresColumn {
 	 * why there is none.
 	 */
 	readonly existingRows?:
-		| Readonly<{ expression: string }>
-		| Readonly<{ missing: string }>
+		Readonly<{ expression: string }> | Readonly<{ missing: string }>
 	/** The logical field stored in this column, for diagnostics. */
 	readonly field?: string
 	readonly identity?: PostgresIdentityKind

@@ -235,7 +235,9 @@ const roleBehaviorProvider: CapabilityProviderDeclaration<
 					...readRoleRelationChanges(operation),
 					...readNestedRoleRelationChanges(nestedWrite),
 				]
-				const hierarchyChanged = changes.some(({ field }) => field === 'includedRoles')
+				const hierarchyChanged = changes.some(
+					({ field }) => field === 'includedRoles',
+				)
 
 				for (const materialization of outcome.materializations) {
 					if (

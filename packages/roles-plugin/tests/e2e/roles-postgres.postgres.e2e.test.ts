@@ -219,11 +219,15 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		await updateAppRole(currentEditor.id, {
 			includedRoles: { connect: [temporaryChild.id] },
 		})
-		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(1)
+		await expect(
+			countRoleLinks(currentEditor.id, 'includedRoles'),
+		).resolves.toBe(1)
 		await updateAppRole(currentEditor.id, {
 			includedRoles: { disconnect: [temporaryChild.id] },
 		})
-		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(0)
+		await expect(
+			countRoleLinks(currentEditor.id, 'includedRoles'),
+		).resolves.toBe(0)
 		expect(committedRoleEvents.slice(eventCount)).toContain(
 			'ultimabase.roles.membership.changed',
 		)
@@ -313,7 +317,9 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				},
 			}),
 		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
-		await expect(countRoleLinks(currentEditor.id, 'includedRoles')).resolves.toBe(0)
+		await expect(
+			countRoleLinks(currentEditor.id, 'includedRoles'),
+		).resolves.toBe(0)
 		expect(committedRoleEvents).toHaveLength(eventCount)
 	})
 

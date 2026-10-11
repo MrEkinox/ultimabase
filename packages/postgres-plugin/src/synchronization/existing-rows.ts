@@ -14,9 +14,7 @@ export interface PostgresExistingRowsColumn {
 	readonly change: AddColumnChange
 	/** `undefined` while the table has no row. */
 	readonly existingRows:
-		| Readonly<{ expression: string }>
-		| Readonly<{ missing: string }>
-		| undefined
+		Readonly<{ expression: string }> | Readonly<{ missing: string }> | undefined
 }
 
 const tableHasRows = async (

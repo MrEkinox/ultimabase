@@ -109,9 +109,8 @@ type UpdateFields<TFields extends SchemaFields> = {
 				: TKey
 			: never
 	]?: TFields[TKey] extends GenericField
-		?
-				| ResolvedFieldValue<TFields[TKey], 'update'>
-				| FieldUpdateInput<TFields[TKey]>
+		? | ResolvedFieldValue<TFields[TKey], 'update'>
+			| FieldUpdateInput<TFields[TKey]>
 		: never
 }
 

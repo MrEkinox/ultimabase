@@ -167,7 +167,8 @@ export const includeRole = (roleId: string, childId: string) =>
 		where: { id: roleId },
 		data: { includedRoles: { connect: [childId] } },
 	})
-export const currentRoles = () => ultimabase.plugin(rolesPlugin).current(TodoRole)
+export const currentRoles = () =>
+	ultimabase.plugin(rolesPlugin).current(TodoRole)
 expectTypeOf<Awaited1<ReturnType<typeof currentRoles>>>().toEqualTypeOf<
 	readonly string[]
 >()

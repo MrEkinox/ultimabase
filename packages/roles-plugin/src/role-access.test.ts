@@ -142,7 +142,9 @@ describe('stored role Access integration', () => {
 			resolver.currentRoleNames(context, AppRole),
 		).resolves.toStrictEqual(['administrator', 'editor'])
 		await expect(resolver.currentRoleNames(context, Member)).rejects.toThrow(
-			new TypeError('AccessRoleMember is not a role schema of this application'),
+			new TypeError(
+				'AccessRoleMember is not a role schema of this application',
+			),
 		)
 		expect(fixture.membership).toHaveBeenCalledOnce()
 	})

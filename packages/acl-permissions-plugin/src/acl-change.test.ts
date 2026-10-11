@@ -85,7 +85,9 @@ describe('ACL update changes (ADR-0321)', () => {
 				{ grant: { principal: alice, permissions: ['share'] } },
 				'Post.acl',
 			),
-		).toThrow(new TypeError('Post.acl.grant.permissions must list ACL permissions'))
+		).toThrow(
+			new TypeError('Post.acl.grant.permissions must list ACL permissions'),
+		)
 		expect(() =>
 			snapshotACLUpdateInput(
 				{ revoke: { principal: alice, until: 'tomorrow' } },

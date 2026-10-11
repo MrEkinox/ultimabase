@@ -65,7 +65,10 @@ like any other (the ADR-0297 step 4 workaround is gone).
 
 ```ts
 const master = { useMasterKey: true } as const
-const editor = await TodoRole.findOneOrThrow({ where: { name: 'editor' } }, master)
+const editor = await TodoRole.findOneOrThrow(
+	{ where: { name: 'editor' } },
+	master,
+)
 await TodoRole.updateOne(
 	{
 		where: { id: editor.id },

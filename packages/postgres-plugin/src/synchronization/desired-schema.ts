@@ -217,10 +217,7 @@ export const compileDesiredPostgresTables = (
 				new Map(
 					Object.entries(schema.fields).map(
 						([field, compiled]): [string, DesiredColumnFacts] => {
-							const existingRows = readExistingRows(
-								schema.definition,
-								compiled,
-							)
+							const existingRows = readExistingRows(schema.definition, compiled)
 							return [
 								compiled.column.name,
 								{

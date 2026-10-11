@@ -12,11 +12,7 @@ import {
 	type ACLPermissionInput,
 	type ACLPrincipal,
 } from './acl-contracts.js'
-import {
-	createACLEntries,
-	principalKey,
-	type ACLEntry,
-} from './acl-entries.js'
+import { createACLEntries, principalKey, type ACLEntry } from './acl-entries.js'
 import {
 	createACLJSON,
 	parseACLJSON,
@@ -257,7 +253,9 @@ export class ACL {
 	}
 
 	/** Replaces the authenticated-principal right set; no rights clears it. */
-	setAuthenticatedPermissions(...permissions: readonly ACLPermissionInput[]): ACL {
+	setAuthenticatedPermissions(
+		...permissions: readonly ACLPermissionInput[]
+	): ACL {
 		return edit(this, authenticatedSlot, replace, permissions)
 	}
 

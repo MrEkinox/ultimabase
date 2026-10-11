@@ -64,7 +64,9 @@ test('grants the owner and the write group (ADR-0321)', () => {
 	expectTypeOf(new ACL(principal)).toEqualTypeOf<ACL>()
 	expectTypeOf(new ACL(undefined)).toEqualTypeOf<ACL>()
 	expectTypeOf(new ACL().grantPublic('read', 'write')).toEqualTypeOf<ACL>()
-	expectTypeOf(new ACL().revokePrincipal(principal, 'write')).toEqualTypeOf<ACL>()
+	expectTypeOf(
+		new ACL().revokePrincipal(principal, 'write'),
+	).toEqualTypeOf<ACL>()
 	expectTypeOf(new ACL().entries()).toEqualTypeOf<readonly ACLEntry[]>()
 	const [entry] = new ACL(principal).entries()
 	if (entry?.kind === 'principal') {

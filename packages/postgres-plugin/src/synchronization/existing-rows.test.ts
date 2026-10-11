@@ -12,7 +12,10 @@ import {
 // value its field declares for existing rows.
 const addColumn = (
 	existingRows: NonNullable<
-		Extract<PostgresSchemaChange, { kind: 'add-column' }>['column']['existingRows']
+		Extract<
+			PostgresSchemaChange,
+			{ kind: 'add-column' }
+		>['column']['existingRows']
 	>,
 ): Extract<PostgresSchemaChange, { kind: 'add-column' }> => ({
 	column: {
